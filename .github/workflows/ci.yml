@@ -42,7 +42,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /home/ubuntu/MICROGREnUzbekistan
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             npm install --legacy-peer-deps
             cd packages/database && rm -f .env && ln -s ../../.env .env && npx prisma generate && npx prisma db push --skip-generate --accept-data-loss
             cd /home/ubuntu/MICROGREnUzbekistan
