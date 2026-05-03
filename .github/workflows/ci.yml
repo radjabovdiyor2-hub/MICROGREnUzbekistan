@@ -56,8 +56,12 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/microgreen
+            cd /home/ubuntu/MICROGREnUzbekistan
             git pull origin main
-            npm ci
-            cd apps/web && npx prisma generate && npm run build
+            npm install --legacy-peer-deps
+            cd packages/database && rm -f .env && ln -s ../../.env .env && npx prisma generate && npx prisma db push --skip-generate --accept-data-loss
+            cd /home/ubuntu/MICROGREnUzbekistan
+            npx turbo run build --filter=web
+            cd apps/web && cp -r public .next/standalone/apps/web/public 2>/dev/null; cp -r .next/static .next/standalone/apps/web/.next/static 2>/dev/null; true
+            cd /home/ubuntu/MICROGREnUzbekistan
             pm2 reload ecosystem.config.js

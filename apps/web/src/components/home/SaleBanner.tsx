@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import * as Icons from '@/components/ui/Icons';
-import { useLanguage } from '@/components/providers/LanguageProvider';
+import { useLang } from '@/components/providers/LangProvider';
 
 export function SaleBanner() {
-  const { t } = useLanguage();
+  const { t } = useLang();
   const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 45, seconds: 12 });
 
   useEffect(() => {

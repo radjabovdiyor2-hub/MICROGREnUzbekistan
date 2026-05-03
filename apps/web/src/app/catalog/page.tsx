@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from '@/components/shop/ProductCard';
 import * as Icons from '@/components/ui/Icons';
+import { useLang } from '@/components/providers/LangProvider';
 
 const PAGE_SIZE = 24;
 
@@ -49,6 +50,7 @@ interface Pagination {
 }
 
 function CatalogContent() {
+  const { t } = useLang();
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || '');
