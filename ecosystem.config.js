@@ -30,7 +30,9 @@ module.exports = {
                 NODE_ENV: "production",
                 PORT: 3002,
                 HOSTNAME: "0.0.0.0",
-                NODE_OPTIONS: "--max-old-space-size=768"
+                NODE_OPTIONS: "--max-old-space-size=768",
+                TELEGRAM_BOT_TOKEN: "8039142477:AAENlrsV2L8lCrSRDzIYvdKf3rD6P4n6RrQ",
+                ADMIN_CHAT_ID: "847872669"
             },
             max_memory_restart: "600M",
             instances: 1,
