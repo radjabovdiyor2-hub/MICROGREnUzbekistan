@@ -335,8 +335,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
       `}</style>
 
       <div className="pos-grid" style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)',
-        minHeight: 'calc(100vh - 200px)',
+        display: 'grid', gridTemplateColumns: '1fr 400px', gap: 'var(--space-6)',
+        height: 'calc(100vh - 120px)',
       }}>
         {/* LEFT: Product search */}
         <div className="pos-products">
@@ -399,9 +399,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           })()}
 
           <div className="pos-product-grid" style={{
-            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px',
-            maxHeight: 'calc(100vh - 370px)', overflowY: 'auto',
-            borderRadius: '14px', paddingRight: '2px', paddingBottom: cart.length > 0 ? '70px' : '0',
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px',
+            maxHeight: 'calc(100vh - 260px)', overflowY: 'auto',
+            borderRadius: '14px', paddingRight: '4px', paddingBottom: cart.length > 0 ? '70px' : '0',
           }}>
             {loading ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>

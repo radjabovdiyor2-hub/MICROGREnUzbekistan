@@ -5,9 +5,7 @@ import { CartProvider } from '@/components/providers/CartProvider';
 import { FavoritesProvider } from '@/components/providers/FavoritesProvider';
 import { LangProvider } from '@/components/providers/LangProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
-import { Header } from '@/components/layout/Header';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { LazyAiChat } from '@/components/ai/LazyAiChat';
+import { AppShell } from '@/components/layout/AppShell';
 import { PwaRegister } from '@/components/providers/PwaRegister';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
@@ -246,12 +244,9 @@ export default function RootLayout({
             <CartProvider>
               <FavoritesProvider>
                 <AuthProvider>
-                  <Header />
-                  <main className="main-content">
+                  <AppShell>
                     {children}
-                  </main>
-                  <BottomNav />
-                  <LazyAiChat />
+                  </AppShell>
                   <PwaRegister />
                 </AuthProvider>
               </FavoritesProvider>

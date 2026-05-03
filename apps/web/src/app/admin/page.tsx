@@ -256,118 +256,181 @@ export default function AdminPage() {
 
   // === MAIN ADMIN PANEL ===
   return (
-    <div className="container admin-container" style={{ paddingTop: 'var(--space-4)', paddingBottom: 'var(--space-8)' }}>
+    <div className="admin-layout" style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <style>{`
-        .admin-container { max-width: 1280px; }
+        .admin-layout {
+          display: flex;
+          flex-direction: column;
+        }
+
+        .admin-sidebar {
+          background: var(--bg-card);
+          border-bottom: 1px solid var(--border);
+          padding: var(--space-3) var(--space-4);
+          display: flex;
+          flex-direction: column;
+          z-index: 10;
+        }
+
+        .admin-main {
+          flex: 1;
+          padding: var(--space-4);
+          max-width: 1400px;
+          margin: 0 auto;
+          width: 100%;
+        }
 
         /* Header */
         .admin-header {
           display: flex; justify-content: space-between; align-items: center;
-          margin-bottom: var(--space-3); gap: var(--space-2); flex-wrap: wrap;
+          margin-bottom: var(--space-3); gap: var(--space-2);
         }
         .admin-header h1 {
           font-family: var(--font-display); font-weight: var(--font-extrabold);
           font-size: var(--text-lg); display: flex; align-items: center; gap: 8px;
-          white-space: nowrap;
+          white-space: nowrap; color: var(--text-primary);
         }
         .admin-header-actions {
-          display: flex; gap: var(--space-1); align-items: center; flex-shrink: 0;
+          display: flex; gap: var(--space-2); align-items: center; flex-shrink: 0;
         }
 
-        /* Tabs: horizontal scroll on desktop, grid on mobile */
+        /* Tabs: horizontal scroll on tablet, grid on mobile */
         .admin-tabs {
-          display: flex; gap: var(--space-1); margin-bottom: var(--space-4);
-          border-bottom: 2px solid var(--border); padding-bottom: var(--space-2);
+          display: flex; gap: var(--space-1);
           overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
         }
         .admin-tabs::-webkit-scrollbar { display: none; }
         .admin-tab {
-          display: flex; align-items: center; gap: 4px; white-space: nowrap;
-          padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm);
-          font-size: var(--text-xs); font-weight: var(--font-semibold);
+          display: flex; align-items: center; gap: 6px; white-space: nowrap;
+          padding: 8px 12px; border-radius: var(--radius-md);
+          font-size: var(--text-sm); font-weight: var(--font-medium);
           transition: all var(--transition-fast); cursor: pointer;
-          border: none; background: none; color: var(--text-secondary);
+          border: 1px solid transparent; background: transparent; color: var(--text-secondary);
           flex-shrink: 0;
         }
         .admin-tab.active {
-          background: var(--brand-primary); color: var(--text-inverse);
-          box-shadow: var(--shadow-button);
+          background: var(--brand-primary-light); color: var(--brand-primary);
+          border-color: rgba(var(--brand-primary-rgb), 0.2);
         }
         .admin-tab:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
+        /* Desktop Layout (Sidebar) */
+        @media (min-width: 1024px) {
+          .admin-layout {
+            flex-direction: row;
+            height: 100vh;
+            overflow: hidden;
+          }
+          .admin-sidebar {
+            width: 260px;
+            height: 100vh;
+            border-bottom: none;
+            border-right: 1px solid var(--border);
+            padding: var(--space-6) var(--space-4);
+            overflow-y: auto;
+          }
+          .admin-header {
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: var(--space-8);
+          }
+          .admin-header-actions {
+            margin-top: var(--space-4);
+            width: 100%;
+            justify-content: flex-start;
+          }
+          .admin-tabs {
+            flex-direction: column;
+            overflow: visible;
+          }
+          .admin-tab {
+            padding: 10px 14px;
+            width: 100%;
+            justify-content: flex-start;
+          }
+          .admin-main {
+            overflow-y: auto;
+            padding: var(--space-8);
+          }
+        }
+
+        /* Mobile Layout */
         @media (max-width: 768px) {
           .admin-header { margin-bottom: var(--space-2); }
           .admin-header h1 { font-size: var(--text-base); }
-
           .admin-tabs {
             display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: var(--space-1); border-bottom: none; padding-bottom: 0;
-            margin-bottom: var(--space-3); overflow: visible;
+            gap: var(--space-2); margin-top: var(--space-2);
           }
           .admin-tab {
-            justify-content: center; padding: var(--space-2);
+            justify-content: center; padding: var(--space-2); flex-direction: column; gap: 4px;
             font-size: 11px; border-radius: var(--radius-md);
             background: var(--bg-secondary); border: 1px solid var(--border);
           }
           .admin-tab.active {
-            background: var(--brand-primary); border-color: var(--brand-primary);
+            background: var(--brand-primary); color: var(--text-inverse); border-color: var(--brand-primary);
           }
+          .admin-tab.active svg { color: var(--text-inverse); }
+          .admin-tab svg { margin: 0 auto; }
         }
 
         @media (max-width: 480px) {
           .admin-tabs { grid-template-columns: repeat(3, 1fr); }
-          .admin-tab { font-size: 10px; padding: 6px 4px; gap: 2px; }
-          .admin-tab svg { width: 12px; height: 12px; }
-          .admin-container { padding-left: var(--space-3) !important; padding-right: var(--space-3) !important; }
+          .admin-tab { font-size: 10px; padding: 6px 4px; }
+          .admin-tab svg { width: 14px; height: 14px; }
+          .admin-main { padding: var(--space-3); }
         }
       `}</style>
 
-      {/* Header */}
-      <div className="admin-header">
-        <h1>
-          {isOwner ? <><Icons.Settings size={22} /> Microgreen Admin</> : <><Icons.Tag size={22} /> {sellerName}</>}
-        </h1>
-        <div className="admin-header-actions">
-          {!isOwner && (
-            <span style={{ padding: '3px 8px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)' }}>
-              Sotuvchi
-            </span>
-          )}
-          {isOwner && <AdminNotifications />}
-          <a href="/" className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', padding: '6px' }}>
-            <Icons.Home size={16} />
-          </a>
-          <button onClick={handleLogout} className="btn btn-ghost btn-sm"
-            style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 8px' }}>
-            <Icons.ArrowLeft size={14} /> Chiqish
-          </button>
+      {/* Sidebar / Topbar */}
+      <aside className="admin-sidebar">
+        <div className="admin-header">
+          <h1>
+            {isOwner ? <><Icons.Settings size={24} color="var(--brand-primary)" /> Microgreen Admin</> : <><Icons.Tag size={24} color="var(--success)" /> {sellerName}</>}
+          </h1>
+          <div className="admin-header-actions">
+            {!isOwner && (
+              <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)' }}>
+                Sotuvchi
+              </span>
+            )}
+            {isOwner && <AdminNotifications />}
+            <a href="/" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
+              <Icons.Home size={14} /> Sayt
+            </a>
+            <button onClick={handleLogout} className="btn btn-ghost btn-sm"
+              style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(239, 68, 68, 0.1)' }}>
+              <Icons.LogOut size={14} /> Chiqish
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="admin-tabs">
-        {tabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
-            {tab.icon} {tab.label}
-          </button>
-        ))}
-      </div>
+        <nav className="admin-tabs">
+          {tabs.map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </nav>
+      </aside>
 
-      {/* Content */}
-      {activeTab === 'pos' && <AdminPOS sellerName={isOwner ? 'Egasi' : sellerName} />}
-      {activeTab === 'stats' && isOwner && <AdminStats />}
-      {activeTab === 'revenue' && isOwner && <AdminRevenue />}
-      {activeTab === 'inventory' && isOwner && <AdminInventory />}
-      {activeTab === 'movements' && isOwner && <AdminMovements />}
-      {activeTab === 'orders' && isOwner && <AdminOrders />}
-      {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}
-      {activeTab === 'debts' && isOwner && <AdminDebts />}
-      {activeTab === 'analytics' && isOwner && <AdminAnalytics />}
-      {activeTab === 'forecast' && isOwner && <AdminForecast />}
-      {activeTab === 'employees' && isOwner && <AdminEmployees />}
-      {activeTab === 'products' && isOwner && <AdminProducts />}
-      {activeTab === 'settings' && isOwner && <AdminSettings />}
+      {/* Main Content */}
+      <main className="admin-main">
+        {activeTab === 'pos' && <AdminPOS sellerName={isOwner ? 'Egasi' : sellerName} />}
+        {activeTab === 'stats' && isOwner && <AdminStats />}
+        {activeTab === 'revenue' && isOwner && <AdminRevenue />}
+        {activeTab === 'inventory' && isOwner && <AdminInventory />}
+        {activeTab === 'movements' && isOwner && <AdminMovements />}
+        {activeTab === 'orders' && isOwner && <AdminOrders />}
+        {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}
+        {activeTab === 'debts' && isOwner && <AdminDebts />}
+        {activeTab === 'analytics' && isOwner && <AdminAnalytics />}
+        {activeTab === 'forecast' && isOwner && <AdminForecast />}
+        {activeTab === 'employees' && isOwner && <AdminEmployees />}
+        {activeTab === 'products' && isOwner && <AdminProducts />}
+        {activeTab === 'settings' && isOwner && <AdminSettings />}
+      </main>
     </div>
   );
 }
