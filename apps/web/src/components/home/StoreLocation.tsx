@@ -1,12 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 
 export function StoreLocation() {
   const { t } = useLang();
-  const [showMap, setShowMap] = useState(false);
 
   return (
     <section className="section" id="location-section">
@@ -106,7 +104,6 @@ export function StoreLocation() {
             position: 'relative',
             background: 'var(--bg-tertiary)',
           }}>
-            {showMap ? (
               <iframe
                 src="https://yandex.com/map-widget/v1/?pt=66.961888,39.581813,pm2rdm&z=16&l=map"
                 width="100%"
@@ -115,31 +112,6 @@ export function StoreLocation() {
                 allowFullScreen
                 title="Microgreen do'koni joylashuvi"
               />
-            ) : (
-              <div
-                onClick={() => setShowMap(true)}
-                style={{
-                  width: '100%', height: '100%', cursor: 'pointer',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                  gap: 'var(--space-3)', color: 'var(--text-secondary)',
-                  background: 'linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)',
-                }}
-              >
-                <div style={{
-                  width: 64, height: 64, borderRadius: 'var(--radius-full)',
-                  background: 'var(--brand-primary-light)', color: 'var(--brand-primary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Icons.MapPin size={32} />
-                </div>
-                <div style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-base)' }}>
-                  {t('Xaritani ochish', 'Открыть карту')}
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  {t('Bosing', 'Нажмите')}
-                </div>
-              </div>
-            )}
             {/* Map Actions Overlay */}
             <div style={{
               position: 'absolute',
