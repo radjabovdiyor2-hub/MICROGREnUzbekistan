@@ -1503,6 +1503,22 @@ main {
   transform: rotate(20deg) scale(1.08);
 }
 
+}
+
+/* ============================================
+   MAIN CONTENT PADDING
+   ============================================ */
+.main-content {
+  padding-top: var(--header-height);
+  padding-bottom: var(--bottom-nav-height);
+}
+
+@media (min-width: 768px) {
+  .main-content {
+    padding-bottom: 0 !important;
+  }
+}
+
 /* ============================================
    BOTTOM NAV (consolidated)
    ============================================ */
@@ -1522,6 +1538,12 @@ main {
   justify-content: space-around;
   padding: 0 var(--space-2);
   padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none !important;
+  }
 }
 
 .bottom-nav__item {

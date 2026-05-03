@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import * as Icons from '@/components/ui/Icons';
+import { useLanguage } from '@/components/providers/LanguageProvider';
 
 export function SaleBanner() {
+  const { t } = useLanguage();
   const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 45, seconds: 12 });
 
   useEffect(() => {
@@ -76,7 +78,7 @@ export function SaleBanner() {
               color: 'white', textTransform: 'uppercase', letterSpacing: '1px',
               marginBottom: '12px', backdropFilter: 'blur(4px)',
             }}>
-              <Icons.Leaf size={12} /> Yangilik
+              <Icons.Leaf size={12} /> {t('Yangilik', 'Новинка')}
             </div>
             <div style={{
               fontSize: 'clamp(1.5rem, 4vw, 2.2rem)', fontWeight: 800,
@@ -84,13 +86,13 @@ export function SaleBanner() {
               lineHeight: 1.1, letterSpacing: '-0.3px',
               textShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}>
-              Yangi hosil yetib keldi!
+              {t('Yangi hosil yetib keldi!', 'Прибыл свежий урожай!')}
             </div>
             <div style={{
               fontSize: '1rem', marginTop: '6px', color: 'rgba(255,255,255,0.9)',
               fontWeight: 500,
             }}>
-              Birinchi buyurtmangizga <strong>20%</strong> chegirma
+              {t('Birinchi buyurtmangizga', 'На первый заказ')} <strong>20%</strong> {t('chegirma', 'скидка')}
             </div>
           </div>
 

@@ -121,7 +121,7 @@ function CatalogContent() {
           <Icons.Folder size={28} /> Katalog
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-          Barcha mahsulotlar bir joyda — tanlang va buyurtma bering!
+          {t('Barcha mahsulotlar bir joyda — tanlang va buyurtma bering!', 'Все товары в одном месте — выбирайте и заказывайте!')}
         </p>
       </div>
 

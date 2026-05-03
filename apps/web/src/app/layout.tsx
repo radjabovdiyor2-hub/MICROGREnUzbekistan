@@ -247,7 +247,7 @@ export default function RootLayout({
               <FavoritesProvider>
                 <AuthProvider>
                   <Header />
-                  <main style={{ paddingTop: 'var(--header-height)', paddingBottom: 'var(--bottom-nav-height)' }}>
+                  <main className="main-content">
                     {children}
                   </main>
                   <BottomNav />

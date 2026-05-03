@@ -109,7 +109,7 @@ async function main() {
       `cd ${REMOTE_ROOT}/packages/database && npx prisma generate 2>&1 | tail -3`,
       
       // Push DB schema
-      `cd ${REMOTE_ROOT}/packages/database && npx prisma db push --skip-generate --accept-data-loss 2>&1 | tail -5`,
+      `cd ${REMOTE_ROOT}/packages/database && rm -f .env && ln -s ../../.env .env && npx prisma db push --skip-generate --accept-data-loss 2>&1 | tail -5`,
       
       // Build Next.js
       `cd ${REMOTE_ROOT} && npx turbo run build --filter=web 2>&1 | tail -20`,
