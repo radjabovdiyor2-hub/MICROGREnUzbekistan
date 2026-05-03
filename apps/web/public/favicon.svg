@@ -1,0 +1,26 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="fg-circle" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="fg-bg" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ECFDF5"/>
+      <stop offset="100%" stop-color="#D1FAE5"/>
+    </linearGradient>
+    <linearGradient id="fg-leaf1" x1="20" y1="10" x2="32" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="fg-leaf2" x1="16" y1="16" x2="24" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6EE7B7"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="12" fill="url(#fg-bg)"/>
+  <circle cx="24" cy="24" r="18" stroke="url(#fg-circle)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-dasharray="108 4"/>
+  <ellipse cx="24" cy="34" rx="7" ry="2" fill="url(#fg-circle)" opacity="0.6"/>
+  <path d="M24 34 L24 22" stroke="url(#fg-circle)" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M24 22 C24 18 30 12 34 11 C34 15 30 20 24 22Z" fill="url(#fg-leaf1)"/>
+  <path d="M24 26 C24 23 19 18 16 17 C16 20 19 24 24 26Z" fill="url(#fg-leaf2)"/>
+</svg>

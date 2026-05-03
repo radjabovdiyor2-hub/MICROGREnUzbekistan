@@ -1,0 +1,40 @@
+<svg width="192" height="192" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+    <linearGradient id="leaf1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#6EE7B7"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="leaf2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#A7F3D0"/>
+      <stop offset="100%" stop-color="#6EE7B7"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="192" height="192" fill="url(#bg)" rx="38"/>
+  <!-- Subtle inner circle glow -->
+  <circle cx="96" cy="86" r="52" fill="#047857" opacity="0.3"/>
+  <!-- Stem -->
+  <path d="M96 145 Q96 115 96 85" stroke="#ECFDF5" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+  <!-- Left leaf -->
+  <path d="M96 100 Q68 72 55 52 Q75 65 96 90" fill="url(#leaf1)" filter="url(#glow)"/>
+  <!-- Right leaf -->
+  <path d="M96 90 Q124 62 137 42 Q117 55 96 80" fill="url(#leaf2)" filter="url(#glow)"/>
+  <!-- Center tiny leaf -->
+  <path d="M96 92 Q82 78 76 68 Q85 74 96 88" fill="#D1FAE5" opacity="0.8"/>
+  <!-- Water droplet -->
+  <ellipse cx="80" cy="78" rx="4" ry="5" fill="#ECFDF5" opacity="0.7"/>
+  <!-- Roots -->
+  <path d="M96 145 Q88 155 82 162" stroke="#A7F3D0" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M96 145 Q104 155 110 162" stroke="#A7F3D0" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M96 145 Q96 156 96 164" stroke="#A7F3D0" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <!-- Text -->
+  <text x="96" y="182" text-anchor="middle" font-family="system-ui,Arial,sans-serif" font-size="14" font-weight="800" fill="#ECFDF5" letter-spacing="1.5">MICROGREEN</text>
+</svg>

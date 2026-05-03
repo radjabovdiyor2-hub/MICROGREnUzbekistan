@@ -1,0 +1,21 @@
+{
+    "name": "microgreen-uzbekistan",
+    "private": true,
+    "scripts": {
+        "dev": "turbo run dev -- --port 3005",
+        "build": "turbo run build",
+        "lint": "turbo run lint",
+        "db:push": "turbo run db:push",
+        "db:seed": "turbo run db:seed",
+        "db:studio": "turbo run db:studio"
+    },
+    "devDependencies": {
+        "ssh2": "^1.17.0",
+        "turbo": "^2.4.0"
+    },
+    "packageManager": "npm@10.2.0",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ]
+}

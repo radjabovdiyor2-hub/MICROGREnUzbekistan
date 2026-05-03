@@ -1,0 +1,345 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ==========================================
+// Microgreen — Xo'jalik Do'koni Database Schema
+// ==========================================
+
+model Category {
+  id       String     @id @default(cuid())
+  nameUz   String     @map("name_uz")
+  nameRu   String     @map("name_ru")
+  slug     String     @unique
+  icon     String?
+  image    String?
+  order    Int        @default(0)
+  parentId String?    @map("parent_id")
+  parent   Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  children Category[] @relation("SubCategories")
+  products Product[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  nameUz        String   @map("name_uz")
+  nameRu        String   @map("name_ru")
+  slug          String   @unique
+  descriptionUz String?  @map("description_uz") @db.Text
+  descriptionRu String?  @map("description_ru") @db.Text
+  price         Int      // Цена в сумах
+  oldPrice      Int?     @map("old_price")
+  costPrice     Int?     @map("cost_price") // Закупочная цена (от поставщика)
+  images        String[] // URLs
+  categoryId    String   @map("category_id")
+  category      Category @relation(fields: [categoryId], references: [id])
+  stock         Int      @default(0)
+  sku           String?  @unique
+  brand         String?
+  specs         Json?    // Характеристики
+  rating        Float    @default(0)
+  reviewCount   Int      @default(0) @map("review_count")
+  isActive      Boolean  @default(true) @map("is_active")
+  isFeatured    Boolean  @default(false) @map("is_featured")
+  isOnSale      Boolean  @default(false) @map("is_on_sale")
+  viewCount     Int      @default(0) @map("view_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orderItems      OrderItem[]
+  cartItems       CartItem[]
+  favorites       Favorite[]
+  reviews         Review[]
+  stockMovements  StockMovement[]
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isActive, isFeatured])
+  @@map("products")
+}
+
+model User {
+  id           String  @id @default(cuid())
+  telegramId   BigInt? @unique @map("telegram_id")
+  phone        String? @unique
+  firstName    String? @map("first_name")
+  lastName     String? @map("last_name")
+  username     String?
+  avatarUrl    String? @map("avatar_url")
+  language     String  @default("uz")
+  theme        String  @default("system") // light | dark | system
+  bonusPoints  Int     @default(0) @map("bonus_points")
+  referralCode String  @unique @default(cuid()) @map("referral_code")
+  referredBy   String? @map("referred_by")
+  role         Role    @default(USER)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders    Order[]
+  cart      CartItem[]
+  favorites Favorite[]
+  reviews   Review[]
+  addresses Address[]
+  aiChats   AiChat[]
+
+  @@map("users")
+}
+
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
+  SELLER
+}
+
+model Address {
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String? // "Uy", "Ish", etc.
+  fullAddress String @map("full_address")
+  latitude  Float?
+  longitude Float?
+  isDefault Boolean @default(false) @map("is_default")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("addresses")
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int     @default(1)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, productId])
+  @@map("cart_items")
+}
+
+model Favorite {
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, productId])
+  @@map("favorites")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  orderNumber   String      @unique @map("order_number")
+  userId        String      @map("user_id")
+  user          User        @relation(fields: [userId], references: [id])
+  status        OrderStatus @default(PENDING)
+  total         Int
+  subtotal      Int
+  deliveryFee   Int         @default(0) @map("delivery_fee")
+  discount      Int         @default(0)
+  address       String
+  phone         String
+  note          String?     @db.Text
+  paymentMethod String      @map("payment_method") // click | payme | cash
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  DELIVERING
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String  @map("order_id")
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Int     // Цена на момент заказа
+
+  @@map("order_items")
+}
+
+model Review {
+  id        String  @id @default(cuid())
+  userId    String  @map("user_id")
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  rating    Int     // 1-5
+  comment   String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, productId])
+  @@map("reviews")
+}
+
+model AiChat {
+  id       String @id @default(cuid())
+  userId   String @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role     String // user | assistant
+  content  String @db.Text
+  metadata Json?  // Recommended products, etc.
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("ai_chats")
+}
+
+model Promotion {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  imageUrl    String?  @map("image_url")
+  discount    Int?     // Percentage
+  promoCode   String?  @unique @map("promo_code")
+  startsAt    DateTime @map("starts_at")
+  endsAt      DateTime @map("ends_at")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("promotions")
+}
+
+// ==========================================
+// EMPLOYEE (SELLER) SYSTEM
+// ==========================================
+
+model Employee {
+  id        String  @id @default(cuid())
+  name      String
+  pin       String  @unique // 4-digit PIN for POS login
+  phone     String?
+  isActive  Boolean @default(true) @map("is_active")
+  role      String  @default("seller") // seller | manager
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("employees")
+}
+
+// ==========================================
+// INVENTORY MANAGEMENT SYSTEM
+// ==========================================
+
+model StockMovement {
+  id          String        @id @default(cuid())
+  productId   String        @map("product_id")
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type        MovementType
+  quantity    Int           // Positive for IN, negative for OUT
+  reason      String?       // "Продажа", "Поставка", "Списание", "Возврат", etc.
+  note        String?       @db.Text
+  supplierId  String?       @map("supplier_id")
+  supplier    Supplier?     @relation(fields: [supplierId], references: [id])
+  costPrice   Int?          @map("cost_price") // Закупочная цена за единицу
+  salePrice   Int?          @map("sale_price") // Фактическая цена продажи (если отличается от product.price)
+  orderId     String?       @map("order_id") // Привязка к заказу если продажа
+  performedBy String?       @map("performed_by") // Кто провёл операцию
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("stock_movements")
+}
+
+enum MovementType {
+  IN          // Приход товара
+  OUT         // Продажа/расход
+  ADJUSTMENT  // Корректировка (инвентаризация)
+  RETURN      // Возврат от клиента
+  WRITE_OFF   // Списание (брак, порча)
+}
+
+model Supplier {
+  id        String  @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  note      String? @db.Text
+  isActive  Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stockMovements StockMovement[]
+  debts          Debt[]
+
+  @@map("suppliers")
+}
+
+model Debt {
+  id          String   @id @default(cuid())
+  type        DebtType // WHO_OWES_US = нам должны, WE_OWE = мы должны
+  personName  String   @map("person_name")
+  phone       String?
+  amount      Int      // Сумма долга в сумах
+  paidAmount  Int      @default(0) @map("paid_amount") // Сколько уже оплачено
+  description String?  @db.Text
+  dueDate     DateTime? @map("due_date")
+  isPaid      Boolean  @default(false) @map("is_paid")
+  supplierId  String?  @map("supplier_id")
+  supplier    Supplier? @relation(fields: [supplierId], references: [id])
+  userId      String?  @map("user_id") // Привязка к клиенту
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@index([isPaid])
+  @@map("debts")
+}
+
+enum DebtType {
+  WHO_OWES_US  // Клиент должен нам
+  WE_OWE       // Мы должны поставщику
+}

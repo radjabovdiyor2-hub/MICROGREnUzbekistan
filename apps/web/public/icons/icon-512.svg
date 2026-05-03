@@ -1,0 +1,57 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#059669"/>
+      <stop offset="50%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="leaf1" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#6EE7B7"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="leaf2" x1="0.5" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#A7F3D0"/>
+      <stop offset="100%" stop-color="#6EE7B7"/>
+    </linearGradient>
+    <linearGradient id="stem" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ECFDF5"/>
+      <stop offset="100%" stop-color="#D1FAE5"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft-shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#065F46" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#bg)" rx="102"/>
+  <!-- Subtle radial highlight -->
+  <circle cx="256" cy="220" r="180" fill="#047857" opacity="0.2"/>
+  <circle cx="200" cy="150" r="120" fill="#10B981" opacity="0.15"/>
+  <!-- Main sprout group with shadow -->
+  <g filter="url(#soft-shadow)">
+    <!-- Stem -->
+    <path d="M256 385 Q256 310 256 220" stroke="url(#stem)" stroke-width="14" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+    <!-- Left leaf -->
+    <path d="M256 270 Q185 195 150 140 Q195 170 256 250" fill="url(#leaf1)" filter="url(#glow)"/>
+    <!-- Right leaf -->
+    <path d="M256 240 Q327 170 362 110 Q317 140 256 215" fill="url(#leaf2)" filter="url(#glow)"/>
+    <!-- Center small leaf -->
+    <path d="M256 248 Q225 215 210 190 Q230 205 256 238" fill="#D1FAE5" opacity="0.75"/>
+    <!-- Tiny emerging leaf -->
+    <path d="M256 235 Q275 218 285 205 Q272 215 256 230" fill="#A7F3D0" opacity="0.6"/>
+  </g>
+  <!-- Water droplet highlight -->
+  <ellipse cx="210" cy="205" rx="8" ry="11" fill="#ECFDF5" opacity="0.65"/>
+  <ellipse cx="212" cy="202" rx="3" ry="4" fill="white" opacity="0.7"/>
+  <!-- Roots -->
+  <g opacity="0.5">
+    <path d="M256 385 Q238 410 220 430" stroke="#A7F3D0" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M256 385 Q274 410 292 430" stroke="#A7F3D0" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M256 385 Q256 415 256 435" stroke="#A7F3D0" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+  <!-- Text -->
+  <text x="256" y="482" text-anchor="middle" font-family="system-ui,Arial,sans-serif" font-size="38" font-weight="800" fill="#ECFDF5" letter-spacing="4" opacity="0.95">MICROGREEN</text>
+</svg>
