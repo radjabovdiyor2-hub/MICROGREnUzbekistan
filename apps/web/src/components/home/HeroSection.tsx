@@ -3,12 +3,18 @@
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 export function HeroSection() {
   const { t } = useLang();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
-    <section className="hero" id="hero-section" style={{
+    <section className="hero bg-mesh" id="hero-section" style={{
       background: 'var(--bg-secondary)',
       padding: '72px 0 56px',
       borderBottom: '1px solid var(--border)',
@@ -37,7 +43,12 @@ export function HeroSection() {
       }} />
 
       <div className="container" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '40px', flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 500px', maxWidth: '640px' }}>
+        <div style={{ 
+          flex: '1 1 500px', maxWidth: '640px',
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateY(0)' : 'translateY(30px)',
+          transition: 'opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}>
           {/* Badge */}
           <div style={{
             display: 'inline-flex', padding: '7px 16px',
@@ -81,7 +92,7 @@ export function HeroSection() {
 
           {/* CTA Buttons */}
           <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-            <a href="/catalog" className="btn btn-primary" style={{
+            <a href="/catalog" className="btn btn-primary btn-magnetic ripple" style={{
               padding: '15px 32px', fontSize: '1rem', borderRadius: '14px',
               boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.35)',
               display: 'flex', alignItems: 'center', gap: '10px',
@@ -89,7 +100,7 @@ export function HeroSection() {
             }}>
               {t('hero.catalog_btn')} <Icons.ArrowRight size={18} />
             </a>
-            <a href="tel:+998949999599" className="btn btn-outline" style={{
+            <a href="tel:+998949999599" className="btn btn-outline btn-magnetic" style={{
               padding: '15px 32px', fontSize: '1rem', borderRadius: '14px',
               display: 'flex', alignItems: 'center', gap: '10px',
               backdropFilter: 'blur(8px)',
@@ -111,6 +122,9 @@ export function HeroSection() {
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500,
+                opacity: mounted ? 1 : 0,
+                transform: mounted ? 'translateY(0)' : 'translateY(15px)',
+                transition: `opacity 0.5s ease ${0.3 + i * 0.1}s, transform 0.5s ease ${0.3 + i * 0.1}s`,
               }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '10px',
@@ -131,8 +145,11 @@ export function HeroSection() {
           flex: '1 1 400px', position: 'relative',
           display: 'flex', justifyContent: 'center', alignItems: 'center',
           perspective: '1000px',
+          opacity: mounted ? 1 : 0,
+          transform: mounted ? 'translateX(0)' : 'translateX(40px)',
+          transition: 'opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s',
         }}>
-          <div style={{
+          <div className="card-shine glow-green" style={{
             position: 'relative', width: '100%', maxWidth: '500px', aspectRatio: '4/3',
             borderRadius: '24px', overflow: 'hidden',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 40px rgba(var(--brand-primary-rgb), 0.2)',
@@ -160,9 +177,8 @@ export function HeroSection() {
           </div>
           
           {/* Floating mini badge */}
-          <div style={{
+          <div className="glass" style={{
             position: 'absolute', bottom: '10%', right: '5%',
-            background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)',
             padding: '12px 20px', borderRadius: '16px',
             boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
             display: 'flex', alignItems: 'center', gap: '12px',
