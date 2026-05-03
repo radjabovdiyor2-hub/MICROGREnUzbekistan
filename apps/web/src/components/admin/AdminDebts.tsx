@@ -222,7 +222,7 @@ export function AdminDebts() {
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>
               Qoldiq: {fmt(paymentModal.amount - paymentModal.paidAmount)} so&apos;m
             </p>
-            <input type="number" placeholder="Summa" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} autoFocus
+            <input type="number" placeholder="Summa" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)}
               style={{ width: '100%', padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-lg)', marginBottom: 'var(--space-3)', fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }} />
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <button onClick={() => setPaymentAmount(String(paymentModal.amount - paymentModal.paidAmount))} className="btn btn-ghost btn-sm">To&apos;liq</button>

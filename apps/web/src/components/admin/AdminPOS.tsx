@@ -347,7 +347,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               placeholder="Tovar qidirish..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              autoFocus
+              placeholder="Izlash..."
               style={{
                 ...inputStyle,
                 paddingLeft: '42px', fontSize: 'var(--text-base)',
@@ -540,7 +540,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                       {/* Editable price */}
                       {isEditing ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input type="number" autoFocus value={editPriceValue}
+                          <input type="number" value={editPriceValue}
                             onChange={e => setEditPriceValue(e.target.value)}
                             onKeyDown={e => {
                               if (e.key === 'Enter') {
