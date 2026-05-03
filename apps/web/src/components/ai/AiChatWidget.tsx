@@ -95,7 +95,7 @@ export function AiChatWidget() {
     { icon: <Icons.Camera size={18} />, label: 'Foto tahlil', color: '#8B5CF6', action: () => fileInputRef.current?.click() },
     { icon: <Icons.Leaf size={18} />, label: 'Parvarish', color: '#10B981', action: () => { setInput('Mikroko\'katlarni qanday to\'g\'ri sug\'orish kerak?'); setTimeout(() => document.getElementById("ai-chat-send")?.click(), 50); } },
     { icon: <Icons.Calculator size={18} />, label: 'Kalkulyator', color: '#3B82F6', action: () => setMode('tools') },
-    { icon: <Icons.Phone size={18} />, label: 'Qo\'ng\'iroq', color: '#10B981', action: () => window.open('tel:+998997772232') },
+    { icon: <Icons.Phone size={18} />, label: 'Qo\'ng\'iroq', color: '#10B981', action: () => window.open('tel:+998949999599') },
   ];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -133,7 +133,7 @@ export function AiChatWidget() {
   }, []);
 
   const copyMessage = useCallback(async (msg: Message) => {
-    const text = `Microgreen Agro:\n\n${msg.content}\n\nBuyurtma: +998 99 777 22 32\nMicrogreen.uz`;
+    const text = `Microgreen Agro:\n\n${msg.content}\n\nBuyurtma: +998 94 999 95 99\nMicrogreen.uz`;
     try { await navigator.clipboard.writeText(text); } catch {
       const ta = document.createElement('textarea'); ta.value = text;
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
@@ -143,7 +143,7 @@ export function AiChatWidget() {
   }, []);
 
   const shareMessage = useCallback(async (msg: Message) => {
-    const text = `Microgreen Agro:\n\n${msg.content}\n\nBuyurtma: +998 99 777 22 32\nMicrogreen.uz`;
+    const text = `Microgreen Agro:\n\n${msg.content}\n\nBuyurtma: +998 94 999 95 99\nMicrogreen.uz`;
     if (navigator.share) {
       try { await navigator.share({ text, title: 'Microgreen Agro' }); } catch { /* cancelled */ }
     } else { copyMessage(msg); }
@@ -213,7 +213,7 @@ export function AiChatWidget() {
       streamResponse(reply);
     } catch {
       setIsLoading(false);
-      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: "Xatolik yuz berdi. +998 99 777 22 32 ga qo'ng'iroq qiling.", timestamp: Date.now() }]);
+      setMessages(prev => [...prev, { id: (Date.now() + 1).toString(), role: 'assistant', content: "Xatolik yuz berdi. +998 94 999 95 99 ga qo'ng'iroq qiling.", timestamp: Date.now() }]);
     }
   };
 

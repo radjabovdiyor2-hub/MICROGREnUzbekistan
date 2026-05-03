@@ -233,7 +233,7 @@ export default function ProductPage() {
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: fav ? 'var(--error)' : undefined }}>
               {fav ? <Icons.HeartFilled size={18} /> : <Icons.Heart size={18} />} Sevimli
             </button>
-            <a href="tel:+998997772232" className="btn btn-outline"
+            <a href="tel:+998949999599" className="btn btn-outline"
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <Icons.Phone size={18} /> Qo&apos;ng&apos;iroq
             </a>
@@ -299,7 +299,7 @@ export default function ProductPage() {
                 <Icons.Phone size={24} style={{ color: 'var(--brand-primary)' }} />
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)' }}>Maslahat</div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>+998 99 777 22 32</div>
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>+998 94 999 95 99</div>
                 </div>
               </div>
             </div>

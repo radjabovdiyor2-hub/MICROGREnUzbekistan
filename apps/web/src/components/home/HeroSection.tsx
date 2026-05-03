@@ -89,7 +89,7 @@ export function HeroSection() {
             }}>
               {t('hero.catalog_btn')} <Icons.ArrowRight size={18} />
             </a>
-            <a href="tel:+998997772232" className="btn btn-outline" style={{
+            <a href="tel:+998949999599" className="btn btn-outline" style={{
               padding: '15px 32px', fontSize: '1rem', borderRadius: '14px',
               display: 'flex', alignItems: 'center', gap: '10px',
               backdropFilter: 'blur(8px)',

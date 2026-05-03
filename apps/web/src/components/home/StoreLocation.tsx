@@ -53,7 +53,9 @@ export function StoreLocation() {
                 <span style={{ color: 'var(--brand-primary)' }}><Icons.Phone size={20} /></span>
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{t('Telefon', 'Телефон')}</div>
-                  <a href="tel:+998997772232" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>+998 99 777 22 32</a>
+                  <a href="tel:+998949999599" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>+998 94 999 95 99</a>
+                  <br />
+                  <a href="tel:+998980072020" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>+998 98 007 20 20</a>
                 </div>
               </div>
 
@@ -83,12 +85,12 @@ export function StoreLocation() {
             </div>
 
             <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-              <a href="https://instagram.com/Microgreen_uz" target="_blank" rel="noopener noreferrer"
+              <a href="https://www.instagram.com/microgreenuzbekistan" target="_blank" rel="noopener noreferrer"
                 className="btn btn-outline btn-sm" id="location-instagram"
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Icons.Instagram size={16} /> Instagram
               </a>
-              <a href="tel:+998997772232" className="btn btn-primary btn-sm" id="location-call"
+              <a href="tel:+998949999599" className="btn btn-primary btn-sm" id="location-call"
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Icons.Phone size={16} /> {t("Qo'ng'iroq", 'Позвонить')}
               </a>

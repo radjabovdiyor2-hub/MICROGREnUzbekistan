@@ -52,9 +52,9 @@ export function Footer() {
           {/* Social icons */}
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
             {[
-              { href: 'https://instagram.com/Microgreen_uz', icon: <Icons.Instagram size={18} />, label: 'Instagram' },
+              { href: 'https://www.instagram.com/microgreenuzbekistan', icon: <Icons.Instagram size={18} />, label: 'Instagram' },
               { href: 'https://t.me/Microgreenuzbekistan_bot', icon: <Icons.MessageCircle size={18} />, label: 'Telegram' },
-              { href: 'tel:+998997772232', icon: <Icons.Phone size={18} />, label: 'Phone' },
+              { href: 'tel:+998949999599', icon: <Icons.Phone size={18} />, label: 'Phone' },
             ].map((social, i) => (
               <a key={i} href={social.href} target="_blank" rel="noopener noreferrer"
                 aria-label={social.label}
@@ -102,18 +102,23 @@ export function Footer() {
           <h4 className="footer__section-title">{t('Aloqa', 'Контакты')}</h4>
           <ul className="footer__links">
             <li>
-              <a href="tel:+998997772232" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.Phone size={14} /> +998 99 777 22 32
+              <a href="tel:+998949999599" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icons.Phone size={14} /> +998 94 999 95 99
               </a>
             </li>
             <li>
-              <a href="https://instagram.com/Microgreen_uz" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.Instagram size={14} /> @Microgreen_uz
+              <a href="https://www.instagram.com/microgreenuzbekistan" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icons.Instagram size={14} /> @microgreenuzbekistan
               </a>
             </li>
             <li>
               <a href="https://t.me/Microgreenuzbekistan_bot" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Icons.MessageCircle size={14} /> Telegram Bot
+              </a>
+            </li>
+            <li>
+              <a href="tel:+998980072020" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icons.Phone size={14} /> +998 98 007 20 20
               </a>
             </li>
             <li style={{ marginTop: 'var(--space-2)', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', display: 'flex', alignItems: 'center', gap: '8px' }}>

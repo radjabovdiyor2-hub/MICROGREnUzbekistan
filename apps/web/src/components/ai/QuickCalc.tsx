@@ -219,7 +219,7 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
   const text = `${result.title}\n\n${result.items.map(i => `${i.label}: ${i.value}`).join('\n')}${result.tip ? `\n\n${result.tip}` : ''}`;
 
   const share = async () => {
-    const full = `${text}\n\nMicrogreen: +998 99 777 22 32\nmicrogreenuzbekistan.com`;
+    const full = `${text}\n\nMicrogreen: +998 94 999 95 99\nmicrogreenuzbekistan.com`;
     if (navigator.share) {
       try { await navigator.share({ text: full, title: 'Microgreen Agro' }); } catch { /* cancelled */ }
     } else {

@@ -34,13 +34,27 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Icons and manifest
+      // Icons and manifest — moderate cache
       {
-        source: "/(icons|manifest.json|sw.js|og-image.png)",
+        source: "/(icons|manifest.json|og-image.png)",
         headers: [
           {
             key: "Cache-Control",
             value: "public, max-age=604800, stale-while-revalidate=2592000",
+          },
+        ],
+      },
+      // Service Worker — NEVER cache (must always be fresh)
+      {
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Service-Worker-Allowed",
+            value: "/",
           },
         ],
       },
@@ -54,13 +68,13 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Next.js data prefetch (JSON)
+      // Next.js data prefetch (JSON) — very short cache
       {
         source: "/_next/data/:path*",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=60, stale-while-revalidate=300",
+            value: "public, max-age=0, must-revalidate",
           },
         ],
       },
@@ -108,13 +122,21 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // HTML pages — short SWR cache
+      // HTML pages — ALWAYS fresh (no stale content)
       {
         source: "/:path((?!api|_next|images|icons).*)",
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+            value: "no-cache, no-store, must-revalidate",
+          },
+          {
+            key: "Pragma",
+            value: "no-cache",
+          },
+          {
+            key: "Expires",
+            value: "0",
           },
         ],
       },

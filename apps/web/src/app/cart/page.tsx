@@ -366,8 +366,8 @@ export default function CartPage() {
         <a href="/catalog" className="btn btn-outline btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
           <Icons.Folder size={20} /> Yana xarid qilish
         </a>
-        <a href="tel:+998997772232" className="btn btn-ghost" style={{ fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
-          <Icons.Phone size={16} /> Aloqa: +998 99 777 22 32
+        <a href="tel:+998949999599" className="btn btn-ghost" style={{ fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+          <Icons.Phone size={16} /> Aloqa: +998 94 999 95 99
         </a>
       </div>
     </div>

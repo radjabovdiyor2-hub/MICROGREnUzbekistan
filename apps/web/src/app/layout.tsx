@@ -132,13 +132,14 @@ function JsonLd() {
         },
         contactPoint: {
           '@type': 'ContactPoint',
-          telephone: '+998-99-777-22-32',
+          telephone: '+998-94-999-95-99',
           contactType: 'sales',
           availableLanguage: ['uz', 'ru'],
         },
         sameAs: [
           'https://t.me/MicrogreenUzbekistan',
           'https://t.me/Microgreen_Uzbekistan',
+          'https://www.instagram.com/microgreenuzbekistan',
         ],
       },
       {
@@ -159,7 +160,7 @@ function JsonLd() {
         name: 'Microgreen Uzbekistan',
         image: `${DOMAIN}/hero-microgreens.png`,
         url: DOMAIN,
-        telephone: '+998997772232',
+        telephone: '+998949999599',
         priceRange: '$$',
         address: {
           '@type': 'PostalAddress',
@@ -207,7 +208,7 @@ function JsonLd() {
             name: "Restoranlar uchun ulgurji (B2B) narxlar bormi?",
             acceptedAnswer: {
               '@type': 'Answer',
-              text: "Ha! Restoranlar, kafelar va mehmonxonalar uchun maxsus B2B narxlar va muntazam yetkazib berish rejasi mavjud. +998 99 777 22 32 ga qo'ng'iroq qiling.",
+              text: "Ha! Restoranlar, kafelar va mehmonxonalar uchun maxsus B2B narxlar va muntazam yetkazib berish rejasi mavjud. +998 94 999 95 99 ga qo'ng'iroq qiling.",
             },
           },
         ],

@@ -85,7 +85,7 @@ mikroko'katlar yetishtirish, gidroponika, urug'lar parvarishi, o'g'itlar (pH, EC
 3. MATERIALLAR (Microgreen katalogidan urug' yoki o'g'it tavsiya et)
 
 === DO'KON MA'LUMOTLARI ===
-📞 +998 99 777 22 32
+📞 +998 94 999 95 99 / +998 98 007 20 20
 📍 Ray senter, Samarqand
 ${storeContext}
 ${userInfo || ''}
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('AI chat error:', error);
     return NextResponse.json({
-      reply: "Voy, nimadur xato ketdi! 😅 Qayta urinib ko'ring yoki +998 99 777 22 32 ga qo'ng'iroq qiling.",
+      reply: "Voy, nimadur xato ketdi! 😅 Qayta urinib ko'ring yoki +998 94 999 95 99 ga qo'ng'iroq qiling.",
       source: 'error',
     });
   }

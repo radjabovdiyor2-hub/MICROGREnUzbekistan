@@ -210,14 +210,14 @@ export default function ProfilePage() {
         </button>
 
         {/* Support */}
-        <a href="tel:+998997772232" style={{
+        <a href="tel:+998949999599" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: 'var(--space-4)', borderBottom: isLoggedIn ? '1px solid var(--border)' : 'none',
           color: 'var(--text-primary)', textDecoration: 'none',
         }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             <Icons.Phone size={18} />
-            <span>{t('Aloqa', 'Контакты')}: +998 99 777 22 32</span>
+            <span>{t('Aloqa', 'Контакты')}: +998 94 999 95 99</span>
           </span>
           <Icons.ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
         </a>
@@ -244,13 +244,17 @@ export default function ProfilePage() {
         display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)', justifyContent: 'center',
         flexWrap: 'wrap',
       }}>
-        <a href="https://instagram.com/Microgreen_uz" target="_blank" rel="noopener noreferrer"
+        <a href="https://www.instagram.com/microgreenuzbekistan" target="_blank" rel="noopener noreferrer"
           className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Icons.Instagram size={16} /> Instagram
         </a>
         <a href="https://t.me/Microgreenuzbekistan_bot" target="_blank" rel="noopener noreferrer"
           className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Icons.MessageCircle size={16} /> Telegram Bot
+        </a>
+        <a href="https://t.me/Microgreen_Uzbekistan" target="_blank" rel="noopener noreferrer"
+          className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Icons.MessageCircle size={16} /> {t('Kanal', 'Канал')}
         </a>
       </div>
 
