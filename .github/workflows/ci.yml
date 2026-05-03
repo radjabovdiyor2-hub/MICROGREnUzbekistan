@@ -23,6 +23,7 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: cd packages/database && npx prisma generate
       - run: cd apps/web && npx tsc --noEmit
       - run: cd apps/web && npm run lint
 
