@@ -7,6 +7,7 @@ import { LangProvider } from '@/components/providers/LangProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { PwaRegister } from '@/components/providers/PwaRegister';
+import { Analytics } from '@/components/providers/Analytics';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -248,6 +249,7 @@ export default function RootLayout({
                     {children}
                   </AppShell>
                   <PwaRegister />
+                  <Analytics />
                 </AuthProvider>
               </FavoritesProvider>
             </CartProvider>
