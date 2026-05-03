@@ -347,7 +347,6 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               placeholder="Tovar qidirish..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Izlash..."
               style={{
                 ...inputStyle,
                 paddingLeft: '42px', fontSize: 'var(--text-base)',
