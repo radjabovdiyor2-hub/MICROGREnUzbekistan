@@ -31,7 +31,7 @@ module.exports = {
                 PORT: 3002,
                 HOSTNAME: "0.0.0.0",
                 NODE_OPTIONS: "--max-old-space-size=768",
-                TELEGRAM_BOT_TOKEN: "8039142477:AAENlrsV2L8lCrSRDzIYvdKf3rD6P4n6RrQ",
+                TELEGRAM_BOT_TOKEN: "8039142477:AAEF1F4CCmy-uJh9RNYiMTBTT9vn3TW0F88",
                 ADMIN_CHAT_ID: "847872669"
             },
             max_memory_restart: "600M",
