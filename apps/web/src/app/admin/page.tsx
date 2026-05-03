@@ -358,27 +358,24 @@ export default function AdminPage() {
         @media (max-width: 768px) {
           .admin-header { margin-bottom: var(--space-2); }
           .admin-header h1 { font-size: var(--text-base); }
+          .admin-sidebar { padding: var(--space-2) var(--space-3); }
           .admin-tabs {
-            display: grid; grid-template-columns: repeat(3, 1fr);
+            display: flex; flex-direction: row; flex-wrap: nowrap;
             gap: var(--space-2); margin-top: var(--space-2);
+            overflow-x: auto; padding-bottom: 8px;
           }
           .admin-tab {
-            justify-content: center; padding: var(--space-2); flex-direction: column; gap: 4px;
-            font-size: 11px; border-radius: var(--radius-md);
+            justify-content: center; padding: 8px 12px; flex-direction: row; gap: 6px;
+            font-size: 13px; border-radius: var(--radius-full);
             background: var(--bg-secondary); border: 1px solid var(--border);
+            white-space: nowrap; flex-shrink: 0;
           }
           .admin-tab.active {
             background: var(--brand-primary); color: var(--text-inverse); border-color: var(--brand-primary);
           }
           .admin-tab.active svg { color: var(--text-inverse); }
-          .admin-tab svg { margin: 0 auto; }
-        }
-
-        @media (max-width: 480px) {
-          .admin-tabs { grid-template-columns: repeat(3, 1fr); }
-          .admin-tab { font-size: 10px; padding: 6px 4px; }
-          .admin-tab svg { width: 14px; height: 14px; }
-          .admin-main { padding: var(--space-3); }
+          .admin-tab svg { margin: 0; }
+          .admin-main { padding: var(--space-2); }
         }
       `}</style>
 
