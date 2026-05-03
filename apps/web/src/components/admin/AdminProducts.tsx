@@ -322,22 +322,22 @@ export function AdminProducts() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
               <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Nomi (UZ) *</label>
-              <input style={inputStyle} value={form.nameUz} onChange={e => handleNameChange(e.target.value)} placeholder="LED Lamp 12W" />
+              <input style={inputStyle} value={form.nameUz} onChange={e => handleNameChange(e.target.value)} placeholder="Rukkola mikroko'kati" />
             </div>
             <div>
               <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Nomi (RU)</label>
-              <input style={inputStyle} value={form.nameRu} onChange={e => setForm(f => ({ ...f, nameRu: e.target.value }))} placeholder="LED Лампа 12W" />
+              <input style={inputStyle} value={form.nameRu} onChange={e => setForm(f => ({ ...f, nameRu: e.target.value }))} placeholder="Микрозелень Руккола" />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
               <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Sotuv narxi (so&apos;m) *</label>
-              <input style={inputStyle} type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="35000" />
+              <input style={inputStyle} type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="15000" />
             </div>
             <div>
               <label style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'block', marginBottom: 2, fontWeight: 600 }}>Tan narxi (yetkazuvchi)</label>
-              <input style={{ ...inputStyle, borderColor: form.costPrice ? 'var(--success)' : 'var(--border)' }} type="number" value={form.costPrice} onChange={e => setForm(f => ({ ...f, costPrice: e.target.value }))} placeholder="25000" />
+              <input style={{ ...inputStyle, borderColor: form.costPrice ? 'var(--success)' : 'var(--border)' }} type="number" value={form.costPrice} onChange={e => setForm(f => ({ ...f, costPrice: e.target.value }))} placeholder="10000" />
               {form.price && form.costPrice && (
                 <div style={{ fontSize: '10px', marginTop: 3, color: parseInt(form.price) > parseInt(form.costPrice) ? 'var(--success)' : 'var(--error)', fontWeight: 600 }}>
                   Foyda: {(parseInt(form.price) - parseInt(form.costPrice)).toLocaleString()} so&apos;m ({((parseInt(form.price) - parseInt(form.costPrice)) / parseInt(form.price) * 100).toFixed(0)}% marja)
@@ -348,7 +348,7 @@ export function AdminProducts() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
               <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Eski narx</label>
-              <input style={inputStyle} type="number" value={form.oldPrice} onChange={e => setForm(f => ({ ...f, oldPrice: e.target.value }))} placeholder="45000" />
+              <input style={inputStyle} type="number" value={form.oldPrice} onChange={e => setForm(f => ({ ...f, oldPrice: e.target.value }))} placeholder="20000" />
             </div>
             <div>
               <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Omborda *</label>
@@ -368,7 +368,7 @@ export function AdminProducts() {
             </div>
             <div>
               <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Brend</label>
-              <input style={inputStyle} value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} placeholder="Philips" />
+              <input style={inputStyle} value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} placeholder="Microgreen UZ" />
             </div>
           </div>
 
