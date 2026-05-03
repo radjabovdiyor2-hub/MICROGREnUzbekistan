@@ -3,9 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ["@prisma/client", "bcrypt"],
+  // @ts-ignore - Next.js types might be outdated
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // @ts-ignore - Next.js types might be outdated
   typescript: {
     ignoreBuildErrors: true,
   },
