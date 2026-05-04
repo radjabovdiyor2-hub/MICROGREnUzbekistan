@@ -45,7 +45,7 @@ export function AdminRevenue() {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
         <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
-        <p style={{ marginTop: 'var(--space-2)' }}>Tushum yuklanmoqda...</p>
+        <p style={{ marginTop: 'var(--space-2)' }}>Загрузка дохода...</p>
       </div>
     );
   }
@@ -54,8 +54,8 @@ export function AdminRevenue() {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
         <Icons.DollarSign size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
-        <p>Ma&apos;lumot topilmadi</p>
-        <p style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Sotish va kirim harakatlari bo&apos;lgandan keyin tushum ko&apos;rinadi</p>
+        <p>Данные не найдены</p>
+        <p style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Доход появится после продаж и поступлений</p>
       </div>
     );
   }
@@ -81,10 +81,10 @@ export function AdminRevenue() {
       {/* Today KPIs */}
       <div className="rev-grid">
         {[
-          { label: 'Bugungi tushum', value: fmt(data.todayRevenue), icon: <Icons.Banknote size={18} />, color: 'var(--brand-primary)', sub: `${data.todaySales} ta sotish` },
-          { label: 'Tan narxi (kirim)', value: fmt(data.todayCost), icon: <Icons.ArrowLeft size={18} />, color: 'var(--error)', sub: 'Yetkazuvchi narxi' },
-          { label: 'Sof foyda', value: fmt(data.todayProfit), icon: <Icons.TrendingUp size={18} />, color: data.todayProfit >= 0 ? 'var(--success)' : 'var(--error)', sub: `${data.todayMargin.toFixed(1)}% marja` },
-          { label: 'Marja', value: `${data.todayMargin.toFixed(1)}%`, icon: <Icons.Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? '#F59E0B' : 'var(--error)', sub: data.todayMargin >= 20 ? 'Yaxshi' : 'Past' },
+          { label: 'Выручка сегодня', value: fmt(data.todayRevenue), icon: <Icons.Banknote size={18} />, color: 'var(--brand-primary)', sub: `${data.todaySales} продаж` },
+          { label: 'Себестоимость', value: fmt(data.todayCost), icon: <Icons.ArrowLeft size={18} />, color: 'var(--error)', sub: 'Цена поставщика' },
+          { label: 'Чистая прибыль', value: fmt(data.todayProfit), icon: <Icons.TrendingUp size={18} />, color: data.todayProfit >= 0 ? 'var(--success)' : 'var(--error)', sub: `${data.todayMargin.toFixed(1)}% маржа` },
+          { label: 'Маржа', value: `${data.todayMargin.toFixed(1)}%`, icon: <Icons.Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? '#F59E0B' : 'var(--error)', sub: data.todayMargin >= 20 ? 'Хорошо' : 'Низкая' },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-3)', borderTop: `3px solid ${stat.color}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
@@ -103,7 +103,7 @@ export function AdminRevenue() {
       <div className="card" style={{ padding: 'var(--space-4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.BarChart size={16} /> Davr bo&apos;yicha
+            <Icons.BarChart size={16} /> По периоду
           </h4>
           <div style={{ display: 'flex', gap: 2, background: 'var(--bg-secondary)', borderRadius: '10px', padding: 2 }}>
             {(['week', 'month'] as const).map(p => (
@@ -114,7 +114,7 @@ export function AdminRevenue() {
                 color: period === p ? 'white' : 'var(--text-secondary)',
                 transition: 'all 0.2s',
               }}>
-                {p === 'week' ? 'Hafta' : 'Oy'}
+                {p === 'week' ? 'Неделя' : 'Месяц'}
               </button>
             ))}
           </div>
@@ -123,9 +123,9 @@ export function AdminRevenue() {
         {/* Period summary bars */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
           {[
-            { label: 'Tushum', value: periodData.revenue, color: 'var(--brand-primary)' },
-            { label: 'Tan narx', value: periodData.cost, color: 'var(--error)' },
-            { label: 'Foyda', value: periodData.profit, color: 'var(--success)' },
+            { label: 'Выручка', value: periodData.revenue, color: 'var(--brand-primary)' },
+            { label: 'Себест.', value: periodData.cost, color: 'var(--error)' },
+            { label: 'Прибыль', value: periodData.profit, color: 'var(--success)' },
           ].map((item, i) => (
             <div key={i} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: 4 }}>{item.label}</div>
@@ -138,7 +138,7 @@ export function AdminRevenue() {
 
         {/* Margin gauge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: '12px 16px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600, width: 60 }}>Marja</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600, width: 60 }}>Маржа</span>
           <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
             <div style={{
               height: '100%', width: `${Math.min(periodMargin, 100)}%`, borderRadius: 'var(--radius-full)',
@@ -156,7 +156,7 @@ export function AdminRevenue() {
       {data.dailyData && data.dailyData.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-            <Icons.TrendingUp size={16} /> Kunlik tushum
+            <Icons.TrendingUp size={16} /> Ежедневная выручка
           </h4>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 140 }}>
             {data.dailyData.map((d, i) => {
@@ -183,10 +183,10 @@ export function AdminRevenue() {
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center', marginTop: 'var(--space-3)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--success)' }} /> Foyda
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--success)' }} /> Прибыль
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--error)', opacity: 0.6 }} /> Tan narx
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--error)', opacity: 0.6 }} /> Себестоимость
             </div>
           </div>
         </div>
@@ -196,11 +196,11 @@ export function AdminRevenue() {
       <div className="rev-grid-2">
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)' }}>
-            <Icons.TrendingUp size={14} /> Eng foydali tovarlar
+            <Icons.TrendingUp size={14} /> Самые прибыльные товары
           </h4>
           {(!data.topProfitable || data.topProfitable.length === 0) ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center', padding: 'var(--space-4)' }}>
-              Tan narxi kiritilgan sotishlar kerak
+              Требуются продажи с указанной себестоимостью
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
@@ -209,7 +209,7 @@ export function AdminRevenue() {
                   <span style={{ width: 20, fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>{i + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.sold} dona · {p.margin.toFixed(0)}% marja</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.sold} шт · {p.margin.toFixed(0)}% маржа</div>
                   </div>
                   <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--success)', minWidth: 55, textAlign: 'right' }}>+{fmt(p.profit)}</span>
                 </div>
@@ -220,11 +220,11 @@ export function AdminRevenue() {
 
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--error)' }}>
-            <Icons.TrendingDown size={14} /> Kam foydali tovarlar
+            <Icons.TrendingDown size={14} /> Наименее прибыльные
           </h4>
           {(!data.topLoss || data.topLoss.length === 0) ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center', padding: 'var(--space-4)' }}>
-              Ma&apos;lumot yo&apos;q
+               Нет данных
             </p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
@@ -233,7 +233,7 @@ export function AdminRevenue() {
                   <span style={{ width: 20, fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>{i + 1}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.sold} dona · {p.margin.toFixed(0)}% marja</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.sold} шт · {p.margin.toFixed(0)}% маржа</div>
                   </div>
                   <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: p.profit < 0 ? 'var(--error)' : '#F59E0B', minWidth: 55, textAlign: 'right' }}>{fmt(p.profit)}</span>
                 </div>
