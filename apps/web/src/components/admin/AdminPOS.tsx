@@ -314,23 +314,24 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         @media (max-width: 768px) {
           .pos-mobile-toggle { display: flex !important; }
           .pos-mobile-fab { display: block !important; }
-          .pos-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
-          .pos-products { display: ${showCart ? 'none' : 'block'} !important; }
+          .pos-grid { grid-template-columns: 1fr !important; gap: 0 !important; overflow-x: hidden !important; max-width: 100% !important; }
+          .pos-products { display: ${showCart ? 'none' : 'block'} !important; overflow-x: hidden !important; max-width: 100% !important; }
           .pos-cart { display: ${showCart ? 'flex' : 'none'} !important; }
-          .pos-product-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 5px !important; max-height: calc(100vh - 380px) !important; }
-          .pos-product-card { padding: 8px !important; gap: 4px !important; }
-          .pos-product-thumb { width: 36px !important; height: 36px !important; border-radius: 8px !important; }
-          .pos-product-name { font-size: 12px !important; white-space: normal !important; display: -webkit-box !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important; overflow: hidden !important; line-height: 1.3 !important; }
-          .pos-product-price { font-size: 13px !important; }
+          .pos-product-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 5px !important; max-height: calc(100vh - 380px) !important; overflow-x: hidden !important; }
+          .pos-product-card { padding: 8px !important; gap: 4px !important; overflow: hidden !important; min-width: 0 !important; }
+          .pos-product-thumb { width: 32px !important; height: 32px !important; border-radius: 8px !important; }
+          .pos-product-name { font-size: 11px !important; white-space: normal !important; display: -webkit-box !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important; overflow: hidden !important; line-height: 1.3 !important; word-break: break-word !important; }
+          .pos-product-price { font-size: 12px !important; }
           .pos-product-stock { font-size: 9px !important; padding: 1px 4px !important; }
-          .pos-product-cat { font-size: 9px !important; }
+          .pos-product-cat { font-size: 9px !important; display: none !important; }
           .pos-cat-pills { gap: 6px !important; margin-bottom: 10px !important; }
-          .pos-cat-btn { padding: 10px 16px !important; font-size: 13px !important; border-radius: 12px !important; }
+          .pos-cat-btn { padding: 8px 14px !important; font-size: 12px !important; border-radius: 12px !important; }
         }
         @media (max-width: 370px) {
-          .pos-product-thumb { width: 30px !important; height: 30px !important; }
-          .pos-product-name { font-size: 11px !important; }
-          .pos-cat-btn { padding: 8px 12px !important; font-size: 12px !important; }
+          .pos-product-thumb { width: 28px !important; height: 28px !important; }
+          .pos-product-name { font-size: 10px !important; }
+          .pos-product-price { font-size: 11px !important; }
+          .pos-cat-btn { padding: 6px 10px !important; font-size: 11px !important; }
         }
       `}</style>
 

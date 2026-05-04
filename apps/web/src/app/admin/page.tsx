@@ -261,6 +261,8 @@ export default function AdminPage() {
         .admin-layout {
           display: flex;
           flex-direction: column;
+          overflow-x: hidden;
+          max-width: 100vw;
         }
 
         .admin-sidebar {
@@ -278,6 +280,8 @@ export default function AdminPage() {
           max-width: 1400px;
           margin: 0 auto;
           width: 100%;
+          overflow-x: hidden;
+          box-sizing: border-box;
         }
 
         /* Header */
@@ -375,7 +379,7 @@ export default function AdminPage() {
           }
           .admin-tab.active svg { color: var(--text-inverse); }
           .admin-tab svg { margin: 0; }
-          .admin-main { padding: var(--space-2); }
+          .admin-main { padding: var(--space-2); overflow-x: hidden; max-width: 100vw; }
         }
       `}</style>
 
