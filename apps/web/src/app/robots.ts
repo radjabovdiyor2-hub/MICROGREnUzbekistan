@@ -6,17 +6,29 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin', '/api/'],
+        disallow: ['/admin', '/api/', '/_next/'],
       },
       {
         userAgent: 'Googlebot',
+        allow: '/',
+        disallow: ['/admin', '/api/'],
+      },
+      {
+        userAgent: 'Googlebot-Image',
         allow: '/',
       },
       {
         userAgent: 'Yandexbot',
         allow: '/',
+        disallow: ['/admin', '/api/'],
+      },
+      {
+        userAgent: 'Bingbot',
+        allow: '/',
+        disallow: ['/admin', '/api/'],
       },
     ],
     sitemap: 'https://microgreenuzbekistan.com/sitemap.xml',
+    host: 'https://microgreenuzbekistan.com',
   };
 }

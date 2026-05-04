@@ -207,29 +207,42 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET — List orders (admin)
+// GET — List orders (admin) with pagination
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
+  const page = parseInt(searchParams.get('page') || '1');
+  const limitRaw = parseInt(searchParams.get('limit') || '20');
+  const limit = Math.min(limitRaw, 100);
 
   const where = status && status !== 'ALL' ? { status: status as any } : {};
 
-  const orders = await prisma.order.findMany({
-    where,
-    include: {
-      items: {
-        include: {
-          product: { select: { nameUz: true, nameRu: true, images: true } },
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      include: {
+        items: {
+          include: {
+            product: { select: { nameUz: true, nameRu: true, images: true } },
+          },
         },
+        user: { select: { firstName: true, phone: true } },
       },
-      user: { select: { firstName: true, phone: true } },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }),
+    prisma.order.count({ where }),
+  ]);
 
   return NextResponse.json({
     orders,
-    total: orders.length,
+    total,
+    pagination: {
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
   });
 }
 
