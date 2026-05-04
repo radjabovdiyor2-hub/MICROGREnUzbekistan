@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { ProductCard } from '@/components/shop/ProductCard';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
@@ -41,9 +42,9 @@ export function FeaturedProducts() {
           <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Icons.StarFilled size={24} style={{ color: 'var(--brand-accent)' }} /> {t('Top Mahsulotlar', 'Топ товары')}
           </h2>
-          <a href="/catalog" className="btn btn-ghost btn-sm">
+          <Link href="/catalog" className="btn btn-ghost btn-sm">
             {t('featured.all')} →
-          </a>
+          </Link>
         </div>
 
         {loading ? (

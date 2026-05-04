@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -327,8 +327,10 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
     setLoaded(true);
   };
 
-  // Load on first render
-  if (userId && !loaded) loadData();
+  // Load on first render (properly via useEffect)
+  useEffect(() => {
+    loadData();
+  }, [userId, loaded]); // eslint-disable-line
 
   const shortCode = referralData?.referralCode || (referralCode ? `AGRO-${referralCode.slice(-6).toUpperCase()}` : '...');
   const shareUrl = `https://Microgreen.uz?ref=${referralCode || ''}`;

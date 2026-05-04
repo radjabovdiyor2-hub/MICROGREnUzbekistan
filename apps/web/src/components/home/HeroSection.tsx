@@ -3,6 +3,7 @@
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 export function HeroSection() {
@@ -92,14 +93,14 @@ export function HeroSection() {
 
           {/* CTA Buttons */}
           <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-            <a href="/catalog" className="btn btn-primary btn-magnetic ripple" style={{
+            <Link href="/catalog" className="btn btn-primary btn-magnetic ripple" style={{
               padding: '15px 32px', fontSize: '1rem', borderRadius: '14px',
               boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.35)',
               display: 'flex', alignItems: 'center', gap: '10px',
               fontWeight: 700,
             }}>
               {t('hero.catalog_btn')} <Icons.ArrowRight size={18} />
-            </a>
+            </Link>
             <a href="tel:+998949999599" className="btn btn-outline btn-magnetic" style={{
               padding: '15px 32px', fontSize: '1rem', borderRadius: '14px',
               display: 'flex', alignItems: 'center', gap: '10px',

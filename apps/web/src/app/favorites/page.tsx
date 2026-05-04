@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import * as Icons from '@/components/ui/Icons';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
@@ -29,9 +30,9 @@ export default function FavoritesPage() {
           <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)' }}>
             {t("Mahsulot kartalaridagi yurak belgisini bosing", "Нажмите на сердечко в карточках товаров")}
           </p>
-          <a href="/catalog" className="btn btn-primary btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <Link href="/catalog" className="btn btn-primary btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
             <Icons.Folder size={20} /> {t("Katalogga o'tish", "Перейти в каталог")}
-          </a>
+          </Link>
         </div>
       ) : (
         <div style={{
@@ -44,7 +45,7 @@ export default function FavoritesPage() {
               key={fav.id}
               product={{
                 ...fav,
-                nameRu: fav.nameUz,
+                nameRu: fav.nameRu || fav.nameUz,
                 rating: fav.rating || 0,
                 reviewCount: 0,
               }}

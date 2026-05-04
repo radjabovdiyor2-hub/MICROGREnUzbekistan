@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
@@ -81,9 +82,9 @@ export default function ProductPage() {
       <div className="container" style={{ paddingTop: 'var(--space-12)', textAlign: 'center' }}>
         <Icons.Folder size={64} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }} />
         <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)' }}>{t("Mahsulot topilmadi", "Товар не найден")}</h2>
-        <a href="/catalog" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+        <Link href="/catalog" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
           <Icons.ArrowLeft size={16} /> {t("Katalogga qaytish", "Вернуться в каталог")}
-        </a>
+        </Link>
       </div>
     );
   }
@@ -96,6 +97,7 @@ export default function ProductPage() {
     cart.addItem({
       id: product.id,
       nameUz: product.nameUz,
+      nameRu: product.nameRu,
       price: product.price,
       oldPrice: product.oldPrice,
       slug: product.slug,
@@ -108,6 +110,7 @@ export default function ProductPage() {
     toggleFavorite({
       id: product.id,
       nameUz: product.nameUz,
+      nameRu: product.nameRu,
       price: product.price,
       oldPrice: product.oldPrice,
       slug: product.slug,
@@ -127,11 +130,11 @@ export default function ProductPage() {
     <div className="container" style={{ paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
       {/* Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-        <a href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <Link href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Icons.Home size={14} /> {t("Bosh sahifa", "Главная")}
-        </a>
+        </Link>
         <Icons.ChevronRight size={14} />
-        <a href="/catalog" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>{t("Katalog", "Каталог")}</a>
+        <Link href="/catalog" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>{t("Katalog", "Каталог")}</Link>
         <Icons.ChevronRight size={14} />
         <span style={{ color: 'var(--text-primary)' }}>{t(product.nameUz, product.nameRu)}</span>
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { AdminStats } from '@/components/admin/AdminStats';
 import { AdminOrders } from '@/components/admin/AdminOrders';
 import { AdminProducts } from '@/components/admin/AdminProducts';
@@ -78,14 +79,7 @@ export default function AdminPage() {
         setAuthError("Parol noto'g'ri");
       }
     } catch {
-      // Fallback to hardcoded password if API fails
-      if (password === 'Microgreen2026') {
-        setIsOwner(true);
-        sessionStorage.setItem(ADMIN_KEY, 'true');
-        setAuthError('');
-      } else {
-        setAuthError("Parol noto'g'ri");
-      }
+      setAuthError("Server bilan bog'lanib bo'lmadi");
     }
   };
 
@@ -170,9 +164,9 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <a href="/" className="btn btn-ghost" style={{ marginTop: 'var(--space-6)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <Link href="/" className="btn btn-ghost" style={{ marginTop: 'var(--space-6)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <Icons.Home size={16} /> Bosh sahifaga
-          </a>
+          </Link>
         </div>
       );
     }
@@ -406,9 +400,9 @@ export default function AdminPage() {
               </span>
             )}
             {isOwner && <AdminNotifications />}
-            <a href="/" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
+            <Link href="/" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
               <Icons.Home size={14} /> Sayt
-            </a>
+            </Link>
             <button onClick={handleLogout} className="btn btn-ghost btn-sm"
               style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(239, 68, 68, 0.1)' }}>
               <Icons.LogOut size={14} /> Chiqish

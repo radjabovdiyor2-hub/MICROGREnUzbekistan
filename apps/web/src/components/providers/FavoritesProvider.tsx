@@ -9,6 +9,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 export interface FavoriteProduct {
   id: string;
   nameUz: string;
+  nameRu?: string;
   price: number;
   oldPrice?: number | null;
   slug: string;
