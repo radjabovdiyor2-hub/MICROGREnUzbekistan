@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth, TelegramUser } from '@/components/providers/AuthProvider';
+import * as Icons from '@/components/ui/Icons';
+import { useLang } from '@/components/providers/LangProvider';
 
 interface TelegramLoginProps {
-  botName: string;
+  botName?: string;
   buttonSize?: 'large' | 'medium' | 'small';
   cornerRadius?: number;
   requestAccess?: boolean;
@@ -18,6 +20,20 @@ export function TelegramLoginButton({
 }: TelegramLoginProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const { login } = useAuth();
+  const { t } = useLang();
+  const [widgetLoaded, setWidgetLoaded] = useState(false);
+  const [widgetFailed, setWidgetFailed] = useState(false);
+
+  // Check if widget actually rendered an iframe
+  const checkWidgetRendered = useCallback(() => {
+    if (!containerRef.current) return;
+    const iframe = containerRef.current.querySelector('iframe');
+    if (iframe) {
+      setWidgetLoaded(true);
+    } else {
+      setWidgetFailed(true);
+    }
+  }, []);
 
   useEffect(() => {
     // Define the global callback
@@ -43,10 +59,67 @@ export function TelegramLoginButton({
       containerRef.current.appendChild(script);
     }
 
+    // Check if widget rendered after timeout
+    const timer = setTimeout(checkWidgetRendered, 3000);
+
     return () => {
+      clearTimeout(timer);
       delete (window as unknown as Record<string, unknown>).onTelegramAuth;
     };
-  }, [botName, buttonSize, cornerRadius, requestAccess, login]);
+  }, [botName, buttonSize, cornerRadius, requestAccess, login, checkWidgetRendered]);
 
-  return <div ref={containerRef} id="telegram-login-widget" />;
+  // Fallback: redirect to Telegram bot directly for login
+  const handleFallbackLogin = () => {
+    // Open bot with start command that includes origin for redirect
+    const origin = window.location.origin;
+    window.open(
+      `https://t.me/${botName}?start=login_${encodeURIComponent(origin)}`,
+      '_blank'
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', width: '100%' }}>
+      {/* Telegram Widget Container */}
+      <div ref={containerRef} id="telegram-login-widget" style={{ minHeight: 40 }} />
+
+      {/* Fallback button — always show as alternative */}
+      <button
+        onClick={handleFallbackLogin}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '10px',
+          width: '100%',
+          maxWidth: '320px',
+          padding: '12px 24px',
+          background: 'linear-gradient(135deg, #0088cc, #0099e6)',
+          color: 'white',
+          border: 'none',
+          borderRadius: `${cornerRadius}px`,
+          fontSize: '15px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          boxShadow: '0 4px 14px rgba(0, 136, 204, 0.3)',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 136, 204, 0.4)'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 136, 204, 0.3)'; }}
+        id="telegram-login-fallback"
+      >
+        <Icons.MessageCircle size={20} />
+        {t("Telegram orqali kirish", "Войти через Telegram")}
+      </button>
+
+      {widgetFailed && (
+        <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.4 }}>
+          {t(
+            "Telegram widget yuklanmadi. Yuqoridagi tugmani bosing — bot orqali kirasiz.",
+            "Виджет Telegram не загрузился. Нажмите кнопку выше — войдёте через бот."
+          )}
+        </p>
+      )}
+    </div>
+  );
 }
