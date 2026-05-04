@@ -158,7 +158,59 @@ async function main() {
   }
   console.log(`✅ ${seedProducts.length} seeds`);
 
-  const total = microProducts.length + babyProducts.length + saladProducts.length + flowerProducts.length + seedProducts.length;
+  // ===== EQUIPMENT =====
+  const equipProducts = [
+    { uz: "LED Fitolyampa 50W", ru: 'LED Фитолампа 50W', slug: 'led-fito-50w', price: 280000, cost: 180000, desc: "50W to'liq spektrli o'simliklar uchun LED lampa" },
+    { uz: "LED Fitolyampa 100W", ru: 'LED Фитолампа 100W', slug: 'led-fito-100w', price: 450000, cost: 300000, desc: "100W professional fitolyampa. Katta maydon uchun" },
+    { uz: "O'stirish javoni (3 qavat)", ru: 'Стеллаж для выращивания (3 яруса)', slug: 'javon-3-qavat', price: 850000, cost: 500000, desc: "3 qavatli metall javon. O'lcham: 120x50x150 sm" },
+    { uz: "O'stirish javoni (5 qavat)", ru: 'Стеллаж для выращивания (5 ярусов)', slug: 'javon-5-qavat', price: 1200000, cost: 750000, desc: "5 qavatli professional javon. O'lcham: 120x60x200 sm" },
+    { uz: "Avtomatik sug'orish taymer", ru: 'Автоматический таймер полива', slug: 'avto-taymer', price: 120000, cost: 60000, desc: "Raqamli taymer, 24 soat rejim. Sug'orishni avtomatlashtiradi" },
+    { uz: "Substrat (kokos tolasi 5L)", ru: 'Субстрат (кокосовое волокно 5Л)', slug: 'substrat-kokos-5l', price: 35000, cost: 15000, desc: "Sifatli kokos tolasi substrat. 5 litr paket" },
+    { uz: "Substrat (kokos tolasi 10L)", ru: 'Субстрат (кокосовое волокно 10Л)', slug: 'substrat-kokos-10l', price: 60000, cost: 25000, desc: "Sifatli kokos tolasi substrat. 10 litr paket" },
+    { uz: "O'stirish patnis (50x25 sm)", ru: 'Лоток для выращивания (50x25 см)', slug: 'patnis-50x25', price: 25000, cost: 10000, desc: "Plastik o'stirish patnisi. Qayta ishlatiladi" },
+    { uz: "Purkovchi (spray) 500ml", ru: 'Распылитель 500мл', slug: 'spray-500ml', price: 15000, cost: 5000, desc: "Qo'l purkagich. Muntazam suv berish uchun" },
+    { uz: "Flora Series 3 qism", ru: 'Flora Series 3 компонента', slug: 'flora-series-3', price: 150000, cost: 90000, desc: "3 komponentli ozuqa eritmasi. Professional o'stirish uchun" },
+  ];
+
+  for (const p of equipProducts) {
+    await prisma.product.upsert({
+      where: { slug: p.slug },
+      update: { price: p.price, costPrice: p.cost },
+      create: {
+        nameUz: p.uz, nameRu: p.ru, slug: p.slug,
+        descriptionUz: p.desc, price: p.price, oldPrice: Math.round(p.price * 1.2), costPrice: p.cost,
+        categoryId: equip.id, stock: 15, brand: 'Microgreen UZ',
+        isFeatured: true, isOnSale: false, images: [],
+      },
+    });
+  }
+  console.log(`✅ ${equipProducts.length} equipment`);
+
+  // ===== SETS (starter kits) =====
+  const setProducts = [
+    { uz: "Boshlang'ich to'plam", ru: 'Стартовый набор', slug: 'starter-kit', price: 150000, cost: 80000, desc: "3 turdagi urug' + substrat + patnis + qo'llanma. Yangi boshlovchilar uchun ideal" },
+    { uz: "Professional to'plam", ru: 'Профессиональный набор', slug: 'pro-kit', price: 450000, cost: 250000, desc: "10 turdagi urug' + substrat + 2ta patnis + LED lampa + qo'llanma" },
+    { uz: "Oilaviy to'plam", ru: 'Семейный набор', slug: 'family-kit', price: 250000, cost: 130000, desc: "5 turdagi urug' + substrat + 2ta patnis + bolalar uchun qo'llanma" },
+    { uz: "HoReCa to'plam", ru: 'HoReCa набор', slug: 'horeca-kit', price: 750000, cost: 400000, desc: "Restoranlar uchun: 8 tur urug' + javon + substrat + lampa. Doimiy yetkazib berish bilan" },
+    { uz: "Sovg'a to'plam Premium", ru: 'Подарочный набор Премиум', slug: 'gift-premium', price: 350000, cost: 180000, desc: "Chiroyli qutida: 5 tur urug' + mini patnis + substrat + sovg'a karta" },
+    { uz: "Vitgrass to'plam", ru: 'Набор Витграсс', slug: 'vitgrass-kit', price: 120000, cost: 50000, desc: "Bug'doy urug'i + substrat + patnis + sharbat tayyorlash retseptlari" },
+  ];
+
+  for (const p of setProducts) {
+    await prisma.product.upsert({
+      where: { slug: p.slug },
+      update: { price: p.price, costPrice: p.cost },
+      create: {
+        nameUz: p.uz, nameRu: p.ru, slug: p.slug,
+        descriptionUz: p.desc, price: p.price, oldPrice: Math.round(p.price * 1.25), costPrice: p.cost,
+        categoryId: sets.id, stock: 20, brand: 'Microgreen UZ',
+        isFeatured: true, isOnSale: true, images: [],
+      },
+    });
+  }
+  console.log(`✅ ${setProducts.length} sets`);
+
+  const total = microProducts.length + babyProducts.length + saladProducts.length + flowerProducts.length + seedProducts.length + equipProducts.length + setProducts.length;
   console.log(`\n🎉 Total: ${total} products seeded!`);
 }
 

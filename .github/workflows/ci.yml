@@ -95,7 +95,9 @@ jobs:
 
             # ──── Phase 3: Database sync + seed ────
             cd packages/database && rm -f .env && ln -s ../../.env .env && npx prisma generate && npx prisma db push --skip-generate --accept-data-loss
-            cd /home/ubuntu/MICROGREnUzbekistan/packages/database && npx tsx prisma/seed.ts || echo "Seed skipped"
+
+            # Seed products (upsert — safe to re-run)
+            cd /home/ubuntu/MICROGREnUzbekistan/packages/database && node prisma/seed.js
 
             # ──── Phase 4: Build with memory limit ────
             cd /home/ubuntu/MICROGREnUzbekistan
