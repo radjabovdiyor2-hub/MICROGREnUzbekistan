@@ -314,10 +314,10 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         @media (max-width: 768px) {
           .pos-mobile-toggle { display: flex !important; }
           .pos-mobile-fab { display: block !important; }
-          .pos-grid { grid-template-columns: 1fr !important; gap: 0 !important; height: auto !important; }
+          .pos-grid { grid-template-columns: 1fr !important; gap: 0 !important; }
           .pos-products { display: ${showCart ? 'none' : 'block'} !important; }
           .pos-cart { display: ${showCart ? 'flex' : 'none'} !important; }
-          .pos-product-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 5px !important; max-height: none !important; }
+          .pos-product-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 5px !important; max-height: calc(100vh - 380px) !important; }
           .pos-product-card { padding: 8px !important; gap: 4px !important; }
           .pos-product-thumb { width: 36px !important; height: 36px !important; border-radius: 8px !important; }
           .pos-product-name { font-size: 12px !important; white-space: normal !important; display: -webkit-box !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important; overflow: hidden !important; line-height: 1.3 !important; }
@@ -335,8 +335,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
       `}</style>
 
       <div className="pos-grid" style={{
-        display: 'grid', gridTemplateColumns: '1fr 400px', gap: 'var(--space-6)',
-        height: 'calc(100vh - 120px)',
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)',
+        minHeight: 'calc(100vh - 200px)',
       }}>
         {/* LEFT: Product search */}
         <div className="pos-products">
@@ -398,9 +398,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           })()}
 
           <div className="pos-product-grid" style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px',
-            maxHeight: 'calc(100vh - 260px)', overflowY: 'auto',
-            borderRadius: '14px', paddingRight: '4px', paddingBottom: cart.length > 0 ? '70px' : '0',
+            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px',
+            maxHeight: 'calc(100vh - 370px)', overflowY: 'auto',
+            borderRadius: '14px', paddingRight: '2px', paddingBottom: cart.length > 0 ? '70px' : '0',
           }}>
             {loading ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
