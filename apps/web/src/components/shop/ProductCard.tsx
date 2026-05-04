@@ -2,6 +2,7 @@
 
 import { formatPrice, getDiscountPercent } from '@repo/shared';
 import Image from 'next/image';
+import Link from 'next/link';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
@@ -48,6 +49,7 @@ export function ProductCard({ product }: { product: Product }) {
     cart.addItem({
       id: product.id,
       nameUz: product.nameUz,
+      nameRu: product.nameRu,
       price: product.price,
       oldPrice: product.oldPrice,
       slug: product.slug,
@@ -72,7 +74,7 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <a href={`/product/${product.id}`} className="product-card card" id={`product-${product.id}`}
+    <Link href={`/product/${product.id}`} className="product-card card" id={`product-${product.id}`}
       style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
 
       {/* Discount Badge */}
@@ -150,6 +152,6 @@ export function ProductCard({ product }: { product: Product }) {
           <Icons.ShoppingCart size={14} /> {t('product.add_to_cart')}
         </button>
       </div>
-    </a>
+    </Link>
   );
 }

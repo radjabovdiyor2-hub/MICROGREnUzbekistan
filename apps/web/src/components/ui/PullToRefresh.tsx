@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, ReactNode } from 'react';
+import { useState, useRef, useEffect, useCallback, ReactNode } from 'react';
 import * as Icons from '@/components/ui/Icons';
 import { triggerHaptic } from '@/utils/haptic';
 
@@ -13,65 +13,67 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
   const [pullY, setPullY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startY = useRef<number | null>(null);
-  const scrollContainer = useRef<HTMLDivElement>(null);
+  const pullYRef = useRef(0);
+  const isRefreshingRef = useRef(false);
+  const onRefreshRef = useRef(onRefresh);
   const PULL_THRESHOLD = 80;
 
-  useEffect(() => {
-    const handleTouchStart = (e: TouchEvent) => {
-      // Only allow pull-to-refresh if we are at the very top of the page
-      if (window.scrollY <= 0) {
-        startY.current = e.touches[0].clientY;
-      } else {
-        startY.current = null;
-      }
-    };
+  // Keep refs in sync with state (avoids stale closures)
+  pullYRef.current = pullY;
+  isRefreshingRef.current = isRefreshing;
+  onRefreshRef.current = onRefresh;
 
-    const handleTouchMove = (e: TouchEvent) => {
-      if (startY.current === null || isRefreshing) return;
-      
-      const y = e.touches[0].clientY;
-      const dy = y - startY.current;
-      
-      // Only pull down
-      if (dy > 0 && window.scrollY <= 0) {
-        // Add resistance
-        const pulled = Math.min(dy * 0.4, PULL_THRESHOLD + 20);
-        setPullY(pulled);
-        
-        // Vibrate slightly when threshold is reached
-        if (pulled >= PULL_THRESHOLD && pullY < PULL_THRESHOLD) {
-          triggerHaptic('medium');
-        }
-      }
-    };
-
-    const handleTouchEnd = async () => {
-      if (startY.current === null) return;
-      
-      if (pullY >= PULL_THRESHOLD && !isRefreshing) {
-        setIsRefreshing(true);
-        setPullY(PULL_THRESHOLD); // Hold it there
-        triggerHaptic('success');
-        
-        if (onRefresh) {
-          await onRefresh();
-        } else {
-          // Default refresh action
-          await new Promise(r => setTimeout(r, 1000));
-          window.location.reload();
-        }
-        
-        setIsRefreshing(false);
-        setPullY(0);
-      } else {
-        // Snap back
-        setPullY(0);
-      }
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (window.scrollY <= 0) {
+      startY.current = e.touches[0].clientY;
+    } else {
       startY.current = null;
-    };
+    }
+  }, []);
 
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (startY.current === null || isRefreshingRef.current) return;
+
+    const y = e.touches[0].clientY;
+    const dy = y - startY.current;
+
+    if (dy > 0 && window.scrollY <= 0) {
+      const pulled = Math.min(dy * 0.4, PULL_THRESHOLD + 20);
+      setPullY(pulled);
+
+      if (pulled >= PULL_THRESHOLD && pullYRef.current < PULL_THRESHOLD) {
+        triggerHaptic('medium');
+      }
+    }
+  }, [PULL_THRESHOLD]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (startY.current === null) return;
+
+    if (pullYRef.current >= PULL_THRESHOLD && !isRefreshingRef.current) {
+      setIsRefreshing(true);
+      setPullY(PULL_THRESHOLD);
+      triggerHaptic('success');
+
+      if (onRefreshRef.current) {
+        await onRefreshRef.current();
+      } else {
+        await new Promise(r => setTimeout(r, 1000));
+        window.location.reload();
+      }
+
+      setIsRefreshing(false);
+      setPullY(0);
+    } else {
+      setPullY(0);
+    }
+    startY.current = null;
+  }, [PULL_THRESHOLD]);
+
+  // Register event listeners only ONCE (stable callbacks via refs)
+  useEffect(() => {
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
     window.addEventListener('touchend', handleTouchEnd);
 
     return () => {
@@ -79,10 +81,10 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [pullY, isRefreshing, onRefresh]);
+  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
 
   return (
-    <div ref={scrollContainer} style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
+    <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
       {/* Pull indicator */}
       <div style={{
         position: 'absolute',
@@ -97,6 +99,7 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
         transition: isRefreshing || pullY === 0 ? 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
         zIndex: 10,
         opacity: pullY / PULL_THRESHOLD,
+        pointerEvents: 'none',
       }}>
         <div style={{
           width: 40, height: 40, borderRadius: '50%',

@@ -205,6 +205,8 @@ html {
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* Eliminates 300ms tap delay on all mobile browsers */
+  touch-action: manipulation;
 }
 
 body {
@@ -404,12 +406,15 @@ input, textarea, select {
   border: 1px solid var(--border);
   box-shadow: var(--shadow-card);
   overflow: hidden;
-  transition: all var(--transition-fast);
+  transition: box-shadow var(--transition-fast);
 }
 
-.card:hover {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
+/* Only apply hover lift on devices with hover support (not touchscreens) */
+@media (hover: hover) {
+  .card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
 }
 
 .card-body {
@@ -2243,9 +2248,15 @@ main, [data-page] {
   .btn,
   .product-card,
   .category-pill,
-  .bottom-nav__item {
+  .bottom-nav__item,
+  a {
     -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
+  }
+
+  /* Disable hover transforms on touch — they displace tap targets */
+  .card:hover,
+  .product-card:hover {
+    transform: none;
   }
 
   .product-card:active {

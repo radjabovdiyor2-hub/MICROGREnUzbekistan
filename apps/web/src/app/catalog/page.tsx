@@ -95,8 +95,13 @@ function CatalogContent() {
     fetchProducts(1, false);
   }, [fetchProducts]);
 
-  // Sync URL params on navigation
+  // Sync URL params on navigation (skip first render to avoid double-fetch)
+  const isMounted = useRef(false);
   useEffect(() => {
+    if (!isMounted.current) {
+      isMounted.current = true;
+      return;
+    }
     const urlSearch = searchParams.get('search') || '';
     const urlCat = searchParams.get('category') || '';
     if (urlSearch !== search) setSearch(urlSearch);

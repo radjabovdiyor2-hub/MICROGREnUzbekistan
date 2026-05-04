@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
@@ -104,9 +105,9 @@ export default function CartPage() {
             <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)' }}>
               {t("Katalogdan mahsulotlarni qo'shing", "Добавьте товары из каталога")}
             </p>
-            <a href="/catalog" className="btn btn-primary btn-lg btn-magnetic ripple" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+            <Link href="/catalog" className="btn btn-primary btn-lg btn-magnetic ripple" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
               <Icons.Folder size={20} /> {t("Katalogga o'tish", "Перейти в каталог")}
-            </a>
+            </Link>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-6)', alignItems: 'start' }}>
@@ -366,12 +367,12 @@ export default function CartPage() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-        <a href="/" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+        <Link href="/" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
           <Icons.Home size={20} /> {t("Bosh sahifa", "Главная")}
-        </a>
-        <a href="/catalog" className="btn btn-outline btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+        </Link>
+        <Link href="/catalog" className="btn btn-outline btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
           <Icons.Folder size={20} /> {t("Yana xarid qilish", "Вернуться к покупкам")}
-        </a>
+        </Link>
         <a href="tel:+998949999599" className="btn btn-ghost" style={{ fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
           <Icons.Phone size={16} /> {t("Aloqa: +998 94 999 95 99", "Связь: +998 94 999 95 99")}
         </a>

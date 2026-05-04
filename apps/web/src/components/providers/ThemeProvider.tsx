@@ -28,7 +28,9 @@ function getInitialTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  // Always start with 'light' to match SSR. The inline <script> in layout.tsx
+  // handles the initial data-theme attribute before React hydrates.
+  const [theme, setTheme] = useState<Theme>('light');
   const [mounted, setMounted] = useState(false);
 
   // Apply theme to DOM
@@ -37,15 +39,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Read the actual theme from localStorage or system preference
+    const stored = localStorage.getItem('Microgreen-theme') as Theme | null;
+    const actualTheme = stored || getSystemTheme();
+    setTheme(actualTheme);
+    applyTheme(actualTheme);
     setMounted(true);
-    applyTheme(theme);
 
     // Listen for OS-level theme changes (when user hasn't manually chosen)
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleSystemChange = (e: MediaQueryListEvent) => {
-      const stored = localStorage.getItem('Microgreen-theme');
+      const s = localStorage.getItem('Microgreen-theme');
       // Only auto-switch if user hasn't manually set a preference
-      if (!stored) {
+      if (!s) {
         const sysTheme = e.matches ? 'dark' : 'light';
         setTheme(sysTheme);
         applyTheme(sysTheme);
@@ -54,7 +60,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     mediaQuery.addEventListener('change', handleSystemChange);
     return () => mediaQuery.removeEventListener('change', handleSystemChange);
-  }, [applyTheme, theme]);
+  }, [applyTheme]);
 
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light';

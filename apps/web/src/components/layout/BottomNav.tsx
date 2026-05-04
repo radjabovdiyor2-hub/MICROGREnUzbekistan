@@ -21,13 +21,20 @@ export function BottomNav() {
     { href: '/profile', icon: <Icons.User size={22} />, label: t('nav.profile'), id: 'nav-profile' },
   ];
 
+  // Better active check: exact for home, startsWith for others
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    return pathname?.startsWith(href) ?? false;
+  };
+
   return (
     <nav className="bottom-nav" id="bottom-nav">
       {NAV_ITEMS.map((item) => (
         <Link
           key={item.href}
           href={item.href}
-          className={`bottom-nav__item ${pathname === item.href ? 'active' : ''}`}
+          prefetch={true}
+          className={`bottom-nav__item ${isActive(item.href) ? 'active' : ''}`}
           id={item.id}
         >
           <span className="bottom-nav__icon-wrap">
