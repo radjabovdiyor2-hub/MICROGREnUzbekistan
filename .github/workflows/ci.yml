@@ -99,6 +99,11 @@ jobs:
             # ──── Phase 4: Build with memory limit ────
             cd /home/ubuntu/MICROGREnUzbekistan
             export NODE_OPTIONS="--max-old-space-size=1024"
+
+            # CRITICAL: Remove uploads symlink before build — Turbopack crashes on external symlinks
+            rm -rf apps/web/public/uploads 2>/dev/null; true
+            rm -rf public/uploads 2>/dev/null; true
+
             npx turbo run build --filter=web
 
             # ──── Phase 5: Copy standalone assets + persistent uploads ────
