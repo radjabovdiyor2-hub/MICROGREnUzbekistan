@@ -120,7 +120,7 @@ export function AdminSuppliers() {
           <p>Yetkazuvchilar yo&apos;q</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {suppliers.map(s => (
             <div key={s.id} className="card" style={{ padding: 'var(--space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>

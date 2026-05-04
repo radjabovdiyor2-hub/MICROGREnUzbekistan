@@ -112,7 +112,7 @@ export function AdminEmployees() {
           <p>Xodimlar yo&apos;q. Yangi xodim qo&apos;shing.</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {employees.map(emp => (
             <div key={emp.id} className="card" style={{ padding: 'var(--space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>

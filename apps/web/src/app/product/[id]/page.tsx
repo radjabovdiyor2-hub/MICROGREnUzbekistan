@@ -137,7 +137,7 @@ export default function ProductPage() {
       </div>
 
       {/* Main Content */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-8)', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-8)', alignItems: 'start' }}>
         {/* Image */}
         <div className="card" style={{
           aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
