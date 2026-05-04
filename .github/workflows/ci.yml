@@ -93,8 +93,9 @@ jobs:
             # ──── Phase 2: Install dependencies ────
             npm install --legacy-peer-deps
 
-            # ──── Phase 3: Database sync ────
+            # ──── Phase 3: Database sync + seed ────
             cd packages/database && rm -f .env && ln -s ../../.env .env && npx prisma generate && npx prisma db push --skip-generate --accept-data-loss
+            cd /home/ubuntu/MICROGREnUzbekistan/packages/database && npx tsx prisma/seed.ts || echo "Seed skipped"
 
             # ──── Phase 4: Build with memory limit ────
             cd /home/ubuntu/MICROGREnUzbekistan
