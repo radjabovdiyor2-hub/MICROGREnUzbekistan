@@ -106,18 +106,28 @@ jobs:
 
             # Create persistent uploads directory (survives deploys)
             mkdir -p /home/ubuntu/microgreen-uploads
+            chmod 755 /home/ubuntu/microgreen-uploads
 
-            # Symlink uploads into public before copying
-            rm -rf public/uploads 2>/dev/null; true
-            ln -sf /home/ubuntu/microgreen-uploads public/uploads
-
-            # Copy public + static to standalone
+            # Copy public + static to standalone FIRST
             cp -r public .next/standalone/apps/web/public 2>/dev/null; true
             cp -r .next/static .next/standalone/apps/web/.next/static 2>/dev/null; true
 
-            # Ensure uploads symlink also exists inside standalone
+            # Symlink uploads in standalone (where Next.js serves static files)
             rm -rf .next/standalone/apps/web/public/uploads 2>/dev/null; true
             ln -sf /home/ubuntu/microgreen-uploads .next/standalone/apps/web/public/uploads
+
+            # Also symlink at project root public (where process.cwd() points)
+            cd /home/ubuntu/MICROGREnUzbekistan
+            mkdir -p public
+            rm -rf public/uploads 2>/dev/null; true
+            ln -sf /home/ubuntu/microgreen-uploads public/uploads
+
+            # Verify symlinks
+            echo "=== UPLOAD SYMLINKS ==="
+            ls -la apps/web/.next/standalone/apps/web/public/uploads
+            ls -la public/uploads
+            echo "=== FILES IN UPLOADS ==="
+            ls -la /home/ubuntu/microgreen-uploads/ | head -10
 
             # ──── Phase 6: Restart PM2 ────
             cd /home/ubuntu/MICROGREnUzbekistan

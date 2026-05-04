@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, access } from 'fs/promises';
+import { writeFile, mkdir, readlink, stat } from 'fs/promises';
 import path from 'path';
 
 // ==========================================
@@ -7,28 +7,41 @@ import path from 'path';
 // Supports large phone photos up to 50MB
 // Validates by file extension (not MIME — mobile browsers unreliable)
 //
-// PRODUCTION NOTE:
-// In standalone mode, uploads go to /home/ubuntu/microgreen-uploads/
-// which is symlinked to public/uploads/ for serving.
-// This ensures uploads survive deployments.
+// STANDALONE FIX:
+// PM2 cwd = /home/ubuntu/MICROGREnUzbekistan
+// Standalone serves from: apps/web/.next/standalone/apps/web/public/
+// Upload writes to the PERSISTENT dir (/home/ubuntu/microgreen-uploads)
+// which is symlinked into standalone/public/uploads/
 // ==========================================
 
 export const runtime = 'nodejs';
 
-// Resolve the persistent uploads directory
+// Find the correct uploads directory for the current environment
 async function getUploadsDir(): Promise<string> {
-  // Production: Use persistent directory outside the build
+  // 1. Try persistent uploads directory (production)
   const persistentDir = '/home/ubuntu/microgreen-uploads';
   try {
-    await access(persistentDir);
-    await mkdir(persistentDir, { recursive: true });
-    return persistentDir;
+    const s = await stat(persistentDir);
+    if (s.isDirectory()) {
+      return persistentDir;
+    }
   } catch {
-    // Fallback: Local development — use public/uploads
-    const localDir = path.join(process.cwd(), 'public', 'uploads');
-    await mkdir(localDir, { recursive: true });
-    return localDir;
+    // Not on production server
   }
+
+  // 2. Try standalone public/uploads (standalone mode)
+  const standaloneDir = path.resolve(process.cwd(), 'apps/web/.next/standalone/apps/web/public/uploads');
+  try {
+    await mkdir(standaloneDir, { recursive: true });
+    return standaloneDir;
+  } catch {
+    // Not available
+  }
+
+  // 3. Fallback: local development — use public/uploads relative to this file's context
+  const localDir = path.join(process.cwd(), 'public', 'uploads');
+  await mkdir(localDir, { recursive: true });
+  return localDir;
 }
 
 export async function POST(request: NextRequest) {
@@ -76,7 +89,7 @@ export async function POST(request: NextRequest) {
     const rand = Math.random().toString(36).substring(2, 6);
     const filename = `product-${timestamp}-${rand}.${safeExt}`;
 
-    // Get the uploads directory (persistent on production, local on dev)
+    // Get the correct uploads directory
     const uploadsDir = await getUploadsDir();
 
     // Write file
@@ -87,6 +100,8 @@ export async function POST(request: NextRequest) {
 
     const url = `/uploads/${filename}`;
     const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+
+    console.log(`[Upload] Saved: ${filepath} (${sizeMB}MB) → ${url}`);
 
     return NextResponse.json({
       success: true,
