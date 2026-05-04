@@ -14,6 +14,37 @@
   padding: 0;
 }
 
+/* === Performance: Reduce animations for users who prefer it === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* === Performance: Layout containment for sections === */
+section, main > div {
+  contain: content;
+}
+
+/* === Performance: Composited animations === */
+[style*="animation"] {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* === Performance: Hero orbs — animate only on desktop === */
+.hero-orb {
+  will-change: auto;
+}
+@media (min-width: 769px) {
+  .hero-orb {
+    animation: float-orb 12s ease-in-out infinite;
+    will-change: transform;
+  }
+}
+
 /* === Light Theme (Default) === */
 :root,
 [data-theme="light"] {

@@ -374,6 +374,11 @@ export default function RootLayout({
   return (
     <html lang="uz" suppressHydrationWarning>
       <head>
+        {/* Performance: Preconnect to critical origins */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Performance: Preload hero image for fast LCP */}
+        <link rel="preload" as="image" href="/hero-microgreens.webp" type="image/webp" fetchPriority="high" />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <JsonLd />

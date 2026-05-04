@@ -23,24 +23,20 @@ export function HeroSection() {
       overflow: 'hidden',
       minHeight: '500px',
     }}>
-      {/* Animated background orbs */}
-      <div style={{
+      {/* Animated background orbs — hidden on mobile for performance */}
+      <div className="hero-orb" style={{
         position: 'absolute', top: '-15%', right: '-8%',
         width: '45vw', height: '45vw', maxWidth: '500px', maxHeight: '500px',
         background: 'radial-gradient(circle, rgba(var(--brand-primary-rgb), 0.08) 0%, transparent 65%)',
-        zIndex: 0, animation: 'float-orb 12s ease-in-out infinite',
+        zIndex: 0,
+        contain: 'strict',
       }} />
-      <div style={{
+      <div className="hero-orb" style={{
         position: 'absolute', bottom: '-25%', left: '-8%',
         width: '35vw', height: '35vw', maxWidth: '350px', maxHeight: '350px',
         background: 'radial-gradient(circle, rgba(var(--brand-accent-rgb), 0.06) 0%, transparent 65%)',
-        zIndex: 0, animation: 'float-orb 10s ease-in-out infinite reverse',
-      }} />
-      <div style={{
-        position: 'absolute', top: '50%', left: '55%',
-        width: '20vw', height: '20vw', maxWidth: '200px', maxHeight: '200px',
-        background: 'radial-gradient(circle, rgba(var(--brand-primary-rgb), 0.04) 0%, transparent 60%)',
-        zIndex: 0, animation: 'float-up-down 8s ease-in-out infinite',
+        zIndex: 0,
+        contain: 'strict',
       }} />
 
       <div className="container" style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '40px', flexWrap: 'wrap' }}>
@@ -162,12 +158,14 @@ export function HeroSection() {
           onMouseLeave={(e) => { e.currentTarget.style.transform = 'rotateY(-5deg) rotateX(5deg) scale(1)'; }}
           >
             <Image 
-              src="/hero-microgreens.png" 
-              alt="Fresh Microgreens Farm" 
+              src="/hero-microgreens.webp" 
+              alt="Fresh Microgreens Farm — Microgreen Uzbekistan" 
               fill 
               style={{ objectFit: 'cover' }}
               priority
-              sizes="(max-width: 768px) 100vw, 50vw"
+              fetchPriority="high"
+              sizes="(max-width: 768px) 100vw, 500px"
+              quality={80}
             />
             {/* Glossy overlay */}
             <div style={{
