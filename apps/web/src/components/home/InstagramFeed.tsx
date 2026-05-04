@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 
@@ -47,53 +48,24 @@ const GROW_STAGES = [
 const INSTAGRAM_HANDLE = 'microgreenuzbekistan';
 const INSTAGRAM_URL = `https://www.instagram.com/${INSTAGRAM_HANDLE}`;
 
-// Simulated Instagram posts — real content descriptions
-const INSTA_POSTS = [
-  {
-    captionUz: 'Bugungi hosilimiz — yangi kesilgan rukkola mikroko\'kati',
-    captionRu: 'Сегодняшний урожай — свежесрезанная микрозелень руккола',
-    likes: 124,
-    type: 'harvest',
-  },
-  {
-    captionUz: 'Qizil karamning 3-kunlik o\'sish jarayoni',
-    captionRu: 'Процесс роста красной капусты на 3-й день',
-    likes: 89,
-    type: 'growing',
-  },
-  {
-    captionUz: 'Mijozlarimiz uchun yangi partiya tayyorlanmoqda',
-    captionRu: 'Готовим новую партию для наших клиентов',
-    likes: 156,
-    type: 'prep',
-  },
-  {
-    captionUz: 'Brokkoli mikroko\'kati — vitaminlar xazinasi',
-    captionRu: 'Микрозелень брокколи — кладезь витаминов',
-    likes: 201,
-    type: 'product',
-  },
-  {
-    captionUz: 'Quyosh nurida o\'sayotgan kungaboqar mikroko\'kati',
-    captionRu: 'Микрозелень подсолнечника растёт на солнце',
-    likes: 167,
-    type: 'growing',
-  },
-  {
-    captionUz: 'Restoranga yetkazib berish — HoReCa xizmati',
-    captionRu: 'Доставка в ресторан — сервис HoReCa',
-    likes: 93,
-    type: 'delivery',
-  },
+// Fallback mock posts when API is not configured
+const FALLBACK_POSTS = [
+  { id: '1', caption: 'Bugungi hosilimiz — yangi kesilgan rukkola 🌱', mediaUrl: '', permalink: INSTAGRAM_URL, mediaType: 'IMAGE' },
+  { id: '2', caption: 'Qizil karam 3-kunlik o\'sish jarayoni 🌿', mediaUrl: '', permalink: INSTAGRAM_URL, mediaType: 'IMAGE' },
+  { id: '3', caption: 'Mijozlarimiz uchun yangi partiya 📦', mediaUrl: '', permalink: INSTAGRAM_URL, mediaType: 'IMAGE' },
+  { id: '4', caption: 'Brokkoli mikroko\'kati — vitaminlar xazinasi 💚', mediaUrl: '', permalink: INSTAGRAM_URL, mediaType: 'IMAGE' },
+  { id: '5', caption: 'Kungaboqar mikroko\'kati quyoshda ☀️', mediaUrl: '', permalink: INSTAGRAM_URL, mediaType: 'IMAGE' },
+  { id: '6', caption: 'Restoranga HoReCa yetkazib berish 🚚', mediaUrl: '', permalink: INSTAGRAM_URL, mediaType: 'IMAGE' },
 ];
 
-const POST_COLORS: Record<string, string> = {
-  harvest: '#10B981',
-  growing: '#3B82F6',
-  prep: '#8B5CF6',
-  product: '#F59E0B',
-  delivery: '#EC4899',
-};
+interface InstaPost {
+  id: string;
+  caption: string;
+  mediaUrl: string;
+  mediaType: string;
+  permalink: string;
+  timestamp?: string;
+}
 
 function StageIcon({ type, size = 24 }: { type: string; size?: number }) {
   if (type === 'seed') return <Icons.Droplet size={size} />;
@@ -103,9 +75,37 @@ function StageIcon({ type, size = 24 }: { type: string; size?: number }) {
   return <Icons.Leaf size={size} />;
 }
 
+// Color palette for fallback posts without images
+const FALLBACK_COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4'];
+
 export function InstagramFeed() {
   const { t } = useLang();
-  const [activeStage, setActiveStage] = useState(3); // default to harvest
+  const [activeStage, setActiveStage] = useState(3);
+  const [posts, setPosts] = useState<InstaPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isReal, setIsReal] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/instagram')
+      .then(r => r.json())
+      .then(data => {
+        if (!mounted) return;
+        if (data.posts && data.posts.length > 0) {
+          setPosts(data.posts.slice(0, 9));
+          setIsReal(true);
+        } else {
+          setPosts(FALLBACK_POSTS);
+        }
+      })
+      .catch(() => {
+        if (mounted) setPosts(FALLBACK_POSTS);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <section style={{
@@ -225,69 +225,153 @@ export function InstagramFeed() {
           </div>
         </div>
 
-        {/* Instagram Posts Grid */}
+        {/* Instagram Posts Grid — Real or Fallback */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px',
-          borderRadius: 'var(--radius-xl)', overflow: 'hidden',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '4px',
+          borderRadius: 'var(--radius-xl)',
+          overflow: 'hidden',
         }}>
-          {INSTA_POSTS.map((post, i) => (
-            <a key={i} href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"
-              style={{
-                aspectRatio: '1', position: 'relative', overflow: 'hidden',
-                background: `linear-gradient(135deg, ${POST_COLORS[post.type]}18, ${POST_COLORS[post.type]}08)`,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                textDecoration: 'none', color: 'var(--text-primary)',
-                border: '1px solid var(--border)',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none'; }}
-            >
-              {/* Icon placeholder */}
-              <div style={{
-                width: 44, height: 44, borderRadius: 'var(--radius-full)',
-                background: `${POST_COLORS[post.type]}20`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: POST_COLORS[post.type], marginBottom: '8px',
-              }}>
-                {post.type === 'harvest' && <Icons.CheckCircle size={22} />}
-                {post.type === 'growing' && <Icons.Leaf size={22} />}
-                {post.type === 'prep' && <Icons.Clock size={22} />}
-                {post.type === 'product' && <Icons.Star size={22} />}
-                {post.type === 'delivery' && <Icons.Truck size={22} />}
-              </div>
-              <div style={{
-                fontSize: '11px', fontWeight: 600, textAlign: 'center',
-                padding: '0 8px', color: 'var(--text-secondary)',
-                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                overflow: 'hidden', lineHeight: 1.4,
-              }}>
-                {t(post.captionUz, post.captionRu)}
-              </div>
-              {/* Likes */}
-              <div style={{
-                position: 'absolute', bottom: 6, right: 8,
-                fontSize: '10px', color: 'var(--text-muted)',
-                display: 'flex', alignItems: 'center', gap: '3px',
-              }}>
-                <Icons.Heart size={10} /> {post.likes}
-              </div>
-              {/* Instagram overlay on hover */}
-              <div style={{
-                position: 'absolute', top: 6, left: 6,
-                fontSize: '9px', color: POST_COLORS[post.type],
-                fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px',
-              }}>
-                <Icons.Instagram size={12} />
-              </div>
-            </a>
-          ))}
+          {loading ? (
+            // Skeleton loading
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="skeleton" style={{ aspectRatio: '1' }} />
+            ))
+          ) : (
+            posts.slice(0, 9).map((post, i) => (
+              <a
+                key={post.id}
+                href={post.permalink || INSTAGRAM_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  aspectRatio: '1',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  display: 'block',
+                  background: post.mediaUrl
+                    ? 'var(--bg-tertiary)'
+                    : `linear-gradient(135deg, ${FALLBACK_COLORS[i % FALLBACK_COLORS.length]}18, ${FALLBACK_COLORS[i % FALLBACK_COLORS.length]}08)`,
+                  border: '1px solid var(--border)',
+                }}
+              >
+                {/* Real Instagram Image */}
+                {post.mediaUrl ? (
+                  <Image
+                    src={post.mediaUrl}
+                    alt={post.caption?.slice(0, 100) || 'Instagram post'}
+                    fill
+                    style={{ objectFit: 'cover', transition: 'transform 0.3s ease' }}
+                    sizes="(max-width: 768px) 33vw, 200px"
+                    unoptimized // Instagram CDN handles optimization
+                    onError={(e) => {
+                      // Hide broken images
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  // Fallback — icon + caption
+                  <div style={{
+                    width: '100%', height: '100%',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    padding: '12px',
+                  }}>
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 'var(--radius-full)',
+                      background: `${FALLBACK_COLORS[i % FALLBACK_COLORS.length]}20`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: FALLBACK_COLORS[i % FALLBACK_COLORS.length],
+                      marginBottom: '8px',
+                    }}>
+                      <Icons.Leaf size={22} />
+                    </div>
+                    <div style={{
+                      fontSize: '11px', fontWeight: 600, textAlign: 'center',
+                      color: 'var(--text-secondary)',
+                      display: '-webkit-box', WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      lineHeight: 1.4,
+                    }}>
+                      {post.caption}
+                    </div>
+                  </div>
+                )}
+
+                {/* Hover overlay with caption */}
+                <div className="insta-overlay" style={{
+                  position: 'absolute', inset: 0,
+                  background: 'rgba(0,0,0,0.55)',
+                  opacity: 0,
+                  transition: 'opacity 0.25s ease',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center',
+                  padding: '12px', cursor: 'pointer',
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
+                  onMouseLeave={e => { e.currentTarget.style.opacity = '0'; }}
+                >
+                  <Icons.Instagram size={24} color="white" />
+                  {post.caption && (
+                    <p style={{
+                      color: 'white', fontSize: '11px', textAlign: 'center',
+                      marginTop: '8px', lineHeight: 1.4,
+                      display: '-webkit-box', WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}>
+                      {post.caption.slice(0, 120)}
+                    </p>
+                  )}
+                </div>
+
+                {/* Video badge */}
+                {post.mediaType === 'VIDEO' && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8,
+                    background: 'rgba(0,0,0,0.5)', borderRadius: '4px',
+                    padding: '2px 6px', color: 'white', fontSize: '10px',
+                    display: 'flex', alignItems: 'center', gap: '3px',
+                  }}>
+                    <Icons.Zap size={10} /> Video
+                  </div>
+                )}
+
+                {/* Carousel badge */}
+                {post.mediaType === 'CAROUSEL_ALBUM' && (
+                  <div style={{
+                    position: 'absolute', top: 8, right: 8,
+                    background: 'rgba(0,0,0,0.5)', borderRadius: '4px',
+                    padding: '2px 6px', color: 'white', fontSize: '10px',
+                  }}>
+                    <Icons.Sparkles size={10} />
+                  </div>
+                )}
+              </a>
+            ))
+          )}
         </div>
+
+        {/* Live indicator for real API data */}
+        {isReal && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: '6px', marginTop: 'var(--space-3)',
+            fontSize: 'var(--text-xs)', color: 'var(--text-muted)',
+          }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: '#10B981',
+              animation: 'pulse 2s ease-in-out infinite',
+            }} />
+            {t('Haqiqiy Instagram postlar', 'Реальные посты из Instagram')}
+          </div>
+        )}
 
         {/* CTA Bar */}
         <div style={{
           marginTop: 'var(--space-4)', padding: 'var(--space-4)',
-          background: 'linear-gradient(135deg, #833AB420, #C13584 20, #E1306C10)',
+          background: 'linear-gradient(135deg, #833AB420, #C1358420, #E1306C10)',
           borderRadius: 'var(--radius-xl)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 'var(--space-3)',
