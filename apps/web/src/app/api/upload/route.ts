@@ -1,14 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, access } from 'fs/promises';
 import path from 'path';
 
 // ==========================================
 // Upload API — Image upload for products
 // Supports large phone photos up to 50MB
 // Validates by file extension (not MIME — mobile browsers unreliable)
+//
+// PRODUCTION NOTE:
+// In standalone mode, uploads go to /home/ubuntu/microgreen-uploads/
+// which is symlinked to public/uploads/ for serving.
+// This ensures uploads survive deployments.
 // ==========================================
 
 export const runtime = 'nodejs';
+
+// Resolve the persistent uploads directory
+async function getUploadsDir(): Promise<string> {
+  // Production: Use persistent directory outside the build
+  const persistentDir = '/home/ubuntu/microgreen-uploads';
+  try {
+    await access(persistentDir);
+    await mkdir(persistentDir, { recursive: true });
+    return persistentDir;
+  } catch {
+    // Fallback: Local development — use public/uploads
+    const localDir = path.join(process.cwd(), 'public', 'uploads');
+    await mkdir(localDir, { recursive: true });
+    return localDir;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -55,9 +76,8 @@ export async function POST(request: NextRequest) {
     const rand = Math.random().toString(36).substring(2, 6);
     const filename = `product-${timestamp}-${rand}.${safeExt}`;
 
-    // Ensure uploads directory exists
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads');
-    await mkdir(uploadsDir, { recursive: true });
+    // Get the uploads directory (persistent on production, local on dev)
+    const uploadsDir = await getUploadsDir();
 
     // Write file
     const bytes = await file.arrayBuffer();

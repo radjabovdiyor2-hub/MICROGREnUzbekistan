@@ -101,10 +101,23 @@ jobs:
             export NODE_OPTIONS="--max-old-space-size=1024"
             npx turbo run build --filter=web
 
-            # ──── Phase 5: Copy standalone assets ────
+            # ──── Phase 5: Copy standalone assets + persistent uploads ────
             cd apps/web
+
+            # Create persistent uploads directory (survives deploys)
+            mkdir -p /home/ubuntu/microgreen-uploads
+
+            # Symlink uploads into public before copying
+            rm -rf public/uploads 2>/dev/null; true
+            ln -sf /home/ubuntu/microgreen-uploads public/uploads
+
+            # Copy public + static to standalone
             cp -r public .next/standalone/apps/web/public 2>/dev/null; true
             cp -r .next/static .next/standalone/apps/web/.next/static 2>/dev/null; true
+
+            # Ensure uploads symlink also exists inside standalone
+            rm -rf .next/standalone/apps/web/public/uploads 2>/dev/null; true
+            ln -sf /home/ubuntu/microgreen-uploads .next/standalone/apps/web/public/uploads
 
             # ──── Phase 6: Restart PM2 ────
             cd /home/ubuntu/MICROGREnUzbekistan
