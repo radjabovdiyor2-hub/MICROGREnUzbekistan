@@ -7,10 +7,72 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import { TelegramLoginButton } from '@/components/auth/TelegramLoginButton';
 import * as Icons from '@/components/ui/Icons';
 
+function SimpleRegisterForm() {
+  const { simpleLogin } = useAuth();
+  const { t } = useLang();
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('+998 ');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const formatPhone = (v: string) => {
+    const d = v.replace(/\D/g, '');
+    if (d.length <= 3) return '+' + d;
+    if (d.length <= 5) return '+' + d.slice(0,3) + ' ' + d.slice(3);
+    if (d.length <= 8) return '+' + d.slice(0,3) + ' ' + d.slice(3,5) + ' ' + d.slice(5);
+    if (d.length <= 10) return '+' + d.slice(0,3) + ' ' + d.slice(3,5) + ' ' + d.slice(5,8) + ' ' + d.slice(8);
+    return '+' + d.slice(0,3) + ' ' + d.slice(3,5) + ' ' + d.slice(5,8) + ' ' + d.slice(8,10) + ' ' + d.slice(10,12);
+  };
+
+  const submit = async () => {
+    if (!name.trim()) { setErr(t('Ismingizni kiriting', 'Введите имя')); return; }
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 12) { setErr(t('Telefon raqamni kiriting', 'Введите номер телефона')); return; }
+    setLoading(true); setErr('');
+    await simpleLogin(name.trim(), phone.trim());
+    setLoading(false);
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)',
+    border: '1.5px solid var(--border)', background: 'var(--bg-primary)',
+    color: 'var(--text-primary)', fontSize: 'var(--text-sm)', outline: 'none',
+    transition: 'border-color 0.2s',
+  };
+
+  return (
+    <div style={{ marginTop: 'var(--space-4)' }}>
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4, display: 'block' }}>
+          {t('Ism Familiya', 'Имя Фамилия')}
+        </label>
+        <input type="text" value={name} onChange={e => setName(e.target.value)}
+          placeholder={t('Masalan: Ali Karimov', 'Например: Али Каримов')}
+          style={inputStyle} />
+      </div>
+      <div style={{ marginBottom: 12 }}>
+        <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4, display: 'block' }}>
+          {t('Telefon raqam', 'Номер телефона')}
+        </label>
+        <input type="tel" value={phone} onChange={e => setPhone(formatPhone(e.target.value))}
+          placeholder="+998 90 123 45 67" style={inputStyle} />
+      </div>
+      {err && <p style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginBottom: 8 }}>{err}</p>}
+      <button onClick={submit} disabled={loading} className="btn btn-primary" style={{
+        width: '100%', padding: '12px', fontWeight: 700, opacity: loading ? 0.6 : 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      }}>
+        <Icons.User size={16} /> {loading ? '...' : t("Ro'yxatdan o'tish", 'Зарегистрироваться')}
+      </button>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { theme, toggleTheme } = useTheme();
   const { lang, setLang, t } = useLang();
   const { user, dbUser, isLoggedIn, logout, isLoading } = useAuth();
+  const [authTab, setAuthTab] = useState<'simple'|'telegram'>('simple');
 
   const memberSince = dbUser?.createdAt
     ? new Date(dbUser.createdAt).toLocaleDateString(lang === 'uz' ? 'uz-UZ' : 'ru-RU', { year: 'numeric', month: 'long' })
@@ -36,14 +98,10 @@ export default function ProfilePage() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
               {user.photo_url ? (
-                <img
-                  src={user.photo_url}
-                  alt={user.first_name}
-                  style={{
-                    width: 72, height: 72, borderRadius: 'var(--radius-full)',
-                    objectFit: 'cover', border: '3px solid var(--brand-primary)',
-                  }}
-                />
+                <img src={user.photo_url} alt={user.first_name} style={{
+                  width: 72, height: 72, borderRadius: 'var(--radius-full)',
+                  objectFit: 'cover', border: '3px solid var(--brand-primary)',
+                }} />
               ) : (
                 <div style={{
                   width: 72, height: 72, borderRadius: 'var(--radius-full)',
@@ -58,96 +116,67 @@ export default function ProfilePage() {
                 <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)' }}>
                   {user.first_name} {user.last_name || ''}
                 </h2>
-                {user.username && (
-                  <p style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>
-                    @{user.username}
-                  </p>
-                )}
-                {memberSince && (
-                  <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 4 }}>
-                    {t("A'zo bo'lgan", 'Участник с')}: {memberSince}
-                  </p>
-                )}
+                {user.username && <p style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>@{user.username}</p>}
+                {memberSince && <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 4 }}>{t("A'zo bo'lgan", 'Участник с')}: {memberSince}</p>}
               </div>
             </div>
-
-            {/* Stats Row */}
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)',
-              marginTop: 'var(--space-4)', textAlign: 'center',
-            }}>
-              <div style={{
-                padding: 'var(--space-3)', background: 'var(--brand-primary-light)',
-                borderRadius: 'var(--radius-md)',
-              }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-primary)' }}>
-                  {dbUser?.bonusPoints || 0}
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  {t('Ball', 'Баллы')}
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)', marginTop: 'var(--space-4)', textAlign: 'center' }}>
+              <div style={{ padding: 'var(--space-3)', background: 'var(--brand-primary-light)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-primary)' }}>{dbUser?.bonusPoints || 0}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Ball', 'Баллы')}</div>
               </div>
-              <div style={{
-                padding: 'var(--space-3)', background: 'var(--brand-accent-light)',
-                borderRadius: 'var(--radius-md)',
-              }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-accent)' }}>
-                  <Icons.StarFilled size={18} style={{ verticalAlign: 'text-bottom' }} />
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  {dbUser?.role === 'ADMIN' ? 'Admin' : t('Mijoz', 'Клиент')}
-                </div>
+              <div style={{ padding: 'var(--space-3)', background: 'var(--brand-accent-light)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-accent)' }}><Icons.StarFilled size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{dbUser?.role === 'ADMIN' ? 'Admin' : t('Mijoz', 'Клиент')}</div>
               </div>
-              <div style={{
-                padding: 'var(--space-3)', background: 'var(--bg-tertiary)',
-                borderRadius: 'var(--radius-md)',
-              }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--success)' }}>
-                  <Icons.CheckCircle size={18} style={{ verticalAlign: 'text-bottom' }} />
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  {t('Faol', 'Активен')}
-                </div>
+              <div style={{ padding: 'var(--space-3)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--success)' }}><Icons.CheckCircle size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Faol', 'Активен')}</div>
               </div>
             </div>
-
-            {/* Referral & Bonus Section */}
             <ReferralSection userId={dbUser?.id} referralCode={dbUser?.referralCode} bonusPoints={dbUser?.bonusPoints || 0} lang={lang} t={t} />
           </>
         ) : (
           <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
               <div style={{
                 width: 72, height: 72, borderRadius: 'var(--radius-full)',
                 background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-accent))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '32px', color: 'white', fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-              }}>
-                M
-              </div>
+                color: 'white',
+              }}><Icons.User size={32} /></div>
               <div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)' }}>
-                  {t('Mehmon', 'Гость')}
-                </h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-                  {t("Telegram orqali kiring", 'Войдите через Telegram')}
-                </p>
+                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)' }}>{t('Xush kelibsiz', 'Добро пожаловать')}</h2>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{t("Ro'yxatdan o'ting yoki Telegram orqali kiring", 'Зарегистрируйтесь или войдите через Telegram')}</p>
               </div>
             </div>
 
-            {/* Telegram Login */}
-            <div style={{
-              marginTop: 'var(--space-5)', display: 'flex', flexDirection: 'column',
-              alignItems: 'center', gap: 'var(--space-3)',
-            }}>
-              <TelegramLoginButton botName="Microgreenuzbekistan_bot" />
-              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center' }}>
-                {t(
-                  "Telegram orqali xavfsiz kirish. Hech qanday parol kerak emas.",
-                  "Безопасный вход через Telegram. Пароль не нужен."
-                )}
-              </p>
+            {/* Auth tabs */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-3)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 3 }}>
+              <button onClick={() => setAuthTab('simple')} style={{
+                flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
+                background: authTab === 'simple' ? 'var(--bg-card)' : 'transparent',
+                color: authTab === 'simple' ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: authTab === 'simple' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s',
+              }}>{t('Telefon orqali', 'По телефону')}</button>
+              <button onClick={() => setAuthTab('telegram')} style={{
+                flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
+                background: authTab === 'telegram' ? 'var(--bg-card)' : 'transparent',
+                color: authTab === 'telegram' ? 'var(--text-primary)' : 'var(--text-muted)',
+                boxShadow: authTab === 'telegram' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s',
+              }}>Telegram</button>
             </div>
+
+            {authTab === 'simple' ? (
+              <SimpleRegisterForm />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) 0' }}>
+                <TelegramLoginButton botName="Microgreenuzbekistan_bot" />
+                <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center' }}>
+                  {t("Telegram orqali xavfsiz kirish", "Безопасный вход через Telegram")}
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

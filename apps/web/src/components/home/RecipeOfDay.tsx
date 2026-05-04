@@ -4,12 +4,12 @@ import { useState, useEffect } from 'react';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 
-const CATEGORY_ICONS: Record<string, { icon: string; colorFrom: string; colorTo: string }> = {
-  breakfast: { icon: '🍳', colorFrom: '#F59E0B', colorTo: '#F97316' },
-  salad: { icon: '🥗', colorFrom: '#10B981', colorTo: '#059669' },
-  smoothie: { icon: '🥤', colorFrom: '#8B5CF6', colorTo: '#6366F1' },
-  snack: { icon: '🧀', colorFrom: '#EC4899', colorTo: '#F43F5E' },
-  main: { icon: '🍛', colorFrom: '#3B82F6', colorTo: '#2563EB' },
+const CATEGORY_ICONS: Record<string, { label: string; colorFrom: string; colorTo: string }> = {
+  breakfast: { label: 'B', colorFrom: '#F59E0B', colorTo: '#F97316' },
+  salad: { label: 'S', colorFrom: '#10B981', colorTo: '#059669' },
+  smoothie: { label: 'D', colorFrom: '#8B5CF6', colorTo: '#6366F1' },
+  snack: { label: 'N', colorFrom: '#EC4899', colorTo: '#F43F5E' },
+  main: { label: 'M', colorFrom: '#3B82F6', colorTo: '#2563EB' },
 };
 
 interface Recipe {
@@ -56,8 +56,8 @@ export function RecipeOfDay() {
             width: 36, height: 36, borderRadius: 10,
             background: `linear-gradient(135deg, ${cat.colorFrom}, ${cat.colorTo})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, boxShadow: `0 4px 12px ${cat.colorFrom}40`,
-          }}>{cat.icon}</div>
+            boxShadow: `0 4px 12px ${cat.colorFrom}40`, color: 'white',
+          }}><Icons.Leaf size={18} /></div>
           <div>
             <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
               {t("Bugungi retsept", "Рецепт дня")}
