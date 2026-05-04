@@ -78,11 +78,11 @@ export function Footer() {
         <div>
           <h4 className="footer__section-title">{t('Kategoriyalar', 'Категории')}</h4>
           <ul className="footer__links">
-            <li><a href="/catalog?category=mikrozelen" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</a></li>
-            <li><a href="/catalog?category=salaty" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Salatlar", 'Салаты')}</a></li>
-            <li><a href="/catalog?category=semena" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Droplet size={14} /> {t("Urug'lar", 'Семена')}</a></li>
-            <li><a href="/catalog?category=udobreniya" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Zap size={14} /> {t("O'g'itlar", 'Удобрения')}</a></li>
-            <li><a href="/catalog?category=oborudovanie" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Plug size={14} /> {t("Uskunalar", 'Оборудование')}</a></li>
+            <li><a href="/catalog?category=microgreens" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</a></li>
+            <li><a href="/catalog?category=baby-leaf" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Baby Leaf", 'Бейби лист')}</a></li>
+            <li><a href="/catalog?category=salads" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Salatlar", 'Салаты')}</a></li>
+            <li><a href="/catalog?category=seeds" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Droplet size={14} /> {t("Urug'lar", 'Семена')}</a></li>
+            <li><a href="/catalog?category=equipment" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Plug size={14} /> {t("Uskunalar", 'Оборудование')}</a></li>
           </ul>
         </div>
 

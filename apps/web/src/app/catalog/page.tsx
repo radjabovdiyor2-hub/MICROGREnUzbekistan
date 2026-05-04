@@ -11,14 +11,13 @@ const PAGE_SIZE = 24;
 
 const CATEGORIES = [
   { slug: '', nameUz: 'Barchasi', nameRu: 'Все', icon: <Icons.Package size={18} /> },
-  { slug: 'mikrozelen', nameUz: 'Mikroko\'katlar', nameRu: 'Микрозелень', icon: <Icons.Leaf size={18} /> },
-  { slug: 'salaty', nameUz: 'Salatlar', nameRu: 'Салаты', icon: <Icons.Leaf size={18} /> },
-  { slug: 'tsvety', nameUz: 'Gullar', nameRu: 'Цветы', icon: <Icons.Sparkles size={18} /> },
-  { slug: 'semena', nameUz: 'Urug\'lar', nameRu: 'Семена', icon: <Icons.Droplet size={18} /> },
-  { slug: 'substrat', nameUz: 'Substrat', nameRu: 'Субстрат', icon: <Icons.Package size={18} /> },
-  { slug: 'udobreniya', nameUz: 'O\'g\'itlar', nameRu: 'Удобрения', icon: <Icons.Zap size={18} /> },
-  { slug: 'oborudovanie', nameUz: 'Uskunalar', nameRu: 'Оборудование', icon: <Icons.Plug size={18} /> },
-  { slug: 'nabory', nameUz: 'To\'plamlar', nameRu: 'Наборы', icon: <Icons.Package size={18} /> },
+  { slug: 'microgreens', nameUz: "Mikroko'katlar", nameRu: 'Микрозелень', icon: <Icons.Leaf size={18} /> },
+  { slug: 'baby-leaf', nameUz: 'Baby Leaf', nameRu: 'Бейби лист', icon: <Icons.Leaf size={18} /> },
+  { slug: 'salads', nameUz: 'Salatlar', nameRu: 'Салаты', icon: <Icons.Leaf size={18} /> },
+  { slug: 'flowers', nameUz: 'Gullar', nameRu: 'Цветы', icon: <Icons.Sparkles size={18} /> },
+  { slug: 'seeds', nameUz: "Urug'lar", nameRu: 'Семена', icon: <Icons.Droplet size={18} /> },
+  { slug: 'equipment', nameUz: 'Uskunalar', nameRu: 'Оборудование', icon: <Icons.Plug size={18} /> },
+  { slug: 'sets', nameUz: "To'plamlar", nameRu: 'Наборы', icon: <Icons.Package size={18} /> },
 ];
 
 const SORT_OPTIONS = [

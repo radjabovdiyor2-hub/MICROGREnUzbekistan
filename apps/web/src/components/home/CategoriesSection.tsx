@@ -8,14 +8,13 @@ export function CategoriesSection() {
   const { t } = useLang();
 
   const CATEGORIES = [
-    { slug: 'mikrozelen', icon: <Icons.Leaf size={22} />, name: t("Mikroko'katlar", 'Микрозелень'), color: '#10B981' },
-    { slug: 'salaty', icon: <Icons.Leaf size={22} />, name: t('Salatlar', 'Салаты'), color: '#22C55E' },
-    { slug: 'tsvety', icon: <Icons.Sparkles size={22} />, name: t('Gullar', 'Цветы'), color: '#EC4899' },
-    { slug: 'semena', icon: <Icons.Droplet size={22} />, name: t("Urug'lar", 'Семена'), color: '#F59E0B' },
-    { slug: 'substrat', icon: <Icons.Package size={22} />, name: t('Substrat', 'Субстрат'), color: '#8B5CF6' },
-    { slug: 'udobreniya', icon: <Icons.Zap size={22} />, name: t("O'g'itlar", 'Удобрения'), color: '#3B82F6' },
-    { slug: 'oborudovanie', icon: <Icons.Plug size={22} />, name: t('Uskunalar', 'Оборудование'), color: '#06B6D4' },
-    { slug: 'nabory', icon: <Icons.Package size={22} />, name: t("To'plamlar", 'Наборы'), color: '#EF4444' },
+    { slug: 'microgreens', icon: <Icons.Leaf size={22} />, name: t("Mikroko'katlar", 'Микрозелень'), color: '#10B981' },
+    { slug: 'baby-leaf', icon: <Icons.Leaf size={22} />, name: t('Baby Leaf', 'Бейби лист'), color: '#22C55E' },
+    { slug: 'salads', icon: <Icons.Leaf size={22} />, name: t('Salatlar', 'Салаты'), color: '#34D399' },
+    { slug: 'flowers', icon: <Icons.Sparkles size={22} />, name: t('Gullar', 'Цветы'), color: '#EC4899' },
+    { slug: 'seeds', icon: <Icons.Droplet size={22} />, name: t("Urug'lar", 'Семена'), color: '#F59E0B' },
+    { slug: 'equipment', icon: <Icons.Plug size={22} />, name: t('Uskunalar', 'Оборудование'), color: '#06B6D4' },
+    { slug: 'sets', icon: <Icons.Package size={22} />, name: t("To'plamlar", 'Наборы'), color: '#EF4444' },
   ];
 
   return (

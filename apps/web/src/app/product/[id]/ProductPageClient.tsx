@@ -27,14 +27,13 @@ interface Product {
 }
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  'mikrozelen': <Icons.Leaf size={64} />,
-  'salaty': <Icons.Leaf size={64} />,
-  'tsvety': <Icons.Sparkles size={64} />,
-  'semena': <Icons.Droplet size={64} />,
-  'substrat': <Icons.Package size={64} />,
-  'udobreniya': <Icons.Zap size={64} />,
-  'oborudovanie': <Icons.Plug size={64} />,
-  'nabory': <Icons.Package size={64} />,
+  'microgreens': <Icons.Leaf size={64} />,
+  'baby-leaf': <Icons.Leaf size={64} />,
+  'salads': <Icons.Leaf size={64} />,
+  'flowers': <Icons.Sparkles size={64} />,
+  'seeds': <Icons.Droplet size={64} />,
+  'equipment': <Icons.Plug size={64} />,
+  'sets': <Icons.Package size={64} />,
 };
 
 export function ProductPageClient({ id }: { id: string }) {

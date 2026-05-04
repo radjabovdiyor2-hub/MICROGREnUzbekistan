@@ -40,8 +40,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Category pages — high priority for SEO
   const categories = [
-    'mikrozelen', 'salaty', 'tsvety', 'semena',
-    'substrat', 'udobreniya', 'oborudovanie', 'nabory',
+    'microgreens', 'baby-leaf', 'salads', 'flowers',
+    'seeds', 'equipment', 'sets',
   ];
   const categoryPages: MetadataRoute.Sitemap = categories.map(slug => ({
     url: `${BASE}/catalog?category=${slug}`,
