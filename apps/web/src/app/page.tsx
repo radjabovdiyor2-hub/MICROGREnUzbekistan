@@ -5,6 +5,7 @@ import { RecipeOfDay } from '@/components/home/RecipeOfDay';
 import { NutritionistPanel } from '@/components/home/NutritionistPanel';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { AiBanner } from '@/components/home/AiBanner';
+import { InstagramFeed } from '@/components/home/InstagramFeed';
 import { StoreLocation } from '@/components/home/StoreLocation';
 import { Footer } from '@/components/layout/Footer';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
@@ -30,6 +31,9 @@ export default function HomePage() {
       </ScrollReveal>
       <ScrollReveal variant="left" delay={50}>
         <AiBanner />
+      </ScrollReveal>
+      <ScrollReveal delay={80}>
+        <InstagramFeed />
       </ScrollReveal>
       <ScrollReveal delay={100}>
         <StoreLocation />
