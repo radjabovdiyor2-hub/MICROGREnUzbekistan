@@ -14,31 +14,88 @@ const DOMAIN = 'https://microgreenuzbekistan.com';
 export const metadata: Metadata = {
   metadataBase: new URL(DOMAIN),
   title: {
-    default: "Microgreen Uzbekistan — Mikroko'katlar, salatlar, gullar va sog'lom oziq-ovqat | Samarqand",
+    default: "Microgreen Uzbekistan — Mikroko'katlar, salatlar, zelen, gullar | Restoran ta'minoti | ZOJ, PP, sog'lom ovqatlanish | Samarqand",
     template: "%s | Microgreen Uzbekistan",
   },
-  description: "Mikroko'katlar, salatlar, gullar, urug'lar va gidroponika uskunalari — Samarqandda yetkazib berish. Restoranlar uchun B2B ta'minot. Sog'lom hayot (ZOJ), organik oziq-ovqat, superfud. O'zbekistonda #1 mikroko'kat do'koni.",
+  description: "Mikroko'katlar, salatlar, gullar, urug'lar, gidroponika, aeroponika uskunalari — Samarqandda yetkazib berish. Restoranlar, kafelar, mehmonxonalar uchun B2B zelen ta'minoti. Sog'lom hayot (ZOJ), PP, organik superfud, nутрициология, ozish uchun sog'lom ovqat. Rukkola, bazilik, shpinat, brokkoli, redis, no'xat, qulupnay. O'zbekistonda #1 mikroko'kat do'koni.",
   keywords: [
-    // Uzbek keywords
+    // ═══════════ UZBEK — Primary keywords ═══════════
     "mikroko'katlar", "mikrozelen", "salatlar", "gullar", "urug'lar",
-    "gidroponika", "substrat", "o'g'itlar", "organik oziq-ovqat",
-    "sog'lom hayot", "sog'lom ovqatlanish", "ZOJ", "superfud",
-    "vertikal fermerchilik", "urban fermerchilik",
+    "zelen", "ko'kat", "sabzavotlar", "mevalar",
+    // Растения по названию
+    "rukkola", "bazilik", "shpinat", "brokkoli", "redis",
+    "no'xat mikroko'kat", "kungaboqar mikroko'kat", "lavlagi",
+    "karam", "petrushka", "ukrop", "kashnich", "mint", "yalpiz",
+    "beda", "arpa ko'kati", "bug'doy ko'kati", "qulupnay",
+    // ЗОЖ / Здоровье
+    "sog'lom hayot", "sog'lom ovqatlanish", "ZOJ", "PP", "superfud",
+    "ozish", "vazn yo'qotish", "dieta", "detoks", "vitaminlar",
+    "immunitet", "antioksidantlar", "organik oziq-ovqat",
+    "kaloriya kam", "oqsilga boy", "tolaga boy ovqat",
+    "nutritsiolog", "sog'lom taomnoma", "fitnes ovqat",
+    // Ресторан / Кафе / HoReCa
     "restoran uchun zelen", "kafe uchun mikroko'kat",
-    "Samarqand yetkazib berish", "O'zbekiston",
-    // Russian keywords (popular in Uzbekistan)
-    "микрозелень Узбекистан", "микрозелень Самарканд", 
-    "салаты свежие", "цветы Самарканд",
-    "здоровое питание", "ЗОЖ", "суперфуд",
-    "ресторан зелень", "кафе микрозелень",
+    "restoran ta'minoti", "HoReCa ta'minot", "ulgurji zelen",
+    "mehmonxona uchun salatlar", "banket bezash", "taom bezash",
+    "oshxona uchun zelen", "shef-povarga", "garnir uchun",
+    // Декор
+    "taom dekor", "restoran dekor", "ovqat bezash",
+    "tarelka bezash", "gullar dekor",
+    // Гидропоника / Аэропоника / Фермерство
+    "gidroponika", "aeroponika", "vertikal fermerchilik",
+    "urban fermerchilik", "substrat", "o'g'itlar",
+    "uy sharoitida yetishtirish", "mini ferma",
+    "LED lampalar", "grow box", "fitolampalar",
+    // Локация
+    "Samarqand yetkazib berish", "Samarqand zelen",
+    "O'zbekiston", "Toshkent", "Buxoro",
+
+    // ═══════════ RUSSIAN — All target keywords ═══════════
+    // Микрозелень
+    "микрозелень Узбекистан", "микрозелень Самарканд", "микрозелень купить",
+    "микрозелень доставка", "микрозелень оптом", "свежая микрозелень",
+    "микрозелень для ресторанов", "микрозелень для кафе",
+    // Растения
+    "руккола", "базилик", "шпинат", "брокколи", "редис микрозелень",
+    "горох микрозелень", "подсолнечник", "кресс-салат",
+    "капуста", "петрушка", "укроп", "кинза", "мята",
+    "ячмень ростки", "пшеница ростки", "клубника",
+    // Салаты
+    "салаты свежие", "салат микс", "зелень свежая", "зелень Самарканд",
+    "листовой салат", "салат для ресторана",
+    // ЗОЖ / ПП / Похудение
+    "здоровое питание", "ЗОЖ", "ПП рецепты", "правильное питание",
+    "суперфуд", "детокс", "похудение", "здоровое похудение",
+    "диета", "снижение веса", "нутрициолог", "нутрициология",
+    "витамины", "антиоксиданты", "иммунитет",
+    "низкокалорийная еда", "белковая еда", "клетчатка",
+    "фитнес питание", "спортивное питание", "смузи",
+    // Ресторан / Кафе / Снабжение
+    "ресторан зелень", "кафе микрозелень", "снабжение ресторанов",
+    "поставщик зелени", "зелень оптом", "HoReCa поставки",
+    "оптом для ресторанов", "B2B микрозелень",
+    "шеф-повар зелень", "гарнир микрозелень",
+    "банкет зелень", "кейтеринг зелень",
+    // Декор
+    "декор блюд", "украшение тарелки", "декор ресторана",
+    "цветы для декора", "цветы Самарканд", "съедобные цветы",
+    // Гидропоника / Аэропоника
+    "гидропоника", "аэропоника", "вертикальная ферма",
+    "городское фермерство", "семена микрозелени",
+    "субстрат для микрозелени", "удобрения",
+    "выращивание дома", "мини ферма", "фитолампа",
+    // Готовка / Кухня
+    "рецепты с микрозеленью", "готовка", "кулинария",
+    "здоровые рецепты", "ПП рецепты", "салат рецепт",
     "органическая еда", "экологичные продукты",
-    "гидропоника", "семена микрозелени",
-    "руккола", "горох микрозелень", "подсолнечник",
-    "базилик", "брокколи", "редис микрозелень",
-    // English (international SEO)
+    "фермерские продукты", "без ГМО",
+
+    // ═══════════ ENGLISH — International SEO ═══════════
     "microgreens Uzbekistan", "microgreens Samarkand",
     "organic food Uzbekistan", "healthy food delivery",
     "restaurant greens supply", "B2B microgreens",
+    "hydroponics Uzbekistan", "aeroponics", "vertical farming",
+    "superfood", "detox greens", "healthy eating",
   ],
   manifest: '/manifest.json',
   alternates: {
@@ -49,8 +106,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "Microgreen Uzbekistan — Sog'lom hayot uchun yangi mikroko'katlar",
-    description: "Organik mikroko'katlar, salatlar, gullar, urug'lar. Restoranlar va uylar uchun yetkazib berish. Samarqand, O'zbekiston.",
+    title: "Microgreen Uzbekistan — Restoranlar, kafelar uchun yangi zelen | ZOJ, PP, sog'lom ovqat",
+    description: "Organik mikroko'katlar, salatlar, gullar, urug'lar. Restoranlar, kafelar va uylar uchun yetkazib berish. Gidroponika, aeroponika. Samarqand, O'zbekiston.",
     type: 'website',
     locale: 'uz_UZ',
     alternateLocale: ['ru_RU'],
@@ -61,14 +118,14 @@ export const metadata: Metadata = {
         url: `${DOMAIN}/hero-microgreens.png`,
         width: 1200,
         height: 630,
-        alt: "Microgreen Uzbekistan — yangi mikroko'katlar",
+        alt: "Microgreen Uzbekistan — yangi mikroko'katlar, restoranlar uchun zelen ta'minoti",
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: "Microgreen Uzbekistan — Organik mikroko'katlar",
-    description: "Sog'lom hayot uchun yangi mikroko'katlar va salatlar. Samarqandda yetkazib berish.",
+    title: "Microgreen Uzbekistan — Organik mikroko'katlar, ZOJ, restoran ta'minoti",
+    description: "Sog'lom hayot uchun yangi mikroko'katlar, salatlar, gidroponika. Restoranlar uchun B2B. Samarqandda yetkazib berish.",
     images: [`${DOMAIN}/hero-microgreens.png`],
   },
   robots: {
@@ -180,34 +237,121 @@ function JsonLd() {
           opens: '08:00',
           closes: '22:00',
         },
-        servesCuisine: ['Healthy Food', 'Organic', 'Microgreens', 'Salads'],
+        servesCuisine: ['Healthy Food', 'Organic', 'Microgreens', 'Salads', 'Superfoods'],
         menu: `${DOMAIN}/catalog`,
+        hasOfferCatalog: {
+          '@type': 'OfferCatalog',
+          name: "Microgreen Uzbekistan — mahsulotlar katalogi",
+          itemListElement: [
+            { '@type': 'OfferCatalog', name: "Mikroko'katlar (Микрозелень)", url: `${DOMAIN}/catalog?category=mikrozelen` },
+            { '@type': 'OfferCatalog', name: "Salatlar (Салаты)", url: `${DOMAIN}/catalog?category=salaty` },
+            { '@type': 'OfferCatalog', name: "Gullar (Цветы)", url: `${DOMAIN}/catalog?category=tsvety` },
+            { '@type': 'OfferCatalog', name: "Urug'lar (Семена)", url: `${DOMAIN}/catalog?category=semena` },
+            { '@type': 'OfferCatalog', name: "Substrat (Субстрат)", url: `${DOMAIN}/catalog?category=substrat` },
+            { '@type': 'OfferCatalog', name: "O'g'itlar (Удобрения)", url: `${DOMAIN}/catalog?category=udobreniya` },
+            { '@type': 'OfferCatalog', name: "Uskunalar — Gidroponika, Aeroponika (Оборудование)", url: `${DOMAIN}/catalog?category=oborudovanie` },
+            { '@type': 'OfferCatalog', name: "To'plamlar (Наборы)", url: `${DOMAIN}/catalog?category=nabory` },
+          ],
+        },
+        keywords: 'микрозелень, microgreens, салаты, ЗОЖ, ПП, похудение, ресторан, кафе, снабжение, гидропоника, аэропоника, нутрициолог',
       },
       {
         '@type': 'FAQPage',
         mainEntity: [
           {
             '@type': 'Question',
-            name: "Mikroko'katlar nima va ular nima uchun foydali?",
+            name: "Mikroko'katlar nima va ular nima uchun foydali? / Что такое микрозелень и чем она полезна?",
             acceptedAnswer: {
               '@type': 'Answer',
-              text: "Mikroko'katlar — bu yosh o'simliklar (7-14 kun), oddiy sabzavotlarga nisbatan 4-40 marta ko'p vitaminlar va minerallar saqlaydi. Ular sog'lom ovqatlanish, immunitetni mustahkamlash va restoran taomlarini bezash uchun ideal.",
+              text: "Mikroko'katlar — bu yosh o'simliklar (7-14 kun), oddiy sabzavotlarga nisbatan 4-40 marta ko'p vitaminlar va minerallar saqlaydi. Ular sog'lom ovqatlanish (ZOJ, PP), immunitetni mustahkamlash, ozish va restoran taomlarini bezash uchun ideal. Микрозелень содержит в 4-40 раз больше витаминов и минералов чем обычные овощи.",
             },
           },
           {
             '@type': 'Question',
-            name: "Samarqandda yetkazib berish qancha vaqt oladi?",
+            name: "Samarqandda yetkazib berish qancha vaqt oladi? / Сколько времени занимает доставка по Самарканду?",
             acceptedAnswer: {
               '@type': 'Answer',
-              text: "Samarqand bo'ylab 1-2 soat ichida tezkor yetkazib berish. Buyurtma 50,000 so'mdan oshsa yetkazib berish bepul!",
+              text: "Samarqand bo'ylab 30-90 daqiqada tezkor yetkazib berish. Buyurtma 500,000 so'mdan oshsa yetkazib berish bepul! Доставка по Самарканду за 30-90 минут. Бесплатная доставка от 500 000 сум.",
             },
           },
           {
             '@type': 'Question',
-            name: "Restoranlar uchun ulgurji (B2B) narxlar bormi?",
+            name: "Restoranlar va kafelar uchun B2B ta'minot bormi? / Есть ли оптовые поставки для ресторанов и кафе?",
             acceptedAnswer: {
               '@type': 'Answer',
-              text: "Ha! Restoranlar, kafelar va mehmonxonalar uchun maxsus B2B narxlar va muntazam yetkazib berish rejasi mavjud. +998 94 999 95 99 ga qo'ng'iroq qiling.",
+              text: "Ha! Restoranlar, kafelar, mehmonxonalar va katering xizmatlari uchun maxsus B2B narxlar, muntazam yetkazib berish rejasi va HoReCa ta'minot mavjud. Да! Специальные B2B цены и регулярные поставки для ресторанов, кафе, гостиниц и кейтеринга. Звоните: +998 94 999 95 99.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Mikroko'katlar ozish (vazn yo'qotish) uchun foydali bo'ladimi? / Помогает ли микрозелень при похудении?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Ha! Mikroko'katlar — kaloriyasi kam, tolaga boy, vitaminlarga to'la superfud. ZOJ va PP (sog'lom ovqatlanish) uchun ideal. Nutritsiologlar tomonidan tavsiya etiladi. Да! Микрозелень — низкокалорийный суперфуд, богатый клетчаткой и витаминами. Идеален для ЗОЖ, ПП и здорового похудения. Рекомендован нутрициологами.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Qanday turdagi mikroko'katlar bor? / Какие виды микрозелени есть?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Bizda rukkola, bazilik, shpinat, brokkoli, redis, no'xat, kungaboqar, lavlagi, karam, bug'doy ko'kati, arpa ko'kati va boshqa 20+ tur mavjud. У нас руккола, базилик, шпинат, брокколи, редис, горох, подсолнечник, капуста, ростки пшеницы и ячменя и более 20 видов.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Gidroponika va aeroponika uskunalari sotiladi? / Продаётся ли оборудование для гидропоники и аэропоники?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Ha! Gidroponika, aeroponika, vertikal fermerchilik uchun uskunalar, substratlar, o'g'itlar, LED fitolampalar, urug'lar va mini ferma to'plamlarini sotamiz. Да! Продаём оборудование для гидропоники, аэропоники, вертикального фермерства: субстраты, удобрения, фитолампы, семена и наборы для мини-фермы.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Taom bezash va restoran dekor uchun gullar bormi? / Есть ли цветы для декора блюд и ресторанов?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Ha! Yeyiladigan gullar (edible flowers), taom bezash uchun dekor elementlari, banket va tarelka bezash uchun maxsus gullar mavjud. Да! Съедобные цветы для украшения блюд и тарелок, декор для банкетов и ресторанов.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Uyda mikroko'kat yetishtirishni o'rgatiladi? / Можно ли научиться выращивать микрозелень дома?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Ha! Bizda uy sharoitida yetishtirish uchun grow box to'plamlar, urug'lar va to'liq qo'llanmalar mavjud. Mini ferma boshlash uchun hamma narsa. Да! У нас есть наборы для домашнего выращивания, семена и полные инструкции для создания мини-фермы дома.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Mikroko'katlar bilan qanday taomlar tayyorlanadi? / Какие блюда можно приготовить с микрозеленью?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Salatlar, smuzlar, sendvichlar, sushlar, garnirlar, detoks ichimliklar va boshqa 100+ PP retseptlar. Shef-povarlar uchun taom bezash va garnir sifatida ham ishlatiladi. Салаты, смузи, сэндвичи, суши, гарниры, детокс-напитки и более 100 ПП-рецептов. Шеф-повара используют для украшения и гарнира.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Qulupnay (klubnika) va boshqa mevalar bormi? / Есть ли клубника и другие фрукты?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Ha! Organik qulupnay va mavsumiy mevalar ham mavjud. Gidroponika texnologiyasi bilan yetishtirilib, kimyoviy moddalar ishlatilmaydi. Да! Органическая клубника и сезонные фрукты. Выращены на гидропонике без химикатов.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Nutritsiolog bilan maslahatlashish mumkinmi? / Можно ли проконсультироваться с нутрициологом?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Ha! Bizning AI-nутрициолог xizmati saytda mavjud. Sog'lom taomnoma, dieta, ZOJ va PP bo'yicha maslahat olishingiz mumkin. Да! Наш AI-нутрициолог доступен на сайте. Консультации по здоровому питанию, диете, ЗОЖ и ПП.",
+            },
+          },
+          {
+            '@type': 'Question',
+            name: "Toshkent va boshqa shaharlarga yetkazib beriladi? / Есть ли доставка в Ташкент и другие города?",
+            acceptedAnswer: {
+              '@type': 'Answer',
+              text: "Hozirda Samarqand bo'ylab tezkor yetkazib berish. Toshkent, Buxoro va boshqa shaharlarga maxsus buyurtma asosida yetkazamiz. Сейчас экспресс-доставка по Самарканду. В Ташкент, Бухару и другие города — по специальному заказу.",
             },
           },
         ],
