@@ -19,23 +19,23 @@ import { AdminRevenue } from '@/components/admin/AdminRevenue';
 import * as Icons from '@/components/ui/Icons';
 
 const OWNER_TABS = [
-  { id: 'pos', label: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
-  { id: 'stats', label: 'Svodka', icon: <Icons.BarChart size={16} /> },
-  { id: 'revenue', label: 'Tushum', icon: <Icons.DollarSign size={16} /> },
-  { id: 'inventory', label: 'Ombor', icon: <Icons.Package size={16} /> },
-  { id: 'movements', label: 'Harakatlar', icon: <Icons.ClipboardList size={16} /> },
-  { id: 'orders', label: 'Buyurtmalar', icon: <Icons.Truck size={16} /> },
-  { id: 'suppliers', label: 'Yetkazuvchilar', icon: <Icons.Truck size={16} /> },
-  { id: 'debts', label: 'Qarzlar', icon: <Icons.CreditCard size={16} /> },
-  { id: 'analytics', label: 'Analitika', icon: <Icons.BarChart size={16} /> },
-  { id: 'forecast', label: 'Prognoz', icon: <Icons.TrendingUp size={16} /> },
-  { id: 'employees', label: 'Xodimlar', icon: <Icons.User size={16} /> },
-  { id: 'products', label: 'Mahsulotlar', icon: <Icons.Tag size={16} /> },
-  { id: 'settings', label: 'Sozlamalar', icon: <Icons.Lock size={16} /> },
+  { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
+  { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <Icons.BarChart size={16} /> },
+  { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <Icons.DollarSign size={16} /> },
+  { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Icons.Package size={16} /> },
+  { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <Icons.ClipboardList size={16} /> },
+  { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Icons.Truck size={16} /> },
+  { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Icons.Truck size={16} /> },
+  { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <Icons.CreditCard size={16} /> },
+  { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <Icons.BarChart size={16} /> },
+  { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <Icons.TrendingUp size={16} /> },
+  { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <Icons.User size={16} /> },
+  { id: 'products', ru: 'Товары', uz: 'Mahsulotlar', icon: <Icons.Tag size={16} /> },
+  { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Icons.Lock size={16} /> },
 ];
 
 const SELLER_TABS = [
-  { id: 'pos', label: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
+  { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
 ];
 
 const ADMIN_KEY = 'Microgreen_admin_auth';
@@ -52,6 +52,19 @@ export default function AdminPage() {
   const [pin, setPin] = useState('');
   const [authError, setAuthError] = useState('');
   const [checking, setChecking] = useState(true);
+  const [lang, setLang] = useState<'ru' | 'uz'>('ru');
+
+  // Load saved language
+  useEffect(() => {
+    const saved = sessionStorage.getItem('admin_lang');
+    if (saved === 'uz' || saved === 'ru') setLang(saved);
+  }, []);
+  const toggleLang = () => {
+    const next = lang === 'ru' ? 'uz' : 'ru';
+    setLang(next);
+    sessionStorage.setItem('admin_lang', next);
+  };
+  const t = (ru: string, uz: string) => lang === 'ru' ? ru : uz;
 
   // Check saved auth
   useEffect(() => {
@@ -97,11 +110,11 @@ export default function AdminPage() {
         sessionStorage.setItem(SELLER_KEY, data.employee.name);
         setAuthError('');
       } else {
-        setAuthError("PIN noto'g'ri");
+        setAuthError(t("Неверный PIN", "PIN noto'g'ri"));
         setPin('');
       }
     } catch {
-      setAuthError('Xatolik yuz berdi');
+      setAuthError(t('Ошибка', 'Xatolik yuz berdi'));
     }
   };
 
@@ -136,7 +149,7 @@ export default function AdminPage() {
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-2)' }}>
             Microgreen
           </h1>
-          <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-8)' }}>Kim siz?</p>
+          <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-8)' }}>{t('Кто вы?', 'Kim siz?')}</p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
             <button onClick={() => setAuthMode('owner_login')} className="card"
@@ -145,8 +158,8 @@ export default function AdminPage() {
                 <Icons.Settings size={24} />
               </div>
               <div>
-                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>Egasi</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>To&apos;liq boshqaruv</div>
+                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{t('Владелец', 'Egasi')}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Полное управление', "To'liq boshqaruv")}</div>
               </div>
               <Icons.ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
             </button>
@@ -157,15 +170,15 @@ export default function AdminPage() {
                 <Icons.Tag size={24} />
               </div>
               <div>
-                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>Sotuvchi</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Faqat sotish</div>
+                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{t('Продавец', 'Sotuvchi')}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Только продажи', 'Faqat sotish')}</div>
               </div>
               <Icons.ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
             </button>
           </div>
 
           <Link href="/" className="btn btn-ghost" style={{ marginTop: 'var(--space-6)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.Home size={16} /> Bosh sahifaga
+            <Icons.Home size={16} /> {t('На главную', 'Bosh sahifaga')}
           </Link>
         </div>
       );
@@ -176,19 +189,19 @@ export default function AdminPage() {
       return (
         <div className="container" style={{ maxWidth: 400, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
           <button onClick={() => { setAuthMode('choose'); setAuthError(''); }} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.ArrowLeft size={16} /> Orqaga
+            <Icons.ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
           </button>
           <div style={{ marginBottom: 'var(--space-4)', color: 'var(--brand-primary)' }}>
             <Icons.Lock size={48} />
           </div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>Egasi kirishi</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>{t('Вход владельца', 'Egasi kirishi')}</h2>
           <form onSubmit={handleOwnerLogin} className="card" style={{ padding: 'var(--space-6)', textAlign: 'left' }}>
-            <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)' }}>Parol</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Admin parol" id="admin-password"
+            <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)' }}>{t('Пароль', 'Parol')}</label>
+            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('Пароль администратора', 'Admin parol')} id="admin-password"
               style={{ width: '100%', padding: 'var(--space-3)', border: `1px solid ${authError ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }} />
             {authError && <p style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-3)' }}>{authError}</p>}
             <button type="submit" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-              <Icons.ArrowRight size={18} /> Kirish
+              <Icons.ArrowRight size={18} /> {t('Войти', 'Kirish')}
             </button>
           </form>
         </div>
@@ -200,13 +213,13 @@ export default function AdminPage() {
       return (
         <div className="container" style={{ maxWidth: 360, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
           <button onClick={() => { setAuthMode('choose'); setAuthError(''); setPin(''); }} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.ArrowLeft size={16} /> Orqaga
+            <Icons.ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
           </button>
           <div style={{ marginBottom: 'var(--space-4)', color: 'var(--success)' }}>
             <Icons.Tag size={48} />
           </div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>Sotuvchi PIN</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)' }}>4 raqamli PIN kiriting</p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>{t('PIN продавца', 'Sotuvchi PIN')}</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)' }}>{t('Введите 4-значный PIN', '4 raqamli PIN kiriting')}</p>
 
           {/* PIN dots */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
@@ -396,16 +409,20 @@ export default function AdminPage() {
           <div className="admin-header-actions">
             {!isOwner && (
               <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)' }}>
-                Sotuvchi
+                {t('Продавец', 'Sotuvchi')}
               </span>
             )}
             {isOwner && <AdminNotifications />}
+            <button onClick={toggleLang}
+              style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+              {lang === 'ru' ? '🇷🇺' : '🇺🇿'}
+            </button>
             <Link href="/" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
-              <Icons.Home size={14} /> Sayt
+              <Icons.Home size={14} /> {t('Сайт', 'Sayt')}
             </Link>
             <button onClick={handleLogout} className="btn btn-ghost btn-sm"
               style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(239, 68, 68, 0.1)' }}>
-              <Icons.LogOut size={14} /> Chiqish
+              <Icons.LogOut size={14} /> {t('Выйти', 'Chiqish')}
             </button>
           </div>
         </div>
@@ -414,7 +431,7 @@ export default function AdminPage() {
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
-              {tab.icon} {tab.label}
+              {tab.icon} {tab[lang]}
             </button>
           ))}
         </nav>
@@ -422,7 +439,7 @@ export default function AdminPage() {
 
       {/* Main Content */}
       <main className="admin-main">
-        {activeTab === 'pos' && <AdminPOS sellerName={isOwner ? 'Egasi' : sellerName} />}
+        {activeTab === 'pos' && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} />}
         {activeTab === 'stats' && isOwner && <AdminStats />}
         {activeTab === 'revenue' && isOwner && <AdminRevenue />}
         {activeTab === 'inventory' && isOwner && <AdminInventory />}
