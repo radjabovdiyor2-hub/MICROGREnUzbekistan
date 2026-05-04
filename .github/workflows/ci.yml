@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
   DATABASE_URL: "postgresql://ci:ci@localhost:5432/microgreen_test"
 
 jobs:
@@ -33,6 +33,7 @@ jobs:
     needs: quality
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
+    timeout-minutes: 20
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -40,15 +41,79 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 18m
           script: |
             set -ex
+
+            # ──── Phase 0: Server cleanup for all projects ────
+            echo "=== DISK BEFORE CLEANUP ==="
+            df -h / | tail -1
+
+            # Ensure swap exists (2GB) for build stability
+            if [ ! -f /swapfile ]; then
+              sudo fallocate -l 2G /swapfile
+              sudo chmod 600 /swapfile
+              sudo mkswap /swapfile
+              sudo swapon /swapfile
+            fi
+            sudo swapon /swapfile 2>/dev/null || true
+
+            # Clean system caches
+            sudo apt-get clean 2>/dev/null || true
+            sudo journalctl --vacuum-time=2d 2>/dev/null || true
+
+            # Clean npm caches
+            npm cache clean --force 2>/dev/null || true
+
+            # Clean old .next build caches (all projects)
+            for proj in /home/ubuntu/MICROGREnUzbekistan /home/ubuntu/MAHALLU /home/ubuntu/siyob-smart-campus; do
+              if [ -d "$proj/apps/web/.next/cache" ]; then
+                rm -rf "$proj/apps/web/.next/cache"
+                echo "Cleaned .next/cache in $proj"
+              fi
+            done
+
+            # Clean turbo caches
+            rm -rf /home/ubuntu/MICROGREnUzbekistan/node_modules/.cache 2>/dev/null || true
+            rm -rf /home/ubuntu/MAHALLU/node_modules/.cache 2>/dev/null || true
+            rm -rf /home/ubuntu/siyob-smart-campus/node_modules/.cache 2>/dev/null || true
+
+            # Clean old logs
+            find /home/ubuntu/.pm2/logs -name "*.log" -size +10M -exec truncate -s 0 {} \; 2>/dev/null || true
+
+            echo "=== DISK AFTER CLEANUP ==="
+            df -h / | tail -1
+            free -m | head -3
+
+            # ──── Phase 1: Pull latest code ────
             cd /home/ubuntu/MICROGREnUzbekistan
             git fetch origin
             git reset --hard origin/main
+
+            # ──── Phase 2: Install dependencies ────
             npm install --legacy-peer-deps
+
+            # ──── Phase 3: Database sync ────
             cd packages/database && rm -f .env && ln -s ../../.env .env && npx prisma generate && npx prisma db push --skip-generate --accept-data-loss
+
+            # ──── Phase 4: Build with memory limit ────
             cd /home/ubuntu/MICROGREnUzbekistan
+            export NODE_OPTIONS="--max-old-space-size=1024"
             npx turbo run build --filter=web
-            cd apps/web && cp -r public .next/standalone/apps/web/public 2>/dev/null; cp -r .next/static .next/standalone/apps/web/.next/static 2>/dev/null; true
+
+            # ──── Phase 5: Copy standalone assets ────
+            cd apps/web
+            cp -r public .next/standalone/apps/web/public 2>/dev/null; true
+            cp -r .next/static .next/standalone/apps/web/.next/static 2>/dev/null; true
+
+            # ──── Phase 6: Restart PM2 ────
             cd /home/ubuntu/MICROGREnUzbekistan
             pm2 reload ecosystem.config.js
+
+            # ──── Phase 7: Verify all 3 projects are running ────
+            echo "=== PM2 STATUS ==="
+            pm2 ls
+
+            echo "=== DISK FINAL ==="
+            df -h / | tail -1
+            echo "=== DEPLOY SUCCESS ==="
