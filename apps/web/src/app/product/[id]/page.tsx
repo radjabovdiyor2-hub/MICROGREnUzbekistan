@@ -6,6 +6,7 @@ import Image from 'next/image';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
+import { useLang } from '@/components/providers/LangProvider';
 
 interface Product {
   id: string;
@@ -39,6 +40,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 export default function ProductPage() {
   const params = useParams();
   const id = params.id as string;
+  const { t } = useLang();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('desc');
@@ -69,7 +71,7 @@ export default function ProductPage() {
     return (
       <div className="container" style={{ paddingTop: 'var(--space-8)', textAlign: 'center' }}>
         <Icons.Clock size={48} style={{ color: 'var(--text-muted)', animation: 'pulse 1.5s infinite' }} />
-        <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>Yuklanmoqda...</p>
+        <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>{t("Yuklanmoqda...", "Загрузка...")}</p>
       </div>
     );
   }
@@ -78,9 +80,9 @@ export default function ProductPage() {
     return (
       <div className="container" style={{ paddingTop: 'var(--space-12)', textAlign: 'center' }}>
         <Icons.Folder size={64} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }} />
-        <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)' }}>Mahsulot topilmadi</h2>
+        <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)' }}>{t("Mahsulot topilmadi", "Товар не найден")}</h2>
         <a href="/catalog" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <Icons.ArrowLeft size={16} /> Katalogga qaytish
+          <Icons.ArrowLeft size={16} /> {t("Katalogga qaytish", "Вернуться в каталог")}
         </a>
       </div>
     );
@@ -116,9 +118,9 @@ export default function ProductPage() {
   };
 
   const TABS = [
-    { id: 'desc', label: "Tavsif", icon: <Icons.FileText size={14} /> },
-    { id: 'specs', label: "Xususiyatlar", icon: <Icons.ClipboardList size={14} /> },
-    { id: 'delivery', label: "Yetkazish", icon: <Icons.Truck size={14} /> },
+    { id: 'desc', labelUz: "Tavsif", labelRu: "Описание", icon: <Icons.FileText size={14} /> },
+    { id: 'specs', labelUz: "Xususiyatlar", labelRu: "Характеристики", icon: <Icons.ClipboardList size={14} /> },
+    { id: 'delivery', labelUz: "Yetkazish", labelRu: "Доставка", icon: <Icons.Truck size={14} /> },
   ];
 
   return (
@@ -126,12 +128,12 @@ export default function ProductPage() {
       {/* Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
         <a href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Icons.Home size={14} /> Bosh sahifa
+          <Icons.Home size={14} /> {t("Bosh sahifa", "Главная")}
         </a>
         <Icons.ChevronRight size={14} />
-        <a href="/catalog" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>Katalog</a>
+        <a href="/catalog" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>{t("Katalog", "Каталог")}</a>
         <Icons.ChevronRight size={14} />
-        <span style={{ color: 'var(--text-primary)' }}>{product.nameUz}</span>
+        <span style={{ color: 'var(--text-primary)' }}>{t(product.nameUz, product.nameRu)}</span>
       </div>
 
       {/* Main Content */}
@@ -164,7 +166,7 @@ export default function ProductPage() {
             </div>
           )}
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-3)' }}>
-            {product.nameUz}
+            {t(product.nameUz, product.nameRu)}
           </h1>
 
           {/* Rating */}
@@ -178,7 +180,7 @@ export default function ProductPage() {
                 ))}
               </div>
               <span style={{ fontWeight: 'var(--font-semibold)' }}>{product.rating}</span>
-              <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>({product.reviewCount} ta sharh)</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>({product.reviewCount} {t("ta sharh", "отзывов")})</span>
             </div>
           )}
 
@@ -186,11 +188,11 @@ export default function ProductPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
             {product.stock > 0 ? (
               <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Icons.CheckCircle size={16} /> Mavjud ({product.stock} dona)
+                <Icons.CheckCircle size={16} /> {t(`Mavjud (${product.stock} dona)`, `В наличии (${product.stock} шт)`)}
               </span>
             ) : (
               <span style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Icons.XCircle size={16} /> Tugagan
+                <Icons.XCircle size={16} /> {t("Tugagan", "Нет в наличии")}
               </span>
             )}
           </div>
@@ -198,11 +200,11 @@ export default function ProductPage() {
           {/* Price */}
           <div style={{ marginBottom: 'var(--space-6)' }}>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-3xl)', color: 'var(--brand-primary)' }}>
-              {fmt(product.price)} so&apos;m
+              {fmt(product.price)} {t("so'm", "сум")}
             </div>
             {product.oldPrice && (
               <div style={{ fontSize: 'var(--text-lg)', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                {fmt(product.oldPrice)} so&apos;m
+                {fmt(product.oldPrice)} {t("so'm", "сум")}
               </div>
             )}
           </div>
@@ -223,7 +225,7 @@ export default function ProductPage() {
             <button className="btn btn-primary btn-lg" onClick={handleAddToCart}
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
               disabled={product.stock === 0}>
-              <Icons.ShoppingCart size={20} /> Savatga qo&apos;shish
+              <Icons.ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}
             </button>
           </div>
 
@@ -231,11 +233,11 @@ export default function ProductPage() {
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <button onClick={handleToggleFav} className="btn btn-outline"
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: fav ? 'var(--error)' : undefined }}>
-              {fav ? <Icons.HeartFilled size={18} /> : <Icons.Heart size={18} />} Sevimli
+              {fav ? <Icons.HeartFilled size={18} /> : <Icons.Heart size={18} />} {t("Sevimli", "В избранное")}
             </button>
             <a href="tel:+998949999599" className="btn btn-outline"
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-              <Icons.Phone size={18} /> Qo&apos;ng&apos;iroq
+              <Icons.Phone size={18} /> {t("Qo'ng'iroq", "Позвонить")}
             </a>
           </div>
         </div>
@@ -248,14 +250,14 @@ export default function ProductPage() {
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className={`btn ${activeTab === tab.id ? 'btn-primary' : 'btn-ghost'}`}
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {tab.icon} {tab.label}
+              {tab.icon} {t(tab.labelUz, tab.labelRu)}
             </button>
           ))}
         </div>
 
         {activeTab === 'desc' && (
           <div className="card" style={{ padding: 'var(--space-6)' }}>
-            <p style={{ lineHeight: 1.8 }}>{product.descriptionUz || "Bu mahsulot haqida batafsil ma'lumot tez orada qo'shiladi."}</p>
+            <p style={{ lineHeight: 1.8 }}>{t(product.descriptionUz || "Bu mahsulot haqida batafsil ma'lumot tez orada qo'shiladi.", product.descriptionRu || "Подробная информация об этом товаре будет добавлена в ближайшее время.")}</p>
           </div>
         )}
 
@@ -273,7 +275,7 @@ export default function ProductPage() {
                 ))}
               </div>
             ) : (
-              <p style={{ color: 'var(--text-muted)' }}>Xususiyatlar tez orada qo&apos;shiladi</p>
+              <p style={{ color: 'var(--text-muted)' }}>{t("Xususiyatlar tez orada qo'shiladi", "Характеристики будут добавлены в ближайшее время")}</p>
             )}
           </div>
         )}
@@ -284,21 +286,21 @@ export default function ProductPage() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                 <Icons.Truck size={24} style={{ color: 'var(--brand-primary)' }} />
                 <div>
-                  <div style={{ fontWeight: 'var(--font-semibold)' }}>Yetkazib berish</div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>30-90 daqiqada · 25 000 so&apos;m (500K dan bepul)</div>
+                  <div style={{ fontWeight: 'var(--font-semibold)' }}>{t("Yetkazib berish", "Доставка")}</div>
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{t("30-90 daqiqada · 25 000 so'm (500K dan bepul)", "За 30-90 минут · 25 000 сум (от 500К бесплатно)")}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                 <Icons.MapPin size={24} style={{ color: 'var(--brand-primary)' }} />
                 <div>
-                  <div style={{ fontWeight: 'var(--font-semibold)' }}>O&apos;zingiz olib ketish</div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Ray senter, Hokimiyat yonida</div>
+                  <div style={{ fontWeight: 'var(--font-semibold)' }}>{t("O'zingiz olib ketish", "Самовывоз")}</div>
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{t("Ray senter, Hokimiyat yonida", "Райцентр, возле Хокимията")}</div>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                 <Icons.Phone size={24} style={{ color: 'var(--brand-primary)' }} />
                 <div>
-                  <div style={{ fontWeight: 'var(--font-semibold)' }}>Maslahat</div>
+                  <div style={{ fontWeight: 'var(--font-semibold)' }}>{t("Maslahat", "Консультация")}</div>
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>+998 94 999 95 99</div>
                 </div>
               </div>

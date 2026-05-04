@@ -359,6 +359,13 @@ export const ArrowRight = createIcon(
   </>
 );
 
+export const ArrowDown = createIcon(
+  <>
+    <path d="M12 5v14" />
+    <path d="m19 12-7 7-7-7" />
+  </>
+);
+
 export const Users = createIcon(
   <>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />

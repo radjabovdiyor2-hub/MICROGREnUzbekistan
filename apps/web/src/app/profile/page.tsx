@@ -18,12 +18,12 @@ export default function ProfilePage() {
 
   return (
     <div className="container" style={{ paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
-      <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', animation: 'page-enter 0.4s ease both' }}>
         <Icons.User size={28} /> {t('Profil', 'Профиль')}
       </h1>
 
       {/* Profile Card */}
-      <div className="card" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
+      <div className="card glow-green" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)', animation: 'page-enter 0.5s ease 0.1s both' }}>
         {isLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
             <div className="skeleton" style={{ width: 72, height: 72, borderRadius: 'var(--radius-full)' }} />
@@ -306,7 +306,9 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
   const copyCode = async () => {
-    const text = `Microgreen do'konidan xarid qiling va bonus oling!\n\nMening taklif kodom: ${shortCode}\n${shareUrl}\n\nBirinchi xaridda 2 000 so'm bonus!`;
+    const textUz = `Microgreen do'konidan xarid qiling va bonus oling!\n\nMening taklif kodim: ${shortCode}\n${shareUrl}\n\nBirinchi xaridda 2 000 so'm bonus!`;
+    const textRu = `Покупайте в магазине Microgreen и получайте бонусы!\n\nМой код приглашения: ${shortCode}\n${shareUrl}\n\nБонус 2 000 сум на первый заказ!`;
+    const text = lang === 'uz' ? textUz : textRu;
     try {
       if (navigator.share) {
         await navigator.share({ text, title: 'Microgreen — Taklif kodi' });

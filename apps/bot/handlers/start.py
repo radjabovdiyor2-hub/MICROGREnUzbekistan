@@ -10,7 +10,7 @@ from services.config_service import fetch_site_config
 
 router = Router()
 
-WEB_APP_URL = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com/webapp")
+WEB_APP_URL = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com")
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "5765451742").split(",") if x.strip()]
 _start_time = time.time()
@@ -40,34 +40,34 @@ async def cmd_start(message: Message):
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="⚡ Открыть Магазин", web_app=WebAppInfo(url=WEB_APP_URL)),
+            InlineKeyboardButton(text="⚡ Do'konni ochish / Открыть магазин", web_app=WebAppInfo(url=WEB_APP_URL)),
         ],
         [
-            InlineKeyboardButton(text="🎮 Играть и копить скидку", url=f"https://t.me/{config.social.telegram_bot.rstrip('/').split('/')[-1]}/game"),
+            InlineKeyboardButton(text="🎮 O'ynash va chegirma olish / Играть", url=f"https://t.me/{config.social.telegram_bot.rstrip('/').split('/')[-1]}/game"),
         ],
         [
-            InlineKeyboardButton(text="🤖 Спросить AI-Агронома", callback_data="agronomist"),
+            InlineKeyboardButton(text="🤖 AI-Agronom so'rash / Спросить AI", callback_data="agronomist"),
         ],
         [
-            InlineKeyboardButton(text="📋 Мои заказы", callback_data="menu:orders"),
-            InlineKeyboardButton(text="🎁 Мои бонусы", callback_data="menu:bonuses"),
+            InlineKeyboardButton(text="📋 Buyurtmalar / Заказы", callback_data="menu:orders"),
+            InlineKeyboardButton(text="🎁 Bonuslar / Бонусы", callback_data="menu:bonuses"),
         ],
         [
-            InlineKeyboardButton(text="📢 Наш Канал", url=config.social.telegram_channel),
-            InlineKeyboardButton(text="💬 Чат", url=config.social.telegram_group),
+            InlineKeyboardButton(text="📢 Kanal / Канал", url=config.social.telegram_channel),
+            InlineKeyboardButton(text="💬 Chat / Чат", url=config.social.telegram_group),
         ]
     ])
     
-    # Use dynamic title from config and apply AI-Agronomist persona
     await message.answer(
-        f"👨‍🌾 <b>Привет! Я твой личный AI-Агроном из {config.hero_title}!</b>\n\n"
-        f"Я здесь, чтобы помочь тебе собирать идеальные урожаи, подобрать лучшие семена и подсказать секреты сити-фермерства.\n\n"
-        f"<b>Что у нас есть:</b>\n"
-        "• 🌿 <b>Магазин (320+ товаров)</b> с быстрой доставкой\n"
-        "• 🎮 <b>Farm Simulator</b> — играй, выполняй задания и получай <b>реальные скидки</b>!\n"
-        "• 📸 <b>Диагностика по фото</b> — просто отправь мне фото растения, и я скажу, чего ему не хватает.\n\n"
-        f"🎁 <i>Бесплатная доставка от {config.free_delivery_threshold:,} сум!</i>\n\n"
-        "👇 <b>С чего начнем сегодня?</b>",
+        f"👨‍🌾 <b>Salom! Men sening shaxsiy AI-Agronomingman {config.hero_title} dan!</b>\n"
+        f"🇷🇺 <b>Привет! Я твой личный AI-Агроном из {config.hero_title}!</b>\n\n"
+        f"Men sizga ajoyib hosil olishda yordam beraman. (Я здесь, чтобы помочь тебе собирать идеальные урожаи)\n\n"
+        f"<b>Bizda nima bor (Что у нас есть):</b>\n"
+        "• 🌿 <b>Do'kon / Магазин</b> (320+ mahsulotlar / товаров)\n"
+        "• 🎮 <b>Farm Simulator</b> — o'ynang va haqiqiy chegirmalar oling! / играй и получай реальные скидки!\n"
+        "• 📸 <b>Rasm orqali tahlil / Диагностика по фото</b>\n\n"
+        f"🎁 <i>Bepul yetkazib berish / Бесплатная доставка от {config.free_delivery_threshold:,} so'm!</i>\n\n"
+        "👇 <b>Nimadan boshlaymiz? / С чего начнем сегодня?</b>",
         reply_markup=keyboard
     )
 

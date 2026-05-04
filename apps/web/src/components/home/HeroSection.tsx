@@ -189,8 +189,8 @@ export function HeroSection() {
               <Icons.Leaf size={20} />
             </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>100% Organik</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Kichik fermalardan</div>
+              <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{t("100% Organik", "100% Органика")}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t("Kichik fermalardan", "С небольших ферм")}</div>
             </div>
           </div>
         </div>

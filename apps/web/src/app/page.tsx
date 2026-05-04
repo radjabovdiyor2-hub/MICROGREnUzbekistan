@@ -1,6 +1,8 @@
 import { HeroSection } from '@/components/home/HeroSection';
 import { CategoriesSection } from '@/components/home/CategoriesSection';
 import { SaleBanner } from '@/components/home/SaleBanner';
+import { RecipeOfDay } from '@/components/home/RecipeOfDay';
+import { NutritionistPanel } from '@/components/home/NutritionistPanel';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { AiBanner } from '@/components/home/AiBanner';
 import { StoreLocation } from '@/components/home/StoreLocation';
@@ -16,6 +18,12 @@ export default function HomePage() {
       </ScrollReveal>
       <ScrollReveal variant="scale" delay={100}>
         <SaleBanner />
+      </ScrollReveal>
+      <ScrollReveal delay={80}>
+        <RecipeOfDay />
+      </ScrollReveal>
+      <ScrollReveal variant="left" delay={80}>
+        <NutritionistPanel />
       </ScrollReveal>
       <ScrollReveal>
         <FeaturedProducts />

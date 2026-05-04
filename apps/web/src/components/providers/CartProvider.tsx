@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { triggerHaptic } from '@/utils/haptic';
 
 // ==========================================
 // Cart Store — localStorage-backed
@@ -64,6 +65,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, loaded]);
 
   const addItem = useCallback((product: CartProduct, quantity = 1) => {
+    triggerHaptic('success');
     setItems(prev => {
       const existing = prev.find(i => i.product.id === product.id);
       if (existing) {
@@ -78,10 +80,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeItem = useCallback((productId: string) => {
+    triggerHaptic('medium');
     setItems(prev => prev.filter(i => i.product.id !== productId));
   }, []);
 
   const updateQuantity = useCallback((productId: string, quantity: number) => {
+    triggerHaptic('light');
     if (quantity <= 0) {
       setItems(prev => prev.filter(i => i.product.id !== productId));
       return;
@@ -92,6 +96,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearCart = useCallback(() => {
+    triggerHaptic('heavy');
     setItems([]);
   }, []);
 

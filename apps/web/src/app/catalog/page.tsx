@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from '@/components/shop/ProductCard';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
+import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
 const PAGE_SIZE = 24;
 
@@ -118,14 +119,16 @@ function CatalogContent() {
   return (
     <div className="container" style={{ paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: 'var(--space-6)' }}>
-        <h1 className="section-title" style={{ marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Icons.Folder size={28} /> Katalog
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-          {t('Barcha mahsulotlar bir joyda — tanlang va buyurtma bering!', 'Все товары в одном месте — выбирайте и заказывайте!')}
-        </p>
-      </div>
+      <ScrollReveal variant="left">
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <h1 className="section-title" style={{ marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Icons.Folder size={28} /> {t('Katalog', 'Каталог')}
+          </h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
+            {t('Barcha mahsulotlar bir joyda — tanlang va buyurtma bering!', 'Все товары в одном месте — выбирайте и заказывайте!')}
+          </p>
+        </div>
+      </ScrollReveal>
 
       {/* Search */}
       <form onSubmit={handleSearch} style={{ marginBottom: 'var(--space-4)' }}>
@@ -134,7 +137,7 @@ function CatalogContent() {
           <input
             className="search-bar__input"
             type="text"
-            placeholder="Mahsulot qidirish... (masalan: rukkola, urug', substrat)"
+            placeholder={t("Mahsulot qidirish... (masalan: rukkola, urug', substrat)", "Поиск товаров... (например: руккола, семена, субстрат)")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             id="catalog-search"
@@ -155,7 +158,7 @@ function CatalogContent() {
             id={`filter-${cat.slug || 'all'}`}
           >
             <span className="category-pill__icon">{cat.icon}</span>
-            <span className="category-pill__name">{cat.nameUz}</span>
+            <span className="category-pill__name">{t(cat.nameUz, cat.nameRu)}</span>
           </button>
         ))}
       </div>
@@ -170,7 +173,9 @@ function CatalogContent() {
         gap: 'var(--space-2)',
       }}>
         <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-          {pagination ? `${pagination.total} ta mahsulotdan ${products.length} tasi` : `${products.length} ta mahsulot topildi`}
+          {pagination 
+            ? t(`${pagination.total} ta mahsulotdan ${products.length} tasi`, `Показано ${products.length} из ${pagination.total} товаров`) 
+            : t(`${products.length} ta mahsulot topildi`, `Найдено ${products.length} товаров`)}
         </span>
         <select
           value={sort}
@@ -188,7 +193,7 @@ function CatalogContent() {
           id="sort-select"
         >
           {SORT_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option key={opt.value} value={opt.value}>{t(opt.labelUz, opt.labelRu)}</option>
           ))}
         </select>
       </div>
@@ -211,8 +216,12 @@ function CatalogContent() {
       ) : products.length > 0 ? (
         <>
           <div className="product-grid">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {products.map((product, idx) => (
+              <div key={product.id} style={{
+                animation: `page-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(idx * 50, 400)}ms both`,
+              }}>
+                <ProductCard product={product} />
+              </div>
             ))}
           </div>
 
@@ -237,9 +246,9 @@ function CatalogContent() {
                 id="load-more-btn"
               >
                 {loadingMore ? (
-                  <><Icons.Clock size={18} style={{ animation: 'pulse 1.5s infinite' }} /> Yuklanmoqda...</>
+                  <><Icons.Clock size={18} style={{ animation: 'pulse 1.5s infinite' }} /> {t('Yuklanmoqda...', 'Загрузка...')}</>
                 ) : (
-                  <><Icons.Plus size={18} /> Ko&apos;proq ko&apos;rsatish ({pagination!.total - products.length} ta qoldi)</>
+                  <><Icons.Plus size={18} /> {t(`Ko'proq ko'rsatish (${pagination!.total - products.length} ta qoldi)`, `Показать еще (осталось ${pagination!.total - products.length})`)}</>
                 )}
               </button>
             </div>
@@ -253,10 +262,10 @@ function CatalogContent() {
         }}>
           <div style={{ marginBottom: 'var(--space-4)' }}><Icons.Search size={64} /></div>
           <h3 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)', color: 'var(--text-primary)' }}>
-            Hech narsa topilmadi
+            {t('Hech narsa topilmadi', 'Ничего не найдено')}
           </h3>
           <p style={{ fontSize: 'var(--text-sm)' }}>
-            Boshqa so&apos;z bilan qidirib ko&apos;ring yoki kategoriyani o&apos;zgartiring
+            {t("Boshqa so'z bilan qidirib ko'ring yoki kategoriyani o'zgartiring", "Попробуйте использовать другие слова или изменить категорию")}
           </p>
         </div>
       )}

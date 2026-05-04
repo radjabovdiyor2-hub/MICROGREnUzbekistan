@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import * as Icons from '@/components/ui/Icons';
+import { useLang } from '@/components/providers/LangProvider';
 
 interface CalcResult {
   title: string;
@@ -277,16 +278,17 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
 // ======== MAIN EXPORT: QUICK CALC PANEL ========
 export type CalcType = 'yield' | 'light' | 'water' | 'profit';
 
-export const CALC_TABS: { key: CalcType; label: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'yield', label: 'Hosil', icon: <Icons.Leaf size={16} />, color: '#10B981' },
-  { key: 'water', label: 'Ozuqa', icon: <Icons.Droplet size={16} />, color: '#3B82F6' },
-  { key: 'light', label: 'Yoritish', icon: <Icons.Sun size={16} />, color: '#F59E0B' },
-  { key: 'profit', label: "Biznes", icon: <Icons.DollarSign size={16} />, color: '#8B5CF6' },
+export const CALC_TABS: { key: CalcType; labelUz: string; labelRu: string; icon: React.ReactNode; color: string }[] = [
+  { key: 'yield', labelUz: 'Hosil', labelRu: 'Урожай', icon: <Icons.Leaf size={16} />, color: '#10B981' },
+  { key: 'water', labelUz: 'Ozuqa', labelRu: 'Питание', icon: <Icons.Droplet size={16} />, color: '#3B82F6' },
+  { key: 'light', labelUz: 'Yoritish', labelRu: 'Свет', icon: <Icons.Sun size={16} />, color: '#F59E0B' },
+  { key: 'profit', labelUz: "Biznes", labelRu: 'Бизнес', icon: <Icons.DollarSign size={16} />, color: '#8B5CF6' },
 ];
 
 export function QuickCalcPanel({ onSendToChat }: { onSendToChat: (text: string) => void }) {
   const [activeCalc, setActiveCalc] = useState<CalcType>('yield');
   const [result, setResult] = useState<CalcResult | null>(null);
+  const { t } = useLang();
 
   const handleResult = (r: CalcResult) => setResult(r);
   const handleSend = (text: string) => { onSendToChat(text); setResult(null); };
@@ -305,7 +307,7 @@ export function QuickCalcPanel({ onSendToChat }: { onSendToChat: (text: string) 
               border: activeCalc === tab.key ? `1.5px solid ${tab.color}40` : '1.5px solid var(--border)',
               cursor: 'pointer', transition: 'all 0.15s',
             }}>
-            {tab.icon} {tab.label}
+            {tab.icon} {t(tab.labelUz, tab.labelRu)}
           </button>
         ))}
       </div>

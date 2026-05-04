@@ -104,11 +104,11 @@ export function SaleBanner() {
             border: '1px solid rgba(255,255,255,0.1)',
             position: 'relative', zIndex: 1,
           }}>
-            <TimerBlock value={pad(timeLeft.hours)} label="Soat" />
+            <TimerBlock value={pad(timeLeft.hours)} label={t("Soat", "Час")} />
             <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 800, opacity: 0.5 }}>:</div>
-            <TimerBlock value={pad(timeLeft.minutes)} label="Daqiqa" />
+            <TimerBlock value={pad(timeLeft.minutes)} label={t("Daqiqa", "Мин")} />
             <div style={{ color: 'white', fontSize: '1.4rem', fontWeight: 800, opacity: 0.5 }}>:</div>
-            <TimerBlock value={pad(timeLeft.seconds)} label="Soniya" accent />
+            <TimerBlock value={pad(timeLeft.seconds)} label={t("Soniya", "Сек")} accent />
           </div>
         </div>
       </div>

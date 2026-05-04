@@ -44,11 +44,11 @@ async def main():
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     
     # Set menu button to correct WebApp URL on every startup
-    webapp_url = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com/webapp")
+    webapp_url = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com")
     try:
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
-                text="🌱 Магазин",
+                text="🌱 Do'kon / Магазин",
                 web_app=WebAppInfo(url=webapp_url)
             )
         )

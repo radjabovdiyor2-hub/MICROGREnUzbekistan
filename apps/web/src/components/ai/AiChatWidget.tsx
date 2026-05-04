@@ -5,6 +5,7 @@ import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { QuickCalcPanel } from './QuickCalc';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { triggerHaptic } from '@/utils/haptic';
 
 interface Message {
   id: string;
@@ -192,6 +193,7 @@ export function AiChatWidget() {
 
   const sendMessage = async () => {
     if ((!input.trim() && !imagePreview) || isLoading) return;
+    triggerHaptic('light');
     const userContent = input.trim() || 'Rasm';
     const userMsg: Message = { id: Date.now().toString(), role: 'user', content: userContent, imageUrl: imagePreview?.url, timestamp: Date.now() };
     setMessages(prev => [...prev, userMsg]);
@@ -220,7 +222,7 @@ export function AiChatWidget() {
   // FAB
   if (!isOpen) {
     return (
-      <button className="ai-chat-fab" onClick={() => setIsOpen(true)} aria-label="Open AI chat" id="ai-chat-fab"
+      <button className="ai-chat-fab" onClick={() => { setIsOpen(true); triggerHaptic('light'); }} aria-label="Open AI chat" id="ai-chat-fab"
         style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + var(--space-4))', right: 'var(--space-4)' }}>
         <Icons.Sparkles size={24} />
       </button>

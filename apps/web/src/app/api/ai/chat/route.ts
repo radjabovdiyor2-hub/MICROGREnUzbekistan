@@ -156,12 +156,11 @@ async function callGemini(
 // ==========================================
 async function fallbackResponse(message: string): Promise<string> {
   const q = message.toLowerCase();
-  
-  if (/salom|assalom|hi|hello/i.test(q)) {
-    return "Assalomu alaykum! 👋 Men Microgreen Agro AI maslahatchiman. Sizga mikroko'katlar yetishtirishda qanday yordam bera olaman?";
+  if (/salom|assalom|hi|hello|привет/i.test(q)) {
+    return "Assalomu alaykum! 👋 Men Microgreen Agro AI maslahatchiman. Sizga mikroko'katlar yetishtirishda qanday yordam bera olaman?\n\nЗдравствуйте! 👋 Я AI-консультант Microgreen Agro. Как я могу помочь вам с выращиванием микрозелени?";
   }
 
-  return "Rahmat savolingiz uchun! Men Microgreen Agro AI maslahatchiman. Mikroko'katlar, gidroponika yoki urug'lar haqida so'rashingiz mumkin 😊";
+  return "Rahmat savolingiz uchun! Men Microgreen Agro AI maslahatchiman. Mikroko'katlar, gidroponika yoki urug'lar haqida so'rashingiz mumkin 😊\n\nСпасибо за вопрос! Я AI-консультант Microgreen Agro. Вы можете спросить меня о микрозелени, гидропонике или семенах 😊";
 }
 
 // ==========================================
@@ -227,7 +226,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('AI chat error:', error);
     return NextResponse.json({
-      reply: "Voy, nimadur xato ketdi! 😅 Qayta urinib ko'ring yoki +998 94 999 95 99 ga qo'ng'iroq qiling.",
+      reply: "Voy, nimadur xato ketdi! 😅 Qayta urinib ko'ring yoki +998 94 999 95 99 ga qo'ng'iroq qiling.\n\nУпс, что-то пошло не так! 😅 Попробуйте еще раз или позвоните +998 94 999 95 99.",
       source: 'error',
     });
   }

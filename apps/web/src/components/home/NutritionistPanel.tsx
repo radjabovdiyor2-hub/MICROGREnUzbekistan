@@ -1,0 +1,256 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import * as Icons from '@/components/ui/Icons';
+import { useLang } from '@/components/providers/LangProvider';
+import { triggerHaptic } from '@/utils/haptic';
+
+interface CropInfo { key: string; nameUz: string; nameRu: string; }
+interface NutrientResult {
+  total: Record<string, number>;
+  details: any[];
+  dailyValuePercent: Record<string, number>;
+}
+
+const inputStyle: React.CSSProperties = {
+  padding: '10px 14px', borderRadius: 12, border: '1.5px solid var(--border)',
+  background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13,
+  outline: 'none', width: '100%', transition: 'border-color 0.2s',
+};
+
+function DvBar({ label, percent, color }: { label: string; percent: number; color: string }) {
+  const capped = Math.min(percent, 100);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+      <span style={{ width: 50, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>{label}</span>
+      <div style={{ flex: 1, height: 8, borderRadius: 4, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
+        <div style={{
+          width: `${capped}%`, height: '100%', borderRadius: 4,
+          background: `linear-gradient(90deg, ${color}, ${color}CC)`,
+          transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
+        }} />
+      </div>
+      <span style={{ width: 40, textAlign: 'right', fontWeight: 700, color: percent >= 80 ? 'var(--success)' : 'var(--text-primary)' }}>
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
+export function NutritionistPanel() {
+  const { t, lang } = useLang();
+  const [crops, setCrops] = useState<CropInfo[]>([]);
+  const [items, setItems] = useState<{ crop: string; grams: number }[]>([{ crop: 'rukkola', grams: 30 }]);
+  const [result, setResult] = useState<NutrientResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/ai/nutrition?type=crops')
+      .then(r => r.json())
+      .then(d => setCrops(d.crops?.map((c: any) => ({ key: c.key, nameUz: c.nameUz, nameRu: c.nameRu })) || []))
+      .catch(() => {});
+  }, []);
+
+  const addItem = () => {
+    triggerHaptic('light');
+    setItems(prev => [...prev, { crop: 'brokkoli', grams: 20 }]);
+  };
+
+  const removeItem = (idx: number) => {
+    triggerHaptic('light');
+    setItems(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateItem = (idx: number, field: 'crop' | 'grams', value: string) => {
+    setItems(prev => prev.map((it, i) =>
+      i === idx ? { ...it, [field]: field === 'grams' ? parseInt(value) || 0 : value } : it
+    ));
+  };
+
+  const calculate = useCallback(async () => {
+    if (items.length === 0 || items.some(i => !i.grams)) return;
+    triggerHaptic('success');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/ai/nutrition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      const data = await res.json();
+      setResult(data);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, [items]);
+
+  return (
+    <section className="section" id="nutritionist-section">
+      <div className="container">
+        {/* Section header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: 'linear-gradient(135deg, #10B981, #059669)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'white', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+          }}>
+            <Icons.Heart size={18} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
+              {t("AI Nutritsiolog", "AI Нутрициолог")}
+            </h2>
+            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+              {t("Aniq vitaminlar va minerallar hisobi", "Точный расчёт витаминов и минералов")}
+            </p>
+          </div>
+        </div>
+
+        {/* Calculator card */}
+        <div style={{
+          background: 'var(--bg-card)', borderRadius: 20,
+          border: '1.5px solid var(--border)', overflow: 'hidden',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        }}>
+          {/* Input section */}
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 14, fontWeight: 600 }}>
+              {t("Qaysi mikroko'katlarni iste'mol qilasiz?", "Какую микрозелень вы едите?")}
+            </p>
+
+            {items.map((item, idx) => (
+              <div key={idx} style={{
+                display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center',
+                animation: 'reveal-up 0.2s ease',
+              }}>
+                <select value={item.crop} onChange={e => updateItem(idx, 'crop', e.target.value)}
+                  style={{ ...inputStyle, flex: 2 }}>
+                  {crops.map(c => (
+                    <option key={c.key} value={c.key}>{lang === 'ru' ? c.nameRu : c.nameUz}</option>
+                  ))}
+                </select>
+                <div style={{ position: 'relative', flex: 1 }}>
+                  <input type="number" min="1" max="500" value={item.grams}
+                    onChange={e => updateItem(idx, 'grams', e.target.value)}
+                    style={{ ...inputStyle, paddingRight: 26 }} />
+                  <span style={{
+                    position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                    fontSize: 11, color: 'var(--text-muted)', fontWeight: 600,
+                  }}>g</span>
+                </div>
+                {items.length > 1 && (
+                  <button onClick={() => removeItem(idx)} style={{
+                    background: 'none', border: 'none', color: 'var(--error)',
+                    cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0,
+                  }}>
+                    <Icons.X size={18} />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={addItem} style={{
+                flex: 1, padding: 10, borderRadius: 12, fontSize: 12, fontWeight: 700,
+                background: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                border: '1.5px dashed var(--border)', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                transition: 'all 0.2s',
+              }}>
+                <Icons.Plus size={14} /> {t("Qo'shish", "Добавить")}
+              </button>
+              <button onClick={calculate} disabled={loading} style={{
+                flex: 2, padding: 10, borderRadius: 12, fontSize: 13, fontWeight: 700,
+                background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white',
+                border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', gap: 6, opacity: loading ? 0.6 : 1,
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', transition: 'all 0.2s',
+              }}>
+                <Icons.Zap size={14} /> {loading ? '...' : t('Hisoblash', 'Рассчитать')}
+              </button>
+            </div>
+          </div>
+
+          {/* Results */}
+          {result && (
+            <div style={{ padding: '20px 24px', animation: 'reveal-up 0.3s ease' }}>
+              {/* Macro summary */}
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
+                marginBottom: 20,
+              }}>
+                {[
+                  { label: t('Kaloriya', 'Калории'), value: `${result.total.calories.toFixed(0)}`, unit: 'kcal', color: '#F59E0B' },
+                  { label: t('Oqsil', 'Белок'), value: `${result.total.protein.toFixed(1)}`, unit: 'g', color: '#3B82F6' },
+                  { label: t("Yog'", 'Жиры'), value: `${result.total.fat.toFixed(1)}`, unit: 'g', color: '#EC4899' },
+                  { label: t("Uglevod", 'Углеводы'), value: `${result.total.carbs.toFixed(1)}`, unit: 'g', color: '#8B5CF6' },
+                ].map((m, i) => (
+                  <div key={i} style={{
+                    textAlign: 'center', padding: '14px 8px', borderRadius: 14,
+                    background: `${m.color}08`, border: `1.5px solid ${m.color}18`,
+                  }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: 'var(--font-display)' }}>
+                      {m.value}
+                    </div>
+                    <div style={{ fontSize: 9, color: m.color, fontWeight: 700, opacity: 0.7 }}>{m.unit}</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, fontWeight: 600 }}>{m.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Daily Value bars */}
+              <div style={{ marginBottom: 18 }}>
+                <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10 }}>
+                  {t("Kunlik me'yor % (RDI)", "% дневной нормы (RDI)")}
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <DvBar label="Vit C" percent={result.dailyValuePercent.vitC} color="#F59E0B" />
+                  <DvBar label="Vit A" percent={result.dailyValuePercent.vitA} color="#10B981" />
+                  <DvBar label="Vit K" percent={result.dailyValuePercent.vitK} color="#8B5CF6" />
+                  <DvBar label="Fe" percent={result.dailyValuePercent.iron} color="#EF4444" />
+                  <DvBar label="Ca" percent={result.dailyValuePercent.calcium} color="#3B82F6" />
+                  <DvBar label="K" percent={result.dailyValuePercent.potassium} color="#059669" />
+                </div>
+              </div>
+
+              {/* Benefits from each crop */}
+              {result.details.map((d: any, i: number) => (
+                <div key={i} style={{
+                  padding: '10px 14px', borderRadius: 12, marginBottom: 8,
+                  background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icons.Leaf size={13} color="var(--brand-primary)" />
+                    {lang === 'ru' ? d.nameRu : d.nameUz} ({d.grams}g)
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--brand-primary)', fontWeight: 800, background: 'var(--brand-primary-light)', padding: '2px 8px', borderRadius: 6 }}>
+                      ×{d.antioxidantMultiplier} {t("antioksidant", "антиоксид.")}
+                    </span>
+                  </div>
+                  {d.benefits?.map((b: any, j: number) => (
+                    <div key={j} style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <Icons.CheckCircle size={11} color="var(--success)" /> {lang === 'ru' ? b.ru : b.uz}
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+              {/* Fiber bonus */}
+              <div style={{
+                padding: '10px 14px', borderRadius: 12, marginTop: 12,
+                background: '#10B98110', border: '1px solid #10B98120',
+                fontSize: 12, color: '#059669', fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <Icons.Lightbulb size={15} style={{ flexShrink: 0 }} />
+                {t(
+                  `Jami ${result.total.fiber.toFixed(1)}g tolalar — kunlik me'yorning ${((result.total.fiber / 25) * 100).toFixed(0)}%`,
+                  `Всего ${result.total.fiber.toFixed(1)}г клетчатки — ${((result.total.fiber / 25) * 100).toFixed(0)}% дневной нормы`
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
