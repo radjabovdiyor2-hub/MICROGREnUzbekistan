@@ -40,6 +40,7 @@ export function AdminProducts() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [lang, setLang] = useState<'ru' | 'uz'>('ru');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -296,6 +297,8 @@ export function AdminProducts() {
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
+  // Only top-level categories for filter (no duplicates from children)
+  const topCategories = categories.filter(c => !categories.some(p => p.children?.some(ch => ch.id === c.id)));
   const allCategories = categories.flatMap(c => [c, ...(c.children || [])]);
   const activeCount = counts.active;
   const lowStock = products.filter(p => p.stock < 10).length;
@@ -308,38 +311,40 @@ export function AdminProducts() {
     fontSize: 'var(--text-sm)', outline: 'none',
   };
 
+  const t = (ru: string, uz: string) => lang === 'ru' ? ru : uz;
+
   // ========== ADD/EDIT FORM ==========
   if (showForm) {
     return (
       <div>
         <button onClick={() => setShowForm(false)} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.ArrowLeft size={16} /> Назад
+          <Icons.ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
         </button>
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.Plus size={18} /> {editingId ? "Редактирование" : "Добавить товар"}
+            <Icons.Plus size={18} /> {editingId ? t('Редактирование', 'Tahrirlash') : t('Добавить товар', "Yangi tovar qo'shish")}
           </h3>
 
           {formError && <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)' }}>{formError}</div>}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Название (UZ) *</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>{t('Название (UZ) *', 'Nomi (UZ) *')}</label>
               <input style={inputStyle} value={form.nameUz} onChange={e => handleNameChange(e.target.value)} placeholder="Rukkola mikroko'kati" />
             </div>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Название (RU)</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>{t('Название (RU)', 'Nomi (RU)')}</label>
               <input style={inputStyle} value={form.nameRu} onChange={e => setForm(f => ({ ...f, nameRu: e.target.value }))} placeholder="Микрозелень Руккола" />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Цена продажи (сум) *</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>{t('Цена продажи (сум) *', "Sotuv narxi (so'm) *")}</label>
               <input style={inputStyle} type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="15000" />
             </div>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'block', marginBottom: 2, fontWeight: 600 }}>Себестоимость</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'block', marginBottom: 2, fontWeight: 600 }}>{t('Себестоимость', 'Tan narxi')}</label>
               <input style={{ ...inputStyle, borderColor: form.costPrice ? 'var(--success)' : 'var(--border)' }} type="number" value={form.costPrice} onChange={e => setForm(f => ({ ...f, costPrice: e.target.value }))} placeholder="10000" />
               {form.price && form.costPrice && (
                 <div style={{ fontSize: '10px', marginTop: 3, color: parseInt(form.price) > parseInt(form.costPrice) ? 'var(--success)' : 'var(--error)', fontWeight: 600 }}>
@@ -365,7 +370,7 @@ export function AdminProducts() {
               <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}>
                 <option value="">Выберите...</option>
                 {allCategories.map(c => (
-                  <option key={c.id} value={c.id}>{c.nameRu || c.nameUz}</option>
+                  <option key={c.id} value={c.id}>{lang === 'ru' ? (c.nameRu || c.nameUz) : c.nameUz}</option>
                 ))}
               </select>
             </div>
@@ -448,7 +453,7 @@ export function AdminProducts() {
 
           <button onClick={handleSubmit} disabled={saving} className="btn btn-primary btn-lg btn-block"
             style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
-            {saving ? <><Icons.Clock size={18} /> Сохранение...</> : <><Icons.CheckCircle size={18} /> {editingId ? "СОХРАНИТЬ" : "ДОБАВИТЬ"}</>}
+            {saving ? <><Icons.Clock size={18} /> {t('Сохранение...', 'Saqlanmoqda...')}</> : <><Icons.CheckCircle size={18} /> {editingId ? t('СОХРАНИТЬ', 'SAQLASH') : t('ДОБАВИТЬ', "QO'SHISH")}</>}
           </button>
         </div>
       </div>
@@ -458,41 +463,48 @@ export function AdminProducts() {
   // ========== PRODUCT LIST ==========
   return (
     <div>
-      {/* Metrics */}
+      {/* Lang toggle + Metrics */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-2)' }}>
+        <button onClick={() => setLang(l => l === 'ru' ? 'uz' : 'ru')}
+          style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}>
+          {lang === 'ru' ? '🇷🇺 RU' : '🇺🇿 UZ'}
+        </button>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Icons.Tag size={16} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Всего</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Всего', 'Jami')}</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{counts.total}</div>
           </div>
         </div>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Icons.CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Активных</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Активных', 'Aktiv')}</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{activeCount}</div>
           </div>
         </div>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Icons.AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Мало</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Мало', 'Kam')}</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{lowStock}</div>
           </div>
         </div>
       </div>
 
-      {/* Category Filter */}
+      {/* Category Filter — top-level only, no duplicates */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: 'var(--space-2)', overflowX: 'auto', paddingBottom: 4 }}>
         <button onClick={() => setCategoryFilter('')}
           style={{ padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '12px', fontWeight: 600, border: '1.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', background: !categoryFilter ? 'var(--brand-primary)' : 'transparent', color: !categoryFilter ? 'white' : 'var(--text-secondary)', borderColor: !categoryFilter ? 'var(--brand-primary)' : 'var(--border)' }}>
-          Все ({counts.total})
+          {t('Все', 'Barchasi')} ({counts.total})
         </button>
-        {allCategories.filter(c => !categories.some(p => p.children?.some(ch => ch.id === c.id) && p.id !== c.id)).map(c => (
+        {topCategories.map(c => (
           <button key={c.id} onClick={() => setCategoryFilter(c.id)}
             style={{ padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '12px', fontWeight: 600, border: '1.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', background: categoryFilter === c.id ? 'var(--brand-primary)' : 'transparent', color: categoryFilter === c.id ? 'white' : 'var(--text-secondary)', borderColor: categoryFilter === c.id ? 'var(--brand-primary)' : 'var(--border)' }}>
-            {c.nameRu || c.nameUz}
+            {lang === 'ru' ? (c.nameRu || c.nameUz) : c.nameUz}
           </button>
         ))}
       </div>
@@ -501,11 +513,11 @@ export function AdminProducts() {
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
         <div style={{ flex: 1, position: 'relative' }}>
           <Icons.Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Поиск товаров..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          <input type="text" placeholder={t('Поиск товаров...', 'Qidirish...')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             style={{ width: '100%', padding: '8px 8px 8px 34px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
         </div>
         <button onClick={openAdd} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-          <Icons.Plus size={16} /> Новый
+          <Icons.Plus size={16} /> {t('Новый', 'Yangi')}
         </button>
       </div>
 
@@ -539,7 +551,7 @@ export function AdminProducts() {
                 {/* Name */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nameUz}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{(p.category as any)?.nameRu || p.category?.nameUz || 'Без категории'}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lang === 'ru' ? ((p.category as any)?.nameRu || p.category?.nameUz) : p.category?.nameUz || t('Без категории', 'Kategoriyasiz')}</div>
                 </div>
                 {/* Price */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -556,12 +568,12 @@ export function AdminProducts() {
                     background: p.stock === 0 ? '#EF444415' : p.stock < 5 ? '#F59E0B15' : '#10B98115',
                     color: p.stock === 0 ? '#EF4444' : p.stock < 5 ? '#F59E0B' : '#10B981',
                   }}>
-                    {p.stock} шт
+                    {p.stock} {t('шт', 'dona')}
                   </span>
                   {/* Status indicator */}
                   {!p.isActive && (
                     <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '10px', background: '#EF444415', color: '#EF4444' }}>
-                      Неактив
+                      {t('Неактив', 'Nofaol')}
                     </span>
                   )}
                   {p.isFeatured && (
@@ -577,7 +589,7 @@ export function AdminProducts() {
                     <Icons.Edit size={15} />
                   </button>
                   <button onClick={() => toggleActive(p)} className="btn btn-ghost btn-sm"
-                    title={p.isActive ? "Деактивировать" : "Активировать"}
+                    title={p.isActive ? t('Деактивировать', 'Nofaol qilish') : t('Активировать', 'Faol qilish')}
                     style={{
                       padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                       display: 'flex', alignItems: 'center', gap: '4px',
@@ -587,7 +599,7 @@ export function AdminProducts() {
                       transition: 'all 0.2s',
                     }}>
                     {p.isActive ? <Icons.CheckCircle size={13} /> : <Icons.XCircle size={13} />}
-                    {p.isActive ? 'Актив' : 'Неактив'}
+                    {p.isActive ? t('Актив', 'Faol') : t('Неактив', 'Nofaol')}
                   </button>
                   <button onClick={() => deleteProduct(p.id)} className="btn btn-ghost btn-sm"
                     style={{ padding: '6px', color: 'var(--error)', borderRadius: 'var(--radius-sm)' }}>

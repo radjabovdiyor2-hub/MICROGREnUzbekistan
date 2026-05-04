@@ -4,6 +4,25 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding Microgreen Uzbekistan store...');
 
+  // ===== CLEANUP: Remove old duplicate categories (from legacy seed) =====
+  const oldSlugs = ['mikrozelen', 'salaty', 'tsvety', 'semena', 'substrat', 'oborudovanie', 'udobreniya', 'nabory'];
+  for (const slug of oldSlugs) {
+    try {
+      // Move products from old category to new one before deleting
+      const oldCat = await prisma.category.findUnique({ where: { slug } });
+      if (oldCat) {
+        // Check if there are products in this old category
+        const count = await prisma.product.count({ where: { categoryId: oldCat.id } });
+        if (count === 0) {
+          await prisma.category.delete({ where: { slug } });
+          console.log(`  🗑️ Removed old category: ${slug}`);
+        } else {
+          console.log(`  ⚠️ Old category ${slug} has ${count} products, skipping delete`);
+        }
+      }
+    } catch { /* ignore if not found */ }
+  }
+
   // ===== CATEGORIES =====
   const cats = await Promise.all([
     prisma.category.upsert({ where: { slug: 'microgreens' }, update: {}, create: { nameUz: "Mikroko'katlar", nameRu: 'Микрозелень', slug: 'microgreens', icon: 'Leaf', order: 1 }}),
