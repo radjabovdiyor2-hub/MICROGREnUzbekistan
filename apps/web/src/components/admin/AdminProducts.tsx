@@ -15,12 +15,13 @@ interface Product {
   isFeatured: boolean;
   isOnSale: boolean;
   images: string[];
-  category?: { nameUz: string; id: string };
+  category?: { nameUz: string; nameRu: string; id: string };
 }
 
 interface Category {
   id: string;
   nameUz: string;
+  nameRu: string;
   children?: Category[];
 }
 
@@ -38,6 +39,7 @@ export function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -56,6 +58,7 @@ export function AdminProducts() {
     try {
       const params = new URLSearchParams();
       if (searchQuery) params.set('search', searchQuery);
+      if (categoryFilter) params.set('category', categoryFilter);
       params.set('limit', String(ADMIN_PAGE_SIZE));
       params.set('page', String(pageNum));
       params.set('all', 'true');
@@ -100,7 +103,7 @@ export function AdminProducts() {
   useEffect(() => {
     const timer = setTimeout(() => fetchProducts(1), 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]); // eslint-disable-line
+  }, [searchQuery, categoryFilter]); // eslint-disable-line
 
   const toggleActive = async (product: Product) => {
     try {
@@ -310,77 +313,77 @@ export function AdminProducts() {
     return (
       <div>
         <button onClick={() => setShowForm(false)} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.ArrowLeft size={16} /> Orqaga
+          <Icons.ArrowLeft size={16} /> Назад
         </button>
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.Plus size={18} /> {editingId ? "Tahrirlash" : "Yangi tovar qo'shish"}
+            <Icons.Plus size={18} /> {editingId ? "Редактирование" : "Добавить товар"}
           </h3>
 
           {formError && <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)' }}>{formError}</div>}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Nomi (UZ) *</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Название (UZ) *</label>
               <input style={inputStyle} value={form.nameUz} onChange={e => handleNameChange(e.target.value)} placeholder="Rukkola mikroko'kati" />
             </div>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Nomi (RU)</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Название (RU)</label>
               <input style={inputStyle} value={form.nameRu} onChange={e => setForm(f => ({ ...f, nameRu: e.target.value }))} placeholder="Микрозелень Руккола" />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Sotuv narxi (so&apos;m) *</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Цена продажи (сум) *</label>
               <input style={inputStyle} type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} placeholder="15000" />
             </div>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'block', marginBottom: 2, fontWeight: 600 }}>Tan narxi (yetkazuvchi)</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'block', marginBottom: 2, fontWeight: 600 }}>Себестоимость</label>
               <input style={{ ...inputStyle, borderColor: form.costPrice ? 'var(--success)' : 'var(--border)' }} type="number" value={form.costPrice} onChange={e => setForm(f => ({ ...f, costPrice: e.target.value }))} placeholder="10000" />
               {form.price && form.costPrice && (
                 <div style={{ fontSize: '10px', marginTop: 3, color: parseInt(form.price) > parseInt(form.costPrice) ? 'var(--success)' : 'var(--error)', fontWeight: 600 }}>
-                  Foyda: {(parseInt(form.price) - parseInt(form.costPrice)).toLocaleString()} so&apos;m ({((parseInt(form.price) - parseInt(form.costPrice)) / parseInt(form.price) * 100).toFixed(0)}% marja)
+                  Прибыль: {(parseInt(form.price) - parseInt(form.costPrice)).toLocaleString()} сум ({((parseInt(form.price) - parseInt(form.costPrice)) / parseInt(form.price) * 100).toFixed(0)}% маржа)
                 </div>
               )}
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Eski narx</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Старая цена</label>
               <input style={inputStyle} type="number" value={form.oldPrice} onChange={e => setForm(f => ({ ...f, oldPrice: e.target.value }))} placeholder="20000" />
             </div>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Omborda *</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>На складе *</label>
               <input style={inputStyle} type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} placeholder="100" />
             </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Kategoriya *</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Категория *</label>
               <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.categoryId} onChange={e => setForm(f => ({ ...f, categoryId: e.target.value }))}>
-                <option value="">Tanlang...</option>
+                <option value="">Выберите...</option>
                 {allCategories.map(c => (
-                  <option key={c.id} value={c.id}>{c.nameUz}</option>
+                  <option key={c.id} value={c.id}>{c.nameRu || c.nameUz}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Brend</label>
+              <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Бренд</label>
               <input style={inputStyle} value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} placeholder="Microgreen UZ" />
             </div>
           </div>
 
           <div style={{ marginBottom: 'var(--space-3)' }}>
-            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Tavsif</label>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Описание</label>
             <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={form.descriptionUz}
-              onChange={e => setForm(f => ({ ...f, descriptionUz: e.target.value }))} placeholder="Qisqa tavsif..." />
+              onChange={e => setForm(f => ({ ...f, descriptionUz: e.target.value }))} placeholder="Краткое описание..." />
           </div>
 
           {/* Image upload */}
           <div style={{ marginBottom: 'var(--space-3)' }}>
-            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Rasmlar</label>
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 4 }}>Фото</label>
 
             {/* Preview grid */}
             {images.length > 0 && (
@@ -414,9 +417,9 @@ export function AdminProducts() {
               transition: 'all var(--transition-fast)', background: 'var(--bg-secondary)',
             }}>
               {uploading ? (
-                <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Yuklanmoqda...</>
+                <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
               ) : (
-                <><Icons.Plus size={18} /> Rasm qo&apos;shish</>
+                <><Icons.Plus size={18} /> Добавить фото</>
               )}
               <input type="file" accept="image/*"
                 style={{ display: 'none' }}
@@ -435,17 +438,17 @@ export function AdminProducts() {
           <div style={{ display: 'flex', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
               <input type="checkbox" checked={form.isFeatured} onChange={e => setForm(f => ({ ...f, isFeatured: e.target.checked }))} />
-              Tavsiya etilgan
+              Рекомендуемый
             </label>
             <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
               <input type="checkbox" checked={form.isOnSale} onChange={e => setForm(f => ({ ...f, isOnSale: e.target.checked }))} />
-              Chegirmada
+              Скидка
             </label>
           </div>
 
           <button onClick={handleSubmit} disabled={saving} className="btn btn-primary btn-lg btn-block"
             style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
-            {saving ? <><Icons.Clock size={18} /> Saqlanmoqda...</> : <><Icons.CheckCircle size={18} /> {editingId ? "SAQLASH" : "QO'SHISH"}</>}
+            {saving ? <><Icons.Clock size={18} /> Сохранение...</> : <><Icons.CheckCircle size={18} /> {editingId ? "СОХРАНИТЬ" : "ДОБАВИТЬ"}</>}
           </button>
         </div>
       </div>
@@ -460,35 +463,49 @@ export function AdminProducts() {
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Icons.Tag size={16} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Jami</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Всего</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{counts.total}</div>
           </div>
         </div>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Icons.CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Aktiv</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Активных</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{activeCount}</div>
           </div>
         </div>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
           <Icons.AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Kam</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Мало</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{lowStock}</div>
           </div>
         </div>
+      </div>
+
+      {/* Category Filter */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: 'var(--space-2)', overflowX: 'auto', paddingBottom: 4 }}>
+        <button onClick={() => setCategoryFilter('')}
+          style={{ padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '12px', fontWeight: 600, border: '1.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', background: !categoryFilter ? 'var(--brand-primary)' : 'transparent', color: !categoryFilter ? 'white' : 'var(--text-secondary)', borderColor: !categoryFilter ? 'var(--brand-primary)' : 'var(--border)' }}>
+          Все ({counts.total})
+        </button>
+        {allCategories.filter(c => !categories.some(p => p.children?.some(ch => ch.id === c.id) && p.id !== c.id)).map(c => (
+          <button key={c.id} onClick={() => setCategoryFilter(c.id)}
+            style={{ padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '12px', fontWeight: 600, border: '1.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', background: categoryFilter === c.id ? 'var(--brand-primary)' : 'transparent', color: categoryFilter === c.id ? 'white' : 'var(--text-secondary)', borderColor: categoryFilter === c.id ? 'var(--brand-primary)' : 'var(--border)' }}>
+            {c.nameRu || c.nameUz}
+          </button>
+        ))}
       </div>
 
       {/* Search + Add */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
         <div style={{ flex: 1, position: 'relative' }}>
           <Icons.Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-          <input type="text" placeholder="Qidirish..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          <input type="text" placeholder="Поиск товаров..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             style={{ width: '100%', padding: '8px 8px 8px 34px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
         </div>
         <button onClick={openAdd} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-          <Icons.Plus size={16} /> Yangi
+          <Icons.Plus size={16} /> Новый
         </button>
       </div>
 
@@ -522,7 +539,7 @@ export function AdminProducts() {
                 {/* Name */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nameUz}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{p.category?.nameUz || 'Kategoriyasiz'}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{(p.category as any)?.nameRu || p.category?.nameUz || 'Без категории'}</div>
                 </div>
                 {/* Price */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -539,12 +556,12 @@ export function AdminProducts() {
                     background: p.stock === 0 ? '#EF444415' : p.stock < 5 ? '#F59E0B15' : '#10B98115',
                     color: p.stock === 0 ? '#EF4444' : p.stock < 5 ? '#F59E0B' : '#10B981',
                   }}>
-                    {p.stock} dona
+                    {p.stock} шт
                   </span>
                   {/* Status indicator */}
                   {!p.isActive && (
                     <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '10px', background: '#EF444415', color: '#EF4444' }}>
-                      Nofaol
+                      Неактив
                     </span>
                   )}
                   {p.isFeatured && (
@@ -560,7 +577,7 @@ export function AdminProducts() {
                     <Icons.Edit size={15} />
                   </button>
                   <button onClick={() => toggleActive(p)} className="btn btn-ghost btn-sm"
-                    title={p.isActive ? "Nofaol qilish" : "Faol qilish"}
+                    title={p.isActive ? "Деактивировать" : "Активировать"}
                     style={{
                       padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                       display: 'flex', alignItems: 'center', gap: '4px',
@@ -570,7 +587,7 @@ export function AdminProducts() {
                       transition: 'all 0.2s',
                     }}>
                     {p.isActive ? <Icons.CheckCircle size={13} /> : <Icons.XCircle size={13} />}
-                    {p.isActive ? 'Faol' : 'Nofaol'}
+                    {p.isActive ? 'Актив' : 'Неактив'}
                   </button>
                   <button onClick={() => deleteProduct(p.id)} className="btn btn-ghost btn-sm"
                     style={{ padding: '6px', color: 'var(--error)', borderRadius: 'var(--radius-sm)' }}>
@@ -594,15 +611,15 @@ export function AdminProducts() {
               }}
             >
               {loadingMore ? (
-                <><Icons.Clock size={16} style={{ animation: 'pulse 1s infinite' }} /> Yuklanmoqda...</>
+                <><Icons.Clock size={16} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
               ) : (
-                <><Icons.Plus size={16} /> Ko&apos;proq ({totalProducts - products.length} ta qoldi)</>  
+                <><Icons.Plus size={16} /> Ещё ({totalProducts - products.length} осталось)</>  
               )}
             </button>
           )}
           {/* Showing count */}
           <div style={{ textAlign: 'center', padding: 'var(--space-2)', fontSize: '11px', color: 'var(--text-muted)' }}>
-            {products.length} / {totalProducts} ta tovar ko&apos;rsatilmoqda
+            {products.length} / {totalProducts} товаров показано
           </div>
         </div>
       )}

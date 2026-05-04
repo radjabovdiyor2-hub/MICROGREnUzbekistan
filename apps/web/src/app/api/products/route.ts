@@ -46,7 +46,12 @@ export async function GET(request: NextRequest) {
   const where: Record<string, unknown> = showAll ? {} : { isActive: true };
 
   if (category) {
-    where.category = { slug: category };
+    // Support both slug and ID
+    if (category.length > 20) {
+      where.categoryId = category; // cuid ID
+    } else {
+      where.category = { slug: category }; // slug
+    }
   }
   if (featured === 'true') {
     where.isFeatured = true;
