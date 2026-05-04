@@ -360,25 +360,35 @@ export default function AdminPage() {
 
         /* Mobile Layout */
         @media (max-width: 768px) {
-          .admin-header { margin-bottom: var(--space-2); }
+          .admin-header { margin-bottom: var(--space-1); }
           .admin-header h1 { font-size: var(--text-base); }
           .admin-sidebar { padding: var(--space-2) var(--space-3); }
           .admin-tabs {
-            display: flex; flex-direction: row; flex-wrap: nowrap;
-            gap: var(--space-2); margin-top: var(--space-2);
-            overflow-x: auto; padding-bottom: 8px;
+            display: grid !important;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            margin-top: var(--space-2);
+            overflow: visible;
           }
           .admin-tab {
-            justify-content: center; padding: 8px 12px; flex-direction: row; gap: 6px;
-            font-size: 13px; border-radius: var(--radius-full);
-            background: var(--bg-secondary); border: 1px solid var(--border);
-            white-space: nowrap; flex-shrink: 0;
+            flex-direction: column !important;
+            justify-content: center;
+            align-items: center;
+            padding: 8px 4px !important;
+            gap: 3px !important;
+            font-size: 10px !important;
+            border-radius: 10px !important;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            white-space: nowrap;
+            min-width: 0;
           }
+          .admin-tab svg { width: 16px; height: 16px; margin: 0; flex-shrink: 0; }
           .admin-tab.active {
-            background: var(--brand-primary); color: var(--text-inverse); border-color: var(--brand-primary);
+            background: var(--brand-primary); color: white; border-color: var(--brand-primary);
+            box-shadow: 0 2px 8px rgba(var(--brand-primary-rgb), 0.3);
           }
-          .admin-tab.active svg { color: var(--text-inverse); }
-          .admin-tab svg { margin: 0; }
+          .admin-tab.active svg { color: white; }
           .admin-main { padding: var(--space-2); overflow-x: hidden; max-width: 100vw; }
         }
       `}</style>
