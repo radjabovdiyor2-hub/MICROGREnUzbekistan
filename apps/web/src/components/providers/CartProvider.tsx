@@ -10,6 +10,7 @@ import { triggerHaptic } from '@/utils/haptic';
 export interface CartProduct {
   id: string;
   nameUz: string;
+  nameRu?: string;
   price: number;
   oldPrice?: number | null;
   slug: string;

@@ -10,23 +10,23 @@ import { ScrollReveal } from '@/components/ui/ScrollReveal';
 const PAGE_SIZE = 24;
 
 const CATEGORIES = [
-  { slug: '', nameUz: 'Barchasi', icon: <Icons.Package size={18} /> },
-  { slug: 'mikrozelen', nameUz: 'Mikroko\'katlar', icon: <Icons.Leaf size={18} /> },
-  { slug: 'salaty', nameUz: 'Salatlar', icon: <Icons.Leaf size={18} /> },
-  { slug: 'tsvety', nameUz: 'Gullar', icon: <Icons.Sparkles size={18} /> },
-  { slug: 'semena', nameUz: 'Urug\'lar', icon: <Icons.Droplet size={18} /> },
-  { slug: 'substrat', nameUz: 'Substrat', icon: <Icons.Package size={18} /> },
-  { slug: 'udobreniya', nameUz: 'O\'g\'itlar', icon: <Icons.Zap size={18} /> },
-  { slug: 'oborudovanie', nameUz: 'Uskunalar', icon: <Icons.Plug size={18} /> },
-  { slug: 'nabory', nameUz: 'To\'plamlar', icon: <Icons.Package size={18} /> },
+  { slug: '', nameUz: 'Barchasi', nameRu: 'Все', icon: <Icons.Package size={18} /> },
+  { slug: 'mikrozelen', nameUz: 'Mikroko\'katlar', nameRu: 'Микрозелень', icon: <Icons.Leaf size={18} /> },
+  { slug: 'salaty', nameUz: 'Salatlar', nameRu: 'Салаты', icon: <Icons.Leaf size={18} /> },
+  { slug: 'tsvety', nameUz: 'Gullar', nameRu: 'Цветы', icon: <Icons.Sparkles size={18} /> },
+  { slug: 'semena', nameUz: 'Urug\'lar', nameRu: 'Семена', icon: <Icons.Droplet size={18} /> },
+  { slug: 'substrat', nameUz: 'Substrat', nameRu: 'Субстрат', icon: <Icons.Package size={18} /> },
+  { slug: 'udobreniya', nameUz: 'O\'g\'itlar', nameRu: 'Удобрения', icon: <Icons.Zap size={18} /> },
+  { slug: 'oborudovanie', nameUz: 'Uskunalar', nameRu: 'Оборудование', icon: <Icons.Plug size={18} /> },
+  { slug: 'nabory', nameUz: 'To\'plamlar', nameRu: 'Наборы', icon: <Icons.Package size={18} /> },
 ];
 
 const SORT_OPTIONS = [
-  { value: 'featured', label: "Tavsiya etilgan" },
-  { value: 'price_asc', label: "Arzon → Qimmat" },
-  { value: 'price_desc', label: "Qimmat → Arzon" },
-  { value: 'rating', label: "Reyting bo'yicha" },
-  { value: 'newest', label: "Eng yangi" },
+  { value: 'featured', labelUz: "Tavsiya etilgan", labelRu: "Рекомендуемые" },
+  { value: 'price_asc', labelUz: "Arzon → Qimmat", labelRu: "Дешевле → Дороже" },
+  { value: 'price_desc', labelUz: "Qimmat → Arzon", labelRu: "Дороже → Дешевле" },
+  { value: 'rating', labelUz: "Reyting bo'yicha", labelRu: "По рейтингу" },
+  { value: 'newest', labelUz: "Eng yangi", labelRu: "Новинки" },
 ];
 
 interface Product {
