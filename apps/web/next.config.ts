@@ -3,11 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ["@prisma/client", "bcrypt"],
-  // @ts-ignore - Next.js types might be outdated
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  // @ts-ignore - Next.js types might be outdated
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -18,6 +13,11 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 31536000, // 1 year
     deviceSizes: [640, 750, 828, 1080],   // only mobile + tablet widths
     imageSizes: [128, 256, 384],           // thumbnail sizes for product cards
+    remotePatterns: [
+      { protocol: 'https', hostname: 'cdn.pixabay.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'upload.wikimedia.org' },
+    ],
   },
 
   async headers() {

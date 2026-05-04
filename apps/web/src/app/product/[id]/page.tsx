@@ -154,7 +154,7 @@ export default function ProductPage() {
             </span>
           )}
           {product.images && product.images.length > 0
-            ? <Image src={product.images[0]} alt={product.nameUz} width={600} height={600} style={{ width: '100%', height: '100%', objectFit: 'cover' }} priority quality={80} sizes="(max-width: 768px) 100vw, 50vw" unoptimized={product.images[0].startsWith('/uploads/') || product.images[0].startsWith('/products/')} />
+            ? <Image src={product.images[0]} alt={product.nameUz} width={600} height={600} style={{ width: '100%', height: '100%', objectFit: 'cover' }} priority quality={80} sizes="(max-width: 768px) 100vw, 50vw" unoptimized={!product.images[0].startsWith('https://') && !product.images[0].startsWith('http://')} />
             : catIcon}
         </div>
 

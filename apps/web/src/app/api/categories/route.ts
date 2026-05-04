@@ -6,19 +6,24 @@ import { prisma } from '@repo/database';
 // ==========================================
 
 export async function GET() {
-  const categories = await prisma.category.findMany({
-    where: { parentId: null },
-    include: {
-      children: {
-        orderBy: { order: 'asc' },
-        include: {
-          _count: { select: { products: true } },
+  try {
+    const categories = await prisma.category.findMany({
+      where: { parentId: null },
+      include: {
+        children: {
+          orderBy: { order: 'asc' },
+          include: {
+            _count: { select: { products: true } },
+          },
         },
+        _count: { select: { products: true } },
       },
-      _count: { select: { products: true } },
-    },
-    orderBy: { order: 'asc' },
-  });
+      orderBy: { order: 'asc' },
+    });
 
-  return NextResponse.json({ categories });
+    return NextResponse.json({ categories });
+  } catch (error) {
+    console.error('[Categories API] Error:', error);
+    return NextResponse.json({ categories: [] });
+  }
 }

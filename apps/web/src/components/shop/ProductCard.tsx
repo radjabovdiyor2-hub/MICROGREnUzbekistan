@@ -106,7 +106,7 @@ export function ProductCard({ product }: { product: Product }) {
         color: 'var(--text-muted)', overflow: 'hidden',
       }}>
         {product.images && product.images.length > 0
-          ? <Image src={product.images[0]} alt={productName} width={400} height={400} style={{ width: '100%', height: '100%', objectFit: 'cover' }} sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" loading="lazy" quality={75} unoptimized={product.images[0].startsWith('/uploads/') || product.images[0].startsWith('/products/')} />
+          ? <Image src={product.images[0]} alt={productName} width={400} height={400} style={{ width: '100%', height: '100%', objectFit: 'cover' }} sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" loading="lazy" quality={75} unoptimized={!product.images[0].startsWith('https://') && !product.images[0].startsWith('http://')} />
           : categoryIcon}
       </div>
 
