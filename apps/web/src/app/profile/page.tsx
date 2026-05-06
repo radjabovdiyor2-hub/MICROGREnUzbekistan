@@ -75,20 +75,20 @@ function UserOrders() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!dbUser?.phone) {
+    if (!dbUser?.id) {
       setLoading(false);
       return;
     }
-    fetch(`/api/orders?phone=${encodeURIComponent(dbUser.phone)}&limit=10`)
+    fetch(`/api/orders?userId=${encodeURIComponent(dbUser.id)}&limit=10`)
       .then(r => r.json())
       .then(d => {
         setOrders(d.orders || []);
       })
       .catch(e => console.error(e))
       .finally(() => setLoading(false));
-  }, [dbUser?.phone]);
+  }, [dbUser?.id]);
 
-  if (!dbUser?.phone) return null;
+  if (!dbUser?.id) return null;
 
   return (
     <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-6)', animation: 'page-enter 0.5s ease 0.2s both' }}>
