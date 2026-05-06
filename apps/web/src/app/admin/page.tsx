@@ -16,12 +16,14 @@ import { AdminForecast } from '@/components/admin/AdminForecast';
 import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { AdminSettings } from '@/components/admin/AdminSettings';
 import { AdminRevenue } from '@/components/admin/AdminRevenue';
+import { AdminGrowing } from '@/components/admin/AdminGrowing';
 import * as Icons from '@/components/ui/Icons';
 
 const OWNER_TABS = [
   { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
   { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <Icons.BarChart size={16} /> },
   { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <Icons.DollarSign size={16} /> },
+  { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Icons.Leaf size={16} /> },
   { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Icons.Package size={16} /> },
   { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <Icons.ClipboardList size={16} /> },
   { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Icons.Truck size={16} /> },
@@ -442,6 +444,7 @@ export default function AdminPage() {
         {activeTab === 'pos' && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} />}
         {activeTab === 'stats' && isOwner && <AdminStats />}
         {activeTab === 'revenue' && isOwner && <AdminRevenue />}
+        {activeTab === 'growing' && isOwner && <AdminGrowing />}
         {activeTab === 'inventory' && isOwner && <AdminInventory />}
         {activeTab === 'movements' && isOwner && <AdminMovements />}
         {activeTab === 'orders' && isOwner && <AdminOrders />}
