@@ -68,6 +68,81 @@ function SimpleRegisterForm() {
   );
 }
 
+function UserOrders() {
+  const { dbUser } = useAuth();
+  const { t } = useLang();
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!dbUser?.phone) {
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/orders?phone=${encodeURIComponent(dbUser.phone)}&limit=10`)
+      .then(r => r.json())
+      .then(d => {
+        setOrders(d.orders || []);
+      })
+      .catch(e => console.error(e))
+      .finally(() => setLoading(false));
+  }, [dbUser?.phone]);
+
+  if (!dbUser?.phone) return null;
+
+  return (
+    <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-6)', animation: 'page-enter 0.5s ease 0.2s both' }}>
+      <h3 style={{ fontWeight: 700, fontSize: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Icons.ShoppingCart size={18} /> {t("Mening buyurtmalarim", "Мои заказы")}
+      </h3>
+      
+      {loading ? (
+        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
+          {t("Yuklanmoqda...", "Загрузка...")}
+        </div>
+      ) : orders.length === 0 ? (
+        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
+          {t("Sizda hali buyurtmalar yo'q", "У вас пока нет заказов")}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {orders.map(o => (
+            <div key={o.orderNumber} style={{ padding: '14px', borderRadius: '12px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '14px' }}>#{o.orderNumber}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    {new Date(o.createdAt).toLocaleDateString('ru-RU')}
+                  </div>
+                </div>
+                <span style={{ 
+                  fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '20px',
+                  background: o.status === 'PENDING' ? '#FEF3C7' : o.status === 'DELIVERING' ? '#DBEAFE' : o.status === 'DELIVERED' ? '#D1FAE5' : '#FEE2E2',
+                  color: o.status === 'PENDING' ? '#D97706' : o.status === 'DELIVERING' ? '#2563EB' : o.status === 'DELIVERED' ? '#059669' : '#DC2626'
+                }}>
+                  {o.status === 'PENDING' ? t('Kutilyapti', 'В ожидании') : 
+                   o.status === 'DELIVERING' ? t('Yetkazilyapti', 'В пути') : 
+                   o.status === 'DELIVERED' ? t('Yetkazildi', 'Доставлен') : t('Bekor qilingan', 'Отменён')}
+                </span>
+              </div>
+              
+              {/* Items preview */}
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {o.items?.map((i: any) => `${i.quantity}x ${i.product?.nameRu || 'Товар'}`).join(', ')}
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{t("Jami", "Сумма")}:</span>
+                <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-primary)' }}>{o.total.toLocaleString('ru-RU')} sum</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const { theme, toggleTheme } = useTheme();
   const { lang, setLang, t } = useLang();
@@ -180,6 +255,9 @@ export default function ProfilePage() {
           </>
         )}
       </div>
+
+      {/* Orders */}
+      {isLoggedIn && <UserOrders />}
 
       {/* Settings */}
       <div className="card" style={{ overflow: 'hidden' }}>

@@ -215,7 +215,12 @@ export async function GET(request: NextRequest) {
   const limitRaw = parseInt(searchParams.get('limit') || '20');
   const limit = Math.min(limitRaw, 100);
 
-  const where = status && status !== 'ALL' ? { status: status as any } : {};
+  const phone = searchParams.get('phone');
+  const userId = searchParams.get('userId');
+
+  const where: any = status && status !== 'ALL' ? { status: status as any } : {};
+  if (phone) where.phone = phone;
+  if (userId) where.userId = userId;
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({
