@@ -37,6 +37,7 @@ interface Batch {
   productId?: string;
   productName?: string;
   harvestQty?: number;
+  costPrice?: number; // себестоимость за единицу
 }
 
 interface ProductOption {
@@ -44,6 +45,8 @@ interface ProductOption {
   nameUz: string;
   nameRu: string;
   stock: number;
+  costPrice?: number;
+  price: number;
 }
 
 const STORAGE_KEY = 'mg_grow_batches';
@@ -97,12 +100,14 @@ export function AdminGrowing() {
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [harvestQty, setHarvestQty] = useState(1);
+  const [costPriceInput, setCostPriceInput] = useState(0);
   const [harvesting, setHarvesting] = useState<string | null>(null);
 
   useEffect(() => { setBatches(loadBatches()); }, []);
   useEffect(() => {
     fetch('/api/products?limit=200').then(r => r.json()).then(d => {
-      setProducts((d.items || []).map((p: ProductOption) => ({ id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, stock: p.stock })));
+      const mapped = (d.items || []).map((p: Record<string, unknown>) => ({ id: p.id as string, nameUz: p.nameUz as string, nameRu: p.nameRu as string, stock: p.stock as number, costPrice: (p.costPrice as number) || 0, price: (p.price as number) || 0 }));
+      setProducts(mapped);
     }).catch(() => {});
   }, []);
 
@@ -119,9 +124,10 @@ export function AdminGrowing() {
       productId: selectedProductId || undefined,
       productName: prod?.nameUz || undefined,
       harvestQty,
+      costPrice: costPriceInput || prod?.costPrice || 0,
     };
     save([batch, ...batches]);
-    setShowForm(false); setNote(''); setTrays(1); setHarvestQty(1);
+    setShowForm(false); setNote(''); setTrays(1); setHarvestQty(1); setCostPriceInput(0);
   };
 
   const harvestBatch = async (id: string) => {
@@ -141,6 +147,7 @@ export function AdminGrowing() {
             quantity: qty,
             reason: 'Урожай с посадки',
             note: `${(CROP_DB[batch.cropType] || CROP_DB['other']).nameRu}, ${batch.trays} лотков, посев ${batch.seedDate}`,
+            costPrice: batch.costPrice || 0,
             performedBy: 'Посадки',
           }),
         });
@@ -255,21 +262,29 @@ export function AdminGrowing() {
               <input type="text" placeholder="Поставщик, сорт..." value={note} onChange={e => setNote(e.target.value)} style={inputStyle} />
             </div>
           </div>
-          {/* Product link + harvest qty */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px', marginBottom: '12px' }}>
+          {/* Product link + harvest qty + cost */}
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
             <div>
-              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Товар на складе (при сборе → +склад)</label>
-              <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Товар на складе (сбор → +склад)</label>
+              <select value={selectedProductId} onChange={e => {
+                setSelectedProductId(e.target.value);
+                const p = products.find(pr => pr.id === e.target.value);
+                if (p?.costPrice) setCostPriceInput(p.costPrice);
+              }}
                 style={{ ...inputStyle, cursor: 'pointer' }}>
                 <option value="">— не привязывать —</option>
                 {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.nameUz} (остаток: {p.stock})</option>
+                  <option key={p.id} value={p.id}>{p.nameUz} (ост: {p.stock})</option>
                 ))}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Кол-во при сборе</label>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Кол-во сбора</label>
               <input type="number" min={1} value={harvestQty} onChange={e => setHarvestQty(Number(e.target.value))} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Себест. (сум)</label>
+              <input type="number" min={0} value={costPriceInput} onChange={e => setCostPriceInput(Number(e.target.value))} style={inputStyle} placeholder="8000" />
             </div>
           </div>
           {/* Preview timeline */}
@@ -364,6 +379,7 @@ export function AdminGrowing() {
                     {batch.productName && (
                       <div style={{ fontSize: '10px', color: 'var(--brand-primary)', fontWeight: 600, marginTop: 1, display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <Icons.Package size={10} /> → {batch.productName} (+{batch.harvestQty || batch.trays} шт)
+                        {batch.costPrice ? <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>· с/с {fmt(batch.costPrice)} сум</span> : null}
                       </div>
                     )}
                   </div>
