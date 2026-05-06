@@ -5,21 +5,21 @@ import * as Icons from '@/components/ui/Icons';
 
 // Microgreen crop database with growing parameters
 const CROP_DB: Record<string, { nameRu: string; darkDays: number; lightDays: number; shelfDays: number; color: string }> = {
-  'radish': { nameRu: 'Редис', darkDays: 2, lightDays: 5, shelfDays: 7, color: '#EF4444' },
-  'broccoli': { nameRu: 'Брокколи', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#10B981' },
-  'sunflower': { nameRu: 'Подсолнух', darkDays: 3, lightDays: 5, shelfDays: 5, color: '#F59E0B' },
-  'pea': { nameRu: 'Горошек', darkDays: 3, lightDays: 5, shelfDays: 5, color: '#22C55E' },
-  'arugula': { nameRu: 'Руккола', darkDays: 2, lightDays: 6, shelfDays: 7, color: '#6366F1' },
-  'mustard': { nameRu: 'Горчица', darkDays: 2, lightDays: 4, shelfDays: 7, color: '#EAB308' },
-  'amaranth': { nameRu: 'Амарант', darkDays: 3, lightDays: 6, shelfDays: 5, color: '#EC4899' },
-  'basil': { nameRu: 'Базилик', darkDays: 3, lightDays: 8, shelfDays: 5, color: '#8B5CF6' },
-  'cilantro': { nameRu: 'Кинза', darkDays: 3, lightDays: 8, shelfDays: 5, color: '#14B8A6' },
-  'kohlrabi': { nameRu: 'Кольраби', darkDays: 2, lightDays: 5, shelfDays: 7, color: '#7C3AED' },
-  'mizuna': { nameRu: 'Мизуна', darkDays: 2, lightDays: 5, shelfDays: 7, color: '#059669' },
-  'wheatgrass': { nameRu: 'Витграсс', darkDays: 2, lightDays: 6, shelfDays: 3, color: '#16A34A' },
+  'radish': { nameRu: 'Редис', darkDays: 3, lightDays: 4, shelfDays: 7, color: '#EF4444' },
+  'broccoli': { nameRu: 'Брокколи', darkDays: 3, lightDays: 6, shelfDays: 7, color: '#10B981' },
+  'sunflower': { nameRu: 'Подсолнух', darkDays: 4, lightDays: 6, shelfDays: 7, color: '#F59E0B' },
+  'pea': { nameRu: 'Горошек', darkDays: 4, lightDays: 8, shelfDays: 7, color: '#22C55E' },
+  'arugula': { nameRu: 'Руккола', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#6366F1' },
+  'mustard': { nameRu: 'Горчица', darkDays: 3, lightDays: 4, shelfDays: 7, color: '#EAB308' },
+  'amaranth': { nameRu: 'Амарант', darkDays: 4, lightDays: 8, shelfDays: 5, color: '#EC4899' },
+  'basil': { nameRu: 'Базилик', darkDays: 4, lightDays: 10, shelfDays: 5, color: '#8B5CF6' },
+  'cilantro': { nameRu: 'Кинза', darkDays: 5, lightDays: 10, shelfDays: 7, color: '#14B8A6' },
+  'kohlrabi': { nameRu: 'Кольраби', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#7C3AED' },
+  'mizuna': { nameRu: 'Мизуна', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#059669' },
+  'wheatgrass': { nameRu: 'Витграсс', darkDays: 3, lightDays: 6, shelfDays: 5, color: '#16A34A' },
   'spinach': { nameRu: 'Шпинат', darkDays: 3, lightDays: 8, shelfDays: 5, color: '#047857' },
-  'beet': { nameRu: 'Свёкла', darkDays: 3, lightDays: 7, shelfDays: 5, color: '#BE123C' },
-  'cabbage': { nameRu: 'Капуста', darkDays: 2, lightDays: 5, shelfDays: 7, color: '#0D9488' },
+  'beet': { nameRu: 'Свёкла', darkDays: 4, lightDays: 8, shelfDays: 5, color: '#BE123C' },
+  'cabbage': { nameRu: 'Капуста', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#0D9488' },
   'other': { nameRu: 'Другое', darkDays: 3, lightDays: 6, shelfDays: 5, color: '#6B7280' },
 };
 
@@ -103,6 +103,9 @@ export function AdminGrowing() {
   const [costPriceInput, setCostPriceInput] = useState(0);
   const [harvesting, setHarvesting] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [customDark, setCustomDark] = useState<number>(3);
+  const [customLight, setCustomLight] = useState<number>(4);
+  const [customShelf, setCustomShelf] = useState<number>(7);
 
   useEffect(() => { setBatches(loadBatches()); }, []);
   useEffect(() => {
@@ -123,6 +126,9 @@ export function AdminGrowing() {
     setSelectedProductId(batch.productId || '');
     setHarvestQty(batch.harvestQty || batch.trays);
     setCostPriceInput(batch.costPrice || 0);
+    setCustomDark(batch.darkDays);
+    setCustomLight(batch.lightDays);
+    setCustomShelf(batch.shelfDays);
     setShowForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -132,7 +138,7 @@ export function AdminGrowing() {
     const prod = products.find(p => p.id === selectedProductId);
     const newBatchData = {
       cropType, trays, seedDate, note,
-      darkDays: crop.darkDays, lightDays: crop.lightDays, shelfDays: crop.shelfDays,
+      darkDays: customDark, lightDays: customLight, shelfDays: customShelf,
       productId: selectedProductId || undefined,
       productName: prod?.nameUz || undefined,
       harvestQty,
@@ -151,6 +157,9 @@ export function AdminGrowing() {
       save([batch, ...batches]);
     }
     setShowForm(false); setNote(''); setTrays(1); setHarvestQty(1); setCostPriceInput(0);
+    setCustomDark(CROP_DB['radish'].darkDays);
+    setCustomLight(CROP_DB['radish'].lightDays);
+    setCustomShelf(CROP_DB['radish'].shelfDays);
   };
 
   const harvestBatch = async (id: string) => {
@@ -299,7 +308,15 @@ export function AdminGrowing() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
             <div>
               <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Культура</label>
-              <select value={cropType} onChange={e => setCropType(e.target.value)}
+              <select value={cropType} onChange={e => {
+                const c = e.target.value;
+                setCropType(c);
+                if (!editingId && CROP_DB[c]) {
+                  setCustomDark(CROP_DB[c].darkDays);
+                  setCustomLight(CROP_DB[c].lightDays);
+                  setCustomShelf(CROP_DB[c].shelfDays);
+                }
+              }}
                 style={{ ...inputStyle, cursor: 'pointer' }}>
                 {Object.entries(CROP_DB).map(([key, val]) => (
                   <option key={key} value={key}>{val.nameRu} ({val.darkDays}д + {val.lightDays}с)</option>
@@ -345,25 +362,34 @@ export function AdminGrowing() {
             </div>
           </div>
           {/* Preview timeline */}
-          {(() => {
-            const crop = CROP_DB[cropType] || CROP_DB['other'];
-            const total = crop.darkDays + crop.lightDays + crop.shelfDays;
-            return (
-              <div style={{ marginBottom: '12px', padding: '10px 14px', borderRadius: '10px', background: 'var(--bg-secondary)' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>Цикл: {total} дней</div>
-                <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
-                  <div style={{ flex: crop.darkDays, background: '#6366F1', borderRadius: '4px 0 0 4px' }} title={`Темно: ${crop.darkDays} дн`} />
-                  <div style={{ flex: crop.lightDays, background: '#F59E0B' }} title={`Свет: ${crop.lightDays} дн`} />
-                  <div style={{ flex: crop.shelfDays, background: '#10B981', borderRadius: '0 4px 4px 0' }} title={`Хранение: ${crop.shelfDays} дн`} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: '10px', color: 'var(--text-muted)' }}>
-                  <span>🌑 {crop.darkDays}д темно</span>
-                  <span>☀️ {crop.lightDays}д свет</span>
-                  <span>📦 {crop.shelfDays}д хранение</span>
-                </div>
+          {/* Preview timeline & Editable Cycle */}
+          <div style={{ marginBottom: '12px', padding: '10px 14px', borderRadius: '10px', background: 'var(--bg-secondary)' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
+              <span>Цикл выращивания (Дни)</span>
+              <span>Всего: {customDark + customLight + customShelf} дней</span>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+              <div>
+                <label style={{ fontSize: '10px', color: '#6366F1', fontWeight: 600, marginBottom: 2, display: 'block' }}>🌑 Темнота (груз)</label>
+                <input type="number" min={0} value={customDark} onChange={e => setCustomDark(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
               </div>
-            );
-          })()}
+              <div>
+                <label style={{ fontSize: '10px', color: '#F59E0B', fontWeight: 600, marginBottom: 2, display: 'block' }}>☀️ На свету</label>
+                <input type="number" min={0} value={customLight} onChange={e => setCustomLight(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
+              </div>
+              <div>
+                <label style={{ fontSize: '10px', color: '#10B981', fontWeight: 600, marginBottom: 2, display: 'block' }}>📦 Хранение</label>
+                <input type="number" min={0} value={customShelf} onChange={e => setCustomShelf(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
+              <div style={{ flex: customDark, background: '#6366F1', borderRadius: '4px 0 0 4px' }} title={`Темно: ${customDark} дн`} />
+              <div style={{ flex: customLight, background: '#F59E0B' }} title={`Свет: ${customLight} дн`} />
+              <div style={{ flex: customShelf, background: '#10B981', borderRadius: '0 4px 4px 0' }} title={`Хранение: ${customShelf} дн`} />
+            </div>
+          </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             {editingId && (
               <button onClick={() => { setEditingId(null); setShowForm(false); }} className="btn"
