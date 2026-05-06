@@ -250,95 +250,252 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
 
   const [copied, setCopied] = useState(false);
 
-  // Sale/Return success screen with receipt
+  // Sale/Return success screen with PREMIUM receipt
   if (saleResult) {
     const isReturn = saleResult.isReturn;
-    return (
-      <div style={{ animation: 'reveal-up 0.4s ease both' }}>
-        {/* Success header */}
-        <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
-          <div style={{
-            width: 72, height: 72, borderRadius: 'var(--radius-full)',
-            background: isReturn ? '#F59E0B18' : 'var(--success-bg)',
-            color: isReturn ? '#D97706' : 'var(--success)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto var(--space-3)',
-            boxShadow: isReturn ? '0 8px 24px rgba(245, 158, 11, 0.2)' : '0 8px 24px rgba(16, 185, 129, 0.2)',
-          }}>
-            {isReturn ? <Icons.RefreshCw size={36} /> : <Icons.CheckCircle size={36} />}
-          </div>
-          <h2 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-            fontSize: 'var(--text-xl)', marginBottom: 4,
-          }}>
-            {isReturn ? 'Возврат оформлен!' : 'Продажа завершена!'}
-          </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-            {isReturn ? 'Возврат' : 'Чек'} #{saleResult.saleNumber} · {saleResult.date}
-          </p>
-        </div>
+    const itemCount = saleResult.items?.reduce((s, i) => s + i.quantity, 0) || 0;
+    const payLabel = saleResult.payMethod === 'cash' ? 'Наличные' : saleResult.payMethod === 'card' ? 'Карта' : 'В долг';
+    const payIcon = saleResult.payMethod === 'cash' ? <Icons.Banknote size={14} /> : saleResult.payMethod === 'card' ? <Icons.CreditCard size={14} /> : <Icons.Clock size={14} />;
 
-        {/* Receipt card */}
-        <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)', fontFamily: 'var(--font-display)' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: 'var(--space-2)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
-            Microgreen Uzbekistan
+    return (
+      <div style={{ animation: 'reveal-up 0.5s cubic-bezier(.4,0,.2,1) both' }}>
+        <style>{`
+          @keyframes receiptSlide { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+          @keyframes checkPop { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+          @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+          @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+          .receipt-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12) !important; }
+          .receipt-btn:active { transform: translateY(0); }
+          .receipt-zigzag { position: relative; }
+          .receipt-zigzag::after {
+            content: ''; position: absolute; bottom: -8px; left: 0; right: 0; height: 8px;
+            background: linear-gradient(135deg, var(--bg-primary) 25%, transparent 25%) -14px 0,
+                        linear-gradient(225deg, var(--bg-primary) 25%, transparent 25%) -14px 0,
+                        linear-gradient(315deg, var(--bg-primary) 25%, transparent 25%),
+                        linear-gradient(45deg, var(--bg-primary) 25%, transparent 25%);
+            background-size: 16px 8px;
+            background-color: transparent;
+          }
+          .receipt-zigzag-top { position: relative; }
+          .receipt-zigzag-top::before {
+            content: ''; position: absolute; top: -8px; left: 0; right: 0; height: 8px;
+            background: linear-gradient(135deg, transparent 75%, var(--bg-primary) 75%),
+                        linear-gradient(225deg, transparent 75%, var(--bg-primary) 75%),
+                        linear-gradient(315deg, transparent 75%, var(--bg-primary) 75%) 14px 0,
+                        linear-gradient(45deg, transparent 75%, var(--bg-primary) 75%) 14px 0;
+            background-size: 16px 8px;
+            background-color: transparent;
+          }
+        `}</style>
+
+        {/* === RECEIPT CARD === */}
+        <div style={{
+          maxWidth: 380, margin: '0 auto', animation: 'receiptSlide 0.6s cubic-bezier(.4,0,.2,1) both',
+        }}>
+
+          {/* Header with gradient */}
+          <div className="receipt-zigzag" style={{
+            background: isReturn
+              ? 'linear-gradient(135deg, #F59E0B, #D97706)'
+              : 'linear-gradient(135deg, #10B981, #059669)',
+            padding: '28px 24px 32px', borderRadius: '20px 20px 0 0', textAlign: 'center', color: 'white',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            {/* Decorative circles */}
+            <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+            <div style={{ position: 'absolute', bottom: -10, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+
+            <div style={{
+              width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
+              backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 12px', animation: 'checkPop 0.6s cubic-bezier(.4,0,.2,1) 0.2s both',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+            }}>
+              {isReturn ? <Icons.RefreshCw size={32} /> : <Icons.CheckCircle size={32} />}
+            </div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '20px', marginBottom: 4, letterSpacing: '-0.3px' }}>
+              {isReturn ? 'Возврат оформлен' : 'Продажа завершена'}
+            </div>
+            <div style={{ opacity: 0.85, fontSize: '13px', fontWeight: 500 }}>
+              #{saleResult.saleNumber} · {saleResult.date}
+            </div>
           </div>
-          
-          {saleResult.items && saleResult.items.map((item, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)', fontSize: 'var(--text-sm)' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: '13px' }}>{item.product.nameUz}</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {item.quantity} × {fmt(item.customPrice)} сум
+
+          {/* Receipt body */}
+          <div className="receipt-zigzag-top" style={{
+            background: 'var(--bg-primary)', padding: '24px 20px 20px',
+            borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)',
+            position: 'relative',
+          }}>
+
+            {/* Brand */}
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '3px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: 4 }}>
+                MICROGREEN UZBEKISTAN
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.6 }}>
+                +998 94 999 95 99 · @microgreenuzbekistan
+              </div>
+            </div>
+
+            {/* Dashed separator */}
+            <div style={{ borderBottom: '2px dashed var(--border)', margin: '0 0 14px' }} />
+
+            {/* Items */}
+            <div style={{ marginBottom: '14px' }}>
+              {saleResult.items && saleResult.items.map((item, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: '10px',
+                  padding: '8px 0', animation: `fadeInUp 0.3s ease ${0.1 * i}s both`,
+                  borderBottom: i < (saleResult.items?.length || 0) - 1 ? '1px solid var(--border)' : 'none',
+                }}>
+                  <span style={{
+                    width: 22, height: 22, borderRadius: '6px', flexShrink: 0,
+                    background: isReturn ? '#FEF3C7' : 'var(--brand-primary-light)',
+                    color: isReturn ? '#92400E' : 'var(--brand-primary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '11px', fontWeight: 800, marginTop: 1,
+                  }}>{i + 1}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: '13px', lineHeight: 1.3, color: 'var(--text-primary)' }}>
+                      {item.product.nameUz}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {item.quantity} шт × {fmt(item.customPrice)}
+                    </div>
+                  </div>
+                  <div style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '13px',
+                    color: 'var(--text-primary)', flexShrink: 0, textAlign: 'right',
+                  }}>
+                    {fmt(item.customPrice * item.quantity)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Dashed separator */}
+            <div style={{ borderBottom: '2px dashed var(--border)', margin: '0 0 14px' }} />
+
+            {/* Summary row */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{itemCount} товар(ов)</span>
+              {saleResult.payMethod && (
+                <span style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                  background: saleResult.payMethod === 'cash' ? '#10B98115' : saleResult.payMethod === 'card' ? '#3B82F615' : '#F59E0B15',
+                  color: saleResult.payMethod === 'cash' ? '#059669' : saleResult.payMethod === 'card' ? '#2563EB' : '#D97706',
+                }}>
+                  {payIcon} {payLabel}
+                </span>
+              )}
+            </div>
+
+            {/* TOTAL — the hero */}
+            <div style={{
+              padding: '16px', borderRadius: '14px', marginTop: '8px',
+              background: isReturn
+                ? 'linear-gradient(135deg, #FEF3C7, #FDE68A)'
+                : 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.12))',
+              border: isReturn ? '1.5px solid #F59E0B40' : '1.5px solid rgba(16,185,129,0.2)',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>
+                  {isReturn ? 'Сумма возврата' : 'К оплате'}
+                </div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', opacity: 0.7 }}>
+                  {saleResult.date}
                 </div>
               </div>
-              <div style={{ fontWeight: 700, fontSize: '13px', flexShrink: 0, textAlign: 'right' }}>
-                {fmt(item.customPrice * item.quantity)}
+              <div style={{
+                fontFamily: 'var(--font-display)', fontWeight: 900, letterSpacing: '-1px',
+                fontSize: '26px', color: isReturn ? '#B45309' : 'var(--brand-primary)',
+              }}>
+                {isReturn ? '−' : ''}{fmt(saleResult.total)}
+                <span style={{ fontSize: '14px', fontWeight: 600, marginLeft: 4, letterSpacing: 0 }}>сум</span>
               </div>
             </div>
-          ))}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 'var(--space-3)', marginTop: 'var(--space-2)', borderTop: '2px solid var(--text-primary)' }}>
-            <span style={{ fontWeight: 800, fontSize: 'var(--text-base)' }}>{isReturn ? 'ВОЗВРАТ:' : 'ИТОГО:'}</span>
-            <span style={{ fontWeight: 900, fontSize: 'var(--text-lg)', color: isReturn ? '#D97706' : 'var(--brand-primary)' }}>
-              {isReturn ? '-' : ''}{fmt(saleResult.total)} сум
-            </span>
           </div>
-          {saleResult.payMethod && (
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Icons.CreditCard size={12} /> {saleResult.payMethod === 'cash' ? 'Наличные' : saleResult.payMethod === 'card' ? 'Карта' : 'В долг'}
+
+          {/* Receipt footer with zigzag bottom */}
+          <div style={{
+            background: 'var(--bg-primary)', padding: '14px 20px 20px',
+            borderLeft: '1px solid var(--border)', borderRight: '1px solid var(--border)',
+            borderBottom: '1px solid var(--border)', borderRadius: '0 0 20px 20px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+              Спасибо за покупку! 🌱
+              <br />
+              <span style={{ opacity: 0.6 }}>microgreenuzbekistan.com</span>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Action buttons */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: 'var(--space-3)' }}>
-          <button onClick={handlePrint}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '14px', transition: 'all 0.2s' }}>
-            <Icons.FileText size={18} /> Печать
-          </button>
-          <button onClick={handleCopyReceipt}
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', border: '1.5px solid var(--border)', background: copied ? 'var(--success-bg)' : 'var(--bg-primary)', color: copied ? 'var(--success)' : 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '14px', transition: 'all 0.2s' }}>
-            {copied ? <><Icons.CheckCircle size={18} /> Скопирован</> : <><Icons.Copy size={18} /> Копировать</>}
+        {/* === ACTION BUTTONS === */}
+        <div style={{ maxWidth: 380, margin: '16px auto 0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+          {/* Print & Copy row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button className="receipt-btn" onClick={handlePrint}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                padding: '14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
+                border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)',
+                transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              }}>
+              <Icons.FileText size={18} /> Печать
+            </button>
+            <button className="receipt-btn" onClick={handleCopyReceipt}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                padding: '14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
+                border: `1.5px solid ${copied ? 'var(--success)' : 'var(--border)'}`,
+                background: copied ? 'var(--success-bg)' : 'var(--bg-primary)',
+                color: copied ? 'var(--success)' : 'var(--text-primary)',
+                transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              }}>
+              {copied ? <><Icons.CheckCircle size={18} /> Скопирован</> : <><Icons.Copy size={18} /> Копировать</>}
+            </button>
+          </div>
+
+          {/* Social share row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <button className="receipt-btn" onClick={handleShareTelegram}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                padding: '14px', borderRadius: '14px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
+                background: 'linear-gradient(135deg, #229ED9, #1A8BC7)', color: 'white',
+                transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(34,158,217,0.3)',
+              }}>
+              <Icons.MessageCircle size={18} /> Telegram
+            </button>
+            <button className="receipt-btn" onClick={handleShareWhatsApp}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                padding: '14px', borderRadius: '14px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
+                background: 'linear-gradient(135deg, #25D366, #128C7E)', color: 'white',
+                transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(37,211,102,0.3)',
+              }}>
+              <Icons.Phone size={18} /> WhatsApp
+            </button>
+          </div>
+
+          {/* New operation button */}
+          <button className="receipt-btn" onClick={() => { setSaleResult(null); setReturnMode(false); }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+              width: '100%', padding: '16px', borderRadius: '14px', border: 'none', cursor: 'pointer',
+              fontWeight: 800, fontSize: '15px', letterSpacing: '-0.2px',
+              background: 'linear-gradient(135deg, var(--brand-primary), #059669)',
+              color: 'white', transition: 'all 0.2s ease',
+              boxShadow: '0 6px 24px rgba(var(--brand-primary-rgb), 0.35)',
+            }}>
+            <Icons.Plus size={20} /> Новая операция
           </button>
         </div>
-
-        {/* Social share */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--space-4)' }}>
-          <button onClick={handleShareTelegram}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '14px', border: 'none', background: '#229ED9', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '13px' }}>
-            <Icons.MessageCircle size={18} /> Telegram
-          </button>
-          <button onClick={handleShareWhatsApp}
-            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '14px', border: 'none', background: '#25D366', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '13px' }}>
-            <Icons.Phone size={18} /> WhatsApp
-          </button>
-        </div>
-
-        <button onClick={() => { setSaleResult(null); setReturnMode(false); }} className="btn btn-primary btn-lg btn-block"
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', borderRadius: '14px', padding: '16px', fontWeight: 700 }}>
-          <Icons.Plus size={20} /> Новая операция
-        </button>
       </div>
     );
   }
