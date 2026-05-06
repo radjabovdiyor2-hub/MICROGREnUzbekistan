@@ -5,7 +5,7 @@ import * as Icons from '@/components/ui/Icons';
 
 interface Notification {
   id: string;
-  type: 'sale' | 'low_stock' | 'order' | 'info';
+  type: 'sale' | 'low_stock' | 'order' | 'info' | 'growing';
   message: string;
   time: Date;
   read: boolean;
@@ -85,6 +85,38 @@ export function AdminNotifications() {
         }
       }
 
+      // Check growing batches from localStorage
+      try {
+        const growData = JSON.parse(localStorage.getItem('mg_grow_batches') || '[]');
+        const now = new Date().toISOString().slice(0, 10);
+        let readyCount = 0;
+        let expiredCount = 0;
+        for (const batch of growData) {
+          if (batch.status === 'harvested') continue;
+          const elapsed = Math.floor((new Date(now).getTime() - new Date(batch.seedDate).getTime()) / 86400000);
+          const lightEnd = batch.darkDays + batch.lightDays;
+          const shelfEnd = lightEnd + batch.shelfDays;
+          if (elapsed >= shelfEnd) expiredCount++;
+          else if (elapsed >= lightEnd) readyCount++;
+        }
+        if (readyCount > 0 || expiredCount > 0) {
+          const growId = `grow_${today}`;
+          const existing2 = loadNotifications();
+          if (!existing2.some(n => n.id === growId)) {
+            const parts = [];
+            if (readyCount > 0) parts.push(`${readyCount} партий готовы к продаже`);
+            if (expiredCount > 0) parts.push(`${expiredCount} просрочено!`);
+            newNotifs.push({
+              id: growId,
+              type: 'growing',
+              message: `🌱 ${parts.join(' · ')}`,
+              time: new Date(),
+              read: false,
+            });
+          }
+        }
+      } catch {}
+
       if (newNotifs.length > 0) {
         const all = [...newNotifs, ...loadNotifications()].slice(0, 50);
         saveNotifications(all);
@@ -119,16 +151,17 @@ export function AdminNotifications() {
     sale: { icon: <Icons.ShoppingCart size={14} />, color: '#10B981' },
     low_stock: { icon: <Icons.AlertTriangle size={14} />, color: '#EF4444' },
     order: { icon: <Icons.Package size={14} />, color: '#3B82F6' },
+    growing: { icon: <Icons.Leaf size={14} />, color: '#22C55E' },
     info: { icon: <Icons.Clock size={14} />, color: '#6366F1' },
   };
 
   const fmtTime = (d: Date) => {
     const now = new Date();
     const diff = now.getTime() - d.getTime();
-    if (diff < 60000) return 'Hozir';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)} daq oldin`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)} soat oldin`;
-    return d.toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' });
+    if (diff < 60000) return 'Сейчас';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин назад`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч назад`;
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
   };
 
   return (
@@ -170,12 +203,12 @@ export function AdminNotifications() {
             padding: 'var(--space-3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             borderBottom: '1px solid var(--border)',
           }}>
-            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>Bildirishnomalar</span>
+            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>Уведомления</span>
             <button onClick={clearAll} style={{
               background: 'none', border: 'none', color: 'var(--text-muted)',
               fontSize: 'var(--text-xs)', cursor: 'pointer',
             }}>
-              Tozalash
+              Очистить
             </button>
           </div>
 
@@ -184,7 +217,7 @@ export function AdminNotifications() {
             {notifications.length === 0 ? (
               <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <Icons.Clock size={32} style={{ opacity: 0.3 }} />
-                <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>Bildirishnoma yo'q</p>
+                <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>Нет уведомлений</p>
               </div>
             ) : (
               notifications.map(n => {

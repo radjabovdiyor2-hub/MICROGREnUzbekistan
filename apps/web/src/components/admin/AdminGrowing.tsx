@@ -171,6 +171,40 @@ export function AdminGrowing() {
     if (confirm('Удалить эту посадку?')) save(batches.filter(b => b.id !== id));
   };
 
+  // Write off expired batch → WRITE_OFF movement (loss)
+  const writeOffBatch = async (id: string) => {
+    const batch = batches.find(b => b.id === id);
+    if (!batch) return;
+    const qty = batch.harvestQty || batch.trays;
+    const loss = (batch.costPrice || 0) * qty;
+    if (!confirm(`Списать партию? Убыток: ${fmt(loss)} сум`)) return;
+    setHarvesting(id);
+    try {
+      if (batch.productId) {
+        await fetch('/api/inventory/movements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: batch.productId,
+            type: 'WRITE_OFF',
+            quantity: qty,
+            reason: 'Просрочка посадки',
+            note: `${(CROP_DB[batch.cropType] || CROP_DB['other']).nameRu}, ${batch.trays} лотков, посев ${batch.seedDate}. Убыток: ${fmt(loss)} сум`,
+            costPrice: batch.costPrice || 0,
+            performedBy: 'Посадки (списание)',
+          }),
+        });
+      }
+      save(batches.map(b => b.id === id ? { ...b, status: 'harvested' as const, harvestDate: new Date().toISOString().slice(0, 10), note: (b.note ? b.note + ' | ' : '') + `СПИСАНО, убыток ${fmt(loss)}` } : b));
+      alert(`❌ Списано. Убыток: ${fmt(loss)} сум`);
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка при списании');
+    } finally {
+      setHarvesting(null);
+    }
+  };
+
   const fmt = (n: number) => n.toLocaleString('ru-RU');
 
   // Compute statuses
@@ -428,8 +462,29 @@ export function AdminGrowing() {
                   </div>
                 )}
 
-                {/* Actions for harvested / expired */}
-                {(info.status === 'harvested' || info.status === 'expired') && (
+                {/* Actions for expired → write off */}
+                {info.status === 'expired' && (
+                  <div style={{ marginTop: '6px', padding: '8px 12px', borderRadius: '8px', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#991B1B' }}>Просрочено! Списать?</div>
+                      <div style={{ fontSize: '10px', color: '#B91C1C' }}>
+                        Убыток: {fmt((batch.costPrice || 0) * (batch.harvestQty || batch.trays))} сум
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button onClick={() => writeOffBatch(batch.id)} disabled={harvesting === batch.id}
+                        style={{ padding: '5px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#DC2626', color: 'white', fontSize: '11px', fontWeight: 700, opacity: harvesting === batch.id ? 0.6 : 1 }}>
+                        {harvesting === batch.id ? 'Списываем...' : 'Списать'}
+                      </button>
+                      <button onClick={() => deleteBatch(batch.id)} style={{ padding: '5px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>
+                        <Icons.Trash size={12} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions for harvested */}
+                {info.status === 'harvested' && (
                   <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'flex-end' }}>
                     <button onClick={() => deleteBatch(batch.id)} style={{
                       padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
