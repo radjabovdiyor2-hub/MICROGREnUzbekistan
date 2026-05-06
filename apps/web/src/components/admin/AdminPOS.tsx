@@ -34,7 +34,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'debt'>('cash');
   const [debtInfo, setDebtInfo] = useState<DebtInfo>({ personName: '', phone: '', dueDate: '' });
   const [processing, setProcessing] = useState(false);
-  const [saleResult, setSaleResult] = useState<{ saleNumber: string; total: number; isReturn?: boolean } | null>(null);
+  const [saleResult, setSaleResult] = useState<{ saleNumber: string; total: number; isReturn?: boolean; items?: CartItem[]; payMethod?: string; date?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
   const [returnReason, setReturnReason] = useState('');
@@ -137,7 +137,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
 
       const data = await res.json();
       if (data.success) {
-        setSaleResult({ saleNumber: data.saleNumber, total: data.total });
+        setSaleResult({ saleNumber: data.saleNumber, total: data.total, items: [...cart], payMethod: paymentMethod, date: new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) });
         setCart([]);
         setPaymentMethod('cash');
         setDebtInfo({ personName: '', phone: '', dueDate: '' });
@@ -174,7 +174,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
 
       const data = await res.json();
       if (data.success) {
-        setSaleResult({ saleNumber: data.returnNumber, total: data.totalRefund, isReturn: true });
+        setSaleResult({ saleNumber: data.returnNumber, total: data.totalRefund, isReturn: true, items: [...cart], date: new Date().toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) });
         setCart([]);
         setReturnReason('');
         fetchProducts();
@@ -190,40 +190,154 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
   };
   const [showCart, setShowCart] = useState(false);
 
-  // Sale/Return success screen
+  // Build receipt text for sharing
+  const buildReceiptText = () => {
+    if (!saleResult) return '';
+    const lines = [
+      `🧾 MICROGREEN UZBEKISTAN`,
+      `${saleResult.isReturn ? 'Возврат' : 'Чек'} #${saleResult.saleNumber}`,
+      `📅 ${saleResult.date || ''}`,
+      `${'─'.repeat(28)}`,
+    ];
+    if (saleResult.items) {
+      saleResult.items.forEach((item, i) => {
+        lines.push(`${i+1}. ${item.product.nameUz}`);
+        lines.push(`   ${item.quantity} x ${fmt(item.customPrice)} = ${fmt(item.customPrice * item.quantity)} сум`);
+      });
+    }
+    lines.push(`${'─'.repeat(28)}`);
+    lines.push(`💰 ${saleResult.isReturn ? 'Возврат' : 'ИТОГО'}: ${saleResult.isReturn ? '-' : ''}${fmt(saleResult.total)} сум`);
+    if (saleResult.payMethod) {
+      const methodNames: Record<string, string> = { cash: 'Наличные', card: 'Карта', debt: 'В долг' };
+      lines.push(`💳 Оплата: ${methodNames[saleResult.payMethod] || saleResult.payMethod}`);
+    }
+    lines.push(`${'─'.repeat(28)}`);
+    lines.push(`Спасибо за покупку!`);
+    lines.push(`📞 +998 94 999 95 99`);
+    return lines.join('\n');
+  };
+
+  const handlePrint = () => {
+    const text = buildReceiptText();
+    const printWindow = window.open('', '_blank', 'width=380,height=600');
+    if (!printWindow) return;
+    printWindow.document.write(`<html><head><title>Чек #${saleResult?.saleNumber}</title><style>
+      body { font-family: 'Courier New', monospace; font-size: 13px; padding: 16px; max-width: 350px; margin: 0 auto; }
+      pre { white-space: pre-wrap; word-wrap: break-word; line-height: 1.6; }
+      @media print { body { padding: 0; } }
+    </style></head><body><pre>${text}</pre></body></html>`);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); }, 300);
+  };
+
+  const handleShareTelegram = () => {
+    const text = encodeURIComponent(buildReceiptText());
+    window.open(`https://t.me/share/url?url=&text=${text}`, '_blank');
+  };
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(buildReceiptText());
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
+  const handleCopyReceipt = async () => {
+    try {
+      await navigator.clipboard.writeText(buildReceiptText());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* fallback */ }
+  };
+
+  const [copied, setCopied] = useState(false);
+
+  // Sale/Return success screen with receipt
   if (saleResult) {
     const isReturn = saleResult.isReturn;
     return (
-      <div style={{ textAlign: 'center', padding: 'var(--space-8)', animation: 'reveal-up 0.4s ease both' }}>
-        <div style={{
-          width: 88, height: 88, borderRadius: 'var(--radius-full)',
-          background: isReturn ? '#F59E0B18' : 'var(--success-bg)',
-          color: isReturn ? '#D97706' : 'var(--success)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto var(--space-5)',
-          boxShadow: isReturn ? '0 8px 24px rgba(245, 158, 11, 0.2)' : '0 8px 24px rgba(16, 185, 129, 0.2)',
-        }}>
-          {isReturn ? <Icons.RefreshCw size={44} /> : <Icons.CheckCircle size={44} />}
+      <div style={{ animation: 'reveal-up 0.4s ease both' }}>
+        {/* Success header */}
+        <div style={{ textAlign: 'center', marginBottom: 'var(--space-4)' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: 'var(--radius-full)',
+            background: isReturn ? '#F59E0B18' : 'var(--success-bg)',
+            color: isReturn ? '#D97706' : 'var(--success)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto var(--space-3)',
+            boxShadow: isReturn ? '0 8px 24px rgba(245, 158, 11, 0.2)' : '0 8px 24px rgba(16, 185, 129, 0.2)',
+          }}>
+            {isReturn ? <Icons.RefreshCw size={36} /> : <Icons.CheckCircle size={36} />}
+          </div>
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
+            fontSize: 'var(--text-xl)', marginBottom: 4,
+          }}>
+            {isReturn ? 'Возврат оформлен!' : 'Продажа завершена!'}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+            {isReturn ? 'Возврат' : 'Чек'} #{saleResult.saleNumber} · {saleResult.date}
+          </p>
         </div>
-        <h2 style={{
-          fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-          fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-2)',
-        }}>
-          {isReturn ? 'Qaytarildi!' : 'Sotildi!'}
-        </h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>
-          {isReturn ? 'Qaytarish' : 'Chek'} #{saleResult.saleNumber}
-        </p>
-        <p style={{
-          fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-          fontSize: 'var(--text-xl)', color: isReturn ? '#D97706' : 'var(--brand-primary)',
-          marginBottom: 'var(--space-6)',
-        }}>
-          {isReturn ? '-' : ''}{fmt(saleResult.total)} so&apos;m
-        </p>
-        <button onClick={() => { setSaleResult(null); setReturnMode(false); }} className="btn btn-primary btn-lg"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', borderRadius: '14px' }}>
-          <Icons.Plus size={20} /> Yangi operatsiya
+
+        {/* Receipt card */}
+        <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)', fontFamily: 'var(--font-display)' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: 'var(--space-2)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
+            Microgreen Uzbekistan
+          </div>
+          
+          {saleResult.items && saleResult.items.map((item, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed var(--border)', fontSize: 'var(--text-sm)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: '13px' }}>{item.product.nameUz}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  {item.quantity} × {fmt(item.customPrice)} сум
+                </div>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: '13px', flexShrink: 0, textAlign: 'right' }}>
+                {fmt(item.customPrice * item.quantity)}
+              </div>
+            </div>
+          ))}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 'var(--space-3)', marginTop: 'var(--space-2)', borderTop: '2px solid var(--text-primary)' }}>
+            <span style={{ fontWeight: 800, fontSize: 'var(--text-base)' }}>{isReturn ? 'ВОЗВРАТ:' : 'ИТОГО:'}</span>
+            <span style={{ fontWeight: 900, fontSize: 'var(--text-lg)', color: isReturn ? '#D97706' : 'var(--brand-primary)' }}>
+              {isReturn ? '-' : ''}{fmt(saleResult.total)} сум
+            </span>
+          </div>
+          {saleResult.payMethod && (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Icons.CreditCard size={12} /> {saleResult.payMethod === 'cash' ? 'Наличные' : saleResult.payMethod === 'card' ? 'Карта' : 'В долг'}
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', marginBottom: 'var(--space-3)' }}>
+          <button onClick={handlePrint}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '14px', transition: 'all 0.2s' }}>
+            <Icons.FileText size={18} /> Печать
+          </button>
+          <button onClick={handleCopyReceipt}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '14px', borderRadius: '14px', border: '1.5px solid var(--border)', background: copied ? 'var(--success-bg)' : 'var(--bg-primary)', color: copied ? 'var(--success)' : 'var(--text-primary)', cursor: 'pointer', fontWeight: 700, fontSize: '14px', transition: 'all 0.2s' }}>
+            {copied ? <><Icons.CheckCircle size={18} /> Скопирован</> : <><Icons.Copy size={18} /> Копировать</>}
+          </button>
+        </div>
+
+        {/* Social share */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: 'var(--space-4)' }}>
+          <button onClick={handleShareTelegram}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '14px', border: 'none', background: '#229ED9', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '13px' }}>
+            <Icons.MessageCircle size={18} /> Telegram
+          </button>
+          <button onClick={handleShareWhatsApp}
+            style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', borderRadius: '14px', border: 'none', background: '#25D366', color: 'white', cursor: 'pointer', fontWeight: 700, fontSize: '13px' }}>
+            <Icons.Phone size={18} /> WhatsApp
+          </button>
+        </div>
+
+        <button onClick={() => { setSaleResult(null); setReturnMode(false); }} className="btn btn-primary btn-lg btn-block"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', borderRadius: '14px', padding: '16px', fontWeight: 700 }}>
+          <Icons.Plus size={20} /> Новая операция
         </button>
       </div>
     );
@@ -243,7 +357,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         <button onClick={() => { setReturnMode(false); setCart([]); }}
           className={`btn btn-sm ${!returnMode ? 'btn-primary' : 'btn-ghost'}`}
           style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', borderRadius: '12px', padding: '12px', fontSize: '15px', fontWeight: 700 }}>
-          <Icons.ShoppingCart size={18} /> Sotish
+          <Icons.ShoppingCart size={18} /> Продажа
         </button>
         <button onClick={() => { setReturnMode(true); setCart([]); }}
           style={{
@@ -253,7 +367,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             color: returnMode ? 'white' : 'var(--text-secondary)',
             transition: 'all 0.2s',
           }}>
-          <Icons.RefreshCw size={18} /> Qaytarish
+          <Icons.RefreshCw size={18} /> Возврат
         </button>
       </div>
 
@@ -263,7 +377,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           background: '#FEF3C7', border: '1.5px solid #F59E0B', color: '#92400E',
           display: 'flex', alignItems: 'center', gap: '10px', fontSize: 'var(--text-sm)', fontWeight: 600,
         }}>
-          <Icons.AlertTriangle size={18} /> QAYTARISH REJIMI — tovarni tanlang
+          <Icons.AlertTriangle size={18} /> РЕЖИМ ВОЗВРАТА — выберите товар
         </div>
       )}
       {/* Mobile toggle: Products vs Cart */}
@@ -271,12 +385,12 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         <button onClick={() => setShowCart(false)}
           className={`btn ${!showCart ? 'btn-primary' : 'btn-ghost'}`}
           style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', borderRadius: '12px', padding: '12px', fontSize: '14px', fontWeight: 700 }}>
-          <Icons.Search size={16} /> Tovarlar ({products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length})
+          <Icons.Search size={16} /> Товары ({products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length})
         </button>
         <button onClick={() => setShowCart(true)}
           className={`btn ${showCart ? 'btn-primary' : 'btn-ghost'}`}
           style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', position: 'relative', borderRadius: '12px', padding: '12px', fontSize: '14px', fontWeight: 700 }}>
-          <Icons.ShoppingCart size={16} /> Chek
+          <Icons.ShoppingCart size={16} /> Чек
           {cart.length > 0 && <span style={{
             position: 'absolute', top: -6, right: -6,
             padding: '2px 8px', minWidth: 22, height: 22,
@@ -301,10 +415,10 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Icons.ShoppingCart size={20} />
-              Chek ({cart.reduce((s, i) => s + i.quantity, 0)} ta)
+              Чек ({cart.reduce((s, i) => s + i.quantity, 0)} шт)
             </span>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>
-              {fmt(total)} so&apos;m
+              {fmt(total)} сум
             </span>
           </button>
         </div>
@@ -345,7 +459,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             <Icons.Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
-              placeholder="Tovar qidirish..."
+              placeholder="Поиск товара..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
@@ -377,7 +491,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                     color: selectedCategory === 'all' ? 'white' : 'var(--text-secondary)',
                     boxShadow: selectedCategory === 'all' ? '0 2px 8px rgba(var(--brand-primary-rgb), 0.3)' : 'none',
                   }}>
-                  Hammasi ({products.length})
+                  Все ({products.length})
                 </button>
                 {categories.map(cat => {
                   const count = products.filter(p => p.category?.nameUz === cat).length;
@@ -410,7 +524,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             ) : products.length === 0 ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
                 <Icons.Search size={36} style={{ marginBottom: 'var(--space-3)', opacity: 0.4 }} />
-                <p style={{ fontSize: 'var(--text-sm)' }}>Tovar topilmadi</p>
+                <p style={{ fontSize: 'var(--text-sm)' }}>Товар не найден</p>
               </div>
             ) : (
               products
@@ -505,19 +619,19 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             fontSize: 'var(--text-lg)', marginBottom: 'var(--space-4)',
             display: 'flex', alignItems: 'center', gap: '10px',
           }}>
-            <Icons.ShoppingCart size={22} /> Chek
+            <Icons.ShoppingCart size={22} /> Чек
             {cart.length > 0 && <span style={{
               fontSize: 'var(--text-xs)', color: 'var(--text-muted)',
               background: 'var(--bg-tertiary)', padding: '3px 10px',
               borderRadius: 'var(--radius-full)',
-            }}>({cart.length} ta)</span>}
+            }}>({cart.length} шт)</span>}
           </h3>
 
           {cart.length === 0 ? (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
               <div style={{ textAlign: 'center' }}>
                 <Icons.ShoppingCart size={52} style={{ marginBottom: 'var(--space-3)', opacity: 0.2 }} />
-                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>Tovarni tanlang</p>
+                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>Выберите товар</p>
               </div>
             </div>
           ) : (
@@ -535,7 +649,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {item.product.nameUz}
-                        {belowCost && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '6px', background: '#EF444420', color: '#EF4444', fontWeight: 800 }}>ZARAR</span>}
+                        {belowCost && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '6px', background: '#EF444420', color: '#EF4444', fontWeight: 800 }}>УБЫТОК</span>}
                       </div>
                       {/* Editable price */}
                       {isEditing ? (
@@ -560,7 +674,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                       ) : (
                         <div onClick={() => { setEditingPriceId(item.product.id); setEditPriceValue(String(item.customPrice)); }}
                           style={{ fontSize: 'var(--text-xs)', color: priceChanged ? '#D97706' : 'var(--brand-primary)', fontWeight: 'var(--font-bold)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {fmt(item.customPrice * item.quantity)} so&apos;m
+                          {fmt(item.customPrice * item.quantity)} сум
                           <Icons.Edit size={10} style={{ opacity: 0.5 }} />
                           {priceChanged && <span style={{ fontSize: '9px', color: '#D97706', textDecoration: 'line-through', opacity: 0.6 }}>{fmt(item.product.price)}</span>}
                         </div>
@@ -590,19 +704,19 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 /* Return mode: reason + return button */
                 <>
                   <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: '#92400E', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Qaytarish sababi:</div>
-                    <input type="text" placeholder="Nuqsonli / Noto'g'ri tovar / Boshqa..."
+                    <div style={{ fontSize: 'var(--text-xs)', color: '#92400E', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Причина возврата:</div>
+                    <input type="text" placeholder="Брак / Неверный товар / Другое..."
                       value={returnReason} onChange={e => setReturnReason(e.target.value)}
                       style={{ ...inputStyle, borderColor: '#F59E0B' }} />
                   </div>
                   <div style={{ borderTop: '2px solid #F59E0B', paddingTop: 'var(--space-4)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)', alignItems: 'baseline' }}>
-                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: '#92400E' }}>Qaytarish:</span>
+                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: '#92400E' }}>Возврат:</span>
                       <span style={{
                         fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
                         fontSize: 'var(--text-2xl)', color: '#D97706', letterSpacing: '-0.5px',
                       }}>
-                        -{fmt(total)} so&apos;m
+                        -{fmt(total)} сум
                       </span>
                     </div>
                     <button onClick={processReturn} disabled={processing}
@@ -613,9 +727,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                         background: '#F59E0B', boxShadow: '0 6px 20px rgba(245, 158, 11, 0.3)',
                       }}>
                       {processing ? (
-                        <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Kuting...</>
+                        <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
                       ) : (
-                        <><Icons.RefreshCw size={18} /> QAYTARISH</>
+                        <><Icons.RefreshCw size={18} /> ВОЗВРАТ</>
                       )}
                     </button>
                   </div>
@@ -625,12 +739,12 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 <>
                   {/* Payment method */}
                   <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>To&apos;lov usuli:</div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Способ оплаты:</div>
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                       {([
-                        { key: 'cash' as const, label: 'Naqd', icon: <Icons.Banknote size={14} /> },
-                        { key: 'card' as const, label: 'Karta', icon: <Icons.CreditCard size={14} /> },
-                        { key: 'debt' as const, label: 'Qarzga', icon: <Icons.Clock size={14} /> },
+                        { key: 'cash' as const, label: 'Нал', icon: <Icons.Banknote size={14} /> },
+                        { key: 'card' as const, label: 'Карта', icon: <Icons.CreditCard size={14} /> },
+                        { key: 'debt' as const, label: 'В долг', icon: <Icons.Clock size={14} /> },
                       ]).map(method => (
                         <button key={method.key} onClick={() => setPaymentMethod(method.key)}
                           className={`btn btn-sm ${paymentMethod === method.key ? 'btn-primary' : 'btn-outline'}`}
@@ -652,10 +766,10 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                       border: '1px solid var(--border)',
                       display: 'flex', flexDirection: 'column', gap: '10px',
                     }}>
-                      <input type="text" placeholder="Qarzdor ismi *" value={debtInfo.personName}
+                      <input type="text" placeholder="Имя должника *" value={debtInfo.personName}
                         onChange={e => setDebtInfo(prev => ({ ...prev, personName: e.target.value }))}
                         style={inputStyle} />
-                      <input type="tel" placeholder="Telefon" value={debtInfo.phone}
+                      <input type="tel" placeholder="Телефон" value={debtInfo.phone}
                         onChange={e => setDebtInfo(prev => ({ ...prev, phone: e.target.value }))}
                         style={inputStyle} />
                       <input type="date" value={debtInfo.dueDate}
@@ -667,13 +781,13 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                   {/* Total + Submit */}
                   <div style={{ borderTop: '2px solid var(--border)', paddingTop: 'var(--space-4)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)', alignItems: 'baseline' }}>
-                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Jami:</span>
+                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Итого:</span>
                       <span style={{
                         fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
                         fontSize: 'var(--text-2xl)', color: 'var(--brand-primary)',
                         letterSpacing: '-0.5px',
                       }}>
-                        {fmt(total)} so&apos;m
+                        {fmt(total)} сум
                       </span>
                     </div>
                     <button onClick={processSale} disabled={processing || (paymentMethod === 'debt' && !debtInfo.personName)}
@@ -685,9 +799,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                         boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.3)',
                       }}>
                       {processing ? (
-                        <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Kuting...</>
+                        <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
                       ) : (
-                        <><Icons.CheckCircle size={18} /> TASDIQLASH</>
+                        <><Icons.CheckCircle size={18} /> ПОДТВЕРДИТЬ</>
                       )}
                     </button>
                   </div>
