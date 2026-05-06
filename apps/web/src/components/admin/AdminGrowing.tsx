@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import * as Icons from '@/components/ui/Icons';
 
 // Microgreen crop database with growing parameters
@@ -34,6 +34,16 @@ interface Batch {
   note: string;
   status: 'dark' | 'light' | 'ready' | 'harvested' | 'expired';
   harvestDate?: string;
+  productId?: string;
+  productName?: string;
+  harvestQty?: number;
+}
+
+interface ProductOption {
+  id: string;
+  nameUz: string;
+  nameRu: string;
+  stock: number;
 }
 
 const STORAGE_KEY = 'mg_grow_batches';
@@ -84,25 +94,70 @@ export function AdminGrowing() {
   const [seedDate, setSeedDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'ready' | 'alert'>('active');
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [harvestQty, setHarvestQty] = useState(1);
+  const [harvesting, setHarvesting] = useState<string | null>(null);
 
   useEffect(() => { setBatches(loadBatches()); }, []);
+  useEffect(() => {
+    fetch('/api/products?limit=200').then(r => r.json()).then(d => {
+      setProducts((d.items || []).map((p: ProductOption) => ({ id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, stock: p.stock })));
+    }).catch(() => {});
+  }, []);
 
   const save = useCallback((updated: Batch[]) => { setBatches(updated); saveBatches(updated); }, []);
 
   const addBatch = () => {
     const crop = CROP_DB[cropType] || CROP_DB['other'];
+    const prod = products.find(p => p.id === selectedProductId);
     const batch: Batch = {
       id: Date.now().toString(36),
       cropType, trays, seedDate, note,
       darkDays: crop.darkDays, lightDays: crop.lightDays, shelfDays: crop.shelfDays,
       status: 'dark',
+      productId: selectedProductId || undefined,
+      productName: prod?.nameUz || undefined,
+      harvestQty,
     };
     save([batch, ...batches]);
-    setShowForm(false); setNote(''); setTrays(1);
+    setShowForm(false); setNote(''); setTrays(1); setHarvestQty(1);
   };
 
-  const harvestBatch = (id: string) => {
-    save(batches.map(b => b.id === id ? { ...b, status: 'harvested' as const, harvestDate: new Date().toISOString().slice(0, 10) } : b));
+  const harvestBatch = async (id: string) => {
+    const batch = batches.find(b => b.id === id);
+    if (!batch) return;
+    setHarvesting(id);
+    try {
+      // If linked to a product, add stock
+      if (batch.productId) {
+        const qty = batch.harvestQty || batch.trays;
+        const res = await fetch('/api/inventory/movements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: batch.productId,
+            type: 'IN',
+            quantity: qty,
+            reason: 'Урожай с посадки',
+            note: `${(CROP_DB[batch.cropType] || CROP_DB['other']).nameRu}, ${batch.trays} лотков, посев ${batch.seedDate}`,
+            performedBy: 'Посадки',
+          }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ +${qty} шт «${batch.productName}» добавлено на склад! Остаток: ${data.newStock}`);
+        } else {
+          alert(`Ошибка: ${data.error}`);
+        }
+      }
+      save(batches.map(b => b.id === id ? { ...b, status: 'harvested' as const, harvestDate: new Date().toISOString().slice(0, 10) } : b));
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка при добавлении на склад');
+    } finally {
+      setHarvesting(null);
+    }
   };
 
   const deleteBatch = (id: string) => {
@@ -123,7 +178,7 @@ export function AdminGrowing() {
   });
 
   const statusColors: Record<string, string> = { dark: '#6366F1', light: '#F59E0B', ready: '#10B981', expired: '#EF4444', harvested: '#9CA3AF' };
-  const statusIcons: Record<string, JSX.Element> = {
+  const statusIcons: Record<string, React.ReactNode> = {
     dark: <Icons.Moon size={14} />, light: <Icons.Sun size={14} />,
     ready: <Icons.CheckCircle size={14} />, expired: <Icons.AlertTriangle size={14} />,
     harvested: <Icons.Package size={14} />,
@@ -198,6 +253,23 @@ export function AdminGrowing() {
             <div>
               <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Заметка</label>
               <input type="text" placeholder="Поставщик, сорт..." value={note} onChange={e => setNote(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          {/* Product link + harvest qty */}
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px', marginBottom: '12px' }}>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Товар на складе (при сборе → +склад)</label>
+              <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}
+                style={{ ...inputStyle, cursor: 'pointer' }}>
+                <option value="">— не привязывать —</option>
+                {products.map(p => (
+                  <option key={p.id} value={p.id}>{p.nameUz} (остаток: {p.stock})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Кол-во при сборе</label>
+              <input type="number" min={1} value={harvestQty} onChange={e => setHarvestQty(Number(e.target.value))} style={inputStyle} />
             </div>
           </div>
           {/* Preview timeline */}
@@ -289,6 +361,11 @@ export function AdminGrowing() {
                       Посев: {new Date(batch.seedDate).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                       {batch.note && ` · ${batch.note}`}
                     </div>
+                    {batch.productName && (
+                      <div style={{ fontSize: '10px', color: 'var(--brand-primary)', fontWeight: 600, marginTop: 1, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <Icons.Package size={10} /> → {batch.productName} (+{batch.harvestQty || batch.trays} шт)
+                      </div>
+                    )}
                   </div>
                   <span style={{
                     display: 'flex', alignItems: 'center', gap: '4px',
@@ -323,10 +400,14 @@ export function AdminGrowing() {
                   }}>
                     <span>{info.alert}</span>
                     {info.status === 'ready' && (
-                      <button onClick={() => harvestBatch(batch.id)} style={{
-                        padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                        background: '#059669', color: 'white', fontSize: '11px', fontWeight: 700,
-                      }}>Собрано</button>
+                      <button onClick={() => harvestBatch(batch.id)} disabled={harvesting === batch.id}
+                        style={{
+                          padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                          background: '#059669', color: 'white', fontSize: '11px', fontWeight: 700,
+                          opacity: harvesting === batch.id ? 0.6 : 1,
+                        }}>
+                        {harvesting === batch.id ? 'Добавляем...' : batch.productId ? 'Собрать → Склад' : 'Собрано'}
+                      </button>
                     )}
                   </div>
                 )}
