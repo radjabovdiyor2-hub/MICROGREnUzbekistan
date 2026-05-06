@@ -102,6 +102,7 @@ export function AdminGrowing() {
   const [harvestQty, setHarvestQty] = useState(1);
   const [costPriceInput, setCostPriceInput] = useState(0);
   const [harvesting, setHarvesting] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => { setBatches(loadBatches()); }, []);
   useEffect(() => {
@@ -113,20 +114,42 @@ export function AdminGrowing() {
 
   const save = useCallback((updated: Batch[]) => { setBatches(updated); saveBatches(updated); }, []);
 
+  const handleEdit = (batch: Batch) => {
+    setEditingId(batch.id);
+    setCropType(batch.cropType);
+    setTrays(batch.trays);
+    setSeedDate(batch.seedDate);
+    setNote(batch.note);
+    setSelectedProductId(batch.productId || '');
+    setHarvestQty(batch.harvestQty || batch.trays);
+    setCostPriceInput(batch.costPrice || 0);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const addBatch = () => {
     const crop = CROP_DB[cropType] || CROP_DB['other'];
     const prod = products.find(p => p.id === selectedProductId);
-    const batch: Batch = {
-      id: Date.now().toString(36),
+    const newBatchData = {
       cropType, trays, seedDate, note,
       darkDays: crop.darkDays, lightDays: crop.lightDays, shelfDays: crop.shelfDays,
-      status: 'dark',
       productId: selectedProductId || undefined,
       productName: prod?.nameUz || undefined,
       harvestQty,
       costPrice: costPriceInput || prod?.costPrice || 0,
     };
-    save([batch, ...batches]);
+    
+    if (editingId) {
+      save(batches.map(b => b.id === editingId ? { ...b, ...newBatchData } : b));
+      setEditingId(null);
+    } else {
+      const batch: Batch = {
+        id: Date.now().toString(36),
+        status: 'dark',
+        ...newBatchData,
+      };
+      save([batch, ...batches]);
+    }
     setShowForm(false); setNote(''); setTrays(1); setHarvestQty(1); setCostPriceInput(0);
   };
 
@@ -261,7 +284,7 @@ export function AdminGrowing() {
             {enriched.filter(b => b.info.status !== 'harvested').length} активных
           </span>
         </h3>
-        <button onClick={() => setShowForm(!showForm)} className="btn btn-primary btn-sm"
+        <button onClick={() => { setEditingId(null); setShowForm(!showForm); }} className="btn btn-primary btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
           <Icons.Plus size={16} /> Посадка
         </button>
@@ -271,7 +294,7 @@ export function AdminGrowing() {
       {showForm && (
         <div className="card" style={{ padding: 'var(--space-4)', animation: 'reveal-up 0.3s ease both' }}>
           <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.Leaf size={16} color="var(--brand-primary)" /> Новая посадка
+            <Icons.Leaf size={16} color="var(--brand-primary)" /> {editingId ? 'Изменить посадку' : 'Новая посадка'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
             <div>
@@ -313,7 +336,7 @@ export function AdminGrowing() {
               </select>
             </div>
             <div>
-              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Кол-во сбора</label>
+              <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Получим шт (упаковок)</label>
               <input type="number" min={1} value={harvestQty} onChange={e => setHarvestQty(Number(e.target.value))} style={inputStyle} />
             </div>
             <div>
@@ -341,10 +364,18 @@ export function AdminGrowing() {
               </div>
             );
           })()}
-          <button onClick={addBatch} className="btn btn-primary btn-block"
-            style={{ borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <Icons.Plus size={16} /> Добавить посадку
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {editingId && (
+              <button onClick={() => { setEditingId(null); setShowForm(false); }} className="btn"
+                style={{ flex: 1, borderRadius: '10px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}>
+                Отмена
+              </button>
+            )}
+            <button onClick={addBatch} className="btn btn-primary"
+              style={{ flex: 2, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              {editingId ? <Icons.CheckCircle size={16} /> : <Icons.Plus size={16} />} {editingId ? 'Сохранить изменения' : 'Добавить посадку'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -476,25 +507,21 @@ export function AdminGrowing() {
                         style={{ padding: '5px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#DC2626', color: 'white', fontSize: '11px', fontWeight: 700, opacity: harvesting === batch.id ? 0.6 : 1 }}>
                         {harvesting === batch.id ? 'Списываем...' : 'Списать'}
                       </button>
-                      <button onClick={() => deleteBatch(batch.id)} style={{ padding: '5px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600 }}>
-                        <Icons.Trash size={12} />
-                      </button>
                     </div>
                   </div>
                 )}
 
-                {/* Actions for harvested */}
-                {info.status === 'harvested' && (
-                  <div style={{ marginTop: '6px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button onClick={() => deleteBatch(batch.id)} style={{
-                      padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                      background: 'var(--bg-tertiary)', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600,
-                      display: 'flex', alignItems: 'center', gap: '4px',
-                    }}>
-                      <Icons.Trash size={12} /> Удалить
+                {/* General Actions (Edit/Delete) */}
+                <div style={{ marginTop: info.status === 'expired' ? '6px' : '10px', display: 'flex', gap: '6px', justifyContent: 'flex-end', borderTop: info.status === 'expired' || info.status === 'harvested' ? 'none' : '1px solid var(--border)', paddingTop: info.status === 'expired' || info.status === 'harvested' ? '0' : '10px' }}>
+                  {info.status !== 'harvested' && info.status !== 'expired' && (
+                    <button onClick={() => handleEdit(batch)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Icons.Edit size={12} /> Изменить
                     </button>
-                  </div>
-                )}
+                  )}
+                  <button onClick={() => deleteBatch(batch.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Icons.Trash size={12} /> Удалить
+                  </button>
+                </div>
               </div>
             );
           })}

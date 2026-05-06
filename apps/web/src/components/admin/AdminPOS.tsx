@@ -514,7 +514,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
                 opacity: isCapturing ? 0.7 : 1,
               }}>
-              <Icons.Share2 size={18} /> Отправить чек клиенту
+              <Icons.MessageCircle size={18} /> Отправить чек клиенту
             </button>
           </div>
 
