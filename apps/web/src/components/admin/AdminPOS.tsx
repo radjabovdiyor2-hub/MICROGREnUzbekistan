@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import * as Icons from '@/components/ui/Icons';
+import html2canvas from 'html2canvas';
 
 interface Product {
   id: string;
@@ -230,25 +231,66 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
     setTimeout(() => { printWindow.print(); }, 300);
   };
 
-  const handleShareTelegram = () => {
-    const text = encodeURIComponent(buildReceiptText());
-    window.open(`https://t.me/share/url?url=&text=${text}`, '_blank');
-  };
+  const [copied, setCopied] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
-  const handleShareWhatsApp = () => {
-    const text = encodeURIComponent(buildReceiptText());
-    window.open(`https://wa.me/?text=${text}`, '_blank');
-  };
-
-  const handleCopyReceipt = async () => {
+  const captureReceiptImage = async (): Promise<Blob | null> => {
+    const node = document.getElementById('receipt-node');
+    if (!node) return null;
+    setIsCapturing(true);
     try {
-      await navigator.clipboard.writeText(buildReceiptText());
+      const originalAnim = node.style.animation;
+      const originalTransform = node.style.transform;
+      node.style.animation = 'none';
+      node.style.transform = 'none';
+      
+      const canvas = await html2canvas(node, { scale: 2, backgroundColor: null });
+      
+      node.style.animation = originalAnim;
+      node.style.transform = originalTransform;
+      
+      return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    } catch (e) {
+      console.error('Capture error', e);
+      return null;
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  const handleShareImage = async () => {
+    const blob = await captureReceiptImage();
+    if (!blob) return alert('Ошибка создания картинки');
+    
+    const file = new File([blob], `receipt_${saleResult?.saleNumber}.png`, { type: 'image/png' });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: `Чек #${saleResult?.saleNumber}`,
+        });
+      } catch (e) {
+        console.error('Share cancelled or failed', e);
+      }
+    } else {
+      // Fallback to copy if native share not supported
+      handleCopyImage(blob);
+    }
+  };
+
+  const handleCopyImage = async (preCapturedBlob?: Blob) => {
+    const blob = preCapturedBlob || await captureReceiptImage();
+    if (!blob) return alert('Ошибка создания картинки');
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch { /* fallback */ }
+      alert('✅ Картинка чека скопирована! Вставьте (Ctrl+V) в Telegram или WhatsApp.');
+    } catch (e) {
+      console.error('Copy failed', e);
+      alert('Ошибка копирования. Используйте Печать.');
+    }
   };
-
-  const [copied, setCopied] = useState(false);
 
   // Sale/Return success screen with PREMIUM receipt
   if (saleResult) {
@@ -289,7 +331,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         `}</style>
 
         {/* === RECEIPT CARD === */}
-        <div style={{
+        <div id="receipt-node" style={{
           maxWidth: 380, margin: '0 auto', animation: 'receiptSlide 0.6s cubic-bezier(.4,0,.2,1) both',
         }}>
 
@@ -448,7 +490,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               }}>
               <Icons.FileText size={18} /> Печать
             </button>
-            <button className="receipt-btn" onClick={handleCopyReceipt}
+            <button className="receipt-btn" onClick={() => handleCopyImage()} disabled={isCapturing}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 padding: '14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
@@ -456,30 +498,23 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 background: copied ? 'var(--success-bg)' : 'var(--bg-primary)',
                 color: copied ? 'var(--success)' : 'var(--text-primary)',
                 transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                opacity: isCapturing ? 0.7 : 1,
               }}>
-              {copied ? <><Icons.CheckCircle size={18} /> Скопирован</> : <><Icons.Copy size={18} /> Копировать</>}
+              {copied ? <><Icons.CheckCircle size={18} /> Скопирован</> : isCapturing ? 'Копируем...' : <><Icons.Copy size={18} /> Копировать</>}
             </button>
           </div>
 
           {/* Social share row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button className="receipt-btn" onClick={handleShareTelegram}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="receipt-btn" onClick={handleShareImage} disabled={isCapturing}
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 padding: '14px', borderRadius: '14px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
-                background: 'linear-gradient(135deg, #229ED9, #1A8BC7)', color: 'white',
-                transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(34,158,217,0.3)',
+                background: 'linear-gradient(135deg, #3B82F6, #2563EB)', color: 'white',
+                transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
+                opacity: isCapturing ? 0.7 : 1,
               }}>
-              <Icons.MessageCircle size={18} /> Telegram
-            </button>
-            <button className="receipt-btn" onClick={handleShareWhatsApp}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                padding: '14px', borderRadius: '14px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
-                background: 'linear-gradient(135deg, #25D366, #128C7E)', color: 'white',
-                transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(37,211,102,0.3)',
-              }}>
-              <Icons.Phone size={18} /> WhatsApp
+              <Icons.Share2 size={18} /> Отправить чек клиенту
             </button>
           </div>
 
