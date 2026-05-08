@@ -85,26 +85,33 @@ async def _load_product_catalog() -> str:
 
 # ==================== SYSTEM PROMPT ====================
 
-SYSTEM_PROMPT_BASE = """Ты — AI-ассистент экосистемы AgroTech Ecosystem.
+SYSTEM_PROMPT_BASE = """Ты — премиальный AI-ассистент экосистемы AgroTech Ecosystem (Microgreen Uzbekistan).
 Твоя роль: 
 1. 🌿 Эксперт-агроном (микрозелень, гидропоника, аэропоника, вертикальные фермы, диагностика по фото).
 2. 🤖 Универсальный помощник (поддерживаешь любые темы: погода, новости, философия, юмор).
 3. 📦 Менеджер заказов (помогаешь выбрать и купить продукцию и оборудование).
 4. 🛒 Продавец-консультант — знаешь ВСЕ товары. Предлагай подходящие товары с ценами!
 
-ТВОЙ СТИЛЬ:
-- Дружелюбный, вежливый, используешь эмодзи 🌿✨.
-- Язык: Русский (по умолчанию), но отвечай на языке собеседника (UZ/EN).
-- Если вопрос по агротехнологиям -> включай режим эксперта (детально, компетентно).
-- Если вопрос общий -> отвечай полезно и по сути.
+ТВОЙ СТИЛЬ (ОБЯЗАТЕЛЬНО):
+- 💰 ВАЖНО: Мы работаем ТОЛЬКО в Узбекских сумах (сум, UZS). НИКОГДА не используй рубли или другие валюты!
+- 🎨 Красивое оформление: Используй жирный текст, списки, много подходящих эмодзи (🌿✨🍅🦠💧). Делай ответ структурированным, интересным и визуально приятным, как красивый пост в Telegram.
+- 🤝 Дружелюбный, заботливый и вежливый тон.
+- 🗣️ Язык: Русский (по умолчанию), но отвечай на языке собеседника (UZ/EN).
+- Если вопрос по агротехнологиям -> включай режим эксперта (детально, компетентно, пошагово).
 - Если клиент ищет товар -> СРАЗУ предлагай конкретные позиции из каталога ниже с ценами!
 
 ПРАВИЛА РАБОТЫ С КАТАЛОГОМ:
-- Предлагай КОНКРЕТНЫЕ товары с ценами из каталога ниже
-- Если товар нет в наличии — предложи аналог
-- Предлагай сопутствующие товары (удобрения к семенам, лампу к стеллажу)
+- Предлагай КОНКРЕТНЫЕ товары с ценами из каталога ниже.
+- Если товара нет в наличии — предложи аналог.
+- Предлагай сопутствующие товары (удобрения к семенам, лампу к стеллажу).
 
-Если пользователь присылает фото растения -> проведи диагностику, определи вид, оцени состояние и дай рекомендации.
+ПРИ ДИАГНОСТИКЕ РАСТЕНИЙ ПО ФОТО:
+- Проведи диагностику, определи вид, оцени состояние и дай рекомендации по спасению или уходу.
+- В КОНЦЕ ответа ОБЯЗАТЕЛЬНО добавляй ровно этот текст:
+
+💡 <i>Если хотите, могу предложить консультацию агронома, чтобы более точно определить проблему и подобрать лечение:</i>
+*   👨‍🌾 **Консультация агронома (1 час)** | 150 000 сум | ✅ — 🛠️ Онлайн или офлайн. Подбор культур, систем, растворов.
+📞 <b>Наши контакты:</b> @Microgreen_Uzbekistan
 """
 
 
@@ -152,20 +159,43 @@ async def transcribe_audio(audio_bytes: bytes, user_question: str = "") -> str:
 
 
 async def _analyze_with_gemini(data_bytes: bytes, prompt: str, mime_type: str = "image/jpeg") -> str:
-    """Use Gemini Vision/Audio API."""
-    import google.generativeai as genai
+    """Use Gemini Vision/Audio API via REST to avoid gRPC timeouts and blocking the event loop."""
+    import base64
     
-    genai.configure(api_key=GEMINI_API_KEY)
-    # Use 1.5 Flash for multimodal (audio/video/image)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
+    encoded_data = base64.b64encode(data_bytes).decode('utf-8')
     
-    data_part = {
-        "mime_type": mime_type,
-        "data": data_bytes
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": mime_type,
+                            "data": encoded_data
+                        }
+                    }
+                ]
+            }
+        ]
     }
     
-    response = model.generate_content([prompt, data_part])
-    return response.text
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=payload)
+        
+        if response.status_code != 200:
+            logger.error(f"Gemini REST error: {response.status_code} - {response.text}")
+            raise Exception(f"Gemini API error: {response.status_code}")
+            
+        data = response.json()
+        try:
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except (KeyError, IndexError) as e:
+            logger.error(f"Gemini parse error: {e} - Response: {data}")
+            if "promptFeedback" in data and data["promptFeedback"].get("blockReason"):
+                return "Извините, запрос был заблокирован из-за настроек безопасности."
+            raise Exception("Invalid response format from Gemini")
 
 
 async def get_ai_response(user_message: str, system_context: str = "") -> str:
@@ -193,17 +223,23 @@ async def get_ai_response(user_message: str, system_context: str = "") -> str:
             logger.error(f"Groq error: {e}")
             # Continue to Gemini fallback
     
-    # Fallback to Gemini
+    # Fallback to Gemini via REST
     if GEMINI_API_KEY:
         try:
-            import google.generativeai as genai
-            
-            genai.configure(api_key=GEMINI_API_KEY)
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
             prompt = f"{system}\n\nВопрос пользователя: {user_message}"
-            response = model.generate_content(prompt)
-            return response.text
+            
+            payload = {
+                "contents": [{"parts": [{"text": prompt}]}]
+            }
+            
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(url, json=payload)
+                if response.status_code == 200:
+                    data = response.json()
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                else:
+                    logger.error(f"Gemini text REST error: {response.status_code} - {response.text}")
         except Exception as e:
             logger.error(f"Gemini error: {e}")
     
