@@ -10,6 +10,7 @@ const SaleBanner = dynamic(() => import('@/components/home/SaleBanner').then(m =
 const RecipeOfDay = dynamic(() => import('@/components/home/RecipeOfDay').then(m => ({ default: m.RecipeOfDay })));
 const NutritionistPanel = dynamic(() => import('@/components/home/NutritionistPanel').then(m => ({ default: m.NutritionistPanel })));
 const AiBanner = dynamic(() => import('@/components/home/AiBanner').then(m => ({ default: m.AiBanner })));
+const AiNutritionistBanner = dynamic(() => import('@/components/home/AiNutritionistBanner').then(m => ({ default: m.AiNutritionistBanner })));
 const InstagramFeed = dynamic(() => import('@/components/home/InstagramFeed').then(m => ({ default: m.InstagramFeed })));
 const StoreLocation = dynamic(() => import('@/components/home/StoreLocation').then(m => ({ default: m.StoreLocation })));
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })));
@@ -43,6 +44,9 @@ export default function HomePage() {
       </ScrollReveal>
       <ScrollReveal variant="left" delay={50}>
         <AiBanner />
+      </ScrollReveal>
+      <ScrollReveal delay={60}>
+        <AiNutritionistBanner />
       </ScrollReveal>
       <ScrollReveal delay={80}>
         <InstagramFeed />
