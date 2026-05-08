@@ -6,7 +6,7 @@ type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
-  toggleTheme: () => void;
+  toggleTheme: (e?: any) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -62,11 +62,55 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return () => mediaQuery.removeEventListener('change', handleSystemChange);
   }, [applyTheme]);
 
-  const toggleTheme = () => {
+  const toggleTheme = (e?: React.MouseEvent) => {
     const next = theme === 'light' ? 'dark' : 'light';
-    setTheme(next);
-    localStorage.setItem('Microgreen-theme', next);
-    applyTheme(next);
+    
+    // Fallback for browsers that don't support View Transitions API
+    // @ts-ignore
+    if (!document.startViewTransition) {
+      setTheme(next);
+      localStorage.setItem('Microgreen-theme', next);
+      applyTheme(next);
+      return;
+    }
+    
+    let x = window.innerWidth / 2;
+    let y = window.innerHeight / 2;
+    
+    if (e) {
+      // Try to get coordinates from click event
+      // @ts-ignore
+      x = e.clientX ?? (e.nativeEvent && e.nativeEvent.clientX) ?? x;
+      // @ts-ignore
+      y = e.clientY ?? (e.nativeEvent && e.nativeEvent.clientY) ?? y;
+    }
+    
+    const endRadius = Math.hypot(
+      Math.max(x, innerWidth - x),
+      Math.max(y, innerHeight - y)
+    );
+    
+    // @ts-ignore
+    const transition = document.startViewTransition(() => {
+      setTheme(next);
+      localStorage.setItem('Microgreen-theme', next);
+      applyTheme(next);
+    });
+    
+    transition.ready.then(() => {
+      const clipPath = [
+        `circle(0px at ${x}px ${y}px)`,
+        `circle(${endRadius}px at ${x}px ${y}px)`
+      ];
+      document.documentElement.animate(
+        { clipPath: next === 'dark' ? clipPath : [...clipPath].reverse() },
+        {
+          duration: 400,
+          easing: 'ease-in-out',
+          pseudoElement: next === 'dark' ? '::view-transition-new(root)' : '::view-transition-old(root)'
+        }
+      );
+    });
   };
 
   // Prevent flash of unstyled content

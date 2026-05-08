@@ -2337,3 +2337,6 @@ main, [data-page] {
 .pos-cart {
   animation-delay: 0.1s;
 }
+
+/* View Transitions API */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }

@@ -15,12 +15,49 @@ export function Header() {
   const { lang, toggleLang, t } = useLang();
   const router = useRouter();
   const [searchVal, setSearchVal] = useState('');
+  const [isListening, setIsListening] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchVal.trim()) {
       router.push(`/catalog?search=${encodeURIComponent(searchVal.trim())}`);
     }
+  };
+
+  const startVoiceSearch = () => {
+    if (typeof window === 'undefined') return;
+    
+    // @ts-ignore
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert(t('Овозли qidiruv qollab quvvatlanmaydi', 'Голосовой поиск не поддерживается вашим браузером.'));
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = lang === 'uz' ? 'uz-UZ' : 'ru-RU';
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      if ((window as any).Telegram?.WebApp?.HapticFeedback) {
+        (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+      }
+    };
+
+    recognition.onresult = (event: any) => {
+      const text = event.results[0][0].transcript;
+      setSearchVal(text);
+      router.push(`/catalog?search=${encodeURIComponent(text.trim())}`);
+      if ((window as any).Telegram?.WebApp?.HapticFeedback) {
+        (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+      }
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
   };
 
   return (
@@ -43,10 +80,29 @@ export function Header() {
             onChange={(e) => setSearchVal(e.target.value)}
             id="search-input"
           />
-          <span className="search-bar__ai-badge">
-            <Icons.Sparkles size={14} style={{ marginRight: '4px' }} /> AI
-          </span>
+          
+          {/* Voice Search Button */}
+          <button 
+            type="button" 
+            onClick={startVoiceSearch}
+            style={{ 
+              background: 'none', border: 'none', cursor: 'pointer', 
+              color: isListening ? '#EF4444' : 'var(--text-muted)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              padding: '0 8px', animation: isListening ? 'pulse 1.5s infinite' : 'none'
+            }}
+          >
+            <Icons.Mic size={18} />
+          </button>
         </form>
+        
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}} />
 
         {/* Actions */}
         <div className="header__actions">
