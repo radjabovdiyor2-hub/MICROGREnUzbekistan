@@ -31,6 +31,11 @@ export function CategoriesSection() {
             href={`/catalog?category=${cat.slug}`}
             className="category-pill"
             id={`cat-${cat.slug}`}
+            onClick={() => {
+              if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
+                (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('light');
+              }
+            }}
           >
             <span className="category-pill__icon" style={{
               color: cat.color,

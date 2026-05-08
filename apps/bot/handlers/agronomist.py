@@ -105,7 +105,7 @@ async def handle_photo(message: Message):
     photo = message.photo[-1] # Highest resolution
     file_id = photo.file_id
     
-    status_msg = await message.answer("👀 Анализирую изображение...")
+    status_msg = await message.answer("⏳ <i>Нейросеть изучает ваше фото... Это займет пару секунд</i> ✨")
     await message.bot.send_chat_action(message.chat.id, "upload_photo")
     
     try:
@@ -121,7 +121,8 @@ async def handle_photo(message: Message):
         user_text = message.caption or ""
         response = await analyze_image(image_bytes, user_text)
         
-        await status_msg.edit_text(response)
+        await status_msg.delete()
+        await message.answer(response, parse_mode="HTML")
         
     except Exception as e:
         logger.error(f"Photo analysis failed: {e}")
@@ -130,9 +131,11 @@ async def handle_photo(message: Message):
 
 @router.message(F.voice | F.audio)
 async def handle_voice(message: Message):
-    """Transcribe and answer voice message"""
+    """Transcribe and answer voice message, then reply with Voice (TTS)"""
+    from aiogram.types import BufferedInputFile
+    from services.tts_service import generate_speech
     
-    status_msg = await message.answer("👂 Слушаю голосовое...")
+    status_msg = await message.answer("🎧 <i>Слушаю и перевожу в текст...</i> ⏳")
     await message.bot.send_chat_action(message.chat.id, "record_voice")
     
     try:
@@ -146,11 +149,25 @@ async def handle_voice(message: Message):
         voice_io = await message.bot.download_file(file_path)
         voice_bytes = voice_io.read()
         
-        # 2. Transcribe & Answer
-        response = await transcribe_audio(voice_bytes)
+        # 2. Transcribe & Answer via AI
+        response_text = await transcribe_audio(voice_bytes)
         
-        await status_msg.edit_text(response)
+        # 3. Text to Speech
+        await status_msg.edit_text("🗣 <i>Записываю голосовой ответ...</i> 🎙")
+        await message.bot.send_chat_action(message.chat.id, "record_voice")
         
+        audio_bytes = await generate_speech(response_text)
+        
+        await status_msg.delete()
+        
+        # Send text
+        await message.answer(response_text, parse_mode="HTML")
+        
+        # Send voice if generated successfully
+        if audio_bytes:
+            voice_file = BufferedInputFile(audio_bytes, filename="answer.mp3")
+            await message.answer_voice(voice_file)
+            
     except Exception as e:
         logger.error(f"Voice analysis failed: {e}")
         await status_msg.edit_text("❌ Ошибка обработки голосового. Попробуйте позже.")
@@ -167,6 +184,7 @@ async def handle_ai_message(message: Message):
     if not user_text:
         return
     
+    status_msg = await message.answer("🧠 <i>Думаю над ответом...</i> ✨")
     await message.bot.send_chat_action(message.chat.id, "typing")
     
     # 1. Get AI Response via Web API (includes weather, currency, order context)
@@ -216,6 +234,10 @@ async def handle_ai_message(message: Message):
             logger.error(f"Order creation from AI response failed: {e}")
 
     # 3. Reply
+    try:
+        await status_msg.delete()
+    except:
+        pass
     await message.answer(ai_response, parse_mode="HTML")
     
     if order_created:
