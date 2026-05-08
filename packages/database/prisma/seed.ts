@@ -43,12 +43,12 @@ async function main() {
   for (const p of microProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 15000, oldPrice: 20000, costPrice: 8000 },
+      update: { price: 15000, oldPrice: 20000, costPrice: 8000, images: ['/uploads/cat_microgreens.png'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 15000, oldPrice: 20000, costPrice: 8000,
         categoryId: micro.id, stock: 50, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: true, images: [],
+        isFeatured: true, isOnSale: true, images: ['/uploads/cat_microgreens.png'],
       },
     });
   }
@@ -69,12 +69,12 @@ async function main() {
   for (const p of babyProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 35000 },
+      update: { price: 35000, images: ['/uploads/cat_babyleaf.png'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 35000, costPrice: 15000,
         categoryId: baby.id, stock: 30, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: false, images: [],
+        isFeatured: true, isOnSale: false, images: ['/uploads/cat_babyleaf.png'],
       },
     });
   }
@@ -95,12 +95,12 @@ async function main() {
   for (const p of saladProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 35000 },
+      update: { price: 35000, images: ['/uploads/cat_salads.png'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 35000, costPrice: 15000,
         categoryId: salad.id, stock: 25, brand: 'Microgreen UZ',
-        isFeatured: false, isOnSale: false, images: [],
+        isFeatured: false, isOnSale: false, images: ['/uploads/cat_salads.png'],
       },
     });
   }
@@ -121,12 +121,12 @@ async function main() {
   for (const p of flowerProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 35000 },
+      update: { price: 35000, images: ['/uploads/cat_flowers.png'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 35000, costPrice: 12000,
         categoryId: flower.id, stock: 10, brand: 'Microgreen UZ',
-        isFeatured: false, isOnSale: false, images: [],
+        isFeatured: false, isOnSale: false, images: ['/uploads/cat_flowers.png'],
       },
     });
   }
@@ -147,12 +147,12 @@ async function main() {
   for (const p of seedProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: p.price },
+      update: { price: p.price, images: ['/uploads/cat_seeds.png'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         price: p.price, costPrice: Math.round(p.price * 0.4),
         categoryId: seed.id, stock: 100, brand: 'Microgreen UZ',
-        isFeatured: false, isOnSale: false, images: [],
+        isFeatured: false, isOnSale: false, images: ['/uploads/cat_seeds.png'],
       },
     });
   }
@@ -175,12 +175,12 @@ async function main() {
   for (const p of equipProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: p.price, costPrice: p.cost },
+      update: { price: p.price, costPrice: p.cost, images: ['/uploads/cat_equipment.png'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: p.price, oldPrice: Math.round(p.price * 1.2), costPrice: p.cost,
         categoryId: equip.id, stock: 15, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: false, images: [],
+        isFeatured: true, isOnSale: false, images: ['/uploads/cat_equipment.png'],
       },
     });
   }
@@ -199,12 +199,12 @@ async function main() {
   for (const p of setProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: p.price, costPrice: p.cost },
+      update: { price: p.price, costPrice: p.cost, images: ['/uploads/cat_sets.png'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: p.price, oldPrice: Math.round(p.price * 1.25), costPrice: p.cost,
         categoryId: sets.id, stock: 20, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: true, images: [],
+        isFeatured: true, isOnSale: true, images: ['/uploads/cat_sets.png'],
       },
     });
   }
