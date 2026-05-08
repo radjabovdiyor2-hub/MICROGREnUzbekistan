@@ -48,6 +48,10 @@ export function ProductCard({ product }: { product: Product }) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Premium Haptic Feedback
+    import('@/lib/haptic').then(({ triggerHaptic }) => triggerHaptic('success'));
+
     cart.addItem({
       id: product.id,
       nameUz: product.nameUz,
@@ -63,6 +67,10 @@ export function ProductCard({ product }: { product: Product }) {
   const handleToggleFav = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Premium Haptic Feedback
+    import('@/lib/haptic').then(({ triggerHaptic }) => triggerHaptic(fav ? 'light' : 'medium'));
+
     toggleFavorite({
       id: product.id,
       nameUz: product.nameUz,
