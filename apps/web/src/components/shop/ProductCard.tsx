@@ -7,6 +7,9 @@ import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
+import dynamic from 'next/dynamic';
+
+const ArViewer = dynamic(() => import('@/components/ui/ArViewer').then(m => m.ArViewer), { ssr: false });
 
 interface Product {
   id: string;
@@ -150,6 +153,12 @@ export function ProductCard({ product }: { product: Product }) {
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
           <Icons.ShoppingCart size={14} /> {t('product.add_to_cart')}
         </button>
+        {/* AR Viewer for equipment */}
+        {categorySlug === 'equipment' && (
+          <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+            <ArViewer />
+          </div>
+        )}
       </div>
     </Link>
   );

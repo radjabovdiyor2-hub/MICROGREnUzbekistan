@@ -3,6 +3,7 @@ import { HeroSection } from '@/components/home/HeroSection';
 import { CategoriesSection } from '@/components/home/CategoriesSection';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
+import { Tamagotchi } from '@/components/home/Tamagotchi';
 
 // Lazy-load below-fold sections — reduces initial JS bundle
 const SaleBanner = dynamic(() => import('@/components/home/SaleBanner').then(m => ({ default: m.SaleBanner })));
@@ -20,6 +21,11 @@ export default function HomePage() {
       <HeroSection />
       <ScrollReveal>
         <CategoriesSection />
+      </ScrollReveal>
+      <ScrollReveal>
+        <div className="container">
+          <Tamagotchi />
+        </div>
       </ScrollReveal>
 
       {/* Below-the-fold — lazy loaded */}

@@ -122,7 +122,22 @@ async def handle_photo(message: Message):
         response = await analyze_image(image_bytes, user_text)
         
         await status_msg.delete()
-        await message.answer(response, parse_mode="HTML")
+        
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+        import re
+        buttons = []
+        matches = re.findall(r'\[BUTTON:(.*?)\|(.*?)\]', response)
+        clean_response = re.sub(r'\[BUTTON:.*?\|.*?\]', '', response).strip()
+        
+        for name, url in matches:
+            if "microgreenuzbekistan.com" in url:
+                buttons.append([InlineKeyboardButton(text=name.strip(), web_app=WebAppInfo(url=url.strip()))])
+            else:
+                buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
+                
+        markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        
+        await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
         
     except Exception as e:
         logger.error(f"Photo analysis failed: {e}")
@@ -160,8 +175,22 @@ async def handle_voice(message: Message):
         
         await status_msg.delete()
         
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+        import re
+        buttons = []
+        matches = re.findall(r'\[BUTTON:(.*?)\|(.*?)\]', response_text)
+        clean_response = re.sub(r'\[BUTTON:.*?\|.*?\]', '', response_text).strip()
+        
+        for name, url in matches:
+            if "microgreenuzbekistan.com" in url:
+                buttons.append([InlineKeyboardButton(text=name.strip(), web_app=WebAppInfo(url=url.strip()))])
+            else:
+                buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
+                
+        markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        
         # Send text
-        await message.answer(response_text, parse_mode="HTML")
+        await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
         
         # Send voice if generated successfully
         if audio_bytes:
@@ -238,7 +267,21 @@ async def handle_ai_message(message: Message):
         await status_msg.delete()
     except:
         pass
-    await message.answer(ai_response, parse_mode="HTML")
+        
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    buttons = []
+    matches = re.findall(r'\[BUTTON:(.*?)\|(.*?)\]', ai_response)
+    clean_response = re.sub(r'\[BUTTON:.*?\|.*?\]', '', ai_response).strip()
+    
+    for name, url in matches:
+        if "microgreenuzbekistan.com" in url:
+            buttons.append([InlineKeyboardButton(text=name.strip(), web_app=WebAppInfo(url=url.strip()))])
+        else:
+            buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
+            
+    markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    
+    await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
     
     if order_created:
         phone_info = ""
