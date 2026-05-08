@@ -115,7 +115,7 @@ async function main() {
       `cd ${REMOTE_ROOT} && npx turbo run build --filter=web 2>&1 | tail -20`,
       
       // Copy static + public into standalone
-      `cd ${REMOTE_ROOT}/apps/web && cp -r public .next/standalone/apps/web/public 2>/dev/null; cp -r .next/static .next/standalone/apps/web/.next/static 2>/dev/null; true`,
+      `cd ${REMOTE_ROOT}/apps/web && mkdir -p .next/standalone/apps/web/public && cp -a public/. .next/standalone/apps/web/public/ 2>/dev/null; mkdir -p .next/standalone/apps/web/.next/static && cp -a .next/static/. .next/standalone/apps/web/.next/static/ 2>/dev/null; true`,
       
       // Install bot deps
       `cd ${REMOTE_ROOT}/apps/bot && pip3 install -r requirements.txt -q 2>&1 | tail -3`,
