@@ -2,6 +2,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Prisma engine needs OpenSSL 3 at build (generate) and runtime on Alpine.
+RUN apk add --no-cache openssl
+
 # Install dependencies
 COPY package*.json ./
 COPY turbo.json ./
@@ -22,11 +25,16 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
+# Prisma query engine needs OpenSSL 3 shared libs at runtime.
+RUN apk add --no-cache openssl
+
 ENV NODE_ENV=production
 
+# Monorepo standalone: server.js runs at /app/apps/web/server.js and resolves
+# static/public relative to itself — so they must live under apps/web/, not /app.
 COPY --from=builder /app/apps/web/.next/standalone ./
-COPY --from=builder /app/apps/web/.next/static ./.next/static
-COPY --from=builder /app/apps/web/public ./public
+COPY --from=builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
 

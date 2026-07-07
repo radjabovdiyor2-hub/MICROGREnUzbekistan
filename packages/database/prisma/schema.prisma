@@ -4,7 +4,9 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "native" = local dev; musl-openssl-3.0.x = the node:20-alpine runtime image.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 // ==========================================
