@@ -1,0 +1,848 @@
+"""
+🤖 СТЕПАН — Личный AI-помощник руководителя
+=============================================
+Главный координатор. Распределяет задачи между отделами,
+контролирует выполнение, проверяет результаты.
+Помимо управления — личный помощник: ответы на вопросы,
+аналитика, напоминания, советы.
+"""
+
+import asyncio
+import logging
+import sys
+from pathlib import Path
+
+# Добавляем корень проекта в sys.path
+ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(ROOT))
+
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+from aiogram.fsm.storage.redis import RedisStorage
+
+from shared.config import settings
+from shared.database import get_session_ctx
+from shared.event_bus import EventBus
+from shared import notifications
+from shared.scheduler import BotScheduler
+from shared.health import start_heartbeat, check_all_bots, format_health_report
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [СТЕПАН] %(levelname)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# ── Глобальные ссылки для задач ──────────────────────────────────────────
+_bot: Bot = None
+scheduler = BotScheduler("stepan_bot")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ФОНОВЫЕ ЗАДАЧИ — Мигрированные из старых asyncio.create_task
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def check_deadlines():
+    """Каждый час проверяем просроченные задачи и уведомляем админа."""
+    try:
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if not admin_id:
+            return
+        from sqlalchemy import text as sa_text
+        async with get_session_ctx() as session:
+            res = await session.execute(sa_text(
+                "SELECT id, title, department, deadline "
+                "FROM tasks "
+                "WHERE deadline < CURRENT_DATE AND status NOT IN ('done', 'cancelled') "
+                "ORDER BY deadline ASC LIMIT 10"
+            ))
+            overdue = res.fetchall()
+
+        if overdue:
+            lines = ["⏰ <b>Просроченные задачи:</b>\n"]
+            for row in overdue:
+                tid, title, dept, deadline = row
+                dept_str = f" ({dept})" if dept else ""
+                dl = deadline.strftime("%d.%m.%Y") if deadline else "?"
+                lines.append(f"• <b>#{tid}</b>{dept_str}: {title[:80]} — дедлайн был {dl}")
+            lines.append(f"\n🔴 Всего просрочено: {len(overdue)}")
+            await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+            logger.info(f"Отправлено уведомление о {len(overdue)} просроченных задачах")
+    except Exception as e:
+        logger.warning(f"Ошибка проверки дедлайнов: {e}")
+
+
+async def daily_report():
+    """Каждый день в 9:00 отправляем сводку руководителю."""
+    try:
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if not admin_id:
+            return
+        from sqlalchemy import text as sa_text
+        from shared.utils import format_price
+
+        async with get_session_ctx() as session:
+            # Задачи: общая статистика
+            res = await session.execute(sa_text(
+                "SELECT status, COUNT(*) FROM tasks GROUP BY status"
+            ))
+            task_stats = dict(res.fetchall())
+
+            # Незавершённые задачи со вчера
+            res = await session.execute(sa_text(
+                "SELECT id, title, department FROM tasks "
+                "WHERE status NOT IN ('done', 'cancelled') "
+                "AND created_at < CURRENT_DATE "
+                "ORDER BY created_at ASC LIMIT 10"
+            ))
+            yesterday_tasks = res.fetchall()
+
+            # Просроченные
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*) FROM tasks "
+                "WHERE deadline < CURRENT_DATE AND status NOT IN ('done', 'cancelled')"
+            ))
+            overdue_count = res.scalar() or 0
+
+            # Заказы на сегодня
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                "WHERE DATE(created_at) = CURRENT_DATE"
+            ))
+            today_orders, today_revenue = res.fetchone()
+
+            # Заказы за вчера
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                "WHERE DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'"
+            ))
+            yesterday_orders, yesterday_revenue = res.fetchone()
+
+            # Финансы за месяц
+            res = await session.execute(sa_text(
+                "SELECT type, COALESCE(SUM(amount), 0) FROM finances "
+                "WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE) "
+                "GROUP BY type"
+            ))
+            fin = dict(res.fetchall())
+            income = fin.get('income', 0)
+            expense = fin.get('expense', 0)
+
+        # Формируем отчёт
+        todo = task_stats.get('todo', 0)
+        in_progress = task_stats.get('in_progress', 0)
+        done = task_stats.get('done', 0)
+
+        lines = [
+            "☀️ <b>Доброе утро! Утренняя сводка:</b>\n",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "\n📋 <b>Задачи:</b>",
+            f"  ⬜ Ожидают: {todo}",
+            f"  🔄 В работе: {in_progress}",
+            f"  ✅ Выполнено: {done}",
+        ]
+
+        if overdue_count > 0:
+            lines.append(f"  🔴 Просрочено: {overdue_count}")
+
+        if yesterday_tasks:
+            lines.append(f"\n⚠️ <b>Незавершённые со вчера ({len(yesterday_tasks)}):</b>")
+            for tid, title, dept in yesterday_tasks:
+                dept_str = f" [{dept}]" if dept else ""
+                lines.append(f"  • #{tid}{dept_str}: {title[:60]}")
+
+        lines.extend([
+            "\n━━━━━━━━━━━━━━━━━━━━━━",
+            "\n📦 <b>Заказы:</b>",
+            f"  Сегодня: {today_orders or 0} заказов на {format_price(today_revenue or 0)}",
+            f"  Вчера: {yesterday_orders or 0} заказов на {format_price(yesterday_revenue or 0)}",
+            "\n━━━━━━━━━━━━━━━━━━━━━━",
+            "\n💰 <b>Финансы за месяц:</b>",
+            f"  📈 Доход: {format_price(income)}",
+            f"  📉 Расход: {format_price(expense)}",
+            f"  💵 Баланс: {format_price(income - expense)}",
+            "\n━━━━━━━━━━━━━━━━━━━━━━",
+            "\n🤖 Степан на связи. Жду ваших указаний!",
+        ])
+
+        await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+        logger.info("Утренний отчёт отправлен!")
+    except Exception as e:
+        logger.warning(f"Ошибка отправки утреннего отчёта: {e}")
+
+
+async def check_followups():
+    """Каждые 30 минут проверяем pending follow-ups и отправляем."""
+    try:
+        from aiogram import Bot as _Bot
+        from aiogram.client.default import DefaultBotProperties as _DBP
+        from aiogram.enums import ParseMode as _PM
+        from sqlalchemy import text as sa_text
+
+        async with get_session_ctx() as session:
+            res = await session.execute(sa_text(
+                "SELECT f.id, f.message, c.telegram_id "
+                "FROM followups f "
+                "JOIN customers c ON f.customer_id = c.id "
+                "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() "
+                "LIMIT 10"
+            ))
+            followups = res.fetchall()
+
+        if not followups:
+            return
+
+        # Отправляем через sales_bot
+        sales_bot = _Bot(
+            token=settings.sales_bot_token if hasattr(settings, 'sales_bot_token') else settings.stepan_bot_token,
+            default=_DBP(parse_mode=_PM.HTML)
+        )
+        try:
+            for fid, msg, tg_id in followups:
+                if not tg_id:
+                    continue
+                try:
+                    await sales_bot.send_message(tg_id, f"🌱 {msg}")
+                    async with get_session_ctx() as session:
+                        await session.execute(sa_text(
+                            "UPDATE followups SET status = 'sent' WHERE id = :fid"
+                        ), {"fid": fid})
+                        # Логируем в interactions
+                        await session.execute(sa_text(
+                            "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                            "VALUES ((SELECT customer_id FROM followups WHERE id = :fid), "
+                            "'telegram', 'followup', 'sales_bot', :summary)"
+                        ), {"fid": fid, "summary": msg[:200]})
+                    logger.info(f"Follow-up #{fid} отправлен клиенту {tg_id}")
+                except Exception as e:
+                    logger.warning(f"Follow-up #{fid} ошибка: {e}")
+        finally:
+            await sales_bot.session.close()
+    except Exception as e:
+        logger.warning(f"Ошибка проверки follow-ups: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# НОВЫЕ ФОНОВЫЕ ЗАДАЧИ
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def evening_summary():
+    """Ежедневно в 20:00: итоги дня."""
+    try:
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if not admin_id:
+            return
+        from sqlalchemy import text as sa_text
+        from shared.utils import format_price
+
+        async with get_session_ctx() as session:
+            # Задачи завершённые сегодня
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*) FROM tasks "
+                "WHERE status = 'done' AND DATE(updated_at) = CURRENT_DATE"
+            ))
+            tasks_completed = res.scalar() or 0
+
+            # Задачи оставшиеся
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*) FROM tasks "
+                "WHERE status NOT IN ('done', 'cancelled')"
+            ))
+            tasks_remaining = res.scalar() or 0
+
+            # Новые заказы сегодня
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                "WHERE DATE(created_at) = CURRENT_DATE"
+            ))
+            new_orders, revenue = res.fetchone()
+
+            # Задачи на завтра (с дедлайном завтра)
+            res = await session.execute(sa_text(
+                "SELECT id, title, department FROM tasks "
+                "WHERE deadline = CURRENT_DATE + INTERVAL '1 day' "
+                "AND status NOT IN ('done', 'cancelled') "
+                "ORDER BY id LIMIT 5"
+            ))
+            tomorrow_tasks = res.fetchall()
+
+        lines = [
+            "🌆 <b>Итоги дня</b>\n",
+            "━━━━━━━━━━━━━━━━━━━━━━\n",
+            f"✅ Задач завершено: <b>{tasks_completed}</b>",
+            f"📦 Новых заказов: <b>{new_orders or 0}</b>",
+            f"💰 Выручка: <b>{format_price(revenue or 0)}</b>",
+            f"📋 Осталось задач: <b>{tasks_remaining}</b>",
+        ]
+
+        if tomorrow_tasks:
+            lines.append(f"\n📅 <b>На завтра ({len(tomorrow_tasks)}):</b>")
+            for tid, title, dept in tomorrow_tasks:
+                dept_str = f" [{dept}]" if dept else ""
+                lines.append(f"  • #{tid}{dept_str}: {title[:60]}")
+
+        lines.extend([
+            "\n━━━━━━━━━━━━━━━━━━━━━━",
+            "\n🌙 Хорошего вечера! Степан всё контролирует.",
+        ])
+
+        await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+    except Exception as e:
+        logger.warning(f"Ошибка вечернего отчёта: {e}")
+
+
+async def weekly_report():
+    """Понедельник 9:00 (после daily_report): недельная сводка с AI-анализом."""
+    try:
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if not admin_id:
+            return
+        from sqlalchemy import text as sa_text
+        from shared.utils import format_price
+        from shared.ai_engine import AIEngine
+
+        async with get_session_ctx() as session:
+            # Задачи за неделю
+            res = await session.execute(sa_text(
+                "SELECT status, COUNT(*) FROM tasks "
+                "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' "
+                "GROUP BY status"
+            ))
+            week_tasks = dict(res.fetchall())
+
+            # Заказы за неделю
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+            ))
+            week_orders, week_revenue = res.fetchone()
+
+            # Финансы за неделю
+            res = await session.execute(sa_text(
+                "SELECT type, COALESCE(SUM(amount), 0) FROM finances "
+                "WHERE date >= CURRENT_DATE - INTERVAL '7 days' "
+                "GROUP BY type"
+            ))
+            fin = dict(res.fetchall())
+            income = fin.get('income', 0)
+            expense = fin.get('expense', 0)
+
+            # Новые клиенты
+            res = await session.execute(sa_text(
+                "SELECT COUNT(*) FROM customers "
+                "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+            ))
+            new_customers = res.scalar() or 0
+
+        data_summary = (
+            f"Задачи: {week_tasks.get('done', 0)} выполнено, "
+            f"{week_tasks.get('todo', 0)} ожидают, "
+            f"{week_tasks.get('in_progress', 0)} в работе.\n"
+            f"Заказов: {week_orders or 0}, выручка: {'{:,.0f}'.format(week_revenue or 0)} сум.\n"
+            f"Доход: {'{:,.0f}'.format(income)} сум, расход: {'{:,.0f}'.format(expense)} сум.\n"
+            f"Новых клиентов: {new_customers}."
+        )
+
+        ai = AIEngine()
+        analysis = await ai.chat_completion(
+            "Ты бизнес-помощник руководителя микрозелени в Узбекистане. "
+            "Дай краткий анализ недели и 3 рекомендации.",
+            f"Данные за прошлую неделю:\n{data_summary}\n\nДай анализ и рекомендации."
+        )
+
+        lines = [
+            "📊 <b>Недельный отчёт</b>\n",
+            "━━━━━━━━━━━━━━━━━━━━━━\n",
+            f"📋 <b>Задачи:</b>",
+            f"  ✅ Выполнено: {week_tasks.get('done', 0)}",
+            f"  ⬜ Ожидают: {week_tasks.get('todo', 0)}",
+            f"  🔄 В работе: {week_tasks.get('in_progress', 0)}",
+            f"\n📦 Заказов: <b>{week_orders or 0}</b>",
+            f"💰 Выручка: <b>{format_price(week_revenue or 0)}</b>",
+            f"📈 Доход: {format_price(income)}",
+            f"📉 Расход: {format_price(expense)}",
+            f"💵 Прибыль: <b>{format_price(income - expense)}</b>",
+            f"👤 Новых клиентов: <b>{new_customers}</b>",
+            "\n━━━━━━━━━━━━━━━━━━━━━━",
+            f"\n🤖 <b>AI-анализ:</b>\n{analysis}",
+            "\n━━━━━━━━━━━━━━━━━━━━━━",
+            "📊 <i>Степан — недельный отчёт</i>",
+        ]
+
+        report = "\n".join(lines)
+        if len(report) > 4000:
+            await _bot.send_message(admin_id, report[:4000] + "\n\n<i>...продолжение↓</i>", parse_mode="HTML")
+            await _bot.send_message(admin_id, report[4000:], parse_mode="HTML")
+        else:
+            await _bot.send_message(admin_id, report, parse_mode="HTML")
+    except Exception as e:
+        logger.warning(f"Ошибка недельного отчёта: {e}")
+
+
+async def auto_task_creation():
+    """Каждые 4 часа: автоматическое создание задач по условиям."""
+    try:
+        from sqlalchemy import text as sa_text
+        from shared.event_bus import event_bus
+
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        created_tasks = []
+
+        async with get_session_ctx() as session:
+            # 1. Продукты с низким запасом (stock_qty < 3)
+            res = await session.execute(sa_text(
+                "SELECT p.id, p.name_ru, p.stock_qty FROM products p "
+                "WHERE p.stock_qty < 3 AND p.is_active = true "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM tasks t "
+                "  WHERE t.title LIKE '%' || p.name_ru || '%' "
+                "  AND t.status NOT IN ('done', 'cancelled') "
+                "  AND t.created_at > CURRENT_DATE - INTERVAL '1 day'"
+                ")"
+            ))
+            low_stock = res.fetchall()
+
+            for pid, name, qty in low_stock:
+                res = await session.execute(sa_text(
+                    "INSERT INTO tasks (title, description, department, status, created_at) "
+                    "VALUES (:title, :desc, 'operations', 'todo', NOW()) RETURNING id"
+                ), {
+                    "title": f"🔄 Пополнить запас: {name}",
+                    "desc": f"Остаток: {qty} шт. Необходимо пополнить запас продукта '{name}' (ID: {pid})."
+                })
+                task_id = res.scalar()
+                await session.commit()
+                created_tasks.append(f"📦 Пополнить {name} (остаток: {qty})")
+
+                # Publish TASK_CREATED event
+                if admin_id:
+                    await event_bus.publish("TASK_CREATED", {
+                        "task_id": task_id,
+                        "title": f"Пополнить запас: {name}",
+                        "department": "operations",
+                        "chat_id": admin_id,
+                    }, "stepan_bot")
+
+            # 2. Заказы 'new' более 24 часов
+            res = await session.execute(sa_text(
+                "SELECT o.id, o.created_at FROM orders o "
+                "WHERE o.status = 'new' "
+                "AND o.created_at < NOW() - INTERVAL '24 hours' "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM tasks t "
+                "  WHERE t.title LIKE '%Заказ #' || o.id::text || '%' "
+                "  AND t.status NOT IN ('done', 'cancelled') "
+                "  AND t.created_at > CURRENT_DATE - INTERVAL '1 day'"
+                ")"
+            ))
+            stale_orders = res.fetchall()
+
+            for oid, created_at in stale_orders:
+                res = await session.execute(sa_text(
+                    "INSERT INTO tasks (title, description, department, status, created_at) "
+                    "VALUES (:title, :desc, 'sales', 'todo', NOW()) RETURNING id"
+                ), {
+                    "title": f"⚠️ Обработать Заказ #{oid}",
+                    "desc": f"Заказ #{oid} от {created_at.strftime('%d.%m %H:%M')} не обработан более 24 часов."
+                })
+                task_id = res.scalar()
+                await session.commit()
+                created_tasks.append(f"📋 Обработать заказ #{oid}")
+
+                if admin_id:
+                    await event_bus.publish("TASK_CREATED", {
+                        "task_id": task_id,
+                        "title": f"Обработать Заказ #{oid}",
+                        "department": "sales",
+                        "chat_id": admin_id,
+                    }, "stepan_bot")
+
+        # Уведомить админа если были созданы задачи
+        if created_tasks and admin_id:
+            lines = [
+                "🤖 <b>Авто-задачи созданы:</b>\n",
+                "━━━━━━━━━━━━━━━━━━━━━━\n",
+            ]
+            for t in created_tasks:
+                lines.append(f"  • {t}")
+            lines.append(f"\n✅ Создано задач: <b>{len(created_tasks)}</b>")
+            await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+    except Exception as e:
+        logger.warning(f"Ошибка автосоздания задач: {e}")
+
+
+async def bot_health_check():
+    """Каждые 15 минут: проверка здоровья всех ботов."""
+    try:
+        statuses = await check_all_bots()
+        if not statuses:
+            return
+
+        # Проверяем есть ли упавшие боты
+        down_bots = [name for name, info in statuses.items() if not info["alive"]]
+
+        if down_bots:
+            admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+            if admin_id:
+                report = format_health_report(statuses)
+                alert = (
+                    f"🚨 <b>АЛЕРТ: Боты не отвечают!</b>\n\n"
+                    f"{report}\n\n"
+                    f"⚠️ Проверьте работу ботов!"
+                )
+                await _bot.send_message(admin_id, alert, parse_mode="HTML")
+                logger.warning(f"Боты не отвечают: {', '.join(down_bots)}")
+    except Exception as e:
+        logger.warning(f"Ошибка проверки здоровья: {e}")
+
+
+# ── Регистрация задач ────────────────────────────────────────────────────
+# Мигрированные старые задачи (Отключены, перенесены в n8n)
+# scheduler.add_interval(name="check_deadlines", func=check_deadlines, seconds=3600)
+# scheduler.add_cron(name="daily_report", func=daily_report, hour=9, minute=0)
+# scheduler.add_interval(name="check_followups", func=check_followups, seconds=1800)
+
+# Новые задачи (Отключены, перенесены в n8n)
+# scheduler.add_cron(name="evening_summary", func=evening_summary, hour=20, minute=0)
+# scheduler.add_cron(name="weekly_report", func=weekly_report, hour=9, minute=5, day_of_week=0)
+# scheduler.add_interval(name="auto_task_creation", func=auto_task_creation, seconds=4 * 3600)
+scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=900)
+
+# Инфраструктура
+async def _daily_backup():
+    from shared.backup import daily_backup_task
+    await daily_backup_task()
+
+async def _token_refresh():
+    try:
+        from shared.token_refresh import auto_refresh_token
+        await auto_refresh_token()
+    except Exception as e:
+        logger.warning(f"Token refresh error: {e}")
+
+
+# Instagram Stories промо-рассылка (каждые 36 часов)
+async def _post_ig_story():
+    try:
+        from shared.instagram_stories import post_promotional_story
+        await post_promotional_story()
+    except Exception as e:
+        logger.warning(f"Instagram Story post error: {e}")
+
+scheduler.add_interval(name="instagram_story_promo", func=_post_ig_story, seconds=36*3600, initial_delay=3600)
+
+scheduler.add_cron(name="daily_backup", func=_daily_backup, hour=3, minute=0)
+scheduler.add_interval(name="token_refresh", func=_token_refresh, seconds=86400 * 7)  # раз в неделю
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# MAIN
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def main():
+    global _bot
+    storage = RedisStorage.from_url(settings.redis_url)
+    bot = Bot(
+        token=settings.stepan_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
+    _bot = bot
+    dp = Dispatcher(storage=storage)
+
+    # -- Импортируем обработчики --
+    from bots.stepan_bot.handlers import all_routers
+    for router in all_routers:
+        dp.include_router(router)
+        
+    from shared.group_orchestrator import create_group_router
+    from bots.stepan_bot.handlers.assistant import brain
+    bot_info = await bot.me()
+    group_router = create_group_router(bot_info.username, brain, wake_words=["степан", "стёпа", "степа", "stepan"])
+    dp.include_router(group_router)
+
+    # -- EventBus: слушаем ВСЕ события --
+    event_bus = EventBus()
+
+    async def on_any_event(payload: dict):
+        """Степан обрабатывает события — только важные уведомляет."""
+        event_type = payload.get("event")
+        data = payload.get("data", {})
+        source = payload.get("source", "unknown")
+        
+        # Заказы из Instagram уже обрабатываются в handle_ig_dm — не дублируем
+        if event_type == "order_created" and source in ("stepan_bot", "instagram_bot"):
+            logger.info(f"Степан: событие {event_type} от {source} — обработано")
+            return
+        
+        # Только критичные события отправляем админу
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        
+        if event_type == "complaint_received" and admin_id:
+            summary = data.get("summary", "Без описания")
+            customer = data.get("customer_name", "Клиент")
+            await bot.send_message(
+                admin_id,
+                f"⚠️ <b>ЖАЛОБА</b> от {customer}\n{summary}",
+            )
+        elif event_type == "large_expense_alert" and admin_id:
+            await bot.send_message(
+                admin_id,
+                f"💸 <b>Крупный расход!</b>\n{data.get('summary', '')}",
+            )
+        elif event_type == "DELIVERY_STATUS_REPORT":
+            sales_group = getattr(settings, 'sales_group_id', 0)
+            target_chat = sales_group if sales_group else admin_id
+            if target_chat:
+                from shared.ai_engine import AIEngine
+                ai = AIEngine()
+                prompt = (
+                    "Сформируй понятный, живой и мотивирующий отчёт для группы продаж о текущем статусе заказов. "
+                    f"Данные: {data}. "
+                    "Не используй слишком формальный язык. Опиши ситуацию с курьерами и сборкой."
+                )
+                try:
+                    ai_report = await ai.chat_completion("Ты руководитель Степан. Отправь отчёт о доставке для команды.", prompt)
+                    await bot.send_message(target_chat, f"📦 <b>Сводка по логистике от Степана:</b>\n\n{ai_report}", parse_mode="HTML")
+                except Exception as e:
+                    logger.error(f"Error generating delivery report: {e}")
+        elif event_type == "new_message" and admin_id:
+            # Служебные уведомления от ботов (напр. HR: заявка на отпуск/больничный)
+            src = data.get("bot", "бот")
+            txt = data.get("text", "")
+            await bot.send_message(admin_id, f"📩 <b>Уведомление от {src}</b>\n{txt}", parse_mode="HTML")
+        else:
+            # Всё остальное — только лог, не спамим в чат
+            logger.info(f"Степан: событие {event_type} от {source} — записано")
+
+    async def handle_task_completed(payload: dict):
+        data = payload.get("data", {})
+        task_id = data.get("task_id")
+        completed_by = data.get('completed_by', 'unknown')
+        chat_id = data.get('chat_id')
+        if task_id:
+            try:
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                async with get_session_ctx() as session:
+                    res = await session.execute(text("UPDATE tasks SET status='done' WHERE id=:tid RETURNING message_id"), {"tid": task_id})
+                    row = res.fetchone()
+                    await session.commit()
+                logger.info(f'TASK {task_id} MARKED AS DONE by {completed_by}')
+                
+                # Remove the original message if we know its ID
+                if row and row[0] and chat_id:
+                    try:
+                        await bot.delete_message(chat_id=chat_id, message_id=row[0])
+                    except Exception as e:
+                        logger.warning(f"Could not delete original message: {e}")
+                
+                if chat_id:
+                    await bot.send_message(chat_id, f'✅ <b>Задача #{task_id} успешно выполнена отделом {completed_by.upper()}!</b>')
+            except Exception as e:
+                logger.error(f"Error marking task {task_id} as done: {e}")
+
+    async def handle_ig_dm(payload: dict):
+        """
+        Цепочка обработки заказа из Instagram DM:
+        1. Instagram бот собирает заказ у клиента
+        2. Публикует IG_DM_RECEIVED → сюда
+        3. Степан анализирует → создаёт задачу для Sales
+        4. Делегирует через Bot Bus в Sales бот
+        5. Уведомляет админа в Telegram
+        """
+        data = payload.get("data", {})
+        text_msg = data.get("text", "")
+        from_name = data.get("from_name", "Unknown")
+        reply = data.get("reply", "")
+        order = data.get("order")  # Данные заказа если он оформлен
+        
+        if not text_msg:
+            return
+        
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        
+        try:
+            if order:
+                # ═══ ЗАКАЗ ОФОРМЛЕН — полная цепочка ═══
+                product = order.get("product", "?")
+                quantity = order.get("quantity", "?")
+                phone = order.get("phone", "?")
+                address = order.get("address", "?")
+                total = order.get("total", "?")
+                
+                # 1. Создаём задачу в БД для отдела продаж
+                from shared.database import get_session_ctx
+                from sqlalchemy import text as sa_text
+                async with get_session_ctx() as session:
+                    result = await session.execute(sa_text(
+                        "INSERT INTO tasks (title, description, status, department, priority, deadline, created_at) "
+                        "VALUES (:title, :desc, 'todo', 'sales', 'high', CURRENT_DATE, NOW()) RETURNING id"
+                    ), {
+                        "title": f"📦 IG заказ от {from_name}: {product}",
+                        "desc": (
+                            f"ЗАКАЗ ИЗ INSTAGRAM DM\n"
+                            f"══════════════════════\n"
+                            f"👤 Клиент: {from_name}\n"
+                            f"📦 Товар: {product}\n"
+                            f"📊 Количество: {quantity}\n"
+                            f"📱 Телефон: {phone}\n"
+                            f"📍 Адрес: {address}\n"
+                            f"💰 Сумма: {total}\n"
+                            f"══════════════════════\n"
+                            f"Источник: Instagram Direct Message"
+                        )
+                    })
+                    task_row = result.fetchone()
+                    task_id = task_row[0] if task_row else None
+                    await session.commit()
+                
+                logger.info(f"Степан: Задача #{task_id} создана для Sales по IG заказу от {from_name}")
+                
+                # 2. Делегируем задачу в Sales бот через Bot Bus
+                try:
+                    from shared.bot_bus import send_task
+                    bus_task_id = await send_task(
+                        from_bot="stepan_bot",
+                        to_bot="sales_bot",
+                        action="process_ig_order",
+                        params={
+                            "task_id": task_id,
+                            "customer_name": from_name,
+                            "product": product,
+                            "quantity": quantity,
+                            "phone": phone,
+                            "address": address,
+                            "total": total,
+                            "source": "instagram",
+                        }
+                    )
+                    logger.info(f"Степан → Sales: делегирована задача {bus_task_id} (IG заказ)")
+                except Exception as bus_err:
+                    logger.warning(f"Bot Bus delegation error: {bus_err}")
+                
+                # 3. Уведомляем группу «Продажа» о новом заказе
+                sales_group = getattr(settings, 'sales_group_id', 0)
+                target_chat = sales_group if sales_group else admin_id
+                if target_chat:
+                    await bot.send_message(
+                        target_chat,
+                        f"📦 <b>ЗАКАЗ #{task_id} из Instagram</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"👤 Клиент: <b>{from_name}</b>\n"
+                        f"🛒 Товар: <b>{product}</b>\n"
+                        f"📊 Количество: <b>{quantity}</b>\n"
+                        f"📱 Телефон: <b>{phone}</b>\n"
+                        f"💰 Сумма: <b>{total}</b>\n"
+                        f"━━━━━━━━━━━━━━━━━━\n"
+                        f"✅ Задача создана → отдел продаж\n"
+                        f"🤖 Клиенту уже ответили в DM",
+                    )
+                
+                # 4. Публикуем ORDER_CREATED для PM, Finance, Analytics (без спама в чат)
+                await event_bus.publish(
+                    "order_created",
+                    {
+                        "source": "instagram",
+                        "customer_name": from_name,
+                        "product": product,
+                        "quantity": quantity,
+                        "phone": phone,
+                        "address": address,
+                        "total_amount": total,
+                        "items_summary": f"{product} x {quantity}",
+                        "order_number": f"IG-{task_id or '?'}",
+                        "summary": f"IG заказ от {from_name}: {product} x {quantity} = {total}",
+                    },
+                    "stepan_bot"
+                )
+                logger.info(f"Степан: ORDER_CREATED → PM, Finance, Analytics")
+                
+            # Обычные сообщения (не заказы) — НЕ пересылаем, бот сам ведёт диалог
+        except Exception as e:
+            logger.error(f"Ошибка при обработке IG DM Степаном: {e}", exc_info=True)
+
+    # Подписываемся на события
+    for event_type in [
+        "order_created", "complaint_received", "application_received",
+        "large_expense_alert", "task_created", "task_completed",
+        "b2b_lead_created", "order_status_changed", "feedback_received",
+        "DELIVERY_STATUS_REPORT", "new_message",
+    ]:
+        event_bus.on(event_type, on_any_event)
+        
+    event_bus.on("TASK_COMPLETED", handle_task_completed)
+    event_bus.on("ig_dm_received", handle_ig_dm)
+
+    # ── Подключение к шинам ──
+    # EventBus теперь слушает через встроенный aiohttp сервер ниже
+    # -- Startup / Shutdown --
+    async def on_startup():
+        logger.info("🤖 Степан запущен! Готов помогать.")
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if admin_id:
+            try:
+                await bot.send_message(
+                    admin_id,
+                    "🤖 <b>Степан на связи!</b>\n\n"
+                    "Я ваш личный помощник. Пишите мне любые задачи,\n"
+                    "вопросы или поручения — я разберусь.\n\n"
+                    "💡 Примеры:\n"
+                    "• <i>Подготовить 50 лотков руколы к пятнице</i>\n"
+                    "• <i>Сколько мы заработали за эту неделю?</i>\n"
+                    "• <i>Найди курьера на полный день</i>\n"
+                    "• <i>Напиши пост для Instagram про скидку 20%</i>\n"
+                    "• <i>Какой статус по всем задачам?</i>",
+                )
+            except Exception:
+                pass
+
+    dp.startup.register(on_startup)
+
+    # ── Запуск планировщика и heartbeat ──
+    # scheduler.add_cron(name="daily_report", func=daily_report, hour=9, minute=30)  # Убрано в пользу n8n
+    await scheduler.start()
+    asyncio.create_task(start_heartbeat("stepan_bot"))
+
+    # ── Webhook Server для n8n ──
+    from aiohttp import web
+    async def n8n_webhook_handler(request):
+        try:
+            data = await request.json()
+            action = data.get("action")
+            if action == "daily_report":
+                asyncio.create_task(daily_report())
+            elif action == "evening_summary":
+                asyncio.create_task(evening_summary())
+            elif action == "check_deadlines":
+                asyncio.create_task(check_deadlines())
+            elif action == "weekly_report":
+                asyncio.create_task(weekly_report())
+            elif action == "auto_task_creation":
+                asyncio.create_task(auto_task_creation())
+            elif action == "check_followups":
+                asyncio.create_task(check_followups())
+            else:
+                return web.json_response({"status": "error", "message": "Unknown action"}, status=400)
+            return web.json_response({"status": "ok", "action": action})
+        except Exception as e:
+            return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+    app = web.Application()
+    app.router.add_post('/n8n-webhook', n8n_webhook_handler)
+    app.router.add_post('/event', event_bus._handle_webhook)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8081)
+    await site.start()
+    logger.info("📡 n8n Webhook server started on port 8081")
+
+    logger.info("🤖 Запуск Степана...")
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await scheduler.stop()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

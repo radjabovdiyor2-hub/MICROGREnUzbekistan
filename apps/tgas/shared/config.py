@@ -1,0 +1,178 @@
+"""
+Microgreen Uzbekistan — Конфигурация приложения
+================================================
+Загрузка переменных окружения из .env файла с помощью Pydantic Settings.
+Все боты и сервисы используют единый объект настроек.
+"""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from typing import List
+
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """
+    Главный класс настроек проекта.
+
+    Все значения загружаются из переменных окружения или файла .env
+    в корне проекта. Для списков используется запятая как разделитель.
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    # ── Токены Telegram-ботов ──────────────────────────────────────────
+    sales_bot_token: str = Field(
+        ..., description="Токен бота продаж (@MicroGreenSalesBot)"
+    )
+    support_bot_token: str = Field(
+        ..., description="Токен бота поддержки (@MicroGreenSupportBot)"
+    )
+    marketing_bot_token: str = Field(
+        ..., description="Токен маркетинг-бота (@MicroGreenMarketingBot)"
+    )
+    hr_bot_token: str = Field(
+        ..., description="Токен HR-бота (@MicroGreenHRBot)"
+    )
+    finance_bot_token: str = Field(
+        ..., description="Токен финансового бота (@MicroGreenFinanceBot)"
+    )
+    pm_bot_token: str = Field(
+        ..., description="Токен PM-бота (@MicroGreenPMBot)"
+    )
+    analytics_bot_token: str = Field(
+        ..., description="Токен аналитик-бота (@MicroGreenAnalyticsBot)"
+    )
+    content_bot_token: str = Field(
+        ..., description="Токен контент-бота (@MicroGreenContentBot)"
+    )
+    stepan_bot_token: str = Field(
+        ..., description="Токен Степана — личного AI-помощника руководителя"
+    )
+
+    # ── База данных ────────────────────────────────────────────────────
+    database_url: str = Field(
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/microgreen_uz",
+        description="URL подключения к PostgreSQL через asyncpg",
+    )
+
+    # ── Redis ──────────────────────────────────────────────────────────
+    redis_url: str = Field(
+        default="redis://localhost:6379/0",
+        description="URL подключения к Redis (кэш, очереди, rate-limit)",
+    )
+
+    # ── OpenAI ─────────────────────────────────────────────────────────
+    openai_api_key: str = Field(
+        ..., description="API-ключ OpenAI"
+    )
+    openai_model: str = Field(
+        default="gpt-4o",
+        description="Модель OpenAI для генерации ответов",
+    )
+
+    # ── Администраторы ─────────────────────────────────────────────────
+    admin_telegram_ids: List[int] = Field(
+        default_factory=list,
+        description="Список Telegram ID администраторов (через запятую в .env)",
+    )
+
+    @field_validator("admin_telegram_ids", mode="before")
+    @classmethod
+    def parse_admin_ids(cls, v):
+        """Парсинг строки с ID администраторов из .env (через запятую)."""
+        if isinstance(v, str):
+            if not v.strip():
+                return []
+            return [int(x.strip()) for x in v.split(",") if x.strip()]
+        if isinstance(v, int):
+            return [v]
+        return v
+
+    # ── Контактные данные компании ─────────────────────────────────────
+    company_name: str = Field(
+        default="Microgreen Uzbekistan",
+        description="Название компании",
+    )
+    company_phone: str = Field(
+        default="+998 91 123 45 67",
+        description="Основной телефон компании",
+    )
+    free_delivery_threshold: int = Field(
+        default=500_000,
+        description="Порог бесплатной доставки в UZS",
+    )
+
+    # ── Instagram Graph API ───────────────────────────────────────────
+    instagram_account_id: str = Field(
+        default="",
+        description="ID Instagram бизнес-аккаунта для публикации контента",
+    )
+    instagram_access_token: str = Field(
+        default="",
+        description="Access Token для Instagram Graph API",
+    )
+    facebook_page_id: str = Field(
+        default="",
+        description="ID Facebook-страницы, привязанной к Instagram",
+    )
+    facebook_app_id: str = Field(
+        default="",
+        description="ID приложения Facebook для обновления токенов",
+    )
+    facebook_app_secret: str = Field(
+        default="",
+        description="Секрет приложения Facebook для обновления токенов",
+    )
+
+    # ── Telegram группы ───────────────────────────────────────────────
+    sales_group_id: int = Field(
+        default=0,
+        description="ID Telegram группы 'Продажа' для уведомлений о заказах",
+    )
+
+    # ── Лид-генерация (сбор ресторанов) ───────────────────────────────
+    dgis_api_key: str = Field(
+        default="",
+        description="API-ключ 2ГИС для поиска ресторанов (Catalog API)",
+    )
+    google_places_api_key: str = Field(
+        default="",
+        description="API-ключ Google Places для поиска ресторанов",
+    )
+    b2b_daily_limit: int = Field(
+        default=15,
+        description="Сколько холодных B2B-контактов делать в день",
+    )
+    lead_gen_city: str = Field(
+        default="Самарканд",
+        description="Город для поиска ресторанов при сборе лидов",
+    )
+
+    @property
+    def sync_database_url(self) -> str:
+        """URL для синхронного подключения (миграции, скрипты)."""
+        return self.database_url.replace("+asyncpg", "")
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    """
+    Фабрика настроек с кэшированием.
+
+    Возвращает синглтон-экземпляр Settings. При первом вызове
+    загружаются все переменные окружения из .env файла.
+    """
+    return Settings()
+
+
+# Глобальный объект настроек — импортируется всеми модулями
+settings = get_settings()

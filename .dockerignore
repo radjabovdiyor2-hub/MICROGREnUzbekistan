@@ -1,0 +1,38 @@
+# Build context excludes for the ROOT-context images (apps/web, apps/bot).
+# The tgas image builds with context ./apps/tgas and uses apps/tgas/.dockerignore instead.
+
+.git
+.github
+node_modules
+**/node_modules
+**/.next
+**/.turbo
+**/dist
+**/build
+**/__pycache__
+**/*.pyc
+**/*.pyo
+
+# Logs & generated artifacts
+*.log
+logs/
+*.tar
+*.tar.gz
+*.mp4
+*.ogg
+*.exe
+temp_img.jpg
+tree.txt
+
+# Legacy stub left after moving tgas -> apps/tgas
+tgas/
+
+# Not needed by the web/bot images (tgas has its own build context; game is separate)
+apps/tgas/
+apps/game/
+
+# Never bake secrets into the storefront-bot image — runtime env_file provides them
+apps/bot/.env
+apps/bot/venv/
+.env
+.env.deploy

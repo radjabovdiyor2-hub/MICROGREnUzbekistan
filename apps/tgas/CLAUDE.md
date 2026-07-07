@@ -1,0 +1,178 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Что это
+
+«Microgreen Uzbekistan» — набор независимых Telegram-ботов (aiogram 3), каждый из которых играет роль
+AI-сотрудника (Sales, Support, Marketing, HR, Finance, PM, Analytics, Content, Stepan/помощник CEO,
+DevOps, QA, R&D, n8n_bridge) для бизнеса по продаже микрозелени/гидропоники. Боты используют одну общую
+CRM-базу Postgres и координируются через самописные event bus + task bus, а не через готовый фреймворк.
+FastAPI-дашборд (`web_office/`) даёт read-view над той же БД. Есть также инстанс n8n
+(`docker-compose.n8n.yml`) для workflow, которые не вписываются в Telegram/Python-часть (почта,
+календарь) — до него достаёт `n8n_bridge`.
+
+Весь код (докстринги, логи, промпты) на русском — придерживайтесь этого стиля при правках существующих
+модулей.
+
+## Запуск
+
+Тестового набора, линтера или CI в проекте нет — `pytest`/`black`/`ruff` есть в `requirements.txt`, но не
+используются. Файлы `test_*.py` в корне — это ручные скрипты (шлют реальные сообщения в Telegram / дёргают
+реальные API токенами из `.env`), а не автоматизированный набор тестов. «Прогнать тесты» тут нечем —
+проверяйте изменения, запуская нужного бота/скрипт напрямую против dev-`.env`.
+
+Локальный venv лежит в `venv/` (Windows: `venv\Scripts\python.exe`).
+
+**Инфраструктура (Postgres + Redis, нужна каждому боту):**
+```
+docker compose up -d postgres redis
+```
+
+**Запуск одного бота локально** (каждый — самостоятельный процесс/entrypoint):
+```
+python -m bots.sales_bot.main
+python -m bots.stepan_bot.main
+# ... и так далее для hr_bot, finance_bot, marketing_bot, support_bot, pm_bot, analytics_bot,
+#     content_bot, devops_bot, qa_bot, rnd_bot, n8n_bridge
+```
+
+**Запуск веб-дашборда:**
+```
+python -m uvicorn web_office.main:app --host 0.0.0.0 --port 8050
+```
+
+**Запуск всего разом:** `start_all.ps1` / `start_all.bat` (Windows, поднимает каждого бота фоновым
+процессом через локальный venv) — эти два скрипта старее новых ботов (devops/qa/rnd/n8n_bridge) и
+запускают только исходные 9. Актуальный и полный список сервисов с их фиксированными портами event bus
+(8081–8092) — в `docker-compose.yml`.
+
+**Весь стек через Docker:**
+```
+docker compose up -d --build
+```
+Все контейнеры ботов собираются из одного корневого `Dockerfile` и различаются только `command:` (какой
+модуль запускать). `devops` дополнительно монтирует Docker socket и `./backups` для бэкапов БД/операций с
+контейнерами.
+
+**Схема БД / сид-данные:**
+- `database/init.sql` — схема, применяется автоматически при первом старте контейнера Postgres через
+  `docker-entrypoint-initdb.d`. Для изменений схемы правьте этот файл — реальной миграционной тулзы нет
+  (alembic есть в зависимостях, но не подключён).
+- `database/seed_products.sql`, `scripts/seed_db.py` — засев каталога товаров.
+- `scripts/build_knowledge_base.py` — сборка базы знаний support-бота.
+- Разовые скрипты в корне (`migrate_v2.py`, `add_columns.py`, `fix_bots.py`, `patch_bots.py`,
+  `recover.py`) — это исторические одноразовые скрипты миграций/патчей, а не повторяемый пайплайн: перед
+  запуском читайте код, не полагайтесь на идемпотентность.
+
+## Архитектура
+
+### Структура одного бота
+Каждый бот в `bots/<name>_bot/` устроен одинаково:
+```
+bots/<name>_bot/
+├── main.py          # entrypoint: собирает Bot/Dispatcher, подключает роутеры, event bus, scheduler, слушатель bot-bus
+├── states.py         # FSM-состояния aiogram
+├── handlers/          # Router'ы aiogram (список all_routers экспортируется из handlers/__init__.py)
+└── keyboards/          # билдеры inline-клавиатур
+```
+Более лёгкие сервисные боты (`devops_bot`, `qa_bot`, `rnd_bot`, `n8n_bridge`) — это однофайловый `main.py`
+вообще без Telegram `Dispatcher`: это чистые воркеры event-bus/bot-bus или простые aiohttp
+webhook-приёмники.
+
+### Общая библиотека (`shared/`)
+- `config.py` — единственный `Settings` (pydantic-settings), грузится из `.env`; используйте
+  модуль-синглтон `settings`, не создавайте `Settings()` заново.
+- `database.py` — асинхронный движок/сессии SQLAlchemy 2.0 (asyncpg). Бизнес-логика почти всегда работает
+  через сырые запросы `sqlalchemy.text()` через `get_session_ctx()`, а не через ORM-модели — `Base`/
+  `init_db()` существуют, но реальная схема живёт в `database/init.sql` и применяется напрямую к Postgres.
+- `ai_engine.py` — `AIEngine` оборачивает AsyncOpenAI; хранит большой русско-узбекский системный промпт
+  продаж и таблицу стоимости токенов по моделям.
+- `prompts.py` — общий `TEAM_CONTEXT`, который добавляется перед системным промптом каждого бота, чтобы
+  каждый бот «знал» о своих собратьях.
+- `event_bus.py` — **несмотря на докстринг, это не Redis pub/sub**: `EventBus.publish()` шлёт POST на
+  webhook n8n *и одновременно* напрямую HTTP-POST'ит на `/event` каждого другого бота (жёстко прописанная
+  карта host:port, `mg_<bot>:808x`, совпадает с именами контейнеров — резолвится только внутри Docker-сети
+  `mg_net`). `main()` каждого бота вызывает `event_bus.start_listening(<свой порт>)`, чтобы получать эти
+  события. Класс `Events` централизует константы имён событий (`ORDER_CREATED`, `TASK_CREATED`,
+  `TASK_COMPLETED` и т.д.) — проверьте его прежде чем придумывать новую строку события.
+- `bot_bus.py` — *отдельный*, более простой механизм: файловая JSON-очередь задач в `bus_tasks/`
+  (смонтирована как общий Docker volume) для точечного запрос/ответ между ботами (например, Stepan
+  ставит задачу Finance и ждёт результат через `send_task()`/`get_result()`). Каждый бот регистрирует
+  обработчики действий через `start_listener(bot_name, {action: handler})`. Не путайте с `event_bus` —
+  event_bus это широковещательная рассылка без ожидания ответа, bot_bus — целевая делегация задачи с
+  возвращаемым значением.
+- `group_orchestrator.py` — `create_group_router()` строит Router aiogram, чтобы бот отвечал при
+  упоминании через @ или реплае в групповом чате Telegram (ставит реакцию 👀 → выполняет обработчик →
+  👍/👎).
+- `scheduler.py` (`BotScheduler`) — cron/interval-задачи для каждого бота (например, ежедневный P&L-отчёт
+  у finance, напоминания у HR). Регистрируются на уровне импорта модуля в `main.py` бота, запускаются в
+  `main()`.
+- `health.py` (`start_heartbeat`) — пинг живости для каждого бота.
+- `instagram*.py`, `token_refresh.py` — публикация в Instagram Graph API, директ-сообщения, истории,
+  аналитика и обновление долгоживущих токенов (токены Facebook/Instagram истекают; `run_token_exchange.py`
+  в корне делает первичный обмен).
+- `brand.py` — **единый фирменный стиль Microgreen Uzbekistan** (взят с сайта microgreenuzbekistan.com:
+  зелёный `#10B981` + золотой `#FFB800`, шрифты Inter/Outfit, голос «Надёжность+Доступность»). Все генерации
+  идут через него автоматически: `ai_engine.generate_image()` добавляет `BRAND_IMAGE_STYLE` к промпту и
+  накладывает логотип (`overlay_logo`, ассеты в `shared/brand_assets/`); `BRAND_TEXT_STYLE` вшит в
+  `prompts.TEAM_CONTEXT` и в системные промпты подписей content_bot. При добавлении новой генерации —
+  используйте `brand_image_prompt()` / `BRAND_TEXT_STYLE`, не пишите стиль заново.
+- `lead_gen.py` — сбор B2B-лидов (рестораны) из внешних источников (2ГИС Catalog API, ручной CSV) с
+  нормализацией и дедупликацией в `customers`. Запуск: `python -m scripts.collect_restaurants` или ночная
+  задача `collect_leads_nightly` в marketing_bot. ⚠️ Скрейпинг карт/Telegram намеренно НЕ реализован
+  (против ToS). Ключи: `DGIS_API_KEY` / `GOOGLE_PLACES_API_KEY`.
+- `notifications.py`, `backup.py`, `pdf_generator.py`, `email_sender.py`, `video_utils.py`, `utils.py` —
+  вспомогательные утилиты (форматирование, генерация PDF/отчётов, обработка видео для reels и т.д.)
+
+### B2B лид-пайплайн (сбор ресторанов → рассылка → воронка)
+Ежедневный цикл, завязанный на несколько отделов:
+1. **03:00** `collect_leads_nightly` (marketing) → `shared.lead_gen` собирает рестораны из 2ГИС →
+   `customers` со `status='lead'`, `customer_type='b2b'`, полями `source`/`source_ref`/`review_score`/
+   `review_summary`. Дедуп по `(source, source_ref)` → телефону → названию.
+2. **10:00** `b2b_outreach` (marketing) берёт **ровно `B2B_DAILY_LIMIT` (15)** свежих лидов (лучший рейтинг
+   первым) и рассылает мультиканально: **email** → КП с PDF; **нет email, но есть телефон** → задача отделу
+   Sales на обзвон (`TASK_CREATED department='sales'`). Каждый контакт помечается `interaction_type=
+   'b2b_offer_sent'` (канал в `channel`), поэтому завтра берутся уже другие 15.
+3. Ответы → Sales (квалификация → заказ), метрики → Analytics, стоимость → Finance, обзвон → PM/Sales.
+
+⚠️ **Telegram-бот не может писать первым** (ограничение API) — холодный контакт идёт только через
+email / телефон / IG DM, не через Telegram-рассылку.
+
+### Модель межботового взаимодействия (важно при добавлении новой возможности боту)
+Есть два независимых канала, и обычно нужны оба:
+1. **Event bus** для «что-то произошло, кому надо — отреагирует» (broadcast, fire-and-forget, ответ не
+   ожидается) — например, `ORDER_CREATED` от sales, который слушают Finance/PM/Analytics.
+2. **Bot bus** для «сделай вот это конкретное и скажи результат» (целевой вызов, ждём результат) —
+   например, Stepan делегирует `get_balance` в Finance и блокируется на `get_result()`.
+Боту, который должен участвовать в делегированных задачах, нужны оба: обработчик `event_bus.on(...)` на
+`TASK_CREATED` (чтобы реагировать на задачи, назначенные через диспетчер Stepan) *и* словарь
+обработчиков действий bot_bus, переданный в `start_listener()` (чтобы работали прямые запрос/ответ).
+Смотрите `finance_bot/main.py` как эталонный пример — там подключены оба канала плюс scheduler и роутер
+групповых упоминаний.
+
+**Маршрутизация задач по `department`.** Каждый бот в `handle_task_created` фильтрует по своему отделу.
+Значения sales/support/finance/hr/marketing/pm/analytics/content обслуживают одноимённые боты. Отделы
+**operations / production / logistics** своего бота НЕ имеют — их принимает **PM** (COO). Если добавляете
+новое значение `department` (в диспетчере PM или в Stepan), убедитесь, что его кто-то слушает, иначе
+задача создастся в БД, событие улетит, но исполнителя не будет (был такой баг с `operations`).
+
+### База данных
+Единая база Postgres (`microgreen` / `microgreen_uz` в зависимости от окружения — смотрите `.env` за
+актуальным именем), основные таблицы: `customers`, `products`, `orders`, `order_items`, `interactions`,
+`tasks`, `finances`, `employees`, `followups`, `inventory`. Все боты читают/пишут в одну и ту же БД
+напрямую — разделения данных по ботам нет; перед тем как предполагать наличие колонки, проверяйте
+`database/init.sql`.
+
+### Порты (фиксированные, используются в карте прямой доставки event_bus и в docker-compose)
+`stepan=8081, sales=8082, support=8083, hr=8084, finance=8085, marketing=8086, pm=8087, analytics=8088,
+content=8089`. `devops_bot` использует 8092 для своего aiohttp-webhook (отдельно от карты event bus).
+
+## Особенности этого репозитория
+- Корень репозитория захламлён сгенерированными/рантайм-артефактами (`*.log`, `microgreen.db`,
+  `tree.txt`, медиафайлы, экспорты `n8n_workflows_*.json`) — это выходные данные, а не исходники для
+  правки.
+- `.env` содержит похожие на настоящие секреты (токены ботов, ключ OpenAI, токены Instagram/Facebook) —
+  никогда не выводите его содержимое и не коммитьте изменения, которые его раскрывают.
+- `1/` в корне репозитория не является значимым пакетом (странная оставшаяся директория) — проверяйте
+  содержимое, прежде чем считать её релевантной задаче.

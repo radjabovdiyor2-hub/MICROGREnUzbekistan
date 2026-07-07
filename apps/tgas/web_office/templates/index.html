@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MG — AI Виртуальный Офис</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>">
+</head>
+<body>
+
+  <!-- Sidebar Overlay (mobile) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- ============ Sidebar ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">MG</div>
+      <div class="logo-text">
+        <span class="company-name">Microgreen Uzbekistan</span>
+        <span class="company-sub">AI Virtual Office</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#summary" class="active" data-section="summary">
+        <span class="nav-icon">📊</span>
+        Сводка
+      </a>
+      <a href="#tasks" data-section="tasks">
+        <span class="nav-icon">✅</span>
+        Задачи
+      </a>
+      <a href="#bots" data-section="bots">
+        <span class="nav-icon">🤖</span>
+        Боты
+      </a>
+      <a href="#finances" data-section="finances">
+        <span class="nav-icon">💰</span>
+        Финансы
+      </a>
+      <a href="#orders" data-section="orders">
+        <span class="nav-icon">📦</span>
+        Заказы
+      </a>
+      <a href="#customers" data-section="customers">
+        <span class="nav-icon">👥</span>
+        Клиенты
+      </a>
+      <a href="#loyalty" data-section="loyalty">
+        <span class="nav-icon">🎁</span>
+        Лояльность
+      </a>
+      <a href="#inventory" data-section="inventory">
+        <span class="nav-icon">📦</span>
+        Склад
+      </a>
+      <a href="#crm" data-section="crm">
+        <span class="nav-icon">📈</span>
+        CRM
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-status">
+        <span class="pulse-dot"></span>
+        Система активна
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ Main Content ============ -->
+  <main class="main-content">
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left" style="display:flex;align-items:center;gap:12px;">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Menu">☰</button>
+        <h1>AI Виртуальный Офис<span class="accent-dot">.</span></h1>
+      </div>
+      <div class="header-right">
+        <span class="header-date" id="currentDate"></span>
+        <button class="header-refresh-btn" id="refreshBtn" title="Обновить">⟳</button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="content">
+
+      <!-- ===== Summary Section ===== -->
+      <section class="section" id="summary">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">📊</span>
+            Сводка
+          </h2>
+        </div>
+
+        <!-- KPI Row 1: Tasks -->
+        <div class="kpi-grid">
+          <div class="kpi-card accent animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Всего задач</span>
+              <div class="kpi-icon green">📋</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.total_tasks }}">0</div>
+            <div class="kpi-sub">Все задачи в системе</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Выполнено</span>
+              <div class="kpi-icon green">✅</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.done_tasks }}">0</div>
+            <div class="kpi-sub">Завершённые задачи</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">В работе</span>
+              <div class="kpi-icon yellow">⚡</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.active_tasks }}">0</div>
+            <div class="kpi-sub">Активные задачи</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Просрочено</span>
+              <div class="kpi-icon red">🔥</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.overdue_tasks }}">0</div>
+            <div class="kpi-sub">Требуют внимания</div>
+          </div>
+        </div>
+
+        <!-- KPI Row 2: Business -->
+        <div class="kpi-grid">
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Заказов</span>
+              <div class="kpi-icon blue">📦</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.total_orders }}">0</div>
+            <div class="kpi-sub">Общее количество</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Выручка</span>
+              <div class="kpi-icon green">💵</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.total_revenue }}" data-prefix="" data-suffix=" сум">0</div>
+            <div class="kpi-sub">Общий доход</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Клиентов</span>
+              <div class="kpi-icon purple">👥</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.total_customers }}">0</div>
+            <div class="kpi-sub">В базе данных</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Сотрудников</span>
+              <div class="kpi-icon blue">🏢</div>
+            </div>
+            <div class="kpi-value" data-target="{{ stats.total_employees }}">0</div>
+            <div class="kpi-sub">В команде</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Inventory Section ===== -->
+      <section class="section" id="inventory">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">📦</span>
+            Складские остатки
+          </h2>
+        </div>
+        <div class="glass-card">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Наименование</th>
+                  <th>Категория</th>
+                  <th>Остаток</th>
+                  <th>Статус</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in inventory %}
+                <tr>
+                  <td>{{ item.item_name }}</td>
+                  <td><span class="badge">{{ item.category }}</span></td>
+                  <td>{{ item.quantity }} {{ item.unit }}</td>
+                  <td>
+                    {% if item.quantity <= item.min_stock %}
+                    <span class="badge overdue">Критично мало</span>
+                    {% else %}
+                    <span class="badge done">В норме</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center">Нет данных склада</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Loyalty Section ===== -->
+      <section class="section" id="loyalty">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">🎁</span>
+            Программа лояльности
+          </h2>
+        </div>
+        <div class="glass-card">
+          <div class="table-responsive">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Клиент</th>
+                  <th>Телефон</th>
+                  <th>Бонусный баланс</th>
+                  <th>Сумма покупок</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in customers %}
+                {% if c.bonus_balance and c.bonus_balance > 0 %}
+                <tr>
+                  <td>{{ c.name }}</td>
+                  <td>{{ c.phone }}</td>
+                  <td style="color:var(--accent-color); font-weight:bold;">{{ c.bonus_balance }} UZS</td>
+                  <td>{{ c.total_spent }} UZS</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Bots Section ===== -->
+      <section class="section" id="bots">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">🤖</span>
+            AI Боты
+          </h2>
+          <span class="section-badge">{{ bots|length }} ботов</span>
+        </div>
+
+        {% if bots %}
+        <div class="bots-grid">
+          {% for bot in bots %}
+          <div class="bot-card animate-in">
+            <div class="bot-avatar">{{ bot.icon }}</div>
+            <div class="bot-info">
+              <div class="bot-name">{{ bot.name }}</div>
+              <div class="bot-role">{{ bot.role }}</div>
+            </div>
+            <span class="badge {{ bot.status }}">{{ 'Онлайн' if bot.status == 'online' else 'Офлайн' }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="glass-card">
+          <div class="empty-state">
+            <div class="empty-icon">🤖</div>
+            <div class="empty-text">Боты не настроены</div>
+          </div>
+        </div>
+        {% endif %}
+      </section>
+
+      <!-- ===== Tasks Section ===== -->
+      <section class="section" id="tasks">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">✅</span>
+            Задачи
+          </h2>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span class="section-badge">{{ tasks|length }} записей</span>
+            <button class="btn-create" id="createTaskBtn">+ Создать задачу</button>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          {% if tasks %}
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Название</th>
+                  <th>Отдел</th>
+                  <th>Исполнитель</th>
+                  <th>Статус</th>
+                  <th>Приоритет</th>
+                  <th>Дедлайн</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for task in tasks %}
+                <tr>
+                  <td class="cell-id">{{ task.id }}</td>
+                  <td class="cell-title" title="{{ task.title }}">{{ task.title }}</td>
+                  <td class="cell-department">{{ task.department or '—' }}</td>
+                  <td class="cell-department">{{ task.assignee or '—' }}</td>
+                  <td>
+                    {% set status_labels = {
+                      'done': 'Выполнено',
+                      'in_progress': 'В работе',
+                      'todo': 'Ожидает',
+                      'cancelled': 'Отменено'
+                    } %}
+                    <span class="badge {{ task.status }}">{{ status_labels.get(task.status, task.status) }}</span>
+                  </td>
+                  <td>
+                    {% set priority_labels = {
+                      'urgent': 'Срочно',
+                      'high': 'Высокий',
+                      'medium': 'Средний',
+                      'low': 'Низкий'
+                    } %}
+                    <span class="priority-badge {{ task.priority }}">{{ priority_labels.get(task.priority, task.priority) }}</span>
+                  </td>
+                  <td class="cell-deadline">{{ task.deadline if task.deadline else '—' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">📝</div>
+            <div class="empty-text">Задачи не найдены</div>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- ===== Finances Section ===== -->
+      <section class="section" id="finances">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">💰</span>
+            Финансы
+          </h2>
+          <span class="section-badge">{{ finances|length }} операций</span>
+        </div>
+
+        <div class="glass-card">
+          {% if finances %}
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Тип</th>
+                  <th>Сумма</th>
+                  <th>Категория</th>
+                  <th>Описание</th>
+                  <th>Дата</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for f in finances %}
+                <tr>
+                  <td>
+                    <span class="badge {{ f.type }}">{{ 'Доход' if f.type == 'income' else 'Расход' }}</span>
+                  </td>
+                  <td class="cell-amount {{ f.type }}">
+                    {{ '+' if f.type == 'income' else '−' }}{{ '{:,.0f}'.format(f.amount|float) }} сум
+                  </td>
+                  <td class="cell-category">{{ f.category or '—' }}</td>
+                  <td class="cell-title" title="{{ f.description }}">{{ f.description or '—' }}</td>
+                  <td class="cell-deadline">{{ f.date if f.date else '—' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">💳</div>
+            <div class="empty-text">Финансовые операции не найдены</div>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- ===== Orders Section ===== -->
+      <section class="section" id="orders">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">📦</span>
+            Заказы
+          </h2>
+          <span class="section-badge">{{ recent_orders|length }} записей</span>
+        </div>
+
+        <div class="glass-card">
+          {% if recent_orders %}
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Номер заказа</th>
+                  <th>Клиент</th>
+                  <th>Сумма</th>
+                  <th>Статус</th>
+                  <th>Дата</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for order in recent_orders %}
+                <tr>
+                  <td class="cell-id">{{ order.id }}</td>
+                  <td style="font-weight:500;">{{ order.order_number or '—' }}</td>
+                  <td>{{ order.customer_name or '—' }}</td>
+                  <td class="cell-amount income">{{ '{:,.0f}'.format(order.total_amount|float) }} сум</td>
+                  <td>
+                    {% set order_status_labels = {
+                      'new': 'Новый',
+                      'pending': 'Ожидает',
+                      'processing': 'Обработка',
+                      'completed': 'Завершён',
+                      'cancelled': 'Отменён'
+                    } %}
+                    <span class="badge {{ order.status }}">{{ order_status_labels.get(order.status, order.status) }}</span>
+                  </td>
+                  <td class="cell-deadline">{{ order.created_at if order.created_at else '—' }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">📦</div>
+            <div class="empty-text">Заказы не найдены</div>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- ===== Customers Section ===== -->
+      <section class="section" id="customers">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">👥</span>
+            Клиенты
+          </h2>
+          <span class="section-badge">{{ customers|length }} записей</span>
+        </div>
+
+        <div class="glass-card">
+          {% if customers %}
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Имя</th>
+                  <th>Телефон</th>
+                  <th>Telegram</th>
+                  <th>Тип</th>
+                  <th>Компания</th>
+                  <th>Статус</th>
+                  <th>Заказов</th>
+                  <th>Сумма</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in customers %}
+                <tr>
+                  <td class="cell-id">{{ c.id }}</td>
+                  <td class="cell-title">{{ c.name }}</td>
+                  <td>{{ c.phone }}</td>
+                  <td style="color:var(--accent)">{{ c.telegram }}</td>
+                  <td><span class="badge {{ c.type }}">{{ 'B2B' if c.type == 'b2b' else 'B2C' }}</span></td>
+                  <td>{{ c.company }}</td>
+                  <td>
+                    {% set cust_labels = {'lead': 'Лид', 'active': 'Активный', 'vip': 'VIP', 'churned': 'Ушёл'} %}
+                    <span class="badge {{ c.status }}">{{ cust_labels.get(c.status, c.status) }}</span>
+                  </td>
+                  <td style="text-align:center">{{ c.orders_count }}</td>
+                  <td class="cell-amount income">{{ '{:,.0f}'.format(c.total_spent) }} сум</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <div class="empty-text">Клиенты не найдены</div>
+          </div>
+          {% endif %}
+        </div>
+      </section>
+
+      <!-- ===== CRM Section ===== -->
+      <section class="section" id="crm">
+        <div class="section-header">
+          <h2 class="section-title">
+            <span class="section-icon">📈</span>
+            CRM Воронка
+          </h2>
+        </div>
+
+        <!-- Funnel Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Лиды</span>
+              <div class="kpi-icon blue">🎯</div>
+            </div>
+            <div class="kpi-value" data-target="{{ funnel.lead }}">0</div>
+            <div class="kpi-sub">Новые контакты</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Активные</span>
+              <div class="kpi-icon green">✅</div>
+            </div>
+            <div class="kpi-value" data-target="{{ funnel.active }}">0</div>
+            <div class="kpi-sub">Покупают регулярно</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">VIP</span>
+              <div class="kpi-icon yellow">⭐</div>
+            </div>
+            <div class="kpi-value" data-target="{{ funnel.vip }}">0</div>
+            <div class="kpi-sub">Премиум клиенты</div>
+          </div>
+          <div class="kpi-card animate-in">
+            <div class="kpi-header">
+              <span class="kpi-label">Ушли</span>
+              <div class="kpi-icon red">🚨</div>
+            </div>
+            <div class="kpi-value" data-target="{{ funnel.churned }}">0</div>
+            <div class="kpi-sub">Перестали покупать</div>
+          </div>
+        </div>
+
+        <!-- Interactions -->
+        <div style="margin-top:24px">
+          <h3 style="color:var(--text-primary);font-size:16px;margin-bottom:12px">💬 История взаимодействий</h3>
+          <div class="glass-card">
+            {% if interactions %}
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Клиент</th>
+                    <th>Тип</th>
+                    <th>Бот</th>
+                    <th>Описание</th>
+                    <th>Дата</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for i in interactions %}
+                  <tr>
+                    <td class="cell-title">{{ i.customer_name }}</td>
+                    <td>
+                      {% set type_labels = {
+                        'inquiry': 'Запрос',
+                        'order': 'Заказ',
+                        'complaint': 'Жалоба',
+                        'feedback': 'Отзыв',
+                        'followup': 'Follow-up',
+                        'b2b_lead': 'B2B лид'
+                      } %}
+                      <span class="badge {{ i.type }}">{{ type_labels.get(i.type, i.type) }}</span>
+                    </td>
+                    <td>{{ i.bot_name }}</td>
+                    <td class="cell-title" title="{{ i.summary }}">{{ i.summary }}</td>
+                    <td class="cell-deadline">{{ i.created_at }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% else %}
+            <div class="empty-state">
+              <div class="empty-icon">💬</div>
+              <div class="empty-text">Взаимодействия не найдены</div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
+    </div><!-- /.content -->
+  </main>
+
+  <!-- ============ JavaScript ============ -->
+  <script>
+    (function() {
+      'use strict';
+
+      // ---- Current Date ----
+      const dateEl = document.getElementById('currentDate');
+      function updateDate() {
+        const now = new Date();
+        const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const formatted = now.toLocaleDateString('ru-RU', opts);
+        dateEl.textContent = formatted.charAt(0).toUpperCase() + formatted.slice(1);
+      }
+      updateDate();
+
+      // ---- Animated Number Counters ----
+      function animateCounters() {
+        const counters = document.querySelectorAll('.kpi-value[data-target]');
+        counters.forEach(el => {
+          const target = parseInt(el.dataset.target) || 0;
+          const suffix = el.dataset.suffix || '';
+          const prefix = el.dataset.prefix || '';
+          const duration = 1200;
+          const start = performance.now();
+          const startVal = 0;
+
+          function tick(now) {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            // easeOutExpo
+            const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+            const current = Math.floor(startVal + (target - startVal) * ease);
+            el.textContent = prefix + current.toLocaleString('ru-RU') + suffix;
+            if (progress < 1) {
+              requestAnimationFrame(tick);
+            } else {
+              el.textContent = prefix + target.toLocaleString('ru-RU') + suffix;
+              el.classList.add('counted');
+              setTimeout(() => el.classList.remove('counted'), 300);
+            }
+          }
+          requestAnimationFrame(tick);
+        });
+      }
+      // Run counters on load
+      setTimeout(animateCounters, 200);
+
+      // ---- Sidebar Navigation ----
+      const navLinks = document.querySelectorAll('.sidebar-nav a');
+      const sections = document.querySelectorAll('.section');
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+
+      navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          e.preventDefault();
+          const targetId = link.getAttribute('href').substring(1);
+          const target = document.getElementById(targetId);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          // Update active
+          navLinks.forEach(l => l.classList.remove('active'));
+          link.classList.add('active');
+          // Close mobile sidebar
+          closeMobileSidebar();
+        });
+      });
+
+      // Active section on scroll
+      function updateActiveNav() {
+        let current = '';
+        sections.forEach(sec => {
+          const top = sec.offsetTop - 120;
+          if (window.scrollY >= top) {
+            current = sec.id;
+          }
+        });
+        if (current) {
+          navLinks.forEach(l => {
+            l.classList.toggle('active', l.dataset.section === current);
+          });
+        }
+      }
+
+      let scrollTimeout;
+      window.addEventListener('scroll', () => {
+        clearTimeout(scrollTimeout);
+        scrollTimeout = setTimeout(updateActiveNav, 50);
+      }, { passive: true });
+
+      // ---- Mobile Sidebar ----
+      function openMobileSidebar() {
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeMobileSidebar() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      if (mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', () => {
+          if (sidebar.classList.contains('open')) {
+            closeMobileSidebar();
+          } else {
+            openMobileSidebar();
+          }
+        });
+      }
+
+      if (overlay) {
+        overlay.addEventListener('click', closeMobileSidebar);
+      }
+
+      // ---- Refresh Button ----
+      const refreshBtn = document.getElementById('refreshBtn');
+      refreshBtn.addEventListener('click', () => {
+        refreshBtn.classList.add('spinning');
+        setTimeout(() => {
+          window.location.reload();
+        }, 400);
+      });
+
+      // ---- Auto-refresh every 60s ----
+      setTimeout(() => {
+        setInterval(() => {
+          window.location.reload();
+        }, 60000);
+      }, 60000);
+
+      // ---- Create Task Modal ----
+      const modal = document.getElementById('taskModal');
+      const modalOverlay = document.getElementById('taskModalOverlay');
+      const createBtn = document.getElementById('createTaskBtn');
+      const cancelBtn = document.getElementById('cancelTaskBtn');
+      const taskForm = document.getElementById('taskForm');
+
+      function openModal() {
+        modal.classList.add('active');
+        modalOverlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeModal() {
+        modal.classList.remove('active');
+        modalOverlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+
+      createBtn.addEventListener('click', openModal);
+      cancelBtn.addEventListener('click', closeModal);
+      modalOverlay.addEventListener('click', closeModal);
+
+      taskForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = taskForm.querySelector('button[type=submit]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Создаю...';
+        try {
+          const formData = new FormData(taskForm);
+          const res = await fetch('/api/tasks', { method: 'POST', body: formData });
+          const data = await res.json();
+          if (data.ok) {
+            closeModal();
+            taskForm.reset();
+            showToast('✅ Задача #' + data.task_id + ' создана!');
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            showToast('❌ Ошибка: ' + (data.error || 'Неизвестная'));
+          }
+        } catch (err) {
+          showToast('❌ Ошибка сети');
+        }
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🚀 Создать задачу';
+      });
+
+      function showToast(msg) {
+        const t = document.createElement('div');
+        t.className = 'toast';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.classList.add('show'), 10);
+        setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3000);
+      }
+
+    })();
+  </script>
+
+  <!-- ============ Task Creation Modal ============ -->
+  <div class="modal-overlay" id="taskModalOverlay"></div>
+  <div class="modal" id="taskModal">
+    <div class="modal-header">
+      <h3>📝 Новая задача</h3>
+      <button class="modal-close" id="cancelTaskBtn">✕</button>
+    </div>
+    <form id="taskForm">
+      <div class="form-group">
+        <label>Название задачи *</label>
+        <input type="text" name="title" required placeholder="Например: Подготовить отчёт по продажам">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Отдел *</label>
+          <select name="department" required>
+            <option value="content">✍️ Content</option>
+            <option value="sales">🛒 Sales</option>
+            <option value="marketing">📢 Marketing</option>
+            <option value="hr">👥 HR</option>
+            <option value="finance">💰 Finance</option>
+            <option value="pm">📋 PM</option>
+            <option value="analytics">📊 Analytics</option>
+            <option value="support">🎧 Support</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Приоритет</label>
+          <select name="priority">
+            <option value="low">🟢 Низкий</option>
+            <option value="medium" selected>🟡 Средний</option>
+            <option value="high">🟠 Высокий</option>
+            <option value="urgent">🔴 Срочный</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Описание</label>
+        <textarea name="description" rows="3" placeholder="Подробности задачи..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Исполнитель</label>
+          <input type="text" name="assignee" placeholder="Авто">
+        </div>
+        <div class="form-group">
+          <label>Дедлайн</label>
+          <input type="date" name="deadline">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" onclick="document.getElementById('taskModal').classList.remove('active');document.getElementById('taskModalOverlay').classList.remove('active');document.body.style.overflow=''">Отмена</button>
+        <button type="submit" class="btn-create">🚀 Создать задачу</button>
+      </div>
+    </form>
+  </div>
+
+</body>
+</html>

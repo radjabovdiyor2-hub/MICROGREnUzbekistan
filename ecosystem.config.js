@@ -1,3 +1,6 @@
+// ⚠️ DEPRECATED: the unified stack now runs under Docker Compose
+//    (docker-compose.prod.yml). This PM2 config is kept only for legacy /
+//    bare-metal fallback. Secrets must come from .env — never hardcode them.
 const path = require('path');
 const fs = require('fs');
 
@@ -28,11 +31,10 @@ module.exports = {
             env: {
                 ...envVars,
                 NODE_ENV: "production",
-                PORT: 3002,
+                PORT: 3000,
                 HOSTNAME: "0.0.0.0",
-                NODE_OPTIONS: "--max-old-space-size=768",
-                TELEGRAM_BOT_TOKEN: "8039142477:AAEF1F4CCmy-uJh9RNYiMTBTT9vn3TW0F88",
-                ADMIN_CHAT_ID: "847872669"
+                NODE_OPTIONS: "--max-old-space-size=768"
+                // TELEGRAM_BOT_TOKEN / ADMIN_CHAT_ID come from .env (envVars)
             },
             max_memory_restart: "600M",
             instances: 1,

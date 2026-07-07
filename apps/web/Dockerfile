@@ -11,6 +11,10 @@ COPY apps/web ./apps/web
 RUN npm install
 RUN npx prisma generate --schema=packages/database/prisma/schema.prisma
 
+# Build workspace deps first (packages/database -> dist). Without this,
+# `@repo/database` (main: ./dist/index.js) can't be resolved by the web build.
+RUN npm run build --workspace=@repo/database
+
 WORKDIR /app/apps/web
 RUN npm run build
 

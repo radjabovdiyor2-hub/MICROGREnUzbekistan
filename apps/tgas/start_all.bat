@@ -1,0 +1,46 @@
+@echo off
+cd /d "%~dp0"
+echo Starting Web Office...
+start "" cmd /k ".\venv\Scripts\python.exe -m uvicorn web_office.main:app --host 0.0.0.0 --port 8050"
+
+echo Starting Stepan Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.stepan_bot.main"
+
+echo Starting Sales Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.sales_bot.main"
+
+echo Starting PM Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.pm_bot.main"
+
+echo Starting Finance Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.finance_bot.main"
+
+echo Starting Marketing Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.marketing_bot.main"
+
+echo Starting Analytics Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.analytics_bot.main"
+
+echo Starting Support Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.support_bot.main"
+
+echo Starting HR Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.hr_bot.main"
+
+echo Starting Content Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.content_bot.main"
+
+echo Starting DevOps Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.devops_bot.main"
+
+echo Starting QA Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.qa_bot.main"
+
+echo Starting R&D Bot...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.rnd_bot.main"
+
+echo Starting n8n Bridge...
+start "" cmd /k ".\venv\Scripts\python.exe -m bots.n8n_bridge.main"
+
+echo All systems started!
+pause

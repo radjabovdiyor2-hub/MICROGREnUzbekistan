@@ -1,98 +1,270 @@
+# ============================================================================
+#  Microgreen Uzbekistan — UNIFIED production stack
+#  Website (Next.js + /api) + storefront bot (Gemini) + 13 internal AI bots
+#  (tgas, OpenAI) + web_office, on one Postgres (two DBs) + Redis.
+#
+#  Two databases in one Postgres instance:
+#    - microgreen     -> tgas CRM   (seeded by apps/tgas/database/init.sql)
+#    - microgreen_db  -> storefront (Prisma db push, service `db-push`)
+#
+#  Bring up:   docker compose -f docker-compose.prod.yml up -d --build
+# ============================================================================
+
+# --- shared config for every internal tgas bot -----------------------------
+x-tgas-bot: &tgas-bot
+  build:
+    context: ./apps/tgas
+  restart: unless-stopped
+  env_file: ./apps/tgas/.env
+  environment:
+    DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
+    REDIS_URL: redis://redis:6379/0
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    - bus_tasks:/app/bus_tasks
+  networks:
+    - mg_net
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
 services:
-  # Next.js Web App
+  # ========================= INFRASTRUCTURE ===============================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mg_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mg_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: microgreen
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./deploy/db-init/00_create_storefront_db.sh:/docker-entrypoint-initdb.d/00_create_storefront_db.sh:ro
+      - ./apps/tgas/database/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mg_user -d microgreen"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mg_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: mg_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mg_net
+
+  # One-shot: push the Prisma schema into microgreen_db, then exit.
+  db-push:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: builder
+    container_name: mg_db_push
+    working_dir: /app
+    command: sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma --skip-generate --accept-data-loss"
+    environment:
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - mg_net
+
+  # ========================= WEBSITE ======================================
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    container_name: mg_web
+    restart: unless-stopped
+    # Published only on loopback — the server's existing system nginx proxies
+    # microgreenuzbekistan.com -> 127.0.0.1:3000 (does NOT touch 80/443 shared
+    # with the other projects on this box).
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file: .env
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://microgreen:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
-      - NEXT_PUBLIC_URL=https://microgreenuzbekistan.com
-      - ADMIN_CHAT_ID=${ADMIN_CHAT_ID}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GROQ_API_KEY=${GROQ_API_KEY}
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+      REDIS_URL: redis://redis:6379/0
+      NEXT_PUBLIC_URL: https://microgreenuzbekistan.com
     depends_on:
-      - postgres
-    restart: always
+      postgres:
+        condition: service_healthy
+      db-push:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     networks:
-      - microgreen
+      - mg_net
 
-  # Telegram Bot
+  # Customer-facing storefront bot (aiogram + Gemini) — the only client bot.
   bot:
     build:
       context: .
       dockerfile: apps/bot/Dockerfile
+    container_name: mg_storefront_bot
+    restart: unless-stopped
+    env_file: .env
     environment:
-      - BOT_TOKEN=${BOT_TOKEN}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - WEB_APP_URL=https://microgreenuzbekistan.com/webapp
-      - WEB_API_URL=https://microgreenuzbekistan.com/api
-      - ADMIN_CHAT_ID=${ADMIN_CHAT_ID}
-      - DATABASE_URL=postgresql://microgreen:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+      WEB_API_URL: http://web:3000/api
     depends_on:
-      - postgres
-    restart: always
+      web:
+        condition: service_started
     networks:
-      - microgreen
+      - mg_net
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
+  # ========================= tgas — INTERNAL AI OFFICE ====================
+  web_office:
+    <<: *tgas-bot
+    container_name: mg_web_office
+    command: python -m uvicorn web_office.main:app --host 0.0.0.0 --port 8050
+    ports:
+      - "127.0.0.1:8050:8050"
+
+  stepan:
+    <<: *tgas-bot
+    container_name: mg_stepan
+    command: python -m bots.stepan_bot.main
+
+  sales:
+    <<: *tgas-bot
+    container_name: mg_sales
+    command: python -m bots.sales_bot.main
+
+  support:
+    <<: *tgas-bot
+    container_name: mg_support
+    command: python -m bots.support_bot.main
+
+  hr:
+    <<: *tgas-bot
+    container_name: mg_hr
+    command: python -m bots.hr_bot.main
+
+  finance:
+    <<: *tgas-bot
+    container_name: mg_finance
+    command: python -m bots.finance_bot.main
+
+  marketing:
+    <<: *tgas-bot
+    container_name: mg_marketing
+    command: python -m bots.marketing_bot.main
+
+  pm:
+    <<: *tgas-bot
+    container_name: mg_pm
+    command: python -m bots.pm_bot.main
+
+  analytics:
+    <<: *tgas-bot
+    container_name: mg_analytics
+    command: python -m bots.analytics_bot.main
+
+  content:
+    <<: *tgas-bot
+    container_name: mg_content
+    command: python -m bots.content_bot.main
+
+  qa:
+    <<: *tgas-bot
+    container_name: mg_qa
+    command: python -m bots.qa_bot.main
+
+  rnd:
+    <<: *tgas-bot
+    container_name: mg_rnd
+    command: python -m bots.rnd_bot.main
+
+  # devops needs the Docker socket + backups dir (overrides anchor volumes)
+  devops:
+    <<: *tgas-bot
+    container_name: mg_devops
+    command: python -m bots.devops_bot.main
+    volumes:
+      - bus_tasks:/app/bus_tasks
+      - ./backups:/app/backups
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # n8n_bridge reaches an (optional) external n8n on the host
+  n8n_bridge:
+    <<: *tgas-bot
+    container_name: mg_n8n_bridge
+    command: python -m bots.n8n_bridge.main
     environment:
-      POSTGRES_USER: microgreen
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: microgreen_db
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: always
-    networks:
-      - microgreen
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U microgreen -d microgreen_db" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
+      REDIS_URL: redis://redis:6379/0
+      N8N_ASSISTANT_WEBHOOK: http://host.docker.internal:5678/webhook/assistant
+      N8N_TIMEOUT: "120"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  # Redis
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    restart: always
-    networks:
-      - microgreen
-
-  # Nginx Reverse Proxy
+  # ========================= EDGE (nginx + TLS) ===========================
+  # Opt-in only: `docker compose --profile edge up -d`.
+  # On the shared multi-tenant server the system nginx already owns 80/443,
+  # so by default we DON'T start these (web is reached via 127.0.0.1:3000).
   nginx:
     image: nginx:alpine
+    container_name: mg_nginx
+    profiles: ["edge"]
+    restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
       - ./certbot/www:/var/www/certbot:ro
       - ./certbot/conf:/etc/letsencrypt:ro
     depends_on:
       - web
-    restart: always
     networks:
-      - microgreen
+      - mg_net
 
-  # Certbot for SSL
   certbot:
     image: certbot/certbot
+    container_name: mg_certbot
+    profiles: ["edge"]
     volumes:
       - ./certbot/www:/var/www/certbot
       - ./certbot/conf:/etc/letsencrypt
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
-  postgres_data:
+  pg_data:
   redis_data:
-
+  bus_tasks:
 
 networks:
-  microgreen:
+  mg_net:
     driver: bridge

@@ -1,0 +1,9 @@
+# Keep Linux-consumed files as LF on every platform, so they work inside the
+# Docker containers and on the deploy server (the deploy tars the working copy).
+*.sh        text eol=lf
+*.sql       text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.py        text eol=lf
+Dockerfile  text eol=lf
+.dockerignore text eol=lf

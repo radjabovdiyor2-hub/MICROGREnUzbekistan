@@ -75,3 +75,24 @@ sushi_*.png
 
 # Logs
 logs/
+
+# --- tgas / monorepo merge ---
+# Legacy stub left after moving tgas -> apps/tgas (delete manually, never commit)
+/tgas/
+# Python virtualenvs (tgas uses ./venv)
+venv/
+# tgas runtime artifacts
+apps/tgas/bus_tasks/
+apps/tgas/backups/
+apps/tgas/.env
+bus_tasks/
+backups/
+# Generated / binary artifacts
+*.db
+*.mp4
+*.ogg
+temp_img.jpg
+tree.txt
+vc_redist.x64.exe
+n8n_workflows_*.json
+pm2.txt

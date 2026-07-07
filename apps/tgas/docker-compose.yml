@@ -1,0 +1,345 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: mg_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: microgreen
+      POSTGRES_USER: mg_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mg_secret_2024}
+    volumes:
+    - pg_data:/var/lib/postgresql/data
+    - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    ports:
+    - 5432:5432
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U mg_user -d microgreen
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+    - mg_net
+  redis:
+    image: redis:7-alpine
+    container_name: mg_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+    - redis_data:/data
+    ports:
+    - 6379:6379
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+    - mg_net
+  web_office:
+    build: .
+    container_name: mg_web_office
+    restart: unless-stopped
+    command: python -m uvicorn web_office.main:app --host 0.0.0.0 --port 8050
+    ports:
+    - 8050:8050
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD
+      - python
+      - -c
+      - import urllib.request; urllib.request.urlopen('http://localhost:8050/')
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+  stepan:
+    build: .
+    container_name: mg_stepan
+    restart: unless-stopped
+    command: python -m bots.stepan_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  sales:
+    build: .
+    container_name: mg_sales
+    restart: unless-stopped
+    command: python -m bots.sales_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  hr:
+    build: .
+    container_name: mg_hr
+    restart: unless-stopped
+    command: python -m bots.hr_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  finance:
+    build: .
+    container_name: mg_finance
+    restart: unless-stopped
+    command: python -m bots.finance_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  marketing:
+    build: .
+    container_name: mg_marketing
+    restart: unless-stopped
+    command: python -m bots.marketing_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  pm:
+    build: .
+    container_name: mg_pm
+    restart: unless-stopped
+    command: python -m bots.pm_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  support:
+    build: .
+    container_name: mg_support
+    restart: unless-stopped
+    command: python -m bots.support_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  analytics:
+    build: .
+    container_name: mg_analytics
+    restart: unless-stopped
+    command: python -m bots.analytics_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  content:
+    build: .
+    container_name: mg_content
+    restart: unless-stopped
+    command: python -m bots.content_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  qa:
+    build: .
+    container_name: mg_qa
+    restart: unless-stopped
+    command: python -m bots.qa_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  rnd:
+    build: .
+    container_name: mg_rnd
+    restart: unless-stopped
+    command: python -m bots.rnd_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
+  devops:
+    build: .
+    container_name: mg_devops
+    restart: unless-stopped
+    command: python -m bots.devops_bot.main
+    env_file: .env
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - ./backups:/app/backups
+    - bus_tasks:/app/bus_tasks
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+  n8n_bridge:
+    build: .
+    container_name: mg_n8n_bridge
+    restart: unless-stopped
+    command: python -m bots.n8n_bridge.main
+    env_file: .env
+    environment:
+      N8N_ASSISTANT_WEBHOOK: http://host.docker.internal:5678/webhook/assistant
+      N8N_TIMEOUT: '120'
+    extra_hosts:
+    - host.docker.internal:host-gateway
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    volumes:
+    - bus_tasks:/app/bus_tasks
+    networks:
+    - mg_net
+volumes:
+  pg_data: null
+  redis_data: null
+  bus_tasks: null
+networks:
+  mg_net:
+    driver: bridge
