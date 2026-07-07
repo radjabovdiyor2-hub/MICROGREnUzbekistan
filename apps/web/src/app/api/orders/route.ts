@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { deliveryFeeFor } from '@/lib/site';
 
 // ==========================================
 // Orders API — Create & List (Prisma-backed)
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     const subtotal = items.reduce((sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0);
-    const deliveryFee = subtotal >= 500000 ? 0 : 25000;
+    const deliveryFee = deliveryFeeFor(subtotal);
 
     // Find or create user by phone
     let user = await prisma.user.findUnique({ where: { phone: customer.phone } });

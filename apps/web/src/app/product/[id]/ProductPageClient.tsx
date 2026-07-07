@@ -7,6 +7,7 @@ import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
+import { CONTACT, DELIVERY } from '@/lib/site';
 
 interface Product {
   id: string;
@@ -208,6 +209,11 @@ export function ProductPageClient({ id }: { id: string }) {
             )}
           </div>
 
+          {/* Free-delivery hint — surface delivery economics before the cart (Baymard) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', padding: 'var(--space-2) var(--space-3)', background: 'var(--success-bg)', color: 'var(--success)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)' }}>
+            <Icons.Truck size={16} /> {t(`${fmt(DELIVERY.freeThreshold)} so'mdan yetkazish BEPUL`, `Доставка БЕСПЛАТНО от ${fmt(DELIVERY.freeThreshold)} сум`)}
+          </div>
+
           {/* Quantity + Cart */}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
             <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
@@ -234,7 +240,7 @@ export function ProductPageClient({ id }: { id: string }) {
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: fav ? 'var(--error)' : undefined }}>
               {fav ? <Icons.HeartFilled size={18} /> : <Icons.Heart size={18} />} {t("Sevimli", "В избранное")}
             </button>
-            <a href="tel:+998949999599" className="btn btn-outline"
+            <a href={CONTACT.phonePrimaryHref} className="btn btn-outline"
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <Icons.Phone size={18} /> {t("Qo'ng'iroq", "Позвонить")}
             </a>

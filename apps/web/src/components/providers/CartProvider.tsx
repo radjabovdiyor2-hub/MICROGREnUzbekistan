@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { triggerHaptic } from '@/utils/haptic';
+import { DELIVERY } from '@/lib/site';
 
 // ==========================================
 // Cart Store — localStorage-backed
@@ -38,8 +39,8 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 const CART_KEY = 'Microgreen_cart';
-const FREE_DELIVERY_THRESHOLD = 500000;
-const DELIVERY_FEE = 25000;
+const FREE_DELIVERY_THRESHOLD = DELIVERY.freeThreshold;
+const DELIVERY_FEE = DELIVERY.fee;
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);

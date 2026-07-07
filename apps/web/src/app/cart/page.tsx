@@ -7,6 +7,7 @@ import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import dynamic from 'next/dynamic';
+import { freeDeliveryRemaining } from '@/lib/site';
 
 const SmartSubscriptionWidget = dynamic(() => import('@/components/shop/SmartSubscriptionWidget').then(m => m.SmartSubscriptionWidget), { ssr: false });
 
@@ -180,7 +181,7 @@ export default function CartPage() {
                 </div>
                 {cart.deliveryFee > 0 && (
                   <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--info-bg)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)', color: 'var(--info)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Icons.Lightbulb size={14} /> {t(`Yana ${fmt(500000 - cart.subtotal)} so'm — bepul yetkazish!`, `Еще ${fmt(500000 - cart.subtotal)} сум — бесплатная доставка!`)}
+                    <Icons.Lightbulb size={14} /> {t(`Yana ${fmt(freeDeliveryRemaining(cart.subtotal))} so'm — bepul yetkazish!`, `Еще ${fmt(freeDeliveryRemaining(cart.subtotal))} сум — бесплатная доставка!`)}
                   </div>
                 )}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-3)', display: 'flex', justifyContent: 'space-between' }}>
