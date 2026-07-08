@@ -27,5 +27,11 @@ export const CONTACT = {
   phonePrimaryHref: "tel:+998949999599",
   phoneSecondary: "+998 98 007 20 20",
   phoneSecondaryHref: "tel:+998980072020",
+  // Social — single source of truth (keep handles consistent everywhere).
   instagram: "microgreenuzbekistan",
+  instagramUrl: "https://www.instagram.com/microgreenuzbekistan",
+  telegramChannel: "Microgreen_Uzbekistan",
+  telegramChannelUrl: "https://t.me/Microgreen_Uzbekistan",
+  telegramBot: "Microgreenuzbekistan_bot",
+  telegramBotUrl: "https://t.me/Microgreenuzbekistan_bot",
 } as const;

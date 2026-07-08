@@ -195,7 +195,7 @@ function JsonLd() {
           availableLanguage: ['uz', 'ru'],
         },
         sameAs: [
-          'https://t.me/MicrogreenUzbekistan',
+          'https://t.me/Microgreenuzbekistan_bot',
           'https://t.me/Microgreen_Uzbekistan',
           'https://www.instagram.com/microgreenuzbekistan',
         ],

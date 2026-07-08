@@ -4,14 +4,15 @@ import Image from 'next/image';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
+import { CONTACT } from '@/lib/site';
 
 export function AiNutritionistBanner() {
   const { t } = useLang();
 
   const openBot = () => {
     triggerHaptic('heavy');
-    // Assuming the bot link is microgreenuzbekistan_bot
-    window.location.href = 'https://t.me/Microgreenuzbekistan_bot';
+    // Open the bot in a new tab so the visitor keeps the site open.
+    window.open(CONTACT.telegramBotUrl, '_blank', 'noopener,noreferrer');
   };
 
   return (
