@@ -411,7 +411,7 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
   }, [userId, loaded]); // eslint-disable-line
 
   const shortCode = referralData?.referralCode || (referralCode ? `AGRO-${referralCode.slice(-6).toUpperCase()}` : '...');
-  const shareUrl = `https://Microgreen.uz?ref=${referralCode || ''}`;
+  const shareUrl = `https://microgreenuzbekistan.com/?ref=${referralCode || ''}`;
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
   const copyCode = async () => {
