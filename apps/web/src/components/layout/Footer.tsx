@@ -54,6 +54,7 @@ export function Footer() {
             {[
               { href: 'https://www.instagram.com/microgreenuzbekistan', icon: <Icons.Instagram size={18} />, label: 'Instagram' },
               { href: 'https://t.me/Microgreenuzbekistan_bot', icon: <Icons.MessageCircle size={18} />, label: 'Telegram' },
+              { href: 'https://wa.me/998949999599', icon: <Icons.Phone size={18} />, label: 'WhatsApp' },
               { href: 'tel:+998949999599', icon: <Icons.Phone size={18} />, label: 'Phone' },
             ].map((social, i) => (
               <a key={i} href={social.href} target="_blank" rel="noopener noreferrer"

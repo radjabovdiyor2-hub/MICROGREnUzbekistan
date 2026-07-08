@@ -7,6 +7,7 @@ import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
+import { MicrogreensCanvas, seedFromString } from '@/components/ui/MicrogreensCanvas';
 import dynamic from 'next/dynamic';
 
 const ArViewer = dynamic(() => import('@/components/ui/ArViewer').then(m => m.ArViewer), { ssr: false });
@@ -25,20 +26,9 @@ interface Product {
   category?: { nameUz: string; slug: string };
 }
 
-const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  'microgreens': <Icons.Leaf size={32} />,
-  'baby-leaf': <Icons.Leaf size={32} />,
-  'salads': <Icons.Leaf size={32} />,
-  'flowers': <Icons.Sparkles size={32} />,
-  'seeds': <Icons.Droplet size={32} />,
-  'equipment': <Icons.Plug size={32} />,
-  'sets': <Icons.Package size={32} />,
-};
-
 export function ProductCard({ product }: { product: Product }) {
   const discount = product.oldPrice ? getDiscountPercent(product.price, product.oldPrice) : 0;
   const categorySlug = product.category?.slug || '';
-  const categoryIcon = CATEGORY_ICONS[categorySlug] || <Icons.Package size={32} />;
   const cart = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
   const fav = isFavorite(product.id);
@@ -119,7 +109,7 @@ export function ProductCard({ product }: { product: Product }) {
       }}>
         {product.images && product.images.length > 0
           ? <Image src={product.images[0]} alt={productName} width={400} height={400} style={{ width: '100%', height: '100%', objectFit: 'cover' }} sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" loading="lazy" quality={75} unoptimized={!product.images[0].startsWith('https://') && !product.images[0].startsWith('http://')} />
-          : categoryIcon}
+          : <MicrogreensCanvas count={20} staticAfterGrow seed={seedFromString(product.id)} style={{ width: '100%', height: '100%' }} />}
       </div>
 
       {/* Info */}

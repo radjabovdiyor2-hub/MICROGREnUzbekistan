@@ -34,4 +34,6 @@ export const CONTACT = {
   telegramChannelUrl: "https://t.me/Microgreen_Uzbekistan",
   telegramBot: "Microgreenuzbekistan_bot",
   telegramBotUrl: "https://t.me/Microgreenuzbekistan_bot",
+  whatsapp: "998949999599",
+  whatsappUrl: "https://wa.me/998949999599",
 } as const;
