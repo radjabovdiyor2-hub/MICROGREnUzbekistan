@@ -18,8 +18,9 @@ export const runtime = 'nodejs';
 
 // Find the correct uploads directory for the current environment
 async function getUploadsDir(): Promise<string> {
-  // 1. Try persistent uploads directory (production)
-  const persistentDir = '/home/ubuntu/microgreen-uploads';
+  // 1. Try persistent uploads directory (production). In Docker this is the
+  //    mounted volume (UPLOADS_DIR=/data/uploads); on bare metal the host dir.
+  const persistentDir = process.env.UPLOADS_DIR || '/home/ubuntu/microgreen-uploads';
   try {
     const s = await stat(persistentDir);
     if (s.isDirectory()) {

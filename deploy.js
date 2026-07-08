@@ -114,15 +114,10 @@ async function main() {
     await sftpUpload(conn, tarFile, `${REMOTE_ROOT}/deploy_clean.tar.gz`);
 
     const commands = [
-      // Extract new code (over previous release)
-      `cd ${REMOTE_ROOT} && tar -xzf deploy_clean.tar.gz && rm deploy_clean.tar.gz`,
-      // Build the new images on the server. NON-DESTRUCTIVE — the currently
-      // running stack keeps serving. The actual cutover (stopping the live DB/bots
-      // and choosing whether to KEEP or RESET data) is a reviewed manual step:
-      // see deploy/CUTOVER.md. This script never force-removes live containers.
-      `cd ${REMOTE_ROOT} && ${COMPOSE} build 2>&1 | tail -40`,
-      // Reference: what is running right now (read-only)
-      `docker ps --format '  {{.Names}}\\t{{.Status}}' | grep '  mg_' || echo '  (no mg_* containers running)'`,
+      // Extract the new release. NON-DESTRUCTIVE: the live PM2 site keeps serving.
+      // Install/build/cutover is done by deploy/server-setup.sh (installs Docker
+      // if missing, builds, swaps, repoints nginx) — kept out of this uploader.
+      `cd ${REMOTE_ROOT} && tar -xzf deploy_clean.tar.gz && rm deploy_clean.tar.gz && chmod +x deploy/server-setup.sh 2>/dev/null; true`,
     ];
 
     for (const cmd of commands) {
@@ -131,9 +126,10 @@ async function main() {
     }
 
     console.log('\n========================================');
-    console.log(' STAGED + BUILT (not yet live)');
-    console.log(' Next: follow deploy/CUTOVER.md on the server');
-    console.log(' to swap the live stack (with data-preservation choice).');
+    console.log(' UPLOADED to ' + REMOTE_ROOT);
+    console.log(' Next, ON THE SERVER:  bash deploy/server-setup.sh');
+    console.log(' (installs Docker, builds, cuts over, repoints nginx —');
+    console.log('  scoped to Microgreen; mahalu/uziz/oltin-baliq untouched)');
     console.log('========================================\n');
   } finally {
     conn.end();

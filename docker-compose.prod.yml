@@ -15,6 +15,7 @@ x-tgas-bot: &tgas-bot
   build:
     context: ./apps/tgas
   restart: unless-stopped
+  mem_limit: 320m
   env_file: ./apps/tgas/.env
   environment:
     DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
@@ -40,6 +41,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: mg_postgres
     restart: unless-stopped
+    mem_limit: 512m
     environment:
       POSTGRES_USER: mg_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -60,6 +62,7 @@ services:
     image: redis:7-alpine
     container_name: mg_redis
     restart: unless-stopped
+    mem_limit: 192m
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
@@ -96,6 +99,7 @@ services:
       dockerfile: apps/web/Dockerfile
     container_name: mg_web
     restart: unless-stopped
+    mem_limit: 768m
     # Published only on loopback — the server's existing system nginx proxies
     # microgreenuzbekistan.com -> 127.0.0.1:3000 (does NOT touch 80/443 shared
     # with the other projects on this box).
@@ -109,6 +113,10 @@ services:
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
       REDIS_URL: redis://redis:6379/0
       NEXT_PUBLIC_URL: https://microgreenuzbekistan.com
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      # Persist + serve uploaded product images (host dir, kept across deploys).
+      - ${HOST_UPLOADS_DIR:-/home/ubuntu/microgreen-uploads}:/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -129,6 +137,7 @@ services:
       dockerfile: apps/bot/Dockerfile
     container_name: mg_storefront_bot
     restart: unless-stopped
+    mem_limit: 256m
     env_file: .env
     environment:
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
