@@ -5,7 +5,10 @@ FastAPI Web Dashboard Backend
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import re
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -17,8 +20,23 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 
 from shared.database import get_session_ctx
+from shared.event_bus import event_bus, Events
+from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
+
+# Общий секрет для приёма заказов из витрины (пусто = проверка выключена).
+INGEST_SECRET = os.getenv("INGEST_SECRET", "")
+# Способы оплаты, разрешённые CHECK-констрейнтом orders.payment_method.
+_ALLOWED_PAYMENT = {"cash", "card", "click", "payme", "transfer"}
+# Статусы заказа, разрешённые CHECK-констрейнтом orders.status.
+_ALLOWED_ORDER_STATUS = {
+    "new", "confirmed", "preparing", "ready", "delivering", "delivered", "cancelled",
+}
+# Куда синкать статус заказов витрины обратно (web /api/orders/status).
+STOREFRONT_STATUS_URL = os.getenv("STOREFRONT_STATUS_URL", "")
+# Маркер заказа витрины в notes: [webapp:<номер>].
+_WEBAPP_MARKER = re.compile(r"\[webapp:([^\]]+)\]")
 
 # ── Paths ────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).resolve().parent
@@ -515,3 +533,417 @@ a{{color:#58a6ff;text-decoration:none}}</style></head><body><div class=wrap>
 <div class=card><h3>По источникам</h3><ul>{src_html}</ul></div>
 </div></body></html>"""
     return HTMLResponse(html)
+
+
+# ─── Мост «витрина → AI-офис» ────────────────────────────────
+@app.post("/ingest/order")
+async def ingest_order(request: Request):
+    """Приём заказа из витрины (Next.js `/api/orders`) в CRM AI-офиса.
+
+    Витрина и офис живут в РАЗНЫХ базах (`microgreen_db` ↔ `microgreen`), поэтому
+    заказ из приложения сам по себе не виден ни ботам, ни дашборду. Этот эндпоинт —
+    единственный мост: он зеркалит заказ в CRM-таблицы (`customers`/`orders`) и
+    публикует `ORDER_CREATED`, чтобы Степан/PM/Finance/Analytics отработали его так
+    же, как «родной» заказ из sales_bot.
+
+    Номер витрины (`M-...`) кладём в `notes` как `[webapp:<номер>]`, а собственный
+    `order_number` в `microgreen.orders` оставляем NULL — его выдаёт триггер в формате
+    `MG-XXXXXX` (иначе ломается генерация номеров у sales_bot). Тот же маркер даёт
+    идемпотентность: повторный вызов с тем же номером дубль не создаёт.
+    """
+    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    ext_number = str(body.get("order_number") or "").strip()
+    if not ext_number:
+        return JSONResponse({"error": "order_number required"}, status_code=400)
+
+    customer = body.get("customer") or {}
+    name = (customer.get("name") or "").strip() or "Клиент из приложения"
+    phone = (customer.get("phone") or "").strip() or None
+    try:
+        raw_tid = customer.get("telegram_id")
+        tid = int(raw_tid) if raw_tid not in (None, "", 0, "0") else None
+    except (TypeError, ValueError):
+        tid = None
+    bonus_balance = _safe_float(customer.get("bonus_balance"))
+
+    total = _safe_float(body.get("total_amount"))
+    delivery_fee = _safe_float(body.get("delivery_fee"))
+    discount = _safe_float(body.get("discount_amount"))
+    pay_method = str(body.get("payment_method") or "cash").lower()
+    if pay_method not in _ALLOWED_PAYMENT:
+        pay_method = "cash"
+    address = str(body.get("delivery_address") or "").strip()
+    items_summary = str(body.get("items_summary") or "").strip()
+    extra_notes = str(body.get("notes") or "").strip()
+
+    marker = f"[webapp:{ext_number}]"
+    notes = marker
+    if items_summary:
+        notes += f" {items_summary}"
+    if extra_notes:
+        notes += f" | {extra_notes}"
+
+    try:
+        async with get_session_ctx() as session:
+            # Идемпотентность: заказ с этим номером витрины уже перенесён?
+            dup = (await session.execute(
+                text("SELECT id FROM orders WHERE notes LIKE :m LIMIT 1"),
+                {"m": marker + "%"},
+            )).scalar()
+            if dup:
+                return JSONResponse({"status": "duplicate", "order_id": dup})
+
+            # Upsert клиента: по telegram_id, затем по телефону, иначе создаём.
+            customer_id = None
+            if tid:
+                customer_id = (await session.execute(
+                    text("SELECT id FROM customers WHERE telegram_id = :tid"), {"tid": tid},
+                )).scalar()
+            if not customer_id and phone:
+                customer_id = (await session.execute(
+                    text("SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"),
+                    {"phone": phone},
+                )).scalar()
+            if not customer_id:
+                customer_id = (await session.execute(
+                    text(
+                        "INSERT INTO customers (name, phone, telegram_id, bonus_balance, source, "
+                        "status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, 'webapp', "
+                        "'active', 'b2c', 'Samarqand') RETURNING id"
+                    ),
+                    {"name": name, "phone": phone, "tid": tid, "bonus": bonus_balance},
+                )).scalar()
+            else:
+                # Дополняем недостающие контакты; баланс бонусов зеркалим из витрины.
+                await session.execute(
+                    text(
+                        "UPDATE customers SET telegram_id = COALESCE(telegram_id, :tid), "
+                        "phone = COALESCE(phone, :phone), "
+                        "name = COALESCE(NULLIF(name, ''), :name), "
+                        "bonus_balance = :bonus WHERE id = :cid"
+                    ),
+                    {"tid": tid, "phone": phone, "name": name, "bonus": bonus_balance, "cid": customer_id},
+                )
+
+            # Заказ. order_number = NULL → триггер выдаст MG-XXXXXX.
+            new = (await session.execute(
+                text(
+                    "INSERT INTO orders (customer_id, total_amount, delivery_fee, discount_amount, "
+                    "status, payment_status, payment_method, delivery_address, notes, created_at, "
+                    "updated_at) VALUES (:cid, :total, :delivery, :discount, 'new', 'pending', "
+                    ":pmethod, :addr, :notes, NOW(), NOW()) RETURNING id, order_number"
+                ),
+                {"cid": customer_id, "total": total, "delivery": delivery_fee,
+                 "discount": discount, "pmethod": pay_method, "addr": address, "notes": notes},
+            )).fetchone()
+            order_id, order_number = new[0], new[1]
+
+            # Позиции заказа: матчим товар витрины к офисному по storefront_id
+            # (каталог синкается shared.catalog_sync). Ненайденные строки просто
+            # пропускаем — детализация всё равно есть в notes/items_summary.
+            for line in (body.get("items") or []):
+                sid = str(line.get("storefront_id") or "").strip()
+                qty = _safe_float(line.get("quantity")) or 1
+                price = _safe_float(line.get("price"))
+                if not sid:
+                    continue
+                prod = (await session.execute(
+                    text("SELECT id, unit FROM products WHERE storefront_id = :sid"), {"sid": sid},
+                )).fetchone()
+                if not prod:
+                    continue
+                await session.execute(text(
+                    "INSERT INTO order_items (order_id, product_id, quantity, unit, unit_price, "
+                    "total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
+                ), {"oid": order_id, "pid": prod[0], "qty": qty, "unit": prod[1] or "piece",
+                    "price": price, "total": price * qty})
+
+            # Статистика клиента + журнал взаимодействия (как это делает sales_bot).
+            await session.execute(
+                text(
+                    "UPDATE customers SET orders_count = orders_count + 1, "
+                    "total_spent = total_spent + :amount, last_order_date = NOW(), "
+                    "status = CASE WHEN orders_count >= 5 THEN 'vip' "
+                    "WHEN orders_count >= 1 THEN 'active' ELSE 'active' END WHERE id = :cid"
+                ),
+                {"amount": total, "cid": customer_id},
+            )
+            await session.execute(
+                text(
+                    "INSERT INTO interactions (customer_id, order_id, channel, interaction_type, "
+                    "bot_name, summary) VALUES (:cid, :oid, 'webapp', 'order', 'web_office', :summary)"
+                ),
+                {"cid": customer_id, "oid": order_id,
+                 "summary": f"Заказ {order_number} (витрина {ext_number}) на "
+                            f"{format_price(total)}: {items_summary[:150]}"},
+            )
+    except Exception as exc:
+        logger.exception("Ingest: не удалось перенести заказ %s: %s", ext_number, exc)
+        return JSONResponse({"error": "ingest failed"}, status_code=500)
+
+    # ORDER_CREATED → Степан (уведомит группу), PM (задача на производство),
+    # Finance (доход), Analytics (журнал).
+    await event_bus.publish(
+        Events.ORDER_CREATED,
+        {
+            "order_id": order_id,
+            "order_number": order_number,
+            "total_amount": total,
+            "customer_id": customer_id,
+            "items_summary": items_summary or extra_notes,
+            "telegram_id": tid,
+            "source": "webapp",
+            "external_number": ext_number,
+        },
+        source_bot="web_office",
+    )
+    logger.info(
+        "Ingest: заказ витрины %s → CRM #%s (%s), ORDER_CREATED разослан",
+        ext_number, order_id, order_number,
+    )
+    return JSONResponse({"status": "ok", "order_id": order_id, "order_number": order_number})
+
+
+@app.post("/ingest/order-status")
+async def ingest_order_status(request: Request):
+    """Синхронизация смены статуса заказа витрины в CRM AI-офиса.
+
+    Вызывается витриной, когда статус (или статус оплаты) заказа из приложения
+    меняется. Находим зеркальный заказ по маркеру `[webapp:<номер>]` в notes,
+    обновляем `status`/`payment_status` и публикуем `ORDER_STATUS_CHANGED`, чтобы
+    Степан/Analytics видели актуальный жизненный цикл. Обратно на витрину не
+    ходим — этот путь только storefront → office.
+    """
+    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    ext_number = str(body.get("order_number") or "").strip()
+    if not ext_number:
+        return JSONResponse({"error": "order_number required"}, status_code=400)
+    status = body.get("status") or None
+    payment_status = body.get("payment_status") or None
+    if not status and not payment_status:
+        return JSONResponse({"error": "nothing to update"}, status_code=400)
+
+    marker = f"[webapp:{ext_number}]"
+    try:
+        async with get_session_ctx() as session:
+            row = (await session.execute(
+                text(
+                    "UPDATE orders SET status = COALESCE(:status, status), "
+                    "payment_status = COALESCE(:pstatus, payment_status), updated_at = NOW() "
+                    "WHERE notes LIKE :m RETURNING id, order_number, status"
+                ),
+                {"status": status, "pstatus": payment_status, "m": marker + "%"},
+            )).fetchone()
+    except Exception as exc:
+        logger.exception("Ingest-status: не удалось обновить заказ %s: %s", ext_number, exc)
+        return JSONResponse({"error": "update failed"}, status_code=500)
+
+    if not row:
+        # Заказ ещё не перенесён (например, ingest не сработал) — не ошибка потока.
+        logger.warning("Ingest-status: заказ витрины %s в CRM не найден", ext_number)
+        return JSONResponse({"status": "not_found"}, status_code=404)
+
+    order_id, order_number, new_status = row[0], row[1], row[2]
+    await event_bus.publish(
+        Events.ORDER_STATUS_CHANGED,
+        {
+            "order_id": order_id,
+            "order_number": order_number,
+            "external_number": ext_number,
+            "status": new_status,
+            "payment_status": payment_status,
+            "source": "webapp",
+        },
+        source_bot="web_office",
+    )
+    logger.info("Ingest-status: заказ %s (%s) → %s", order_number, ext_number, new_status)
+    return JSONResponse({"status": "ok", "order_id": order_id, "order_number": order_number})
+
+
+@app.post("/orders/{order_id}/status")
+async def change_order_status(order_id: int, request: Request):
+    """Смена статуса заказа из дашборда офиса (office — источник правды).
+
+    Обновляем `microgreen.orders`, публикуем `ORDER_STATUS_CHANGED` и, если это
+    заказ витрины (в notes есть `[webapp:<номер>]`), синкаем статус обратно на
+    витрину (`STOREFRONT_STATUS_URL`), которая обновит свою БД и уведомит клиента.
+    Обратно витрина сюда не ходит — петли нет.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    status = str(body.get("status") or "").strip().lower()
+    if status not in _ALLOWED_ORDER_STATUS:
+        return JSONResponse({"error": "invalid status"}, status_code=400)
+
+    try:
+        async with get_session_ctx() as session:
+            row = (await session.execute(
+                text(
+                    "UPDATE orders SET status = :s, updated_at = NOW() "
+                    "WHERE id = :id RETURNING order_number, notes"
+                ),
+                {"s": status, "id": order_id},
+            )).fetchone()
+    except Exception as exc:
+        logger.exception("Order-status: не удалось обновить заказ #%s: %s", order_id, exc)
+        return JSONResponse({"error": "update failed"}, status_code=500)
+
+    if not row:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    order_number, notes = row[0], row[1] or ""
+
+    await event_bus.publish(
+        Events.ORDER_STATUS_CHANGED,
+        {"order_id": order_id, "order_number": order_number, "status": status, "source": "office"},
+        source_bot="web_office",
+    )
+
+    # Заказ витрины → синкаем обратно (обновит microgreen_db + уведомит клиента).
+    m = _WEBAPP_MARKER.search(notes)
+    if m and STOREFRONT_STATUS_URL:
+        ext_number = m.group(1)
+        headers = {"Content-Type": "application/json"}
+        if INGEST_SECRET:
+            headers["X-Ingest-Secret"] = INGEST_SECRET
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as s:
+                await s.post(
+                    STOREFRONT_STATUS_URL,
+                    json={"order_number": ext_number, "status": status},
+                    headers=headers,
+                    timeout=aiohttp.ClientTimeout(total=5),
+                )
+        except Exception as exc:
+            logger.warning("Order-status: синк на витрину не удался (%s): %s", ext_number, exc)
+
+    logger.info("Order-status: заказ #%s (%s) → %s", order_id, order_number, status)
+    return JSONResponse({"status": "ok", "order_number": order_number, "new_status": status})
+
+
+@app.post("/ingest/customer")
+async def ingest_customer(request: Request):
+    """Регистрация клиента из витрины (Mini App / сайт) в CRM офиса.
+
+    Раньше клиент попадал в CRM только при первом заказе. Теперь любой вход/
+    регистрация на витрине заводит/обновляет запись в `customers` и публикует
+    `CUSTOMER_REGISTERED` (Sales/Analytics видят новых лидов).
+    """
+    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    name = (body.get("name") or "").strip() or "Клиент из приложения"
+    phone = (body.get("phone") or "").strip() or None
+    try:
+        raw_tid = body.get("telegram_id")
+        tid = int(raw_tid) if raw_tid not in (None, "", 0, "0") else None
+    except (TypeError, ValueError):
+        tid = None
+    bonus = _safe_float(body.get("bonus_balance"))
+    language = (body.get("language") or "ru").strip()[:5]
+    if not tid and not phone:
+        return JSONResponse({"error": "telegram_id or phone required"}, status_code=400)
+
+    try:
+        async with get_session_ctx() as session:
+            customer_id = None
+            if tid:
+                customer_id = (await session.execute(
+                    text("SELECT id FROM customers WHERE telegram_id = :tid"), {"tid": tid},
+                )).scalar()
+            if not customer_id and phone:
+                customer_id = (await session.execute(
+                    text("SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"),
+                    {"phone": phone},
+                )).scalar()
+            is_new = customer_id is None
+            if is_new:
+                customer_id = (await session.execute(
+                    text(
+                        "INSERT INTO customers (name, phone, telegram_id, bonus_balance, language, "
+                        "source, status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, "
+                        ":lang, 'webapp', 'lead', 'b2c', 'Samarqand') RETURNING id"
+                    ),
+                    {"name": name, "phone": phone, "tid": tid, "bonus": bonus, "lang": language},
+                )).scalar()
+            else:
+                await session.execute(
+                    text(
+                        "UPDATE customers SET telegram_id = COALESCE(telegram_id, :tid), "
+                        "phone = COALESCE(phone, :phone), name = COALESCE(NULLIF(name, ''), :name), "
+                        "bonus_balance = :bonus WHERE id = :cid"
+                    ),
+                    {"tid": tid, "phone": phone, "name": name, "bonus": bonus, "cid": customer_id},
+                )
+    except Exception as exc:
+        logger.exception("Ingest-customer: ошибка (%s): %s", phone or tid, exc)
+        return JSONResponse({"error": "ingest failed"}, status_code=500)
+
+    if is_new:
+        await event_bus.publish(
+            Events.CUSTOMER_REGISTERED,
+            {"customer_id": customer_id, "telegram_id": tid, "name": name,
+             "phone": phone, "source": "webapp"},
+            source_bot="web_office",
+        )
+    logger.info("Ingest-customer: %s клиент #%s", "новый" if is_new else "обновлён", customer_id)
+    return JSONResponse({"status": "ok", "customer_id": customer_id, "is_new": is_new})
+
+
+# ─── Синхронизация каталога витрина → офис ───────────────────
+@app.post("/admin/sync-catalog")
+async def sync_catalog(request: Request):
+    """Ручной запуск синка каталога витрины в офис."""
+    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from shared.catalog_sync import sync_catalog_from_storefront
+        result = await sync_catalog_from_storefront()
+        return JSONResponse({"status": "ok", **result})
+    except Exception as exc:
+        logger.exception("Sync-catalog: ошибка: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+async def _catalog_sync_loop() -> None:
+    """Фоновая периодическая синхронизация каталога (раз в 30 минут)."""
+    from shared.catalog_sync import sync_catalog_from_storefront
+    await asyncio.sleep(20)  # дать витрине подняться
+    while True:
+        try:
+            await sync_catalog_from_storefront()
+        except Exception as exc:
+            logger.warning("Catalog sync loop: %s", exc)
+        await asyncio.sleep(1800)
+
+
+@app.on_event("startup")
+async def _start_catalog_sync() -> None:
+    # Гарантируем колонку storefront_id ДО приёма заказов (защита от гонки на
+    # уже развёрнутой БД), затем запускаем периодический синк в фоне.
+    try:
+        from shared.catalog_sync import ensure_schema
+        await ensure_schema()
+    except Exception as exc:
+        logger.warning("Catalog schema ensure failed at startup: %s", exc)
+    asyncio.create_task(_catalog_sync_loop())

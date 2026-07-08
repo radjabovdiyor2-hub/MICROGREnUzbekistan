@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { notifyOfficeCustomer } from '@/lib/office';
 import crypto from 'crypto';
 import { prisma } from '@repo/database';
 
@@ -59,6 +60,8 @@ export async function POST(request: NextRequest) {
           language: tg.language_code || 'uz',
         },
       });
+      // New customer → register in the AI-office CRM (best-effort).
+      await notifyOfficeCustomer(user);
     }
 
     return NextResponse.json({

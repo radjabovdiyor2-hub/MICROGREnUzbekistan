@@ -418,10 +418,17 @@
                   <th>Клиент</th>
                   <th>Сумма</th>
                   <th>Статус</th>
+                  <th>Изменить</th>
                   <th>Дата</th>
                 </tr>
               </thead>
               <tbody>
+                {% set order_flow = ['new','confirmed','preparing','ready','delivering','delivered','cancelled'] %}
+                {% set order_status_labels = {
+                  'new': 'Новый', 'confirmed': 'Подтверждён', 'preparing': 'Готовится',
+                  'ready': 'Готов', 'delivering': 'В пути', 'delivered': 'Доставлен',
+                  'cancelled': 'Отменён'
+                } %}
                 {% for order in recent_orders %}
                 <tr>
                   <td class="cell-id">{{ order.id }}</td>
@@ -429,14 +436,14 @@
                   <td>{{ order.customer_name or '—' }}</td>
                   <td class="cell-amount income">{{ '{:,.0f}'.format(order.total_amount|float) }} сум</td>
                   <td>
-                    {% set order_status_labels = {
-                      'new': 'Новый',
-                      'pending': 'Ожидает',
-                      'processing': 'Обработка',
-                      'completed': 'Завершён',
-                      'cancelled': 'Отменён'
-                    } %}
                     <span class="badge {{ order.status }}">{{ order_status_labels.get(order.status, order.status) }}</span>
+                  </td>
+                  <td>
+                    <select class="status-select" data-prev="{{ order.status }}" onchange="changeOrderStatus({{ order.id }}, this.value, this)">
+                      {% for st in order_flow %}
+                      <option value="{{ st }}" {{ 'selected' if st == order.status else '' }}>{{ order_status_labels.get(st, st) }}</option>
+                      {% endfor %}
+                    </select>
                   </td>
                   <td class="cell-deadline">{{ order.created_at if order.created_at else '—' }}</td>
                 </tr>
@@ -795,6 +802,30 @@
         setTimeout(() => t.classList.add('show'), 10);
         setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3000);
       }
+
+      // Смена статуса заказа из дашборда (office → CRM + витрина + клиент).
+      window.changeOrderStatus = async function (orderId, status, el) {
+        const prev = el ? el.getAttribute('data-prev') : null;
+        if (el) el.disabled = true;
+        try {
+          const res = await fetch('/orders/' + orderId + '/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: status }),
+          });
+          const data = await res.json();
+          if (res.ok && data.status === 'ok') {
+            showToast('✅ Заказ ' + (data.order_number || '#' + orderId) + ' → ' + status);
+          } else {
+            showToast('❌ ' + (data.error || 'Ошибка'));
+            if (el && prev) el.value = prev;
+          }
+        } catch (err) {
+          showToast('❌ Ошибка сети');
+          if (el && prev) el.value = prev;
+        }
+        if (el) { el.disabled = false; el.setAttribute('data-prev', el.value); }
+      };
 
     })();
   </script>

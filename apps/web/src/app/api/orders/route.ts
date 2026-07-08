@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { deliveryFeeFor } from '@/lib/site';
+import { syncOrderStatus } from '@/lib/orderSync';
 
 // ==========================================
 // Orders API — Create & List (Prisma-backed)
@@ -62,6 +63,76 @@ ${itemsList}
     });
   } catch (err) {
     console.error('Failed to send telegram notification', err);
+  }
+}
+
+// Bridge the order into the tgas AI-office CRM (a separate `microgreen` DB).
+// The storefront and the AI-office live in different databases, so without this
+// hop Stepan and the department bots never see app orders. The web_office ingest
+// endpoint mirrors the order into the CRM and fires ORDER_CREATED on the internal
+// event bus. Best-effort: a failure here must not fail the customer's checkout.
+async function notifyOffice(
+  order: {
+    orderNumber: string;
+    phone: string;
+    address: string;
+    note: string | null;
+    total: number;
+    deliveryFee: number;
+    discount: number;
+    paymentMethod: string;
+    items: { productId: string; quantity: number; price: number; product: { nameUz: string } }[];
+  },
+  user: { firstName: string | null; lastName: string | null; telegramId: bigint | null; bonusPoints: number },
+) {
+  const url = process.env.OFFICE_INGEST_URL; // e.g. http://web_office:8050/ingest/order
+  if (!url) {
+    console.warn('AI-office ingest skipped: OFFICE_INGEST_URL not set');
+    return;
+  }
+
+  const itemsSummary = order.items
+    .map((i) => `${i.product.nameUz} x${i.quantity}`)
+    .join(', ');
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
+
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
+      },
+      body: JSON.stringify({
+        order_number: order.orderNumber,
+        customer: {
+          name,
+          phone: order.phone,
+          // BigInt is not JSON-serializable — send as a decimal string.
+          telegram_id: user.telegramId ? user.telegramId.toString() : null,
+          // Mirror the loyalty balance so the office CRM shows one number.
+          bonus_balance: user.bonusPoints,
+        },
+        total_amount: order.total,
+        delivery_fee: order.deliveryFee,
+        discount_amount: order.discount,
+        payment_method: order.paymentMethod,
+        delivery_address: order.address,
+        items_summary: itemsSummary,
+        // Per-line detail so the office can write order_items against the
+        // synced catalog (product matched by storefront_id).
+        items: order.items.map((i) => ({
+          storefront_id: i.productId,
+          name: i.product.nameUz,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        notes: order.note || '',
+      }),
+      signal: AbortSignal.timeout(4000),
+    });
+  } catch (err) {
+    console.error('AI-office ingest failed (order still created):', err);
   }
 }
 
@@ -189,6 +260,10 @@ export async function POST(request: NextRequest) {
     // Send notification to Telegram bot
     await notifyTelegram(order, customer.firstName);
 
+    // Mirror into the AI-office CRM + fire ORDER_CREATED so Stepan and the
+    // department bots (Finance/PM/Analytics) actually see this order.
+    await notifyOffice(order, user);
+
 
     // Referral bonus: 3% to referrer
     try {
@@ -285,7 +360,11 @@ export async function PUT(request: NextRequest) {
     const order = await prisma.order.update({
       where: { id },
       data,
+      include: { user: { select: { telegramId: true, language: true } } },
     });
+
+    // Notify the customer + mirror the status into the AI-office CRM.
+    await syncOrderStatus(order);
 
     return NextResponse.json({ success: true, order });
   } catch (error) {

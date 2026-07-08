@@ -40,3 +40,28 @@ export async function notifyAdmin(opts: NotifyOptions): Promise<boolean> {
     return false;
   }
 }
+
+// Notify the CUSTOMER (not the admin) via the storefront bot they already talk
+// to. The internal AI-office bots can't reliably DM a customer (the customer may
+// never have started them), so status updates go out through TELEGRAM_BOT_TOKEN.
+export async function notifyCustomer(
+  telegramId: bigint | number | string | null | undefined,
+  message: string,
+): Promise<boolean> {
+  if (!BOT_TOKEN || !telegramId) return false;
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: telegramId.toString(),
+        text: message,
+        parse_mode: 'HTML',
+      }),
+    });
+    return res.ok;
+  } catch (e) {
+    console.error('[Notify] Customer send failed:', e);
+    return false;
+  }
+}

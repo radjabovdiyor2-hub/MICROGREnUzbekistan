@@ -116,8 +116,15 @@ CREATE TABLE IF NOT EXISTS products (
     nutrition_info  JSONB,
     is_active       BOOLEAN DEFAULT TRUE,
     sort_order      INTEGER DEFAULT 0,
+    -- Ссылка на товар витрины (Prisma cuid). Каталог-мастер — витрина; офис
+    -- зеркалит через shared.catalog_sync. NULL = нативный офисный товар.
+    storefront_id   VARCHAR(64),
     created_at      TIMESTAMP DEFAULT NOW()
 );
+
+-- Идемпотентность синка каталога: один офисный товар на один товар витрины.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_products_storefront_id
+    ON products(storefront_id) WHERE storefront_id IS NOT NULL;
 
 COMMENT ON TABLE products IS 'Каталог продукции Microgreen Uzbekistan';
 COMMENT ON COLUMN products.name_uz IS 'Название товара на узбекском языке';

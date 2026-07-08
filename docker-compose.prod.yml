@@ -20,6 +20,13 @@ x-tgas-bot: &tgas-bot
   environment:
     DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
     REDIS_URL: redis://redis:6379/0
+    # Shared secret guarding web_office's /ingest/order bridge (empty = off).
+    INGEST_SECRET: ${INGEST_SECRET:-}
+    # Reverse sync: office dashboard status change -> storefront + customer.
+    STOREFRONT_STATUS_URL: http://web:3000/api/orders/status
+    # Catalog sync: pull the storefront catalog (master) into the office mirror.
+    STOREFRONT_API_URL: http://web:3000/api
+    BOT_SECRET: ${BOT_SECRET:-}
   depends_on:
     postgres:
       condition: service_healthy
@@ -114,6 +121,13 @@ services:
       REDIS_URL: redis://redis:6379/0
       NEXT_PUBLIC_URL: https://microgreenuzbekistan.com
       UPLOADS_DIR: /data/uploads
+      # Bridge app orders/customers into the tgas AI-office CRM (`microgreen` DB).
+      OFFICE_INGEST_URL: http://web_office:8050/ingest/order
+      OFFICE_STATUS_URL: http://web_office:8050/ingest/order-status
+      OFFICE_CUSTOMER_URL: http://web_office:8050/ingest/customer
+      INGEST_SECRET: ${INGEST_SECRET:-}
+      # Shared secret for storefront-bot -> web admin API calls (empty = off).
+      BOT_SECRET: ${BOT_SECRET:-}
     volumes:
       # Persist + serve uploaded product images (host dir, kept across deploys).
       - ${HOST_UPLOADS_DIR:-/home/ubuntu/microgreen-uploads}:/data/uploads
@@ -142,6 +156,8 @@ services:
     environment:
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
       WEB_API_URL: http://web:3000/api
+      # Must match the web service's BOT_SECRET so admin API calls authorize.
+      BOT_SECRET: ${BOT_SECRET:-}
     depends_on:
       web:
         condition: service_started

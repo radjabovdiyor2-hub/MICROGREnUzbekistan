@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { notifyOfficeCustomer } from '@/lib/office';
 
 // Simple registration — no verification required
 export async function POST(request: NextRequest) {
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest) {
         language: 'uz',
       },
     });
+
+    // Register/refresh the customer in the AI-office CRM (best-effort, idempotent).
+    await notifyOfficeCustomer(user);
 
     return NextResponse.json({
       success: true,
