@@ -6,6 +6,7 @@ import Image from 'next/image';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
+import { useAuth } from '@/components/providers/AuthProvider';
 import dynamic from 'next/dynamic';
 import { freeDeliveryRemaining } from '@/lib/site';
 
@@ -25,6 +26,8 @@ export default function CartPage() {
   const [step, setStep] = useState<Step>('cart');
   const [orderNumber, setOrderNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { dbUser } = useAuth();
+  const [useBonus, setUseBonus] = useState(false);
 
   // Checkout form
   const [form, setForm] = useState({
@@ -37,6 +40,11 @@ export default function CartPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
+
+  // Bonus points (only for logged-in accounts). Capped by the goods subtotal.
+  const bonusBalance = dbUser?.bonusPoints || 0;
+  const bonusApplied = useBonus ? Math.min(bonusBalance, cart.subtotal) : 0;
+  const grandTotal = cart.total - bonusApplied;
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -68,6 +76,8 @@ export default function CartPage() {
             quantity: i.quantity,
           })),
           paymentMethod: form.paymentMethod,
+          userId: dbUser?.id,
+          bonusToUse: bonusApplied,
         }),
       });
 
@@ -304,10 +314,25 @@ export default function CartPage() {
                 {cart.deliveryFee === 0 ? <><Icons.PartyPopper size={14} /> {t("Bepul!", "Бесплатно!")}</> : `${fmt(cart.deliveryFee)} ${t("so'm", "сум")}`}
               </span>
             </div>
+            {bonusBalance > 0 && (
+              <label htmlFor="use-bonus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'var(--font-medium)' }}>
+                  <Icons.Sparkles size={16} /> {t(`${fmt(bonusBalance)} ball ishlatish`, `Списать ${fmt(bonusBalance)} баллов`)}
+                </span>
+                <input id="use-bonus" type="checkbox" checked={useBonus} onChange={e => setUseBonus(e.target.checked)}
+                  style={{ accentColor: 'var(--brand-primary)', width: 18, height: 18 }} />
+              </label>
+            )}
+            {bonusApplied > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--success)' }}>
+                <span>{t("Bonus chegirma", "Скидка бонусами")}</span>
+                <span>−{fmt(bonusApplied)} {t("so'm", "сум")}</span>
+              </div>
+            )}
             <div style={{ borderTop: '2px solid var(--brand-primary)', paddingTop: 'var(--space-3)', display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{t("Jami:", "Итого:")}</span>
               <span style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xl)', color: 'var(--brand-primary)' }}>
-                {fmt(cart.total)} {t("so'm", "сум")}
+                {fmt(grandTotal)} {t("so'm", "сум")}
               </span>
             </div>
           </div>

@@ -69,7 +69,7 @@ ${itemsList}
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { customer, items, paymentMethod } = body;
+    const { customer, items, paymentMethod, userId, bonusToUse } = body;
 
     // Validate
     if (!customer?.firstName || !customer?.phone || !customer?.address) {
@@ -82,8 +82,10 @@ export async function POST(request: NextRequest) {
     const subtotal = items.reduce((sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0);
     const deliveryFee = deliveryFeeFor(subtotal);
 
-    // Find or create user by phone
-    let user = await prisma.user.findUnique({ where: { phone: customer.phone } });
+    // Resolve the ordering user: prefer the logged-in account (userId), then
+    // phone, else create a guest by phone.
+    let user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
+    if (!user) user = await prisma.user.findUnique({ where: { phone: customer.phone } });
     if (!user) {
       user = await prisma.user.create({
         data: {
@@ -94,6 +96,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Bonus redemption — only for the authenticated account, capped by the
+    // balance and by the goods subtotal (delivery is never covered by points).
+    const authed = !!userId && user.id === userId;
+    const bonusApplied = authed
+      ? Math.max(0, Math.min(Math.floor(Number(bonusToUse) || 0), user.bonusPoints, subtotal))
+      : 0;
+
     // Create order with items in a transaction
     const order = await prisma.order.create({
       data: {
@@ -102,8 +111,8 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
         subtotal,
         deliveryFee,
-        total: subtotal + deliveryFee,
-        discount: 0,
+        total: subtotal + deliveryFee - bonusApplied,
+        discount: bonusApplied,
         address: customer.address,
         phone: customer.phone,
         note: customer.note || null,
@@ -125,6 +134,13 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Deduct redeemed bonus points from the account
+    if (bonusApplied > 0) {
+      try {
+        await prisma.user.update({ where: { id: user.id }, data: { bonusPoints: { decrement: bonusApplied } } });
+      } catch (e) { console.error('Bonus deduction error:', e); }
+    }
 
     // Auto-deduct stock + create StockMovements
     const lowStockAlerts: string[] = [];
