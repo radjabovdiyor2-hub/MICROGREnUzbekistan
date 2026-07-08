@@ -8,6 +8,7 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { PwaRegister } from '@/components/providers/PwaRegister';
 import { ReferralCapture } from '@/components/providers/ReferralCapture';
+import { TelegramInit } from '@/components/providers/TelegramInit';
 import { Analytics } from '@/components/providers/Analytics';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
@@ -400,6 +401,7 @@ export default function RootLayout({
                   </AppShell>
                   <PwaRegister />
                   <ReferralCapture />
+                  <TelegramInit />
                   <Analytics />
                 </AuthProvider>
               </FavoritesProvider>
