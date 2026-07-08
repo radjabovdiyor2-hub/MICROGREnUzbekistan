@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useAuth } from '@/components/providers/AuthProvider';
 
 // Foundation for running the storefront as a Telegram Mini App.
 // When opened inside Telegram, `window.Telegram.WebApp` is injected by the
@@ -11,6 +12,8 @@ import { useEffect } from 'react';
 // WebApp.initData server-side (HMAC-SHA256 with the bot token) and auto-login
 // the Telegram user via AuthProvider.
 export function TelegramInit() {
+  const { webAppLogin, isLoggedIn } = useAuth();
+
   useEffect(() => {
     const wa = (window as unknown as { Telegram?: { WebApp?: any } })?.Telegram?.WebApp;
     if (!wa || !wa.initData) return; // not inside Telegram
@@ -22,7 +25,9 @@ export function TelegramInit() {
     } catch {
       /* older Telegram clients — ignore */
     }
-  }, []);
+    // Securely log the Telegram user in (server validates initData via HMAC).
+    if (!isLoggedIn) void webAppLogin(wa.initData);
+  }, [webAppLogin, isLoggedIn]);
 
   return null;
 }

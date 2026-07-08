@@ -32,6 +32,7 @@ interface AuthState {
   isLoading: boolean;
   login: (tgUser: TelegramUser) => Promise<boolean>;
   simpleLogin: (name: string, phone: string) => Promise<boolean>;
+  webAppLogin: (initData: string) => Promise<boolean>;
   logout: () => void;
   isLoggedIn: boolean;
 }
@@ -42,6 +43,7 @@ const AuthContext = createContext<AuthState>({
   isLoading: true,
   login: async () => false,
   simpleLogin: async () => false,
+  webAppLogin: async () => false,
   logout: () => {},
   isLoggedIn: false,
 });
@@ -141,6 +143,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
 
+  // Telegram Mini App login — validate WebApp.initData server-side.
+  const webAppLogin = useCallback(async (initData: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/auth/telegram-webapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.tgUser) {
+          const appUser: TelegramUser = {
+            id: data.tgUser.id,
+            first_name: data.tgUser.first_name || 'Telegram',
+            last_name: data.tgUser.last_name,
+            username: data.tgUser.username,
+            photo_url: data.tgUser.photo_url,
+            auth_date: Math.floor(Date.now() / 1000),
+            hash: 'tma',
+          };
+          setUser(appUser);
+          setDbUser(data.user || null);
+          localStorage.setItem('Microgreen-user', JSON.stringify(appUser));
+          if (data.user) localStorage.setItem('Microgreen-db-user', JSON.stringify(data.user));
+          return true;
+        }
+      }
+    } catch {
+      // ignore — stays logged out
+    }
+    return false;
+  }, []);
+
   const logout = useCallback(() => {
     setUser(null);
     setDbUser(null);
@@ -149,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, dbUser, isLoading, login, simpleLogin, logout, isLoggedIn: !!user }}>
+    <AuthContext.Provider value={{ user, dbUser, isLoading, login, simpleLogin, webAppLogin, logout, isLoggedIn: !!user }}>
       {children}
     </AuthContext.Provider>
   );
