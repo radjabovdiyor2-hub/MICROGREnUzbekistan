@@ -576,6 +576,40 @@ async def weekly_grid_post():
         logging.error(f"weekly_grid_post error: {e}", exc_info=True)
 
 
+async def daily_site_recipe():
+    """Забрать «рецепт дня» с сайта (единый AI-источник) и прислать админу.
+
+    Витрина генерирует один рецепт дня на AI. content_bot подтягивает его, чтобы
+    соцсети и сайт показывали ОДИН и тот же рецепт — контент и витрина связаны.
+    """
+    try:
+        import os
+        import aiohttp
+        api = os.getenv("STOREFRONT_API_URL", "http://web:3000/api").rstrip("/")
+        async with aiohttp.ClientSession() as s:
+            async with s.get(
+                f"{api}/content/recipe-of-day",
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status != 200:
+                    logging.warning("daily_site_recipe: HTTP %s", resp.status)
+                    return
+                data = await resp.json()
+        caption = (data.get("captionRu") or "").strip()
+        if not caption:
+            return
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if admin_id and _bot:
+            await _bot.send_message(
+                admin_id,
+                f"🍽 <b>Рецепт дня с сайта</b> (готов к публикации):\n\n{caption[:3500]}",
+                parse_mode="HTML",
+            )
+    except Exception as e:
+        logging.error("daily_site_recipe error: %s", e)
+
+
+scheduler.add_cron(name="daily_site_recipe", func=daily_site_recipe, hour=9, minute=30)
 scheduler.add_cron(name="daily_content_ideas", func=daily_content_ideas, hour=8, minute=0)
 scheduler.add_cron(name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5)
 scheduler.add_cron(name="product_description_audit", func=product_description_audit, hour=11, minute=0, day_of_week=0)

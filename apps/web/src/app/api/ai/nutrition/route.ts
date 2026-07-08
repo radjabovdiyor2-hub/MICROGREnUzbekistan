@@ -188,25 +188,113 @@ const RECIPES: {
   },
 ];
 
-// Deterministic daily recipe selection
+// Micronutrient totals for a set of microgreens (≈20g of each in a serving).
+function recipeNutrition(microgreens: string[]) {
+  const total = { vitC: 0, vitA: 0, vitK: 0, iron: 0, calcium: 0 };
+  microgreens.forEach(mg => {
+    const data = NUTRITION_DB[mg];
+    if (data) {
+      total.vitC += data.vitC * 0.2;
+      total.vitA += data.vitA * 0.2;
+      total.vitK += data.vitK * 0.2;
+      total.iron += data.iron * 0.2;
+      total.calcium += data.calcium * 0.2;
+    }
+  });
+  return total;
+}
+
+// Deterministic daily recipe selection (static fallback catalogue).
 function getDailyRecipe(dateStr?: string) {
   const d = dateStr ? new Date(dateStr) : new Date();
   const dayOfYear = Math.floor((d.getTime() - new Date(d.getFullYear(), 0, 0).getTime()) / 86400000);
   const idx = dayOfYear % RECIPES.length;
   const recipe = RECIPES[idx];
-  // Compute nutrition from microgreens
-  const totalNutrition = { vitC: 0, vitA: 0, vitK: 0, iron: 0, calcium: 0 };
-  recipe.microgreens.forEach(mg => {
-    const data = NUTRITION_DB[mg];
-    if (data) {
-      totalNutrition.vitC += data.vitC * 0.2;
-      totalNutrition.vitA += data.vitA * 0.2;
-      totalNutrition.vitK += data.vitK * 0.2;
-      totalNutrition.iron += data.iron * 0.2;
-      totalNutrition.calcium += data.calcium * 0.2;
+  return { ...recipe, nutrition: recipeNutrition(recipe.microgreens), dayIndex: idx, source: 'static' };
+}
+
+// ==========================================
+// AI RECIPE OF THE DAY (Gemini) — one fresh recipe per day, built around the
+// microgreens the store actually sells (NUTRITION_DB keys). Cached in-memory per
+// date so it's stable + cheap; the office content_bot pulls the same one so the
+// site and social share a single "recipe of the day". Falls back to the static
+// rotation if Gemini is unavailable or returns junk.
+// ==========================================
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const RECIPE_CATEGORIES = ['breakfast', 'salad', 'smoothie', 'snack', 'main'];
+
+// Process-global cache so every route (site recipe, content endpoint, AI chat)
+// shares ONE recipe per day even if Next bundles them separately.
+const _g = globalThis as unknown as { __recipeCache?: { date: string; recipe: Record<string, unknown> } };
+
+function todayKey(dateStr?: string): string {
+  return (dateStr ? new Date(dateStr) : new Date()).toISOString().slice(0, 10);
+}
+
+async function generateAiRecipe(dateStr?: string): Promise<Record<string, unknown> | null> {
+  if (!GEMINI_API_KEY) return null;
+  const crops = Object.entries(NUTRITION_DB).map(([k, v]) => `${k} (${v.nameRu})`).join(', ');
+  const prompt = `Ты шеф-повар и нутрициолог бренда Microgreen Uzbekistan. Придумай ОДИН рецепт «блюдо дня» с микрозеленью.
+Используй 1–4 вида микрозелени ТОЛЬКО из этого списка (в поле microgreens указывай КЛЮЧИ на латинице): ${crops}.
+Ответь СТРОГО валидным JSON без markdown, по схеме:
+{"nameUz":"","nameRu":"","microgreens":["ключ"],"prepTime":10,"servings":2,"calories":250,"protein":12,"ingredientsUz":[""],"ingredientsRu":[""],"stepsUz":[""],"stepsRu":[""],"tipUz":"","tipRu":"","category":"salad"}
+category — одно из: breakfast, salad, smoothie, snack, main. Тексты на узбекском (латиница) и русском. Реалистичные ингредиенты и шаги.`;
+
+  try {
+    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, responseMimeType: 'application/json' },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const json = JSON.parse(raw.replace(/^```json/i, '').replace(/```$/, '').trim());
+
+    // Validate + sanitise so the frontend contract always holds.
+    const microgreens = (Array.isArray(json.microgreens) ? json.microgreens : [])
+      .filter((m: unknown): m is string => typeof m === 'string' && !!NUTRITION_DB[m]);
+    if (!json.nameRu || !microgreens.length || !Array.isArray(json.stepsRu) || !json.stepsRu.length) {
+      return null;
     }
-  });
-  return { ...recipe, nutrition: totalNutrition, dayIndex: idx };
+    const category = RECIPE_CATEGORIES.includes(json.category) ? json.category : 'salad';
+    return {
+      nameUz: String(json.nameUz || json.nameRu),
+      nameRu: String(json.nameRu),
+      microgreens,
+      prepTime: Number(json.prepTime) || 10,
+      servings: Number(json.servings) || 2,
+      calories: Number(json.calories) || 200,
+      protein: Number(json.protein) || 8,
+      ingredientsUz: Array.isArray(json.ingredientsUz) ? json.ingredientsUz.map(String) : [],
+      ingredientsRu: Array.isArray(json.ingredientsRu) ? json.ingredientsRu.map(String) : [],
+      stepsUz: Array.isArray(json.stepsUz) ? json.stepsUz.map(String) : [],
+      stepsRu: json.stepsRu.map(String),
+      tipUz: String(json.tipUz || ''),
+      tipRu: String(json.tipRu || ''),
+      category,
+      nutrition: recipeNutrition(microgreens),
+      source: 'ai',
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Today's recipe: AI (cached per day) with static fallback. Shared by the site
+// and the office content_bot so both show the same "recipe of the day".
+export async function getRecipeForDay(dateStr?: string): Promise<Record<string, unknown>> {
+  const key = todayKey(dateStr);
+  if (_g.__recipeCache && _g.__recipeCache.date === key) return _g.__recipeCache.recipe;
+  const ai = await generateAiRecipe(dateStr);
+  const recipe = ai || getDailyRecipe(dateStr);
+  _g.__recipeCache = { date: key, recipe };
+  return recipe;
 }
 
 // Nutritionist calculation
@@ -252,7 +340,8 @@ export async function GET(request: NextRequest) {
 
   if (type === 'recipe') {
     const date = searchParams.get('date') || undefined;
-    return NextResponse.json({ recipe: getDailyRecipe(date), allCrops: Object.keys(NUTRITION_DB).map(k => ({ key: k, nameUz: NUTRITION_DB[k].nameUz, nameRu: NUTRITION_DB[k].nameRu })) });
+    const recipe = await getRecipeForDay(date);
+    return NextResponse.json({ recipe, allCrops: Object.keys(NUTRITION_DB).map(k => ({ key: k, nameUz: NUTRITION_DB[k].nameUz, nameRu: NUTRITION_DB[k].nameRu })) });
   }
 
   if (type === 'crops') {

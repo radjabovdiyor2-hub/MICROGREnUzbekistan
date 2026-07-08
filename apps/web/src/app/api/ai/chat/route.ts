@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { getRecipeForDay } from '../nutrition/route';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
@@ -57,7 +58,14 @@ async function buildStoreContext(): Promise<string> {
       return `${p.nameUz} | ${p.brand || '-'} | ${fmt(p.price)}${sale} | ${stock} | ${p.category?.nameUz || ''}`;
     }).join('\n');
 
-    return `\nMicrogreen KATALOG (${products.length} mahsulot):\n${prodList}\n\nKATEGORIYALAR: ${categories.map(c => c.nameUz).join(', ')}`;
+    // Bugungi "retsept dini" — AI-nutritsiolog tavsiya qila oladi (bir manba).
+    let recipeLine = '';
+    try {
+      const r = await getRecipeForDay() as { nameUz?: string; nameRu?: string };
+      if (r?.nameRu) recipeLine = `\n\nBUGUNGI RETSEPT (mijozga tavsiya qilishing mumkin): ${r.nameUz} / ${r.nameRu}`;
+    } catch { /* recipe is optional context */ }
+
+    return `\nMicrogreen KATALOG (${products.length} mahsulot):\n${prodList}\n\nKATEGORIYALAR: ${categories.map(c => c.nameUz).join(', ')}${recipeLine}`;
   } catch (error) {
     console.error('Store context build error:', error);
     return '';
