@@ -162,7 +162,7 @@ const orderSchema = z.object({
     address: z.string().min(2),
     note: z.string().optional().nullable(),
   }).optional(),
-  items: z.array(orderItemSchema).min(1).optional(),
+  items: z.array(orderItemSchema).optional(),
   paymentMethod: z.string().optional(),
   userId: z.string().optional().nullable(),
   bonusToUse: z.union([z.number(), z.string()]).optional(),

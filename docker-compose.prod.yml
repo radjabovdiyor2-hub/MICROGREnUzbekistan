@@ -108,10 +108,10 @@ services:
     restart: unless-stopped
     mem_limit: 768m
     # Published only on loopback — the server's existing system nginx proxies
-    # microgreenuzbekistan.com -> 127.0.0.1:3000 (does NOT touch 80/443 shared
-    # with the other projects on this box).
+    # microgreenuzbekistan.com -> 127.0.0.1:3002 (порты 3000/3001 заняты другими
+    # проектами на этом сервере, поэтому наш сайт на 3002; не трогает 80/443).
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3002:3000"
     env_file: .env
     environment:
       NODE_ENV: production
