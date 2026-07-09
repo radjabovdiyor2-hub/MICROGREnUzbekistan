@@ -44,3 +44,20 @@ git pull && ./deploy.sh                       # пересобрать всё
   → скопировать новый `INSTAGRAM_ACCESS_TOKEN` в корневой `.env` и `apps/tgas/.env`
   → `./deploy.sh content support analytics rnd stepan web`.
 - Порты event-bus ботов фиксированы (8081–8092), см. `docker-compose.prod.yml`.
+
+## 4. Авто-деплой через GitHub Actions (по push в main)
+
+Workflow `.github/workflows/deploy.yml` при каждом push в `main` (или вручную через
+Actions → Deploy to server → Run workflow) заходит на сервер по SSH и делает
+`git pull` + `docker compose up -d --build`.
+
+Добавьте секреты репозитория (GitHub → Settings → Secrets and variables → Actions → New):
+- `SSH_HOST` — IP/домен сервера
+- `SSH_USER` — пользователь (root/deploy)
+- `SSH_KEY` — приватный SSH-ключ (весь файл, с BEGIN/END). Публичный ключ добавьте на
+  сервер в `~/.ssh/authorized_keys`. **Не вставляйте ключ/пароль в переписку — только в GitHub Secrets.**
+- `DEPLOY_PATH` — путь к репо на сервере (напр. `/opt/microgreen`)
+- `SSH_PORT` — необязательно (по умолчанию 22)
+
+Разово на сервере: `git clone`, `git checkout main`, заполнить `.env`-файлы (их нет в git),
+один раз `docker compose -f docker-compose.prod.yml up -d --build`. Дальше — автоматически.
