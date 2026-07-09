@@ -1181,6 +1181,17 @@ input, textarea, select {
 
 /* === Responsive === */
 @media (max-width: 768px) {
+  /* editorial hero (section.hero, inline-styled): anchor content to the top so
+     the empty space falls to the bottom where the microgreens canvas lives.
+     Otherwise flex-end + tall min-height leaves a dead gap under the header —
+     worst in constrained in-app browsers (Telegram) where 72vh > visible area.
+     !important is needed to beat the component's inline styles. */
+  .hero {
+    justify-content: flex-start !important;
+    min-height: auto !important;
+    padding-top: 24px !important;
+  }
+
   .hero__content {
     grid-template-columns: 1fr;
     text-align: center;
@@ -1330,7 +1341,7 @@ input, textarea, select {
   }
 
   .hero {
-    padding: 48px 0 32px !important;
+    padding: 24px 0 32px !important;
   }
 
   .section-title {
