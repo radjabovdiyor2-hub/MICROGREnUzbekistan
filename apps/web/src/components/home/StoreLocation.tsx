@@ -43,7 +43,7 @@ export function StoreLocation() {
                 <span style={{ color: 'var(--brand-primary)' }}><Icons.MapPin size={20} /></span>
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{t('Manzil', 'Адрес')}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{t('Ray senter, Hokimiyat yonida', 'Рай центр, рядом с Хокимиятом')}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{t("Samarqand viloyati, Kamolot mahallasi, posyolok Super yonida", 'Самаркандская область, махалля Камолот, ориентир посёлок Супер')}</div>
                 </div>
               </div>
 
