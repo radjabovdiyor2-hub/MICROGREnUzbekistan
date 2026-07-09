@@ -6,6 +6,12 @@ import { NextRequest } from 'next/server';
 // mirroring how INGEST_SECRET is treated as optional.
 export function requireBotAuth(request: NextRequest): boolean {
   const secret = process.env.BOT_SECRET;
-  if (!secret) return true;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('FATAL: BOT_SECRET is missing in production!');
+      return false; // Strict secure fallback
+    }
+    return true; // Allow in development
+  }
   return request.headers.get('authorization') === `Bearer ${secret}`;
 }

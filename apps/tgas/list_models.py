@@ -1,4 +1,5 @@
-import asyncio, json
+import asyncio
+import json
 from openai import AsyncOpenAI
 from shared.config import settings
 

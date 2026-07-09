@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
+import { useCart } from '@/components/providers/CartProvider';
 
 // Growing stages timeline — real microgreen growth cycle
 const GROW_STAGES = [
@@ -67,6 +68,15 @@ interface InstaPost {
   timestamp?: string;
 }
 
+interface ShopProduct {
+  id: string;
+  nameUz: string;
+  nameRu?: string;
+  price: number;
+  slug?: string;
+  images?: string[];
+}
+
 function StageIcon({ type, size = 24 }: { type: string; size?: number }) {
   if (type === 'seed') return <Icons.Droplet size={size} />;
   if (type === 'sprout') return <Icons.Leaf size={size} />;
@@ -84,6 +94,44 @@ export function InstagramFeed() {
   const [posts, setPosts] = useState<InstaPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [isReal, setIsReal] = useState(false);
+  const [products, setProducts] = useState<ShopProduct[]>([]);
+  const [addedId, setAddedId] = useState<string | null>(null);
+  const cart = useCart();
+
+  // Каталог для «shoppable»: сопоставляем товар из подписи поста
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/products?limit=100')
+      .then(r => r.json())
+      .then(data => {
+        const list: ShopProduct[] = data.items || data.products || [];
+        if (mounted && Array.isArray(list)) setProducts(list);
+      })
+      .catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
+  const findProduct = (caption?: string): ShopProduct | null => {
+    if (!caption || products.length === 0) return null;
+    const c = caption.toLowerCase();
+    for (const p of products) {
+      const names = [p.nameUz, p.nameRu].filter(Boolean) as string[];
+      for (const nm of names) {
+        const words = nm.toLowerCase().split(/[^a-zа-яё0-9']+/i).filter(w => w.length >= 4);
+        if (words.some(w => c.includes(w))) return p;
+      }
+    }
+    return null;
+  };
+
+  const handleBuy = (p: ShopProduct) => {
+    cart.addItem({
+      id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price,
+      slug: p.slug || p.id, images: p.images || [],
+    });
+    setAddedId(p.id);
+    setTimeout(() => setAddedId(cur => (cur === p.id ? null : cur)), 2000);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -347,6 +395,31 @@ export function InstagramFeed() {
                     <Icons.Sparkles size={10} />
                   </div>
                 )}
+
+                {/* Shoppable — кнопка «Купить», если товар найден в подписи поста */}
+                {(() => {
+                  const prod = findProduct(post.caption);
+                  if (!prod) return null;
+                  const inCart = addedId === prod.id;
+                  return (
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleBuy(prod); }}
+                      style={{
+                        position: 'absolute', bottom: 6, left: 6, right: 6, zIndex: 3,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                        padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        background: inCart ? 'rgba(16,185,129,0.95)' : 'rgba(255,255,255,0.95)',
+                        color: inCart ? '#fff' : '#111', fontSize: 11, fontWeight: 700,
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                      }}
+                    >
+                      <Icons.ShoppingCart size={12} />
+                      {inCart
+                        ? t('Savatda ✓', 'В корзине ✓')
+                        : `${t('Sotib olish', 'Купить')} · ${prod.price.toLocaleString('ru-RU')}`}
+                    </button>
+                  );
+                })()}
               </a>
             ))
           )}

@@ -121,7 +121,7 @@ async def leave_reason(msg: Message, state: FSMContext):
         "bot": "hr_bot", "text": f"Запрос на {d['leave_type']}: {d['start_date']} - {d['end_date']} ({msg.text})"
     }, source_bot="hr_bot")
     
-    await msg.answer(f"✅ Запрос на отсутствие сохранён!", reply_markup=hr_menu_kb())
+    await msg.answer("✅ Запрос на отсутствие сохранён!", reply_markup=hr_menu_kb())
 
 @router.callback_query(F.data == "hr:training")
 async def training(cb: CallbackQuery):

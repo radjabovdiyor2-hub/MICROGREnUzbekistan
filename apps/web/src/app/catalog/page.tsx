@@ -58,11 +58,13 @@ function CatalogContent() {
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState(false);
   const [pagination, setPagination] = useState<Pagination | null>(null);
 
   const fetchProducts = useCallback(async (page = 1, append = false) => {
     if (page === 1) setLoading(true);
     else setLoadingMore(true);
+    setError(false);
 
     try {
       const params = new URLSearchParams();
@@ -83,6 +85,7 @@ function CatalogContent() {
       setPagination(data.pagination || null);
     } catch (err) {
       console.error('Failed to fetch products:', err);
+      setError(true);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -258,6 +261,20 @@ function CatalogContent() {
             </div>
           )}
         </>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: 'var(--space-16)', color: 'var(--text-muted)' }}>
+          <div style={{ marginBottom: 'var(--space-4)', color: 'var(--error)' }}><Icons.AlertTriangle size={64} /></div>
+          <h3 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)', color: 'var(--error)' }}>
+            {t('Xatolik yuz berdi', 'Произошла ошибка')}
+          </h3>
+          <p style={{ fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>
+            {t('Ma\'lumotlarni yuklashda xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.', 'Ошибка при загрузке данных. Пожалуйста, попробуйте еще раз.')}
+          </p>
+          <button className="btn btn-primary" onClick={() => fetchProducts(1, false)} style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <Icons.RefreshCw size={18} style={{ marginRight: 8 }} />
+            {t('Qayta urinish', 'Повторить')}
+          </button>
+        </div>
       ) : (
         <div style={{
           textAlign: 'center',

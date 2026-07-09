@@ -46,6 +46,8 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - Ты мыслишь метриками, рентабельностью, KPI и конверсиями. Ты не "глупый бот", ты высококвалифицированный управленец с аналитическим складом ума.
 - Руководитель общается только с тобой. Если поступает бизнес-вопрос, ты не просто даешь сухую справку, а делаешь выводы, строишь гипотезы и предлагаешь Action Plan.
 - Ты распределяешь задачи между профильными AI-директорами (руководителями отделов), зная их сильные стороны.
+- 📊 ТЫ ПОЛНОСТЬЮ ОТВЕЧАЕШЬ ЗА KPI ВСЕХ ОТДЕЛОВ И БОТОВ. Ты постоянно следишь за показателями (продажи, выручка, клиенты, охваты/вовлечённость Instagram). Если у отдела низкий KPI — ты САМ созываешь ответственный отдел (или несколько отделов) на совещание по этому KPI.
+- 🗳 На совещании отделы честно и прозрачно обсуждают и дискутируют, пока не найдут решение, и принимают его ГОЛОСОВАНИЕМ (за/против). После подтверждения руководителя («делайте») отделы автономно исполняют план. Твоя цель — держать KPI стабильно высокими.
 
 📊 Твоя команда (Высококвалифицированные AI-Директора):
 1. 🛒 sales (Sales Bot) — Коммерческий директор. Управляет сделками, конверсией лидов, дожимами, B2B-переговорами.
@@ -67,41 +69,13 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - Если задача — верни JSON с type="task" и укажи нужный department.
 - Если вопрос о бизнесе — верни JSON с type="chat".
 
-Формат ответа для ЗАДАЧ — верни JSON:
-{
-  "type": "task",
-  "department": "sales|marketing|support|hr|finance|pm|analytics|content|assistant",
-  "title": "Краткое название задачи",
-  "priority": "low|medium|high|urgent",
-  "description": "Подробное описание + шаги",
-  "deadline": "YYYY-MM-DD или null",
-  "assignee": "Название бота/отдела",
-  "response": "Текст ответа руководителю (например, 'Передал задачу отделу маркетинга.')"
-}
 
-Формат для ВОПРОСОВ К БД — верни JSON:
-{
-  "type": "question",
-  "needs_db": true/false,
-  "db_query": "sales_summary|tasks_status|finance_report|orders_today|employees|customers_count",
-  "response": "Текст ответа (если БД не нужна)"
-}
-
-Формат для ОТЧЁТОВ — верни JSON:
-{
-  "type": "report",
-  "report_kind": "daily|weekly|monthly|finance|sales|tasks|full",
-  "response": "Текст ответа"
-}
-
-Формат для ЛИЧНЫХ ВОПРОСОВ И ОБЩЕНИЯ (в т.ч. вопросы о других ботах) — верни JSON:
-{
-  "type": "chat",
-  "response": "Текст ответа"
-}
-
-ВАЖНО: Всегда возвращай ТОЛЬКО валидный JSON без markdown-обёртки.
-Сегодняшняя дата: %s
+Используй ВЫЗОВЫ ФУНКЦИЙ (Function Calling) для действий:
+- Если нужно создать задачу, вызови create_task
+- Если нужна перекличка, вызови roll_call
+- Если нужен отчет, вызови get_report
+- Если нужны сырые данные, вызови query_db
+- Если это просто вопрос или личное общение, отвечай текстом.
 """
 
 
@@ -414,7 +388,6 @@ async def system_status(cb: CallbackQuery):
         ("📢 Marketing", "marketing_bot"),
         ("👥 HR", "hr_bot"),
         ("💰 Finance", "finance_bot"),
-        ("📋 PM", "pm_bot"),
         ("📊 Analytics", "analytics_bot"),
         ("✍️ Content", "content_bot"),
         ("🤖 Степан", "stepan_bot"),
@@ -593,23 +566,127 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             logger.warning(f"Не удалось получить статус контента: {e}")
         # если запрос не удался — обычная обработка ниже (AI ответит по расписанию)
 
+    # ── Команда «делайте / запускайте» → ЗАПУСК ПРИНЯТОГО ПЛАНА ──
+    # После совещания это НЕ должно перезапускать анализ: если есть готовое
+    # решение — запускаем его план в работу, а не создаём новые задачи-анализы.
+    from bots.stepan_bot.handlers.team_meeting import (
+        is_meeting_request, run_team_meeting,
+        is_execution_command, handle_execution_command,
+        is_status_request, run_plan_status,
+    )
+    if is_execution_command(low):
+        try:
+            if await handle_execution_command(message.bot, message.chat.id):
+                await set_reaction(message, "👍")
+                return
+        except Exception as e:
+            logger.error(f"Ошибка запуска плана: {e}", exc_info=True)
+            await message.answer("😔 Не удалось запустить план. Попробуйте ещё раз.")
+            await set_reaction(message, "🤷‍♂️")
+            return
+        # нет принятого решения — обрабатываем как обычно ниже
+
+    # ── Запрос статуса плана ──
+    if is_status_request(low):
+        try:
+            await run_plan_status(message.bot, message.chat.id)
+            await set_reaction(message, "👍")
+            return
+        except Exception as e:
+            logger.error(f"Ошибка статуса плана: {e}", exc_info=True)
+
+    # ── Кросс-функциональный вопрос → СОВЕЩАНИЕ ОТДЕЛОВ ──
+    # Отделы обсуждают между собой, спорят и сходятся к одному решению,
+    # вместо трёх разрозненных задач/ответов.
+    if is_meeting_request(low):
+        try:
+            await run_team_meeting(message.bot, message.chat.id, user_text)
+            await set_reaction(message, "👍")
+        except Exception as e:
+            logger.error(f"Ошибка совещания отделов: {e}", exc_info=True)
+            await message.answer("😔 Не удалось провести совещание отделов. Попробуйте ещё раз.")
+            await set_reaction(message, "🤷‍♂️")
+        return
+
     # ── Формируем промпт с контекстом из БД ──
     db_context = await _get_db_context()
 
     from shared.prompts import TEAM_CONTEXT
-    prompt = f"{TEAM_CONTEXT}\n\n" + STEPAN_PERSONA % date.today().isoformat()
+    prompt = f"{TEAM_CONTEXT}\n\n{STEPAN_PERSONA}"
     prompt += f"\n\n📊 ТЕКУЩИЕ ДАННЫЕ ИЗ БАЗЫ:\n{db_context}"
     
+
     # ── Достаем историю ──
     history = []
     if state:
         state_data = await state.get_data()
         history = state_data.get("history", [])
 
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "create_task",
+                "description": "Создать и делегировать задачу одному из отделов (sales, marketing, support, hr, finance, pm, analytics, content)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "department": {"type": "string"},
+                        "title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]}
+                    },
+                    "required": ["department", "title", "description", "priority"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "roll_call",
+                "description": "Провести перекличку: отправить всем ботам команду отозваться в общем чате",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "message": {"type": "string", "description": "Текст сообщения для переклички"}
+                    }
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_report",
+                "description": "Сформировать отчет (ежедневный, финансовый и т.д.)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "report_kind": {"type": "string", "enum": ["daily", "finance", "sales", "tasks", "full"]}
+                    },
+                    "required": ["report_kind"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "query_db",
+                "description": "Запросить данные из БД (не отчет, а сырые данные)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "db_query": {"type": "string"}
+                    }
+                }
+            }
+        }
+    ]
+
     try:
-        response = await ai.chat_completion(
+        response_msg = await ai.chat_with_tools(
             system_prompt=prompt,
             user_message=user_text,
+            tools=tools,
             conversation_history=history
         )
     except Exception as e:
@@ -618,40 +695,32 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         await set_reaction(message, "🤷‍♂️")
         return
 
-    # ── Обновляем историю ──
-    if state:
-        history.append({"role": "user", "content": user_text})
-        history.append({"role": "assistant", "content": response})
-        if len(history) > 10:
-            history = history[-10:] # Оставляем последние 10 сообщений
-        await state.update_data(history=history)
-
-    # ── Парсим ответ AI ──
-    try:
-        clean = response.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[1]
-            clean = clean.rsplit("```", 1)[0]
-        data = json.loads(clean)
-    except (json.JSONDecodeError, IndexError):
-        await message.answer(response)
-        await set_reaction(message, "👍")
-        return
-
-    msg_type = data.get("type", "chat")
-
     # Функция для отправки ответа (текст + опционально голос)
     async def send_response(text_resp: str):
-        # Отправляем текст
-        await message.answer(text_resp)
+        if not text_resp: return
+        # Защита: если модель вернула JSON-обёртку ({"type":"chat","response":"..."})
+        # вместо чистого текста — вытащим человекочитаемую часть.
+        stripped = text_resp.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            try:
+                obj = json.loads(stripped)
+                if isinstance(obj, dict):
+                    text_resp = (obj.get("response") or obj.get("answer")
+                                 or obj.get("text") or obj.get("message") or text_resp)
+            except Exception:
+                pass
+        # Длинные ответы — в разворачиваемую цитату (короткие как есть)
+        from shared.utils import collapsible
+        try:
+            await message.answer(collapsible(text_resp), parse_mode="HTML")
+        except Exception:
+            import re as _re
+            await message.answer(_re.sub(r"</?[^>]+>", "", text_resp))
         await set_reaction(message, "👍")
-        
-        # Если оригинальное сообщение было голосовым, отвечаем тоже голосом!
         if message.voice:
             try:
                 import os
                 from aiogram.types import FSInputFile
-                # Используем OpenAI TTS
                 voice_path = await ai.generate_speech(text_resp)
                 if voice_path and os.path.exists(voice_path):
                     voice_file = FSInputFile(voice_path)
@@ -660,44 +729,84 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             except Exception as e:
                 logger.error(f"Voice generation failed: {e}")
 
-    if msg_type == "task":
-        await _handle_task(message, data)
+    # Process tools if called
+    if response_msg.tool_calls:
+        tool_results_text = []
+        for tool_call in response_msg.tool_calls:
+            name = tool_call.function.name
+            args = json.loads(tool_call.function.arguments)
+            
+            if name == "create_task":
+                dept = args.get("department", "pm")
+                title = args.get("title", "Новая задача")
+                desc = args.get("description", "")
+                priority = args.get("priority", "medium")
+                
+                # 1. Сохраняем задачу в БД
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                async with get_session_ctx() as session:
+                    res = await session.execute(
+                        text("INSERT INTO tasks (title, assignee, department, status, priority, description) "
+                        "VALUES (:p1, :p2, :p3, 'todo', :p4, :p5) RETURNING id"),
+                        {"p1": title, "p2": dept, "p3": dept, "p4": priority, "p5": desc}
+                    )
+                    task_id = res.scalar()
+                    await session.commit()
+                
+                # 2. Публикуем событие для "оживления" отдела
+                from shared.event_bus import event_bus
+                await event_bus.publish("TASK_CREATED", {
+                    "task_id": task_id,
+                    "department": dept,
+                    "title": title,
+                    "description": desc,
+                    "chat_id": message.chat.id
+                }, "stepan_bot")
+                
+                tool_results_text.append(f"Задача '{title}' передана отделу {dept}. Ожидайте ответа от руководителя отдела в чате.")
+                
+                # Степан сообщает, что передал задачу
+                await send_response(f"📋 Я поручил задачу «{title}» отделу {dept}. Сейчас руководитель отдела подключится и ответит вам здесь!")
+                
+            elif name == "roll_call":
+                from shared.event_bus import event_bus
+                await event_bus.publish("ROLL_CALL", {"chat_id": message.chat.id, "message": args.get("message", "Перекличка!")})
+                tool_results_text.append("Перекличка запущена.")
+                await send_response("📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений.")
+                
+            elif name == "get_report":
+                report = await _generate_report(args.get("report_kind", "daily"))
+                await message.answer(f"📊 Отчет:\n\n{report}")
+                tool_results_text.append("Отчет отправлен.")
+                
+            elif name == "query_db":
+                db_ans = await _query_db(args.get("db_query", ""))
+                await message.answer(f"🔍 Данные из БД:\n\n{db_ans}")
+                tool_results_text.append("Данные отправлены.")
+                
+        # Update history with tool execution result
+        if state:
+            history.append({"role": "user", "content": user_text})
+            history.append({"role": "assistant", "content": f"[TOOLS CALLED: {', '.join(tool_results_text)}] {response_msg.content or ''}"})
+            if len(history) > 10: history = history[-10:]
+            await state.update_data(history=history)
+            
+        if response_msg.content:
+            await send_response(response_msg.content)
+            
         await set_reaction(message, "👍")
-        # Для задач мы уже отвечаем в _handle_task длинным красивым виджетом
-        if message.voice and data.get("response"):
-            try:
-                import os
-                from aiogram.types import FSInputFile
-                voice_path = await ai.generate_speech(data.get("response"))
-                if voice_path and os.path.exists(voice_path):
-                    await message.answer_voice(FSInputFile(voice_path))
-                    os.remove(voice_path)
-            except Exception:
-                pass
-    elif msg_type == "question" and data.get("needs_db"):
-        db_answer = await _query_db(data.get("db_query", ""))
-        ai_response = data.get("response", "")
-        full_response = f"{ai_response}\n\n{db_answer}" if db_answer else ai_response
-        await send_response(full_response)
-    elif msg_type == "report":
-        report = await _generate_report(data.get("report_kind", "daily"))
-        ai_resp = data.get("response", "")
-        full_response = f"{ai_resp}\n\n{report}"
-        # Для отчетов лучше читать только короткую подводку голосом, а не всю таблицу
-        await message.answer(full_response)
-        await set_reaction(message, "👍")
-        if message.voice and ai_resp:
-            try:
-                import os
-                from aiogram.types import FSInputFile
-                voice_path = await ai.generate_speech(ai_resp)
-                if voice_path and os.path.exists(voice_path):
-                    await message.answer_voice(FSInputFile(voice_path))
-                    os.remove(voice_path)
-            except Exception:
-                pass
-    else:
-        await send_response(data.get("response", response))
+        return
+        
+    # If no tools called, just send the text
+    response_text = response_msg.content or ""
+    if state:
+        history.append({"role": "user", "content": user_text})
+        history.append({"role": "assistant", "content": response_text})
+        if len(history) > 10: history = history[-10:]
+        await state.update_data(history=history)
+
+    await send_response(response_text)
 
 
 # ═══════════════════════════════════════════════════════

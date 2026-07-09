@@ -49,7 +49,11 @@ async def fetch_products(category: str = None) -> list:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(url)
             if response.status_code == 200:
-                products = response.json()
+                data = response.json()
+                if isinstance(data, dict):
+                    products = data.get('items', data.get('products', []))
+                else:
+                    products = data
                 if category:
                     products = [p for p in products if p.get("category") == category]
                 return products
@@ -512,6 +516,25 @@ async def handle_contact_for_order(message: Message):
         await send_order_to_group(message.bot, order_data)
     except Exception as e:
         logger.error(f"Failed to send notification: {e}")
+    
+    # Уведомить Степана-менеджера (@MG_PM1_bot)
+    items_for_stepan = "\n".join([f"  • {p.get('title')} — {format_price(int(p.get('price', 0)))} сум" for p in cart[:8]])
+    try:
+        await bridge.notify_stepan(
+            f"📦 <b>Новый заказ из Telegram бота!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 Заказ: <code>#{order_id}</code>\n"
+            f"👤 Клиент: <b>{customer_name}</b>\n"
+            f"📱 Телефон: {phone}\n"
+            f"📍 Адрес: Доставка по Ташкенту\n\n"
+            f"🛒 <b>Товары:</b>\n{items_for_stepan}\n\n"
+            f"💰 <b>Итого: {format_price(total)} сум</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🤖 Источник: Telegram Bot\n"
+            f"⏰ Ожидает подтверждения"
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify Stepan: {e}")
     
     # Clear
     cart_storage.clear_cart(user_id)

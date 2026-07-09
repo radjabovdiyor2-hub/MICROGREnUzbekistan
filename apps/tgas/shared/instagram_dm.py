@@ -9,7 +9,6 @@ Microgreen Uzbekistan — Instagram DM Sales Bot
 """
 
 import logging
-import json
 import aiohttp
 from typing import List, Dict, Optional
 from datetime import datetime, timezone, timedelta

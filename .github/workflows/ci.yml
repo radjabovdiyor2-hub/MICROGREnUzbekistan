@@ -23,14 +23,33 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npm audit --audit-level=critical
       - run: cd packages/database && npx prisma generate && npm run build
-      - run: cd apps/web && npx tsc --noEmit
+      - run: cd apps/web && npx tsc --noEmit && npm run test
+
+  python-quality:
+    name: Python Lint & TypeCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy
+          if [ -f apps/tgas/requirements.txt ]; then pip install -r apps/tgas/requirements.txt; fi
+      - name: Run Ruff
+        run: ruff check apps/tgas || true
+      - name: Run Mypy
+        run: mypy apps/tgas --ignore-missing-imports || true
 
   # ─────────────────────────── DEPLOY ───────────────────────────
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: quality
+    needs: [quality, python-quality]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     timeout-minutes: 20
@@ -44,107 +63,8 @@ jobs:
           command_timeout: 18m
           script: |
             set -ex
-
-            # ──── Phase 0: Server cleanup for all projects ────
-            echo "=== DISK BEFORE CLEANUP ==="
-            df -h / | tail -1
-
-            # Ensure swap exists (2GB) for build stability
-            if [ ! -f /swapfile ]; then
-              sudo fallocate -l 2G /swapfile
-              sudo chmod 600 /swapfile
-              sudo mkswap /swapfile
-              sudo swapon /swapfile
-            fi
-            sudo swapon /swapfile 2>/dev/null || true
-
-            # Clean system caches
-            sudo apt-get clean 2>/dev/null || true
-            sudo journalctl --vacuum-time=2d 2>/dev/null || true
-
-            # Clean npm caches
-            npm cache clean --force 2>/dev/null || true
-
-            # Clean old .next build caches (all projects)
-            for proj in /home/ubuntu/MICROGREnUzbekistan /home/ubuntu/MAHALLU /home/ubuntu/siyob-smart-campus; do
-              if [ -d "$proj/apps/web/.next/cache" ]; then
-                rm -rf "$proj/apps/web/.next/cache"
-                echo "Cleaned .next/cache in $proj"
-              fi
-            done
-
-            # Clean turbo caches
-            rm -rf /home/ubuntu/MICROGREnUzbekistan/node_modules/.cache 2>/dev/null || true
-            rm -rf /home/ubuntu/MAHALLU/node_modules/.cache 2>/dev/null || true
-            rm -rf /home/ubuntu/siyob-smart-campus/node_modules/.cache 2>/dev/null || true
-
-            # Clean old logs
-            find /home/ubuntu/.pm2/logs -name "*.log" -size +10M -exec truncate -s 0 {} \; 2>/dev/null || true
-
-            echo "=== DISK AFTER CLEANUP ==="
-            df -h / | tail -1
-            free -m | head -3
-
-            # ──── Phase 1: Pull latest code ────
             cd /home/ubuntu/MICROGREnUzbekistan
             git fetch origin
             git reset --hard origin/main
-
-            # ──── Phase 2: Install dependencies ────
-            npm install --legacy-peer-deps
-
-            # ──── Phase 3: Database sync + seed ────
-            cd packages/database && rm -f .env && ln -s ../../.env .env && npx prisma generate && npx prisma db push --skip-generate --accept-data-loss
-
-            # Seed products (upsert — safe to re-run)
-            cd /home/ubuntu/MICROGREnUzbekistan/packages/database && node prisma/seed.js
-
-            # ──── Phase 4: Build with memory limit ────
-            cd /home/ubuntu/MICROGREnUzbekistan
-            export NODE_OPTIONS="--max-old-space-size=1024"
-
-            # CRITICAL: Remove uploads symlink before build — Turbopack crashes on external symlinks
-            rm -rf apps/web/public/uploads 2>/dev/null; true
-            rm -rf public/uploads 2>/dev/null; true
-
-            npx turbo run build --filter=web
-
-            # ──── Phase 5: Copy standalone assets + persistent uploads ────
-            cd apps/web
-
-            # Create persistent uploads directory (survives deploys)
-            mkdir -p /home/ubuntu/microgreen-uploads
-            chmod 755 /home/ubuntu/microgreen-uploads
-
-            # Copy public + static to standalone FIRST
-            cp -r public .next/standalone/apps/web/public 2>/dev/null; true
-            cp -r .next/static .next/standalone/apps/web/.next/static 2>/dev/null; true
-
-            # Symlink uploads in standalone (where Next.js serves static files)
-            rm -rf .next/standalone/apps/web/public/uploads 2>/dev/null; true
-            ln -sf /home/ubuntu/microgreen-uploads .next/standalone/apps/web/public/uploads
-
-            # Also symlink at project root public (where process.cwd() points)
-            cd /home/ubuntu/MICROGREnUzbekistan
-            mkdir -p public
-            rm -rf public/uploads 2>/dev/null; true
-            ln -sf /home/ubuntu/microgreen-uploads public/uploads
-
-            # Verify symlinks
-            echo "=== UPLOAD SYMLINKS ==="
-            ls -la apps/web/.next/standalone/apps/web/public/uploads
-            ls -la public/uploads
-            echo "=== FILES IN UPLOADS ==="
-            ls -la /home/ubuntu/microgreen-uploads/ | head -10
-
-            # ──── Phase 6: Restart PM2 ────
-            cd /home/ubuntu/MICROGREnUzbekistan
-            pm2 reload ecosystem.config.js
-
-            # ──── Phase 7: Verify all 3 projects are running ────
-            echo "=== PM2 STATUS ==="
-            pm2 ls
-
-            echo "=== DISK FINAL ==="
-            df -h / | tail -1
-            echo "=== DEPLOY SUCCESS ==="
+            chmod +x deploy/deploy.sh
+            bash deploy/deploy.sh

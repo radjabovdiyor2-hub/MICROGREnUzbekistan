@@ -1,5 +1,6 @@
 """Sales Bot — main.py с EventBus интеграцией"""
-import asyncio, logging
+import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
@@ -58,7 +59,39 @@ async def check_pending_payments():
 
 async def reactivate_inactive():
     """Найти неактивных клиентов (14+ дней без заказов)."""
-    pass
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        bot = Bot(token=settings.sales_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        admin_id = settings.admin_telegram_ids[0]
+        try:
+            async with get_session_ctx() as session:
+                result = await session.execute(text(
+                    "SELECT name, phone, last_order_date "
+                    "FROM customers "
+                    "WHERE last_order_date < NOW() - INTERVAL '14 days' "
+                    "AND status = 'active' "
+                    "ORDER BY last_order_date"
+                ))
+                rows = result.fetchall()
+            if rows:
+                lines = ["📋 <b>Неактивные клиенты (14+ дней):</b>\n"]
+                for i, row in enumerate(rows[:20], 1):
+                    name = row[0] or "—"
+                    phone = row[1] or "—"
+                    last_date = row[2].strftime("%d.%m.%Y") if row[2] else "—"
+                    lines.append(f"{i}. {name} ({phone}) — посл. заказ: {last_date}")
+                if len(rows) > 20:
+                    lines.append(f"\n... и ещё {len(rows) - 20} клиентов")
+                lines.append(f"\nВсего: {len(rows)} клиентов требуют реактивации")
+                await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+                logger.info("reactivate_inactive: найдено %d клиентов", len(rows))
+            else:
+                logger.info("reactivate_inactive: все клиенты активны")
+        finally:
+            await bot.session.close()
+    except Exception as e:
+        logger.exception("reactivate_inactive error: %s", e)
 
 async def handle_payment_received(payload: dict):
     """Обработка успешной оплаты от Click/Payme (через n8n)."""
@@ -112,39 +145,6 @@ async def handle_payment_received(payload: dict):
         logger.error(f"handle_payment_received error: {e}", exc_info=True)
     finally:
         await bot.session.close()
-    try:
-        from shared.database import get_session_ctx
-        from sqlalchemy import text
-        bot = Bot(token=settings.sales_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-        admin_id = settings.admin_telegram_ids[0]
-        try:
-            async with get_session_ctx() as session:
-                result = await session.execute(text(
-                    "SELECT name, phone, last_order_date "
-                    "FROM customers "
-                    "WHERE last_order_date < NOW() - INTERVAL '14 days' "
-                    "AND status = 'active' "
-                    "ORDER BY last_order_date"
-                ))
-                rows = result.fetchall()
-            if rows:
-                lines = [f"📋 <b>Неактивные клиенты (14+ дней):</b>\n"]
-                for i, row in enumerate(rows[:20], 1):
-                    name = row[0] or "—"
-                    phone = row[1] or "—"
-                    last_date = row[2].strftime("%d.%m.%Y") if row[2] else "—"
-                    lines.append(f"{i}. {name} ({phone}) — посл. заказ: {last_date}")
-                if len(rows) > 20:
-                    lines.append(f"\n... и ещё {len(rows) - 20} клиентов")
-                lines.append(f"\nВсего: {len(rows)} клиентов требуют реактивации")
-                await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
-                logger.info("reactivate_inactive: найдено %d клиентов", len(rows))
-            else:
-                logger.info("reactivate_inactive: все клиенты активны")
-        finally:
-            await bot.session.close()
-    except Exception as e:
-        logger.exception("reactivate_inactive error: %s", e)
 
 
 async def stock_alerts():
@@ -300,7 +300,7 @@ async def handle_task_created(payload: dict):
         desc = str(data.get('description', '')).lower()
         
         if "кп" in title or "коммерческое" in title or "кп" in desc or "коммерческ" in desc:
-            logging.info(f"SALES_BOT: Requested commercial offer PDF.")
+            logging.info("SALES_BOT: Requested commercial offer PDF.")
             from shared.prompts import TEAM_CONTEXT
             prompt = f"Составь продающий текст коммерческого предложения для клиента. Задача: {data.get('title')} - {data.get('description')}. Укажи преимущества микрозелени."
             answer = await ai.chat_completion(f"{TEAM_CONTEXT}\n\nТы B2B менеджер по продажам. Напиши профессиональный и убедительный текст.", prompt)
@@ -327,7 +327,7 @@ async def handle_task_created(payload: dict):
             await bot.send_document(
                 chat_id, 
                 document=FSInputFile(pdf_path),
-                caption=f"📝 <b>Коммерческое предложение готово!</b>\nОтдел SALES выполнил задачу.",
+                caption="📝 <b>Коммерческое предложение готово!</b>\nОтдел SALES выполнил задачу.",
                 parse_mode="HTML"
             )
             try:
@@ -336,7 +336,7 @@ async def handle_task_created(payload: dict):
                 pass
                 
         elif "ig заказ" in title:
-            logging.info(f"SALES_BOT: Processing auto-delegated IG order from Stepan.")
+            logging.info("SALES_BOT: Processing auto-delegated IG order from Stepan.")
             
             # Парсим сумму и детали через ИИ
             prompt = f"Извлеки примерную сумму заказа (числом, если не указано, напиши 50000) и детали из текста: {desc}"
@@ -380,13 +380,13 @@ async def handle_task_created(payload: dict):
         else:
             from shared.prompts import TEAM_CONTEXT
             sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Коммерческий Директор (Chief Revenue Officer) и главный Sales Bot. Сфокусируйся на LTV, конверсиях, дожимах и B2B/B2C воронках. Не пиши банальности, предлагай стратегию продаж и тактики закрытия сделок."
-            user_prompt = f"Руководитель поручил коммерческую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nПроанализируй и выдай Action Plan по продажам."
-            logging.info(f"SALES_BOT Generating AI answer...")
-            answer = await ai.chat_completion(sys_prompt, user_prompt)
-            
+            user_prompt = f"Руководитель поручил коммерческую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
+            logging.info("SALES_BOT Generating AI answer...")
+            answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+
             logging.info(f"SALES_BOT sending message to {chat_id}")
-            await bot.send_message(chat_id, f"📝 <b>Результат от отдела SALES:</b>\n\n{answer}", parse_mode="HTML")
-            logging.info(f"SALES_BOT successfully sent message.")
+            await bot.send_message(chat_id, f"✅ <b>Отдел продаж — принял в работу:</b>\n\n{answer}", parse_mode="HTML")
+            logging.info("SALES_BOT successfully sent message.")
         
         # Publish TASK_COMPLETED
         if task_id:
@@ -478,6 +478,46 @@ async def bus_process_ig_order(params: dict) -> dict:
         logger.error(f"bus_process_ig_order error: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
+
+async def handle_roll_call(payload: dict):
+    from shared.config import settings
+    from aiogram import Bot
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.enums import ParseMode
+    chat_id = payload.get("data", {}).get("chat_id")
+    if not chat_id:
+        return
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"ROLL_CALL received for chat {chat_id}")
+    
+    bot_name = "sales_bot"
+    token_attr = f"{bot_name}_token"
+    token = getattr(settings, token_attr, None)
+    if not token:
+        logger.error(f"No token found for {bot_name}")
+        return
+        
+    bot_display_names = {
+        "sales_bot": "Отдел Продаж (Sales)",
+        "marketing_bot": "Отдел Маркетинга",
+        "support_bot": "Отдел Поддержки",
+        "hr_bot": "Отдел HR",
+        "finance_bot": "Отдел Финансов",
+        "analytics_bot": "Отдел Аналитики",
+        "content_bot": "Отдел Контента"
+    }
+    display_name = bot_display_names.get(bot_name, bot_name)
+
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    try:
+        await bot.send_message(chat_id, f"🟢 {display_name} на связи!")
+    except Exception as e:
+        logger.error(f"Failed to respond to roll_call: {e}")
+    finally:
+        await bot.session.close()
+
+
 async def main():
     await init_db()
     bot = Bot(token=settings.sales_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -486,13 +526,14 @@ async def main():
         dp.include_router(r)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_fallback)
+    group_router = create_group_router(bot_info.username, ai_fallback, wake_words=["отдел продаж", "продажи", "sales", "сейлз"])
     dp.include_router(group_router)
 
     # EventBus: Sales публикует события, но не слушает (Redis)
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
     event_bus.on("PAYMENT_RECEIVED", handle_payment_received)
+    event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8082)  # mg_sales — порт из карты доставки event_bus
 
     # Heartbeat + Scheduler

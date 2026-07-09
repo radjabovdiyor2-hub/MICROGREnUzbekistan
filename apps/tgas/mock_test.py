@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from shared.ai_engine import AIEngine
-from shared.config import settings
 
 logging.basicConfig(level=logging.INFO)
 

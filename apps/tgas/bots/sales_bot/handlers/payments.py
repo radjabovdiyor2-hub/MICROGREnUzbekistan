@@ -51,7 +51,7 @@ async def process_payment(cb: CallbackQuery, bot: Bot):
             need_shipping_address=False
         )
         await cb.answer()
-    except Exception as e:
+    except Exception:
         await cb.answer("❌ Оплата онлайн пока недоступна (не настроен провайдер). Пожалуйста, оплатите наличными при получении.", show_alert=True)
 
 
@@ -86,7 +86,7 @@ async def process_successful_payment(message: Message):
             }, "sales_bot")
             
         await message.answer(
-            f"✅ <b>Оплата прошла успешно!</b>\n"
-            f"Спасибо за оплату заказа! Мы уже готовим его к отправке. 🚚",
+            "✅ <b>Оплата прошла успешно!</b>\n"
+            "Спасибо за оплату заказа! Мы уже готовим его к отправке. 🚚",
             parse_mode="HTML"
         )

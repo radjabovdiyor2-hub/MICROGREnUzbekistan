@@ -11,6 +11,7 @@ const RecipeOfDay = dynamic(() => import('@/components/home/RecipeOfDay').then(m
 const NutritionistPanel = dynamic(() => import('@/components/home/NutritionistPanel').then(m => ({ default: m.NutritionistPanel })));
 const AiBanner = dynamic(() => import('@/components/home/AiBanner').then(m => ({ default: m.AiBanner })));
 const InstagramFeed = dynamic(() => import('@/components/home/InstagramFeed').then(m => ({ default: m.InstagramFeed })));
+const StoriesBar = dynamic(() => import('@/components/home/StoriesBar').then(m => ({ default: m.StoriesBar })));
 const StoreLocation = dynamic(() => import('@/components/home/StoreLocation').then(m => ({ default: m.StoreLocation })));
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })));
 
@@ -19,6 +20,8 @@ export default function HomePage() {
     <main>
       {/* Above-the-fold — loaded immediately */}
       <HeroSection />
+      {/* Живые Instagram Stories — кружки сверху (скрываются, если активных нет) */}
+      <StoriesBar />
       <ScrollReveal>
         <CategoriesSection />
       </ScrollReveal>

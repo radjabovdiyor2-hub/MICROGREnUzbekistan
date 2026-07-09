@@ -6,7 +6,6 @@
 import asyncio
 import logging
 import time
-from typing import Optional
 from shared.config import settings
 
 logger = logging.getLogger(__name__)
@@ -17,7 +16,7 @@ HEARTBEAT_TTL = 300            # 5 минут — если нет обновле
 
 ALL_BOTS = [
     "stepan_bot", "sales_bot", "hr_bot", "finance_bot",
-    "marketing_bot", "pm_bot", "support_bot", "analytics_bot", "content_bot",
+    "marketing_bot", "support_bot", "analytics_bot", "content_bot",
 ]
 
 

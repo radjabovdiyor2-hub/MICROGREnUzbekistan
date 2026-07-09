@@ -5,8 +5,8 @@ from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import text
 from shared.database import get_session_ctx
-from shared.utils import format_price, simulate_typing
-from bots.sales_bot.keyboards.inline import categories_kb, back_menu_kb, main_menu_kb
+from shared.utils import format_price
+from bots.sales_bot.keyboards.inline import categories_kb, main_menu_kb
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 router = Router()

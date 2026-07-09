@@ -1,6 +1,5 @@
 """Sales Bot — /start, /help, язык, контакты, навигация."""
 import logging
-from typing import Any
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
@@ -9,7 +8,7 @@ from sqlalchemy import text
 from shared.config import settings
 from shared.database import get_session_ctx
 from shared.utils import simulate_typing, get_greeting, format_price
-from bots.sales_bot.keyboards.inline import main_menu_kb, language_kb, back_menu_kb
+from bots.sales_bot.keyboards.inline import main_menu_kb, language_kb
 
 router = Router()
 logger = logging.getLogger(__name__)

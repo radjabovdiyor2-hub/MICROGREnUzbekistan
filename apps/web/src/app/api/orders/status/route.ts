@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const order = await prisma.order.update({
       where: { orderNumber },
-      data: { status: status as never },
+      data: { status: status as any },
       include: { user: { select: { telegramId: true, language: true } } },
     });
 

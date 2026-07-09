@@ -1,5 +1,6 @@
 """Analytics Bot — main.py с EventBus интеграцией"""
-import asyncio, logging
+import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
@@ -321,9 +322,9 @@ async def conversion_funnel():
             bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
             lines.append(f"{icon} <b>{status}</b>: {count} ({pct:.1f}%)\n  {bar}")
 
-        lines.append(f"\n━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("\n━━━━━━━━━━━━━━━━━━━━━━")
         lines.append(f"👥 Всего клиентов: <b>{total}</b>")
-        lines.append(f"\n📊 <i>Analytics Bot — конверсия</i>")
+        lines.append("\n📊 <i>Analytics Bot — конверсия</i>")
 
         await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
     except Exception as e:
@@ -465,16 +466,15 @@ async def handle_task_created(payload: dict):
         ai = AIEngine()
         from shared.prompts import TEAM_CONTEXT
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Data Scientist и Руководитель аналитики (Chief Data Officer). Мысли категориями когортного анализа, статистических аномалий и data-driven гипотез. Находи инсайты там, где другие видят просто цифры."
-        user_prompt = f"Руководитель поручил аналитическую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nРазработай гипотезу или проведи анализ."
-        logging.info(f"ANALYTICS_BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt)
-        
+        user_prompt = f"Руководитель поручил аналитическую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
+        logging.info("ANALYTICS_BOT Generating AI answer...")
+        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+
         logging.info(f"ANALYTICS_BOT sending message to {chat_id}")
-        await bot.send_message(chat_id, f"📝 <b>Результат от отдела ANALYTICS:</b>\n\n{answer}")
-        logging.info(f"ANALYTICS_BOT successfully sent message.")
+        await bot.send_message(chat_id, f"✅ <b>Отдел аналитики — принял в работу:</b>\n\n{answer}")
+        logging.info("ANALYTICS_BOT successfully sent message.")
         
         # Publish TASK_COMPLETED
-        task_id = data.get("task_id")
         if task_id:
             from shared.event_bus import event_bus
             await event_bus.publish("TASK_COMPLETED", {
@@ -487,6 +487,46 @@ async def handle_task_created(payload: dict):
     finally:
         await bot.session.close()
 
+
+async def handle_roll_call(payload: dict):
+    from shared.config import settings
+    from aiogram import Bot
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.enums import ParseMode
+    chat_id = payload.get("data", {}).get("chat_id")
+    if not chat_id:
+        return
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"ROLL_CALL received for chat {chat_id}")
+    
+    bot_name = "analytics_bot"
+    token_attr = f"{bot_name}_token"
+    token = getattr(settings, token_attr, None)
+    if not token:
+        logger.error(f"No token found for {bot_name}")
+        return
+        
+    bot_display_names = {
+        "sales_bot": "Отдел Продаж (Sales)",
+        "marketing_bot": "Отдел Маркетинга",
+        "support_bot": "Отдел Поддержки",
+        "hr_bot": "Отдел HR",
+        "finance_bot": "Отдел Финансов",
+        "analytics_bot": "Отдел Аналитики",
+        "content_bot": "Отдел Контента"
+    }
+    display_name = bot_display_names.get(bot_name, bot_name)
+
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    try:
+        await bot.send_message(chat_id, f"🟢 {display_name} на связи!")
+    except Exception as e:
+        logger.error(f"Failed to respond to roll_call: {e}")
+    finally:
+        await bot.session.close()
+
+
 async def main():
     global _bot
     await init_db()
@@ -497,12 +537,13 @@ async def main():
         dp.include_router(r)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_chat)
+    group_router = create_group_router(bot_info.username, ai_chat, wake_words=["отдел аналитик", "аналитика", "analytics", "данные", "статистика"])
     dp.include_router(group_router)
 
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
     register_analytics_handlers(event_bus, bot)
+    event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8088)  # mg_analytics — порт из карты доставки event_bus
 
     # ── Запуск планировщика и heartbeat ──

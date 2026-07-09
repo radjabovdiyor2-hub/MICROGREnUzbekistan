@@ -16,6 +16,8 @@ import httpx
 import logging
 from datetime import datetime
 
+from services.ecosystem_bridge import bridge
+
 router = Router()
 logger = logging.getLogger(__name__)
 
@@ -207,7 +209,7 @@ async def admin_products(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data.startswith("broadcast:"))
+@router.callback_query(F.data.startswith("broadcast:") & ~F.data.in_({"broadcast:confirm", "broadcast:abort"}))
 async def handle_broadcast_target(callback: CallbackQuery):
     """Select broadcast target and enter text input mode"""
     if not is_admin(callback.from_user.id):
@@ -277,13 +279,13 @@ async def cmd_broadcast(message: Message):
         await message.answer(f"❌ Ошибка: {error}")
 
 
-@router.message(F.text & ~F.text.startswith("/"))
+@router.message(F.text, lambda msg: msg.from_user.id in _broadcast_state)
 async def handle_broadcast_text(message: Message):
     """Receive broadcast text from admin in FSM mode"""
     user_id = message.from_user.id
     
-    if user_id not in _broadcast_state or not is_admin(user_id):
-        return  # Not in broadcast flow
+    if not is_admin(user_id):
+        return  # Not an admin
     
     state = _broadcast_state[user_id]
     
@@ -530,6 +532,19 @@ async def confirm_order(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Confirm order error: {e}")
     
+    # Уведомить Степана-менеджера
+    try:
+        await bridge.notify_stepan(
+            f"✅ <b>Заказ подтверждён!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 Заказ: <code>{order_id[-8:]}</code>\n"
+            f"👤 Подтвердил: {callback.from_user.full_name}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📋 Статус: CONFIRMED → Готовить к отправке"
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify Stepan on confirm: {e}")
+    
     try:
         await callback.message.edit_text(
             callback.message.text + "\n\n✅ <b>ПОДТВЕРЖДЁН</b>",
@@ -562,6 +577,19 @@ async def cancel_order(callback: CallbackQuery):
                 logger.error(f"Cancel order {order_id} failed: {resp.status_code} {resp.text[:200]}")
     except Exception as e:
         logger.error(f"Cancel order error: {e}")
+    
+    # Уведомить Степана-менеджера
+    try:
+        await bridge.notify_stepan(
+            f"❌ <b>Заказ отменён!</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 Заказ: <code>{order_id[-8:]}</code>\n"
+            f"👤 Отменил: {callback.from_user.full_name}\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📋 Статус: CANCELLED"
+        )
+    except Exception as e:
+        logger.error(f"Failed to notify Stepan on cancel: {e}")
     
     try:
         await callback.message.edit_text(

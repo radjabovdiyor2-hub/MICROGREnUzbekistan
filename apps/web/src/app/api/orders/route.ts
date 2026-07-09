@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { deliveryFeeFor } from '@/lib/site';
 import { syncOrderStatus } from '@/lib/orderSync';
+import { z } from 'zod';
 
 // ==========================================
 // Orders API — Create & List (Prisma-backed)
@@ -96,51 +97,123 @@ async function notifyOffice(
     .join(', ');
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
 
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
-      },
-      body: JSON.stringify({
-        order_number: order.orderNumber,
-        customer: {
-          name,
-          phone: order.phone,
-          // BigInt is not JSON-serializable — send as a decimal string.
-          telegram_id: user.telegramId ? user.telegramId.toString() : null,
-          // Mirror the loyalty balance so the office CRM shows one number.
-          bonus_balance: user.bonusPoints,
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
         },
-        total_amount: order.total,
-        delivery_fee: order.deliveryFee,
-        discount_amount: order.discount,
-        payment_method: order.paymentMethod,
-        delivery_address: order.address,
-        items_summary: itemsSummary,
-        // Per-line detail so the office can write order_items against the
-        // synced catalog (product matched by storefront_id).
-        items: order.items.map((i) => ({
-          storefront_id: i.productId,
-          name: i.product.nameUz,
-          quantity: i.quantity,
-          price: i.price,
-        })),
-        notes: order.note || '',
-      }),
-      signal: AbortSignal.timeout(4000),
-    });
-  } catch (err) {
-    console.error('AI-office ingest failed (order still created):', err);
+        body: JSON.stringify({
+          order_number: order.orderNumber,
+          customer: {
+            name,
+            phone: order.phone,
+            telegram_id: user.telegramId ? user.telegramId.toString() : null,
+            bonus_balance: user.bonusPoints,
+          },
+          total_amount: order.total,
+          delivery_fee: order.deliveryFee,
+          discount_amount: order.discount,
+          payment_method: order.paymentMethod,
+          delivery_address: order.address,
+          items_summary: itemsSummary,
+          items: order.items.map((i) => ({
+            storefront_id: i.productId,
+            name: i.product.nameUz,
+            quantity: i.quantity,
+            price: i.price,
+          })),
+          notes: order.note || '',
+        }),
+        signal: AbortSignal.timeout(4000),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Office CRM returned status ${response.status}`);
+      }
+      return; // Success
+    } catch (err) {
+      if (attempt === maxRetries) {
+        console.error('AI-office ingest failed after 3 attempts (order still created):', err);
+      } else {
+        console.warn(`AI-office ingest attempt ${attempt} failed, retrying in 2s...`);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
   }
 }
+
+const orderItemSchema = z.object({
+  id: z.string().optional(),
+  productId: z.string().optional(),
+  title: z.string().optional(),
+  price: z.number().min(0),
+  quantity: z.number().min(1),
+});
+
+const orderSchema = z.object({
+  customer: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().optional().nullable(),
+    phone: z.string().min(5),
+    address: z.string().min(2),
+    note: z.string().optional().nullable(),
+  }).optional(),
+  items: z.array(orderItemSchema).min(1).optional(),
+  paymentMethod: z.string().optional(),
+  userId: z.string().optional().nullable(),
+  bonusToUse: z.union([z.number(), z.string()]).optional(),
+  name: z.string().optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  telegramId: z.union([z.number(), z.string(), z.bigint()]).optional(),
+});
 
 // POST — Create order
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { customer, items, paymentMethod, userId, bonusToUse } = body;
+    const rawBody = await request.json();
+    const parseResult = orderSchema.safeParse(rawBody);
+    if (!parseResult.success) {
+      return NextResponse.json({ error: "Noto'g'ri ma'lumot formati", details: parseResult.error.issues }, { status: 400 });
+    }
+    const body = parseResult.data;
+
+    // ── Bot compatibility layer ─────────────────────────────
+    // The Telegram bot sends a flat format:
+    //   { name, phone, address, items: [{ id, title, price, quantity }], source, telegramId }
+    // The web storefront sends:
+    //   { customer: { firstName, phone, address }, items: [{ productId, price, quantity }] }
+    // Detect bot format (has `name` string at top level instead of `customer` object)
+    // and normalise before the rest of the handler runs.
+    let { customer, items, paymentMethod, userId, bonusToUse } = body;
+
+    if (typeof body.name === 'string' && !customer) {
+      // Bot format → normalise to web format
+      customer = {
+        firstName: body.name,
+        phone: body.phone || '',
+        address: body.address || 'Telegram bot orqali',
+      };
+      // Map bot item shape: { id → productId }
+      items = (body.items || []).map((item: any) => ({
+        productId: item.productId || item.id || '',
+        price: item.price,
+        quantity: item.quantity,
+      }));
+      paymentMethod = body.paymentMethod || 'cash';
+
+      // If bot sent a telegramId, resolve the user from it
+      if (body.telegramId && !userId) {
+        const tgUser = await prisma.user.findUnique({
+          where: { telegramId: BigInt(body.telegramId) },
+        });
+        if (tgUser) userId = tgUser.id;
+      }
+    }
 
     // Validate
     if (!customer?.firstName || !customer?.phone || !customer?.address) {
@@ -190,8 +263,8 @@ export async function POST(request: NextRequest) {
         paymentMethod: paymentMethod || 'cash',
         paymentStatus: 'PENDING',
         items: {
-          create: items.map((item: { productId: string; price: number; quantity: number }) => ({
-            productId: item.productId,
+          create: items.map((item: any) => ({
+            productId: item.productId || item.id || '',
             quantity: item.quantity,
             price: item.price,
           })),
@@ -262,7 +335,8 @@ export async function POST(request: NextRequest) {
 
     // Mirror into the AI-office CRM + fire ORDER_CREATED so Stepan and the
     // department bots (Finance/PM/Analytics) actually see this order.
-    await notifyOffice(order, user);
+    // Run in background without awaiting to ensure fast checkout for the user.
+    notifyOffice(order, user).catch(console.error);
 
 
     // Referral bonus: 3% to referrer
@@ -309,10 +383,33 @@ export async function GET(request: NextRequest) {
 
   const phone = searchParams.get('phone');
   const userId = searchParams.get('userId');
+  const telegramId = searchParams.get('telegramId');
 
   const where: any = status && status !== 'ALL' ? { status: status as any } : {};
   if (phone) where.phone = phone;
   if (userId) where.userId = userId;
+
+  // Support filtering by telegramId — resolve to userId first
+  if (telegramId) {
+    try {
+      const tgUser = await prisma.user.findUnique({
+        where: { telegramId: BigInt(telegramId) },
+        select: { id: true },
+      });
+      if (tgUser) {
+        where.userId = tgUser.id;
+      } else {
+        // No user with this telegramId — return empty results
+        return NextResponse.json({
+          orders: [],
+          total: 0,
+          pagination: { page, limit, totalPages: 0 },
+        });
+      }
+    } catch {
+      return NextResponse.json({ error: 'Invalid telegramId' }, { status: 400 });
+    }
+  }
 
   const [orders, total] = await Promise.all([
     prisma.order.findMany({

@@ -102,20 +102,8 @@ async def cmd_bonuses(message: Message):
     )
 
 
-@router.message(Command("game"))
-async def cmd_game(message: Message):
-    """Игра"""
-    user = message.from_user
-    game_state = await bridge.get_game_state(user.id)
-    
-    await message.answer(
-        f"🎮 <b>Farm Simulator</b>\n\n"
-        f"🌱 EcoPoints: <b>{game_state.get('ecoPoints', 0)}</b>\n"
-        f"⭐ Уровень: <b>{game_state.get('level', 1)}</b>\n"
-        f"⚡ Энергия: <b>{game_state.get('energy', 100)}/100</b>\n"
-        f"🔥 Streak: <b>{game_state.get('streak', 0)}</b> дней\n\n"
-        f"👉 Играй на сайте: microgreenuzbekistan.com/game"
-    )
+# NOTE: /game command is handled by start.py (higher priority router)
+# Removed duplicate handler to avoid confusion.
 
 
 # ==================== CALLBACK HANDLERS ====================

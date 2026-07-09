@@ -59,7 +59,7 @@ async def main():
         missing = [sc for sc in REQUIRED_SCOPES if sc not in scopes]
         if missing:
             print(f"\n  MISSING REQUIRED SCOPES: {missing}")
-            print(f"  Please add these in Graph API Explorer and regenerate token!")
+            print("  Please add these in Graph API Explorer and regenerate token!")
             return
         
         print("  All required scopes present!")
@@ -146,7 +146,7 @@ async def main():
             err = data6["error"]
             print(f"  FAIL: {err.get('code')}/{err.get('error_subcode','?')}: {err.get('message','?')}")
         else:
-            print(f"  SUCCESS! Message sent!")
+            print("  SUCCESS! Message sent!")
             print(f"  Response: {json.dumps(data6, ensure_ascii=True)}")
         
         print(f"\n{'='*50}")

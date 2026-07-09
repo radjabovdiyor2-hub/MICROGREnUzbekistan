@@ -9,7 +9,7 @@ from aiogram import Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from bots.stepan_bot.main import daily_report, _bot
+from bots.stepan_bot.main import daily_report
 import bots.stepan_bot.main
 
 async def run_report():

@@ -2,7 +2,6 @@ import os
 import smtplib
 import logging
 from email.message import EmailMessage
-from shared.config import settings
 
 logger = logging.getLogger(__name__)
 

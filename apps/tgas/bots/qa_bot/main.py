@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import base64
 from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
@@ -67,9 +66,43 @@ async def handle_n8n_webhook(request: web.Request):
         logger.error(f"Error handling webhook: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+async def handle_task_created(payload: dict):
+    """Слушаем задачи от Степана по шине сообщений"""
+    if payload.get("dept") != "qa":
+        return
+        
+    logger.info(f"QA Bot received task via event_bus: {payload}")
+    task_id = payload.get("task_id", "qa_task")
+    chat_id = payload.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
+    description = payload.get("description", "")
+    
+    prompt_text = (
+        f"Ты инженер по контролю качества (QA) на сити-ферме микрозелени. Твоя задача:\n{description}\n\n"
+        "Сделай профессиональный анализ проблемы, укажи возможные причины, дай короткое заключение и вердикт."
+    )
+    
+    try:
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt_text}],
+        )
+        analysis = response.choices[0].message.content
+    except Exception as e:
+        logger.error(f"OpenAI error: {e}")
+        analysis = "ИИ-анализ временно недоступен. Возникла ошибка."
+        
+    # Send result back to PM bot via Event Bus
+    await event_bus.publish("TASK_COMPLETED", {
+        "task_id": task_id,
+        "completed_by": "qa",
+        "chat_id": chat_id,
+        "text": f"🔬 <b>Отчет Отдела Контроля Качества (QA):</b>\n\n{analysis}"
+    }, "qa_bot")
+
 async def main():
     logger.info("Starting QA Bot Microservice...")
     await event_bus.connect()
+    event_bus.on("TASK_CREATED", handle_task_created)
     
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)

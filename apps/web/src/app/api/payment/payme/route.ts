@@ -68,9 +68,10 @@ export async function POST(request: NextRequest) {
     }
 
     case 'PerformTransaction': {
-      // Confirm payment. If the account ref is present we can resolve the order.
+      // Confirm payment — the order must exist to mark it as paid.
       const order = ref ? await findOrderByRef(ref) : null;
-      if (order) await markOrderPaid(order.id);
+      if (!order) return rpcError(id, -31050, 'Order not found');
+      await markOrderPaid(order.id);
       return rpc(id, { perform_time: Date.now(), transaction: String(params?.id ?? ''), state: 2 });
     }
 

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
@@ -22,8 +22,16 @@ from sqlalchemy import text
 from shared.database import get_session_ctx
 from shared.event_bus import event_bus, Events
 from shared.utils import format_price
+import sentry_sdk
 
 logger = logging.getLogger(__name__)
+
+if os.getenv("SENTRY_DSN"):
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
 
 # Общий секрет для приёма заказов из витрины (пусто = проверка выключена).
 INGEST_SECRET = os.getenv("INGEST_SECRET", "")
@@ -551,7 +559,11 @@ async def ingest_order(request: Request):
     `MG-XXXXXX` (иначе ломается генерация номеров у sales_bot). Тот же маркер даёт
     идемпотентность: повторный вызов с тем же номером дубль не создаёт.
     """
-    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+    if not INGEST_SECRET:
+        if os.getenv("ENVIRONMENT", "development") == "production":
+            logger.error("FATAL: INGEST_SECRET is missing in production!")
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+    elif request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
@@ -721,7 +733,11 @@ async def ingest_order_status(request: Request):
     Степан/Analytics видели актуальный жизненный цикл. Обратно на витрину не
     ходим — этот путь только storefront → office.
     """
-    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+    if not INGEST_SECRET:
+        if os.getenv("ENVIRONMENT", "development") == "production":
+            logger.error("FATAL: INGEST_SECRET is missing in production!")
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+    elif request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
@@ -910,6 +926,155 @@ async def ingest_customer(request: Request):
     return JSONResponse({"status": "ok", "customer_id": customer_id, "is_new": is_new})
 
 
+def _check_ingest_secret(request: Request) -> bool:
+    return not INGEST_SECRET or request.headers.get("X-Ingest-Secret") == INGEST_SECRET
+
+
+async def _find_customer(session, tid, phone):
+    """Найти клиента по telegram_id, затем по телефону (best-effort)."""
+    if tid:
+        cid = (await session.execute(
+            text("SELECT id FROM customers WHERE telegram_id = :tid"), {"tid": tid},
+        )).scalar()
+        if cid:
+            return cid
+    if phone:
+        return (await session.execute(
+            text("SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"),
+            {"phone": phone},
+        )).scalar()
+    return None
+
+
+@app.post("/ingest/support")
+async def ingest_support(request: Request):
+    """Обращение/жалоба с сайта → журнал + COMPLAINT_RECEIVED (PM ставит срочную задачу)."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    message = (body.get("message") or "").strip()
+    if not message:
+        return JSONResponse({"error": "message required"}, status_code=400)
+    name = (body.get("name") or "").strip() or "Клиент с сайта"
+    phone = (body.get("phone") or "").strip() or None
+    try:
+        raw_tid = body.get("telegram_id")
+        tid = int(raw_tid) if raw_tid not in (None, "", 0, "0") else None
+    except (TypeError, ValueError):
+        tid = None
+
+    try:
+        async with get_session_ctx() as session:
+            customer_id = await _find_customer(session, tid, phone)
+            await session.execute(text(
+                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                "VALUES (:cid, 'website', 'complaint', 'web_office', :s)"
+            ), {"cid": customer_id, "s": f"Обращение от {name}: {message[:400]}"})
+    except Exception as exc:
+        logger.exception("Ingest-support: ошибка: %s", exc)
+        return JSONResponse({"error": "ingest failed"}, status_code=500)
+
+    await event_bus.publish(
+        Events.COMPLAINT_RECEIVED,
+        {"customer_name": name, "phone": phone, "summary": message, "source": "website"},
+        source_bot="web_office",
+    )
+    logger.info("Ingest-support: обращение с сайта от %s", name)
+    return JSONResponse({"status": "ok"})
+
+
+@app.post("/ingest/lead")
+async def ingest_lead(request: Request):
+    """B2B-заявка с сайта → клиент (b2b, lead) + B2B_LEAD_CREATED (Sales)."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    company = (body.get("company_name") or "").strip() or None
+    contact = (body.get("contact_name") or "").strip() or None
+    phone = (body.get("phone") or "").strip() or None
+    message = (body.get("message") or "").strip()
+    if not (company or contact or phone):
+        return JSONResponse({"error": "contact required"}, status_code=400)
+
+    try:
+        async with get_session_ctx() as session:
+            customer_id = await _find_customer(session, None, phone)
+            if not customer_id:
+                customer_id = (await session.execute(text(
+                    "INSERT INTO customers (name, company_name, phone, customer_type, status, "
+                    "source, city) VALUES (:name, :company, :phone, 'b2b', 'lead', 'website', "
+                    "'Samarqand') RETURNING id"
+                ), {"name": contact or company or "B2B-лид", "company": company, "phone": phone})).scalar()
+            await session.execute(text(
+                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                "VALUES (:cid, 'website', 'b2b_lead', 'web_office', :s)"
+            ), {"cid": customer_id, "s": f"B2B-заявка: {company or contact}. {message[:300]}"})
+    except Exception as exc:
+        logger.exception("Ingest-lead: ошибка: %s", exc)
+        return JSONResponse({"error": "ingest failed"}, status_code=500)
+
+    await event_bus.publish(
+        Events.B2B_LEAD_CREATED,
+        {"customer_id": customer_id, "company_name": company, "contact_name": contact,
+         "phone": phone, "summary": message, "source": "website"},
+        source_bot="web_office",
+    )
+    logger.info("Ingest-lead: B2B-заявка с сайта (%s)", company or contact)
+    return JSONResponse({"status": "ok", "customer_id": customer_id})
+
+
+@app.post("/ingest/feedback")
+async def ingest_feedback(request: Request):
+    """Отзыв о товаре с сайта → журнал + FEEDBACK_RECEIVED (Analytics/Stepan)."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "invalid json"}, status_code=400)
+
+    try:
+        rating = int(body.get("rating") or 0)
+    except (TypeError, ValueError):
+        rating = 0
+    product = (body.get("product") or "").strip() or "товар"
+    comment = (body.get("comment") or "").strip()
+    name = (body.get("name") or "").strip() or "Клиент"
+    try:
+        raw_tid = body.get("telegram_id")
+        tid = int(raw_tid) if raw_tid not in (None, "", 0, "0") else None
+    except (TypeError, ValueError):
+        tid = None
+
+    try:
+        async with get_session_ctx() as session:
+            customer_id = await _find_customer(session, tid, None)
+            await session.execute(text(
+                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                "VALUES (:cid, 'website', 'feedback', 'web_office', :s)"
+            ), {"cid": customer_id, "s": f"Отзыв {rating}★ на «{product}»: {comment[:300]}"})
+    except Exception as exc:
+        logger.exception("Ingest-feedback: ошибка: %s", exc)
+        return JSONResponse({"error": "ingest failed"}, status_code=500)
+
+    await event_bus.publish(
+        Events.FEEDBACK_RECEIVED,
+        {"customer_name": name, "product": product, "rating": rating,
+         "comment": comment, "source": "website"},
+        source_bot="web_office",
+    )
+    logger.info("Ingest-feedback: отзыв %s★ на %s", rating, product)
+    return JSONResponse({"status": "ok"})
+
+
 # ─── Синхронизация каталога витрина → офис ───────────────────
 @app.post("/admin/sync-catalog")
 async def sync_catalog(request: Request):
@@ -923,6 +1088,140 @@ async def sync_catalog(request: Request):
     except Exception as exc:
         logger.exception("Sync-catalog: ошибка: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+# ── Department API ───────────────────────────────────────────
+DEPARTMENT_META: dict[str, dict[str, str]] = {
+    "marketing": {"name": "Маркетинг", "bot": "MG_Marketing_bot", "icon": "📢"},
+    "content": {"name": "Контент", "bot": "MG_Finance1_bot", "icon": "✍️"},
+    "hr": {"name": "Кадры (HR)", "bot": "MG_HR1_bot", "icon": "👥"},
+    "finance": {"name": "Финансы", "bot": "MG_Content1_bot", "icon": "💰"},
+    "devops": {"name": "DevOps / IT", "bot": "MG_PM1_bot", "icon": "⚙️"},
+    "qa": {"name": "QA / Тесты", "bot": "MG_PM1_bot", "icon": "🔍"},
+    "rnd": {"name": "R&D", "bot": "MG_PM1_bot", "icon": "💡"},
+    "support": {"name": "Поддержка", "bot": "MicrogreenSupport_bot", "icon": "🎧"},
+    "sales": {"name": "Продажи", "bot": "MicrogreenSales_bot", "icon": "🛒"},
+    "analytics": {"name": "Аналитика", "bot": "MG_Analytics_bot", "icon": "📊"},
+}
+
+
+@app.get("/api/departments/summary")
+async def departments_summary():
+    """Сводка по всем отделам: кол-во задач и статусы."""
+    departments = []
+    try:
+        async with get_session_ctx() as session:
+            for dept_id, meta in DEPARTMENT_META.items():
+                result = await session.execute(
+                    text(
+                        "SELECT status, COUNT(*) FROM tasks "
+                        "WHERE LOWER(department) = :dept "
+                        "GROUP BY status"
+                    ),
+                    {"dept": dept_id},
+                )
+                rows = result.fetchall()
+                stats = {row[0]: row[1] for row in rows}
+                total = sum(stats.values())
+                departments.append({
+                    "id": dept_id,
+                    "name": meta["name"],
+                    "bot": meta["bot"],
+                    "icon": meta["icon"],
+                    "status": "online",
+                    "tasks_total": total,
+                    "tasks_done": stats.get("done", 0),
+                    "tasks_in_progress": stats.get("in_progress", 0),
+                    "tasks_todo": stats.get("todo", 0),
+                })
+    except Exception as exc:
+        logger.warning("departments_summary error: %s", exc)
+        # Fallback: return meta without stats
+        for dept_id, meta in DEPARTMENT_META.items():
+            departments.append({
+                "id": dept_id,
+                "name": meta["name"],
+                "bot": meta["bot"],
+                "icon": meta["icon"],
+                "status": "unknown",
+                "tasks_total": 0,
+                "tasks_done": 0,
+                "tasks_in_progress": 0,
+                "tasks_todo": 0,
+            })
+    return JSONResponse({"success": True, "departments": departments})
+
+
+@app.get("/api/department/{dept_id}")
+async def department_detail(dept_id: str):
+    """Детали конкретного отдела: задачи + метрики."""
+    meta = DEPARTMENT_META.get(dept_id)
+    if not meta:
+        return JSONResponse({"error": "unknown department"}, status_code=404)
+
+    tasks_list: list[dict[str, Any]] = []
+    stats = {"total": 0, "done": 0, "in_progress": 0, "todo": 0, "overdue": 0}
+
+    try:
+        async with get_session_ctx() as session:
+            # Tasks for this department
+            result = await session.execute(
+                text(
+                    "SELECT id, title, assignee, status, priority, "
+                    "deadline, created_at "
+                    "FROM tasks WHERE LOWER(department) = :dept "
+                    "ORDER BY created_at DESC LIMIT 50"
+                ),
+                {"dept": dept_id},
+            )
+            rows = result.fetchall()
+            for row in rows:
+                tasks_list.append({
+                    "id": row[0],
+                    "title": row[1] or "—",
+                    "assignee": row[2] or "—",
+                    "status": row[3] or "todo",
+                    "priority": row[4] or "medium",
+                    "deadline": _safe_str(row[5]),
+                    "created_at": _safe_str(row[6]),
+                })
+
+            # Stats
+            result = await session.execute(
+                text(
+                    "SELECT status, COUNT(*) FROM tasks "
+                    "WHERE LOWER(department) = :dept GROUP BY status"
+                ),
+                {"dept": dept_id},
+            )
+            for row in result.fetchall():
+                stats[row[0]] = row[1]
+            stats["total"] = sum(
+                v for k, v in stats.items() if k != "overdue"
+            )
+
+            # Overdue
+            result = await session.execute(
+                text(
+                    "SELECT COUNT(*) FROM tasks "
+                    "WHERE LOWER(department) = :dept "
+                    "AND deadline < NOW() AND status != 'done'"
+                ),
+                {"dept": dept_id},
+            )
+            stats["overdue"] = _safe_int(result.scalar())
+    except Exception as exc:
+        logger.warning("department_detail(%s) error: %s", dept_id, exc)
+
+    return JSONResponse({
+        "success": True,
+        "department": {
+            "id": dept_id,
+            **meta,
+            "stats": stats,
+            "tasks": tasks_list,
+        },
+    })
 
 
 async def _catalog_sync_loop() -> None:

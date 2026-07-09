@@ -1,11 +1,10 @@
 import subprocess
-import sys
 import os
 
 bots = [
     "bots.stepan_bot.main",
     "bots.sales_bot.main",
-    "bots.pm_bot.main",
+
     "bots.finance_bot.main",
     "bots.marketing_bot.main",
     "bots.analytics_bot.main",

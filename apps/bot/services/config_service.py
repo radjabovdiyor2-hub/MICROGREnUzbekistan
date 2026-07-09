@@ -67,8 +67,8 @@ async def fetch_site_config() -> SiteConfig:
             config = SiteConfig(
                 hero_title=data.get("heroTitle", "AGROTECH ECOSYSTEM"),
                 hero_subtitle=data.get("heroSubtitle", "Hydroponics • Aeroponics • Vertical Farming"),
-                delivery_fee=int(data.get("deliveryFee", 15000)),
-                free_delivery_threshold=int(data.get("freeDeliveryThreshold", 100000)),
+                delivery_fee=int(data.get("deliveryFee", 25000)),
+                free_delivery_threshold=int(data.get("freeDeliveryThreshold", 500000)),
                 contact_phone=data.get("contactPhone", "+998 90 123 45 67"),
                 contact_email=data.get("contactEmail", "hello@microgreenuzbekistan.com"),
                 banner_enabled=data.get("bannerEnabled", False),
@@ -93,8 +93,8 @@ def get_default_config() -> SiteConfig:
     return SiteConfig(
         hero_title="AGROTECH ECOSYSTEM",
         hero_subtitle="Hydroponics • Aeroponics • Vertical Farming",
-        delivery_fee=15000,
-        free_delivery_threshold=100000,
+        delivery_fee=25000,
+        free_delivery_threshold=500000,
         contact_phone="+998 90 123 45 67",
         contact_email="hello@microgreenuzbekistan.com",
         banner_enabled=False,

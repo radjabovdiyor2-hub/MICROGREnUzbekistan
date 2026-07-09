@@ -148,6 +148,10 @@ class Settings(BaseSettings):
         default="",
         description="API-ключ Google Places для поиска ресторанов",
     )
+    yandex_maps_api_key: str = Field(
+        default="",
+        description="API-ключ Yandex Maps (Search API) для поиска ресторанов",
+    )
     b2b_daily_limit: int = Field(
         default=15,
         description="Сколько холодных B2B-контактов делать в день",
@@ -155,6 +159,52 @@ class Settings(BaseSettings):
     lead_gen_city: str = Field(
         default="Самарканд",
         description="Город для поиска ресторанов при сборе лидов",
+    )
+
+    # ── Совещание отделов (multi-agent «круглый стол») ────────────────
+    meeting_rounds: int = Field(
+        default=2,
+        description="Сколько раундов обсуждения на совещании (1 — только позиции, 2+ — с дебатами)",
+    )
+    meeting_min_participants: int = Field(
+        default=2,
+        description="Минимум отделов на совещании",
+    )
+    meeting_max_participants: int = Field(
+        default=5,
+        description="Максимум отделов на совещании",
+    )
+    meeting_departments: str = Field(
+        default="",
+        description="Список ключей отделов через запятую (пул для совещаний). Пусто = все доступные",
+    )
+    meeting_max_vote_rounds: int = Field(
+        default=3,
+        description="Сколько раз переголосовать с новой дискуссией, если решение не набрало большинства",
+    )
+
+    # ── KPI-watchdog (авто-разбор при падении показателей) ─────────────
+    kpi_watchdog_enabled: bool = Field(
+        default=True,
+        description="Включить авто-мониторинг KPI: при падении собирать отделы на разбор",
+    )
+    kpi_watchdog_drop_pct: int = Field(
+        default=20,
+        description="Порог падения показателя (%) неделя-к-неделе для срабатывания",
+    )
+    kpi_watchdog_hour: int = Field(
+        default=11,
+        description="Час (по времени UZT+5) ежедневной проверки KPI",
+    )
+    kpi_watchdog_autoexecute: bool = Field(
+        default=False,
+        description="Сразу запускать план (True) или ждать «делайте» от руководителя (False)",
+    )
+
+    # ── Instagram: авто-ответ на комментарии ──────────────────────────
+    ig_comments_autoreply_enabled: bool = Field(
+        default=True,
+        description="Автоматически отвечать на комментарии-вопросы под постами Instagram",
     )
 
     @property

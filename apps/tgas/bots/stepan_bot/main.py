@@ -23,8 +23,7 @@ from aiogram.fsm.storage.redis import RedisStorage
 
 from shared.config import settings
 from shared.database import get_session_ctx
-from shared.event_bus import EventBus
-from shared import notifications
+from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat, check_all_bots, format_health_report
 
@@ -354,7 +353,7 @@ async def weekly_report():
         lines = [
             "📊 <b>Недельный отчёт</b>\n",
             "━━━━━━━━━━━━━━━━━━━━━━\n",
-            f"📋 <b>Задачи:</b>",
+            "📋 <b>Задачи:</b>",
             f"  ✅ Выполнено: {week_tasks.get('done', 0)}",
             f"  ⬜ Ожидают: {week_tasks.get('todo', 0)}",
             f"  🔄 В работе: {week_tasks.get('in_progress', 0)}",
@@ -536,6 +535,22 @@ scheduler.add_cron(name="daily_backup", func=_daily_backup, hour=3, minute=0)
 scheduler.add_interval(name="token_refresh", func=_token_refresh, seconds=86400 * 7)  # раз в неделю
 
 
+# ── KPI-watchdog: при падении показателей автоматически созывает совещание отделов ──
+async def _kpi_watchdog_job():
+    try:
+        from bots.stepan_bot.handlers.team_meeting import run_kpi_watchdog
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        chat = getattr(settings, "sales_group_id", 0) or admin_id
+        if _bot and chat:
+            await run_kpi_watchdog(_bot, chat)
+    except Exception as e:
+        logger.warning(f"KPI watchdog job error: {e}")
+
+if getattr(settings, "kpi_watchdog_enabled", True):
+    scheduler.add_cron(name="kpi_watchdog", func=_kpi_watchdog_job,
+                       hour=getattr(settings, "kpi_watchdog_hour", 11), minute=0)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════════════════
@@ -558,11 +573,18 @@ async def main():
     from shared.group_orchestrator import create_group_router
     from bots.stepan_bot.handlers.assistant import brain
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, brain, wake_words=["степан", "стёпа", "степа", "stepan"])
+    group_router = create_group_router(bot_info.username, brain, wake_words=[
+        "степан", "стёпа", "степа", "stepan",
+        "шеф", "босс", "менеджер", "директор",
+        "отдел devops", "devops", "девопс",
+        "отдел qa", "тестирование", "качество",
+        "отдел r&d", "r&d", "исследования", "разработка",
+        "отдел логистик", "логистика", "доставка",
+    ])
     dp.include_router(group_router)
 
     # -- EventBus: слушаем ВСЕ события --
-    event_bus = EventBus()
+    # Uses the global singleton from shared.event_bus (imported at top)
 
     async def on_any_event(payload: dict):
         """Степан обрабатывает события — только важные уведомляет."""
@@ -611,9 +633,74 @@ async def main():
             src = data.get("bot", "бот")
             txt = data.get("text", "")
             await bot.send_message(admin_id, f"📩 <b>Уведомление от {src}</b>\n{txt}", parse_mode="HTML")
+        elif event_type == "order_created":
+            order_number = data.get("order_number", "Unknown")
+            amount = data.get("total_amount", 0)
+            items = data.get("items_summary", "")
+            try:
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                async with get_session_ctx() as session:
+                    await session.execute(text(
+                        "INSERT INTO tasks (title, description, status, department, priority, deadline) "
+                        "VALUES (:title, :desc, 'todo', 'delivery', 'high', CURRENT_DATE)"
+                    ), {
+                        "title": f"Доставить заказ {order_number}",
+                        "desc": f"Новый заказ на сумму {amount} UZS.\nДетали: {items}"
+                    })
+                    await session.commit()
+                logger.info(f"Степан: Auto-created delivery task for order {order_number}")
+            except Exception as e:
+                logger.error(f"Степан order handling error: {e}")
+
         else:
             # Всё остальное — только лог, не спамим в чат
             logger.info(f"Степан: событие {event_type} от {source} — записано")
+
+
+    async def handle_pm_task_created(payload: dict):
+        data = payload.get("data", {})
+        if str(data.get("department", "")).lower() not in ("pm", "operations", "production", "logistics"):
+            return
+        chat_id = data.get("chat_id")
+        task_id = data.get("task_id")
+        if not chat_id:
+            return
+        
+        try:
+            from shared.ai_engine import AIEngine
+            ai = AIEngine()
+            from shared.prompts import TEAM_CONTEXT
+            sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Операционный Директор (COO) и главный Project Manager. Твоя задача: не просто выполнять поручения, а структурно планировать их выполнение по Agile/Lean. Оцени узкие места (bottlenecks), предложи пошаговый Action Plan, укажи риски."
+            user_prompt = f"Руководитель поставил задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
+            logger.info("PM BOT Generating AI answer...")
+            answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=380)
+            
+            # Интеграция со складом (автоматическое списание при посеве/сборке)
+            title_lower = str(data.get('title', '')).lower()
+            if "посад" in title_lower or "посев" in title_lower:
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                try:
+                    async with get_session_ctx() as session:
+                        await session.execute(text("UPDATE inventory SET quantity = quantity - 1 WHERE category = 'seeds' AND quantity >= 1"))
+                        await session.execute(text("UPDATE inventory SET quantity = quantity - 5 WHERE category = 'substrate' AND quantity >= 5"))
+                        await session.commit()
+                    answer += "\n\n📦 <b>Складской учёт:</b>\nАвтоматически списано: 1 кг семян, 5 кокосовых субстратов."
+                except Exception as e:
+                    logger.error(f"Error deducting inventory: {e}")
+            
+            await bot.send_message(chat_id, f"✅ <b>Операции (PM) — принял в работу:</b>\n\n{answer}")
+            
+            if task_id:
+                await event_bus.publish("TASK_COMPLETED", {
+                    "task_id": task_id,
+                    "completed_by": "pm", "chat_id": chat_id
+                }, "stepan_bot")
+                
+        except Exception as e:
+            logger.error(f"Error handling PM task: {repr(e)}", exc_info=True)
+
 
     async def handle_task_completed(payload: dict):
         data = payload.get("data", {})
@@ -756,7 +843,7 @@ async def main():
                     },
                     "stepan_bot"
                 )
-                logger.info(f"Степан: ORDER_CREATED → PM, Finance, Analytics")
+                logger.info("Степан: ORDER_CREATED → PM, Finance, Analytics")
                 
             # Обычные сообщения (не заказы) — НЕ пересылаем, бот сам ведёт диалог
         except Exception as e:
@@ -772,6 +859,9 @@ async def main():
         event_bus.on(event_type, on_any_event)
         
     event_bus.on("TASK_COMPLETED", handle_task_completed)
+    event_bus.on("TASK_CREATED", handle_pm_task_created)
+    from shared.notifications import register_pm_handlers
+    register_pm_handlers(event_bus, bot)
     event_bus.on("ig_dm_received", handle_ig_dm)
 
     # ── Подключение к шинам ──
@@ -803,6 +893,38 @@ async def main():
     # scheduler.add_cron(name="daily_report", func=daily_report, hour=9, minute=30)  # Убрано в пользу n8n
     await scheduler.start()
     asyncio.create_task(start_heartbeat("stepan_bot"))
+    from shared.bot_bus import start_listener as bus_listen
+    async def bus_get_tasks(params: dict) -> dict:
+        try:
+            from shared.database import get_session_ctx
+            from sqlalchemy import text
+            async with get_session_ctx() as session:
+                res = await session.execute(text("SELECT id, title, department, status, priority, deadline FROM tasks WHERE status NOT IN ('done', 'cancelled') ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, deadline ASC NULLS LAST LIMIT 20"))
+                rows = res.fetchall()
+                res2 = await session.execute(text("SELECT status, COUNT(*) FROM tasks GROUP BY status"))
+                stats = {r[0]: r[1] for r in res2.fetchall()}
+            tasks_list = [{"id": r[0], "title": r[1], "department": r[2], "status": r[3], "priority": r[4], "deadline": str(r[5]) if r[5] else None} for r in rows]
+            return {"status": "ok", "message": f"Активных задач: {len(tasks_list)}", "data": {"tasks": tasks_list, "stats": stats}}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def bus_get_deadlines(params: dict) -> dict:
+        try:
+            from shared.database import get_session_ctx
+            from sqlalchemy import text
+            async with get_session_ctx() as session:
+                res = await session.execute(text("SELECT id, title, deadline, priority, department FROM tasks WHERE deadline BETWEEN CURRENT_DATE AND CURRENT_DATE + 7 AND status NOT IN ('done', 'cancelled') ORDER BY deadline ASC"))
+                rows = res.fetchall()
+            deadlines = [{"id": r[0], "title": r[1], "deadline": str(r[2]), "priority": r[3], "department": r[4]} for r in rows]
+            return {"status": "ok", "message": f"Дедлайнов в ближайшие 7 дней: {len(deadlines)}", "data": deadlines}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    asyncio.create_task(bus_listen("pm_bot", {
+        "get_tasks": bus_get_tasks,
+        "get_deadlines": bus_get_deadlines,
+    }))
+
 
     # ── Webhook Server для n8n ──
     from aiohttp import web
@@ -822,6 +944,42 @@ async def main():
                 asyncio.create_task(auto_task_creation())
             elif action == "check_followups":
                 asyncio.create_task(check_followups())
+
+            elif action == "bus_get_tasks":
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                async with get_session_ctx() as session:
+                    res = await session.execute(text(
+                        "SELECT id, title, department, status, priority, deadline "
+                        "FROM tasks WHERE status NOT IN ('done', 'cancelled') "
+                        "ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 "
+                        "WHEN 'medium' THEN 2 ELSE 3 END, deadline ASC NULLS LAST LIMIT 20"
+                    ))
+                    rows = res.fetchall()
+                    res2 = await session.execute(text("SELECT status, COUNT(*) FROM tasks GROUP BY status"))
+                    stats = {r[0]: r[1] for r in res2.fetchall()}
+                tasks_list = [
+                    {"id": r[0], "title": r[1], "department": r[2], "status": r[3],
+                     "priority": r[4], "deadline": str(r[5]) if r[5] else None}
+                    for r in rows
+                ]
+                return web.json_response({"status": "ok", "message": f"Активных задач: {len(tasks_list)}", "data": {"tasks": tasks_list, "stats": stats}})
+            elif action == "bus_get_deadlines":
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                async with get_session_ctx() as session:
+                    res = await session.execute(text(
+                        "SELECT id, title, deadline, priority, department FROM tasks "
+                        "WHERE deadline BETWEEN CURRENT_DATE AND CURRENT_DATE + 7 "
+                        "AND status NOT IN ('done', 'cancelled') "
+                        "ORDER BY deadline ASC"
+                    ))
+                    rows = res.fetchall()
+                deadlines = [
+                    {"id": r[0], "title": r[1], "deadline": str(r[2]), "priority": r[3], "department": r[4]}
+                    for r in rows
+                ]
+                return web.json_response({"status": "ok", "message": f"Дедлайнов в ближайшие 7 дней: {len(deadlines)}", "data": deadlines})
             else:
                 return web.json_response({"status": "error", "message": "Unknown action"}, status=400)
             return web.json_response({"status": "ok", "action": action})

@@ -1,10 +1,11 @@
-$cwd = "c:\Users\TUF GAMING\Desktop\tgas"
+$cwd = $PSScriptRoot
 $python = "$cwd\venv\Scripts\python.exe"
 
 Start-Process -FilePath $python -ArgumentList "-m", "uvicorn", "web_office.main:app", "--host", "0.0.0.0", "--port", "8050" -WorkingDirectory $cwd -WindowStyle Hidden
 Start-Process -FilePath $python -ArgumentList "-m", "bots.stepan_bot.main" -WorkingDirectory $cwd -WindowStyle Hidden
 Start-Process -FilePath $python -ArgumentList "-m", "bots.sales_bot.main" -WorkingDirectory $cwd -WindowStyle Hidden
-Start-Process -FilePath $python -ArgumentList "-m", "bots.pm_bot.main" -WorkingDirectory $cwd -WindowStyle Hidden
+# PM bot disabled — Stepan now uses the PM bot token (conflict)
+
 Start-Process -FilePath $python -ArgumentList "-m", "bots.finance_bot.main" -WorkingDirectory $cwd -WindowStyle Hidden
 Start-Process -FilePath $python -ArgumentList "-m", "bots.marketing_bot.main" -WorkingDirectory $cwd -WindowStyle Hidden
 Start-Process -FilePath $python -ArgumentList "-m", "bots.analytics_bot.main" -WorkingDirectory $cwd -WindowStyle Hidden

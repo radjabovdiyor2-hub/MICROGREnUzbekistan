@@ -41,8 +41,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Bot token not configured' }, { status: 500 });
     }
 
-    // Skip strict verification — allow all Telegram logins
-    // This is safe because we only use it for user identification, not for sensitive operations
+    // Verify Telegram login widget hash
+    const authData: Record<string, string> = {};
+    if (id) authData.id = String(id);
+    if (first_name) authData.first_name = String(first_name);
+    if (last_name) authData.last_name = String(last_name);
+    if (username) authData.username = String(username);
+    if (photo_url) authData.photo_url = String(photo_url);
+    if (auth_date) authData.auth_date = String(auth_date);
+    if (hash) authData.hash = String(hash);
+
+    if (!verifyTelegramAuth(authData, botToken)) {
+      return NextResponse.json({ error: 'Hash verification failed' }, { status: 401 });
+    }
 
     // Upsert user in database
     const user = await prisma.user.upsert({

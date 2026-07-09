@@ -7,7 +7,6 @@ Microgreen Uzbekistan — Instagram Analytics
 
 import logging
 import aiohttp
-from typing import List, Dict, Optional
 from shared.config import settings
 
 logger = logging.getLogger(__name__)
@@ -162,5 +161,42 @@ async def get_top_posts(limit: int = 5) -> list:
             f"лучший engagement = {top[0]['engagement']} "
             f"(👍 {top[0]['like_count']} + 💬 {top[0]['comments_count']})"
         )
-    
+
     return top
+
+
+async def get_instagram_stats(top_limit: int = 5) -> dict:
+    """
+    Агрегированная статистика Instagram (профиль + топ-посты + сводка).
+
+    Используется Analytics-ботом (bus_get_instagram_stats) и R&D для
+    рекомендаций по контенту. Возвращает единый dict; при недоступности
+    Graph API — пустые значения, но без исключения.
+    """
+    profile = await get_profile_stats()
+    top_posts = await get_top_posts(limit=top_limit)
+
+    followers = profile.get("followers_count", 0)
+    media_count = profile.get("media_count", 0)
+
+    lines = [
+        f"👥 Подписчиков: {followers}",
+        f"🖼 Публикаций: {media_count}",
+    ]
+    if top_posts:
+        lines.append("🏆 Топ-посты по вовлечённости:")
+        for i, p in enumerate(top_posts, 1):
+            cap = (p.get("caption") or "").replace("\n", " ")[:60]
+            lines.append(
+                f"  {i}. 👍 {p['like_count']} 💬 {p['comments_count']} "
+                f"(engagement {p['engagement']}) — {cap}"
+            )
+    else:
+        lines.append("Данные по постам недоступны (проверьте токен/доступ Graph API).")
+
+    return {
+        "profile": profile,
+        "top_posts": top_posts,
+        "summary": "\n".join(lines),
+        "configured": bool(profile) or bool(top_posts),
+    }

@@ -41,7 +41,15 @@ async def show_orders(callback: CallbackQuery):
     try:
         orders = await bridge.get_orders_by_telegram_id(callback.from_user.id)
     except Exception as e:
-        orders = []
+        logger.error(f"Failed to fetch orders: {e}")
+        await callback.message.edit_text(
+            "❌ <b>Сервис временно недоступен</b>\n\n"
+            "Не удалось загрузить историю заказов. Пожалуйста, попробуйте позже.",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="« Назад", callback_data="menu:main")]]),
+            parse_mode="HTML"
+        )
+        await callback.answer()
+        return
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🛒 Сделать заказ", web_app=WebAppInfo(url=WEB_APP_URL))],

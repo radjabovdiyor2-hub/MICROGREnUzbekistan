@@ -6,7 +6,7 @@ from sqlalchemy import text
 from shared.database import get_session_ctx
 from shared.config import settings
 from bots.sales_bot.states import B2BStates
-from bots.sales_bot.keyboards.inline import main_menu_kb, back_menu_kb
+from bots.sales_bot.keyboards.inline import main_menu_kb
 
 router = Router()
 

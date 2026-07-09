@@ -287,6 +287,47 @@ class AIEngine:
             logger.error(f"Неожиданная ошибка AI-движка: {e}", exc_info=True)
             return self._get_fallback(language)
 
+    async def chat_with_tools(
+        self,
+        system_prompt: str,
+        user_message: str,
+        tools: List[Dict],
+        conversation_history: Optional[List[Dict[str, str]]] = None,
+        temperature: float = 0.7,
+    ):
+        """
+        OpenAI Chat Completions API with Function Calling support.
+        """
+        messages = [{"role": "system", "content": system_prompt}]
+        if conversation_history:
+            messages.extend(conversation_history)
+        if user_message:
+            messages.append({"role": "user", "content": user_message})
+
+        try:
+            start_time = time.monotonic()
+            response = await self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                temperature=temperature,
+                tools=tools,
+                tool_choice="auto",
+            )
+            duration_ms = (time.monotonic() - start_time) * 1000
+            
+            usage = response.usage
+            if usage:
+                self.usage.add_usage(
+                    input_tokens=usage.prompt_tokens,
+                    output_tokens=usage.completion_tokens,
+                    model=self._model,
+                    duration_ms=duration_ms,
+                )
+            return response.choices[0].message
+        except Exception as e:
+            logger.error(f"OpenAI tools error: {e}")
+            raise
+
     def _get_fallback(self, language: str = "ru") -> str:
         """Получение fallback-ответа на нужном языке."""
         template = FALLBACK_RESPONSES.get(language, FALLBACK_RESPONSES["ru"])

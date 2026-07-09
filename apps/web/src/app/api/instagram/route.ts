@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 
-// Instagram Graph API — fetches real posts from your account
-// Requires INSTAGRAM_ACCESS_TOKEN in .env
+// Instagram Business API via Facebook Graph API
+// Uses Page Token + Instagram Business Account ID
+// Requires INSTAGRAM_ACCESS_TOKEN (Page Token) in .env
 
 const CACHE_TTL = 3600 * 1000; // 1 hour cache
 let cachedData: { posts: any[]; timestamp: number } | null = null;
+
+// Instagram Business Account ID (from Facebook Page)
+const IG_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID || '17841475487793099';
 
 export async function GET() {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN;
@@ -19,36 +23,18 @@ export async function GET() {
   }
 
   try {
-    // Fetch recent media from Instagram Graph API
+    // Fetch recent media via Facebook Graph API (works with Page Token)
     const fields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp';
-    const url = `https://graph.instagram.com/me/media?fields=${fields}&limit=9&access_token=${token}`;
+    const url = `https://graph.facebook.com/v21.0/${IG_ACCOUNT_ID}/media?fields=${fields}&limit=9&access_token=${token}`;
     
     const res = await fetch(url, { 
       next: { revalidate: 3600 },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
       console.error('Instagram API error:', res.status, errData);
-      
-      // If token expired, try to refresh it
-      if (res.status === 400 && errData?.error?.code === 190) {
-        const refreshed = await refreshToken(token);
-        if (refreshed) {
-          // Retry with new token
-          const retryRes = await fetch(
-            `https://graph.instagram.com/me/media?fields=${fields}&limit=9&access_token=${refreshed}`,
-            { signal: AbortSignal.timeout(8000) }
-          );
-          if (retryRes.ok) {
-            const retryData = await retryRes.json();
-            const posts = formatPosts(retryData.data || []);
-            cachedData = { posts, timestamp: Date.now() };
-            return NextResponse.json({ posts, refreshed: true });
-          }
-        }
-      }
 
       // Return cached data as fallback
       if (cachedData) {
@@ -86,21 +72,4 @@ function formatPosts(rawPosts: any[]) {
       permalink: post.permalink,
       timestamp: post.timestamp,
     }));
-}
-
-// Try to refresh a long-lived token (valid for 60 days, refreshable)
-async function refreshToken(currentToken: string): Promise<string | null> {
-  try {
-    const url = `https://graph.instagram.com/refresh_access_token?grant_type=ig_refresh_token&access_token=${currentToken}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      // Note: In production, you'd want to save the new token to .env or a database
-      console.log('Instagram token refreshed, new expiry:', data.expires_in, 'seconds');
-      return data.access_token;
-    }
-  } catch (e) {
-    console.error('Token refresh failed:', e);
-  }
-  return null;
 }

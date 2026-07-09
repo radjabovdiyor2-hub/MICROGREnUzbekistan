@@ -7,7 +7,7 @@ from shared.database import get_session_ctx
 from shared.utils import format_price, generate_order_number, simulate_typing
 from shared.config import settings
 from bots.sales_bot.states import OrderStates
-from bots.sales_bot.keyboards.inline import confirm_order_kb, main_menu_kb, back_menu_kb
+from bots.sales_bot.keyboards.inline import confirm_order_kb, main_menu_kb
 
 router = Router()
 DELIVERY_FEE = 25000

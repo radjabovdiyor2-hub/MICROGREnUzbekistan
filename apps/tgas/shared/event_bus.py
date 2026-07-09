@@ -4,14 +4,12 @@ Shared Event Bus — Кросс-бот интеграция через Redis Pub
 Позволяет ботам обмениваться событиями в реальном времени.
 Когда Sales бот создаёт заказ, PM бот автоматически получает уведомление.
 """
-import json
 import asyncio
 import logging
 import aiohttp
 from aiohttp import web
 from datetime import datetime
 from typing import Callable, Dict, List, Optional
-from shared.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +75,6 @@ class EventBus:
             ("mg_hr", 8084),
             ("mg_finance", 8085),
             ("mg_marketing", 8086),
-            ("mg_pm", 8087),
             ("mg_analytics", 8088),
             ("mg_content", 8089),
         ]

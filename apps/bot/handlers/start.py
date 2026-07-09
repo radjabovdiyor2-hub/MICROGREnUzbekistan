@@ -12,7 +12,7 @@ router = Router()
 
 WEB_APP_URL = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com")
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
-ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "5765451742").split(",") if x.strip()]
+ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_CHAT_ID", "847872669").split(",") if x.strip()]
 _start_time = time.time()
 
 

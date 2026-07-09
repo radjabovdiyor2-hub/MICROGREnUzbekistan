@@ -1,5 +1,6 @@
 """Support Bot — main.py с EventBus интеграцией"""
-import asyncio, logging
+import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
@@ -167,6 +168,15 @@ async def auto_poll_instagram_dms():
         logging.error(f"auto_poll_instagram_dms error: {e}", exc_info=True)
 
 
+async def auto_poll_instagram_comments():
+    """Фоновая задача: авто-ответ на комментарии-вопросы под постами Instagram."""
+    try:
+        from shared.instagram_comments import auto_reply_to_comments
+        await auto_reply_to_comments()
+    except Exception as e:
+        logging.error(f"auto_poll_instagram_comments error: {e}", exc_info=True)
+
+
 # Регистрация задач.
 # ВНИМАНИЕ: те же действия доступны и через /n8n-webhook (см. main()).
 # Эмпирически n8n эти вебхуки не вызывает, поэтому источником правды делаем
@@ -181,6 +191,9 @@ scheduler.add_cron(name="faq_analysis", func=faq_analysis, hour=10, minute=0, da
 # (обработанные message_id + фильтр «за последние 10 мин» + блокировка параллельных запусков).
 # Если упрётесь в rate-limit Instagram — увеличьте интервал (например, 300 сек).
 scheduler.add_interval(name="auto_poll_instagram_dms", func=auto_poll_instagram_dms, seconds=180)
+# Авто-ответ на комментарии Instagram: поллинг каждые 10 минут. Отвечаем публично только на
+# комментарии-вопросы (цена/наличие/заказ) за последние 48ч, лимит 8/прогон, дубли — в БД.
+scheduler.add_interval(name="auto_poll_instagram_comments", func=auto_poll_instagram_comments, seconds=600)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # BOT BUS HANDLERS — задачи от Степана
@@ -231,13 +244,13 @@ async def handle_task_created(payload: dict):
         ai = AIEngine()
         from shared.prompts import TEAM_CONTEXT
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Руководитель отдела клиентского сервиса (Head of Customer Success). Твоя главная задача — повышать CSAT (удовлетворенность) и NPS. При решении конфликтов используй эмпатию и предлагай системные решения, чтобы жалоба не повторилась."
-        user_prompt = f"Руководитель поставил задачу по клиентскому сервису:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nРазработай алгоритм решения или Action Plan."
-        logging.info(f"SUPPORT BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt)
-        
+        user_prompt = f"Руководитель поставил задачу по клиентскому сервису:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
+        logging.info("SUPPORT BOT Generating AI answer...")
+        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+
         logging.info(f"SUPPORT BOT sending message to {chat_id}")
-        await bot.send_message(chat_id, f"📝 <b>Результат от отдела SUPPORT:</b>\n\n{answer}")
-        logging.info(f"SUPPORT BOT successfully sent message.")
+        await bot.send_message(chat_id, f"✅ <b>Отдел поддержки — принял в работу:</b>\n\n{answer}")
+        logging.info("SUPPORT BOT successfully sent message.")
         
         if task_id:
             from shared.event_bus import event_bus
@@ -251,6 +264,46 @@ async def handle_task_created(payload: dict):
     finally:
         await bot.session.close()
 
+
+async def handle_roll_call(payload: dict):
+    from shared.config import settings
+    from aiogram import Bot
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.enums import ParseMode
+    chat_id = payload.get("data", {}).get("chat_id")
+    if not chat_id:
+        return
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"ROLL_CALL received for chat {chat_id}")
+    
+    bot_name = "support_bot"
+    token_attr = f"{bot_name}_token"
+    token = getattr(settings, token_attr, None)
+    if not token:
+        logger.error(f"No token found for {bot_name}")
+        return
+        
+    bot_display_names = {
+        "sales_bot": "Отдел Продаж (Sales)",
+        "marketing_bot": "Отдел Маркетинга",
+        "support_bot": "Отдел Поддержки",
+        "hr_bot": "Отдел HR",
+        "finance_bot": "Отдел Финансов",
+        "analytics_bot": "Отдел Аналитики",
+        "content_bot": "Отдел Контента"
+    }
+    display_name = bot_display_names.get(bot_name, bot_name)
+
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    try:
+        await bot.send_message(chat_id, f"🟢 {display_name} на связи!")
+    except Exception as e:
+        logger.error(f"Failed to respond to roll_call: {e}")
+    finally:
+        await bot.session.close()
+
+
 async def main():
     await init_db()
     bot = Bot(token=settings.support_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -259,7 +312,7 @@ async def main():
         dp.include_router(r)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_chat)
+    group_router = create_group_router(bot_info.username, ai_chat, wake_words=["отдел поддержк", "поддержка", "support", "жалоба", "клиент"])
     dp.include_router(group_router)
 
     # Support публикует события (жалобы), но не слушает Redis
@@ -311,6 +364,7 @@ async def main():
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)
+        event_bus.on("ROLL_CALL", handle_roll_call)
         await dp.start_polling(bot)
     finally:
         await scheduler.stop()

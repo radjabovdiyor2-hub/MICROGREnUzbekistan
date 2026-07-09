@@ -221,7 +221,7 @@ function getDailyRecipe(dateStr?: string) {
 // rotation if Gemini is unavailable or returns junk.
 // ==========================================
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 const RECIPE_CATEGORIES = ['breakfast', 'salad', 'smoothie', 'snack', 'main'];
 
 // Process-global cache so every route (site recipe, content endpoint, AI chat)

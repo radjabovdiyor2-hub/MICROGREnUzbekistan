@@ -39,6 +39,24 @@ async def cmd_chatid(message: Message):
 # to avoid shadowing FAQ and AI handlers.
 
 
+# Photo handler MUST be registered before the catch-all text handler
+# otherwise photos with captions get consumed by handle_group_message first.
+@router.message(F.chat.type.in_({"group", "supergroup"}), F.photo)
+async def handle_group_photo(message: Message):
+    """Encourage plant photo diagnosis"""
+    
+    # Check if photo has plant-related caption
+    caption = (message.caption or "").lower()
+    plant_words = ["растен", "микрозелен", "лист", "рассад", "болезн", "желт", "пятн"]
+    
+    if any(word in caption for word in plant_words):
+        await message.reply(
+            "📸 Хотите диагностику растения?\n\n"
+            "Отправьте это фото боту @Microgreenuzbekistan_bot\n"
+            "AI-Агроном проанализирует и даст рекомендации! 🌱"
+        )
+
+
 # FAQ patterns and responses
 FAQ_PATTERNS = {
     r"(цен|стои|почём|сколько)": {
@@ -80,28 +98,56 @@ async def on_new_member(event: ChatMemberUpdated):
     await welcome_to_group(user_name, str(event.chat.id))
 
 
+# Кэш username бота (чтобы не дёргать API на каждое сообщение)
+_BOT_USERNAME = None
+
+
+async def _is_addressed(message: Message) -> bool:
+    """Бот отвечает в группе ТОЛЬКО когда к нему обратились явно:
+    @упоминание или реплай на его сообщение. Иначе — молчит (не шумит в чужих
+    диалогах и в служебных группах AI-офиса)."""
+    global _BOT_USERNAME
+    if _BOT_USERNAME is None:
+        try:
+            _BOT_USERNAME = (await message.bot.me()).username or ""
+        except Exception:
+            _BOT_USERNAME = ""
+    text_lower = (message.text or "").lower()
+    if _BOT_USERNAME and f"@{_BOT_USERNAME.lower()}" in text_lower:
+        return True
+    r = message.reply_to_message
+    if r and r.from_user and message.bot.id and r.from_user.id == message.bot.id:
+        return True
+    return False
+
+
 @router.message(F.chat.type.in_({"group", "supergroup"}))
 async def handle_group_message(message: Message):
-    """Handle messages in group - FAQ and AI routing"""
+    """Handle messages in group - FAQ and AI routing (только по прямому обращению)."""
     # Log group message for debugging
     logger.info(f"📢 GROUP: chat_id={message.chat.id}, title='{message.chat.title}', from={message.from_user.id}")
-    
+
     if not message.text:
         return
-    
+
     text_lower = message.text.lower()
-    
+
+    if text_lower.startswith("степан"):
+        return
+
+    # Отвечаем ТОЛЬКО если обратились именно к этому боту (по адресу).
+    if not await _is_addressed(message):
+        return
+
     # Check FAQ patterns
     for pattern, faq in FAQ_PATTERNS.items():
         if re.search(pattern, text_lower):
             # Reply with FAQ answer
             await message.reply(faq["answer"])
             return
-    
-    # Check if message mentions AI/bot directly
-    ai_triggers = ["@microgreenuzbekistan_bot", "бот", "ai", "ии", "помоги", "подскажи", "вопрос"]
-    
-    if any(trigger in text_lower for trigger in ai_triggers):
+
+    # К боту обратились — маршрутизируем в AI.
+    if True:
         # Route to AI
         try:
             # Get AI response (async)
@@ -124,18 +170,3 @@ async def handle_group_message(message: Message):
                 "Напишите напрямую боту: @Microgreenuzbekistan_bot"
             )
 
-
-@router.message(F.chat.type.in_({"group", "supergroup"}), F.photo)
-async def handle_group_photo(message: Message):
-    """Encourage plant photo diagnosis"""
-    
-    # Check if photo has plant-related caption
-    caption = (message.caption or "").lower()
-    plant_words = ["растен", "микрозелен", "лист", "рассад", "болезн", "желт", "пятн"]
-    
-    if any(word in caption for word in plant_words):
-        await message.reply(
-            "📸 Хотите диагностику растения?\n\n"
-            "Отправьте это фото боту @Microgreenuzbekistan_bot\n"
-            "AI-Агроном проанализирует и даст рекомендации! 🌱"
-        )

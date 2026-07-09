@@ -6,7 +6,6 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import text
 from shared.database import get_session_ctx
-from shared.utils import format_price
 from shared.ai_engine import AIEngine
 from shared.utils import simulate_typing
 from bots.marketing_bot.states import CampaignStates

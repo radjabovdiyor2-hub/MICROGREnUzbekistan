@@ -169,26 +169,6 @@ services:
     - mg_net
     volumes:
     - bus_tasks:/app/bus_tasks
-  pm:
-    build: .
-    container_name: mg_pm
-    restart: unless-stopped
-    command: python -m bots.pm_bot.main
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: '5'
-    networks:
-    - mg_net
-    volumes:
-    - bus_tasks:/app/bus_tasks
   support:
     build: .
     container_name: mg_support
@@ -296,7 +276,6 @@ services:
     command: python -m bots.devops_bot.main
     env_file: .env
     volumes:
-    - /var/run/docker.sock:/var/run/docker.sock
     - ./backups:/app/backups
     - bus_tasks:/app/bus_tasks
     depends_on:

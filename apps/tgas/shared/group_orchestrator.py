@@ -1,5 +1,5 @@
 import logging
-from aiogram import Router, F, Bot
+from aiogram import Router, F
 from aiogram.types import Message, ReactionTypeEmoji
 
 logger = logging.getLogger(__name__)
@@ -16,17 +16,24 @@ def create_group_router(bot_username: str, handle_mention_func, wake_words=None)
     Создаёт роутер для работы в групповом чате.
     bot_username: Имя бота без @ (например, stepan_bot)
     handle_mention_func: Асинхронная функция, которая вызывается, если бота тегнули.
-    wake_words: Список слов, на которые бот должен реагировать в начале сообщения.
+    wake_words: Список слов/фраз, на которые бот реагирует (ищет в любом месте сообщения).
     """
     router = Router()
     wake_words = wake_words or []
     
-    # Фильтр: сообщение из группы/супергруппы И бота упомянули
+    def _match_wake_words(text: str) -> bool:
+        """Проверяет, содержит ли текст любое из wake-слов."""
+        if not text or not wake_words:
+            return False
+        text_lower = text.lower()
+        return any(w.lower() in text_lower for w in wake_words)
+    
+    # Фильтр: сообщение из группы/супергруппы И бота упомянули ИЛИ wake_word найден
     @router.message(
         F.chat.type.in_({"group", "supergroup"}),
         (F.text.icontains(f"@{bot_username}")) | 
         (F.reply_to_message.from_user.username == bot_username) |
-        (F.text.lower().func(lambda text: text and any(text.startswith(w.lower()) or text.startswith('@' + w.lower()) for w in wake_words)))
+        (F.text.func(_match_wake_words))
     )
     async def group_mention_handler(message: Message, **kwargs):
         # Ожидаем реакцию "глаза в процессе"
@@ -46,3 +53,4 @@ def create_group_router(bot_username: str, handle_mention_func, wake_words=None)
             await set_reaction(message, "👎")
 
     return router
+

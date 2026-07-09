@@ -1,5 +1,6 @@
 """HR Bot — main.py с EventBus интеграцией"""
-import asyncio, logging
+import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
@@ -192,16 +193,15 @@ async def handle_task_created(payload: dict):
         from bots.hr_bot.handlers.start import ai
         from shared.prompts import TEAM_CONTEXT
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Директор по персоналу (HR Director). Фокусируйся на мотивации, KPI, удержании талантов (Employee Retention) и развитии корпоративной культуры. Давай структурные ответы и планы развития."
-        user_prompt = f"Руководитель поставил задачу для HR-отдела:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nПроанализируй и выдай Action Plan по управлению персоналом."
-        logging.info(f"HR_BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt)
-        
+        user_prompt = f"Руководитель поставил задачу для HR-отдела:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
+        logging.info("HR_BOT Generating AI answer...")
+        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+
         logging.info(f"HR_BOT sending message to {chat_id}")
-        await bot.send_message(chat_id, f"📝 <b>Результат от HR-отдела:</b>\n\n{answer}")
-        logging.info(f"HR_BOT successfully sent message.")
+        await bot.send_message(chat_id, f"✅ <b>HR-отдел — принял в работу:</b>\n\n{answer}")
+        logging.info("HR_BOT successfully sent message.")
         
         # Publish TASK_COMPLETED
-        task_id = data.get("task_id")
         task_id = data.get("task_id")
         if task_id:
             from shared.event_bus import event_bus
@@ -215,6 +215,46 @@ async def handle_task_created(payload: dict):
     finally:
         await bot.session.close()
 
+
+async def handle_roll_call(payload: dict):
+    from shared.config import settings
+    from aiogram import Bot
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.enums import ParseMode
+    chat_id = payload.get("data", {}).get("chat_id")
+    if not chat_id:
+        return
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"ROLL_CALL received for chat {chat_id}")
+    
+    bot_name = "hr_bot"
+    token_attr = f"{bot_name}_token"
+    token = getattr(settings, token_attr, None)
+    if not token:
+        logger.error(f"No token found for {bot_name}")
+        return
+        
+    bot_display_names = {
+        "sales_bot": "Отдел Продаж (Sales)",
+        "marketing_bot": "Отдел Маркетинга",
+        "support_bot": "Отдел Поддержки",
+        "hr_bot": "Отдел HR",
+        "finance_bot": "Отдел Финансов",
+        "analytics_bot": "Отдел Аналитики",
+        "content_bot": "Отдел Контента"
+    }
+    display_name = bot_display_names.get(bot_name, bot_name)
+
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    try:
+        await bot.send_message(chat_id, f"🟢 {display_name} на связи!")
+    except Exception as e:
+        logger.error(f"Failed to respond to roll_call: {e}")
+    finally:
+        await bot.session.close()
+
+
 async def main():
     await init_db()
     bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -223,12 +263,13 @@ async def main():
         dp.include_router(r)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_hr)
+    group_router = create_group_router(bot_info.username, ai_hr, wake_words=["отдел кадр", "кадры", "hr", "персонал", "сотрудники"])
     dp.include_router(group_router)
 
     # HR подключается к шине
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
+    event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8084)  # mg_hr — порт из карты доставки event_bus
 
     # Heartbeat + Scheduler

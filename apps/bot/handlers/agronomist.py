@@ -94,10 +94,10 @@ async def cmd_clear(message: Message):
     await message.answer("🧹 История разговора очищена!")
 
 
-from aiogram.types import ContentType, File
+from aiogram.types import ContentType
 from services.ai_service import get_ai_response, analyze_image, transcribe_audio
 
-@router.message(F.photo)
+@router.message(F.chat.type == "private", F.photo)
 async def handle_photo(message: Message):
     """Diagnose plant or analyze image"""
     
@@ -144,7 +144,7 @@ async def handle_photo(message: Message):
         await status_msg.edit_text("❌ Ошибка при анализе фото. Попробуйте позже.")
 
 
-@router.message(F.voice | F.audio)
+@router.message(F.chat.type == "private", F.voice | F.audio)
 async def handle_voice(message: Message):
     """Transcribe and answer voice message, then reply with Voice (TTS)"""
     from aiogram.types import BufferedInputFile
@@ -204,7 +204,7 @@ async def handle_voice(message: Message):
 
 
 
-@router.message(F.text & ~F.text.startswith("/"))
+@router.message(F.chat.type == "private", F.text & ~F.text.startswith("/"))
 async def handle_ai_message(message: Message):
     """Обработка всех текстовых сообщений через AI"""
     user_id = message.from_user.id

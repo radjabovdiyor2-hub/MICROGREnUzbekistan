@@ -39,7 +39,7 @@ model Product {
   slug          String   @unique
   descriptionUz String?  @map("description_uz") @db.Text
   descriptionRu String?  @map("description_ru") @db.Text
-  price         Int      // Цена в сумах
+  price         Int // Цена в сумах
   oldPrice      Int?     @map("old_price")
   costPrice     Int?     @map("cost_price") // Закупочная цена (от поставщика)
   images        String[] // URLs
@@ -48,7 +48,7 @@ model Product {
   stock         Int      @default(0)
   sku           String?  @unique
   brand         String?
-  specs         Json?    // Характеристики
+  specs         Json? // Характеристики
   rating        Float    @default(0)
   reviewCount   Int      @default(0) @map("review_count")
   isActive      Boolean  @default(true) @map("is_active")
@@ -59,11 +59,11 @@ model Product {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  orderItems      OrderItem[]
-  cartItems       CartItem[]
-  favorites       Favorite[]
-  reviews         Review[]
-  stockMovements  StockMovement[]
+  orderItems     OrderItem[]
+  cartItems      CartItem[]
+  favorites      Favorite[]
+  reviews        Review[]
+  stockMovements StockMovement[]
 
   @@index([categoryId])
   @@index([slug])
@@ -107,14 +107,14 @@ enum Role {
 }
 
 model Address {
-  id        String  @id @default(cuid())
-  userId    String  @map("user_id")
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  label     String? // "Uy", "Ish", etc.
-  fullAddress String @map("full_address")
-  latitude  Float?
-  longitude Float?
-  isDefault Boolean @default(false) @map("is_default")
+  id          String  @id @default(cuid())
+  userId      String  @map("user_id")
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label       String? // "Uy", "Ish", etc.
+  fullAddress String  @map("full_address")
+  latitude    Float?
+  longitude   Float?
+  isDefault   Boolean @default(false) @map("is_default")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -150,19 +150,19 @@ model Favorite {
 }
 
 model Order {
-  id            String      @id @default(cuid())
-  orderNumber   String      @unique @map("order_number")
-  userId        String      @map("user_id")
-  user          User        @relation(fields: [userId], references: [id])
-  status        OrderStatus @default(PENDING)
+  id            String        @id @default(cuid())
+  orderNumber   String        @unique @map("order_number")
+  userId        String        @map("user_id")
+  user          User          @relation(fields: [userId], references: [id])
+  status        OrderStatus   @default(PENDING)
   total         Int
   subtotal      Int
-  deliveryFee   Int         @default(0) @map("delivery_fee")
-  discount      Int         @default(0)
+  deliveryFee   Int           @default(0) @map("delivery_fee")
+  discount      Int           @default(0)
   address       String
   phone         String
-  note          String?     @db.Text
-  paymentMethod String      @map("payment_method") // click | payme | cash
+  note          String?       @db.Text
+  paymentMethod String        @map("payment_method") // click | payme | cash
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -199,7 +199,7 @@ model OrderItem {
   productId String  @map("product_id")
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
-  price     Int     // Цена на момент заказа
+  price     Int // Цена на момент заказа
 
   @@map("order_items")
 }
@@ -210,7 +210,7 @@ model Review {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String  @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  rating    Int     // 1-5
+  rating    Int // 1-5
   comment   String? @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -225,7 +225,7 @@ model AiChat {
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   role     String // user | assistant
   content  String @db.Text
-  metadata Json?  // Recommended products, etc.
+  metadata Json? // Recommended products, etc.
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -238,7 +238,7 @@ model Promotion {
   title       String
   description String?  @db.Text
   imageUrl    String?  @map("image_url")
-  discount    Int?     // Percentage
+  discount    Int? // Percentage
   promoCode   String?  @unique @map("promo_code")
   startsAt    DateTime @map("starts_at")
   endsAt      DateTime @map("ends_at")
@@ -254,12 +254,14 @@ model Promotion {
 // ==========================================
 
 model Employee {
-  id        String  @id @default(cuid())
-  name      String
-  pin       String  @unique // 4-digit PIN for POS login
-  phone     String?
-  isActive  Boolean @default(true) @map("is_active")
-  role      String  @default("seller") // seller | manager
+  id         String  @id @default(cuid())
+  name       String
+  pin        String  @unique // 4-digit PIN for POS login
+  phone      String?
+  telegramId BigInt? @unique @map("telegram_id")
+  department String? // e.g. marketing, content, hr, etc.
+  isActive   Boolean @default(true) @map("is_active")
+  role       String  @default("seller") // seller | manager
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -272,19 +274,19 @@ model Employee {
 // ==========================================
 
 model StockMovement {
-  id          String        @id @default(cuid())
-  productId   String        @map("product_id")
-  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id          String       @id @default(cuid())
+  productId   String       @map("product_id")
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   type        MovementType
-  quantity    Int           // Positive for IN, negative for OUT
-  reason      String?       // "Продажа", "Поставка", "Списание", "Возврат", etc.
-  note        String?       @db.Text
-  supplierId  String?       @map("supplier_id")
-  supplier    Supplier?     @relation(fields: [supplierId], references: [id])
-  costPrice   Int?          @map("cost_price") // Закупочная цена за единицу
-  salePrice   Int?          @map("sale_price") // Фактическая цена продажи (если отличается от product.price)
-  orderId     String?       @map("order_id") // Привязка к заказу если продажа
-  performedBy String?       @map("performed_by") // Кто провёл операцию
+  quantity    Int // Positive for IN, negative for OUT
+  reason      String? // "Продажа", "Поставка", "Списание", "Возврат", etc.
+  note        String?      @db.Text
+  supplierId  String?      @map("supplier_id")
+  supplier    Supplier?    @relation(fields: [supplierId], references: [id])
+  costPrice   Int?         @map("cost_price") // Закупочная цена за единицу
+  salePrice   Int?         @map("sale_price") // Фактическая цена продажи (если отличается от product.price)
+  orderId     String?      @map("order_id") // Привязка к заказу если продажа
+  performedBy String?      @map("performed_by") // Кто провёл операцию
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -295,20 +297,20 @@ model StockMovement {
 }
 
 enum MovementType {
-  IN          // Приход товара
-  OUT         // Продажа/расход
-  ADJUSTMENT  // Корректировка (инвентаризация)
-  RETURN      // Возврат от клиента
-  WRITE_OFF   // Списание (брак, порча)
+  IN // Приход товара
+  OUT // Продажа/расход
+  ADJUSTMENT // Корректировка (инвентаризация)
+  RETURN // Возврат от клиента
+  WRITE_OFF // Списание (брак, порча)
 }
 
 model Supplier {
-  id        String  @id @default(cuid())
-  name      String
-  phone     String?
-  address   String?
-  note      String? @db.Text
-  isActive  Boolean @default(true) @map("is_active")
+  id       String  @id @default(cuid())
+  name     String
+  phone    String?
+  address  String?
+  note     String? @db.Text
+  isActive Boolean @default(true) @map("is_active")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -320,18 +322,18 @@ model Supplier {
 }
 
 model Debt {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   type        DebtType // WHO_OWES_US = нам должны, WE_OWE = мы должны
-  personName  String   @map("person_name")
+  personName  String    @map("person_name")
   phone       String?
-  amount      Int      // Сумма долга в сумах
-  paidAmount  Int      @default(0) @map("paid_amount") // Сколько уже оплачено
-  description String?  @db.Text
+  amount      Int // Сумма долга в сумах
+  paidAmount  Int       @default(0) @map("paid_amount") // Сколько уже оплачено
+  description String?   @db.Text
   dueDate     DateTime? @map("due_date")
-  isPaid      Boolean  @default(false) @map("is_paid")
-  supplierId  String?  @map("supplier_id")
+  isPaid      Boolean   @default(false) @map("is_paid")
+  supplierId  String?   @map("supplier_id")
   supplier    Supplier? @relation(fields: [supplierId], references: [id])
-  userId      String?  @map("user_id") // Привязка к клиенту
+  userId      String?   @map("user_id") // Привязка к клиенту
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -342,6 +344,6 @@ model Debt {
 }
 
 enum DebtType {
-  WHO_OWES_US  // Клиент должен нам
-  WE_OWE       // Мы должны поставщику
+  WHO_OWES_US // Клиент должен нам
+  WE_OWE // Мы должны поставщику
 }

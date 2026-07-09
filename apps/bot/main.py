@@ -69,6 +69,18 @@ async def main():
     async def on_shutdown():
         trigger_task.cancel()
         await bridge.close()
+        # Close extra Bot instances from services to avoid unclosed sessions
+        try:
+            from services.crosspost_service import crosspost
+            await crosspost.close()
+        except Exception:
+            pass
+        try:
+            from services.channel_service import _bot_instance
+            if _bot_instance:
+                await _bot_instance.session.close()
+        except Exception:
+            pass
         print("🔌 Ecosystem bridge closed")
     dp.shutdown.register(on_shutdown)
     

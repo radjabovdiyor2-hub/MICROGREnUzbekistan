@@ -38,6 +38,7 @@ export default function CartPage() {
     paymentMethod: 'cash',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState('');
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
@@ -47,6 +48,7 @@ export default function CartPage() {
   const grandTotal = cart.total - bonusApplied;
 
   const validateForm = (): boolean => {
+    setApiError('');
     const newErrors: Record<string, string> = {};
     if (!form.firstName.trim()) newErrors.firstName = t("Ism kiritilmadi", "Имя не введено");
     if (form.phone.length < 13) newErrors.phone = t("Telefon raqam noto'g'ri", "Неверный номер телефона");
@@ -87,16 +89,10 @@ export default function CartPage() {
         cart.clearCart();
         setStep('success');
       } else {
-        alert(data.error || t("Xatolik yuz berdi", "Произошла ошибка"));
+        setApiError(data.error || t("Xatolik yuz berdi", "Произошла ошибка"));
       }
-    } catch {
-      // Fallback: generate local order number if API fails
-      const now = new Date();
-      const date = now.toISOString().slice(0, 10).replace(/-/g, '');
-      const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-      setOrderNumber(`M-${date}-${rand}`);
-      cart.clearCart();
-      setStep('success');
+    } catch (err) {
+      setApiError(t("Ulanishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", "Ошибка соединения. Пожалуйста, попробуйте еще раз."));
     } finally {
       setIsSubmitting(false);
     }
@@ -229,6 +225,12 @@ export default function CartPage() {
         </h1>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          {apiError && (
+            <div style={{ padding: 'var(--space-4)', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', border: '1px solid rgba(var(--error-rgb), 0.2)' }}>
+              <Icons.AlertTriangle size={20} />
+              {apiError}
+            </div>
+          )}
           {/* Personal Info */}
           <div className="card" style={{ padding: 'var(--space-6)' }}>
             <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '8px' }}>

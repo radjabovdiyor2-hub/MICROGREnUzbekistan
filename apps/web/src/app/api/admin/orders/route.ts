@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
   const status = searchParams.get('status');
 
-  const where = status && status !== 'ALL' ? { status: status as never } : {};
+  const where = status && status !== 'ALL' ? { status: status as any } : {};
 
   const orders = await prisma.order.findMany({
     where,

@@ -1,0 +1,78 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - link "Microgreen Uzbekistan Logo Microgreen Uzbekistan" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "Microgreen Uzbekistan Logo" [ref=e6]
+        - generic [ref=e13]: Microgreen Uzbekistan
+      - generic [ref=e14]:
+        - img [ref=e16]
+        - textbox "Qidirish..." [ref=e19]
+        - button [ref=e20] [cursor=pointer]:
+          - img [ref=e21]
+      - generic [ref=e24]:
+        - button "Toggle language" [ref=e25] [cursor=pointer]: RU
+        - button "Toggle theme" [ref=e26] [cursor=pointer]:
+          - img [ref=e27]
+        - link [ref=e29] [cursor=pointer]:
+          - /url: /cart
+          - img [ref=e30]
+        - link [ref=e34] [cursor=pointer]:
+          - /url: /profile
+          - img [ref=e35]
+  - generic [ref=e38]:
+    - generic:
+      - generic:
+        - img
+    - main [ref=e40]:
+      - generic [ref=e44]:
+        - img [ref=e46]
+        - heading "Buyurtma qabul qilindi!" [level=1] [ref=e51]
+        - paragraph [ref=e52]: Tez orada operator siz bilan bog'lanadi
+        - generic [ref=e53]:
+          - generic [ref=e54]:
+            - generic [ref=e55]:
+              - img [ref=e56]
+              - text: Tasdiqlandi
+            - generic [ref=e59]: "#M-20260708-7WO0"
+          - generic [ref=e60]:
+            - generic [ref=e61]:
+              - generic [ref=e62]:
+                - img [ref=e63]
+                - text: Ism
+              - generic [ref=e66]: Test User
+            - generic [ref=e67]:
+              - generic [ref=e68]:
+                - img [ref=e69]
+                - text: Telefon
+              - generic [ref=e71]: "+998901234567"
+            - generic [ref=e72]:
+              - generic [ref=e73]:
+                - img [ref=e74]
+                - text: Manzil
+              - generic [ref=e77]: Test Address 123
+            - generic [ref=e78]:
+              - generic [ref=e79]:
+                - img [ref=e80]
+                - text: To'lov
+              - generic [ref=e82]: Naqd pul
+        - generic [ref=e83]:
+          - link "Bosh sahifa" [ref=e84] [cursor=pointer]:
+            - /url: /
+            - img [ref=e85]
+            - text: Bosh sahifa
+          - link "Yana xarid qilish" [ref=e88] [cursor=pointer]:
+            - /url: /catalog
+            - img [ref=e89]
+            - text: Yana xarid qilish
+          - 'link "Aloqa: +998 94 999 95 99" [ref=e91] [cursor=pointer]':
+            - /url: tel:+998949999599
+            - img [ref=e92]
+            - text: "Aloqa: +998 94 999 95 99"
+  - button "Open AI chat" [ref=e94] [cursor=pointer]:
+    - img [ref=e95]
+```

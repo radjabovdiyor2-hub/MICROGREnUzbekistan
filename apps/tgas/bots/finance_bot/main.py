@@ -1,5 +1,6 @@
 """Finance Bot — main.py с EventBus интеграцией"""
-import asyncio, logging
+import asyncio
+import logging
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
@@ -116,7 +117,7 @@ async def large_expense_check():
                 ))
                 rows = result.fetchall()
             if rows:
-                lines = [f"🔴 <b>Крупные расходы сегодня:</b>\n"]
+                lines = ["🔴 <b>Крупные расходы сегодня:</b>\n"]
                 for row in rows:
                     fid = row[0]
                     category = row[1] or "—"
@@ -312,13 +313,13 @@ async def handle_task_created(payload: dict):
         ai = AIEngine()
         from shared.prompts import TEAM_CONTEXT
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Финансовый Директор (CFO) и главный Finance Bot. Мысли категориями P&L, Cash Flow, ROI, Unit Economics. Не будь простым калькулятором, давай стратегические советы по оптимизации костов и увеличению чистой прибыли."
-        user_prompt = f"Руководитель поручил финансовую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nПроанализируй и выдай финансовое заключение / Action Plan."
-        logging.info(f"FINANCE BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt)
-        
+        user_prompt = f"Руководитель поручил финансовую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
+        logging.info("FINANCE BOT Generating AI answer...")
+        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+
         logging.info(f"FINANCE BOT sending message to {chat_id}")
-        await bot.send_message(chat_id, f"📝 <b>Результат от отдела FINANCE:</b>\n\n{answer}")
-        logging.info(f"FINANCE BOT successfully sent message.")
+        await bot.send_message(chat_id, f"✅ <b>Финансовый отдел — принял в работу:</b>\n\n{answer}")
+        logging.info("FINANCE BOT successfully sent message.")
         
         if task_id:
             from shared.event_bus import event_bus
@@ -362,6 +363,46 @@ async def handle_payment_received(payload: dict):
     except Exception as e:
         logging.error(f"Error handling payment_received: {e}")
 
+
+async def handle_roll_call(payload: dict):
+    from shared.config import settings
+    from aiogram import Bot
+    from aiogram.client.default import DefaultBotProperties
+    from aiogram.enums import ParseMode
+    chat_id = payload.get("data", {}).get("chat_id")
+    if not chat_id:
+        return
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"ROLL_CALL received for chat {chat_id}")
+    
+    bot_name = "finance_bot"
+    token_attr = f"{bot_name}_token"
+    token = getattr(settings, token_attr, None)
+    if not token:
+        logger.error(f"No token found for {bot_name}")
+        return
+        
+    bot_display_names = {
+        "sales_bot": "Отдел Продаж (Sales)",
+        "marketing_bot": "Отдел Маркетинга",
+        "support_bot": "Отдел Поддержки",
+        "hr_bot": "Отдел HR",
+        "finance_bot": "Отдел Финансов",
+        "analytics_bot": "Отдел Аналитики",
+        "content_bot": "Отдел Контента"
+    }
+    display_name = bot_display_names.get(bot_name, bot_name)
+
+    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    try:
+        await bot.send_message(chat_id, f"🟢 {display_name} на связи!")
+    except Exception as e:
+        logger.error(f"Failed to respond to roll_call: {e}")
+    finally:
+        await bot.session.close()
+
+
 async def main():
     await init_db()
     bot = Bot(token=settings.finance_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -370,13 +411,14 @@ async def main():
         dp.include_router(r)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_fin)
+    group_router = create_group_router(bot_info.username, ai_fin, wake_words=["отдел финанс", "финансы", "finance", "бюджет", "касса"])
     dp.include_router(group_router)
 
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
     event_bus.on("PAYMENT_RECEIVED", handle_payment_received)
     register_finance_handlers(event_bus, bot)
+    event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8085)
 
     # Heartbeat + Scheduler

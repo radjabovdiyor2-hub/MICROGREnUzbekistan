@@ -18,7 +18,6 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-import os
 import random
 from pathlib import Path
 from typing import Optional
@@ -177,6 +176,17 @@ async def _upload_image_to_hosting(image_path: str) -> Optional[str]:
     if not file_path.exists():
         logger.error("Файл изображения не найден: %s", image_path)
         return None
+
+    # Первичный (надёжный) способ: загрузка на Facebook-страницу тем же токеном,
+    # что и обычные посты. Возвращает публичный URL. imgbb/0x0.st — только фолбэк.
+    try:
+        from shared.instagram import _upload_image_to_facebook
+        fb_url = await _upload_image_to_facebook(str(file_path))
+        if fb_url:
+            logger.info("Изображение загружено через Facebook: %s", fb_url[:80])
+            return fb_url
+    except Exception as e:
+        logger.warning("Facebook-заливка не удалась, пробуем imgbb/0x0.st: %s", e)
 
     try:
         with open(file_path, "rb") as f:

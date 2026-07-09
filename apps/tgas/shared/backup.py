@@ -7,7 +7,6 @@
 import asyncio
 import logging
 import os
-import glob
 from datetime import datetime
 from pathlib import Path
 from shared.config import settings

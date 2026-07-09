@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 BOT_SECRET = os.getenv("BOT_SECRET", "")
+STEPAN_BOT_TOKEN = os.getenv("STEPAN_BOT_TOKEN", "")
+STEPAN_ADMIN_ID = os.getenv("ADMIN_CHAT_ID", "")
 
 
 class EcosystemBridge:
@@ -104,6 +106,34 @@ class EcosystemBridge:
         """Получить данные пользователя по Telegram ID"""
         result = await self._api_call(f"users/telegram/{telegram_id}")
         return result if isinstance(result, dict) and "error" not in result else None
+
+    # ==================== STEPAN MANAGER ====================
+
+    async def notify_stepan(self, message: str) -> bool:
+        """Уведомить Степана-менеджера (@MG_PM1_bot) о важном событии.
+
+        Отправляет сообщение напрямую через Telegram API бота Степана,
+        минуя Web API. Это гарантирует доставку даже если TGAS Office недоступен.
+        """
+        if not STEPAN_BOT_TOKEN or not STEPAN_ADMIN_ID:
+            logger.warning("STEPAN_BOT_TOKEN or ADMIN_CHAT_ID not set — skipping Stepan notification")
+            return False
+        try:
+            url = f"https://api.telegram.org/bot{STEPAN_BOT_TOKEN}/sendMessage"
+            response = await self.client.post(url, json={
+                "chat_id": STEPAN_ADMIN_ID,
+                "text": message,
+                "parse_mode": "HTML"
+            })
+            if response.status_code == 200:
+                logger.info("Степан уведомлён ✅")
+                return True
+            else:
+                logger.warning(f"Stepan notify failed: HTTP {response.status_code}")
+                return False
+        except Exception as e:
+            logger.error(f"Степан notification failed: {e}")
+            return False
 
     async def close(self):
         """Закрыть HTTP клиент"""

@@ -204,6 +204,24 @@ def truncate_text(text: str, max_length: int = 200, suffix: str = "...") -> str:
     return text[: max_length - len(suffix)].rstrip() + suffix
 
 
+def collapsible(text: str, threshold: int = 550, header: str = "") -> str:
+    """
+    Длинные ответы в Telegram прячем в разворачиваемую цитату
+    (<blockquote expandable> — сворачивается/раскрывается по тапу).
+    Короткие оставляем как есть.
+
+    Требует parse_mode="HTML". Тело экранируется, чтобы вёрстка не ломалась.
+    """
+    import html as _html
+    if not text:
+        return text
+    t = text.strip()
+    if len(t) <= threshold:
+        return f"{header}\n{t}" if header else t
+    head = header or "🔽 <i>Подробно — нажмите, чтобы развернуть:</i>"
+    return f"{head}\n<blockquote expandable>{_html.escape(t)}</blockquote>"
+
+
 def is_valid_uz_phone(phone: str) -> bool:
     """
     Проверка узбекистанского номера телефона.

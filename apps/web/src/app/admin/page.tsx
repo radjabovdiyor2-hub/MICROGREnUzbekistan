@@ -17,23 +17,53 @@ import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { AdminSettings } from '@/components/admin/AdminSettings';
 import { AdminRevenue } from '@/components/admin/AdminRevenue';
 import { AdminGrowing } from '@/components/admin/AdminGrowing';
+import { AdminDepartment } from '@/components/admin/AdminDepartment';
 import * as Icons from '@/components/ui/Icons';
 
-const OWNER_TABS = [
-  { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
-  { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <Icons.BarChart size={16} /> },
-  { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <Icons.DollarSign size={16} /> },
-  { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Icons.Leaf size={16} /> },
-  { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Icons.Package size={16} /> },
-  { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <Icons.ClipboardList size={16} /> },
-  { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Icons.Truck size={16} /> },
-  { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Icons.Truck size={16} /> },
-  { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <Icons.CreditCard size={16} /> },
-  { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <Icons.BarChart size={16} /> },
-  { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <Icons.TrendingUp size={16} /> },
-  { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <Icons.User size={16} /> },
-  { id: 'products', ru: 'Товары', uz: 'Mahsulotlar', icon: <Icons.Tag size={16} /> },
-  { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Icons.Lock size={16} /> },
+const TAB_GROUPS = [
+  {
+    title: { ru: 'Главное', uz: 'Asosiy' },
+    tabs: [
+      { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
+      { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <Icons.BarChart size={16} /> },
+      { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <Icons.DollarSign size={16} /> },
+      { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Icons.Leaf size={16} /> },
+    ]
+  },
+  {
+    title: { ru: 'Управление', uz: 'Boshqaruv' },
+    tabs: [
+      { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Icons.Package size={16} /> },
+      { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <Icons.ClipboardList size={16} /> },
+      { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Icons.Truck size={16} /> },
+      { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Icons.Truck size={16} /> },
+      { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <Icons.CreditCard size={16} /> },
+      { id: 'products', ru: 'Товары', uz: 'Mahsulotlar', icon: <Icons.Tag size={16} /> },
+    ]
+  },
+  {
+    title: { ru: 'Отделы (Telegram)', uz: "Bo'limlar (Telegram)" },
+    tabs: [
+      { id: 'dept_sales', ru: 'Продажи', uz: 'Sotuvlar', icon: <Icons.ShoppingCart size={16} /> },
+      { id: 'dept_marketing', ru: 'Маркетинг', uz: 'Marketing', icon: <Icons.TrendingUp size={16} /> },
+      { id: 'dept_content', ru: 'Контент', uz: 'Kontent', icon: <Icons.FileText size={16} /> },
+      { id: 'dept_hr', ru: 'Кадры (HR)', uz: 'Kadrlar (HR)', icon: <Icons.Users size={16} /> },
+      { id: 'dept_finance', ru: 'Финансы', uz: 'Moliya', icon: <Icons.DollarSign size={16} /> },
+      { id: 'dept_devops', ru: 'DevOps / IT', uz: 'DevOps / IT', icon: <Icons.Settings size={16} /> },
+      { id: 'dept_qa', ru: 'QA / Тесты', uz: 'QA / Testlar', icon: <Icons.Eye size={16} /> },
+      { id: 'dept_rnd', ru: 'R&D', uz: 'R&D', icon: <Icons.Lightbulb size={16} /> },
+      { id: 'dept_support', ru: 'Поддержка', uz: "Qo'llab", icon: <Icons.Send size={16} /> },
+    ]
+  },
+  {
+    title: { ru: 'Аналитика и Система', uz: 'Analitika va Tizim' },
+    tabs: [
+      { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <Icons.BarChart size={16} /> },
+      { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <Icons.TrendingUp size={16} /> },
+      { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <Icons.User size={16} /> },
+      { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Icons.Lock size={16} /> },
+    ]
+  }
 ];
 
 const SELLER_TABS = [
@@ -137,7 +167,6 @@ export default function AdminPage() {
   if (checking) return null;
 
   const isAuthenticated = isOwner || sellerName;
-  const tabs = isOwner ? OWNER_TABS : SELLER_TABS;
 
   // === AUTH SCREENS ===
   if (!isAuthenticated) {
@@ -429,13 +458,33 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <nav className="admin-tabs">
-          {tabs.map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
-              {tab.icon} {tab[lang]}
-            </button>
-          ))}
+        <nav className="admin-tabs-container" style={{ padding: '0 var(--space-4)', overflowY: 'auto', flex: 1 }}>
+          {isOwner ? (
+            TAB_GROUPS.map((group, idx) => (
+              <div key={idx} style={{ marginBottom: 'var(--space-4)' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingLeft: '8px' }}>
+                  {group.title[lang]}
+                </div>
+                <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {group.tabs.map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                      className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
+                      {tab.icon} {tab[lang]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {SELLER_TABS.map(tab => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
+                  {tab.icon} {tab[lang]}
+                </button>
+              ))}
+            </div>
+          )}
         </nav>
       </aside>
 
@@ -450,6 +499,19 @@ export default function AdminPage() {
         {activeTab === 'orders' && isOwner && <AdminOrders />}
         {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}
         {activeTab === 'debts' && isOwner && <AdminDebts />}
+        
+        {/* Department Tabs */}
+        {activeTab === 'dept_sales' && isOwner && <AdminDepartment departmentId="sales" departmentName={t('Продажи', 'Sotuvlar')} botName="MicrogreenSales_bot" lang={lang} />}
+        {activeTab === 'dept_marketing' && isOwner && <AdminDepartment departmentId="marketing" departmentName={t('Маркетинг', 'Marketing')} botName="MG_Marketing_bot" lang={lang} />}
+        {activeTab === 'dept_content' && isOwner && <AdminDepartment departmentId="content" departmentName={t('Контент', 'Kontent')} botName="MG_Finance1_bot" lang={lang} />}
+        {activeTab === 'dept_hr' && isOwner && <AdminDepartment departmentId="hr" departmentName={t('Кадры (HR)', 'Kadrlar (HR)')} botName="MG_HR1_bot" lang={lang} />}
+        {activeTab === 'dept_finance' && isOwner && <AdminDepartment departmentId="finance" departmentName={t('Финансы', 'Moliya')} botName="MG_Content1_bot" lang={lang} />}
+        {activeTab === 'dept_devops' && isOwner && <AdminDepartment departmentId="devops" departmentName={t('DevOps / IT', 'DevOps / IT')} botName="MG_PM1_bot" lang={lang} />}
+        {activeTab === 'dept_qa' && isOwner && <AdminDepartment departmentId="qa" departmentName={t('QA / Тесты', 'QA / Testlar')} botName="MG_PM1_bot" lang={lang} />}
+        {activeTab === 'dept_rnd' && isOwner && <AdminDepartment departmentId="rnd" departmentName={t('R&D', 'R&D')} botName="MG_PM1_bot" lang={lang} />}
+        {activeTab === 'dept_support' && isOwner && <AdminDepartment departmentId="support" departmentName={t('Поддержка', "Qo'llab-quvvatlash")} botName="MicrogreenSupport_bot" lang={lang} />}
+        
+        {/* Analytics & System */}
         {activeTab === 'analytics' && isOwner && <AdminAnalytics />}
         {activeTab === 'forecast' && isOwner && <AdminForecast />}
         {activeTab === 'employees' && isOwner && <AdminEmployees />}

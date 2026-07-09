@@ -128,6 +128,7 @@ services:
       INGEST_SECRET: ${INGEST_SECRET:-}
       # Shared secret for storefront-bot -> web admin API calls (empty = off).
       BOT_SECRET: ${BOT_SECRET:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
     volumes:
       # Persist + serve uploaded product images (host dir, kept across deploys).
       - ${HOST_UPLOADS_DIR:-/home/ubuntu/microgreen-uploads}:/data/uploads
@@ -158,6 +159,8 @@ services:
       WEB_API_URL: http://web:3000/api
       # Must match the web service's BOT_SECRET so admin API calls authorize.
       BOT_SECRET: ${BOT_SECRET:-}
+      # Степан-менеджер (@MG_PM1_bot) — для уведомлений о заказах
+      STEPAN_BOT_TOKEN: ${PM_BOT_TOKEN:-}
     depends_on:
       web:
         condition: service_started
@@ -206,11 +209,6 @@ services:
     <<: *tgas-bot
     container_name: mg_marketing
     command: python -m bots.marketing_bot.main
-
-  pm:
-    <<: *tgas-bot
-    container_name: mg_pm
-    command: python -m bots.pm_bot.main
 
   analytics:
     <<: *tgas-bot

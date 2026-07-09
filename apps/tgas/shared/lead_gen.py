@@ -114,6 +114,135 @@ async def collect_from_2gis(
 
 
 # ─────────────────────────────────────────────────────────────────────
+# Источник 1a: Google Places API (New / Text Search)
+# ─────────────────────────────────────────────────────────────────────
+async def collect_from_google_places(
+    city: Optional[str] = None,
+    query: str = "рестораны",
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Ищет заведения через Google Places (легальный API)."""
+    if not settings.google_places_api_key:
+        logger.warning("Google: GOOGLE_PLACES_API_KEY не задан — сбор пропущен.")
+        return []
+
+    city = city or settings.lead_gen_city
+    # Используем Text Search API
+    url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+    params = {
+        "query": f"{query} {city}",
+        "key": settings.google_places_api_key,
+        "language": "ru"
+    }
+
+    leads: list[dict[str, Any]] = []
+    try:
+        timeout = aiohttp.ClientTimeout(total=20)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, params=params) as resp:
+                if resp.status != 200:
+                    logger.error("Google HTTP %s", resp.status)
+                    return []
+                data = await resp.json()
+    except Exception as e:
+        logger.exception("Google: ошибка запроса: %s", e)
+        return []
+
+    # Text Search не возвращает телефон напрямую, для этого нужен Place Details, 
+    # но для базового лид-гена мы берём адреса, а телефон можно будет дотянуть потом,
+    # либо если кто-то оставит заявку. Чтобы не тратить слишком много API кредитов, 
+    # сначала собираем базовые данные. Если сильно нужны телефоны сразу, 
+    # можно добавить вызов Place Details (но это стоит дороже).
+    results = data.get("results") or []
+    for it in results[:limit]:
+        score = it.get("rating")
+        review_count = it.get("user_ratings_total")
+        review_summary = None
+        if score:
+            review_summary = f"Google Рейтинг: {score}" + (
+                f" ({review_count} отзывов)" if review_count else ""
+            )
+
+        leads.append({
+            "company_name": it.get("name"),
+            "phone": None,  # Требует Place Details, для экономии пока не запрашиваем в цикле
+            "email": None,
+            "address": it.get("formatted_address"),
+            "review_score": float(score) if score else None,
+            "review_summary": review_summary,
+            "source": "google_places",
+            "source_ref": str(it.get("place_id")),
+            "company_type": "restaurant",
+        })
+
+    logger.info("Google: получено %d заведений", len(leads))
+    return leads
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Источник 1b: Yandex Maps Search API
+# ─────────────────────────────────────────────────────────────────────
+async def collect_from_yandex_maps(
+    city: Optional[str] = None,
+    query: str = "ресторан",
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Ищет заведения через Yandex Maps (Search API)."""
+    if not getattr(settings, "yandex_maps_api_key", None):
+        logger.warning("Yandex: YANDEX_MAPS_API_KEY не задан — сбор пропущен.")
+        return []
+
+    city = city or settings.lead_gen_city
+    url = "https://search-maps.yandex.ru/v1/"
+    params = {
+        "text": f"{query} {city}",
+        "type": "biz",
+        "lang": "ru_RU",
+        "results": min(max(limit, 1), 50),
+        "apikey": settings.yandex_maps_api_key
+    }
+
+    leads: list[dict[str, Any]] = []
+    try:
+        timeout = aiohttp.ClientTimeout(total=20)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, params=params) as resp:
+                if resp.status != 200:
+                    logger.error("Yandex HTTP %s: %s", resp.status, (await resp.text())[:100])
+                    return []
+                data = await resp.json()
+    except Exception as e:
+        logger.exception("Yandex: ошибка запроса: %s", e)
+        return []
+
+    features = data.get("features") or []
+    for it in features:
+        props = it.get("properties", {}).get("CompanyMetaData", {})
+        name = props.get("name")
+        address = props.get("address")
+        
+        phone = None
+        phones = props.get("Phones") or []
+        if phones:
+            phone = phones[0].get("formatted")
+
+        url_website = props.get("url")
+
+        leads.append({
+            "company_name": name,
+            "phone": phone,
+            "email": None,
+            "address": address,
+            "review_score": None, # У Яндекса Search API рейтинги не отдаёт напрямую в CompanyMetaData
+            "review_summary": f"Сайт: {url_website}" if url_website else None,
+            "source": "yandex_maps",
+            "source_ref": str(props.get("id")),
+            "company_type": "restaurant",
+        })
+
+    logger.info("Yandex: получено %d заведений", len(leads))
+    return leads
+# ─────────────────────────────────────────────────────────────────────
 # Источник 2: ручной список / CSV
 # ─────────────────────────────────────────────────────────────────────
 def parse_manual_csv(path: str) -> list[dict[str, Any]]:
@@ -146,6 +275,19 @@ def parse_manual_csv(path: str) -> list[dict[str, Any]]:
 # ─────────────────────────────────────────────────────────────────────
 # Запись в БД с дедупликацией
 # ─────────────────────────────────────────────────────────────────────
+import re
+
+def sanitize_phone(phone: str | None) -> str | None:
+    """Оставляет только цифры, берет последние 9 (для сравнения без +998)."""
+    if not phone: return None
+    digits = re.sub(r"\D", "", phone)
+    return digits[-9:] if len(digits) >= 9 else digits
+
+def sanitize_name(name: str | None) -> str | None:
+    """Удаляет пробелы и спецсимволы, приводит к нижнему регистру для сравнения."""
+    if not name: return None
+    return re.sub(r"[\s\.,'\"\-«»]", "", name.lower())
+
 async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
     """
     Вставляет лидов в customers, пропуская дубликаты.
@@ -154,33 +296,43 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
     """
     inserted = skipped = 0
     async with get_session_ctx() as session:
+        # Загрузим существующие нормализованные данные для быстрой in-memory проверки, 
+        # чтобы не делать 3 селекта на каждого лида.
+        res = await session.execute(text("SELECT id, source, source_ref, phone, company_name FROM customers WHERE customer_type = 'b2b'"))
+        existing_rows = res.fetchall()
+        
+        # Индексы для быстрой проверки
+        seen_refs = {(r.source, r.source_ref) for r in existing_rows if r.source and r.source_ref}
+        seen_phones = {sanitize_phone(r.phone) for r in existing_rows if sanitize_phone(r.phone)}
+        seen_names = {sanitize_name(r.company_name) for r in existing_rows if sanitize_name(r.company_name)}
+
         for lead in leads:
             name = lead.get("company_name")
             if not name:
                 skipped += 1
                 continue
 
-            # 1) дедуп по внешнему источнику
-            exists = None
-            if lead.get("source_ref"):
-                exists = (await session.execute(text(
-                    "SELECT id FROM customers WHERE source = :src AND source_ref = :ref LIMIT 1"
-                ), {"src": lead["source"], "ref": lead["source_ref"]})).scalar()
-            # 2) дедуп по телефону
-            if not exists and lead.get("phone"):
-                exists = (await session.execute(text(
-                    "SELECT id FROM customers WHERE phone = :ph LIMIT 1"
-                ), {"ph": lead["phone"]})).scalar()
-            # 3) дедуп по названию+городе
-            if not exists:
-                exists = (await session.execute(text(
-                    "SELECT id FROM customers WHERE lower(company_name) = lower(:nm) "
-                    "AND customer_type = 'b2b' LIMIT 1"
-                ), {"nm": name})).scalar()
+            s_phone = sanitize_phone(lead.get("phone"))
+            s_name = sanitize_name(name)
+            s_ref = (lead.get("source"), lead.get("source_ref"))
 
-            if exists:
+            # Проверка дублей
+            is_dup = False
+            if s_ref[0] and s_ref[1] and s_ref in seen_refs:
+                is_dup = True
+            elif s_phone and s_phone in seen_phones:
+                is_dup = True
+            elif s_name and s_name in seen_names:
+                is_dup = True
+
+            if is_dup:
                 skipped += 1
                 continue
+
+            # Добавляем в локальные индексы, чтобы не добавить дубли внутри одной пачки
+            if s_ref[0] and s_ref[1]: seen_refs.add(s_ref)
+            if s_phone: seen_phones.add(s_phone)
+            if s_name: seen_names.add(s_name)
 
             await session.execute(text(
                 "INSERT INTO customers "
@@ -202,16 +354,33 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
                 "summary": lead.get("review_summary"),
             })
             inserted += 1
-        await session.commit()
+        
+        if inserted > 0:
+            await session.commit()
 
     logger.info("Импорт лидов: +%d новых, %d пропущено (дубли)", inserted, skipped)
     return {"inserted": inserted, "skipped": skipped}
 
 
-async def collect_and_import_2gis(limit: Optional[int] = None) -> dict[str, int]:
-    """Удобная обёртка: собрать из 2ГИС и сразу записать. Для ночной задачи."""
-    limit = limit or settings.b2b_daily_limit * 3  # запас, т.к. часть отсеется дедупом
-    leads = await collect_from_2gis(limit=limit)
-    if not leads:
+async def collect_and_import_all(limit: Optional[int] = None) -> dict[str, int]:
+    """Собирает лиды со ВСЕХ настроенных источников (2ГИС, Google, Yandex)."""
+    limit = limit or settings.b2b_daily_limit * 3
+    all_leads = []
+    
+    # 1. 2GIS
+    l2 = await collect_from_2gis(limit=limit)
+    if l2: all_leads.extend(l2)
+    
+    # 2. Google
+    lg = await collect_from_google_places(limit=limit)
+    if lg: all_leads.extend(lg)
+        
+    # 3. Yandex
+    ly = await collect_from_yandex_maps(limit=limit)
+    if ly: all_leads.extend(ly)
+        
+    if not all_leads:
+        logger.warning("Сбор лидов завершён, но ни один источник не дал результатов (или ключи не настроены).")
         return {"inserted": 0, "skipped": 0}
-    return await import_leads(leads)
+        
+    return await import_leads(all_leads)
