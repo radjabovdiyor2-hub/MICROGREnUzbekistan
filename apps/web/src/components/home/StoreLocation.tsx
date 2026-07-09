@@ -105,11 +105,12 @@ export function StoreLocation() {
             background: 'var(--bg-tertiary)',
           }}>
               <iframe
-                src="https://yandex.com/map-widget/v1/?pt=66.961888,39.581813,pm2rdm&z=16&l=map"
+                src="https://yandex.ru/map-widget/v1/?pt=66.961888%2C39.581813&z=16&l=map&lang=uz_UZ"
                 width="100%"
                 height="100%"
                 style={{ border: 0, display: 'block' }}
                 allowFullScreen
+                loading="lazy"
                 title="Microgreen do'koni joylashuvi"
               />
             {/* Map Actions Overlay */}
