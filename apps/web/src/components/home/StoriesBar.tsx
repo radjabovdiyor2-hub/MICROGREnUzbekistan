@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 
@@ -116,8 +117,9 @@ export function StoriesBar() {
         </div>
       </div>
 
-      {/* Просмотрщик */}
-      {open && cur && (
+      {/* Просмотрщик — через портал в body, иначе position:fixed ломается
+          из-за transform на <main> (fixed привязывается к main, а не к окну) */}
+      {open && cur && typeof document !== 'undefined' && createPortal(
         <div
           onClick={next}
           style={{
@@ -183,7 +185,8 @@ export function StoriesBar() {
               />
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
