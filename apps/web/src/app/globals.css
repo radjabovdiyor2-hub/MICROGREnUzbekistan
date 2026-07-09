@@ -430,6 +430,30 @@ input, textarea, select {
   width: 100%;
 }
 
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-25deg);
+  animation: shimmer 3.5s ease-in-out infinite;
+  z-index: 1;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  15% { left: 200%; }
+  100% { left: 200%; }
+}
+
 /* === Cards === */
 .card {
   background: var(--bg-card);
@@ -692,6 +716,14 @@ input, textarea, select {
 }
 
 /* === Category Section === */
+.categories-wrapper {
+  position: relative;
+  width: 100%;
+  /* Elegant fading edge to indicate scrollability on right */
+  -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  mask-image: linear-gradient(to right, black 85%, transparent 100%);
+}
+
 .categories-scroll {
   display: flex;
   gap: var(--space-3);
@@ -747,8 +779,13 @@ input, textarea, select {
 /* === Product Grid === */
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: var(--space-4);
+}
+@media (min-width: 640px) {
+  .product-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
 }
 
 /* === Sale Banner === */

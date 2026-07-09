@@ -76,7 +76,7 @@ export function HeroSection() {
         </p>
 
         <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', ...rise(0.22) }}>
-          <Link href="/catalog" className="btn btn-primary btn-lg ripple" style={{
+          <Link href="/catalog" className="btn btn-primary btn-lg ripple btn-shimmer" style={{
             display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '15px 30px', borderRadius: '14px', fontWeight: 700,
             boxShadow: '0 12px 30px -10px rgba(var(--brand-primary-rgb), 0.5)',
           }}>

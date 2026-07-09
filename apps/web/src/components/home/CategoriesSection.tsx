@@ -24,28 +24,30 @@ export function CategoriesSection() {
           <Icons.Package size={24} /> {t('Kategoriyalar', 'Категории')}
         </h2>
       </div>
-      <div className="categories-scroll">
-        {CATEGORIES.map((cat) => (
-          <Link
-            key={cat.slug}
-            href={`/catalog?category=${cat.slug}`}
-            className="category-pill"
-            id={`cat-${cat.slug}`}
-            onClick={() => {
-              if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
-                (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('light');
-              }
-            }}
-          >
-            <span className="category-pill__icon" style={{
-              color: cat.color,
-              background: `${cat.color}12`,
-            }}>
-              {cat.icon}
-            </span>
-            <span className="category-pill__name">{cat.name}</span>
-          </Link>
-        ))}
+      <div className="categories-wrapper">
+        <div className="categories-scroll">
+          {CATEGORIES.map((cat) => (
+            <Link
+              key={cat.slug}
+              href={`/catalog?category=${cat.slug}`}
+              className="category-pill"
+              id={`cat-${cat.slug}`}
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
+                  (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                }
+              }}
+            >
+              <span className="category-pill__icon" style={{
+                color: cat.color,
+                background: `${cat.color}12`,
+              }}>
+                {cat.icon}
+              </span>
+              <span className="category-pill__name">{cat.name}</span>
+            </Link>
+          ))}
+        </div>
       </div>
     </section>
   );
