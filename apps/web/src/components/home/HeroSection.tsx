@@ -23,23 +23,23 @@ export function HeroSection() {
   return (
     <section className="hero" id="hero-section" style={{
       position: 'relative',
-      minHeight: 'min(88vh, 760px)',
+      minHeight: 'min(72vh, 680px)',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'flex-end',
       overflow: 'hidden',
       background: 'var(--bg-secondary)',
       borderBottom: '1px solid var(--border)',
-      paddingBottom: 'clamp(28px, 6vh, 60px)',
+      paddingBottom: 'clamp(24px, 5vh, 50px)',
     }}>
       {/* generative field */}
       <MicrogreensCanvas count={100} style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: '56%', zIndex: 0,
+        position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: '42%', zIndex: 0,
       }} />
       {/* ground the field + keep text legible */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
-        background: 'linear-gradient(to top, var(--bg-secondary) 16%, transparent 52%)',
+        background: 'linear-gradient(to top, var(--bg-secondary) 28%, transparent 65%)',
       }} />
 
       <div className="container" style={{ position: 'relative', zIndex: 2, width: '100%' }}>
