@@ -99,6 +99,27 @@ services:
     networks:
       - mg_net
 
+  # One-shot: seed the storefront catalog into microgreen_db — but ONLY if empty.
+  # db-push creates the tables but no data, so a fresh prod has an empty catalog.
+  # seed-if-empty runs the full seed only when product count is 0, so it never
+  # overwrites admin-edited prices/stock on an already-populated shop.
+  db-seed:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: builder
+    container_name: mg_db_seed
+    working_dir: /app/packages/database
+    command: sh -c "npx tsx prisma/seed-if-empty.ts"
+    environment:
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+    depends_on:
+      db-push:
+        condition: service_completed_successfully
+    restart: "no"
+    networks:
+      - mg_net
+
   # ========================= WEBSITE ======================================
   web:
     build:
