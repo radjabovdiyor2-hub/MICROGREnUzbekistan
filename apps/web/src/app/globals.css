@@ -24,8 +24,10 @@
 }
 
 /* === Performance: Layout containment for sections === */
-section, main > div {
-  contain: content;
+/* NB: Avoid `contain` on `main` or its direct children — StoriesBar and other
+   overlays use `position: fixed` which breaks inside a containing block. */
+.section {
+  contain: layout style paint;
 }
 
 /* === Performance: Composited animations === */
