@@ -58,6 +58,7 @@ coverage/
 # Temp scripts (never commit debug/deploy scripts to root)
 _*.js
 _*.py
+!__init__.py
 _*.log
 _*.txt
 
