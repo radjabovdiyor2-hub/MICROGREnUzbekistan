@@ -52,7 +52,7 @@ jobs:
     needs: [quality, python-quality]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
@@ -60,10 +60,12 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          command_timeout: 18m
+          command_timeout: 28m
           script: |
             set -ex
             cd /opt/microgreen
             git fetch origin
             git reset --hard origin/main
+            # Stop web to free memory for build
+            docker compose -f docker-compose.prod.yml stop web 2>/dev/null || true
             docker compose -f docker-compose.prod.yml up -d --build web
