@@ -2,9 +2,10 @@ name: Deploy to server
 
 # Авто-деплой на сервер при push в main (и вручную через кнопку Run workflow).
 # Нужны секреты репозитория (Settings → Secrets and variables → Actions):
-#   SSH_HOST      — IP/домен сервера
-#   SSH_USER      — пользователь SSH (напр. root или deploy)
-#   SSH_KEY       — приватный SSH-ключ (весь файл, с BEGIN/END)
+#   SSH_HOST      — IP сервера
+#   SSH_USER      — пользователь SSH (напр. root)
+#   SSH_PASSWORD  — пароль сервера (ИЛИ используйте SSH_KEY — ключ надёжнее)
+#   SSH_KEY       — приватный SSH-ключ (весь файл, с BEGIN/END) — приоритетнее пароля
 #   DEPLOY_PATH   — путь к репозиторию на сервере (напр. /opt/microgreen)
 #   SSH_PORT      — (необязательно) порт SSH, по умолчанию 22
 # На сервере ОДИН раз: git clone, checkout main, заполнить .env-файлы (их нет в git),
@@ -29,6 +30,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT || '22' }}
           command_timeout: 30m
           script: |
