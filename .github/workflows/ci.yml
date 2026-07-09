@@ -63,8 +63,7 @@ jobs:
           command_timeout: 18m
           script: |
             set -ex
-            cd /home/ubuntu/MICROGREnUzbekistan
+            cd /opt/microgreen
             git fetch origin
             git reset --hard origin/main
-            chmod +x deploy/deploy.sh
-            bash deploy/deploy.sh
+            docker compose -f docker-compose.prod.yml up -d --build web
