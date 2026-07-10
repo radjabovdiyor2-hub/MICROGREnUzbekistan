@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
@@ -39,6 +40,7 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 export function ProductPageClient({ id }: { id: string }) {
   const { t } = useLang();
+  const router = useRouter();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('desc');
@@ -104,6 +106,21 @@ export function ProductPageClient({ id }: { id: string }) {
     }, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
+  };
+
+  // Amazon "Buy Now" — one click from product page straight to checkout.
+  const handleBuyNow = () => {
+    cart.addItem({
+      id: product!.id,
+      nameUz: product!.nameUz,
+      nameRu: product!.nameRu,
+      price: product!.price,
+      oldPrice: product!.oldPrice,
+      slug: product!.slug,
+      images: product!.images,
+      category: product!.category,
+    }, quantity);
+    router.push('/cart');
   };
 
   const handleToggleFav = () => {
@@ -250,6 +267,14 @@ export function ProductPageClient({ id }: { id: string }) {
                 : <><Icons.ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}</>}
             </button>
           </div>
+
+          {/* Amazon-style Buy Now — one click to checkout */}
+          <button className="btn btn-accent btn-lg btn-block ripple" onClick={handleBuyNow}
+            disabled={product.stock === 0}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontWeight: 'var(--font-bold)' }}
+            id="buy-now-btn">
+            <Icons.Zap size={20} /> {t('Hozir sotib olish', 'Купить сейчас')}
+          </button>
 
           {/* Secondary buttons */}
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>

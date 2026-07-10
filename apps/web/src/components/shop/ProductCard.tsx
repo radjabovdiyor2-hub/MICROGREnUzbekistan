@@ -33,6 +33,9 @@ export function ProductCard({ product }: { product: Product }) {
   const cart = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
   const fav = isFavorite(product.id);
+  // Uzum/Instacart pattern: when the item is already in the cart the card
+  // shows an inline quantity stepper instead of the add button.
+  const inCartQty = cart.items.find(i => i.product.id === product.id)?.quantity ?? 0;
   const { lang, t } = useLang();
   const productName = lang === 'ru' && product.nameRu ? product.nameRu : product.nameUz;
   const [added, setAdded] = useState(false);
@@ -152,20 +155,53 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        {/* Add to cart — flips to an animated "added ✓" confirmation */}
-        <button className="btn btn-sm btn-block" onClick={handleAddToCart}
-          aria-label={t('product.add_to_cart')}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-            border: 'none', color: '#fff', fontWeight: 'var(--font-semibold)',
-            background: added ? 'var(--success)' : 'var(--brand-primary)',
-            transform: added ? 'scale(1.045)' : 'scale(1)',
-            transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease',
-          }}>
-          {added
-            ? <><Icons.CheckCircle size={14} /> {t("Qo'shildi", 'Добавлено')}</>
-            : <><Icons.ShoppingCart size={14} /> {t('product.add_to_cart')}</>}
-        </button>
+        {/* Add to cart — Uzum/Instacart pattern: once in the cart the button
+            becomes an inline quantity stepper (no trip to the cart page). */}
+        {inCartQty > 0 ? (
+          <div
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+              background: 'var(--brand-primary)', color: '#fff',
+            }}>
+            <button
+              aria-label="−"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty - 1); }}
+              style={{
+                width: 36, height: 32, border: 'none', cursor: 'pointer',
+                background: 'transparent', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+              <Icons.Minus size={14} />
+            </button>
+            <span style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{inCartQty}</span>
+            <button
+              aria-label="+"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty + 1); }}
+              style={{
+                width: 36, height: 32, border: 'none', cursor: 'pointer',
+                background: 'transparent', color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+              <Icons.Plus size={14} />
+            </button>
+          </div>
+        ) : (
+          <button className="btn btn-sm btn-block" onClick={handleAddToCart}
+            aria-label={t('product.add_to_cart')}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              border: 'none', color: '#fff', fontWeight: 'var(--font-semibold)',
+              background: added ? 'var(--success)' : 'var(--brand-primary)',
+              transform: added ? 'scale(1.045)' : 'scale(1)',
+              transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease',
+            }}>
+            {added
+              ? <><Icons.CheckCircle size={14} /> {t("Qo'shildi", 'Добавлено')}</>
+              : <><Icons.ShoppingCart size={14} /> {t('product.add_to_cart')}</>}
+          </button>
+        )}
         {/* AR Viewer for equipment */}
         {categorySlug === 'equipment' && (
           <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
