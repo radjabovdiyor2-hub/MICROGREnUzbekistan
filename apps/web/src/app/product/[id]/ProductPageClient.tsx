@@ -43,6 +43,7 @@ export function ProductPageClient({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('desc');
   const [quantity, setQuantity] = useState(1);
+  const [added, setAdded] = useState(false);
   const cart = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
 
@@ -101,6 +102,8 @@ export function ProductPageClient({ id }: { id: string }) {
       images: product.images,
       category: product.category,
     }, quantity);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
   };
 
   const handleToggleFav = () => {
@@ -187,9 +190,15 @@ export function ProductPageClient({ id }: { id: string }) {
           {/* Stock */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
             {product.stock > 0 ? (
-              <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Icons.CheckCircle size={16} /> {t(`Mavjud (${product.stock} dona)`, `В наличии (${product.stock} шт)`)}
-              </span>
+              product.stock <= 5 ? (
+                <span style={{ color: 'var(--brand-accent)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Icons.Flame size={16} /> {t(`Faqat ${product.stock} dona qoldi — shoshiling!`, `Осталось всего ${product.stock} шт — успейте!`)}
+                </span>
+              ) : (
+                <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Icons.CheckCircle size={16} /> {t(`Mavjud (${product.stock} dona)`, `В наличии (${product.stock} шт)`)}
+                </span>
+              )
             ) : (
               <span style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Icons.XCircle size={16} /> {t("Tugagan", "Нет в наличии")}
@@ -227,15 +236,23 @@ export function ProductPageClient({ id }: { id: string }) {
                 <Icons.Plus size={16} />
               </button>
             </div>
-            <button className="btn btn-primary btn-lg" onClick={handleAddToCart}
-              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+            <button className="btn btn-lg" onClick={handleAddToCart}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                border: 'none', color: '#fff', fontWeight: 'var(--font-bold)',
+                background: added ? 'var(--success)' : 'var(--brand-primary)',
+                transform: added ? 'scale(1.02)' : 'scale(1)',
+                transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease',
+              }}
               disabled={product.stock === 0}>
-              <Icons.ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}
+              {added
+                ? <><Icons.CheckCircle size={20} /> {t("Savatga qo'shildi", "Добавлено в корзину")}</>
+                : <><Icons.ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}</>}
             </button>
           </div>
 
           {/* Secondary buttons */}
-          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             <button onClick={handleToggleFav} className="btn btn-outline"
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: fav ? 'var(--error)' : undefined }}>
               {fav ? <Icons.HeartFilled size={18} /> : <Icons.Heart size={18} />} {t("Sevimli", "В избранное")}
@@ -244,6 +261,25 @@ export function ProductPageClient({ id }: { id: string }) {
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
               <Icons.Phone size={18} /> {t("Qo'ng'iroq", "Позвонить")}
             </a>
+          </div>
+
+          {/* Trust badges — reduce purchase anxiety right at the buy box */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)',
+            padding: 'var(--space-3)', background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)',
+          }}>
+            {[
+              { icon: <Icons.Leaf size={18} />, title: t('Yangi kesilgan', 'Свежий срез'), sub: t('yetkazish kunida', 'в день доставки'), c: 'var(--success)' },
+              { icon: <Icons.Truck size={18} />, title: t('Bugun', 'Сегодня'), sub: t('yetkazib beramiz', 'доставим'), c: 'var(--brand-primary)' },
+              { icon: <Icons.CheckCircle size={18} />, title: t("To'lov", 'Оплата'), sub: 'Click · Payme · Naqd', c: 'var(--brand-accent)' },
+            ].map((b, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
+                <span style={{ color: b.c }}>{b.icon}</span>
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>{b.title}</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1.2 }}>{b.sub}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@ import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import dynamic from 'next/dynamic';
-import { freeDeliveryRemaining } from '@/lib/site';
+import { DELIVERY, freeDeliveryRemaining } from '@/lib/site';
 
 const SmartSubscriptionWidget = dynamic(() => import('@/components/shop/SmartSubscriptionWidget').then(m => m.SmartSubscriptionWidget), { ssr: false });
 
@@ -186,8 +186,18 @@ export default function CartPage() {
                   </span>
                 </div>
                 {cart.deliveryFee > 0 && (
-                  <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--info-bg)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)', color: 'var(--info)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Icons.Lightbulb size={14} /> {t(`Yana ${fmt(freeDeliveryRemaining(cart.subtotal))} so'm — bepul yetkazish!`, `Еще ${fmt(freeDeliveryRemaining(cart.subtotal))} сум — бесплатная доставка!`)}
+                  <div style={{ padding: 'var(--space-3)', background: 'var(--info-bg)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--info)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'var(--font-medium)' }}>
+                      <Icons.Lightbulb size={14} /> {t(`Yana ${fmt(freeDeliveryRemaining(cart.subtotal))} so'm — bepul yetkazish!`, `Еще ${fmt(freeDeliveryRemaining(cart.subtotal))} сум — бесплатная доставка!`)}
+                    </div>
+                    <div style={{ height: 5, borderRadius: 999, background: 'var(--bg-tertiary)', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 999,
+                        width: `${Math.min(100, (cart.subtotal / DELIVERY.freeThreshold) * 100)}%`,
+                        background: 'linear-gradient(90deg, var(--brand-primary), var(--brand-accent))',
+                        transition: 'width 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+                      }} />
+                    </div>
                   </div>
                 )}
                 <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-3)', display: 'flex', justifyContent: 'space-between' }}>
@@ -343,6 +353,13 @@ export default function CartPage() {
             style={{ padding: 'var(--space-5)', fontSize: 'var(--text-lg)', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', opacity: isSubmitting ? 0.6 : 1 }}>
             {isSubmitting ? <><Icons.Clock size={20} /> {t('Yuborilmoqda...', 'Отправка...')}</> : <><Icons.CheckCircle size={20} /> {t('Buyurtmani tasdiqlash', 'Подтвердить заказ')}</>}
           </button>
+
+          {/* Reassurance — no prepayment friction, operator confirms */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 'var(--space-3)', marginTop: 'calc(-1 * var(--space-3))', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.CheckCircle size={13} style={{ color: 'var(--success)' }} /> {t("Oldindan to'lovsiz", 'Без предоплаты')}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.Phone size={13} style={{ color: 'var(--brand-primary)' }} /> {t('Operator tasdiqlaydi', 'Оператор подтвердит')}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.Truck size={13} style={{ color: 'var(--brand-accent)' }} /> {t('Bugun yetkazish', 'Доставка сегодня')}</span>
+          </div>
         </div>
       </div>
     );
