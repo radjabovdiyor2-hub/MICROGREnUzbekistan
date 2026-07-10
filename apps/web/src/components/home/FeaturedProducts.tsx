@@ -38,12 +38,17 @@ export function FeaturedProducts() {
   return (
     <section className="section" id="featured-section">
       <div className="container">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
-          <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Icons.StarFilled size={24} style={{ color: 'var(--brand-accent)' }} /> {t('Top Mahsulotlar', 'Топ товары')}
-          </h2>
-          <Link href="/catalog" className="btn btn-ghost btn-sm">
-            {t('featured.all')} →
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 'var(--space-6)', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <div>
+            <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Icons.StarFilled size={24} style={{ color: 'var(--brand-accent)' }} /> {t('Haftaning xitlari', 'Хиты недели')}
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginTop: '4px' }}>
+              {t("Mijozlarimiz eng ko'p tanlaydigan mahsulotlar", 'То, что чаще всего выбирают наши клиенты')}
+            </p>
+          </div>
+          <Link href="/catalog" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '20px' }}>
+            {t('featured.all')} <Icons.ArrowRight size={14} />
           </Link>
         </div>
 
@@ -62,8 +67,12 @@ export function FeaturedProducts() {
           </div>
         ) : (
           <div className="product-grid">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+            {products.map((product, idx) => (
+              <div key={product.id} style={{
+                animation: `page-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(idx * 70, 420)}ms both`,
+              }}>
+                <ProductCard product={product} />
+              </div>
             ))}
           </div>
         )}
