@@ -5,10 +5,10 @@ import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 
 // Lazy-load below-fold sections — reduces initial JS bundle
-const SaleBanner = dynamic(() => import('@/components/home/SaleBanner').then(m => ({ default: m.SaleBanner })));
 const RecipeOfDay = dynamic(() => import('@/components/home/RecipeOfDay').then(m => ({ default: m.RecipeOfDay })));
 const NutritionistPanel = dynamic(() => import('@/components/home/NutritionistPanel').then(m => ({ default: m.NutritionistPanel })));
 const StoriesBar = dynamic(() => import('@/components/home/StoriesBar').then(m => ({ default: m.StoriesBar })));
+const InstagramFeed = dynamic(() => import('@/components/home/InstagramFeed').then(m => ({ default: m.InstagramFeed })));
 const StoreLocation = dynamic(() => import('@/components/home/StoreLocation').then(m => ({ default: m.StoreLocation })));
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })));
 
@@ -26,11 +26,6 @@ export default function HomePage() {
         <CategoriesSection />
       </ScrollReveal>
 
-      {/* Акция / скидка — мотивация к покупке */}
-      <ScrollReveal variant="scale" delay={100}>
-        <SaleBanner />
-      </ScrollReveal>
-
       {/* Рецепт дня — вдохновение к покупке */}
       <ScrollReveal delay={80}>
         <RecipeOfDay />
@@ -44,6 +39,11 @@ export default function HomePage() {
       {/* AI Нутрициолог — экспертность и доверие */}
       <ScrollReveal variant="left" delay={80}>
         <NutritionistPanel />
+      </ScrollReveal>
+
+      {/* Instagram — процесс выращивания + сетка постов */}
+      <ScrollReveal delay={80}>
+        <InstagramFeed />
       </ScrollReveal>
 
       {/* Адрес и контакты */}
