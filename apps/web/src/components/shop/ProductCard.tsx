@@ -3,6 +3,7 @@
 import { formatPrice, getDiscountPercent } from '@repo/shared';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
@@ -34,13 +35,18 @@ export function ProductCard({ product }: { product: Product }) {
   const fav = isFavorite(product.id);
   const { lang, t } = useLang();
   const productName = lang === 'ru' && product.nameRu ? product.nameRu : product.nameUz;
+  const [added, setAdded] = useState(false);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Premium Haptic Feedback
     import('@/lib/haptic').then(({ triggerHaptic }) => triggerHaptic('success'));
+
+    // Visual confirmation — button flips to "added" for ~1.6s
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1600);
 
     cart.addItem({
       id: product.id,
@@ -146,10 +152,19 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        {/* Add to cart */}
-        <button className="btn btn-primary btn-sm btn-block" onClick={handleAddToCart}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-          <Icons.ShoppingCart size={14} /> {t('product.add_to_cart')}
+        {/* Add to cart — flips to an animated "added ✓" confirmation */}
+        <button className="btn btn-sm btn-block" onClick={handleAddToCart}
+          aria-label={t('product.add_to_cart')}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            border: 'none', color: '#fff', fontWeight: 'var(--font-semibold)',
+            background: added ? 'var(--success)' : 'var(--brand-primary)',
+            transform: added ? 'scale(1.045)' : 'scale(1)',
+            transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease',
+          }}>
+          {added
+            ? <><Icons.CheckCircle size={14} /> {t("Qo'shildi", 'Добавлено')}</>
+            : <><Icons.ShoppingCart size={14} /> {t('product.add_to_cart')}</>}
         </button>
         {/* AR Viewer for equipment */}
         {categorySlug === 'equipment' && (

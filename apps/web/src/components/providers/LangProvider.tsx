@@ -22,9 +22,9 @@ const translations: Record<string, Record<Lang, string>> = {
   'hero.subtitle': { uz: 'Eng sarxil mikroko`katlar, restoranlar uchun ko`katlar, gullar va gidroponika — hammasi bir joyda.', ru: 'Органическая еда: свежая микрозелень, зелень, съедобные цветы и семена. Идеально для ресторанов и здорового образа жизни (ЗОЖ).' },
   'hero.catalog_btn': { uz: "Katalogga o'tish", ru: 'Перейти в каталог' },
   'hero.contact_btn': { uz: "Bog'lanish", ru: 'Связаться' },
-  'hero.products_count': { uz: '10,000+ mahsulotlar', ru: '10,000+ товаров' },
-  'hero.delivery': { uz: 'Tezkor yetkazish', ru: 'Быстрая доставка' },
-  'hero.prices': { uz: 'Hamyonbop narxlar', ru: 'Доступные цены' },
+  'hero.products_count': { uz: 'Har kuni yangi hosil', ru: 'Свежий урожай каждый день' },
+  'hero.delivery': { uz: 'Bugun yetkazib beramiz', ru: 'Доставка сегодня' },
+  'hero.prices': { uz: 'Fermer narxlari', ru: 'Цены от фермы' },
 
   // === Search ===
   'search.placeholder': { uz: 'Qidirish...', ru: 'Поиск...' },

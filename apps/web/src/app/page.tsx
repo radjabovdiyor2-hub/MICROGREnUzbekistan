@@ -26,14 +26,14 @@ export default function HomePage() {
         <CategoriesSection />
       </ScrollReveal>
 
+      {/* Хиты продаж — сразу к покупке, высоко на странице */}
+      <ScrollReveal>
+        <FeaturedProducts />
+      </ScrollReveal>
+
       {/* Рецепт дня — вдохновение к покупке */}
       <ScrollReveal delay={80}>
         <RecipeOfDay />
-      </ScrollReveal>
-
-      {/* Хиты продаж — сразу добавить в корзину */}
-      <ScrollReveal>
-        <FeaturedProducts />
       </ScrollReveal>
 
       {/* AI Нутрициолог — экспертность и доверие */}
