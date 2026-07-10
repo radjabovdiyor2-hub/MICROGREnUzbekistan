@@ -3,6 +3,7 @@ import { HeroSection } from '@/components/home/HeroSection';
 import { CategoriesSection } from '@/components/home/CategoriesSection';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
+import { SproutDivider } from '@/components/ui/SproutDivider';
 
 // Lazy-load below-fold sections — reduces initial JS bundle
 const RecipeOfDay = dynamic(() => import('@/components/home/RecipeOfDay').then(m => ({ default: m.RecipeOfDay })));
@@ -31,6 +32,8 @@ export default function HomePage() {
         <FeaturedProducts />
       </ScrollReveal>
 
+      <SproutDivider />
+
       {/* Рецепт дня — вдохновение к покупке */}
       <ScrollReveal delay={80}>
         <RecipeOfDay />
@@ -40,6 +43,8 @@ export default function HomePage() {
       <ScrollReveal variant="left" delay={80}>
         <NutritionistPanel />
       </ScrollReveal>
+
+      <SproutDivider flip />
 
       {/* Instagram — процесс выращивания + сетка постов */}
       <ScrollReveal delay={80}>

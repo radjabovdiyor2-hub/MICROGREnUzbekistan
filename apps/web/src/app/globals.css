@@ -2499,3 +2499,42 @@ main, [data-page] {
 @media (prefers-reduced-motion: reduce) {
   .sticky-cart-bar { animation: none; }
 }
+
+/* ============================================
+   SPROUT DIVIDER — animated section separator
+   ============================================ */
+.sprout-divider {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-4);
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.sprout-divider__line {
+  flex: 1;
+  max-width: 220px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  margin-bottom: 6px;
+}
+
+.sprout-divider__svg {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.sprout-divider__stem {
+  animation: sprout-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes sprout-grow {
+  from { transform: scaleY(0); opacity: 0; }
+  to   { transform: scaleY(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sprout-divider__stem { animation: none; transform: none; }
+}
