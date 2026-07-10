@@ -66,6 +66,15 @@ jobs:
             cd /opt/microgreen
             git fetch origin
             git reset --hard origin/main
+            # Remove stale one-shot containers first. db-push/db-seed use fixed
+            # names, so a leftover from a previous/aborted run makes compose fail
+            # with "container name already in use" on recreate. The substring
+            # match also catches compose's temp-renamed copies (<hash>_mg_db_push).
+            docker ps -aq -f "name=mg_db_push" -f "name=mg_db_seed" | xargs -r docker rm -f || true
             # Stop web to free memory for build
             docker compose -f docker-compose.prod.yml stop web 2>/dev/null || true
+            # Rebuild web (db-push runs as its dependency and applies the schema)
             docker compose -f docker-compose.prod.yml up -d --build web
+            # Seed the storefront catalog ONLY if it is empty (self-skips when
+            # already populated — never overwrites admin-edited prices/stock)
+            docker compose -f docker-compose.prod.yml run --rm db-seed
