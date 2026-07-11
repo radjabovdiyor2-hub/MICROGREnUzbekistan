@@ -3,6 +3,7 @@
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
+import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 import { CONTACT } from '@/lib/site';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -32,8 +33,13 @@ export function HeroSection() {
       borderBottom: '1px solid var(--border)',
       paddingBottom: 'clamp(24px, 5vh, 50px)',
     }}>
-      {/* generative field */}
-      <MicrogreensCanvas count={100} style={{
+      {/* Ambient floating greenery (microgreens + salad leaves drifting) */}
+      <FloatingGreenery count={22} style={{
+        position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+        width: '100%', height: '100%', zIndex: 0,
+      }} />
+      {/* generative field at the bottom — mixed mode: sprouts + salad leaves */}
+      <MicrogreensCanvas count={100} variant="mixed" style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: '42%', zIndex: 0,
       }} />
       {/* ground the field + keep text legible */}
@@ -100,7 +106,13 @@ export function HeroSection() {
               <span style={{
                 width: 30, height: 30, borderRadius: '9px', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: `color-mix(in srgb, ${it.c} 15%, transparent)`, color: it.c,
+                /* rgba instead of color-mix — Safari 15 compat */
+                background: it.c === 'var(--brand-primary)'
+                  ? 'rgba(16,185,129,0.13)'
+                  : it.c === 'var(--success)'
+                    ? 'rgba(16,185,129,0.13)'
+                    : 'rgba(255,184,0,0.15)',
+                color: it.c,
               }}>{it.icon}</span>
               <span>{it.text}</span>
             </div>

@@ -1,10 +1,33 @@
 import type { NextConfig } from "next";
+import path from "path";
+
+const sharedPath = path.resolve(__dirname, '../../packages/shared/src/index.ts');
+const databasePath = path.resolve(__dirname, '../../packages/database/src/index.ts');
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  transpilePackages: ['@repo/shared', '@repo/database'],
   serverExternalPackages: ["@prisma/client", "bcrypt"],
   typescript: {
     ignoreBuildErrors: true,
+  },
+
+  // Turbopack alias (Next.js 16 default bundler)
+  turbopack: {
+    resolveAlias: {
+      '@repo/shared': sharedPath,
+      '@repo/database': databasePath,
+    },
+  },
+
+  // Webpack alias (fallback when running with --webpack flag)
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@repo/shared': sharedPath,
+      '@repo/database': databasePath,
+    };
+    return config;
   },
 
   // Optimize images — prefer WebP/AVIF, smaller sizes

@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/shop/ProductCard';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
+import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 
 const PAGE_SIZE = 24;
 
@@ -124,7 +125,12 @@ function CatalogContent() {
   const hasMore = pagination ? pagination.page < pagination.totalPages : false;
 
   return (
-    <div className="container" style={{ paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
+    <div style={{ position: 'relative' }}>
+      {/* Ambient floating microgreens + salad leaves */}
+      <FloatingGreenery count={14} style={{
+        position: 'fixed', inset: 0, width: '100%', height: '100%', zIndex: 0,
+      }} />
+      <div className="container" style={{ position: 'relative', zIndex: 1, paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
       {/* Page Header */}
       <ScrollReveal variant="left">
         <div style={{ marginBottom: 'var(--space-6)' }}>
@@ -290,6 +296,7 @@ function CatalogContent() {
           </p>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -27,7 +27,7 @@
 /* NB: Avoid `contain` on `main` or its direct children — StoriesBar and other
    overlays use `position: fixed` which breaks inside a containing block. */
 .section {
-  contain: layout style paint;
+  contain: layout style;
 }
 
 /* === Performance: Composited animations === */
@@ -146,8 +146,8 @@
   --info-bg: rgba(96, 165, 250, 0.12);
 
   /* Borders */
-  --border: #2D2D4A;
-  --border-strong: #3D3D5C;
+  --border: #3A3A5C;
+  --border-strong: #4A4A6E;
 
   /* Shadows */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
@@ -415,6 +415,7 @@ input, textarea, select {
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-xs);
   border-radius: var(--radius-sm);
+  min-height: 36px;
 }
 
 .btn-icon {
@@ -790,6 +791,29 @@ input, textarea, select {
   }
 }
 
+/* === Skeleton Loading === */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-tertiary) 25%,
+    var(--border)      50%,
+    var(--bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--bg-tertiary);
+  }
+}
+
 /* === Sale Banner === */
 .sale-banner {
   background: linear-gradient(135deg, var(--error) 0%, #DC2626 100%);
@@ -884,7 +908,7 @@ input, textarea, select {
   50% { box-shadow: var(--shadow-xl), 0 0 0 12px rgba(var(--brand-primary-rgb), 0); }
 }
 
-@keyframes slideUp {
+@keyframes slideUpScale {
   from {
     opacity: 0;
     transform: translateY(24px) scale(0.96);
@@ -909,7 +933,7 @@ input, textarea, select {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: slideUp 0.3s var(--transition-spring);
+  animation: slideUpScale 0.3s var(--transition-spring);
 }
 
 @media (max-width: 480px) {
@@ -1004,39 +1028,10 @@ input, textarea, select {
   border-bottom-left-radius: var(--radius-sm);
 }
 
-/* === Skeleton Loader === */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
+/* === Skeleton Loader (canonical — single definition) ===
+   See also: @keyframes skeleton-shimmer at line ~794, .skeleton at line ~798 */
+/* intentionally empty — definition lives above at lines 793-814 */
 
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--bg-tertiary) 25%,
-    var(--bg-secondary) 50%,
-    var(--bg-tertiary) 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: var(--radius-sm);
-}
-
-.skeleton-text {
-  height: 14px;
-  margin-bottom: var(--space-2);
-}
-
-.skeleton-title {
-  height: 20px;
-  width: 70%;
-  margin-bottom: var(--space-2);
-}
-
-.skeleton-image {
-  aspect-ratio: 1 / 1;
-  border-radius: var(--radius-lg);
-}
 
 /* === Price Tag === */
 .price-tag {
@@ -1349,12 +1344,7 @@ input, textarea, select {
   }
 }
 
-/* === Skeleton Loader === */
-.skeleton {
-  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
+/* === Skeleton (duplicate removed — canonical definition at line ~793) === */
 
 @keyframes shimmer {
   0% { background-position: 200% 0; }
@@ -1638,7 +1628,7 @@ main {
   padding: var(--space-1) var(--space-3);
   text-decoration: none;
   color: var(--text-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: var(--font-medium);
   transition: all var(--transition-fast);
   min-width: 52px;
@@ -2617,4 +2607,36 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* ============================================
+   SELECT color-scheme (Safari iOS dark mode fix)
+   ============================================ */
+select {
+  color-scheme: inherit;
+}
+
+/* ============================================
+   PRODUCT PRICE no-wrap (prevents "150 000\nso'm" on narrow cards)
+   ============================================ */
+.product-card__price,
+[class*="product-card"] .price-tag {
+  white-space: nowrap;
+}
+
+/* ============================================
+   PRODUCT CARD HOVER — canonical single rule (P0 fix)
+   The three earlier translateY rules (-3px, -4px, -6px) are consolidated here.
+   This rule wins by specificity (later in cascade) on desktop.
+   ============================================ */
+@media (hover: hover) {
+  .product-card:hover {
+    transform: translateY(-6px) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+  }
+  .product-card:active {
+    transform: scale(0.97) !important;
+    transition-duration: 0.1s;
+  }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import * as Icons from '@/components/ui/Icons';
@@ -9,6 +9,7 @@ import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import dynamic from 'next/dynamic';
 import { DELIVERY, freeDeliveryRemaining } from '@/lib/site';
+import { type CartProduct } from '@/components/providers/CartProvider';
 
 const SmartSubscriptionWidget = dynamic(() => import('@/components/shop/SmartSubscriptionWidget').then(m => m.SmartSubscriptionWidget), { ssr: false });
 
@@ -20,6 +21,17 @@ const PAYMENT_METHODS = [
   { id: 'payme', labelUz: 'Payme', labelRu: 'Payme', icon: <Icons.CreditCard size={18} />, descUz: "Payme ilovasi orqali", descRu: "Через приложение Payme" },
 ];
 
+interface RecoProduct {
+  id: string;
+  nameUz: string;
+  nameRu: string;
+  slug: string;
+  price: number;
+  oldPrice?: number | null;
+  images: string[];
+  category?: { nameUz: string; slug: string };
+}
+
 export default function CartPage() {
   const { t } = useLang();
   const cart = useCart();
@@ -28,6 +40,25 @@ export default function CartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { dbUser } = useAuth();
   const [useBonus, setUseBonus] = useState(false);
+
+  // Recommendations strip
+  const [recos, setRecos] = useState<RecoProduct[]>([]);
+  const [recosLoading, setRecosLoading] = useState(true);
+
+  useEffect(() => {
+    setRecosLoading(true);
+    fetch('/api/products?featured=true&limit=8')
+      .then((r) => r.json())
+      .then((data) => {
+        const cartIds = new Set(cart.items.map((i) => i.product.id));
+        const filtered = (data.items || []).filter((p: RecoProduct) => !cartIds.has(p.id)).slice(0, 4);
+        setRecos(filtered);
+      })
+      .catch(() => setRecos([]))
+      .finally(() => setRecosLoading(false));
+  // We intentionally run once on mount; cart changes are reflected via the cartIds filter on re-render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Checkout form
   const [form, setForm] = useState({
@@ -120,6 +151,7 @@ export default function CartPage() {
             </Link>
           </div>
         ) : (
+          <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-6)', alignItems: 'start' }}>
             {/* Cart Items */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -217,6 +249,54 @@ export default function CartPage() {
             </div>
           </div>
           </div>
+
+          {/* "Yana qo'shing" recommendations — BELOW summary (better CTA flow) */}
+          {(recosLoading || recos.filter((p) => !cart.items.find((i) => i.product.id === p.id)).length > 0) && (
+            <div className="card" style={{ padding: 'var(--space-4)' }}>
+              <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)', color: 'var(--text-muted)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Icons.Sparkles size={14} style={{ color: 'var(--brand-accent)' }} />
+                {t("Yana qo'shing", "Добавьте ещё")}
+              </div>
+              <div style={{ display: 'flex', gap: 'var(--space-3)', overflowX: 'auto', paddingBottom: 'var(--space-1)' }}>
+                {recosLoading
+                  ? [1, 2, 3, 4].map((i) => (
+                      <div key={i} className="card" style={{ flexShrink: 0, width: 130, padding: 'var(--space-2)', display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                        <div className="skeleton" style={{ width: '100%', height: 76, borderRadius: 'var(--radius-sm)' }} />
+                        <div className="skeleton" style={{ height: 11, width: '80%' }} />
+                        <div className="skeleton" style={{ height: 11, width: '50%' }} />
+                        <div className="skeleton" style={{ height: 28, width: '100%', borderRadius: 'var(--radius-sm)' }} />
+                      </div>
+                    ))
+                  : recos.filter((p) => !cart.items.find((i) => i.product.id === p.id)).map((p) => {
+                      const fmt2 = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
+                      return (
+                        <div key={p.id} style={{ flexShrink: 0, width: 130, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)', border: '1px solid var(--border)' }}>
+                          <div style={{ width: '100%', height: 76, borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {p.images && p.images.length > 0
+                              ? <Image src={p.images[0]} alt={p.nameUz} width={130} height={76} style={{ width: '100%', height: '100%', objectFit: 'cover' }} quality={60} unoptimized={!p.images[0].startsWith('https://') && !p.images[0].startsWith('http://')} />
+                              : <Icons.Package size={24} style={{ color: 'var(--text-muted)' }} />}
+                          </div>
+                          <div style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-medium)', color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3 }}>
+                            {t(p.nameUz, p.nameRu)}
+                          </div>
+                          <div style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', color: 'var(--brand-primary)' }}>
+                            {fmt2(p.price)} {t("so'm", "сум")}
+                          </div>
+                          <button
+                            className="btn btn-sm"
+                            onClick={() => cart.addItem({ id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price, oldPrice: p.oldPrice, slug: p.slug, images: p.images, category: p.category } as CartProduct)}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', border: 'none', color: '#fff', background: 'var(--brand-primary)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)' }}
+                            id={`reco-add2-${p.id}`}
+                          >
+                            <Icons.Plus size={12} /> {t("Qo'shish", "Добавить")}
+                          </button>
+                        </div>
+                      );
+                    })}
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
     );
