@@ -11,6 +11,7 @@ const NutritionistPanel = dynamic(() => import('@/components/home/NutritionistPa
 const StoriesBar = dynamic(() => import('@/components/home/StoriesBar').then(m => ({ default: m.StoriesBar })));
 const InstagramFeed = dynamic(() => import('@/components/home/InstagramFeed').then(m => ({ default: m.InstagramFeed })));
 const StoreLocation = dynamic(() => import('@/components/home/StoreLocation').then(m => ({ default: m.StoreLocation })));
+const GrowFieldCTA = dynamic(() => import('@/components/home/GrowFieldCTA').then(m => ({ default: m.GrowFieldCTA })));
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })));
 
 export default function HomePage() {
@@ -39,22 +40,25 @@ export default function HomePage() {
         <RecipeOfDay />
       </ScrollReveal>
 
+      <SproutDivider flip />
+
+      {/* Instagram — соцдоказательство выше: живой процесс выращивания */}
+      <ScrollReveal delay={80}>
+        <InstagramFeed />
+      </ScrollReveal>
+
       {/* AI Нутрициолог — экспертность и доверие */}
       <ScrollReveal variant="left" delay={80}>
         <NutritionistPanel />
-      </ScrollReveal>
-
-      <SproutDivider flip />
-
-      {/* Instagram — процесс выращивания + сетка постов */}
-      <ScrollReveal delay={80}>
-        <InstagramFeed />
       </ScrollReveal>
 
       {/* Адрес и контакты */}
       <ScrollReveal delay={100}>
         <StoreLocation />
       </ScrollReveal>
+
+      {/* Финальный CTA — прорастающее поле + каталог */}
+      <GrowFieldCTA />
 
       <Footer />
     </main>

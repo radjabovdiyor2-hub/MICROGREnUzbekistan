@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import * as Icons from '@/components/ui/Icons';
 import { useLang } from '@/components/providers/LangProvider';
+import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
 
 const CATEGORY_ICONS: Record<string, { label: string; colorFrom: string; colorTo: string }> = {
   breakfast: { label: 'B', colorFrom: '#F59E0B', colorTo: '#F97316' },
@@ -81,6 +82,11 @@ export function RecipeOfDay() {
             padding: '20px 24px', color: 'white', position: 'relative', overflow: 'hidden',
           }}>
             <div style={{ position: 'absolute', top: -30, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+            {/* salad leaves grow along the header bottom — recipes are salads */}
+            <MicrogreensCanvas count={26} variant="salad" staticAfterGrow style={{
+              position: 'absolute', left: 0, right: 0, bottom: -2, width: '100%', height: '70%',
+              zIndex: 0, opacity: 0.32, pointerEvents: 'none',
+            }} />
             <div style={{ fontSize: 'clamp(18px, 4vw, 22px)', fontWeight: 800, fontFamily: 'var(--font-display)', marginBottom: 8, position: 'relative', zIndex: 1 }}>
               {name}
             </div>
