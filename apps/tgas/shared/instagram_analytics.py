@@ -131,6 +131,88 @@ async def get_recent_media_stats(limit: int = 10) -> list:
         return []
 
 
+async def _fetch_media(edge: str, fields: str, limit: int) -> list:
+    """Общий запрос к Graph API за медиа (edge = 'media' или 'stories')."""
+    ig_account_id = getattr(settings, "instagram_account_id", "")
+    access_token = getattr(settings, "instagram_access_token", "")
+
+    if not ig_account_id or not access_token:
+        logger.warning("Instagram Graph API не настроен — медиа недоступно.")
+        return []
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"{GRAPH_BASE_URL}/{ig_account_id}/{edge}"
+            params = {
+                "fields": fields,
+                "limit": str(limit),
+                "access_token": access_token,
+            }
+            async with session.get(url, params=params) as resp:
+                data = await resp.json()
+                if "error" in data:
+                    logger.error(
+                        f"Ошибка получения /{edge}: "
+                        f"{data['error'].get('message', data)}"
+                    )
+                    return []
+                return data.get("data", [])
+    except Exception as e:
+        logger.error(f"Ошибка при запросе /{edge}: {e}", exc_info=True)
+        return []
+
+
+async def get_recent_media(limit: int = 5) -> list:
+    """
+    Последние публикации ЛЕНТЫ вместе со ссылкой на само медиа.
+
+    В отличие от get_recent_media_stats (только метрики), здесь есть media_url
+    и permalink — то, что нужно, чтобы РЕАЛЬНО показать пост руководителю.
+    """
+    media = await _fetch_media(
+        "media",
+        "id,caption,media_type,media_url,permalink,thumbnail_url,timestamp",
+        limit,
+    )
+    return [
+        {
+            "id": m.get("id", ""),
+            "caption": m.get("caption") or "",
+            "media_type": m.get("media_type", ""),
+            # у видео media_url — это видеофайл; для превью есть thumbnail_url
+            "media_url": m.get("media_url") or m.get("thumbnail_url") or "",
+            "permalink": m.get("permalink", ""),
+            "timestamp": m.get("timestamp", ""),
+            "source": "feed",
+        }
+        for m in media
+    ]
+
+
+async def get_recent_stories(limit: int = 10) -> list:
+    """
+    Активные Stories (живут 24 часа) — именно ими публикуются утренний сторис
+    и рецепт дня, поэтому в /media их НЕТ, только в /stories.
+    """
+    media = await _fetch_media(
+        "stories",
+        "id,media_type,media_url,permalink,timestamp",
+        limit,
+    )
+    return [
+        {
+            "id": m.get("id", ""),
+            "caption": "",  # у сторис нет caption в Graph API
+            "media_type": m.get("media_type", ""),
+            "media_url": m.get("media_url", ""),
+            "permalink": m.get("permalink", ""),
+            "timestamp": m.get("timestamp", ""),
+            "source": "story",
+        }
+        for m in media
+    ]
+
+
 async def get_top_posts(limit: int = 5) -> list:
     """
     Возвращает топ-посты по уровню вовлечённости (engagement).

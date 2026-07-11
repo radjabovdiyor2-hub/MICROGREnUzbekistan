@@ -66,8 +66,11 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - Общайся как профессиональный топ-менеджер: вежливо, четко, структурированно.
 - Если задача касается социальных сетей, публикаций, сторис, мемов, текстов для постов или ОПРОСОВ (Polls/Викторин) для аудитории — ВСЕГДА назначай её на отдел 'content'.
 - Отдел 'marketing' используй для стратегий, LTV, рассылок по базе. ЗАПРЕЩЕНО использовать action="send_broadcast" для Опросов, постов или мемов!
-- 🗓 РАСПИСАНИЕ КОНТЕНТА (ты его ЗНАЕШЬ наизусть и отвечаешь сам): рецепт дня публикуется ЕЖЕДНЕВНО в 18:00; утренний сторис — в 07:15 (лето) / 08:15 (зима); пост недели в ленту — в субботу 12:00. Всё публикуется АВТОМАТИЧЕСКИ по расписанию.
-- ⚠️ ОТЛИЧАЙ ВОПРОС ОТ ЗАДАЧИ: сообщения вида «когда опубликуешь / во сколько / опубликовал ли / какой статус публикации / готово ли» — это ВОПРОС, а НЕ поручение. Ответь на него САМ (type="chat") на основе расписания выше. НЕ создавай задачу и НЕ проси отдел публиковать — иначе получится лишняя публикация. Задачу на контент создавай ТОЛЬКО когда просят СОЗДАТЬ/СДЕЛАТЬ новый пост/сторис/мем.
+- 🗓 РАСПИСАНИЕ КОНТЕНТА: рецепт дня — ЕЖЕДНЕВНО в 18:00; утренний сторис — в 07:15 (лето) / 08:15 (зима); пост недели в ленту — в субботу 12:00. Всё публикуется АВТОМАТИЧЕСКИ по расписанию.
+- 📸 ТЫ УМЕЕШЬ ПОКАЗЫВАТЬ ОПУБЛИКОВАННОЕ. Просят «покажи пост / скинь сторис / дай глянуть публикацию / покажи что вышло» (или просто «покажи» в разговоре о публикациях) → вызывай show_published_post. Он пришлёт руководителю саму картинку и текст.
+- 🚫 КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО отвечать «нечего показать», «нет активных публикаций», «посты запланированы автоматически» и пересказывать расписание ВМЕСТО показа. Если тебя просят показать — ты ВЫЗЫВАЕШЬ ИНСТРУМЕНТ, а не рассуждаешь. Если публикаций реально нет, инструмент сам честно об этом сообщит.
+- ⚠️ ОТЛИЧАЙ ВОПРОС ОТ ЗАДАЧИ: «когда опубликуешь / во сколько / опубликовал ли / какой статус публикации / готово ли» — это ВОПРОС, а НЕ поручение. Вызови get_content_status (он вернёт РЕАЛЬНЫЙ статус — что уже вышло, а что по плану). НЕ придумывай статус по памяти. НЕ создавай задачу и НЕ проси отдел публиковать — иначе получится лишняя публикация.
+- ✍️ Задачу на контент (create_task, department='content') создавай ТОЛЬКО когда просят СОЗДАТЬ/СДЕЛАТЬ/НАПИСАТЬ НОВЫЙ пост/сторис/мем. Прошедшее время («что опубликовали», «который выложили») — это НЕ поручение публиковать.
 - Если задача — верни JSON с type="task" и укажи нужный department.
 - Если вопрос о бизнесе — верни JSON с type="chat".
 
@@ -498,8 +501,304 @@ async def cancel_task(cb: CallbackQuery):
 
 from shared.group_orchestrator import set_reaction
 
+
+# ═══════════════════════════════════════════════════════
+# 📸 КОНТЕНТ: показать РЕАЛЬНУЮ публикацию / статус
+# ═══════════════════════════════════════════════════════
+
+# Просят ПОКАЗАТЬ сам контент (прислать пост), а не рассказать о нём
+SHOW_WORDS = [
+    "покажи", "покаж", "показать", "показывай", "скинь", "скинешь", "кинь",
+    "пришли", "прислать", "присылай", "отправь", "дай глянуть", "дай посмотреть",
+    "глянуть", "посмотреть", "увидеть", "хочу видеть", "хочу посмотреть",
+    "давай сюда", "где он", "где она", "где пост",
+]
+# О каком контенте речь
+CONTENT_WORDS = [
+    "пост", "посты", "поста", "сторис", "stories", "story", "публикац",
+    "контент", "рецепт", "инстаграм", "instagram", "ленту", "ленте", "мем",
+]
+# Вопрос о статусе/расписании (рассказать, а не показать)
+STATUS_WORDS = [
+    "когда", "во сколько", "опубликова", "статус", "вышел", "вышла", "вышло",
+    "готов", "уже", "выложил", "расписан", "график",
+]
+# Поручение СОЗДАТЬ новый контент (это задача, а не вопрос)
+CREATE_WORDS = [
+    "сделай", "создай", "напиши", "подготов", "запусти", "опубликуй",
+    "сгенерир", "придумай", "нужен пост", "нужна сторис", "новый пост",
+]
+
+
+def detect_content_intent(low: str, last_intent: str = None) -> str:
+    """
+    Что руководитель хочет от контента: 'show' | 'status' | None.
+
+    ⚠️ Порядок важен. «Покажи пост, который опубликовали сегодня» — это ПОКАЗАТЬ
+    уже вышедшее, а не поручение публиковать: прошедшее время («опубликовали»,
+    «выложили») не должно уводить в создание задачи.
+    """
+    has_content = any(w in low for w in CONTENT_WORDS)
+    has_show = any(w in low for w in SHOW_WORDS)
+    has_status = any(w in low for w in STATUS_WORDS)
+    has_create = any(w in low for w in CREATE_WORDS)
+
+    # 1. «Покажи пост» — всегда про уже существующий контент
+    if has_show and has_content:
+        return "show"
+
+    # 2. Короткое «Покажи» / «Скинь» без уточнения — продолжение разговора о контенте
+    if has_show and not has_content and last_intent in ("show", "status"):
+        return "show"
+
+    # 3. Явное поручение создать контент — пусть AI заводит задачу отделу
+    if has_create:
+        return None
+
+    # 4. Вопрос о статусе публикаций
+    if has_status and has_content:
+        return "status"
+
+    return None
+
+
+def _pub_caption(p: dict) -> str:
+    """Подпись к показываемой публикации."""
+    name = p.get("name") or "Публикация"
+    day = p.get("day") or ""
+    at = p.get("at") or ""
+    where = "Instagram" if p.get("ig") else "Telegram"
+    when = " ".join(x for x in (day, at) if x)
+    head = f"📸 <b>{name}</b>"
+    if when:
+        head += f" — {when} ({where})"
+    body = (p.get("caption") or "").strip()
+    return f"{head}\n\n{body}" if body else head
+
+
+async def _answer_safe(message: Message, text_: str, photo=None):
+    """Отправка с HTML; если разметка битая — повтор без неё."""
+    import re as _re
+    plain = _re.sub(r"</?[^>]+>", "", text_)
+    try:
+        if photo is not None:
+            await message.answer_photo(photo, caption=text_[:1024], parse_mode="HTML")
+        else:
+            await message.answer(text_, parse_mode="HTML")
+    except Exception:
+        if photo is not None:
+            await message.answer_photo(photo, caption=plain[:1024])
+        else:
+            await message.answer(plain)
+
+
+def _ig_local(ts: str):
+    """Instagram отдаёт время в UTC — переводим в местное (+5), иначе 07:16 выглядит как 02:16."""
+    from datetime import datetime
+    from shared.content_archive import TZ
+    try:
+        return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").astimezone(TZ)
+    except Exception:
+        return None
+
+
+async def _show_from_instagram(message: Message, day: str = "today") -> bool:
+    """
+    Фолбэк: показать то, что реально висит в Instagram.
+    Нужен, когда локальной копии нет (пост вышел до появления архива публикаций).
+    Сторис живут 24ч и лежат в /stories, посты ленты — в /media.
+    """
+    from datetime import timedelta
+    from shared.content_archive import tz_now
+
+    try:
+        from shared.instagram_analytics import get_recent_stories, get_recent_media
+        items = list(await get_recent_stories(limit=10))
+        items += list(await get_recent_media(limit=5))
+    except Exception as e:
+        logger.warning(f"Instagram fallback не удался: {e}")
+        return False
+
+    if not items:
+        return False
+
+    # ── Отбираем за нужный день (иначе на «покажи, что сегодня вышло»
+    #    можно прислать пост из мая — он тоже лежит в /media) ──
+    now = tz_now()
+    target = None
+    if day in ("today", "yesterday"):
+        target = (now - timedelta(days=1)).date() if day == "yesterday" else now.date()
+
+    for it in items:
+        it["_dt"] = _ig_local(it.get("timestamp") or "")
+
+    picked, off_day = items, False
+    if target:
+        same_day = [it for it in items if it["_dt"] and it["_dt"].date() == target]
+        if same_day:
+            picked = same_day
+        else:
+            # за нужный день пусто — честно покажем последнее и скажем об этом
+            picked, off_day = items[:2], True
+
+    if off_day:
+        await _answer_safe(
+            message,
+            "За сегодня в Instagram публикаций пока нет. Вот последнее, что выходило:",
+        )
+
+    shown = 0
+    for it in picked[:5]:
+        url = it.get("media_url") or ""
+        link = it.get("permalink") or ""
+        kind = "Сторис" if it.get("source") == "story" else "Пост в ленте"
+        dt = it.get("_dt")
+        when = dt.strftime("%d.%m %H:%M") if dt else ""
+        cap = f"📸 <b>{kind}</b>" + (f" — {when} (Instagram)" if when else " (Instagram)")
+        body = (it.get("caption") or "").strip()
+        if body:
+            cap += f"\n\n{body}"
+        if link:
+            cap += f"\n\n🔗 {link}"
+
+        try:
+            if not url:
+                if not link:
+                    continue
+                await _answer_safe(message, cap)
+            elif str(it.get("media_type", "")).upper() == "VIDEO":
+                await message.answer_video(url, caption=cap[:1024], parse_mode="HTML")
+            else:
+                await _answer_safe(message, cap, photo=url)
+            shown += 1
+        except Exception as e:
+            # Telegram не смог забрать медиа по ссылке — отдаём хотя бы ссылку
+            logger.warning(f"Не удалось отправить медиа из Instagram: {e}")
+            if link:
+                await _answer_safe(message, cap)
+                shown += 1
+
+    return shown > 0
+
+
+async def _show_publications(message: Message, day: str = "today") -> bool:
+    """
+    Показать РЕАЛЬНЫЙ опубликованный контент (картинка + текст).
+
+    Источники по приоритету:
+      1) журнал контент-бота (bus_tasks/content_media) — то, что публиковали мы;
+      2) Instagram Graph API — если локальной копии нет.
+    Возвращает True, если что-то реально показали.
+    """
+    import os
+    from aiogram.types import FSInputFile
+
+    posts, status_msg = [], ""
+    try:
+        from shared.bot_bus import send_task, get_result
+
+        tid = await send_task("stepan_bot", "content_bot", "get_last_post", {"day": day})
+        res = await get_result(tid, timeout=30)
+        if res and res.get("status") == "done":
+            result = res.get("result") or {}
+            posts = (result.get("data") or {}).get("posts") or []
+            status_msg = result.get("message") or ""
+    except Exception as e:
+        logger.warning(f"Не удалось получить публикации у контент-бота: {e}")
+
+    shown = 0
+    for p in posts:
+        path = p.get("file")
+        # Запись без картинки И без текста (старый формат журнала) — показывать нечего
+        if not path and not p.get("caption"):
+            continue
+        cap = _pub_caption(p)
+        try:
+            if path and os.path.isfile(path):
+                await _answer_safe(message, cap, photo=FSInputFile(path))
+            else:
+                await _answer_safe(message, cap)
+            shown += 1
+        except Exception as e:
+            logger.warning(f"Не удалось показать публикацию {p.get('slot')}: {e}")
+
+    if shown:
+        return True
+
+    # ── Фолбэк: тянем прямо из Instagram ──
+    if await _show_from_instagram(message, day):
+        return True
+
+    # ── Честно говорим, что показать нечего (без выдумок) ──
+    await _answer_safe(
+        message,
+        status_msg or "Пока показать нечего — сегодня публикаций ещё не было.",
+    )
+    return False
+
+
+async def _content_status(message: Message) -> bool:
+    """Статус публикаций — спрашиваем у контент-бота, не выдумываем."""
+    try:
+        from shared.bot_bus import send_task, get_result
+        tid = await send_task("stepan_bot", "content_bot", "get_status", {})
+        res = await get_result(tid, timeout=30)
+        if res and res.get("status") == "done":
+            msg = (res.get("result") or {}).get("message")
+            if msg:
+                await _answer_safe(message, msg)
+                return True
+    except Exception as e:
+        logger.warning(f"Не удалось получить статус контента: {e}")
+    return False
+
+
+def _last_plan_from_history(history: list) -> tuple:
+    """
+    Последний СОДЕРЖАТЕЛЬНЫЙ ответ Степана и вопрос, на который он отвечал.
+    Именно его руководитель видит на экране, когда пишет «Выполняй».
+    Служебные пометки быстрых перехватов («[Показал ...]») планом не считаем.
+    """
+    for i in range(len(history) - 1, -1, -1):
+        msg = history[i] or {}
+        if msg.get("role") != "assistant":
+            continue
+        content = (msg.get("content") or "").strip()
+        if content.startswith("[") or len(content) < 40:
+            continue
+        question = ""
+        for j in range(i - 1, -1, -1):
+            if (history[j] or {}).get("role") == "user":
+                question = (history[j] or {}).get("content", "")
+                break
+        return question, content
+    return "", ""
+
+
+async def _remember(state: FSMContext, user_text: str, assistant_text: str, intent: str = None):
+    """
+    Записать обмен в историю.
+
+    Без этого быстрые перехваты (статус/показ/совещание) выходили через return,
+    история не пополнялась — и следующее короткое «Покажи» приходило к AI без
+    контекста, из-за чего он отвечал отпиской вместо самого поста.
+    """
+    if not state:
+        return
+    try:
+        data = await state.get_data()
+        history = data.get("history", [])
+        history.append({"role": "user", "content": user_text})
+        history.append({"role": "assistant", "content": assistant_text})
+        if len(history) > 10:
+            history = history[-10:]
+        await state.update_data(history=history, last_intent=intent)
+    except Exception as e:
+        logger.warning(f"Не удалось сохранить историю: {e}")
+
+
 @router.message(F.voice)
-async def handle_voice(message: Message):
+async def handle_voice(message: Message, state: FSMContext = None):
     if not is_admin(message.from_user.id):
         return
 
@@ -508,14 +807,15 @@ async def handle_voice(message: Message):
     voice_file = await message.bot.get_file(message.voice.file_id)
     file_path = f"temp_voice_{message.message_id}.ogg"
     await message.bot.download_file(voice_file.file_path, file_path)
-    
+
     # Transcribe
     import os
     try:
         user_text = await ai.transcribe_audio(file_path)
         if user_text:
             await message.reply(f"🎤 <i>Распознано:</i> {user_text}", parse_mode="HTML")
-            await _process_brain(message, user_text)
+            # state пробрасываем — иначе голосовые теряют контекст разговора
+            await _process_brain(message, user_text, state)
         else:
             await message.answer("😔 Извините, не удалось расшифровать голосовое сообщение.")
     finally:
@@ -545,28 +845,43 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     await set_reaction(message, "👀")
     await simulate_typing(message, 2)
 
-    # ── Быстрый перехват: ВОПРОС о статусе публикаций → спрашиваем контент-бот напрямую ──
-    # (а не создаём задачу; это ровно то, чего ждал руководитель — «спроси у отдела и ответь»)
     low = user_text.lower()
-    create_words = ["сделай", "создай", "напиши", "подготов", "запусти", "выложи", "опубликуй",
-                    "сгенерир", "придумай", "нужен пост", "нужна сторис"]
-    content_words = ["рецепт", "сторис", "пост", "публикац", "контент", "инстаграм", "instagram"]
-    status_words = ["когда", "во сколько", "опубликова", "статус", "вышел", "вышла", "готов", "уже"]
-    if (not any(w in low for w in create_words)
-            and any(c in low for c in content_words)
-            and any(s in low for s in status_words)):
+
+    # Контекст прошлого обмена: last_intent — для коротких продолжений («Покажи»),
+    # history — чтобы «Выполняй» знало, КАКОЙ план запускать.
+    state_data = {}
+    if state:
         try:
-            from shared.bot_bus import send_task, get_result
-            tid = await send_task("stepan_bot", "content_bot", "get_status", {})
-            res = await get_result(tid, timeout=30)
-            if res and res.get("status") == "done":
-                msg = (res.get("result") or {}).get("message") or "Статус публикаций сейчас недоступен."
-                await message.answer(msg, parse_mode="HTML")
-                await set_reaction(message, "👍")
-                return
-        except Exception as e:
-            logger.warning(f"Не удалось получить статус контента: {e}")
-        # если запрос не удался — обычная обработка ниже (AI ответит по расписанию)
+            state_data = await state.get_data()
+        except Exception:
+            state_data = {}
+    last_intent = state_data.get("last_intent")
+    history = state_data.get("history", [])
+
+    # ── КОНТЕНТ: ПОКАЗАТЬ реальный пост / отдать статус публикаций ──
+    # «Покажи пост» → присылаем сам пост (картинка + текст), а не расписание.
+    # Ничего не публикуем и не создаём задачу — это просмотр уже вышедшего.
+    intent = detect_content_intent(low, last_intent)
+
+    if intent == "show":
+        day = "yesterday" if "вчера" in low else "today"
+        ok = await _show_publications(message, day)
+        await set_reaction(message, "👍" if ok else "🤷‍♂️")
+        await _remember(
+            state, user_text,
+            "[Показал руководителю опубликованный контент]" if ok
+            else "[Показывать нечего — публикаций ещё не было]",
+            intent="show",
+        )
+        return
+
+    if intent == "status":
+        if await _content_status(message):
+            await set_reaction(message, "👍")
+            await _remember(state, user_text, "[Отдал статус публикаций на сегодня]",
+                            intent="status")
+            return
+        # контент-бот не ответил — уходим в обычную обработку ниже
 
     # ── Команда «делайте / запускайте» → ЗАПУСК ПРИНЯТОГО ПЛАНА ──
     # После совещания это НЕ должно перезапускать анализ: если есть готовое
@@ -575,24 +890,51 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         is_meeting_request, run_team_meeting,
         is_execution_command, handle_execution_command,
         is_status_request, run_plan_status,
+        try_execute_plan_text,
     )
     if is_execution_command(low):
         try:
+            # 1) План принят на совещании
             if await handle_execution_command(message.bot, message.chat.id):
                 await set_reaction(message, "👍")
+                await _remember(state, user_text, "[Запустил принятый план в работу]",
+                                intent="execute")
                 return
+
+            # 2) План Степан предложил обычным ответом («Что по KPI» → Action Plan).
+            #    Запускаем ИМЕННО его — то, что руководитель видел на экране.
+            prev_q, prev_plan = _last_plan_from_history(history)
+            if prev_plan and await try_execute_plan_text(
+                message.bot, message.chat.id, prev_q, prev_plan
+            ):
+                await set_reaction(message, "👍")
+                await _remember(state, user_text, "[Запустил в работу предложенный план]",
+                                intent="execute")
+                return
+
+            # 3) Плана нет — честно спрашиваем. НЕ проваливаемся в общий AI:
+            #    именно там он выдумывал задачу и публиковал пост в Instagram.
+            await message.answer(
+                "🤔 Не вижу плана, который нужно выполнить.\n\n"
+                "Скажите, что именно запустить — или задайте вопрос, "
+                "и я соберу отделы на совещание."
+            )
+            await set_reaction(message, "🤷‍♂️")
+            await _remember(state, user_text, "[Плана для запуска нет — попросил уточнение]")
+            return
         except Exception as e:
             logger.error(f"Ошибка запуска плана: {e}", exc_info=True)
             await message.answer("😔 Не удалось запустить план. Попробуйте ещё раз.")
             await set_reaction(message, "🤷‍♂️")
             return
-        # нет принятого решения — обрабатываем как обычно ниже
 
     # ── Запрос статуса плана ──
     if is_status_request(low):
         try:
             await run_plan_status(message.bot, message.chat.id)
             await set_reaction(message, "👍")
+            await _remember(state, user_text, "[Отдал статус принятого плана]",
+                            intent="plan_status")
             return
         except Exception as e:
             logger.error(f"Ошибка статуса плана: {e}", exc_info=True)
@@ -615,6 +957,8 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             }, source_bot="stepan_bot")
             await message.answer("📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений.")
             await set_reaction(message, "👍")
+            await _remember(state, user_text, "[Запустил перекличку отделов]",
+                            intent="roll_call")
         except Exception as e:
             logger.error(f"Ошибка переклички: {e}", exc_info=True)
             await message.answer("😔 Не удалось запустить перекличку.")
@@ -628,6 +972,8 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         try:
             await run_team_meeting(message.bot, message.chat.id, user_text)
             await set_reaction(message, "👍")
+            await _remember(state, user_text, "[Провёл совещание отделов по вопросу]",
+                            intent="meeting")
         except Exception as e:
             logger.error(f"Ошибка совещания отделов: {e}", exc_info=True)
             await message.answer("😔 Не удалось провести совещание отделов. Попробуйте ещё раз.")
@@ -643,11 +989,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     prompt += f"\n\n📊 ТЕКУЩИЕ ДАННЫЕ ИЗ БАЗЫ:\n{db_context}"
     
 
-    # ── Достаем историю ──
-    history = []
-    if state:
-        state_data = await state.get_data()
-        history = state_data.get("history", [])
+    # история уже получена в начале _process_brain (state_data)
 
     tools = [
         {
@@ -706,7 +1048,41 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     }
                 }
             }
-        }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "show_published_post",
+                "description": (
+                    "ПОКАЗАТЬ руководителю сам опубликованный контент — прислать картинку и текст "
+                    "поста/сторис/рецепта. Вызывай ВСЕГДА, когда просят показать, скинуть, прислать, "
+                    "отправить, дать посмотреть или глянуть публикацию/пост/сторис/контент — в ЛЮБОЙ "
+                    "формулировке, включая короткое «покажи» как продолжение разговора о публикациях. "
+                    "⚠️ Ничего не публикует и не создаёт задачу — только показывает уже вышедшее."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "day": {
+                            "type": "string",
+                            "description": "Какой день показать: today, yesterday, last или YYYY-MM-DD",
+                        }
+                    },
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_content_status",
+                "description": (
+                    "Статус публикаций на сегодня: что уже вышло, а что ещё по плану. "
+                    "Вызывай на вопросы «опубликовали ли», «когда выйдет», «во сколько», "
+                    "«какой статус публикаций». ⚠️ Ничего не публикует и не создаёт задачу."
+                ),
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
     ]
 
     try:
@@ -759,41 +1135,58 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     # Process tools if called
     if response_msg.tool_calls:
         tool_results_text = []
+        intent_after = None
         for tool_call in response_msg.tool_calls:
             name = tool_call.function.name
-            args = json.loads(tool_call.function.arguments)
-            
+            args = json.loads(tool_call.function.arguments or "{}")
+
             if name == "create_task":
                 # Activate the previously dead _handle_task orchestrator
                 await _handle_task(message, args)
                 tool_results_text.append(f"Задача передана в отдел {args.get('department', 'pm')}.")
-                
+
             elif name == "roll_call":
                 from shared.event_bus import event_bus
                 await event_bus.publish("ROLL_CALL", {"chat_id": message.chat.id, "message": args.get("message", "Перекличка!")})
                 tool_results_text.append("Перекличка запущена.")
                 await send_response("📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений.")
-                
+
             elif name == "get_report":
                 report = await _generate_report(args.get("report_kind", "daily"))
                 await message.answer(f"📊 Отчет:\n\n{report}")
                 tool_results_text.append("Отчет отправлен.")
-                
+
             elif name == "query_db":
                 db_ans = await _query_db(args.get("db_query", ""))
                 await message.answer(f"🔍 Данные из БД:\n\n{db_ans}")
                 tool_results_text.append("Данные отправлены.")
-                
+
+            elif name == "show_published_post":
+                # Показываем САМ пост (картинка + текст), а не пересказ расписания
+                ok = await _show_publications(message, args.get("day", "today"))
+                tool_results_text.append(
+                    "Опубликованный контент показан руководителю."
+                    if ok else "Показывать нечего — публикаций ещё не было."
+                )
+                intent_after = "show"
+
+            elif name == "get_content_status":
+                if await _content_status(message):
+                    tool_results_text.append("Статус публикаций отдан.")
+                    intent_after = "status"
+
         # Update history with tool execution result
         if state:
             history.append({"role": "user", "content": user_text})
             history.append({"role": "assistant", "content": f"[TOOLS CALLED: {', '.join(tool_results_text)}] {response_msg.content or ''}"})
             if len(history) > 10: history = history[-10:]
-            await state.update_data(history=history)
-            
-        if response_msg.content:
+            await state.update_data(history=history, last_intent=intent_after)
+
+        # Показ поста уже сам себя объяснил — не даём модели сверху приписать
+        # «показать нечего» и противоречить только что отправленной картинке.
+        if response_msg.content and intent_after != "show":
             await send_response(response_msg.content)
-            
+
         await set_reaction(message, "👍")
         return
         

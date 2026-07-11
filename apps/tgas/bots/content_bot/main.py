@@ -29,38 +29,16 @@ _bot: Bot = None
 scheduler = BotScheduler("content_bot")
 
 # ── Журнал публикаций (общий volume bus_tasks — виден и Степану через bot_bus) ──
-import json as _json
-from pathlib import Path as _Path
-_CONTENT_STATE = _Path(__file__).resolve().parents[2] / "bus_tasks" / "content_status.json"
-
-
-def _tz_now():
-    from datetime import datetime, timezone, timedelta
-    return datetime.now(timezone(timedelta(hours=5)))
-
-
-def _load_content_state() -> dict:
-    try:
-        return _json.loads(_CONTENT_STATE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _mark_published(slot: str, ig_ok: bool = True):
-    """Отметить успешную публикацию слота (morning/recipe/grid) на сегодня."""
-    try:
-        from datetime import timedelta
-        now = _tz_now()
-        today = now.strftime("%Y-%m-%d")
-        st = _load_content_state()
-        st.setdefault(today, {})[slot] = {"at": now.strftime("%H:%M"), "ig": bool(ig_ok)}
-        # чистим записи старше 7 дней
-        cutoff = (now - timedelta(days=7)).strftime("%Y-%m-%d")
-        st = {k: v for k, v in st.items() if k >= cutoff}
-        _CONTENT_STATE.parent.mkdir(exist_ok=True)
-        _CONTENT_STATE.write_text(_json.dumps(st, ensure_ascii=False, indent=2), encoding="utf-8")
-    except Exception as e:
-        logging.warning(f"_mark_published error: {e}")
+# Пишем не только факт «опубликовано в 07:16», но и САМ контент (картинка + текст):
+# иначе показать руководителю реальный пост нечем — temp_story.jpg перезатирается
+# следующей же публикацией.
+from shared.content_archive import (
+    mark_published as _mark_published,
+    status_message as _content_status_message,
+    get_publications,
+    get_last_publications,
+    tz_now as _tz_now,
+)
 
 
 async def ai_fallback(msg: Message):
@@ -354,7 +332,7 @@ async def morning_post():
             from shared.instagram import post_to_instagram
             success = await post_to_instagram(final_img, "", post_type="story")
             if success:
-                _mark_published("morning")
+                _mark_published("morning", image=final_img, caption=post_text, title=headline)
                 await _bot.send_message(admin_id, "✅ <i>Опубликовано в Instagram Stories</i>", parse_mode="HTML")
         else:
             await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать изображение утреннего сторис.", parse_mode="HTML")
@@ -461,7 +439,7 @@ async def evening_post():
             from shared.instagram import post_to_instagram
             success = await post_to_instagram(final_img, "", post_type="story")
             if success:
-                _mark_published("recipe")
+                _mark_published("recipe", image=final_img, caption=caption, title=title)
                 await _bot.send_message(admin_id, "✅ <i>Рецепт опубликован в Instagram Stories</i>", parse_mode="HTML")
         else:
             await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать фото рецепта.", parse_mode="HTML")
@@ -570,7 +548,7 @@ async def weekly_grid_post():
             from shared.instagram import post_to_instagram
             ok = await post_to_instagram(image_url, post_text, post_type='feed')
             if ok:
-                _mark_published("grid")
+                _mark_published("grid", image=image_url, caption=post_text, title=pillar["name"])
                 await _bot.send_message(admin_id, "✅ <i>Пост недели опубликован в ленту Instagram</i>", parse_mode="HTML")
         else:
             await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать фото поста недели.", parse_mode="HTML")
@@ -717,27 +695,54 @@ async def bus_generate_meme(params: dict) -> dict:
 
 async def bus_get_status(params: dict) -> dict:
     """Реальный статус публикаций контента на сегодня (для Степана)."""
+    return {"status": "ok", "message": _content_status_message()}
+
+
+async def bus_get_last_post(params: dict) -> dict:
+    """
+    Отдать САМ опубликованный контент (картинка + текст), чтобы Степан мог
+    ПОКАЗАТЬ его руководителю, а не пересказывать расписание.
+
+    params.day: 'today' (по умолчанию) | 'yesterday' | 'YYYY-MM-DD' | 'last'
+    Если за нужный день пусто — честно возвращаем последние публикации.
+    """
+    from datetime import timedelta
+
+    day = str(params.get("day") or "today").lower()
     now = _tz_now()
-    today = now.strftime("%Y-%m-%d")
-    st = _load_content_state().get(today, {})
 
-    def line(slot: str, name: str, plan: str) -> str:
-        s = st.get(slot)
-        if s:
-            where = "в Instagram" if s.get("ig") else "только в Telegram"
-            return f"✅ {name}: опубликован в {s['at']} ({where})"
-        return f"⏳ {name}: ещё не опубликован — по плану в {plan}"
+    if day in ("today", "сегодня", ""):
+        target = now.strftime("%Y-%m-%d")
+    elif day in ("yesterday", "вчера"):
+        target = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    elif day in ("last", "последний", "последние"):
+        target = None
+    else:
+        target = day  # ожидаем YYYY-MM-DD
 
-    morning_plan = "07:15" if 4 <= now.month <= 9 else "08:15"
-    lines = [
-        line("morning", "Утренний сторис", morning_plan),
-        line("recipe", "Рецепт дня", "18:00"),
-    ]
-    if now.weekday() == 5:  # суббота — есть пост в ленту
-        lines.append(line("grid", "Пост недели в ленту", "12:00"))
+    posts = get_publications(target) if target else get_last_publications()
+    fell_back = False
+    if not posts and target:
+        # за нужный день ничего — покажем последнее, что реально выходило
+        posts = get_last_publications()
+        fell_back = True
 
-    msg = f"🗓 <b>Статус публикаций на сегодня ({now.strftime('%d.%m')})</b>\n" + "\n".join(lines)
-    return {"status": "ok", "message": msg}
+    if not posts:
+        return {
+            "status": "ok",
+            "data": {"posts": [], "fell_back": False},
+            "message": (
+                "Пока нет ни одной сохранённой публикации.\n\n"
+                + _content_status_message()
+            ),
+        }
+
+    if fell_back:
+        msg = "За сегодня публикаций ещё нет. Вот последнее, что выходило:"
+    else:
+        msg = f"Публикаций за {target or 'последние дни'}: {len(posts)}"
+
+    return {"status": "ok", "message": msg, "data": {"posts": posts, "fell_back": fell_back}}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -999,6 +1004,7 @@ async def main():
         "publish_post": bus_publish_story,  # same handler, posts to Stories
         "generate_meme": bus_generate_meme,
         "get_status": bus_get_status,
+        "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
     }))
 
     # ── Запуск планировщика и heartbeat ──

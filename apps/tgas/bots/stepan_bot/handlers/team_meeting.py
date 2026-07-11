@@ -204,11 +204,15 @@ def is_meeting_request(low_text: str) -> bool:
 # Команды-исполнения: «делайте / запускайте / утверждаю» — НЕ повод для нового
 # анализа. Если есть принятое решение — запускаем его план в работу.
 _EXEC_TRIGGERS = [
-    "делайте", "делай", "сделайте", "выполняйте", "выполни", "выполните",
-    "запускай", "запускайте", "запусти", "приступайте", "приступай",
-    "в работу", "начинайте", "начни", "поехали", "погнали", "утверждаю",
-    "одобряю план", "принято", "работаем", "го делаем", "давайте делать",
-    "давай делать", "делаем",
+    # ⚠️ Проверка идёт по ПОДСТРОКЕ, поэтому нужны корни, а не только точные формы:
+    # «выполни» ⊄ «выполняй» — из-за этого «Выполняй» раньше не распознавалось вовсе
+    # и уходило в общий AI, который выдумывал задачу (вплоть до реальной публикации).
+    "делайте", "делай", "сделайте", "выполня", "выполни", "выполните",
+    "исполняй", "исполни", "запускай", "запускайте", "запусти",
+    "приступай", "приступайте", "действуй", "действуйте",
+    "в работу", "начинай", "начни", "поехали", "погнали", "утверждаю",
+    "одобряю план", "одобряю", "принято", "работаем", "го делаем",
+    "давайте делать", "давай делать", "делаем",
 ]
 
 
@@ -877,11 +881,15 @@ async def _exec_ack(dept_key: str, action: str) -> str:
         return f"Принял в работу: {action}. Приступаю."
 
 
-async def run_execution(manager_bot: Bot, chat_id: int, decision: dict):
-    """Запускает принятый план в работу: создаёт задачи и отделы подтверждают приём."""
+async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: list = None):
+    """
+    Запускает принятый план в работу: создаёт задачи и отделы подтверждают приём.
+    tasks — уже разобранные пункты (чтобы не звать AI-разбор дважды).
+    """
     question = decision.get("question", "")
     plan = decision.get("plan", "")
-    tasks = await _parse_plan_tasks(plan)
+    if tasks is None:
+        tasks = await _parse_plan_tasks(plan)
 
     if not tasks:
         decision["executed"] = True
@@ -965,6 +973,30 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict):
 
     await _safe_send(manager_bot, chat_id,
                      "✅ <b>План в работе.</b> Отделы приступили. Напишите «статус» — покажу прогресс.")
+
+
+async def try_execute_plan_text(manager_bot: Bot, chat_id: int,
+                                question: str, plan_text: str) -> bool:
+    """
+    Запустить план, который Менеджер предложил ОБЫЧНЫМ ответом в чате, без совещания
+    (например «Что по KPI» → анализ + Action Plan).
+
+    Такой план раньше нигде не сохранялся: save_decision() зовётся только из совещаний.
+    Поэтому «Выполняй» не находил, что исполнять, уходил в общий AI — и тот выдумывал
+    задачу («Создание нового поста»), которая через safety-routing улетала в content
+    и приводила к РЕАЛЬНОЙ публикации в Instagram.
+
+    Возвращает False, если в тексте нет конкретных пунктов для исполнения.
+    """
+    if not plan_text or len(plan_text.strip()) < 40:
+        return False
+    tasks = await _parse_plan_tasks(plan_text)
+    if not tasks:
+        return False
+    decision = {"question": question, "plan": plan_text,
+                "executed": False, "source": "chat"}
+    await run_execution(manager_bot, chat_id, decision, tasks=tasks)
+    return True
 
 
 async def handle_execution_command(manager_bot: Bot, chat_id: int) -> bool:
