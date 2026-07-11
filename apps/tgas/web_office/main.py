@@ -72,6 +72,9 @@ AI_BOTS: list[dict[str, str]] = [
     {"name": "PM Bot", "role": "Задачи", "status": "online", "icon": "📋"},
     {"name": "Analytics Bot", "role": "Аналитика", "status": "online", "icon": "📊"},
     {"name": "Content Bot", "role": "Контент", "status": "online", "icon": "✍️"},
+    {"name": "DevOps Bot", "role": "Инфраструктура", "status": "online", "icon": "🛠"},
+    {"name": "QA Bot", "role": "Тестирование", "status": "online", "icon": "🧪"},
+    {"name": "RnD Bot", "role": "Исследования", "status": "online", "icon": "🔬"},
 ]
 
 
@@ -370,28 +373,18 @@ async def create_task(
 
         # Публикуем в EventBus для автовыполнения ботом
         try:
-            import redis.asyncio as aioredis
-            import json as _json
-            from datetime import datetime as _dt
-            from shared.config import settings as _s
-
-            r = aioredis.from_url(_s.redis_url, decode_responses=True)
-            await r.publish(
-                "mg_events",
-                _json.dumps({
-                    "event": "TASK_CREATED",
-                    "data": {
-                        "task_id": task_id,
-                        "title": title,
-                        "description": description or title,
-                        "department": department,
-                        "priority": priority,
-                    },
-                    "source": "web_office",
-                    "timestamp": _dt.now().isoformat(),
-                }, ensure_ascii=False),
+            from shared.event_bus import event_bus
+            await event_bus.publish(
+                "TASK_CREATED",
+                {
+                    "task_id": task_id,
+                    "title": title,
+                    "description": description or title,
+                    "department": department,
+                    "priority": priority,
+                },
+                "web_office"
             )
-            await r.close()
         except Exception as e:
             logger.warning(f"EventBus publish failed: {e}")
 
@@ -439,26 +432,16 @@ async def handle_meta_webhook(request: Request):
                         
                         # Публикуем событие для Marketing Bot / Support Bot
                         try:
-                            import redis.asyncio as aioredis
-                            import json as _json
-                            from shared.config import settings as _s
-                            from datetime import datetime as _dt
-                            
-                            r = aioredis.from_url(_s.redis_url, decode_responses=True)
-                            await r.publish(
-                                "mg_events",
-                                _json.dumps({
-                                    "event": "IG_MESSAGE_RECEIVED",
-                                    "data": {
-                                        "sender_id": sender_id,
-                                        "text": text_content,
-                                        "source": data.get("object")
-                                    },
-                                    "source": "web_office",
-                                    "timestamp": _dt.now().isoformat(),
-                                }, ensure_ascii=False),
+                            from shared.event_bus import event_bus
+                            await event_bus.publish(
+                                "IG_MESSAGE_RECEIVED",
+                                {
+                                    "sender_id": sender_id,
+                                    "text": text_content,
+                                    "source": data.get("object")
+                                },
+                                "web_office"
                             )
-                            await r.close()
                         except Exception as e:
                             logger.error(f"Failed to publish IG message: {e}")
                             
@@ -670,7 +653,14 @@ async def ingest_order(request: Request):
                     text("SELECT id, unit FROM products WHERE storefront_id = :sid"), {"sid": sid},
                 )).fetchone()
                 if not prod:
-                    continue
+                    # Создаем заглушку, которую потом обновит catalog_sync
+                    pname = str(line.get("name") or line.get("nameRu") or "Неизвестный товар").strip()
+                    pid = (await session.execute(
+                        text("INSERT INTO products (name_uz, name_ru, category, price, unit, stock_qty, is_active, storefront_id) "
+                             "VALUES (:n, :n, 'sets', :price, 'piece', 0, TRUE, :sid) RETURNING id"),
+                        {"n": pname, "price": price, "sid": sid}
+                    )).scalar()
+                    prod = (pid, "piece")
                 await session.execute(text(
                     "INSERT INTO order_items (order_id, product_id, quantity, unit, unit_price, "
                     "total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
@@ -834,20 +824,15 @@ async def change_order_status(order_id: int, request: Request):
     m = _WEBAPP_MARKER.search(notes)
     if m and STOREFRONT_STATUS_URL:
         ext_number = m.group(1)
-        headers = {"Content-Type": "application/json"}
-        if INGEST_SECRET:
-            headers["X-Ingest-Secret"] = INGEST_SECRET
         try:
-            import aiohttp
-            async with aiohttp.ClientSession() as s:
-                await s.post(
-                    STOREFRONT_STATUS_URL,
-                    json={"order_number": ext_number, "status": status},
-                    headers=headers,
-                    timeout=aiohttp.ClientTimeout(total=5),
+            async with get_session_ctx() as session:
+                await session.execute(
+                    text("INSERT INTO storefront_outbox (order_number, status) VALUES (:num, :stat)"),
+                    {"num": ext_number, "stat": status}
                 )
+                await session.commit()
         except Exception as exc:
-            logger.warning("Order-status: синк на витрину не удался (%s): %s", ext_number, exc)
+            logger.warning("Order-status: не удалось сохранить в outbox (%s): %s", ext_number, exc)
 
     logger.info("Order-status: заказ #%s (%s) → %s", order_id, order_number, status)
     return JSONResponse({"status": "ok", "order_number": order_number, "new_status": status})
@@ -1224,6 +1209,52 @@ async def department_detail(dept_id: str):
     })
 
 
+async def _outbox_processor_loop() -> None:
+    """Фоновая отправка статусов из outbox на витрину (каждые 10 секунд)."""
+    await asyncio.sleep(5)
+    import aiohttp
+    
+    while True:
+        try:
+            if not STOREFRONT_STATUS_URL:
+                await asyncio.sleep(10)
+                continue
+                
+            headers = {"Content-Type": "application/json"}
+            if INGEST_SECRET:
+                headers["X-Ingest-Secret"] = INGEST_SECRET
+
+            async with get_session_ctx() as session:
+                rows = (await session.execute(
+                    text("SELECT id, order_number, status FROM storefront_outbox ORDER BY id ASC LIMIT 50")
+                )).fetchall()
+
+                if rows:
+                    async with aiohttp.ClientSession() as s:
+                        for row in rows:
+                            outbox_id, ext_number, status = row[0], row[1], row[2]
+                            try:
+                                resp = await s.post(
+                                    STOREFRONT_STATUS_URL,
+                                    json={"order_number": ext_number, "status": status},
+                                    headers=headers,
+                                    timeout=aiohttp.ClientTimeout(total=5),
+                                )
+                                # Если успешно отправлено, удаляем из outbox
+                                if resp.status < 500:
+                                    await session.execute(
+                                        text("DELETE FROM storefront_outbox WHERE id = :id"),
+                                        {"id": outbox_id}
+                                    )
+                                    await session.commit()
+                            except Exception as exc:
+                                logger.warning("Outbox: синк на витрину не удался (%s): %s", ext_number, exc)
+                                break # Stop processing and retry later
+        except Exception as exc:
+            logger.warning("Outbox loop error: %s", exc)
+        await asyncio.sleep(10)
+
+
 async def _catalog_sync_loop() -> None:
     """Фоновая периодическая синхронизация каталога (раз в 30 минут)."""
     from shared.catalog_sync import sync_catalog_from_storefront
@@ -1243,6 +1274,10 @@ async def _start_catalog_sync() -> None:
     try:
         from shared.catalog_sync import ensure_schema
         await ensure_schema()
+        
+        # storefront_outbox инициализируется в init.sql, поэтому дублирование не требуется
+            
     except Exception as exc:
-        logger.warning("Catalog schema ensure failed at startup: %s", exc)
+        logger.warning("Schema ensure failed at startup: %s", exc)
     asyncio.create_task(_catalog_sync_loop())
+    asyncio.create_task(_outbox_processor_loop())

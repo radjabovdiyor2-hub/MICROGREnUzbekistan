@@ -413,3 +413,9 @@ CREATE TRIGGER trg_inventory_updated_at
 -- ============================================================================
 -- Готово! Схема Microgreen Uzbekistan инициализирована.
 -- ============================================================================
+CREATE TABLE IF NOT EXISTS storefront_outbox (
+    id SERIAL PRIMARY KEY,
+    order_number VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

@@ -556,6 +556,11 @@ if getattr(settings, "kpi_watchdog_enabled", True):
 # ═══════════════════════════════════════════════════════════════════════════
 
 async def main():
+    if not settings.stepan_bot_token:
+        logger.error(f"FATAL: STEPAN_BOT_TOKEN is missing!")
+        import sys
+        sys.exit(1)
+
     global _bot
     storage = RedisStorage.from_url(settings.redis_url)
     bot = Bot(
@@ -567,6 +572,8 @@ async def main():
 
     # -- Импортируем обработчики --
     from bots.stepan_bot.handlers import all_routers
+    from shared.task_ui import task_ui_router
+    dp.include_router(task_ui_router)
     for router in all_routers:
         dp.include_router(router)
         
@@ -641,14 +648,23 @@ async def main():
                 from shared.database import get_session_ctx
                 from sqlalchemy import text
                 async with get_session_ctx() as session:
-                    await session.execute(text(
+                    res = await session.execute(text(
                         "INSERT INTO tasks (title, description, status, department, priority, deadline) "
-                        "VALUES (:title, :desc, 'todo', 'delivery', 'high', CURRENT_DATE)"
+                        "VALUES (:title, :desc, 'todo', 'delivery', 'high', CURRENT_DATE) RETURNING id"
                     ), {
                         "title": f"Доставить заказ {order_number}",
                         "desc": f"Новый заказ на сумму {amount} UZS.\nДетали: {items}"
                     })
+                    task_id = res.scalar()
                     await session.commit()
+                
+                await event_bus.publish("TASK_CREATED", {
+                    "task_id": task_id,
+                    "title": f"Доставить заказ {order_number}",
+                    "department": "delivery",
+                    "description": f"Новый заказ на сумму {amount} UZS.\nДетали: {items}",
+                    "chat_id": getattr(settings, "sales_group_id", 0) or admin_id
+                }, "stepan_bot")
                 logger.info(f"Степан: Auto-created delivery task for order {order_number}")
             except Exception as e:
                 logger.error(f"Степан order handling error: {e}")
@@ -690,13 +706,8 @@ async def main():
                 except Exception as e:
                     logger.error(f"Error deducting inventory: {e}")
             
-            await bot.send_message(chat_id, f"✅ <b>Операции (PM) — принял в работу:</b>\n\n{answer}")
-            
-            if task_id:
-                await event_bus.publish("TASK_COMPLETED", {
-                    "task_id": task_id,
-                    "completed_by": "pm", "chat_id": chat_id
-                }, "stepan_bot")
+            from shared.task_ui import get_task_keyboard
+            await bot.send_message(chat_id, f"✅ <b>Операции (PM) — принял в работу:</b>\n\n{answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
                 
         except Exception as e:
             logger.error(f"Error handling PM task: {repr(e)}", exc_info=True)
@@ -712,20 +723,26 @@ async def main():
                 from shared.database import get_session_ctx
                 from sqlalchemy import text
                 async with get_session_ctx() as session:
-                    res = await session.execute(text("UPDATE tasks SET status='done' WHERE id=:tid RETURNING message_id"), {"tid": task_id})
+                    res = await session.execute(text("SELECT message_id FROM tasks WHERE id=:tid"), {"tid": task_id})
                     row = res.fetchone()
+                    msg_id = row[0] if row else None
+                    
+                    if msg_id and chat_id:
+                        try:
+                            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                        except Exception as e:
+                            logger.warning(f"Could not delete original message: {e}")
+                            
+                    await session.execute(text("UPDATE tasks SET status='done' WHERE id=:tid"), {"tid": task_id})
                     await session.commit()
                 logger.info(f'TASK {task_id} MARKED AS DONE by {completed_by}')
                 
-                # Remove the original message if we know its ID
-                if row and row[0] and chat_id:
-                    try:
-                        await bot.delete_message(chat_id=chat_id, message_id=row[0])
-                    except Exception as e:
-                        logger.warning(f"Could not delete original message: {e}")
-                
+                report_text = data.get('text', '')
                 if chat_id:
-                    await bot.send_message(chat_id, f'✅ <b>Задача #{task_id} успешно выполнена отделом {completed_by.upper()}!</b>')
+                    msg = f'✅ <b>Задача #{task_id} успешно выполнена отделом {completed_by.upper()}!</b>'
+                    if report_text:
+                        msg += f'\n\n{report_text}'
+                    await bot.send_message(chat_id, msg, parse_mode="HTML")
             except Exception as e:
                 logger.error(f"Error marking task {task_id} as done: {e}")
 
@@ -920,7 +937,7 @@ async def main():
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    asyncio.create_task(bus_listen("pm_bot", {
+    asyncio.create_task(bus_listen("stepan_bot", {
         "get_tasks": bus_get_tasks,
         "get_deadlines": bus_get_deadlines,
     }))
@@ -988,12 +1005,7 @@ async def main():
 
     app = web.Application()
     app.router.add_post('/n8n-webhook', n8n_webhook_handler)
-    app.router.add_post('/event', event_bus._handle_webhook)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8081)
-    await site.start()
-    logger.info("📡 n8n Webhook server started on port 8081")
+    await event_bus.start_listening(8081, app)
 
     logger.info("🤖 Запуск Степана...")
     try:

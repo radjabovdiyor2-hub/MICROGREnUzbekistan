@@ -737,37 +737,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             args = json.loads(tool_call.function.arguments)
             
             if name == "create_task":
-                dept = args.get("department", "pm")
-                title = args.get("title", "Новая задача")
-                desc = args.get("description", "")
-                priority = args.get("priority", "medium")
-                
-                # 1. Сохраняем задачу в БД
-                from shared.database import get_session_ctx
-                from sqlalchemy import text
-                async with get_session_ctx() as session:
-                    res = await session.execute(
-                        text("INSERT INTO tasks (title, assignee, department, status, priority, description) "
-                        "VALUES (:p1, :p2, :p3, 'todo', :p4, :p5) RETURNING id"),
-                        {"p1": title, "p2": dept, "p3": dept, "p4": priority, "p5": desc}
-                    )
-                    task_id = res.scalar()
-                    await session.commit()
-                
-                # 2. Публикуем событие для "оживления" отдела
-                from shared.event_bus import event_bus
-                await event_bus.publish("TASK_CREATED", {
-                    "task_id": task_id,
-                    "department": dept,
-                    "title": title,
-                    "description": desc,
-                    "chat_id": message.chat.id
-                }, "stepan_bot")
-                
-                tool_results_text.append(f"Задача '{title}' передана отделу {dept}. Ожидайте ответа от руководителя отдела в чате.")
-                
-                # Степан сообщает, что передал задачу
-                await send_response(f"📋 Я поручил задачу «{title}» отделу {dept}. Сейчас руководитель отдела подключится и ответит вам здесь!")
+                # Activate the previously dead _handle_task orchestrator
+                await _handle_task(message, args)
+                tool_results_text.append(f"Задача передана в отдел {args.get('department', 'pm')}.")
                 
             elif name == "roll_call":
                 from shared.event_bus import event_bus
@@ -950,6 +922,7 @@ async def _handle_task(message: Message, data: dict):
     LISTENED_DEPTS = {
         "sales", "marketing", "support", "hr", "finance", "pm", "analytics",
         "content", "operations", "production", "logistics",
+        "qa", "rnd", "devops"
     }
     if dept not in LISTENED_DEPTS:
         dept = "pm"
@@ -1060,7 +1033,7 @@ async def _handle_task(message: Message, data: dict):
         dept_to_bot = {
             "sales": "sales_bot", "finance": "finance_bot", "hr": "hr_bot",
             "analytics": "analytics_bot", "marketing": "marketing_bot",
-            "support": "support_bot", "pm": "pm_bot",
+            "support": "support_bot", "pm": "stepan_bot"
         }
         dept_actions = {
             "sales": {
@@ -1103,10 +1076,9 @@ async def _handle_task(message: Message, data: dict):
                 action = act
                 break
 
-        # Если конкретное действие не найдено, используем первое действие по умолчанию
-        if not action and actions_map:
-            action = list(actions_map.values())[0]
-
+        # Если ключевое слово не совпало — НЕ подменяем задачу канонным действием:
+        # проваливаемся ниже в общий путь (insert в tasks + TASK_CREATED),
+        # чтобы отдел получил исходную формулировку задачи.
         if action:
             from shared.bot_bus import send_task, get_result
 
@@ -1195,6 +1167,7 @@ async def _handle_task(message: Message, data: dict):
         "sales": "🛒", "marketing": "📢", "support": "🎧",
         "hr": "👥", "finance": "💰", "pm": "📋",
         "analytics": "📊", "content": "✍️",
+        "qa": "🔬", "rnd": "🧬", "devops": "🛠",
     }
     pri_icons = {"urgent": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}
 

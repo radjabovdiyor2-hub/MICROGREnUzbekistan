@@ -65,13 +65,14 @@ async def handle_n8n_webhook(request: web.Request):
 
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
-    if payload.get("dept") != "devops":
+    data = payload.get("data", {})
+    if data.get("department") != "devops":
         return
         
     logger.info(f"DevOps Bot received task via event_bus: {payload}")
-    task_id = payload.get("task_id", "devops_task")
-    chat_id = payload.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
-    description = payload.get("description", "").lower()
+    task_id = data.get("task_id", "devops_task")
+    chat_id = data.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
+    description = data.get("description", "").lower()
     
     if "backup" in description or "бэкап" in description or "бекап" in description:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -113,11 +114,7 @@ async def main():
     
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)
-    
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8092)
-    await site.start()
+    await event_bus.start_listening(8092, app)
     
     logger.info("DevOps Bot running on port 8092")
     

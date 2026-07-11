@@ -40,6 +40,7 @@ class EventBus:
     def __init__(self):
         self._handlers: Dict[str, List[Callable]] = {}
         self._runner: Optional[web.AppRunner] = None
+        self._background_tasks = set()
         # n8n global webhook URL for internal routing
         self._n8n_url = "http://host.docker.internal:5678/webhook/internal-bus"
 
@@ -77,6 +78,9 @@ class EventBus:
             ("mg_marketing", 8086),
             ("mg_analytics", 8088),
             ("mg_content", 8089),
+            ("mg_qa", 8090),
+            ("mg_rnd", 8091),
+            ("mg_devops", 8092),
         ]
         
         async def send_direct(host, port):
@@ -90,9 +94,14 @@ class EventBus:
                 pass
 
         async def broadcast():
-            await asyncio.gather(*(send_direct(h, p) for h, p in bot_endpoints))
+            try:
+                await asyncio.gather(*(send_direct(h, p) for h, p in bot_endpoints))
+            except Exception as e:
+                logger.error(f"Error during event broadcast: {e}")
 
-        asyncio.create_task(broadcast())
+        task = asyncio.create_task(broadcast())
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
     def on(self, event_type: str, handler: Callable):
         """Зарегистрировать обработчик события.
@@ -128,14 +137,20 @@ class EventBus:
         except Exception as e:
             logger.error(f"EventBus: ошибка обработчика: {e}")
 
-    async def start_listening(self, port: int = 0):
+    async def start_listening(self, port: int = 0, app: Optional[web.Application] = None):
         """Начать слушать события от n8n через aiohttp."""
         if port == 0:
             logger.warning("EventBus: port 0 provided, running without dedicated webhook server (relying on main app server if any)")
             return
             
-        app = web.Application()
-        app.router.add_post('/event', self._handle_webhook)
+        if app is None:
+            app = web.Application()
+            
+        # Убедимся, что маршрут еще не добавлен
+        has_event_route = any(route.resource and route.resource.canonical == '/event' for route in app.router.routes())
+        if not has_event_route:
+            app.router.add_post('/event', self._handle_webhook)
+            
         self._runner = web.AppRunner(app)
         await self._runner.setup()
         site = web.TCPSite(self._runner, '0.0.0.0', port)

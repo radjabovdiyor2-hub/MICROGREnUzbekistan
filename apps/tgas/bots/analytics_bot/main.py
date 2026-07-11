@@ -471,16 +471,9 @@ async def handle_task_created(payload: dict):
         answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
 
         logging.info(f"ANALYTICS_BOT sending message to {chat_id}")
-        await bot.send_message(chat_id, f"✅ <b>Отдел аналитики — принял в работу:</b>\n\n{answer}")
+        from shared.task_ui import get_task_keyboard
+        await bot.send_message(chat_id, f"✅ <b>Отдел аналитики — принял в работу:</b>\n\n{answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
         logging.info("ANALYTICS_BOT successfully sent message.")
-        
-        # Publish TASK_COMPLETED
-        if task_id:
-            from shared.event_bus import event_bus
-            await event_bus.publish("TASK_COMPLETED", {
-                "task_id": task_id,
-                "completed_by": "analytics", "chat_id": chat_id
-            }, "analytics_bot")
             
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
@@ -528,11 +521,18 @@ async def handle_roll_call(payload: dict):
 
 
 async def main():
+    if not settings.analytics_bot_token:
+        logger.error(f"FATAL: ANALYTICS_BOT_TOKEN is missing!")
+        import sys
+        sys.exit(1)
+
     global _bot
     await init_db()
     bot = Bot(token=settings.analytics_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     _bot = bot
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.task_ui import task_ui_router
+    dp.include_router(task_ui_router)
     for r in all_routers:
         dp.include_router(r)
 

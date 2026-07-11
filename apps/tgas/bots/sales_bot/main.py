@@ -120,12 +120,7 @@ async def handle_payment_received(payload: dict):
             if not row:
                 logger.warning(f"handle_payment_received: Order {order_number} not found")
                 return
-                
-            # Записываем доход в финансы
-            await session.execute(
-                text("INSERT INTO finances (type, amount, category, description) VALUES ('income', :amount, 'sales', :desc)"),
-                {"amount": amount, "desc": f"Оплата заказа {order_number} ({provider})"}
-            )
+            
             await session.commit()
             
         logger.info(f"Payment processed for order {order_number} via {provider}")
@@ -363,8 +358,8 @@ async def handle_task_created(payload: dict):
                 await session.commit()
                 
             # Генерация ссылок на оплату
-            click_url = f"https://my.click.uz/services/pay?merchant_id=12345&amount={amount}&transaction_param={order_number}"
-            payme_url = f"https://checkout.paycom.uz/1234567890?amount={amount*100}&order_id={order_number}"
+            click_url = f"https://my.click.uz/services/pay?merchant_id={settings.click_merchant_id}&amount={amount}&transaction_param={order_number}"
+            payme_url = f"https://checkout.paycom.uz/{settings.payme_merchant_id}?amount={amount*100}&order_id={order_number}"
             
             # Сообщаем об успехе
             await bot.send_message(chat_id, f"✅ <b>Заказ {order_number} оформлен!</b>\nСумма: {amount} UZS\nСобытие order_created отправлено в PM-отдел.\n\n💳 <b>Оплатить онлайн:</b>\n<a href='{click_url}'>Оплатить через Click</a>\n<a href='{payme_url}'>Оплатить через Payme</a>", parse_mode="HTML")
@@ -385,16 +380,9 @@ async def handle_task_created(payload: dict):
             answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
 
             logging.info(f"SALES_BOT sending message to {chat_id}")
-            await bot.send_message(chat_id, f"✅ <b>Отдел продаж — принял в работу:</b>\n\n{answer}", parse_mode="HTML")
+            from shared.task_ui import get_task_keyboard
+            await bot.send_message(chat_id, f"✅ <b>Отдел продаж — принял в работу:</b>\n\n{answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
             logging.info("SALES_BOT successfully sent message.")
-        
-        # Publish TASK_COMPLETED
-        if task_id:
-            from shared.event_bus import event_bus
-            await event_bus.publish("TASK_COMPLETED", {
-                "task_id": task_id,
-                "completed_by": "sales", "chat_id": chat_id
-            }, "sales_bot")
             
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
@@ -463,14 +451,6 @@ async def bus_process_ig_order(params: dict) -> dict:
         )
         await bot.send_message(chat_id, msg_text, parse_mode="HTML")
         await bot.session.close()
-        
-        # Publish TASK_COMPLETED
-        if task_id:
-            from shared.event_bus import event_bus
-            await event_bus.publish("TASK_COMPLETED", {
-                "task_id": task_id,
-                "completed_by": "sales", "chat_id": chat_id
-            }, "sales_bot")
             
         return {"status": "ok", "message": f"Заказ {order_number} оформлен"}
         
@@ -519,9 +499,16 @@ async def handle_roll_call(payload: dict):
 
 
 async def main():
+    if not settings.sales_bot_token:
+        logger.error(f"FATAL: SALES_BOT_TOKEN is missing!")
+        import sys
+        sys.exit(1)
+
     await init_db()
     bot = Bot(token=settings.sales_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.task_ui import task_ui_router
+    dp.include_router(task_ui_router)
     for r in all_routers:
         dp.include_router(r)
 

@@ -4,7 +4,7 @@ WORKDIR /app
 
 # System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev fonts-dejavu-core && \
+    gcc libpq-dev fonts-dejavu-core postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

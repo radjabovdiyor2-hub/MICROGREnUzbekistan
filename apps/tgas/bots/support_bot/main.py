@@ -249,15 +249,9 @@ async def handle_task_created(payload: dict):
         answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
 
         logging.info(f"SUPPORT BOT sending message to {chat_id}")
-        await bot.send_message(chat_id, f"✅ <b>Отдел поддержки — принял в работу:</b>\n\n{answer}")
+        from shared.task_ui import get_task_keyboard
+        await bot.send_message(chat_id, f"✅ <b>Отдел поддержки — принял в работу:</b>\n\n{answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
         logging.info("SUPPORT BOT successfully sent message.")
-        
-        if task_id:
-            from shared.event_bus import event_bus
-            await event_bus.publish("TASK_COMPLETED", {
-                "task_id": task_id,
-                "completed_by": "support", "chat_id": chat_id
-            }, "support_bot")
             
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
@@ -305,9 +299,16 @@ async def handle_roll_call(payload: dict):
 
 
 async def main():
+    if not settings.support_bot_token:
+        logger.error(f"FATAL: SUPPORT_BOT_TOKEN is missing!")
+        import sys
+        sys.exit(1)
+
     await init_db()
     bot = Bot(token=settings.support_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.task_ui import task_ui_router
+    dp.include_router(task_ui_router)
     for r in all_routers:
         dp.include_router(r)
 
@@ -348,12 +349,7 @@ async def main():
 
     app = web.Application()
     app.router.add_post('/n8n-webhook', n8n_webhook_handler)
-    app.router.add_post('/event', event_bus._handle_webhook)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8083)  # mg_support — порт из карты доставки event_bus
-    await site.start()
-    logging.info("📡 n8n Webhook server started on port 8083")
+    await event_bus.start_listening(8083, app)  # mg_support — порт из карты доставки event_bus
 
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen

@@ -77,12 +77,23 @@ async def sync_catalog_from_storefront() -> dict:
             category = p.get("categorySlug") or ""
             if category not in _ALLOWED_CATEGORY:
                 category = "sets"
+            # Убедимся, что price и stock числа
+            try:
+                price = float(p.get("price") or 0)
+            except (ValueError, TypeError):
+                price = 0.0
+
+            try:
+                stock = int(p.get("stock") or 0)
+            except (ValueError, TypeError):
+                stock = 0
+
             params = {
                 "sid": sid,
-                "name_uz": (p.get("nameUz") or "").strip() or "Tovar",
-                "name_ru": (p.get("nameRu") or "").strip() or "Товар",
-                "price": p.get("price") or 0,
-                "stock": p.get("stock") or 0,
+                "name_uz": str(p.get("nameUz") or "").strip() or "Tovar",
+                "name_ru": str(p.get("nameRu") or "").strip() or "Товар",
+                "price": price,
+                "stock": stock,
                 "category": category,
             }
             existing = (await session.execute(

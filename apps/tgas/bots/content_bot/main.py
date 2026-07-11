@@ -775,11 +775,6 @@ async def handle_task_created(payload: dict):
                 "Всё публикуется <b>автоматически</b> по расписанию — отдельная задача на публикацию не нужна."
             )
             await bot.send_message(chat_id, schedule, parse_mode="HTML")
-            if task_id:
-                from shared.event_bus import event_bus
-                await event_bus.publish("TASK_COMPLETED", {
-                    "task_id": task_id, "completed_by": "content", "chat_id": chat_id,
-                }, "content_bot")
             return
 
         # Определяем форматы по ключевым словам
@@ -837,7 +832,8 @@ async def handle_task_created(payload: dict):
             if len(clean_answer) > 900:
                 await bot.send_message(chat_id, f"...продолжение:\n\n{clean_answer[900:]}", parse_mode="HTML")
         else:
-            await bot.send_message(chat_id, f"📝 <b>Контент готов:</b>\n\n{clean_answer}", parse_mode="HTML")
+            from shared.task_ui import get_task_keyboard
+            await bot.send_message(chat_id, f"📝 <b>Контент готов:</b>\n\n{clean_answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
             
         # 2. Отправляем опрос в Telegram
         if poll_data and isinstance(poll_data, dict) and "question" in poll_data and "options" in poll_data:
@@ -854,14 +850,6 @@ async def handle_task_created(payload: dict):
                 await bot.send_message(chat_id, "⚠️ <i>Не удалось опубликовать в Instagram. Ошибка интеграции.</i>", parse_mode="HTML")
 
         logging.info("CONTENT_BOT successfully handled task.")
-        
-        # Publish TASK_COMPLETED
-        if task_id:
-            from shared.event_bus import event_bus
-            await event_bus.publish("TASK_COMPLETED", {
-                "task_id": task_id,
-                "completed_by": "content", "chat_id": chat_id
-            }, "content_bot")
             
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
@@ -978,11 +966,19 @@ async def handle_roll_call(payload: dict):
 
 
 async def main():
+    if not settings.content_bot_token:
+        logger.error(f"FATAL: CONTENT_BOT_TOKEN is missing!")
+        import sys
+        sys.exit(1)
+
     global _bot
     await init_db()
     bot = Bot(token=settings.content_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     _bot = bot
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.task_ui import task_ui_router
+    dp.include_router(task_ui_router)
+    
     dp.include_router(test_router)  # тестовые команды — первыми, чтобы не перехватил catch-all
     for r in all_routers:
         dp.include_router(r)

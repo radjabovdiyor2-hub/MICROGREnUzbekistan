@@ -30,37 +30,34 @@ class Settings(BaseSettings):
     )
 
     # ── Токены Telegram-ботов ──────────────────────────────────────────
-    sales_bot_token: str = Field(
-        ..., description="Токен бота продаж (@MicroGreenSalesBot)"
+    sales_bot_token: str | None = Field(
+        default=None, description="Токен бота продаж (@MicroGreenSalesBot)"
     )
-    support_bot_token: str = Field(
-        ..., description="Токен бота поддержки (@MicroGreenSupportBot)"
+    support_bot_token: str | None = Field(
+        default=None, description="Токен бота поддержки (@MicroGreenSupportBot)"
     )
-    marketing_bot_token: str = Field(
-        ..., description="Токен маркетинг-бота (@MicroGreenMarketingBot)"
+    marketing_bot_token: str | None = Field(
+        default=None, description="Токен маркетинг-бота (@MicroGreenMarketingBot)"
     )
-    hr_bot_token: str = Field(
-        ..., description="Токен HR-бота (@MicroGreenHRBot)"
+    hr_bot_token: str | None = Field(
+        default=None, description="Токен HR-бота (@MicroGreenHRBot)"
     )
-    finance_bot_token: str = Field(
-        ..., description="Токен финансового бота (@MicroGreenFinanceBot)"
+    finance_bot_token: str | None = Field(
+        default=None, description="Токен финансового бота (@MicroGreenFinanceBot)"
     )
-    pm_bot_token: str = Field(
-        ..., description="Токен PM-бота (@MicroGreenPMBot)"
+    analytics_bot_token: str | None = Field(
+        default=None, description="Токен аналитик-бота (@MicroGreenAnalyticsBot)"
     )
-    analytics_bot_token: str = Field(
-        ..., description="Токен аналитик-бота (@MicroGreenAnalyticsBot)"
+    content_bot_token: str | None = Field(
+        default=None, description="Токен контент-бота (@MicroGreenContentBot)"
     )
-    content_bot_token: str = Field(
-        ..., description="Токен контент-бота (@MicroGreenContentBot)"
-    )
-    stepan_bot_token: str = Field(
-        ..., description="Токен Степана — личного AI-помощника руководителя"
+    stepan_bot_token: str | None = Field(
+        default=None, description="Токен Степана — личного AI-помощника руководителя"
     )
 
     # ── База данных ────────────────────────────────────────────────────
     database_url: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/microgreen_uz",
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/microgreen",
         description="URL подключения к PostgreSQL через asyncpg",
     )
 
@@ -71,8 +68,8 @@ class Settings(BaseSettings):
     )
 
     # ── OpenAI ─────────────────────────────────────────────────────────
-    openai_api_key: str = Field(
-        ..., description="API-ключ OpenAI"
+    openai_api_key: str | None = Field(
+        default=None, description="API-ключ OpenAI"
     )
     openai_model: str = Field(
         default="gpt-4o",
@@ -110,6 +107,28 @@ class Settings(BaseSettings):
         default=500_000,
         description="Порог бесплатной доставки в UZS",
     )
+    
+    # ── Платежные системы ──────────────────────────────────────────────
+    click_merchant_id: str = Field(
+        default="12345",
+        description="Merchant ID для Click.uz",
+    )
+    payme_merchant_id: str = Field(
+        default="1234567890",
+        description="Merchant ID для Paycom.uz",
+    )
+
+    @field_validator("free_delivery_threshold", mode="before")
+    @classmethod
+    def parse_free_delivery_threshold(cls, v):
+        if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return 500_000
+            return int(v)
+        if v is None:
+            return 500_000
+        return v
 
     # ── Instagram Graph API ───────────────────────────────────────────
     instagram_account_id: str = Field(

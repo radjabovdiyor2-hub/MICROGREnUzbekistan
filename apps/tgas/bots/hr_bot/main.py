@@ -14,7 +14,7 @@ from bots.hr_bot.handlers.start import ai_hr
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
-logging.basicConfig(level=logging.INFO, filename="hr_debug.log", filemode="a")
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # ── Scheduler ────────────────────────────────────────────────────────────
@@ -187,7 +187,8 @@ async def handle_task_created(payload: dict):
     chat_id = data.get("chat_id")
     if not chat_id:
         return
-    
+    task_id = data.get("task_id")
+
     bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     try:
         from bots.hr_bot.handlers.start import ai
@@ -198,18 +199,10 @@ async def handle_task_created(payload: dict):
         answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
 
         logging.info(f"HR_BOT sending message to {chat_id}")
-        await bot.send_message(chat_id, f"✅ <b>HR-отдел — принял в работу:</b>\n\n{answer}")
+        from shared.task_ui import get_task_keyboard
+        await bot.send_message(chat_id, f"✅ <b>HR-отдел — принял в работу:</b>\n\n{answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
         logging.info("HR_BOT successfully sent message.")
-        
-        # Publish TASK_COMPLETED
-        task_id = data.get("task_id")
-        if task_id:
-            from shared.event_bus import event_bus
-            await event_bus.publish("TASK_COMPLETED", {
-                "task_id": task_id,
-                "completed_by": "hr", "chat_id": chat_id
-            }, "hr_bot")
-            
+
     except Exception as e:
         logging.error(f"Error handling HR task: {repr(e)}", exc_info=True)
     finally:
@@ -256,9 +249,16 @@ async def handle_roll_call(payload: dict):
 
 
 async def main():
+    if not settings.hr_bot_token:
+        logger.error(f"FATAL: HR_BOT_TOKEN is missing!")
+        import sys
+        sys.exit(1)
+
     await init_db()
     bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.task_ui import task_ui_router
+    dp.include_router(task_ui_router)
     for r in all_routers:
         dp.include_router(r)
 

@@ -85,13 +85,14 @@ async def handle_n8n_webhook(request: web.Request):
 
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
-    if payload.get("dept") != "rnd":
+    data = payload.get("data", {})
+    if data.get("department") != "rnd":
         return
         
     logger.info(f"R&D Bot received task via event_bus: {payload}")
-    task_id = payload.get("task_id", "rnd_task")
-    chat_id = payload.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
-    description = payload.get("description", "")
+    task_id = data.get("task_id", "rnd_task")
+    chat_id = data.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
+    description = data.get("description", "")
     
     prompt_text = (
         f"Ты аналитик отдела исследований и разработки (R&D) сити-фермы. Твоя задача:\n{description}\n\n"
@@ -123,11 +124,7 @@ async def main():
     
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)
-    
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8091)
-    await site.start()
+    await event_bus.start_listening(8091, app)
 
     # Еженедельные R&D-рекомендации по трендам Instagram (Пн 10:00)
     scheduler.add_cron(name="weekly_instagram_rnd", func=weekly_instagram_rnd,

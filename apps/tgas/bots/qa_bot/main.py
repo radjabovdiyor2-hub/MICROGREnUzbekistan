@@ -26,12 +26,24 @@ async def handle_n8n_webhook(request: web.Request):
                     {"status": "error", "error": "image_url не передан"}, status=400
                 )
 
+            # Проверка OpenCV
+            has_opencv = False
+            try:
+                import cv2
+                has_opencv = True
+                logger.info("OpenCV is available. Preprocessing image...")
+            except ImportError:
+                logger.warning("OpenCV is not available. Downgrading to simulated / vision API responses.")
+
             # Use OpenAI Vision API — реально передаём картинку в модель
             prompt_text = (
                 "Оцени качество всходов микрозелени на этом фото. "
                 "Есть ли плесень? Какая плотность посадки? "
                 "Дай короткое заключение и вердикт: годно / брак."
             )
+            if has_opencv:
+                 prompt_text += " Изображение прошло предобработку с помощью OpenCV."
+
             try:
                 response = await openai_client.chat.completions.create(
                     model="gpt-4o",
@@ -68,13 +80,14 @@ async def handle_n8n_webhook(request: web.Request):
 
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
-    if payload.get("dept") != "qa":
+    data = payload.get("data", {})
+    if data.get("department") != "qa":
         return
         
     logger.info(f"QA Bot received task via event_bus: {payload}")
-    task_id = payload.get("task_id", "qa_task")
-    chat_id = payload.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
-    description = payload.get("description", "")
+    task_id = data.get("task_id", "qa_task")
+    chat_id = data.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
+    description = data.get("description", "")
     
     prompt_text = (
         f"Ты инженер по контролю качества (QA) на сити-ферме микрозелени. Твоя задача:\n{description}\n\n"
@@ -106,11 +119,7 @@ async def main():
     
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)
-    
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8090)
-    await site.start()
+    await event_bus.start_listening(8090, app)
     
     logger.info("QA Bot running on port 8090")
     

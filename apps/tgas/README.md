@@ -19,6 +19,10 @@ tgas/
 │   ├── database.py            # Подключение к PostgreSQL
 │   ├── ai_engine.py           # Интеграция с OpenAI
 │   └── utils.py               # Утилиты (форматирование, эскейпинг)
+├── web_office/                # Web Dashboard / CRM FastAPI
+│   ├── main.py                # FastAPI приложение
+│   ├── templates/             # HTML шаблоны
+│   └── static/                # CSS/JS
 └── bots/
     ├── __init__.py
     └── sales_bot/             # 🛒 Бот отдела продаж

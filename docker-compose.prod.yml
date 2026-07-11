@@ -18,6 +18,7 @@ x-tgas-bot: &tgas-bot
   mem_limit: 320m
   env_file: ./apps/tgas/.env
   environment:
+    ENVIRONMENT: production
     DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
     REDIS_URL: redis://redis:6379/0
     # Shared secret guarding web_office's /ingest/order bridge (empty = off).
@@ -34,6 +35,8 @@ x-tgas-bot: &tgas-bot
       condition: service_healthy
   volumes:
     - bus_tasks:/app/bus_tasks
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   networks:
     - mg_net
   logging:
@@ -135,6 +138,7 @@ services:
       - "127.0.0.1:3002:3000"
     env_file: .env
     environment:
+      ENVIRONMENT: production
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
@@ -176,12 +180,13 @@ services:
     mem_limit: 256m
     env_file: .env
     environment:
+      ENVIRONMENT: production
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
       WEB_API_URL: http://web:3000/api
       # Must match the web service's BOT_SECRET so admin API calls authorize.
       BOT_SECRET: ${BOT_SECRET:-}
       # Степан-менеджер (@MG_PM1_bot) — для уведомлений о заказах
-      STEPAN_BOT_TOKEN: ${PM_BOT_TOKEN:-}
+      STEPAN_BOT_TOKEN: ${STEPAN_BOT_TOKEN:-}
     depends_on:
       web:
         condition: service_started

@@ -49,6 +49,17 @@ deploy_standalone/
 # Python
 __pycache__/
 .venv/
+.test_venv/
+
+# AI agent configs
+.gemini/
+.claude/
+.claude-flow/
+
+# One-off test/debug scripts in root
+test_*.py
+verify_*.py
+test_bus_isolated_*/
 
 # Misc
 *.log
