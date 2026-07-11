@@ -1,4 +1,4 @@
-"""PM Bot — Клавиатуры"""
+"""Степан (Менеджер) — Клавиатуры"""
 from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 

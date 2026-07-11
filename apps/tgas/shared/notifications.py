@@ -29,7 +29,7 @@ async def notify_admin(bot: Bot, admin_ids: list, text_msg: str):
             logger.error(f"Не удалось отправить уведомление админу {admin_id}: {e}")
 
 
-# ─── PM Bot обработчики ────────────────────────────────────
+# ─── Степан (Менеджер) обработчики событий ─────────────────
 
 async def pm_on_order_created(bot: Bot, payload: dict):
     """Новый заказ → создать задачу на производство."""
@@ -143,13 +143,13 @@ async def analytics_on_order_created(bot: Bot, payload: dict):
 
 
 def register_pm_handlers(event_bus, bot: Bot):
-    """Регистрирует все обработчики событий PM бота."""
+    """Регистрирует все обработчики событий Степана (PM/Менеджер)."""
     from shared.event_bus import Events
 
     event_bus.on(Events.ORDER_CREATED, lambda p: pm_on_order_created(bot, p))
     event_bus.on(Events.COMPLAINT_RECEIVED, lambda p: pm_on_complaint(bot, p))
     event_bus.on(Events.APPLICATION_RECEIVED, lambda p: pm_on_hr_application(bot, p))
-    logger.info("PM Bot: подписан на events (order, complaint, hr)")
+    logger.info("Степан (Менеджер): подписан на events (order, complaint, hr)")
 
 
 def register_finance_handlers(event_bus, bot: Bot):

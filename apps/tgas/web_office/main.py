@@ -63,13 +63,12 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # ── AI Bots (static config) ─────────────────────────────────
 AI_BOTS: list[dict[str, str]] = [
-    {"name": "Степан", "role": "Оркестратор / PM", "status": "online", "icon": "🤖"},
+    {"name": "Степан", "role": "Менеджер / PM / COO", "status": "online", "icon": "🤖"},
     {"name": "Sales Bot", "role": "Продажи", "status": "online", "icon": "🛒"},
     {"name": "Support Bot", "role": "Поддержка", "status": "online", "icon": "🎧"},
     {"name": "Marketing Bot", "role": "Маркетинг", "status": "online", "icon": "📢"},
     {"name": "HR Bot", "role": "Персонал", "status": "online", "icon": "👥"},
     {"name": "Finance Bot", "role": "Финансы", "status": "online", "icon": "💰"},
-    {"name": "PM Bot", "role": "Задачи", "status": "online", "icon": "📋"},
     {"name": "Analytics Bot", "role": "Аналитика", "status": "online", "icon": "📊"},
     {"name": "Content Bot", "role": "Контент", "status": "online", "icon": "✍️"},
     {"name": "DevOps Bot", "role": "Инфраструктура", "status": "online", "icon": "🛠"},

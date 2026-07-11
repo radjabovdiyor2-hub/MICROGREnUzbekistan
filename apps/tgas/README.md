@@ -116,7 +116,7 @@ Telegram-боты (aiogram, FSM + AI-чат):
 | 4 | Content Bot | ✍️ Контент | `bots.content_bot.main` | ✅ |
 | 5 | Finance Bot | 💰 Финансы | `bots.finance_bot.main` | ✅ |
 | 6 | HR Bot | 👥 HR | `bots.hr_bot.main` | ✅ |
-| 7 | PM Bot | 📋 Управление | `bots.pm_bot.main` | ✅ |
+| 7 | ~~PM Bot~~ | 📋 = Степан | `bots.stepan_bot.main` | ✅ (PM = Степан, один бот) |
 | 8 | Analytics Bot | 📊 Аналитика | `bots.analytics_bot.main` | ✅ |
 | 9 | Marketing Bot | 📢 Маркетинг | `bots.marketing_bot.main` | ✅ |
 

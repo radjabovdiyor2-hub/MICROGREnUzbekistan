@@ -1,4 +1,4 @@
-"""PM Bot — Производство, Логистика, Инвентаризация, Обзор"""
+"""Степан (Менеджер) — Производство, Логистика, Инвентаризация, Обзор"""
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from sqlalchemy import text

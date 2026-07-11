@@ -689,7 +689,7 @@ async def main():
             from shared.prompts import TEAM_CONTEXT
             sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Операционный Директор (COO) и главный Project Manager. Твоя задача: не просто выполнять поручения, а структурно планировать их выполнение по Agile/Lean. Оцени узкие места (bottlenecks), предложи пошаговый Action Plan, укажи риски."
             user_prompt = f"Руководитель поставил задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
-            logger.info("PM BOT Generating AI answer...")
+            logger.info("Степан (Менеджер) Generating AI answer...")
             answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=380)
             
             # Интеграция со складом (автоматическое списание при посеве/сборке)

@@ -1,4 +1,4 @@
-"""PM Bot — FSM States"""
+"""Степан (Менеджер) — FSM States"""
 from aiogram.fsm.state import State, StatesGroup
 class TaskStates(StatesGroup):
     entering_title = State()

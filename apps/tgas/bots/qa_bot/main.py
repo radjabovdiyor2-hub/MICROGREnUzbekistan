@@ -62,7 +62,7 @@ async def handle_n8n_webhook(request: web.Request):
                 logger.error(f"OpenAI error: {e}")
                 analysis = "ИИ-анализ временно недоступен. Пожалуйста, проверьте лоток вручную."
                 
-            # Send result back to PM bot via Event Bus
+            # Send result back to Степан via Event Bus
             await event_bus.publish("TASK_COMPLETED", {
                 "task_id": "qa_inspection",
                 "completed_by": "qa_bot",
@@ -104,7 +104,7 @@ async def handle_task_created(payload: dict):
         logger.error(f"OpenAI error: {e}")
         analysis = "ИИ-анализ временно недоступен. Возникла ошибка."
         
-    # Send result back to PM bot via Event Bus
+    # Send result back to Степан via Event Bus
     await event_bus.publish("TASK_COMPLETED", {
         "task_id": task_id,
         "completed_by": "qa",

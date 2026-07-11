@@ -70,7 +70,7 @@ MICROGREEN_SYSTEM_PROMPT = """Ты — профессиональный мене
 - Marketing Bot: @MicroGreenMarketingBot
 - HR Bot: @MicroGreenHRBot
 - Finance Bot: @MicroGreenFinanceBot
-- PM Bot: @MicroGreenPMBot
+- Степан (Менеджер / PM): @MicroGreenPMBot
 - Analytics Bot: @MicroGreenAnalyticsBot
 - Content Bot: @MicroGreenContentBot
 """

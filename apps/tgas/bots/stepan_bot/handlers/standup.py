@@ -1,4 +1,4 @@
-"""PM Bot — Daily Standup"""
+"""Степан (Менеджер) — Daily Standup"""
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
