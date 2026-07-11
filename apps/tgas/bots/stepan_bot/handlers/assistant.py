@@ -595,6 +595,30 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         except Exception as e:
             logger.error(f"Ошибка статуса плана: {e}", exc_info=True)
 
+    # ── Перекличка: «отозвутся / перекличка / на связи / кто на связи» ──
+    # Простой health-check отделов — НЕ совещание. Проверяем ДО is_meeting_request,
+    # потому что «все отделы отозвутся» содержит «все отделы» и попадает в MEETING_TRIGGERS.
+    _ROLL_CALL_TRIGGERS = [
+        "отозв", "перекличк", "кто на связи", "все на связи",
+        "на связи ли", "отчитайтесь", "отчитайся", "кто работает",
+        "все работают", "все ли работают", "все ли на связи",
+        "проверка связи", "чекин", "check in", "roll call",
+    ]
+    if any(t in low for t in _ROLL_CALL_TRIGGERS):
+        try:
+            from shared.event_bus import event_bus
+            await event_bus.publish("ROLL_CALL", {
+                "chat_id": message.chat.id,
+                "message": user_text,
+            }, source_bot="stepan_bot")
+            await message.answer("📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений.")
+            await set_reaction(message, "👍")
+        except Exception as e:
+            logger.error(f"Ошибка переклички: {e}", exc_info=True)
+            await message.answer("😔 Не удалось запустить перекличку.")
+            await set_reaction(message, "🤷‍♂️")
+        return
+
     # ── Кросс-функциональный вопрос → СОВЕЩАНИЕ ОТДЕЛОВ ──
     # Отделы обсуждают между собой, спорят и сходятся к одному решению,
     # вместо трёх разрозненных задач/ответов.
@@ -607,6 +631,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             await message.answer("😔 Не удалось провести совещание отделов. Попробуйте ещё раз.")
             await set_reaction(message, "🤷‍♂️")
         return
+
 
     # ── Формируем промпт с контекстом из БД ──
     db_context = await _get_db_context()
