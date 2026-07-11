@@ -890,30 +890,24 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         is_meeting_request, run_team_meeting,
         is_execution_command, handle_execution_command,
         is_status_request, run_plan_status,
-        try_execute_plan_text,
     )
     if is_execution_command(low):
         try:
-            # 1) План принят на совещании
-            if await handle_execution_command(message.bot, message.chat.id):
-                await set_reaction(message, "👍")
-                await _remember(state, user_text, "[Запустил принятый план в работу]",
-                                intent="execute")
-                return
-
-            # 2) План Степан предложил обычным ответом («Что по KPI» → Action Plan).
-            #    Запускаем ИМЕННО его — то, что руководитель видел на экране.
+            # Передаём план, который Степан только что предложил в чате, — это то,
+            # что руководитель видит на экране, когда пишет «Делай». Он важнее
+            # старого сохранённого решения (иначе воскресает вчерашний план).
             prev_q, prev_plan = _last_plan_from_history(history)
-            if prev_plan and await try_execute_plan_text(
-                message.bot, message.chat.id, prev_q, prev_plan
+            if await handle_execution_command(
+                message.bot, message.chat.id,
+                fresh_plan=prev_plan, fresh_question=prev_q,
             ):
                 await set_reaction(message, "👍")
-                await _remember(state, user_text, "[Запустил в работу предложенный план]",
+                await _remember(state, user_text, "[Запустил план в работу]",
                                 intent="execute")
                 return
 
-            # 3) Плана нет — честно спрашиваем. НЕ проваливаемся в общий AI:
-            #    именно там он выдумывал задачу и публиковал пост в Instagram.
+            # Плана нет — честно спрашиваем. НЕ проваливаемся в общий AI:
+            # именно там он выдумывал задачу и публиковал пост в Instagram.
             await message.answer(
                 "🤔 Не вижу плана, который нужно выполнить.\n\n"
                 "Скажите, что именно запустить — или задайте вопрос, "

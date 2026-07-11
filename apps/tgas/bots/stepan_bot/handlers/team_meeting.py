@@ -927,6 +927,7 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
     # Сохраняем план как исполненный — для статуса и чтобы «делайте» не дублировало.
     decision["executed"] = True
     decision["tasks"] = created
+    decision.setdefault("fp", plan_fingerprint(plan))
     await save_decision(chat_id, decision)
 
     # 2. Менеджер объявляет запуск плана
@@ -975,36 +976,29 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
                      "✅ <b>План в работе.</b> Отделы приступили. Напишите «статус» — покажу прогресс.")
 
 
-async def try_execute_plan_text(manager_bot: Bot, chat_id: int,
-                                question: str, plan_text: str) -> bool:
-    """
-    Запустить план, который Менеджер предложил ОБЫЧНЫМ ответом в чате, без совещания
-    (например «Что по KPI» → анализ + Action Plan).
-
-    Такой план раньше нигде не сохранялся: save_decision() зовётся только из совещаний.
-    Поэтому «Выполняй» не находил, что исполнять, уходил в общий AI — и тот выдумывал
-    задачу («Создание нового поста»), которая через safety-routing улетала в content
-    и приводила к РЕАЛЬНОЙ публикации в Instagram.
-
-    Возвращает False, если в тексте нет конкретных пунктов для исполнения.
-    """
-    if not plan_text or len(plan_text.strip()) < 40:
-        return False
-    tasks = await _parse_plan_tasks(plan_text)
-    if not tasks:
-        return False
-    decision = {"question": question, "plan": plan_text,
-                "executed": False, "source": "chat"}
-    await run_execution(manager_bot, chat_id, decision, tasks=tasks)
-    return True
+def plan_fingerprint(text: str) -> str:
+    """Отпечаток плана — чтобы отличать «тот же самый план» от нового."""
+    import hashlib
+    norm = re.sub(r"\s+", " ", (text or "").strip()).lower()
+    return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:12]
 
 
-async def handle_execution_command(manager_bot: Bot, chat_id: int) -> bool:
+async def handle_execution_command(manager_bot: Bot, chat_id: int,
+                                   fresh_plan: str = "", fresh_question: str = "") -> bool:
     """
-    Обрабатывает «делайте / запускайте» ПОСЛЕ совещания.
-    Возвращает True, если команда обработана (был контекст решения/ожидания).
+    «Делайте / выполняй» — запустить план в работу.
+
+    fresh_plan — последний план, который Менеджер предложил в чате (то, что
+    руководитель ВИДИТ НА ЭКРАНЕ, когда пишет «Делай»).
+
+    ⚠️ Порядок проверок критичен. Раньше сохранённое решение проверялось раньше
+    свежего плана: лежащее со вчера решение с executed=True перехватывало команду
+    и Степан уходил отчитываться по ВЧЕРАШНЕМУ плану, а свежий Action Plan не
+    исполнялся вовсе. Свежий план должен побеждать протухшее решение.
+
+    Возвращает True, если команда обработана.
     """
-    # 1) Команда ждала участия владельца → «делайте» = решайте сами и запускайте.
+    # 1) Совещание ждало участия владельца → «делайте» = решайте сами и запускайте.
     tok = next((t for t, c in PENDING.items() if c.get("chat_id") == chat_id), None)
     if tok:
         ctx = PENDING.pop(tok)
@@ -1014,14 +1008,31 @@ async def handle_execution_command(manager_bot: Bot, chat_id: int) -> bool:
         await run_execution(manager_bot, chat_id, decision)
         return True
 
-    # 2) Есть принятое решение.
     decision = await load_decision(chat_id)
-    if decision:
-        if decision.get("executed"):
-            # План уже запущен — «делайте» повторно = показать статус, а не дублировать.
+
+    # 2) Совещание только что приняло решение, но оно ещё не запущено — запускаем его.
+    if decision and not decision.get("executed"):
+        await run_execution(manager_bot, chat_id, decision)
+        return True
+
+    # 3) Свежий план из чата («Что по KPI» → Action Plan → «Делай»).
+    if fresh_plan and len(fresh_plan.strip()) >= 40:
+        fp = plan_fingerprint(fresh_plan)
+        if decision and decision.get("executed") and decision.get("fp") == fp:
+            # ИМЕННО ЭТОТ план уже запущен — показываем статус, а не дублируем задачи
             await run_plan_status(manager_bot, chat_id)
-        else:
-            await run_execution(manager_bot, chat_id, decision)
+            return True
+        tasks = await _parse_plan_tasks(fresh_plan)
+        if tasks:
+            await run_execution(manager_bot, chat_id, {
+                "question": fresh_question, "plan": fresh_plan,
+                "executed": False, "source": "chat", "fp": fp,
+            }, tasks=tasks)
+            return True
+
+    # 4) Свежего плана нет, но есть запущенный ранее — показываем его статус.
+    if decision and decision.get("executed"):
+        await run_plan_status(manager_bot, chat_id)
         return True
 
     return False
@@ -1030,21 +1041,55 @@ async def handle_execution_command(manager_bot: Bot, chat_id: int) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # СТАТУС ПЛАНА — «статус / прогресс»: отделы отчитываются, Менеджер сводит
 # ─────────────────────────────────────────────────────────────────────────────
-async def _exec_status(dept_key: str, action: str) -> tuple:
-    """Короткий отчёт отдела о ходе задачи. Возвращает (текст, done: bool)."""
+async def _exec_status(dept_key: str, task: dict) -> tuple:
+    """
+    Отчёт отдела по задаче. Возвращает (текст, done: bool).
+
+    ⚠️ ФАКТ ВЫПОЛНЕНИЯ БЕРЁТСЯ ИЗ БАЗЫ, А НЕ У МОДЕЛИ.
+    Раньше здесь у AI спрашивали «что уже сделано?», он сочинял правдоподобный
+    текст («проведён дожим клиентов по 80% заказов»), и если тот начинался с
+    [ГОТОВО] — задача закрывалась в БД. Реальной работы за этим не стояло: так
+    пять задач получили статус done без единого действия, а руководителю
+    отрапортовали «выполнено 5 из 5». Отделы — чат-боты, они физически не могут
+    обзванивать клиентов; врать об этом система не должна.
+
+    Теперь: done — только то, что реально помечено выполненным в БД (кнопкой
+    «✅ Выполнено» или событием TASK_COMPLETED). AI лишь формулирует, чем отдел
+    занят, и ему ЗАПРЕЩЕНО утверждать, что задача сделана.
+    """
     dept = DEPARTMENTS[dept_key]
+    action = task.get("action", "")
+    task_id = task.get("task_id")
+
+    status = None
+    if task_id:
+        try:
+            async with get_session_ctx() as s:
+                res = await s.execute(text("SELECT status FROM tasks WHERE id = :id"), {"id": task_id})
+                row = res.fetchone()
+                status = row[0] if row else None
+        except Exception as e:
+            logger.warning(f"status: не прочитал задачу {task_id}: {e}")
+
+    if status == "done":
+        return f"Задача закрыта: {action}", True
+    if status == "cancelled":
+        return f"Задача отменена: {action}", False
+
     system = (
-        f"{dept['role']}\n\nТебя спрашивают статус по твоему пункту плана. "
-        "Ответь ОДНОЙ живой фразой: что уже сделано и что осталось. "
-        "Если пункт полностью выполнен — начни с '[ГОТОВО]'. Без markdown, без списков."
+        f"{dept['role']}\n\nТебя спрашивают, как идёт твоя задача. Она ЕЩЁ НЕ ВЫПОЛНЕНА. "
+        "Ответь ОДНОЙ короткой фразой: над чем работаешь и какой ближайший шаг. "
+        "⚠️ КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО утверждать, что задача сделана, что-то уже "
+        "достигнуто или называть проценты выполнения — этого не было. "
+        "Без markdown, без списков."
     )
     try:
-        txt = (await ai.chat_completion(system, f"Пункт плана: {action}", temperature=0.6, max_tokens=110)).strip()
+        txt = (await ai.chat_completion(
+            system, f"Задача: {action}", temperature=0.5, max_tokens=90
+        )).strip()
     except Exception:
-        txt = "В работе, продолжаю."
-    done = txt.upper().lstrip().startswith("[ГОТОВО]")
-    txt = re.sub(r"^\s*\[ГОТОВО\]\s*", "", txt, flags=re.IGNORECASE)
-    return txt, done
+        txt = f"В работе: {action}"
+    return txt, False
 
 
 async def run_plan_status(manager_bot: Bot, chat_id: int):
@@ -1075,19 +1120,12 @@ async def run_plan_status(manager_bot: Bot, chat_id: int):
     try:
         for t in tasks:
             k = t["dept"]
-            report, done = await _exec_status(k, t["action"])
+            # done приходит ИЗ БД. Задачу закрывает человек (кнопка «✅ Выполнено»)
+            # или событие TASK_COMPLETED — но не сам себе отчитывающийся бот.
+            report, done = await _exec_status(k, t)
             mark = "✅" if done else "🔄"
             if done:
                 done_count += 1
-                # отмечаем задачу выполненной в БД
-                tid = t.get("task_id")
-                if tid:
-                    try:
-                        async with get_session_ctx() as s:
-                            await s.execute(text("UPDATE tasks SET status='done' WHERE id=:id"), {"id": tid})
-                            await s.commit()
-                    except Exception as e:
-                        logger.warning(f"status: не обновил задачу {tid}: {e}")
             body = f"{DEPARTMENTS[k]['emoji']} {mark} {html.escape(report)}"
             b = dept_bots.get(k)
             sent = False
@@ -1109,8 +1147,12 @@ async def run_plan_status(manager_bot: Bot, chat_id: int):
                 pass
 
     total = len(tasks)
-    await _safe_send(manager_bot, chat_id,
-                     f"🤖 <b>Итог по плану:</b> выполнено {done_count} из {total}.")
+    summary = f"🤖 <b>Итог по плану:</b> закрыто {done_count} из {total}."
+    if done_count < total:
+        # Честно: отделы — чат-боты, сами задачу не закрывают. Закрывает человек.
+        summary += ("\n<i>Остальные — в работе. Задача закрывается кнопкой "
+                    "«✅ Выполнено» в её карточке, когда работа реально сделана.</i>")
+    await _safe_send(manager_bot, chat_id, summary)
     if done_count >= total:
         await clear_decision(chat_id)
         await _safe_send(manager_bot, chat_id, "🎉 План выполнен полностью!")
