@@ -840,17 +840,37 @@ def _parse_deadline(deadline_text: str):
 
 
 async def _parse_plan_tasks(plan: str) -> list:
-    """Разбирает текст плана на задачи по отделам через AI."""
+    """
+    Разбирает план на задачи: отдел + РЕАЛЬНОЕ действие из реестра возможностей.
+
+    Раньше здесь выбирался только отдел, а «исполнение» сводилось к строке в БД
+    и сочинённому отчёту. Теперь каждый пункт привязывается к тому, что бот
+    ДЕЙСТВИТЕЛЬНО может сделать (написать клиентам, разослать, опубликовать,
+    собрать лидов), а недоступное честно уходит человеку через human_task.
+    """
+    from shared.capabilities import CAPABILITIES, catalog_for_ai
+
     keys = ", ".join(DEPARTMENTS.keys())
     system = (
-        "Разбери план действий на конкретные задачи по отделам. "
-        f"Ключи отделов: {keys}. "
-        "Верни ТОЛЬКО JSON-массив объектов вида "
-        "[{\"dept\":\"<ключ>\",\"action\":\"что сделать\",\"deadline\":\"срок как в тексте или пусто\"}]. "
-        "Только реальные пункты плана, без воды."
+        "Разбери план действий на конкретные задачи. Для каждой выбери отдел И "
+        "РЕАЛЬНОЕ действие из каталога возможностей — то, что бот действительно умеет.\n\n"
+        f"Ключи отделов: {keys}\n\n"
+        f"КАТАЛОГ ВОЗМОЖНОСТЕЙ:\n{catalog_for_ai()}\n\n"
+        "⚠️ ПРАВИЛА:\n"
+        "- «обзвонить / связаться / дожать / вернуть / уведомить клиентов» → notify_customers. "
+        "Бот не звонит, но напишет в Telegram, затем на email, а тех, до кого не достучаться, "
+        "передаст человеку. Это НЕ повод отказываться от пункта.\n"
+        "- Если действие боту недоступно (встреча, переговоры, производство, закупка, найм) → "
+        "human_task. НЕ выдумывай возможность, которой нет в каталоге.\n"
+        "- В params клади то, что нужно действию: segment, message, target, topic, limit.\n"
+        "- Для сообщений клиентам ОБЯЗАТЕЛЬНО напиши готовый текст в params.message — "
+        "живой, вежливый, на русском, от лица Microgreen Uzbekistan, 1-3 предложения.\n\n"
+        "Верни ТОЛЬКО JSON-массив:\n"
+        '[{"dept":"<ключ>","action":"что сделать","capability":"<ключ из каталога>",'
+        '"params":{...},"deadline":"срок как в тексте или пусто"}]'
     )
     try:
-        raw = (await ai.chat_completion(system, plan, temperature=0.2, max_tokens=500)).strip()
+        raw = (await ai.chat_completion(system, plan, temperature=0.2, max_tokens=900)).strip()
         m = re.search(r"\[.*\]", raw, re.DOTALL)
         if not m:
             return []
@@ -859,33 +879,53 @@ async def _parse_plan_tasks(plan: str) -> list:
         for it in items:
             dept = str(it.get("dept", "")).strip()
             action = str(it.get("action", "")).strip()
-            if action and dept in DEPARTMENTS:
-                result.append({"dept": dept, "action": action, "deadline": str(it.get("deadline", "")).strip()})
+            if not action or dept not in DEPARTMENTS:
+                continue
+            cap = str(it.get("capability", "")).strip()
+            if cap not in CAPABILITIES:
+                # модель предложила несуществующее действие — не выдумываем исполнение
+                cap = "human_task"
+            params = it.get("params") if isinstance(it.get("params"), dict) else {}
+            result.append({
+                "dept": dept, "action": action, "capability": cap, "params": params,
+                "deadline": str(it.get("deadline", "")).strip(),
+            })
         return result
     except Exception as e:
         logger.warning(f"parse plan tasks error: {e}")
         return []
 
 
-async def _exec_ack(dept_key: str, action: str) -> str:
-    """Короткое живое подтверждение отдела: беру в работу + первый шаг."""
-    dept = DEPARTMENTS[dept_key]
-    system = (
-        f"{dept['role']}\n\nТебе поручили ВЫПОЛНИТЬ пункт плана (не анализировать!). "
-        "Ответь ОДНОЙ живой фразой (1–2 предложения): что берёшь в работу и первый конкретный шаг. "
-        "Без анализа, без списков, без markdown."
-    )
-    try:
-        return (await ai.chat_completion(system, f"Пункт плана: {action}", temperature=0.6, max_tokens=90)).strip()
-    except Exception:
-        return f"Принял в работу: {action}. Приступаю."
+# Планы, ждущие подтверждения на действия НАРУЖУ: token -> {chat_id, decision, tasks}
+PENDING_EXEC: dict = {}
+
+
+def _plan_preview(tasks: list) -> str:
+    """Что именно будет сделано — до того, как это уйдёт клиентам."""
+    from shared.capabilities import CAPABILITIES
+
+    lines = []
+    for t in tasks:
+        d = DEPARTMENTS[t["dept"]]
+        cap = CAPABILITIES.get(t.get("capability") or "")
+        what = cap.title if cap else "передать человеку"
+        mark = "⚠️" if (cap and cap.outward) else "•"
+        lines.append(f"{mark} {d['emoji']} <b>{d['name']}</b> — {html.escape(t['action'])}\n"
+                     f"      └ {what}")
+    return "\n".join(lines)
 
 
 async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: list = None):
     """
-    Запускает принятый план в работу: создаёт задачи и отделы подтверждают приём.
-    tasks — уже разобранные пункты (чтобы не звать AI-разбор дважды).
+    Запускает план в работу — ПО-НАСТОЯЩЕМУ.
+
+    Каждый пункт привязан к реальной возможности (написать клиентам, разослать,
+    опубликовать, собрать лидов). Действия НАРУЖУ (сообщения клиентам, публикация)
+    сначала показываются владельцу и уходят только после подтверждения — правило,
+    уже принятое в проекте для B2B-рассылки.
     """
+    from shared.capabilities import is_outward
+
     question = decision.get("question", "")
     plan = decision.get("plan", "")
     if tasks is None:
@@ -894,11 +934,13 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
     if not tasks:
         decision["executed"] = True
         await save_decision(chat_id, decision)
-        await _safe_send(manager_bot, chat_id, "🚀 План принят в работу. Отделы приступают.")
+        await _safe_send(manager_bot, chat_id,
+                         "🤔 В плане нет пунктов, которые я могу выполнить. "
+                         "Сформулируйте конкретнее — что именно сделать?")
         return
 
-    # 1. Создаём задачи в БД в статусе in_progress (без TASK_CREATED — чтобы отделы
-    #    НЕ запускали новый анализ). Запоминаем id для отслеживания статуса.
+    # 1. Создаём задачи в БД (аудит). Без TASK_CREATED — отделы не должны
+    #    запускать новый анализ, они будут ИСПОЛНЯТЬ.
     created = []
     try:
         async with get_session_ctx() as session:
@@ -913,34 +955,56 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
                         "asg": DEPARTMENTS[t["dept"]]["name"],
                         "dep": t["dept"],
                         "dl": dl,
-                        "ds": f"Из плана совещания. Вопрос руководителя: {question}",
+                        "ds": f"Из плана. Вопрос руководителя: {question}",
                     })
                     t["task_id"] = res.scalar()
                     created.append(t)
                 except Exception as e:
-                    logger.warning(f"exec: не удалось создать задачу для {t['dept']}: {e}")
+                    logger.warning(f"exec: не создал задачу для {t['dept']}: {e}")
             await session.commit()
     except Exception as e:
         logger.warning(f"exec: ошибка создания задач: {e}")
-        created = tasks  # хотя бы подтвердим приём
+        created = tasks
 
-    # Сохраняем план как исполненный — для статуса и чтобы «делайте» не дублировало.
     decision["executed"] = True
     decision["tasks"] = created
     decision.setdefault("fp", plan_fingerprint(plan))
     await save_decision(chat_id, decision)
 
-    # 2. Менеджер объявляет запуск плана
-    lines = ["🚀 <b>Запускаю план в работу:</b>", ""]
-    for t in created:
-        d = DEPARTMENTS[t["dept"]]
-        dl = t.get("deadline") or ""
-        suffix = f" — <i>{html.escape(dl)}</i>" if dl else ""
-        lines.append(f"{d['emoji']} <b>{d['name']}</b>: {html.escape(t['action'])}{suffix}")
-    await _safe_send(manager_bot, chat_id, "\n".join(lines))
+    # 2. Если есть действия НАРУЖУ — спрашиваем разрешение ОДНОЙ кнопкой.
+    outward = [t for t in created if is_outward(t.get("capability"))]
+    if outward and getattr(settings, "execution_require_confirm", True):
+        token = uuid.uuid4().hex[:8]
+        PENDING_EXEC[token] = {"chat_id": chat_id, "decision": decision, "tasks": created}
+        if len(PENDING_EXEC) > 20:
+            for old in list(PENDING_EXEC.keys())[:-20]:
+                PENDING_EXEC.pop(old, None)
 
-    # 3. Отделы коротко подтверждают приём под своими именами
-    dept_keys = list(dict.fromkeys(t["dept"] for t in created))
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="🚀 Выполнять", callback_data=f"exec:go:{token}"),
+            InlineKeyboardButton(text="❌ Отмена", callback_data=f"exec:no:{token}"),
+        ]])
+        body = (
+            f"🚀 <b>Готов выполнить план:</b>\n\n{_plan_preview(created)}\n\n"
+            f"⚠️ Пункты со значком уйдут <b>реальным клиентам</b> / в аккаунт. "
+            f"Подтвердите запуск."
+        )
+        try:
+            await manager_bot.send_message(chat_id, body, parse_mode="HTML", reply_markup=kb)
+        except Exception:
+            await manager_bot.send_message(chat_id, re.sub(r"</?[^>]+>", "", body), reply_markup=kb)
+        return
+
+    await _perform(manager_bot, chat_id, created)
+
+
+async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
+    """Выполняет возможности и отчитывается ФАКТАМИ, а не сочинением."""
+    from shared.capabilities import run_capability
+
+    await _safe_send(manager_bot, chat_id, "⚙️ <b>Выполняю…</b>")
+
+    dept_keys = list(dict.fromkeys(t["dept"] for t in tasks))
     dept_bots = {}
     for k in dept_keys:
         tok = getattr(settings, DEPARTMENTS[k]["token"], None)
@@ -949,21 +1013,54 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
                 dept_bots[k] = Bot(token=tok, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
             except Exception:
                 pass
+
+    done, failed, to_human = 0, 0, 0
     try:
-        for k in dept_keys:
-            action = next((t["action"] for t in created if t["dept"] == k), "")
-            ack = await _exec_ack(k, action)
+        for t in tasks:
+            k = t["dept"]
+            cap_key = t.get("capability") or "human_task"
+            params = dict(t.get("params") or {})
+            params.setdefault("action", t["action"])
+            params.setdefault("dept", k)
+
+            res = await run_capability(cap_key, params)
+
+            icon = "✅" if res.ok else "⚠️"
+            body = f"{DEPARTMENTS[k]['emoji']} {icon} {html.escape(res.summary)}"
+            for e in res.evidence:
+                body += f"\n      {html.escape(e)}"
+
             b = dept_bots.get(k)
-            body = f"{DEPARTMENTS[k]['emoji']} {html.escape(ack)}"
+            sent = False
             if b is not None:
                 try:
                     await b.send_message(chat_id, body, parse_mode="HTML")
-                    await asyncio.sleep(1.0)
-                    continue
-                except Exception as e:
-                    logger.info(f"exec: {k} не смог подтвердить сам ({e})")
-            await _safe_send(manager_bot, chat_id,
-                             f"{DEPARTMENTS[k]['emoji']} <b>{DEPARTMENTS[k]['name']}:</b> {html.escape(ack)}")
+                    sent = True
+                except Exception:
+                    pass
+            if not sent:
+                await _safe_send(manager_bot, chat_id,
+                                 f"{DEPARTMENTS[k]['emoji']} {icon} "
+                                 f"<b>{DEPARTMENTS[k]['name']}:</b> {html.escape(res.summary)}")
+
+            # Задачу закрываем ТОЛЬКО если действие реально отработало.
+            # human_task — это эскалация, работа ещё впереди: не закрываем.
+            tid = t.get("task_id")
+            if res.ok and cap_key != "human_task":
+                done += 1
+                if tid:
+                    try:
+                        async with get_session_ctx() as s:
+                            await s.execute(text("UPDATE tasks SET status='done' WHERE id=:id"),
+                                            {"id": tid})
+                            await s.commit()
+                    except Exception as e:
+                        logger.warning(f"exec: не закрыл задачу {tid}: {e}")
+            elif cap_key == "human_task":
+                to_human += 1
+            else:
+                failed += 1
+
             await asyncio.sleep(1.0)
     finally:
         for b in dept_bots.values():
@@ -972,8 +1069,42 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
             except Exception:
                 pass
 
+    parts = [f"✅ выполнено: {done}"]
+    if to_human:
+        parts.append(f"🙋 передано людям: {to_human}")
+    if failed:
+        parts.append(f"⚠️ не удалось: {failed}")
     await _safe_send(manager_bot, chat_id,
-                     "✅ <b>План в работе.</b> Отделы приступили. Напишите «статус» — покажу прогресс.")
+                     f"🤖 <b>Итог:</b> {' · '.join(parts)} (из {len(tasks)})\n"
+                     f"<i>Напишите «статус» — покажу, что осталось.</i>")
+
+
+@meeting_router.callback_query(F.data.startswith("exec:"))
+async def _on_exec_confirm(cb: CallbackQuery):
+    """Подтверждение действий, которые уйдут наружу (клиентам / в аккаунт)."""
+    if not _is_admin(cb.from_user.id):
+        await cb.answer("⛔ Только для руководителя")
+        return
+    _, verb, token = cb.data.split(":", 2)
+    ctx = PENDING_EXEC.pop(token, None)
+    try:
+        await cb.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    if not ctx:
+        await cb.answer("Этот план уже неактуален")
+        return
+
+    if verb == "no":
+        await cb.answer("Отменено")
+        # план отменён — снимаем «исполнен», чтобы не мешал следующему
+        await clear_decision(ctx["chat_id"])
+        await _safe_send(cb.bot, ctx["chat_id"], "❌ Выполнение отменено. Ничего не отправлено.")
+        return
+
+    await cb.answer("Запускаю…")
+    await _perform(cb.bot, ctx["chat_id"], ctx["tasks"])
 
 
 def plan_fingerprint(text: str) -> str:

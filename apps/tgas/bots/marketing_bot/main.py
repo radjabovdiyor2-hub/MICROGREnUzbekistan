@@ -592,6 +592,34 @@ async def collect_leads_nightly():
         logging.error(f"collect_leads_nightly error: {e}", exc_info=True)
 
 
+# ── Bot Bus: те же действия, но по требованию (из плана Степана) ──────────
+async def bus_b2b_outreach(params: dict) -> dict:
+    """Подготовить КП B2B-лидам. Письма уйдут только после одобрения владельцем."""
+    try:
+        await b2b_outreach()
+        limit = settings.b2b_daily_limit
+        return {"status": "ok",
+                "message": f"Подготовлены КП для B2B-лидов (до {limit} шт.) — "
+                           f"ждут вашего одобрения"}
+    except Exception as e:
+        logging.error(f"bus_b2b_outreach error: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+
+async def bus_collect_leads(params: dict) -> dict:
+    """Собрать новых B2B-лидов (рестораны) из внешних источников."""
+    try:
+        from shared.lead_gen import collect_and_import_all
+        limit = params.get("limit")
+        result = await collect_and_import_all(limit=int(limit) if limit else None)
+        return {"status": "ok",
+                "message": f"Собрано лидов: +{result['inserted']} новых, "
+                           f"{result['skipped']} дублей пропущено"}
+    except Exception as e:
+        logging.error(f"bus_collect_leads error: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+
 
 async def handle_roll_call(payload: dict):
     from shared.config import settings
@@ -709,6 +737,8 @@ async def main():
     from shared.bot_bus import start_listener as bus_listen
     asyncio.create_task(bus_listen("marketing_bot", {
         "send_broadcast": bus_send_broadcast,
+        "b2b_outreach": bus_b2b_outreach,
+        "collect_leads": bus_collect_leads,
     }))
 
     try:
