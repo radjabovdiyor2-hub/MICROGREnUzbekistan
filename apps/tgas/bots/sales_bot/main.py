@@ -252,6 +252,133 @@ async def bus_get_orders(params: dict) -> dict:
         return {"status": "error", "message": str(e)}
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# 🎯 ОТБОР РЕСТОРАНОВ ДЛЯ ЕЖЕДНЕВНОГО КП
+# ═══════════════════════════════════════════════════════════════════════════
+# Кого атаковать — решает отдел продаж (он владеет клиентами и историей заказов),
+# а КП с PDF готовит маркетинг. Разделение как в жизни: продажи выбирают цель,
+# маркетинг делает материал.
+#
+# Три сегмента (по приоритету):
+#   1. new_lead — новый ресторан, КП ещё ни разу не отправляли
+#   2. churn    — заказывал, но замолчал больше 30 дней → вернуть
+#   3. no_reply — КП отправляли, ответа нет → второй заход, другим предложением
+#
+# Защита от спама: повторное касание не раньше чем через 10 дней и не более
+# 3 раз на ресторан; недавно получившие КП в выборку не попадают.
+
+_SEG_SQL = {
+    "new_lead": """
+        SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address, 0
+        FROM customers c
+        WHERE c.customer_type = 'b2b' AND c.status = 'lead'
+          AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
+          AND NOT EXISTS (SELECT 1 FROM interactions i
+                          WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
+        ORDER BY c.review_score DESC NULLS LAST, c.created_at ASC
+        LIMIT :lim
+    """,
+    "churn": """
+        SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address,
+               (SELECT COUNT(*) FROM interactions i
+                WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
+        FROM customers c
+        WHERE c.customer_type = 'b2b'
+          AND COALESCE(c.orders_count, 0) > 0
+          AND (c.last_order_date IS NULL OR c.last_order_date < CURRENT_DATE - INTERVAL '30 days')
+          AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
+          AND NOT EXISTS (SELECT 1 FROM interactions i
+                          WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent'
+                            AND i.created_at > NOW() - INTERVAL '14 days')
+        ORDER BY c.total_spent DESC NULLS LAST
+        LIMIT :lim
+    """,
+    "no_reply": """
+        SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address,
+               (SELECT COUNT(*) FROM interactions i
+                WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
+        FROM customers c
+        WHERE c.customer_type = 'b2b'
+          AND COALESCE(c.orders_count, 0) = 0
+          AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
+          AND EXISTS (SELECT 1 FROM interactions i
+                      WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
+          AND NOT EXISTS (SELECT 1 FROM interactions i
+                          WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent'
+                            AND i.created_at > NOW() - INTERVAL '10 days')
+          AND (SELECT COUNT(*) FROM interactions i
+               WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent') < 3
+        ORDER BY (SELECT MAX(i.created_at) FROM interactions i
+                  WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent') ASC
+        LIMIT :lim
+    """,
+}
+
+SEGMENT_REASON = {
+    "new_lead": "новый ресторан — КП ещё не отправляли",
+    "churn": "заказывал раньше, но молчит больше 30 дней",
+    "no_reply": "КП отправляли, ответа не было",
+}
+
+
+async def bus_get_b2b_targets(params: dict) -> dict:
+    """
+    Отдел продаж отдаёт список ресторанов на сегодня — маркетинг сделает им КП.
+    params.limit — сколько всего нужно (по умолчанию B2B_DAILY_LIMIT).
+    """
+    from shared.database import get_session_ctx
+    from sqlalchemy import text
+
+    try:
+        limit = int(params.get("limit") or getattr(settings, "b2b_daily_limit", 15))
+    except (TypeError, ValueError):
+        limit = 15
+
+    targets, seen = [], set()
+    try:
+        async with get_session_ctx() as session:
+            # Приоритет: сначала новые, потом вернуть отвалившихся, потом дожать молчунов
+            for segment in ("new_lead", "churn", "no_reply"):
+                if len(targets) >= limit:
+                    break
+                res = await session.execute(
+                    text(_SEG_SQL[segment]), {"lim": limit - len(targets)}
+                )
+                for row in res.fetchall():
+                    cid = row[0]
+                    if cid in seen:
+                        continue
+                    seen.add(cid)
+                    targets.append({
+                        "id": cid,
+                        "name": row[1],
+                        "company_name": row[2],
+                        "email": row[3],
+                        "phone": row[4],
+                        "review_summary": row[5],
+                        "address": row[6],
+                        "touches": int(row[7] or 0),
+                        "segment": segment,
+                        "reason": SEGMENT_REASON[segment],
+                    })
+                    if len(targets) >= limit:
+                        break
+    except Exception as e:
+        logger.error(f"bus_get_b2b_targets error: {e}", exc_info=True)
+        return {"status": "error", "message": str(e), "data": {"targets": []}}
+
+    by_seg = {}
+    for t in targets:
+        by_seg[t["segment"]] = by_seg.get(t["segment"], 0) + 1
+    breakdown = ", ".join(f"{SEGMENT_REASON[s]}: {n}" for s, n in by_seg.items()) or "нет"
+
+    return {
+        "status": "ok",
+        "message": f"Отобрано ресторанов: {len(targets)} ({breakdown})",
+        "data": {"targets": targets},
+    }
+
+
 async def bus_get_clients(params: dict) -> dict:
     """Количество и список клиентов."""
     try:
@@ -533,6 +660,7 @@ async def main():
         "get_orders": bus_get_orders,
         "get_clients": bus_get_clients,
         "process_ig_order": bus_process_ig_order,
+        "get_b2b_targets": bus_get_b2b_targets,  # кому сегодня готовить КП
     }))
 
     logger.info("Starting Sales Bot...")

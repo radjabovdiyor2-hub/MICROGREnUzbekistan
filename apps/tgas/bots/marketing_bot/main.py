@@ -334,14 +334,83 @@ async def handle_ig_message(payload: dict):
     except Exception as e:
         logging.error(f"Error generating/sending AI reply: {e}", exc_info=True)
 
+# Как писать КП в зависимости от того, ПОЧЕМУ отдел продаж выбрал этот ресторан
+_SEGMENT_BRIEF = {
+    "new_lead": (
+        "Это ПЕРВОЕ обращение — ресторан нас ещё не знает. Коротко представь компанию, "
+        "покажи пользу микрозелени для подачи и вкуса, предложи бесплатный пробный образец."
+    ),
+    "churn": (
+        "Это ВОЗВРАТ клиента: он уже заказывал у нас, но перестал (больше 30 дней тишины). "
+        "Не представляйся заново — тепло напомни о себе, поблагодари за прошлые заказы, "
+        "спроси, что изменилось, и предложи выгодные условия для возобновления."
+    ),
+    "no_reply": (
+        "Это ПОВТОРНОЕ касание: КП уже отправляли, ответа не было. НЕ повторяй прошлое письмо. "
+        "Зайди с другой стороны — короче, конкретнее, с новым аргументом (сезонность, "
+        "экономия на списаниях, свежесть за счёт локальной доставки) и лёгким призывом."
+    ),
+}
+
+_SEGMENT_LABEL = {
+    "new_lead": "🆕 Новый лид",
+    "churn": "💤 Перестал заказывать",
+    "no_reply": "🔁 Без ответа",
+}
+
+
+async def _fetch_b2b_targets(limit: int) -> list:
+    """
+    Спрашиваем у отдела «Заказы» (sales), кому сегодня готовить КП.
+    Кого атаковать — решают продажи (они владеют клиентами и историей заказов),
+    маркетинг только делает материал.
+    Если продажи недоступны — работаем по своему запросу, чтобы день не пропал.
+    """
+    from shared.bot_bus import send_task, get_result
+
+    try:
+        tid = await send_task("marketing_bot", "sales_bot", "get_b2b_targets", {"limit": limit})
+        res = await get_result(tid, timeout=60)
+        if res and res.get("status") == "done":
+            result = res.get("result") or {}
+            targets = (result.get("data") or {}).get("targets") or []
+            if targets:
+                logging.info("b2b_outreach: отдел продаж отобрал %d ресторанов", len(targets))
+                return targets
+            logging.info("b2b_outreach: отдел продаж не нашёл ресторанов на сегодня")
+            return []
+    except Exception as e:
+        logging.warning(f"b2b_outreach: отдел продаж не ответил ({e}) — беру лидов сам")
+
+    # Запасной вариант: свежие лиды, которым ещё не писали
+    from shared.database import get_session_ctx
+    from sqlalchemy import text
+    async with get_session_ctx() as session:
+        res = await session.execute(text(
+            "SELECT id, name, company_name, email, phone, review_summary, address "
+            "FROM customers "
+            "WHERE customer_type = 'b2b' AND status = 'lead' "
+            "AND NOT EXISTS (SELECT 1 FROM interactions i "
+            "                WHERE i.customer_id = customers.id AND i.interaction_type = 'b2b_offer_sent') "
+            "ORDER BY review_score DESC NULLS LAST, created_at ASC "
+            "LIMIT :lim"
+        ), {"lim": limit})
+        return [
+            {"id": r[0], "name": r[1], "company_name": r[2], "email": r[3], "phone": r[4],
+             "review_summary": r[5], "address": r[6], "segment": "new_lead",
+             "reason": "новый ресторан", "touches": 0}
+            for r in res.fetchall()
+        ]
+
+
 async def b2b_outreach():
-    """Ежедневная B2B-рассылка: готовит КП для N ресторанов, но НЕ отправляет.
-    
-    Вместо автоматической отправки:
-    1. Генерирует КП (текст + PDF).
-    2. Отправляет его АДМИНИСТРАТОРУ в Telegram вместе с контактами ресторана.
-    3. Ждёт нажатия кнопки "✅ Одобрить" или "❌ Отклонить".
-    4. Только после одобрения фактически отправляет КП ресторану.
+    """Ежедневная B2B-рассылка: готовит КП для ресторанов, но НЕ отправляет.
+
+    1. Отдел «Заказы» (sales) отбирает рестораны на сегодня: новые лиды,
+       отвалившиеся клиенты, те, кто не ответил на прошлое КП.
+    2. Маркетинг генерирует КП (текст + PDF) — под каждый сегмент свой заход.
+    3. Отправляет карточку ВЛАДЕЛЬЦУ в Telegram с кнопками ✅ / ❌.
+    4. Только после одобрения КП уходит ресторану.
     """
     try:
         from shared.database import get_session_ctx
@@ -361,55 +430,62 @@ async def b2b_outreach():
             logging.warning("b2b_outreach: admin_telegram_ids не задан, некому отправлять на одобрение.")
             return
 
+        leads = await _fetch_b2b_targets(limit)
+        if not leads:
+            logging.info("b2b_outreach: ресторанов на сегодня нет.")
+            return
+
+        ai = AIEngine()
         async with get_session_ctx() as session:
-            # Свежие B2B-лиды, которым ещё не отправляли КП. Лучшие по рейтингу — первыми.
-            res = await session.execute(text(
-                "SELECT id, name, company_name, email, phone, review_summary, address "
-                "FROM customers "
-                "WHERE customer_type = 'b2b' AND status = 'lead' "
-                "AND NOT EXISTS (SELECT 1 FROM interactions i "
-                "                WHERE i.customer_id = customers.id AND i.interaction_type = 'b2b_offer_sent') "
-                "ORDER BY review_score DESC NULLS LAST, created_at ASC "
-                "LIMIT :lim"
-            ), {"lim": limit})
-            leads = res.fetchall()
-
-            if not leads:
-                logging.info("b2b_outreach: свежих B2B-лидов нет.")
-                return
-
-            ai = AIEngine()
             res_prices = await session.execute(text("SELECT name_ru, price FROM products WHERE is_active = true LIMIT 5"))
             products = [{"name": r[0], "price": f"{r[1]} сум"} for r in res_prices.fetchall()]
 
+        # Сводка по сегментам — чтобы владелец видел, кого и почему сегодня берём
+        by_seg = {}
+        for t in leads:
+            by_seg[t.get("segment", "new_lead")] = by_seg.get(t.get("segment", "new_lead"), 0) + 1
+        breakdown = "\n".join(
+            f"   {_SEGMENT_LABEL.get(s, s)}: {n}" for s, n in by_seg.items()
+        )
+
         bot = Bot(token=settings.marketing_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
         try:
-            # Сообщаем админу, сколько лидов на одобрение
             await bot.send_message(admin_id,
-                f"📣 <b>B2B-рассылка: {len(leads)} ресторан(ов) на одобрение</b>\n\n"
-                f"Ниже — карточки с КП для каждого ресторана.\n"
-                f"Нажмите ✅ для отправки или ❌ для пропуска.")
+                f"📣 <b>КП на сегодня: {len(leads)} ресторан(ов)</b>\n"
+                f"<i>Список отобрал отдел «Заказы»:</i>\n{breakdown}\n\n"
+                f"Ниже — карточки с КП. Нажмите ✅ для отправки или ❌ для пропуска.")
 
-            for cid, name, company, email, phone, review_summary, address in leads:
-                chef_name = name or "Шеф-повар"
-                comp_name = company or "Ресторан"
+            for lead in leads:
+                cid = lead["id"]
+                email = lead.get("email")
+                phone = lead.get("phone")
+                address = lead.get("address")
+                review_summary = lead.get("review_summary")
+                segment = lead.get("segment", "new_lead")
+                touches = lead.get("touches", 0)
+
+                chef_name = lead.get("name") or "Шеф-повар"
+                comp_name = lead.get("company_name") or "Ресторан"
                 review_hint = f"\nИзвестное о заведении: {review_summary}." if review_summary else ""
 
-                # Генерация КП
+                # Генерация КП — заход зависит от того, ПОЧЕМУ продажи выбрали ресторан
+                brief = _SEGMENT_BRIEF.get(segment, _SEGMENT_BRIEF["new_lead"])
                 prompt = (
-                    f"Напиши профессиональный и продающий текст Коммерческого предложения "
-                    f"от Microgreen Uzbekistan. Адресат: {chef_name}, ресторан: {comp_name}. "
-                    f"Расскажи о пользе микрозелени для подачи и вкуса блюд.{review_hint} "
-                    f"2-3 абзаца, тёплый деловой тон."
+                    f"Напиши текст Коммерческого предложения от Microgreen Uzbekistan.\n"
+                    f"Адресат: {chef_name}, ресторан: {comp_name}.{review_hint}\n\n"
+                    f"КОНТЕКСТ: {brief}\n\n"
+                    f"2-3 абзаца, тёплый деловой тон, без markdown."
                 )
                 ai_text = await ai.chat_completion(
                     system_prompt="Ты эксперт по B2B продажам HoReCa.",
                     user_message=prompt
                 )
 
-                # Карточка ресторана для админа
+                # Карточка ресторана для владельца
+                touch_note = f" · касание №{touches + 1}" if touches else ""
                 card = (
                     f"🏪 <b>{comp_name}</b>\n"
+                    f"{_SEGMENT_LABEL.get(segment, '')} — {lead.get('reason', '')}{touch_note}\n\n"
                     f"👤 Контакт: {chef_name}\n"
                     f"📧 Email: {email or '—'}\n"
                     f"📞 Телефон: {phone or '—'}\n"
