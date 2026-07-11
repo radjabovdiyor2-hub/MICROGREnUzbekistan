@@ -402,7 +402,10 @@ export default function RootLayout({
                   <PwaRegister />
                   <ReferralCapture />
                   <TelegramInit />
-                  <Analytics />
+                  <Analytics
+                    ymId={process.env.NEXT_PUBLIC_YM_ID || process.env.YM_ID}
+                    gaId={process.env.NEXT_PUBLIC_GA_ID || process.env.GA_ID}
+                  />
                 </AuthProvider>
               </FavoritesProvider>
             </CartProvider>

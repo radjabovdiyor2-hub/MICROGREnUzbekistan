@@ -204,6 +204,22 @@ model OrderItem {
   @@map("order_items")
 }
 
+model PromoCode {
+  id           String    @id @default(cuid())
+  code         String    @unique
+  // percent (value = 1..100) | fixed (value = сумма в сумах)
+  discountType String    @default("percent") @map("discount_type")
+  value        Int
+  minSubtotal  Int       @default(0) @map("min_subtotal")
+  maxUses      Int?      @map("max_uses")
+  usedCount    Int       @default(0) @map("used_count")
+  isActive     Boolean   @default(true) @map("is_active")
+  expiresAt    DateTime? @map("expires_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  @@map("promo_codes")
+}
+
 model Review {
   id        String  @id @default(cuid())
   userId    String  @map("user_id")

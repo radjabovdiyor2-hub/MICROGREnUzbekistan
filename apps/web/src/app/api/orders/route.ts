@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { deliveryFeeFor } from '@/lib/site';
 import { syncOrderStatus } from '@/lib/orderSync';
+import { validatePromo, consumePromo } from '@/lib/promo';
 import { z } from 'zod';
 
 // ==========================================
@@ -166,6 +167,7 @@ const orderSchema = z.object({
   paymentMethod: z.string().optional(),
   userId: z.string().optional().nullable(),
   bonusToUse: z.union([z.number(), z.string()]).optional(),
+  promoCode: z.string().optional().nullable(),
   name: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
@@ -247,6 +249,18 @@ export async function POST(request: NextRequest) {
       ? Math.max(0, Math.min(Math.floor(Number(bonusToUse) || 0), user.bonusPoints, subtotal))
       : 0;
 
+    // Promo code — authoritative re-validation on submit (client preview via
+    // /api/promo is advisory only). Capped by the goods subtotal minus bonus.
+    let promoApplied = 0;
+    const promoCode = body.promoCode ? String(body.promoCode).trim().toUpperCase() : null;
+    if (promoCode) {
+      const promoResult = await validatePromo(promoCode, subtotal);
+      if (!promoResult.valid) {
+        return NextResponse.json({ error: promoResult.error }, { status: 422 });
+      }
+      promoApplied = Math.min(promoResult.discount, subtotal - bonusApplied);
+    }
+
     // Create order with items in a transaction
     const order = await prisma.order.create({
       data: {
@@ -255,8 +269,8 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
         subtotal,
         deliveryFee,
-        total: subtotal + deliveryFee - bonusApplied,
-        discount: bonusApplied,
+        total: subtotal + deliveryFee - bonusApplied - promoApplied,
+        discount: bonusApplied + promoApplied,
         address: customer.address,
         phone: customer.phone,
         note: customer.note || null,
@@ -284,6 +298,11 @@ export async function POST(request: NextRequest) {
       try {
         await prisma.user.update({ where: { id: user.id }, data: { bonusPoints: { decrement: bonusApplied } } });
       } catch (e) { console.error('Bonus deduction error:', e); }
+    }
+
+    // Count the promo use
+    if (promoCode && promoApplied > 0) {
+      await consumePromo(promoCode);
     }
 
     // Auto-deduct stock + create StockMovements

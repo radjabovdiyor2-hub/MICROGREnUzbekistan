@@ -68,7 +68,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   try {
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      include: {
+        category: true,
+        // Latest reviews with text — rendered as schema.org Review for rich snippets
+        reviews: {
+          where: { comment: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+          include: { user: { select: { firstName: true } } },
+        },
+      },
     });
 
     if (product) {
@@ -106,6 +115,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             bestRating: 5,
             worstRating: 1,
           },
+        } : {}),
+        ...(product.reviews.length > 0 ? {
+          review: product.reviews.map((r) => ({
+            '@type': 'Review',
+            reviewRating: { '@type': 'Rating', ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+            author: { '@type': 'Person', name: r.user?.firstName || 'Покупатель' },
+            reviewBody: r.comment,
+            datePublished: r.createdAt.toISOString().slice(0, 10),
+          })),
         } : {}),
       };
     }

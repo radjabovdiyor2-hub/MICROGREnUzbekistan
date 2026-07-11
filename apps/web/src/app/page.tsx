@@ -12,6 +12,7 @@ const StoriesBar = dynamic(() => import('@/components/home/StoriesBar').then(m =
 const InstagramFeed = dynamic(() => import('@/components/home/InstagramFeed').then(m => ({ default: m.InstagramFeed })));
 const StoreLocation = dynamic(() => import('@/components/home/StoreLocation').then(m => ({ default: m.StoreLocation })));
 const GrowFieldCTA = dynamic(() => import('@/components/home/GrowFieldCTA').then(m => ({ default: m.GrowFieldCTA })));
+const RecentlyViewed = dynamic(() => import('@/components/home/RecentlyViewed').then(m => ({ default: m.RecentlyViewed })));
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })));
 
 export default function HomePage() {
@@ -32,6 +33,9 @@ export default function HomePage() {
       <ScrollReveal>
         <FeaturedProducts />
       </ScrollReveal>
+
+      {/* Вы недавно смотрели — возврат к отложенной покупке (пусто при первом визите) */}
+      <RecentlyViewed />
 
       <SproutDivider />
 

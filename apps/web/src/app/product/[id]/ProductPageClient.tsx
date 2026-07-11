@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
+import { trackViewed } from '@/lib/recentlyViewed';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { CONTACT, DELIVERY } from '@/lib/site';
@@ -163,6 +164,14 @@ export function ProductPageClient({ id }: { id: string }) {
         if (res.ok) {
           const data = await res.json();
           setProduct(data);
+          if (data?.id) {
+            trackViewed({
+              id: data.id, nameUz: data.nameUz, nameRu: data.nameRu, slug: data.slug,
+              price: data.price, oldPrice: data.oldPrice, images: data.images || [],
+              rating: data.rating || 0, reviewCount: data.reviewCount || 0,
+              isOnSale: data.isOnSale, category: data.category,
+            });
+          }
         }
       } catch (err) {
         console.error('Product fetch error:', err);
@@ -510,45 +519,6 @@ export function ProductPageClient({ id }: { id: string }) {
               </div>
             )}
 
-            {/* Submit form */}
-            <div className="card" style={{ padding: 'var(--space-6)' }}>
-              <h3 style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.MessageSquare size={20} style={{ color: 'var(--brand-primary)' }} />
-                {t("Sharh qoldiring", "Оставить отзыв")}
-              </h3>
-              {submitState === 'done' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: 'var(--space-4)', background: 'var(--success-bg)', borderRadius: 'var(--radius-md)', color: 'var(--success)', fontWeight: 'var(--font-medium)' }}>
-                  <Icons.CheckCircle size={20} /> {t("Sharh muvaffaqiyatli qo'shildi!", "Отзыв успешно добавлен!")}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)', color: 'var(--text-primary)' }}>{t("Ismingiz *", "Ваше имя *")}</label>
-                    <input type="text" value={ratingForm.name} onChange={(e) => setRatingForm((p) => ({ ...p, name: e.target.value }))} placeholder={t("Ismingizni kiriting", "Введите ваше имя")} id="review-name"
-                      style={{ width: '100%', padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', outline: 'none' }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-2)', color: 'var(--text-primary)' }}>{t("Baho *", "Оценка *")}</label>
-                    <StarRow value={ratingForm.stars} onChange={(v) => setRatingForm((p) => ({ ...p, stars: v }))} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)', color: 'var(--text-primary)' }}>{t("Izoh (ixtiyoriy)", "Комментарий (необязательно)")}</label>
-                    <textarea value={ratingForm.comment} onChange={(e) => setRatingForm((p) => ({ ...p, comment: e.target.value }))} placeholder={t("Mahsulot haqida fikringizni yozing...", "Напишите ваш отзыв о товаре...")} rows={3} id="review-comment"
-                      style={{ width: '100%', padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', outline: 'none', resize: 'vertical', fontFamily: 'var(--font-body)' }} />
-                  </div>
-                  {submitError && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: 'var(--space-3)', background: 'var(--error-bg)', borderRadius: 'var(--radius-md)', color: 'var(--error)', fontSize: 'var(--text-sm)' }}>
-                      <Icons.AlertTriangle size={16} /> {submitError}
-                    </div>
-                  )}
-                  <button className="btn btn-primary" onClick={handleSubmitReview} disabled={submitState === 'submitting'} id="submit-review-btn"
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', opacity: submitState === 'submitting' ? 0.6 : 1 }}>
-                    {submitState === 'submitting' ? <><Icons.Clock size={16} /> {t("Yuborilmoqda...", "Отправка...")}</> : <><Icons.Send size={16} /> {t("Sharh yuborish", "Отправить отзыв")}</>}
-                  </button>
-                </div>
-              )}
-            </div>
-
             {/* Reviews list — shown FIRST so user can read before writing */}
             {reviewsLoading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -647,7 +617,7 @@ export function ProductPageClient({ id }: { id: string }) {
         <div className="container" style={{ position: 'relative', zIndex: 1, marginTop: 'var(--space-10)', paddingBottom: 'var(--space-8)' }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Icons.ShoppingCart size={22} style={{ color: 'var(--brand-primary)' }} />
-            {t("Bu bilan birga olishadi", "S etim chasto berut")}
+            {t("Bu bilan birga olishadi", "С этим часто берут")}
           </h2>
           <div className="product-grid">
             {relatedLoading

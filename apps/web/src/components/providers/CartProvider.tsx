@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { triggerHaptic } from '@/utils/haptic';
 import { DELIVERY } from '@/lib/site';
+import { trackAddToCart } from '@/lib/analytics';
 
 // ==========================================
 // Cart Store — localStorage-backed
@@ -68,6 +69,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addItem = useCallback((product: CartProduct, quantity = 1) => {
     triggerHaptic('success');
+    trackAddToCart({ id: product.id, name: product.nameRu || product.nameUz, price: product.price, quantity });
     setItems(prev => {
       const existing = prev.find(i => i.product.id === product.id);
       if (existing) {

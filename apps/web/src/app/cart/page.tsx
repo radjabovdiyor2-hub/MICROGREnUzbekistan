@@ -10,6 +10,7 @@ import { useAuth } from '@/components/providers/AuthProvider';
 import dynamic from 'next/dynamic';
 import { DELIVERY, freeDeliveryRemaining } from '@/lib/site';
 import { type CartProduct } from '@/components/providers/CartProvider';
+import { trackBeginCheckout, trackPurchase } from '@/lib/analytics';
 
 const SmartSubscriptionWidget = dynamic(() => import('@/components/shop/SmartSubscriptionWidget').then(m => m.SmartSubscriptionWidget), { ssr: false });
 
@@ -73,10 +74,44 @@ export default function CartPage() {
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
+  // Promo code
+  const [promoInput, setPromoInput] = useState('');
+  const [promo, setPromo] = useState<{ code: string; discount: number } | null>(null);
+  const [promoState, setPromoState] = useState<'idle' | 'checking' | 'error'>('idle');
+  const [promoError, setPromoError] = useState('');
+
+  const applyPromo = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoState('checking');
+    setPromoError('');
+    try {
+      const res = await fetch('/api/promo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, subtotal: cart.subtotal }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setPromo({ code, discount: data.discount });
+        setPromoState('idle');
+      } else {
+        setPromo(null);
+        setPromoState('error');
+        setPromoError(data.error || t("Promokod noto'g'ri", 'Промокод недействителен'));
+      }
+    } catch {
+      setPromoState('error');
+      setPromoError(t('Ulanishda xatolik', 'Ошибка соединения'));
+    }
+  };
+
   // Bonus points (only for logged-in accounts). Capped by the goods subtotal.
   const bonusBalance = dbUser?.bonusPoints || 0;
   const bonusApplied = useBonus ? Math.min(bonusBalance, cart.subtotal) : 0;
-  const grandTotal = cart.total - bonusApplied;
+  // Promo is capped by what's left of the goods subtotal after bonus.
+  const promoApplied = promo ? Math.min(promo.discount, cart.subtotal - bonusApplied) : 0;
+  const grandTotal = cart.total - bonusApplied - promoApplied;
 
   const validateForm = (): boolean => {
     setApiError('');
@@ -111,11 +146,17 @@ export default function CartPage() {
           paymentMethod: form.paymentMethod,
           userId: dbUser?.id,
           bonusToUse: bonusApplied,
+          promoCode: promo?.code,
         }),
       });
 
       const data = await res.json();
       if (data.success) {
+        trackPurchase(
+          data.order.orderNumber,
+          data.order.total ?? grandTotal,
+          cart.items.map(i => ({ id: i.product.id, name: i.product.nameRu || i.product.nameUz, price: i.product.price, quantity: i.quantity })),
+        );
         setOrderNumber(data.order.orderNumber);
         cart.clearCart();
         setStep('success');
@@ -240,7 +281,10 @@ export default function CartPage() {
                 </div>
               </div>
               <button className="btn btn-primary btn-lg btn-block" style={{ marginTop: 'var(--space-6)', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}
-                onClick={() => setStep('checkout')} id="go-checkout-btn">
+                onClick={() => {
+                  trackBeginCheckout(cart.total, cart.items.map(i => ({ id: i.product.id, name: i.product.nameRu || i.product.nameUz, price: i.product.price, quantity: i.quantity })));
+                  setStep('checkout');
+                }} id="go-checkout-btn">
                 {t("Buyurtma berish", "Оформить заказ")} <Icons.ArrowRight size={18} />
               </button>
               <div style={{ textAlign: 'center', marginTop: 'var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -406,6 +450,41 @@ export default function CartPage() {
                 {cart.deliveryFee === 0 ? <><Icons.PartyPopper size={14} /> {t("Bepul!", "Бесплатно!")}</> : `${fmt(cart.deliveryFee)} ${t("so'm", "сум")}`}
               </span>
             </div>
+            {/* Promo code */}
+            <div style={{ marginBottom: 'var(--space-3)' }}>
+              {promo ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 'var(--text-sm)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--success)', fontWeight: 'var(--font-semibold)' }}>
+                    <Icons.CheckCircle size={16} /> {promo.code} · −{fmt(promoApplied)} {t("so'm", 'сум')}
+                  </span>
+                  <button onClick={() => { setPromo(null); setPromoInput(''); }} className="btn btn-ghost btn-sm" style={{ color: 'var(--error)', padding: '4px 8px' }} aria-label={t("O'chirish", 'Убрать')}>
+                    <Icons.XCircle size={16} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                      type="text" value={promoInput}
+                      onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoState('idle'); }}
+                      onKeyDown={e => { if (e.key === 'Enter') applyPromo(); }}
+                      placeholder={t('Promokod', 'Промокод')}
+                      id="promo-input"
+                      style={{ flex: 1, minWidth: 0, padding: 'var(--space-2) var(--space-3)', border: `1px solid ${promoState === 'error' ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', outline: 'none', textTransform: 'uppercase' }}
+                    />
+                    <button onClick={applyPromo} disabled={promoState === 'checking' || !promoInput.trim()} className="btn btn-outline btn-sm" id="promo-apply-btn"
+                      style={{ opacity: promoState === 'checking' || !promoInput.trim() ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+                      {promoState === 'checking' ? t('...', '...') : t("Qo'llash", 'Применить')}
+                    </button>
+                  </div>
+                  {promoState === 'error' && promoError && (
+                    <div style={{ marginTop: 6, fontSize: 'var(--text-xs)', color: 'var(--error)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Icons.AlertTriangle size={12} /> {promoError}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
             {bonusBalance > 0 && (
               <label htmlFor="use-bonus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'var(--font-medium)' }}>
@@ -419,6 +498,12 @@ export default function CartPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--success)' }}>
                 <span>{t("Bonus chegirma", "Скидка бонусами")}</span>
                 <span>−{fmt(bonusApplied)} {t("so'm", "сум")}</span>
+              </div>
+            )}
+            {promoApplied > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--success)' }}>
+                <span>{t("Promokod", "Промокод")} {promo?.code}</span>
+                <span>−{fmt(promoApplied)} {t("so'm", "сум")}</span>
               </div>
             )}
             <div style={{ borderTop: '2px solid var(--brand-primary)', paddingTop: 'var(--space-3)', display: 'flex', justifyContent: 'space-between' }}>
