@@ -1162,8 +1162,10 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             conversation_history=history
         )
     except Exception as e:
-        logger.error(f"AI error: {e}")
-        await message.answer("😔 Извините, не смог обработать. Попробуйте ещё раз.")
+        # Раньше здесь было глухое «не смог обработать» — по нему невозможно понять,
+        # кончилась ли квота OpenAI, протух ли ключ или отвалилась сеть. Называем причину.
+        logger.error(f"AI error: {type(e).__name__}: {e}", exc_info=True)
+        await message.answer(f"😔 Не смог обработать: {_ai_error_reason(e)}", parse_mode="HTML")
         await set_reaction(message, "🤷‍♂️")
         return
 
@@ -1407,6 +1409,25 @@ async def _get_db_context() -> str:
     except Exception as e:
         logger.warning(f"DB context error: {e}")
         return "Данные из БД временно недоступны."
+
+
+def _ai_error_reason(exc: Exception) -> str:
+    """Человеческая причина отказа модели — чтобы не гадать по логам."""
+    name = type(exc).__name__
+    text_l = str(exc).lower()
+
+    if "insufficient_quota" in text_l or "exceeded your current quota" in text_l:
+        return ("на счёте OpenAI закончились деньги (insufficient_quota). "
+                "Пополните баланс — до этого я думать не могу.")
+    if name == "RateLimitError" or "rate limit" in text_l or "429" in text_l:
+        return "OpenAI ограничил частоту запросов (rate limit). Попробуйте через минуту."
+    if name == "AuthenticationError" or "invalid_api_key" in text_l or "401" in text_l:
+        return "ключ OpenAI недействителен — проверьте OPENAI_API_KEY на сервере."
+    if "timeout" in text_l or name in ("APITimeoutError", "APIConnectionError"):
+        return "OpenAI не ответил вовремя (сеть/таймаут). Повторите."
+    if name == "BadRequestError" or "400" in text_l:
+        return f"OpenAI отклонил запрос: {str(exc)[:200]}"
+    return f"{name}: {str(exc)[:200]}"
 
 
 async def _register_sale(message: Message, args: dict, user_text: str) -> str:
