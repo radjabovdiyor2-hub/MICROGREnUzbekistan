@@ -19,7 +19,7 @@ from typing import Any, Dict, Optional
 import redis.asyncio as redis
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardButton, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from shared.config import settings
@@ -63,9 +63,32 @@ async def drop_pending(token: str) -> None:
         await client.aclose()
 
 
+def _short(name: str) -> str:
+    """«Микрозелень рукколы» → «Рукколы»: в кнопке важна суть, а не общий префикс."""
+    for prefix in ("Микрозелень ", "Бейби ", "Салат "):
+        if name.startswith(prefix):
+            rest = name[len(prefix):]
+            return rest[:1].upper() + rest[1:]
+    return name
+
+
+def _price_short(price: float) -> str:
+    """15 000 сум → «15к» — чтобы название и цена влезли в одну кнопку."""
+    if price >= 1000:
+        return f"{price / 1000:g}к"
+    return f"{price:g}"
+
+
+def _product_button(builder: InlineKeyboardBuilder, token: str, index: int, product: Dict[str, Any]):
+    builder.button(
+        text=f"{_short(product['name'])} · {_price_short(product['price'])}",
+        callback_data=f"sale:pick:{token}:{index}:{product['id']}",
+    )
+
+
 def build_clarify_keyboard(token: str, data: Dict[str, Any]):
     """
-    Кнопки на ПЕРВЫЙ незакрытый вопрос: варианты товара либо «добавить в каталог».
+    Кнопки на ПЕРВЫЙ незакрытый вопрос: подходящие товары + вход во весь магазин.
     Остальные вопросы зададим следующим шагом — по одному, чтобы не путать.
     """
     builder = InlineKeyboardBuilder()
@@ -75,28 +98,76 @@ def build_clarify_keyboard(token: str, data: Dict[str, Any]):
 
     if ambiguous:
         first = ambiguous[0]
-        for candidate in first["candidates"][:10]:
-            builder.button(
-                text=f"{candidate['name']} — {format_price(candidate['price'])}",
-                callback_data=f"sale:pick:{token}:{first['index']}:{candidate['id']}",
-            )
-    elif missing:
+        for candidate in first["candidates"][:8]:
+            _product_button(builder, token, first["index"], candidate)
+        builder.adjust(2)  # две колонки — список не растягивается на экран
+        builder.row(
+            InlineKeyboardButton(text="📂 Весь каталог",
+                                 callback_data=f"sale:cats:{token}:{first['index']}"),
+            InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}"),
+        )
+        return builder.as_markup()
+
+    if missing:
         first = missing[0]
         if not first.get("name"):
-            return None  # нечего предлагать — товар вообще не назван
+            return None  # товар вообще не назван — ждём текст
         if first.get("unit_price"):
             builder.button(
-                text=f"➕ Добавить «{first['name']}» — {format_price(first['unit_price'])}",
+                text=f"➕ Завести «{first['name']}» — {format_price(first['unit_price'])}",
                 callback_data=f"sale:add:{token}:{first['index']}",
             )
-        else:
-            return None  # без цены добавлять нечего — руководитель назовёт её текстом
-    else:
-        return None
+        builder.button(text="📂 Выбрать из каталога",
+                       callback_data=f"sale:cats:{token}:{first['index']}")
+        builder.button(text="✖️ Отмена", callback_data=f"sale:cancel:{token}")
+        builder.adjust(1)
+        return builder.as_markup()
 
-    builder.button(text="✖️ Отменить продажу", callback_data=f"sale:cancel:{token}")
-    builder.adjust(1)
+    return None
+
+
+async def build_categories_keyboard(token: str, index: int):
+    """Экран «Весь каталог»: категории с количеством товаров."""
+    from shared.catalog_ops import list_categories
+
+    builder = InlineKeyboardBuilder()
+    for cat in await list_categories():
+        builder.button(
+            text=f"{cat['title']} ({cat['count']})",
+            callback_data=f"sale:cat:{token}:{index}:{cat['slug']}:0",
+        )
+    builder.adjust(2)
+    builder.row(InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}"))
     return builder.as_markup()
+
+
+async def build_products_keyboard(token: str, index: int, category: str, page: int):
+    """Экран категории: товары постранично + листалка."""
+    from shared.catalog_ops import list_products
+
+    data = await list_products(category, page)
+    builder = InlineKeyboardBuilder()
+    for product in data["items"]:
+        _product_button(builder, token, index, product)
+    builder.adjust(2)
+
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton(
+            text="◀️", callback_data=f"sale:cat:{token}:{index}:{category}:{page - 1}"))
+    nav.append(InlineKeyboardButton(
+        text=f"{page + 1}/{data['pages']}", callback_data="sale:noop"))
+    if page + 1 < data["pages"]:
+        nav.append(InlineKeyboardButton(
+            text="▶️", callback_data=f"sale:cat:{token}:{index}:{category}:{page + 1}"))
+    if len(nav) > 1:
+        builder.row(*nav)
+
+    builder.row(
+        InlineKeyboardButton(text="📂 Категории", callback_data=f"sale:cats:{token}:{index}"),
+        InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}"),
+    )
+    return builder.as_markup(), data
 
 
 async def run_sale(pending: Dict[str, Any]) -> Dict[str, Any]:
@@ -228,6 +299,53 @@ async def on_add_product(callback: CallbackQuery, state: FSMContext):
     except Exception as e:
         logger.error(f"sale:add — {e}", exc_info=True)
         await callback.answer("Не смог открыть карточку товара.", show_alert=True)
+
+
+@sale_ui_router.callback_query(F.data.startswith("sale:cats:"))
+async def on_categories(callback: CallbackQuery):
+    """«Весь каталог» — показываем категории прямо в том же сообщении."""
+    try:
+        _, _, token, index = callback.data.split(":")
+        if not await load_pending(token):
+            await callback.answer("Этот вопрос уже неактуален (прошёл час).", show_alert=True)
+            return
+        await callback.message.edit_text(
+            "📂 <b>Каталог</b> — выберите категорию:",
+            parse_mode="HTML",
+            reply_markup=await build_categories_keyboard(token, int(index)),
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"sale:cats — {e}", exc_info=True)
+        await callback.answer("Не смог открыть каталог.", show_alert=True)
+
+
+@sale_ui_router.callback_query(F.data.startswith("sale:cat:"))
+async def on_category_page(callback: CallbackQuery):
+    """Товары категории с листалкой — правим то же сообщение, чат не засоряем."""
+    try:
+        _, _, token, index, category, page = callback.data.split(":")
+        if not await load_pending(token):
+            await callback.answer("Этот вопрос уже неактуален (прошёл час).", show_alert=True)
+            return
+
+        keyboard, data = await build_products_keyboard(token, int(index), category, int(page))
+        from shared.catalog_ops import CATEGORY_TITLES
+        title = CATEGORY_TITLES.get(category, category)
+        await callback.message.edit_text(
+            f"{title} — {data['total']} товаров. Выберите, что продали:",
+            reply_markup=keyboard,
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"sale:cat — {e}", exc_info=True)
+        await callback.answer("Не смог показать категорию.", show_alert=True)
+
+
+@sale_ui_router.callback_query(F.data == "sale:noop")
+async def on_noop(callback: CallbackQuery):
+    """Кнопка-счётчик страниц («2/3») — просто номер, нажимать нечего."""
+    await callback.answer()
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:cancel:"))
