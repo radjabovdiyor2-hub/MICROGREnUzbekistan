@@ -152,7 +152,7 @@ async def stock_alerts():
         try:
             async with get_session_ctx() as session:
                 result = await session.execute(text(
-                    "SELECT name, stock_qty, unit "
+                    "SELECT name_ru, stock_qty, unit "
                     "FROM products "
                     "WHERE stock_qty < 5 AND is_active = true "
                     "ORDER BY stock_qty"
@@ -403,6 +403,62 @@ async def bus_get_clients(params: dict) -> dict:
         return {"status": "error", "message": str(e)}
 
 
+async def bus_register_sale(params: dict) -> dict:
+    """
+    Регистрация состоявшейся продажи — должностная обязанность отдела продаж.
+
+    Вызывается Степаном через bot_bus, когда руководитель сообщает о продаже
+    («продали 23 штуки ресторану Zarra Resort»). Здесь именно ДЕЙСТВИЕ: клиент,
+    заказ, позиции, событие в шину. Никакого текста «свяжусь с клиентом».
+    """
+    from shared.sales_ops import register_sale
+    params = dict(params or {})
+    params.setdefault("registered_by", "sales_bot")
+    return await register_sale(params)
+
+
+async def _extract_sale_params(ai, title: str, description: str) -> dict:
+    """Вытаскиваем параметры продажи из формулировки руководителя (без домыслов)."""
+    import json
+    schema = (
+        '{"customer_name": str|null, "phone": str|null, "product": str|null, '
+        '"quantity": number|null, "unit_price": number|null, "total_amount": number|null, '
+        '"customer_type": "b2b"|"b2c"|null, "payment_status": "paid"|"pending"|null}'
+    )
+    sys_prompt = (
+        "Ты — парсер продаж. Верни ТОЛЬКО JSON по схеме, без пояснений.\n"
+        f"Схема: {schema}\n"
+        "Правила: если чего-то нет в тексте — ставь null, НИЧЕГО не выдумывай "
+        "(особенно цену и сумму). Ресторан/кафе/отель — это customer_type='b2b'."
+    )
+    raw = await ai.chat_completion(
+        sys_prompt, f"{title}\n{description}", temperature=0, max_tokens=300
+    )
+    raw = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    try:
+        parsed = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        logging.warning("SALES_BOT: не смог распарсить параметры продажи: %r", raw)
+        return {}
+    return {k: v for k, v in parsed.items() if v is not None} if isinstance(parsed, dict) else {}
+
+
+def _is_sale_registration(title: str, description: str) -> bool:
+    """
+    Задача про регистрацию уже СОСТОЯВШЕЙСЯ продажи?
+
+    Прямые формулировки ловим как есть. Голое «продали» — только вместе с числом
+    (иначе «почему мало продали» уехало бы в регистрацию вместо анализа).
+    """
+    import re as _re
+    blob = f"{title} {description}".lower()
+    explicit = ("зарегистрируй продаж", "регистрация продаж", "зарегистрировать продаж",
+                "оформи продаж", "запиши продаж", "фиксация продаж", "учти продаж")
+    if any(m in blob for m in explicit):
+        return True
+    return bool(_re.search(r"\bпродал[иа]?\b", blob)) and bool(_re.search(r"\d", blob))
+
+
 async def handle_task_created(payload: dict):
     data = payload.get("data", {})
     if str(data.get("department", "")).lower() != "sales":
@@ -421,7 +477,31 @@ async def handle_task_created(payload: dict):
         title = str(data.get('title', '')).lower()
         desc = str(data.get('description', '')).lower()
         
-        if "кп" in title or "коммерческое" in title or "кп" in desc or "коммерческ" in desc:
+        if _is_sale_registration(title, desc):
+            # Реальная работа отдела: продажа записывается в CRM, а не «берётся в работу».
+            logging.info("SALES_BOT: регистрация продажи по задаче #%s", task_id)
+            from shared.sales_ops import register_sale, format_sale_report
+            sale_params = await _extract_sale_params(ai, data.get("title", ""), data.get("description", ""))
+            sale_params["notes"] = f"{data.get('title', '')}. {data.get('description', '')}"[:500]
+            sale_params["registered_by"] = "sales_bot"
+            result = await register_sale(sale_params)
+
+            if result["status"] == "ok":
+                await bot.send_message(chat_id, format_sale_report(result), parse_mode="HTML")
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                async with get_session_ctx() as session:
+                    await session.execute(
+                        text("UPDATE tasks SET status = 'done' WHERE id = :tid"), {"tid": task_id}
+                    )
+                    await session.commit()
+            elif result["status"] == "duplicate":
+                await bot.send_message(chat_id, f"ℹ️ {result['message']}")
+            else:
+                # Не хватает данных или ошибка — честно спрашиваем, а не имитируем работу.
+                await bot.send_message(chat_id, f"❓ <b>Отдел продаж:</b> {result['message']}", parse_mode="HTML")
+
+        elif "кп" in title or "коммерческое" in title or "кп" in desc or "коммерческ" in desc:
             logging.info("SALES_BOT: Requested commercial offer PDF.")
             from shared.prompts import TEAM_CONTEXT
             prompt = f"Составь продающий текст коммерческого предложения для клиента. Задача: {data.get('title')} - {data.get('description')}. Укажи преимущества микрозелени."
@@ -502,7 +582,15 @@ async def handle_task_created(payload: dict):
         else:
             from shared.prompts import TEAM_CONTEXT
             sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Коммерческий Директор (Chief Revenue Officer) и главный Sales Bot. Сфокусируйся на LTV, конверсиях, дожимах и B2B/B2C воронках. Не пиши банальности, предлагай стратегию продаж и тактики закрытия сделок."
-            user_prompt = f"Руководитель поручил коммерческую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
+            user_prompt = (
+                f"Руководитель поручил коммерческую задачу:\nНазвание: {data.get('title')}\n"
+                f"Описание: {data.get('description')}\n\n"
+                "Ответь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь "
+                "задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, "
+                "без длинных списков и без markdown-заголовков.\n"
+                "ЗАПРЕЩЕНО описывать действия как уже сделанные или обещать то, чего система не делает "
+                "автоматически (звонки, счета, доставку). Ты пока только принял задачу — так и говори."
+            )
             logging.info("SALES_BOT Generating AI answer...")
             answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
 
@@ -661,6 +749,7 @@ async def main():
         "get_clients": bus_get_clients,
         "process_ig_order": bus_process_ig_order,
         "get_b2b_targets": bus_get_b2b_targets,  # кому сегодня готовить КП
+        "register_sale": bus_register_sale,      # менеджер сообщил о продаже → заказ в CRM
     }))
 
     logger.info("Starting Sales Bot...")

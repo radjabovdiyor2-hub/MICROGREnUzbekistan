@@ -71,11 +71,14 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - 🚫 КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО отвечать «нечего показать», «нет активных публикаций», «посты запланированы автоматически» и пересказывать расписание ВМЕСТО показа. Если тебя просят показать — ты ВЫЗЫВАЕШЬ ИНСТРУМЕНТ, а не рассуждаешь. Если публикаций реально нет, инструмент сам честно об этом сообщит.
 - ⚠️ ОТЛИЧАЙ ВОПРОС ОТ ЗАДАЧИ: «когда опубликуешь / во сколько / опубликовал ли / какой статус публикации / готово ли» — это ВОПРОС, а НЕ поручение. Вызови get_content_status (он вернёт РЕАЛЬНЫЙ статус — что уже вышло, а что по плану). НЕ придумывай статус по памяти. НЕ создавай задачу и НЕ проси отдел публиковать — иначе получится лишняя публикация.
 - ✍️ Задачу на контент (create_task, department='content') создавай ТОЛЬКО когда просят СОЗДАТЬ/СДЕЛАТЬ/НАПИСАТЬ НОВЫЙ пост/сторис/мем. Прошедшее время («что опубликовали», «который выложили») — это НЕ поручение публиковать.
+- 💰 ФАКТ ПРОДАЖИ — ЭТО ДЕЙСТВИЕ, А НЕ ЗАДАЧА. «Зарегистрируй продажу», «продали N штук ресторану X», «оформи/запиши продажу» → вызывай register_sale (отдел продаж запишет клиента, заказ и доход в CRM). ЗАПРЕЩЕНО создавать на это create_task — задача породит только текст «беру в работу», а продажа так и не будет учтена.
+- 🚫 НИКОГДА не выдумывай цену, сумму или количество, если руководитель их не назвал. Оставляй поля пустыми — отдел возьмёт цену из каталога или переспросит.
 - Если задача — верни JSON с type="task" и укажи нужный department.
 - Если вопрос о бизнесе — верни JSON с type="chat".
 
 
 Используй ВЫЗОВЫ ФУНКЦИЙ (Function Calling) для действий:
+- Если сообщают о состоявшейся продаже, вызови register_sale
 - Если нужно создать задачу, вызови create_task
 - Если нужна перекличка, вызови roll_call
 - Если нужен отчет, вызови get_report
@@ -1077,6 +1080,34 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 "parameters": {"type": "object", "properties": {}},
             },
         },
+        {
+            "type": "function",
+            "function": {
+                "name": "register_sale",
+                "description": (
+                    "ЗАРЕГИСТРИРОВАТЬ СОСТОЯВШУЮСЯ ПРОДАЖУ в CRM: завести/найти клиента, создать заказ, "
+                    "учесть доход. Вызывай ВСЕГДА, когда руководитель или менеджер сообщает о факте "
+                    "продажи: «зарегистрируй продажу», «продали N штук ресторану X», «оформи продажу», "
+                    "«запиши продажу», «мы продали». Это реальное действие отдела продаж — НЕ создавай "
+                    "для этого задачу через create_task. Незаполненные поля оставляй пустыми: цену и "
+                    "сумму НЕ ВЫДУМЫВАЙ, отдел сам возьмёт цену из каталога или переспросит."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "customer_name": {"type": "string", "description": "Кому продали: ресторан, кафе, человек"},
+                        "phone": {"type": "string", "description": "Телефон клиента, если назван"},
+                        "product": {"type": "string", "description": "Что продали, как сказал менеджер"},
+                        "quantity": {"type": "number", "description": "Количество (штук/кг), если названо"},
+                        "unit_price": {"type": "number", "description": "Цена за единицу — ТОЛЬКО если названа явно"},
+                        "total_amount": {"type": "number", "description": "Итоговая сумма — ТОЛЬКО если названа явно"},
+                        "customer_type": {"type": "string", "enum": ["b2b", "b2c"], "description": "Ресторан/кафе/отель → b2b"},
+                        "payment_status": {"type": "string", "enum": ["paid", "pending"], "description": "Оплачено или ждём оплату"},
+                    },
+                    "required": ["customer_name"],
+                },
+            },
+        },
     ]
 
     try:
@@ -1139,6 +1170,13 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 await _handle_task(message, args)
                 tool_results_text.append(f"Задача передана в отдел {args.get('department', 'pm')}.")
 
+            elif name == "register_sale":
+                # Продажу регистрирует ОТДЕЛ ПРОДАЖ (bot_bus), а не Степан своими руками:
+                # это его должностная обязанность, и результат — факты из БД, а не текст.
+                result_text = await _register_sale(message, args, user_text)
+                tool_results_text.append(result_text)
+                intent_after = "sale"
+
             elif name == "roll_call":
                 from shared.event_bus import event_bus
                 await event_bus.publish("ROLL_CALL", {"chat_id": message.chat.id, "message": args.get("message", "Перекличка!")})
@@ -1176,9 +1214,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             if len(history) > 10: history = history[-10:]
             await state.update_data(history=history, last_intent=intent_after)
 
-        # Показ поста уже сам себя объяснил — не даём модели сверху приписать
-        # «показать нечего» и противоречить только что отправленной картинке.
-        if response_msg.content and intent_after != "show":
+        # Показ поста и отчёт о продаже уже сами себя объяснили — не даём модели
+        # сверху приписать выдуманный комментарий и противоречить фактам из БД.
+        if response_msg.content and intent_after not in ("show", "sale"):
             await send_response(response_msg.content)
 
         await set_reaction(message, "👍")
@@ -1311,6 +1349,57 @@ async def _get_db_context() -> str:
     except Exception as e:
         logger.warning(f"DB context error: {e}")
         return "Данные из БД временно недоступны."
+
+
+async def _register_sale(message: Message, args: dict, user_text: str) -> str:
+    """
+    Продажа → отдел продаж (bot_bus) → факты из БД в чат.
+
+    Степан не пишет заказ сам: регистрация продажи — обязанность отдела продаж.
+    Он делегирует действие и докладывает руководителю РЕЗУЛЬТАТ, а не намерение.
+    Если отдел не ответил (бот лежит) — говорим об этом прямо, а не имитируем успех.
+    """
+    from shared.bot_bus import send_task, get_result
+
+    params = {k: v for k, v in (args or {}).items() if v not in (None, "")}
+    params["notes"] = user_text[:500]
+    params["registered_by"] = "sales_bot"
+
+    await message.answer("💼 Передал в отдел продаж — регистрирую продажу в CRM…")
+
+    try:
+        task_id = await send_task("stepan_bot", "sales_bot", "register_sale", params)
+        bus_result = await get_result(task_id, timeout=60)
+    except Exception as e:
+        logger.error(f"Регистрация продажи: сбой шины: {e}", exc_info=True)
+        await message.answer("😔 Отдел продаж недоступен — продажа НЕ зарегистрирована. Повторите позже.")
+        return "Продажа не зарегистрирована: шина недоступна."
+
+    if not bus_result or bus_result.get("status") == "error":
+        err = (bus_result or {}).get("error", "отдел не ответил за 60 секунд")
+        await message.answer(
+            f"⚠️ Продажа <b>не зарегистрирована</b>: {err}.\n"
+            f"Проверьте, что sales_bot запущен, и повторите.",
+            parse_mode="HTML",
+        )
+        return f"Продажа не зарегистрирована: {err}"
+
+    result = bus_result.get("result") or {}
+    status = result.get("status")
+
+    if status == "ok":
+        from shared.sales_ops import format_sale_report
+        await message.answer(format_sale_report(result), parse_mode="HTML")
+        return f"Отдел продаж зарегистрировал заказ {result['data']['order_number']}."
+
+    if status == "duplicate":
+        await message.answer(f"ℹ️ {result.get('message')}")
+        return "Продажа уже была зарегистрирована — дубль отклонён."
+
+    # clarify / error — честно переспрашиваем, ничего не выдумывая
+    await message.answer(f"❓ <b>Отдел продаж:</b> {result.get('message', 'Не хватает данных.')}",
+                         parse_mode="HTML")
+    return "Отдел продаж запросил уточнение — продажа пока не записана."
 
 
 async def _handle_task(message: Message, data: dict):
