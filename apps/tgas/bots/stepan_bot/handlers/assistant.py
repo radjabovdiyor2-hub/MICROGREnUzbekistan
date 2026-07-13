@@ -73,6 +73,8 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - ✍️ Задачу на контент (create_task, department='content') создавай ТОЛЬКО когда просят СОЗДАТЬ/СДЕЛАТЬ/НАПИСАТЬ НОВЫЙ пост/сторис/мем. Прошедшее время («что опубликовали», «который выложили») — это НЕ поручение публиковать.
 - 💰 ФАКТ ПРОДАЖИ — ЭТО ДЕЙСТВИЕ, А НЕ ЗАДАЧА. «Зарегистрируй продажу», «продали N штук ресторану X», «оформи/запиши продажу» → вызывай register_sale (отдел продаж запишет клиента, заказ и доход в CRM). ЗАПРЕЩЕНО создавать на это create_task — задача породит только текст «беру в работу», а продажа так и не будет учтена.
 - 🚫 НИКОГДА не выдумывай цену, сумму или количество, если руководитель их не назвал. Оставляй поля пустыми — отдел возьмёт цену из каталога или переспросит.
+- 🧾 ОДНА ПРОДАЖА = ОДИН вызов register_sale со списком items, даже если позиций несколько. «Продали 10 гороха и 13 редиса, из них 5 Санго по 15 тысяч» → items: [горох ×10, редис ×13, Санго ×5 по 15000]. НЕ дели на три вызова — иначе получится три заказа вместо одного.
+- 🆕 НЕТ ТОВАРА В КАТАЛОГЕ: отдел продаж ответит «товара X нет в каталоге». Тогда СПРОСИ у руководителя разрешение добавить его (и цену, если она не названа). Получив явное «да» — вызови add_product, а сразу после него ещё раз register_sale с полным списком позиций. Без одобрения товар в каталог не добавляй.
 - Если задача — верни JSON с type="task" и укажи нужный department.
 - Если вопрос о бизнесе — верни JSON с type="chat".
 
@@ -1097,14 +1099,55 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     "properties": {
                         "customer_name": {"type": "string", "description": "Кому продали: ресторан, кафе, человек"},
                         "phone": {"type": "string", "description": "Телефон клиента, если назван"},
-                        "product": {"type": "string", "description": "Что продали, как сказал менеджер"},
-                        "quantity": {"type": "number", "description": "Количество (штук/кг), если названо"},
-                        "unit_price": {"type": "number", "description": "Цена за единицу — ТОЛЬКО если названа явно"},
-                        "total_amount": {"type": "number", "description": "Итоговая сумма — ТОЛЬКО если названа явно"},
+                        "items": {
+                            "type": "array",
+                            "description": (
+                                "ВСЕ позиции продажи одним списком — это ОДИН заказ. "
+                                "«10 гороха и 13 редиса, из них 5 Санго по 15 тысяч» → три позиции "
+                                "в одном вызове, а не три вызова register_sale."
+                            ),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "product": {"type": "string", "description": "Товар, как назвал менеджер"},
+                                    "quantity": {"type": "number", "description": "Количество"},
+                                    "unit_price": {"type": "number", "description": "Цена за единицу — ТОЛЬКО если названа явно"},
+                                },
+                                "required": ["product", "quantity"],
+                            },
+                        },
                         "customer_type": {"type": "string", "enum": ["b2b", "b2c"], "description": "Ресторан/кафе/отель → b2b"},
                         "payment_status": {"type": "string", "enum": ["paid", "pending"], "description": "Оплачено или ждём оплату"},
                     },
-                    "required": ["customer_name"],
+                    "required": ["customer_name", "items"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "add_product",
+                "description": (
+                    "ДОБАВИТЬ НОВЫЙ ТОВАР В КАТАЛОГ — сразу и в магазин (витрину), и в CRM. "
+                    "⚠️ Вызывай ТОЛЬКО после ЯВНОГО одобрения руководителя («да, добавь», «добавляй», "
+                    "«заводи»). Сам, без спроса, товары не добавляй. Обычный сценарий: отдел продаж "
+                    "сообщил, что товара нет в каталоге → ты спросил разрешение → руководитель одобрил "
+                    "→ вызываешь add_product, а следом register_sale, чтобы дозаписать продажу."
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Название товара, напр. «Микрозелень Санго»"},
+                        "price": {"type": "number", "description": "Цена за единицу в сумах"},
+                        "unit": {"type": "string", "enum": ["piece", "kg", "g", "pack", "set"], "description": "Единица измерения"},
+                        "category": {
+                            "type": "string",
+                            "enum": ["microgreens", "baby-leaf", "salads", "flowers", "seeds", "substrate", "equipment", "sets"],
+                            "description": "Категория каталога",
+                        },
+                        "stock": {"type": "number", "description": "Остаток на складе, если известен"},
+                    },
+                    "required": ["name", "price"],
                 },
             },
         },
@@ -1174,6 +1217,13 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 # Продажу регистрирует ОТДЕЛ ПРОДАЖ (bot_bus), а не Степан своими руками:
                 # это его должностная обязанность, и результат — факты из БД, а не текст.
                 result_text = await _register_sale(message, args, user_text)
+                tool_results_text.append(result_text)
+                intent_after = "sale"
+
+            elif name == "add_product":
+                # Новый товар заводит отдел продаж — и в магазине, и в CRM.
+                # Вызывается только после одобрения руководителя (см. промпт).
+                result_text = await _add_product(message, args)
                 tool_results_text.append(result_text)
                 intent_after = "sale"
 
@@ -1400,6 +1450,41 @@ async def _register_sale(message: Message, args: dict, user_text: str) -> str:
     await message.answer(f"❓ <b>Отдел продаж:</b> {result.get('message', 'Не хватает данных.')}",
                          parse_mode="HTML")
     return "Отдел продаж запросил уточнение — продажа пока не записана."
+
+
+async def _add_product(message: Message, args: dict) -> str:
+    """
+    Новый товар → отдел продаж (bot_bus) → каталог витрины + зеркало в CRM.
+
+    Вызывается только после одобрения руководителя: сам Степан товары не выдумывает.
+    """
+    from shared.bot_bus import send_task, get_result
+
+    params = {k: v for k, v in (args or {}).items() if v not in (None, "")}
+    name = params.get("name", "товар")
+
+    await message.answer(f"🛒 Добавляю «{name}» в каталог — магазин и CRM…")
+
+    try:
+        task_id = await send_task("stepan_bot", "sales_bot", "add_product", params)
+        bus_result = await get_result(task_id, timeout=60)
+    except Exception as e:
+        logger.error(f"Добавление товара: сбой шины: {e}", exc_info=True)
+        await message.answer("😔 Отдел продаж недоступен — товар НЕ добавлен.")
+        return "Товар не добавлен: шина недоступна."
+
+    if not bus_result or bus_result.get("status") == "error":
+        err = (bus_result or {}).get("error", "отдел не ответил за 60 секунд")
+        await message.answer(f"⚠️ Товар <b>не добавлен</b>: {err}", parse_mode="HTML")
+        return f"Товар не добавлен: {err}"
+
+    result = bus_result.get("result") or {}
+    await message.answer(result.get("message", "Не понял результат добавления товара."))
+
+    if result.get("status") == "ok":
+        return (f"Товар «{name}» добавлен в каталог"
+                + (" и в магазин." if result.get("data", {}).get("in_storefront") else " (только CRM)."))
+    return f"Товар не добавлен: {result.get('message', 'нет данных')}"
 
 
 async def _handle_task(message: Message, data: dict):

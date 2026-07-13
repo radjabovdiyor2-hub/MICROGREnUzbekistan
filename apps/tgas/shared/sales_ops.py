@@ -4,13 +4,14 @@
 Единственное место, где «продажа, о которой сообщил менеджер», превращается в
 факты в БД: клиент → заказ → позиции → журнал → событие ORDER_CREATED.
 
-Раньше такой продажи не существовало как действия: Степан мог только создать
-задачу отделу, а отдел в ответ генерировал текст «свяжусь с клиентом» — в БД не
-появлялось ничего. Этот модуль закрывает дыру.
-
-Правило модуля: НИЧЕГО НЕ ВЫДУМЫВАТЬ. Если не хватает данных (нет цены, товар не
-опознан, непонятно кто клиент) — возвращаем status="clarify" с вопросом, а не
-подставляем «примерно 50 000».
+Правила модуля:
+1. НИЧЕГО НЕ ВЫДУМЫВАТЬ. Нет цены, товар неоднозначен, товара нет в каталоге —
+   возвращаем status="clarify" с конкретным вопросом, а не подставляем «примерно».
+2. КАЖДАЯ позиция обязана быть товаром каталога. Если товара нет — предлагаем
+   добавить его в каталог (shared.catalog_ops.add_product), но только с одобрения
+   руководителя. Заказ «на сумму без товара» больше не пишем: такие строки не
+   попадают ни в остатки, ни в аналитику по товарам.
+3. Одна продажа = один заказ, даже если позиций несколько («10 гороха и 13 редиса»).
 """
 
 import logging
@@ -78,28 +79,103 @@ async def _find_products(session, query: Optional[str]) -> List[Dict[str, Any]]:
     ]
 
 
+def _normalize_items(params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Приводим вход к списку позиций: items[] либо одиночные product/quantity."""
+    raw = params.get("items")
+    if not raw:
+        raw = [{
+            "product": params.get("product"),
+            "quantity": params.get("quantity"),
+            "unit_price": params.get("unit_price"),
+        }]
+    items = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        items.append({
+            "product": str(entry.get("product") or "").strip() or None,
+            "quantity": _to_float(entry.get("quantity")) or 1.0,
+            "unit_price": _to_float(entry.get("unit_price")),
+        })
+    return items
+
+
+async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Сопоставляем каждую позицию с каталогом.
+
+    Возвращает {"resolved": [...]} либо {"questions": [...], "missing": [...]},
+    где missing — товары, которых нет в каталоге (их можно добавить с одобрения).
+    """
+    resolved: List[Dict[str, Any]] = []
+    questions: List[str] = []
+    missing: List[Dict[str, Any]] = []
+
+    for item in items:
+        name = item["product"]
+        if not name:
+            questions.append("Что именно продали? Назовите товар — сам не догадаюсь.")
+            continue
+
+        matches = await _find_products(session, name)
+        exact = [m for m in matches if m["name"].strip().lower() == name.strip().lower()]
+
+        if exact:
+            product = exact[0]
+        elif len(matches) == 1:
+            product = matches[0]
+        elif len(matches) > 1:
+            options = "\n".join(
+                f"   • {m['name']} — {format_price(m['price'])} / {m['unit']}" for m in matches
+            )
+            questions.append(f"Под «{name}» подходит несколько позиций — какую именно продали?\n{options}")
+            continue
+        else:
+            price = item["unit_price"]
+            missing.append({"name": name, "quantity": item["quantity"], "unit_price": price})
+            questions.append(
+                f"Товара «{name}» нет в каталоге."
+                + (f" Добавить его в каталог и магазин по цене {format_price(price)}?"
+                   if price else " Назовите цену — и добавлю его в каталог и магазин.")
+            )
+            continue
+
+        unit_price = item["unit_price"] if item["unit_price"] is not None else product["price"]
+        resolved.append({
+            "product_id": product["id"],
+            "name": product["name"],
+            "unit": product["unit"] or "piece",
+            "quantity": item["quantity"],
+            "unit_price": unit_price,
+            "total_price": unit_price * item["quantity"],
+        })
+
+    if questions:
+        return {"questions": questions, "missing": missing}
+    return {"resolved": resolved}
+
+
 async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Зарегистрировать состоявшуюся продажу.
+    Зарегистрировать состоявшуюся продажу (одну или несколько позиций).
 
     Параметры:
         customer_name   — кто купил (обязательно), напр. "Zarra Resort"
-        phone           — телефон клиента (для поиска/создания карточки)
-        product         — что продали, свободным текстом ("микрозелень", "руккола")
-        quantity        — сколько (по умолчанию 1)
-        unit_price      — цена за единицу, если менеджер её назвал
-        total_amount    — итоговая сумма, если менеджер назвал сразу её
-        customer_type   — 'b2b' (ресторан/кафе) или 'b2c'
+        phone           — телефон клиента
+        items           — [{"product": ..., "quantity": ..., "unit_price": ...}, ...]
+                          (или одиночные product/quantity/unit_price)
+        customer_type   — 'b2b' (ресторан/кафе) | 'b2c'
         payment_status  — 'paid' (по умолчанию) | 'pending'
-        status          — статус заказа: 'delivered' (по умолчанию) | 'new' | 'confirmed'
+        status          — статус заказа: 'delivered' (по умолчанию) | 'new' | ...
         notes           — исходная формулировка менеджера
-        registered_by   — кто зарегистрировал (имя бота/сотрудника)
+        registered_by   — кто зарегистрировал
 
     Возвращает:
-        {"status": "ok",        "message": ..., "data": {...}}       — заказ создан
-        {"status": "duplicate", "message": ..., "data": {...}}       — такая продажа уже записана
-        {"status": "clarify",   "message": <вопрос>, "data": {...}}  — не хватает данных, НЕ выдумываем
-        {"status": "error",     "message": ...}
+        {"status": "ok",        ...}  — заказ создан
+        {"status": "duplicate", ...}  — такая продажа уже записана
+        {"status": "clarify",   ...}  — не хватает данных; в data.missing —
+                                        товары, которых нет в каталоге
+        {"status": "error",     ...}
     """
     customer_name = str(params.get("customer_name") or "").strip()
     if not customer_name:
@@ -109,10 +185,6 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     phone = normalize_phone(params.get("phone"))
-    product_query = str(params.get("product") or "").strip() or None
-    quantity = _to_float(params.get("quantity")) or 1.0
-    unit_price = _to_float(params.get("unit_price"))
-    total_amount = _to_float(params.get("total_amount"))
     customer_type = "b2b" if str(params.get("customer_type") or "").lower() == "b2b" else "b2c"
     payment_status = "pending" if str(params.get("payment_status") or "").lower() == "pending" else "paid"
     order_status = str(params.get("status") or "delivered").lower()
@@ -123,149 +195,106 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         async with get_session_ctx() as session:
-            # ── 1. Цена: из каталога или со слов менеджера. Не угадываем. ──
-            matches = await _find_products(session, product_query)
-            product: Optional[Dict[str, Any]] = None
-
-            if len(matches) == 1:
-                product = matches[0]
-            elif len(matches) > 1 and unit_price is None and total_amount is None:
-                options = "\n".join(
-                    f"• {m['name']} — {format_price(m['price'])} / {m['unit']}" for m in matches
-                )
+            # ── 1. Позиции: каждая обязана быть товаром каталога ──
+            outcome = await _resolve_items(session, _normalize_items(params))
+            if "questions" in outcome:
+                head = "Продажу пока не записал — уточните:" if len(outcome["questions"]) > 1 else ""
+                body = "\n\n".join(outcome["questions"])
                 return {
                     "status": "clarify",
-                    "message": (
-                        f"Под «{product_query}» подходит несколько позиций каталога — "
-                        f"какую именно продали?\n\n{options}"
-                    ),
-                    "data": {"candidates": matches},
+                    "message": f"{head}\n\n{body}".strip(),
+                    "data": {"missing": outcome["missing"], "customer_name": customer_name,
+                             "phone": phone},
                 }
-            elif len(matches) > 1:
-                product = matches[0]  # цену менеджер назвал сам — берём первую как ссылку на товар
 
-            if total_amount is None:
-                if unit_price is None and product:
-                    unit_price = product["price"]
-                if unit_price is None:
-                    return {
-                        "status": "clarify",
-                        "message": (
-                            f"Не нашёл «{product_query or 'товар'}» в каталоге и не знаю цену. "
-                            f"Скажите цену за единицу или точное название товара — "
-                            f"сам сумму придумывать не буду."
-                        ),
-                    }
-                total_amount = unit_price * quantity
-            elif unit_price is None and quantity:
-                unit_price = total_amount / quantity
+            lines = outcome["resolved"]
+            total_amount = sum(line["total_price"] for line in lines)
 
             # ── 2. Клиент: ищем по телефону, затем по названию, иначе заводим ──
             customer_id = None
             if phone:
-                customer_id = (
-                    await session.execute(
-                        text("SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"),
-                        {"p": phone},
-                    )
-                ).scalar()
+                customer_id = (await session.execute(
+                    text("SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"),
+                    {"p": phone},
+                )).scalar()
             if not customer_id:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "SELECT id FROM customers "
-                            "WHERE name ILIKE :n OR company_name ILIKE :n ORDER BY id LIMIT 1"
-                        ),
-                        {"n": customer_name},
-                    )
-                ).scalar()
+                customer_id = (await session.execute(
+                    text("SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n "
+                         "ORDER BY id LIMIT 1"),
+                    {"n": customer_name},
+                )).scalar()
 
             customer_created = False
             if customer_id:
                 await session.execute(
-                    text(
-                        "UPDATE customers SET phone = COALESCE(phone, :p), "
-                        "name = COALESCE(NULLIF(name, ''), :n) WHERE id = :cid"
-                    ),
+                    text("UPDATE customers SET phone = COALESCE(phone, :p), "
+                         "name = COALESCE(NULLIF(name, ''), :n) WHERE id = :cid"),
                     {"p": phone, "n": customer_name, "cid": customer_id},
                 )
             else:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO customers (name, company_name, phone, customer_type, "
-                            "company_type, status, source, notes) "
-                            "VALUES (:n, :company, :p, :ctype, :company_type, 'active', 'manual', :notes) "
-                            "RETURNING id"
-                        ),
-                        {
-                            "n": customer_name,
-                            "company": customer_name if customer_type == "b2b" else None,
-                            "p": phone,
-                            "ctype": customer_type,
-                            "company_type": "restaurant" if customer_type == "b2b" else None,
-                            "notes": f"Заведён при регистрации продажи ({registered_by})",
-                        },
-                    )
-                ).scalar()
+                customer_id = (await session.execute(
+                    text(
+                        "INSERT INTO customers (name, company_name, phone, customer_type, "
+                        "company_type, status, source, notes) "
+                        "VALUES (:n, :company, :p, :ctype, :company_type, 'active', 'manual', :notes) "
+                        "RETURNING id"
+                    ),
+                    {
+                        "n": customer_name,
+                        "company": customer_name if customer_type == "b2b" else None,
+                        "p": phone,
+                        "ctype": customer_type,
+                        "company_type": "restaurant" if customer_type == "b2b" else None,
+                        "notes": f"Заведён при регистрации продажи ({registered_by})",
+                    },
+                )).scalar()
                 customer_created = True
 
             # ── 3. Защита от дубля: та же продажа, тому же клиенту, только что ──
-            dup = (
-                await session.execute(
-                    text(
-                        "SELECT id, order_number FROM orders "
-                        "WHERE customer_id = :cid AND total_amount = :total "
-                        "AND created_at > NOW() - (:mins || ' minutes')::interval "
-                        "ORDER BY id DESC LIMIT 1"
-                    ),
-                    {"cid": customer_id, "total": total_amount, "mins": str(DEDUPE_WINDOW_MINUTES)},
-                )
-            ).fetchone()
+            dup = (await session.execute(
+                text(
+                    "SELECT id, order_number FROM orders "
+                    "WHERE customer_id = :cid AND total_amount = :total "
+                    "AND created_at > NOW() - (:mins || ' minutes')::interval "
+                    "ORDER BY id DESC LIMIT 1"
+                ),
+                {"cid": customer_id, "total": total_amount, "mins": str(DEDUPE_WINDOW_MINUTES)},
+            )).fetchone()
             if dup:
                 return {
                     "status": "duplicate",
-                    "message": (
-                        f"Эта продажа уже зарегистрирована — заказ {dup[1]} "
-                        f"({customer_name}, {format_price(total_amount)}). Повторно не записываю."
-                    ),
+                    "message": (f"Эта продажа уже зарегистрирована — заказ {dup[1]} "
+                                f"({customer_name}, {format_price(total_amount)}). "
+                                f"Повторно не записываю."),
                     "data": {"order_id": dup[0], "order_number": dup[1]},
                 }
 
-            # ── 4. Заказ (order_number выдаст триггер) + позиция ──
-            row = (
-                await session.execute(
-                    text(
-                        "INSERT INTO orders (customer_id, total_amount, status, payment_status, "
-                        "notes, created_at, updated_at) "
-                        "VALUES (:cid, :total, :status, :pay, :notes, NOW(), NOW()) "
-                        "RETURNING id, order_number"
-                    ),
-                    {
-                        "cid": customer_id,
-                        "total": total_amount,
-                        "status": order_status,
-                        "pay": payment_status,
-                        "notes": (notes or f"Продажа зарегистрирована вручную ({registered_by})")[:500],
-                    },
-                )
-            ).fetchone()
+            # ── 4. Заказ (order_number выдаст триггер) + позиции ──
+            row = (await session.execute(
+                text(
+                    "INSERT INTO orders (customer_id, total_amount, status, payment_status, "
+                    "notes, created_at, updated_at) "
+                    "VALUES (:cid, :total, :status, :pay, :notes, NOW(), NOW()) "
+                    "RETURNING id, order_number"
+                ),
+                {
+                    "cid": customer_id,
+                    "total": total_amount,
+                    "status": order_status,
+                    "pay": payment_status,
+                    "notes": (notes or f"Продажа зарегистрирована вручную ({registered_by})")[:500],
+                },
+            )).fetchone()
             order_id, order_number = row[0], row[1]
 
-            if product:
+            for line in lines:
                 await session.execute(
                     text(
                         "INSERT INTO order_items (order_id, product_id, quantity, unit, "
                         "unit_price, total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
                     ),
-                    {
-                        "oid": order_id,
-                        "pid": product["id"],
-                        "qty": quantity,
-                        "unit": product["unit"] or "piece",
-                        "price": unit_price,
-                        "total": total_amount,
-                    },
+                    {"oid": order_id, "pid": line["product_id"], "qty": line["quantity"],
+                     "unit": line["unit"], "price": line["unit_price"], "total": line["total_price"]},
                 )
 
             # ── 5. Статистика клиента + журнал взаимодействия ──
@@ -278,21 +307,15 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                 ),
                 {"amount": total_amount, "cid": customer_id},
             )
-            items_summary = (
-                f"{product['name'] if product else (product_query or 'Товар')} × {quantity:g}"
-            )
+            items_summary = "; ".join(f"{l['name']} × {l['quantity']:g}" for l in lines)
             await session.execute(
                 text(
                     "INSERT INTO interactions (customer_id, order_id, channel, interaction_type, "
                     "bot_name, summary, resolved) "
                     "VALUES (:cid, :oid, 'telegram', 'order', :bot, :summary, true)"
                 ),
-                {
-                    "cid": customer_id,
-                    "oid": order_id,
-                    "bot": registered_by,
-                    "summary": f"Продажа {order_number}: {items_summary} на {format_price(total_amount)}",
-                },
+                {"cid": customer_id, "oid": order_id, "bot": registered_by,
+                 "summary": f"Продажа {order_number}: {items_summary} на {format_price(total_amount)}"},
             )
             await session.commit()
 
@@ -314,10 +337,8 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         registered_by,
     )
 
-    logger.info(
-        "SALES_OPS: продажа %s зарегистрирована (клиент #%s, %s)",
-        order_number, customer_id, total_amount,
-    )
+    logger.info("SALES_OPS: продажа %s зарегистрирована (клиент #%s, %s)",
+                order_number, customer_id, total_amount)
 
     return {
         "status": "ok",
@@ -329,10 +350,7 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
             "customer_name": customer_name,
             "customer_created": customer_created,
             "phone": phone,
-            "product": product["name"] if product else (product_query or None),
-            "product_matched": bool(product),
-            "quantity": quantity,
-            "unit_price": unit_price,
+            "items": lines,
             "total_amount": total_amount,
             "payment_status": payment_status,
             "order_status": order_status,
@@ -355,18 +373,15 @@ def format_sale_report(result: Dict[str, Any]) -> str:
     ]
     if d.get("phone"):
         lines.append(f"📞 Телефон: {d['phone']}")
-    if d.get("product"):
-        qty = d.get("quantity") or 0
-        lines.append(f"🌱 Товар: {d['product']} × {qty:g}")
-    if d.get("unit_price"):
-        lines.append(f"💵 Цена за единицу: {format_price(d['unit_price'])}")
-    lines.append(f"💰 Сумма: <b>{format_price(d['total_amount'])}</b>")
-    lines.append(
-        "💳 Оплата: " + ("получена" if d.get("payment_status") == "paid" else "ожидается")
-    )
-    if not d.get("product_matched"):
-        lines.append("")
-        lines.append("⚠️ Товар не сопоставлен с каталогом — позиция записана только суммой.")
+    lines.append("")
+    for item in d.get("items", []):
+        lines.append(
+            f"🌱 {item['name']} × {item['quantity']:g} × {format_price(item['unit_price'])} "
+            f"= {format_price(item['total_price'])}"
+        )
+    lines.append("")
+    lines.append(f"💰 Итого: <b>{format_price(d['total_amount'])}</b>")
+    lines.append("💳 Оплата: " + ("получена" if d.get("payment_status") == "paid" else "ожидается"))
     lines.append("")
     lines.append("Финансы учли доход, аналитика — метрику, PM видит заказ.")
     return "\n".join(lines)

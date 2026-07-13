@@ -417,12 +417,23 @@ async def bus_register_sale(params: dict) -> dict:
     return await register_sale(params)
 
 
+async def bus_add_product(params: dict) -> dict:
+    """
+    Завести новый товар в каталоге: витрина (магазин) + зеркало в CRM.
+
+    Степан вызывает это только после одобрения руководителя — сам отдел товары
+    не придумывает.
+    """
+    from shared.catalog_ops import add_product
+    return await add_product(dict(params or {}))
+
+
 async def _extract_sale_params(ai, title: str, description: str) -> dict:
     """Вытаскиваем параметры продажи из формулировки руководителя (без домыслов)."""
     import json
     schema = (
-        '{"customer_name": str|null, "phone": str|null, "product": str|null, '
-        '"quantity": number|null, "unit_price": number|null, "total_amount": number|null, '
+        '{"customer_name": str|null, "phone": str|null, '
+        '"items": [{"product": str, "quantity": number, "unit_price": number|null}], '
         '"customer_type": "b2b"|"b2c"|null, "payment_status": "paid"|"pending"|null}'
     )
     sys_prompt = (
@@ -750,6 +761,7 @@ async def main():
         "process_ig_order": bus_process_ig_order,
         "get_b2b_targets": bus_get_b2b_targets,  # кому сегодня готовить КП
         "register_sale": bus_register_sale,      # менеджер сообщил о продаже → заказ в CRM
+        "add_product": bus_add_product,          # новый товар → каталог витрины + CRM
     }))
 
     logger.info("Starting Sales Bot...")
