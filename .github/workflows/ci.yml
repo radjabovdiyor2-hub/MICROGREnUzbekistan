@@ -84,3 +84,11 @@ jobs:
             # Seed the storefront catalog ONLY if it is empty (self-skips when
             # already populated — never overwrites admin-edited prices/stock)
             docker compose -f docker-compose.prod.yml run --rm db-seed
+            # Боты (apps/tgas) — без этого шага Python-изменения приезжали в git
+            # на сервер, но продолжали крутиться старые контейнеры: деплой
+            # пересобирал только web, а ботов не трогал вовсе.
+            docker compose -f docker-compose.prod.yml up -d --build \
+              web_office stepan sales support hr finance marketing \
+              analytics content qa rnd devops n8n_bridge
+            docker compose -f docker-compose.prod.yml ps
+            docker image prune -f
