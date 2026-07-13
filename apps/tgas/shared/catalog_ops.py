@@ -19,9 +19,11 @@ import uuid
 from typing import Any, Dict, Optional
 
 import aiohttp
-from sqlalchemy import text
+from sqlalchemy import String, bindparam, text
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from shared.database import get_session_ctx
+from shared.text_match import query_variants
 from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
@@ -141,9 +143,14 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         async with get_session_ctx() as session:
+            # Дубликат ищем по всем написаниям: «Sango» не должен завестись
+            # вторым товаром рядом с «Санго».
+            patterns = [f"%{v}%" for v in query_variants(name)] or [f"%{name}%"]
             existing = (await session.execute(
-                text("SELECT id, name_ru FROM products WHERE name_ru ILIKE :n OR name_uz ILIKE :n LIMIT 1"),
-                {"n": name},
+                text(
+                    "SELECT id, name_ru FROM products "
+                    "WHERE name_ru ILIKE ANY(:pats) OR name_uz ILIKE ANY(:pats) LIMIT 1"
+                ).bindparams(bindparam("pats", value=patterns, type_=ARRAY(String))),
             )).fetchone()
             if existing:
                 return {

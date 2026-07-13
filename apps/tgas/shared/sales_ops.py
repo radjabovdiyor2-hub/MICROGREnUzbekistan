@@ -18,10 +18,12 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import text
+from sqlalchemy import String, bindparam, text
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from shared.database import get_session_ctx
 from shared.event_bus import event_bus, Events
+from shared.text_match import query_variants
 from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
@@ -58,24 +60,80 @@ def _to_float(value: Any) -> Optional[float]:
         return None
 
 
+# Порог нечёткого совпадения (pg_trgm). Ниже — уже случайные созвучия.
+FUZZY_THRESHOLD = 0.45
+
+
 async def _find_products(session, query: Optional[str]) -> List[Dict[str, Any]]:
-    """Ищем товар по названию (ru/uz). Пустой запрос → пустой список."""
-    if not query:
+    """
+    Ищем товар так, как его мог написать человек: «санго», «sango», «cfyuj»
+    (кириллица в латинской раскладке), «сангоо» с опечаткой.
+
+    Два прохода:
+    1. Подстрока по всем вариантам написания (транслит + исправленная раскладка).
+    2. Если пусто — нечёткий поиск через pg_trgm (ловит опечатки).
+    """
+    variants = query_variants(query or "")
+    if not variants:
         return []
-    q = str(query).strip()
-    if not q:
-        return []
+
+    patterns = [f"%{v}%" for v in variants]
     res = await session.execute(
         text(
             "SELECT id, name_ru, price, unit FROM products "
-            "WHERE is_active = true AND (name_ru ILIKE :q OR name_uz ILIKE :q) "
+            "WHERE is_active = true "
+            "AND (name_ru ILIKE ANY(:pats) OR name_uz ILIKE ANY(:pats)) "
             "ORDER BY sort_order, id LIMIT 10"
-        ),
-        {"q": f"%{q}%"},
+        ).bindparams(bindparam("pats", value=patterns, type_=ARRAY(String))),
     )
+    rows = res.fetchall()
+
+    # Несколько слов («санго микрозелень», порядок любой) — ищем товар, в
+    # названии которого есть ВСЕ слова. Иначе поиск по всей строке не совпадёт,
+    # а нечёткий вернёт всю микрозелень подряд.
+    words = [w for w in re.split(r"\s+", str(query).strip()) if len(w) >= 3]
+    if not rows and len(words) > 1:
+        conditions, params = [], {}
+        for idx, word in enumerate(words):
+            word_patterns = [f"%{v}%" for v in query_variants(word)]
+            if not word_patterns:
+                continue
+            key = f"w{idx}"
+            conditions.append(f"(name_ru ILIKE ANY(:{key}) OR name_uz ILIKE ANY(:{key}))")
+            params[key] = word_patterns
+        if conditions:
+            stmt = text(
+                "SELECT id, name_ru, price, unit FROM products "
+                "WHERE is_active = true AND " + " AND ".join(conditions) +
+                " ORDER BY sort_order, id LIMIT 10"
+            ).bindparams(*[
+                bindparam(key, value=value, type_=ARRAY(String)) for key, value in params.items()
+            ])
+            rows = (await session.execute(stmt)).fetchall()
+
+    if not rows:
+        # Опечатки: word_similarity сравнивает запрос с лучшим куском названия,
+        # поэтому «сангоо» находит «Микрозелень Санго».
+        try:
+            res = await session.execute(
+                text(
+                    "SELECT id, name_ru, price, unit, "
+                    "  (SELECT MAX(GREATEST(word_similarity(v, lower(p.name_ru)), "
+                    "                       word_similarity(v, lower(p.name_uz)))) "
+                    "   FROM unnest(:vars) AS v) AS sim "
+                    "FROM products p "
+                    "WHERE is_active = true "
+                    "ORDER BY sim DESC NULLS LAST LIMIT 5"
+                ).bindparams(bindparam("vars", value=variants, type_=ARRAY(String))),
+            )
+            rows = [r for r in res.fetchall() if (r[4] or 0) >= FUZZY_THRESHOLD]
+        except Exception as exc:  # pg_trgm не установлен — молча остаёмся без fuzzy
+            logger.warning("SALES_OPS: нечёткий поиск недоступен (%s)", exc)
+            rows = []
+
     return [
         {"id": r[0], "name": r[1], "price": float(r[2]), "unit": r[3]}
-        for r in res.fetchall()
+        for r in rows
     ]
 
 
