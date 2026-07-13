@@ -698,6 +698,49 @@ async def bus_get_status(params: dict) -> dict:
     return {"status": "ok", "message": _content_status_message()}
 
 
+async def bus_product_description(params: dict) -> dict:
+    """
+    Описание нового товара для карточки в магазине — работа контент-отдела.
+
+    Руководитель даёт название, цену и фото; текст (ru + uz) пишем мы, в
+    фирменном тоне бренда. Вызывается Степаном при заведении товара.
+    """
+    import json
+
+    name = str(params.get("name") or "").strip()
+    category = str(params.get("category") or "microgreens")
+    price = params.get("price")
+    if not name:
+        return {"status": "error", "message": "Не указано название товара."}
+
+    from shared.ai_engine import AIEngine
+    from shared.brand import BRAND_TEXT_STYLE
+
+    ai = AIEngine()
+    sys_prompt = (
+        f"Ты — контент-менеджер Microgreen Uzbekistan. {BRAND_TEXT_STYLE}\n"
+        "Пишешь описание товара для карточки интернет-магазина: польза, вкус, "
+        "применение на кухне, почему стоит взять. Без выдуманных фактов о составе "
+        "и без обещаний лечебного эффекта.\n"
+        'Верни ТОЛЬКО JSON: {"ru": "<описание на русском, 2-3 предложения>", '
+        '"uz": "<то же на узбекском>"}'
+    )
+    user_prompt = f"Товар: {name}\nКатегория: {category}\nЦена: {price} сум"
+
+    try:
+        raw = await ai.chat_completion(sys_prompt, user_prompt, temperature=0.7, max_tokens=400)
+        cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        data = json.loads(cleaned)
+        return {
+            "status": "ok",
+            "message": "Описание готово.",
+            "data": {"ru": str(data.get("ru", "")).strip(), "uz": str(data.get("uz", "")).strip()},
+        }
+    except Exception as e:
+        logging.error(f"CONTENT_BOT: описание товара не получилось: {e}", exc_info=True)
+        return {"status": "error", "message": f"Не смог составить описание: {e}"}
+
+
 async def bus_get_last_post(params: dict) -> dict:
     """
     Отдать САМ опубликованный контент (картинка + текст), чтобы Степан мог
@@ -1005,6 +1048,7 @@ async def main():
         "generate_meme": bus_generate_meme,
         "get_status": bus_get_status,
         "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
+        "product_description": bus_product_description,  # текст карточки нового товара
     }))
 
     # ── Запуск планировщика и heartbeat ──

@@ -10,6 +10,7 @@
 поэтому после нажатия она регистрируется целиком, а не по кускам.
 """
 
+import hashlib
 import json
 import logging
 import uuid
@@ -17,6 +18,7 @@ from typing import Any, Dict, Optional
 
 import redis.asyncio as redis
 from aiogram import F, Router
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
@@ -26,7 +28,8 @@ from shared.utils import format_price
 logger = logging.getLogger(__name__)
 sale_ui_router = Router()
 
-PENDING_TTL = 3600  # час на то, чтобы ответить на уточнение
+PENDING_TTL = 3600   # час на то, чтобы ответить на уточнение
+ASKED_TTL = 900      # 15 минут: столько же не переспрашиваем про ту же продажу
 
 
 def _redis() -> redis.Redis:
@@ -96,7 +99,7 @@ def build_clarify_keyboard(token: str, data: Dict[str, Any]):
     return builder.as_markup()
 
 
-async def _run_sale(pending: Dict[str, Any]) -> Dict[str, Any]:
+async def run_sale(pending: Dict[str, Any]) -> Dict[str, Any]:
     """Продажу регистрирует отдел продаж (bot_bus) — здесь только вызов."""
     from shared.bot_bus import send_task, get_result
 
@@ -108,6 +111,33 @@ async def _run_sale(pending: Dict[str, Any]) -> Dict[str, Any]:
         return {"status": "error",
                 "message": (bus_result or {}).get("error", "отдел не ответил за 60 секунд")}
     return bus_result.get("result") or {"status": "error", "message": "пустой ответ отдела"}
+
+
+def _sale_signature(pending: Dict[str, Any]) -> str:
+    """Отпечаток продажи: клиент + позиции. Одинаковый — значит тот же вопрос."""
+    # product_id входит в отпечаток: после выбора кнопкой продажа уже другая,
+    # и следующий вопрос («а какой редис?») пройдёт, а не будет считаться дублем.
+    items = [(i.get("product"), i.get("product_id"), i.get("quantity"), i.get("unit_price"))
+             for i in pending.get("items", [])]
+    raw = json.dumps([pending.get("customer_name"), items], ensure_ascii=False, sort_keys=True)
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+
+
+async def _already_asked(signature: str) -> bool:
+    """
+    Уже спрашивали про эту же продажу? Тогда молчим.
+
+    Модель иногда переспрашивает по второму разу (например, тянет позиции из
+    истории диалога при следующем сообщении) — раньше это давало два одинаковых
+    вопроса с кнопками, и руководитель видел «отвечает два раза».
+    """
+    client = _redis()
+    try:
+        # SET NX: ключ ставится только если его не было — атомарно, без гонок.
+        created = await client.set(f"sale:asked:{signature}", "1", ex=ASKED_TTL, nx=True)
+    finally:
+        await client.aclose()
+    return not created
 
 
 async def answer_sale_result(message: Message, result: Dict[str, Any]) -> str:
@@ -129,6 +159,10 @@ async def answer_sale_result(message: Message, result: Dict[str, Any]) -> str:
 
     if status == "clarify" and (result.get("data") or {}).get("pending"):
         data = result["data"]
+        if await _already_asked(_sale_signature(data["pending"])):
+            logger.info("Степан: тот же вопрос по продаже уже задан — не дублирую")
+            return "Вопрос по этой продаже уже задан выше — жду ответа."
+
         token = await save_pending(data["pending"])
         keyboard = build_clarify_keyboard(token, data)
         await message.answer(
@@ -157,7 +191,7 @@ async def on_pick_product(callback: CallbackQuery):
         await callback.answer("Принято, записываю…")
         await callback.message.edit_reply_markup(reply_markup=None)
 
-        result = await _run_sale(pending)
+        result = await run_sale(pending)
         await drop_pending(token)
         await answer_sale_result(callback.message, result)
     except Exception as e:
@@ -166,8 +200,14 @@ async def on_pick_product(callback: CallbackQuery):
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:add:"))
-async def on_add_product(callback: CallbackQuery):
-    """Одобрено добавление товара: заводим в магазин + CRM и дозаписываем продажу."""
+async def on_add_product(callback: CallbackQuery, state: FSMContext):
+    """
+    Одобрено заведение товара → открываем мастер карточки.
+
+    Товар в магазине — это карточка (фото, категория, описание), а не строка
+    «название + цена». Название и цену уже знаем из продажи, остальное соберёт
+    мастер; после публикации он сам дозапишет продажу.
+    """
     try:
         _, _, token, index = callback.data.split(":")
         pending = await load_pending(token)
@@ -176,35 +216,18 @@ async def on_add_product(callback: CallbackQuery):
             return
 
         item = pending["items"][int(index)]
-        await callback.answer("Добавляю товар…")
+        await callback.answer()
         await callback.message.edit_reply_markup(reply_markup=None)
 
-        from shared.bot_bus import send_task, get_result
-        task_id = await send_task("stepan_bot", "sales_bot", "add_product", {
-            "name": item.get("product"),
-            "price": item.get("unit_price"),
-            "unit": "piece",
-            "category": "microgreens",
-        })
-        bus_result = await get_result(task_id, timeout=60)
-        add_result = (bus_result or {}).get("result") or {}
-
-        if add_result.get("status") not in ("ok", "exists"):
-            await callback.message.answer(
-                f"⚠️ Товар не добавлен: {add_result.get('message', 'отдел не ответил')}. "
-                f"Продажа не записана."
-            )
-            return
-
-        await callback.message.answer(add_result.get("message", "Товар добавлен."))
-        item["product_id"] = (add_result.get("data") or {}).get("product_id")
-
-        result = await _run_sale(pending)
-        await drop_pending(token)
-        await answer_sale_result(callback.message, result)
+        from bots.stepan_bot.handlers.product_card import start_product_card
+        await start_product_card(
+            callback.message, state,
+            name=item.get("product"), price=item.get("unit_price"),
+            sale_token=token, sale_index=int(index),
+        )
     except Exception as e:
         logger.error(f"sale:add — {e}", exc_info=True)
-        await callback.answer("Не смог добавить товар.", show_alert=True)
+        await callback.answer("Не смог открыть карточку товара.", show_alert=True)
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:cancel:"))

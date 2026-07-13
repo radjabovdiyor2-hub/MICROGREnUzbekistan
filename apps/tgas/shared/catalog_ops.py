@@ -81,7 +81,39 @@ async def _storefront_category_id(session: aiohttp.ClientSession, category: str)
     return flat[0].get("id")
 
 
-async def _create_on_storefront(name: str, price: float, category: str, stock: float) -> Optional[str]:
+async def upload_image(file_bytes: bytes, filename: str) -> Optional[str]:
+    """
+    Залить фото товара на витрину (POST /api/upload) → путь вида /uploads/xxx.jpg.
+
+    Фото присылает руководитель в Telegram; карточка без картинки в магазине
+    выглядит пустой, поэтому грузим в то же хранилище, что и админка сайта.
+    """
+    try:
+        form = aiohttp.FormData()
+        form.add_field("file", file_bytes, filename=filename, content_type="image/jpeg")
+        url = f"{STOREFRONT_API_URL.rstrip('/')}/upload"
+        async with aiohttp.ClientSession(headers=_headers()) as session:
+            async with session.post(url, data=form, timeout=aiohttp.ClientTimeout(total=60)) as resp:
+                if resp.status != 200:
+                    logger.warning("CATALOG_OPS: загрузка фото отклонена (HTTP %s): %s",
+                                   resp.status, (await resp.text())[:200])
+                    return None
+                data = await resp.json()
+                return data.get("url")
+    except Exception as exc:
+        logger.warning("CATALOG_OPS: не смог загрузить фото: %s", exc)
+        return None
+
+
+async def _create_on_storefront(
+    name: str,
+    price: float,
+    category: str,
+    stock: float,
+    description_ru: str = "",
+    description_uz: str = "",
+    image_url: Optional[str] = None,
+) -> Optional[str]:
     """Создать товар на витрине. Возвращает storefront_id (cuid) или None."""
     try:
         async with aiohttp.ClientSession(headers=_headers()) as session:
@@ -96,6 +128,9 @@ async def _create_on_storefront(name: str, price: float, category: str, stock: f
                 "price": price,
                 "categoryId": category_id,
                 "stock": stock,
+                "descriptionRu": description_ru or None,
+                "descriptionUz": description_uz or None,
+                "images": [image_url] if image_url else [],
             }
             async with session.post(url, json=body, timeout=aiohttp.ClientTimeout(total=20)) as resp:
                 if resp.status not in (200, 201):
@@ -159,17 +194,25 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
                     "data": {"product_id": existing[0], "name": existing[1]},
                 }
 
-        storefront_id = await _create_on_storefront(name, price, category, stock)
+        description_ru = str(params.get("description_ru") or "").strip()
+        description_uz = str(params.get("description_uz") or "").strip()
+        image_url = str(params.get("image_url") or "").strip() or None
+
+        storefront_id = await _create_on_storefront(
+            name, price, category, stock, description_ru, description_uz, image_url
+        )
 
         async with get_session_ctx() as session:
             product_id = (await session.execute(
                 text(
                     "INSERT INTO products (name_uz, name_ru, category, price, unit, stock_qty, "
-                    "is_active, storefront_id) "
-                    "VALUES (:n, :n, :cat, :price, :unit, :stock, true, :sid) RETURNING id"
+                    "is_active, storefront_id, description_ru, description_uz, image_url) "
+                    "VALUES (:n, :n, :cat, :price, :unit, :stock, true, :sid, :dru, :duz, :img) "
+                    "RETURNING id"
                 ),
                 {"n": name, "cat": category, "price": price, "unit": unit,
-                 "stock": stock, "sid": storefront_id},
+                 "stock": stock, "sid": storefront_id, "dru": description_ru or None,
+                 "duz": description_uz or None, "img": image_url},
             )).scalar()
             await session.commit()
     except Exception as exc:
