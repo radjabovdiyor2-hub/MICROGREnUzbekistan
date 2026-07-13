@@ -1204,6 +1204,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     if response_msg.tool_calls:
         tool_results_text = []
         intent_after = None
+        sale_handled = False  # одно сообщение = одна продажа, сколько бы вызовов ни выдала модель
         for tool_call in response_msg.tool_calls:
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments or "{}")
@@ -1216,6 +1217,12 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             elif name == "register_sale":
                 # Продажу регистрирует ОТДЕЛ ПРОДАЖ (bot_bus), а не Степан своими руками:
                 # это его должностная обязанность, и результат — факты из БД, а не текст.
+                # Модель иногда дробит одну продажу на вызов per-позицию — это дало бы
+                # три заказа и три ответа в чат вместо одного. Берём только первый вызов.
+                if sale_handled:
+                    logger.warning("Степан: повторный register_sale в одном сообщении — игнорирую")
+                    continue
+                sale_handled = True
                 result_text = await _register_sale(message, args, user_text)
                 tool_results_text.append(result_text)
                 intent_after = "sale"
@@ -1410,6 +1417,7 @@ async def _register_sale(message: Message, args: dict, user_text: str) -> str:
     Если отдел не ответил (бот лежит) — говорим об этом прямо, а не имитируем успех.
     """
     from shared.bot_bus import send_task, get_result
+    from bots.stepan_bot.handlers.sale_ui import answer_sale_result
 
     params = {k: v for k, v in (args or {}).items() if v not in (None, "")}
     params["notes"] = user_text[:500]
@@ -1434,22 +1442,9 @@ async def _register_sale(message: Message, args: dict, user_text: str) -> str:
         )
         return f"Продажа не зарегистрирована: {err}"
 
-    result = bus_result.get("result") or {}
-    status = result.get("status")
-
-    if status == "ok":
-        from shared.sales_ops import format_sale_report
-        await message.answer(format_sale_report(result), parse_mode="HTML")
-        return f"Отдел продаж зарегистрировал заказ {result['data']['order_number']}."
-
-    if status == "duplicate":
-        await message.answer(f"ℹ️ {result.get('message')}")
-        return "Продажа уже была зарегистрирована — дубль отклонён."
-
-    # clarify / error — честно переспрашиваем, ничего не выдумывая
-    await message.answer(f"❓ <b>Отдел продаж:</b> {result.get('message', 'Не хватает данных.')}",
-                         parse_mode="HTML")
-    return "Отдел продаж запросил уточнение — продажа пока не записана."
+    # Показ результата (факты / вопрос с кнопками / ошибка) — общий для первого
+    # вызова и для дозаписи после нажатия кнопки.
+    return await answer_sale_result(message, bus_result.get("result") or {})
 
 
 async def _add_product(message: Message, args: dict) -> str:

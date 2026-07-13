@@ -151,6 +151,9 @@ def _normalize_items(params: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not isinstance(entry, dict):
             continue
         items.append({
+            # product_id проставляется, когда руководитель выбрал позицию кнопкой —
+            # тогда искать по названию уже не нужно.
+            "product_id": entry.get("product_id"),
             "product": str(entry.get("product") or "").strip() or None,
             "quantity": _to_float(entry.get("quantity")) or 1.0,
             "unit_price": _to_float(entry.get("unit_price")),
@@ -158,45 +161,54 @@ def _normalize_items(params: Dict[str, Any]) -> List[Dict[str, Any]]:
     return items
 
 
+async def _product_by_id(session, product_id: int) -> Optional[Dict[str, Any]]:
+    row = (await session.execute(
+        text("SELECT id, name_ru, price, unit FROM products WHERE id = :pid"),
+        {"pid": int(product_id)},
+    )).fetchone()
+    if not row:
+        return None
+    return {"id": row[0], "name": row[1], "price": float(row[2]), "unit": row[3]}
+
+
 async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Сопоставляем каждую позицию с каталогом.
 
-    Возвращает {"resolved": [...]} либо {"questions": [...], "missing": [...]},
-    где missing — товары, которых нет в каталоге (их можно добавить с одобрения).
+    Возвращает {"resolved": [...]} либо {"ambiguous": [...], "missing": [...]}
+    — структурой, по которой Степан рисует кнопки выбора (см. handlers/sale_ui.py).
     """
     resolved: List[Dict[str, Any]] = []
-    questions: List[str] = []
+    ambiguous: List[Dict[str, Any]] = []
     missing: List[Dict[str, Any]] = []
 
-    for item in items:
-        name = item["product"]
-        if not name:
-            questions.append("Что именно продали? Назовите товар — сам не догадаюсь.")
-            continue
+    for index, item in enumerate(items):
+        product: Optional[Dict[str, Any]] = None
 
-        matches = await _find_products(session, name)
-        exact = [m for m in matches if m["name"].strip().lower() == name.strip().lower()]
+        if item.get("product_id"):
+            product = await _product_by_id(session, item["product_id"])
 
-        if exact:
-            product = exact[0]
-        elif len(matches) == 1:
-            product = matches[0]
-        elif len(matches) > 1:
-            options = "\n".join(
-                f"   • {m['name']} — {format_price(m['price'])} / {m['unit']}" for m in matches
-            )
-            questions.append(f"Под «{name}» подходит несколько позиций — какую именно продали?\n{options}")
-            continue
-        else:
-            price = item["unit_price"]
-            missing.append({"name": name, "quantity": item["quantity"], "unit_price": price})
-            questions.append(
-                f"Товара «{name}» нет в каталоге."
-                + (f" Добавить его в каталог и магазин по цене {format_price(price)}?"
-                   if price else " Назовите цену — и добавлю его в каталог и магазин.")
-            )
-            continue
+        if not product:
+            name = item["product"]
+            if not name:
+                missing.append({"index": index, "name": None, "quantity": item["quantity"],
+                                "unit_price": item["unit_price"]})
+                continue
+
+            matches = await _find_products(session, name)
+            exact = [m for m in matches if m["name"].strip().lower() == name.strip().lower()]
+
+            if exact:
+                product = exact[0]
+            elif len(matches) == 1:
+                product = matches[0]
+            elif len(matches) > 1:
+                ambiguous.append({"index": index, "query": name, "candidates": matches})
+                continue
+            else:
+                missing.append({"index": index, "name": name, "quantity": item["quantity"],
+                                "unit_price": item["unit_price"]})
+                continue
 
         unit_price = item["unit_price"] if item["unit_price"] is not None else product["price"]
         resolved.append({
@@ -208,9 +220,31 @@ async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]
             "total_price": unit_price * item["quantity"],
         })
 
-    if questions:
-        return {"questions": questions, "missing": missing}
+    if ambiguous or missing:
+        return {"ambiguous": ambiguous, "missing": missing}
     return {"resolved": resolved}
+
+
+def _clarify_message(ambiguous: List[Dict[str, Any]], missing: List[Dict[str, Any]]) -> str:
+    """Короткий вопрос. Список вариантов уходит в кнопки, а не в текст."""
+    parts = []
+    for amb in ambiguous:
+        parts.append(f"Какую «{amb['query']}» продали? Выберите ниже 👇")
+    for miss in missing:
+        if not miss.get("name"):
+            parts.append("Что именно продали? Назовите товар.")
+        elif miss.get("unit_price"):
+            parts.append(
+                f"Товара «{miss['name']}» нет в каталоге. "
+                f"Добавить в магазин и CRM по {format_price(miss['unit_price'])}?"
+            )
+        else:
+            parts.append(
+                f"Товара «{miss['name']}» нет в каталоге. "
+                f"Назовите цену — заведу его в магазин и CRM."
+            )
+    head = "Продажу пока не записал.\n\n" if len(parts) > 1 else ""
+    return head + "\n\n".join(parts)
 
 
 async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -254,15 +288,27 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
     try:
         async with get_session_ctx() as session:
             # ── 1. Позиции: каждая обязана быть товаром каталога ──
-            outcome = await _resolve_items(session, _normalize_items(params))
-            if "questions" in outcome:
-                head = "Продажу пока не записал — уточните:" if len(outcome["questions"]) > 1 else ""
-                body = "\n\n".join(outcome["questions"])
+            items = _normalize_items(params)
+            outcome = await _resolve_items(session, items)
+            if "ambiguous" in outcome:
+                # Отдаём «незакрытую» продажу целиком: Степан покажет кнопки выбора
+                # и после ответа руководителя вызовет register_sale снова.
                 return {
                     "status": "clarify",
-                    "message": f"{head}\n\n{body}".strip(),
-                    "data": {"missing": outcome["missing"], "customer_name": customer_name,
-                             "phone": phone},
+                    "message": _clarify_message(outcome["ambiguous"], outcome["missing"]),
+                    "data": {
+                        "ambiguous": outcome["ambiguous"],
+                        "missing": outcome["missing"],
+                        "pending": {
+                            "customer_name": customer_name,
+                            "phone": phone,
+                            "customer_type": customer_type,
+                            "payment_status": payment_status,
+                            "status": order_status,
+                            "notes": notes,
+                            "items": items,
+                        },
+                    },
                 }
 
             lines = outcome["resolved"]
