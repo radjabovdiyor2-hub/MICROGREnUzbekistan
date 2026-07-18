@@ -231,61 +231,62 @@ class AIEngine:
             else:
                 messages.append({"role": "user", "content": content})
 
-        # Замер времени
-        start_time = time.monotonic()
+        # ── КАСКАД провайдеров: бесплатные первыми, OpenAI последним ──
+        # Не сработал один (квота/ошибка/пустой ответ) → сразу следующий. Заглушка —
+        # только если упал весь каскад. Провайдеры без ключа уже отфильтрованы.
+        from shared.ai_providers import iter_text_clients
+        cascade = iter_text_clients()
+        if not cascade:
+            logger.error("AI: нет ни одного провайдера с ключом — проверьте *_API_KEY в env")
+            return self._get_fallback(language)
 
-        try:
-            response = await self._client.chat.completions.create(
-                model=self._model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=0.95,
-                frequency_penalty=0.1,   # Снижаем повторения
-                presence_penalty=0.1,    # Поощряем разнообразие
-            )
-
-            duration_ms = (time.monotonic() - start_time) * 1000
-
-            # Извлекаем ответ
-            reply = response.choices[0].message.content or ""
-
-            # Записываем статистику использования
-            usage = response.usage
-            if usage:
-                self.usage.add_usage(
-                    input_tokens=usage.prompt_tokens,
-                    output_tokens=usage.completion_tokens,
-                    model=self._model,
-                    duration_ms=duration_ms,
+        last_err = None
+        for label, client, model in cascade:
+            start_time = time.monotonic()
+            try:
+                response = await client.chat.completions.create(
+                    model=model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    # Только широко поддерживаемые параметры — не все провайдеры принимают
+                    # top_p/frequency_penalty/presence_penalty.
                 )
-                logger.debug(
-                    f"AI ответ: {usage.prompt_tokens} in / "
-                    f"{usage.completion_tokens} out / "
-                    f"{duration_ms:.0f}ms"
-                )
+                reply = ""
+                if response.choices:
+                    reply = (response.choices[0].message.content or "").strip()
+                if not reply:
+                    last_err = f"{label}/{model}: пустой ответ"
+                    continue
 
-            return reply.strip()
+                duration_ms = (time.monotonic() - start_time) * 1000
+                usage = getattr(response, "usage", None)
+                if usage:
+                    try:
+                        self.usage.add_usage(
+                            input_tokens=usage.prompt_tokens,
+                            output_tokens=usage.completion_tokens,
+                            model=f"{label}/{model}",
+                            duration_ms=duration_ms,
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+                logger.info(f"AI: ответ через {label}/{model} ({duration_ms:.0f}ms)")
+                return reply
 
-        except RateLimitError as e:
-            self.usage.total_errors += 1
-            logger.warning(f"OpenAI rate limit: {e}")
-            return self._get_fallback(language)
+            except (RateLimitError, APITimeoutError, APIError) as e:
+                last_err = f"{label}/{model}: {type(e).__name__}"
+                self.usage.total_errors += 1
+                logger.warning(f"AI: {label}/{model} не сработал ({type(e).__name__}) — следующий")
+                continue
+            except Exception as e:  # noqa: BLE001
+                last_err = f"{label}/{model}: {e}"
+                self.usage.total_errors += 1
+                logger.warning(f"AI: {label}/{model} ошибка — {e} — следующий")
+                continue
 
-        except APITimeoutError as e:
-            self.usage.total_errors += 1
-            logger.warning(f"OpenAI timeout: {e}")
-            return self._get_fallback(language)
-
-        except APIError as e:
-            self.usage.total_errors += 1
-            logger.error(f"OpenAI API ошибка: {e}")
-            return self._get_fallback(language)
-
-        except Exception as e:
-            self.usage.total_errors += 1
-            logger.error(f"Неожиданная ошибка AI-движка: {e}", exc_info=True)
-            return self._get_fallback(language)
+        logger.error(f"AI: весь каскад провайдеров упал. Последняя ошибка: {last_err}")
+        return self._get_fallback(language)
 
     async def chat_with_tools(
         self,
@@ -350,71 +351,78 @@ class AIEngine:
         # Фирменный стиль Microgreen Uzbekistan в каждый промпт
         from shared.brand import brand_image_prompt, overlay_logo
         prompt = brand_image_prompt(prompt)
+        import os
         out_path = "temp_img.jpg"
-        models = ["gpt-image-2", "gpt-image-1"]
-        last_err: object = None
+        try:
+            iw, ih = (int(x) for x in size.lower().split("x")[:2])
+        except Exception:  # noqa: BLE001
+            iw, ih = 1024, 1024
 
-        for attempt in range(1, 4):  # до 3 попыток суммарно
-            for model in models:
-                try:
-                    logger.info(f"Генерация картинки ({model}, попытка {attempt}): {prompt[:50]}...")
-                    # gpt-image-1 поддерживает только 1024x1024/1024x1536/1536x1024 —
-                    # маппим вертикальный 1024x1792 в ближайший, иначе fallback падает с 400.
-                    use_size = size
-                    if model == "gpt-image-1" and size not in ("1024x1024", "1024x1536", "1536x1024"):
-                        try:
-                            w, h = (int(x) for x in size.lower().split("x")[:2])
-                        except Exception:
-                            w, h = 1024, 1024
-                        use_size = "1024x1536" if h > w else ("1536x1024" if w > h else "1024x1024")
-                    kwargs = {"model": model, "prompt": prompt, "size": use_size, "n": 1}
-                    if model == "gpt-image-2":
-                        kwargs["quality"] = "auto"
-                    response = await self._client.images.generate(**kwargs)
-
-                    data = response.data[0] if response and response.data else None
-                    b64 = getattr(data, "b64_json", None) if data else None
-                    url = getattr(data, "url", None) if data else None
-
-                    if b64:
-                        with open(out_path, "wb") as f:
-                            f.write(base64.b64decode(b64))
-                        self._last_image_url = None
-                        overlay_logo(out_path)
-                        return out_path
-
-                    if url:
-                        # На случай, если модель/настройка вернёт ссылку — скачиваем в файл,
-                        # чтобы вызывающий код единообразно получал локальный путь.
-                        import aiohttp
-                        async with aiohttp.ClientSession() as s:
-                            async with s.get(url, timeout=aiohttp.ClientTimeout(total=30)) as r:
-                                if r.status == 200:
-                                    with open(out_path, "wb") as f:
-                                        f.write(await r.read())
-                                    self._last_image_url = url
-                                    overlay_logo(out_path)
-                                    return out_path
-                        last_err = f"{model}: не удалось скачать картинку по url"
+        # 1) OpenAI gpt-image (лучшее качество) — только при наличии ключа; fail-fast при квоте
+        if getattr(self, "_api_key", None):
+            models = ["gpt-image-2", "gpt-image-1"]
+            openai_done = False
+            for attempt in range(1, 3):  # 1 повтор при транзиентном 520
+                if openai_done:
+                    break
+                for model in models:
+                    try:
+                        use_size = size
+                        if model == "gpt-image-1" and size not in ("1024x1024", "1024x1536", "1536x1024"):
+                            use_size = "1024x1536" if ih > iw else ("1536x1024" if iw > ih else "1024x1024")
+                        kwargs = {"model": model, "prompt": prompt, "size": use_size, "n": 1}
+                        if model == "gpt-image-2":
+                            kwargs["quality"] = "auto"
+                        response = await self._client.images.generate(**kwargs)
+                        data = response.data[0] if response and response.data else None
+                        b64 = getattr(data, "b64_json", None) if data else None
+                        url = getattr(data, "url", None) if data else None
+                        if b64:
+                            with open(out_path, "wb") as f:
+                                f.write(base64.b64decode(b64))
+                            self._last_image_url = None
+                            overlay_logo(out_path)
+                            return out_path
+                        if url:
+                            import aiohttp
+                            async with aiohttp.ClientSession() as s:
+                                async with s.get(url, timeout=aiohttp.ClientTimeout(total=30)) as r:
+                                    if r.status == 200:
+                                        with open(out_path, "wb") as f:
+                                            f.write(await r.read())
+                                        self._last_image_url = url
+                                        overlay_logo(out_path)
+                                        return out_path
+                    except (RateLimitError, APITimeoutError):
+                        logger.warning("OpenAI image: лимит/квота — переключаюсь на бесплатные")
+                        openai_done = True
+                        break
+                    except Exception as e:  # noqa: BLE001
+                        logger.warning(f"OpenAI image {model} failed: {e}")
                         continue
+                if not openai_done and attempt < 2:
+                    await asyncio.sleep(2)
 
-                    last_err = f"{model}: пустой ответ (нет b64/url)"
-                except (RateLimitError, APITimeoutError) as e:
-                    last_err = e
-                    logger.warning(f"{model}: лимит/таймаут — {e}")
-                    break  # перебирать модели дальше нет смысла — идём на паузу и повтор
-                except Exception as e:
-                    last_err = e
-                    logger.warning(f"{model} failed: {e}. Пробуем следующую модель...")
-                    continue
+        # 2) Бесплатные провайдеры: Pollinations (без ключа) → Cloudflare → HuggingFace
+        from shared.ai_providers import image_pollinations, image_cloudflare, image_hf
+        free = [
+            ("pollinations", lambda: image_pollinations(prompt, iw, ih, out_path)),
+            ("cloudflare", lambda: image_cloudflare(prompt, out_path)),
+            ("huggingface", lambda: image_hf(prompt, out_path)),
+        ]
+        for name, make in free:
+            try:
+                path = await make()
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"image {name} error: {e}")
+                path = None
+            if path and os.path.isfile(path):
+                self._last_image_url = None
+                overlay_logo(path)
+                logger.info(f"Картинка сгенерирована через {name}")
+                return path
 
-            if attempt < 3:
-                await asyncio.sleep(2 * attempt)  # backoff: 2с, затем 4с
-
-        logger.error(
-            f"Ошибка генерации изображения после 3 попыток: {last_err}",
-            exc_info=isinstance(last_err, Exception),
-        )
+        logger.error("Не удалось сгенерировать картинку ни одним провайдером (вкл. бесплатные)")
         return None
 
     async def generate_speech(self, text: str, voice: str = "alloy") -> Optional[str]:

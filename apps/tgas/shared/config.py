@@ -76,6 +76,22 @@ class Settings(BaseSettings):
         description="Модель OpenAI для генерации ответов",
     )
 
+    # ── Бесплатные LLM-провайдеры для каскада (OpenAI-совместимые) ──────
+    # Пустой ключ = провайдер пропускается в каскаде. Порядок каскада — в shared/ai_providers.py.
+    gemini_api_key: str | None = Field(default=None, description="Google Gemini (бесплатный тариф)")
+    gemini_api_key2: str | None = Field(default=None, description="Резервный ключ Gemini")
+    groq_api_key: str | None = Field(default=None, description="Groq (бесплатный)")
+    openrouter_api_key: str | None = Field(default=None, description="OpenRouter (:free модели)")
+    cerebras_api_key: str | None = Field(default=None, description="Cerebras (бесплатный)")
+    github_token: str | None = Field(default=None, description="GitHub Models (free для devs)")
+    # Бесплатная генерация картинок
+    hf_api_key: str | None = Field(default=None, description="HuggingFace Inference")
+    cf_account_id: str | None = Field(default=None, description="Cloudflare Workers AI account id")
+    cf_api_token: str | None = Field(default=None, description="Cloudflare Workers AI token")
+    ai_text_provider_order: str | None = Field(
+        default=None, description="Переопределение порядка каскада, напр. 'gemini,groq,openrouter,openai'"
+    )
+
     # ── Администраторы ─────────────────────────────────────────────────
     admin_telegram_ids: List[int] = Field(
         default_factory=list,
