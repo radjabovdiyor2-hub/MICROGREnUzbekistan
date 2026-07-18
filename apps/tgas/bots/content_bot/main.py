@@ -193,76 +193,14 @@ async def weekly_content_plan():
 import aiohttp
 from datetime import datetime, timedelta, timezone
 
-async def fetch_weather_samarkand() -> str:
-    """Получает текущую погоду в Самарканде через Open-Meteo API."""
-    try:
-        url = "https://api.open-meteo.com/v1/forecast?latitude=39.627&longitude=66.974&current_weather=true"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    temp = data['current_weather']['temperature']
-                    return f"Температура: {temp}°C"
-    except Exception as e:
-        logging.error(f"Weather fetch error: {e}")
-    return "Неизвестно"
+# Источники повестки вынесены в shared/trends.py (их использует и bus_generate_meme).
+# get_daily_context — кэшированный на день контекст (новости/тренды/сезон/погода),
+# build_topical_angle — тема поста из этой повестки в рамках CONTENT_POLICY.
+from shared.trends import (
+    fetch_weather_samarkand, fetch_local_news, fetch_uzbek_trends,
+    get_daily_context, build_topical_angle,
+)
 
-async def fetch_local_news() -> str:
-    """Получает актуальные новости Узбекистана через RSS."""
-    headlines = []
-    rss_feeds = [
-        "https://www.gazeta.uz/ru/rss/",
-        "https://kun.uz/ru/rss",
-        "https://daryo.uz/ru/rss",
-    ]
-    try:
-        async with aiohttp.ClientSession() as session:
-            for feed_url in rss_feeds:
-                try:
-                    async with session.get(feed_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                        if resp.status == 200:
-                            text = await resp.text()
-                            # Простой парсинг RSS
-                            import re
-                            titles = re.findall(r'<title><!\[CDATA\[(.*?)\]\]></title>', text)
-                            if not titles:
-                                titles = re.findall(r'<title>(.*?)</title>', text)
-                            headlines.extend(titles[1:6])  # Пропускаем название канала, берём 5
-                except Exception:
-                    continue
-    except Exception as e:
-        logging.error(f"News fetch error: {e}")
-    
-    if not headlines:
-        headlines = ["Новости временно недоступны"]
-    
-    return "\n".join(f"• {h}" for h in headlines[:8])
-
-
-async def fetch_uzbek_trends() -> str:
-    """Собирает контекст для мема: новости, погоду, тренды Узбекистана."""
-    ai = AIEngine()
-    
-    # Реальные новости
-    news = await fetch_local_news()
-    weather = await fetch_weather_samarkand()
-    
-    # AI анализирует тренды
-    trends = await ai.chat_completion(
-        "Ты аналитик трендов Узбекистана. Ты знаешь всё о жизни молодёжи, женщин, "
-        "поваров, фермеров и предпринимателей в Узбекистане.",
-        f"Сегодня {datetime.now().strftime('%d.%m.%Y, %A')}. Погода в Самарканде: {weather}.\n\n"
-        f"Актуальные новости:\n{news}\n\n"
-        "На основе этого определи:\n"
-        "1. Какая тема сейчас горячая в Узбекистане?\n"
-        "2. Что обсуждают в соцсетях (инста, TikTok)?\n"
-        "3. Сезонные моменты (жара, урожай, отпуска, Рамадан, школа, экзамены)\n"
-        "4. Что актуально для молодёжи и женщин?\n"
-        "5. Кулинарные/ЗОЖ тренды\n\n"
-        "Дай краткую сводку в 5-7 предложений."
-    )
-    
-    return f"Погода: {weather}\nНовости:\n{news}\nТренды:\n{trends}"
 
 async def morning_post():
     """Ежедневно утром: утренний сторис. Каждый день — ДРУГОЙ формат (факт / вопрос /
@@ -280,8 +218,15 @@ async def morning_post():
         # Формат дня определяет угол подачи, фото, макет, CTA и триггер вовлечения
         fmt = get_daily_morning_format(now.date())
         from shared.content_plan import get_daily_tip_theme
-        fact_theme = get_daily_fact_theme(now.date())
-        tip_theme = get_daily_tip_theme(now.date())
+        fact_theme = get_daily_fact_theme(now.date())   # fallback-семя из списка
+        tip_theme = get_daily_tip_theme(now.date())     # fallback-семя из списка
+        # Тема дня из актуальной повестки (новости/тренды/сезон/погода), с fallback на списки
+        if fmt["key"] in ("tip", "fact"):
+            ctx = await get_daily_context()
+            if fmt["key"] == "tip":
+                tip_theme = await build_topical_angle("tip", ctx, fallback=tip_theme)
+            else:
+                fact_theme = await build_topical_angle("fact", ctx, fallback=fact_theme)
         angle = fmt["angle"].replace("{fact}", fact_theme).replace("{tip}", tip_theme)
         is_info = fmt.get("kind") == "info"          # info → список пунктов на картинке
         promo_hint = "" if (fmt["key"] == "promo" or is_info) else \
@@ -437,6 +382,12 @@ async def evening_post():
         brief = build_recipe_brief(now.date())
         lang_uz = brief["lang"] == "uz"
         lang_name = "узбекском языке (латиница, O'zbek tili)" if lang_uz else "русском языке"
+        # Сезон/повод дня из повестки — чтобы блюдо попадало в момент (жара, Рамазан, школа…)
+        ctx = await get_daily_context()
+        occasion = ctx.get("occasion") or ""
+        season = ctx.get("season") or ""
+        occ_hint = (f"Сезон/повод: {season}{(', ' + occasion) if occasion else ''} — "
+                    f"учти при выборе блюда (лёгкость/сытность, праздничность).\n")
 
         raw = await ai.chat_completion(
             "Ты шеф-повар мирового уровня в Microgreen Uzbekistan и знаешь кухни всех стран. "
@@ -446,6 +397,7 @@ async def evening_post():
             f"Формат блюда: {brief['format']}.\n"
             f"Главный герой из нашего ассортимента: {brief['hero']} — он ключевой в блюде или подаче.\n"
             f"Погода сегодня: {weather} — подбери лёгкость/сытность под неё.\n"
+            f"{occ_hint}"
             f"⚠️ ЯЗЫК: пиши ГРАМОТНО на {lang_name}. ТОЛЬКО латинские буквы — никакой кириллицы "
             f"(ь, ъ, й, ы запрещены). «Микрозелень» = 'mikrozelen'. Название блюда — ПРОСТОЕ, "
             f"естественное и понятное (напр. 'No'xat mikrozeleni bilan issiq salat'), без выдуманных "
@@ -682,8 +634,11 @@ async def reel_post():
         # Ротация info-формата по дню (лайфхак / факт / мини-рецепт)
         key = REEL_INFO_FORMATS[now.timetuple().tm_yday % len(REEL_INFO_FORMATS)]
         fmt = next(f for f in MORNING_FORMATS if f["key"] == key)
-        angle = fmt["angle"].replace("{fact}", get_daily_fact_theme(now.date())) \
-                            .replace("{tip}", get_daily_tip_theme(now.date()))
+        # Тема из актуальной повестки (fallback на списки)
+        ctx = await get_daily_context()
+        fact_theme = await build_topical_angle("fact", ctx, fallback=get_daily_fact_theme(now.date()))
+        tip_theme = await build_topical_angle("tip", ctx, fallback=get_daily_tip_theme(now.date()))
+        angle = fmt["angle"].replace("{fact}", fact_theme).replace("{tip}", tip_theme)
 
         raw = await ai.chat_completion(
             "Sen Microgreen Uzbekistan SMM-menejeri. Faqat VALID JSON qaytar." + CONTENT_POLICY,
