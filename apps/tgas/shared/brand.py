@@ -143,11 +143,26 @@ def render_story_text(
     mention: str = "",
     cta: str = "ПОДРОБНЕЕ →",
     subtitle: str = "",
+    *,
+    badge: str = "",
+    layout: str = "bottom",
+    options: list | None = None,
+    note: str = "",
+    accent: bool = False,
 ) -> bool:
     """
-    Впечатывает в изображение сторис фирменный текст: заголовок, хэштеги, @упоминание
-    и CTA-кнопку (имитация «комплектации», т.к. API сторис не поддерживает подписи/стикеры).
-    Пишет результат в out_path. Возвращает True при успехе.
+    Впечатывает в сторис фирменный текст: заголовок, польза, @упоминание и CTA-кнопку
+    (имитация «комплектации», т.к. API сторис не поддерживает подписи/стикеры).
+
+    Поддерживает РАЗНЫЕ макеты, чтобы сторис не выглядел одинаково каждый день:
+      • layout='bottom' — плашка снизу (по умолчанию; прежнее поведение);
+      • layout='top'    — плашка сверху (факт / «а вы знали»);
+      • layout='center' — крупный центрированный текст (вопрос / цитата);
+      • layout='poll'   — снизу, с двумя вариантами выбора (options) — «this or that».
+    badge   — маленький ярлык-пилюля в углу (маркер формата дня);
+    note    — короткая строка-триггер вовлечения (Javob yozing / Saqlang…);
+    accent  — золотой акцент вместо зелёного (для промо).
+    Без новых аргументов ведёт себя как раньше (обратная совместимость).
     """
     try:
         from PIL import Image, ImageDraw
@@ -159,57 +174,121 @@ def render_story_text(
 
         green = (16, 185, 129, 255)       # #10B981
         green_dark = (5, 102, 74, 255)    # тёмно-зелёный для заголовка
+        gold = (255, 184, 0, 255)         # #FFB800 — акцент/промо
         ink = (28, 40, 36, 255)           # тёплый почти-чёрный для текста
         white = (255, 255, 255, 255)
+        btn = gold if accent else green
+        margin = int(W * 0.07)
+        centered = layout == "center"
 
-        # Белая «морозная» панель снизу с мягким градиентом (green-white premium)
+        # Полупрозрачная панель для читаемости — сверху / по центру / снизу
         panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         pd = ImageDraw.Draw(panel)
-        top = int(H * 0.60)
-        for yy in range(top, H):
-            t = (yy - top) / max(1, (H - top))
-            a = min(int(150 + 95 * t), 246)   # 150 → 246: плавный вход в чистый белый
-            pd.line([(0, yy), (W, yy)], fill=(255, 255, 255, a))
+        if layout == "top":
+            bot = int(H * 0.44)
+            for yy in range(0, bot):
+                t = 1 - yy / max(1, bot)
+                a = min(int(60 + 190 * t), 250)
+                pd.line([(0, yy), (W, yy)], fill=(255, 255, 255, a))
+        elif centered:
+            for yy in range(int(H * 0.28), int(H * 0.74)):
+                pd.line([(0, yy), (W, yy)], fill=(10, 30, 22, 150))  # мягкая тёмная вуаль
+        else:  # bottom / poll
+            top = int(H * 0.58)
+            for yy in range(top, H):
+                t = (yy - top) / max(1, (H - top))
+                a = min(int(150 + 95 * t), 246)   # плавный вход в чистый белый
+                pd.line([(0, yy), (W, yy)], fill=(255, 255, 255, a))
         base = Image.alpha_composite(base, panel)
         draw = ImageDraw.Draw(base)
 
-        margin = int(W * 0.07)
-        y = int(H * 0.645)
+        # Ярлык-пилюля формата дня (BILARMIDINGIZ? / SAVOL / TANLANG…)
+        if badge:
+            f_b = _load_font(int(W * 0.032))
+            bt = _clean_text(badge).upper()
+            if bt:
+                pad = int(W * 0.025)
+                tw = draw.textlength(bt, font=f_b)
+                by0 = int(H * 0.05) if layout == "top" else int(H * 0.06)
+                draw.rounded_rectangle(
+                    [margin, by0, margin + tw + pad * 2, by0 + f_b.size + pad],
+                    radius=int(f_b.size * 0.55), fill=btn,
+                )
+                draw.text((margin + pad, by0 + pad * 0.35), bt, font=f_b, fill=white)
 
-        # Заголовок (тёмно-зелёный, крупный)
+        def _block(y, lines, font, fill):
+            for ln in lines:
+                x = ((W - draw.textlength(ln, font=font)) / 2) if centered else margin
+                draw.text((x, y), ln, font=font, fill=fill)
+                y += int(font.size * 1.14)
+            return y
+
+        if layout == "top":
+            y = int(H * 0.11)
+        elif centered:
+            y = int(H * 0.36)
+        else:
+            y = int(H * 0.62)
+
+        # Заголовок (крупный)
         if headline:
-            f_head = _load_font(int(W * 0.078))
-            for line in _wrap(draw, _clean_text(headline), f_head, W - 2 * margin):
-                draw.text((margin, y), line, font=f_head, fill=green_dark)
-                y += int(f_head.size * 1.1)
+            f_head = _load_font(int(W * (0.086 if centered else 0.078)))
+            y = _block(y, _wrap(draw, _clean_text(headline), f_head, W - 2 * margin),
+                       f_head, white if centered else green_dark)
             y += int(H * 0.014)
 
-        # Фраза пользы (тёмная, средняя)
-        if subtitle:
-            f_sub = _load_font(int(W * 0.043))
-            for line in _wrap(draw, _clean_text(subtitle), f_sub, W - 2 * margin):
-                draw.text((margin, y), line, font=f_sub, fill=ink)
-                y += int(f_sub.size * 1.24)
+        # Фраза пользы (не для poll — там варианты вместо неё)
+        if subtitle and layout != "poll":
+            f_sub = _load_font(int(W * (0.05 if centered else 0.043)))
+            y = _block(y, _wrap(draw, _clean_text(subtitle), f_sub, W - 2 * margin),
+                       f_sub, white if centered else ink)
             y += int(H * 0.016)
 
-        # CTA-кнопка (зелёная плашка, белый текст)
+        # Два варианта выбора для «this or that»
+        if layout == "poll" and options:
+            f_o = _load_font(int(W * 0.05))
+            pad = int(W * 0.03)
+            for i, opt in enumerate(options[:2]):
+                ot = _clean_text(str(opt))
+                if not ot:
+                    continue
+                draw.rounded_rectangle(
+                    [margin, y, W - margin, y + f_o.size + pad],
+                    radius=int(f_o.size * 0.5), fill=(green if i == 0 else gold),
+                )
+                draw.text((margin + pad, y + pad * 0.3), ot, font=f_o, fill=white)
+                y += f_o.size + pad + int(H * 0.012)
+            y += int(H * 0.006)
+
+        # CTA-кнопка
         if cta:
             f_cta = _load_font(int(W * 0.042))
             pad = int(W * 0.035)
             cta_t = _clean_text(cta)
             tw = draw.textlength(cta_t, font=f_cta)
-            by = min(y, H - int(f_cta.size) - pad * 2 - int(H * 0.055))
+            by = min(y, H - int(f_cta.size) - pad * 2 - int(H * 0.075))
+            bx = int((W - (tw + pad * 2)) / 2) if centered else margin
             draw.rounded_rectangle(
-                [margin, by, margin + tw + pad * 2, by + f_cta.size + pad],
-                radius=int(f_cta.size * 0.6), fill=green,
+                [bx, by, bx + tw + pad * 2, by + f_cta.size + pad],
+                radius=int(f_cta.size * 0.6), fill=btn,
             )
-            draw.text((margin + pad, by + pad * 0.35), cta_t, font=f_cta, fill=white)
-            y = by + f_cta.size + pad + int(H * 0.012)
+            draw.text((bx + pad, by + pad * 0.35), cta_t, font=f_cta, fill=white)
+            y = by + f_cta.size + pad + int(H * 0.010)
 
-        # @упоминание (зелёным, мелким)
+        # Триггер вовлечения — то, что поднимает сторис в охвате
+        if note:
+            f_n = _load_font(int(W * 0.032))
+            nt = _clean_text(note)
+            if nt:
+                x = ((W - draw.textlength(nt, font=f_n)) / 2) if centered else margin
+                draw.text((x, min(y, H - int(f_n.size * 2.4))), nt, font=f_n,
+                          fill=white if centered else green_dark)
+
+        # @упоминание — всегда внизу
         if mention:
             f_m = _load_font(int(W * 0.028))
-            draw.text((margin, min(y, H - int(f_m.size * 1.8))), _clean_text(mention), font=f_m, fill=green)
+            draw.text((margin, H - int(f_m.size * 2.2)), _clean_text(mention),
+                      font=f_m, fill=white if centered else green)
 
         base.convert("RGB").save(out_path, "JPEG", quality=92)
         return True

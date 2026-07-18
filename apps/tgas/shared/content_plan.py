@@ -206,3 +206,99 @@ def build_recipe_brief(d: Optional[date] = None) -> dict:
         "hero": get_daily_hero_green(d),
         "lang": "uz",  # контент-политика: только Uzbek Latin
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ☀️ Форматы УТРЕННЕГО сторис — ротация ФОРМЫ, а не только слов
+# ═══════════════════════════════════════════════════════════════════════════
+# Проблема: раньше утренний сторис каждый день выглядел одинаково — одно и то же
+# арт-направление фото (флэтлей, верхний свет) и один и тот же оверлей (белая
+# плашка снизу + зелёный заголовок + кнопка «Batafsil»). Менялись только слова,
+# а форма — нет, поэтому подписчик видит «один и тот же пост».
+#
+# Решение: каждый день — ДРУГОЙ архетип сторис. У каждого свой угол подачи,
+# своё арт-направление фото, свой макет оверлея (layout), свой CTA и — главное —
+# свой ТРИГГЕР ВОВЛЕЧЕНИЯ (ответ / выбор / сохранение / репост). Взаимодействия
+# ранжируют сторис в охвате у Instagram, поэтому «в топ» выводит не картинка,
+# а встроенный призыв к реакции.
+#
+# Поля формата:
+#   key     — идентификатор; ru — человекочитаемый ярлык (для логов/Telegram);
+#   badge   — маленький ярлык-пилюля на картинке (маркер формата дня);
+#   layout  — макет оверлея для render_story_text: top | center | bottom | poll;
+#   angle   — инструкция AI, о чём и как писать ({fact} подставляется темой дня);
+#   photo   — арт-направление фото (англ.), чтобы жанр картинки менялся;
+#   cta     — текст кнопки; trigger — призыв к реакции (в промпт AI, uz);
+#   note    — короткий триггер, впечатываемый на картинку (≤3 слова, uz).
+
+MORNING_FORMATS: list[dict] = [
+    {
+        "key": "fact", "ru": "Факт дня «А вы знали?»", "badge": "BILARMIDINGIZ?",
+        "layout": "top",
+        "angle": "Дай ОДИН неожиданный, конкретный полезный факт по теме «{fact}». "
+                 "Подача «а вы знали?». Не выдумывай цифр — если не уверен, дай пользу качественно.",
+        "photo": "extreme macro close-up of dew-fresh microgreens sprouts, morning backlight, "
+                 "soft bokeh, vibrant green",
+        "cta": "Batafsil", "trigger": "do'stingizga yuboring (share)", "note": "Do'stga yuboring",
+    },
+    {
+        "key": "question", "ru": "Вопрос аудитории", "badge": "SAVOL",
+        "layout": "center",
+        "angle": "Задай аудитории тёплый вопрос про их утро/питание/привычки, "
+                 "чтобы захотелось ответить в директ. Один короткий вопрос.",
+        "photo": "cozy morning breakfast scene, hands holding a bowl of fresh salad with microgreens, "
+                 "warm lifestyle, natural window light",
+        "cta": "Javob yozing", "trigger": "javobingizni izohda yozing", "note": "Javob yozing",
+    },
+    {
+        "key": "this_or_that", "ru": "Выбор «Qaysi biri?»", "badge": "TANLANG",
+        "layout": "poll",
+        "angle": "Предложи выбор из ДВУХ вариантов (вкус/блюдо/привычка), чтобы подписчик выбрал. "
+                 "Сформулируй интригующе, оба варианта — про нашу зелень/еду.",
+        "photo": "two different fresh dishes with microgreens side by side on a clean light table, "
+                 "top-down split composition, bright daylight",
+        "cta": "Tanlang", "trigger": "qaysi birini tanlaysiz? belgilang", "note": "Qaysi biri?",
+    },
+    {
+        "key": "tip", "ru": "Лайфхак дня", "badge": "LIFEHACK",
+        "layout": "bottom",
+        "angle": "Дай ОДИН практичный лайфхак: свежесть, хранение или применение зелени. "
+                 "Чтобы захотелось сохранить сторис.",
+        "photo": "chef's hands preparing and cutting fresh microgreens on a wooden board in a bright "
+                 "modern kitchen, action shot, shallow depth of field",
+        "cta": "Saqlang", "trigger": "saqlab qo'ying (bookmark)", "note": "Saqlab qo'ying",
+    },
+    {
+        "key": "mini_recipe", "ru": "Мини-рецепт за 15 сек", "badge": "15 SONIYA",
+        "layout": "bottom",
+        "angle": "Предложи супер-простую идею блюда на 3 ингредиента с микрозеленью — «за 15 секунд». "
+                 "Аппетитно и выполнимо дома.",
+        "photo": "appetizing finished plated dish beautifully garnished with fresh microgreens, "
+                 "close-up, warm restaurant light",
+        "cta": "Retsept", "trigger": "retseptni saqlab qo'ying", "note": "Retseptni saqlang",
+    },
+    {
+        "key": "quote", "ru": "Мотивация утра", "badge": "BUGUN",
+        "layout": "center",
+        "angle": "Короткая тёплая мысль/мотивация о свежести, здоровье и заботе о себе с утра. "
+                 "Без клише, живо и по-человечески.",
+        "photo": "minimalist aesthetic still life of a single microgreen sprig on a neutral background, "
+                 "soft moody morning light, lots of negative space",
+        "cta": "Batafsil", "trigger": "rozimisiz? 💚 belgilang", "note": "Rozimisiz?",
+    },
+    {
+        "key": "promo", "ru": "Утреннее промо", "badge": "AKSIYA",
+        "layout": "bottom",
+        "angle": "Утреннее спецпредложение с промокодом BODRLIK (скидка 10%, действует 24 соат). "
+                 "Чёткий дедлайн и выгода.",
+        "photo": "premium product hero shot of a microgreens gift set / box with fresh greens, "
+                 "studio light, warm golden accents",
+        "cta": "Buyurtma berish", "trigger": "bugun 10% chegirma — buyurtma bering", "note": "Bugun -10%",
+    },
+]
+
+
+def get_daily_morning_format(d: Optional[date] = None) -> dict:
+    """Формат утреннего сторис на день — ротация по дню года (каждый день другой)."""
+    d = d or date.today()
+    return MORNING_FORMATS[d.timetuple().tm_yday % len(MORNING_FORMATS)]

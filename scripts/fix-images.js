@@ -2,8 +2,14 @@ const { Client } = require('ssh2');
 
 const conn = new Client();
 
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) {
+  console.error('DATABASE_URL не задан: DATABASE_URL=... DEPLOY_PASS=... node scripts/fix-images.js');
+  process.exit(1);
+}
+
 conn.on('ready', () => {
-  const cmd = `psql postgresql://microgreen:microgreen123@localhost:5432/microgreen -c "UPDATE products SET images = ARRAY['https://cdn.pixabay.com/photo/2018/10/05/22/02/arugula-3727003_1280.jpg'] WHERE name_uz ILIKE '%rukkola%' OR name_ru ILIKE '%руккола%';"`;
+  const cmd = `psql "${DB_URL}" -c "UPDATE products SET images = ARRAY['https://cdn.pixabay.com/photo/2018/10/05/22/02/arugula-3727003_1280.jpg'] WHERE name_uz ILIKE '%rukkola%' OR name_ru ILIKE '%руккола%';"`;
   conn.exec(cmd, (err, stream) => {
     if (err) throw err;
     stream.on('data', (d) => process.stdout.write(d.toString()));

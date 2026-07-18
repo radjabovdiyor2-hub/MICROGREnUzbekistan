@@ -335,48 +335,78 @@ class AIEngine:
 
     async def generate_image(self, prompt: str, size: str = "1024x1024") -> Optional[str]:
         """
-        Генерация изображения СТРОГО через GPT Image 2 (OpenAI).
-        Возвращает локальный путь к файлу. Публичный URL сохраняется в self._last_image_url.
+        Генерация изображения через OpenAI (gpt-image-2, запасная — gpt-image-1).
+
+        Обе модели отдают картинку в base64 (b64_json) — сохраняем её в файл; поле .url
+        у них пустое, поэтому раньше запасная ветка возвращала None (картинка терялась).
+        Теперь: при сбое основной модели запасная реально сохраняет результат, а при
+        429/таймауте делаем повторные попытки с паузой. Возвращает локальный путь к файлу
+        (или None, если все попытки не удались). Публичный URL — в self._last_image_url.
         """
+        import asyncio
+        import base64
+
         self._last_image_url = None
         # Фирменный стиль Microgreen Uzbekistan в каждый промпт
         from shared.brand import brand_image_prompt, overlay_logo
         prompt = brand_image_prompt(prompt)
-        try:
-            logger.info(f"Генерация картинки: {prompt[:50]}...")
-            try:
-                response = await self._client.images.generate(
-                    model="gpt-image-2",
-                    prompt=prompt,
-                    size=size,
-                    quality="auto",
-                    n=1,
-                )
-                if response.data[0].b64_json:
-                    import base64
-                    with open("temp_img.jpg", "wb") as f:
-                        f.write(base64.b64decode(response.data[0].b64_json))
-                    # Накладываем логотип бренда на готовое изображение
-                    overlay_logo("temp_img.jpg")
-                    # gpt-image-2 returns base64, no public URL available
-                    self._last_image_url = None
-                    return "temp_img.jpg"
-                self._last_image_url = response.data[0].url
-                return response.data[0].url
-            except Exception as e:
-                logger.warning(f"gpt-image-2 failed: {e}. Trying gpt-image-1 as fallback...")
-                response = await self._client.images.generate(
-                    model="gpt-image-1",
-                    prompt=prompt,
-                    size=size,
-                    n=1,
-                )
-                self._last_image_url = response.data[0].url
-                return response.data[0].url
-                
-        except Exception as e:
-            logger.error(f"Ошибка при генерации изображения через OpenAI API: {e}", exc_info=True)
-            return None
+        out_path = "temp_img.jpg"
+        models = ["gpt-image-2", "gpt-image-1"]
+        last_err: object = None
+
+        for attempt in range(1, 4):  # до 3 попыток суммарно
+            for model in models:
+                try:
+                    logger.info(f"Генерация картинки ({model}, попытка {attempt}): {prompt[:50]}...")
+                    kwargs = {"model": model, "prompt": prompt, "size": size, "n": 1}
+                    if model == "gpt-image-2":
+                        kwargs["quality"] = "auto"
+                    response = await self._client.images.generate(**kwargs)
+
+                    data = response.data[0] if response and response.data else None
+                    b64 = getattr(data, "b64_json", None) if data else None
+                    url = getattr(data, "url", None) if data else None
+
+                    if b64:
+                        with open(out_path, "wb") as f:
+                            f.write(base64.b64decode(b64))
+                        self._last_image_url = None
+                        overlay_logo(out_path)
+                        return out_path
+
+                    if url:
+                        # На случай, если модель/настройка вернёт ссылку — скачиваем в файл,
+                        # чтобы вызывающий код единообразно получал локальный путь.
+                        import aiohttp
+                        async with aiohttp.ClientSession() as s:
+                            async with s.get(url, timeout=aiohttp.ClientTimeout(total=30)) as r:
+                                if r.status == 200:
+                                    with open(out_path, "wb") as f:
+                                        f.write(await r.read())
+                                    self._last_image_url = url
+                                    overlay_logo(out_path)
+                                    return out_path
+                        last_err = f"{model}: не удалось скачать картинку по url"
+                        continue
+
+                    last_err = f"{model}: пустой ответ (нет b64/url)"
+                except (RateLimitError, APITimeoutError) as e:
+                    last_err = e
+                    logger.warning(f"{model}: лимит/таймаут — {e}")
+                    break  # перебирать модели дальше нет смысла — идём на паузу и повтор
+                except Exception as e:
+                    last_err = e
+                    logger.warning(f"{model} failed: {e}. Пробуем следующую модель...")
+                    continue
+
+            if attempt < 3:
+                await asyncio.sleep(2 * attempt)  # backoff: 2с, затем 4с
+
+        logger.error(
+            f"Ошибка генерации изображения после 3 попыток: {last_err}",
+            exc_info=isinstance(last_err, Exception),
+        )
+        return None
 
     async def generate_speech(self, text: str, voice: str = "alloy") -> Optional[str]:
         """

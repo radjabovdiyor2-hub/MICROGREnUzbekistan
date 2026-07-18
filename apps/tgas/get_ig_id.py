@@ -1,8 +1,12 @@
 import aiohttp
 import asyncio
+import os
 
-USER_TOKEN = "EAAXiSQRFDKMBR23rzCIPr4bP0FOzRVeU6gjP3LRCIZCfA7LdNmQlSz1XlYKzlLdZBsuvB5ByZClx9c9cTxoMW8upu1t0xnrdt2arapsZAVzA7hgsDCDAGjHFhTHlytWuGgL4P1yZCglDODkwgfEwbV1ySRf60JF9hXH4PMJvxXwEduICAjHBPmHFu7WKXPSCItPc6xXMLFmTxVQYZAZCmAYVxNaDAIreGajZAqyVeHnkZCN1VMdPXGPHN42w7noQ1D4KJU7Q2gjLszHm3zRg0UT8XagZDZD"
-PAGE_ID = "768561956332372"
+USER_TOKEN = os.getenv("INSTAGRAM_USER_TOKEN") or os.getenv("INSTAGRAM_ACCESS_TOKEN")
+PAGE_ID = os.getenv("FB_PAGE_ID", "768561956332372")
+
+if not USER_TOKEN:
+    raise SystemExit("INSTAGRAM_USER_TOKEN (или INSTAGRAM_ACCESS_TOKEN) не задан в окружении")
 
 async def main():
     async with aiohttp.ClientSession() as s:

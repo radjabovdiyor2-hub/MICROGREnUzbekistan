@@ -19,7 +19,7 @@ from shared.health import start_heartbeat
 from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY
 from shared.content_plan import (
     get_daily_pillar, get_weekly_grid_pillar, build_brief,
-    get_daily_fact_theme, build_recipe_brief,
+    get_daily_fact_theme, build_recipe_brief, get_daily_morning_format,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -265,33 +265,39 @@ async def fetch_uzbek_trends() -> str:
     return f"Погода: {weather}\nНовости:\n{news}\nТренды:\n{trends}"
 
 async def morning_post():
-    """Ежедневно в 09:00: утренний мотивационный пост с пользой микрозелени."""
+    """Ежедневно утром: утренний сторис. Каждый день — ДРУГОЙ формат (факт / вопрос /
+    выбор / лайфхак / мини-рецепт / цитата / промо): разное фото, разный макет оверлея
+    и свой триггер вовлечения — чтобы сторис не выглядел одинаково и лучше заходил в охват."""
     try:
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
-        day_of_year = now.timetuple().tm_yday
         day_name = now.strftime('%A')
         weather = await fetch_weather_samarkand()
 
         admin_id = settings.admin_telegram_ids[0]
         ai = AIEngine()
 
+        # Формат дня определяет угол подачи, фото, макет, CTA и триггер вовлечения
+        fmt = get_daily_morning_format(now.date())
         fact_theme = get_daily_fact_theme(now.date())
+        angle = fmt["angle"].replace("{fact}", fact_theme)
+        promo_hint = "" if fmt["key"] == "promo" else \
+            "С вероятностью 25% органично добавь промокод BODRLIK (скидка 10%, 24 соат).\n"
+
         prompt = (
-            f"Создай утренний пост-сторис (доброе утро) для Microgreen Uzbekistan. "
-            f"Контекст: день недели {day_name}, погода в Самарканде: {weather}.\n"
-            f"Аудитория: домашние хозяйки и шеф-повара (HoReCa). Тон: тёплый, бодрый, полезный.\n"
-            f"⭐ ГЛАВНОЕ: включи ОДИН конкретный полезный ФАКТ / практическую пользу по теме: «{fact_theme}». "
-            f"1-2 предложения, заметно (💡/🌿). НЕ выдумывай цифры — если не уверен, дай пользу качественно.\n"
-            f"Можно упомянуть салаты, витграсс, съедобные цветы. "
-            f"С вероятностью 25% органично добавь промокод BODRLIK на скидку 10% (24 соат).\n"
-            f"Пост уникальный, без упоминания ИИ. Пиши ТОЛЬКО на Uzbek Latin."
+            f"Создай утренний сторис (доброе утро) для Microgreen Uzbekistan.\n"
+            f"ФОРМАТ СЕГОДНЯ: {fmt['ru']}. Контекст: {day_name}, погода в Самарканде: {weather}.\n"
+            f"Аудитория: домашние хозяйки и шеф-повара (HoReCa). Тон: тёплый, бодрый, живой.\n"
+            f"ЗАДАЧА: {angle}\n"
+            f"В конце ОБЯЗАТЕЛЬНО органичный призыв к реакции: {fmt['trigger']}.\n"
+            f"{promo_hint}"
+            f"Коротко (до 4 предложений), уникально, без упоминания ИИ. Пиши ТОЛЬКО на Uzbek Latin."
         )
         post_text = await ai.chat_completion(
             "Sen Microgreen Uzbekistan brendining SMM-menejeri va oshpaz-ekspertisan. "
             "Yorqin, foydali, emoji bilan yoz." + BRAND_TEXT_STYLE + CONTENT_POLICY + "\n\n" + build_brief(get_daily_pillar(), "утренний сторис"),
             prompt,
-            temperature=0.85,
+            temperature=0.9,
         )
 
         headline = await ai.chat_completion(
@@ -299,36 +305,50 @@ async def morning_post():
             f"Shu post uchun qisqa, jozibali SARLAVHA (hook) o'ylab top — FAQAT Uzbek Latin, ko'pi bilan 5 so'z, "
             f"emoji va tinish belgilarisiz. Faqat sarlavhani yoz:\n{post_text[:500]}"
         )
-        benefit = await ai.chat_completion(
-            "Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz." + CONTENT_POLICY,
-            f"Bitta ANIQ foyda iborasini yoz (masalan: vitaminlar, immunitet, energiya, hazm) — "
-            f"Uzbek Latin, ko'pi bilan 6 so'z, emoji va tinish belgilarisiz. "
-            f"MUHIM: bu sarlavhadan FARQ qilsin, uni takrorlama. Sarlavha: «{headline[:60]}». "
-            f"Faqat iborani yoz:\n{post_text[:400]}"
-        )
 
-        # Чистое фото БЕЗ текста — заголовок/хэштеги/CTA впечатаем сами в бренде (всегда читаемо)
-        image_prompt = await ai.chat_completion(
-            "Ты дизайнер и фотограф. Ответь ТОЛЬКО англоязычным промптом для генерации фото.",
-            f"Photorealistic vertical 9:16 photo for Instagram story, morning lighting, aesthetic layout, "
-            f"fresh microgreens and healthy food, clean empty space at the top for a text overlay. "
-            f"CRITICAL: absolutely NO text, NO letters, NO words on the image. Контекст: {post_text[:200]}"
+        # Для формата «выбор» — два коротких варианта; для остальных — фраза пользы
+        options = None
+        benefit = ""
+        if fmt["key"] == "this_or_that":
+            raw_opts = await ai.chat_completion(
+                "Sen kopirayter. Uzbek Latin, grammatik to'g'ri." + CONTENT_POLICY,
+                f"Ikkita QISQA tanlov variantini taklif qil, har biri 1-3 so'z, ular orasiga '|' qo'y, "
+                f"emoji va tinish belgilarisiz. FAQAT ikkita variant:\n{post_text[:300]}"
+            )
+            parts = [p.strip() for p in raw_opts.replace("\n", "|").split("|") if p.strip()]
+            options = parts[:2] if len(parts) >= 2 else ["1-variant", "2-variant"]
+        else:
+            benefit = await ai.chat_completion(
+                "Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz." + CONTENT_POLICY,
+                f"Bitta ANIQ foyda/qiziqarli iborani yoz — Uzbek Latin, ko'pi bilan 6 so'z, "
+                f"emoji va tinish belgilarisiz. MUHIM: bu sarlavhadan FARQ qilsin. Sarlavha: «{headline[:60]}». "
+                f"Faqat iborani yoz:\n{post_text[:400]}"
+            )
+
+        # Фото — арт-направление меняется по формату дня (не всегда флэтлей)
+        image_prompt = (
+            f"Photorealistic vertical 9:16 photo for Instagram story. {fmt['photo']}. "
+            f"Aesthetic, premium, natural light. Keep a clean empty area for a text overlay. "
+            f"CRITICAL: absolutely NO text, NO letters, NO words on the image."
         )
         image_url = await ai.generate_image(image_prompt, size="1024x1792")
 
         import os
         if image_url and os.path.isfile(image_url):
-            # Впечатываем текст в картинку → финальный сторис: заголовок + фраза пользы + CTA (минимум текста)
+            # Впечатываем текст в картинку → финальный сторис по макету формата дня
             from shared.brand import render_story_text, BRAND
             story_img = "temp_story.jpg"
             ok = render_story_text(
                 image_url, story_img,
                 headline=headline or "", subtitle=benefit or "", hashtags="",
-                mention=BRAND["instagram"], cta="Batafsil",
+                mention=BRAND["instagram"], cta=fmt["cta"],
+                badge=fmt["badge"], layout=fmt["layout"], options=options,
+                note=fmt["note"], accent=(fmt["key"] == "promo"),
             )
             final_img = story_img if ok else image_url
             from aiogram.types import FSInputFile
-            await _bot.send_photo(admin_id, photo=FSInputFile(final_img))
+            await _bot.send_photo(admin_id, photo=FSInputFile(final_img),
+                                  caption=f"☀️ <b>{fmt['ru']}</b>", parse_mode="HTML")
             from shared.instagram import post_to_instagram
             success = await post_to_instagram(final_img, "", post_type="story")
             if success:

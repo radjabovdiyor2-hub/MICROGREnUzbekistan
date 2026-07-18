@@ -2,8 +2,14 @@ const { Client } = require('ssh2');
 
 const conn = new Client();
 
+const TOKEN = process.env.BOT_TOKEN;
+if (!TOKEN) {
+  console.error('BOT_TOKEN не задан: запускать так: BOT_TOKEN=... DEPLOY_PASS=... node scripts/fix-env.js');
+  process.exit(1);
+}
+
 conn.on('ready', () => {
-  const cmd = `echo "TELEGRAM_BOT_TOKEN=8039142477:AAEF1F4CCmy-uJh9RNYiMTBTT9vn3TW0F88" >> /home/ubuntu/MICROGREnUzbekistan/.env && pm2 restart microgreen-web --update-env`;
+  const cmd = `echo "TELEGRAM_BOT_TOKEN=${TOKEN}" >> /home/ubuntu/MICROGREnUzbekistan/.env && pm2 restart microgreen-web --update-env`;
   console.log("Fixing remote .env and restarting web...");
   conn.exec(cmd, (err, stream) => {
     if (err) throw err;
