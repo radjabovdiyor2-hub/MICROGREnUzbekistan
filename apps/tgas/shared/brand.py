@@ -38,6 +38,16 @@ BRAND = {
     "city": "Самарканд",
 }
 
+# ── Фиксированный набор хэштегов для постов В ЛЕНТУ (feed) ────────────────────
+# Детерминированный, курируемый: бренд + гео + ниша + ЗОЖ. Подставляется вместо
+# AI-хэштегов (модель их коверкала: #ZO'Z, #tadqiqot). Стори хэштеги не публикуют,
+# поэтому это важно только для ленты/reels, где подпись реально индексируется.
+BRAND_HASHTAGS = (
+    "#MicrogreenUzbekistan #Microgreen #Mikrozelen #Samarqand #Toshkent "
+    "#SoglomOvqatlanish #ZOJ #HealthyFood #Zelen #Salat #FreshFood "
+    "#Gidroponika #Detoks #Vegan"
+)
+
 # ── Стиль для генерации ИЗОБРАЖЕНИЙ (добавляется к каждому DALL-E/gpt-image промпту) ──
 BRAND_IMAGE_STYLE = (
     " || BRAND STYLE — Microgreen Uzbekistan: clean, premium, natural daylight food & plant "
@@ -149,6 +159,8 @@ def render_story_text(
     options: list | None = None,
     note: str = "",
     accent: bool = False,
+    points: list | None = None,
+    section: str = "",
 ) -> bool:
     """
     Впечатывает в сторис фирменный текст: заголовок, польза, @упоминание и CTA-кнопку
@@ -161,7 +173,10 @@ def render_story_text(
       • layout='poll'   — снизу, с двумя вариантами выбора (options) — «this or that».
     badge   — маленький ярлык-пилюля в углу (маркер формата дня);
     note    — короткая строка-триггер вовлечения (Javob yozing / Saqlang…);
-    accent  — золотой акцент вместо зелёного (для промо).
+    accent  — золотой акцент вместо зелёного (для промо);
+    points  — 2-3 КОНКРЕТНЫХ пункта пользы (лайфхак/факт/рецепт) — рисуются списком «•»
+              вместо одиночной фразы subtitle, чтобы реальная суть была на картинке;
+    section — золотой заголовок над списком пунктов (MASLAHAT / TARKIBI / …).
     Без новых аргументов ведёт себя как раньше (обратная совместимость).
     """
     try:
@@ -181,11 +196,13 @@ def render_story_text(
         margin = int(W * 0.07)
         centered = layout == "center"
 
-        # Полупрозрачная панель для читаемости — сверху / по центру / снизу
+        # Полупрозрачная панель для читаемости — сверху / по центру / снизу.
+        # При наличии списка пунктов панель делаем выше, чтобы всё поместилось.
+        has_points = bool(points) and layout != "poll"
         panel = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         pd = ImageDraw.Draw(panel)
         if layout == "top":
-            bot = int(H * 0.44)
+            bot = int(H * (0.62 if has_points else 0.44))
             for yy in range(0, bot):
                 t = 1 - yy / max(1, bot)
                 a = min(int(60 + 190 * t), 250)
@@ -194,7 +211,7 @@ def render_story_text(
             for yy in range(int(H * 0.28), int(H * 0.74)):
                 pd.line([(0, yy), (W, yy)], fill=(10, 30, 22, 150))  # мягкая тёмная вуаль
         else:  # bottom / poll
-            top = int(H * 0.58)
+            top = int(H * (0.46 if has_points else 0.58))
             for yy in range(top, H):
                 t = (yy - top) / max(1, (H - top))
                 a = min(int(150 + 95 * t), 246)   # плавный вход в чистый белый
@@ -228,17 +245,36 @@ def render_story_text(
         elif centered:
             y = int(H * 0.36)
         else:
-            y = int(H * 0.62)
+            y = int(H * (0.50 if has_points else 0.62))
 
-        # Заголовок (крупный)
+        # Заголовок (крупный; чуть меньше, когда под ним список пунктов)
         if headline:
-            f_head = _load_font(int(W * (0.086 if centered else 0.078)))
+            hsize = 0.066 if has_points else (0.086 if centered else 0.078)
+            f_head = _load_font(int(W * hsize))
             y = _block(y, _wrap(draw, _clean_text(headline), f_head, W - 2 * margin),
                        f_head, white if centered else green_dark)
             y += int(H * 0.014)
 
-        # Фраза пользы (не для poll — там варианты вместо неё)
-        if subtitle and layout != "poll":
+        # Список КОНКРЕТНЫХ пунктов (лайфхак/факт/рецепт) — реальная суть на картинке.
+        # Заменяет одиночную фразу subtitle (паттерн из render_recipe_card).
+        if has_points:
+            if section:
+                f_sec = _load_font(int(W * 0.032))
+                draw.text((margin, y), _clean_text(section).upper(), font=f_sec, fill=gold)
+                y += int(f_sec.size * 1.7)
+            f_pt = _load_font(int(W * 0.041))
+            for pt in [p for p in points if str(p).strip()][:3]:
+                for j, line in enumerate(
+                    _wrap(draw, _clean_text(str(pt)), f_pt, W - 2 * margin - int(W * 0.02))
+                ):
+                    prefix = "•  " if j == 0 else "     "
+                    draw.text((margin, y), prefix + line, font=f_pt, fill=ink)
+                    y += int(f_pt.size * 1.32)
+                y += int(H * 0.004)
+            y += int(H * 0.012)
+
+        # Одиночная фраза пользы (когда нет списка; не для poll)
+        elif subtitle and layout != "poll":
             f_sub = _load_font(int(W * (0.05 if centered else 0.043)))
             y = _block(y, _wrap(draw, _clean_text(subtitle), f_sub, W - 2 * margin),
                        f_sub, white if centered else ink)

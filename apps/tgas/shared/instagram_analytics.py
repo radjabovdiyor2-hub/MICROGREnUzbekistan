@@ -67,18 +67,57 @@ async def get_profile_stats() -> dict:
         return {}
 
 
-async def get_recent_media_stats(limit: int = 10) -> list:
+async def get_media_insights(media_id: str, media_type: str = "") -> dict:
+    """
+    Метрики ОХВАТА поста через /insights: reach, saved, shares (лента/reels) или
+    reach, replies (сторис) — то, что реально двигает распространение у алгоритма,
+    а не только лайки/комменты. Возвращает dict (пусто при ошибке/недоступности).
+    Требует business/creator аккаунт; story-insights живут ~24 часа.
+    """
+    access_token = getattr(settings, "instagram_access_token", "")
+    if not media_id or not access_token:
+        return {}
+    mt = (media_type or "").upper()
+    if mt == "STORY":
+        metrics = "reach,replies"
+    elif mt in ("VIDEO", "REELS"):
+        metrics = "reach,saved,shares,views"  # 'plays' устарел → 'views'
+    else:  # IMAGE / CAROUSEL_ALBUM / feed
+        metrics = "reach,saved,shares"
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"{GRAPH_BASE_URL}/{media_id}/insights"
+            params = {"metric": metrics, "access_token": access_token}
+            async with session.get(url, params=params) as resp:
+                data = await resp.json()
+                if "error" in data:
+                    logger.debug(f"insights /{media_id}: {data['error'].get('message', '')}")
+                    return {}
+                out = {}
+                for item in data.get("data", []):
+                    vals = item.get("values") or [{}]
+                    out[item.get("name")] = vals[0].get("value", 0)
+                return out
+    except Exception as e:
+        logger.debug(f"insights error {media_id}: {e}")
+        return {}
+
+
+async def get_recent_media_stats(limit: int = 10, with_insights: bool = False) -> list:
     """
     Получает статистику последних публикаций Instagram.
-    
+
     Uses: GET /{ig_account_id}/media?fields=id,caption,timestamp,like_count,comments_count,media_type
-    
+    with_insights=True дополнительно тянет reach/saved/shares по каждому посту (+N запросов)
+    и считает взвешенный score (сохранения и репосты весят больше — они двигают охват).
+
     Args:
         limit: Максимальное количество публикаций (по умолчанию 10)
-        
+
     Returns:
         Список словарей с данными каждой публикации:
-        - id, caption, timestamp, like_count, comments_count, media_type, engagement
+        - id, caption, timestamp, like_count, comments_count, media_type, engagement, score
+          (+ reach, saved, shares при with_insights)
     """
     ig_account_id = getattr(settings, "instagram_account_id", "")
     access_token = getattr(settings, "instagram_access_token", "")
@@ -107,14 +146,14 @@ async def get_recent_media_stats(limit: int = 10) -> list:
                 
                 media_list = data.get("data", [])
                 
-                # Добавляем engagement score к каждому посту
+                # Добавляем engagement / score к каждому посту
                 result = []
                 for media in media_list:
                     likes = media.get("like_count", 0)
                     comments = media.get("comments_count", 0)
                     engagement = likes + comments
-                    
-                    result.append({
+
+                    row = {
                         "id": media.get("id", ""),
                         "caption": media.get("caption", "")[:200] if media.get("caption") else "",
                         "timestamp": media.get("timestamp", ""),
@@ -122,9 +161,19 @@ async def get_recent_media_stats(limit: int = 10) -> list:
                         "comments_count": comments,
                         "media_type": media.get("media_type", ""),
                         "engagement": engagement,
-                    })
-                
-                logger.info(f"📊 Получено {len(result)} публикаций из Instagram.")
+                        "score": engagement,
+                    }
+                    if with_insights:
+                        ins = await get_media_insights(row["id"], row["media_type"])
+                        row["reach"] = ins.get("reach", 0)
+                        row["saved"] = ins.get("saved", 0)
+                        row["shares"] = ins.get("shares", 0)
+                        # сохранения ×2, репосты ×3 — они сильнее двигают охват, чем лайки
+                        row["score"] = engagement + 2 * row["saved"] + 3 * row["shares"]
+                    result.append(row)
+
+                logger.info(f"📊 Получено {len(result)} публикаций из Instagram"
+                            f"{' (+insights)' if with_insights else ''}.")
                 return result
     except Exception as e:
         logger.error(f"Ошибка при получении медиа: {e}", exc_info=True)
@@ -225,23 +274,25 @@ async def get_top_posts(limit: int = 5) -> list:
     Returns:
         Список словарей с данными топ-постов, отсортированных по engagement (desc)
     """
-    # Получаем больше постов, чтобы выбрать лучшие
-    fetch_limit = max(limit * 4, 25)
-    all_media = await get_recent_media_stats(limit=fetch_limit)
-    
+    # Получаем меньше постов, но с insights (охват/сохранения/репосты) — это дороже по API,
+    # поэтому берём умеренную выборку для ранжирования по реальному распространению.
+    fetch_limit = max(limit * 3, 15)
+    all_media = await get_recent_media_stats(limit=fetch_limit, with_insights=True)
+
     if not all_media:
         logger.info("Нет данных для определения топ-постов.")
         return []
-    
-    # Сортируем по engagement (лайки + комментарии) и берём топ
-    sorted_media = sorted(all_media, key=lambda x: x["engagement"], reverse=True)
+
+    # Сортируем по взвешенному score (лайки+комменты + сохранения×2 + репосты×3)
+    sorted_media = sorted(all_media, key=lambda x: x.get("score", x["engagement"]), reverse=True)
     top = sorted_media[:limit]
-    
+
     if top:
+        b = top[0]
         logger.info(
-            f"🏆 Топ-{len(top)} постов: "
-            f"лучший engagement = {top[0]['engagement']} "
-            f"(👍 {top[0]['like_count']} + 💬 {top[0]['comments_count']})"
+            f"🏆 Топ-{len(top)} постов: лучший score={b.get('score')} "
+            f"(👍{b['like_count']} 💬{b['comments_count']} "
+            f"🔖{b.get('saved', 0)} 🔁{b.get('shares', 0)} 👁{b.get('reach', 0)})"
         )
 
     return top
@@ -266,12 +317,17 @@ async def get_instagram_stats(top_limit: int = 5) -> dict:
         f"🖼 Публикаций: {media_count}",
     ]
     if top_posts:
-        lines.append("🏆 Топ-посты по вовлечённости:")
+        # суммарный охват/сохранения/репосты по топ-постам — то, что раньше не измерялось
+        tot_reach = sum(p.get("reach", 0) for p in top_posts)
+        tot_saved = sum(p.get("saved", 0) for p in top_posts)
+        tot_shares = sum(p.get("shares", 0) for p in top_posts)
+        lines.append(f"👁 Охват (топ): {tot_reach} · 🔖 Сохранения: {tot_saved} · 🔁 Репосты: {tot_shares}")
+        lines.append("🏆 Топ-посты по распространению (score):")
         for i, p in enumerate(top_posts, 1):
-            cap = (p.get("caption") or "").replace("\n", " ")[:60]
+            cap = (p.get("caption") or "").replace("\n", " ")[:50]
             lines.append(
-                f"  {i}. 👍 {p['like_count']} 💬 {p['comments_count']} "
-                f"(engagement {p['engagement']}) — {cap}"
+                f"  {i}. 👁{p.get('reach', 0)} 🔖{p.get('saved', 0)} 🔁{p.get('shares', 0)} "
+                f"👍{p['like_count']} 💬{p['comments_count']} — {cap}"
             )
     else:
         lines.append("Данные по постам недоступны (проверьте токен/доступ Graph API).")

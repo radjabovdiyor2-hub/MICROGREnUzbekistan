@@ -196,6 +196,28 @@ def get_daily_fact_theme(d: Optional[date] = None) -> str:
     return _pick(FACT_THEMES, d.timetuple().tm_yday * 3)
 
 
+# Темы утреннего ЛАЙФХАКА — конкретные, предметные советы (не общие фразы).
+# Каждый день другой; AI разворачивает тему в 2-3 конкретных пункта.
+TIP_THEMES = [
+    "как хранить микрозелень в холодильнике, чтобы держалась свежей 7-10 дней "
+    "(влажная салфетка, контейнер, нижняя полка +4°C)",
+    "почему микрозелень нельзя мыть заранее — мыть только прямо перед подачей",
+    "как оживить подвявшую зелень: опустить в ледяную воду на 10-15 минут",
+    "как срезать микрозелень чистыми ножницами у самого основания для свежести",
+    "как продлить свежесть срезанной зелени: сухой контейнер + бумажное полотенце сверху",
+    "почему микрозелень кладут в блюдо в самом конце и не готовят на огне",
+    "как выбрать свежую микрозелень: упругие стебли, яркий цвет, без слизи и запаха",
+    "лучшее место в холодильнике для зелени — подальше от морозилки и фруктов",
+    "как хранить съедобные цветы, чтобы не потеряли форму (герметичный контейнер + бумага)",
+    "как порционно заморозить витграсс кубиками льда для смузи",
+]
+
+
+def get_daily_tip_theme(d: Optional[date] = None) -> str:
+    d = d or date.today()
+    return _pick(TIP_THEMES, d.timetuple().tm_yday * 3)
+
+
 def build_recipe_brief(d: Optional[date] = None) -> dict:
     """Бриф уникального рецепта дня: кухня мира + формат + «герой»-зелень + язык."""
     d = d or date.today()
@@ -229,21 +251,24 @@ def build_recipe_brief(d: Optional[date] = None) -> dict:
 #   angle   — инструкция AI, о чём и как писать ({fact} подставляется темой дня);
 #   photo   — арт-направление фото (англ.), чтобы жанр картинки менялся;
 #   cta     — текст кнопки; trigger — призыв к реакции (в промпт AI, uz);
-#   note    — короткий триггер, впечатываемый на картинку (≤3 слова, uz).
+#   note    — короткий триггер, впечатываемый на картинку (≤3 слова, uz);
+#   kind    — "info" (польза: генерим {headline, points[2-3]} и рисуем список на
+#             картинке) | "engage" (вовлечение: headline+benefit/options, как было);
+#   section — заголовок секции над списком пунктов (uz, для info-форматов).
 
 MORNING_FORMATS: list[dict] = [
     {
         "key": "fact", "ru": "Факт дня «А вы знали?»", "badge": "BILARMIDINGIZ?",
-        "layout": "top",
-        "angle": "Дай ОДИН неожиданный, конкретный полезный факт по теме «{fact}». "
-                 "Подача «а вы знали?». Не выдумывай цифр — если не уверен, дай пользу качественно.",
+        "layout": "top", "kind": "info", "section": "FOYDASI",
+        "angle": "Раскрой ОДИН неожиданный факт по теме «{fact}». Заголовок — сам факт. "
+                 "Пункты (points) — 2-3 КОНКРЕТНЫХ следствия/пользы. Не выдумывай цифр.",
         "photo": "extreme macro close-up of dew-fresh microgreens sprouts, morning backlight, "
                  "soft bokeh, vibrant green",
         "cta": "Batafsil", "trigger": "do'stingizga yuboring (share)", "note": "Do'stga yuboring",
     },
     {
         "key": "question", "ru": "Вопрос аудитории", "badge": "SAVOL",
-        "layout": "center",
+        "layout": "center", "kind": "engage",
         "angle": "Задай аудитории тёплый вопрос про их утро/питание/привычки, "
                  "чтобы захотелось ответить в директ. Один короткий вопрос.",
         "photo": "cozy morning breakfast scene, hands holding a bowl of fresh salad with microgreens, "
@@ -252,7 +277,7 @@ MORNING_FORMATS: list[dict] = [
     },
     {
         "key": "this_or_that", "ru": "Выбор «Qaysi biri?»", "badge": "TANLANG",
-        "layout": "poll",
+        "layout": "poll", "kind": "engage",
         "angle": "Предложи выбор из ДВУХ вариантов (вкус/блюдо/привычка), чтобы подписчик выбрал. "
                  "Сформулируй интригующе, оба варианта — про нашу зелень/еду.",
         "photo": "two different fresh dishes with microgreens side by side on a clean light table, "
@@ -261,25 +286,25 @@ MORNING_FORMATS: list[dict] = [
     },
     {
         "key": "tip", "ru": "Лайфхак дня", "badge": "LIFEHACK",
-        "layout": "bottom",
-        "angle": "Дай ОДИН практичный лайфхак: свежесть, хранение или применение зелени. "
-                 "Чтобы захотелось сохранить сторис.",
+        "layout": "bottom", "kind": "info", "section": "MASLAHAT",
+        "angle": "Разверни КОНКРЕТНЫЙ лайфхак по теме «{tip}». Заголовок — суть выгоды. "
+                 "Пункты (points) — 2-3 конкретных шага КАК именно это сделать (способ, срок, °C).",
         "photo": "chef's hands preparing and cutting fresh microgreens on a wooden board in a bright "
                  "modern kitchen, action shot, shallow depth of field",
         "cta": "Saqlang", "trigger": "saqlab qo'ying (bookmark)", "note": "Saqlab qo'ying",
     },
     {
         "key": "mini_recipe", "ru": "Мини-рецепт за 15 сек", "badge": "15 SONIYA",
-        "layout": "bottom",
-        "angle": "Предложи супер-простую идею блюда на 3 ингредиента с микрозеленью — «за 15 секунд». "
-                 "Аппетитно и выполнимо дома.",
+        "layout": "bottom", "kind": "info", "section": "TARKIBI",
+        "angle": "Простое блюдо на 3 ингредиента с микрозеленью — «за 15 секунд». Заголовок — "
+                 "название блюда. Пункты (points) — 3 ингредиента ИЛИ 3 коротких шага.",
         "photo": "appetizing finished plated dish beautifully garnished with fresh microgreens, "
                  "close-up, warm restaurant light",
         "cta": "Retsept", "trigger": "retseptni saqlab qo'ying", "note": "Retseptni saqlang",
     },
     {
         "key": "quote", "ru": "Мотивация утра", "badge": "BUGUN",
-        "layout": "center",
+        "layout": "center", "kind": "engage",
         "angle": "Короткая тёплая мысль/мотивация о свежести, здоровье и заботе о себе с утра. "
                  "Без клише, живо и по-человечески.",
         "photo": "minimalist aesthetic still life of a single microgreen sprig on a neutral background, "
@@ -288,9 +313,9 @@ MORNING_FORMATS: list[dict] = [
     },
     {
         "key": "promo", "ru": "Утреннее промо", "badge": "AKSIYA",
-        "layout": "bottom",
-        "angle": "Утреннее спецпредложение с промокодом BODRLIK (скидка 10%, действует 24 соат). "
-                 "Чёткий дедлайн и выгода.",
+        "layout": "bottom", "kind": "info", "section": "SHARTLAR",
+        "angle": "Утреннее спецпредложение. Заголовок — суть выгоды. Пункты (points) — "
+                 "3 конкретных условия: «10% chegirma», «BODRLIK kodi», «Faqat 24 soat».",
         "photo": "premium product hero shot of a microgreens gift set / box with fresh greens, "
                  "studio light, warm golden accents",
         "cta": "Buyurtma berish", "trigger": "bugun 10% chegirma — buyurtma bering", "note": "Bugun -10%",

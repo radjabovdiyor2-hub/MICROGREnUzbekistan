@@ -169,6 +169,109 @@ async def post_to_instagram(image_url: str, caption: str, post_type: str = 'stor
         logger.error(f"Сбой при постинге в Instagram: {e}", exc_info=True)
         return False
 
+
+async def _upload_video_to_hosting(local_path: str) -> Optional[str]:
+    """Заливает локальное видео на публичный хост (0x0.st) → публичный URL для Reels API."""
+    if local_path.startswith("http://") or local_path.startswith("https://"):
+        return local_path
+    if not os.path.isfile(local_path):
+        logger.error("Видео не найдено: %s", local_path)
+        return None
+    try:
+        with open(local_path, "rb") as f:
+            video_data = f.read()
+        async with aiohttp.ClientSession() as session:
+            form = aiohttp.FormData()
+            form.add_field("file", video_data, filename="reel.mp4", content_type="video/mp4")
+            async with session.post("https://0x0.st", data=form) as resp:
+                if resp.status == 200:
+                    url = (await resp.text()).strip()
+                    logger.info("Видео загружено на 0x0.st: %s", url)
+                    return url
+                logger.error("0x0.st video upload error: status=%d", resp.status)
+    except Exception as e:
+        logger.error("Ошибка заливки видео: %s", e, exc_info=True)
+    return None
+
+
+async def post_reel(video_path: str, caption: str = "", share_to_feed: bool = True) -> bool:
+    """
+    Публикует Reel (видео) в Instagram через Graph API (media_type=REELS).
+
+    video_path — локальный MP4 (или уже публичный URL). Reels видны и в ленте,
+    и в Reels-табе, и в рекомендациях не-подписчикам → максимальный органический охват.
+    Возвращает True при успехе.
+    """
+    if _is_dry_run():
+        logger.info("🧪 DRY-RUN: публикация Reel пропущена.")
+        return False
+
+    ig_account_id = getattr(settings, "instagram_account_id", None)
+    access_token = getattr(settings, "instagram_access_token", None)
+    if not ig_account_id or not access_token:
+        logger.warning("Instagram Graph API не настроен. Reel не опубликован.")
+        return False
+
+    video_url = video_path
+    if os.path.isfile(video_path):
+        video_url = await _upload_video_to_hosting(video_path)
+        if not video_url:
+            logger.error("Не удалось получить публичный URL видео для Reel.")
+            return False
+
+    api_version = "v18.0"
+    base_url = f"https://graph.facebook.com/{api_version}/{ig_account_id}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Шаг 1: контейнер Reel
+            payload = {
+                "media_type": "REELS",
+                "video_url": video_url,
+                "caption": caption,
+                "share_to_feed": "true" if share_to_feed else "false",
+                "access_token": access_token,
+            }
+            async with session.post(f"{base_url}/media", data=payload) as resp:
+                data = await resp.json()
+                if "id" not in data:
+                    logger.error(f"Ошибка создания Reel-контейнера: {data}")
+                    return False
+                creation_id = data["id"]
+                logger.info(f"Reel-контейнер создан: {creation_id}")
+
+            # Шаг 2: Reels кодируются дольше фото — ждём до ~4 минут
+            for attempt in range(48):
+                await asyncio.sleep(5)
+                async with session.get(
+                    f"https://graph.facebook.com/{api_version}/{creation_id}",
+                    params={"fields": "status_code", "access_token": access_token},
+                ) as resp:
+                    status = (await resp.json()).get("status_code")
+                    if status == "FINISHED":
+                        break
+                    if status == "ERROR":
+                        logger.error("Reel-контейнер завершился с ошибкой")
+                        return False
+            else:
+                logger.error("Таймаут обработки Reel-контейнера")
+                return False
+
+            # Шаг 3: публикация
+            async with session.post(
+                f"{base_url}/media_publish",
+                data={"creation_id": creation_id, "access_token": access_token},
+            ) as resp:
+                pub = await resp.json()
+                if "id" not in pub:
+                    logger.error(f"Ошибка публикации Reel: {pub}")
+                    return False
+                logger.info(f"✅ Reel опубликован! ID: {pub['id']}")
+                return True
+    except Exception as e:
+        logger.error(f"Сбой при публикации Reel: {e}", exc_info=True)
+        return False
+
+
 async def post_story_with_text(
     image_path: str,
     headline: str = "",

@@ -279,9 +279,12 @@ async def morning_post():
 
         # Формат дня определяет угол подачи, фото, макет, CTA и триггер вовлечения
         fmt = get_daily_morning_format(now.date())
+        from shared.content_plan import get_daily_tip_theme
         fact_theme = get_daily_fact_theme(now.date())
-        angle = fmt["angle"].replace("{fact}", fact_theme)
-        promo_hint = "" if fmt["key"] == "promo" else \
+        tip_theme = get_daily_tip_theme(now.date())
+        angle = fmt["angle"].replace("{fact}", fact_theme).replace("{tip}", tip_theme)
+        is_info = fmt.get("kind") == "info"          # info → список пунктов на картинке
+        promo_hint = "" if (fmt["key"] == "promo" or is_info) else \
             "С вероятностью 25% органично добавь промокод BODRLIK (скидка 10%, 24 соат).\n"
 
         prompt = (
@@ -300,16 +303,47 @@ async def morning_post():
             temperature=0.9,
         )
 
-        headline = await ai.chat_completion(
-            "Sen kreativ kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz, so'zlarni buzma." + CONTENT_POLICY,
-            f"Shu post uchun qisqa, jozibali SARLAVHA (hook) o'ylab top — FAQAT Uzbek Latin, ko'pi bilan 5 so'z, "
-            f"emoji va tinish belgilarisiz. Faqat sarlavhani yoz:\n{post_text[:500]}"
-        )
+        async def _gen_headline() -> str:
+            return await ai.chat_completion(
+                "Sen kreativ kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz, so'zlarni buzma." + CONTENT_POLICY,
+                f"Shu post uchun qisqa, jozibali SARLAVHA (hook) o'ylab top — FAQAT Uzbek Latin, ko'pi bilan 5 so'z, "
+                f"emoji va tinish belgilarisiz. Faqat sarlavhani yoz:\n{post_text[:500]}"
+            )
 
-        # Для формата «выбор» — два коротких варианта; для остальных — фраза пользы
+        headline = ""
         options = None
         benefit = ""
-        if fmt["key"] == "this_or_that":
+        points = None
+
+        if is_info:
+            # Инфо-формат: заголовок + 2-3 КОНКРЕТНЫХ пункта (одним JSON-вызовом).
+            # Ключевое против «расплывчатости» — жёсткий запрет общих фраз.
+            import json
+            raw = await ai.chat_completion(
+                "Sen Microgreen Uzbekistan SMM-menejeri va oshpaz-ekspertisan. "
+                "Faqat VALID JSON qaytar, markdownsiz." + CONTENT_POLICY,
+                f"Vazifa: {angle}\n"
+                f'JSON format: {{"headline": "...", "points": ["...","...","..."]}}\n'
+                f"Talablar: headline — jozibali hook, ko'pi bilan 5 so'z. "
+                f"points — 2-3 ANIQ, amaliy nuqta, har biri ko'pi bilan 7 so'z.\n"
+                f"MUHIM: UMUMIY gaplar QAT'IY TAQIQLANADI. 'Uzoq saqlang' emas — "
+                f"QANDAY aniq: harorat (°C), muddat (kun), usul (nam salfetka, muzlatkich...). "
+                f"FAQAT Uzbek Latin, emoji va tinish belgilarisiz.\n"
+                f"Post (kontekst):\n{post_text[:600]}",
+                temperature=0.7,
+            )
+            try:
+                data = json.loads(raw.strip().strip('`').replace('json\n', '', 1))
+            except Exception:
+                data = {}
+            headline = str(data.get("headline") or "").strip()
+            points = [str(x).strip() for x in (data.get("points") or []) if str(x).strip()][:3]
+            if not headline:
+                headline = await _gen_headline()
+            if not points:
+                points = None   # деградация: без списка (render покажет только заголовок)
+        elif fmt["key"] == "this_or_that":
+            headline = await _gen_headline()
             raw_opts = await ai.chat_completion(
                 "Sen kopirayter. Uzbek Latin, grammatik to'g'ri." + CONTENT_POLICY,
                 f"Ikkita QISQA tanlov variantini taklif qil, har biri 1-3 so'z, ular orasiga '|' qo'y, "
@@ -318,6 +352,8 @@ async def morning_post():
             parts = [p.strip() for p in raw_opts.replace("\n", "|").split("|") if p.strip()]
             options = parts[:2] if len(parts) >= 2 else ["1-variant", "2-variant"]
         else:
+            # Вовлекающие форматы (вопрос/цитата) — заголовок + одна фраза пользы
+            headline = await _gen_headline()
             benefit = await ai.chat_completion(
                 "Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz." + CONTENT_POLICY,
                 f"Bitta ANIQ foyda/qiziqarli iborani yoz — Uzbek Latin, ko'pi bilan 6 so'z, "
@@ -344,6 +380,7 @@ async def morning_post():
                 mention=BRAND["instagram"], cta=fmt["cta"],
                 badge=fmt["badge"], layout=fmt["layout"], options=options,
                 note=fmt["note"], accent=(fmt["key"] == "promo"),
+                points=points, section=fmt.get("section", ""),
             )
             final_img = story_img if ok else image_url
             from aiogram.types import FSInputFile
@@ -551,6 +588,13 @@ async def weekly_grid_post():
             f"⚠️ ЯЗЫК: пиши ПОЛНОСТЬЮ на {lang_name} языке. Категорически НЕ на английском. "
             f"4-7 абзацев, живо, с эмодзи, в конце — призыв к действию и контакты."
         )
+        # Подпись для ленты: срезаем AI-хэштеги (модель их коверкала) и ставим фиксированный
+        # брендовый набор детерминированно — только в ленте подпись реально индексируется.
+        import re as _re
+        from shared.brand import BRAND_HASHTAGS
+        body = _re.sub(r"#\S+", "", post_text).rstrip()
+        feed_caption = f"{body}\n\n{BRAND_HASHTAGS}"
+
         # Чистое премиальное фото под тему (текст — в подписи поста, не на картинке)
         image_prompt = (
             f"Photorealistic premium square 1:1 Instagram feed photo for a microgreens brand. "
@@ -564,9 +608,9 @@ async def weekly_grid_post():
             from aiogram.types import FSInputFile
             # В ленту подпись идёт отдельно (feed поддерживает caption) — показываем её как подпись к фото,
             # чтобы можно было проверить текст и язык. Отдельного текстового сообщения после фото нет.
-            await _bot.send_photo(admin_id, photo=FSInputFile(image_url), caption=post_text[:1024], parse_mode="HTML")
+            await _bot.send_photo(admin_id, photo=FSInputFile(image_url), caption=feed_caption[:1024], parse_mode="HTML")
             from shared.instagram import post_to_instagram
-            ok = await post_to_instagram(image_url, post_text, post_type='feed')
+            ok = await post_to_instagram(image_url, feed_caption, post_type='feed')
             if ok:
                 _mark_published("grid", image=image_url, caption=post_text, title=pillar["name"])
                 await _bot.send_message(admin_id, "✅ <i>Пост недели опубликован в ленту Instagram</i>", parse_mode="HTML")
@@ -609,6 +653,91 @@ async def daily_site_recipe():
         logging.error("daily_site_recipe error: %s", e)
 
 
+# ── Reels: главный двигатель органического охвата ────────────────────────────
+# Reel собираем из info-кадра (лайфхак/факт/рецепт): та же генерация {headline, points}
+# + фото → render_story_text (пункты на кадре) → Ken Burns (ffmpeg). Reels идут в
+# рекомендации НЕ-подписчикам, поэтому 3×/неделю — это макс. охват.
+REEL_INFO_FORMATS = ["tip", "fact", "mini_recipe"]
+
+
+async def reel_post():
+    """Reel из info-контента: лайфхак/факт/рецепт — пункты на кадре + плавный zoom."""
+    try:
+        import os, json
+        from shared.content_plan import (
+            MORNING_FORMATS, get_daily_tip_theme, get_daily_fact_theme,
+        )
+        from shared.video_utils import make_reel, ffmpeg_available
+        from shared.brand import render_story_text, BRAND, BRAND_HASHTAGS
+
+        tz = timezone(timedelta(hours=5))
+        now = datetime.now(tz)
+        admin_id = settings.admin_telegram_ids[0]
+        ai = AIEngine()
+
+        if not ffmpeg_available():
+            await _bot.send_message(admin_id, "⚠️ Reel не собран: ffmpeg недоступен в окружении.", parse_mode="HTML")
+            return
+
+        # Ротация info-формата по дню (лайфхак / факт / мини-рецепт)
+        key = REEL_INFO_FORMATS[now.timetuple().tm_yday % len(REEL_INFO_FORMATS)]
+        fmt = next(f for f in MORNING_FORMATS if f["key"] == key)
+        angle = fmt["angle"].replace("{fact}", get_daily_fact_theme(now.date())) \
+                            .replace("{tip}", get_daily_tip_theme(now.date()))
+
+        raw = await ai.chat_completion(
+            "Sen Microgreen Uzbekistan SMM-menejeri. Faqat VALID JSON qaytar." + CONTENT_POLICY,
+            f"Vazifa: {angle}\n"
+            f'JSON: {{"headline":"...","points":["...","...","..."]}}\n'
+            f"headline ≤5 so'z; points — 2-3 ANIQ nuqta (harorat/muddat/usul), har biri ≤7 so'z. "
+            f"UMUMIY gaplar QAT'IY TAQIQ. FAQAT Uzbek Latin, emoji va tinish belgilarisiz.",
+            temperature=0.7,
+        )
+        try:
+            data = json.loads(raw.strip().strip('`').replace('json\n', '', 1))
+        except Exception:
+            data = {}
+        headline = str(data.get("headline") or "").strip() or "Mikrozelen foydasi"
+        points = [str(x).strip() for x in (data.get("points") or []) if str(x).strip()][:3]
+
+        image_prompt = (
+            f"Photorealistic vertical 9:16 photo for Instagram reel. {fmt['photo']}. "
+            f"Aesthetic, premium, natural light. Keep a clean empty area for a text overlay. "
+            f"CRITICAL: absolutely NO text, NO letters, NO words on the image."
+        )
+        image_url = await ai.generate_image(image_prompt, size="1024x1792")
+        if not (image_url and os.path.isfile(image_url)):
+            await _bot.send_message(admin_id, "⚠️ Reel: не удалось сгенерировать фон.", parse_mode="HTML")
+            return
+
+        frame = "temp_reel_frame.jpg"
+        render_story_text(
+            image_url, frame,
+            headline=headline, mention=BRAND["instagram"], cta=fmt["cta"],
+            badge=fmt["badge"], layout=fmt["layout"], note=fmt["note"],
+            points=points or None, section=fmt.get("section", ""),
+        )
+        reel = make_reel(frame, out_path="temp_reel.mp4", duration=8.0)
+        if not reel:
+            await _bot.send_message(admin_id, "⚠️ Reel: сборка видео не удалась (ffmpeg).", parse_mode="HTML")
+            return
+
+        pts_txt = "\n".join(f"• {p}" for p in points) if points else ""
+        caption = (f"{headline}\n\n{pts_txt}\n\n"
+                   f"📞 {BRAND['phone']} · Buyurtma berish\n\n{BRAND_HASHTAGS}").strip()
+
+        from aiogram.types import FSInputFile
+        await _bot.send_video(admin_id, video=FSInputFile(reel),
+                              caption=f"🎬 <b>Reel: {fmt['ru']}</b>", parse_mode="HTML")
+        from shared.instagram import post_reel
+        ok = await post_reel(reel, caption, share_to_feed=True)
+        if ok:
+            _mark_published("reel", image=frame, caption=caption, title=headline)
+            await _bot.send_message(admin_id, "✅ <i>Reel опубликован в Instagram</i>", parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"reel_post error: {e}", exc_info=True)
+
+
 scheduler.add_cron(name="daily_site_recipe", func=daily_site_recipe, hour=9, minute=30)
 scheduler.add_cron(name="daily_content_ideas", func=daily_content_ideas, hour=8, minute=0)
 scheduler.add_cron(name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5)
@@ -617,6 +746,10 @@ scheduler.add_cron(name="weekly_content_plan", func=weekly_content_plan, hour=20
 scheduler.add_interval(seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check)
 # afternoon_post (дневной сторис-отзыв) отключён по решению — функция оставлена, но не в расписании
 scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
+# Reels — 3×/неделю (Пн/Ср/Пт, 19:00): главный двигатель органического охвата
+scheduler.add_cron(name="reel_post_mon", func=reel_post, hour=19, minute=0, day_of_week=0)
+scheduler.add_cron(name="reel_post_wed", func=reel_post, hour=19, minute=0, day_of_week=2)
+scheduler.add_cron(name="reel_post_fri", func=reel_post, hour=19, minute=0, day_of_week=4)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -988,6 +1121,25 @@ async def cmd_test_grid(message: Message):
     set_dry_run(True)
     try:
         await weekly_grid_post()
+        await message.answer("✅ Готово (в Instagram не публиковалось).")
+    finally:
+        set_dry_run(False)
+
+
+@test_router.message(Command("testreel"))
+async def cmd_test_reel(message: Message):
+    """Собрать Reel и отправить видео только в Telegram (в Instagram НЕ публиковать)."""
+    if not _is_admin(message):
+        return
+    from shared.instagram import set_dry_run
+    from shared.video_utils import ffmpeg_available
+    if not ffmpeg_available():
+        await message.answer("⚠️ ffmpeg недоступен — Reel собрать нельзя (нужен ffmpeg в образе).")
+        return
+    await message.answer("🧪 Собираю Reel (видео уйдёт только в Telegram)…")
+    set_dry_run(True)
+    try:
+        await reel_post()
         await message.answer("✅ Готово (в Instagram не публиковалось).")
     finally:
         set_dry_run(False)

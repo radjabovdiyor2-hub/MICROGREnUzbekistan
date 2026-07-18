@@ -2,9 +2,9 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# System deps
+# System deps (ffmpeg — сборка Reels в shared/video_utils.make_reel)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev fonts-dejavu-core postgresql-client && \
+    gcc libpq-dev fonts-dejavu-core postgresql-client ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

@@ -358,7 +358,16 @@ class AIEngine:
             for model in models:
                 try:
                     logger.info(f"Генерация картинки ({model}, попытка {attempt}): {prompt[:50]}...")
-                    kwargs = {"model": model, "prompt": prompt, "size": size, "n": 1}
+                    # gpt-image-1 поддерживает только 1024x1024/1024x1536/1536x1024 —
+                    # маппим вертикальный 1024x1792 в ближайший, иначе fallback падает с 400.
+                    use_size = size
+                    if model == "gpt-image-1" and size not in ("1024x1024", "1024x1536", "1536x1024"):
+                        try:
+                            w, h = (int(x) for x in size.lower().split("x")[:2])
+                        except Exception:
+                            w, h = 1024, 1024
+                        use_size = "1024x1536" if h > w else ("1536x1024" if w > h else "1024x1024")
+                    kwargs = {"model": model, "prompt": prompt, "size": use_size, "n": 1}
                     if model == "gpt-image-2":
                         kwargs["quality"] = "auto"
                     response = await self._client.images.generate(**kwargs)
