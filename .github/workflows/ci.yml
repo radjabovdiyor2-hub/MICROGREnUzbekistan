@@ -87,14 +87,15 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d postgres redis
             # Wait for postgres to be healthy
             docker compose -f docker-compose.prod.yml exec postgres pg_isready -U mg_user -d microgreen || sleep 5
-            # Run db-push: capture output and show it even on failure
-            docker compose -f docker-compose.prod.yml run --rm db-push 2>&1 || {
+            # Run db-push: --no-deps prevents compose from recreating the
+            # already-running postgres (which races on port 5432).
+            docker compose -f docker-compose.prod.yml run --rm --no-deps db-push 2>&1 || {
               echo "=== db-push FAILED. Showing container logs: ==="
               docker logs mg_db_push 2>&1 || true
               exit 1
             }
             # Seed (self-skips when already populated)
-            docker compose -f docker-compose.prod.yml run --rm db-seed
+            docker compose -f docker-compose.prod.yml run --rm --no-deps db-seed
             # Now build and start web (skip db-push dependency since it already ran)
             docker compose -f docker-compose.prod.yml up -d --build --no-deps web
             # Боты (apps/tgas) — без этого шага Python-изменения приезжали в git

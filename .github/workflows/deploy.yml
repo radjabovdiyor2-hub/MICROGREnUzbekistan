@@ -35,16 +35,31 @@ jobs:
           port: ${{ secrets.SSH_PORT || '22' }}
           command_timeout: 30m
           script: |
-            set -e
+            set -ex
             cd "${{ secrets.DEPLOY_PATH }}"
             echo "🔄 git pull…"
             git fetch --all --prune
             git checkout main
             git pull --ff-only origin main
             echo "🧹 remove stale one-shot containers (avoid name conflicts)…"
-            docker ps -aq -f "name=mg_db_push" -f "name=mg_db_seed" | xargs -r docker rm -f || true
-            echo "🏗  docker compose up -d --build…"
-            docker compose -f docker-compose.prod.yml up -d --build
+            docker ps -aq -f "name=mg_db_push" | xargs -r docker rm -f || true
+            docker ps -aq -f "name=mg_db_seed" | xargs -r docker rm -f || true
+            echo "🛑 stop infra to release ports…"
+            docker compose -f docker-compose.prod.yml stop web postgres redis 2>/dev/null || true
+            sleep 2
+            echo "🏗  start infra…"
+            docker compose -f docker-compose.prod.yml up -d postgres redis
+            docker compose -f docker-compose.prod.yml exec postgres pg_isready -U mg_user -d microgreen || sleep 5
+            echo "📦 db-push…"
+            docker compose -f docker-compose.prod.yml run --rm --no-deps db-push
+            echo "🌱 db-seed…"
+            docker compose -f docker-compose.prod.yml run --rm --no-deps db-seed
+            echo "🚀 build and start all services…"
+            docker compose -f docker-compose.prod.yml up -d --build --no-deps web
+            docker compose -f docker-compose.prod.yml up -d --build \
+              web_office stepan sales support hr finance marketing \
+              analytics content qa rnd devops n8n_bridge bot
             echo "📋 status:"
             docker compose -f docker-compose.prod.yml ps
+            docker image prune -f
             echo "✅ deploy done"
