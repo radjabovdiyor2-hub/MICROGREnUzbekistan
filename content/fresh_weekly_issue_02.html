@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FRESH WEEKLY — Выпуск №2</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,400;1,700&display=swap" rel="stylesheet">
+  <style>
+    /* ════════════════════════════════════════════
+       DESIGN SYSTEM — FRESH WEEKLY PREMIUM
+       Inspired by: Bon Appétit · Kinfolk · Vogue · Monocle
+       ════════════════════════════════════════════ */
+
+    :root {
+      /* Color Palette — curated, not generic */
+      --ink: #1a1a1a;
+      --ink-soft: #444;
+      --paper: #fafaf7;
+      --paper-pure: #fff;
+      --accent: #2d5a27;
+      --accent-light: #e8f0e6;
+      --accent-bright: #3a7a32;
+      --gold: #c9a84c;
+      --gold-soft: #f7f2e4;
+      --caption: #999;
+      --rule: #e0ddd8;
+      --rule-light: #f0ede8;
+      --dark: #111;
+      --dark-surface: #1a1a1a;
+      --warm-bg: #f5f3ee;
+      --blush: #f9f0ed;
+      --violet-soft: #f3eef8;
+
+      /* Typography Scale */
+      --fs-display: 32pt;
+      --fs-h1: 24pt;
+      --fs-h2: 16pt;
+      --fs-h3: 12pt;
+      --fs-body: 9.5pt;
+      --fs-caption: 7.5pt;
+      --fs-micro: 6.5pt;
+      --fs-pull: 16pt;
+
+      /* Spacing */
+      --margin-page: 10mm;
+      --margin-top: 8mm;
+      --gutter: 4mm;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: 148mm 210mm; margin: 0; }
+
+    body {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      background: #222;
+      color: var(--ink);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 24px 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Page Shell ── */
+    .page {
+      width: 148mm;
+      min-height: 210mm;
+      background: var(--paper);
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+    }
+
+    /* ── Typography ── */
+    .font-display { font-family: 'Playfair Display', serif; }
+    .font-body { font-family: 'Cormorant Garamond', serif; }
+    .font-ui { font-family: 'Inter', sans-serif; }
+
+    /* ── Running Header ── */
+    .running-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4mm var(--margin-page);
+      border-bottom: 0.5px solid var(--rule);
+      font-family: 'Inter', sans-serif;
+      font-size: 6.5pt;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--caption);
+    }
+    .running-header .masthead {
+      font-family: 'Playfair Display', serif;
+      font-size: 8pt;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 0.5px;
+      text-transform: none;
+    }
+
+    /* ── Page Number ── */
+    .page-num {
+      position: absolute;
+      bottom: 5mm;
+      font-family: 'Inter', sans-serif;
+      font-size: 7pt;
+      font-weight: 700;
+      color: var(--rule);
+    }
+    .page-num-l { left: var(--margin-page); }
+    .page-num-r { right: var(--margin-page); }
+    .page-num-w { color: rgba(255,255,255,0.3); }
+
+    /* ── Section Tag ── */
+    .section-tag {
+      display: inline-block;
+      font-family: 'Inter', sans-serif;
+      font-size: 6pt;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border: 1.5px solid var(--accent);
+      padding: 1.5mm 4mm;
+      border-radius: 1mm;
+    }
+    .section-tag-gold { color: var(--gold); border-color: var(--gold); }
+    .section-tag-dark { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.3); }
+    .section-tag-filled {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ── Pull Quote ── */
+    .pull-quote {
+      font-family: 'Playfair Display', serif;
+      font-style: italic;
+      font-size: var(--fs-pull);
+      line-height: 1.4;
+      color: var(--accent);
+      border-top: 2px solid var(--gold);
+      padding-top: 4mm;
+      margin: 4mm 0;
+    }
+    .pull-quote-attr {
+      font-family: 'Inter', sans-serif;
+      font-style: normal;
+      font-size: 6.5pt;
+      font-weight: 600;
+      color: var(--caption);
+      margin-top: 2mm;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Caption ── */
+    .photo-caption {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 7.5pt;
+      color: var(--caption);
+      margin-top: 2mm;
+    }
+
+    /* ── Elegant Divider ── */
+    .divider {
+      border: none;
+      border-top: 0.5px solid var(--rule);
+      margin: 4mm 0;
+    }
+    .divider-gold {
+      border-top: 1.5px solid var(--gold);
+    }
+
+    /* ── Card — refined ── */
+    .card-elegant {
+      border-left: 3px solid var(--accent);
+      padding: 3mm 4mm;
+      background: var(--paper-pure);
+    }
+    .card-dark {
+      background: var(--dark-surface);
+      color: #fff;
+      padding: 4mm 5mm;
+      border-radius: 2mm;
+    }
+    .card-warm {
+      background: var(--gold-soft);
+      padding: 3mm 4mm;
+      border-radius: 2mm;
+    }
+
+    /* ── Content Area ── */
+    .content-area {
+      padding: 4mm var(--margin-page) 8mm;
+    }
+
+    /* ── Full-bleed Image ── */
+    .hero-img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+    }
+
+    /* ── Utilities ── */
+    .flex { display: flex; }
+    .gap-2 { gap: 2mm; }
+    .gap-3 { gap: 3mm; }
+    .gap-4 { gap: 4mm; }
+    .f1 { flex: 1; }
+    .fw { flex-wrap: wrap; }
+    .items-center { align-items: center; }
+    .mt-2 { margin-top: 2mm; }
+    .mt-3 { margin-top: 3mm; }
+    .mt-4 { margin-top: 4mm; }
+    .mb-2 { margin-bottom: 2mm; }
+    .mb-3 { margin-bottom: 3mm; }
+    .mb-4 { margin-bottom: 4mm; }
+
+    @media print {
+      body { background: none; padding: 0; gap: 0; }
+      .page { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 1 — COVER
+     Style: Bon Appétit × Vogue — full-bleed hero, masthead overlay
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:#000;color:#fff;">
+  <!-- Hero Photo — full-bleed -->
+  <div style="position:absolute;inset:0;">
+    <img src="img/cover_issue_02.png" alt="Fresh Weekly Cover" style="width:100%;height:100%;object-fit:cover;opacity:0.75;">
+  </div>
+  <!-- Gradient overlays -->
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.1) 35%,rgba(0,0,0,0.05) 55%,rgba(0,0,0,0.7) 85%,rgba(0,0,0,0.85) 100%);"></div>
+  <div style="position:absolute;inset:0;background:linear-gradient(160deg,rgba(20,40,20,0.4) 0%,transparent 60%);"></div>
+
+  <!-- Content overlay -->
+  <div style="position:relative;z-index:1;height:100%;display:flex;flex-direction:column;min-height:210mm;">
+
+    <!-- Masthead -->
+    <div style="padding:8mm 10mm 0;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:36pt;font-weight:900;letter-spacing:1px;line-height:0.9;">FRESH</div>
+          <div style="font-family:'Inter',sans-serif;font-size:7pt;font-weight:700;letter-spacing:10px;color:rgba(255,255,255,0.5);margin-top:2mm;">WEEKLY</div>
+        </div>
+        <div style="text-align:right;font-family:'Inter',sans-serif;font-size:7pt;color:rgba(255,255,255,0.5);line-height:1.8;">
+          <span style="font-family:'Playfair Display',serif;font-size:10pt;font-weight:900;color:rgba(255,255,255,0.9);">№1</span><br>
+          Июль 2026<br>
+          Ташкент · Самарканд
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Headline -->
+    <div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding:0 10mm 18mm;">
+      <div style="font-family:'Playfair Display',serif;font-size:28pt;font-weight:900;line-height:1.1;max-width:90%;">
+        <span style="color:#e8d48c;">Сладкое + острое:</span><br>новая эра вкуса
+      </div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:11pt;color:rgba(255,255,255,0.7);margin-top:4mm;max-width:80%;line-height:1.5;font-style:italic;">
+        Hot Honey покорил мир — мы покажем, как повторить дома и в ресторане
+      </div>
+      <div style="display:flex;gap:3mm;margin-top:5mm;flex-wrap:wrap;">
+        <span style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Ресторан</span>
+        <span style="color:rgba(255,255,255,0.2);">·</span>
+        <span style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Стрит-фуд</span>
+        <span style="color:rgba(255,255,255,0.2);">·</span>
+        <span style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Рецепты</span>
+        <span style="color:rgba(255,255,255,0.2);">·</span>
+        <span style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Tech</span>
+        <span style="color:rgba(255,255,255,0.2);">·</span>
+        <span style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">ЗОЖ</span>
+      </div>
+    </div>
+
+    <!-- Bottom Bar -->
+    <div style="background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);padding:3.5mm 10mm;display:flex;justify-content:space-between;align-items:center;font-family:'Inter',sans-serif;font-size:6.5pt;color:rgba(255,255,255,0.4);">
+      <span>© Fresh Weekly Uzbekistan</span>
+      <span style="color:#e8d48c;font-weight:600;">freshweekly.uz</span>
+      <span>@fresh_weekly_uz</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 2 — TABLE OF CONTENTS
+     Style: Monocle × Cereal — sectional codes, editorial note
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <div class="running-header">
+    <div class="masthead">Fresh Weekly</div>
+    <div>Выпуск №2 · Июль 2026</div>
+  </div>
+
+  <div style="padding:8mm var(--margin-page) 6mm;">
+    <!-- TOC Title -->
+    <div style="font-family:'Playfair Display',serif;font-size:24pt;font-weight:900;color:var(--ink);line-height:1;">Содержание</div>
+    <div style="width:20mm;height:2px;background:var(--gold);margin-top:3mm;margin-bottom:6mm;"></div>
+
+    <!-- Section entries -->
+    <div style="display:flex;flex-direction:column;gap:0;">
+
+      <!-- Entry: Ресторан -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--accent);width:14mm;flex-shrink:0;line-height:1;">Р</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Ресторан недели</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">ORA — победитель Ultima Guide 2026. Три вопроса шефу.</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">3</div>
+      </div>
+
+      <!-- Entry: Стрит-фуд -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--accent);width:14mm;flex-shrink:0;line-height:1;">С</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Стрит-фуд мира</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">Нон-кабоб: почему весь мир завидует Узбекистану</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">4</div>
+      </div>
+
+      <!-- Entry: Рецепт -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--accent);width:14mm;flex-shrink:0;line-height:1;">Ш</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Рецепт недели</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">Чизкейк «Цветочный сад» — без выпечки, с микрозеленью</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">5</div>
+      </div>
+
+      <!-- Entry: Вкусы -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--accent);width:14mm;flex-shrink:0;line-height:1;">В</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Вкусовая лаборатория</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">Сладкое + Острое = Hot Honey. Наука и рецепт.</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">6</div>
+      </div>
+
+      <!-- Entry: Нутрициолог -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--accent);width:14mm;flex-shrink:0;line-height:1;">Н</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Нутрициолог</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">Витамин С: вы получаете его неправильно</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">7</div>
+      </div>
+
+      <!-- Entry: Tech -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--accent);width:14mm;flex-shrink:0;line-height:1;">Т</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Tech-дайджест</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">Стартапы, гаджеты, AI-лайфхаки для кухни</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">8</div>
+      </div>
+
+      <!-- Entry: Спорт -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--accent);width:14mm;flex-shrink:0;line-height:1;">Ф</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Фитнес</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">10 минут утром, которые меняют весь день</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">9</div>
+      </div>
+
+      <!-- Entry: Дети -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;border-bottom:0.5px solid var(--rule-light);">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--gold);width:14mm;flex-shrink:0;line-height:1;">Д</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Fresh Kids</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">Маленький шеф: фруктовый шашлычок</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">10</div>
+      </div>
+
+      <!-- Entry: Коллекция -->
+      <div style="display:flex;align-items:baseline;padding:3.5mm 0;">
+        <div style="font-family:'Inter',sans-serif;font-size:20pt;font-weight:800;color:var(--gold);width:14mm;flex-shrink:0;line-height:1;">К</div>
+        <div style="flex:1;">
+          <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);">Коллекция</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);margin-top:0.5mm;">Карточка «Кинза» + AR-сканер</div>
+        </div>
+        <div style="font-family:'Inter',sans-serif;font-size:9pt;font-weight:700;color:var(--caption);padding-left:4mm;">11</div>
+      </div>
+    </div>
+
+    <!-- Editorial Note -->
+    <div style="margin-top:6mm;border-top:2px solid var(--gold);padding-top:4mm;">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:2mm;">От редакции</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9.5pt;color:var(--ink-soft);line-height:1.6;font-style:italic;">
+        Перед вами первый выпуск Fresh Weekly — еженедельного журнала о еде, вкусах и здоровом образе жизни в&nbsp;Узбекистане. Мы&nbsp;верим, что еда объединяет людей, а&nbsp;красивая подача превращает обычный ужин в&nbsp;событие. Каждую неделю — новый ресторан, новый рецепт, новый лайфхак. Добро пожаловать.
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-r">2</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 3 — РЕСТОРАН НЕДЕЛИ
+     Style: Bon Appétit — full-bleed photo + pull quote
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <!-- Full-bleed Hero -->
+  <div style="height:90mm;overflow:hidden;position:relative;">
+    <img src="img/restaurant.png" alt="Лосось с понзу · ORA" class="hero-img" style="height:100%;">
+    <!-- Gradient fade to content -->
+    <div style="position:absolute;bottom:0;left:0;right:0;height:20mm;background:linear-gradient(transparent,var(--paper));"></div>
+    <!-- Section tag overlay -->
+    <div style="position:absolute;top:5mm;left:var(--margin-page);">
+      <span class="section-tag section-tag-dark" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);">Ресторан недели</span>
+    </div>
+    <!-- Photo caption -->
+    <div style="position:absolute;bottom:3mm;right:var(--margin-page);font-family:'Cormorant Garamond',serif;font-style:italic;font-size:7pt;color:rgba(255,255,255,0.6);">Лосось с соусом понзу · Фото: ORA</div>
+  </div>
+
+  <!-- Content -->
+  <div style="padding:0 var(--margin-page) 6mm;">
+    <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:900;color:var(--ink);line-height:1.1;margin-bottom:1.5mm;">ORA</div>
+    <div style="font-family:'Inter',sans-serif;font-size:7pt;color:var(--caption);letter-spacing:0.5px;">Победитель Ultima Guide 2026 · Истикбол, 41, Ташкент · Средний чек: 250,000 сум</div>
+
+    <hr class="divider" style="margin:3mm 0;">
+
+    <!-- Pull Quote -->
+    <div class="pull-quote" style="font-size:13pt;margin:3mm 0;">
+      «Красивая тарелка — это бесплатная реклама в Instagram. Подача теперь равно маркетинг.»
+    </div>
+    <div class="pull-quote-attr">— Шеф-повар ORA</div>
+
+    <hr class="divider" style="margin:3mm 0;">
+
+    <!-- Interview -->
+    <div style="font-family:'Cormorant Garamond',serif;font-size:9.5pt;color:var(--ink);line-height:1.6;">
+      <div style="margin-bottom:2mm;">
+        <strong style="color:var(--accent);">— Ваше фирменное блюдо?</strong><br>
+        «Лосось с соусом понзу. Мы подаём его с микрозеленью дайкона и лепестками настурции. Перечный вкус настурции идеально дополняет цитрусовый понзу.»
+      </div>
+      <div>
+        <strong style="color:var(--accent);">— Совет для домашней кухни?</strong><br>
+        «Купите тёмные тарелки. Любая еда на тёмном фоне выглядит как из ресторана. Это самый простой лайфхак.»
+      </div>
+    </div>
+
+    <!-- Rating row -->
+    <div style="display:flex;gap:3mm;margin-top:3mm;">
+      <div class="card-elegant" style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:1mm;">Что заказать</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">Лосось с понзу · Медальоны телятины · Тост с пармезан-эспумой</div>
+      </div>
+      <div class="card-warm" style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--gold);margin-bottom:1mm;">Наш рейтинг</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">Кухня ★★★★★<br>Подача ★★★★★<br>Цена / качество ★★★★☆</div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-l">3</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 4 — СТРИТ-ФУД МИРА
+     Style: Kinfolk — generous spacing, storytelling
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <!-- Full-bleed Hero -->
+  <div style="height:82mm;overflow:hidden;position:relative;">
+    <img src="img/streetfood.png" alt="Нон-кабоб" class="hero-img" style="height:100%;">
+    <div style="position:absolute;bottom:0;left:0;right:0;height:18mm;background:linear-gradient(transparent,var(--paper));"></div>
+    <div style="position:absolute;top:5mm;left:var(--margin-page);">
+      <span class="section-tag section-tag-dark" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);">Стрит-фуд мира · 1 / 52</span>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div style="padding:0 var(--margin-page) 6mm;">
+    <div style="font-family:'Playfair Display',serif;font-size:20pt;font-weight:900;color:var(--ink);line-height:1.1;">Нон-кабоб</div>
+    <div style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:10pt;color:var(--caption);margin-top:1mm;">Почему весь мир завидует Узбекистану</div>
+
+    <hr class="divider" style="margin:3mm 0;">
+
+    <div style="font-family:'Cormorant Garamond',serif;font-size:9.5pt;color:var(--ink);line-height:1.65;margin-bottom:3mm;">
+      Свежая лепёшка из тандыра, внутри — сочный шашлык прямо со шпажки. Сверху — кинза, фиолетовый базилик, маринованный лук. Жир от мяса впитывается в горячий нон. Лучший — на Сиабском базаре в Самарканде. Цена: 15,000–25,000 сум ($1.20–$2.00) — одна из лучших уличных сделок в мире.
+    </div>
+
+    <!-- World Context -->
+    <div class="card-dark" style="margin-bottom:3mm;">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:2mm;">Мировой контекст</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.85);line-height:1.55;">
+        Тренд 2025 — <strong style="color:#fff;">«Street Food Couture»</strong>: уличная еда с ресторанным качеством. Корейцы добавляют трюфельное масло в ттокпокки. Мексиканцы делают тако из вагю. А наш нон-кабоб <em>уже</em> гурманский — нужно просто рассказать об этом миру.
+      </div>
+    </div>
+
+    <!-- Home recipe -->
+    <div class="card-warm">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:1.5mm;">Повторить дома · 15 минут</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">
+        1. Купите 2 лепёшки и готовый шашлык на базаре.
+        2. Разрежьте нон пополам.
+        3. Положите шашлык + маринованный лук + зелень + сумак.
+        4. В фольгу, духовка 180°C на 5 мин. Хрустящий нон + горячее мясо = счастье.
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-r">4</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 5 — РЕЦЕПТ НЕДЕЛИ
+     Style: Bon Appétit — chef/home dual format
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <!-- Hero image -->
+  <div style="height:75mm;overflow:hidden;position:relative;">
+    <img src="img/cheesecake.png" alt="Чизкейк Цветочный сад" class="hero-img" style="height:100%;">
+    <div style="position:absolute;bottom:0;left:0;right:0;height:18mm;background:linear-gradient(transparent,var(--paper));"></div>
+    <div style="position:absolute;top:5mm;left:var(--margin-page);display:flex;gap:2mm;">
+      <span class="section-tag section-tag-dark" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);">Рецепт недели</span>
+    </div>
+  </div>
+
+  <div style="padding:0 var(--margin-page) 6mm;">
+    <div style="font-family:'Playfair Display',serif;font-size:20pt;font-weight:900;color:var(--ink);line-height:1.1;">Чизкейк<br>«Цветочный сад»</div>
+    <div style="font-family:'Inter',sans-serif;font-size:7pt;color:var(--caption);margin-top:1.5mm;letter-spacing:0.3px;">Без выпечки · 20 мин + 4 часа холодильник · Главный тренд кондитерской Ташкента</div>
+
+    <hr class="divider" style="margin:3mm 0;">
+
+    <!-- Dual format -->
+    <div style="display:flex;gap:3mm;margin-bottom:3mm;">
+      <div class="card-dark" style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:1.5mm;">Версия шефа</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:rgba(255,255,255,0.85);line-height:1.5;">
+          Крем-чиз Filadelfia 400г<br>
+          Греческий йогурт 200г<br>
+          Желатин + цедра лайма<br>
+          <strong style="color:var(--gold);">Декор:</strong> микрозелень базилика + виола + роза<br>
+          <strong style="color:var(--gold);">Маржа в меню: 78%</strong>
+        </div>
+      </div>
+      <div class="card-warm" style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:1.5mm;">Версия для дома</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">
+          Творожный сыр 400г<br>
+          Обычный йогурт 200г<br>
+          Желатин + лимон<br>
+          <strong>Декор:</strong> клубника + мята + ягоды<br>
+          <strong style="color:var(--accent);">Бюджет: 45,000 сум</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div style="display:flex;gap:2mm;">
+      <div style="flex:1;border-left:2px solid var(--gold);padding:2mm 3mm;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;">Шаг 1 · Основа</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8pt;color:var(--ink-soft);line-height:1.4;margin-top:1mm;">200г печенья в крошку + 80г масла. Утрамбовать в форму. Морозилка 15 мин.</div>
+      </div>
+      <div style="flex:1;border-left:2px solid var(--gold);padding:2mm 3mm;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px;">Шаг 2 · Крем</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8pt;color:var(--ink-soft);line-height:1.4;margin-top:1mm;">Замочить желатин. Взбить крем-чиз + йогурт + пудра + цедра. Холодильник 4ч.</div>
+      </div>
+      <div style="flex:1;border-left:2px solid var(--accent);padding:2mm 3mm;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1px;">Шаг 3 · Магия!</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8pt;color:var(--ink-soft);line-height:1.4;margin-top:1mm;">Ягоды по кругу → микрозелень → цветы виолы. Только перед подачей!</div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-l">5</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 6 — ВКУСОВАЯ ЛАБОРАТОРИЯ
+     Style: Cereal — elegant science storytelling
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <!-- Hero -->
+  <div style="height:78mm;overflow:hidden;position:relative;">
+    <img src="img/hotwings.png" alt="Hot Honey крылышки" class="hero-img" style="height:100%;">
+    <div style="position:absolute;bottom:0;left:0;right:0;height:18mm;background:linear-gradient(transparent,var(--paper));"></div>
+    <div style="position:absolute;top:5mm;left:var(--margin-page);">
+      <span class="section-tag section-tag-dark" style="background:rgba(0,0,0,0.5);backdrop-filter:blur(6px);">Вкусовая лаборатория · 1 / 12</span>
+    </div>
+  </div>
+
+  <div style="padding:0 var(--margin-page) 6mm;">
+    <div style="font-family:'Playfair Display',serif;font-size:22pt;font-weight:900;color:var(--ink);line-height:1.05;">
+      Сладкое + Острое<br><span style="color:var(--gold);">= Hot Honey</span>
+    </div>
+
+    <hr class="divider divider-gold" style="margin:3mm 0;width:25mm;">
+
+    <div style="font-family:'Cormorant Garamond',serif;font-size:9.5pt;color:var(--ink);line-height:1.6;margin-bottom:3mm;">
+      Мёд + хлопья чили = «Hot Honey». Самый вирусный соус 2024–2025. Начался в Нью-Йорке на пицце, захватил мир. Капсаицин активирует болевые рецепторы → мозг выбрасывает эндорфины → сладость мёда «гасит» боль → <strong>«двойной кайф»</strong>.
+    </div>
+
+    <div style="display:flex;gap:3mm;margin-bottom:3mm;">
+      <div class="card-elegant" style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--accent);margin-bottom:1mm;">Сочетать с</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">Крылышки · Пицца Маргарита · Жареный халуми · Мороженое · Шашлык из курицы</div>
+      </div>
+      <div style="flex:1;border-left:3px solid #c44;padding:2mm 3mm 2mm 4mm;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#c44;margin-bottom:1mm;">Не сочетается</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">Рыба · Плов · Супы · Молочные десерты · Хлеб</div>
+      </div>
+    </div>
+
+    <!-- DIY -->
+    <div class="card-dark">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:1.5mm;">Сделай сам · 2 минуты</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.85);line-height:1.55;">
+        3 ст.л. мёда + 1 ч.л. хлопьев чили + щепотка соли + 1 ч.л. яблочного уксуса. Перемешать. Полить на крылышки или пиццу. Хранить при комнатной температуре.
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-r">6</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 7 — НУТРИЦИОЛОГ
+     Style: Monocle — data-driven, structured columns
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <div class="running-header">
+    <div class="masthead">Fresh Weekly</div>
+    <div>Нутрициолог</div>
+  </div>
+
+  <div style="padding:4mm var(--margin-page) 6mm;">
+    <div class="section-tag" style="margin-bottom:3mm;">Нутрициолог</div>
+    <div style="font-family:'Playfair Display',serif;font-size:20pt;font-weight:900;color:var(--ink);line-height:1.1;">Витамин С:<br>вы получаете<br>его неправильно</div>
+
+    <hr class="divider divider-gold" style="margin:3mm 0;width:25mm;">
+
+    <!-- Fact -->
+    <div style="background:var(--violet-soft);padding:3.5mm 4mm;border-radius:2mm;margin-bottom:3mm;">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#7c3aed;margin-bottom:1.5mm;">Факт недели</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9.5pt;color:#3b1070;line-height:1.55;">
+        В болгарском перце витамина С <strong>в 3 раза больше</strong>, чем в лимоне. А в микрозелени редиса — в 40 раз больше, чем во взрослой редиске.
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--ink);margin-bottom:2mm;">ТОП-5 источников витамина С</div>
+    <table style="width:100%;border-collapse:collapse;font-family:'Cormorant Garamond',serif;font-size:8.5pt;margin-bottom:3mm;">
+      <thead>
+        <tr style="background:var(--dark-surface);color:#fff;font-family:'Inter',sans-serif;font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:1px;">
+          <th style="padding:2.5mm 3mm;text-align:left;">#</th>
+          <th style="padding:2.5mm 3mm;text-align:left;">Продукт</th>
+          <th style="padding:2.5mm 3mm;text-align:left;">на 100г</th>
+          <th style="padding:2.5mm 3mm;text-align:right;">vs лимон</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="background:var(--accent-light);"><td style="padding:2mm 3mm;">1</td><td style="padding:2mm 3mm;"><strong>Шиповник</strong></td><td style="padding:2mm 3mm;">650 мг</td><td style="padding:2mm 3mm;text-align:right;color:var(--accent);font-weight:700;">×13</td></tr>
+        <tr><td style="padding:2mm 3mm;">2</td><td style="padding:2mm 3mm;"><strong>Болг. перец</strong></td><td style="padding:2mm 3mm;">183 мг</td><td style="padding:2mm 3mm;text-align:right;color:var(--accent);font-weight:700;">×3.6</td></tr>
+        <tr style="background:var(--accent-light);"><td style="padding:2mm 3mm;">3</td><td style="padding:2mm 3mm;"><strong>Киви</strong></td><td style="padding:2mm 3mm;">92 мг</td><td style="padding:2mm 3mm;text-align:right;color:var(--accent);font-weight:700;">×1.8</td></tr>
+        <tr><td style="padding:2mm 3mm;">4</td><td style="padding:2mm 3mm;"><strong>Брокколи</strong></td><td style="padding:2mm 3mm;">89 мг</td><td style="padding:2mm 3mm;text-align:right;color:var(--accent);font-weight:700;">×1.7</td></tr>
+        <tr style="background:var(--violet-soft);"><td style="padding:2mm 3mm;">5</td><td style="padding:2mm 3mm;">Лимон 🍋</td><td style="padding:2mm 3mm;">53 мг</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);">×1</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Pull quote doctor -->
+    <div class="pull-quote" style="font-size:12pt;margin-bottom:2mm;">
+      «Не пейте горячий чай с лимоном ради витамина С — он разрушается при 70°C. Один болгарский перец = суточная норма.»
+    </div>
+    <div class="pull-quote-attr">— Колонка диетолога, совет недели</div>
+
+    <hr class="divider" style="margin:3mm 0;">
+
+    <!-- Lifehack -->
+    <div class="card-warm">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:1mm;">Лайфхак для хозяйки</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">
+        Нарежьте перец соломкой утром → контейнер → холодильник. Грызите как снэк весь день. Вкуснее чипсов и в 100 раз полезнее. Дети тоже будут есть, если макать в хумус.
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-l">7</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 8 — TECH ДАЙДЖЕСТ
+     Style: Monocle — dense, multi-entry, structured
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <div class="running-header">
+    <div class="masthead">Fresh Weekly</div>
+    <div>Tech-дайджест</div>
+  </div>
+
+  <div style="padding:4mm var(--margin-page) 6mm;">
+    <div class="section-tag" style="border-color:#2563eb;color:#2563eb;margin-bottom:3mm;">Tech</div>
+    <div style="font-family:'Playfair Display',serif;font-size:18pt;font-weight:900;color:var(--ink);line-height:1.1;margin-bottom:1mm;">Технологии, которые<br>меняют еду и здоровье</div>
+
+    <hr class="divider divider-gold" style="margin:3mm 0;width:25mm;">
+
+    <!-- Startup World -->
+    <div style="display:flex;gap:3mm;align-items:flex-start;margin-bottom:3mm;padding-bottom:3mm;border-bottom:0.5px solid var(--rule-light);">
+      <div style="width:11mm;height:11mm;background:#2563eb;border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:14pt;flex-shrink:0;">🌍</div>
+      <div style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#2563eb;">Стартап мира</div>
+        <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);margin:1mm 0;">Zoe · Великобритания</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">
+          Персонализированное питание на основе анализа крови. Вы сдаёте тест → AI анализирует реакцию вашего организма → индивидуальные рекомендации. Привлекли $117 млн. Будущее диетологии.
+        </div>
+      </div>
+    </div>
+
+    <!-- Startup UZ -->
+    <div style="display:flex;gap:3mm;align-items:flex-start;margin-bottom:3mm;padding-bottom:3mm;border-bottom:0.5px solid var(--rule-light);">
+      <div style="width:11mm;height:11mm;background:var(--accent);border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:14pt;flex-shrink:0;">🇺🇿</div>
+      <div style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);">Стартап Узбекистана</div>
+        <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);margin:1mm 0;">Zira.uz</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">
+          Кулинарная платформа. 5,000+ рецептов узбекской и мировой кухни с пошаговыми фото. Доставка продуктов из рецепта одним кликом. FoodTech в Узбекистане работает.
+        </div>
+      </div>
+    </div>
+
+    <!-- Gadget -->
+    <div style="display:flex;gap:3mm;align-items:flex-start;margin-bottom:3mm;padding-bottom:3mm;border-bottom:0.5px solid var(--rule-light);">
+      <div style="width:11mm;height:11mm;background:var(--gold);border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:14pt;flex-shrink:0;">⌚</div>
+      <div style="flex:1;">
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Гаджет</div>
+        <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);margin:1mm 0;">Xiaomi Mi Band 9</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">
+          Лучший фитнес-трекер до $40. Шаги, пульс, сон, калории. Водонепроницаемый. Батарея: 16 дней. Идеально для старта ЗОЖ без затрат. Есть в любом Uzum.
+        </div>
+      </div>
+    </div>
+
+    <!-- AI hack -->
+    <div class="card-dark">
+      <div style="display:flex;gap:3mm;align-items:flex-start;">
+        <div style="width:11mm;height:11mm;background:rgba(168,85,247,0.3);border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:14pt;flex-shrink:0;">🤖</div>
+        <div style="flex:1;">
+          <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#c084fc;">AI-лайфхак недели</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.85);line-height:1.5;margin-top:1.5mm;">
+            Напишите ChatGPT: <em>«У меня в холодильнике: курица, помидоры, лук, рис. Предложи 3 блюда за 20 минут»</em>. AI выдаст рецепты с тем, что у вас есть. Больше никаких «что приготовить?».
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-r">8</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 9 — СПОРТ & ФИТНЕС
+     Style: Vogue — bold hierarchy, data table
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <div class="running-header">
+    <div class="masthead">Fresh Weekly</div>
+    <div>Фитнес</div>
+  </div>
+
+  <div style="padding:4mm var(--margin-page) 6mm;">
+    <div class="section-tag" style="border-color:#dc2626;color:#dc2626;margin-bottom:3mm;">Спорт & Фитнес</div>
+    <div style="font-family:'Playfair Display',serif;font-size:20pt;font-weight:900;color:var(--ink);line-height:1.1;">Утренняя зарядка:<br>10 минут, которые<br>меняют день</div>
+
+    <div style="font-family:'Cormorant Garamond',serif;font-size:9.5pt;color:var(--ink-soft);margin-top:2mm;margin-bottom:3mm;line-height:1.55;">
+      Не нужен зал. Не нужна форма. Просто встаньте на 10 минут раньше. Исследования показывают: 10 минут утренней активности улучшают концентрацию на 48% в течение дня.
+    </div>
+
+    <!-- Workout table -->
+    <table style="width:100%;border-collapse:collapse;font-family:'Cormorant Garamond',serif;font-size:8.5pt;margin-bottom:3mm;">
+      <thead>
+        <tr style="background:var(--dark-surface);color:#fff;font-family:'Inter',sans-serif;font-size:6.5pt;font-weight:600;text-transform:uppercase;letter-spacing:1px;">
+          <th style="padding:2.5mm 3mm;text-align:left;">Упражнение</th>
+          <th style="padding:2.5mm 3mm;text-align:right;">Объём</th>
+          <th style="padding:2.5mm 3mm;text-align:right;">Время</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:2mm 3mm;border-bottom:0.5px solid var(--rule-light);">Приседания</td><td style="padding:2mm 3mm;text-align:right;border-bottom:0.5px solid var(--rule-light);">20 раз</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);border-bottom:0.5px solid var(--rule-light);">1 мин</td></tr>
+        <tr><td style="padding:2mm 3mm;border-bottom:0.5px solid var(--rule-light);">Отжимания</td><td style="padding:2mm 3mm;text-align:right;border-bottom:0.5px solid var(--rule-light);">15 раз</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);border-bottom:0.5px solid var(--rule-light);">1 мин</td></tr>
+        <tr><td style="padding:2mm 3mm;border-bottom:0.5px solid var(--rule-light);">Планка</td><td style="padding:2mm 3mm;text-align:right;border-bottom:0.5px solid var(--rule-light);">30 сек</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);border-bottom:0.5px solid var(--rule-light);">0.5 мин</td></tr>
+        <tr><td style="padding:2mm 3mm;border-bottom:0.5px solid var(--rule-light);">Выпады</td><td style="padding:2mm 3mm;text-align:right;border-bottom:0.5px solid var(--rule-light);">10+10</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);border-bottom:0.5px solid var(--rule-light);">1.5 мин</td></tr>
+        <tr><td style="padding:2mm 3mm;border-bottom:0.5px solid var(--rule-light);">Пресс</td><td style="padding:2mm 3mm;text-align:right;border-bottom:0.5px solid var(--rule-light);">20 раз</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);border-bottom:0.5px solid var(--rule-light);">1 мин</td></tr>
+        <tr><td style="padding:2mm 3mm;border-bottom:0.5px solid var(--rule-light);">Бёрпи</td><td style="padding:2mm 3mm;text-align:right;border-bottom:0.5px solid var(--rule-light);">10 раз</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);border-bottom:0.5px solid var(--rule-light);">1.5 мин</td></tr>
+        <tr><td style="padding:2mm 3mm;border-bottom:0.5px solid var(--rule-light);">Прыжки на месте</td><td style="padding:2mm 3mm;text-align:right;border-bottom:0.5px solid var(--rule-light);">30 сек</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);border-bottom:0.5px solid var(--rule-light);">0.5 мин</td></tr>
+        <tr><td style="padding:2mm 3mm;font-style:italic;">Растяжка</td><td style="padding:2mm 3mm;text-align:right;">—</td><td style="padding:2mm 3mm;text-align:right;color:var(--caption);">3 мин</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Gym of the week -->
+    <div class="card-dark" style="margin-bottom:3mm;">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:1.5mm;">Фитнес-клуб недели</div>
+      <div style="font-family:'Playfair Display',serif;font-size:12pt;font-weight:800;color:#fff;margin-bottom:1mm;">Discover Fitness</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:rgba(255,255,255,0.75);line-height:1.5;">
+        Ташкент, Tashkent City · от 800,000 сум/мес<br>
+        Бассейн, SPA, групповые, тренер — один из самых оснащённых клубов в Центральной Азии
+      </div>
+    </div>
+
+    <!-- Nutrition link -->
+    <div class="card-warm">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:1mm;">Связка тренировка + питание</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--ink-soft);line-height:1.5;">
+        После зарядки — стакан воды с лимоном + завтрак через 30 мин: овсянка + банан + орехи. Энергия на 4–5 часов без «провала» к обеду.
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-l">9</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 10 — FRESH KIDS
+     Style: Special warm edition — playful but premium
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:linear-gradient(180deg,var(--paper) 0%,#fdf8ef 100%);">
+  <div class="running-header" style="border-color:#f0dfc0;">
+    <div class="masthead" style="color:var(--gold);">Fresh Kids</div>
+    <div style="color:var(--gold);">Маленький Шеф</div>
+  </div>
+
+  <!-- Hero -->
+  <div style="height:68mm;overflow:hidden;position:relative;margin:0 var(--margin-page);border-radius:3mm;">
+    <img src="img/kids.png" alt="Фруктовый шашлычок" class="hero-img" style="height:100%;border-radius:3mm;">
+    <div style="position:absolute;top:4mm;left:4mm;">
+      <span class="section-tag section-tag-gold" style="background:rgba(255,255,255,0.85);backdrop-filter:blur(4px);">Fresh Kids · 4+</span>
+    </div>
+  </div>
+
+  <div style="padding:3mm var(--margin-page) 6mm;">
+    <div style="font-family:'Playfair Display',serif;font-size:20pt;font-weight:900;color:#6b4c11;line-height:1.1;">🍓 Фруктовый<br>шашлычок!</div>
+
+    <hr class="divider" style="margin:2.5mm 0;border-color:#f0dfc0;">
+
+    <!-- Ingredients -->
+    <div style="background:var(--gold-soft);padding:3mm 4mm;border-radius:2mm;margin-bottom:3mm;">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:1.5mm;">Тебе понадобится</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:#6b4c11;line-height:1.6;">
+        🍓 Клубника · 🍌 Банан · 🫐 Черника · 🥝 Киви · 🍇 Виноград<br>
+        + Деревянные шпажки (попроси маму обрезать острый конец!)
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div style="display:flex;gap:2mm;margin-bottom:3mm;">
+      <div style="flex:1;text-align:center;padding:3mm 2mm;background:var(--paper-pure);border-radius:2mm;border:1px solid #f0dfc0;">
+        <div style="font-size:18pt;">1️⃣</div>
+        <div style="font-family:'Inter',sans-serif;font-size:7pt;font-weight:700;color:var(--ink);margin-top:1mm;">Помой фрукты</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:7.5pt;color:var(--caption);">Под водой, руками</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:3mm 2mm;background:var(--paper-pure);border-radius:2mm;border:1px solid #f0dfc0;">
+        <div style="font-size:18pt;">2️⃣</div>
+        <div style="font-family:'Inter',sans-serif;font-size:7pt;font-weight:700;color:var(--ink);margin-top:1mm;">Нанизывай!</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:7.5pt;color:var(--caption);">Красный, жёлтый, синий...</div>
+      </div>
+      <div style="flex:1;text-align:center;padding:3mm 2mm;background:var(--paper-pure);border-radius:2mm;border:1px solid #f0dfc0;">
+        <div style="font-size:18pt;">3️⃣</div>
+        <div style="font-family:'Inter',sans-serif;font-size:7pt;font-weight:700;color:var(--ink);margin-top:1mm;">Готово!</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:7.5pt;color:var(--caption);">Покажи маме! 🎉</div>
+      </div>
+    </div>
+
+    <!-- Fun fact -->
+    <div style="background:var(--paper-pure);padding:3mm 4mm;border-radius:2mm;border:1px solid #f0dfc0;margin-bottom:3mm;">
+      <div style="font-family:'Inter',sans-serif;font-size:6.5pt;font-weight:700;color:var(--gold);">🤓 Знаешь ли ты?</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:#6b4c11;line-height:1.5;margin-top:1mm;">Клубника — единственная ягода, у которой семечки СНАРУЖИ! На одной клубничке около 200 семечек. Посчитай! 🔍</div>
+    </div>
+
+    <!-- CTA -->
+    <div class="card-dark" style="text-align:center;">
+      <div style="font-family:'Inter',sans-serif;font-size:7pt;font-weight:700;color:var(--gold);">📸 Покажи, что приготовил!</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:8pt;color:rgba(255,255,255,0.6);margin-top:1mm;">Пришли фото → @fresh_weekly_uz — лучшие в следующем выпуске!</div>
+    </div>
+  </div>
+  <div class="page-num page-num-r" style="color:#d4b970;">10</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 11 — КОЛЛЕКЦИЯ + AR
+     Style: Kinfolk — collectible, premium card
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--paper);">
+  <div class="running-header">
+    <div class="masthead">Fresh Weekly</div>
+    <div>Коллекция</div>
+  </div>
+
+  <div style="padding:4mm var(--margin-page) 6mm;">
+    <div class="section-tag section-tag-gold" style="margin-bottom:3mm;">Коллекционная карточка · 1 / 52</div>
+    <div style="font-family:'Playfair Display',serif;font-size:16pt;font-weight:900;color:var(--ink);line-height:1.1;margin-bottom:4mm;">Серия «Продукты мира»</div>
+
+    <!-- Collectible Card -->
+    <div style="border:1.5px dashed var(--rule);border-radius:4mm;padding:5mm;margin-bottom:4mm;">
+      <div style="border:1px solid var(--accent);border-radius:3mm;padding:5mm;background:linear-gradient(135deg,var(--accent-light),var(--paper-pure));">
+        <div style="display:flex;gap:3mm;align-items:center;margin-bottom:3mm;">
+          <div style="font-size:32pt;line-height:1;">🌿</div>
+          <div>
+            <div style="font-family:'Playfair Display',serif;font-size:16pt;font-weight:900;color:var(--accent);">КИНЗА</div>
+            <div style="font-family:'Inter',sans-serif;font-size:6.5pt;color:var(--caption);letter-spacing:0.5px;">Coriandrum sativum · Центральная Азия</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:3mm;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;"><strong>Витамины:</strong> A, C, K, E</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;"><strong>Вкус:</strong> Яркий, цитрусовый</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;"><strong>Сезон:</strong> Круглый год</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;"><strong>Хранить:</strong> +4°C, 5–7 дней</div>
+        </div>
+
+        <div style="background:var(--accent-light);padding:2.5mm 3mm;border-radius:2mm;">
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:var(--accent);line-height:1.5;">
+            <strong>Факт:</strong> В микрозелени кинзы в 5 раз больше витамина С, чем во взрослой кинзе. В Узбекистане кинза используется в 85 из 100 ресторанов.
+          </div>
+        </div>
+
+        <div style="font-family:'Inter',sans-serif;font-size:6pt;color:var(--caption);text-align:center;margin-top:3mm;letter-spacing:1px;">✂️ ВЫРЕЖИ И СОХРАНИ · FRESH WEEKLY №1 · 1/52</div>
+      </div>
+    </div>
+
+    <!-- AR Section -->
+    <div class="card-dark" style="text-align:center;position:relative;overflow:hidden;">
+      <div style="position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(74,222,128,0.1),transparent 70%);pointer-events:none;"></div>
+      <div style="position:relative;z-index:1;">
+        <div style="font-family:'Playfair Display',serif;font-size:12pt;font-weight:800;color:var(--gold);margin-bottom:2mm;">✨ Дополненная реальность</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.75);line-height:1.5;margin-bottom:3mm;">
+          Наведи камеру телефона на карточку, чтобы увидеть 3D-анимацию прямо на бумаге!
+        </div>
+        <a href="ar_viewer.html" target="_blank" style="display:inline-block;background:var(--gold);color:var(--dark);padding:2mm 5mm;border-radius:5mm;text-decoration:none;font-family:'Inter',sans-serif;font-weight:700;font-size:7.5pt;letter-spacing:0.5px;">📸 Запустить AR-сканер</a>
+      </div>
+    </div>
+
+    <hr class="divider" style="margin:4mm 0;">
+
+    <!-- Reader photos -->
+    <div style="text-align:center;">
+      <div style="font-family:'Playfair Display',serif;font-size:11pt;font-weight:800;color:var(--ink);margin-bottom:2mm;">📸 Фото наших читателей</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:var(--caption);line-height:1.5;">
+        Приготовили блюдо по нашему рецепту?<br>
+        Пришлите фото в Telegram <strong style="color:var(--accent);">@fresh_weekly_uz</strong><br>
+        Лучшие — здесь, с вашим именем.
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-l">11</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PAGE 12 — ЗАДНЯЯ ОБЛОЖКА
+     Style: Monocle back cover — next issue + subscribe
+     ═══════════════════════════════════════════════ -->
+<div class="page" style="background:var(--dark-surface);color:#fff;display:flex;flex-direction:column;">
+  <!-- Thin accent line at top -->
+  <div style="height:2px;background:linear-gradient(90deg,var(--gold),var(--accent),var(--gold));"></div>
+
+  <div style="padding:8mm var(--margin-page) 0;flex:1;display:flex;flex-direction:column;">
+
+    <!-- Next Issue -->
+    <div style="margin-bottom:5mm;">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:3mm;">В следующем выпуске</div>
+      <div style="font-family:'Playfair Display',serif;font-size:18pt;font-weight:900;color:#fff;line-height:1.15;margin-bottom:4mm;">Выпуск №2</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3mm;">
+        <div style="border-left:2px solid var(--accent);padding:2mm 0 2mm 3mm;">
+          <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Ресторан</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.8);margin-top:1mm;">PLATAN — лучший ресторан Самарканда</div>
+        </div>
+        <div style="border-left:2px solid var(--gold);padding:2mm 0 2mm 3mm;">
+          <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Стрит-фуд</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.8);margin-top:1mm;">🇰🇷 Ттокпокки — корейская волна</div>
+        </div>
+        <div style="border-left:2px solid var(--gold);padding:2mm 0 2mm 3mm;">
+          <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Вкусы</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.8);margin-top:1mm;">Солёное + Сладкое: мисо-карамель</div>
+        </div>
+        <div style="border-left:2px solid var(--accent);padding:2mm 0 2mm 3mm;">
+          <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.4);">Нутрициолог</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:9pt;color:rgba(255,255,255,0.8);margin-top:1mm;">Белок: сколько граммов вам нужно?</div>
+        </div>
+      </div>
+    </div>
+
+    <hr style="border:none;border-top:0.5px solid rgba(255,255,255,0.1);margin:0;">
+
+    <!-- Print subscription -->
+    <div style="padding:4mm 0;margin-bottom:auto;">
+      <div style="font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--gold);margin-bottom:2mm;">Печатная версия</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:9.5pt;color:rgba(255,255,255,0.75);line-height:1.6;">
+        Премиум-печать на плотной бумаге, 12 страниц, формат A5.<br>
+        <strong style="color:#fff;">15,000 сум</strong> / выпуск &nbsp;·&nbsp; <strong style="color:var(--gold);">50,000 сум</strong> / мес (4 выпуска)
+      </div>
+    </div>
+
+    <!-- Contacts -->
+    <div style="background:rgba(255,255,255,0.05);border-radius:3mm;padding:5mm;margin-bottom:5mm;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:16pt;font-weight:900;color:var(--gold);margin-bottom:2mm;">FRESH WEEKLY</div>
+          <div style="font-family:'Cormorant Garamond',serif;font-size:8.5pt;color:rgba(255,255,255,0.5);line-height:1.8;">
+            <strong style="color:rgba(255,255,255,0.8);">Telegram:</strong> @fresh_weekly_uz<br>
+            <strong style="color:rgba(255,255,255,0.8);">Instagram:</strong> @fresh_weekly_uz<br>
+            <strong style="color:rgba(255,255,255,0.8);">Сайт:</strong> freshweekly.uz<br>
+            <strong style="color:rgba(255,255,255,0.8);">📍</strong> Ташкент · Самарканд
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:2mm;">
+          <div style="width:20mm;height:20mm;border:1.5px solid rgba(255,255,255,0.15);border-radius:3mm;display:flex;align-items:center;justify-content:center;font-family:'Inter',sans-serif;font-size:6pt;font-weight:700;color:rgba(255,255,255,0.3);">QR<br>КОД</div>
+          <div style="font-family:'Inter',sans-serif;font-size:6pt;color:rgba(255,255,255,0.3);">Подписаться</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spine text -->
+  <div style="background:rgba(255,255,255,0.03);padding:2.5mm var(--margin-page);display:flex;justify-content:space-between;align-items:center;">
+    <span style="font-family:'Inter',sans-serif;font-size:5.5pt;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.2);">Fresh Weekly №1 · Июль 2026 · Ташкент & Самарканд</span>
+    <span style="font-family:'Inter',sans-serif;font-size:5.5pt;color:rgba(255,255,255,0.15);">freshweekly.uz</span>
+  </div>
+
+  <div class="page-num page-num-r page-num-w">12</div>
+</div>
+
+</body>
+</html>

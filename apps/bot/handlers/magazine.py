@@ -11,51 +11,58 @@ logger = logging.getLogger(__name__)
 
 # Paths relative to the bot's working directory (apps/bot/ in Docker, project root locally)
 _CONTENT_DIR = Path(__file__).resolve().parent.parent.parent.parent / "content"
-COVER_IMAGE_PATH = _CONTENT_DIR / "img" / "cover.png"
-PDF_PATH = _CONTENT_DIR / "fresh_weekly_issue_01.pdf"
+
+def get_issue_paths(issue_number: int):
+    cover_name = f"cover_issue_0{issue_number}.png" if issue_number > 1 else "cover.png"
+    return (
+        _CONTENT_DIR / "img" / cover_name,
+        _CONTENT_DIR / f"fresh_weekly_issue_0{issue_number}.pdf"
+    )
 
 @router.message(Command("magazine"))
 async def cmd_magazine(message: types.Message):
     """Handler for the /magazine command."""
-    issue_number = 1
+    issue_number = 2
     text = (
-        f"🌟 <b>MICROGREEN WEEKLY — Выпуск #{issue_number}</b>\n\n"
+        f"🌟 <b>FRESH WEEKLY — Выпуск #{issue_number}</b>\n\n"
         "Главный гастрономический журнал Узбекистана о микрозелени, ресторанах и рецептах!\n\n"
-        "В этом выпуске:\n"
-        "🍽 <b>Ресторан недели:</b> ORA (Секреты шефа)\n"
-        "👩‍🍳 <b>Рецепт недели:</b> Говяжьи медальоны с кейлом\n"
-        "🌍 <b>Стрит-фуд:</b> Тако с настурцией\n\n"
+        "В этом выпуске (Корейская кухня):\n"
+        "🍜 <b>Стрит-фуд:</b> Азиатские тренды\n"
+        "🥩 <b>Рецепт недели:</b> Пибимпаб с микрозеленью\n"
+        "🌱 <b>Фокус:</b> Дайкон и кинза в деле\n\n"
         "<i>Используйте AR-магию на обложке печатной версии, чтобы оживить блюда!</i>"
     )
     
     keyboard = magazine_keyboard(issue_number)
+    cover_path, _ = get_issue_paths(issue_number)
     
-    if COVER_IMAGE_PATH.exists():
-        photo = FSInputFile(COVER_IMAGE_PATH)
+    if cover_path.exists():
+        photo = FSInputFile(cover_path)
         await message.answer_photo(
             photo=photo,
             caption=text,
             reply_markup=keyboard
         )
     else:
-        logger.warning("Cover image not found: %s", COVER_IMAGE_PATH)
+        logger.warning("Cover image not found: %s", cover_path)
         await message.answer(text, reply_markup=keyboard)
 
 
 @router.callback_query(F.data.startswith("mag_pdf_"))
 async def handle_magazine_pdf(callback: types.CallbackQuery):
     """Отправляет PDF-файл журнала."""
-    issue_number = callback.data.split("_")[-1]
+    issue_number = int(callback.data.split("_")[-1])
+    _, pdf_path = get_issue_paths(issue_number)
     
-    if PDF_PATH.exists():
+    if pdf_path.exists():
         await callback.answer("📄 Отправляю PDF...")
-        doc = FSInputFile(PDF_PATH, filename=f"FRESH_WEEKLY_{issue_number}.pdf")
+        doc = FSInputFile(pdf_path, filename=f"FRESH_WEEKLY_0{issue_number}.pdf")
         await callback.message.answer_document(
             document=doc,
             caption=f"📖 <b>FRESH WEEKLY — Выпуск #{issue_number}</b>\n12 страниц о микрозелени, ресторанах и рецептах!"
         )
     else:
-        logger.warning("PDF not found: %s", PDF_PATH)
+        logger.warning("PDF not found: %s", pdf_path)
         await callback.answer(
             "PDF ещё не готов. Читайте онлайн: microgreenuzbekistan.com/magazine",
             show_alert=True
