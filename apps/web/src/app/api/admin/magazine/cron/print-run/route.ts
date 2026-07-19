@@ -5,22 +5,12 @@ import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 
-function getNextWeekNumber() {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  const start = new Date(d.getFullYear(), 0, 1);
-  const days = Math.floor((d.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-  return Math.ceil((d.getDay() + 1 + days) / 7);
-}
-
 export async function POST(req: Request) {
   if (!isAuthorized(req)) return unauthorized();
 
   try {
-    const weekNumber = getNextWeekNumber();
-    
-    const edition = await prisma.magazineEdition.findUnique({
-      where: { weekNumber }
+    const edition = await prisma.magazineEdition.findFirst({
+      orderBy: { weekNumber: 'desc' }
     });
 
     if (!edition) {

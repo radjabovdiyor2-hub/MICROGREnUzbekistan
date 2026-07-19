@@ -22,6 +22,7 @@ from sqlalchemy import text
 from shared.database import get_session_ctx
 from shared.event_bus import event_bus, Events
 from shared.utils import format_price
+from shared.trends import fetch_google_trends
 import sentry_sdk
 
 logger = logging.getLogger(__name__)
@@ -1311,3 +1312,9 @@ async def bots_kanban():
 async def ai_office_dashboard(request: Request):
     """Страница визуального Kanban-дашборда ИИ Офиса."""
     return templates.TemplateResponse("ai_office.html", {"request": request})
+
+@app.get("/api/magazine/brief")
+async def get_magazine_brief():
+    """Возвращает Google Trends для брифинга журнала."""
+    trends = await fetch_google_trends(geo="UZ", limit=10)
+    return JSONResponse({"google_trends": trends})

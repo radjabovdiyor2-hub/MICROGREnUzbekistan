@@ -5,19 +5,16 @@ import { defaultSharedSpec, defaultPersonalSpec } from '@/lib/magazine/defaults'
 
 export const dynamic = 'force-dynamic';
 
-function getNextWeekNumber() {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  const start = new Date(d.getFullYear(), 0, 1);
-  const days = Math.floor((d.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
-  return Math.ceil((d.getDay() + 1 + days) / 7);
+async function getNextIssueNumber() {
+  const max = await prisma.magazineEdition.aggregate({ _max: { weekNumber: true } });
+  return (max._max.weekNumber || 0) + 1;
 }
 
 export async function POST(req: Request) {
   if (!isAuthorized(req)) return unauthorized();
 
   try {
-    const weekNumber = getNextWeekNumber();
+    const weekNumber = await getNextIssueNumber();
 
     // 1. Ищем или создаём выпуск недели (общий 50%) со СТАРТОВЫМ контентом
     let edition = await prisma.magazineEdition.findUnique({ where: { weekNumber } });
