@@ -2691,8 +2691,6 @@ button:active, .btn:active {
   transform: scale(0.96);
 }
 
-}
-
 @media (max-width: 768px) {
   /* Hide standard header actions on mobile — bottom nav has them */
   .header__actions {
