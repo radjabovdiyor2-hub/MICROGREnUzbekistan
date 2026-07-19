@@ -78,15 +78,17 @@ jobs:
             # commands because docker ps ANDs multiple -f flags (not OR).
             docker ps -aq -f "name=mg_db_push" | xargs -r docker rm -f || true
             docker ps -aq -f "name=mg_db_seed" | xargs -r docker rm -f || true
-            # Stop web + infra to free memory and release ports (5432, 6379).
-            # Without this, Docker tries to recreate postgres while the old one
-            # still holds port 5432, causing "address already in use".
-            docker compose -f docker-compose.prod.yml stop web postgres redis 2>/dev/null || true
-            sleep 2
-            # Start infra only (postgres + redis)
+            # Ensure infra is up (first deploy / server reboot). Do NOT stop
+            # postgres — with --no-deps on run commands, compose won't recreate
+            # it, so stopping creates needless DNS/port issues.
             docker compose -f docker-compose.prod.yml up -d postgres redis
-            # Wait for postgres to be healthy
-            docker compose -f docker-compose.prod.yml exec postgres pg_isready -U mg_user -d microgreen || sleep 5
+            # Wait for postgres to be healthy (proper retry, not one-shot check)
+            for i in $(seq 1 15); do
+              docker compose -f docker-compose.prod.yml exec postgres \
+                pg_isready -U mg_user -d microgreen && break
+              echo "Waiting for postgres… ($i/15)"
+              sleep 2
+            done
             # Run db-push: --no-deps prevents compose from recreating the
             # already-running postgres (which races on port 5432).
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-push 2>&1 || {
