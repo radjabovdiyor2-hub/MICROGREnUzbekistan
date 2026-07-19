@@ -56,6 +56,21 @@ async def ai_fallback(msg: Message):
     await msg.answer(r)
 
 
+async def _post_to_channel(image_path, caption) -> bool:
+    try:
+        channel_id = settings.telegram_channel_id
+        if not channel_id or not _bot:
+            return False
+        if image_path:
+            from aiogram.types import FSInputFile
+            await _bot.send_photo(channel_id, FSInputFile(image_path), caption=caption[:1024], parse_mode="HTML")
+        else:
+            await _bot.send_message(channel_id, caption[:4000], parse_mode="HTML")
+        return True
+    except Exception as e:
+        logging.error(f"_post_to_channel error: {e}")
+        return False
+
 # ═══════════════════════════════════════════════════════════════════════════
 # ФОНОВЫЕ ЗАДАЧИ
 # ═══════════════════════════════════════════════════════════════════════════
@@ -270,13 +285,20 @@ async def morning_post():
         from shared.content_plan import get_daily_tip_theme
         fact_theme = get_daily_fact_theme(now.date())   # fallback-семя из списка
         tip_theme = get_daily_tip_theme(now.date())     # fallback-семя из списка
+        from shared.content_plan import get_daily_pillar
+        pillar = get_daily_pillar()
+        
         # Тема дня из актуальной повестки (новости/тренды/сезон/погода), с fallback на списки
-        if fmt["key"] in ("tip", "fact"):
+        if pillar["key"] in ("news", "health_trend") or fmt["key"] in ("tip", "fact"):
             ctx = await get_daily_context()
-            if fmt["key"] == "tip":
+            if pillar["key"] in ("news", "health_trend"):
+                fact_theme = await build_topical_angle(pillar["key"], ctx, fallback=fact_theme)
+                tip_theme = fact_theme
+            elif fmt["key"] == "tip":
                 tip_theme = await build_topical_angle("tip", ctx, fallback=tip_theme)
             else:
                 fact_theme = await build_topical_angle("fact", ctx, fallback=fact_theme)
+                
         angle = fmt["angle"].replace("{fact}", fact_theme).replace("{tip}", tip_theme)
         is_info = fmt.get("kind") == "info"          # info → список пунктов на картинке
         promo_hint = "" if (fmt["key"] == "promo" or is_info) else \
@@ -383,10 +405,14 @@ async def morning_post():
                                   caption=f"☀️ <b>{fmt['ru']}</b>", parse_mode="HTML")
             from shared.instagram import post_to_instagram
             success = await post_to_instagram(final_img, "", post_type="story")
+            channel_caption = f"<b>{headline}</b>\n\n{post_text}\n\n{fmt['cta']}\nmicrogreenuzbekistan.com"
+            await _post_to_channel(final_img, channel_caption)
             if success:
                 _mark_published("morning", image=final_img, caption=post_text, title=headline)
                 await _bot.send_message(admin_id, "✅ <i>Опубликовано в Instagram Stories</i>", parse_mode="HTML")
         else:
+            channel_caption = f"<b>{headline}</b>\n\n{post_text}\n\n{fmt['cta']}\nmicrogreenuzbekistan.com"
+            await _post_to_channel(None, channel_caption)
             await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать изображение утреннего сторис.", parse_mode="HTML")
 
     except Exception as e:
@@ -476,6 +502,7 @@ async def evening_post():
 
         # Фото ДОЛЖНО соответствовать рецепту → промпт строим детерминированно из блюда и ингредиентов
         # (без второго вызова AI, чтобы фото не «уплывало» от рецепта). Текст впечатаем сами (в бренде).
+        from shared.content_plan import get_daily_image_style
         ing_for_photo = ", ".join(ingredients[:5]) if ingredients else "fresh microgreens"
         image_prompt = (
             f"Photorealistic vertical 9:16 professional food photograph for Instagram story, "
@@ -483,9 +510,21 @@ async def evening_post():
             f"fresh microgreens and edible flowers as garnish. "
             f"The dish on the plate is exactly: {title} — made with {ing_for_photo}. "
             f"Show precisely THIS dish, appetizing and true to these ingredients. "
+            f"Photography style: {get_daily_image_style(now.date())}. "
             f"CRITICAL: absolutely NO text, NO letters, NO words on the image."
         )
         image_url = await ai.generate_image(image_prompt, size="1024x1792")
+
+        # Подробный рецепт (шаги) — в ПОДПИСИ (caption), не на картинке
+        steps_txt = "\n".join(f"{n}. {s}" for n, s in enumerate(steps, 1)) or "—"
+        caption = (
+            f"🍽 <b>{title}</b>\n\n"
+            f"👨‍🍳 <b>Tayyorlash:</b>\n{steps_txt}\n"
+            + (f"\n🔑 <i>Sirimiz:</i> {secret}\n" if secret else "")
+            + "\n📞 +998 94 999 95 99 · Buyurtma berish\n#MicrogreenUzbekistan"
+        )
+        
+        channel_caption = f"{caption}\n\nmicrogreenuzbekistan.com"
 
         if image_url and os.path.isfile(image_url):
             from shared.brand import render_recipe_card
@@ -494,84 +533,21 @@ async def evening_post():
             # На картинке — только название + ингредиенты + CTA (шаги в подпись)
             ok = render_recipe_card(image_url, story_img, title, ingredients, cta="Buyurtma berish")
             final_img = story_img if ok else image_url
-            # Подробный рецепт (шаги) — в ПОДПИСИ (caption), не на картинке
-            steps_txt = "\n".join(f"{n}. {s}" for n, s in enumerate(steps, 1)) or "—"
-            caption = (
-                f"🍽 <b>{title}</b>\n\n"
-                f"👨‍🍳 <b>Tayyorlash:</b>\n{steps_txt}\n"
-                + (f"\n🔑 <i>Sirimiz:</i> {secret}\n" if secret else "")
-                + "\n📞 +998 94 999 95 99 · Buyurtma berish\n#MicrogreenUzbekistan"
-            )
+            
             from aiogram.types import FSInputFile
             await _bot.send_photo(admin_id, photo=FSInputFile(final_img), caption=caption[:1024], parse_mode="HTML")
             from shared.instagram import post_to_instagram
             success = await post_to_instagram(final_img, "", post_type="story")
+            await _post_to_channel(final_img, channel_caption)
             if success:
                 _mark_published("recipe", image=final_img, caption=caption, title=title)
                 await _bot.send_message(admin_id, "✅ <i>Рецепт опубликован в Instagram Stories</i>", parse_mode="HTML")
         else:
+            await _post_to_channel(None, channel_caption)
             await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать фото рецепта.", parse_mode="HTML")
 
     except Exception as e:
         logging.error(f"evening_post error: {e}", exc_info=True)
-
-
-async def afternoon_post():
-    """Ежедневно в 14:00: Дневной пост (UGC Отзыв и Карусель)."""
-    try:
-        tz = timezone(timedelta(hours=5))
-        now = datetime.now(tz)
-        weather = await fetch_weather_samarkand()
-        admin_id = settings.admin_telegram_ids[0]
-        ai = AIEngine()
-        
-        prompt = (
-            "Создай дневной пост (14:00) для Microgreen Uzbekistan. "
-            "Формат: UGC (пользовательский контент). Напиши реалистичный, эстетичный отзыв от лица выдуманного шеф-повара известного ресторана в Самарканде или от довольного клиента о том, как наша микрозелень преобразила их блюдо.\n"
-            "Пост должен быть в кавычках (цитата), с эмодзи. Без упоминания того, что это сгенерировано ИИ."
-        )
-        post_text = await ai.chat_completion(
-            "Ты копирайтер.",
-            prompt
-        )
-
-        # Generate 1 image for the post
-        image1_prompt = await ai.chat_completion(
-            "Ты дизайнер и фотограф.", 
-            f"Напиши промпт на английском для DALL-E 3 (photorealistic, highly detailed, vertical format for Instagram stories, bright daylight). Картинка: Красивое ресторанное блюдо, обильно украшенное свежей микрозеленью. Контекст: {post_text[:200]}"
-        )
-        image1_url = await ai.generate_image(image1_prompt, size="1024x1792")
-        
-        report = (
-            f"💬 <b>Отзывы о нас</b>\n"
-            f"📅 {now.strftime('%d.%m.%Y')} | {weather}\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"{post_text}\n\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🎨 <i>Content Bot — дневной формат</i>"
-        )
-        
-        if image1_url and os.path.isfile(image1_url):
-            from aiogram.types import FSInputFile
-            await _bot.send_photo(
-                admin_id, 
-                photo=FSInputFile(image1_url), 
-                caption=report[:1024], 
-                parse_mode="HTML"
-            )
-            if len(report) > 1024:
-                await _bot.send_message(admin_id, report[1024:], parse_mode="HTML")
-                
-            from shared.instagram import post_story_with_text
-            success = await post_story_with_text(image1_url, "Нам доверяют", post_text)
-            if success:
-                await _bot.send_message(admin_id, "✅ <i>Дневной сторис опубликован в Instagram!</i>", parse_mode="HTML")
-        else:
-            await _bot.send_message(admin_id, report, parse_mode="HTML")
-            
-    except Exception as e:
-        logging.error(f"afternoon_post error: {e}", exc_info=True)
-
 
 # ── Регистрация задач ────────────────────────────────────────────────────
 async def weekly_grid_post():
@@ -605,10 +581,12 @@ async def weekly_grid_post():
         feed_caption = f"{body}\n\n{BRAND_HASHTAGS}"
 
         # Чистое премиальное фото под тему (текст — в подписи поста, не на картинке)
+        from shared.content_plan import get_daily_image_style
         image_prompt = (
             f"Photorealistic premium square 1:1 Instagram feed photo for a microgreens brand. "
             f"Fresh microgreens, salads and beautiful plating, natural soft light, clean aesthetic composition, "
             f"theme: {pillar['name']}. "
+            f"Photography style: {get_daily_image_style(now.date())}. "
             f"CRITICAL: absolutely NO text, NO letters, NO words on the image."
         )
         image_url = await ai.generate_image(image_prompt, size="1024x1024")  # 1:1 — безопасно для ленты
@@ -620,10 +598,12 @@ async def weekly_grid_post():
             await _bot.send_photo(admin_id, photo=FSInputFile(image_url), caption=feed_caption[:1024], parse_mode="HTML")
             from shared.instagram import post_to_instagram
             ok = await post_to_instagram(image_url, feed_caption, post_type='feed')
+            await _post_to_channel(image_url, feed_caption)
             if ok:
                 _mark_published("grid", image=image_url, caption=post_text, title=pillar["name"])
                 await _bot.send_message(admin_id, "✅ <i>Пост недели опубликован в ленту Instagram</i>", parse_mode="HTML")
         else:
+            await _post_to_channel(None, feed_caption)
             await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать фото поста недели.", parse_mode="HTML")
     except Exception as e:
         logging.error(f"weekly_grid_post error: {e}", exc_info=True)

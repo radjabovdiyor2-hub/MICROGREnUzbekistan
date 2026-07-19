@@ -71,12 +71,42 @@ CONTENT_PILLARS: list[dict] = [
                  "Нативно привяжи бренд к актуальному инфоповоду.",
         "tags": "#тренд #сезон #ЗОЖ #Узбекистан",
     },
+    {
+        "key": "news", "emoji": "📰", "name": "Новости и тренды недели", "lang": "uz",
+        "angle": "Ситуативный пост по повестке недели (новости/сезон/ЗОЖ-тренд), "
+                 "нативно привязать к свежей зелени.",
+        "tags": "#тренд #новости #ЗОЖ #Узбекистан",
+    },
+    {
+        "key": "health_trend", "emoji": "💊", "name": "Здоровье и бьюти", "lang": "mix",
+        "angle": "Полезный совет о здоровье/энергии/красоте, связать с витаминами зелени, "
+                 "без мед. обещаний.",
+        "tags": "#здоровье #красота #витамины",
+    },
+    {
+        "key": "home_lifehack", "emoji": "💡", "name": "Лайфхаки дома и кухни", "lang": "uz",
+        "angle": "Практичный бытовой/кухонный лайфхак, потом мостик к зелени.",
+        "tags": "#лайфхак #кухня #дом",
+    },
 ]
 
 LANG_INSTRUCTION = {
     "ru": "русском",
     "uz": "узбекском (латиница, O'zbek tili)",
 }
+
+IMAGE_STYLES = [
+    "warm golden-hour light, rustic wood, cozy",
+    "bright high-key, white marble, minimalist",
+    "moody dark, dramatic side light",
+    "vibrant colorful flat-lay top-down",
+    "soft pastel morning",
+    "fine-dining plating, shallow DOF"
+]
+
+def get_daily_image_style(d: Optional[date] = None) -> str:
+    d = d or date.today()
+    return _pick(IMAGE_STYLES, d.timetuple().tm_yday * 5)
 
 # Приоритетные пиллары для еженедельного grid-поста (авторитет + конверсия).
 GRID_PILLAR_KEYS = ["horeca", "recipe", "product", "farm", "health", "trust"]
@@ -106,11 +136,13 @@ def get_weekly_grid_pillar(d: Optional[date] = None) -> dict:
 def pick_language(pillar: dict, d: Optional[date] = None) -> str:
     """
     Выбирает язык поста ('ru'/'uz') по рубрике и дате.
-    'mix' — чередуется по дням; у смещённых рубрик изредка меняется для разнообразия.
+    'mix' — чередуется по дням.
     """
-    # КОНТЕНТ-ПОЛИТИКА: язык публикаций строго Uzbek Latin (без смешивания языков).
-    # Прежняя ротация RU/UZ отключена по требованию бренда — весь SMM-контент на узбекском.
-    return "uz"
+    d = d or date.today()
+    lang = pillar.get("lang", "uz")
+    if lang in ("ru", "uz"):
+        return lang
+    return "ru" if d.timetuple().tm_yday % 2 == 0 else "uz"
 
 
 def build_brief(pillar: dict, slot: str = "", d: Optional[date] = None) -> str:
@@ -226,7 +258,7 @@ def build_recipe_brief(d: Optional[date] = None) -> dict:
         "cuisine": get_daily_cuisine(d),
         "format": get_daily_dish_format(d),
         "hero": get_daily_hero_green(d),
-        "lang": "uz",  # контент-политика: только Uzbek Latin
+        "lang": pick_language({"lang": "mix"}, d),
     }
 
 
