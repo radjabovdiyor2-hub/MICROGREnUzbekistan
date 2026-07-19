@@ -777,9 +777,9 @@ async def main():
     await event_bus.start_listening(8086)
 
     # Запуск планировщика и heartbeat
-    # Ночью собираем новых лидов (2ГИС), утром рассылаем КП по свежим 15.
-    # Отключено: ежедневный спам лидами
-    # scheduler.add_cron(name="collect_leads_nightly", func=collect_leads_nightly, hour=3, minute=0)
+    # Ночью собираем новых лидов (2ГИС)
+    scheduler.add_cron(name="collect_leads_nightly", func=collect_leads_nightly, hour=3, minute=0)
+    # b2b_outreach отключена (чтобы избежать ежедневного спама админа предложениями КП)
     # scheduler.add_cron(name="b2b_outreach", func=b2b_outreach, hour=10, minute=0)
     await scheduler.start()
     asyncio.create_task(start_heartbeat("marketing_bot"))

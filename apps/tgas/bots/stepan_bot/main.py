@@ -500,6 +500,7 @@ async def bot_health_check():
 # scheduler.add_cron(name="weekly_report", func=weekly_report, hour=9, minute=5, day_of_week=0)
 # scheduler.add_interval(name="auto_task_creation", func=auto_task_creation, seconds=4 * 3600)
 # scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=900)  # отключено: спам каждые 15 мин
+scheduler.add_cron(name="bot_health_check_morning", func=bot_health_check, hour=9, minute=0)
 
 # Инфраструктура
 async def _daily_backup():
