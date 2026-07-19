@@ -78,12 +78,12 @@ jobs:
             # commands because docker ps ANDs multiple -f flags (not OR).
             docker ps -aq -f "name=mg_db_push" | xargs -r docker rm -f || true
             docker ps -aq -f "name=mg_db_seed" | xargs -r docker rm -f || true
-            # Stop web to free memory for build
-            docker compose -f docker-compose.prod.yml stop web 2>/dev/null || true
-            # Ensure infra is running but DON'T recreate (avoids "port 5432 already
-            # in use" when Docker tries to stop+start postgres non-atomically).
-            docker compose -f docker-compose.prod.yml up -d --no-recreate postgres redis
-            # Rebuild web (db-push runs as its dependency and applies the schema)
+            # Stop web + infra to free memory and release ports (5432, 6379).
+            # Without this, Docker tries to recreate postgres while the old one
+            # still holds port 5432, causing "address already in use".
+            docker compose -f docker-compose.prod.yml stop web postgres redis 2>/dev/null || true
+            sleep 2
+            # Rebuild web (postgres + db-push + db-seed run as dependencies)
             docker compose -f docker-compose.prod.yml up -d --build web
             # Seed the storefront catalog ONLY if it is empty (self-skips when
             # already populated — never overwrites admin-edited prices/stock)
