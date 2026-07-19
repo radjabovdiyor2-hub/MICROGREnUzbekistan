@@ -267,26 +267,29 @@ from shared.trends import (
 )
 
 
-async def morning_post():
+from datetime import date
+
+async def morning_post(d: Optional[date] = None):
     """Ежедневно утром: утренний сторис. Каждый день — ДРУГОЙ формат (факт / вопрос /
     выбор / лайфхак / мини-рецепт / цитата / промо): разное фото, разный макет оверлея
     и свой триггер вовлечения — чтобы сторис не выглядел одинаково и лучше заходил в охват."""
     try:
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
-        day_name = now.strftime('%A')
+        target_date = d or now.date()
+        day_name = target_date.strftime('%A')
         weather = await fetch_weather_samarkand()
 
         admin_id = settings.admin_telegram_ids[0]
         ai = AIEngine()
 
         # Формат дня определяет угол подачи, фото, макет, CTA и триггер вовлечения
-        fmt = get_daily_morning_format(now.date())
+        fmt = get_daily_morning_format(target_date)
         from shared.content_plan import get_daily_tip_theme
-        fact_theme = get_daily_fact_theme(now.date())   # fallback-семя из списка
-        tip_theme = get_daily_tip_theme(now.date())     # fallback-семя из списка
+        fact_theme = get_daily_fact_theme(target_date)   # fallback-семя из списка
+        tip_theme = get_daily_tip_theme(target_date)     # fallback-семя из списка
         from shared.content_plan import get_daily_pillar
-        pillar = get_daily_pillar()
+        pillar = get_daily_pillar(target_date)
         
         # Тема дня из актуальной повестки (новости/тренды/сезон/погода), с fallback на списки
         if pillar["key"] in ("news", "health_trend") or fmt["key"] in ("tip", "fact"):
@@ -315,7 +318,7 @@ async def morning_post():
         )
         post_text = await ai.chat_completion(
             "Sen Microgreen Uzbekistan brendining SMM-menejeri va oshpaz-ekspertisan. "
-            "Yorqin, foydali, emoji bilan yoz." + BRAND_TEXT_STYLE + CONTENT_POLICY + "\n\n" + build_brief(get_daily_pillar(), "утренний сторис"),
+            "Yorqin, foydali, emoji bilan yoz." + BRAND_TEXT_STYLE + CONTENT_POLICY + "\n\n" + build_brief(pillar, "утренний сторис", d=target_date),
             prompt,
             temperature=0.9,
         )
@@ -446,13 +449,14 @@ async def morning_post_dynamic_check():
         await morning_post()
 
 
-async def evening_post():
+async def evening_post(d: Optional[date] = None):
     """Ежедневно в 18:00: вечерний пост с уникальным блюдом."""
     try:
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
-        day_of_year = now.timetuple().tm_yday
-        day_name = now.strftime('%A')
+        target_date = d or now.date()
+        day_of_year = target_date.timetuple().tm_yday
+        day_name = target_date.strftime('%A')
         weather = await fetch_weather_samarkand()
 
         admin_id = settings.admin_telegram_ids[0]
@@ -461,13 +465,13 @@ async def evening_post():
         import os
         import json
         # Разнообразие: каждый день другая кухня мира + формат блюда + «герой»-зелень
-        brief = build_recipe_brief(now.date())
+        brief = build_recipe_brief(target_date)
         lang_uz = brief["lang"] == "uz"
         lang_name = "узбекском языке (латиница, O'zbek tili)" if lang_uz else "русском языке"
         # Сезон/повод дня — чистая математика по дате (без AI-вызова), чтобы блюдо попадало
         # в момент (жара, Рамазан, школа…)
         from shared.trends import get_uz_season_occasion
-        _so = get_uz_season_occasion(now.date())
+        _so = get_uz_season_occasion(target_date)
         occasion = _so.get("occasion") or ""
         season = _so.get("season") or ""
         occ_hint = (f"Сезон/повод: {season}{(', ' + occasion) if occasion else ''} — "
@@ -510,7 +514,7 @@ async def evening_post():
             f"fresh microgreens and edible flowers as garnish. "
             f"The dish on the plate is exactly: {title} — made with {ing_for_photo}. "
             f"Show precisely THIS dish, appetizing and true to these ingredients. "
-            f"Photography style: {get_daily_image_style(now.date())}. "
+            f"Photography style: {get_daily_image_style(target_date)}. "
             f"CRITICAL: absolutely NO text, NO letters, NO words on the image."
         )
         image_url = await ai.generate_image(image_prompt, size="1024x1792")
@@ -550,20 +554,21 @@ async def evening_post():
         logging.error(f"evening_post error: {e}", exc_info=True)
 
 # ── Регистрация задач ────────────────────────────────────────────────────
-async def weekly_grid_post():
+async def weekly_grid_post(d: Optional[date] = None):
     """Раз в неделю (Сб 12:00): курируемый ФЛАГМАНСКИЙ пост в СЕТКУ (feed) с полной подписью."""
     try:
         import os
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
+        target_date = d or now.date()
         admin_id = settings.admin_telegram_ids[0]
         ai = AIEngine()
-        pillar = get_weekly_grid_pillar()
-        brief = build_brief(pillar, "еженедельный флагманский пост в ленту")
+        pillar = get_weekly_grid_pillar(target_date)
+        brief = build_brief(pillar, "еженедельный флагманский пост в ленту", d=target_date)
 
         # Язык поста — строго RU или UZ по рубрике/ситуации (никогда не английский)
         from shared.content_plan import pick_language, LANG_INSTRUCTION
-        lang = pick_language(pillar)
+        lang = pick_language(pillar, d=target_date)
         lang_name = LANG_INSTRUCTION[lang]
 
         post_text = await ai.chat_completion(
@@ -586,7 +591,7 @@ async def weekly_grid_post():
             f"Photorealistic premium square 1:1 Instagram feed photo for a microgreens brand. "
             f"Fresh microgreens, salads and beautiful plating, natural soft light, clean aesthetic composition, "
             f"theme: {pillar['name']}. "
-            f"Photography style: {get_daily_image_style(now.date())}. "
+            f"Photography style: {get_daily_image_style(target_date)}. "
             f"CRITICAL: absolutely NO text, NO letters, NO words on the image."
         )
         image_url = await ai.generate_image(image_prompt, size="1024x1024")  # 1:1 — безопасно для ленты
@@ -1140,28 +1145,28 @@ def _is_admin(message: Message) -> bool:
 
 @test_router.message(Command("testday"))
 async def cmd_test_day(message: Message):
-    """Прогнать ВЕСЬ дневной контент — отправить только в Telegram, в Instagram НЕ публиковать."""
+    """Прогнать ВЕСЬ дневной контент со случайным смещением (только Telegram)."""
     if not _is_admin(message):
         return
     from shared.instagram import set_dry_run
+    import random
+    from datetime import date, timedelta
+    random_days = random.randint(0, 365)
+    test_date = date.today() + timedelta(days=random_days)
+    
     await message.answer(
-        "🧪 <b>Тестовый прогон контента на день</b>\n"
+        f"🧪 <b>Тестовый прогон на день со случайным смещением ({test_date.strftime('%d.%m.%Y')})</b>\n"
         "Всё уйдёт <b>только в Telegram</b>, в Instagram НЕ публикуется.\n"
         "Генерация займёт пару минут…"
     )
     set_dry_run(True)
-    steps = [
-        ("① Утренний сторис", morning_post),
-        ("② Вечерний сторис-рецепт", evening_post),
-        ("③ Пост недели в ленту", weekly_grid_post),
-    ]
     try:
-        for label, func in steps:
-            await message.answer(f"⏳ {label}…")
-            try:
-                await func()
-            except Exception as e:  # noqa: BLE001
-                await message.answer(f"⚠️ {label}: ошибка — {e}")
+        await message.answer("⏳ ① Утренний сторис…")
+        await morning_post(d=test_date)
+        await message.answer("⏳ ② Вечерний сторис-рецепт…")
+        await evening_post(d=test_date)
+        await message.answer("⏳ ③ Пост недели в ленту…")
+        await weekly_grid_post(d=test_date)
         await message.answer("✅ Готово. Всё отправлено только в Telegram (Instagram не тронут).")
     finally:
         set_dry_run(False)
@@ -1169,14 +1174,22 @@ async def cmd_test_day(message: Message):
 
 @test_router.message(Command("teststory"))
 async def cmd_test_story(message: Message):
-    """Прогнать один утренний сторис (только Telegram)."""
+    """Прогнать один утренний сторис со случайным смещением (только Telegram)."""
     if not _is_admin(message):
         return
     from shared.instagram import set_dry_run
-    await message.answer("🧪 Тест одного сторис (только Telegram)…")
+    import random
+    from datetime import date, timedelta
+    random_days = random.randint(0, 365)
+    test_date = date.today() + timedelta(days=random_days)
+    
+    from shared.content_plan import get_daily_morning_format
+    fmt = get_daily_morning_format(test_date)
+    
+    await message.answer(f"🧪 Тест сторис со случайным смещением ({test_date.strftime('%d.%m.%Y')}, формат: {fmt['ru']})…")
     set_dry_run(True)
     try:
-        await morning_post()
+        await morning_post(d=test_date)
         await message.answer("✅ Готово (в Instagram не публиковалось).")
     finally:
         set_dry_run(False)
@@ -1184,14 +1197,22 @@ async def cmd_test_story(message: Message):
 
 @test_router.message(Command("testgrid"))
 async def cmd_test_grid(message: Message):
-    """Прогнать недельный пост в ленту (только Telegram)."""
+    """Прогнать недельный пост в ленту со случайным смещением (только Telegram)."""
     if not _is_admin(message):
         return
     from shared.instagram import set_dry_run
-    await message.answer("🧪 Тест поста недели в ленту (только Telegram)…")
+    import random
+    from datetime import date, timedelta
+    random_days = random.randint(0, 365)
+    test_date = date.today() + timedelta(days=random_days)
+    
+    from shared.content_plan import get_weekly_grid_pillar
+    pillar = get_weekly_grid_pillar(test_date)
+    
+    await message.answer(f"🧪 Тест поста недели со случайным смещением ({test_date.strftime('%d.%m.%Y')}, рубрика: {pillar['name']})…")
     set_dry_run(True)
     try:
-        await weekly_grid_post()
+        await weekly_grid_post(d=test_date)
         await message.answer("✅ Готово (в Instagram не публиковалось).")
     finally:
         set_dry_run(False)
