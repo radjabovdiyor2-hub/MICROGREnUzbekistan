@@ -52,8 +52,8 @@ services:
     container_name: mg_postgres
     restart: unless-stopped
     mem_limit: 512m
-    ports:
-      - "5432:5432"
+    # No host port mapping — all services connect via mg_net Docker network.
+    # Publishing 5432 caused "address already in use" on container recreation.
     environment:
       POSTGRES_USER: mg_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

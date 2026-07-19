@@ -79,11 +79,8 @@ jobs:
             docker ps -aq -f "name=mg_db_push" | xargs -r docker rm -f || true
             docker ps -aq -f "name=mg_db_seed" | xargs -r docker rm -f || true
             # Ensure infra is up (first deploy / server reboot).
-            # --no-recreate: compose detects config drift after git reset and
-            # tries to recreate postgres, but port 5432 isn't released fast
-            # enough → "address already in use". DB containers should never be
-            # auto-recreated; use manual `docker compose up --force-recreate postgres`.
-            docker compose -f docker-compose.prod.yml up -d --no-recreate postgres redis
+            # postgres has no host port mapping, so recreation is safe.
+            docker compose -f docker-compose.prod.yml up -d postgres redis
             # Wait for postgres to be healthy (proper retry, not one-shot check)
             for i in $(seq 1 15); do
               docker compose -f docker-compose.prod.yml exec postgres \
