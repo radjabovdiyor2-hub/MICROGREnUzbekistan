@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
+import { useCity } from '@/components/providers/CityProvider';
 import * as Icons from '@/components/ui/Icons';
 import { LogoIcon } from '@/components/ui/Logo';
 
@@ -13,6 +14,7 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const cart = useCart();
   const { lang, toggleLang, t } = useLang();
+  const { city, setCity, cityName } = useCity();
   const router = useRouter();
   const [searchVal, setSearchVal] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -68,6 +70,32 @@ export function Header() {
           <LogoIcon size={38} />
           <span className="header__logo-text">Microgreen Uzbekistan</span>
         </Link>
+
+        {/* City Selector */}
+        <div style={{ marginLeft: 16, position: 'relative' }}>
+          <select 
+            value={city} 
+            onChange={(e) => setCity(e.target.value as any)}
+            style={{
+              appearance: 'none',
+              background: 'var(--bg-card)',
+              color: 'var(--text-main)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 8,
+              padding: '6px 28px 6px 12px',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="tashkent">Toshkent</option>
+            <option value="samarkand">Samarqand</option>
+            <option value="bukhara">Buxoro</option>
+            <option value="fergana">Farg'ona</option>
+          </select>
+          <Icons.ArrowDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+        </div>
 
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="search-bar" id="search-bar">
@@ -142,6 +170,33 @@ export function Header() {
             <Icons.User size={22} />
           </Link>
         </div>
+      </div>
+
+      {/* ═══════ MOBILE BOTTOM NAVIGATION ═══════ */}
+      <div className="mobile-nav">
+        <Link href="/" className="mobile-nav__item">
+          <Icons.Home size={24} />
+          <span>{t('nav.home', 'Главная')}</span>
+        </Link>
+        <Link href="/catalog" className="mobile-nav__item">
+          <Icons.Search size={24} />
+          <span>{t('nav.catalog', 'Каталог')}</span>
+        </Link>
+        <Link href="/magazine" className="mobile-nav__item">
+          <Icons.BookOpen size={24} />
+          <span>Журнал</span>
+        </Link>
+        <Link href="/cart" className="mobile-nav__item mobile-nav__item--cart">
+          <Icons.ShoppingCart size={24} />
+          <span>{t('nav.cart', 'Корзина')}</span>
+          {cart.totalItems > 0 && (
+            <span className="mobile-nav__badge">{cart.totalItems > 99 ? '99+' : cart.totalItems}</span>
+          )}
+        </Link>
+        <Link href="/profile" className="mobile-nav__item">
+          <Icons.User size={24} />
+          <span>{t('nav.profile', 'Профиль')}</span>
+        </Link>
       </div>
     </header>
   );

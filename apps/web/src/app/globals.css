@@ -5,7 +5,7 @@
    ============================================ */
 
 /* === Google Fonts === */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&display=swap');
 
 /* === CSS Reset === */
 *, *::before, *::after {
@@ -144,6 +144,10 @@
   --error-bg: rgba(248, 113, 113, 0.12);
   --info: #60A5FA;
   --info-bg: rgba(96, 165, 250, 0.12);
+
+  /* Deep gradients */
+  --bg-mesh: radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
+             radial-gradient(at 100% 0%, rgba(5, 150, 105, 0.1) 0px, transparent 50%);
 
   /* Borders */
   --border: #3A3A5C;
@@ -1864,10 +1868,87 @@ main {
   }
 
   .header__action-btn,
-  .theme-toggle {
-    width: 36px;
-    height: 36px;
+  .theme-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ============================================
+   MOBILE BOTTOM NAVIGATION (App-like feel)
+   ============================================ */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--header-bg);
+  backdrop-filter: blur(var(--header-blur));
+  -webkit-backdrop-filter: blur(var(--header-blur));
+  border-top: 1px solid var(--border);
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.mobile-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  text-decoration: none;
+  gap: 4px;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.mobile-nav__item:hover,
+.mobile-nav__item:active {
+  color: var(--brand-primary);
+}
+
+.mobile-nav__item span {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.mobile-nav__item--cart {
+  position: relative;
+}
+
+.mobile-nav__badge {
+  position: absolute;
+  top: 6px;
+  right: 50%;
+  margin-right: -16px;
+  background: var(--error);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 10px;
+  min-width: 18px;
+  text-align: center;
+  border: 2px solid var(--bg-card);
+}
+
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
   }
+  
+  /* Make room for bottom nav */
+  body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+  
+  /* Hide standard header actions on mobile to unclutter */
+  .header__actions {
+    display: none;
+  }
+}
 
   /* Profile btn hidden on mobile — accessible via bottom nav */
   #profile-btn {
@@ -2639,4 +2720,36 @@ select {
     transform: scale(0.97) !important;
     transition-duration: 0.1s;
   }
+}
+/* ============================================
+   UTILITIES
+   ============================================ */
+.fluid-scroll {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+}
+
+.fluid-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.fluid-scroll > * {
+  scroll-snap-align: start;
+}
+
+/* Button Micro-Animations */
+button, .btn {
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+button:active, .btn:active {
+  transform: scale(0.96);
+}
+
+a:active {
+  opacity: 0.8;
 }

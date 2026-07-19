@@ -543,6 +543,71 @@ if getattr(settings, "kpi_watchdog_enabled", True):
     scheduler.add_cron(name="kpi_watchdog", func=_kpi_watchdog_job,
                        hour=getattr(settings, "kpi_watchdog_hour", 11), minute=0)
 
+async def run_magazine_pipeline():
+    """Еженедельный запуск пайплайна создания журнала FRESH WEEKLY."""
+    try:
+        from shared.bot_bus import send_task, get_result
+        from shared.event_bus import BotBusActions, event_bus
+        admin_id = settings.admin_telegram_ids[0]
+        
+        await _bot.send_message(admin_id, "🚀 <b>Stepan:</b> Запускаю автоматический процесс сборки журнала FRESH WEEKLY!", parse_mode="HTML")
+        
+        # Фаза 1: Сбор данных
+        logger.info("Magazine Phase 1: Data Gathering")
+        facts_task = await send_task("stepan", "rnd_bot", BotBusActions.GENERATE_MAGAZINE_FACTS)
+        products_task = await send_task("stepan", "analytics_bot", BotBusActions.GET_TOP_PRODUCTS)
+        restaurant_task = await send_task("stepan", "marketing_bot", BotBusActions.PICK_RESTAURANT)
+        
+        # Ждем результаты первой фазы
+        facts_res = await get_result(facts_task, timeout=120)
+        products_res = await get_result(products_task, timeout=120)
+        restaurant_res = await get_result(restaurant_task, timeout=120)
+        
+        # Фаза 2: Контент и реклама
+        logger.info("Magazine Phase 2: Content & Ads")
+        content_task = await send_task("stepan", "content_bot", BotBusActions.DRAFT_MAGAZINE, params={
+            "facts": facts_res.get("result") if facts_res else "Факты не получены",
+            "products": products_res.get("result") if products_res else "Продукты не получены",
+            "restaurant": restaurant_res.get("result") if restaurant_res else "Ресторан не получен"
+        })
+        
+        ads_task = await send_task("stepan", "sales_bot", BotBusActions.SELL_MAGAZINE_ADS)
+        
+        content_res = await get_result(content_task, timeout=300)
+        ads_res = await get_result(ads_task, timeout=300)
+        
+        # Фаза 3: Деплой
+        if not content_res or content_res.get("status") != "done" or "error" in content_res.get("result", {}):
+            await _bot.send_message(admin_id, "⚠️ <b>Stepan:</b> Ошибка контента журнала, пайплайн прерван.", parse_mode="HTML")
+            return
+            
+        logger.info("Magazine Phase 3: Publishing")
+        publish_task = await send_task("stepan", "devops_bot", BotBusActions.PUBLISH_MAGAZINE, params={
+            "content": content_res.get("result"),
+            "ads": ads_res.get("result") if ads_res else []
+        })
+        
+        publish_res = await get_result(publish_task, timeout=300)
+        
+        if publish_res and publish_res.get("status") == "done":
+            issue_data = publish_res.get("result", {})
+            if issue_data.get("status") == "done":
+                await _bot.send_message(admin_id, f"✅ <b>Stepan:</b> Журнал FRESH WEEKLY №{issue_data.get('issue_id', '?')} успешно опубликован!\n\n🔗 {issue_data.get('url', '')}", parse_mode="HTML")
+                
+                # Рассылка события о публикации
+                from shared.event_bus import event_bus
+                await event_bus.publish("MAGAZINE_PUBLISHED", issue_data, "stepan")
+            else:
+                err = issue_data.get("message", "Неизвестная ошибка")
+                await _bot.send_message(admin_id, f"⚠️ <b>Stepan:</b> Ошибка публикации журнала: {err}", parse_mode="HTML")
+        else:
+            await _bot.send_message(admin_id, "⚠️ <b>Stepan:</b> Таймаут или критическая ошибка публикации журнала.", parse_mode="HTML")
+            
+    except Exception as e:
+        logger.error(f"run_magazine_pipeline error: {e}", exc_info=True)
+
+scheduler.add_cron(name="magazine_pipeline", func=run_magazine_pipeline, day_of_week=2, hour=10, minute=0)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # MAIN
@@ -611,6 +676,14 @@ async def main():
             await bot.send_message(
                 admin_id,
                 f"💸 <b>Крупный расход!</b>\n{data.get('summary', '')}",
+            )
+        elif event_type == "franchise_report_generated" and admin_id:
+            city = data.get("city", "Unknown")
+            report_text = data.get("content", "")
+            await bot.send_message(
+                admin_id,
+                f"🏢 <b>Журнал Франчайзи ({city.capitalize()})</b>\n\n{report_text}",
+                parse_mode="HTML"
             )
         elif event_type == "DELIVERY_STATUS_REPORT":
             sales_group = getattr(settings, 'sales_group_id', 0)

@@ -83,6 +83,7 @@ async function notifyOffice(
     deliveryFee: number;
     discount: number;
     paymentMethod: string;
+    city: string;
     items: { productId: string; quantity: number; price: number; product: { nameUz: string } }[];
   },
   user: { firstName: string | null; lastName: string | null; telegramId: bigint | null; bonusPoints: number },
@@ -120,6 +121,7 @@ async function notifyOffice(
           discount_amount: order.discount,
           payment_method: order.paymentMethod,
           delivery_address: order.address,
+          city: order.city,
           items_summary: itemsSummary,
           items: order.items.map((i) => ({
             storefront_id: i.productId,
@@ -171,6 +173,7 @@ const orderSchema = z.object({
   name: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
+  city: z.string().optional(),
   telegramId: z.union([z.number(), z.string(), z.bigint()]).optional(),
 });
 
@@ -188,10 +191,10 @@ export async function POST(request: NextRequest) {
     // The Telegram bot sends a flat format:
     //   { name, phone, address, items: [{ id, title, price, quantity }], source, telegramId }
     // The web storefront sends:
-    //   { customer: { firstName, phone, address }, items: [{ productId, price, quantity }] }
+    //   { customer: { firstName, phone, address }, items: [{ productId, price, quantity }], city }
     // Detect bot format (has `name` string at top level instead of `customer` object)
     // and normalise before the rest of the handler runs.
-    let { customer, items, paymentMethod, userId, bonusToUse } = body;
+    let { customer, items, paymentMethod, userId, bonusToUse, city } = body;
 
     if (typeof body.name === 'string' && !customer) {
       // Bot format → normalise to web format
@@ -271,6 +274,7 @@ export async function POST(request: NextRequest) {
         deliveryFee,
         total: subtotal + deliveryFee - bonusApplied - promoApplied,
         discount: bonusApplied + promoApplied,
+        city: city || 'tashkent',
         address: customer.address,
         phone: customer.phone,
         note: customer.note || null,

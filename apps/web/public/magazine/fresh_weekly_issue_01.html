@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FRESH WEEKLY — Выпуск №1</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    @page{size:148mm 210mm;margin:0}
+    body{font-family:'Inter',sans-serif;background:#111;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 0}
+    .p{width:148mm;min-height:210mm;background:#fff;position:relative;overflow:hidden;page-break-after:always;box-shadow:0 8px 40px rgba(0,0,0,0.5)}
+    .serif{font-family:'Playfair Display',serif}
+
+    /* Page Number */
+    .pn{position:absolute;bottom:4mm;font-size:7pt;color:rgba(0,0,0,0.3);font-weight:600}
+    .pn-l{left:6mm}.pn-r{right:6mm}
+    .pn-w{color:rgba(255,255,255,0.4)}
+
+    /* Header bar */
+    .hbar{display:flex;justify-content:space-between;align-items:center;padding:4mm 6mm;border-bottom:1.5px solid #e5e7eb;font-size:7pt;color:#999}
+    .hbar .logo{font-family:'Playfair Display',serif;font-size:10pt;font-weight:900;color:#1a3a1a}
+    .hbar .logo span{color:#16a34a}
+
+    /* Tags */
+    .tag{display:inline-block;background:rgba(22,163,74,0.1);color:#16a34a;font-size:6pt;font-weight:700;padding:1mm 3mm;border-radius:2mm;text-transform:uppercase;letter-spacing:0.5px}
+    .tag-y{background:rgba(234,179,8,0.1);color:#b45309}
+    .tag-p{background:rgba(147,51,234,0.1);color:#7c3aed}
+    .tag-b{background:rgba(59,130,246,0.1);color:#2563eb}
+    .tag-r{background:rgba(239,68,68,0.1);color:#dc2626}
+    .tag-o{background:rgba(249,115,22,0.1);color:#ea580c}
+
+    /* Section title */
+    .stitle{font-family:'Playfair Display',serif;font-size:14pt;font-weight:900;color:#1a1a1a;margin-bottom:3mm}
+    .stitle-sm{font-size:11pt}
+
+    /* Card */
+    .card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:3mm;padding:3mm 4mm;margin-bottom:3mm}
+    .card-g{background:#f0fdf4;border-color:#bbf7d0}
+    .card-dark{background:#1a1a1a;border:none;color:#fff}
+    .card-y{background:#fffbeb;border-color:#fde68a}
+    .card-p{background:#faf5ff;border-color:#e9d5ff}
+    .card-b{background:#eff6ff;border-color:#bfdbfe}
+    .card-o{background:#fff7ed;border-color:#fed7aa}
+    .card-r{background:#fef2f2;border-color:#fecaca}
+
+    /* Flex helpers */
+    .fx{display:flex}.g2{gap:2mm}.g3{gap:3mm}.g4{gap:4mm}
+    .f1{flex:1}.fw{flex-wrap:wrap}
+
+    /* Text sizes */
+    .t7{font-size:7pt}.t8{font-size:8pt}.t9{font-size:9pt}.t10{font-size:10pt}.t12{font-size:12pt}
+    .b{font-weight:700}.b9{font-weight:900}.c5{color:#555}.c8{color:#888}.cg{color:#16a34a}
+
+    /* Images */
+    .img-placeholder{border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:32pt;overflow:hidden}
+
+    @media print{body{background:none;padding:0;gap:0}.p{box-shadow:none}}
+  </style>
+</head>
+<body>
+
+<!-- ═══════ PAGE 1: COVER ═══════ -->
+<div class="p" style="background:linear-gradient(170deg,#0a1f0a 0%,#132613 50%,#0d1f0d 100%);color:#fff;display:flex;flex-direction:column;justify-content:space-between">
+  <div style="position:absolute;right:-20mm;top:-20mm;width:100mm;height:100mm;border-radius:50%;background:radial-gradient(circle,rgba(22,163,74,0.12),transparent 70%)"></div>
+  <div style="position:absolute;left:-10mm;bottom:20mm;width:60mm;height:60mm;border-radius:50%;background:radial-gradient(circle,rgba(234,179,8,0.08),transparent 70%)"></div>
+
+  <!-- Top -->
+  <div style="padding:8mm 7mm 0">
+    <div class="fx" style="justify-content:space-between;align-items:flex-start">
+      <div>
+        <div class="serif" style="font-size:32pt;font-weight:900;letter-spacing:1px;line-height:1"><span style="color:#4ade80">FRESH</span></div>
+        <div style="font-size:8pt;font-weight:600;letter-spacing:8px;color:rgba(255,255,255,0.4);margin-top:1mm">W E E K L Y</div>
+      </div>
+      <div style="text-align:right;font-size:7.5pt;color:rgba(255,255,255,0.5);line-height:1.6">
+        <strong style="color:#4ade80;font-size:9pt">Выпуск №1</strong><br>
+        21 июля 2026<br>
+        Ташкент & Самарканд
+      </div>
+    </div>
+  </div>
+
+  <!-- Center -->
+  <div style="padding:0 7mm;flex:1;display:flex;flex-direction:column;justify-content:center">
+    <div class="serif" style="font-size:24pt;font-weight:900;line-height:1.15;max-width:85%">
+      <span style="color:#facc15">Сладкое + острое:</span><br>новая эра вкуса
+    </div>
+    <div style="font-size:9pt;color:rgba(255,255,255,0.6);margin-top:4mm;max-width:80%;line-height:1.5">
+      Hot Honey покорил мир — мы покажем, как повторить дома и в ресторане. Плюс: нон-кабоб, чизкейк с цветами, стартапы мира и первая тренировка.
+    </div>
+    <div class="fx g2 fw" style="margin-top:5mm">
+      <span class="tag">🍽 Ресторан</span>
+      <span class="tag tag-o">🌍 Стрит-фуд</span>
+      <span class="tag tag-y">🎨 Вкусы</span>
+      <span class="tag tag-b">💻 Tech</span>
+      <span class="tag tag-p">🥗 ЗОЖ</span>
+      <span class="tag tag-r">🧒 Дети</span>
+    </div>
+  </div>
+
+  <!-- Bottom -->
+  <div style="background:rgba(0,0,0,0.4);padding:4mm 7mm;display:flex;justify-content:space-between;font-size:7pt;color:rgba(255,255,255,0.4)">
+    <span>© Fresh Weekly Uzbekistan</span>
+    <span style="color:#4ade80;font-weight:600">freshweekly.uz</span>
+    <span>Telegram: @fresh_weekly_uz</span>
+  </div>
+</div>
+
+<!-- ═══════ PAGE 2: РЕСТОРАН НЕДЕЛИ ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>№1 • 21.07.2026</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag">🍽 Ресторан недели</span></div>
+    <div class="stitle">ORA — победитель Ultima Guide 2026</div>
+    <div class="t8 c5" style="margin-bottom:3mm">Истикбол, 41, Ташкент • Авторская кухня • Средний чек: 250,000 сум</div>
+
+    <div style="height:45mm;border-radius:3mm;overflow:hidden;margin-bottom:4mm">
+      <img src="img/restaurant.png" alt="Лосось с понзу • ORA" style="width:100%;height:100%;object-fit:cover">
+    </div>
+
+    <div class="card card-dark" style="margin-bottom:3mm">
+      <div class="t8 b cg" style="margin-bottom:1mm">👨‍🍳 3 вопроса шефу</div>
+      <div class="t8" style="color:rgba(255,255,255,0.85);line-height:1.6">
+        <strong style="color:#4ade80">— Ваше фирменное блюдо?</strong><br>
+        «Лосось с соусом понзу. Мы подаём его с микрозеленью дайкона и лепестками настурции. Перечный вкус настурции идеально дополняет цитрусовый понзу.»<br><br>
+        <strong style="color:#4ade80">— Главный тренд ресторанов Ташкента?</strong><br>
+        «Гости стали фотографировать еду до того, как пробовать. Подача теперь = маркетинг. Красивая тарелка = бесплатная реклама в Instagram.»<br><br>
+        <strong style="color:#4ade80">— Совет для домашней хозяйки?</strong><br>
+        «Купите тёмные тарелки. Любая еда на тёмном фоне выглядит как из ресторана. Это самый простой лайфхак.»
+      </div>
+    </div>
+
+    <div class="fx g3">
+      <div class="card card-g f1">
+        <div class="t7 b cg">✅ Что заказать</div>
+        <div class="t7 c5" style="line-height:1.5">• Лосось с понзу<br>• Медальоны телятины<br>• Тост с пармезан-эспумой</div>
+      </div>
+      <div class="card card-y f1">
+        <div class="t7 b" style="color:#92400e">⭐ Наш рейтинг</div>
+        <div class="t7" style="color:#78350f;line-height:1.5">Кухня: ★★★★★<br>Подача: ★★★★★<br>Цена/качество: ★★★★☆</div>
+      </div>
+    </div>
+  </div>
+  <div class="pn pn-r">2</div>
+</div>
+
+<!-- ═══════ PAGE 3: СТРИТ-ФУД МИРА ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>№1 • 21.07.2026</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag tag-o">🌍 Стрит-фуд мира</span> <span class="t7 c8">Выпуск 1 из 52</span></div>
+    <div class="stitle">🇺🇿 Нон-кабоб: почему весь мир завидует</div>
+
+    <div style="height:50mm;border-radius:3mm;overflow:hidden;margin-bottom:3mm">
+      <img src="img/streetfood.png" alt="Нон-кабоб" style="width:100%;height:100%;object-fit:cover">
+    </div>
+
+    <div class="t8" style="line-height:1.6;color:#333;margin-bottom:3mm">
+      <strong>Что это:</strong> Свежая лепёшка из тандыра, внутри — сочный шашлык прямо со шпажки. Сверху — кинза, фиолетовый базилик, маринованный лук. Жир от мяса впитывается в горячий нон.<br><br>
+      <strong>Где:</strong> Любой базар Узбекистана. Лучший — Сиабский базар в Самарканде.<br>
+      <strong>Цена:</strong> 15,000–25,000 сум ($1.20–$2.00) — одна из лучших уличных сделок в мире.
+    </div>
+
+    <div class="card card-dark" style="margin-bottom:3mm">
+      <div class="t8 b" style="color:#facc15;margin-bottom:1mm">🌍 Мировой контекст</div>
+      <div class="t8" style="color:rgba(255,255,255,0.8);line-height:1.5">
+        Тренд 2025 — <strong>«Street Food Couture»</strong>: уличная еда с ресторанным качеством. Корейцы добавляют трюфельное масло в ттокпокки. Мексиканцы делают тако из вагю. А наш нон-кабоб УЖЕ гурманский — нужно просто рассказать об этом миру.
+      </div>
+    </div>
+
+    <div class="card card-o">
+      <div class="t7 b" style="color:#c2410c">🏠 Повторить дома (15 минут)</div>
+      <div class="t7" style="color:#7c2d12;line-height:1.5">
+        1. Купите 2 лепёшки и готовый шашлык на базаре. 2. Дома разрежьте нон пополам. 3. Положите шашлык внутрь + маринованный лук + зелень + сумак. 4. Заверните в фольгу, в духовку 180°C на 5 мин. Хрустящий нон + горячее мясо = счастье.
+      </div>
+    </div>
+  </div>
+  <div class="pn pn-l">3</div>
+</div>
+
+<!-- ═══════ PAGE 4-5: РЕЦЕПТ (разворот) ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>РЕЦЕПТ НЕДЕЛИ</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:2mm">
+      <span class="tag">🧑‍🍳 Для шефов</span><span class="tag tag-o">🏠 Для дома</span>
+    </div>
+    <div class="stitle">Чизкейк «Цветочный сад»</div>
+    <div class="t8 c5" style="margin-bottom:3mm">Без выпечки • 20 мин + 4 часа в холодильнике • Главный тренд кондитерской Ташкента</div>
+
+    <div style="height:45mm;border-radius:3mm;overflow:hidden;margin-bottom:3mm">
+      <img src="img/cheesecake.png" alt="Чизкейк Цветочный сад" style="width:100%;height:100%;object-fit:cover">
+    </div>
+
+    <!-- Dual format -->
+    <div class="fx g3" style="margin-bottom:3mm">
+      <div class="card card-dark f1">
+        <div class="t7 b cg">👨‍🍳 ВЕРСИЯ ШЕФА</div>
+        <div class="t7" style="color:rgba(255,255,255,0.8);line-height:1.5">
+          • Крем-чиз Filadelfia 400г<br>
+          • Греческий йогурт 200г<br>
+          • Желатин + цедра лайма<br>
+          • <strong>Декор:</strong> микрозелень базилика + виола + роза<br>
+          • <strong style="color:#4ade80">Маржа в меню: 78%</strong>
+        </div>
+      </div>
+      <div class="card card-o f1">
+        <div class="t7 b" style="color:#c2410c">🏠 ВЕРСИЯ ДЛЯ ДОМА</div>
+        <div class="t7" style="color:#7c2d12;line-height:1.5">
+          • Творожный сыр 400г<br>
+          • Обычный йогурт 200г<br>
+          • Желатин + лимон<br>
+          • <strong>Декор:</strong> клубника + мята + любые ягоды<br>
+          • <strong style="color:#16a34a">Бюджет: 45,000 сум</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Steps -->
+    <div class="card" style="margin-bottom:2mm">
+      <div class="t7 b" style="color:#1a1a1a;margin-bottom:1mm">📸 ШАГ 1 — Основа (5 мин)</div>
+      <div class="t7 c5" style="line-height:1.4">200г печенья раздавить в крошку. Смешать с 80г растопленного масла. Утрамбовать в форму. В морозилку на 15 мин.</div>
+    </div>
+    <div class="card" style="margin-bottom:2mm">
+      <div class="t7 b" style="color:#1a1a1a;margin-bottom:1mm">📸 ШАГ 2 — Крем (10 мин)</div>
+      <div class="t7 c5" style="line-height:1.4">Замочить 15г желатина. Взбить крем-чиз + йогурт + 100г пудры + цедра. Влить желатин. На основу. В холодильник на 4 часа.</div>
+    </div>
+    <div class="card card-g">
+      <div class="t7 b cg" style="margin-bottom:1mm">📸 ШАГ 3 — Магия декора! (3 мин)</div>
+      <div class="t7" style="color:#065f46;line-height:1.4">Ягоды по кругу → микрозелень базилика между ягод → цветы виолы как конфетти → лепестки розы. <strong>Класть ТОЛЬКО перед подачей!</strong> Фотографируйте — это ваш Instagram-контент.</div>
+    </div>
+  </div>
+  <div class="pn pn-r">4–5</div>
+</div>
+
+<!-- ═══════ PAGE 6: ВКУСОВАЯ ЛАБОРАТОРИЯ ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>№1 • 21.07.2026</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag tag-y">🎨 Вкусовая лаборатория</span><span class="t7 c8">Серия 1 из 12</span></div>
+    <div class="stitle">Сладкое + Острое = 🔥 Hot Honey</div>
+
+    <div style="height:45mm;border-radius:3mm;overflow:hidden;margin-bottom:3mm">
+      <img src="img/hotwings.png" alt="Hot Honey крылышки" style="width:100%;height:100%;object-fit:cover">
+    </div>
+
+    <div class="t8" style="line-height:1.6;color:#333;margin-bottom:3mm">
+      <strong>Что это:</strong> Мёд + хлопья чили = «Hot Honey». Самый вирусный соус 2024–2025 года. Начался в Нью-Йорке на пицце, захватил весь мир.
+    </div>
+
+    <div class="card card-y" style="margin-bottom:3mm">
+      <div class="t8 b" style="color:#92400e;margin-bottom:1mm">🧪 Почему это работает (наука)</div>
+      <div class="t8" style="color:#78350f;line-height:1.5">
+        Капсаицин (острота) активирует болевые рецепторы → мозг выбрасывает эндорфины → сладость мёда «гасит» боль → мозг получает <strong>«двойной кайф»</strong>. Это буквально вызывает зависимость.
+      </div>
+    </div>
+
+    <div class="fx g3" style="margin-bottom:3mm">
+      <div class="card card-g f1">
+        <div class="t7 b cg">✅ С чем сочетать</div>
+        <div class="t7" style="color:#065f46;line-height:1.5">• Крылышки (классика)<br>• Пицца Маргарита<br>• Жареный сыр халуми<br>• Мороженое (да!)<br>• Шашлык из курицы</div>
+      </div>
+      <div class="card card-r f1">
+        <div class="t7 b" style="color:#dc2626">❌ Не сочетается</div>
+        <div class="t7" style="color:#991b1b;line-height:1.5">• Рыба (перебивает)<br>• Плов (слишком сложно)<br>• Супы (теряется)<br>• Молочные десерты<br>• Хлеб / лепёшки</div>
+      </div>
+    </div>
+
+    <div class="card card-dark">
+      <div class="t8 b" style="color:#facc15;margin-bottom:1mm">🏠 Сделай сам за 2 минуты</div>
+      <div class="t8" style="color:rgba(255,255,255,0.85);line-height:1.5">
+        3 ст.л. мёда + 1 ч.л. хлопьев чили + щепотка соли + 1 ч.л. яблочного уксуса. Перемешать. Готово. Полить на крылышки или пиццу. Хранить при комнатной температуре.
+      </div>
+    </div>
+  </div>
+  <div class="pn pn-l">6</div>
+</div>
+
+<!-- ═══════ PAGE 7: НУТРИЦИОЛОГ ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>№1 • 21.07.2026</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag tag-p">🥗 Нутрициолог</span></div>
+    <div class="stitle">Витамин С: вы получаете его неправильно</div>
+
+    <div class="card card-p" style="margin-bottom:3mm">
+      <div class="t9 b" style="color:#5b21b6;margin-bottom:2mm">💊 Факт недели</div>
+      <div class="t8" style="color:#4c1d95;line-height:1.6">
+        Большинство людей думают, что лимон — главный источник витамина С. <strong>На самом деле в болгарском перце витамина С в 3 раза больше</strong>, чем в лимоне. А в микрозелени редиса — в 40 раз больше, чем во взрослой редиске.
+      </div>
+    </div>
+
+    <div class="t9 b" style="margin-bottom:2mm">🏆 ТОП-5 реальных источников витамина С</div>
+    <table style="width:100%;border-collapse:collapse;font-size:8pt;margin-bottom:3mm">
+      <thead><tr style="background:#1a1a1a;color:#fff"><th style="padding:2mm 3mm;text-align:left">#</th><th style="padding:2mm 3mm;text-align:left">Продукт</th><th style="padding:2mm 3mm;text-align:left">Витамин С / 100г</th><th style="padding:2mm 3mm;text-align:left">vs Лимон</th></tr></thead>
+      <tbody>
+        <tr style="background:#f0fdf4"><td style="padding:2mm 3mm">1</td><td style="padding:2mm 3mm"><strong>Шиповник</strong></td><td style="padding:2mm 3mm">650 мг</td><td style="padding:2mm 3mm;color:#16a34a;font-weight:700">×13</td></tr>
+        <tr><td style="padding:2mm 3mm">2</td><td style="padding:2mm 3mm"><strong>Болгарский перец</strong></td><td style="padding:2mm 3mm">183 мг</td><td style="padding:2mm 3mm;color:#16a34a;font-weight:700">×3.6</td></tr>
+        <tr style="background:#f0fdf4"><td style="padding:2mm 3mm">3</td><td style="padding:2mm 3mm"><strong>Киви</strong></td><td style="padding:2mm 3mm">92 мг</td><td style="padding:2mm 3mm;color:#16a34a;font-weight:700">×1.8</td></tr>
+        <tr><td style="padding:2mm 3mm">4</td><td style="padding:2mm 3mm"><strong>Брокколи</strong></td><td style="padding:2mm 3mm">89 мг</td><td style="padding:2mm 3mm;color:#16a34a;font-weight:700">×1.7</td></tr>
+        <tr style="background:#faf5ff"><td style="padding:2mm 3mm">5</td><td style="padding:2mm 3mm">Лимон 🍋</td><td style="padding:2mm 3mm">53 мг</td><td style="padding:2mm 3mm;color:#888">×1</td></tr>
+      </tbody>
+    </table>
+
+    <div class="card card-dark" style="margin-bottom:3mm">
+      <div class="t8 b" style="color:#c084fc;margin-bottom:1mm">👩‍⚕️ Колонка диетолога</div>
+      <div class="t8" style="color:rgba(255,255,255,0.85);line-height:1.5;font-style:italic">
+        «Не пейте горячий чай с лимоном, если хотите витамин С — он разрушается при 70°C. Лучше добавьте лимонный сок в уже остывший напиток или ешьте свежий перец. 1 средний болгарский перец = суточная норма витамина С.»
+      </div>
+      <div class="t7" style="color:#c084fc;margin-top:2mm">— Д-р Нутрициолог, совет недели</div>
+    </div>
+
+    <div class="card card-o">
+      <div class="t7 b" style="color:#c2410c">🏠 Лайфхак для хозяйки</div>
+      <div class="t7" style="color:#7c2d12;line-height:1.4">Нарежьте 1 болгарский перец соломкой утром и поставьте в контейнер в холодильник. Грызите как снэк в течение дня. Вкуснее чипсов и в 100 раз полезнее. Дети тоже будут есть, если макать в хумус.</div>
+    </div>
+  </div>
+  <div class="pn pn-r">7</div>
+</div>
+
+<!-- ═══════ PAGE 8: TECH ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>№1 • 21.07.2026</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag tag-b">💻 Tech-дайджест</span></div>
+    <div class="stitle stitle-sm">Технологии, которые меняют еду и здоровье</div>
+
+    <!-- Global startup -->
+    <div class="card card-b" style="margin-bottom:3mm">
+      <div class="fx g3">
+        <div style="width:14mm;height:14mm;background:#2563eb;border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:16pt;flex-shrink:0">🌍</div>
+        <div class="f1">
+          <div class="t8 b" style="color:#1e40af">СТАРТАП МИРА: Zoe (Великобритания)</div>
+          <div class="t7" style="color:#1e3a8a;line-height:1.5;margin-top:1mm">
+            Персонализированное питание на основе анализа крови. Вы сдаёте тест → AI анализирует, как ваш организм реагирует на разные продукты → даёт индивидуальные рекомендации. Привлекли $117 млн. Будущее диетологии.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- UZ startup -->
+    <div class="card card-g" style="margin-bottom:3mm">
+      <div class="fx g3">
+        <div style="width:14mm;height:14mm;background:#16a34a;border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:16pt;flex-shrink:0">🇺🇿</div>
+        <div class="f1">
+          <div class="t8 b cg">СТАРТАП UZ: Zira.uz</div>
+          <div class="t7" style="color:#065f46;line-height:1.5;margin-top:1mm">
+            Кулинарная платформа Узбекистана. 5,000+ рецептов узбекской и мировой кухни с пошаговыми фото. Доставка продуктов из рецепта одним кликом. Показывает, что FoodTech в Узбекистане работает.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gadget -->
+    <div class="card" style="margin-bottom:3mm">
+      <div class="fx g3">
+        <div style="width:14mm;height:14mm;background:#f59e0b;border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:16pt;flex-shrink:0">⌚</div>
+        <div class="f1">
+          <div class="t8 b" style="color:#92400e">ГАДЖЕТ: Xiaomi Mi Band 9</div>
+          <div class="t7" style="color:#78350f;line-height:1.5;margin-top:1mm">
+            Лучший фитнес-трекер до $40. Считает шаги, пульс, сон, калории. Водонепроницаемый. Батарея: 16 дней. Идеально для начала ЗОЖ без больших затрат. Продаётся в любом Uzum.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI hack -->
+    <div class="card card-dark">
+      <div class="fx g3">
+        <div style="width:14mm;height:14mm;background:rgba(168,85,247,0.3);border-radius:3mm;display:flex;align-items:center;justify-content:center;font-size:16pt;flex-shrink:0">🤖</div>
+        <div class="f1">
+          <div class="t8 b" style="color:#c084fc">AI-ЛАЙФХАК НЕДЕЛИ</div>
+          <div class="t7" style="color:rgba(255,255,255,0.8);line-height:1.5;margin-top:1mm">
+            Напишите ChatGPT: <em>«У меня в холодильнике: курица, помидоры, лук, рис. Предложи 3 блюда за 20 минут»</em>. AI выдаст рецепты с тем, что у вас ЕСТЬ. Больше никаких «что приготовить на ужин?».
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pn pn-l">8</div>
+</div>
+
+<!-- ═══════ PAGE 9: СПОРТ ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>№1 • 21.07.2026</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag tag-r">🏋️ Спорт & Фитнес</span></div>
+    <div class="stitle stitle-sm">Утренняя зарядка: 10 минут, которые меняют день</div>
+
+    <div class="t8 c5" style="margin-bottom:3mm;line-height:1.5">Не нужен зал. Не нужна форма. Просто встаньте на 10 минут раньше. Исследования показывают: 10 минут утренней активности улучшают концентрацию на 48% в течение дня.</div>
+
+    <div class="card card-r" style="margin-bottom:3mm">
+      <div class="t8 b" style="color:#dc2626;margin-bottom:2mm">⚡ 10-минутный комплекс (без оборудования)</div>
+      <table style="width:100%;font-size:7.5pt;border-collapse:collapse">
+        <tr style="border-bottom:1px solid #fecaca"><td style="padding:1.5mm 2mm"><strong>1.</strong> Приседания</td><td style="padding:1.5mm 2mm;text-align:right">20 раз</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">1 мин</td></tr>
+        <tr style="border-bottom:1px solid #fecaca"><td style="padding:1.5mm 2mm"><strong>2.</strong> Отжимания (или от стены)</td><td style="padding:1.5mm 2mm;text-align:right">15 раз</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">1 мин</td></tr>
+        <tr style="border-bottom:1px solid #fecaca"><td style="padding:1.5mm 2mm"><strong>3.</strong> Планка</td><td style="padding:1.5mm 2mm;text-align:right">30 сек</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">0.5 мин</td></tr>
+        <tr style="border-bottom:1px solid #fecaca"><td style="padding:1.5mm 2mm"><strong>4.</strong> Выпады (каждая нога)</td><td style="padding:1.5mm 2mm;text-align:right">10+10</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">1.5 мин</td></tr>
+        <tr style="border-bottom:1px solid #fecaca"><td style="padding:1.5mm 2mm"><strong>5.</strong> Пресс (скручивания)</td><td style="padding:1.5mm 2mm;text-align:right">20 раз</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">1 мин</td></tr>
+        <tr style="border-bottom:1px solid #fecaca"><td style="padding:1.5mm 2mm"><strong>6.</strong> Бёрпи</td><td style="padding:1.5mm 2mm;text-align:right">10 раз</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">1.5 мин</td></tr>
+        <tr style="border-bottom:1px solid #fecaca"><td style="padding:1.5mm 2mm"><strong>7.</strong> Прыжки на месте</td><td style="padding:1.5mm 2mm;text-align:right">30 сек</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">0.5 мин</td></tr>
+        <tr><td style="padding:1.5mm 2mm"><strong>8.</strong> Растяжка</td><td style="padding:1.5mm 2mm;text-align:right">—</td><td style="padding:1.5mm 2mm;text-align:right;color:#888">3 мин</td></tr>
+      </table>
+    </div>
+
+    <div class="card card-dark" style="margin-bottom:3mm">
+      <div class="t8 b cg" style="margin-bottom:1mm">🏢 Фитнес-клуб недели: Discover Fitness</div>
+      <div class="t7" style="color:rgba(255,255,255,0.8);line-height:1.5">
+        📍 Ташкент, Tashkent City<br>
+        💰 от 800,000 сум/мес<br>
+        ✅ Бассейн, SPA, групповые, тренер<br>
+        ⭐ Лучший выбор для «всё в одном» — один из самых оснащённых клубов в Центральной Азии
+      </div>
+    </div>
+
+    <div class="card card-p">
+      <div class="t7 b" style="color:#5b21b6">💡 Связка «тренировка + питание» (совет нутрициолога)</div>
+      <div class="t7" style="color:#4c1d95;line-height:1.4">
+        После утренней зарядки — стакан воды с лимоном + завтрак через 30 мин: овсянка + банан + орехи. Это даст энергию на 4–5 часов без «провала» к обеду.
+      </div>
+    </div>
+  </div>
+  <div class="pn pn-r">9</div>
+</div>
+
+<!-- ═══════ PAGE 10: ДЕТИ ═══════ -->
+<div class="p" style="padding:0;background:linear-gradient(180deg,#fff 0%,#fefce8 100%)">
+  <div class="hbar" style="border-color:#fde68a"><div class="logo" style="color:#b45309"><span style="color:#f59e0b">F</span>RESH KIDS</div><div style="color:#b45309">Маленький Шеф</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag tag-y">🧒 Маленький шеф</span><span class="t7" style="color:#92400e">Возраст: 4+</span></div>
+    <div class="serif" style="font-size:16pt;font-weight:900;color:#78350f;margin-bottom:3mm">🍓 Фруктовый шашлычок!</div>
+
+    <div style="height:40mm;border-radius:3mm;overflow:hidden;margin-bottom:3mm">
+      <img src="img/kids.png" alt="Фруктовый шашлычок" style="width:100%;height:100%;object-fit:cover">
+    </div>
+
+    <div class="card card-y" style="margin-bottom:3mm">
+      <div class="t9 b" style="color:#92400e;margin-bottom:2mm">👧 Тебе понадобится:</div>
+      <div class="t8" style="color:#78350f;line-height:1.6">
+        🍓 Клубника • 🍌 Банан • 🫐 Черника • 🥝 Киви • 🍇 Виноград<br>
+        + Деревянные шпажки (попроси маму обрезать острый конец!)
+      </div>
+    </div>
+
+    <div class="fx g3" style="margin-bottom:3mm">
+      <div class="card f1" style="background:#fff;text-align:center">
+        <div style="font-size:20pt">1️⃣</div>
+        <div class="t7 b" style="margin-top:1mm">Помой фрукты</div>
+        <div class="t7 c8">Под водой, руками</div>
+      </div>
+      <div class="card f1" style="background:#fff;text-align:center">
+        <div style="font-size:20pt">2️⃣</div>
+        <div class="t7 b" style="margin-top:1mm">Нанизывай!</div>
+        <div class="t7 c8">По очереди: красный, жёлтый, синий...</div>
+      </div>
+      <div class="card f1" style="background:#fff;text-align:center">
+        <div style="font-size:20pt">3️⃣</div>
+        <div class="t7 b" style="margin-top:1mm">Готово!</div>
+        <div class="t7 c8">Покажи маме и папе 🎉</div>
+      </div>
+    </div>
+
+    <div class="card" style="background:#fff;margin-bottom:3mm">
+      <div class="t8 b" style="color:#b45309">🤓 Знаешь ли ты?</div>
+      <div class="t8" style="color:#78350f;line-height:1.5">Клубника — это единственная ягода, у которой семечки СНАРУЖИ, а не внутри! На одной клубничке около 200 семечек. Посчитай! 🔍</div>
+    </div>
+
+    <div class="card card-dark" style="text-align:center">
+      <div class="t8 b" style="color:#facc15">📸 Покажи, что приготовил!</div>
+      <div class="t7" style="color:rgba(255,255,255,0.7)">Пришли фото в Telegram @fresh_weekly_uz — лучшие опубликуем в следующем выпуске!</div>
+    </div>
+  </div>
+  <div class="pn pn-l" style="color:#b45309">10</div>
+</div>
+
+<!-- ═══════ PAGE 11: КОЛЛЕКЦИЯ ═══════ -->
+<div class="p" style="padding:0">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>КОЛЛЕКЦИЯ</div></div>
+  <div style="padding:4mm 6mm">
+    <div class="fx g2" style="align-items:center;margin-bottom:3mm"><span class="tag">🃏 Коллекционная карточка</span><span class="t7 c8">1 из 52</span></div>
+    <div class="stitle stitle-sm">Серия «Продукты мира» — Карточка №1</div>
+
+    <!-- Collectible card -->
+    <div style="border:2px dashed #d1d5db;border-radius:4mm;padding:5mm;margin-bottom:4mm;background:linear-gradient(135deg,#f0fdf4,#ecfdf5)">
+      <div style="border:1px solid #16a34a;border-radius:3mm;padding:4mm;background:#fff">
+        <div class="fx g3" style="align-items:center;margin-bottom:2mm">
+          <div style="font-size:30pt">🌿</div>
+          <div>
+            <div class="serif" style="font-size:14pt;font-weight:900;color:#1a3a1a">КИНЗА</div>
+            <div class="t7 c8">Coriandrum sativum • Центральная Азия</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-bottom:2mm">
+          <div class="t7"><strong>Витамины:</strong> A, C, K, E</div>
+          <div class="t7"><strong>Вкус:</strong> Яркий, цитрусовый</div>
+          <div class="t7"><strong>Сезон:</strong> Круглый год</div>
+          <div class="t7"><strong>Хранить:</strong> +4°C, 5–7 дней</div>
+        </div>
+        <div class="t7" style="background:#f0fdf4;padding:2mm;border-radius:2mm;line-height:1.4">
+          <strong>Факт:</strong> В микрозелени кинзы в 5 раз больше витамина С, чем во взрослой кинзе. В Узбекистане кинза используется в 85 из 100 ресторанов.
+        </div>
+        <div class="t7 c8" style="text-align:center;margin-top:2mm">✂️ Вырежи и сохрани • FRESH WEEKLY №1 • 1/52</div>
+      </div>
+    </div>
+
+    <div class="card card-dark" style="margin-bottom:3mm;text-align:center;position:relative;overflow:hidden">
+      <!-- Decorative background glow for AR -->
+      <div style="position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle, rgba(74,222,128,0.15) 0%, transparent 60%);pointer-events:none"></div>
+      
+      <div class="t9 b" style="color:#4ade80;margin-bottom:2mm">✨ Оживи карточку в Дополненной Реальности!</div>
+      <div class="t7" style="color:rgba(255,255,255,0.8);line-height:1.5;margin-bottom:3mm">
+        Наведи камеру телефона на карточку, чтобы увидеть анимацию персонажа прямо на бумаге!
+      </div>
+      <a href="ar_viewer.html" target="_blank" style="display:inline-block;background:#4ade80;color:#111;padding:8px 16px;border-radius:20px;text-decoration:none;font-weight:bold;font-size:8pt;box-shadow:0 4px 10px rgba(74,222,128,0.3)">📸 Запустить AR-сканер</a>
+    </div>
+
+    <div class="stitle stitle-sm" style="margin-top:4mm">📸 Фото наших читателей</div>
+    <div class="card" style="text-align:center;padding:8mm">
+      <div style="font-size:24pt;margin-bottom:2mm">📷</div>
+      <div class="t9 b" style="color:#1a1a1a">Здесь будут ВАШИ фото!</div>
+      <div class="t8 c5" style="margin-top:1mm;line-height:1.5">Приготовили блюдо по нашему рецепту? Пришлите фото в Telegram @fresh_weekly_uz. Лучшие фото публикуем здесь с вашим именем.</div>
+    </div>
+  </div>
+  <div class="pn pn-r">11</div>
+</div>
+
+<!-- ═══════ PAGE 12: КОНТАКТЫ + АНОНС ═══════ -->
+<div class="p" style="padding:0;display:flex;flex-direction:column">
+  <div class="hbar"><div class="logo"><span>F</span>RESH WEEKLY</div><div>№1 • 21.07.2026</div></div>
+  <div style="padding:4mm 6mm;flex:1;display:flex;flex-direction:column">
+
+    <div class="stitle">📢 В следующем выпуске (№2)</div>
+
+    <div class="fx g3 fw" style="margin-bottom:4mm">
+      <div class="card card-g f1" style="min-width:40%">
+        <div class="t7 b cg">🍽 Ресторан</div>
+        <div class="t7 c5">PLATAN — лучший ресторан Самарканда</div>
+      </div>
+      <div class="card card-o f1" style="min-width:40%">
+        <div class="t7 b" style="color:#c2410c">🌍 Стрит-фуд</div>
+        <div class="t7 c5">🇰🇷 Ттокпокки — корейская уличная волна</div>
+      </div>
+      <div class="card card-y f1" style="min-width:40%">
+        <div class="t7 b" style="color:#92400e">🎨 Вкусы</div>
+        <div class="t7 c5">Солёное + Сладкое: мисо-карамель</div>
+      </div>
+      <div class="card card-p f1" style="min-width:40%">
+        <div class="t7 b" style="color:#5b21b6">🥗 Нутрициолог</div>
+        <div class="t7 c5">Белок: сколько граммов вам реально нужно?</div>
+      </div>
+      <div class="card card-b f1" style="min-width:40%">
+        <div class="t7 b" style="color:#2563eb">💻 Tech</div>
+        <div class="t7 c5">Mi Band 9 vs Garmin: что выбрать?</div>
+      </div>
+      <div class="card card-r f1" style="min-width:40%">
+        <div class="t7 b" style="color:#dc2626">🧒 Дети</div>
+        <div class="t7 c5">Смузи-монстрик с глазками из ягод</div>
+      </div>
+    </div>
+
+    <!-- Print-on-demand -->
+    <div class="card card-dark" style="margin-bottom:4mm">
+      <div class="t9 b" style="color:#4ade80;margin-bottom:2mm">🖨 Хотите бумажную версию?</div>
+      <div class="t8" style="color:rgba(255,255,255,0.85);line-height:1.6">
+        Печатная версия доступна <strong>только у нас</strong>. Премиум-печать на плотной бумаге, 12 страниц, формат A5.<br>
+        <strong>Стоимость:</strong> 15,000 сум/выпуск | <strong>Подписка:</strong> 50,000 сум/мес (4 выпуска)<br>
+        📲 Заказать: @fresh_weekly_uz в Telegram
+      </div>
+    </div>
+
+    <!-- Contacts -->
+    <div style="background:#1a3a1a;border-radius:3mm;padding:5mm;margin-top:auto">
+      <div class="fx" style="justify-content:space-between;align-items:center">
+        <div>
+          <div class="serif" style="font-size:14pt;font-weight:900;color:#4ade80;margin-bottom:2mm">FRESH WEEKLY</div>
+          <div class="t7" style="color:rgba(255,255,255,0.6);line-height:1.8">
+            <strong style="color:#fff">📲 Telegram:</strong> @fresh_weekly_uz<br>
+            <strong style="color:#fff">📷 Instagram:</strong> @fresh_weekly_uz<br>
+            <strong style="color:#fff">🌐 Сайт:</strong> freshweekly.uz<br>
+            <strong style="color:#fff">📍</strong> Ташкент & Самарканд, Узбекистан
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2mm">
+          <div style="width:20mm;height:20mm;background:rgba(74,222,128,0.15);border:1px solid rgba(74,222,128,0.3);border-radius:3mm;display:flex;align-items:center;justify-content:center;color:#4ade80;font-size:7pt;font-weight:700;text-align:center">QR<br>КОД</div>
+          <div class="t7" style="color:rgba(255,255,255,0.4);text-align:center">Подписаться</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pn pn-r pn-w">12</div>
+</div>
+
+</body>
+</html>

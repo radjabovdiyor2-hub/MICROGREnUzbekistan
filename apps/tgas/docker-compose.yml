@@ -315,6 +315,26 @@ services:
     - bus_tasks:/app/bus_tasks
     networks:
     - mg_net
+  franchise:
+    build: .
+    container_name: mg_franchise
+    restart: unless-stopped
+    command: python -m bots.franchise_bot.main
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '5'
+    networks:
+    - mg_net
+    volumes:
+    - bus_tasks:/app/bus_tasks
 volumes:
   pg_data: null
   redis_data: null

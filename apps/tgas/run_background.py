@@ -11,6 +11,8 @@ bots = [
     "bots.support_bot.main",
     "bots.hr_bot.main",
     "bots.content_bot.main",
+    "bots.devops_bot.main",
+    "bots.rnd_bot.main",
 ]
 
 python_exe = os.path.join("venv", "Scripts", "python.exe")

@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.venv/
+.test_venv/
+__pycache__/
+.ruff_cache/
+
+# Build artifacts
+.next/
+dist/
+.turbo/
+playwright-report/
+test-results/
+tsconfig.tsbuildinfo
+
+# Secrets & Configs
+.env*
+.env.local
+.env.development
+.env.production
+*.pem
+*.key
+
+# Generated
+package-lock.json
+
+# IDE
+.git/
+.idea/
+.vscode/
+
+# Large data files
+runs.json
+jobs.json
+jobs2.json
+pw_strings.txt
+
+# Temporary
+*.log
+deploy.log
+temp_img.jpg
+temp_story.jpg
+backups/
+audit/

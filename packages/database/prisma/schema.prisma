@@ -112,6 +112,7 @@ model Address {
   user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   label       String? // "Uy", "Ish", etc.
   fullAddress String  @map("full_address")
+  city        String  @default("tashkent")
   latitude    Float?
   longitude   Float?
   isDefault   Boolean @default(false) @map("is_default")
@@ -159,6 +160,7 @@ model Order {
   subtotal      Int
   deliveryFee   Int           @default(0) @map("delivery_fee")
   discount      Int           @default(0)
+  city          String        @default("tashkent")
   address       String
   phone         String
   note          String?       @db.Text
@@ -447,4 +449,22 @@ model Advertiser {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("advertisers")
+}
+
+// ==========================================
+// FRANCHISE MODULE (Multi-city AI Management)
+// ==========================================
+
+model FranchiseJournal {
+  id          String   @id @default(cuid())
+  city        String   // 'samarkand', 'bukhara', 'fergana'
+  department  String   // 'sales', 'finance', 'pm', 'analytics'
+  action      String   // Краткое описание действия
+  content     String   @db.Text // Развернутый текст от ИИ-бота
+  metrics     Json?    // Структурированные данные (выручка, расходы и т.д.)
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([city, createdAt])
+  @@map("franchise_journals")
 }

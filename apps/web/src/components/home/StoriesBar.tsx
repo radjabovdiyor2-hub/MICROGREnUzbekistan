@@ -13,7 +13,7 @@ interface Story {
   timestamp: string;
 }
 
-const IMAGE_DURATION = 5000; // мс на сторис-картинку
+const IMAGE_DURATION = 5000;
 
 export function StoriesBar() {
   const { t } = useLang();
@@ -21,6 +21,7 @@ export function StoriesBar() {
   const [open, setOpen] = useState(false);
   const [idx, setIdx] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -35,30 +36,48 @@ export function StoriesBar() {
 
   const close = useCallback(() => {
     setOpen(false);
-    if (timerRef.current) clearTimeout(timerRef.current);
+    setProgress(0);
+    if (timerRef.current) clearInterval(timerRef.current);
   }, []);
 
   const next = useCallback(() => {
     setIdx((i) => {
       if (i + 1 >= stories.length) { setOpen(false); return 0; }
+      setProgress(0);
       return i + 1;
     });
   }, [stories.length]);
 
-  const prev = useCallback(() => setIdx((i) => Math.max(0, i - 1)), []);
+  const prev = useCallback(() => {
+    setIdx((i) => Math.max(0, i - 1));
+    setProgress(0);
+  }, []);
 
-  // Авто-переход для картинок (видео управляется onEnded)
+  // Animate progress bar for images
   useEffect(() => {
     if (!open) return;
     const cur = stories[idx];
     if (!cur) return;
+    
     if (cur.mediaType !== 'VIDEO') {
-      timerRef.current = setTimeout(next, IMAGE_DURATION);
-      return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+      const interval = 50; // update every 50ms
+      const step = (interval / IMAGE_DURATION) * 100;
+      
+      timerRef.current = setInterval(() => {
+        setProgress((prev) => {
+          if (prev + step >= 100) {
+            next();
+            return 0;
+          }
+          return prev + step;
+        });
+      }, interval);
+      
+      return () => { if (timerRef.current) clearInterval(timerRef.current); };
     }
   }, [open, idx, stories, next]);
 
-  // Esc для закрытия
+  // Esc to close
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -76,28 +95,34 @@ export function StoriesBar() {
 
   return (
     <>
-      {/* Кружки сторис */}
+      {/* Stories track */}
       <div style={{ background: 'var(--bg-primary)', borderBottom: '1px solid var(--border)' }}>
-        <div className="container" style={{ padding: 'var(--space-4) 0' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-4)', overflowX: 'auto', paddingBottom: 4 }}>
+        <div className="container" style={{ padding: '20px 0' }}>
+          <div style={{ 
+            display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '8px',
+            scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch'
+          }}>
             {stories.map((s, i) => (
               <button
                 key={s.id}
-                onClick={() => { setIdx(i); setOpen(true); }}
+                onClick={() => { setIdx(i); setProgress(0); setOpen(true); }}
                 style={{
                   flex: '0 0 auto', display: 'flex', flexDirection: 'column',
-                  alignItems: 'center', gap: 6, background: 'none', border: 'none',
-                  cursor: 'pointer', width: 76,
+                  alignItems: 'center', gap: '8px', background: 'none', border: 'none',
+                  cursor: 'pointer', width: '80px',
+                  transition: 'transform 0.2s',
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 aria-label={`Story ${i + 1}`}
               >
                 <div style={{
-                  width: 72, height: 72, borderRadius: '50%', padding: 3,
-                  background: 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)',
+                  width: '80px', height: '80px', borderRadius: '50%', padding: '3px',
+                  background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
                 }}>
                   <div style={{
                     width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden',
-                    border: '2px solid var(--bg-primary)', background: 'var(--bg-tertiary)',
+                    border: '3px solid var(--bg-primary)', background: 'var(--bg-tertiary)',
                   }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -108,7 +133,7 @@ export function StoriesBar() {
                     />
                   </div>
                 </div>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: 600 }}>
                   {t('Story', 'Сторис')} {i + 1}
                 </span>
               </button>
@@ -117,72 +142,108 @@ export function StoriesBar() {
         </div>
       </div>
 
-      {/* Просмотрщик — через портал в body, иначе position:fixed ломается
-          из-за transform на <main> (fixed привязывается к main, а не к окну) */}
+      {/* Viewer via Portal */}
       {open && cur && typeof document !== 'undefined' && createPortal(
         <div
           onClick={next}
           style={{
-            position: 'fixed', inset: 0, zIndex: 3000,
-            background: 'rgba(0,0,0,0.92)', display: 'flex',
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(0,0,0,0.95)', display: 'flex',
             alignItems: 'center', justifyContent: 'center',
+            backdropFilter: 'blur(10px)'
           }}
         >
-          {/* Прогресс-бары */}
+          {/* Progress bars container */}
           <div style={{
-            position: 'absolute', top: 12, left: 12, right: 12,
-            display: 'flex', gap: 4, zIndex: 2,
+            position: 'absolute', top: '16px', left: '50%', transform: 'translateX(-50%)',
+            display: 'flex', gap: '6px', zIndex: 2, width: '100%', maxWidth: '420px', padding: '0 16px'
           }}>
             {stories.map((_, i) => (
               <div key={i} style={{
-                flex: 1, height: 3, borderRadius: 2,
-                background: i < idx ? '#fff' : i === idx ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.3)',
-              }} />
+                flex: 1, height: '3px', borderRadius: '2px',
+                background: 'rgba(255,255,255,0.3)', overflow: 'hidden'
+              }}>
+                <div style={{
+                  height: '100%',
+                  background: '#fff',
+                  width: i < idx ? '100%' : i === idx ? `${progress}%` : '0%',
+                  transition: i === idx && cur.mediaType !== 'VIDEO' ? 'width 50ms linear' : 'none'
+                }} />
+              </div>
             ))}
           </div>
 
-          {/* Закрыть */}
+          {/* Close button */}
           <button
             onClick={(e) => { e.stopPropagation(); close(); }}
             style={{
-              position: 'absolute', top: 20, right: 16, zIndex: 3,
-              background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%',
-              width: 36, height: 36, color: '#fff', cursor: 'pointer',
+              position: 'absolute', top: '32px', right: '16px', zIndex: 3,
+              background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
+              width: '40px', height: '40px', color: '#fff', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(10px)'
             }}
-            aria-label="Close"
           >
-            <Icons.X size={20} />
+            ✕
           </button>
 
-          {/* Зоны тапа влево/вправо */}
-          <button onClick={(e) => { e.stopPropagation(); prev(); }}
-            style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '30%', background: 'none', border: 'none', cursor: 'pointer', zIndex: 1 }}
-            aria-label="Previous" />
-          <button onClick={(e) => { e.stopPropagation(); next(); }}
-            style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '30%', background: 'none', border: 'none', cursor: 'pointer', zIndex: 1 }}
-            aria-label="Next" />
-
-          {/* Медиа */}
-          <div style={{ maxWidth: 440, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Media container */}
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              if (e.clientX < rect.left + rect.width / 3) prev();
+              else next();
+            }}
+            style={{
+              width: '100%', maxWidth: '420px', height: '100%', maxHeight: '850px',
+              position: 'relative', overflow: 'hidden',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+              borderRadius: '16px'
+            }}
+          >
             {cur.mediaType === 'VIDEO' ? (
               <video
-                key={cur.id}
                 src={cur.mediaUrl}
                 autoPlay
                 playsInline
+                webkit-playsinline="true"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 onEnded={next}
-                onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12 }}
+                onTimeUpdate={(e) => {
+                  const el = e.currentTarget;
+                  if (el.duration) {
+                    setProgress((el.currentTime / el.duration) * 100);
+                  }
+                }}
               />
             ) : (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                key={cur.id}
                 src={cur.mediaUrl}
                 alt="story"
-                style={{ maxWidth: '100%', maxHeight: '90vh', borderRadius: 12, objectFit: 'contain' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
+            )}
+            
+            {/* View on Instagram Link */}
+            {cur.permalink && (
+              <a 
+                href={cur.permalink} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
+                  padding: '12px 24px', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+                  color: '#fff', borderRadius: '30px', textDecoration: 'none',
+                  fontSize: '14px', fontWeight: 600, border: '1px solid rgba(255,255,255,0.4)',
+                  display: 'flex', alignItems: 'center', gap: '8px'
+                }}
+              >
+                <Icons.Search size={16} /> Смотреть в Instagram
+              </a>
             )}
           </div>
         </div>,

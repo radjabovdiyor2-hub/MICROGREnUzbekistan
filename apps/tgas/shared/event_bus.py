@@ -33,6 +33,16 @@ class Events:
     TASK_COMPLETED = "task_completed"
     NEW_MESSAGE = "new_message"
     DELIVERY_STATUS_REPORT = "DELIVERY_STATUS_REPORT"
+    MAGAZINE_PUBLISHED = "magazine_published"
+    FRANCHISE_REPORT_GENERATED = "franchise_report_generated"
+    
+class BotBusActions:
+    GENERATE_MAGAZINE_FACTS = "generate_magazine_facts"
+    GET_TOP_PRODUCTS = "get_top_products"
+    PICK_RESTAURANT = "pick_restaurant_of_week"
+    SELL_MAGAZINE_ADS = "sell_magazine_ads"
+    DRAFT_MAGAZINE = "draft_magazine"
+    PUBLISH_MAGAZINE = "publish_magazine"
 
 class EventBus:
     """HTTP Webhook event bus (n8n integration)"""
@@ -85,6 +95,7 @@ class EventBus:
             ("mg_qa", 8090),
             ("mg_rnd", 8091),
             ("mg_devops", 8092),
+            ("mg_franchise", 8093),
         ]
         
         async def send_direct(host, port):

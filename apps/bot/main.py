@@ -14,6 +14,7 @@ from handlers.unified import router as unified_router
 from handlers.group import router as group_router
 from handlers.shop import router as shop_router
 from handlers.admin import router as admin_router
+from handlers import magazine, inline
 
 # Load env from script directory (override system env vars)
 env_path = Path(__file__).parent / '.env'
@@ -28,6 +29,8 @@ dp = Dispatcher()
 
 # Register routers (order matters — first registered wins for same filter)
 dp.include_router(admin_router)        # Admin commands first (highest priority)
+dp.include_router(magazine.router)     # /magazine commands
+dp.include_router(inline.router)       # inline queries
 dp.include_router(start.router)        # /start with WebAppInfo & Farm Simulator links
 dp.include_router(shop_router)         # /shop, /catalog, cart, checkout
 dp.include_router(unified_router)      # /orders, /bonuses, menu callbacks

@@ -1280,3 +1280,34 @@ async def _start_catalog_sync() -> None:
         logger.warning("Schema ensure failed at startup: %s", exc)
     asyncio.create_task(_catalog_sync_loop())
     asyncio.create_task(_outbox_processor_loop())
+
+@app.get("/api/bots/kanban")
+async def bots_kanban():
+    """Сбор задач из локальной файловой очереди bot_bus для Kanban доски."""
+    import json
+    
+    bus_tasks_dir = Path("bus_tasks")
+    columns = ["pending", "processing", "completed"]
+    tasks = []
+    
+    for col in columns:
+        col_dir = bus_tasks_dir / col
+        if not col_dir.exists():
+            continue
+            
+        for file in col_dir.glob("*.json"):
+            try:
+                with open(file, "r", encoding="utf-8") as f:
+                    task_data = json.load(f)
+                    task_data["column"] = col
+                    task_data["file_id"] = file.stem
+                    tasks.append(task_data)
+            except Exception as e:
+                logger.error(f"Error reading task {file}: {e}")
+                
+    return JSONResponse({"tasks": tasks})
+
+@app.get("/admin/ai-office", response_class=HTMLResponse)
+async def ai_office_dashboard(request: Request):
+    """Страница визуального Kanban-дашборда ИИ Офиса."""
+    return templates.TemplateResponse("ai_office.html", {"request": request})

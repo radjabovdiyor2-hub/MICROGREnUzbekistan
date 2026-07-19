@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MICROGREEN WEEKLY — Выпуск №1</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Playfair+Display:wght@700;900&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page {
+      size: A5 landscape;
+      margin: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+    }
+
+    .page {
+      width: 210mm;
+      height: 148mm;
+      background: #fff;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+      margin: 10px auto;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    }
+
+    /* ===== PAGE 1: COVER ===== */
+    .cover {
+      background: linear-gradient(160deg, #0a1f0a 0%, #1a3a1a 40%, #0d2b0d 100%);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 0;
+    }
+
+    .cover-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 12mm 10mm 0 10mm;
+    }
+
+    .cover-logo {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cover-logo .brand {
+      font-family: 'Playfair Display', serif;
+      font-size: 28pt;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #4ade80;
+      line-height: 1;
+    }
+
+    .cover-logo .sub {
+      font-size: 8pt;
+      font-weight: 600;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.6);
+      margin-top: 2mm;
+    }
+
+    .cover-issue {
+      text-align: right;
+      font-size: 8pt;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.5;
+    }
+
+    .cover-issue strong {
+      color: #4ade80;
+      font-size: 10pt;
+    }
+
+    .cover-main {
+      padding: 0 10mm;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .cover-headline {
+      font-family: 'Playfair Display', serif;
+      font-size: 22pt;
+      font-weight: 900;
+      line-height: 1.2;
+      color: #fff;
+      max-width: 75%;
+    }
+
+    .cover-headline span {
+      color: #4ade80;
+    }
+
+    .cover-sub-headline {
+      font-size: 10pt;
+      color: rgba(255,255,255,0.7);
+      margin-top: 4mm;
+      max-width: 70%;
+      line-height: 1.5;
+    }
+
+    .cover-tags {
+      display: flex;
+      gap: 3mm;
+      margin-top: 5mm;
+    }
+
+    .cover-tag {
+      background: rgba(74,222,128,0.15);
+      border: 1px solid rgba(74,222,128,0.3);
+      color: #4ade80;
+      font-size: 7pt;
+      font-weight: 600;
+      padding: 1.5mm 4mm;
+      border-radius: 3mm;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .cover-bottom {
+      background: rgba(0,0,0,0.3);
+      padding: 4mm 10mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 7pt;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .cover-bottom a {
+      color: #4ade80;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .cover-decoration {
+      position: absolute;
+      right: -15mm;
+      top: 15mm;
+      width: 80mm;
+      height: 80mm;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(74,222,128,0.08) 0%, transparent 70%);
+    }
+
+    .cover-leaf {
+      position: absolute;
+      right: 10mm;
+      bottom: 20mm;
+      font-size: 60pt;
+      opacity: 0.15;
+    }
+
+    /* ===== PAGE 2: PRICE LIST ===== */
+    .price-page {
+      padding: 8mm 10mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #4ade80;
+      padding-bottom: 3mm;
+      margin-bottom: 5mm;
+    }
+
+    .page-header h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 16pt;
+      font-weight: 900;
+      color: #1a3a1a;
+    }
+
+    .page-header .issue-tag {
+      font-size: 7pt;
+      color: #666;
+    }
+
+    .price-intro {
+      font-size: 8pt;
+      color: #555;
+      margin-bottom: 4mm;
+      line-height: 1.4;
+    }
+
+    .price-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8pt;
+    }
+
+    .price-table thead {
+      background: #1a3a1a;
+      color: #fff;
+    }
+
+    .price-table th {
+      padding: 2.5mm 3mm;
+      text-align: left;
+      font-weight: 600;
+      font-size: 7pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .price-table td {
+      padding: 2.5mm 3mm;
+      border-bottom: 1px solid #eee;
+      vertical-align: middle;
+    }
+
+    .price-table tr:nth-child(even) {
+      background: #f8faf8;
+    }
+
+    .badge-new {
+      background: #ef4444;
+      color: #fff;
+      font-size: 6pt;
+      font-weight: 700;
+      padding: 0.5mm 2mm;
+      border-radius: 2mm;
+      margin-left: 2mm;
+    }
+
+    .badge-hit {
+      background: #f59e0b;
+      color: #fff;
+      font-size: 6pt;
+      font-weight: 700;
+      padding: 0.5mm 2mm;
+      border-radius: 2mm;
+      margin-left: 2mm;
+    }
+
+    .badge-available {
+      color: #22c55e;
+      font-weight: 700;
+    }
+
+    .badge-limited {
+      color: #f59e0b;
+      font-weight: 700;
+    }
+
+    .qr-section {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 3mm;
+      padding: 3mm 5mm;
+    }
+
+    .qr-text {
+      font-size: 8pt;
+      color: #1a3a1a;
+      font-weight: 600;
+    }
+
+    .qr-text small {
+      display: block;
+      font-weight: 400;
+      color: #666;
+      font-size: 7pt;
+      margin-top: 1mm;
+    }
+
+    .qr-box {
+      width: 18mm;
+      height: 18mm;
+      background: #1a3a1a;
+      border-radius: 2mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #4ade80;
+      font-size: 7pt;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    /* ===== PAGE 3: RECIPE / IDEA ===== */
+    .recipe-page {
+      padding: 8mm 10mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .recipe-split {
+      display: flex;
+      gap: 6mm;
+      flex: 1;
+    }
+
+    .recipe-photo {
+      width: 48%;
+      background: #ddd;
+      border-radius: 3mm;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .recipe-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .recipe-photo-badge {
+      position: absolute;
+      top: 3mm;
+      left: 3mm;
+      background: rgba(0,0,0,0.7);
+      color: #4ade80;
+      font-size: 6pt;
+      font-weight: 700;
+      padding: 1mm 3mm;
+      border-radius: 2mm;
+      text-transform: uppercase;
+    }
+
+    .recipe-content {
+      width: 52%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .recipe-content h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 13pt;
+      font-weight: 900;
+      color: #1a3a1a;
+      line-height: 1.2;
+      margin-bottom: 3mm;
+    }
+
+    .recipe-meta {
+      display: flex;
+      gap: 4mm;
+      margin-bottom: 3mm;
+    }
+
+    .recipe-meta-item {
+      font-size: 7pt;
+      color: #666;
+      display: flex;
+      align-items: center;
+      gap: 1mm;
+    }
+
+    .recipe-steps {
+      font-size: 8pt;
+      line-height: 1.6;
+      color: #333;
+      flex: 1;
+    }
+
+    .recipe-steps ol {
+      padding-left: 5mm;
+    }
+
+    .recipe-steps li {
+      margin-bottom: 1.5mm;
+    }
+
+    .margin-box {
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      border-radius: 3mm;
+      padding: 3mm 4mm;
+      margin-top: 3mm;
+    }
+
+    .margin-box .title {
+      font-size: 7pt;
+      font-weight: 700;
+      color: #92400e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 1mm;
+    }
+
+    .margin-box .numbers {
+      display: flex;
+      justify-content: space-between;
+      font-size: 8pt;
+    }
+
+    .margin-box .cost {
+      color: #dc2626;
+    }
+
+    .margin-box .price {
+      color: #059669;
+      font-weight: 700;
+    }
+
+    .margin-box .profit {
+      color: #1a3a1a;
+      font-weight: 900;
+      font-size: 10pt;
+    }
+
+    /* ===== PAGE 4: FACTS + CONTACTS ===== */
+    .facts-page {
+      padding: 8mm 10mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .facts-split {
+      display: flex;
+      gap: 6mm;
+      flex: 1;
+    }
+
+    .facts-left {
+      width: 55%;
+      display: flex;
+      flex-direction: column;
+      gap: 4mm;
+    }
+
+    .facts-right {
+      width: 45%;
+      display: flex;
+      flex-direction: column;
+      gap: 4mm;
+    }
+
+    .fact-card {
+      background: #f0fdf4;
+      border-left: 3px solid #4ade80;
+      padding: 3mm 4mm;
+      border-radius: 0 3mm 3mm 0;
+    }
+
+    .fact-card .emoji {
+      font-size: 14pt;
+      margin-bottom: 1mm;
+    }
+
+    .fact-card h4 {
+      font-size: 9pt;
+      font-weight: 700;
+      color: #1a3a1a;
+      margin-bottom: 1mm;
+    }
+
+    .fact-card p {
+      font-size: 7.5pt;
+      color: #555;
+      line-height: 1.4;
+    }
+
+    .testimonial {
+      background: #1a3a1a;
+      color: #fff;
+      border-radius: 3mm;
+      padding: 4mm 5mm;
+    }
+
+    .testimonial .quote {
+      font-size: 8pt;
+      font-style: italic;
+      line-height: 1.5;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 2mm;
+    }
+
+    .testimonial .author {
+      font-size: 7pt;
+      color: #4ade80;
+      font-weight: 600;
+    }
+
+    .tip-box {
+      background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+      border-radius: 3mm;
+      padding: 3mm 4mm;
+    }
+
+    .tip-box h4 {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #5b21b6;
+      margin-bottom: 1.5mm;
+    }
+
+    .tip-box p {
+      font-size: 7.5pt;
+      color: #4c1d95;
+      line-height: 1.4;
+    }
+
+    .contacts-bar {
+      background: #1a3a1a;
+      border-radius: 3mm;
+      padding: 4mm 5mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: auto;
+    }
+
+    .contacts-info {
+      color: #fff;
+    }
+
+    .contacts-info .name {
+      font-family: 'Playfair Display', serif;
+      font-size: 10pt;
+      font-weight: 700;
+      color: #4ade80;
+      margin-bottom: 1mm;
+    }
+
+    .contacts-info .details {
+      font-size: 7pt;
+      color: rgba(255,255,255,0.7);
+      line-height: 1.6;
+    }
+
+    .contacts-info .details strong {
+      color: #fff;
+    }
+
+    .contacts-social {
+      display: flex;
+      gap: 3mm;
+    }
+
+    .social-icon {
+      width: 10mm;
+      height: 10mm;
+      background: rgba(74,222,128,0.15);
+      border: 1px solid rgba(74,222,128,0.3);
+      border-radius: 2mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8pt;
+      color: #4ade80;
+      font-weight: 700;
+    }
+
+    /* Home section */
+    .home-section {
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 3mm;
+      padding: 3mm 4mm;
+    }
+
+    .home-section h4 {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #c2410c;
+      margin-bottom: 1.5mm;
+    }
+
+    .home-section p {
+      font-size: 7.5pt;
+      color: #7c2d12;
+      line-height: 1.4;
+    }
+
+    @media print {
+      body { background: none; }
+      .page { box-shadow: none; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ==================== PAGE 1: COVER ==================== -->
+<div class="page cover">
+  <div class="cover-decoration"></div>
+  <div class="cover-leaf">🌿</div>
+
+  <div class="cover-top">
+    <div class="cover-logo">
+      <div class="brand">MICROGREEN</div>
+      <div class="sub">W E E K L Y</div>
+    </div>
+    <div class="cover-issue">
+      <strong>Выпуск №1</strong><br>
+      21 июля 2026<br>
+      Ташкент & Самарканд
+    </div>
+  </div>
+
+  <div class="cover-main">
+    <div class="cover-headline">
+      Как <span>плов на 82%</span> дороже продаётся с одним лепестком календулы
+    </div>
+    <div class="cover-sub-headline">
+      Секрет подачи для шеф-поваров и хозяек: 3 блюда, которые преображает микрозелень
+    </div>
+    <div class="cover-tags">
+      <span class="cover-tag">✨ Было → Стало</span>
+      <span class="cover-tag">🍽 Рецепт от шефа</span>
+      <span class="cover-tag">💡 Факт о здоровье</span>
+      <span class="cover-tag">🏠 Совет для дома</span>
+    </div>
+  </div>
+
+  <div class="cover-bottom">
+    <span>© Microgreen Uzbekistan</span>
+    <a href="https://microgreenuzbekistan.com">microgreenuzbekistan.com</a>
+    <span>Telegram: @microgreen_uz</span>
+  </div>
+</div>
+
+<!-- ==================== PAGE 2: БЛЮДО НЕДЕЛИ (БЫЛО/СТАЛО) + ВИТАМИННАЯ КАРТОЧКА ==================== -->
+<div class="page price-page" style="padding:8mm 10mm;">
+  <div class="page-header">
+    <h2>✨ Блюдо недели: Было → Стало</h2>
+    <span class="issue-tag">MICROGREEN WEEKLY №1 | 21.07.2026</span>
+  </div>
+
+  <!-- BEFORE / AFTER SECTION -->
+  <div style="display:flex;gap:4mm;margin-bottom:4mm;">
+    <!-- BEFORE -->
+    <div style="flex:1;border-radius:3mm;overflow:hidden;position:relative;border:2px solid #e5e7eb;">
+      <img src="img/dish_before.png" style="width:100%;height:55mm;object-fit:cover;display:block;" alt="Обычный плов" />
+      <div style="position:absolute;top:2mm;left:2mm;background:#dc2626;color:#fff;font-size:6pt;font-weight:700;padding:1mm 3mm;border-radius:2mm;text-transform:uppercase;">❌ Было</div>
+      <div style="padding:2mm 3mm;background:#fff;">
+        <div style="font-size:8pt;font-weight:700;color:#1a1a1a;">Обычный плов</div>
+        <div style="font-size:7pt;color:#888;">Рис, мясо, морковь. Без украшения. Цена в меню: <strong>65,000 сум</strong></div>
+      </div>
+    </div>
+    <!-- AFTER -->
+    <div style="flex:1;border-radius:3mm;overflow:hidden;position:relative;border:2px solid #4ade80;">
+      <img src="img/dish_after.png" style="width:100%;height:55mm;object-fit:cover;display:block;" alt="Плов с микрозеленью" />
+      <div style="position:absolute;top:2mm;left:2mm;background:#16a34a;color:#fff;font-size:6pt;font-weight:700;padding:1mm 3mm;border-radius:2mm;text-transform:uppercase;">✅ Стало</div>
+      <div style="padding:2mm 3mm;background:#f0fdf4;">
+        <div style="font-size:8pt;font-weight:700;color:#1a3a1a;">Плов «Золотой Самарканд»</div>
+        <div style="font-size:7pt;color:#555;">+ 🌱 микро-кинза + 🌸 календула + 🌱 базилик фиол. <br>Цена в меню: <strong style="color:#16a34a;">120,000 сум</strong> (маржа +82%!)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 30-SECOND INSTRUCTION -->
+  <div style="background:#1a3a1a;color:#fff;border-radius:3mm;padding:3mm 5mm;margin-bottom:4mm;">
+    <div style="font-size:8pt;font-weight:700;color:#4ade80;margin-bottom:1mm;">⚡ Повторить за 30 секунд:</div>
+    <div style="font-size:7.5pt;color:rgba(255,255,255,0.85);line-height:1.5;">
+      <strong>Шаг 1:</strong> Выложите плов на тёмную тарелку (тёмный фон = еда ярче). &nbsp;
+      <strong>Шаг 2:</strong> Рассыпьте 5г микро-кинзы сверху. &nbsp;
+      <strong>Шаг 3:</strong> Положите 3–5 лепестков календулы (жёлтый = визуальный шафран). &nbsp;
+      <strong>Шаг 4:</strong> Пучок фиолетового базилика сбоку. Готово — гости фотографируют!
+    </div>
+  </div>
+
+  <!-- BOTTOM ROW: VITAMIN CARD + SEASONAL -->
+  <div style="display:flex;gap:4mm;">
+    <!-- VITAMIN CARD -->
+    <div style="flex:1;background:linear-gradient(135deg,#ecfdf5,#d1fae5);border:1px solid #a7f3d0;border-radius:3mm;padding:3mm 4mm;">
+      <div style="font-size:7pt;font-weight:700;color:#065f46;text-transform:uppercase;letter-spacing:1px;margin-bottom:1mm;">🌱 Герой недели: Кинза</div>
+      <div style="display:flex;gap:3mm;">
+        <div style="font-size:28pt;line-height:1;">🌿</div>
+        <div style="font-size:7pt;color:#064e3b;line-height:1.5;">
+          <strong>Витамины:</strong> A, C, K, E<br>
+          <strong>Вкус:</strong> Яркий, свежий, цитрусовый<br>
+          <strong>С чем:</strong> Плов, шурпа, мясо, карри<br>
+          <strong>Хранить:</strong> +4°C, 5-7 дней<br>
+          <strong>Факт:</strong> В 5 раз больше витамина С, чем во взрослой кинзе!
+        </div>
+      </div>
+    </div>
+    <!-- SEASONAL CALENDAR -->
+    <div style="flex:1;background:linear-gradient(135deg,#fefce8,#fef9c3);border:1px solid #fde68a;border-radius:3mm;padding:3mm 4mm;">
+      <div style="font-size:7pt;font-weight:700;color:#854d0e;text-transform:uppercase;letter-spacing:1px;margin-bottom:1mm;">📅 Что готовить на этой неделе (Июль)</div>
+      <div style="font-size:7.5pt;color:#713f12;line-height:1.6;">
+        🥗 <strong>Пн-Вт:</strong> Холодный гаспачо + руккола<br>
+        🥩 <strong>Ср-Чт:</strong> Стейк на гриле + подсолнечник<br>
+        🍚 <strong>Пт:</strong> Плов «Золотой Самарканд» (рецепт выше!)<br>
+        🧊 <strong>Сб-Вс:</strong> Смузи-боул + горох + виола
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== PAGE 3: RECIPE ==================== -->
+<div class="page recipe-page">
+  <div class="page-header">
+    <h2>🍽 Идея для вашего меню</h2>
+    <span class="issue-tag">MICROGREEN WEEKLY №1</span>
+  </div>
+
+  <div class="recipe-split">
+    <div class="recipe-photo">
+      <div class="recipe-photo-badge">Для шеф-поваров</div>
+      <img src="img/dish_steak.png" style="width:100%;height:100%;object-fit:cover;display:block;" alt="Стейк Рибай" />
+    </div>
+
+    <div class="recipe-content">
+      <h3>Стейк Рибай с «зелёной короной»</h3>
+
+      <div class="recipe-meta">
+        <span class="recipe-meta-item">⏱ 15 мин</span>
+        <span class="recipe-meta-item">👨‍🍳 Средне</span>
+        <span class="recipe-meta-item">🌱 2 вида микрозелени</span>
+      </div>
+
+      <div class="recipe-steps">
+        <ol>
+          <li><strong>Стейк:</strong> Рибай (300г) обжарить на чугунной сковороде 3 мин с каждой стороны. Дать «отдохнуть» 5 мин под фольгой.</li>
+          <li><strong>Соус:</strong> Бальзамик (2 ст.л.) уварить вдвое на слабом огне. Добавить 1 ч.л. мёда.</li>
+          <li><strong>Подача — вот где магия:</strong>
+            <br>• Пучок <strong>🌱 подсолнечника</strong> (10г) — прямо на мясо, как «корону»
+            <br>• <strong>💜 Амарант</strong> (5г) — рассыпать вокруг, как конфетти
+            <br>• Полить соусом поверх зелени</li>
+        </ol>
+        <p style="font-size:7pt;color:#888;margin-top:2mm;"><em>Гости будут фотографировать это блюдо и выкладывать в Instagram. Бесплатная реклама вашего ресторана.</em></p>
+      </div>
+
+      <div class="margin-box">
+        <div class="title">💰 Экономика блюда (для ресторана)</div>
+        <div class="numbers">
+          <span class="cost">Себестоимость: <strong>38,000 сум</strong></span>
+          <span class="price">Цена в меню: <strong>210,000 сум</strong></span>
+          <span class="profit">Маржа: 82%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Home cooking section -->
+  <div class="home-section" style="margin-top:4mm;">
+    <h4>🏠 Для хозяек: Простой вечерний салат (5 минут)</h4>
+    <p>
+      Нарежьте помидоры и огурцы крупно. Добавьте горсть <strong>🌱 рукколы</strong> и <strong>🌱 подсолнечника</strong>.
+      Заправьте: 2 ст.л. оливкового масла + 1 ст.л. лимонного сока + щепотка соли.
+      Сверху — лепестки <strong>🌸 виолы</strong>. Ваш муж не поверит, что это за 5 минут. Дети скажут «Мама, это как в ресторане!» 💜
+    </p>
+  </div>
+</div>
+
+<!-- ==================== PAGE 4: FACTS + CONTACTS ==================== -->
+<div class="page facts-page">
+  <div class="page-header">
+    <h2>💡 Знали ли вы?</h2>
+    <span class="issue-tag">MICROGREEN WEEKLY №1</span>
+  </div>
+
+  <div class="facts-split">
+    <div class="facts-left">
+      <div class="fact-card">
+        <div class="emoji">🔬</div>
+        <h4>В микрозелени в 40 раз больше витаминов</h4>
+        <p>Учёные из Университета Мэриленда (США) доказали: в микрозелени подсолнечника содержится в 40 раз больше витамина Е, чем в обычных семечках. А в микро-редисе — в 40 раз больше витамина С, чем во взрослой редиске.</p>
+      </div>
+
+      <div class="fact-card">
+        <div class="emoji">🌸</div>
+        <h4>Календула — бесплатный «шафран»</h4>
+        <p>Настоящий шафран стоит $8,000 за кг. Лепестки календулы дают тот же золотисто-жёлтый цвет на плове и рисе — но в 500 раз дешевле. Визуально гости не отличат.</p>
+      </div>
+
+      <div class="testimonial">
+        <div class="quote">«Мы начали подавать стейки с микрозеленью подсолнечника 2 месяца назад. Гости фотографируют блюда и отмечают нас в Instagram — это бесплатная реклама, которая приводит новых клиентов каждую неделю.»</div>
+        <div class="author">— Шеф-повар, ресторан в Ташкенте</div>
+      </div>
+    </div>
+
+    <div class="facts-right">
+      <div class="tip-box">
+        <h4>👨‍🍳 Совет шефу: Как хранить микрозелень</h4>
+        <p>Не мойте заранее! Храните в контейнере с бумажным полотенцем на дне (впитывает влагу). Температура: +4°C. Срок хранения: 5–7 дней. Мойте только перед подачей — за 10 секунд под холодной водой.</p>
+      </div>
+
+      <div class="home-section">
+        <h4>🏠 Лайфхак для хозяек</h4>
+        <p>Добавьте горсть <strong>микрозелени кинзы</strong> в обычный плов за 1 минуту до подачи. Не варите! Просто рассыпьте сверху. Вкус свежей кинзы будет ярче, а витамины не разрушатся от температуры. Муж скажет: «Сегодня плов особенный!»</p>
+      </div>
+
+      <div class="fact-card">
+        <div class="emoji">📅</div>
+        <h4>В следующем выпуске (№2)</h4>
+        <p>• Как украсить шашлык для свадебного стола<br>
+        • Летний смузи-боул с микрозеленью<br>
+        • Какая зелень подходит к рыбе</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="contacts-bar">
+    <div class="contacts-info">
+      <div class="name">MICROGREEN UZBEKISTAN</div>
+      <div class="details">
+        <strong>📞</strong> +998 XX XXX XX XX &nbsp;&nbsp;
+        <strong>📲 Telegram:</strong> @microgreen_uz &nbsp;&nbsp;
+        <strong>🌐</strong> microgreenuzbekistan.com<br>
+        <strong>📍</strong> Ташкент | Доставка по всему Ташкенту и Самарканду
+      </div>
+    </div>
+    <div class="contacts-social">
+      <div class="social-icon">TG</div>
+      <div class="social-icon">IG</div>
+      <div class="social-icon">QR</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -738,7 +738,38 @@ async def main():
     dp.include_router(group_router)
 
     await event_bus.connect()
+
+    async def handle_magazine_published(payload: dict):
+        """Обрабатывает публикацию журнала и делает пост в Telegram-канал."""
+        try:
+            channel_id = getattr(settings, "telegram_channel_id", None)
+            if not channel_id:
+                logging.warning("Telegram channel ID is not set. Cannot auto-post magazine.")
+                return
+
+            issue_id = payload.get("issue_id", "?")
+            title = payload.get("title", "Новый выпуск")
+            url = payload.get("url", f"https://microgreenuzbekistan.com/magazine/{issue_id}")
+            cover = payload.get("cover", "")
+
+            post_text = (
+                f"🔥 <b>Вышел новый FRESH WEEKLY №{issue_id}!</b>\n\n"
+                f"В этом выпуске: <b>{title}</b>\n\n"
+                f"📖 <a href='{url}'>Читать выпуск онлайн</a>\n\n"
+                f"<i>Автоматически опубликовано через Microgreen AI Office</i>"
+            )
+
+            if cover and cover.startswith("http"):
+                await bot.send_photo(chat_id=channel_id, photo=cover, caption=post_text, parse_mode="HTML")
+            else:
+                await bot.send_message(chat_id=channel_id, text=post_text, parse_mode="HTML")
+                
+            logging.info(f"Successfully auto-posted magazine #{issue_id} to {channel_id}")
+        except Exception as e:
+            logging.error(f"Error auto-posting magazine: {e}")
+
     event_bus.on("TASK_CREATED", handle_task_created)
+    event_bus.on("MAGAZINE_PUBLISHED", handle_magazine_published)
     # Входящие IG DM marketing обрабатывает своим поллингом и публикует 'ig_dm_received'
     # (его слушает Степан). Подписки на несуществующее 'IG_MESSAGE_RECEIVED' больше нет.
     # B2B-лиды идут через TASK_CREATED(dept=sales), отдельного b2b_lead_created нет.
@@ -781,12 +812,38 @@ async def main():
 
     asyncio.create_task(followups_worker(bot))
 
+async def _pick_restaurant(params: dict) -> str:
+    """Выбор 'Ресторана недели' для журнала."""
+    try:
+        from sqlalchemy import text
+        from shared.database import get_session_ctx
+        async with get_session_ctx() as session:
+            # Ищем лучшие лиды с высоким рейтингом
+            res = await session.execute(text(
+                "SELECT name, review_score, review_summary "
+                "FROM customers "
+                "WHERE customer_type = 'b2b' AND review_score >= 4.5 "
+                "ORDER BY random() LIMIT 1"
+            ))
+            row = res.fetchone()
+            
+        if not row:
+            return "Не удалось найти подходящий ресторан в базе лидов."
+            
+        name, score, summary = row
+        return f"Ресторан недели: {name} (Рейтинг {score} ⭐)\n\nОтзывы:\n{summary}"
+    except Exception as e:
+        logging.error(f"Error picking restaurant: {e}")
+        return "Ошибка выбора ресторана"
+
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
+    from shared.event_bus import BotBusActions
     asyncio.create_task(bus_listen("marketing_bot", {
         "send_broadcast": bus_send_broadcast,
         "b2b_outreach": bus_b2b_outreach,
         "collect_leads": bus_collect_leads,
+        BotBusActions.PICK_RESTAURANT: _pick_restaurant,
     }))
 
     try:

@@ -713,6 +713,31 @@ async def bus_process_ig_order(params: dict) -> dict:
         return {"status": "error", "message": str(e)}
 
 
+async def _sell_magazine_ads(params: dict) -> list:
+    """Генерация рекламных блоков для журнала."""
+    # В реальной жизни бот бы связывался с клиентами из CRM. 
+    # Пока мы генерируем 1-2 рекламные вставки.
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        async with get_session_ctx() as session:
+            res = await session.execute(text(
+                "SELECT name_ru FROM products WHERE is_active = true ORDER BY random() LIMIT 2"
+            ))
+            products = [r[0] for r in res.fetchall()]
+            
+        ads = []
+        if products:
+            ads.append({
+                "type": "internal_promo",
+                "content": f"🌱 Специальное предложение: Скидка 15% на {products[0]} по промокоду FRESHWEEK!",
+                "cta_url": f"/catalog?search={products[0]}"
+            })
+        return ads
+    except Exception as e:
+        logger.error(f"Error generating ads: {e}")
+        return []
+
 async def handle_roll_call(payload: dict):
     from shared.roll_call import handle_roll_call as _shared_roll_call
     await _shared_roll_call("sales_bot", payload)
@@ -750,6 +775,7 @@ async def main():
 
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
+    from shared.event_bus import BotBusActions
     asyncio.create_task(bus_listen("sales_bot", {
         "get_orders": bus_get_orders,
         "get_clients": bus_get_clients,
@@ -757,6 +783,7 @@ async def main():
         "get_b2b_targets": bus_get_b2b_targets,  # кому сегодня готовить КП
         "register_sale": bus_register_sale,      # менеджер сообщил о продаже → заказ в CRM
         "add_product": bus_add_product,          # новый товар → каталог витрины + CRM
+        BotBusActions.SELL_MAGAZINE_ADS: _sell_magazine_ads,
     }))
 
     logger.info("Starting Sales Bot...")

@@ -2,43 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-
-/* ─────────────────────────────────────────────
-   FRESH WEEKLY — Цифровая версия журнала
-   Роут: microgreenuzbekistan.com/magazine
-   ───────────────────────────────────────────── */
-
-const ISSUES = [
-  {
-    id: 2,
-    title: 'Стрит-фуд, Пибимпаб и Азиатские тренды',
-    date: 'Декабрь 2023',
-    cover: '/magazine/cover_issue_02.png',
-    highlights: [
-      { icon: '🍜', label: 'Корейский стрит-фуд' },
-      { icon: '🥩', label: 'Пибимпаб с микрозеленью' },
-      { icon: '🌶', label: 'Острые азиатские вкусы' },
-      { icon: '🌱', label: 'Дайкон и кинза в деле' },
-    ],
-    pdfUrl: '/magazine/fresh_weekly_02.pdf',
-  },
-  {
-    id: 1,
-    title: 'Сладкое + Острое: новая эра вкуса',
-    date: 'Ноябрь 2023',
-    cover: '/magazine/cover-01.png',
-    highlights: [
-      { icon: '🍽', label: 'ORA — Ресторан недели' },
-      { icon: '🌍', label: 'Нон-кабоб: стрит-фуд мира' },
-      { icon: '🍰', label: 'Чизкейк «Цветочный сад»' },
-      { icon: '🎨', label: 'Hot Honey: мёд + чили' },
-    ],
-    pdfUrl: '/magazine/fresh_weekly_01.pdf',
-  },
-];
+import { ISSUES } from '@/lib/magazine';
 
 export default function MagazinePage() {
-  const [hoveredIssue, setHoveredIssue] = useState<number | null>(null);
   const latestIssue = ISSUES[0];
 
   return (
@@ -52,178 +18,220 @@ export default function MagazinePage() {
       <section style={{
         position: 'relative',
         overflow: 'hidden',
-        padding: '80px 20px 60px',
+        padding: '100px 20px 80px',
         textAlign: 'center',
-        background: 'linear-gradient(180deg, #0a1a0f 0%, #0B0B14 100%)',
+        background: 'var(--bg-mesh)',
+        borderBottom: '1px solid var(--border)',
       }}>
-        {/* Decorative glow */}
-        <div style={{
-          position: 'absolute', top: '-30%', left: '50%', transform: 'translateX(-50%)',
-          width: '600px', height: '600px',
-          background: 'radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-
         <p style={{
           fontSize: '12px', fontWeight: 700, letterSpacing: '3px',
-          color: 'var(--brand-primary, #10B981)', textTransform: 'uppercase',
-          marginBottom: '12px',
+          color: 'var(--brand-primary)', textTransform: 'uppercase',
+          marginBottom: '16px',
         }}>
           MICROGREEN UZBEKISTAN ПРЕДСТАВЛЯЕТ
         </p>
 
         <h1 style={{
-          fontFamily: "'Outfit', 'Inter', sans-serif",
-          fontSize: 'clamp(36px, 6vw, 56px)', fontWeight: 800,
-          lineHeight: 1.1, marginBottom: '16px',
-          background: 'linear-gradient(135deg, #4ade80, #10B981, #059669)',
-          WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          fontFamily: "'Playfair Display', serif",
+          fontSize: 'clamp(48px, 8vw, 84px)', fontWeight: 900,
+          lineHeight: 1.05, marginBottom: '24px',
+          color: 'var(--text-primary)',
+          letterSpacing: '-1px',
         }}>
           FRESH WEEKLY
         </h1>
 
         <p style={{
-          fontSize: '16px', color: 'rgba(255,255,255,0.6)',
-          maxWidth: '500px', margin: '0 auto 32px', lineHeight: 1.6,
+          fontSize: '18px', color: 'var(--text-secondary)',
+          maxWidth: '560px', margin: '0 auto 40px', lineHeight: 1.6,
+          fontWeight: 500,
         }}>
-          Еженедельный журнал о ресторанах, стрит-фуде, рецептах,
-          здоровье и технологиях. С дополненной реальностью.
+          Гурманский лайфстайл, сити-фермерство и ресторанные тренды. 
+          Первый AgroTech журнал в Узбекистане с дополненной реальностью.
         </p>
 
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <a href="#latest" style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '14px 28px', borderRadius: '12px',
-            background: 'var(--brand-primary, #10B981)', color: '#fff',
+            padding: '16px 32px', borderRadius: '30px',
+            background: 'var(--brand-primary)', color: '#fff',
             fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-            boxShadow: '0 4px 20px rgba(16,185,129,0.3)',
-            transition: 'transform 0.2s, box-shadow 0.2s',
+            boxShadow: '0 8px 24px rgba(16,185,129,0.4)',
+            transition: 'transform 0.3s, box-shadow 0.3s',
           }}>
-            📖 Читать выпуск №1
+            Читать Выпуск №{latestIssue.id}
           </a>
           <Link href="/magazine/ar" style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '14px 28px', borderRadius: '12px',
-            background: 'rgba(255,255,255,0.08)', color: '#fff',
+            padding: '16px 32px', borderRadius: '30px',
+            background: 'rgba(255,255,255,0.05)', color: 'var(--text-primary)',
             fontWeight: 600, fontSize: '15px', textDecoration: 'none',
-            border: '1px solid rgba(255,255,255,0.12)',
-            transition: 'transform 0.2s, background 0.2s',
+            border: '1px solid var(--border)',
+            backdropFilter: 'blur(10px)',
+            transition: 'transform 0.3s, background 0.3s',
           }}>
             📸 AR-Магия
           </Link>
         </div>
       </section>
 
-      {/* ═══════ LATEST ISSUE ═══════ */}
+      {/* ═══════ LATEST ISSUE (BENTO GRID) ═══════ */}
       <section id="latest" style={{
-        maxWidth: '900px', margin: '0 auto', padding: '40px 20px 80px',
+        maxWidth: '1200px', margin: '0 auto', padding: '60px 20px 80px',
       }}>
-        <h2 style={{
-          fontFamily: "'Outfit', sans-serif", fontSize: '28px', fontWeight: 700,
-          marginBottom: '8px',
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '32px'
         }}>
-          📰 Последний выпуск
-        </h2>
-        <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: '32px' }}>
-          {latestIssue.date} • Выпуск №{latestIssue.id}
-        </p>
-
-        {/* Issue card */}
-        <div
-          onMouseEnter={() => setHoveredIssue(latestIssue.id)}
-          onMouseLeave={() => setHoveredIssue(null)}
-          style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px',
-            background: 'rgba(255,255,255,0.04)',
-            border: `1px solid ${hoveredIssue === latestIssue.id ? 'rgba(16,185,129,0.4)' : 'rgba(255,255,255,0.08)'}`,
-            borderRadius: '20px', padding: '32px',
-            transition: 'border-color 0.3s, box-shadow 0.3s',
-            boxShadow: hoveredIssue === latestIssue.id ? '0 8px 40px rgba(16,185,129,0.1)' : 'none',
-          }}
-        >
-          {/* Cover placeholder */}
-          <div style={{
-            aspectRatio: '148 / 210', borderRadius: '12px', overflow: 'hidden',
-            background: 'linear-gradient(135deg, #1a3a1a, #0a2a0a)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            border: '1px solid rgba(74,222,128,0.2)',
-            position: 'relative',
-          }}>
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0,
-              padding: '12px', background: 'rgba(0,0,0,0.5)',
-              fontSize: '10px', fontWeight: 700, color: '#4ade80',
-              letterSpacing: '2px', textAlign: 'center',
+          <div>
+            <h2 style={{
+              fontFamily: "'Playfair Display', serif", fontSize: '36px', fontWeight: 800,
+              color: 'var(--text-primary)', marginBottom: '8px',
             }}>
-              FRESH WEEKLY
-            </div>
-            <span style={{ fontSize: '48px', marginBottom: '8px' }}>🔥</span>
-            <p style={{
-              fontFamily: "'Outfit', sans-serif", fontSize: '16px', fontWeight: 700,
-              color: '#fff', textAlign: 'center', padding: '0 16px', lineHeight: 1.3,
-            }}>
-              {latestIssue.title}
-            </p>
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>
-              №{latestIssue.id} • {latestIssue.date}
+              Свежий Выпуск
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>
+              {latestIssue.date} • Выпуск №{latestIssue.id}
             </p>
           </div>
+        </div>
 
-          {/* Content highlights */}
-          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h3 style={{
-              fontSize: '22px', fontWeight: 700, marginBottom: '20px',
-              fontFamily: "'Outfit', sans-serif",
+        {/* BENTO GRID */}
+        <div style={{
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
+          gap: '24px',
+          gridAutoRows: 'minmax(250px, auto)'
+        }}>
+          
+          {/* Bento Item 1: The Cover (Large) */}
+          <Link href={`/magazine/${latestIssue.id}`} style={{
+            gridColumn: '1 / -1',
+            gridRow: 'span 2',
+            textDecoration: 'none',
+            borderRadius: '24px', overflow: 'hidden',
+            background: 'linear-gradient(135deg, #1a3a1a, #0a2a0a)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            position: 'relative',
+            minHeight: '400px',
+            border: '1px solid var(--border)',
+            transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+            boxShadow: 'var(--shadow-xl)',
+          }}>
+            <div style={{
+              position: 'absolute', top: '24px', left: '24px',
+              padding: '8px 16px', background: 'rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(12px)', borderRadius: '20px',
+              fontSize: '12px', fontWeight: 700, color: '#fff',
+              letterSpacing: '2px', textTransform: 'uppercase'
             }}>
-              В этом выпуске:
+              Главная тема
+            </div>
+            <span style={{ fontSize: '64px', marginBottom: '24px' }}>🔥</span>
+            <h3 style={{
+              fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 800,
+              color: '#fff', textAlign: 'center', padding: '0 24px', lineHeight: 1.1, maxWidth: '800px'
+            }}>
+              {latestIssue.title}
             </h3>
+            <div style={{
+              marginTop: '32px',
+              padding: '12px 24px',
+              background: 'var(--brand-primary)',
+              borderRadius: '24px',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '14px',
+              display: 'flex', alignItems: 'center', gap: '8px'
+            }}>
+              Читать статью <span style={{ fontSize: '18px' }}>→</span>
+            </div>
+          </Link>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '28px' }}>
-              {latestIssue.highlights.map((h, i) => (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: '12px',
-                  padding: '10px 14px', borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  transition: 'background 0.2s',
-                }}>
-                  <span style={{ fontSize: '20px' }}>{h.icon}</span>
-                  <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>{h.label}</span>
+          {/* Bento Item 2: Highlights/Quote */}
+          <div style={{
+            background: 'var(--bg-elevated)', borderRadius: '24px', padding: '32px',
+            border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+          }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--brand-primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5, marginBottom: '16px' }}>
+              <path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"/>
+              <path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"/>
+            </svg>
+            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: '20px', lineHeight: 1.5, color: 'var(--text-primary)', fontStyle: 'italic', marginBottom: '24px' }}>
+              "Здоровье начинается с того, что мы едим каждый день. Микрозелень — это концентрат энергии."
+            </p>
+            <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Из редакции
+            </div>
+          </div>
+
+          {/* Bento Item 3: AR Teaser */}
+          <Link href="/magazine/ar" style={{
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(0,0,0,0))',
+            borderRadius: '24px', padding: '32px', border: '1px solid var(--border)',
+            textDecoration: 'none', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+          }}>
+             <div style={{ fontSize: '48px', marginBottom: '16px', animation: 'float-orb 4s ease-in-out infinite' }}>📸</div>
+             <h4 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>AR-Опыт</h4>
+             <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center' }}>Оживи 3D персонажей</p>
+          </Link>
+
+          {/* Bento Item 4: Content List */}
+          <div style={{
+            background: 'var(--bg-elevated)', borderRadius: '24px', padding: '32px',
+            border: '1px solid var(--border)', gridColumn: '1 / -1'
+          }}>
+            <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '24px' }}>В Этом Выпуске</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+              {latestIssue.highlights && latestIssue.highlights.map((item: any, i: number) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <span style={{ fontSize: '24px' }}>{item.icon}</span>
+                  <div>
+                    <h5 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{item.label}</h5>
+                  </div>
                 </div>
               ))}
             </div>
-
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <a href="/content/fresh_weekly_issue_01.html" target="_blank" style={{
-                padding: '12px 20px', borderRadius: '10px',
-                background: 'var(--brand-primary, #10B981)', color: '#fff',
-                fontWeight: 700, fontSize: '14px', textDecoration: 'none',
-                transition: 'transform 0.2s',
-              }}>
-                📖 Читать онлайн
-              </a>
-              <button
-                onClick={() => window.print()}
-                style={{
-                  padding: '12px 20px', borderRadius: '10px',
-                  background: 'rgba(255,255,255,0.08)', color: '#fff',
-                  fontWeight: 600, fontSize: '14px', border: '1px solid rgba(255,255,255,0.12)',
-                  cursor: 'pointer', transition: 'background 0.2s',
-                }}
-              >
-                🖨 Печать PDF
-              </button>
-              <Link href="/magazine/ar" style={{
-                padding: '12px 20px', borderRadius: '10px',
-                background: 'rgba(74,222,128,0.1)', color: '#4ade80',
-                fontWeight: 600, fontSize: '14px', textDecoration: 'none',
-                border: '1px solid rgba(74,222,128,0.2)',
-                transition: 'background 0.2s',
-              }}>
-                ✨ AR-Магия
-              </Link>
-            </div>
           </div>
+        </div>
+      </section>
+
+      {/* ═══════ PAST ISSUES CAROUSEL ═══════ */}
+      <section style={{ padding: '0 20px 80px', maxWidth: '1200px', margin: '0 auto' }}>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '28px', fontWeight: 800, marginBottom: '32px', color: 'var(--text-primary)' }}>
+          Архив
+        </h2>
+        <div style={{
+          display: 'flex', gap: '24px', overflowX: 'auto', paddingBottom: '24px', scrollbarWidth: 'none',
+          WebkitOverflowScrolling: 'touch'
+        }}>
+          {ISSUES.slice(1).map(issue => (
+            <Link key={issue.id} href={`/magazine/${issue.id}`} style={{
+              flex: '0 0 300px', textDecoration: 'none',
+              background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+              borderRadius: '20px', overflow: 'hidden', transition: 'transform 0.3s'
+            }}>
+              <div style={{
+                height: '160px', background: 'linear-gradient(135deg, #2d3748, #1a202c)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px'
+              }}>
+                📖
+              </div>
+              <div style={{ padding: '24px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--brand-primary)', fontWeight: 700, marginBottom: '8px' }}>
+                  №{issue.id} • {issue.date}
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '12px', lineHeight: 1.3 }}>
+                  {issue.title}
+                </h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{issue.highlights.map(h => h.label).join(', ')}</p>
+              </div>
+            </Link>
+          ))}
+          {ISSUES.length === 1 && (
+            <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Архив пока пуст. Следующий выпуск выйдет скоро!
+            </div>
+          )}
         </div>
       </section>
 
@@ -235,94 +243,35 @@ export default function MagazinePage() {
         <div style={{
           background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(74,222,128,0.05))',
           border: '1px solid rgba(16,185,129,0.2)',
-          borderRadius: '20px', padding: '40px 32px',
+          borderRadius: '24px', padding: '40px 32px',
         }}>
           <h3 style={{
-            fontFamily: "'Outfit', sans-serif",
-            fontSize: '24px', fontWeight: 700, marginBottom: '12px',
+            fontFamily: "'Playfair Display', serif",
+            fontSize: '28px', fontWeight: 700, marginBottom: '16px', color: 'var(--text-primary)'
           }}>
-            🖨 Хотите бумажную версию?
+            Хотите бумажную версию?
           </h3>
           <p style={{
-            fontSize: '15px', color: 'rgba(255,255,255,0.6)',
+            fontSize: '15px', color: 'var(--text-secondary)',
             lineHeight: 1.6, marginBottom: '24px', maxWidth: '450px', margin: '0 auto 24px',
           }}>
-            Печатная версия — только у нас. Премиум-печать на плотной бумаге, 12 страниц A5.
+            Премиум-печать на плотной бумаге, 12 страниц A5.
             Закажите через Telegram и получите с доставкой.
           </p>
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <div style={{
-              padding: '10px 20px', borderRadius: '10px',
-              background: 'rgba(255,255,255,0.06)',
-              fontSize: '14px', color: 'rgba(255,255,255,0.8)',
-            }}>
-              💰 15,000 сум / выпуск
-            </div>
-            <div style={{
-              padding: '10px 20px', borderRadius: '10px',
-              background: 'rgba(255,255,255,0.06)',
-              fontSize: '14px', color: 'rgba(255,255,255,0.8)',
-            }}>
-              📦 50,000 сум / мес (4 выпуска)
-            </div>
-          </div>
           <a
             href="https://t.me/fresh_weekly_uz"
             target="_blank"
             rel="noopener noreferrer"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              marginTop: '24px', padding: '14px 28px', borderRadius: '12px',
+              padding: '16px 32px', borderRadius: '30px',
               background: '#229ED9', color: '#fff',
               fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-              boxShadow: '0 4px 15px rgba(34,158,217,0.3)',
+              boxShadow: '0 8px 24px rgba(34,158,217,0.3)',
             }}
           >
             📲 Заказать в Telegram
           </a>
-        </div>
-      </section>
-
-      {/* ═══════ AR PROMO ═══════ */}
-      <section style={{
-        maxWidth: '700px', margin: '0 auto', padding: '0 20px 80px',
-        textAlign: 'center',
-      }}>
-        <div style={{
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: '20px', padding: '40px 32px',
-          position: 'relative', overflow: 'hidden',
-        }}>
-          <div style={{
-            position: 'absolute', top: '-50%', right: '-30%',
-            width: '300px', height: '300px',
-            background: 'radial-gradient(circle, rgba(250,204,21,0.08) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }} />
-          <h3 style={{
-            fontFamily: "'Outfit', sans-serif",
-            fontSize: '24px', fontWeight: 700, marginBottom: '12px',
-          }}>
-            ✨ Дополненная реальность
-          </h3>
-          <p style={{
-            fontSize: '15px', color: 'rgba(255,255,255,0.6)',
-            lineHeight: 1.6, maxWidth: '450px', margin: '0 auto 24px',
-          }}>
-            Наведите камеру телефона на карточку персонажа в печатном журнале —
-            и он оживёт прямо на бумаге! Никаких приложений — всё работает в браузере.
-          </p>
-          <Link href="/magazine/ar" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '14px 28px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #4ade80, #10B981)',
-            color: '#fff', fontWeight: 700, fontSize: '15px',
-            textDecoration: 'none',
-            boxShadow: '0 4px 20px rgba(74,222,128,0.3)',
-          }}>
-            📸 Попробовать AR-сканер
-          </Link>
         </div>
       </section>
     </div>

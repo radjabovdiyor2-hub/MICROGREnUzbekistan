@@ -39,10 +39,10 @@ The project is a working AgroTech ecosystem with:
 
 | Task | Priority |
 |------|----------|
-| Telegram channel auto-posting (weekly rubrics) | High |
-| Issue №2 (Korean cuisine theme) | High |
-| Landing page for magazine (SEO) | Medium |
-| AR with real 3D models (.glb) instead of planes | Medium |
+| Telegram channel auto-posting (weekly rubrics) | ✅ Done |
+| Issue №2 (Korean cuisine theme) | ✅ Done |
+| Landing page for magazine (SEO) | ✅ Done |
+| AR with real 3D models (.glb) instead of planes | ✅ Done |
 | Weekly email digest | Low |
 | WhatsApp bot integration | Low |
 
@@ -59,6 +59,8 @@ The project is a working AgroTech ecosystem with:
 
 ## Priorities (RIGHT NOW)
 
-1. Landing page for magazine (SEO)
-2. AR with real 3D models (.glb) instead of planes
-3. Telegram channel auto-posting (weekly rubrics)
+## Priorities (RIGHT NOW)
+
+1. Franchise module (white-label for other farms) - ✅ Done
+2. Telegram channel auto-posting - ✅ Done
+3. AR with real 3D models - ✅ Done

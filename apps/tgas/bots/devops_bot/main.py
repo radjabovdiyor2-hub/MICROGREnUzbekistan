@@ -107,6 +107,84 @@ async def handle_task_created(payload: dict):
         "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{status_msg}"
     }, "devops_bot")
 
+async def _publish_magazine(params: dict) -> dict:
+    """Модифицирует код сайта, выполняет билд и публикует выпуск."""
+    try:
+        content_data = params.get("content", {})
+        ads_data = params.get("ads", [])
+        
+        # 1. Читаем текущий lib/magazine.ts
+        import os
+        import json
+        
+        # Переходим к корню репозитория
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
+        lib_path = os.path.join(repo_root, "apps", "web", "src", "lib", "magazine.ts")
+        
+        with open(lib_path, "r", encoding="utf-8") as f:
+            content = f.read()
+            
+        # Находим текущий максимальный ID (простой парсинг)
+        import re
+        ids = [int(x) for x in re.findall(r'id:\s*(\d+)', content)]
+        new_id = max(ids) + 1 if ids else 1
+        
+        new_issue_title = content_data.get("title", f"Выпуск {new_id}")
+        
+        # Превращаем статьи и хайлайты в HTML
+        articles = content_data.get("content", [])
+        articles_html = "".join([f"<h2>{a.get('title', '')}</h2><p>{a.get('text', '')}</p>" for a in articles])
+        
+        if ads_data:
+            articles_html += f"<h2>Спонсоры Выпуска</h2><div class='ads'>{ads_data[0].get('content', '')}</div>"
+            
+        cover_url = content_data.get("cover_image_url", "/images/magazine_cover_default.jpg")
+        
+        # Формируем новую запись
+        new_entry = f"""
+  {{
+    id: {new_id},
+    title: {repr(new_issue_title)},
+    date: new Date().toISOString().split('T')[0],
+    cover: {repr(cover_url)},
+    highlights: {json.dumps(content_data.get("highlights", []), ensure_ascii=False)},
+    contentHtml: {repr(articles_html)},
+    arEnabled: true
+  }},
+"""
+        
+        # Вставляем перед закрывающей скобкой массива
+        idx = content.rfind("];")
+        if idx != -1:
+            new_content = content[:idx] + new_entry + content[idx:]
+            with open(lib_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+                
+        # 2. Выполняем сборку
+        logger.info("Running npm run build for web...")
+        web_dir = os.path.join(repo_root, "apps", "web")
+        
+        process = await asyncio.create_subprocess_shell(
+            'cmd.exe /c "npm run build"',
+            cwd=web_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await process.communicate()
+        
+        if process.returncode != 0:
+            logger.error(f"Build failed: {stderr.decode('utf-8', errors='ignore')}")
+            return {"status": "error", "message": "Сборка упала", "issue_id": new_id}
+            
+        return {
+            "status": "done",
+            "issue_id": new_id,
+            "url": f"https://microgreenuzbekistan.com/magazine/{new_id}"
+        }
+    except Exception as e:
+        logger.error(f"Error publishing magazine: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
 async def main():
     logger.info("Starting DevOps Bot Microservice...")
     await event_bus.connect()
@@ -115,6 +193,13 @@ async def main():
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)
     await event_bus.start_listening(8092, app)
+    
+    # ── Bot Bus: слушаем задачи от Степана ──
+    from shared.bot_bus import start_listener as bus_listen
+    from shared.event_bus import BotBusActions
+    asyncio.create_task(bus_listen("devops_bot", {
+        BotBusActions.PUBLISH_MAGAZINE: _publish_magazine,
+    }))
     
     logger.info("DevOps Bot running on port 8092")
     

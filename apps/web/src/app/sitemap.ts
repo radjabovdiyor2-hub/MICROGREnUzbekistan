@@ -36,7 +36,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly',
       priority: 0.4,
     },
+    {
+      url: `${BASE}/magazine`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
   ];
+
+  // Magazine pages — high priority for SEO
+  const { ISSUES } = await import('@/lib/magazine');
+  const magazinePages: MetadataRoute.Sitemap = ISSUES.map(issue => ({
+    url: `${BASE}/magazine/${issue.id}`,
+    lastModified: new Date(), // We don't have updatedAt for static issues, so use current
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
+  }));
 
   // Category pages — high priority for SEO
   const categories = [
@@ -69,5 +84,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Database not available — skip dynamic pages
   }
 
-  return [...staticPages, ...categoryPages, ...productPages];
+  return [...staticPages, ...magazinePages, ...categoryPages, ...productPages];
 }

@@ -164,7 +164,19 @@ async def auto_publish_to_channel():
             temperature=0.8
         )
         
-        await _bot.send_message(channel_id, post_text, parse_mode="HTML")
+        image_prompt = (
+            f"Фотография для Telegram канала про микрозелень. "
+            f"Тема: {pillar['name']}. Стиль: свежий, экологичный, аппетитный, зеленые и золотые тона."
+        )
+        image_url = await ai.generate_image(image_prompt)
+        
+        if image_url:
+            from aiogram.types import URLInputFile
+            photo = URLInputFile(image_url)
+            await _bot.send_photo(channel_id, photo=photo, caption=post_text, parse_mode="HTML")
+        else:
+            await _bot.send_message(channel_id, post_text, parse_mode="HTML")
+            
         logging.info("auto_publish_to_channel: пост успешно отправлен в канал.")
     except Exception as e:
         logging.error(f"auto_publish_to_channel error: {e}", exc_info=True)
@@ -798,6 +810,32 @@ scheduler.add_cron(name="weekly_content_plan", func=weekly_content_plan, hour=20
 scheduler.add_interval(seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check)
 # afternoon_post (дневной сторис-отзыв) отключён по решению — функция оставлена, но не в расписании
 scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
+
+async def daily_magazine_rubric():
+    """Ежедневная нарезка журнала в Telegram-канал."""
+    try:
+        from shared.event_bus import event_bus
+        admin_id = settings.admin_telegram_ids[0]
+        
+        post_text = (
+            f"📰 <b>Рубрика дня из FRESH WEEKLY</b>\n\n"
+            f"✨ Факт дня: Пибимпаб с микрозеленью — это не только вкусно, но и полезно для пищеварения!\n"
+            f"Добавьте ростки дайкона для пикантности.\n\n"
+            f"👉 Читайте полную статью: <a href='https://microgreenuzbekistan.com/magazine/2'>FRESH WEEKLY #2</a>"
+        )
+        
+        if _bot:
+            await _bot.send_message(admin_id, post_text, parse_mode="HTML")
+            
+        await event_bus.publish("MAGAZINE_PUBLISHED", {
+            "rubric": "daily_highlight",
+            "issue_id": 2
+        }, "content_bot")
+        
+    except Exception as e:
+        logging.error(f"daily_magazine_rubric error: {e}", exc_info=True)
+
+scheduler.add_cron(name="daily_magazine_rubric", func=daily_magazine_rubric, hour=16, minute=0)
 # Reels — 3×/неделю (Пн/Ср/Пт, 19:00): главный двигатель органического охвата
 scheduler.add_cron(name="reel_post_mon", func=reel_post, hour=19, minute=0, day_of_week=0)
 scheduler.add_cron(name="reel_post_wed", func=reel_post, hour=19, minute=0, day_of_week=2)
@@ -1232,8 +1270,66 @@ async def main():
     event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8089)
 
+async def _draft_magazine(params: dict) -> dict:
+    """Генерация текстового и визуального контента выпуска журнала."""
+    try:
+        from shared.ai_engine import AIEngine
+        ai = AIEngine()
+        
+        facts = params.get("facts", "Нет фактов")
+        products = params.get("products", "Нет продуктов")
+        restaurant = params.get("restaurant", "Нет ресторана")
+        
+        prompt = (
+            "Сформируй контент для нового выпуска журнала FRESH WEEKLY.\n"
+            f"Факты и рецепт от агронома: {facts}\n"
+            f"Топ продаж недели: {products}\n"
+            f"Ресторан недели: {restaurant}\n\n"
+            "Выдай JSON-объект с полями:\n"
+            "- 'title': Креативный заголовок выпуска\n"
+            "- 'content': Массив статей (объектов { 'title': '...', 'text': '...' }). Напиши 3 статьи на основе переданных данных.\n"
+            "- 'highlights': Массив из 2-3 коротких фраз (буллеты)\n"
+        )
+        
+        # Получаем JSON от AI
+        import json
+        import re
+        
+        response = await ai.chat_completion(
+            system_prompt="Ты главный редактор журнала о микрозелени. Отвечай только валидным JSON.",
+            user_message=prompt,
+        )
+        
+        # Парсинг JSON из ответа
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if json_match:
+            issue_data = json.loads(json_match.group(0))
+        else:
+            issue_data = {
+                "title": "Fresh Weekly: Новый выпуск",
+                "content": [{"title": "Обзор", "text": response}],
+                "highlights": ["Свежие новости фермы"]
+            }
+            
+        # Генерация обложки
+        from shared.brand import BRAND_IMAGE_STYLE
+        image_prompt = f"Magazine cover layout, modern minimalist design, fresh microgreens, vibrant, high quality, highly detailed, {BRAND_IMAGE_STYLE}"
+        try:
+            image_url = await ai.generate_image(image_prompt)
+            issue_data["cover_image_url"] = image_url
+        except Exception as e:
+            logger.error(f"Failed to generate cover: {e}")
+            issue_data["cover_image_url"] = ""
+            
+        return issue_data
+        
+    except Exception as e:
+        logger.error(f"Error drafting magazine: {e}")
+        return {"error": str(e)}
+
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
+    from shared.event_bus import BotBusActions
     asyncio.create_task(bus_listen("content_bot", {
         "publish_story": bus_publish_story,
         "publish_post": bus_publish_story,  # same handler, posts to Stories
@@ -1241,6 +1337,7 @@ async def main():
         "get_status": bus_get_status,
         "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
         "product_description": bus_product_description,  # текст карточки нового товара
+        BotBusActions.DRAFT_MAGAZINE: _draft_magazine,
     }))
 
     # ── Запуск планировщика и heartbeat ──

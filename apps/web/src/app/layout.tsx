@@ -10,6 +10,7 @@ import { PwaRegister } from '@/components/providers/PwaRegister';
 import { ReferralCapture } from '@/components/providers/ReferralCapture';
 import { TelegramInit } from '@/components/providers/TelegramInit';
 import { Analytics } from '@/components/providers/Analytics';
+import { CityProvider } from '@/components/providers/CityProvider';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -393,22 +394,24 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <LangProvider>
-            <CartProvider>
-              <FavoritesProvider>
-                <AuthProvider>
-                  <AppShell>
-                    {children}
-                  </AppShell>
-                  <PwaRegister />
-                  <ReferralCapture />
-                  <TelegramInit />
-                  <Analytics
-                    ymId={process.env.NEXT_PUBLIC_YM_ID || process.env.YM_ID}
-                    gaId={process.env.NEXT_PUBLIC_GA_ID || process.env.GA_ID}
-                  />
-                </AuthProvider>
-              </FavoritesProvider>
-            </CartProvider>
+            <CityProvider>
+              <CartProvider>
+                <FavoritesProvider>
+                  <AuthProvider>
+                    <AppShell>
+                      {children}
+                    </AppShell>
+                    <PwaRegister />
+                    <ReferralCapture />
+                    <TelegramInit />
+                    <Analytics
+                      ymId={process.env.NEXT_PUBLIC_YM_ID || process.env.YM_ID}
+                      gaId={process.env.NEXT_PUBLIC_GA_ID || process.env.GA_ID}
+                    />
+                  </AuthProvider>
+                </FavoritesProvider>
+              </CartProvider>
+            </CityProvider>
           </LangProvider>
         </ThemeProvider>
       </body>

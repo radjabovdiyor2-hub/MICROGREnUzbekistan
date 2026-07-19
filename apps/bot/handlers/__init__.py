@@ -6,3 +6,4 @@ from . import orders
 from . import admin
 from . import unified
 from . import group
+from . import magazine

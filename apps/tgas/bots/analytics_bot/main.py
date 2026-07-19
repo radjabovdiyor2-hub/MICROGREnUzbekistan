@@ -516,11 +516,37 @@ async def main():
     await scheduler.start()
     asyncio.create_task(start_heartbeat("analytics_bot"))
 
+async def _get_top_products(params: dict) -> str:
+    """Возвращает хиты продаж для журнала."""
+    try:
+        from sqlalchemy import text
+        async with get_session_ctx() as session:
+            res = await session.execute(text(
+                "SELECT p.name_ru, SUM(oi.quantity) AS qty "
+                "FROM order_items oi "
+                "JOIN products p ON oi.product_id = p.id "
+                "JOIN orders o ON oi.order_id = o.id "
+                "WHERE o.created_at >= CURRENT_DATE - INTERVAL '7 days' "
+                "GROUP BY p.name_ru ORDER BY qty DESC LIMIT 3"
+            ))
+            top = res.fetchall()
+            
+        if not top:
+            return "Нет данных по продажам за 7 дней."
+            
+        report = "🔥 Хиты продаж этой недели:\n" + "\n".join([f"• {name} ({qty} шт)" for name, qty in top])
+        return report
+    except Exception as e:
+        logger.error(f"Error in _get_top_products: {e}")
+        return "Ошибка аналитики"
+
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
+    from shared.event_bus import BotBusActions
     asyncio.create_task(bus_listen("analytics_bot", {
         "get_report": bus_get_report,
         "get_instagram_stats": bus_get_instagram_stats,
+        BotBusActions.GET_TOP_PRODUCTS: _get_top_products,
     }))
 
     try:

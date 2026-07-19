@@ -7,6 +7,7 @@ import * as Icons from '@/components/ui/Icons';
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { useCity } from '@/components/providers/CityProvider';
 import dynamic from 'next/dynamic';
 import { DELIVERY, freeDeliveryRemaining } from '@/lib/site';
 import { type CartProduct } from '@/components/providers/CartProvider';
@@ -36,6 +37,7 @@ interface RecoProduct {
 export default function CartPage() {
   const { t } = useLang();
   const cart = useCart();
+  const { city } = useCity();
   const [step, setStep] = useState<Step>('cart');
   const [orderNumber, setOrderNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -138,6 +140,7 @@ export default function CartPage() {
             address: form.address,
             note: form.note,
           },
+          city: city,
           items: cart.items.map(i => ({
             productId: i.product.id,
             price: i.product.price,
