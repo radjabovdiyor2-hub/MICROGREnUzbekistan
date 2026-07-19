@@ -72,13 +72,24 @@ async def complaint_text(msg: Message, state: FSMContext):
     await msg.answer("✅ Жалоба принята! Мы разберёмся в ближайшее время.", reply_markup=sup_menu_kb())
 
 from shared.config import settings
-from openai import AsyncOpenAI
 
-openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+# OpenAI embeddings для vector search в базе знаний
+# (Gemini embedding имеет другой формат, оставляем OpenAI для этой задачи)
+_openai_embeddings_client = None
+
+def _get_embeddings_client():
+    global _openai_embeddings_client
+    if _openai_embeddings_client is None and settings.openai_api_key:
+        from openai import AsyncOpenAI
+        _openai_embeddings_client = AsyncOpenAI(api_key=settings.openai_api_key)
+    return _openai_embeddings_client
 
 async def search_knowledge(query: str, limit: int = 2) -> str:
     try:
-        response = await openai_client.embeddings.create(input=query, model="text-embedding-3-small")
+        client = _get_embeddings_client()
+        if not client:
+            return ""
+        response = await client.embeddings.create(input=query, model="text-embedding-3-small")
         emb = response.data[0].embedding
         
         async with get_session_ctx() as session:

@@ -3,12 +3,12 @@ import logging
 from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
-from openai import AsyncOpenAI
+from shared.ai_engine import AIEngine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] QA_BOT: %(message)s")
 logger = logging.getLogger(__name__)
 
-openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+ai = AIEngine()
 
 async def handle_n8n_webhook(request: web.Request):
     """Webhook from n8n for QA tasks"""
@@ -45,21 +45,13 @@ async def handle_n8n_webhook(request: web.Request):
                  prompt_text += " Изображение прошло предобработку с помощью OpenCV."
 
             try:
-                response = await openai_client.chat.completions.create(
-                    model="gpt-4o",
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt_text},
-                                {"type": "image_url", "image_url": {"url": image_url}},
-                            ],
-                        }
-                    ],
+                analysis = await ai.chat_completion(
+                    system_prompt="Ты инженер QA на ферме микрозелени.",
+                    user_message=prompt_text,
+                    image_base64=image_url if image_url.startswith("data:") else None,
                 )
-                analysis = response.choices[0].message.content
             except Exception as e:
-                logger.error(f"OpenAI error: {e}")
+                logger.error(f"AI error: {e}")
                 analysis = "ИИ-анализ временно недоступен. Пожалуйста, проверьте лоток вручную."
                 
             # Send result back to Степан via Event Bus
@@ -95,13 +87,12 @@ async def handle_task_created(payload: dict):
     )
     
     try:
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt_text}],
+        analysis = await ai.chat_completion(
+            system_prompt="Ты инженер QA на ферме микрозелени.",
+            user_message=prompt_text,
         )
-        analysis = response.choices[0].message.content
     except Exception as e:
-        logger.error(f"OpenAI error: {e}")
+        logger.error(f"AI error: {e}")
         analysis = "ИИ-анализ временно недоступен. Возникла ошибка."
         
     # Send result back to Степан via Event Bus

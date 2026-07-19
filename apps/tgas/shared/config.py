@@ -67,13 +67,22 @@ class Settings(BaseSettings):
         description="URL подключения к Redis (кэш, очереди, rate-limit)",
     )
 
-    # ── OpenAI ─────────────────────────────────────────────────────────
+    # ── OpenAI (image generation) ───────────────────────────────────────
     openai_api_key: str | None = Field(
-        default=None, description="API-ключ OpenAI"
+        default=None, description="API-ключ OpenAI (для генерации картинок)"
     )
     openai_model: str = Field(
         default="gpt-4o",
-        description="Модель OpenAI для генерации ответов",
+        description="Модель OpenAI (фоллбэк для текста, если Gemini недоступен)",
+    )
+
+    # ── Google Gemini (primary LLM) ───────────────────────────────────
+    gemini_api_key: str | None = Field(
+        default=None, description="API-ключ Google Gemini"
+    )
+    gemini_model: str = Field(
+        default="gemini-2.5-flash",
+        description="Модель Gemini для генерации ответов",
     )
 
     # ── Администраторы ─────────────────────────────────────────────────

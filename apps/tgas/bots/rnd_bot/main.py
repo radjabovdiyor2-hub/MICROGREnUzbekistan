@@ -4,12 +4,12 @@ from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
-from openai import AsyncOpenAI
+from shared.ai_engine import AIEngine
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] RND_BOT: %(message)s")
 logger = logging.getLogger(__name__)
 
-openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
+ai = AIEngine()
 scheduler = BotScheduler("rnd_bot")
 
 
@@ -43,12 +43,12 @@ async def generate_instagram_rnd_report() -> str:
         "Пиши кратко и по делу, на русском, с цифрами где есть."
     )
     try:
-        r = await openai_client.chat.completions.create(
-            model="gpt-4o", messages=[{"role": "user", "content": prompt}]
+        report = await ai.chat_completion(
+            system_prompt="Ты аналитик R&D сити-фермы микрозелени.",
+            user_message=prompt,
         )
-        report = r.choices[0].message.content
     except Exception as e:
-        logger.error(f"OpenAI error: {e}")
+        logger.error(f"AI error: {e}")
         report = "Не удалось сгенерировать R&D-отчёт из-за ошибки ИИ."
 
     if not stats.get("configured"):
@@ -100,13 +100,12 @@ async def handle_task_created(payload: dict):
     )
     
     try:
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt_text}],
+        report = await ai.chat_completion(
+            system_prompt="Ты аналитик R&D сити-фермы микрозелени.",
+            user_message=prompt_text,
         )
-        report = response.choices[0].message.content
     except Exception as e:
-        logger.error(f"OpenAI error: {e}")
+        logger.error(f"AI error: {e}")
         report = "Не удалось сгенерировать отчет R&D из-за ошибки ИИ."
         
     # Send result back via Event Bus to Stepan
