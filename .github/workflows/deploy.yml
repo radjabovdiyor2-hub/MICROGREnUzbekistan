@@ -45,7 +45,7 @@ jobs:
             docker ps -aq -f "name=mg_db_push" | xargs -r docker rm -f || true
             docker ps -aq -f "name=mg_db_seed" | xargs -r docker rm -f || true
             echo "🏗  ensure infra is up…"
-            docker compose -f docker-compose.prod.yml up -d postgres redis
+            docker compose -f docker-compose.prod.yml up -d --no-recreate postgres redis
             for i in $(seq 1 15); do
               docker compose -f docker-compose.prod.yml exec postgres \
                 pg_isready -U mg_user -d microgreen && break
