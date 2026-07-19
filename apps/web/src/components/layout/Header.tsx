@@ -132,6 +132,13 @@ export function Header() {
           }
         `}} />
 
+        {/* Desktop Navigation Links */}
+        <nav className="header__nav" id="desktop-nav">
+          <Link href="/catalog" className="header__nav-link">{t('nav.catalog')}</Link>
+          <Link href="/magazine" className="header__nav-link">Журнал</Link>
+          <Link href="/favorites" className="header__nav-link">{t('nav.favorites')}</Link>
+        </nav>
+
         {/* Actions */}
         <div className="header__actions">
           {/* Language Toggle */}
@@ -170,33 +177,6 @@ export function Header() {
             <Icons.User size={22} />
           </Link>
         </div>
-      </div>
-
-      {/* ═══════ MOBILE BOTTOM NAVIGATION ═══════ */}
-      <div className="mobile-nav">
-        <Link href="/" className="mobile-nav__item">
-          <Icons.Home size={24} />
-          <span>{t('nav.home')}</span>
-        </Link>
-        <Link href="/catalog" className="mobile-nav__item">
-          <Icons.Search size={24} />
-          <span>{t('nav.catalog')}</span>
-        </Link>
-        <Link href="/magazine" className="mobile-nav__item">
-          <Icons.BookOpen size={24} />
-          <span>Журнал</span>
-        </Link>
-        <Link href="/cart" className="mobile-nav__item mobile-nav__item--cart">
-          <Icons.ShoppingCart size={24} />
-          <span>{t('nav.cart')}</span>
-          {cart.totalItems > 0 && (
-            <span className="mobile-nav__badge">{cart.totalItems > 99 ? '99+' : cart.totalItems}</span>
-          )}
-        </Link>
-        <Link href="/profile" className="mobile-nav__item">
-          <Icons.User size={24} />
-          <span>{t('nav.profile')}</span>
-        </Link>
       </div>
     </header>
   );

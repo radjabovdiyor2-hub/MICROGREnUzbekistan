@@ -1510,6 +1510,37 @@ main {
   50% { box-shadow: 0 0 10px rgba(var(--brand-primary-rgb), 0.5); }
 }
 
+
+/* Header Desktop Nav Links */
+.header__nav {
+  display: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin: 0 var(--space-3);
+}
+
+@media (min-width: 769px) {
+  .header__nav {
+    display: flex;
+  }
+}
+
+.header__nav-link {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.header__nav-link:hover {
+  color: var(--brand-primary);
+  background: var(--bg-tertiary);
+}
+
 /* Header Actions (consolidated) */
 .header__actions {
   display: flex;
@@ -1872,96 +1903,6 @@ main {
   width: 18px;
   height: 18px;
 }
-
-/* ============================================
-   MOBILE BOTTOM NAVIGATION (App-like feel)
-   ============================================ */
-.mobile-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 64px;
-  background: var(--header-bg);
-  backdrop-filter: blur(var(--header-blur));
-  -webkit-backdrop-filter: blur(var(--header-blur));
-  border-top: 1px solid var(--border);
-  z-index: 1000;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.mobile-nav__item {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  text-decoration: none;
-  gap: 4px;
-  position: relative;
-  transition: color 0.2s;
-}
-
-.mobile-nav__item:hover,
-.mobile-nav__item:active {
-  color: var(--brand-primary);
-}
-
-.mobile-nav__item span {
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.mobile-nav__item--cart {
-  position: relative;
-}
-
-.mobile-nav__badge {
-  position: absolute;
-  top: 6px;
-  right: 50%;
-  margin-right: -16px;
-  background: var(--error);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 5px;
-  border-radius: 10px;
-  min-width: 18px;
-  text-align: center;
-  border: 2px solid var(--bg-card);
-}
-
-@media (max-width: 768px) {
-  .mobile-nav {
-    display: flex;
-  }
-  
-  /* Make room for bottom nav */
-  body {
-    padding-bottom: calc(64px + env(safe-area-inset-bottom));
-  }
-  
-  /* Hide standard header actions on mobile to unclutter */
-  .header__actions {
-    display: none;
-  }
-}
-
-  /* Profile btn hidden on mobile — accessible via bottom nav */
-  #profile-btn {
-    display: none;
-  }
-
-  /* Premium bottom nav on mobile */
-  .bottom-nav__item.active .bottom-nav__icon-wrap {
-    padding: 4px 10px;
-  }
-}
-
-@media (min-width: 769px) {
   .bottom-nav {
     left: 50%;
     right: auto;
@@ -2750,65 +2691,12 @@ button:active, .btn:active {
   transform: scale(0.96);
 }
 
-a:active {
-  opacity: 0.8;
-}
-
-/* ============================================
-   MOBILE BOTTOM NAVIGATION
-   ============================================ */
-.mobile-nav {
-  display: none;
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  background: var(--bg-card);
-  border-top: 1px solid var(--border);
-  z-index: 1000;
-  padding-bottom: env(safe-area-inset-bottom);
 }
 
 @media (max-width: 768px) {
-  .mobile-nav {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
+  /* Hide standard header actions on mobile — bottom nav has them */
+  .header__actions {
+    display: none;
   }
 }
 
-.mobile-nav__item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 500;
-  position: relative;
-  transition: color var(--transition-fast);
-  flex: 1;
-}
-
-.mobile-nav__item:hover, .mobile-nav__item:active {
-  color: var(--brand-primary);
-}
-
-.mobile-nav__item span {
-  margin-top: 4px;
-}
-
-.mobile-nav__badge {
-  position: absolute;
-  top: 4px;
-  right: calc(50% - 16px);
-  background: var(--brand-primary);
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 10px;
-  line-height: 1;
-}
