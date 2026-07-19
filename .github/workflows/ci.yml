@@ -80,6 +80,9 @@ jobs:
             docker ps -aq -f "name=mg_db_seed" | xargs -r docker rm -f || true
             # Stop web to free memory for build
             docker compose -f docker-compose.prod.yml stop web 2>/dev/null || true
+            # Ensure infra is running but DON'T recreate (avoids "port 5432 already
+            # in use" when Docker tries to stop+start postgres non-atomically).
+            docker compose -f docker-compose.prod.yml up -d --no-recreate postgres redis
             # Rebuild web (db-push runs as its dependency and applies the schema)
             docker compose -f docker-compose.prod.yml up -d --build web
             # Seed the storefront catalog ONLY if it is empty (self-skips when
