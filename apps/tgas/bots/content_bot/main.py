@@ -1249,6 +1249,32 @@ async def main():
     event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8089)
 
+    # ── Bot Bus: слушаем задачи от Степана ──
+    from shared.bot_bus import start_listener as bus_listen
+    from shared.event_bus import BotBusActions
+    asyncio.create_task(bus_listen("content_bot", {
+        "publish_story": bus_publish_story,
+        "publish_post": bus_publish_story,  # same handler, posts to Stories
+        "generate_meme": bus_generate_meme,
+        "get_status": bus_get_status,
+        "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
+        "product_description": bus_product_description,  # текст карточки нового товара
+        BotBusActions.DRAFT_MAGAZINE: _draft_magazine,
+    }))
+
+    # ── Запуск планировщика и heartbeat ──
+    await scheduler.start()
+    asyncio.create_task(start_heartbeat("content_bot"))
+
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(bot)
+    finally:
+        await scheduler.stop()
+        await event_bus.stop()
+        await bot.session.close()
+
+
 async def _draft_magazine(params: dict) -> dict:
     """Генерация текстового и визуального контента выпуска журнала."""
     try:
@@ -1305,31 +1331,6 @@ async def _draft_magazine(params: dict) -> dict:
     except Exception as e:
         logger.error(f"Error drafting magazine: {e}")
         return {"error": str(e)}
-
-    # ── Bot Bus: слушаем задачи от Степана ──
-    from shared.bot_bus import start_listener as bus_listen
-    from shared.event_bus import BotBusActions
-    asyncio.create_task(bus_listen("content_bot", {
-        "publish_story": bus_publish_story,
-        "publish_post": bus_publish_story,  # same handler, posts to Stories
-        "generate_meme": bus_generate_meme,
-        "get_status": bus_get_status,
-        "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
-        "product_description": bus_product_description,  # текст карточки нового товара
-        BotBusActions.DRAFT_MAGAZINE: _draft_magazine,
-    }))
-
-    # ── Запуск планировщика и heartbeat ──
-    await scheduler.start()
-    asyncio.create_task(start_heartbeat("content_bot"))
-
-    try:
-        await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot)
-    finally:
-        await scheduler.stop()
-        await event_bus.stop()
-        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
