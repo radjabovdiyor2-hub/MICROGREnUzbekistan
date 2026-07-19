@@ -112,3 +112,5 @@ pw_strings.txt
 check_drivers.ps1
 apps/tgas/temp_*.jpg
 apps/tgas/temp_*.mp4
+jobs*.json
+runs.json

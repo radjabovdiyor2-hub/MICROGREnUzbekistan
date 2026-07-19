@@ -5,9 +5,9 @@ const WEB_OFFICE_URL = process.env.WEB_OFFICE_URL || 'http://localhost:8050';
 // Fallback mock data when web_office is unreachable
 const MOCK_DEPARTMENTS = [
   { id: 'marketing', name: 'Маркетинг', bot: 'MG_Marketing_bot', icon: '📢', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'content', name: 'Контент', bot: 'MG_Finance1_bot', icon: '✍️', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
+  { id: 'content', name: 'Контент', bot: 'MG_Content1_bot', icon: '✍️', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
   { id: 'hr', name: 'Кадры (HR)', bot: 'MG_HR1_bot', icon: '👥', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'finance', name: 'Финансы', bot: 'MG_Content1_bot', icon: '💰', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
+  { id: 'finance', name: 'Финансы', bot: 'MG_Finance1_bot', icon: '💰', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
   { id: 'devops', name: 'DevOps / IT', bot: 'MG_PM1_bot', icon: '⚙️', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
   { id: 'qa', name: 'QA / Тесты', bot: 'MG_PM1_bot', icon: '🔍', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
   { id: 'rnd', name: 'R&D', bot: 'MG_PM1_bot', icon: '💡', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
