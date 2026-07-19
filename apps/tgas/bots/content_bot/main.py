@@ -1195,6 +1195,32 @@ async def cmd_test_story(message: Message):
         set_dry_run(False)
 
 
+@test_router.message(Command("testevening"))
+async def cmd_test_evening(message: Message):
+    """Прогнать один вечерний сторис-рецепт со случайным смещением (только Telegram)."""
+    if not _is_admin(message):
+        return
+    from shared.instagram import set_dry_run
+    import random
+    from datetime import date, timedelta
+    random_days = random.randint(0, 365)
+    test_date = date.today() + timedelta(days=random_days)
+    
+    from shared.content_plan import build_recipe_brief
+    brief = build_recipe_brief(test_date)
+    
+    await message.answer(
+        f"🧪 Тест вечернего сторис-рецепта со случайным смещением ({test_date.strftime('%d.%m.%Y')})\n"
+        f"Кухня: {brief['cuisine']}, Формат: {brief['format']}, Зелень: {brief['hero']}…"
+    )
+    set_dry_run(True)
+    try:
+        await evening_post(d=test_date)
+        await message.answer("✅ Готово (в Instagram не публиковалось).")
+    finally:
+        set_dry_run(False)
+
+
 @test_router.message(Command("testgrid"))
 async def cmd_test_grid(message: Message):
     """Прогнать недельный пост в ленту со случайным смещением (только Telegram)."""
