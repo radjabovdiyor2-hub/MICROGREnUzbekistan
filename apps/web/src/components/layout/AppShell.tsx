@@ -11,9 +11,11 @@ import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin');
+  // Печатный роут журнала — без хрома сайта (чистый лист для PDF)
+  const isMagPrint = pathname?.startsWith('/magazine/print');
 
-  if (isAdmin) {
-    return <main className="admin-root">{children}</main>;
+  if (isAdmin || isMagPrint) {
+    return <main className={isAdmin ? 'admin-root' : 'mag-print-root'}>{children}</main>;
   }
 
   return (

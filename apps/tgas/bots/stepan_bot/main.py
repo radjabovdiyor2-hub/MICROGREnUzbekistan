@@ -608,6 +608,73 @@ async def run_magazine_pipeline():
 
 scheduler.add_cron(name="magazine_pipeline", func=run_magazine_pipeline, day_of_week=2, hour=10, minute=0)
 
+async def _cron_magazine_prepare():
+    try:
+        import aiohttp
+        import os
+        secret = os.environ.get("BOT_SECRET", "")
+        async with aiohttp.ClientSession() as session:
+            # We assume Next.js runs on 3000 or 3005, typical dev ports
+            port = os.environ.get("PORT", "3000")
+            async with session.post(f"http://127.0.0.1:{port}/api/admin/magazine/cron/prepare", headers={"x-bot-secret": secret}) as resp:
+                data = await resp.json()
+                logger.info(f"Cron Prepare: {data}")
+    except Exception as e:
+        logger.error(f"Cron Prepare error: {e}")
+
+async def _cron_magazine_finalize():
+    try:
+        import aiohttp
+        import os
+        secret = os.environ.get("BOT_SECRET", "")
+        async with aiohttp.ClientSession() as session:
+            port = os.environ.get("PORT", "3000")
+            async with session.post(f"http://127.0.0.1:{port}/api/admin/magazine/cron/finalize", headers={"x-bot-secret": secret}) as resp:
+                data = await resp.json()
+                logger.info(f"Cron Finalize: {data}")
+    except Exception as e:
+        logger.error(f"Cron Finalize error: {e}")
+
+async def _cron_magazine_print_run():
+    try:
+        import aiohttp
+        import os
+        import asyncio
+        secret = os.environ.get("BOT_SECRET", "")
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        async with aiohttp.ClientSession() as session:
+            port = os.environ.get("PORT", "3000")
+            async with session.post(f"http://127.0.0.1:{port}/api/admin/magazine/cron/print-run", headers={"x-bot-secret": secret}) as resp:
+                data = await resp.json()
+                logger.info(f"Cron Print-Run: {data}")
+                
+                slugs = data.get("slugs", [])
+                if slugs:
+                    if admin_id and _bot:
+                        await _bot.send_message(admin_id, f"🖨 <b>Stepan:</b> Начинаю генерацию PDF для {len(slugs)} журналов...", parse_mode="HTML")
+                    
+                    for slug in slugs:
+                        logger.info(f"Generating PDF for {slug}...")
+                        process = await asyncio.create_subprocess_exec(
+                            "node", "scripts/generate-magazine-pdf.js", slug,
+                            cwd=str(ROOT)
+                        )
+                        await process.communicate()
+                        
+                    if admin_id and _bot:
+                        await _bot.send_message(admin_id, f"✅ <b>Stepan:</b> Генерация PDF завершена для {len(slugs)} журналов.", parse_mode="HTML")
+
+    except Exception as e:
+        logger.error(f"Cron Print-Run error: {e}")
+
+# Wednesday 09:00 - Prepare
+scheduler.add_cron(name="magazine_cron_prepare", func=_cron_magazine_prepare, day_of_week=2, hour=9, minute=0)
+# Thursday 12:00 - Finalize
+scheduler.add_cron(name="magazine_cron_finalize", func=_cron_magazine_finalize, day_of_week=3, hour=12, minute=0)
+# Friday 08:00 - Print-Run & Generate PDF
+scheduler.add_cron(name="magazine_cron_print_run", func=_cron_magazine_print_run, day_of_week=4, hour=8, minute=0)
+
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # MAIN

@@ -121,6 +121,8 @@ export default function AdminPage() {
       if (data.valid) {
         setIsOwner(true);
         sessionStorage.setItem(ADMIN_KEY, 'true');
+        // Пароль нужен для серверной авторизации admin-API журнала (заголовок x-admin-password)
+        sessionStorage.setItem('Microgreen_admin_pw', password);
         setAuthError('');
       } else {
         setAuthError("Parol noto'g'ri");

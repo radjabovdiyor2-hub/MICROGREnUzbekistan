@@ -1,0 +1,176 @@
+/* ════════════════════════════════════════════
+   FRESH WEEKLY — дизайн-система полиграфии (A5)
+   Портировано 1:1 из content/fresh_weekly_issue_01.html.
+   Классы префиксованы mag-, переменные на .mag-doc — чтобы
+   переопределять фирменные цвета ресторана inline и не ломать сайт.
+   ════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,400;1,700&display=swap');
+
+.mag-doc {
+  /* Палитра — по умолчанию бренд Fresh Weekly; ресторан переопределяет --accent/--gold */
+  --ink: #1a1a1a;
+  --ink-soft: #444;
+  --paper: #fafaf7;
+  --paper-pure: #fff;
+  --accent: #2d5a27;
+  --accent-light: #e8f0e6;
+  --accent-bright: #3a7a32;
+  --gold: #c9a84c;
+  --gold-soft: #f7f2e4;
+  --caption: #999;
+  --rule: #e0ddd8;
+  --rule-light: #f0ede8;
+  --dark: #111;
+  --dark-surface: #1a1a1a;
+  --warm-bg: #f5f3ee;
+  --blush: #f9f0ed;
+  --violet-soft: #f3eef8;
+
+  --fs-pull: 16pt;
+  --margin-page: 10mm;
+
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.mag-doc * { box-sizing: border-box; }
+
+/* ── Страница A5 ── */
+.mag-page {
+  width: 148mm;
+  min-height: 210mm;
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  color: var(--ink);
+}
+
+/* ── Типографика ── */
+.mag-font-display { font-family: 'Playfair Display', serif; }
+.mag-font-body { font-family: 'Cormorant Garamond', serif; }
+.mag-font-ui { font-family: 'Inter', sans-serif; }
+
+/* ── Бегущий колонтитул ── */
+.mag-running-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4mm var(--margin-page);
+  border-bottom: 0.5px solid var(--rule);
+  font-family: 'Inter', sans-serif;
+  font-size: 6.5pt;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--caption);
+}
+.mag-masthead {
+  font-family: 'Playfair Display', serif;
+  font-size: 8pt;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+  text-transform: none;
+}
+
+/* ── Номер страницы ── */
+.mag-page-num {
+  position: absolute;
+  bottom: 5mm;
+  font-family: 'Inter', sans-serif;
+  font-size: 7pt;
+  font-weight: 700;
+  color: var(--rule);
+}
+.mag-page-num-l { left: var(--margin-page); }
+.mag-page-num-r { right: var(--margin-page); }
+
+/* ── Тег секции ── */
+.mag-section-tag {
+  display: inline-block;
+  font-family: 'Inter', sans-serif;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+  padding: 1.5mm 4mm;
+  border-radius: 1mm;
+}
+.mag-section-tag-gold { color: var(--gold); border-color: var(--gold); }
+.mag-section-tag-dark {
+  color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(6px);
+}
+.mag-section-tag-filled { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ── Цитата ── */
+.mag-pull-quote {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: var(--fs-pull);
+  line-height: 1.4;
+  color: var(--accent);
+  border-top: 2px solid var(--gold);
+  padding-top: 4mm;
+  margin: 4mm 0;
+}
+.mag-pull-quote-attr {
+  font-family: 'Inter', sans-serif;
+  font-style: normal;
+  font-size: 6.5pt;
+  font-weight: 600;
+  color: var(--caption);
+  margin-top: 2mm;
+  letter-spacing: 0.5px;
+}
+
+/* ── Подпись к фото ── */
+.mag-photo-caption {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 7.5pt;
+  color: var(--caption);
+  margin-top: 2mm;
+}
+
+/* ── Разделители ── */
+.mag-divider { border: none; border-top: 0.5px solid var(--rule); margin: 4mm 0; }
+.mag-divider-gold { border-top: 1.5px solid var(--gold); }
+
+/* ── Карточки ── */
+.mag-card-elegant { border-left: 3px solid var(--accent); padding: 3mm 4mm; background: var(--paper-pure); }
+.mag-card-dark { background: var(--dark-surface); color: #fff; padding: 4mm 5mm; border-radius: 2mm; }
+.mag-card-warm { background: var(--gold-soft); padding: 3mm 4mm; border-radius: 2mm; }
+
+/* ── Изображения ── */
+.mag-hero-img { width: 100%; display: block; object-fit: cover; }
+
+/* Метка-кикер секции (Inter, uppercase) */
+.mag-kicker {
+  font-family: 'Inter', sans-serif;
+  font-size: 6pt;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+/* ── Печать ── */
+@page { size: 148mm 210mm; margin: 0; }
+
+@media print {
+  .mag-doc { gap: 0; }
+  .mag-page { box-shadow: none; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+}

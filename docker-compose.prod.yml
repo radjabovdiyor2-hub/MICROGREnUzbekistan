@@ -52,6 +52,8 @@ services:
     container_name: mg_postgres
     restart: unless-stopped
     mem_limit: 512m
+    ports:
+      - "5432:5432"
     environment:
       POSTGRES_USER: mg_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

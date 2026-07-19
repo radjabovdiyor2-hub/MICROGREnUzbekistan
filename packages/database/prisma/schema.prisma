@@ -422,12 +422,71 @@ model Restaurant {
   phone       String?
   note        String?  @db.Text
 
+  // ── FRESH WEEKLY: HoReCa Edition (индивидуализация журнала) ──
+  slug              String?  @unique
+  logo              String?  // /uploads/... логотип ресторана
+  instagram         String?  // @handle (ввод вручную, без парсинга)
+  brandPrimary      String?  @map("brand_primary") // фирменный цвет #hex → --accent
+  brandAccent       String?  @map("brand_accent")  // акцентный цвет #hex → --gold
+  promoCode         String?  @map("promo_code")     // код для семейного QR-блока
+  promoDiscount     Int?     @map("promo_discount") // % скидки
+  menuItems         String[] @map("menu_items")     // блюда меню для контекста ИИ
+  isMagazinePartner Boolean  @default(false) @map("is_magazine_partner")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
+
+  magazineIssues RestaurantIssue[]
+  printSubscriptions PrintSubscription[]
 
   @@index([city])
   @@index([isPartner])
   @@map("restaurants")
+}
+
+// ==========================================
+// FRESH WEEKLY — Персональные выпуски (схема 50/50)
+// ==========================================
+
+// Общий 50%: генерится раз в неделю, одинаков для всех ресторанов
+model MagazineEdition {
+  id          String    @id @default(cuid())
+  weekNumber  Int       @unique @map("week_number")
+  title       String
+  coverTheme  String?   @map("cover_theme")
+  sharedSpec  Json      @default("{}") @map("shared_spec") // { blocks: Block[] }
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  issues RestaurantIssue[]
+
+  @@map("magazine_editions")
+}
+
+// Персональный 50%: слово шефа, обложка, семейный блок — на каждый ресторан
+model RestaurantIssue {
+  id           String          @id @default(cuid())
+  editionId    String          @map("edition_id")
+  edition      MagazineEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
+  restaurantId String          @map("restaurant_id")
+  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  spec         Json            @default("{}") // { blocks: Block[] }
+  status       String          @default("draft") // draft | ready | published
+  webSlug      String          @unique @map("web_slug")
+  pdfUrl       String?         @map("pdf_url")
+  publishedAt  DateTime?       @map("published_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  printOrders PrintOrder[]
+
+  @@unique([editionId, restaurantId])
+  @@index([restaurantId])
+  @@map("restaurant_issues")
 }
 
 // ==========================================
@@ -467,4 +526,49 @@ model FranchiseJournal {
 
   @@index([city, createdAt])
   @@map("franchise_journals")
+}
+
+// ==========================================
+// PRINT CENTER (Phase 4)
+// ==========================================
+
+model PrintSubscription {
+  id             String   @id @default(cuid())
+  restaurantId   String   @map("restaurant_id")
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan           String   @default("weekly") // weekly | biweekly | monthly
+  copiesPerIssue Int      @map("copies_per_issue")
+  pricePerCopy   Int      @map("price_per_copy") // цена ресторану за копию, UZS
+  unitCost       Int      @default(0) @map("unit_cost") // себестоимость печати копии, UZS
+  status         String   @default("active") // active | paused | cancelled
+  startedAt      DateTime @default(now()) @map("started_at")
+  nextBillingAt  DateTime? @map("next_billing_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  orders         PrintOrder[]
+
+  @@index([restaurantId])
+  @@map("print_subscriptions")
+}
+
+model PrintOrder {
+  id                String   @id @default(cuid())
+  restaurantIssueId String   @map("restaurant_issue_id")
+  restaurantIssue   RestaurantIssue @relation(fields: [restaurantIssueId], references: [id], onDelete: Cascade)
+  subscriptionId    String?  @map("subscription_id")
+  subscription      PrintSubscription? @relation(fields: [subscriptionId], references: [id])
+  copies            Int
+  unitCost          Int      @map("unit_cost")
+  unitPrice         Int      @map("unit_price")
+  revenue           Int      // unitPrice * copies
+  cost              Int      // unitCost * copies
+  margin            Int      // revenue - cost
+  status            String   @default("pending") // pending | paid | printing | shipped | delivered
+  paymentProvider   String?  @map("payment_provider") // click | payme | cash
+  paidAt            DateTime? @map("paid_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([restaurantIssueId])
+  @@map("print_orders")
 }
