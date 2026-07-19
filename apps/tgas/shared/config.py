@@ -85,10 +85,14 @@ class Settings(BaseSettings):
         description="Модель Gemini для генерации ответов",
     )
 
-    # ── Администраторы ─────────────────────────────────────────────────
+    # ── Администраторы и Каналы ───────────────────────────────────────
     admin_telegram_ids: List[int] = Field(
         default_factory=list,
         description="Список Telegram ID администраторов (через запятую в .env)",
+    )
+    telegram_channel_id: str | None = Field(
+        default=None,
+        description="ID Telegram канала для автопостинга (например, @microgreen_uz)",
     )
 
     @field_validator("admin_telegram_ids", mode="before")

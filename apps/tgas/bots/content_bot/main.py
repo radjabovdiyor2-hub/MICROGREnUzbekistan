@@ -28,6 +28,13 @@ logging.basicConfig(level=logging.INFO)
 _bot: Bot = None
 scheduler = BotScheduler("content_bot")
 
+# Регистрация фоновых задач
+scheduler.add_cron(hour=8, minute=0, name="daily_ideas", func=daily_content_ideas)
+scheduler.add_cron(hour=11, minute=0, day_of_week=0, name="audit", func=product_description_audit)
+scheduler.add_cron(hour=20, minute=0, day_of_week=6, name="weekly_plan", func=weekly_content_plan)
+scheduler.add_cron(hour=9, minute=0, name="morning_post", func=morning_post)
+scheduler.add_cron(hour=12, minute=0, name="auto_publish", func=auto_publish_to_channel)
+
 # ── Журнал публикаций (общий volume bus_tasks — виден и Степану через bot_bus) ──
 # Пишем не только факт «опубликовано в 07:16», но и САМ контент (картинка + текст):
 # иначе показать руководителю реальный пост нечем — temp_story.jpg перезатирается
@@ -130,6 +137,37 @@ async def product_description_audit():
         await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
     except Exception as e:
         logging.error(f"product_description_audit error: {e}", exc_info=True)
+
+
+async def auto_publish_to_channel():
+    """Ежедневно в 12:00: публикация в официальный Telegram-канал."""
+    try:
+        channel_id = settings.telegram_channel_id
+        if not channel_id:
+            logging.warning("telegram_channel_id не настроен, пропускаем автопостинг.")
+            return
+
+        ai = AIEngine()
+        from shared.content_plan import get_daily_pillar, build_brief
+        pillar = get_daily_pillar()
+        
+        prompt = (
+            f"Напиши пост для нашего официального Telegram-канала.\n"
+            f"Тематика: {pillar['name']}. Угол подачи: {pillar['angle']}.\n"
+            f"Пиши живо, интересно, добавь релевантные эмодзи. "
+            f"В конце добавь наши контакты: @microgreen_uz и хэштеги {pillar['tags']}."
+        )
+        
+        post_text = await ai.chat_completion(
+            "Ты SMM-менеджер Microgreen Uzbekistan. Пиши красиво и профессионально.",
+            prompt,
+            temperature=0.8
+        )
+        
+        await _bot.send_message(channel_id, post_text, parse_mode="HTML")
+        logging.info("auto_publish_to_channel: пост успешно отправлен в канал.")
+    except Exception as e:
+        logging.error(f"auto_publish_to_channel error: {e}", exc_info=True)
 
 
 async def weekly_content_plan():

@@ -69,13 +69,24 @@ async def handle_magazine_print_order(callback: types.CallbackQuery):
     user = callback.from_user
     
     await callback.message.answer(
-        f"📝 <b>Заказ печатной версии (Выпуск #{issue_number})</b>\n\n"
+        f"📝 <b>Заявка на печатную версию (Выпуск #{issue_number})</b>\n\n"
         "Стоимость: 30 000 сум (включает доставку по Самарканду).\n\n"
         "📞 Для оформления свяжитесь с нами:\n"
         "• Telegram: @microgreen_uz\n"
         "• Телефон: +998 94 999 95 99\n\n"
-        f"<i>Ваш запрос зафиксирован. Имя: {user.full_name}, ID: {user.id}</i>"
+        f"<i>Ваша заявка зафиксирована. Наш менеджер скоро с вами свяжется! Имя: {user.full_name}</i>"
     )
     await callback.answer()
-    logger.info("Print order request: user=%s issue=%s", user.id, issue_number)
+    
+    # Notify Stepan through the Ecosystem Bridge
+    from services.ecosystem_bridge import bridge
+    msg = (
+        f"📖 <b>Новая заявка: Печатный Журнал</b>\n"
+        f"Выпуск: #{issue_number}\n"
+        f"Клиент: <a href='tg://user?id={user.id}'>{user.full_name}</a> (ID: {user.id})\n"
+        f"Username: @{user.username if user.username else 'нет'}\n\n"
+        f"Свяжитесь для оформления доставки!"
+    )
+    await bridge.notify_stepan(msg)
+    logger.info("Print order request sent to Stepan: user=%s issue=%s", user.id, issue_number)
 
