@@ -211,7 +211,7 @@ export function AdminMagazine() {
                   <td style={{ padding: 'var(--space-2)' }}>{adv.amount ? adv.amount.toLocaleString() + ' UZS' : '—'}</td>
                   <td style={{ padding: 'var(--space-2)' }}>
                     <button onClick={() => deleteAdvertiser(adv.id)} style={{ background: 'transparent', color: 'var(--error)', border: 'none', cursor: 'pointer' }}>
-                      <Icons.Trash2 size={16} />
+                      <Icons.Trash size={16} />
                     </button>
                   </td>
                 </tr>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import prisma from '@microgreen/database';
+import { prisma } from '@repo/database';
 
 export const dynamic = 'force-dynamic';
 
