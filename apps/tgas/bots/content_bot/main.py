@@ -787,11 +787,30 @@ async def publish_restaurant_of_week():
 
 
 
+async def check_and_refresh_token_job():
+    """Еженедельная задача по проверке и обновлению токена Instagram."""
+    try:
+        from shared.token_refresh import auto_check_and_refresh_token
+        # Воркер пытается обновить токен при возрасте более 50 дней
+        await auto_check_and_refresh_token()
+    except Exception as e:
+        logger.error(f"Ошибка при автоматическом обновлении токена Instagram: {e}")
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if admin_id and _bot:
+            await _bot.send_message(
+                admin_id,
+                f"⚠️ <b>Критическая ошибка:</b> Не удалось автоматически обновить Instagram Access Token.\n"
+                f"Детали ошибки: <code>{e}</code>\n"
+                f"Потребуется ручной перезапуск обмена токенов.",
+                parse_mode="HTML"
+            )
+
 # daily_site_recipe, daily_content_ideas, product_description_audit, weekly_content_plan —
 # отключены: спам в личку админу, не несёт ценности.
 scheduler.add_cron(name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5)
 scheduler.add_interval(seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check)
 scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
+scheduler.add_cron(name="instagram_token_refresh", func=check_and_refresh_token_job, hour=10, minute=0, day_of_week=0)
 
 async def daily_magazine_rubric():
     """Ежедневная нарезка журнала в Telegram-канал."""
