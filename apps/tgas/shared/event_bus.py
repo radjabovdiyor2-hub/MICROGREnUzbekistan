@@ -45,25 +45,31 @@ class BotBusActions:
     PUBLISH_MAGAZINE = "publish_magazine"
 
 class EventBus:
-    """HTTP Webhook event bus (n8n integration)"""
+    """Redis Pub/Sub event bus with HTTP webhook backup and n8n integration"""
 
     def __init__(self):
         self._handlers: Dict[str, List[Callable]] = {}
         self._runner: Optional[web.AppRunner] = None
         self._background_tasks = set()
         self._session: Optional[aiohttp.ClientSession] = None
+        self._redis_client = None
+        self._pubsub_task = None
         # n8n global webhook URL for internal routing
         self._n8n_url = "http://host.docker.internal:5678/webhook/internal-bus"
 
     async def connect(self):
-        """Инициализировать общую HTTP-сессию."""
+        """Инициализировать общую HTTP-сессию и подключение к Redis."""
         if not self._session or self._session.closed:
             self._session = aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=5)
             )
+        if not self._redis_client:
+            import redis.asyncio as redis
+            from shared.config import settings
+            self._redis_client = redis.from_url(settings.redis_url, decode_responses=True)
 
     async def publish(self, event_type: str, data: dict, source_bot: str = "unknown"):
-        """Отправить событие в n8n и напрямую другим ботам в сети Docker."""
+        """Отправить событие в n8n (HTTP) и опубликовать в Redis Pub/Sub для ботов."""
         message = {
             "event": event_type,
             "data": data,
@@ -82,40 +88,56 @@ class EventBus:
         except Exception as e:
             logger.error(f"EventBus (n8n): Ошибка публикации: {e}")
 
-        # 2. Прямая доставка ботам в Docker сети (для надежности при 404 от n8n)
-        bot_endpoints = [
-            ("mg_stepan", 8081),
-            ("mg_sales", 8082),
-            ("mg_support", 8083),
-            ("mg_hr", 8084),
-            ("mg_finance", 8085),
-            ("mg_marketing", 8086),
-            ("mg_analytics", 8088),
-            ("mg_content", 8089),
-            ("mg_qa", 8090),
-            ("mg_rnd", 8091),
-            ("mg_devops", 8092),
-            ("mg_franchise", 8093),
-        ]
-        
-        async def send_direct(host, port):
-            try:
-                url = f"http://{host}:{port}/event"
-                async with session.post(url, json=message, timeout=aiohttp.ClientTimeout(total=3)) as resp:
-                    if resp.status == 200:
-                        logger.info(f"Direct EventBus: [{source_bot}] → {host}:{port} ({event_type})")
-            except Exception:
-                pass
+        # 2. Публикуем в Redis Pub/Sub
+        import json
+        published_to_redis = False
+        try:
+            if not self._redis_client:
+                await self.connect()
+            if self._redis_client:
+                payload_str = json.dumps(message)
+                await self._redis_client.publish("microgreen_events", payload_str)
+                logger.info(f"EventBus (Redis): [{source_bot}] → {event_type}")
+                published_to_redis = True
+        except Exception as e:
+            logger.error(f"EventBus (Redis) publish error: {e}")
 
-        async def broadcast():
-            try:
-                await asyncio.gather(*(send_direct(h, p) for h, p in bot_endpoints))
-            except Exception as e:
-                logger.error(f"Error during event broadcast: {e}")
+        # 3. Резервный канал (HTTP Direct) — только если Redis Pub/Sub не сработал
+        if not published_to_redis:
+            logger.warning("EventBus: Redis Pub/Sub недоступен, используем резервную прямую доставку по HTTP.")
+            bot_endpoints = [
+                ("mg_stepan", 8081),
+                ("mg_sales", 8082),
+                ("mg_support", 8083),
+                ("mg_hr", 8084),
+                ("mg_finance", 8085),
+                ("mg_marketing", 8086),
+                ("mg_analytics", 8088),
+                ("mg_content", 8089),
+                ("mg_qa", 8090),
+                ("mg_rnd", 8091),
+                ("mg_devops", 8092),
+                ("mg_franchise", 8093),
+            ]
+            
+            async def send_direct(host, port):
+                try:
+                    url = f"http://{host}:{port}/event"
+                    async with session.post(url, json=message, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                        if resp.status == 200:
+                            logger.info(f"Direct EventBus: [{source_bot}] → {host}:{port} ({event_type})")
+                except Exception:
+                    pass
 
-        task = asyncio.create_task(broadcast())
-        self._background_tasks.add(task)
-        task.add_done_callback(self._background_tasks.discard)
+            async def broadcast():
+                try:
+                    await asyncio.gather(*(send_direct(h, p) for h, p in bot_endpoints))
+                except Exception as e:
+                    logger.error(f"Error during event broadcast: {e}")
+
+            task = asyncio.create_task(broadcast())
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
 
     def on(self, event_type: str, handler: Callable):
         """Зарегистрировать обработчик события.
@@ -151,32 +173,70 @@ class EventBus:
         except Exception as e:
             logger.error(f"EventBus: ошибка обработчика: {e}")
 
+    async def _listen_redis_pubsub(self):
+        import json
+        pubsub = self._redis_client.pubsub()
+        await pubsub.subscribe("microgreen_events")
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    try:
+                        payload = json.loads(message["data"])
+                        event_type = payload.get("event")
+                        if event_type:
+                            handlers = self._handlers.get((event_type or "").upper(), [])
+                            for handler in handlers:
+                                asyncio.create_task(self._run_handler(handler, payload))
+                    except Exception as e:
+                        logger.error(f"EventBus: ошибка обработки сообщения из Redis: {e}")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"EventBus: ошибка в цикле прослушивания Redis Pub/Sub: {e}")
+            await asyncio.sleep(5)
+            self._pubsub_task = asyncio.create_task(self._listen_redis_pubsub())
+        finally:
+            await pubsub.unsubscribe("microgreen_events")
+
     async def start_listening(self, port: int = 0, app: Optional[web.Application] = None):
-        """Начать слушать события от n8n через aiohttp."""
-        if port == 0:
-            logger.warning("EventBus: port 0 provided, running without dedicated webhook server (relying on main app server if any)")
-            return
+        """Начать слушать события от n8n через aiohttp и от других ботов через Redis Pub/Sub."""
+        if port != 0:
+            if app is None:
+                app = web.Application()
+                
+            has_event_route = any(route.resource and route.resource.canonical == '/event' for route in app.router.routes())
+            if not has_event_route:
+                app.router.add_post('/event', self._handle_webhook)
+                
+            self._runner = web.AppRunner(app)
+            await self._runner.setup()
+            site = web.TCPSite(self._runner, '0.0.0.0', port)
+            await site.start()
+            logger.info(f"EventBus: HTTP-слушатель запущен на порту {port}")
             
-        if app is None:
-            app = web.Application()
-            
-        # Убедимся, что маршрут еще не добавлен
-        has_event_route = any(route.resource and route.resource.canonical == '/event' for route in app.router.routes())
-        if not has_event_route:
-            app.router.add_post('/event', self._handle_webhook)
-            
-        self._runner = web.AppRunner(app)
-        await self._runner.setup()
-        site = web.TCPSite(self._runner, '0.0.0.0', port)
-        await site.start()
-        logger.info(f"EventBus: слушатель (n8n) запущен на порту {port}")
+        try:
+            if not self._redis_client:
+                await self.connect()
+            if self._redis_client:
+                self._pubsub_task = asyncio.create_task(self._listen_redis_pubsub())
+                logger.info("EventBus: Redis Pub/Sub слушатель запущен")
+        except Exception as e:
+            logger.error(f"EventBus: ошибка запуска Redis Pub/Sub слушателя: {e}")
 
     async def stop(self):
-        """Остановить слушатель и закрыть HTTP-сессию."""
+        """Остановить слушатель и закрыть HTTP-сессию и Redis."""
+        if self._pubsub_task:
+            self._pubsub_task.cancel()
+            try:
+                await self._pubsub_task
+            except asyncio.CancelledError:
+                pass
         if self._runner:
             await self._runner.cleanup()
         if self._session and not self._session.closed:
             await self._session.close()
+        if self._redis_client:
+            await self._redis_client.close()
 
 # Глобальный экземпляр
 event_bus = EventBus()
