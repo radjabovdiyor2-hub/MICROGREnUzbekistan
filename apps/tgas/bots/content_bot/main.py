@@ -315,10 +315,10 @@ async def morning_post():
         image_url = await ai.generate_image(image_prompt, size="1024x1792")
 
         import os
+        from uuid import uuid4
         if image_url and os.path.isfile(image_url):
-            # Впечатываем текст в картинку → финальный сторис по макету формата дня
             from shared.brand import render_story_text, BRAND
-            story_img = "temp_story.jpg"
+            story_img = f"story_{uuid4().hex[:8]}.jpg"
             ok = render_story_text(
                 image_url, story_img,
                 headline=headline or "", subtitle=benefit or "", hashtags="",
@@ -439,7 +439,8 @@ async def evening_post():
 
         if image_url and os.path.isfile(image_url):
             from shared.brand import render_recipe_card
-            story_img = "temp_story.jpg"
+            from uuid import uuid4
+            story_img = f"recipe_{uuid4().hex[:8]}.jpg"
             # На картинке — только название + ингредиенты + CTA (шаги в подпись)
             ok = render_recipe_card(image_url, story_img, title, ingredients, cta="Buyurtma berish")
             final_img = story_img if ok else image_url
@@ -500,13 +501,11 @@ async def afternoon_post():
             f"🎨 <i>Content Bot — дневной формат</i>"
         )
         
-        if image1_url:
+        if image1_url and os.path.isfile(image1_url):
             from aiogram.types import FSInputFile
-            media1 = FSInputFile(image1_url) if image1_url == "temp_img.jpg" else image1_url
-            
             await _bot.send_photo(
                 admin_id, 
-                photo=media1, 
+                photo=FSInputFile(image1_url), 
                 caption=report[:1024], 
                 parse_mode="HTML"
             )
@@ -629,6 +628,7 @@ async def reel_post():
         )
         from shared.video_utils import make_reel, ffmpeg_available
         from shared.brand import render_story_text, BRAND, BRAND_HASHTAGS
+        from uuid import uuid4
 
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
@@ -677,14 +677,14 @@ async def reel_post():
             await _bot.send_message(admin_id, "⚠️ Reel: не удалось сгенерировать фон.", parse_mode="HTML")
             return
 
-        frame = "temp_reel_frame.jpg"
+        frame = f"reel_{uuid4().hex[:8]}.jpg"
         render_story_text(
             image_url, frame,
             headline=headline, mention=BRAND["instagram"], cta=fmt["cta"],
             badge=fmt["badge"], layout=fmt["layout"], note=fmt["note"],
             points=points or None, section=fmt.get("section", ""),
         )
-        reel = make_reel(frame, out_path="temp_reel.mp4", duration=8.0)
+        reel = make_reel(frame, out_path=f"reel_{uuid4().hex[:8]}.mp4", duration=8.0)
         if not reel:
             await _bot.send_message(admin_id, "⚠️ Reel: сборка видео не удалась (ffmpeg).", parse_mode="HTML")
             return
@@ -805,7 +805,7 @@ async def bus_publish_story(params: dict) -> dict:
     if image_url:
         # Отправляем в Telegram
         from aiogram.types import FSInputFile
-        photo_file = FSInputFile(image_url) if image_url == "temp_img.jpg" else image_url
+        photo_file = FSInputFile(image_url) if os.path.isfile(image_url) else image_url
         await _bot.send_photo(
             admin_id, photo=photo_file,
             caption=f"📸 <b>Сторис по запросу:</b> {topic}\n\n{post_text}",
@@ -851,7 +851,7 @@ async def bus_generate_meme(params: dict) -> dict:
     
     if image_url:
         from aiogram.types import FSInputFile
-        photo_file = FSInputFile(image_url) if image_url == "temp_img.jpg" else image_url
+        photo_file = FSInputFile(image_url) if os.path.isfile(image_url) else image_url
         await _bot.send_photo(admin_id, photo=photo_file, caption=f"😂 <b>Мем по запросу:</b> {topic}\n\n{meme_idea}", parse_mode="HTML")
         
         from shared.instagram import post_story_with_text
@@ -1044,7 +1044,7 @@ async def handle_task_created(payload: dict):
         # 1. Отправляем фото/текст в Telegram
         if image_url:
             from aiogram.types import FSInputFile
-            media = FSInputFile(image_url) if image_url == "temp_img.jpg" else image_url
+            media = FSInputFile(image_url) if os.path.isfile(image_url) else image_url
             await bot.send_photo(chat_id, photo=media, caption=f"📝 <b>Контент готов:</b>\n\n{clean_answer[:900]}", parse_mode="HTML")
             if len(clean_answer) > 900:
                 await bot.send_message(chat_id, f"...продолжение:\n\n{clean_answer[900:]}", parse_mode="HTML")
@@ -1163,42 +1163,8 @@ async def cmd_test_reel(message: Message):
 
 
 async def handle_roll_call(payload: dict):
-    from shared.config import settings
-    from aiogram import Bot
-    from aiogram.client.default import DefaultBotProperties
-    from aiogram.enums import ParseMode
-    chat_id = payload.get("data", {}).get("chat_id")
-    if not chat_id:
-        return
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"ROLL_CALL received for chat {chat_id}")
-    
-    bot_name = "content_bot"
-    token_attr = f"{bot_name}_token"
-    token = getattr(settings, token_attr, None)
-    if not token:
-        logger.error(f"No token found for {bot_name}")
-        return
-        
-    bot_display_names = {
-        "sales_bot": "Отдел Продаж (Sales)",
-        "marketing_bot": "Отдел Маркетинга",
-        "support_bot": "Отдел Поддержки",
-        "hr_bot": "Отдел HR",
-        "finance_bot": "Отдел Финансов",
-        "analytics_bot": "Отдел Аналитики",
-        "content_bot": "Отдел Контента"
-    }
-    display_name = bot_display_names.get(bot_name, bot_name)
-
-    bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    try:
-        await bot.send_message(chat_id, f"🟢 {display_name} на связи!")
-    except Exception as e:
-        logger.error(f"Failed to respond to roll_call: {e}")
-    finally:
-        await bot.session.close()
+    from shared.roll_call import handle_roll_call as _shared_roll_call
+    await _shared_roll_call("content_bot", payload)
 
 
 async def main():

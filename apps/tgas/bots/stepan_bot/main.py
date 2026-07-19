@@ -172,11 +172,13 @@ async def daily_report():
 
 
 async def check_followups():
-    """Каждые 30 минут проверяем pending follow-ups и отправляем."""
+    """Каждые 30 минут проверяем pending follow-ups и делегируем отправку Sales боту.
+
+    Раньше здесь создавался второй Bot(token=sales_bot_token) — это приводило
+    к конфликту polling («terminated by other getUpdates request»).
+    Теперь follow-ups отправляются самим Степаном (это его задача как координатора).
+    """
     try:
-        from aiogram import Bot as _Bot
-        from aiogram.client.default import DefaultBotProperties as _DBP
-        from aiogram.enums import ParseMode as _PM
         from sqlalchemy import text as sa_text
 
         async with get_session_ctx() as session:
@@ -192,32 +194,23 @@ async def check_followups():
         if not followups:
             return
 
-        # Отправляем через sales_bot
-        sales_bot = _Bot(
-            token=settings.sales_bot_token if hasattr(settings, 'sales_bot_token') else settings.stepan_bot_token,
-            default=_DBP(parse_mode=_PM.HTML)
-        )
-        try:
-            for fid, msg, tg_id in followups:
-                if not tg_id:
-                    continue
-                try:
-                    await sales_bot.send_message(tg_id, f"🌱 {msg}")
-                    async with get_session_ctx() as session:
-                        await session.execute(sa_text(
-                            "UPDATE followups SET status = 'sent' WHERE id = :fid"
-                        ), {"fid": fid})
-                        # Логируем в interactions
-                        await session.execute(sa_text(
-                            "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
-                            "VALUES ((SELECT customer_id FROM followups WHERE id = :fid), "
-                            "'telegram', 'followup', 'sales_bot', :summary)"
-                        ), {"fid": fid, "summary": msg[:200]})
-                    logger.info(f"Follow-up #{fid} отправлен клиенту {tg_id}")
-                except Exception as e:
-                    logger.warning(f"Follow-up #{fid} ошибка: {e}")
-        finally:
-            await sales_bot.session.close()
+        for fid, msg, tg_id in followups:
+            if not tg_id:
+                continue
+            try:
+                await _bot.send_message(tg_id, f"🌱 {msg}")
+                async with get_session_ctx() as session:
+                    await session.execute(sa_text(
+                        "UPDATE followups SET status = 'sent' WHERE id = :fid"
+                    ), {"fid": fid})
+                    await session.execute(sa_text(
+                        "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                        "VALUES ((SELECT customer_id FROM followups WHERE id = :fid), "
+                        "'telegram', 'followup', 'stepan_bot', :summary)"
+                    ), {"fid": fid, "summary": msg[:200]})
+                logger.info(f"Follow-up #{fid} отправлен клиенту {tg_id}")
+            except Exception as e:
+                logger.warning(f"Follow-up #{fid} ошибка: {e}")
     except Exception as e:
         logger.warning(f"Ошибка проверки follow-ups: {e}")
 

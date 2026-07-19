@@ -41,12 +41,16 @@ class EventBus:
         self._handlers: Dict[str, List[Callable]] = {}
         self._runner: Optional[web.AppRunner] = None
         self._background_tasks = set()
+        self._session: Optional[aiohttp.ClientSession] = None
         # n8n global webhook URL for internal routing
         self._n8n_url = "http://host.docker.internal:5678/webhook/internal-bus"
 
     async def connect(self):
-        """Mock method for backward compatibility"""
-        pass
+        """Инициализировать общую HTTP-сессию."""
+        if not self._session or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=5)
+            )
 
     async def publish(self, event_type: str, data: dict, source_bot: str = "unknown"):
         """Отправить событие в n8n и напрямую другим ботам в сети Docker."""
@@ -58,13 +62,13 @@ class EventBus:
         }
         
         # 1. Пытаемся отправить в n8n
+        session = self._session or aiohttp.ClientSession()
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(self._n8n_url, json=message, timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                    if resp.status in (200, 201):
-                        logger.info(f"EventBus (n8n): [{source_bot}] → {event_type}")
-                    else:
-                        logger.warning(f"EventBus (n8n): Failed to publish {event_type}, HTTP {resp.status}")
+            async with session.post(self._n8n_url, json=message, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status in (200, 201):
+                    logger.info(f"EventBus (n8n): [{source_bot}] → {event_type}")
+                else:
+                    logger.warning(f"EventBus (n8n): Failed to publish {event_type}, HTTP {resp.status}")
         except Exception as e:
             logger.error(f"EventBus (n8n): Ошибка публикации: {e}")
 
@@ -86,10 +90,9 @@ class EventBus:
         async def send_direct(host, port):
             try:
                 url = f"http://{host}:{port}/event"
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=message, timeout=aiohttp.ClientTimeout(total=3)) as resp:
-                        if resp.status == 200:
-                            logger.info(f"Direct EventBus: [{source_bot}] → {host}:{port} ({event_type})")
+                async with session.post(url, json=message, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                    if resp.status == 200:
+                        logger.info(f"Direct EventBus: [{source_bot}] → {host}:{port} ({event_type})")
             except Exception:
                 pass
 
@@ -158,9 +161,11 @@ class EventBus:
         logger.info(f"EventBus: слушатель (n8n) запущен на порту {port}")
 
     async def stop(self):
-        """Остановить слушатель."""
+        """Остановить слушатель и закрыть HTTP-сессию."""
         if self._runner:
             await self._runner.cleanup()
+        if self._session and not self._session.closed:
+            await self._session.close()
 
 # Глобальный экземпляр
 event_bus = EventBus()
