@@ -172,8 +172,8 @@ class Settings(BaseSettings):
         description="API-ключ Yandex Maps (Search API) для поиска ресторанов",
     )
     b2b_daily_limit: int = Field(
-        default=15,
-        description="Сколько холодных B2B-контактов делать в день",
+        default=8,
+        description="Сколько холодных B2B-контактов делать в день (1 AI-вызов на лид)",
     )
     lead_gen_city: str = Field(
         default="Самарканд",
@@ -182,7 +182,7 @@ class Settings(BaseSettings):
 
     # ── Совещание отделов (multi-agent «круглый стол») ────────────────
     meeting_rounds: int = Field(
-        default=2,
+        default=1,   # 1 раунд — экономия AI-вызовов (было 2 с дебатами)
         description="Сколько раундов обсуждения на совещании (1 — только позиции, 2+ — с дебатами)",
     )
     meeting_min_participants: int = Field(
@@ -190,7 +190,7 @@ class Settings(BaseSettings):
         description="Минимум отделов на совещании",
     )
     meeting_max_participants: int = Field(
-        default=5,
+        default=3,   # 3 вместо 5 — совещание дешевле по AI-вызовам
         description="Максимум отделов на совещании",
     )
     meeting_departments: str = Field(

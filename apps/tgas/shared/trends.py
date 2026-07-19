@@ -285,9 +285,9 @@ def _slot() -> str:
 async def get_daily_context(force: bool = False) -> dict:
     """
     Актуальный контекст (кэш на день+слот): погода + ДАТИРОВАННЫЕ окна новостей
-    (сегодня/вчера/за неделю) + Google Trends + сезон/повод + AI-сводка повестки.
-    Утро и вечер фетчатся раздельно (ключ содержит слот). При сбое источников —
-    частичный контекст (сезон/погода есть всегда) → вызывающий код падает на fallback-темы.
+    (сегодня/вчера/за неделю) + Google Trends + сезон/повод. БЕЗ отдельного AI-вызова —
+    «сравнить и выбрать тему» делает build_topical_angle по этим сырым данным (экономия квоты).
+    Утро и вечер фетчатся раздельно (ключ содержит слот).
     """
     slot = _slot()
     key = f"{datetime.now(UZ_TZ).date().isoformat()}:{slot}"
@@ -299,29 +299,6 @@ async def get_daily_context(force: bool = False) -> dict:
     windows = format_news_windows(digest)
     gtr = await fetch_google_trends()
     so = get_uz_season_occasion()
-    slot_hint = "утро (бодрый тон, энергия на день)" if slot == "am" else "вечер (уют, ужин)"
-
-    summary = ""
-    try:
-        from shared.ai_engine import AIEngine
-        ai = AIEngine()
-        summary = await ai.chat_completion(
-            "Ты аналитик повестки Узбекистана для бренда о микрозелени и здоровом питании.",
-            f"Сегодня {datetime.now(UZ_TZ).strftime('%d.%m.%Y, %A')}, слот: {slot_hint}. "
-            f"Сезон: {so['season']}. Повод: {so['occasion'] or '—'}. Погода в Самарканде: {weather}.\n"
-            f"Новости Узбекистана по периодам:\n{windows}\n"
-            f"Google Trends (UZ): {', '.join(gtr) or '—'}\n\n"
-            "Сравни темы из РАЗНЫХ периодов (сегодня/вчера/за неделю) и сезонный контекст. "
-            "Дай КРАТКУЮ сводку (3-5 предложений): что сейчас интереснее и на слуху и что можно "
-            "НАТИВНО связать с микрозеленью/здоровым питанием/свежей зеленью/домашней кухней. "
-            "Свежесть НЕ приоритет — важнее интересность и связь с брендом. "
-            "Не касайся политики, крипты, транспорта. На русском."
-        )
-    except Exception as e:  # noqa: BLE001
-        logger.error(f"get_daily_context AI summary error: {e}")
-
-    if _is_ai_fallback(summary):   # AI недоступен (квота/сбой) — сводки нет, не тащим извинение
-        summary = ""
 
     ctx = {
         "date": datetime.now(UZ_TZ).date().isoformat(),
@@ -333,7 +310,7 @@ async def get_daily_context(force: bool = False) -> dict:
         "google_trends": gtr,
         "season": so["season"],
         "occasion": so["occasion"],
-        "summary": (summary or "").strip(),
+        "summary": "",                  # отдельной AI-сводки больше нет
     }
     _DAY_CACHE[key] = ctx
     return ctx

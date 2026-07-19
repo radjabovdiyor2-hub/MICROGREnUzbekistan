@@ -28,12 +28,13 @@ def create_group_router(bot_username: str, handle_mention_func, wake_words=None)
         text_lower = text.lower()
         return any(w.lower() in text_lower for w in wake_words)
     
-    # Фильтр: сообщение из группы/супергруппы И бота упомянули ИЛИ wake_word найден
+    # Фильтр: сообщение из группы/супергруппы И бота ЯВНО тегнули (@) ИЛИ ответили на его сообщение.
+    # Срабатывание по общим wake-словам УБРАНО намеренно: раньше одно сообщение цепляло сразу
+    # несколько ботов (каждый по своим словам) → лишние AI-вызовы. Теперь отвечает только адресат.
     @router.message(
         F.chat.type.in_({"group", "supergroup"}),
-        (F.text.icontains(f"@{bot_username}")) | 
-        (F.reply_to_message.from_user.username == bot_username) |
-        (F.text.func(_match_wake_words))
+        (F.text.icontains(f"@{bot_username}")) |
+        (F.reply_to_message.from_user.username == bot_username)
     )
     async def group_mention_handler(message: Message, **kwargs):
         # Ожидаем реакцию "глаза в процессе"

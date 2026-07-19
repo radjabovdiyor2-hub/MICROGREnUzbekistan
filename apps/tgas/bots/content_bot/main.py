@@ -342,8 +342,12 @@ async def morning_post():
     except Exception as e:
         logging.error(f"morning_post error: {e}", exc_info=True)
 
+_last_morning_date = None   # защита от двойного утреннего поста в одну и ту же минуту
+
+
 async def morning_post_dynamic_check():
     """Ежеминутная проверка: если наступило идеальное время для утреннего поста, запускаем его."""
+    global _last_morning_date
     from datetime import datetime, timezone, timedelta
     now = datetime.now(timezone(timedelta(hours=5)))
     month = now.month
@@ -359,8 +363,10 @@ async def morning_post_dynamic_check():
         target_minute = 15
         
     if now.hour == target_hour and now.minute == target_minute:
-        # Чтобы избежать двойного запуска в ту же минуту, можно было бы добавить флаг,
-        # но scheduler с интервалом в 60с гарантирует 1 запуск в эту минуту.
+        # Идемпотентность: не постить повторно, если уже постили сегодня (джиттер планировщика)
+        if _last_morning_date == now.date():
+            return
+        _last_morning_date = now.date()
         await morning_post()
 
 
@@ -382,10 +388,12 @@ async def evening_post():
         brief = build_recipe_brief(now.date())
         lang_uz = brief["lang"] == "uz"
         lang_name = "узбекском языке (латиница, O'zbek tili)" if lang_uz else "русском языке"
-        # Сезон/повод дня из повестки — чтобы блюдо попадало в момент (жара, Рамазан, школа…)
-        ctx = await get_daily_context()
-        occasion = ctx.get("occasion") or ""
-        season = ctx.get("season") or ""
+        # Сезон/повод дня — чистая математика по дате (без AI-вызова), чтобы блюдо попадало
+        # в момент (жара, Рамазан, школа…)
+        from shared.trends import get_uz_season_occasion
+        _so = get_uz_season_occasion(now.date())
+        occasion = _so.get("occasion") or ""
+        season = _so.get("season") or ""
         occ_hint = (f"Сезон/повод: {season}{(', ' + occasion) if occasion else ''} — "
                     f"учти при выборе блюда (лёгкость/сытность, праздничность).\n")
 
@@ -634,11 +642,15 @@ async def reel_post():
         # Ротация info-формата по дню (лайфхак / факт / мини-рецепт)
         key = REEL_INFO_FORMATS[now.timetuple().tm_yday % len(REEL_INFO_FORMATS)]
         fmt = next(f for f in MORNING_FORMATS if f["key"] == key)
-        # Тема из актуальной повестки (fallback на списки)
+        # Тема из актуальной повестки — только для нужного плейсхолдера (не оба)
         ctx = await get_daily_context()
-        fact_theme = await build_topical_angle("fact", ctx, fallback=get_daily_fact_theme(now.date()))
-        tip_theme = await build_topical_angle("tip", ctx, fallback=get_daily_tip_theme(now.date()))
-        angle = fmt["angle"].replace("{fact}", fact_theme).replace("{tip}", tip_theme)
+        angle = fmt["angle"]
+        if "{fact}" in angle:
+            angle = angle.replace("{fact}", await build_topical_angle(
+                "fact", ctx, fallback=get_daily_fact_theme(now.date())))
+        if "{tip}" in angle:
+            angle = angle.replace("{tip}", await build_topical_angle(
+                "tip", ctx, fallback=get_daily_tip_theme(now.date())))
 
         raw = await ai.chat_completion(
             "Sen Microgreen Uzbekistan SMM-menejeri. Faqat VALID JSON qaytar." + CONTENT_POLICY,
@@ -692,6 +704,53 @@ async def reel_post():
     except Exception as e:
         logging.error(f"reel_post error: {e}", exc_info=True)
 
+async def publish_restaurant_of_week():
+    """Публикация рубрики 'Ресторан недели' и запуск события MAGAZINE_PUBLISHED."""
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        from shared.event_bus import event_bus
+        admin_id = settings.admin_telegram_ids[0]
+        
+        async with get_session_ctx() as session:
+            res = await session.execute(text(
+                "SELECT name, city, cuisine, dishes, microgreens FROM restaurants "
+                "WHERE tier = 'premium' ORDER BY RANDOM() LIMIT 1"
+            ))
+            row = res.fetchone()
+            
+        if not row:
+            return
+            
+        name, city, cuisine, dishes, microgreens = row
+        cuisine_str = ", ".join(cuisine) if isinstance(cuisine, list) else str(cuisine)
+        dishes_str = ", ".join(dishes) if isinstance(dishes, list) else str(dishes)
+        mg_str = ", ".join(microgreens) if isinstance(microgreens, list) else str(microgreens)
+        
+        post_text = (
+            f"🍽 <b>Ресторан недели: {name} ({city.title()})</b>\n\n"
+            f"Кухня: {cuisine_str}\n"
+            f"Знаковые блюда: {dishes_str}\n"
+            f"Рекомендуемая микрозелень: {mg_str}\n\n"
+            f"<i>Читайте полный обзор в новом выпуске FRESH WEEKLY:</i>\n"
+            f"👉 microgreenuzbekistan.com/magazine\n"
+        )
+        
+        if _bot:
+            await _bot.send_message(admin_id, f"📰 <b>Опубликовано в канал:</b>\n\n{post_text}", parse_mode="HTML")
+            
+        # Уведомляем Sales Bot, что вышел журнал с упоминанием ресторана!
+        await event_bus.publish("MAGAZINE_PUBLISHED", {
+            "rubric": "restaurant_of_week",
+            "restaurant_name": name,
+            "city": city,
+            "microgreens_recommended": mg_str
+        }, "content_bot")
+        
+    except Exception as e:
+        logging.error(f"publish_restaurant_of_week error: {e}", exc_info=True)
+
+
 
 scheduler.add_cron(name="daily_site_recipe", func=daily_site_recipe, hour=9, minute=30)
 scheduler.add_cron(name="daily_content_ideas", func=daily_content_ideas, hour=8, minute=0)
@@ -705,6 +764,8 @@ scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
 scheduler.add_cron(name="reel_post_mon", func=reel_post, hour=19, minute=0, day_of_week=0)
 scheduler.add_cron(name="reel_post_wed", func=reel_post, hour=19, minute=0, day_of_week=2)
 scheduler.add_cron(name="reel_post_fri", func=reel_post, hour=19, minute=0, day_of_week=4)
+# Рубрики журнала
+scheduler.add_cron(name="publish_restaurant_of_week", func=publish_restaurant_of_week, hour=11, minute=0, day_of_week=0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

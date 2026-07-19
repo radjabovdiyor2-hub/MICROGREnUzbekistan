@@ -243,6 +243,12 @@ async def handle_task_created(payload: dict):
         await bot.session.close()
 
 async def handle_ig_message(payload: dict):
+    # ⚠️ ОТКЛЮЧЕНО: входящие IG-директы обрабатывает ПОЛЛЕР support_bot
+    # (auto_poll_instagram_dms → instagram_dm.py). Этот обработчик — второй AI-путь к тем же
+    # DM; чтобы не было дубля ответов и лишних AI-вызовов, он НЕ подписан на события и
+    # намеренно не должен вызываться. Не переподключать без снятия поллинга у support.
+    return
+
     data = payload.get("data", {})
     sender_id = data.get("sender_id")
     text_content = data.get("text", "")

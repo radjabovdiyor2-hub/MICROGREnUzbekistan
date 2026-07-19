@@ -347,7 +347,7 @@ class AIEngine:
         models = ["gpt-image-2", "gpt-image-1"]
         last_err: object = None
 
-        for attempt in range(1, 4):  # до 3 попыток суммарно
+        for attempt in range(1, 2):  # один проход по моделям (SDK сам ретраит транзиентные 5xx)
             for model in models:
                 try:
                     logger.info(f"Генерация картинки ({model}, попытка {attempt}): {prompt[:50]}...")
@@ -399,11 +399,8 @@ class AIEngine:
                     logger.warning(f"{model} failed: {e}. Пробуем следующую модель...")
                     continue
 
-            if attempt < 3:
-                await asyncio.sleep(2 * attempt)  # backoff: 2с, затем 4с
-
         logger.error(
-            f"Ошибка генерации изображения после 3 попыток: {last_err}",
+            f"Ошибка генерации изображения (макс. 2 попытки): {last_err}",
             exc_info=isinstance(last_err, Exception),
         )
         return None
