@@ -17,7 +17,7 @@ import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { AdminSettings } from '@/components/admin/AdminSettings';
 import { AdminRevenue } from '@/components/admin/AdminRevenue';
 import { AdminGrowing } from '@/components/admin/AdminGrowing';
-import { AdminDepartment } from '@/components/admin/AdminDepartment';
+import { AdminMagazine } from '@/components/admin/AdminMagazine';
 import * as Icons from '@/components/ui/Icons';
 
 const TAB_GROUPS = [
@@ -61,6 +61,7 @@ const TAB_GROUPS = [
       { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <Icons.BarChart size={16} /> },
       { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <Icons.TrendingUp size={16} /> },
       { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <Icons.User size={16} /> },
+      { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <Icons.BookOpen size={16} /> },
       { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Icons.Lock size={16} /> },
     ]
   }
@@ -515,6 +516,7 @@ export default function AdminPage() {
         {activeTab === 'analytics' && isOwner && <AdminAnalytics />}
         {activeTab === 'forecast' && isOwner && <AdminForecast />}
         {activeTab === 'employees' && isOwner && <AdminEmployees />}
+        {activeTab === 'magazine' && isOwner && <AdminMagazine />}
         {activeTab === 'products' && isOwner && <AdminProducts />}
         {activeTab === 'settings' && isOwner && <AdminSettings />}
       </main>

@@ -363,3 +363,88 @@ enum DebtType {
   WHO_OWES_US // Клиент должен нам
   WE_OWE // Мы должны поставщику
 }
+
+// ==========================================
+// MAGAZINE SYSTEM (FRESH WEEKLY)
+// ==========================================
+
+model MagazineIssue {
+  id          String    @id @default(cuid())
+  issueNumber Int       @unique @map("issue_number")
+  title       String
+  coverImage  String?   @map("cover_image")
+  pdfUrl      String?   @map("pdf_url")
+  htmlPath    String?   @map("html_path") // Relative path to HTML file
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subscribers MagazineSubscriber[]
+
+  @@map("magazine_issues")
+}
+
+model MagazineSubscriber {
+  id      String  @id @default(cuid())
+  userId  String? @map("user_id")
+  phone   String?
+  type    String  @default("digital") // digital | print
+  issueId String? @map("issue_id")
+  issue   MagazineIssue? @relation(fields: [issueId], references: [id])
+  address String? // Для печатной версии (print-on-demand)
+  isPaid  Boolean @default(false) @map("is_paid")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("magazine_subscribers")
+}
+
+// ==========================================
+// RESTAURANT DATABASE (100 ресторанов для AI Sales Bot)
+// ==========================================
+
+model Restaurant {
+  id          String   @id @default(cuid())
+  name        String
+  city        String   // "tashkent" | "samarkand"
+  cuisine     String[] // ["european", "japanese", "uzbek"]
+  tier        String   // "premium" | "traditional" | "cafe" | "tourist"
+  dishes      String[] // Ключевые блюда
+  microgreens String[] // Рекомендуемая микрозелень
+  flowers     String[] // Рекомендуемые съедобные цветы
+  isPartner   Boolean  @default(false) @map("is_partner")
+  contactName String?  @map("contact_name")
+  phone       String?
+  note        String?  @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([city])
+  @@index([isPartner])
+  @@map("restaurants")
+}
+
+// ==========================================
+// ADVERTISERS (B2B Sponsors & Partners)
+// ==========================================
+
+model Advertiser {
+  id            String   @id @default(cuid())
+  companyName   String   @map("company_name")
+  contactPerson String?  @map("contact_person")
+  phone         String?
+  email         String?
+  status        String   @default("lead") // lead | active | past
+  format        String?  // cover_ar | spread | page
+  notes         String?  @db.Text
+  amount        Int?     // сумма контракта в сумах или USD
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("advertisers")
+}

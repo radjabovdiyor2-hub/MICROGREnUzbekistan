@@ -87,6 +87,12 @@ async def handle_magazine_print_order(callback: types.CallbackQuery):
     
     # Notify Stepan through the Ecosystem Bridge
     from services.ecosystem_bridge import bridge
+    await bridge.create_magazine_lead(
+        telegram_id=user.id,
+        phone=None,
+        issue_number=int(issue_number),
+        address="Unknown"
+    )
     msg = (
         f"📖 <b>Новая заявка: Печатный Журнал</b>\n"
         f"Выпуск: #{issue_number}\n"

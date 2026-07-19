@@ -32,8 +32,8 @@ The project is a working AgroTech ecosystem with:
 |------|--------|
 | Print-on-demand order flow (Telegram → Order) | ✅ Done |
 | Media Kit for advertisers (PDF) | ✅ Done |
-| Magazine subscription pricing | ⬜ Todo |
-| Advertiser dashboard in admin | ⬜ Todo |
+| Magazine subscription pricing | ✅ Done |
+| Advertiser dashboard in admin | ✅ Done |
 
 ## Phase 4 — Growth
 
@@ -59,7 +59,6 @@ The project is a working AgroTech ecosystem with:
 
 ## Priorities (RIGHT NOW)
 
-1. **Issue №2 (Korean cuisine theme) — IN PROGRESS**
-2. Deploy magazine to production (`./deploy.sh web`)
-3. Magazine subscription pricing and dashboard
-4. Landing page for magazine (SEO)
+1. Landing page for magazine (SEO)
+2. AR with real 3D models (.glb) instead of planes
+3. Telegram channel auto-posting (weekly rubrics)

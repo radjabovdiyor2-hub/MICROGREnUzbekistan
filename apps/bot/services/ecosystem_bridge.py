@@ -199,6 +199,23 @@ class EcosystemBridge:
         })
         return "error" not in result
 
+    # ==================== MAGAZINE ====================
+
+    async def create_magazine_lead(self, telegram_id: int, phone: Optional[str], issue_number: int, address: Optional[str]) -> bool:
+        """Создать лид на печатный журнал в БД через API."""
+        # Для начала попытаемся найти или создать пользователя
+        user_result = await self.get_or_create_user(telegram_id, "Unknown", phone)
+        user_id = None
+        if isinstance(user_result, dict) and "user" in user_result:
+            user_id = user_result["user"].get("id")
+
+        result = await self._api_call("admin/magazine/leads", "POST", {
+            "userId": user_id,
+            "phone": phone,
+            "issueId": None, # Можно связать с конкретным issue, пока передаём null
+            "address": address
+        })
+        return "error" not in result
 
 # Singleton instance
 bridge = EcosystemBridge()
