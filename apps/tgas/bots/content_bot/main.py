@@ -269,7 +269,7 @@ from shared.trends import (
 
 from datetime import date
 
-async def morning_post(d: Optional[date] = None):
+async def morning_post(d: date | None = None):
     """Ежедневно утром: утренний сторис. Каждый день — ДРУГОЙ формат (факт / вопрос /
     выбор / лайфхак / мини-рецепт / цитата / промо): разное фото, разный макет оверлея
     и свой триггер вовлечения — чтобы сторис не выглядел одинаково и лучше заходил в охват."""
@@ -449,7 +449,7 @@ async def morning_post_dynamic_check():
         await morning_post()
 
 
-async def evening_post(d: Optional[date] = None):
+async def evening_post(d: date | None = None):
     """Ежедневно в 18:00: вечерний пост с уникальным блюдом."""
     try:
         tz = timezone(timedelta(hours=5))
@@ -554,7 +554,7 @@ async def evening_post(d: Optional[date] = None):
         logging.error(f"evening_post error: {e}", exc_info=True)
 
 # ── Регистрация задач ────────────────────────────────────────────────────
-async def weekly_grid_post(d: Optional[date] = None):
+async def weekly_grid_post(d: date | None = None):
     """Раз в неделю (Сб 12:00): курируемый ФЛАГМАНСКИЙ пост в СЕТКУ (feed) с полной подписью."""
     try:
         import os
