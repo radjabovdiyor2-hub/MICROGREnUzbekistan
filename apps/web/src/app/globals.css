@@ -2753,3 +2753,62 @@ button:active, .btn:active {
 a:active {
   opacity: 0.8;
 }
+
+/* ============================================
+   MOBILE BOTTOM NAVIGATION
+   ============================================ */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  z-index: 1000;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (max-width: 768px) {
+  .mobile-nav {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+  }
+}
+
+.mobile-nav__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 500;
+  position: relative;
+  transition: color var(--transition-fast);
+  flex: 1;
+}
+
+.mobile-nav__item:hover, .mobile-nav__item:active {
+  color: var(--brand-primary);
+}
+
+.mobile-nav__item span {
+  margin-top: 4px;
+}
+
+.mobile-nav__badge {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 16px);
+  background: var(--brand-primary);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  line-height: 1;
+}
