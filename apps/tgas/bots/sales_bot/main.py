@@ -253,10 +253,11 @@ async def new_lead_welcome():
         logger.exception("new_lead_welcome error: %s", e)
 
 
-scheduler.add_interval(name="check_pending_payments", func=check_pending_payments, seconds=6 * 3600)
-scheduler.add_cron(name="reactivate_inactive", func=reactivate_inactive, hour=11, minute=0)
-scheduler.add_interval(name="stock_alerts", func=stock_alerts, seconds=4 * 3600)
-scheduler.add_interval(name="new_lead_welcome", func=new_lead_welcome, seconds=2 * 3600)
+# Отключено: частотный спам админу
+# scheduler.add_interval(name="check_pending_payments", func=check_pending_payments, seconds=6 * 3600)
+# scheduler.add_cron(name="reactivate_inactive", func=reactivate_inactive, hour=11, minute=0)
+# scheduler.add_interval(name="stock_alerts", func=stock_alerts, seconds=4 * 3600)
+# scheduler.add_interval(name="new_lead_welcome", func=new_lead_welcome, seconds=2 * 3600)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

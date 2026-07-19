@@ -390,12 +390,13 @@ async def b2b_funnel_report():
 
 
 # ── Регистрация задач ────────────────────────────────────────────────────
-scheduler.add_cron(name="daily_kpi_snapshot", func=daily_kpi_snapshot, hour=20, minute=0)
-scheduler.add_cron(name="b2b_funnel_report", func=b2b_funnel_report, hour=16, minute=0)
-scheduler.add_cron(name="weekly_trends", func=weekly_trends, hour=9, minute=0, day_of_week=0)
-scheduler.add_interval(name="sales_anomaly", func=sales_anomaly, seconds=6 * 3600)
+# Отключено: ежедневный/частотный спам → только ежемесячный отчёт
+# scheduler.add_cron(name="daily_kpi_snapshot", func=daily_kpi_snapshot, hour=20, minute=0)
+# scheduler.add_cron(name="b2b_funnel_report", func=b2b_funnel_report, hour=16, minute=0)
+# scheduler.add_cron(name="weekly_trends", func=weekly_trends, hour=9, minute=0, day_of_week=0)
+# scheduler.add_interval(name="sales_anomaly", func=sales_anomaly, seconds=6 * 3600)
 scheduler.add_cron(name="monthly_executive", func=monthly_executive, hour=10, minute=0, day_of_month=1)
-scheduler.add_cron(name="conversion_funnel", func=conversion_funnel, hour=15, minute=0)
+# scheduler.add_cron(name="conversion_funnel", func=conversion_funnel, hour=15, minute=0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

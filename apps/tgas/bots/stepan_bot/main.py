@@ -499,7 +499,7 @@ async def bot_health_check():
 # scheduler.add_cron(name="evening_summary", func=evening_summary, hour=20, minute=0)
 # scheduler.add_cron(name="weekly_report", func=weekly_report, hour=9, minute=5, day_of_week=0)
 # scheduler.add_interval(name="auto_task_creation", func=auto_task_creation, seconds=4 * 3600)
-scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=900)
+# scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=900)  # отключено: спам каждые 15 мин
 
 # Инфраструктура
 async def _daily_backup():
@@ -550,7 +550,8 @@ async def run_magazine_pipeline():
         from shared.event_bus import BotBusActions, event_bus
         admin_id = settings.admin_telegram_ids[0]
         
-        await _bot.send_message(admin_id, "🚀 <b>Stepan:</b> Запускаю автоматический процесс сборки журнала FRESH WEEKLY!", parse_mode="HTML")
+        # Информационное — не требует действий, убрано из спама
+        logger.info("Magazine pipeline started")
         
         # Фаза 1: Сбор данных
         logger.info("Magazine Phase 1: Data Gathering")
@@ -651,7 +652,7 @@ async def _cron_magazine_print_run():
                 slugs = data.get("slugs", [])
                 if slugs:
                     if admin_id and _bot:
-                        await _bot.send_message(admin_id, f"🖨 <b>Stepan:</b> Начинаю генерацию PDF для {len(slugs)} журналов...", parse_mode="HTML")
+                        logger.info(f"Generating PDF for {len(slugs)} magazines...")
                     
                     for slug in slugs:
                         logger.info(f"Generating PDF for {slug}...")
@@ -662,7 +663,7 @@ async def _cron_magazine_print_run():
                         await process.communicate()
                         
                     if admin_id and _bot:
-                        await _bot.send_message(admin_id, f"✅ <b>Stepan:</b> Генерация PDF завершена для {len(slugs)} журналов.", parse_mode="HTML")
+                        logger.info(f"PDF generation finished for {len(slugs)} magazines")
 
     except Exception as e:
         logger.error(f"Cron Print-Run error: {e}")
@@ -769,10 +770,8 @@ async def main():
                 except Exception as e:
                     logger.error(f"Error generating delivery report: {e}")
         elif event_type == "new_message" and admin_id:
-            # Служебные уведомления от ботов (напр. HR: заявка на отпуск/больничный)
-            src = data.get("bot", "бот")
-            txt = data.get("text", "")
-            await bot.send_message(admin_id, f"📩 <b>Уведомление от {src}</b>\n{txt}", parse_mode="HTML")
+            # Отключено: пересылает ВСЕ служебные уведомления, спамит
+            pass
         elif event_type == "order_created":
             order_number = data.get("order_number", "Unknown")
             amount = data.get("total_amount", 0)

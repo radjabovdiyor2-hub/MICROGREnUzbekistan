@@ -135,11 +135,11 @@ async def audience_report():
         logging.error(f"audience_report error: {e}", exc_info=True)
 
 
-# Регистрация задач
-scheduler.add_cron(name="churn_detection", func=churn_detection, hour=12, minute=0)
-scheduler.add_interval(name="welcome_series_check", func=welcome_series_check, seconds=7200)
-scheduler.add_cron(name="campaign_ideas", func=campaign_ideas, hour=9, minute=0, day_of_week=0)
-scheduler.add_cron(name="audience_report", func=audience_report, hour=20, minute=0, day_of_week=6)
+# Регистрация задач — отключено: ежедневный/частотный спам
+# scheduler.add_cron(name="churn_detection", func=churn_detection, hour=12, minute=0)
+# scheduler.add_interval(name="welcome_series_check", func=welcome_series_check, seconds=7200)
+# scheduler.add_cron(name="campaign_ideas", func=campaign_ideas, hour=9, minute=0, day_of_week=0)
+# scheduler.add_cron(name="audience_report", func=audience_report, hour=20, minute=0, day_of_week=6)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -778,8 +778,9 @@ async def main():
 
     # Запуск планировщика и heartbeat
     # Ночью собираем новых лидов (2ГИС), утром рассылаем КП по свежим 15.
-    scheduler.add_cron(name="collect_leads_nightly", func=collect_leads_nightly, hour=3, minute=0)
-    scheduler.add_cron(name="b2b_outreach", func=b2b_outreach, hour=10, minute=0)
+    # Отключено: ежедневный спам лидами
+    # scheduler.add_cron(name="collect_leads_nightly", func=collect_leads_nightly, hour=3, minute=0)
+    # scheduler.add_cron(name="b2b_outreach", func=b2b_outreach, hour=10, minute=0)
     await scheduler.start()
     asyncio.create_task(start_heartbeat("marketing_bot"))
 

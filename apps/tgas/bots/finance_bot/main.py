@@ -239,9 +239,10 @@ async def salary_reminder():
         logger.exception("salary_reminder error: %s", e)
 
 
-scheduler.add_cron(name="daily_finance_report", func=daily_finance_report, hour=18, minute=0)
-scheduler.add_interval(name="overdue_payments", func=overdue_payments, seconds=8 * 3600)
-scheduler.add_interval(name="large_expense_check", func=large_expense_check, seconds=4 * 3600)
+# Отключено: ежедневный/частотный спам
+# scheduler.add_cron(name="daily_finance_report", func=daily_finance_report, hour=18, minute=0)
+# scheduler.add_interval(name="overdue_payments", func=overdue_payments, seconds=8 * 3600)
+# scheduler.add_interval(name="large_expense_check", func=large_expense_check, seconds=4 * 3600)
 scheduler.add_cron(name="monthly_pnl", func=monthly_pnl, hour=9, minute=0, day_of_month=1)
 scheduler.add_cron(name="salary_reminder", func=salary_reminder, hour=9, minute=0, day_of_month=28)
 

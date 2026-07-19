@@ -28,12 +28,12 @@ logging.basicConfig(level=logging.INFO)
 _bot: Bot = None
 scheduler = BotScheduler("content_bot")
 
-# Регистрация фоновых задач
-scheduler.add_cron(hour=8, minute=0, name="daily_ideas", func=daily_content_ideas)
-scheduler.add_cron(hour=11, minute=0, day_of_week=0, name="audit", func=product_description_audit)
-scheduler.add_cron(hour=20, minute=0, day_of_week=6, name="weekly_plan", func=weekly_content_plan)
-scheduler.add_cron(hour=9, minute=0, name="morning_post", func=morning_post)
-scheduler.add_cron(hour=12, minute=0, name="auto_publish", func=auto_publish_to_channel)
+# Регистрация фоновых задач — отключено: ежедневный спам в лс админа
+# scheduler.add_cron(hour=8, minute=0, name="daily_ideas", func=daily_content_ideas)
+# scheduler.add_cron(hour=11, minute=0, day_of_week=0, name="audit", func=product_description_audit)
+# scheduler.add_cron(hour=20, minute=0, day_of_week=6, name="weekly_plan", func=weekly_content_plan)
+# scheduler.add_cron(hour=9, minute=0, name="morning_post", func=morning_post)
+# scheduler.add_cron(hour=12, minute=0, name="auto_publish", func=auto_publish_to_channel)
 
 # ── Журнал публикаций (общий volume bus_tasks — виден и Степану через bot_bus) ──
 # Пишем не только факт «опубликовано в 07:16», но и САМ контент (картинка + текст):
