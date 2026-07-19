@@ -782,13 +782,10 @@ async def publish_restaurant_of_week():
 
 
 
-scheduler.add_cron(name="daily_site_recipe", func=daily_site_recipe, hour=9, minute=30)
-scheduler.add_cron(name="daily_content_ideas", func=daily_content_ideas, hour=8, minute=0)
+# daily_site_recipe, daily_content_ideas, product_description_audit, weekly_content_plan —
+# отключены: спам в личку админу, не несёт ценности.
 scheduler.add_cron(name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5)
-scheduler.add_cron(name="product_description_audit", func=product_description_audit, hour=11, minute=0, day_of_week=0)
-scheduler.add_cron(name="weekly_content_plan", func=weekly_content_plan, hour=20, minute=0, day_of_week=6)
 scheduler.add_interval(seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check)
-# afternoon_post (дневной сторис-отзыв) отключён по решению — функция оставлена, но не в расписании
 scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
 
 async def daily_magazine_rubric():
