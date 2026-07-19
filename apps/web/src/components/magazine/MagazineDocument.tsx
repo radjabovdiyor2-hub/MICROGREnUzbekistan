@@ -65,6 +65,8 @@ export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl, kidsQrD
             return <B.FitnessPage key={block.id} b={block} n={page} />;
           case 'kids':
             return <B.KidsPage key={block.id} b={block} n={page} kidsQrDataUrl={kidsQrDataUrl} />;
+          case 'kidsCatalog':
+            return <B.KidsCatalogPage key={block.id} b={block} n={page} />;
           case 'familyConversion':
             return <B.FamilyConversionPage key={block.id} b={block} brand={brand} qrDataUrl={qrDataUrl} n={page} />;
           case 'collectionAR':

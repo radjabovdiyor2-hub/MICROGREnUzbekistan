@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
+import { generateJSON, aiProvider } from '@/lib/magazine/ai';
 
 export const dynamic = 'force-dynamic';
 
 // ════════════════════════════════════════════════════════════
-// Нейро-сказка с именем ребёнка (детская механика).
-// Публичный роут (kid-facing), как /api/ai/chat. Gemini REST + JSON.
+// Нейро-сказка с именем ребёнка. Публичный роут (kid-facing).
+// OpenAI-first, Gemini fallback (см. lib/magazine/ai.ts).
 // ════════════════════════════════════════════════════════════
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 function clean(s: unknown, max: number): string {
   return String(s ?? '').replace(/[<>{}]/g, '').trim().slice(0, max);
@@ -21,28 +18,6 @@ const SYSTEM = `Ты — добрый сказочник журнала FRESH WE
 ПРАВИЛА: только доброе и безопасное содержание; без страха и насилия; 150–220 слов; 3–4 коротких абзаца;
 обязательно используй имя ребёнка несколько раз. Верни ТОЛЬКО JSON: {"title": string, "story": string}.`;
 
-async function callGemini(prompt: string): Promise<{ title: string; story: string }> {
-  const body = JSON.stringify({
-    system_instruction: { parts: [{ text: SYSTEM }] },
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.95, maxOutputTokens: 1024, topP: 0.95, responseMimeType: 'application/json' },
-  });
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      const parsed = JSON.parse(text);
-      return { title: String(parsed.title || 'Сказка про Росточка'), story: String(parsed.story || '') };
-    }
-    if (res.status === 429 && attempt < 2) { await new Promise((r) => setTimeout(r, (attempt + 1) * 2500)); continue; }
-    throw new Error(`Gemini API error: ${res.status}`);
-  }
-  throw new Error('Gemini: max retries exceeded');
-}
-
 export async function POST(request: Request) {
   try {
     const raw = await request.json();
@@ -50,18 +25,22 @@ export async function POST(request: Request) {
     const age = clean(raw.age, 3);
     const favorite = clean(raw.favorite, 40);
     if (!childName) return NextResponse.json({ error: 'Укажи имя ребёнка' }, { status: 400 });
-    if (!GEMINI_API_KEY || GEMINI_API_KEY.length < 10) {
+    if (!aiProvider()) {
       return NextResponse.json({ error: 'Сказочник сейчас отдыхает — попробуйте позже' }, { status: 503 });
     }
     const prompt = [
       `Имя ребёнка: ${childName}.`,
       age ? `Возраст: ${age}.` : '',
       favorite ? `Что любит ребёнок: ${favorite} (впиши это в сказку).` : '',
-      'Сочини добрую сказку про Росточка и этого ребёнка.',
+      'Сочини добрую сказку про Росточка и этого ребёнка. Верни JSON {"title","story"}.',
     ].filter(Boolean).join('\n');
 
-    const tale = await callGemini(prompt);
-    return NextResponse.json({ ...tale, source: 'gemini' });
+    const parsed = await generateJSON(SYSTEM, prompt, { temperature: 0.95, maxTokens: 1024 });
+    return NextResponse.json({
+      title: String(parsed.title || 'Сказка про Росточка'),
+      story: String(parsed.story || ''),
+      source: aiProvider(),
+    });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Ошибка' }, { status: 500 });
   }

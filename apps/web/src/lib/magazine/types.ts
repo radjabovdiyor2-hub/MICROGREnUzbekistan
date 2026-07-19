@@ -169,6 +169,13 @@ export interface KidsBlock extends BlockBase {
   botLink?: string;        // ссылка на Telegram-бота (хруст/загадки)
 }
 
+// ── Детская экосистема: каталог всех 9 механик (одна страница) ──
+export interface KidsCatalogBlock extends BlockBase {
+  type: 'kidsCatalog';
+  title?: string;
+  intro?: string;
+}
+
 // ── Семейный блок: конверсия в продажи (персональный) ──
 export interface FamilyConversionBlock extends BlockBase {
   type: 'familyConversion';
@@ -198,6 +205,7 @@ export type Block =
   | TechDigestBlock
   | FitnessBlock
   | KidsBlock
+  | KidsCatalogBlock
   | FamilyConversionBlock
   | CollectionArBlock;
 
@@ -236,6 +244,7 @@ export const SECTION_ORDER: BlockType[] = [
   'nutritionist',
   'techDigest',
   'kids',
+  'kidsCatalog',
   'familyConversion',
   'collectionAR',
 ];
@@ -275,6 +284,7 @@ export const SECTION_TITLES: Record<BlockType, string> = {
   techDigest: 'Tech-дайджест',
   fitness: 'Спорт & Фитнес',
   kids: 'Fresh Kids',
+  kidsCatalog: 'Детская экосистема · 9 игр',
   familyConversion: 'Для всей семьи',
   collectionAR: 'Коллекция + AR',
 };

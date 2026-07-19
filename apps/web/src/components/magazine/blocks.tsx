@@ -2,10 +2,11 @@ import React from 'react';
 import type {
   Block, CoverBlock, TocBlock, ChefWordBlock, RestaurantOfWeekBlock,
   NewsDigestBlock, TrendAnalyticsBlock, RecipeBlock, ListBlock,
-  NutritionistBlock, TechDigestBlock, FitnessBlock, KidsBlock,
+  NutritionistBlock, TechDigestBlock, FitnessBlock, KidsBlock, KidsCatalogBlock,
   FamilyConversionBlock, CollectionArBlock, RestaurantBrand, Audience,
 } from '@/lib/magazine/types';
 import { AUDIENCE_LABELS, KIDS_MECHANIC_LABELS } from '@/lib/magazine/types';
+import { KIDS_MECHANICS } from '@/lib/magazine/kids';
 
 // ── Общие мелкие детали ──
 function PageNum({ n }: { n: number }) {
@@ -410,6 +411,40 @@ export function KidsPage({ b, n, kidsQrDataUrl }: { b: KidsBlock; n: number; kid
             <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm' }}>Играй онлайн · 9 механик</div>
             <div style={{ ...BODY, fontSize: '8.5pt', color: 'var(--ink-soft)' }}>Сканируй QR: нейро-сказка с твоим именем, голосовые загадки, AR-раскраски и паспорт агронома.</div>
           </div>
+        </div>
+      </div>
+      <PageNum n={n} />
+    </div>
+  );
+}
+
+// ── KIDS CATALOG (все 9 механик на одной странице) ──
+export function KidsCatalogPage({ b, n }: { b: KidsCatalogBlock; n: number }) {
+  const modeLabel: Record<string, string> = { online: 'онлайн', ar: 'AR', print: 'в журнале', bot: 'Telegram' };
+  return (
+    <div className="mag-page" style={{ background: 'var(--gold-soft)' }}>
+      <div style={{ padding: '6mm var(--margin-page) 0', display: 'flex', gap: '3mm', alignItems: 'center' }}>
+        <span className="mag-section-tag mag-section-tag-gold">Fresh Kids · Экосистема</span>
+        <span className="mag-kicker" style={{ color: 'var(--gold)' }}>9 игр</span>
+      </div>
+      <div style={contentPad}>
+        <div style={{ ...H1, fontSize: '19pt', marginTop: '2mm' }}>{b.title ?? 'Девять игр, где еда оживает'}</div>
+        {b.intro && <div style={{ ...BODY, fontSize: '9pt', color: 'var(--ink-soft)', marginTop: '1mm' }}>{b.intro}</div>}
+        <hr className="mag-divider mag-divider-gold" style={{ width: '25mm' }} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2.5mm' }}>
+          {KIDS_MECHANICS.map((m) => (
+            <div key={m.id} style={{ display: 'flex', gap: '2.5mm', alignItems: 'flex-start', background: 'var(--paper-pure)', borderRadius: '2mm', padding: '2.5mm 3mm' }}>
+              <span style={{ fontSize: '15pt', lineHeight: 1, flexShrink: 0 }}>{m.emoji}</span>
+              <div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '9pt', fontWeight: 800, color: 'var(--ink)' }}>{m.label}</div>
+                <div style={{ ...BODY, fontSize: '7.5pt', color: 'var(--ink-soft)', lineHeight: 1.35 }}>{m.desc}</div>
+                <div className="mag-kicker" style={{ color: 'var(--accent)', fontSize: '5.5pt', marginTop: '0.5mm' }}>{modeLabel[m.mode]}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...BODY, fontSize: '8pt', color: 'var(--ink-soft)', marginTop: '3mm', textAlign: 'center', fontStyle: 'italic' }}>
+          Играй онлайн на freshweekly.uz/magazine/kids — сканируй QR на детской странице.
         </div>
       </div>
       <PageNum n={n} />

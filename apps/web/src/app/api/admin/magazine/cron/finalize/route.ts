@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+
+export const dynamic = 'force-dynamic';
 
 function getNextWeekNumber() {
   const d = new Date();
@@ -9,11 +12,8 @@ function getNextWeekNumber() {
   return Math.ceil((d.getDay() + 1 + days) / 7);
 }
 
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('x-bot-secret');
-  if (authHeader !== process.env.BOT_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized cron' }, { status: 401 });
-  }
+export async function POST(req: Request) {
+  if (!isAuthorized(req)) return unauthorized();
 
   try {
     const weekNumber = getNextWeekNumber();

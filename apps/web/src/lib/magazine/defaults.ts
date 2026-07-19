@@ -54,6 +54,15 @@ export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
       ],
     },
     {
+      id: 'baking', type: 'bakingDesserts', audience: 'women', origin: 'shared',
+      title: 'Выпечка и десерты на выходные',
+      intro: 'Рецепт, который под силу даже новичку.',
+      items: [
+        { title: 'Мягкое печенье с матчей', text: 'Матча + белый шоколад + микрозелень мяты для украшения. 15 минут в духовке.' },
+        { title: 'Ягодный тарт', text: 'Песочная основа + крем-чиз + сезонные ягоды + съедобные цветы сверху.' },
+      ],
+    },
+    {
       id: 'beauty', type: 'beautyTrends', audience: 'women', origin: 'shared',
       trendQuery: 'как убрать синяки под глазами',
       factTitle: 'Бьюти-тренд недели',
@@ -93,6 +102,11 @@ export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
       instruction: 'Сделай мордочку зверя из еды: половинка яблока — лицо, микрозелень — волосы, изюм — глаза.',
       riddle: 'Зелёный, кудрявый, витаминами богатый — что это? (ответь голосом боту)',
       tale: 'Жил-был Росточек по имени … — вставьте нейро-сказку с именем ребёнка.',
+    },
+    {
+      id: 'kids-catalog', type: 'kidsCatalog', audience: 'kids', origin: 'shared',
+      title: 'Девять игр, где еда оживает',
+      intro: 'Каждую неделю — новая механика. А все 9 доступны онлайн.',
     },
     {
       id: 'collection', type: 'collectionAR', audience: 'all', origin: 'shared',

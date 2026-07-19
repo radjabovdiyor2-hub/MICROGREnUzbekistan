@@ -5,10 +5,12 @@ import * as Icons from '@/components/ui/Icons';
 import { adminFetch } from '@/lib/adminClient';
 import { SlotEditor } from '@/components/admin/magazine/SlotEditor';
 import { PrintCenterTab } from '@/components/admin/magazine/PrintCenterTab';
+import { BriefTab } from '@/components/admin/magazine/BriefTab';
 
-type Tab = 'restaurants' | 'editions' | 'assembly' | 'leads' | 'advertisers' | 'printcenter';
+type Tab = 'brief' | 'restaurants' | 'editions' | 'assembly' | 'leads' | 'advertisers' | 'printcenter';
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'brief', label: '🔥 Брифинг недели' },
   { id: 'restaurants', label: 'Рестораны-партнёры' },
   { id: 'editions', label: 'Выпуск недели' },
   { id: 'assembly', label: 'Сборка' },
@@ -35,6 +37,7 @@ export function AdminMagazine() {
         ))}
       </div>
 
+      {tab === 'brief' && <BriefTab />}
       {tab === 'restaurants' && <RestaurantsTab />}
       {tab === 'editions' && <EditionsTab />}
       {tab === 'assembly' && <AssemblyTab />}

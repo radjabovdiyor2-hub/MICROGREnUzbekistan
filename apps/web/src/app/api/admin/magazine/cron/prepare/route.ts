@@ -1,5 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { defaultSharedSpec, defaultPersonalSpec } from '@/lib/magazine/defaults';
+
+export const dynamic = 'force-dynamic';
 
 function getNextWeekNumber() {
   const d = new Date();
@@ -9,21 +13,14 @@ function getNextWeekNumber() {
   return Math.ceil((d.getDay() + 1 + days) / 7);
 }
 
-export async function POST(req: NextRequest) {
-  // Авторизация по bot secret (Cron)
-  const authHeader = req.headers.get('x-bot-secret');
-  if (authHeader !== process.env.BOT_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized cron' }, { status: 401 });
-  }
+export async function POST(req: Request) {
+  if (!isAuthorized(req)) return unauthorized();
 
   try {
     const weekNumber = getNextWeekNumber();
-    
-    // 1. Ищем или создаем выпуск недели
-    let edition = await prisma.magazineEdition.findUnique({
-      where: { weekNumber }
-    });
 
+    // 1. Ищем или создаём выпуск недели (общий 50%) со СТАРТОВЫМ контентом
+    let edition = await prisma.magazineEdition.findUnique({ where: { weekNumber } });
     if (!edition) {
       edition = await prisma.magazineEdition.create({
         data: {
@@ -31,25 +28,20 @@ export async function POST(req: NextRequest) {
           title: `FRESH WEEKLY #${weekNumber}`,
           coverTheme: 'Автоматический выпуск',
           isPublished: false,
-          sharedSpec: {
-            blocks: [
-              { type: 'hero', content: `Приветствуем в свежем номере ${weekNumber}!` }
-            ]
-          }
-        }
+          sharedSpec: defaultSharedSpec(weekNumber) as any,
+        },
       });
     }
 
-    // 2. Получаем все рестораны
-    const restaurants = await prisma.restaurant.findMany();
+    // 2. Только рестораны-партнёры журнала
+    const restaurants = await prisma.restaurant.findMany({ where: { isMagazinePartner: true } });
 
-    // 3. Создаем черновики (RestaurantIssue) для всех
+    // 3. Идемпотентно создаём персональные черновики со стартовым контентом
     let createdCount = 0;
     for (const restaurant of restaurants) {
       const existing = await prisma.restaurantIssue.findUnique({
-        where: { editionId_restaurantId: { editionId: edition.id, restaurantId: restaurant.id } }
+        where: { editionId_restaurantId: { editionId: edition.id, restaurantId: restaurant.id } },
       });
-
       if (!existing) {
         await prisma.restaurantIssue.create({
           data: {
@@ -57,19 +49,14 @@ export async function POST(req: NextRequest) {
             restaurantId: restaurant.id,
             status: 'draft',
             webSlug: `${restaurant.slug || restaurant.id}-w${weekNumber}`,
-            spec: { blocks: [] }
-          }
+            spec: defaultPersonalSpec(restaurant.name) as any,
+          },
         });
         createdCount++;
       }
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      edition: edition.weekNumber, 
-      createdIssues: createdCount 
-    });
-
+    return NextResponse.json({ success: true, edition: edition.weekNumber, createdIssues: createdCount });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

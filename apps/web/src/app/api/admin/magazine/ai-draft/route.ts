@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { SECTION_TITLES, AUDIENCE_LABELS } from '@/lib/magazine/types';
+import { generateJSON, aiProvider } from '@/lib/magazine/ai';
 
 export const dynamic = 'force-dynamic';
 
 // ════════════════════════════════════════════════════════════
-// Этап 2 — черновик слота от ИИ.
-// Заполняет ТЕКСТОВЫЕ поля переданного блока свежим контентом (RU),
-// сохраняя структуру/ключи. Владелец правит и утверждает.
-// Тот же паттерн Gemini REST, что и в /api/ai/chat (с ретраем на 429).
+// Черновик слота от ИИ (OpenAI-first, Gemini fallback — см. lib/magazine/ai.ts).
+// Заполняет ТЕКСТОВЫЕ поля блока, сохраняя структуру/ключи.
 // ════════════════════════════════════════════════════════════
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
 const PROTECTED = new Set(['id', 'type', 'audience', 'origin', 'mechanic']);
 
@@ -45,40 +40,6 @@ function userPrompt(block: any, ctx: any): string {
   return lines.filter(Boolean).join('\n');
 }
 
-async function callGeminiJSON(block: any, ctx: any): Promise<any> {
-  const body = JSON.stringify({
-    system_instruction: { parts: [{ text: systemPrompt() }] },
-    contents: [{ role: 'user', parts: [{ text: userPrompt(block, ctx) }] }],
-    generationConfig: {
-      temperature: 0.85,
-      maxOutputTokens: 2048,
-      topP: 0.95,
-      responseMimeType: 'application/json',
-    },
-  });
-
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return JSON.parse(text);
-    }
-    if (res.status === 429 && attempt < 2) {
-      await new Promise((r) => setTimeout(r, (attempt + 1) * 2500));
-      continue;
-    }
-    const err = await res.text();
-    console.error(`Gemini ai-draft error (attempt ${attempt + 1}):`, err);
-    throw new Error(`Gemini API error: ${res.status}`);
-  }
-  throw new Error('Gemini: max retries exceeded');
-}
-
 // Восстанавливаем защищённые поля из оригинала (id/type/audience/origin/mechanic)
 function reconcile(original: any, generated: any): any {
   const result: any = { ...original };
@@ -96,12 +57,12 @@ export async function POST(request: Request) {
     if (!block || !block.type) {
       return NextResponse.json({ error: 'block is required' }, { status: 400 });
     }
-    if (!GEMINI_API_KEY || GEMINI_API_KEY.length < 10) {
-      return NextResponse.json({ error: 'GEMINI_API_KEY не настроен' }, { status: 503 });
+    if (!aiProvider()) {
+      return NextResponse.json({ error: 'AI не настроен (OPENAI_API_KEY или GEMINI_API_KEY)' }, { status: 503 });
     }
-    const generated = await callGeminiJSON(block, context || {});
+    const generated = await generateJSON(systemPrompt(), userPrompt(block, context || {}), { temperature: 0.85, maxTokens: 2048 });
     const merged = reconcile(block, generated);
-    return NextResponse.json({ block: merged, source: 'gemini' });
+    return NextResponse.json({ block: merged, source: aiProvider() });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'AI error' }, { status: 500 });
   }
