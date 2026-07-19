@@ -83,11 +83,16 @@ jobs:
             # still holds port 5432, causing "address already in use".
             docker compose -f docker-compose.prod.yml stop web postgres redis 2>/dev/null || true
             sleep 2
-            # Rebuild web (postgres + db-push + db-seed run as dependencies)
-            docker compose -f docker-compose.prod.yml up -d --build web
-            # Seed the storefront catalog ONLY if it is empty (self-skips when
-            # already populated — never overwrites admin-edited prices/stock)
+            # Start infra only (postgres + redis)
+            docker compose -f docker-compose.prod.yml up -d postgres redis
+            # Wait for postgres to be healthy
+            docker compose -f docker-compose.prod.yml exec postgres pg_isready -U mg_user -d microgreen || sleep 5
+            # Run db-push as a one-shot with visible output (so Prisma errors show in CI log)
+            docker compose -f docker-compose.prod.yml run --rm db-push
+            # Seed (self-skips when already populated)
             docker compose -f docker-compose.prod.yml run --rm db-seed
+            # Now build and start web (skip db-push dependency since it already ran)
+            docker compose -f docker-compose.prod.yml up -d --build --no-deps web
             # Боты (apps/tgas) — без этого шага Python-изменения приезжали в git
             # на сервер, но продолжали крутиться старые контейнеры: деплой
             # пересобирал только web, а ботов не трогал вовсе.
