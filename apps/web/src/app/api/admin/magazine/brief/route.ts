@@ -13,10 +13,10 @@ export const dynamic = 'force-dynamic';
 
 const WEB_OFFICE_URL = process.env.WEB_OFFICE_URL || 'http://localhost:8050';
 
+// Проверены на реальную отдачу <item> (parity с apps/tgas/shared/trends.py)
 const RSS_FEEDS = [
   'https://www.gazeta.uz/ru/rss/',
-  'https://kun.uz/ru/rss',
-  'https://daryo.uz/feed',
+  'https://podrobno.uz/rss/',
 ];
 
 // Парс заголовков из RSS (первый <title> — канал, его пропускаем)
@@ -26,7 +26,8 @@ async function fetchRssTitles(url: string, limit = 4): Promise<string[]> {
     if (!res.ok) return [];
     const xml = await res.text();
     const titles: string[] = [];
-    const re = /<item[\s\S]*?<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/g;
+    // RSS <item> и Atom <entry>; <title> может иметь атрибуты и CDATA
+    const re = /<(?:item|entry)[\s\S]*?<title[^>]*>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(xml)) && titles.length < limit) {
       const t = m[1].replace(/<[^>]+>/g, '').trim();

@@ -31,6 +31,8 @@ const LABELS: Record<string, string> = {
 };
 const HIDDEN = new Set(['id', 'type', 'audience', 'origin']);
 const LONG = new Set(['text', 'fact', 'advice', 'editorialNote', 'intro', 'chefVersion', 'homeVersion', 'lifehack', 'aiHack', 'instruction', 'riddle', 'tale', 'farmStory', 'promoText', 'cardText', 'quote', 'pullQuote', 'a']);
+// Слоты-картинки: показываем кнопку загрузки фото (а не только вставку URL)
+const IMAGE_KEYS = new Set(['background', 'heroImage', 'portrait']);
 
 function lbl(k: string) { return LABELS[k] || k; }
 
@@ -58,8 +60,37 @@ function ArrayEditor({ k, value, onChange }: { k: string; value: Record<string, 
   );
 }
 
+// Слот-картинка: URL-поле + загрузка файла через /api/upload + превью
+function ImageField({ k, value, onChange }: { k: string; value: string; onChange: (v: string) => void }) {
+  const [up, setUp] = useState(false);
+  const upload = async (file: File) => {
+    setUp(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.url) onChange(data.url);
+    } finally { setUp(false); }
+  };
+  return (
+    <label style={{ display: 'block' }}>
+      <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{lbl(k)}</span>
+      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <input className="input" style={{ flex: 1 }} value={value} placeholder="URL или загрузите файл" onChange={(e) => onChange(e.target.value)} />
+        <label style={{ cursor: 'pointer', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px', fontSize: 'var(--text-xs)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+          {up ? '… загрузка' : '📷 Загрузить'}
+          <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+        </label>
+        {value && <img src={value} alt="" style={{ height: 34, width: 34, objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }} />}
+      </div>
+    </label>
+  );
+}
+
 function Field({ k, value, onChange }: { k: string; value: any; onChange: (v: any) => void }) {
   if (typeof value === 'string') {
+    if (IMAGE_KEYS.has(k)) return <ImageField k={k} value={value} onChange={onChange} />;
     const long = LONG.has(k) || value.length > 60;
     return (
       <label style={{ display: 'block' }}>

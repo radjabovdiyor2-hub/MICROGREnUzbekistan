@@ -36,6 +36,7 @@ export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
     {
       id: 'recipe', type: 'recipe', audience: 'women', origin: 'shared',
       title: 'Чизкейк «Цветочный сад»',
+      heroImage: '',
       subtitle: 'Без выпечки · 20 мин + 4 часа холодильник',
       chefVersion: 'Крем-чиз 400г · греческий йогурт 200г · желатин + цедра лайма. Декор: микрозелень базилика + виола. Маржа в меню: 78%.',
       homeVersion: 'Творожный сыр 400г · йогурт 200г · желатин + лимон. Декор: клубника + мята. Бюджет: 45 000 сум.',
@@ -125,6 +126,7 @@ export function defaultPersonalSpec(restaurantName = 'Ресторан'): Magazi
       id: 'cover', type: 'cover', audience: 'all', origin: 'personal',
       title: 'Сладкое + острое:', accentTitle: 'новая эра вкуса',
       subtitle: 'Специальный выпуск для гостей',
+      background: '',
       tags: ['Ресторан', 'Стрит-фуд', 'Рецепты', 'ЗОЖ'],
     },
     {
@@ -134,11 +136,13 @@ export function defaultPersonalSpec(restaurantName = 'Ресторан'): Magazi
     {
       id: 'chef', type: 'chefWord', audience: 'all', origin: 'personal',
       chefName: `Шеф-повар ${restaurantName}`,
+      portrait: '',
       text: 'Вставьте приветственное слово от лица шефа/управляющего (текст генерирует ИИ по меню ресторана).',
     },
     {
       id: 'row', type: 'restaurantOfWeek', audience: 'all', origin: 'personal',
       name: restaurantName,
+      heroImage: '',
       meta: 'Наш гость недели',
       pullQuote: 'Красивая тарелка — это бесплатная реклама в Instagram.',
       quoteAttr: `— Шеф-повар ${restaurantName}`,
