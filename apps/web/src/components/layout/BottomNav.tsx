@@ -17,7 +17,7 @@ export function BottomNav() {
     { href: '/', icon: <Icons.Home size={22} />, label: t('nav.home'), id: 'nav-home' },
     { href: '/catalog', icon: <Icons.Search size={22} />, label: t('nav.catalog'), id: 'nav-catalog' },
     { href: '/cart', icon: <Icons.ShoppingCart size={22} />, label: t('nav.cart'), id: 'nav-cart', badge: cart.totalItems },
-    { href: '/favorites', icon: <Icons.Heart size={22} />, label: t('nav.favorites'), id: 'nav-favorites', badge: favCount },
+    { href: '/magazine', icon: <Icons.BookOpen size={22} />, label: t('nav.magazine'), id: 'nav-magazine' },
     { href: '/profile', icon: <Icons.User size={22} />, label: t('nav.profile'), id: 'nav-profile' },
   ];
 

@@ -13,6 +13,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'nav.catalog': { uz: 'Katalog', ru: 'Каталог' },
   'nav.cart': { uz: 'Savat', ru: 'Корзина' },
   'nav.favorites': { uz: 'Sevimli', ru: 'Избранное' },
+  'nav.magazine': { uz: 'Jurnal', ru: 'Журнал' },
   'nav.profile': { uz: 'Profil', ru: 'Профиль' },
 
   // === Hero Section ===
