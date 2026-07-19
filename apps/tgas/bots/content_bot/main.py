@@ -835,11 +835,13 @@ async def daily_magazine_rubric():
     except Exception as e:
         logging.error(f"daily_magazine_rubric error: {e}", exc_info=True)
 
-scheduler.add_cron(name="daily_magazine_rubric", func=daily_magazine_rubric, hour=16, minute=0)
-# Reels — 3×/неделю (Пн/Ср/Пт, 19:00): главный двигатель органического охвата
-scheduler.add_cron(name="reel_post_mon", func=reel_post, hour=19, minute=0, day_of_week=0)
-scheduler.add_cron(name="reel_post_wed", func=reel_post, hour=19, minute=0, day_of_week=2)
-scheduler.add_cron(name="reel_post_fri", func=reel_post, hour=19, minute=0, day_of_week=4)
+# daily_magazine_rubric отключён: слал в ЛИЧКУ админу захардкоженный факт (всегда выпуск №2),
+# не реальная публикация в канал → мусорный повтор. Функция оставлена, но не в расписании.
+# scheduler.add_cron(name="daily_magazine_rubric", func=daily_magazine_rubric, hour=16, minute=0)
+# Reels отключены по решению — видео плохо генерится ИИ. Функция reel_post оставлена, но не в расписании.
+# scheduler.add_cron(name="reel_post_mon", func=reel_post, hour=19, minute=0, day_of_week=0)
+# scheduler.add_cron(name="reel_post_wed", func=reel_post, hour=19, minute=0, day_of_week=2)
+# scheduler.add_cron(name="reel_post_fri", func=reel_post, hour=19, minute=0, day_of_week=4)
 # Рубрики журнала
 scheduler.add_cron(name="publish_restaurant_of_week", func=publish_restaurant_of_week, hour=11, minute=0, day_of_week=0)
 
