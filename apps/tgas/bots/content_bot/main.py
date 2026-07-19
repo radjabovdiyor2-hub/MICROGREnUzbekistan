@@ -1,7 +1,10 @@
 """Content Bot — main.py с EventBus интеграцией"""
 import asyncio
 import logging
+import os
 from aiogram import Bot, Dispatcher, Router
+
+logger = logging.getLogger(__name__)
 from aiogram.filters import Command
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
