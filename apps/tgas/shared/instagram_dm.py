@@ -43,15 +43,17 @@ IG_SALES_SYSTEM_PROMPT = """Ты — менеджер по продажам ко
 - Microgreen Uzbekistan — производитель микрозелени, салатов и съедобных цветов в Самарканде
 - Доставка по Самарканду, бесплатно от 500 000 сум
 
-🌱 НАША ПРОДУКЦИЯ И ЦЕНЫ:
-- Микрозелень (руккола, базилик, шпинат, брокколи, редис, горох, подсолнечник, кресс-салат, кинза, свёкла): 40 000 – 65 000 сум/100г
-- Бейби-лиф (руккола, шпинат, мангольд): 40 000 – 55 000 сум/100г
-- Салатные миксы (микс, руккола, витаминный): 65 000 – 85 000 сум/200г
-- Съедобные цветы (микс, настурция, бораго): 70 000 – 90 000 сум/30г
-- Витграсс (wheatgrass): 35 000 сум/порция
+🌱 НАША ПРОДУКЦИЯ:
+- Микрозелень (руккола, базилик, шпинат, брокколи, редис, горох, подсолнечник, кресс-салат, кинза, свёкла)
+- Бейби-лиф (руккола, шпинат, мангольд)
+- Салатные миксы (микс, руккола, витаминный)
+- Съедобные цветы (микс, настурция, бораго)
+- Витграсс (wheatgrass)
+
+Актуальные цены и наличие уточнит менеджер при подтверждении заказа.
 
 💳 ОПЛАТА: наличные, карта, Click, Payme
-📞 Телефон: +998 91 123 45 67
+📞 Телефон: +998 94 999 95 99
 
 ═══════════════════════════════════════════
 ТВОЯ ГЛАВНАЯ ЗАДАЧА — БЫСТРО ОФОРМИТЬ ЗАКАЗ!
@@ -66,7 +68,7 @@ IG_SALES_SYSTEM_PROMPT = """Ты — менеджер по продажам ко
 
 Как только получил товар + количество + телефон — СРАЗУ оформляй заказ!
 
-Если клиент написал всё в одном сообщении (например "Горох 20шт 949999599") — сразу оформляй!
+Если клиент написал всё в одном сообщении (например "Горох 20шт +998949999599") — сразу оформляй!
 
 Когда информация собрана, ОБЯЗАТЕЛЬНО напиши блок:
 ===ЗАКАЗ===
@@ -74,7 +76,6 @@ IG_SALES_SYSTEM_PROMPT = """Ты — менеджер по продажам ко
 Количество: [кол-во]
 Телефон: [номер]
 Адрес: уточнит менеджер
-Сумма: [примерная сумма]
 ===КОНЕЦ===
 
 После блока напиши клиенту: "Заказ принят! Менеджер свяжется с вами для подтверждения. 😊"
@@ -85,7 +86,7 @@ IG_SALES_SYSTEM_PROMPT = """Ты — менеджер по продажам ко
 - НЕ упоминай что ты бот/AI
 - Если клиент просто здоровается — поприветствуй и спроси что хочет заказать
 - Если спрашивает о продуктах — расскажи кратко и предложи заказать
-- Если сомневается — предложи стартовый набор (250 000 сум)
+- Если сомневается — предложи попробовать наш стартовый набор
 """
 
 
@@ -282,6 +283,7 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
     """Публикуем оформленный заказ: создаём в БД + отправляем в event bus."""
     order_number = None
     order_id = None
+    total_amount = 0
     
     try:
         # 1. Создаём/находим клиента в БД
@@ -289,30 +291,77 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
         from sqlalchemy import text as sa_text
         
         async with get_session_ctx() as session:
-            # Upsert customer
-            res = await session.execute(sa_text(
-                "SELECT id FROM customers WHERE name = :name LIMIT 1"
-            ), {"name": from_name})
-            row = res.fetchone()
+            # Извлечем и нормализуем телефон
+            phone = order.get("phone", "")
+            import re
+            norm_phone = None
+            if phone:
+                digits = re.sub(r'[^\d]', '', str(phone))
+                if digits:
+                    if len(digits) == 9:
+                        norm_phone = f"+998{digits}"
+                    elif len(digits) == 12 and digits.startswith("998"):
+                        norm_phone = f"+{digits}"
+                    else:
+                        norm_phone = f"+{digits}" if not str(phone).startswith("+") else str(phone)
+                        
+            customer_id = None
+            if norm_phone:
+                res = await session.execute(sa_text(
+                    "SELECT id FROM customers WHERE phone = :phone LIMIT 1"
+                ), {"phone": norm_phone})
+                row = res.fetchone()
+                if row:
+                    customer_id = row[0]
             
-            if row:
-                customer_id = row[0]
+            if not customer_id:
+                res = await session.execute(sa_text(
+                    "SELECT id FROM customers WHERE name = :name LIMIT 1"
+                ), {"name": from_name})
+                row = res.fetchone()
+                if row:
+                    customer_id = row[0]
+                    
+            if customer_id:
+                if norm_phone:
+                    await session.execute(sa_text(
+                        "UPDATE customers SET phone = COALESCE(phone, :phone) WHERE id = :cid"
+                    ), {"phone": norm_phone, "cid": customer_id})
             else:
                 res = await session.execute(sa_text(
                     "INSERT INTO customers (name, phone, status, notes, source, created_at) "
                     "VALUES (:name, :phone, 'active', 'Instagram DM', 'instagram', NOW()) RETURNING id"
-                ), {"name": from_name, "phone": order.get("phone", "")})
+                ), {"name": from_name, "phone": norm_phone or phone})
                 customer_id = res.fetchone()[0]
             
-            # 2. Создаём заказ в таблице orders
-            import random
-            order_num = f"IG-{random.randint(100000, 999999)}"
+            # 2. Создаём заказ в таблице orders с уникальным номером
+            from shared.order_utils import generate_order_number
+            order_num = await generate_order_number()
             
-            # Парсим сумму: "1 300 000 сум" → 1300000
-            import re
-            total_str = order.get("total", "0")
-            digits = re.sub(r'[^\d]', '', total_str)  # оставляем только цифры
-            total_amount = int(digits) if digits else 0
+            # Вычисляем сумму по каталогу
+            product_name = order.get("product")
+            quantity_str = order.get("quantity") or "1"
+            
+            # Извлечем цифры количества (например "2 шт" -> 2)
+            qty_match = re.search(r'\d+', str(quantity_str))
+            quantity = int(qty_match.group()) if qty_match else 1
+            
+            price = None
+            if product_name:
+                price_row = (await session.execute(sa_text(
+                    "SELECT price FROM products WHERE is_active=true AND name_ru ILIKE :p LIMIT 1"
+                ), {"p": f"%{product_name}%"})).fetchone()
+                if price_row:
+                    price = float(price_row[0])
+                    total_amount = int(price * quantity)
+                    
+            order_notes = f"Instagram DM от {from_name}. Товар: {product_name} x {quantity_str}. Тел: {phone}"
+            if price is None:
+                total_amount = 0
+                order_notes = "[СУММУ УТОЧНИТЬ] " + order_notes
+            
+            # Сохраняем в dict для Telegram-уведомления
+            order["total"] = f"{total_amount} UZS" if total_amount > 0 else "уточнить (СУММУ УТОЧНИТЬ)"
             
             res = await session.execute(sa_text(
                 "INSERT INTO orders (customer_id, order_number, total_amount, status, "
@@ -324,7 +373,7 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
                 "onum": order_num,
                 "total": total_amount,
                 "addr": order.get("address", ""),
-                "notes": f"Instagram DM от {from_name}. Товар: {order.get('product', '')} x {order.get('quantity', '')}. Тел: {order.get('phone', '')}",
+                "notes": order_notes[:200],
             })
             order_row = res.fetchone()
             order_id = order_row[0] if order_row else None
@@ -349,7 +398,7 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
                 "phone": order.get("phone", ""),
                 "address": order.get("address", ""),
                 "total": order.get("total", ""),
-                "total_amount": total_amount if 'total_amount' in dir() else 0,
+                "total_amount": total_amount,
                 "order_number": order_number or "IG-???",
                 "order_id": order_id,
                 "timestamp": datetime.now().isoformat(),
