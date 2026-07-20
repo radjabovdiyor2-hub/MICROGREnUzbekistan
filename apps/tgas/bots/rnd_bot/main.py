@@ -116,24 +116,6 @@ async def handle_task_created(payload: dict):
         "text": f"🧬 <b>Отчет Отдела R&D (Анализ рынка и трендов):</b>\n\n{report}"
     }, "rnd_bot")
 
-async def _generate_magazine_facts(params: dict) -> str:
-    """Генерация интересных фактов и рецептов для журнала."""
-    prompt = (
-        "Сгенерируй 3 интересных научных факта о пользе случайной микрозелени "
-        "(например, руккола, горох, подсолнечник, редис). "
-        "А также дай 1 полезный и простой рецепт с использованием микрозелени. "
-        "Текст пойдет в еженедельный журнал."
-    )
-    try:
-        report = await ai.chat_completion(
-            system_prompt="Ты главный агроном и нутрициолог фермы микрозелени.",
-            user_message=prompt,
-        )
-        return report
-    except Exception as e:
-        logger.error(f"Error generating facts: {e}")
-        return "Не удалось получить факты."
-
 async def main():
     logger.info("Starting R&D Bot Microservice...")
     await event_bus.connect()
@@ -150,9 +132,7 @@ async def main():
     
     from shared.bot_bus import start_listener
     from shared.event_bus import BotBusActions
-    asyncio.create_task(start_listener("rnd_bot", {
-        BotBusActions.GENERATE_MAGAZINE_FACTS: _generate_magazine_facts,
-    }))
+    asyncio.create_task(start_listener("rnd_bot", {}))
     
     logger.info("R&D Bot running on port 8091 (weekly Instagram trends: Mon 10:00)")
 
