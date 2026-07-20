@@ -27,124 +27,7 @@ async def _get_bot():
                default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 
-async def churn_detection():
-    """Ежедневно 12:00 — обнаружение оттока клиентов."""
-    try:
-        bot = await _get_bot()
-        admin_id = settings.admin_telegram_ids[0]
-        async with get_session_ctx() as session:
-            result = await session.execute(text(
-                "UPDATE customers SET status = 'churned' "
-                "WHERE last_order_date < NOW() - INTERVAL '21 days' "
-                "AND status != 'churned' "
-                "RETURNING id"
-            ))
-            churned = result.fetchall()
-            count = len(churned)
-        if count > 0:
-            await bot.send_message(admin_id,
-                f"⚠️ <b>Обнаружен отток клиентов</b>\n\n"
-                f"🔴 {count} клиент(ов) переведены в статус <b>churned</b>\n"
-                f"(без заказов более 21 дня)",
-                parse_mode="HTML")
-        else:
-            await bot.send_message(admin_id,
-                "✅ Отток: все клиенты активны, новых churned нет.",
-                parse_mode="HTML")
-        await bot.session.close()
-    except Exception as e:
-        logging.error(f"churn_detection error: {e}", exc_info=True)
-
-
-async def welcome_series_check():
-    """Каждые 2ч — проверка новых лидов без заказов."""
-    try:
-        bot = await _get_bot()
-        admin_id = settings.admin_telegram_ids[0]
-        async with get_session_ctx() as session:
-            result = await session.execute(text(
-                "SELECT COUNT(*) FROM customers "
-                "WHERE created_at > NOW() - INTERVAL '7 days' "
-                "AND orders_count = 0"
-            ))
-            count = result.scalar() or 0
-        if count > 0:
-            await bot.send_message(admin_id,
-                f"🆕 {count} новых лидов без заказов — "
-                f"рекомендуется welcome-кампания",
-                parse_mode="HTML")
-        await bot.session.close()
-    except Exception as e:
-        logging.error(f"welcome_series_check error: {e}", exc_info=True)
-
-
-async def campaign_ideas():
-    """Понедельник 9:00 — AI генерирует 3 маркетинговые идеи на неделю."""
-    try:
-        bot = await _get_bot()
-        admin_id = settings.admin_telegram_ids[0]
-        ai = AIEngine()
-        prompt = (
-            "Сгенерируй 3 маркетинговые идеи на эту неделю для компании "
-            "по продаже микрозелени в Узбекистане. "
-            "Учитывай сезонность, B2B (HoReCa) и B2C сегменты. "
-            "Формат: номер, название идеи, краткое описание (2-3 предложения)."
-        )
-        ideas = await ai.chat_completion(
-            "Ты креативный маркетолог компании микрозелени в Узбекистане.",
-            prompt
-        )
-        await bot.send_message(admin_id,
-            f"💡 <b>Маркетинговые идеи на неделю:</b>\n\n{ideas}",
-            parse_mode="HTML")
-        await bot.session.close()
-    except Exception as e:
-        logging.error(f"campaign_ideas error: {e}", exc_info=True)
-
-
-async def audience_report():
-    """Воскресенье 20:00 — отчёт по аудитории."""
-    try:
-        bot = await _get_bot()
-        admin_id = settings.admin_telegram_ids[0]
-        async with get_session_ctx() as session:
-            total = (await session.execute(text(
-                "SELECT COUNT(*) FROM customers"))).scalar() or 0
-            b2b = (await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE segment = 'b2b'"))).scalar() or 0
-            b2c = (await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE segment = 'b2c'"))).scalar() or 0
-            active = (await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE status = 'active'"))).scalar() or 0
-            vip = (await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE segment = 'vip'"))).scalar() or 0
-            churned = (await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE status = 'churned'"))).scalar() or 0
-        report = (
-            f"📊 <b>Аудитория — еженедельный отчёт</b>\n\n"
-            f"👥 Всего клиентов: <b>{total}</b>\n"
-            f"🏢 B2B: <b>{b2b}</b>\n"
-            f"🛒 B2C: <b>{b2c}</b>\n"
-            f"✅ Активных: <b>{active}</b>\n"
-            f"⭐ VIP: <b>{vip}</b>\n"
-            f"🔴 Churned: <b>{churned}</b>"
-        )
-        await bot.send_message(admin_id, report, parse_mode="HTML")
-        await bot.session.close()
-    except Exception as e:
-        logging.error(f"audience_report error: {e}", exc_info=True)
-
-
-# Регистрация задач — отключено: ежедневный/частотный спам
-# scheduler.add_cron(name="churn_detection", func=churn_detection, hour=12, minute=0)
-# scheduler.add_interval(name="welcome_series_check", func=welcome_series_check, seconds=7200)
-# scheduler.add_cron(name="campaign_ideas", func=campaign_ideas, hour=9, minute=0, day_of_week=0)
-# scheduler.add_cron(name="audience_report", func=audience_report, hour=20, minute=0, day_of_week=6)
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# BOT BUS HANDLERS — задачи от Степана
-# ═══════════════════════════════════════════════════════════════════════════
+# Функции периодических рассылок и отчетов отключены для минимизации спама
 
 async def bus_send_broadcast(params: dict) -> dict:
     """Реальная рассылка по базе клиентов Telegram."""
@@ -159,7 +42,7 @@ async def bus_send_broadcast(params: dict) -> dict:
     
     try:
         async with get_session_ctx() as session:
-            query = "SELECT telegram_id FROM customers WHERE telegram_id IS NOT NULL"
+            query = "SELECT telegram_id FROM customers WHERE telegram_id IS NOT NULL AND COALESCE(status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
             if target == "b2b":
                 query += " AND customer_type = 'b2b'"
             elif target == "b2c":
@@ -180,6 +63,9 @@ async def bus_send_broadcast(params: dict) -> dict:
     success_count = 0
     fail_count = 0
     
+    # Логирование размера аудитории перед отправкой
+    logging.warning("BROADCAST: %d получателей, target=%s", len(user_ids), target)
+
     # Отправляем в фоне, чтобы не блокировать шину
     async def send_loop():
         nonlocal success_count, fail_count
@@ -242,103 +128,7 @@ async def handle_task_created(payload: dict):
     finally:
         await bot.session.close()
 
-async def handle_ig_message(payload: dict):
-    # ⚠️ ОТКЛЮЧЕНО: входящие IG-директы обрабатывает ПОЛЛЕР support_bot
-    # (auto_poll_instagram_dms → instagram_dm.py). Этот обработчик — второй AI-путь к тем же
-    # DM; чтобы не было дубля ответов и лишних AI-вызовов, он НЕ подписан на события и
-    # намеренно не должен вызываться. Не переподключать без снятия поллинга у support.
-    return
 
-    data = payload.get("data", {})
-    sender_id = data.get("sender_id")
-    text_content = data.get("text", "")
-    if not sender_id or not text_content:
-        return
-        
-    logging.info(f"MARKETING BOT handling IG message from {sender_id}: {text_content}")
-    
-    from shared.database import get_session_ctx
-    from sqlalchemy import text
-    from shared.ai_engine import AIEngine
-    from shared.instagram import send_ig_message
-    from shared.event_bus import event_bus
-    import json
-    import re
-    
-    # 1. Сохраняем входящее сообщение
-    try:
-        async with get_session_ctx() as session:
-            await session.execute(text(
-                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
-                "VALUES ((SELECT id FROM customers LIMIT 1), 'instagram', 'inquiry', 'marketing_bot', :s, NOW())"
-            ), {"s": f"IG Message from {sender_id}: {text_content}"})
-    except Exception as e:
-        logging.error(f"Error saving IG message: {e}")
-
-    # 2. Генерируем ответ и классифицируем заказ через ИИ
-    try:
-        ai = AIEngine()
-        system_prompt = (
-            "Ты дружелюбный менеджер Microgreen Uzbekistan. Общаешься с клиентом в Direct (Instagram).\n"
-            "Тебе нужно сделать 2 вещи:\n"
-            "1. Ответить клиенту коротко, живо, с эмодзи (на русском или узбекском).\n"
-            "2. Если клиент четко хочет сделать ЗАКАЗ (пишет 'хочу заказать', 'доставьте мне', 'заказ на'), "
-            "извлечь детали заказа: товар, количество, телефон, адрес (если не указано, пиши 'не указан').\n\n"
-            "ТВОЙ ОТВЕТ ДОЛЖЕН БЫТЬ СТРОГО В ФОРМАТЕ JSON:\n"
-            "{\n"
-            '  "reply_text": "твой ответ клиенту",\n'
-            '  "is_order": true/false,\n'
-            '  "product": "что заказывает",\n'
-            '  "quantity": 1,\n'
-            '  "phone": "+998...",\n'
-            '  "address": "адрес",\n'
-            '  "total_amount": 50000\n'
-            "}"
-        )
-        
-        json_resp = await ai.chat_completion(system_prompt=system_prompt, user_message=text_content)
-        
-        # Очистка JSON-ответа (иногда ИИ оборачивает в ```json ... ```)
-        json_resp = re.sub(r'```json\n?|```', '', json_resp).strip()
-        
-        parsed = {}
-        try:
-            parsed = json.loads(json_resp)
-        except json.JSONDecodeError:
-            # Fallback, если ИИ вернул просто текст вместо JSON
-            parsed = {"reply_text": json_resp, "is_order": False}
-            
-        reply_text = parsed.get("reply_text", "")
-        is_order = parsed.get("is_order", False)
-        
-        # 3. Отправляем ответ в Instagram
-        if reply_text:
-            logging.info(f"Generated AI reply for {sender_id}: {reply_text[:100]}")
-            success = await send_ig_message(sender_id, reply_text)
-            if success:
-                logging.info("AI reply successfully sent to Instagram.")
-            else:
-                logging.error("Failed to send AI reply to Instagram.")
-                
-        # 4. Если это заказ, публикуем событие ig_dm_received для Степана!
-        if is_order:
-            order_data = {
-                "product": parsed.get("product", "Микрозелень"),
-                "quantity": parsed.get("quantity", 1),
-                "phone": parsed.get("phone", "Не указан"),
-                "address": parsed.get("address", "Не указан"),
-                "total": parsed.get("total_amount", 50000)
-            }
-            logging.info(f"MARKETING BOT: Заказ обнаружен! Делегируем Степану: {order_data}")
-            
-            await event_bus.publish("ig_dm_received", {
-                "text": text_content,
-                "from_name": f"IG Client {sender_id}",
-                "order": order_data
-            }, "marketing_bot")
-            
-    except Exception as e:
-        logging.error(f"Error generating/sending AI reply: {e}", exc_info=True)
 
 # Как писать КП в зависимости от того, ПОЧЕМУ отдел продаж выбрал этот ресторан
 _SEGMENT_BRIEF = {
@@ -722,6 +512,29 @@ async def main():
     for r in all_routers:
         dp.include_router(r)
 
+    # ── Обработчик отписки (Opt-Out) ──
+    from aiogram import Router, F
+    from aiogram.types import Message
+    unsubscribe_router = Router()
+
+    @unsubscribe_router.message(F.text & F.text.lower().in_(["стоп", "stop", "отписаться", "unsubscribe"]))
+    async def process_unsubscribe(message: Message):
+        try:
+            from shared.database import get_session_ctx
+            from sqlalchemy import text
+            tid = message.from_user.id
+            async with get_session_ctx() as session:
+                await session.execute(
+                    text("UPDATE customers SET status = 'unsubscribed' WHERE telegram_id = :tid"),
+                    {"tid": tid}
+                )
+                await session.commit()
+            await message.reply("Вы отписаны от рассылок.")
+        except Exception as e:
+            logging.error(f"Error unsubscribing customer: {e}")
+
+    dp.include_router(unsubscribe_router)
+
     # ── Обработчик кнопок одобрения/отклонения B2B-рассылки ──
     from aiogram import Router, F
     from aiogram.types import CallbackQuery
@@ -794,7 +607,8 @@ async def main():
                     res = await session.execute(text(
                         "SELECT f.id, c.telegram_id, f.message FROM followups f "
                         "JOIN customers c ON f.customer_id = c.id "
-                        "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() AND c.telegram_id IS NOT NULL"
+                        "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() AND c.telegram_id IS NOT NULL "
+                        "AND COALESCE(c.status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
                     ))
                     rows = res.fetchall()
                     for row in rows:
