@@ -110,7 +110,9 @@ n8n_workflows_*.json
 pm2.txt
 pw_strings.txt
 check_drivers.ps1
-apps/tgas/temp_*.jpg
-apps/tgas/temp_*.mp4
+# Сгенерированные картинки контент-бота (story_*/recipe_*/img_*/temp_*) — не коммитить
+apps/tgas/*.jpg
+apps/tgas/*.png
+apps/tgas/*.mp4
 jobs*.json
 runs.json
