@@ -152,6 +152,8 @@ services:
       OFFICE_INGEST_URL: http://web_office:8050/ingest/order
       OFFICE_STATUS_URL: http://web_office:8050/ingest/order-status
       OFFICE_CUSTOMER_URL: http://web_office:8050/ingest/customer
+      # Брифинг журнала тянет Google Trends из офиса (/api/magazine/brief).
+      WEB_OFFICE_URL: http://web_office:8050
       INGEST_SECRET: ${INGEST_SECRET:-}
       # Shared secret for storefront-bot -> web admin API calls (empty = off).
       BOT_SECRET: ${BOT_SECRET:-}
