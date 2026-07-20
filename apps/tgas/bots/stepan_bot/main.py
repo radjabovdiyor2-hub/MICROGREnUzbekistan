@@ -608,7 +608,8 @@ async def run_magazine_pipeline():
     except Exception as e:
         logger.error(f"run_magazine_pipeline error: {e}", exc_info=True)
 
-scheduler.add_cron(name="magazine_pipeline", func=run_magazine_pipeline, day_of_week=2, hour=10, minute=0)
+# Отключён: заменён веб-кроном magazine_cron_prepare/finalize/print_run (персональные выпуски)
+# scheduler.add_cron(name="magazine_pipeline", func=run_magazine_pipeline, day_of_week=2, hour=10, minute=0)
 
 async def _cron_magazine_prepare():
     try:
