@@ -3,6 +3,24 @@ import { prisma } from '@repo/database';
 import { isAuthorized } from '@/lib/adminAuth';
 import { computeOrder } from '@/lib/magazine/printPricing';
 
+// Ссылки на онлайн-оплату тиража (Click/Payme). Референс print_<id> — колбэки
+// оплаты (payments.ts findPayableByRef) распознают его и помечают PrintOrder оплаченным.
+const CLICK_MERCHANT_ID = process.env.CLICK_MERCHANT_ID || '';
+const CLICK_SERVICE_ID = process.env.CLICK_SERVICE_ID || '';
+const PAYME_MERCHANT_ID = process.env.PAYME_MERCHANT_ID || '';
+
+function buildPayLinks(id: string, revenue: number): { click: string | null; payme: string | null } | null {
+  if (!revenue || revenue <= 0) return null;
+  const ref = `print_${id}`;
+  const click = (CLICK_MERCHANT_ID && CLICK_SERVICE_ID)
+    ? `https://my.click.uz/services/pay?service_id=${CLICK_SERVICE_ID}&merchant_id=${CLICK_MERCHANT_ID}&amount=${revenue}&transaction_param=${ref}`
+    : null;
+  const payme = PAYME_MERCHANT_ID
+    ? `https://checkout.paycom.uz/${Buffer.from(`m=${PAYME_MERCHANT_ID};ac.order_id=${ref};a=${revenue * 100}`).toString('base64')}`
+    : null;
+  return (click || payme) ? { click, payme } : null;
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -31,7 +49,12 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: 'desc' }
     });
-    return NextResponse.json(orders);
+    // К неоплаченным тиражам прикладываем ссылки на онлайн-оплату
+    const withLinks = orders.map((o) => ({
+      ...o,
+      payLinks: o.status === 'paid' ? null : buildPayLinks(o.id, o.revenue),
+    }));
+    return NextResponse.json(withLinks);
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

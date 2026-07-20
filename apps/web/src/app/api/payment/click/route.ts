@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { md5, findOrderByRef, markOrderPaid } from '@/lib/payments';
+import { md5, findPayableByRef, markPayablePaid } from '@/lib/payments';
 
 // ==========================================
 // Click Shop API webhook — Prepare (action=0) + Complete (action=1).
@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
     return reply({}, -1, 'SIGN CHECK FAILED');
   }
 
-  const order = await findOrderByRef(p.merchant_trans_id);
-  if (!order) return reply({}, -5, 'Order not found');
-  if (Math.round(Number(p.amount)) !== order.total) {
+  const payable = await findPayableByRef(p.merchant_trans_id);
+  if (!payable) return reply({}, -5, 'Order not found');
+  if (Math.round(Number(p.amount)) !== payable.amount) {
     return reply({}, -2, 'Incorrect amount');
   }
   if (Number(p.error) < 0) {
@@ -57,14 +57,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (action === '0') {
-    // Prepare — confirm we can accept payment for this order.
-    if (order.paymentStatus === 'PAID') return reply({}, -4, 'Already paid');
+    // Prepare — confirm we can accept payment for this order/tirazh.
+    if (payable.paid) return reply({}, -4, 'Already paid');
     return reply({ merchant_prepare_id: Number(p.click_trans_id) || Date.now() });
   }
 
   if (action === '1') {
-    // Complete — money received. Idempotent inside markOrderPaid.
-    await markOrderPaid(order.id);
+    // Complete — money received. Idempotent inside markPayablePaid.
+    await markPayablePaid(p.merchant_trans_id);
     return reply({ merchant_confirm_id: Number(p.merchant_prepare_id) || Date.now() });
   }
 

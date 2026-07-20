@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { findOrderByRef, markOrderPaid } from '@/lib/payments';
+import { findPayableByRef, markPayablePaid } from '@/lib/payments';
 
 // ==========================================
 // Payme Merchant API webhook (JSON-RPC 2.0).
@@ -52,26 +52,26 @@ export async function POST(request: NextRequest) {
 
   switch (method) {
     case 'CheckPerformTransaction': {
-      const order = ref ? await findOrderByRef(ref) : null;
-      if (!order) return rpcError(id, -31050, 'Order not found');
-      if (amount && Math.round(amount / 100) !== order.total) {
+      const payable = ref ? await findPayableByRef(ref) : null;
+      if (!payable) return rpcError(id, -31050, 'Order not found');
+      if (amount && Math.round(amount / 100) !== payable.amount) {
         return rpcError(id, -31001, 'Incorrect amount');
       }
-      if (order.paymentStatus === 'PAID') return rpcError(id, -31051, 'Order already paid');
+      if (payable.paid) return rpcError(id, -31051, 'Order already paid');
       return rpc(id, { allow: true });
     }
 
     case 'CreateTransaction': {
-      const order = ref ? await findOrderByRef(ref) : null;
-      if (!order) return rpcError(id, -31050, 'Order not found');
+      const payable = ref ? await findPayableByRef(ref) : null;
+      if (!payable) return rpcError(id, -31050, 'Order not found');
       return rpc(id, { create_time: Date.now(), transaction: String(params?.id ?? ''), state: 1 });
     }
 
     case 'PerformTransaction': {
-      // Confirm payment — the order must exist to mark it as paid.
-      const order = ref ? await findOrderByRef(ref) : null;
-      if (!order) return rpcError(id, -31050, 'Order not found');
-      await markOrderPaid(order.id);
+      // Confirm payment — the payable (Order or PrintOrder) must exist to mark it paid.
+      const payable = ref ? await findPayableByRef(ref) : null;
+      if (!payable) return rpcError(id, -31050, 'Order not found');
+      await markPayablePaid(ref as string);
       return rpc(id, { perform_time: Date.now(), transaction: String(params?.id ?? ''), state: 2 });
     }
 

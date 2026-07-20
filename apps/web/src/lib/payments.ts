@@ -41,3 +41,47 @@ export async function markOrderPaid(ref: string) {
   await syncOrderPaid(order);
   return order;
 }
+
+// ==========================================
+// Unified payable resolution — storefront Order OR magazine PrintOrder (тираж).
+// Provider reference convention: PrintOrder uses "print_<id>"; any other ref is a
+// storefront Order (unchanged behaviour). This lets the SAME Click/Payme webhooks
+// serve both without touching the storefront money-path.
+// ==========================================
+const PRINT_REF_PREFIX = 'print_';
+
+export interface Payable {
+  kind: 'order' | 'print';
+  id: string;
+  amount: number; // сумма к оплате в сумах (UZS)
+  paid: boolean;
+}
+
+export async function findPayableByRef(ref: string): Promise<Payable | null> {
+  if (!ref) return null;
+  if (ref.startsWith(PRINT_REF_PREFIX)) {
+    const id = ref.slice(PRINT_REF_PREFIX.length);
+    const po = await prisma.printOrder.findUnique({ where: { id } });
+    if (!po) return null;
+    return { kind: 'print', id: po.id, amount: po.revenue, paid: po.status === 'paid' };
+  }
+  const order = await findOrderByRef(ref);
+  if (!order) return null;
+  return { kind: 'order', id: order.id, amount: order.total, paid: order.paymentStatus === 'PAID' };
+}
+
+// Idempotently mark a payable (Order or PrintOrder) paid, by its provider reference.
+export async function markPayablePaid(ref: string) {
+  if (ref && ref.startsWith(PRINT_REF_PREFIX)) {
+    const id = ref.slice(PRINT_REF_PREFIX.length);
+    const po = await prisma.printOrder.findUnique({ where: { id } });
+    if (!po) return null;
+    if (po.status === 'paid') return po; // idempotent
+    return prisma.printOrder.update({
+      where: { id },
+      data: { status: 'paid', paidAt: new Date() },
+    });
+  }
+  // storefront order — reuse the existing money-path (customer DM + office sync)
+  return markOrderPaid(ref);
+}
