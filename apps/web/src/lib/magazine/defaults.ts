@@ -10,27 +10,22 @@ import { mechanicForWeek } from './types';
 export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
   const blocks: Block[] = [
     {
-      id: 'news', type: 'newsDigest', audience: 'men', origin: 'shared',
-      title: 'Неделя в цифрах',
+      // Склейка «здоровье + красота»: обе темы на одной полосе
+      id: 'health', type: 'healthTrends', audience: 'all', origin: 'shared',
+      title: { uz: 'Hafta salomatligi va go‘zalligi', ru: 'Здоровье и красота недели' },
       items: [
-        { title: 'Вставьте новость', text: 'Быстрая выжимка главного события недели (спорт, бизнес, авто).' },
-        { title: 'Ещё одна', text: 'ИИ отдаёт 2–4 короткие новости — вставьте их здесь.' },
-      ],
-    },
-    {
-      id: 'health', type: 'healthTrends', audience: 'men', origin: 'shared',
-      trendQuery: 'почему шелушится кожа на лице',
-      factTitle: 'Факт недели',
-      fact: 'Участились проблемы с кожей из-за сухого воздуха.',
-      advice: 'Решение — Омега-3 и ростки редиса: в них витамина С больше, чем в лимоне.',
-    },
-    {
-      id: 'fitness', type: 'fitness', audience: 'men', origin: 'shared',
-      title: '10 минут утром, которые меняют весь день',
-      intro: 'Короткая утренняя зарядка без инвентаря.',
-      exercises: [
-        { name: 'Планка', text: '3 подхода по 30 секунд.' },
-        { name: 'Приседания', text: '2 подхода по 15 повторений.' },
+        {
+          trendQuery: { uz: 'nega yuz terisi po‘st tashlaydi', ru: 'почему шелушится кожа на лице' },
+          factTitle: { uz: 'Hafta fakti', ru: 'Факт недели' },
+          fact: { uz: 'Quruq havo teri muammolarini keltirib chiqaradi.', ru: 'Сухой воздух — частая причина проблем с кожей.' },
+          advice: { uz: 'Omega-3 va turp nihollari: C vitamini limondan ko‘p.', ru: 'Омега-3 и ростки редиса: витамина С больше, чем в лимоне.' },
+        },
+        {
+          trendQuery: { uz: 'ko‘z ostidagi qorayishni qanday yo‘qotish', ru: 'как убрать синяки под глазами' },
+          factTitle: { uz: 'Go‘zallik trendi', ru: 'Бьюти-тренд недели' },
+          fact: { uz: 'Ko‘z ostidagi qorayish haqidagi so‘rovlar oshdi.', ru: 'Всплеск запросов о тёмных кругах под глазами.' },
+          advice: { uz: 'K vitamini va temir: no‘xat va lavlagi mikrozeleni.', ru: 'Витамин K и железо: микрозелень гороха и свёклы.' },
+        },
       ],
     },
     {
@@ -47,28 +42,16 @@ export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
       ],
     },
     {
+      // Склейка «лайфхаки + выпечка»: советы кухни одной полосой
       id: 'lifehacks', type: 'kitchenLifehacks', audience: 'women', origin: 'shared',
-      title: 'Кухонные лайфхаки со всего мира',
+      title: { uz: 'Oshxona maslahatlari', ru: 'Советы кухни' },
+      intro: { uz: 'Yangi boshlovchilar ham uddalaydi.', ru: 'Под силу даже новичку.' },
       items: [
-        { title: 'Чеснок за 5 секунд', text: 'Раздавите зубчик плоскостью ножа — шелуха отходит сама.' },
-        { title: 'Пересолёный суп', text: 'Опустите сырую картофелину на 10 минут — заберёт лишнюю соль.' },
+        { title: { uz: 'Sarimsoq 5 soniyada', ru: 'Чеснок за 5 секунд' }, text: { uz: 'Tishchani pichoq yuzasi bilan bosing — po‘sti o‘zi chiqadi.', ru: 'Раздавите зубчик плоскостью ножа — шелуха отходит сама.' } },
+        { title: { uz: 'Sho‘r bo‘lgan sho‘rva', ru: 'Пересолёный суп' }, text: { uz: 'Xom kartoshkani 10 daqiqaga soling — ortiqcha tuzni oladi.', ru: 'Опустите сырую картофелину на 10 минут — заберёт лишнюю соль.' } },
+        { title: { uz: 'Matchali pechenye', ru: 'Печенье с матчей' }, text: { uz: 'Matcha va oq shokolad, duxovkada 15 daqiqa.', ru: 'Матча и белый шоколад, 15 минут в духовке.' } },
+        { title: { uz: 'Rezavor tart', ru: 'Ягодный тарт' }, text: { uz: 'Qumli asos, krem-chiz va mavsumiy rezavorlar.', ru: 'Песочная основа, крем-чиз и сезонные ягоды.' } },
       ],
-    },
-    {
-      id: 'baking', type: 'bakingDesserts', audience: 'women', origin: 'shared',
-      title: 'Выпечка и десерты на выходные',
-      intro: 'Рецепт, который под силу даже новичку.',
-      items: [
-        { title: 'Мягкое печенье с матчей', text: 'Матча + белый шоколад + микрозелень мяты для украшения. 15 минут в духовке.' },
-        { title: 'Ягодный тарт', text: 'Песочная основа + крем-чиз + сезонные ягоды + съедобные цветы сверху.' },
-      ],
-    },
-    {
-      id: 'beauty', type: 'beautyTrends', audience: 'women', origin: 'shared',
-      trendQuery: 'как убрать синяки под глазами',
-      factTitle: 'Бьюти-тренд недели',
-      fact: 'Всплеск запросов о тёмных кругах под глазами.',
-      advice: 'Витамин K и железо: добавьте микрозелень гороха и свёклы в утренний смузи.',
     },
     {
       id: 'nutrition', type: 'nutritionist', audience: 'all', origin: 'shared',
@@ -85,16 +68,6 @@ export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
       quote: 'Не пейте горячий чай с лимоном ради витамина С — он разрушается при 70°C.',
       quoteAttr: '— Колонка диетолога',
       lifehack: 'Нарежьте перец соломкой утром → контейнер → холодильник. Снэк весь день.',
-    },
-    {
-      id: 'tech', type: 'techDigest', audience: 'all', origin: 'shared',
-      title: 'Технологии, которые меняют еду и здоровье',
-      entries: [
-        { icon: '🌍', kicker: 'Стартап мира', name: 'Zoe · UK', text: 'Персонализированное питание на основе анализа крови. AI-рекомендации.' },
-        { icon: '🇺🇿', kicker: 'Стартап Узбекистана', name: 'Zira.uz', text: '5000+ рецептов с пошаговыми фото и доставкой продуктов в один клик.' },
-        { icon: '⌚', kicker: 'Гаджет', name: 'Mi Band 9', text: 'Лучший фитнес-трекер до $40. Батарея 16 дней.' },
-      ],
-      aiHack: 'Напишите ИИ: «В холодильнике курица, помидоры, лук, рис — предложи 3 блюда за 20 минут».',
     },
     {
       id: 'kids', type: 'kids', audience: 'kids', origin: 'shared',

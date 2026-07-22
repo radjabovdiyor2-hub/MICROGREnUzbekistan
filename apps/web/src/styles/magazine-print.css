@@ -166,6 +166,98 @@
   text-transform: uppercase;
 }
 
+/* ════════════════════════════════════════════
+   РЕДАКЦИОННАЯ ВЁРСТКА (каноны журнальной полосы)
+   ════════════════════════════════════════════ */
+
+/* ── Буквица: маркер начала истории ── */
+.mag-dropcap::first-letter {
+  float: left;
+  font-family: 'Playfair Display', serif;
+  font-weight: 900;
+  font-size: 34pt;
+  line-height: 0.82;
+  padding: 1mm 2mm 0 0;
+  color: var(--accent);
+}
+
+/* ── Стендфёрст: врезной лид под заголовком ── */
+.mag-standfirst {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 10.5pt;
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--ink-soft);
+  border-left: 2px solid var(--gold);
+  padding-left: 4mm;
+  margin: 3mm 0;
+}
+
+/* ── Фигура: изображение + обязательная подпись ── */
+.mag-figure { margin: 0 0 3mm; }
+.mag-figure img {
+  width: 100%;
+  display: block;
+  object-fit: cover;
+  border-radius: 1.5mm;
+}
+
+/* ── Миниатюра пункта списка (4:3) ── */
+.mag-thumb {
+  width: 26mm;
+  height: 19.5mm;
+  object-fit: cover;
+  border-radius: 1.5mm;
+  flex-shrink: 0;
+  display: block;
+}
+.mag-thumb-lg { width: 34mm; height: 25.5mm; }
+
+/* ── Строка «фото + текст» с чередованием стороны ── */
+.mag-item-row {
+  display: flex;
+  gap: 3.5mm;
+  align-items: flex-start;
+  margin-bottom: 3mm;
+  padding-bottom: 3mm;
+  border-bottom: 0.5px solid var(--rule-light);
+}
+.mag-item-row:last-child { border-bottom: none; }
+.mag-item-row-alt { flex-direction: row-reverse; }
+
+/* ── Сетки карточек с фото ── */
+.mag-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; }
+.mag-grid-card {
+  background: var(--paper-pure);
+  border-radius: 2mm;
+  overflow: hidden;
+  border: 0.5px solid var(--rule-light);
+}
+.mag-grid-card img { width: 100%; height: 17mm; object-fit: cover; display: block; }
+.mag-grid-card-body { padding: 2mm 2.5mm; }
+
+/* ── Вторичный язык (русский под узбекским) ── */
+.mag-lang-sec {
+  border-left: 1.5px solid var(--rule);
+  padding-left: 2.5mm;
+  margin-top: 1.2mm;
+}
+.mag-lang-sec-line {
+  font-family: 'Cormorant Garamond', serif;
+  color: var(--caption);
+  line-height: 1.35;
+}
+.mag-lang-tag {
+  font-family: 'Inter', sans-serif;
+  font-size: 4.8pt;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-right: 1.5mm;
+  vertical-align: 0.6mm;
+}
+
 /* ── Печать ── */
 @page { size: 148mm 210mm; margin: 0; }
 

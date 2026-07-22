@@ -476,18 +476,23 @@ async def handle_task_created(payload: dict):
             phone = parsed.get("phone")
             address = parsed.get("address")
             
+            db_id = None
+            storefront_id = None
+            price = None
             amount = None
             if product:
                 from shared.database import get_session_ctx
                 from sqlalchemy import text
                 async with get_session_ctx() as session:
                     res = await session.execute(
-                        text("SELECT price FROM products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"),
+                        text("SELECT id, storefront_id, price FROM products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"),
                         {"p": f"%{product}%"}
                     )
                     row = res.fetchone()
                     if row:
-                        price = float(row[0])
+                        db_id = row[0]
+                        storefront_id = row[1]
+                        price = float(row[2])
                         amount = int(price * quantity)
 
             from shared.database import get_session_ctx
@@ -495,8 +500,6 @@ async def handle_task_created(payload: dict):
             from sqlalchemy import text
             
             async with get_session_ctx() as session:
-                order_number = await generate_order_number()
-                
                 # Ищем или создаем клиента
                 customer_id = None
                 if phone:
@@ -523,63 +526,113 @@ async def handle_task_created(payload: dict):
                             "notes": f"Заведен при обработке IG-заказа по задаче #{task_id}"
                         }
                     )).scalar()
+
+                # Пытаемся отправить заказ в реальный магазин storefront
+                storefront_success = False
+                real_order_number = None
                 
                 if amount is not None:
-                    # Создаем реальный заказ
-                    await session.execute(text(
-                        "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
-                        "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW())"
-                    ), {"cid": customer_id, "onum": order_number, "amount": amount, "notes": desc[:200]})
-                    await session.commit()
+                    import aiohttp
+                    import os
+                    storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
+                    bot_secret = os.getenv("BOT_SECRET", "")
                     
-                    # Генерация ссылок на оплату
-                    click_url = _click_url(order_number, amount)
-                    payme_url = _payme_url(order_number, amount)
+                    payload = {
+                        "name": customer_name,
+                        "phone": phone or "нет телефона",
+                        "address": address or "Самарканд",
+                        "items": [
+                            {
+                                "productId": storefront_id or str(db_id),
+                                "price": int(price),
+                                "quantity": int(quantity)
+                            }
+                        ],
+                        "paymentMethod": "cash",
+                        "telegramId": None
+                    }
+                    try:
+                        async with aiohttp.ClientSession() as http_sess:
+                            async with http_sess.post(
+                                f"{storefront_url}/orders",
+                                json=payload,
+                                headers={"x-bot-secret": bot_secret, "Content-Type": "application/json"},
+                                timeout=10
+                            ) as response:
+                                if response.status in (200, 201):
+                                    resp_data = await response.json()
+                                    order_data = resp_data.get("order", {})
+                                    real_order_number = order_data.get("orderNumber") or order_data.get("order_number")
+                                    if real_order_number:
+                                        storefront_success = True
+                    except Exception as e:
+                        logger.error(f"Failed to post order to storefront in task_created: {e}")
+
+                if storefront_success:
+                    # Генерация ссылок на оплату для реального заказа
+                    click_url = _click_url(real_order_number, amount)
+                    payme_url = _payme_url(real_order_number, amount)
                     
                     # Сообщаем об успехе в чат задачи
                     await bot.send_message(
                         chat_id, 
-                        f"✅ <b>Заказ {order_number} оформлен!</b>\nСумма: {amount} UZS\n"
-                        f"Событие order_created отправлено в PM-отдел.\n\n"
+                        f"✅ <b>Заказ {real_order_number} успешно оформлен в магазине!</b>\nСумма: {amount} UZS\n"
+                        f"Склад зарезервирован.\n\n"
                         f"💳 <b>Оплатить онлайн:</b>\n"
                         f"<a href='{click_url}'>Оплатить через Click</a>\n"
                         f"<a href='{payme_url}'>Оплатить через Payme</a>", 
                         parse_mode="HTML"
                     )
-                    
-                    # Оповещаем PM бота через шину
-                    from shared.event_bus import event_bus, Events
-                    await event_bus.publish(Events.ORDER_CREATED, {
-                        "order_number": order_number,
-                        "total_amount": amount,
-                        "items_summary": f"{product} x {quantity}"[:100]
-                    }, "sales_bot")
                 else:
-                    # Создаем зеркальный заказ как LEAD/manual с 0 суммой
-                    notes_lead = f"LEAD/manual: {desc}"[:200]
-                    await session.execute(text(
-                        "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
-                        "VALUES (:cid, :onum, 0, 'new', 'pending', :notes, NOW(), NOW())"
-                    ), {"cid": customer_id, "onum": order_number, "notes": notes_lead})
-                    await session.commit()
+                    # Фолбек на локальный черновик/зеркало
+                    order_number = await generate_order_number()
                     
-                    # Сообщаем в чат задачи
-                    await bot.send_message(
-                        chat_id,
-                        f"⚠️ <b>Внимание:</b> Сумма заказа {order_number} не определена, так как товар или цена не найдены в каталоге.\n"
-                        f"Заказ сохранен как черновик (LEAD/manual) без ссылок на оплату.",
-                        parse_mode="HTML"
-                    )
-                    
-                    # Отправляем уведомление в группу продаж
-                    sales_group = getattr(settings, 'sales_group_id', None) or chat_id
-                    if sales_group:
+                    if amount is not None:
+                        # Локальный черновик (storefront упал)
+                        await session.execute(text(
+                            "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                            "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW())"
+                        ), {"cid": customer_id, "onum": order_number, "amount": amount, "notes": f"[ОШИБКА МАГАЗИНА] {desc}"[:200]})
+                        await session.commit()
+                        
+                        # Генерация ссылок на оплату для локального черновика
+                        click_url = _click_url(order_number, amount)
+                        payme_url = _payme_url(order_number, amount)
+                        
                         await bot.send_message(
-                            sales_group,
-                            f"🔔 Новый IG-заказ, сумма не определена — уточните у клиента и оформите вручную:\n"
-                            f"Заказ: {order_number}\nКлиент: {customer_name}\nДетали: {desc}",
+                            chat_id, 
+                            f"⚠️ <b>Магазин недоступен, заказ {order_number} оформлен локально!</b>\nСумма: {amount} UZS\n\n"
+                            f"💳 <b>Оплатить онлайн:</b>\n"
+                            f"<a href='{click_url}'>Оплатить через Click</a>\n"
+                            f"<a href='{payme_url}'>Оплатить через Payme</a>", 
                             parse_mode="HTML"
                         )
+                    else:
+                        # Сумма неизвестна
+                        notes_lead = f"LEAD/manual: {desc}"[:200]
+                        await session.execute(text(
+                            "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                            "VALUES (:cid, :onum, 0, 'new', 'pending', :notes, NOW(), NOW())"
+                        ), {"cid": customer_id, "onum": order_number, "notes": notes_lead})
+                        await session.commit()
+                        
+                        # Сообщаем в чат задачи
+                        await bot.send_message(
+                            chat_id,
+                            f"⚠️ <b>Внимание:</b> Сумма заказа {order_number} не определена, так как товар или цена не найдены в каталоге.\n"
+                            f"Заказ сохранен как черновик (LEAD/manual) без ссылок на оплату.",
+                            parse_mode="HTML"
+                        )
+                        
+                        # Отправляем уведомление в группу продаж
+                        sales_group = getattr(settings, 'sales_group_id', None) or chat_id
+                        if sales_group:
+                            await bot.send_message(
+                                sales_group,
+                                f"🔔 Новый IG-заказ, сумма не определена — уточните у клиента и оформите вручную:\n"
+                                f"Заказ: {order_number}\nКлиент: {customer_name}\nДетали: {desc}",
+                                parse_mode="HTML"
+                            )
             
         else:
             from shared.prompts import TEAM_CONTEXT
@@ -607,7 +660,7 @@ async def handle_task_created(payload: dict):
         await bot.session.close()
 
 async def bus_process_ig_order(params: dict) -> dict:
-    """Оформление заказа из Instagram."""
+    """Оформление заказа из Instagram c отправкой в storefront API."""
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
@@ -638,25 +691,26 @@ async def bus_process_ig_order(params: dict) -> dict:
                 pass
                 
         # Если суммы нет, ищем цену в БД
+        db_id = None
+        storefront_id = None
+        price = None
         if amount is None and product:
             try:
                 async with get_session_ctx() as session:
                     res = await session.execute(
-                        text("SELECT price FROM products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"),
+                        text("SELECT id, storefront_id, price FROM products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"),
                         {"p": f"%{product}%"}
                     )
                     row = res.fetchone()
                     if row:
-                        price = float(row[0])
+                        db_id = row[0]
+                        storefront_id = row[1]
+                        price = float(row[2])
                         amount = int(price * quantity)
             except Exception as e:
                 logger.error(f"Error fetching product price in bus_process_ig_order: {e}")
 
-        from shared.order_utils import generate_order_number
-        
         async with get_session_ctx() as session:
-            order_number = await generate_order_number()
-            
             # Ищем или создаем клиента
             customer_id = None
             if phone:
@@ -683,22 +737,56 @@ async def bus_process_ig_order(params: dict) -> dict:
                     }
                 )).scalar()
 
-            notes = f"IG: {product or '—'} x {quantity}, Phone: {phone}, Address: {address}"
+            # Пытаемся отправить в реальный магазин
+            storefront_success = False
+            real_order_number = None
             
             if amount is not None:
-                # Оформляем полноценный заказ
-                await session.execute(text(
-                    "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
-                    "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW())"
-                ), {"cid": customer_id, "onum": order_number, "amount": amount, "notes": notes[:200]})
-                await session.commit()
+                import aiohttp
+                import os
+                storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
+                bot_secret = os.getenv("BOT_SECRET", "")
                 
-                # Генерация ссылок на оплату
-                click_url = _click_url(order_number, amount)
-                payme_url = _payme_url(order_number, amount)
+                payload = {
+                    "name": customer_name,
+                    "phone": phone or "нет телефона",
+                    "address": address or "Самарканд",
+                    "items": [
+                        {
+                            "productId": storefront_id or str(db_id),
+                            "price": int(price),
+                            "quantity": int(quantity)
+                        }
+                    ],
+                    "paymentMethod": "cash",
+                    "telegramId": None
+                }
+                try:
+                    async with aiohttp.ClientSession() as http_sess:
+                        async with http_sess.post(
+                            f"{storefront_url}/orders",
+                            json=payload,
+                            headers={"x-bot-secret": bot_secret, "Content-Type": "application/json"},
+                            timeout=10
+                        ) as response:
+                            if response.status in (200, 201):
+                                resp_data = await response.json()
+                                order_data = resp_data.get("order", {})
+                                real_order_number = order_data.get("orderNumber") or order_data.get("order_number")
+                                if real_order_number:
+                                    storefront_success = True
+                except Exception as e:
+                    logger.error(f"Failed to post order to storefront in bus_process_ig_order: {e}")
+
+            notes = f"IG: {product or '—'} x {quantity}, Phone: {phone}, Address: {address}"
+            
+            if storefront_success:
+                # Генерация ссылок на оплату для реального заказа
+                click_url = _click_url(real_order_number, amount)
+                payme_url = _payme_url(real_order_number, amount)
                 
                 msg_text = (
-                    f"✅ <b>Заказ {order_number} оформлен!</b>\n"
+                    f"✅ <b>Заказ {real_order_number} оформлен в магазине!</b>\n"
                     f"Клиент: {customer_name}\n"
                     f"Товар: {product or '—'} x {quantity}\n"
                     f"Сумма: {amount} UZS\n\n"
@@ -706,21 +794,47 @@ async def bus_process_ig_order(params: dict) -> dict:
                     f"<a href='{click_url}'>Оплатить через Click</a>\n"
                     f"<a href='{payme_url}'>Оплатить через Payme</a>"
                 )
+                order_number = real_order_number
             else:
-                # Оформляем как LEAD/manual заказ с 0 суммой
-                notes_lead = f"LEAD/manual: {notes}"
-                await session.execute(text(
-                    "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
-                    "VALUES (:cid, :onum, 0, 'new', 'pending', :notes, NOW(), NOW())"
-                ), {"cid": customer_id, "onum": order_number, "notes": notes_lead[:200]})
-                await session.commit()
+                # Фолбек на локальный черновик/зеркало
+                from shared.order_utils import generate_order_number
+                order_number = await generate_order_number()
                 
-                msg_text = (
-                    f"🔔 Новый IG-заказ, сумма не определена — уточните у клиента и оформите вручную:\n"
-                    f"Заказ: {order_number}\n"
-                    f"Клиент: {customer_name}\n"
-                    f"Детали: {notes}"
-                )
+                if amount is not None:
+                    # Локальный черновик (storefront упал)
+                    await session.execute(text(
+                        "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                        "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW())"
+                    ), {"cid": customer_id, "onum": order_number, "amount": amount, "notes": f"[ОШИБКА] {notes}"[:200]})
+                    await session.commit()
+                    
+                    click_url = _click_url(order_number, amount)
+                    payme_url = _payme_url(order_number, amount)
+                    
+                    msg_text = (
+                        f"⚠️ <b>Магазин недоступен, заказ {order_number} оформлен локально!</b>\n"
+                        f"Клиент: {customer_name}\n"
+                        f"Товар: {product or '—'} x {quantity}\n"
+                        f"Сумма: {amount} UZS\n\n"
+                        f"💳 <b>Ссылки на оплату:</b>\n"
+                        f"<a href='{click_url}'>Оплатить через Click</a>\n"
+                        f"<a href='{payme_url}'>Оплатить через Payme</a>"
+                    )
+                else:
+                    # Оформляем как LEAD/manual заказ с 0 суммой
+                    notes_lead = f"LEAD/manual: {notes}"
+                    await session.execute(text(
+                        "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                        "VALUES (:cid, :onum, 0, 'new', 'pending', :notes, NOW(), NOW())"
+                    ), {"cid": customer_id, "onum": order_number, "notes": notes_lead[:200]})
+                    await session.commit()
+                    
+                    msg_text = (
+                        f"🔔 Новый IG-заказ, сумма не определена — уточните у клиента и оформите вручную:\n"
+                        f"Заказ: {order_number}\n"
+                        f"Клиент: {customer_name}\n"
+                        f"Детали: {notes}"
+                    )
             
             bot = Bot(token=settings.sales_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
             chat_id = getattr(settings, 'sales_group_id', None) or settings.admin_telegram_ids[0]

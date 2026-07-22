@@ -280,7 +280,7 @@ def _extract_order(reply_text: str) -> Optional[Dict]:
 
 
 async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
-    """Публикуем оформленный заказ: создаём в БД + отправляем в event bus."""
+    """Публикуем оформленный заказ: отправляем в storefront API с локальным фолбеком."""
     order_number = None
     order_id = None
     total_amount = 0
@@ -334,10 +334,6 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
                 ), {"name": from_name, "phone": norm_phone or phone})
                 customer_id = res.fetchone()[0]
             
-            # 2. Создаём заказ в таблице orders с уникальным номером
-            from shared.order_utils import generate_order_number
-            order_num = await generate_order_number()
-            
             # Вычисляем сумму по каталогу
             product_name = order.get("product")
             quantity_str = order.get("quantity") or "1"
@@ -346,41 +342,106 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
             qty_match = re.search(r'\d+', str(quantity_str))
             quantity = int(qty_match.group()) if qty_match else 1
             
+            db_id = None
+            storefront_id = None
             price = None
             if product_name:
                 price_row = (await session.execute(sa_text(
-                    "SELECT price FROM products WHERE is_active=true AND name_ru ILIKE :p LIMIT 1"
+                    "SELECT id, storefront_id, price FROM products WHERE is_active=true AND name_ru ILIKE :p LIMIT 1"
                 ), {"p": f"%{product_name}%"})).fetchone()
                 if price_row:
-                    price = float(price_row[0])
+                    db_id = price_row[0]
+                    storefront_id = price_row[1]
+                    price = float(price_row[2])
                     total_amount = int(price * quantity)
                     
-            order_notes = f"Instagram DM от {from_name}. Товар: {product_name} x {quantity_str}. Тел: {phone}"
-            if price is None:
-                total_amount = 0
-                order_notes = "[СУММУ УТОЧНИТЬ] " + order_notes
+            # Пытаемся отправить заказ в реальный магазин
+            storefront_success = False
+            real_order_number = None
             
-            # Сохраняем в dict для Telegram-уведомления
-            order["total"] = f"{total_amount} UZS" if total_amount > 0 else "уточнить (СУММУ УТОЧНИТЬ)"
-            
-            res = await session.execute(sa_text(
-                "INSERT INTO orders (customer_id, order_number, total_amount, status, "
-                "payment_status, delivery_address, notes, created_at, updated_at) "
-                "VALUES (:cid, :onum, :total, 'new', 'pending', :addr, :notes, NOW(), NOW()) "
-                "RETURNING id"
-            ), {
-                "cid": customer_id,
-                "onum": order_num,
-                "total": total_amount,
-                "addr": order.get("address", ""),
-                "notes": order_notes[:200],
-            })
-            order_row = res.fetchone()
-            order_id = order_row[0] if order_row else None
-            order_number = order_num
-            await session.commit()
-            
-            logger.info(f"📦 Заказ {order_number} (ID: {order_id}) создан в БД для {from_name}")
+            if total_amount > 0:
+                import aiohttp
+                import os
+                storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
+                bot_secret = os.getenv("BOT_SECRET", "")
+                
+                payload = {
+                    "name": from_name,
+                    "phone": norm_phone or phone or "нет телефона",
+                    "address": order.get("address", "") or "Самарканд",
+                    "items": [
+                        {
+                            "productId": storefront_id or str(db_id),
+                            "price": int(price),
+                            "quantity": int(quantity)
+                        }
+                    ],
+                    "paymentMethod": "cash",
+                    "telegramId": None
+                }
+                try:
+                    async with aiohttp.ClientSession() as http_sess:
+                        async with http_sess.post(
+                            f"{storefront_url}/orders",
+                            json=payload,
+                            headers={"x-bot-secret": bot_secret, "Content-Type": "application/json"},
+                            timeout=10
+                        ) as response:
+                            if response.status in (200, 201):
+                                resp_data = await response.json()
+                                order_data = resp_data.get("order", {})
+                                real_order_number = order_data.get("orderNumber") or order_data.get("order_number")
+                                if real_order_number:
+                                    storefront_success = True
+                except Exception as e:
+                    logger.error(f"Failed to post order to storefront in instagram_dm: {e}")
+                    
+            if storefront_success:
+                order_number = real_order_number
+                order["total"] = f"{total_amount} UZS"
+                
+                # Ищем ID зеркалированного заказа в локальной БД (поскольку notifyOffice происходит при создании заказа)
+                try:
+                    res_local = await session.execute(sa_text(
+                        "SELECT id FROM orders WHERE order_number = :onum LIMIT 1"
+                    ), {"onum": order_number})
+                    row_local = res_local.fetchone()
+                    if row_local:
+                        order_id = row_local[0]
+                except Exception:
+                    pass
+                
+                logger.info(f"📦 Заказ {order_number} (ID: {order_id}) успешно оформлен в реальном магазине для {from_name}")
+            else:
+                # Фолбек на локальный черновик/зеркало
+                from shared.order_utils import generate_order_number
+                order_num = await generate_order_number()
+                
+                order_notes = f"Instagram DM от {from_name}. Товар: {product_name} x {quantity_str}. Тел: {phone}"
+                if price is None:
+                    total_amount = 0
+                    order_notes = "[СУММУ УТОЧНИТЬ] " + order_notes
+                
+                order["total"] = f"{total_amount} UZS" if total_amount > 0 else "уточнить (СУММУ УТОЧНИТЬ)"
+                
+                res = await session.execute(sa_text(
+                    "INSERT INTO orders (customer_id, order_number, total_amount, status, "
+                    "payment_status, delivery_address, notes, created_at, updated_at) "
+                    "VALUES (:cid, :onum, :total, 'new', 'pending', :addr, :notes, NOW(), NOW()) "
+                    "RETURNING id"
+                ), {
+                    "cid": customer_id,
+                    "onum": order_num,
+                    "total": total_amount,
+                    "addr": order.get("address", ""),
+                    "notes": order_notes[:200],
+                })
+                order_row = res.fetchone()
+                order_id = order_row[0] if order_row else None
+                order_number = order_num
+                await session.commit()
+                
+                logger.info(f"📦 Магазин недоступен, локальный черновик заказа {order_number} (ID: {order_id}) создан в БД для {from_name}")
     except Exception as db_err:
         logger.error(f"Ошибка создания заказа в БД: {db_err}")
     

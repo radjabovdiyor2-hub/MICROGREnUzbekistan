@@ -1,7 +1,7 @@
 import React from 'react';
 import '@/styles/magazine-print.css';
 import type { Block, RestaurantBrand } from '@/lib/magazine/types';
-import { SECTION_TITLES } from '@/lib/magazine/types';
+import { LANGS, SECTION_TITLES_I18N } from '@/lib/magazine/i18n';
 import * as B from './blocks';
 
 interface Props {
@@ -20,13 +20,17 @@ interface Props {
 export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl, kidsQrDataUrl }: Props) {
   const weekLabel = `№${weekNumber}`;
 
+  // Блоки удалённых/незнакомых типов (старые спеки из БД) отбрасываем ДО нумерации,
+  // иначе появятся пустые полосы и дыры в нумерации страниц.
+  const known = blocks.filter((b) => b.type in SECTION_TITLES_I18N.ru);
+
   // Нумерация страниц и содержание
-  const paged = blocks.map((b, i) => ({ block: b, page: i + 1 }));
+  const paged = known.map((b, i) => ({ block: b, page: i + 1 }));
   const tocEntries = paged
     .filter(({ block }) => block.type !== 'cover' && block.type !== 'toc')
     .map(({ block, page }) => ({
-      letter: (SECTION_TITLES[block.type] || '•').charAt(0).toUpperCase(),
-      title: SECTION_TITLES[block.type] || block.type,
+      letter: (SECTION_TITLES_I18N.ru[block.type] || '•').charAt(0).toUpperCase(),
+      titles: LANGS.map((l) => SECTION_TITLES_I18N[l][block.type] || block.type),
       page,
     }));
 
@@ -47,22 +51,14 @@ export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl, kidsQrD
             return <B.ChefWordPage key={block.id} b={block} n={page} />;
           case 'restaurantOfWeek':
             return <B.RestaurantOfWeekPage key={block.id} b={block} n={page} />;
-          case 'newsDigest':
-            return <B.NewsDigestPage key={block.id} b={block} n={page} />;
           case 'healthTrends':
-          case 'beautyTrends':
             return <B.TrendAnalyticsPage key={block.id} b={block} n={page} />;
           case 'recipe':
             return <B.RecipePage key={block.id} b={block} n={page} />;
           case 'kitchenLifehacks':
-          case 'bakingDesserts':
             return <B.ListPage key={block.id} b={block} n={page} />;
           case 'nutritionist':
             return <B.NutritionistPage key={block.id} b={block} n={page} />;
-          case 'techDigest':
-            return <B.TechDigestPage key={block.id} b={block} n={page} />;
-          case 'fitness':
-            return <B.FitnessPage key={block.id} b={block} n={page} />;
           case 'kids':
             return <B.KidsPage key={block.id} b={block} n={page} kidsQrDataUrl={kidsQrDataUrl} />;
           case 'kidsCatalog':

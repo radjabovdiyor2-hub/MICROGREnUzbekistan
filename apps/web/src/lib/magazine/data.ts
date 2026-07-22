@@ -55,6 +55,37 @@ export async function loadIssueBySlug(slug: string): Promise<LoadedIssue | null>
   };
 }
 
+export interface IssueCard {
+  slug: string;
+  weekNumber: number;
+  title: string;
+  restaurantName: string;
+  restaurantCity: string | null;
+  logo: string | null;
+  brandPrimary: string | null;
+}
+
+/**
+ * Карточки опубликованных выпусков для публичной витрины /magazine.
+ * Заменяет захардкоженный список ISSUES из старого lib/magazine.ts.
+ */
+export async function listPublishedIssues(): Promise<IssueCard[]> {
+  const rows = await prisma.restaurantIssue.findMany({
+    where: { status: { in: ['ready', 'published'] } },
+    include: { edition: true, restaurant: true },
+    orderBy: [{ edition: { weekNumber: 'desc' } }, { createdAt: 'desc' }],
+  });
+  return rows.map((i) => ({
+    slug: i.webSlug,
+    weekNumber: i.edition.weekNumber,
+    title: i.edition.title,
+    restaurantName: i.restaurant.name,
+    restaurantCity: i.restaurant.city ?? null,
+    logo: i.restaurant.logo ?? null,
+    brandPrimary: i.restaurant.brandPrimary ?? null,
+  }));
+}
+
 // Список slug для генерации PDF (по статусу)
 export async function listIssueSlugs(status?: string): Promise<string[]> {
   const rows = await prisma.restaurantIssue.findMany({

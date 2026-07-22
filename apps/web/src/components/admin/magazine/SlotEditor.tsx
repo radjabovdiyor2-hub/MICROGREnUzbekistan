@@ -28,11 +28,16 @@ const LABELS: Record<string, string> = {
   q: 'Вопрос', a: 'Ответ', kicker: 'Рубрика', icon: 'Иконка (эмодзи)', per100: 'на 100г', vs: 'vs',
   rank: '#', product: 'Продукт', mechanic: 'Механика', tags: 'Теги', items: 'Пункты',
   entries: 'Записи', interview: 'Интервью', steps: 'Шаги', table: 'Таблица', exercises: 'Упражнения',
+  image: 'Фото (URL)', caption: 'Подпись к фото', farmImage: 'Фото фермы (URL)', cardImage: 'Фото карточки (URL)',
 };
 const HIDDEN = new Set(['id', 'type', 'audience', 'origin']);
 const LONG = new Set(['text', 'fact', 'advice', 'editorialNote', 'intro', 'chefVersion', 'homeVersion', 'lifehack', 'aiHack', 'instruction', 'riddle', 'tale', 'farmStory', 'promoText', 'cardText', 'quote', 'pullQuote', 'a']);
 // Слоты-картинки: показываем кнопку загрузки фото (а не только вставку URL)
-const IMAGE_KEYS = new Set(['background', 'heroImage', 'portrait']);
+const IMAGE_KEYS = new Set(['background', 'heroImage', 'portrait', 'image', 'farmImage', 'cardImage']);
+// Языки трёхъязычного журнала
+const L10N_LANGS: { code: 'ru' | 'uz' | 'en'; label: string }[] = [
+  { code: 'ru', label: 'RU' }, { code: 'uz', label: 'UZ' }, { code: 'en', label: 'EN' },
+];
 
 function lbl(k: string) { return LABELS[k] || k; }
 
@@ -49,8 +54,14 @@ function ArrayEditor({ k, value, onChange }: { k: string; value: Record<string, 
       {value.map((row, idx) => (
         <div key={idx} style={{ display: 'grid', gap: '4px', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
           {Object.keys(row).map((sk) => (
-            <input key={sk} className="input" placeholder={lbl(sk)} value={row[sk] ?? ''}
-              onChange={(e) => setItem(idx, { ...row, [sk]: e.target.value })} />
+            IMAGE_KEYS.has(sk)
+              ? <ImageField key={sk} k={sk} value={typeof row[sk] === 'string' ? row[sk] : ''}
+                  onChange={(v) => setItem(idx, { ...row, [sk]: v })} />
+              : (row[sk] && typeof row[sk] === 'object')
+                ? <L10nField key={sk} k={sk} value={row[sk]}
+                    onChange={(v) => setItem(idx, { ...row, [sk]: v })} />
+                : <input key={sk} className="input" placeholder={lbl(sk)} value={row[sk] ?? ''}
+                    onChange={(e) => setItem(idx, { ...row, [sk]: e.target.value })} />
           ))}
           <button type="button" onClick={() => remove(idx)} style={{ justifySelf: 'start', background: 'transparent', color: 'var(--error)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>Удалить строку</button>
         </div>
@@ -88,7 +99,33 @@ function ImageField({ k, value, onChange }: { k: string; value: string; onChange
   );
 }
 
+// Трёхъязычное поле {ru, uz, en}: журнал печатается сразу на трёх языках
+function L10nField({ k, value, onChange }: { k: string; value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
+  const long = LONG.has(k);
+  return (
+    <div style={{ display: 'block' }}>
+      <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>{lbl(k)}</span>
+      <div style={{ display: 'grid', gap: '4px' }}>
+        {L10N_LANGS.map(({ code, label }) => (
+          <div key={code} style={{ display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--text-secondary)', width: 22, paddingTop: 6 }}>{label}</span>
+            {long
+              ? <textarea className="input" style={{ flex: 1 }} rows={2} value={value[code] ?? ''}
+                  onChange={(e) => onChange({ ...value, [code]: e.target.value })} />
+              : <input className="input" style={{ flex: 1 }} value={value[code] ?? ''}
+                  onChange={(e) => onChange({ ...value, [code]: e.target.value })} />}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Field({ k, value, onChange }: { k: string; value: any; onChange: (v: any) => void }) {
+  // Объект-значение = локализованный текст {ru,uz,en}
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return <L10nField k={k} value={value} onChange={onChange} />;
+  }
   if (typeof value === 'string') {
     if (IMAGE_KEYS.has(k)) return <ImageField k={k} value={value} onChange={onChange} />;
     const long = LONG.has(k) || value.length > 60;

@@ -44,14 +44,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Magazine pages — high priority for SEO
-  const { ISSUES } = await import('@/lib/magazine');
-  const magazinePages: MetadataRoute.Sitemap = ISSUES.map(issue => ({
-    url: `${BASE}/magazine/${issue.id}`,
-    lastModified: new Date(), // We don't have updatedAt for static issues, so use current
-    changeFrequency: 'monthly' as const,
-    priority: 0.8,
-  }));
+  // Magazine pages — реальные выпуски движка (/magazine/r/<slug>)
+  const { listPublishedIssues } = await import('@/lib/magazine/data');
+  let magazinePages: MetadataRoute.Sitemap = [];
+  try {
+    const issues = await listPublishedIssues();
+    magazinePages = issues.map((issue) => ({
+      url: `${BASE}/magazine/r/${issue.slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    }));
+  } catch {
+    // БД недоступна на этапе сборки — карта сайта без выпусков
+  }
 
   // Category pages — high priority for SEO
   const categories = [

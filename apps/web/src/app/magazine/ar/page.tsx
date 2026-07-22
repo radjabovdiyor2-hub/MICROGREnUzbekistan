@@ -410,7 +410,7 @@ export default function ARPage() {
                   background: `${RARITY_COLORS[activeCharData.rarity]}15`,
                   border: `1px solid ${RARITY_COLORS[activeCharData.rarity]}30`,
                 }}>
-                  {RARITY_LABELS[activeCharData.rarity]}
+                  {RARITY_LABELS[activeCharData.rarity].ru}
                 </span>
               </div>
             </div>
