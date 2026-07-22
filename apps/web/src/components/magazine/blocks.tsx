@@ -362,82 +362,7 @@ export function RecipePage({ b, n }: { b: RecipeBlock; n: number }) {
   );
 }
 
-// ── KITCHEN TIPS (склейка: лайфхаки + выпечка) ──
-export function ListPage({ b, n }: { b: ListBlock; n: number }) {
-  return (
-    <SectionPage tag={ui('kitchenTips')} n={n}>
-      <Tri v={b.title} style={{ ...H1, fontSize: '17pt' }} />
-      {b.intro && <div className="mag-standfirst">{t(b.intro, PRIMARY)}</div>}
-      <hr className="mag-divider mag-divider-gold" style={{ width: '25mm' }} />
-      {b.items.map((it, i) => (
-        <div key={i} className={`mag-item-row${i % 2 ? ' mag-item-row-alt' : ''}`}>
-          {it.image && <img className="mag-thumb" src={it.image} alt="" />}
-          <div style={{ flex: 1 }}>
-            <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '5.2pt' }}>{t(it.title, PRIMARY)}</div>
-            <Tri v={it.text} style={{ ...BODY, fontSize: '8.5pt', color: 'var(--ink-soft)' }} />
-            {it.caption && <div className="mag-photo-caption">{t(it.caption, PRIMARY)}</div>}
-          </div>
-        </div>
-      ))}
-    </SectionPage>
-  );
-}
 
-// ── NUTRITIONIST ──
-export function NutritionistPage({ b, n }: { b: NutritionistBlock; n: number }) {
-  return (
-    <SectionPage tag={ui('nutritionist')} heroImage={b.heroImage} caption={b.caption} n={n}>
-      <Tri v={b.title} style={{ ...H1, fontSize: '18pt' }} />
-      <hr className="mag-divider mag-divider-gold" style={{ width: '25mm' }} />
-      {b.fact && (
-        <div style={{ background: 'var(--violet-soft)', padding: '3.5mm 4mm', borderRadius: '2mm', marginBottom: '3mm' }}>
-          <div className="mag-kicker" style={{ color: '#7c3aed', marginBottom: '1.5mm', fontSize: '5pt' }}>{ui('factOfWeek')}</div>
-          <Tri v={b.fact} style={{ ...BODY, fontSize: '9pt', color: '#3b1070' }} />
-        </div>
-      )}
-      {b.table && b.table.length > 0 && (
-        <>
-          {b.tableTitle && <div className="mag-kicker" style={{ color: 'var(--ink)', marginBottom: '2mm', fontSize: '5.2pt' }}>{t(b.tableTitle, PRIMARY)}</div>}
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: "'Cormorant Garamond', serif", fontSize: '8.5pt', marginBottom: '3mm' }}>
-            <thead>
-              <tr style={{ background: 'var(--dark-surface)', color: '#fff', fontFamily: "'Inter', sans-serif", fontSize: '5.5pt', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'left' }}>#</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'left' }}>{ui('product')}</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'left' }}>{UI.uz.per100}</th>
-                <th style={{ padding: '2.5mm 2mm', textAlign: 'right' }}>{UI.uz.vsLemon}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {b.table.map((r, i) => (
-                <tr key={i} style={{ background: i % 2 === 0 ? 'var(--accent-light)' : 'transparent' }}>
-                  <td style={{ padding: '1.8mm 2mm' }}>{r.rank}</td>
-                  <td style={{ padding: '1.8mm 2mm' }}>
-                    <strong>{t(r.product, PRIMARY)}</strong>
-                    <div style={{ fontSize: '6.5pt', color: 'var(--caption)' }}>{tri(r.product).slice(1).map((p) => p.text).join(' · ')}</div>
-                  </td>
-                  <td style={{ padding: '1.8mm 2mm' }}>{r.per100}</td>
-                  <td style={{ padding: '1.8mm 2mm', textAlign: 'right', color: 'var(--accent)', fontWeight: 700 }}>{r.vs}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      )}
-      {b.quote && (
-        <>
-          <div className="mag-pull-quote" style={{ fontSize: '11pt' }}>«{t(b.quote, PRIMARY)}»</div>
-          {b.quoteAttr && <div className="mag-pull-quote-attr">{t(b.quoteAttr, PRIMARY)}</div>}
-        </>
-      )}
-      {b.lifehack && (
-        <div className="mag-card-warm" style={{ marginTop: '3mm' }}>
-          <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('hostessLifehack')}</div>
-          <Tri v={b.lifehack} style={{ ...BODY, fontSize: '8.5pt', color: 'var(--ink-soft)' }} />
-        </div>
-      )}
-    </SectionPage>
-  );
-}
 
 // ── KIDS ──
 export function KidsPage({ b, n, kidsQrDataUrl }: { b: KidsBlock; n: number; kidsQrDataUrl?: string }) {
@@ -490,42 +415,6 @@ export function KidsPage({ b, n, kidsQrDataUrl }: { b: KidsBlock; n: number; kid
   );
 }
 
-// ── KIDS CATALOG (9 механик, сетка карточек) ──
-export function KidsCatalogPage({ b, n }: { b: KidsCatalogBlock; n: number }) {
-  const modeLabel: Record<string, string> = { online: UI.uz.online, ar: 'AR', print: UI.uz.inMagazine, bot: 'Telegram' };
-  return (
-    <div className="mag-page" style={{ background: 'var(--gold-soft)' }}>
-      <div style={{ padding: '6mm var(--margin-page) 0', display: 'flex', gap: '3mm', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className="mag-section-tag mag-section-tag-gold" style={{ fontSize: '5pt' }}>{UI.uz.kidsEco}</span>
-        <span className="mag-kicker" style={{ color: 'var(--gold)', fontSize: '5pt' }}>{ui('nineGames')}</span>
-      </div>
-      <div style={contentPad}>
-        <Tri v={b.title} style={{ ...H1, fontSize: '17pt', marginTop: '2mm' }} />
-        {b.intro && <div className="mag-standfirst" style={{ margin: '2mm 0' }}>{t(b.intro, PRIMARY)}</div>}
-        <hr className="mag-divider mag-divider-gold" style={{ width: '25mm' }} />
-        <div className="mag-grid-2">
-          {KIDS_MECHANICS.map((m) => (
-            <div key={m.id} className="mag-grid-card">
-              {m.image && <img src={m.image} alt="" />}
-              <div className="mag-grid-card-body" style={{ display: 'flex', gap: '2mm', alignItems: 'flex-start' }}>
-                {!m.image && <span style={{ fontSize: '13pt', lineHeight: 1, flexShrink: 0 }}>{m.emoji}</span>}
-                <div>
-                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '8.5pt', fontWeight: 800, color: 'var(--ink)' }}>{KIDS_MECHANIC_LABELS_I18N.uz[m.id]}</div>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '6.5pt', color: 'var(--caption)', lineHeight: 1.25 }}>
-                    {KIDS_MECHANIC_LABELS_I18N.ru[m.id]}
-                  </div>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '7pt', color: 'var(--ink-soft)', lineHeight: 1.3, marginTop: '0.6mm' }}>{m.desc}</div>
-                  <div className="mag-kicker" style={{ color: 'var(--accent)', fontSize: '5pt', marginTop: '0.5mm' }}>{modeLabel[m.mode]}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <PageNum n={n} />
-    </div>
-  );
-}
 
 // ── FAMILY CONVERSION (QR + промокод) ──
 export function FamilyConversionPage({ b, brand, qrDataUrl, n }: {

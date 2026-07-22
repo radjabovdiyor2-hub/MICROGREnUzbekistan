@@ -440,7 +440,7 @@ export default function ARPage() {
               </span>
             </div>
 
-            {/* Collect / Farm Simulator button */}
+            {/* Собрать в коллекцию */}
             <button
               onClick={handleCollect}
               disabled={isCollected}
@@ -461,7 +461,7 @@ export default function ARPage() {
                 transition: 'all 0.2s',
               }}
             >
-              {isCollected ? '✓ В коллекции' : '🎮 Добавить в Farm Simulator'}
+              {isCollected ? '✓ В коллекции' : '✨ Добавить в коллекцию'}
             </button>
           </div>
         )}

@@ -150,14 +150,12 @@ import type { BlockType, Audience, KidsMechanic } from './types';
 export const SECTION_TITLES_I18N: Record<Lang, Record<BlockType, string>> = {
   uz: {
     cover: 'Muqova', toc: 'Mundarija', chefWord: 'Oshpaz so‘zi', restaurantOfWeek: 'Hafta restorani',
-    healthTrends: 'Salomatlik va go‘zallik', recipe: 'Hafta retsepti', kitchenLifehacks: 'Oshxona maslahatlari',
-    nutritionist: 'Nutritsiolog', kids: 'Fresh Kids', kidsCatalog: 'Bolalar ekotizimi · 9 o‘yin',
+    healthTrends: 'Salomatlik va go‘zallik', recipe: 'Hafta retsepti', kids: 'Fresh Kids',
     familyConversion: 'Butun oila uchun', collectionAR: 'Kolleksiya + AR',
   },
   ru: {
     cover: 'Обложка', toc: 'Содержание', chefWord: 'Слово шефа', restaurantOfWeek: 'Ресторан недели',
-    healthTrends: 'Здоровье и красота', recipe: 'Рецепт недели', kitchenLifehacks: 'Советы кухни',
-    nutritionist: 'Нутрициолог', kids: 'Fresh Kids', kidsCatalog: 'Детская экосистема · 9 игр',
+    healthTrends: 'Здоровье и красота', recipe: 'Рецепт недели', kids: 'Fresh Kids',
     familyConversion: 'Для всей семьи', collectionAR: 'Коллекция + AR',
   },
 };

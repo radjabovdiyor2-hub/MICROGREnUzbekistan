@@ -19,10 +19,8 @@ export interface KidsMechanicInfo {
 export const KIDS_MECHANICS: KidsMechanicInfo[] = [
   { id: 'food_art', emoji: '🎨', label: KIDS_MECHANIC_LABELS.food_art, mode: 'online', href: '/magazine/kids/food-art',
     desc: 'Собери мордочку зверя из еды — интерактивный конструктор с шаблонами!' },
-  { id: 'plant_quest', emoji: '🌱', label: KIDS_MECHANIC_LABELS.plant_quest, mode: 'online', href: '/magazine/kids/plant-quest',
-    desc: 'Посади микрозелень, отмечай полив каждый день и собери урожай!' },
   { id: 'ar_coloring', emoji: '🖌️', label: KIDS_MECHANIC_LABELS.ar_coloring, mode: 'online', href: '/magazine/kids/ar-coloring',
-    desc: 'Раскрась Агро Друга на экране, сохрани и оживи в AR!' },
+    desc: 'Раскрась героя на экране, сохрани и оживи в AR!' },
 ];
 
 export function kidsMechanicById(id: KidsMechanic): KidsMechanicInfo | undefined {

@@ -54,7 +54,7 @@ export default function CollectionPage() {
           lineHeight: 1.6,
         }}>
           Коллекционные персонажи из журнала FRESH WEEKLY.
-          Сканируй карточки через AR — собирай героев и получай бонусы в Farm Simulator.
+          Сканируй карточки через AR — собирай героев вселенной «Semurg va do‘stlari».
         </p>
 
         {/* Прогресс */}

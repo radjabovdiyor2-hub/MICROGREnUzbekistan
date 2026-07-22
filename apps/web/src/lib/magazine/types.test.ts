@@ -11,17 +11,17 @@ import type { Block, MagazineSpec } from './types';
 const cover: Block = { id: 'c', type: 'cover', audience: 'all', origin: 'personal', title: 'X' };
 const toc: Block = { id: 't', type: 'toc', audience: 'all', origin: 'personal' };
 const recipe: Block = { id: 'r', type: 'recipe', audience: 'women', origin: 'shared', title: 'R' };
-const nutrition: Block = { id: 'n', type: 'nutritionist', audience: 'all', origin: 'shared', title: 'N' };
+const kids: Block = { id: 'n', type: 'kids', audience: 'kids', origin: 'shared', mechanic: 'ar_coloring', title: 'N' };
 
 const spec = (blocks: Block[]): MagazineSpec => ({ blocks });
 
 describe('magazine/types · composeMagazine', () => {
   it('объединяет shared + personal и упорядочивает по SECTION_ORDER', () => {
     // На входе намеренно перемешанный порядок
-    const shared = spec([recipe, nutrition]);
+    const shared = spec([recipe, kids]);
     const personal = spec([toc, cover]);
     const out = composeMagazine(shared, personal).map((b) => b.type);
-    expect(out).toEqual(['cover', 'toc', 'recipe', 'nutritionist']);
+    expect(out).toEqual(['cover', 'toc', 'recipe', 'kids']);
     // порядок соответствует индексам в каноничном SECTION_ORDER
     const ranks = out.map((t) => SECTION_ORDER.indexOf(t));
     expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
@@ -38,7 +38,7 @@ describe('magazine/types · composeMagazine', () => {
 
   it('устойчив к null-спекам', () => {
     expect(composeMagazine(null, null)).toEqual([]);
-    expect(composeMagazine(spec([nutrition]), null).map((b) => b.type)).toEqual(['nutritionist']);
+    expect(composeMagazine(spec([kids]), null).map((b) => b.type)).toEqual(['kids']);
   });
 });
 

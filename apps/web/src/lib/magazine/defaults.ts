@@ -42,45 +42,12 @@ export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
       ],
     },
     {
-      // Склейка «лайфхаки + выпечка»: советы кухни одной полосой
-      id: 'lifehacks', type: 'kitchenLifehacks', audience: 'women', origin: 'shared',
-      title: { uz: 'Oshxona maslahatlari', ru: 'Советы кухни' },
-      intro: { uz: 'Yangi boshlovchilar ham uddalaydi.', ru: 'Под силу даже новичку.' },
-      items: [
-        { title: { uz: 'Sarimsoq 5 soniyada', ru: 'Чеснок за 5 секунд' }, text: { uz: 'Tishchani pichoq yuzasi bilan bosing — po‘sti o‘zi chiqadi.', ru: 'Раздавите зубчик плоскостью ножа — шелуха отходит сама.' } },
-        { title: { uz: 'Sho‘r bo‘lgan sho‘rva', ru: 'Пересолёный суп' }, text: { uz: 'Xom kartoshkani 10 daqiqaga soling — ortiqcha tuzni oladi.', ru: 'Опустите сырую картофелину на 10 минут — заберёт лишнюю соль.' } },
-        { title: { uz: 'Matchali pechenye', ru: 'Печенье с матчей' }, text: { uz: 'Matcha va oq shokolad, duxovkada 15 daqiqa.', ru: 'Матча и белый шоколад, 15 минут в духовке.' } },
-        { title: { uz: 'Rezavor tart', ru: 'Ягодный тарт' }, text: { uz: 'Qumli asos, krem-chiz va mavsumiy rezavorlar.', ru: 'Песочная основа, крем-чиз и сезонные ягоды.' } },
-      ],
-    },
-    {
-      id: 'nutrition', type: 'nutritionist', audience: 'all', origin: 'shared',
-      title: 'Витамин С: вы получаете его неправильно',
-      fact: 'В болгарском перце витамина С в 3 раза больше, чем в лимоне. В микрозелени редиса — в 40 раз больше, чем во взрослой редиске.',
-      tableTitle: 'ТОП-5 источников витамина С',
-      table: [
-        { rank: '1', product: 'Шиповник', per100: '650 мг', vs: '×13' },
-        { rank: '2', product: 'Болг. перец', per100: '183 мг', vs: '×3.6' },
-        { rank: '3', product: 'Киви', per100: '92 мг', vs: '×1.8' },
-        { rank: '4', product: 'Брокколи', per100: '89 мг', vs: '×1.7' },
-        { rank: '5', product: 'Лимон', per100: '53 мг', vs: '×1' },
-      ],
-      quote: 'Не пейте горячий чай с лимоном ради витамина С — он разрушается при 70°C.',
-      quoteAttr: '— Колонка диетолога',
-      lifehack: 'Нарежьте перец соломкой утром → контейнер → холодильник. Снэк весь день.',
-    },
-    {
       id: 'kids', type: 'kids', audience: 'kids', origin: 'shared',
       mechanic: mechanicForWeek(weekNumber),
       title: 'Маленький шеф',
       instruction: 'Сделай мордочку зверя из еды: половинка яблока — лицо, микрозелень — волосы, изюм — глаза.',
       riddle: 'Зелёный, кудрявый, витаминами богатый — что это? (ответь голосом боту)',
       tale: 'Жил-был Росточек по имени … — вставьте нейро-сказку с именем ребёнка.',
-    },
-    {
-      id: 'kids-catalog', type: 'kidsCatalog', audience: 'kids', origin: 'shared',
-      title: 'Девять игр, где еда оживает',
-      intro: 'Каждую неделю — новая механика. А все 9 доступны онлайн.',
     },
     {
       id: 'collection', type: 'collectionAR', audience: 'all', origin: 'shared',

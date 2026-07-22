@@ -148,21 +148,6 @@ export default function NeuroTalePage() {
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(30px, 6vw, 46px)', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 8px' }}>{t.title}</h1>
         <p style={{ fontFamily: "'Inter', sans-serif", color: 'var(--text-secondary)', marginBottom: 24 }}>{t.sub}</p>
 
-        {/* Печать заработана */}
-        {stampEarned && (
-          <div style={{
-            padding: '12px 16px', marginBottom: 16,
-            background: 'rgba(124,58,237,0.1)',
-            border: '1px solid rgba(124,58,237,0.3)',
-            borderRadius: 16,
-            fontFamily: "'Inter', sans-serif", fontSize: 14,
-            color: '#7c3aed', fontWeight: 600,
-            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-          }}>
-            {t.stamp} <Link href="/magazine/kids/passport" style={{ color: '#7c3aed' }}>{t.passport}</Link>
-          </div>
-        )}
-
         <form onSubmit={generate} style={{
           display: 'grid', gap: 12,
           background: 'var(--bg-elevated, #fff)', padding: 20, borderRadius: 20,
