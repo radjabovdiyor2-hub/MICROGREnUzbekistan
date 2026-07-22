@@ -111,28 +111,6 @@ export interface RecipeBlock extends BlockBase {
   steps?: { title: L10n; text: L10n; image?: string }[];
 }
 
-// ── Кухонные лайфхаки / выпечка ──
-export interface ListBlock extends BlockBase {
-  type: 'kitchenLifehacks';
-  title: L10n;
-  intro?: L10n;
-  items: { title: L10n; text: L10n; image?: string; caption?: L10n }[];
-}
-
-// ── Нутрициолог ──
-export interface NutritionistBlock extends BlockBase {
-  type: 'nutritionist';
-  title: L10n;
-  heroImage?: string;
-  caption?: L10n;
-  fact?: L10n;
-  tableTitle?: L10n;
-  table?: { rank: string; product: L10n; per100: string; vs: string; image?: string }[];
-  quote?: L10n;
-  quoteAttr?: L10n;
-  lifehack?: L10n;
-}
-
 // ── Детский блок (одна из 9 механик) ──
 export interface KidsBlock extends BlockBase {
   type: 'kids';
@@ -144,13 +122,6 @@ export interface KidsBlock extends BlockBase {
   riddle?: L10n;         // голосовая загадка
   tale?: L10n;           // нейро-сказка (с именем ребёнка)
   botLink?: string;        // ссылка на Telegram-бота (хруст/загадки)
-}
-
-// ── Детская экосистема: каталог всех 9 механик (одна страница) ──
-export interface KidsCatalogBlock extends BlockBase {
-  type: 'kidsCatalog';
-  title?: L10n;
-  intro?: L10n;
 }
 
 // ── Семейный блок: конверсия в продажи (персональный) ──
@@ -179,10 +150,7 @@ export type Block =
   | RestaurantOfWeekBlock
   | TrendAnalyticsBlock
   | RecipeBlock
-  | ListBlock
-  | NutritionistBlock
   | KidsBlock
-  | KidsCatalogBlock
   | FamilyConversionBlock
   | CollectionArBlock;
 
@@ -213,10 +181,7 @@ export const SECTION_ORDER: BlockType[] = [
   'restaurantOfWeek',
   'healthTrends',
   'recipe',
-  'kitchenLifehacks',
-  'nutritionist',
   'kids',
-  'kidsCatalog',
   'familyConversion',
   'collectionAR',
 ];
@@ -248,10 +213,7 @@ export const SECTION_TITLES: Record<BlockType, string> = {
   restaurantOfWeek: 'Ресторан недели',
   healthTrends: 'Здоровье и красота',
   recipe: 'Рецепт недели',
-  kitchenLifehacks: 'Советы кухни',
-  nutritionist: 'Нутрициолог',
   kids: 'Fresh Kids',
-  kidsCatalog: 'Детская экосистема · 9 игр',
   familyConversion: 'Для всей семьи',
   collectionAR: 'Коллекция + AR',
 };

@@ -1,11 +1,9 @@
 import React from 'react';
 import type {
   CoverBlock, TocBlock, ChefWordBlock, RestaurantOfWeekBlock,
-  TrendAnalyticsBlock, RecipeBlock, ListBlock,
-  NutritionistBlock, KidsBlock, KidsCatalogBlock,
+  TrendAnalyticsBlock, RecipeBlock, KidsBlock,
   FamilyConversionBlock, CollectionArBlock, RestaurantBrand, Audience, L10n,
 } from '@/lib/magazine/types';
-import { KIDS_MECHANICS } from '@/lib/magazine/kids';
 import {
   UI, LANGS, t, tri, inline,
   KIDS_MECHANIC_LABELS_I18N,

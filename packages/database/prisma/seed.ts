@@ -41,14 +41,15 @@ async function main() {
   ];
 
   for (const p of microProducts) {
+    const imgPath = `/uploads/${p.slug}.png`;
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 15000, oldPrice: 20000, costPrice: 8000, images: ['/uploads/cat_microgreens.png'] },
+      update: { price: 15000, oldPrice: 20000, costPrice: 8000, images: [imgPath] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 15000, oldPrice: 20000, costPrice: 8000,
         categoryId: micro.id, stock: 50, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: true, images: ['/uploads/cat_microgreens.png'],
+        isFeatured: true, isOnSale: true, images: [imgPath],
       },
     });
   }
@@ -119,14 +120,15 @@ async function main() {
   ];
 
   for (const p of flowerProducts) {
+    const imgPath = `/uploads/${p.slug}.png`;
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 35000, images: ['/uploads/cat_flowers.png'] },
+      update: { price: 35000, images: [imgPath] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 35000, costPrice: 12000,
         categoryId: flower.id, stock: 10, brand: 'Microgreen UZ',
-        isFeatured: false, isOnSale: false, images: ['/uploads/cat_flowers.png'],
+        isFeatured: false, isOnSale: false, images: [imgPath],
       },
     });
   }
@@ -197,14 +199,15 @@ async function main() {
   ];
 
   for (const p of setProducts) {
+    const imgPath = p.slug === 'smart-farm-set' ? '/uploads/smart-farm-set.png' : `/uploads/${p.slug}.png`;
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: p.price, costPrice: p.cost, images: ['/uploads/cat_sets.png'] },
+      update: { price: p.price, costPrice: p.cost, images: [imgPath] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: p.price, oldPrice: Math.round(p.price * 1.25), costPrice: p.cost,
         categoryId: sets.id, stock: 20, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: true, images: ['/uploads/cat_sets.png'],
+        isFeatured: true, isOnSale: true, images: [imgPath],
       },
     });
   }
