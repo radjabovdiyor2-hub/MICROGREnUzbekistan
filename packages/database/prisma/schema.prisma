@@ -572,3 +572,19 @@ model PrintOrder {
   @@index([restaurantIssueId])
   @@map("print_orders")
 }
+
+// ── Аналитика журнала ──
+model MagazineEvent {
+  id        String   @id @default(cuid())
+  type      String   // page_view | ar_scan | ar_collect | qr_scan | kids_riddle | kids_tale | kids_passport
+  slug      String?  // webSlug выпуска (если применимо)
+  charId    String?  @map("char_id")    // id персонажа (для AR)
+  sessionId String   @map("session_id") // fingerprint сессии (анонимный)
+  meta      Json?    // доп. данные (язык, userAgent, и т.д.)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([type, createdAt])
+  @@index([slug])
+  @@map("magazine_events")
+}
+

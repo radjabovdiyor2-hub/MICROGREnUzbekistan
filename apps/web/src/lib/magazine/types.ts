@@ -5,6 +5,9 @@
 //  · origin   — схема 50/50 (shared = общий выпуск, personal = ресторан)
 // ════════════════════════════════════════════════════════════
 
+import type { L10n } from './i18n';
+export type { L10n };
+
 export type Audience = 'all' | 'men' | 'women' | 'kids' | 'family';
 export type Origin = 'shared' | 'personal';
 
@@ -16,33 +19,20 @@ export const AUDIENCE_LABELS: Record<Audience, string> = {
   family: 'Для всей семьи',
 };
 
-// 9 детских механик (циклично по выпускам)
+// 3 детские механики
 export type KidsMechanic =
   | 'ar_coloring'      // Живые AR-раскраски
-  | 'speech_ar'        // Логопедические AR-карточки
   | 'food_art'         // Фуд-арт конструктор
-  | 'asmr_crunch'      // ASMR «Хруст-Челлендж»
-  | 'plant_quest'      // Квест «Посади и Съешь»
-  | 'board_game'       // Настолка «Путь Росточка»
-  | 'voice_riddle'     // Голосовые загадки с ИИ-Агрономом
-  | 'neuro_tale'       // Нейро-Сказка с именем ребёнка
-  | 'agronom_passport'; // Паспорт «Юного Агронома»
+  | 'plant_quest';     // Квест «Посади и Съешь»
 
 export const KIDS_MECHANIC_LABELS: Record<KidsMechanic, string> = {
   ar_coloring: 'AR-раскраска',
-  speech_ar: 'Логопед AR-карточки',
   food_art: 'Фуд-арт конструктор',
-  asmr_crunch: 'ASMR Хруст-Челлендж',
   plant_quest: 'Квест «Посади и Съешь»',
-  board_game: 'Настолка «Путь Росточка»',
-  voice_riddle: 'Голосовые загадки',
-  neuro_tale: 'Нейро-Сказка с именем',
-  agronom_passport: 'Паспорт Юного Агронома',
 };
 
 export const KIDS_MECHANIC_ORDER: KidsMechanic[] = [
-  'ar_coloring', 'speech_ar', 'food_art', 'asmr_crunch', 'plant_quest',
-  'board_game', 'voice_riddle', 'neuro_tale', 'agronom_passport',
+  'food_art', 'plant_quest', 'ar_coloring',
 ];
 
 // Детская механика недели: циклично по номеру выпуска
@@ -61,9 +51,9 @@ interface BlockBase {
 // ── Обложка ──
 export interface CoverBlock extends BlockBase {
   type: 'cover';
-  title: string;
-  accentTitle?: string; // цветная часть заголовка
-  subtitle?: string;
+  title: L10n;
+  accentTitle?: L10n; // цветная часть заголовка
+  subtitle?: L10n;
   background?: string;   // URL фонового фото
   tags?: string[];
 }
@@ -71,124 +61,114 @@ export interface CoverBlock extends BlockBase {
 // ── Содержание (редакционная колонка; список пунктов авто) ──
 export interface TocBlock extends BlockBase {
   type: 'toc';
-  editorialNote?: string;
+  editorialNote?: L10n;
 }
 
 // ── Слово шефа (персональное) ──
 export interface ChefWordBlock extends BlockBase {
   type: 'chefWord';
-  chefName?: string;
+  chefName?: L10n;
   portrait?: string;
-  text: string;
+  text: L10n;
 }
 
 // ── Ресторан недели ──
 export interface RestaurantOfWeekBlock extends BlockBase {
   type: 'restaurantOfWeek';
   heroImage?: string;
-  name: string;
-  meta?: string;
-  pullQuote?: string;
-  quoteAttr?: string;
-  interview?: { q: string; a: string }[];
-  whatToOrder?: string;
-  rating?: string;
+  name: L10n;
+  meta?: L10n;
+  pullQuote?: L10n;
+  quoteAttr?: L10n;
+  interview?: { q: L10n; a: L10n }[];
+  whatToOrder?: L10n;
+  rating?: L10n;
 }
 
-// ── Новости Узб и мира (мужской блок) ──
-export interface NewsDigestBlock extends BlockBase {
-  type: 'newsDigest';
-  title?: string;
-  items: { title: string; text: string }[];
-}
-
-// ── AI-аналитика трендов (Google Trends): здоровье / бьюти ──
+// ── Здоровье и красота: темы недели по трендам Google (склейка health+beauty) ──
 export interface TrendAnalyticsBlock extends BlockBase {
-  type: 'healthTrends' | 'beautyTrends';
-  trendQuery?: string;   // что чаще гуглят на этой неделе
-  factTitle?: string;
-  fact: string;
-  advice?: string;       // нативный совет по питанию/микрозелени
+  type: 'healthTrends';
+  title?: L10n;
+  items: {
+    trendQuery?: L10n;   // что чаще гуглят на этой неделе
+    factTitle?: L10n;
+    fact: L10n;
+    advice?: L10n;       // нативный совет по питанию/микрозелени
+    image?: string;
+    caption?: L10n;
+  }[];
 }
 
 // ── Рецепт недели (шеф/дом) ──
 export interface RecipeBlock extends BlockBase {
   type: 'recipe';
   heroImage?: string;
-  title: string;
-  subtitle?: string;
-  chefVersion?: string;
-  homeVersion?: string;
-  steps?: { title: string; text: string }[];
+  title: L10n;
+  subtitle?: L10n;
+  chefVersion?: L10n;
+  homeVersion?: L10n;
+  caption?: L10n;
+  steps?: { title: L10n; text: L10n; image?: string }[];
 }
 
 // ── Кухонные лайфхаки / выпечка ──
 export interface ListBlock extends BlockBase {
-  type: 'kitchenLifehacks' | 'bakingDesserts';
-  title: string;
-  intro?: string;
-  items: { title: string; text: string }[];
+  type: 'kitchenLifehacks';
+  title: L10n;
+  intro?: L10n;
+  items: { title: L10n; text: L10n; image?: string; caption?: L10n }[];
 }
 
 // ── Нутрициолог ──
 export interface NutritionistBlock extends BlockBase {
   type: 'nutritionist';
-  title: string;
-  fact?: string;
-  tableTitle?: string;
-  table?: { rank: string; product: string; per100: string; vs: string }[];
-  quote?: string;
-  quoteAttr?: string;
-  lifehack?: string;
-}
-
-// ── Tech-дайджест ──
-export interface TechDigestBlock extends BlockBase {
-  type: 'techDigest';
-  title?: string;
-  entries: { icon?: string; kicker: string; name: string; text: string }[];
-  aiHack?: string;
-}
-
-// ── Фитнес (мужской блок) ──
-export interface FitnessBlock extends BlockBase {
-  type: 'fitness';
-  title: string;
-  intro?: string;
-  exercises?: { name: string; text: string }[];
+  title: L10n;
+  heroImage?: string;
+  caption?: L10n;
+  fact?: L10n;
+  tableTitle?: L10n;
+  table?: { rank: string; product: L10n; per100: string; vs: string; image?: string }[];
+  quote?: L10n;
+  quoteAttr?: L10n;
+  lifehack?: L10n;
 }
 
 // ── Детский блок (одна из 9 механик) ──
 export interface KidsBlock extends BlockBase {
   type: 'kids';
   mechanic: KidsMechanic;
-  title: string;
-  instruction?: string;    // инструкция механики / food-art
-  riddle?: string;         // голосовая загадка
-  tale?: string;           // нейро-сказка (с именем ребёнка)
+  title: L10n;
+  image?: string;          // иллюстрация механики (раскраска/фуд-арт)
+  caption?: L10n;
+  instruction?: L10n;    // инструкция механики / food-art
+  riddle?: L10n;         // голосовая загадка
+  tale?: L10n;           // нейро-сказка (с именем ребёнка)
   botLink?: string;        // ссылка на Telegram-бота (хруст/загадки)
 }
 
 // ── Детская экосистема: каталог всех 9 механик (одна страница) ──
 export interface KidsCatalogBlock extends BlockBase {
   type: 'kidsCatalog';
-  title?: string;
-  intro?: string;
+  title?: L10n;
+  intro?: L10n;
 }
 
 // ── Семейный блок: конверсия в продажи (персональный) ──
 export interface FamilyConversionBlock extends BlockBase {
   type: 'familyConversion';
-  farmStory?: string;
-  promoText?: string;      // «Скидка N% от ресторана …»
+  farmStory?: L10n;
+  farmImage?: string;
+  caption?: L10n;
+  promoText?: L10n;      // «Скидка N% от ресторана …»
   // promoCode/qr берутся из профиля ресторана при рендере
 }
 
 // ── Коллекционная карточка + AR ──
 export interface CollectionArBlock extends BlockBase {
   type: 'collectionAR';
-  cardName: string;
-  cardText?: string;
+  cardName: L10n;
+  cardText?: L10n;
+  cardImage?: string;
   arUrl?: string;          // по умолчанию /magazine/ar
 }
 
@@ -197,13 +177,10 @@ export type Block =
   | TocBlock
   | ChefWordBlock
   | RestaurantOfWeekBlock
-  | NewsDigestBlock
   | TrendAnalyticsBlock
   | RecipeBlock
   | ListBlock
   | NutritionistBlock
-  | TechDigestBlock
-  | FitnessBlock
   | KidsBlock
   | KidsCatalogBlock
   | FamilyConversionBlock
@@ -234,15 +211,10 @@ export const SECTION_ORDER: BlockType[] = [
   'toc',
   'chefWord',
   'restaurantOfWeek',
-  'newsDigest',
   'healthTrends',
-  'fitness',
   'recipe',
   'kitchenLifehacks',
-  'bakingDesserts',
-  'beautyTrends',
   'nutritionist',
-  'techDigest',
   'kids',
   'kidsCatalog',
   'familyConversion',
@@ -274,15 +246,10 @@ export const SECTION_TITLES: Record<BlockType, string> = {
   toc: 'Содержание',
   chefWord: 'Слово шефа',
   restaurantOfWeek: 'Ресторан недели',
-  newsDigest: 'Новости Узб и мира',
-  healthTrends: 'AI-аналитика здоровья',
-  beautyTrends: 'AI-бьюти тренды',
+  healthTrends: 'Здоровье и красота',
   recipe: 'Рецепт недели',
-  kitchenLifehacks: 'Кухонные лайфхаки',
-  bakingDesserts: 'Выпечка и десерты',
+  kitchenLifehacks: 'Советы кухни',
   nutritionist: 'Нутрициолог',
-  techDigest: 'Tech-дайджест',
-  fitness: 'Спорт & Фитнес',
   kids: 'Fresh Kids',
   kidsCatalog: 'Детская экосистема · 9 игр',
   familyConversion: 'Для всей семьи',
