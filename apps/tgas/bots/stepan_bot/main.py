@@ -515,15 +515,15 @@ async def _token_refresh():
         logger.warning(f"Token refresh error: {e}")
 
 
-# Instagram Stories промо-рассылка (каждые 36 часов)
-async def _post_ig_story():
-    try:
-        from shared.instagram_stories import post_promotional_story
-        await post_promotional_story()
-    except Exception as e:
-        logger.warning(f"Instagram Story post error: {e}")
-
-scheduler.add_interval(name="instagram_story_promo", func=_post_ig_story, seconds=36*3600, initial_delay=3600)
+# Instagram Stories промо-рассылка отключена по решению пользователя
+# async def _post_ig_story():
+#     try:
+#         from shared.instagram_stories import post_promotional_story
+#         await post_promotional_story()
+#     except Exception as e:
+#         logger.warning(f"Instagram Story post error: {e}")
+#
+# scheduler.add_interval(name="instagram_story_promo", func=_post_ig_story, seconds=36*3600, initial_delay=3600)
 
 scheduler.add_cron(name="daily_backup", func=_daily_backup, hour=3, minute=0)
 scheduler.add_interval(name="token_refresh", func=_token_refresh, seconds=86400 * 7)  # раз в неделю
