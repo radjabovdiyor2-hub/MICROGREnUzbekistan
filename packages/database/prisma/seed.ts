@@ -42,14 +42,22 @@ async function main() {
 
   for (const p of microProducts) {
     const imgPath = `/uploads/${p.slug}.png`;
+    const defaultSpecs = {
+      "O'sish vaqti / Срок выращивания": "7-10 kun / 7-10 дней",
+      "Vitaminlar / Витамины": "A, B, C, E, K, Sulforaphane",
+      "Minerallar / Минералы": "Кальций, Железо, Магний, Калий",
+      "Ta'm / Вкус": "Yangi va sersuv / Свежий и сочный",
+      "Foydasi / Полеза": "Immunitet, hazm qilish / Иммунитет, детоксикация",
+      "Yaroqlilik muddati / Срок хранения": "7 kun (2-5°C) / 7 дней (2-5°C)"
+    };
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 15000, oldPrice: 20000, costPrice: 8000, images: [imgPath] },
+      update: { price: 15000, oldPrice: 20000, costPrice: 8000, images: [imgPath], specs: defaultSpecs },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 15000, oldPrice: 20000, costPrice: 8000,
         categoryId: micro.id, stock: 50, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: true, images: [imgPath],
+        isFeatured: true, isOnSale: true, images: [imgPath], specs: defaultSpecs,
       },
     });
   }

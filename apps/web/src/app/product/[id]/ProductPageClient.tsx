@@ -451,22 +451,68 @@ export function ProductPageClient({ id }: { id: string }) {
 
         {activeTab === 'desc' && (
           <div className="card" style={{ padding: 'var(--space-6)' }}>
-            <p style={{ lineHeight: 1.8 }}>{t(product.descriptionUz || "Bu mahsulot haqida batafsil ma'lumot tez orada qo'shiladi.", product.descriptionRu || "Подробная информация об этом товаре будет добавлена в ближайшее время.")}</p>
+            <p style={{ lineHeight: 1.8, fontSize: 'var(--text-base)', marginBottom: 'var(--space-4)' }}>
+              {t(
+                product.descriptionUz || `${product.nameUz} — ekologik toza substratda o'stirilgan, 100% tabiiy va vitaminlarga boy mahsulot. Tarkibida yuqori konsentratsiyali antiosidantlar va minerallar mavjud.`,
+                product.descriptionRu || `${product.nameRu} — 100% натуральный свежий продукт, выращенный на экологически чистом субстрате. Содержит высокую концентрацию антиоксидантов, витаминов и микроэлементов.`
+              )}
+            </p>
+            {/* Health & Benefit Badges */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: 'var(--space-4)' }}>
+              <span style={{ padding: '6px 12px', background: 'var(--success-bg)', color: 'var(--success)', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Sparkles size={12} /> {t("100% Ekologik toza", "100% Эко продукт")}
+              </span>
+              <span style={{ padding: '6px 12px', background: 'rgba(99,102,241,0.1)', color: '#6366F1', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Leaf size={12} /> {t("Vitaminlar: A, C, E, K, B-complex", "Витамины: A, C, E, K, B-комплекс")}
+              </span>
+              <span style={{ padding: '6px 12px', background: 'rgba(245,158,11,0.1)', color: '#F59E0B', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Flame size={12} /> {t("Antioksidant & Detox", "Антиоксидант и Детокс")}
+              </span>
+            </div>
           </div>
         )}
 
         {activeTab === 'specs' && (
           <div className="card" style={{ padding: 'var(--space-6)' }}>
-            {product.specs ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {Object.entries(product.specs).map(([key, val]) => (
-                  <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle size={14} style={{ color: 'var(--success)' }} /> {key}</span>
-                    <span style={{ fontWeight: 'var(--font-semibold)' }}>{val}</span>
-                  </div>
-                ))}
-              </div>
-            ) : <p style={{ color: 'var(--text-muted)' }}>{t("Xususiyatlar tez orada qo'shiladi", "Характеристики будут добавлены в ближайшее время")}</p>}
+            {(() => {
+              const mergedSpecs: Record<string, string> = product.specs && Object.keys(product.specs).length > 0
+                ? product.specs
+                : product.category?.slug === 'microgreens'
+                ? {
+                    [t("O'sish vaqti", "Срок выращивания")]: t("7-10 kun", "7-10 дней"),
+                    [t("Vitaminlar", "Витамины")]: "A, B, C, E, K, Sulforaphane",
+                    [t("Minerallar", "Минералы")]: t("Temir, Magniy, Kaltsiy, Rux", "Железо, Магний, Кальций, Цинк"),
+                    [t("Ta'm", "Вкус")]: t("Yangi va sersuv", "Свежий и сочный"),
+                    [t("Foydali xususiyati", "Полезные свойства")]: t("Immunitet va hazm qilish", "Иммунитет и детоксикация"),
+                    [t("Saqlash harorati", "Температура хранения")]: "2°C — 5°C",
+                    [t("Yaroqlilik muddati", "Срок годности")]: t("7 kun", "7 дней")
+                  }
+                : product.category?.slug === 'seeds'
+                ? {
+                    [t("Unuvchanligi", "Всхожесть")]: "98%",
+                    [t("Tozaligi", "Чистота")]: "99.5%",
+                    [t("Vazni", "Вес")]: t("50g — 200g paket", "50г — 200г пачка"),
+                    [t("Saqlash muddati", "Срок годности")]: t("24 oy", "24 месяца")
+                  }
+                : {
+                    [t("Kafolat", "Гарантия")]: t("Sifat kafolati 100%", "Гарантия качества 100%"),
+                    [t("Ishlab chiqaruvchi", "Производитель")]: "Microgreen Uzbekistan",
+                    [t("Yetkazib berish", "Доставка")]: t("Bugunning o'zida", "В день заказа")
+                  };
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  {Object.entries(mergedSpecs).map(([key, val]) => (
+                    <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-3) 0', borderBottom: '1px solid var(--border)', fontSize: 'var(--text-sm)' }}>
+                      <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <CheckCircle size={15} style={{ color: 'var(--success)' }} /> {key}
+                      </span>
+                      <span style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{val}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
