@@ -77,22 +77,11 @@ const RU = {
   per100: 'на 100г',
   vsLemon: 'vs лимон',
   hostessLifehack: 'Лайфхак для хозяйки',
-  kids: 'Fresh Kids',
-  kidsEco: 'Fresh Kids · Экосистема',
-  nineGames: '9 игр',
   whatToDo: 'Что делать',
-  neuroTale: 'Нейро-сказка',
-  voiceRiddle: 'Голосовая загадка',
-  answerBot: 'Ответь голосом боту',
-  playOnline: 'Играй онлайн · 9 механик',
-  kidsQrText: 'Сканируй QR: нейро-сказка с твоим именем, голосовые загадки, AR-раскраски и паспорт агронома.',
   forFamily: 'Для всей семьи',
   farmStory: 'История нашей фермы',
   discountFrom: 'Скидка',
   promoCode: 'Промокод',
-  collectionAR: 'Коллекция + AR',
-  card: 'Карточка',
-  liveIn3D: 'Оживи в 3D',
   issue: 'Выпуск',
   online: 'онлайн',
   inMagazine: 'в журнале',
@@ -121,22 +110,11 @@ const UZ: Record<UIKey, string> = {
   per100: '100g uchun',
   vsLemon: 'limonga nisbatan',
   hostessLifehack: 'Bekalar uchun maslahat',
-  kids: 'Fresh Kids',
-  kidsEco: 'Fresh Kids · Ekotizim',
-  nineGames: '9 o‘yin',
   whatToDo: 'Nima qilish kerak',
-  neuroTale: 'Neyro-ertak',
-  voiceRiddle: 'Ovozli topishmoq',
-  answerBot: 'Botga ovoz bilan javob ber',
-  playOnline: 'Onlayn o‘yna · 9 mexanika',
-  kidsQrText: 'QR’ni skanerlang: ismingiz bilan ertak, ovozli topishmoqlar, AR-bo‘yash va agronom pasporti.',
   forFamily: 'Butun oila uchun',
   farmStory: 'Fermamiz tarixi',
   discountFrom: 'Chegirma',
   promoCode: 'Promokod',
-  collectionAR: 'Kolleksiya + AR',
-  card: 'Kartochka',
-  liveIn3D: '3D’da jonlantir',
   issue: 'Son',
   online: 'onlayn',
   inMagazine: 'jurnalda',
@@ -145,31 +123,22 @@ const UZ: Record<UIKey, string> = {
 export const UI: Record<Lang, Record<UIKey, string>> = { uz: UZ, ru: RU };
 
 // ── Названия секций (для содержания) на двух языках ──
-import type { BlockType, Audience, KidsMechanic } from './types';
+import type { BlockType, Audience } from './types';
 
 export const SECTION_TITLES_I18N: Record<Lang, Record<BlockType, string>> = {
   uz: {
     cover: 'Muqova', toc: 'Mundarija', chefWord: 'Oshpaz so‘zi', restaurantOfWeek: 'Hafta restorani',
-    healthTrends: 'Salomatlik va go‘zallik', recipe: 'Hafta retsepti', kids: 'Fresh Kids',
-    familyConversion: 'Butun oila uchun', collectionAR: 'Kolleksiya + AR',
+    healthTrends: 'Salomatlik va go‘zallik', recipe: 'Hafta retsepti',
+    familyConversion: 'Butun oila uchun',
   },
   ru: {
     cover: 'Обложка', toc: 'Содержание', chefWord: 'Слово шефа', restaurantOfWeek: 'Ресторан недели',
-    healthTrends: 'Здоровье и красота', recipe: 'Рецепт недели', kids: 'Fresh Kids',
-    familyConversion: 'Для всей семьи', collectionAR: 'Коллекция + AR',
+    healthTrends: 'Здоровье и красота', recipe: 'Рецепт недели',
+    familyConversion: 'Для всей семьи',
   },
 };
 
 export const AUDIENCE_LABELS_I18N: Record<Lang, Record<Audience, string>> = {
-  uz: { all: 'Hamma uchun', men: 'Erkaklar uchun', women: 'Ayollar uchun', kids: 'Bolalar uchun', family: 'Oila uchun' },
-  ru: { all: 'Для всех', men: 'Для мужчин', women: 'Для женщин', kids: 'Для детей', family: 'Для всей семьи' },
-};
-
-export const KIDS_MECHANIC_LABELS_I18N: Record<Lang, Record<KidsMechanic, string>> = {
-  uz: {
-    ar_coloring: 'AR-bo‘yash', food_art: 'Food-art konstruktor', plant_quest: '«Ek va Ye» kvesti',
-  },
-  ru: {
-    ar_coloring: 'AR-раскраска', food_art: 'Фуд-арт конструктор', plant_quest: 'Квест «Посади и Съешь»',
-  },
+  uz: { all: 'Hamma uchun', men: 'Erkaklar uchun', women: 'Ayollar uchun', family: 'Oila uchun' },
+  ru: { all: 'Для всех', men: 'Для мужчин', women: 'Для женщин', family: 'Для всей семьи' },
 };

@@ -4,10 +4,11 @@
 // Контент перенесён из content/fresh_weekly_issue_01.html.
 // ════════════════════════════════════════════════════════════
 import type { Block, MagazineSpec } from './types';
-import { mechanicForWeek } from './types';
 
-// Общий 50% — одинаков для всех ресторанов недели
-export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
+// Общий 50% — одинаков для всех ресторанов недели.
+// weekNumber остаётся в сигнатуре: им пользуются вызывающие кроны и админка,
+// а контент недели подставляется поверх дефолта.
+export function defaultSharedSpec(_weekNumber = 1): MagazineSpec {
   const blocks: Block[] = [
     {
       // Склейка «здоровье + красота»: обе темы на одной полосе
@@ -40,20 +41,6 @@ export function defaultSharedSpec(weekNumber = 1): MagazineSpec {
         { title: 'Шаг 2 · Крем', text: 'Замочить желатин. Взбить крем-чиз + йогурт + пудра + цедра. Холодильник 4ч.' },
         { title: 'Шаг 3 · Магия', text: 'Ягоды по кругу → микрозелень → цветы виолы. Перед подачей.' },
       ],
-    },
-    {
-      id: 'kids', type: 'kids', audience: 'kids', origin: 'shared',
-      mechanic: mechanicForWeek(weekNumber),
-      title: 'Маленький шеф',
-      instruction: 'Сделай мордочку зверя из еды: половинка яблока — лицо, микрозелень — волосы, изюм — глаза.',
-      riddle: 'Зелёный, кудрявый, витаминами богатый — что это? (ответь голосом боту)',
-      tale: 'Жил-был Росточек по имени … — вставьте нейро-сказку с именем ребёнка.',
-    },
-    {
-      id: 'collection', type: 'collectionAR', audience: 'all', origin: 'shared',
-      cardName: 'Кинза',
-      cardText: 'Наведи камеру на карточку — персонаж оживёт в 3D.',
-      arUrl: '/magazine/ar',
     },
   ];
   return { blocks };

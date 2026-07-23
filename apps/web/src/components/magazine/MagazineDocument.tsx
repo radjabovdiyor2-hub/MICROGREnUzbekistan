@@ -9,7 +9,6 @@ interface Props {
   brand: RestaurantBrand;
   weekNumber: number;
   qrDataUrl?: string;
-  kidsQrDataUrl?: string;
 }
 
 /**
@@ -17,7 +16,7 @@ interface Props {
  * Один и тот же компонент используется для веб-читалки и печатного PDF.
  * Фирменные цвета ресторана переопределяют --accent / --gold через inline-переменные.
  */
-export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl, kidsQrDataUrl }: Props) {
+export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl }: Props) {
   const weekLabel = `№${weekNumber}`;
 
   // Блоки удалённых/незнакомых типов (старые спеки из БД) отбрасываем ДО нумерации,
@@ -26,13 +25,21 @@ export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl, kidsQrD
 
   // Нумерация страниц и содержание
   const paged = known.map((b, i) => ({ block: b, page: i + 1 }));
+  const brandLetters = (brand.tocLetters && brand.tocLetters.length > 0)
+    ? brand.tocLetters
+    : (brand.name ? brand.name.replace(/[^A-Za-zА-Яа-яO‘o‘G‘g‘]/g, '').toUpperCase().split('') : []);
+
   const tocEntries = paged
     .filter(({ block }) => block.type !== 'cover' && block.type !== 'toc')
-    .map(({ block, page }) => ({
-      letter: (SECTION_TITLES_I18N.ru[block.type] || '•').charAt(0).toUpperCase(),
-      titles: LANGS.map((l) => SECTION_TITLES_I18N[l][block.type] || block.type),
-      page,
-    }));
+    .map(({ block, page }, i) => {
+      const titles = LANGS.map((l) => SECTION_TITLES_I18N[l][block.type] || block.type);
+      const letter = brandLetters[i] || (titles[0] || '•').charAt(0).toUpperCase();
+      return {
+        letter,
+        titles,
+        page,
+      };
+    });
 
   const rootStyle = {
     ...(brand.brandPrimary ? { ['--accent']: brand.brandPrimary } : {}),
@@ -44,9 +51,9 @@ export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl, kidsQrD
       {paged.map(({ block, page }) => {
         switch (block.type) {
           case 'cover':
-            return <B.CoverPage key={block.id} b={block} weekLabel={weekLabel} />;
+            return <B.CoverPage key={block.id} b={block} brand={brand} weekLabel={weekLabel} />;
           case 'toc':
-            return <B.TocPage key={block.id} b={block} entries={tocEntries} n={page} weekLabel={weekLabel} />;
+            return <B.TocPage key={block.id} b={block} brand={brand} entries={tocEntries} n={page} weekLabel={weekLabel} />;
           case 'chefWord':
             return <B.ChefWordPage key={block.id} b={block} n={page} />;
           case 'restaurantOfWeek':
@@ -55,12 +62,8 @@ export function MagazineDocument({ blocks, brand, weekNumber, qrDataUrl, kidsQrD
             return <B.TrendAnalyticsPage key={block.id} b={block} n={page} />;
           case 'recipe':
             return <B.RecipePage key={block.id} b={block} n={page} />;
-          case 'kids':
-            return <B.KidsPage key={block.id} b={block} n={page} kidsQrDataUrl={kidsQrDataUrl} />;
           case 'familyConversion':
             return <B.FamilyConversionPage key={block.id} b={block} brand={brand} qrDataUrl={qrDataUrl} n={page} />;
-          case 'collectionAR':
-            return <B.CollectionArPage key={block.id} b={block} n={page} />;
           default:
             return null;
         }

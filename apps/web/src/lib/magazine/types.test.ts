@@ -1,27 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import {
   composeMagazine,
-  mechanicForWeek,
   SECTION_ORDER,
-  KIDS_MECHANIC_ORDER,
+  SECTION_TITLES,
 } from './types';
-import type { Block, MagazineSpec } from './types';
+import type { Block, BlockType, MagazineSpec } from './types';
 
 // Минимальные валидные блоки для проверки сборки/сортировки.
 const cover: Block = { id: 'c', type: 'cover', audience: 'all', origin: 'personal', title: 'X' };
 const toc: Block = { id: 't', type: 'toc', audience: 'all', origin: 'personal' };
 const recipe: Block = { id: 'r', type: 'recipe', audience: 'women', origin: 'shared', title: 'R' };
-const kids: Block = { id: 'n', type: 'kids', audience: 'kids', origin: 'shared', mechanic: 'ar_coloring', title: 'N' };
+const family: Block = { id: 'f', type: 'familyConversion', audience: 'family', origin: 'personal' };
 
 const spec = (blocks: Block[]): MagazineSpec => ({ blocks });
 
 describe('magazine/types · composeMagazine', () => {
   it('объединяет shared + personal и упорядочивает по SECTION_ORDER', () => {
     // На входе намеренно перемешанный порядок
-    const shared = spec([recipe, kids]);
-    const personal = spec([toc, cover]);
+    const shared = spec([recipe]);
+    const personal = spec([family, toc, cover]);
     const out = composeMagazine(shared, personal).map((b) => b.type);
-    expect(out).toEqual(['cover', 'toc', 'recipe', 'kids']);
+    expect(out).toEqual(['cover', 'toc', 'recipe', 'familyConversion']);
     // порядок соответствует индексам в каноничном SECTION_ORDER
     const ranks = out.map((t) => SECTION_ORDER.indexOf(t));
     expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
@@ -38,24 +37,16 @@ describe('magazine/types · composeMagazine', () => {
 
   it('устойчив к null-спекам', () => {
     expect(composeMagazine(null, null)).toEqual([]);
-    expect(composeMagazine(spec([kids]), null).map((b) => b.type)).toEqual(['kids']);
+    expect(composeMagazine(spec([family]), null).map((b) => b.type)).toEqual(['familyConversion']);
   });
 });
 
-describe('magazine/types · mechanicForWeek', () => {
-  it('цикл по 3 механикам: неделя N и N+3 совпадают', () => {
-    expect(mechanicForWeek(1)).toBe(mechanicForWeek(4));
-    expect(mechanicForWeek(1)).toBe(KIDS_MECHANIC_ORDER[0]);
-    expect(mechanicForWeek(3)).toBe(KIDS_MECHANIC_ORDER[2]);
-  });
-
-  it('покрывает все 3 механики за 3 недели', () => {
-    const got = new Set(Array.from({ length: 3 }, (_, i) => mechanicForWeek(i + 1)));
-    expect(got.size).toBe(KIDS_MECHANIC_ORDER.length);
-  });
-
-  it('безопасен для 0 и отрицательных номеров', () => {
-    expect(KIDS_MECHANIC_ORDER).toContain(mechanicForWeek(0));
-    expect(KIDS_MECHANIC_ORDER).toContain(mechanicForWeek(-3));
+describe('magazine/types · SECTION_ORDER', () => {
+  // Блок, забытый в SECTION_ORDER, уезжает в конец журнала молча —
+  // поэтому перечни обязаны совпадать.
+  it('покрывает все типы блоков ровно один раз', () => {
+    const known = Object.keys(SECTION_TITLES) as BlockType[];
+    expect([...SECTION_ORDER].sort()).toEqual([...known].sort());
+    expect(new Set(SECTION_ORDER).size).toBe(SECTION_ORDER.length);
   });
 });

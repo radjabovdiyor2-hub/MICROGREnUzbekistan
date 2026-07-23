@@ -1,12 +1,12 @@
 import React from 'react';
 import type {
   CoverBlock, TocBlock, ChefWordBlock, RestaurantOfWeekBlock,
-  TrendAnalyticsBlock, RecipeBlock, KidsBlock,
-  FamilyConversionBlock, CollectionArBlock, RestaurantBrand, Audience, L10n,
+  TrendAnalyticsBlock, RecipeBlock,
+  FamilyConversionBlock,
+  RestaurantBrand, Audience, L10n,
 } from '@/lib/magazine/types';
 import {
   UI, LANGS, t, tri, inline,
-  KIDS_MECHANIC_LABELS_I18N,
   type Lang, type UIKey,
 } from '@/lib/magazine/i18n';
 
@@ -57,10 +57,13 @@ function PageNum({ n }: { n: number }) {
   return <div className={`mag-page-num ${side}`}>{n}</div>;
 }
 
-function RunningHeader({ right }: { right: string }) {
+function RunningHeader({ right, cobrand }: { right: string; cobrand?: string }) {
   return (
     <div className="mag-running-header">
-      <div className="mag-masthead">Fresh Weekly</div>
+      <div className="mag-masthead">
+        Fresh Weekly
+        {cobrand && <span style={{ color: 'var(--gold)', fontWeight: 800 }}> &amp; {cobrand}</span>}
+      </div>
       <div>{right}</div>
     </div>
   );
@@ -86,7 +89,7 @@ const BODY: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", c
 const contentPad: React.CSSProperties = { padding: '4mm var(--margin-page) 8mm' };
 
 // ── COVER ──
-export function CoverPage({ b, weekLabel }: { b: CoverBlock; weekLabel: string }) {
+export function CoverPage({ b, brand, weekLabel }: { b: CoverBlock; brand: RestaurantBrand; weekLabel: string }) {
   const titleParts = tri(b.title);
   const accentParts = tri(b.accentTitle);
   return (
@@ -98,7 +101,15 @@ export function CoverPage({ b, weekLabel }: { b: CoverBlock; weekLabel: string }
       )}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.1) 35%,rgba(0,0,0,0.05) 55%,rgba(0,0,0,0.7) 85%,rgba(0,0,0,0.85) 100%)' }} />
       <div style={{ position: 'relative', zIndex: 1, minHeight: '210mm', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ padding: '8mm 10mm 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        {/* Со-брендирование: издатель × ресторан */}
+        <div style={{ padding: '5mm 10mm 0', textAlign: 'center' }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '6pt', fontWeight: 700, letterSpacing: '2.5px', textTransform: 'uppercase', color: '#e8d48c' }}>
+            Microgreen Uzbekistan
+            <span style={{ opacity: 0.55, margin: '0 2.5mm' }}>&amp;</span>
+            {brand.name}
+          </span>
+        </div>
+        <div style={{ padding: '3mm 10mm 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '36pt', fontWeight: 900, lineHeight: 0.9 }}>FRESH</div>
             <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', fontWeight: 700, letterSpacing: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '2mm' }}>WEEKLY</div>
@@ -139,7 +150,7 @@ export function CoverPage({ b, weekLabel }: { b: CoverBlock; weekLabel: string }
           )}
         </div>
         <div style={{ background: 'rgba(0,0,0,0.5)', padding: '3.5mm 10mm', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '6.5pt', color: 'rgba(255,255,255,0.5)' }}>
-          <span>© Fresh Weekly Uzbekistan</span>
+          <span>© Microgreen Uzbekistan &amp; {brand.name}</span>
           <span style={{ color: '#e8d48c', fontWeight: 600 }}>freshweekly.uz</span>
         </div>
       </div>
@@ -148,14 +159,15 @@ export function CoverPage({ b, weekLabel }: { b: CoverBlock; weekLabel: string }
 }
 
 // ── TABLE OF CONTENTS ──
-export function TocPage({ b, entries, n, weekLabel }: {
+export function TocPage({ b, brand, entries, n, weekLabel }: {
   b: TocBlock;
+  brand: RestaurantBrand;
   entries: { letter: string; titles: string[]; page: number }[];
   n: number; weekLabel: string;
 }) {
   return (
     <div className="mag-page">
-      <RunningHeader right={`${ui('issue')} ${weekLabel}`} />
+      <RunningHeader right={`${ui('issue')} ${weekLabel}`} cobrand={brand.name.toUpperCase()} />
       <div style={{ padding: '8mm var(--margin-page) 6mm' }}>
         <div style={{ ...H1, fontSize: '22pt' }}>{UI.uz.contents}</div>
         <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '6.5pt', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--caption)', marginTop: '1mm' }}>
@@ -176,7 +188,7 @@ export function TocPage({ b, entries, n, weekLabel }: {
         </div>
         {b.editorialNote && (
           <div style={{ marginTop: '5mm', borderTop: '2px solid var(--gold)', paddingTop: '3.5mm' }}>
-            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '2mm', fontSize: '5.2pt' }}>{ui('editorial')}</div>
+            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '2mm', fontSize: '6.5pt' }}>{ui('editorial')}</div>
             <Tri v={b.editorialNote} style={{ ...BODY, fontSize: '9.5pt', color: 'var(--ink-soft)', fontStyle: 'italic' }} />
           </div>
         )}
@@ -197,12 +209,12 @@ function SectionPage({ tag, heroImage, caption, n, children }: {
           <img src={heroImage} alt="" className="mag-hero-img" style={{ height: '100%' }} />
           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '16mm', background: 'linear-gradient(transparent,var(--paper))' }} />
           <div style={{ position: 'absolute', top: '5mm', left: 'var(--margin-page)' }}>
-            <span className="mag-section-tag mag-section-tag-dark" style={{ fontSize: '5pt' }}>{tag}</span>
+            <span className="mag-section-tag mag-section-tag-dark" style={{ fontSize: '6.5pt' }}>{tag}</span>
           </div>
         </div>
       ) : (
         <div style={{ padding: '4mm var(--margin-page) 0' }}>
-          <span className="mag-section-tag" style={{ fontSize: '5pt' }}>{tag}</span>
+          <span className="mag-section-tag" style={{ fontSize: '6.5pt' }}>{tag}</span>
         </div>
       )}
       {heroImage && caption && (
@@ -242,6 +254,17 @@ export function ChefWordPage({ b, n }: { b: ChefWordBlock; n: number }) {
           ))}
         </div>
       )}
+      <div className="mag-card-warm" style={{ marginTop: '5mm' }}>
+        <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1mm', fontSize: '6.5pt' }}>{ui('chefVersion')}</div>
+        <div style={{ ...BODY, fontSize: '9pt', fontStyle: 'italic', color: 'var(--ink-soft)' }}>
+          «Har kuni yangi ko‘kat, tirik olov va samimiy mehmondo‘stlik — taomimiz siri.»
+          <div className="mag-lang-sec">
+            <div className="mag-lang-sec-line" style={{ fontSize: '7.5pt' }}>
+              <span className="mag-lang-tag">ru</span>«Свежая зелень, живой огонь и радушие — секрет каждого нашего блюда.»
+            </div>
+          </div>
+        </div>
+      </div>
     </SectionPage>
   );
 }
@@ -278,13 +301,13 @@ export function RestaurantOfWeekPage({ b, n }: { b: RestaurantOfWeekBlock; n: nu
       <div style={{ display: 'flex', gap: '3mm', marginTop: '3mm' }}>
         {b.whatToOrder && (
           <div className="mag-card-elegant" style={{ flex: 1 }}>
-            <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('whatToOrder')}</div>
+            <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '6.5pt' }}>{ui('whatToOrder')}</div>
             <div style={{ ...BODY, fontSize: '8.5pt', color: 'var(--ink-soft)' }}>{t(b.whatToOrder, PRIMARY)}</div>
           </div>
         )}
         {b.rating && (
           <div className="mag-card-warm" style={{ flex: 1 }}>
-            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('ourRating')}</div>
+            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1mm', fontSize: '6.5pt' }}>{ui('ourRating')}</div>
             <div style={{ ...BODY, fontSize: '8.5pt', color: 'var(--ink-soft)' }}>{t(b.rating, PRIMARY)}</div>
           </div>
         )}
@@ -306,11 +329,11 @@ export function TrendAnalyticsPage({ b, n }: { b: TrendAnalyticsBlock; n: number
             <div style={{ flex: 1 }}>
               {it.trendQuery && (
                 <div style={{ marginBottom: '2mm' }}>
-                  <div className="mag-kicker" style={{ color: '#7c3aed', marginBottom: '1mm', fontSize: '5pt' }}>{ui('googleTrend')}</div>
+                  <div className="mag-kicker" style={{ color: '#7c3aed', marginBottom: '1mm', fontSize: '6.5pt' }}>{ui('googleTrend')}</div>
                   <div style={{ ...BODY, fontSize: '9pt', fontStyle: 'italic', color: 'var(--ink)' }}>«{t(it.trendQuery, PRIMARY)}»</div>
                 </div>
               )}
-              <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '5pt' }}>
+              <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '6.5pt' }}>
                 {it.factTitle ? t(it.factTitle, PRIMARY) : ui('factOfWeek')}
               </div>
               <Tri v={it.fact} style={{ ...BODY, fontSize: '9pt', color: 'var(--ink)' }} />
@@ -318,7 +341,7 @@ export function TrendAnalyticsPage({ b, n }: { b: TrendAnalyticsBlock; n: number
           </div>
           {it.advice && (
             <div className="mag-card-warm" style={{ marginTop: '2mm' }}>
-              <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('microgreenAdvice')}</div>
+              <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1mm', fontSize: '6.5pt' }}>{ui('microgreenAdvice')}</div>
               <Tri v={it.advice} style={{ ...BODY, fontSize: '8.5pt', color: 'var(--ink-soft)' }} />
             </div>
           )}
@@ -338,13 +361,13 @@ export function RecipePage({ b, n }: { b: RecipeBlock; n: number }) {
       <div style={{ display: 'flex', gap: '3mm', marginBottom: '3mm' }}>
         {b.chefVersion && (
           <div className="mag-card-dark" style={{ flex: 1 }}>
-            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '5pt' }}>{ui('chefVersion')}</div>
+            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '6.5pt' }}>{ui('chefVersion')}</div>
             <div style={{ ...BODY, fontSize: '8pt', color: 'rgba(255,255,255,0.85)' }}>{t(b.chefVersion, PRIMARY)}</div>
           </div>
         )}
         {b.homeVersion && (
           <div className="mag-card-warm" style={{ flex: 1 }}>
-            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '5pt' }}>{ui('homeVersion')}</div>
+            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '6.5pt' }}>{ui('homeVersion')}</div>
             <div style={{ ...BODY, fontSize: '8pt', color: 'var(--ink-soft)' }}>{t(b.homeVersion, PRIMARY)}</div>
           </div>
         )}
@@ -353,7 +376,7 @@ export function RecipePage({ b, n }: { b: RecipeBlock; n: number }) {
         {(b.steps ?? []).map((s, i) => (
           <div key={i} style={{ flex: 1, borderLeft: '2px solid var(--gold)', paddingLeft: '2.5mm' }}>
             {s.image && <img src={s.image} alt="" style={{ width: '100%', height: '16mm', objectFit: 'cover', borderRadius: '1mm', marginBottom: '1.5mm', display: 'block' }} />}
-            <div className="mag-kicker" style={{ color: 'var(--gold)', fontSize: '5pt' }}>{t(s.title, PRIMARY)}</div>
+            <div className="mag-kicker" style={{ color: 'var(--gold)', fontSize: '6.5pt' }}>{t(s.title, PRIMARY)}</div>
             <Tri v={s.text} style={{ ...BODY, fontSize: '7.5pt', color: 'var(--ink-soft)', marginTop: '1mm' }} secondaryScale={0.85} />
           </div>
         ))}
@@ -362,58 +385,6 @@ export function RecipePage({ b, n }: { b: RecipeBlock; n: number }) {
   );
 }
 
-
-
-// ── KIDS ──
-export function KidsPage({ b, n, kidsQrDataUrl }: { b: KidsBlock; n: number; kidsQrDataUrl?: string }) {
-  const mechLabel = LANGS.map((l) => KIDS_MECHANIC_LABELS_I18N[l][b.mechanic]).join(' · ');
-  return (
-    <div className="mag-page" style={{ background: 'var(--gold-soft)' }}>
-      <div style={{ padding: '6mm var(--margin-page) 0', display: 'flex', gap: '3mm', alignItems: 'center', flexWrap: 'wrap' }}>
-        <span className="mag-section-tag mag-section-tag-gold" style={{ fontSize: '5pt' }}>{UI.uz.kids} · 4+</span>
-        <span className="mag-kicker" style={{ color: 'var(--gold)', fontSize: '5pt' }}>{mechLabel}</span>
-      </div>
-      <div style={contentPad}>
-        <Tri v={b.title} style={{ ...H1, fontSize: '19pt', marginTop: '2mm' }} />
-        <hr className="mag-divider mag-divider-gold" style={{ width: '25mm' }} />
-        <Figure src={b.image} caption={b.caption} height="42mm" />
-        {b.instruction && (
-          <div className="mag-card-warm" style={{ marginBottom: '3mm' }}>
-            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('whatToDo')}</div>
-            <Tri v={b.instruction} style={{ ...BODY, fontSize: '9pt', color: 'var(--ink-soft)' }} />
-          </div>
-        )}
-        {b.tale && (
-          <div style={{ marginBottom: '3mm' }}>
-            <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('neuroTale')}</div>
-            <Tri v={b.tale} style={{ ...BODY, fontSize: '9pt' }} />
-          </div>
-        )}
-        {b.riddle && (
-          <div className="mag-card-dark" style={{ marginBottom: '3mm' }}>
-            <div className="mag-kicker" style={{ color: '#c084fc', marginBottom: '1mm', fontSize: '5pt' }}>{ui('voiceRiddle')}</div>
-            <div style={{ ...BODY, fontSize: '9pt', color: 'rgba(255,255,255,0.9)' }}>{t(b.riddle, PRIMARY)}</div>
-            {b.botLink && <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '6.5pt', color: '#c084fc', marginTop: '1.5mm' }}>{UI.uz.answerBot}: {b.botLink}</div>}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: '4mm', alignItems: 'center', borderTop: '1.5px solid var(--gold)', paddingTop: '3mm' }}>
-          <div style={{ width: '22mm', height: '22mm', background: '#fff', borderRadius: '2mm', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            {kidsQrDataUrl
-              ? <img src={kidsQrDataUrl} alt="QR Fresh Kids" style={{ width: '100%', height: '100%' }} />
-              : <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', color: '#999' }}>QR</span>}
-          </div>
-          <div>
-            <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('playOnline')}</div>
-            {LANGS.map((l) => (
-              <div key={l} style={{ ...BODY, fontSize: l === PRIMARY ? '8pt' : '6.8pt', color: l === PRIMARY ? 'var(--ink-soft)' : 'var(--caption)', lineHeight: 1.35 }}>{UI[l].kidsQrText}</div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <PageNum n={n} />
-    </div>
-  );
-}
 
 
 // ── FAMILY CONVERSION (QR + промокод) ──
@@ -437,7 +408,7 @@ export function FamilyConversionPage({ b, brand, qrDataUrl, n }: {
             : <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', color: '#999', textAlign: 'center' }}>QR</span>}
         </div>
         <div style={{ flex: 1 }}>
-          <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '5pt' }}>
+          <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '6.5pt' }}>
             {UI.uz.discountFrom} −{discount}% · {UI.ru.discountFrom} −{discount}%
           </div>
           {b.promoText && <Tri v={b.promoText} style={{ ...BODY, fontSize: '8.5pt', color: 'rgba(255,255,255,0.85)' }} />}
@@ -446,24 +417,6 @@ export function FamilyConversionPage({ b, brand, qrDataUrl, n }: {
               {UI.uz.promoCode}: {brand.promoCode}
             </div>
           )}
-        </div>
-      </div>
-    </SectionPage>
-  );
-}
-
-// ── COLLECTION + AR ──
-export function CollectionArPage({ b, n }: { b: CollectionArBlock; n: number }) {
-  return (
-    <SectionPage tag={ui('collectionAR')} n={n}>
-      <div style={{ ...H1, fontSize: '18pt' }}>{UI.uz.card} «{t(b.cardName, PRIMARY)}»</div>
-      <hr className="mag-divider mag-divider-gold" style={{ width: '25mm' }} />
-      <Figure src={b.cardImage} height="46mm" />
-      {b.cardText && <Tri v={b.cardText} style={{ ...BODY, fontSize: '9pt', marginBottom: '3mm' }} />}
-      <div className="mag-card-elegant">
-        <div className="mag-kicker" style={{ color: 'var(--accent)', marginBottom: '1mm', fontSize: '5pt' }}>{ui('liveIn3D')}</div>
-        <div style={{ ...BODY, fontSize: '8.5pt', color: 'var(--ink-soft)' }}>
-          {b.arUrl ?? '/magazine/ar'}
         </div>
       </div>
     </SectionPage>

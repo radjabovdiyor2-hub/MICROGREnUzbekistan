@@ -53,7 +53,6 @@ export default async function MagazineReaderPage({ params }: { params: Promise<{
         brand={issue.brand}
         weekNumber={issue.weekNumber}
         qrDataUrl={issue.qrDataUrl}
-        kidsQrDataUrl={issue.kidsQrDataUrl}
       />
     </div>
   );

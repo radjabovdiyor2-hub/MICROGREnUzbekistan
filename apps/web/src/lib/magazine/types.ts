@@ -8,38 +8,15 @@
 import type { L10n } from './i18n';
 export type { L10n };
 
-export type Audience = 'all' | 'men' | 'women' | 'kids' | 'family';
+export type Audience = 'all' | 'men' | 'women' | 'family';
 export type Origin = 'shared' | 'personal';
 
 export const AUDIENCE_LABELS: Record<Audience, string> = {
   all: 'Для всех',
   men: 'Для мужчин',
   women: 'Для женщин',
-  kids: 'Для детей',
   family: 'Для всей семьи',
 };
-
-// 3 детские механики
-export type KidsMechanic =
-  | 'ar_coloring'      // Живые AR-раскраски
-  | 'food_art'         // Фуд-арт конструктор
-  | 'plant_quest';     // Квест «Посади и Съешь»
-
-export const KIDS_MECHANIC_LABELS: Record<KidsMechanic, string> = {
-  ar_coloring: 'AR-раскраска',
-  food_art: 'Фуд-арт конструктор',
-  plant_quest: 'Квест «Посади и Съешь»',
-};
-
-export const KIDS_MECHANIC_ORDER: KidsMechanic[] = [
-  'food_art', 'plant_quest', 'ar_coloring',
-];
-
-// Детская механика недели: циклично по номеру выпуска
-export function mechanicForWeek(weekNumber: number): KidsMechanic {
-  const i = ((weekNumber - 1) % KIDS_MECHANIC_ORDER.length + KIDS_MECHANIC_ORDER.length) % KIDS_MECHANIC_ORDER.length;
-  return KIDS_MECHANIC_ORDER[i];
-}
 
 // ── Базовые поля любого блока ──
 interface BlockBase {
@@ -112,18 +89,6 @@ export interface RecipeBlock extends BlockBase {
 }
 
 // ── Детский блок (одна из 9 механик) ──
-export interface KidsBlock extends BlockBase {
-  type: 'kids';
-  mechanic: KidsMechanic;
-  title: L10n;
-  image?: string;          // иллюстрация механики (раскраска/фуд-арт)
-  caption?: L10n;
-  instruction?: L10n;    // инструкция механики / food-art
-  riddle?: L10n;         // голосовая загадка
-  tale?: L10n;           // нейро-сказка (с именем ребёнка)
-  botLink?: string;        // ссылка на Telegram-бота (хруст/загадки)
-}
-
 // ── Семейный блок: конверсия в продажи (персональный) ──
 export interface FamilyConversionBlock extends BlockBase {
   type: 'familyConversion';
@@ -134,15 +99,6 @@ export interface FamilyConversionBlock extends BlockBase {
   // promoCode/qr берутся из профиля ресторана при рендере
 }
 
-// ── Коллекционная карточка + AR ──
-export interface CollectionArBlock extends BlockBase {
-  type: 'collectionAR';
-  cardName: L10n;
-  cardText?: L10n;
-  cardImage?: string;
-  arUrl?: string;          // по умолчанию /magazine/ar
-}
-
 export type Block =
   | CoverBlock
   | TocBlock
@@ -150,9 +106,7 @@ export type Block =
   | RestaurantOfWeekBlock
   | TrendAnalyticsBlock
   | RecipeBlock
-  | KidsBlock
-  | FamilyConversionBlock
-  | CollectionArBlock;
+  | FamilyConversionBlock;
 
 export type BlockType = Block['type'];
 
@@ -171,6 +125,7 @@ export interface RestaurantBrand {
   promoCode?: string | null;
   promoDiscount?: number | null;
   menuItems?: string[];
+  tocLetters?: string[];
 }
 
 // Каноничный порядок страниц финального журнала (независимо от источника блока)
@@ -181,9 +136,7 @@ export const SECTION_ORDER: BlockType[] = [
   'restaurantOfWeek',
   'healthTrends',
   'recipe',
-  'kids',
   'familyConversion',
-  'collectionAR',
 ];
 
 // Сборка финального журнала: общий 50% + персональный 50% → упорядоченный список.
@@ -213,7 +166,5 @@ export const SECTION_TITLES: Record<BlockType, string> = {
   restaurantOfWeek: 'Ресторан недели',
   healthTrends: 'Здоровье и красота',
   recipe: 'Рецепт недели',
-  kids: 'Fresh Kids',
   familyConversion: 'Для всей семьи',
-  collectionAR: 'Коллекция + AR',
 };

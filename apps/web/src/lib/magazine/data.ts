@@ -4,7 +4,7 @@
 import { prisma } from '@repo/database';
 import { composeMagazine } from './types';
 import type { Block, MagazineSpec, RestaurantBrand } from './types';
-import { buildQrUrl, promoUrl, kidsUrl } from './qr';
+import { buildQrUrl, promoUrl } from './qr';
 
 export interface LoadedIssue {
   weekNumber: number;
@@ -12,7 +12,6 @@ export interface LoadedIssue {
   blocks: Block[];
   brand: RestaurantBrand;
   qrDataUrl?: string;
-  kidsQrDataUrl?: string;
   status: string;
 }
 
@@ -42,7 +41,6 @@ export async function loadIssueBySlug(slug: string): Promise<LoadedIssue | null>
     menuItems: r.menuItems ?? [],
   };
   const qrDataUrl = r.promoCode ? await buildQrUrl(promoUrl(r.promoCode)) : undefined;
-  const kidsQrDataUrl = await buildQrUrl(kidsUrl());
 
   return {
     weekNumber: issue.edition.weekNumber,
@@ -50,7 +48,6 @@ export async function loadIssueBySlug(slug: string): Promise<LoadedIssue | null>
     blocks,
     brand,
     qrDataUrl,
-    kidsQrDataUrl,
     status: issue.status,
   };
 }

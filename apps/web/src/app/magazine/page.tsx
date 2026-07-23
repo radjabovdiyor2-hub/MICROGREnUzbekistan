@@ -57,7 +57,7 @@ export default async function MagazinePage() {
           fontWeight: 500,
         }}>
           Персональный журнал для гостей ресторана — на узбекском и русском.
-          Рецепты, здоровье и детская рубрика с дополненной реальностью.
+          Рецепты, здоровье и живое меню ресторана — прямо со страницы.
         </p>
 
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -70,33 +70,6 @@ export default async function MagazinePage() {
           }}>
             📖 Смотреть выпуски
           </a>
-          <Link href="/magazine/ar" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '16px 24px', borderRadius: '30px',
-            background: 'rgba(124,58,237,0.15)', color: '#a78bfa',
-            fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-            border: '1px solid rgba(124,58,237,0.3)',
-          }}>
-            📸 AR-сканер
-          </Link>
-          <Link href="/magazine/collection" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '16px 24px', borderRadius: '30px',
-            background: 'rgba(245,158,11,0.1)', color: '#fbbf24',
-            fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-            border: '1px solid rgba(245,158,11,0.2)',
-          }}>
-            🌿 Коллекция
-          </Link>
-          <Link href="/magazine/kids" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '16px 24px', borderRadius: '30px',
-            background: 'rgba(236,72,153,0.1)', color: '#f472b6',
-            fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-            border: '1px solid rgba(236,72,153,0.2)',
-          }}>
-            🎮 Fresh Kids
-          </Link>
         </div>
       </section>
 
@@ -201,17 +174,17 @@ export default async function MagazinePage() {
                 </div>
               </div>
 
-              {/* Bento 3: AR */}
-              <Link href="/magazine/ar" style={{
+              {/* Bento 3: живое меню */}
+              <div style={{
                 background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(0,0,0,0))',
                 borderRadius: '24px', padding: '32px', border: '1px solid var(--border)',
-                textDecoration: 'none', position: 'relative', overflow: 'hidden',
+                position: 'relative', overflow: 'hidden',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
               }}>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>📸</div>
-                <h4 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>AR-Опыт</h4>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center' }}>Оживи 3D персонажей</p>
-              </Link>
+                <h4 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>Живое меню</h4>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '14px', textAlign: 'center' }}>QR у блюда → состав, цена и кадр для сторис</p>
+              </div>
 
               {/* Bento 4: разделы выпуска */}
               <div style={{

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { defaultSharedSpec, defaultPersonalSpec } from './defaults';
-import { SECTION_TITLES, mechanicForWeek } from './types';
+import { SECTION_TITLES } from './types';
 import type { BlockType } from './types';
 
 const KNOWN_TYPES = new Set(Object.keys(SECTION_TITLES) as BlockType[]);
@@ -18,11 +18,9 @@ describe('magazine/defaults · defaultSharedSpec', () => {
     assertValid(defaultSharedSpec(1).blocks);
   });
 
-  it('содержит детский блок с механикой недели', () => {
-    const week = 3;
-    const kids = defaultSharedSpec(week).blocks.find((b) => b.type === 'kids') as any;
-    expect(kids).toBeDefined();
-    expect(kids.mechanic).toBe(mechanicForWeek(week));
+  it('содержит рецепт недели', () => {
+    const recipe = defaultSharedSpec(1).blocks.find((b) => b.type === 'recipe');
+    expect(recipe).toBeDefined();
   });
 });
 
@@ -37,5 +35,11 @@ describe('magazine/defaults · defaultPersonalSpec', () => {
     expect(row.name).toBe('Плов-Хаус');
     const toc = blocks.find((b) => b.type === 'toc') as any;
     expect(toc.editorialNote).toContain('Плов-Хаус');
+  });
+
+  it('ресторан недели и слово шефа — персональные', () => {
+    const blocks = defaultPersonalSpec('Плов-Хаус').blocks;
+    expect(blocks.find((b) => b.type === 'restaurantOfWeek')?.origin).toBe('personal');
+    expect(blocks.find((b) => b.type === 'chefWord')?.origin).toBe('personal');
   });
 });
