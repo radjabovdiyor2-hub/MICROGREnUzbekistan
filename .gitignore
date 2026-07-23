@@ -76,6 +76,9 @@ _*.txt
 # Generated docs/presentations (keep in docs/ or separate repo)
 *.html
 !apps/**/*.html
+# Мастер-шаблон журнала — исходник, а не сгенерированный файл:
+# без него scripts/build-magazine.mjs нечего собирать.
+!content/templates/*.html
 
 # Random images in root
 dessert_*.png

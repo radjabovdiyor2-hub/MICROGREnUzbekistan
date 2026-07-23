@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>FRESH WEEKLY №1 — {{RESTAURANT}}</title>
+<!--
+  Мастер-шаблон номера FRESH WEEKLY, формат A5 с вылетами.
+  Собирается скриптом: node scripts/build-magazine.mjs
+  Плейсхолдеры {{...}} подставляются при сборке; фото — слоты .photo-slot,
+  размеры в них указаны прямо на макете (спека в docs/magazine-print-spec.md).
+
+  Чтобы сделать номер для другого ресторана: поменять {{...}}, цвета
+  --accent/--gold в стилях и фотографии. Структура полос не меняется.
+-->
+{{STYLES}}
+</head>
+<body>
+<div class="mag-doc">
+
+<!-- ═══════════ 1 · ОБЛОЖКА ═══════════ -->
+<div class="mag-page cover">
+  <img class="photo-full" src="{{PHOTO_COVER}}" alt="">
+  <!-- Затемнение подобрано так, чтобы заголовок читался на ЛЮБОМ фото:
+       нижняя треть гарантированно тёмная, светлый снимок его не съест. -->
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,.14) 32%,rgba(0,0,0,.18) 48%,rgba(0,0,0,.52) 62%,rgba(0,0,0,.82) 84%,rgba(0,0,0,.94) 100%);"></div>
+  <div class="page-inner" style="z-index:2;color:#fff;justify-content:space-between;padding:8mm 10mm 6mm;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-family:'Playfair Display',serif;font-size:32pt;font-weight:900;line-height:.9;">FRESH</div>
+        <div class="ui" style="font-size:6.5pt;font-weight:700;letter-spacing:8px;color:rgba(255,255,255,.6);margin-top:2mm;">WEEKLY</div>
+      </div>
+      <div class="ui" style="text-align:right;font-size:6.5pt;color:rgba(255,255,255,.6);line-height:1.6;">
+        <span style="font-family:'Playfair Display',serif;font-size:9.5pt;font-weight:900;color:var(--gold);">№{{ISSUE}}</span><br>UZ · RU
+      </div>
+    </div>
+
+    <div style="margin-bottom:6mm;">
+      <div style="font-family:'Playfair Display',serif;font-size:24pt;font-weight:900;line-height:1.12;">
+        Hafta mehmoni:<br><span style="color:var(--gold);">oilaviy «{{RESTAURANT}}»</span>
+      </div>
+      <div class="lang-pair" style="margin-top:3mm;">
+        <div style="font-family:'Cormorant Garamond',serif;font-size:11pt;font-style:italic;color:rgba(255,255,255,.88);line-height:1.4;">
+          An’anaviy o‘zbek taomlari, uy qulayligi va Samarqand ruhi.
+        </div>
+        <div class="ru" style="color:rgba(255,255,255,.62);border-left-color:rgba(255,255,255,.25);">
+          <span class="lang-tag">ru</span>Традиционная узбекская кухня, домашний уют и дух Самарканда.
+        </div>
+      </div>
+      <div style="display:flex;gap:2.5mm;margin-top:4mm;flex-wrap:wrap;">
+        <span class="ui" style="font-size:5.5pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.55);border:.5px solid rgba(255,255,255,.32);padding:1mm 2.5mm;border-radius:1mm;">O‘zbek taomlari</span>
+        <span class="ui" style="font-size:5.5pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.55);border:.5px solid rgba(255,255,255,.32);padding:1mm 2.5mm;border-radius:1mm;">Oila</span>
+        <span class="ui" style="font-size:5.5pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,.55);border:.5px solid rgba(255,255,255,.32);padding:1mm 2.5mm;border-radius:1mm;">Retseptlar</span>
+      </div>
+    </div>
+
+    <div class="ui" style="border-top:.5px solid rgba(255,255,255,.22);padding-top:3mm;display:flex;justify-content:space-between;font-size:6pt;color:rgba(255,255,255,.55);">
+      <span>© Microgreen Uzbekistan &amp; {{RESTAURANT}}</span>
+      <span style="color:var(--gold);font-weight:600;">freshweekly.uz</span>
+    </div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 2 · СОДЕРЖАНИЕ ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <div>
+        <div class="h1">Mundarija</div>
+        <div class="caption" style="letter-spacing:1.5px;text-transform:uppercase;margin-top:1mm;">Содержание</div>
+        <hr class="rule-gold">
+      </div>
+
+      <div style="display:flex;flex-direction:column;">
+        <div class="toc-row"><div class="toc-letter">J</div><div class="toc-title"><div class="h3">Oshpaz so‘zi</div><div class="caption">Слово шефа</div></div><div class="toc-page">3</div></div>
+        <div class="toc-row"><div class="toc-letter">A</div><div class="toc-title"><div class="h3">Hafta restorani</div><div class="caption">Ресторан недели</div></div><div class="toc-page">4</div></div>
+        <div class="toc-row"><div class="toc-letter">S</div><div class="toc-title"><div class="h3">Hafta retsepti</div><div class="caption">Рецепт недели</div></div><div class="toc-page">5</div></div>
+        <div class="toc-row"><div class="toc-letter">M</div><div class="toc-title"><div class="h3">Jonli menyu</div><div class="caption">Живое меню — блюда с QR</div></div><div class="toc-page">6–7</div></div>
+        <div class="toc-row"><div class="toc-letter">I</div><div class="toc-title"><div class="h3">Salomatlik</div><div class="caption">Здоровье и микрозелень</div></div><div class="toc-page">8</div></div>
+        <div class="toc-row"><div class="toc-letter">N</div><div class="toc-title"><div class="h3">Fresh Kids</div><div class="caption">Для детей и семьи</div></div><div class="toc-page">9</div></div>
+        <div class="toc-row"><div class="toc-letter">H</div><div class="toc-title"><div class="h3">Hafta mehmonlari</div><div class="caption">Гости недели</div></div><div class="toc-page">10</div></div>
+        <div class="toc-row"><div class="toc-letter">F</div><div class="toc-title"><div class="h3">Ferma</div><div class="caption">Ферма Microgreen Uzbekistan</div></div><div class="toc-page">11</div></div>
+        <div class="toc-row" style="border-bottom:none;"><div class="toc-letter">M</div><div class="toc-title"><div class="h3">Mehmon kartasi</div><div class="caption">Карта гостя и промокод</div></div><div class="toc-page">12</div></div>
+      </div>
+
+      <div class="card-warm">
+        <div class="kicker" style="color:var(--gold);">Tahririyatdan · От редакции</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">Bu son «{{RESTAURANT}}» mehmonlari uchun tayyorlandi. Ichida — oshpaz retsepti, mikroko‘kat haqida faktlar va oila uchun o‘yin. Jurnalni uyga olib keting: undagi QR kodlar bir necha hafta ishlaydi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Этот номер сделан для гостей «{{RESTAURANT}}». Внутри — рецепт от шефа, факты о микрозелени и занятие для всей семьи. Забирайте журнал домой: QR-коды в нём работают ещё несколько недель.</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-r">2</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 3 · СЛОВО ШЕФА ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Oshpaz so‘zi · Слово шефа</span>
+
+      <div style="display:flex;gap:4mm;align-items:flex-start;margin-top:1mm;">
+        <img class="photo-portrait" src="{{PHOTO_CHEF}}" alt="">
+        <div>
+          <div class="h2">{{CHEF_NAME}}</div>
+          <div class="caption" style="margin-top:1mm;">Шеф-повар «{{RESTAURANT}}»</div>
+          <hr class="rule-gold" style="width:18mm;margin:2.5mm 0;">
+          <div class="lang-pair body">
+            <div class="uz">Aziz mehmonlar! Bizning oshxonamiz — bu uy qulayligi haqida. Palov dumba yog‘ida sekin damlanadi, kabob tirik olovda pishadi, yonida esa doim yangi uzilgan ko‘kat turadi.</div>
+            <div class="ru"><span class="lang-tag">ru</span>Дорогие гости! Наша кухня — про домашний уют. Плов томится на курдючном сале, кебаб готовится на живом огне, а рядом всегда свежесрезанная зелень.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lang-pair body dropcap">
+        <div class="uz">Har kuni ertalab mikroko‘kat fermadan yetib keladi — uzilganiga sutkadan ko‘p vaqt o‘tmagan. Shuning uchun taomdagi yashil bezak quruq emas, balki hidli va shirali bo‘ladi. Bu kichik detal, lekin mehmon uni birinchi qultumdanoq sezadi.</div>
+        <div class="ru"><span class="lang-tag">ru</span>Каждое утро микрозелень приезжает с фермы — с момента срезки прошло меньше суток. Поэтому зелёный акцент на тарелке не сухой, а живой и сочный. Мелочь, которую гость замечает с первого куска.</div>
+      </div>
+
+      <div class="card-elegant">
+        <div class="kicker">Oshpaz siri · Секрет шефа</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;font-style:italic;">
+          <div class="uz">«Ko‘katni taom tayyor bo‘lgach soling — issiqda u xushbo‘yligini yo‘qotadi.»</div>
+          <div class="ru"><span class="lang-tag">ru</span>«Кладите зелень, когда блюдо уже готово, — на жаре она теряет аромат».</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="kicker">Uch savol · Три вопроса</div>
+        <hr class="rule-thin" style="margin:2mm 0;">
+        <div style="display:flex;flex-direction:column;gap:2.5mm;">
+          <div>
+            <div class="h3" style="font-size:10pt;">Eng ko‘p nima buyurtma qilishadi?</div>
+            <div class="lang-pair body" style="margin-top:1mm;">
+              <div class="uz">Palov — kunning istalgan vaqtida. Kechqurun kabob va tandir somsa yetakchi.</div>
+              <div class="ru"><span class="lang-tag">ru</span>Плов — в любое время дня. Вечером лидируют кебаб и самса из тандыра.</div>
+            </div>
+          </div>
+          <div>
+            <div class="h3" style="font-size:10pt;">Bolalar uchun nima bor?</div>
+            <div class="lang-pair body" style="margin-top:1mm;">
+              <div class="uz">Alohida zona, kichik porsiyalar va o‘tkir ziravorsiz taomlar.</div>
+              <div class="ru"><span class="lang-tag">ru</span>Отдельная зона, маленькие порции и блюда без острых специй.</div>
+            </div>
+          </div>
+          <div>
+            <div class="h3" style="font-size:10pt;">Uyda nimadan boshlash kerak?</div>
+            <div class="lang-pair body" style="margin-top:1mm;">
+              <div class="uz">Oddiy salatdan: pomidor, zaytun yog‘i va bir hovuch mikroko‘kat. Ta’m darhol o‘zgaradi.</div>
+              <div class="ru"><span class="lang-tag">ru</span>С простого салата: томаты, оливковое масло и горсть микрозелени. Вкус меняется сразу.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-l">3</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 4 · РЕСТОРАН НЕДЕЛИ ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">Hafta restorani · Ресторан недели</span>
+      <div class="h1" style="margin-top:1mm;">{{RESTAURANT}}</div>
+      <div class="caption">{{ADDRESS}} · {{INSTAGRAM}}</div>
+
+      <img class="photo photo-hero" src="{{PHOTO_RESTAURANT}}" alt="">
+      <div class="photo-caption">Zal va yozgi teras · Зал и летняя терраса</div>
+
+      <div class="lang-pair body">
+        <div class="uz">Restoran shahar markazida joylashgan: bolalar zonasi, yozgi teras va katta oilaviy stollar bor. Oshxonada tandir, o‘choq va tirik olov — asosiy taomlar shu yerda tug‘iladi.</div>
+        <div class="ru"><span class="lang-tag">ru</span>Ресторан в центре города: детская зона, летняя терраса и большие семейные столы. На кухне тандыр, очаг и живой огонь — там рождаются главные блюда.</div>
+      </div>
+
+      <div class="card-warm">
+        <div class="kicker" style="color:var(--gold);">Firmaviy taom · Фирменное блюдо</div>
+        <div class="h3" style="margin-top:1mm;">{{SIGNATURE_DISH}}</div>
+        <div class="lang-pair body" style="margin-top:1mm;">
+          <div class="uz">Dumbada damlangan palov, ustida no‘xat mikroko‘kati. Yog‘lilikni yangi ko‘kat muvozanatlaydi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Плов, томлёный на курдюке, с микрозеленью гороха сверху. Свежая зелень уравновешивает жирность.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="kicker">Nima buyurtma qilish · Что заказать</div>
+        <hr class="rule-thin" style="margin:2mm 0;">
+        <div style="display:flex;flex-direction:column;gap:2mm;">
+          <div class="lang-pair body"><div class="uz"><b>Birinchi tashrif</b> — palov va achchiq-chuchuk.</div><div class="ru"><span class="lang-tag">ru</span><b>Первый визит</b> — плов и ачик-чучук.</div></div>
+          <div class="lang-pair body"><div class="uz"><b>Oila bilan</b> — tandir to‘plami va choy.</div><div class="ru"><span class="lang-tag">ru</span><b>Семьёй</b> — тандыр-сет и чай.</div></div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat" style="padding:2mm;"><div class="stat-value" style="font-size:11pt;">10–23</div><div class="stat-label">ish vaqti<br>часы работы</div></div>
+        <div class="stat" style="padding:2mm;"><div class="stat-value" style="font-size:11pt;">80+</div><div class="stat-label">o‘rin<br>посадочных мест</div></div>
+        <div class="stat" style="padding:2mm;"><div class="stat-value" style="font-size:11pt;">Bor</div><div class="stat-label">bolalar zonasi<br>детская зона</div></div>
+      </div>
+    </div>
+    <div class="page-num page-num-r">4</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 5 · РЕЦЕПТ НЕДЕЛИ ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <span class="section-tag gold">Hafta retsepti · Рецепт недели</span>
+      <div class="h1" style="margin-top:1mm;">Samarqand salati</div>
+      <div class="caption">Салат с микрозеленью и розовыми томатами · 15 daqiqa</div>
+
+      <img class="photo" style="height:38mm;" src="{{PHOTO_RECIPE}}" alt="">
+
+      <div style="display:flex;gap:4mm;">
+        <div style="flex:1;">
+          <div class="kicker">Tarkibi · Состав</div>
+          <div class="lang-pair body" style="margin-top:1.5mm;">
+            <div class="uz">Pushti pomidor — 200 g<br>No‘xat mikroko‘kati — 30 g<br>Zaytun yog‘i — 1 osh qoshiq<br>Kunjut, tuz, qora murch</div>
+            <div class="ru"><span class="lang-tag">ru</span>Розовые томаты — 200 г; микрозелень гороха — 30 г; оливковое масло — 1 ст. л.; кунжут, соль, чёрный перец</div>
+          </div>
+        </div>
+        <div class="menu-qr" style="width:22mm;">
+          {{QR_RECIPE}}
+          <div class="menu-code">Retsept onlayn</div>
+        </div>
+      </div>
+
+      <div class="card-elegant">
+        <div class="kicker">Tayyorlanishi · Приготовление</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">Pomidorni yirik bo‘laklarga to‘g‘rang, tuz sepib 5 daqiqa turing — sharbat ajralsin. Zaytun yog‘i va murch bilan aralashtiring. Mikroko‘katni eng oxirida soling va darhol dasturxonga tortlang.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Нарежьте томаты крупно, посолите и дайте постоять 5 минут — пустят сок. Смешайте с маслом и перцем. Микрозелень добавьте в самом конце и сразу подавайте.</div>
+        </div>
+      </div>
+
+      <div class="card-warm">
+        <div class="lang-pair body">
+          <div class="uz">QR kodni skanerlang — retsept telefoningizda ochiladi, mikroko‘kat to‘plamini bir bosishda savatga solish mumkin.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Отсканируйте QR — рецепт откроется в телефоне, а набор микрозелени добавится в корзину одним касанием.</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-l">5</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 6 · ЖИВОЕ МЕНЮ (левая полоса центрального разворота) ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>JONLI MENYU · ЖИВОЕ МЕНЮ</div>
+    </div>
+    <div class="page-body">
+      <div class="h1">Jonli menyu</div>
+      <div class="lang-pair body">
+        <div class="uz">Taom yonidagi QR — uning sahifasi: tarkibi, narxi va «kadr olish» tugmasi.</div>
+        <div class="ru"><span class="lang-tag">ru</span>QR рядом с блюдом — его страница: состав, цена и кнопка «снять кадр».</div>
+      </div>
+      <hr class="rule-gold">
+
+      <div class="menu-grid">
+        <div class="menu-item">
+          <img class="menu-photo" src="{{PHOTO_DISH_1}}" alt="">
+          <div class="menu-body">
+            <div class="h3">Samarqandcha palov</div>
+            <div class="caption">Самаркандский плов</div>
+            <div class="menu-price">55 000 so‘m</div>
+          </div>
+          <div class="menu-qr">{{QR_D1}}<div class="menu-code">01</div></div>
+        </div>
+        <div class="menu-item">
+          <img class="menu-photo" src="{{PHOTO_DISH_2}}" alt="">
+          <div class="menu-body">
+            <div class="h3">Tandir kabob</div>
+            <div class="caption">Кебаб из тандыра</div>
+            <div class="menu-price">48 000 so‘m</div>
+          </div>
+          <div class="menu-qr">{{QR_D2}}<div class="menu-code">02</div></div>
+        </div>
+        <div class="menu-item">
+          <img class="menu-photo" src="{{PHOTO_DISH_3}}" alt="">
+          <div class="menu-body">
+            <div class="h3">Lag‘mon</div>
+            <div class="caption">Лагман с домашней лапшой</div>
+            <div class="menu-price">42 000 so‘m</div>
+          </div>
+          <div class="menu-qr">{{QR_D3}}<div class="menu-code">03</div></div>
+        </div>
+      </div>
+
+      <div class="card-warm">
+        <div class="kicker" style="color:var(--gold);">Hafta xiti · Хит недели</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">O‘tgan haftada mehmonlar eng ko‘p <b>Samarqandcha palov</b>ni suratga olishdi — 41 kadr. Uning QR kodi 01 raqami ostida.</div>
+          <div class="ru"><span class="lang-tag">ru</span>На прошлой неделе гости чаще всего снимали <b>самаркандский плов</b> — 41 кадр. Его QR под номером 01.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="kicker">Qanday ishlaydi · Как это работает</div>
+        <hr class="rule-thin" style="margin:2mm 0;">
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="lang-pair body"><div class="uz">Taom yonidagi QR ni telefon kamerasiga tuting.</div><div class="ru"><span class="lang-tag">ru</span>Наведите камеру телефона на QR рядом с блюдом.</div></div></div>
+          <div class="step"><div class="step-num">2</div><div class="lang-pair body"><div class="uz">Tarkibi, narxi va «kadr olish» tugmasi ochiladi.</div><div class="ru"><span class="lang-tag">ru</span>Откроются состав, цена и кнопка «снять кадр».</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-r">6</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 7 · ЖИВОЕ МЕНЮ (правая полоса центрального разворота) ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>JONLI MENYU · ЖИВОЕ МЕНЮ</div>
+    </div>
+    <div class="page-body">
+      <div class="menu-grid">
+        <div class="menu-item">
+          <img class="menu-photo" src="{{PHOTO_DISH_4}}" alt="">
+          <div class="menu-body">
+            <div class="h3">Somsa</div>
+            <div class="caption">Самса из тандыра</div>
+            <div class="menu-price">18 000 so‘m</div>
+          </div>
+          <div class="menu-qr">{{QR_D4}}<div class="menu-code">04</div></div>
+        </div>
+        <div class="menu-item">
+          <img class="menu-photo" src="{{PHOTO_DISH_5}}" alt="">
+          <div class="menu-body">
+            <div class="h3">Achchiq-chuchuk</div>
+            <div class="caption">Салат к плову</div>
+            <div class="menu-price">22 000 so‘m</div>
+          </div>
+          <div class="menu-qr">{{QR_D5}}<div class="menu-code">05</div></div>
+        </div>
+        <div class="menu-item">
+          <img class="menu-photo" src="{{PHOTO_DISH_6}}" alt="">
+          <div class="menu-body">
+            <div class="h3">Choy va shirinliklar</div>
+            <div class="caption">Чай и десерты</div>
+            <div class="menu-price">12 000 so‘m</div>
+          </div>
+          <div class="menu-qr">{{QR_D6}}<div class="menu-code">06</div></div>
+        </div>
+      </div>
+
+      <div class="card-dark">
+        <div class="kicker" style="color:var(--gold);">Kadr oling · Снимите кадр</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">Taom sahifasida «Kadr olish» tugmasi bor: kamera restoran ramkasi bilan ochiladi va tayyor surat telefoningizda qoladi. Eng yaxshi kadrlar keyingi sonda chop etiladi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>На странице блюда есть кнопка «Снять кадр»: камера откроется с фирменной рамкой, готовое фото останется в телефоне. Лучшие кадры печатаем в следующем номере.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:3mm;align-items:center;">
+        <div class="menu-qr" style="width:18mm;">{{QR_MENU}}</div>
+        <div class="lang-pair body">
+          <div class="uz">Butun menyu bitta kodda</div>
+          <div class="ru"><span class="lang-tag">ru</span>Всё меню по одному коду</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-l">7</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 8 · ЗДОРОВЬЕ ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Salomatlik · Здоровье</span>
+      <div class="h1" style="margin-top:1mm;">Mikroko‘kat nima beradi?</div>
+      <div class="caption">Что даёт микрозелень</div>
+
+      <img class="photo photo-wide" src="{{PHOTO_HEALTH}}" alt="">
+
+      <div class="lang-pair body dropcap">
+        <div class="uz">Mikroko‘kat — bu urug‘dan endi chiqqan, 7–14 kunlik nihol. Aynan shu davrda o‘simlikda vitamin va mineral zaxirasi eng yuqori bo‘ladi: keyinchalik u o‘sish uchun sarflanadi.</div>
+        <div class="ru"><span class="lang-tag">ru</span>Микрозелень — это росток 7–14 дней от посева. Именно в этот период запас витаминов и минералов в растении максимален: дальше он тратится на рост.</div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><div class="stat-value">40×</div><div class="stat-label">vitamin C va E<br>витаминов C и E</div></div>
+        <div class="stat"><div class="stat-value">7</div><div class="stat-label">kun o‘sadi<br>дней до среза</div></div>
+        <div class="stat"><div class="stat-value">0</div><div class="stat-label">pestitsid<br>пестицидов</div></div>
+      </div>
+
+      <div class="card-elegant">
+        <div class="kicker">Qaysi birini tanlash · Что выбрать</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">No‘xat — shirin, bolalar yaxshi ko‘radi. Turp — achchiqroq, go‘shtli taomlarga. Brokkoli — eng foydalisi, salatlarga.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Горох — сладкий, его любят дети. Редис — острее, к мясным блюдам. Брокколи — самый полезный, в салаты.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="kicker">Qanday saqlash · Как хранить</div>
+        <hr class="rule-thin" style="margin:2mm 0;">
+        <div class="lang-pair body">
+          <div class="uz">Muzlatgichning pastki tokchasida, yopiq idishda — 5–7 kun. Yuvmasdan saqlang: namlik chirishni tezlashtiradi. Faqat dasturxonga qo‘yishdan oldin yuving.</div>
+          <div class="ru"><span class="lang-tag">ru</span>На нижней полке холодильника в закрытом контейнере — 5–7 дней. Храните немытой: влага ускоряет порчу. Мойте только перед подачей.</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-r">8</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 9 · FRESH KIDS ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Fresh Kids · Bolalar uchun</span>
+      <div class="h1" style="margin-top:1mm;">Kichik oshpaz</div>
+      <div class="caption">Маленький шеф: вырастите зелень дома за 7 дней</div>
+
+      <img class="photo photo-wide" src="{{PHOTO_KIDS}}" alt="">
+
+      <div class="lang-pair body">
+        <div class="uz">Uyda mikroko‘kat o‘stirish — bu tuproqsiz va kimyoviy moddasiz o‘yin. Bolaga faqat idish, salfetka va suv kerak.</div>
+        <div class="ru"><span class="lang-tag">ru</span>Вырастить микрозелень дома — игра без земли и химии. Ребёнку нужны только тарелка, салфетка и вода.</div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="lang-pair body"><div class="uz">Salfetkani hoʻllab, urugʻlarni sepamiz.</div><div class="ru"><span class="lang-tag">ru</span>Смочите салфетку и рассыпьте семена.</div></div></div>
+        <div class="step"><div class="step-num">2</div><div class="lang-pair body"><div class="uz">Har kuni suv purkaymiz va oʻsishini kuzatamiz.</div><div class="ru"><span class="lang-tag">ru</span>Каждый день опрыскивайте водой и наблюдайте.</div></div></div>
+        <div class="step"><div class="step-num">3</div><div class="lang-pair body"><div class="uz">7-kuni qaychi bilan kesib, oʻz salatimizga solamiz.</div><div class="ru"><span class="lang-tag">ru</span>На 7-й день срежьте ножницами в свой салат.</div></div></div>
+      </div>
+
+      <div class="card-warm">
+        <div class="kicker" style="color:var(--gold);">Ota-onalarga · Родителям</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">Oʻzi oʻstirgan koʻkatni bola deyarli har doim yeydi — bu tekshirilgan.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Зелень, выращенную своими руками, ребёнок почти всегда съедает — это работает.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="kicker">7 kunlik kuzatuv · Дневник на 7 дней</div>
+        <div class="lang-pair body" style="margin:1.5mm 0;">
+          <div class="uz">Har kuni katakchani belgilang va nihol bo‘yini yozing.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Отмечайте клетку каждый день и записывайте высоту ростка.</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2mm;">
+          <div class="stamp" style="width:100%;height:14mm;border-radius:1.5mm;border-style:solid;border-color:var(--rule);flex-direction:column;">1</div>
+          <div class="stamp" style="width:100%;height:14mm;border-radius:1.5mm;border-style:solid;border-color:var(--rule);flex-direction:column;">2</div>
+          <div class="stamp" style="width:100%;height:14mm;border-radius:1.5mm;border-style:solid;border-color:var(--rule);flex-direction:column;">3</div>
+          <div class="stamp" style="width:100%;height:14mm;border-radius:1.5mm;border-style:solid;border-color:var(--rule);flex-direction:column;">4</div>
+          <div class="stamp" style="width:100%;height:14mm;border-radius:1.5mm;border-style:solid;border-color:var(--rule);flex-direction:column;">5</div>
+          <div class="stamp" style="width:100%;height:14mm;border-radius:1.5mm;border-style:solid;border-color:var(--rule);flex-direction:column;">6</div>
+          <div class="stamp" style="width:100%;height:14mm;border-radius:1.5mm;border-style:solid;border-color:var(--gold);flex-direction:column;">7</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-l">9</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 10 · ГОСТИ НЕДЕЛИ ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <span class="section-tag gold">Hafta mehmonlari · Гости недели</span>
+      <div class="h1" style="margin-top:1mm;">Sizning kadrlaringiz</div>
+      <div class="caption">Кадры наших гостей за прошлую неделю</div>
+
+      <div class="guests-grid">
+        <figure class="guest-card"><img src="{{PHOTO_GUEST_1}}" alt=""><span class="guest-name">Диёр</span><span class="guest-dish">Palov</span></figure>
+        <figure class="guest-card"><img src="{{PHOTO_GUEST_2}}" alt=""><span class="guest-name">Азиза</span><span class="guest-dish">Lagʻmon</span></figure>
+        <figure class="guest-card"><img src="{{PHOTO_GUEST_3}}" alt=""><span class="guest-name">Санжар</span><span class="guest-dish">Kabob</span></figure>
+        <figure class="guest-card"><img src="{{PHOTO_GUEST_4}}" alt=""><span class="guest-name">Малика</span><span class="guest-dish">Somsa</span></figure>
+        <figure class="guest-card"><img src="{{PHOTO_GUEST_5}}" alt=""><span class="guest-name">Тимур</span><span class="guest-dish">Choy</span></figure>
+        <figure class="guest-card"><img src="{{PHOTO_GUEST_6}}" alt=""><span class="guest-name">Нигора</span><span class="guest-dish">Salat</span></figure>
+      </div>
+
+      <div class="card-elegant">
+        <div class="kicker">Qanday tushish mumkin · Как попасть сюда</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">Taom yonidagi QR kodni skanerlang, kadr oling va yuboring. Har hafta eng yaxshi suratlarni tanlab, ism bilan chop etamiz.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Отсканируйте QR рядом с блюдом, снимите кадр и отправьте. Каждую неделю отбираем лучшие снимки и печатаем с именем автора.</div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-r">10</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 11 · ФЕРМА ═══════════ -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; {{RESTAURANT_UP}}</span></div>
+      <div>SON · ВЫПУСК №{{ISSUE}}</div>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Ferma · Ферма</span>
+      <div class="h1" style="margin-top:1mm;">Microgreen Uzbekistan</div>
+      <div class="caption">Индор-ферма в Самарканде</div>
+
+      <img class="photo photo-wide" src="{{PHOTO_FARM}}" alt="">
+      <div class="photo-caption">Yetishtirish zonasi · Зона выращивания</div>
+
+      <div class="lang-pair body dropcap">
+        <div class="uz">Biz ko‘katni yopiq fermada yetishtiramiz: tuproqsiz, pestitsidsiz, yil davomida bir xil harorat va yorug‘likda. Buyurtma ertalab kesiladi va o‘sha kuniyoq restoranga yoki uyingizga yetkaziladi.</div>
+        <div class="ru"><span class="lang-tag">ru</span>Мы выращиваем зелень в закрытой ферме: без земли, без пестицидов, круглый год при одной температуре и освещении. Заказ срезается утром и в тот же день едет в ресторан или к вам домой.</div>
+      </div>
+
+      <div class="card-warm">
+        <div class="kicker" style="color:var(--gold);">Uyga buyurtma · Заказ домой</div>
+        <div class="lang-pair body" style="margin-top:1.5mm;">
+          <div class="uz">Telegram: @microgreen_uzb_bot — to‘plamni tanlang, yetkazib berish Samarqand bo‘ylab har kuni.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Telegram: @microgreen_uzb_bot — выберите набор, доставка по Самарканду ежедневно.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="kicker">To‘plamlar · Наборы</div>
+        <hr class="rule-thin" style="margin:2mm 0;">
+        <div class="menu-grid">
+          <div class="menu-item">
+            <div class="menu-body">
+              <div class="h3" style="font-size:10.5pt;">«Boshlash» · Старт</div>
+              <div class="lang-pair body"><div class="uz">3 xil ko‘kat, haftaga yetadi</div><div class="ru"><span class="lang-tag">ru</span>3 вида зелени, хватает на неделю</div></div>
+            </div>
+            <div class="menu-price">45 000</div>
+          </div>
+          <div class="menu-item">
+            <div class="menu-body">
+              <div class="h3" style="font-size:10.5pt;">«Oila» · Семейный</div>
+              <div class="lang-pair body"><div class="uz">5 xil, ikki hafta uchun</div><div class="ru"><span class="lang-tag">ru</span>5 видов, на две недели</div></div>
+            </div>
+            <div class="menu-price">85 000</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="page-num page-num-l">11</div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+<!-- ═══════════ 12 · КАРТА ГОСТЯ (задняя обложка) ═══════════ -->
+<div class="mag-page" style="background:var(--accent);">
+  <div class="page-inner" style="color:#fff;">
+    <div class="page-body no-header" style="justify-content:space-between;">
+      <div>
+        <div class="ui" style="font-size:6pt;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">Mehmon kartasi · Карта гостя</div>
+        <div class="h1" style="color:#fff;margin-top:2mm;">Har tashrif — bitta shtamp</div>
+        <div class="lang-pair body" style="color:rgba(255,255,255,.85);margin-top:2mm;">
+          <div class="uz">Kadr oling — kunlik shtamp olasiz.</div>
+          <div class="ru" style="color:rgba(255,255,255,.65);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Снимите кадр — получите штамп за день.</div>
+        </div>
+      </div>
+
+      <div class="stamps">
+        <div class="stamp" style="border-color:var(--gold);color:rgba(255,255,255,.7);">1</div>
+        <div class="stamp" style="border-color:var(--gold);color:rgba(255,255,255,.7);">2</div>
+        <div class="stamp" style="border-color:var(--gold);color:rgba(255,255,255,.7);">3</div>
+        <div class="stamp" style="border-color:var(--gold);color:rgba(255,255,255,.7);">4</div>
+        <div class="stamp" style="border-color:var(--gold);color:rgba(255,255,255,.7);">5</div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">1</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">Taom yonidagi QR ni skanerlang.</div><div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Отсканируйте QR рядом с блюдом.</div></div></div>
+        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">2</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">Ramka bilan kadr oling — kuniga bitta shtamp.</div><div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Снимите кадр в рамке — один штамп в день.</div></div></div>
+        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">3</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">5 ta shtamp to‘lgach — mikroko‘katga chegirma kodi.</div><div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>5 штампов — промокод на микрозелень.</div></div></div>
+      </div>
+
+      <div style="display:flex;gap:4mm;align-items:center;background:rgba(255,255,255,.08);border:1px solid var(--gold);border-radius:2mm;padding:3mm;">
+        <div class="menu-qr" style="width:20mm;background:#fff;padding:1mm;border-radius:1mm;">{{QR_MENU}}</div>
+        <div>
+          <div class="ui" style="font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Skanerlang · Сканируйте</div>
+          <div class="lang-pair body" style="color:rgba(255,255,255,.9);margin-top:1mm;">
+            <div class="uz">Ilova o‘rnatish shart emas.</div>
+            <div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Без установки приложений.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:4mm;">
+        <div style="flex:1;">
+          <div class="ui" style="font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Restoran · Ресторан</div>
+          <div class="body" style="color:rgba(255,255,255,.9);margin-top:1mm;">{{RESTAURANT}}<br>{{ADDRESS}}<br>{{INSTAGRAM}}</div>
+        </div>
+        <div style="flex:1;">
+          <div class="ui" style="font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Ferma · Ферма</div>
+          <div class="body" style="color:rgba(255,255,255,.9);margin-top:1mm;">Microgreen Uzbekistan<br>@microgreen_uzb_bot<br>microgreenuzbekistan.com</div>
+        </div>
+      </div>
+
+      <div class="ui" style="border-top:.5px solid rgba(255,255,255,.2);padding-top:3mm;display:flex;justify-content:space-between;font-size:6pt;color:rgba(255,255,255,.55);">
+        <span>© Microgreen Uzbekistan &amp; {{RESTAURANT}} · {{ISSUE_DATE}}</span>
+        <span style="color:var(--gold);font-weight:600;">freshweekly.uz</span>
+      </div>
+    </div>
+  </div>
+  <div class="trim-guide"></div>
+</div>
+
+</div>
+</body>
+</html>

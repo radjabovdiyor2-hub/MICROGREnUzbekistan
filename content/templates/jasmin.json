@@ -1,0 +1,19 @@
+{
+  "_comment": "Конфиг номера. Копия этого файла + свои значения = номер для другого ресторана. Сборка: node scripts/build-magazine.mjs content/templates/<файл>.json",
+
+  "slug": "jasmin",
+  "restaurant": "Jasmin",
+  "issue": 1,
+  "issueDate": "Iyul 2026",
+  "chefName": "Oshpaz Jasmin",
+  "address": "Samarqand · Amir Temur ko'chasi 202",
+  "instagram": "@jasminsamarkand",
+  "signatureDish": "Samarqandcha damlama palov",
+  "recipeSlug": "samarqand-salati",
+
+  "accent": "#0f3d2e",
+  "gold": "#c9a876",
+
+  "_photos": "Пути к фото относительно корня или абсолютные file:/// либо http. Не заданные слоты рисуются рамкой с требуемым размером — см. docs/magazine-print-spec.md",
+  "photos": {}
+}
