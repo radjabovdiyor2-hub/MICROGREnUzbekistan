@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  Clock, Edit, Plus, Trash, User,
+} from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -66,12 +68,12 @@ export function AdminEmployees() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Icons.User size={20} /> Xodimlar
+          <User size={20} /> Xodimlar
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({employees.length})</span>
         </h3>
         <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm({ name: '', pin: '', phone: '', role: 'seller' }); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Icons.Plus size={14} /> Yangi xodim
+          <Plus size={14} /> Yangi xodim
         </button>
       </div>
 
@@ -104,11 +106,11 @@ export function AdminEmployees() {
       {/* Employee Cards */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+          <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
       ) : employees.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.User size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
+          <User size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
           <p>Xodimlar yo&apos;q. Yangi xodim qo&apos;shing.</p>
         </div>
       ) : (
@@ -131,11 +133,11 @@ export function AdminEmployees() {
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <button onClick={() => { setEditId(emp.id); setForm({ name: emp.name, pin: '', phone: emp.phone || '', role: emp.role }); setShowAdd(true); }}
                     className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0 }}>
-                    <Icons.Edit size={14} />
+                    <Edit size={14} />
                   </button>
                   <button onClick={() => handleDelete(emp.id)}
                     className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0, color: 'var(--error)' }}>
-                    <Icons.Trash size={14} />
+                    <Trash size={14} />
                   </button>
                 </div>
               </div>

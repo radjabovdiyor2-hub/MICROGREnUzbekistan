@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  CheckCircle, DollarSign, Droplet, Heart, Leaf, Share2, Sparkles, Sun, Zap,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 
 interface CalcResult {
@@ -242,7 +244,7 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
       borderRadius: 16, padding: 16, animation: 'reveal-up 0.3s ease',
     }}>
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Icons.CheckCircle size={16} style={{ color: 'var(--success)' }} /> {result.title}
+        <CheckCircle size={16} style={{ color: 'var(--success)' }} /> {result.title}
       </div>
       {result.items.map((item, i) => (
         <div key={i} style={{
@@ -256,19 +258,19 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
       ))}
       {result.tip && (
         <div style={{ marginTop: 10, padding: '8px 12px', background: 'var(--brand-primary-light)', borderRadius: 8, fontSize: 12, color: 'var(--brand-primary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Icons.Zap size={12} /> {result.tip}
+          <Zap size={12} /> {result.tip}
         </div>
       )}
       <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
         <button onClick={() => onSend(`${text}\n\nMicrogreen katalogidan mos mahsulotlarni narxlari bilan tavsiya eting.`)}
           style={{ flex: 1, padding: 9, borderRadius: 10, background: 'var(--brand-primary)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-          <Icons.Sparkles size={12} /> AI maslahat
+          <Sparkles size={12} /> AI maslahat
         </button>
         <button onClick={save} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: saved ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          {saved ? <><Icons.CheckCircle size={12} /> Saqlandi</> : <><Icons.Heart size={12} /> Saqlash</>}
+          {saved ? <><CheckCircle size={12} /> Saqlandi</> : <><Heart size={12} /> Saqlash</>}
         </button>
         <button onClick={share} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <Icons.Share2 size={12} /> Ulashish
+          <Share2 size={12} /> Ulashish
         </button>
       </div>
     </div>
@@ -279,10 +281,10 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
 export type CalcType = 'yield' | 'light' | 'water' | 'profit';
 
 export const CALC_TABS: { key: CalcType; labelUz: string; labelRu: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'yield', labelUz: 'Hosil', labelRu: 'Урожай', icon: <Icons.Leaf size={16} />, color: '#10B981' },
-  { key: 'water', labelUz: 'Ozuqa', labelRu: 'Питание', icon: <Icons.Droplet size={16} />, color: '#3B82F6' },
-  { key: 'light', labelUz: 'Yoritish', labelRu: 'Свет', icon: <Icons.Sun size={16} />, color: '#F59E0B' },
-  { key: 'profit', labelUz: "Biznes", labelRu: 'Бизнес', icon: <Icons.DollarSign size={16} />, color: '#8B5CF6' },
+  { key: 'yield', labelUz: 'Hosil', labelRu: 'Урожай', icon: <Leaf size={16} />, color: '#10B981' },
+  { key: 'water', labelUz: 'Ozuqa', labelRu: 'Питание', icon: <Droplet size={16} />, color: '#3B82F6' },
+  { key: 'light', labelUz: 'Yoritish', labelRu: 'Свет', icon: <Sun size={16} />, color: '#F59E0B' },
+  { key: 'profit', labelUz: "Biznes", labelRu: 'Бизнес', icon: <DollarSign size={16} />, color: '#8B5CF6' },
 ];
 
 export function QuickCalcPanel({ onSendToChat }: { onSendToChat: (text: string) => void }) {

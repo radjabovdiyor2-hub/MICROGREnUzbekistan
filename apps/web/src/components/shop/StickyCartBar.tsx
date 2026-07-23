@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { formatPrice } from '@repo/shared';
-import * as Icons from '@/components/ui/Icons';
+import { ArrowRight, CheckCircle, Droplet, ShoppingCart } from 'lucide-react';
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { DELIVERY, freeDeliveryRemaining } from '@/lib/site';
@@ -34,12 +34,12 @@ export function StickyCartBar() {
         <div className="sticky-cart-bar__nudge-text">
           {freeUnlocked ? (
             <>
-              <Icons.CheckCircle size={13} style={{ color: 'var(--success)' }} />
+              <CheckCircle size={13} style={{ color: 'var(--success)' }} />
               {t('Bepul yetkazib berish ochildi!', 'Бесплатная доставка открыта!')}
             </>
           ) : (
             <>
-              <Icons.Droplet size={13} style={{ color: 'var(--brand-accent)' }} />
+              <Droplet size={13} style={{ color: 'var(--brand-accent)' }} />
               {t(
                 `Bepul yetkazishgacha ${formatPrice(remaining)} so'm`,
                 `До бесплатной доставки ${formatPrice(remaining)} сум`
@@ -63,9 +63,9 @@ export function StickyCartBar() {
           </span>
         </div>
         <Link href="/cart" className="btn btn-primary ripple sticky-cart-bar__cta" id="sticky-cart-checkout">
-          <Icons.ShoppingCart size={17} />
+          <ShoppingCart size={17} />
           {t('cart.checkout')}
-          <Icons.ArrowRight size={17} />
+          <ArrowRight size={17} />
         </Link>
       </div>
     </div>

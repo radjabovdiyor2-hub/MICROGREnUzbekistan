@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, Clock, Leaf, Package, ShoppingCart,
+} from 'lucide-react';
 
 interface Notification {
   id: string;
@@ -148,11 +150,11 @@ export function AdminNotifications() {
   };
 
   const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
-    sale: { icon: <Icons.ShoppingCart size={14} />, color: '#10B981' },
-    low_stock: { icon: <Icons.AlertTriangle size={14} />, color: '#EF4444' },
-    order: { icon: <Icons.Package size={14} />, color: '#3B82F6' },
-    growing: { icon: <Icons.Leaf size={14} />, color: '#22C55E' },
-    info: { icon: <Icons.Clock size={14} />, color: '#6366F1' },
+    sale: { icon: <ShoppingCart size={14} />, color: '#10B981' },
+    low_stock: { icon: <AlertTriangle size={14} />, color: '#EF4444' },
+    order: { icon: <Package size={14} />, color: '#3B82F6' },
+    growing: { icon: <Leaf size={14} />, color: '#22C55E' },
+    info: { icon: <Clock size={14} />, color: '#6366F1' },
   };
 
   const fmtTime = (d: Date) => {
@@ -175,7 +177,7 @@ export function AdminNotifications() {
           display: 'flex', alignItems: 'center',
         }}
       >
-        <Icons.Clock size={18} />
+        <Clock size={18} />
         {unreadCount > 0 && (
           <span style={{
             position: 'absolute', top: 0, right: 0,
@@ -216,7 +218,7 @@ export function AdminNotifications() {
           <div style={{ maxHeight: 340, overflowY: 'auto' }}>
             {notifications.length === 0 ? (
               <div style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Icons.Clock size={32} style={{ opacity: 0.3 }} />
+                <Clock size={32} style={{ opacity: 0.3 }} />
                 <p style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>Нет уведомлений</p>
               </div>
             ) : (

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  ArrowLeft, CheckCircle, ChevronRight, ClipboardList, Clock, Folder, Package, PartyPopper, Settings, Truck, XCircle,
+} from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -28,12 +30,12 @@ interface Order {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  PENDING: { label: 'Kutilmoqda', color: '#F59E0B', icon: <Icons.Clock size={14} /> },
-  CONFIRMED: { label: 'Tasdiqlandi', color: '#3B82F6', icon: <Icons.CheckCircle size={14} /> },
-  PREPARING: { label: 'Tayyorlanmoqda', color: '#8B5CF6', icon: <Icons.Package size={14} /> },
-  DELIVERING: { label: 'Yetkazilmoqda', color: '#2D5BFF', icon: <Icons.Truck size={14} /> },
-  DELIVERED: { label: 'Yetkazildi', color: '#10B981', icon: <Icons.PartyPopper size={14} /> },
-  CANCELLED: { label: 'Bekor qilindi', color: '#EF4444', icon: <Icons.XCircle size={14} /> },
+  PENDING: { label: 'Kutilmoqda', color: '#F59E0B', icon: <Clock size={14} /> },
+  CONFIRMED: { label: 'Tasdiqlandi', color: '#3B82F6', icon: <CheckCircle size={14} /> },
+  PREPARING: { label: 'Tayyorlanmoqda', color: '#8B5CF6', icon: <Package size={14} /> },
+  DELIVERING: { label: 'Yetkazilmoqda', color: '#2D5BFF', icon: <Truck size={14} /> },
+  DELIVERED: { label: 'Yetkazildi', color: '#10B981', icon: <PartyPopper size={14} /> },
+  CANCELLED: { label: 'Bekor qilindi', color: '#EF4444', icon: <XCircle size={14} /> },
 };
 
 const STATUS_TABS = ['ALL', 'PENDING', 'CONFIRMED', 'PREPARING', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
@@ -86,7 +88,7 @@ export function AdminOrders() {
     return (
       <div>
         <button onClick={() => setSelected(null)} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.ArrowLeft size={16} /> Orqaga
+          <ArrowLeft size={16} /> Orqaga
         </button>
         <div className="card" style={{ padding: 'var(--space-6)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
@@ -106,7 +108,7 @@ export function AdminOrders() {
           </div>
 
           <h4 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.Package size={16} /> Mahsulotlar
+            <Package size={16} /> Mahsulotlar
           </h4>
           <div style={{ marginBottom: 'var(--space-4)' }}>
             {selected.items.map(item => (
@@ -123,7 +125,7 @@ export function AdminOrders() {
 
           {/* Status actions */}
           <h4 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.Settings size={16} /> Statusni o&apos;zgartirish
+            <Settings size={16} /> Statusni o&apos;zgartirish
           </h4>
           <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
             {Object.entries(STATUS_CONFIG).filter(([k]) => k !== selected.status).map(([key, cfg]) => (
@@ -145,19 +147,19 @@ export function AdminOrders() {
         {STATUS_TABS.map(tab => (
           <button key={tab} onClick={() => setActiveTab(tab)} className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-ghost'}`}
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {tab === 'ALL' ? <><Icons.ClipboardList size={14} /> Barchasi</> : <>{STATUS_CONFIG[tab]?.icon} {STATUS_CONFIG[tab]?.label}</>}
+            {tab === 'ALL' ? <><ClipboardList size={14} /> Barchasi</> : <>{STATUS_CONFIG[tab]?.icon} {STATUS_CONFIG[tab]?.label}</>}
           </button>
         ))}
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite', marginBottom: 'var(--space-2)' }} />
+          <Clock size={32} style={{ animation: 'pulse 1.5s infinite', marginBottom: 'var(--space-2)' }} />
           <p>Yuklanmoqda...</p>
         </div>
       ) : orders.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Folder size={48} style={{ marginBottom: 'var(--space-2)' }} />
+          <Folder size={48} style={{ marginBottom: 'var(--space-2)' }} />
           <p>Buyurtmalar topilmadi</p>
         </div>
       ) : (
@@ -191,7 +193,7 @@ export function AdminOrders() {
                     {order.items.length} ta mahsulot
                   </div>
                 </div>
-                <Icons.ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
+                <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
               </div>
             );
           })}

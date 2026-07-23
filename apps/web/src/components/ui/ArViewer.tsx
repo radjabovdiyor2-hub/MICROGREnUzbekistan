@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { Camera, X } from 'lucide-react';
 import { triggerHaptic } from '@/utils/haptic';
 
 export function ArViewer({ modelUrl = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb', title = 'Примерить в AR' }: { modelUrl?: string, title?: string }) {
@@ -39,7 +39,7 @@ export function ArViewer({ modelUrl = 'https://modelviewer.dev/shared-assets/mod
           marginTop: '10px'
         }}
       >
-        <Icons.Camera size={20} />
+        <Camera size={20} />
         {title}
       </button>
     );
@@ -60,7 +60,7 @@ export function ArViewer({ modelUrl = 'https://modelviewer.dev/shared-assets/mod
       <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', color: 'white' }}>
         <h3>AR Примерка</h3>
         <button onClick={() => setIsOpen(false)} style={{ background: 'none', border: 'none', color: 'white' }}>
-          <Icons.X size={24} />
+          <X size={24} />
         </button>
       </div>
       

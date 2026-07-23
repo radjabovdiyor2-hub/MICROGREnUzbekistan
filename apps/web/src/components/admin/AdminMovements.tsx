@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  ArrowLeft, ArrowRight, BarChart, ClipboardList, Clock, Download, Folder, Package, Plus, Settings, ShoppingCart, Trash,
+} from 'lucide-react';
 
 interface Movement {
   id: string;
@@ -27,11 +29,11 @@ interface Sale {
 }
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  IN: { label: 'Kirim', color: '#10B981', icon: <Icons.ArrowRight size={14} /> },
-  OUT: { label: 'Chiqim', color: '#EF4444', icon: <Icons.ArrowLeft size={14} /> },
-  ADJUSTMENT: { label: 'Tuzatish', color: '#3B82F6', icon: <Icons.Settings size={14} /> },
-  RETURN: { label: 'Qaytarish', color: '#8B5CF6', icon: <Icons.Package size={14} /> },
-  WRITE_OFF: { label: 'Hisobdan chiqarish', color: '#F59E0B', icon: <Icons.Trash size={14} /> },
+  IN: { label: 'Kirim', color: '#10B981', icon: <ArrowRight size={14} /> },
+  OUT: { label: 'Chiqim', color: '#EF4444', icon: <ArrowLeft size={14} /> },
+  ADJUSTMENT: { label: 'Tuzatish', color: '#3B82F6', icon: <Settings size={14} /> },
+  RETURN: { label: 'Qaytarish', color: '#8B5CF6', icon: <Package size={14} /> },
+  WRITE_OFF: { label: 'Hisobdan chiqarish', color: '#F59E0B', icon: <Trash size={14} /> },
 };
 
 export function AdminMovements() {
@@ -167,8 +169,8 @@ export function AdminMovements() {
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-3)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 2 }}>
         {[
-          { id: 'movements' as const, label: 'Harakatlar', icon: <Icons.ClipboardList size={14} /> },
-          { id: 'sales' as const, label: 'Sotishlar tarixi', icon: <Icons.BarChart size={14} /> },
+          { id: 'movements' as const, label: 'Harakatlar', icon: <ClipboardList size={14} /> },
+          { id: 'sales' as const, label: 'Sotishlar tarixi', icon: <BarChart size={14} /> },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{
@@ -219,14 +221,14 @@ export function AdminMovements() {
             <div style={{ flex: 1 }} />
             <button onClick={() => handleExport('movements')} className="btn btn-outline btn-sm"
               style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <Icons.Download size={12} /> CSV
+              <Download size={12} /> CSV
             </button>
             <button onClick={handleClearAll} className="btn btn-ghost btn-sm"
               style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--error)', fontSize: 'var(--text-xs)' }}>
-              <Icons.Trash size={12} /> Tozalash
+              <Trash size={12} /> Tozalash
             </button>
             <button onClick={() => setShowAdd(!showAdd)} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Icons.Plus size={14} /> Qo&apos;shish
+              <Plus size={14} /> Qo&apos;shish
             </button>
           </div>
 
@@ -234,7 +236,7 @@ export function AdminMovements() {
           {showAdd && (
             <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--brand-primary)' }}>
               <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)' }}>
-                <Icons.Plus size={16} /> Yangi harakat
+                <Plus size={16} /> Yangi harakat
               </h4>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
                 {/* Product search */}
@@ -274,11 +276,11 @@ export function AdminMovements() {
           {/* Movements List */}
           {loading ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+              <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
             </div>
           ) : movements.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <Icons.Folder size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
+              <Folder size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
               <p>Harakatlar topilmadi</p>
             </div>
           ) : (
@@ -323,7 +325,7 @@ export function AdminMovements() {
                         onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
                         onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
                         title="O'chirish">
-                        <Icons.Trash size={13} />
+                        <Trash size={13} />
                       </button>
                     </div>
                   </div>
@@ -354,7 +356,7 @@ export function AdminMovements() {
             <div style={{ flex: 1 }} />
             <button onClick={() => handleExport('sales')} className="btn btn-outline btn-sm"
               style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <Icons.Download size={12} /> 30 kun CSV
+              <Download size={12} /> 30 kun CSV
             </button>
           </div>
 
@@ -377,11 +379,11 @@ export function AdminMovements() {
           {/* Sales list */}
           {salesLoading ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+              <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
             </div>
           ) : sales.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <Icons.ShoppingCart size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
+              <ShoppingCart size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
               <p>Bu kunda sotishlar yo&apos;q</p>
             </div>
           ) : (

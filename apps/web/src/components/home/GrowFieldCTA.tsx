@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import * as Icons from '@/components/ui/Icons';
+import { Leaf } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
 
@@ -35,7 +35,7 @@ export function GrowFieldCTA() {
             borderRadius: '14px', fontWeight: 700,
             boxShadow: '0 12px 30px -10px rgba(var(--brand-primary-rgb), 0.5)',
           }}>
-            <Icons.Leaf size={18} /> {t('Katalogni ochish', 'Открыть каталог')}
+            <Leaf size={18} /> {t('Katalogni ochish', 'Открыть каталог')}
           </Link>
         </div>
       </div>

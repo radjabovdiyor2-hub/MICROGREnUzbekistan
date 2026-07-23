@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { Leaf } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function SaleBanner() {
   const { t } = useLang();
@@ -30,11 +31,20 @@ export function SaleBanner() {
       background: 'rgba(255,255,255,0.08)', borderRadius: '10px',
       padding: '8px 10px', backdropFilter: 'blur(4px)',
     }}>
-      <div style={{
-        fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800,
-        color: accent ? 'var(--brand-accent)' : '#FFFFFF', lineHeight: 1,
-        fontVariantNumeric: 'tabular-nums',
-      }}>{value}</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800, color: accent ? 'var(--brand-accent)' : '#FFFFFF', lineHeight: 1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden' }}>
+        <AnimatePresence mode="popLayout">
+          <motion.span
+            key={value}
+            initial={{ y: 12, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -12, opacity: 0 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            style={{ display: 'inline-block' }}
+          >
+            {value}
+          </motion.span>
+        </AnimatePresence>
+      </div>
       <div style={{
         fontSize: '0.65rem', opacity: 0.65, textTransform: 'uppercase',
         fontWeight: 600, marginTop: '4px', letterSpacing: '0.5px',
@@ -78,7 +88,7 @@ export function SaleBanner() {
               color: 'white', textTransform: 'uppercase', letterSpacing: '1px',
               marginBottom: '12px', backdropFilter: 'blur(4px)',
             }}>
-              <Icons.Leaf size={12} /> {t('Yangilik', 'Новинка')}
+              <Leaf size={12} /> {t('Yangilik', 'Новинка')}
             </div>
             <div style={{
               fontSize: 'clamp(1.5rem, 4vw, 2.2rem)', fontWeight: 800,

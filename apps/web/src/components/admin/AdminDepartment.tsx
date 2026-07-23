@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, CheckCircle, ClipboardList, Clock, Package, Send,
+} from 'lucide-react';
 
 interface Task {
   id: number;
@@ -107,18 +109,18 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <a href={`https://t.me/${botName}`} target="_blank" rel="noopener noreferrer"
             className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.Send size={14} /> {t('Открыть бот', "Botni ochish")}
+            <Send size={14} /> {t('Открыть бот', "Botni ochish")}
           </a>
         </div>
       </div>
 
       {/* Stats Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-3)' }}>
-        <StatCard label={t('Всего задач', 'Jami vazifalar')} value={stats.total} icon={<Icons.ClipboardList size={20} />} color="var(--brand-primary)" />
-        <StatCard label={t('Выполнено', 'Bajarilgan')} value={stats.done} icon={<Icons.CheckCircle size={20} />} color="var(--success)" />
-        <StatCard label={t('В работе', 'Jarayonda')} value={stats.in_progress} icon={<Icons.Clock size={20} />} color="#3b82f6" />
-        <StatCard label={t('Ожидают', 'Kutmoqda')} value={stats.todo} icon={<Icons.Package size={20} />} color="var(--text-muted)" />
-        <StatCard label={t('Просрочено', "Muddati o'tgan")} value={stats.overdue} icon={<Icons.AlertTriangle size={20} />} color="var(--error)" />
+        <StatCard label={t('Всего задач', 'Jami vazifalar')} value={stats.total} icon={<ClipboardList size={20} />} color="var(--brand-primary)" />
+        <StatCard label={t('Выполнено', 'Bajarilgan')} value={stats.done} icon={<CheckCircle size={20} />} color="var(--success)" />
+        <StatCard label={t('В работе', 'Jarayonda')} value={stats.in_progress} icon={<Clock size={20} />} color="#3b82f6" />
+        <StatCard label={t('Ожидают', 'Kutmoqda')} value={stats.todo} icon={<Package size={20} />} color="var(--text-muted)" />
+        <StatCard label={t('Просрочено', "Muddati o'tgan")} value={stats.overdue} icon={<AlertTriangle size={20} />} color="var(--error)" />
       </div>
 
       {/* Progress Bar */}
@@ -146,7 +148,7 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
       <div className="card" style={{ padding: 'var(--space-4)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
           <h3 style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-base)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.ClipboardList size={18} /> {t('Задачи отдела', "Bo'lim vazifalari")}
+            <ClipboardList size={18} /> {t('Задачи отдела', "Bo'lim vazifalari")}
             <span style={{ fontSize: 'var(--text-xs)', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: 'var(--radius-full)', color: 'var(--text-muted)' }}>
               {filteredTasks.length}
             </span>
@@ -168,7 +170,7 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
 
         {filteredTasks.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-            <Icons.ClipboardList size={48} />
+            <ClipboardList size={48} />
             <p style={{ marginTop: 'var(--space-2)' }}>{t('Нет задач в этом отделе', "Bu bo'limda vazifalar yo'q")}</p>
           </div>
         ) : (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, ReactNode } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { ArrowDown } from 'lucide-react';
 import { triggerHaptic } from '@/utils/haptic';
 
 interface PullToRefreshProps {
@@ -117,7 +117,7 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
                animation: 'spin 1s linear infinite'
              }} />
           ) : (
-             <Icons.ArrowDown size={20} style={{ transform: pullY >= PULL_THRESHOLD ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+             <ArrowDown size={20} style={{ transform: pullY >= PULL_THRESHOLD ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
           )}
         </div>
       </div>

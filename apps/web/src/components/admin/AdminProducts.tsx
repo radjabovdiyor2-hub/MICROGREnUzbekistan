@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, ArrowLeft, Camera, CheckCircle, Clock, Edit, Plus, Search, Tag, Trash, XCircle,
+} from 'lucide-react';
 
 interface Product {
   id: string;
@@ -318,11 +320,11 @@ export function AdminProducts() {
     return (
       <div>
         <button onClick={() => setShowForm(false)} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
+          <ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
         </button>
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.Plus size={18} /> {editingId ? t('Редактирование', 'Tahrirlash') : t('Добавить товар', "Yangi tovar qo'shish")}
+            <Plus size={18} /> {editingId ? t('Редактирование', 'Tahrirlash') : t('Добавить товар', "Yangi tovar qo'shish")}
           </h3>
 
           {formError && <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)' }}>{formError}</div>}
@@ -407,7 +409,7 @@ export function AdminProducts() {
                         border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
                         justifyContent: 'center', fontSize: '12px', lineHeight: 1, padding: 0,
                       }}>
-                      <Icons.XCircle size={12} />
+                      <XCircle size={12} />
                     </button>
                   </div>
                 ))}
@@ -422,9 +424,9 @@ export function AdminProducts() {
               transition: 'all var(--transition-fast)', background: 'var(--bg-secondary)',
             }}>
               {uploading ? (
-                <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
+                <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
               ) : (
-                <><Icons.Plus size={18} /> Добавить фото</>
+                <><Plus size={18} /> Добавить фото</>
               )}
               <input type="file" accept="image/*"
                 style={{ display: 'none' }}
@@ -453,7 +455,7 @@ export function AdminProducts() {
 
           <button onClick={handleSubmit} disabled={saving} className="btn btn-primary btn-lg btn-block"
             style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', opacity: saving ? 0.6 : 1 }}>
-            {saving ? <><Icons.Clock size={18} /> {t('Сохранение...', 'Saqlanmoqda...')}</> : <><Icons.CheckCircle size={18} /> {editingId ? t('СОХРАНИТЬ', 'SAQLASH') : t('ДОБАВИТЬ', "QO'SHISH")}</>}
+            {saving ? <><Clock size={18} /> {t('Сохранение...', 'Saqlanmoqda...')}</> : <><CheckCircle size={18} /> {editingId ? t('СОХРАНИТЬ', 'SAQLASH') : t('ДОБАВИТЬ', "QO'SHISH")}</>}
           </button>
         </div>
       </div>
@@ -473,21 +475,21 @@ export function AdminProducts() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Icons.Tag size={16} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
+          <Tag size={16} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Всего', 'Jami')}</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{counts.total}</div>
           </div>
         </div>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Icons.CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
+          <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Активных', 'Aktiv')}</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{activeCount}</div>
           </div>
         </div>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Icons.AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
+          <AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Мало', 'Kam')}</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{lowStock}</div>
@@ -512,19 +514,19 @@ export function AdminProducts() {
       {/* Search + Add */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
         <div style={{ flex: 1, position: 'relative' }}>
-          <Icons.Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input type="text" placeholder={t('Поиск товаров...', 'Qidirish...')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
             style={{ width: '100%', padding: '8px 8px 8px 34px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
         </div>
         <button onClick={openAdd} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-          <Icons.Plus size={16} /> {t('Новый', 'Yangi')}
+          <Plus size={16} /> {t('Новый', 'Yangi')}
         </button>
       </div>
 
       {/* Products List */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+          <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
@@ -544,7 +546,7 @@ export function AdminProducts() {
                     <img src={p.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                      <Icons.Camera size={18} />
+                      <Camera size={18} />
                     </div>
                   )}
                 </div>
@@ -586,7 +588,7 @@ export function AdminProducts() {
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <button onClick={() => openEdit(p)} className="btn btn-ghost btn-sm"
                     style={{ padding: '6px', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)' }}>
-                    <Icons.Edit size={15} />
+                    <Edit size={15} />
                   </button>
                   <button onClick={() => toggleActive(p)} className="btn btn-ghost btn-sm"
                     title={p.isActive ? t('Деактивировать', 'Nofaol qilish') : t('Активировать', 'Faol qilish')}
@@ -598,12 +600,12 @@ export function AdminProducts() {
                       border: `1.5px solid ${p.isActive ? '#10B98140' : '#EF444440'}`,
                       transition: 'all 0.2s',
                     }}>
-                    {p.isActive ? <Icons.CheckCircle size={13} /> : <Icons.XCircle size={13} />}
+                    {p.isActive ? <CheckCircle size={13} /> : <XCircle size={13} />}
                     {p.isActive ? t('Актив', 'Faol') : t('Неактив', 'Nofaol')}
                   </button>
                   <button onClick={() => deleteProduct(p.id)} className="btn btn-ghost btn-sm"
                     style={{ padding: '6px', color: 'var(--error)', borderRadius: 'var(--radius-sm)' }}>
-                    <Icons.Trash size={15} />
+                    <Trash size={15} />
                   </button>
                 </div>
               </div>
@@ -623,9 +625,9 @@ export function AdminProducts() {
               }}
             >
               {loadingMore ? (
-                <><Icons.Clock size={16} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
+                <><Clock size={16} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
               ) : (
-                <><Icons.Plus size={16} /> Ещё ({totalProducts - products.length} осталось)</>  
+                <><Plus size={16} /> Ещё ({totalProducts - products.length} осталось)</>  
               )}
             </button>
           )}

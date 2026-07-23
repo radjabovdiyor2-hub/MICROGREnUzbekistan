@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  Clock, Minus, Package, TrendingDown, TrendingUp,
+} from 'lucide-react';
 
 interface ForecastItem {
   id: string;
@@ -24,9 +26,9 @@ const URGENCY_CONFIG: Record<string, { label: string; color: string; bg: string 
 };
 
 const TREND_ICON: Record<string, { icon: React.ReactNode; color: string }> = {
-  UP: { icon: <Icons.TrendingUp size={14} />, color: '#10B981' },
-  DOWN: { icon: <Icons.TrendingDown size={14} />, color: '#EF4444' },
-  STABLE: { icon: <Icons.Minus size={14} />, color: 'var(--text-muted)' },
+  UP: { icon: <TrendingUp size={14} />, color: '#10B981' },
+  DOWN: { icon: <TrendingDown size={14} />, color: '#EF4444' },
+  STABLE: { icon: <Minus size={14} />, color: 'var(--text-muted)' },
 };
 
 export function AdminForecast() {
@@ -52,7 +54,7 @@ export function AdminForecast() {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-        <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+        <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         <p style={{ marginTop: 'var(--space-2)' }}>Prognoz hisoblanmoqda...</p>
       </div>
     );
@@ -100,7 +102,7 @@ export function AdminForecast() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {filtered.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-            <Icons.Package size={32} style={{ marginBottom: 'var(--space-2)', opacity: 0.5 }} />
+            <Package size={32} style={{ marginBottom: 'var(--space-2)', opacity: 0.5 }} />
             <p>Prognoz uchun yetarli ma&apos;lumot yo&apos;q</p>
             <p style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>POS orqali sotish davom etsin, 2-4 haftadan keyin prognoz ishlaydi</p>
           </div>

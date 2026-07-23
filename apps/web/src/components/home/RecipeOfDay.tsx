@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  ChevronRight, Clock, Leaf, Lightbulb, Users, Zap,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
 
@@ -58,7 +60,7 @@ export function RecipeOfDay() {
             background: `linear-gradient(135deg, ${cat.colorFrom}, ${cat.colorTo})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: `0 4px 12px ${cat.colorFrom}40`, color: 'white',
-          }}><Icons.Leaf size={18} /></div>
+          }}><Leaf size={18} /></div>
           <div>
             <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
               {t("Bugungi retsept", "Рецепт дня")}
@@ -92,13 +94,13 @@ export function RecipeOfDay() {
             </div>
             <div style={{ display: 'flex', gap: 16, fontSize: 12, opacity: 0.9, position: 'relative', zIndex: 1 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icons.Clock size={13} /> {recipe.prepTime} {t('min', 'мин')}
+                <Clock size={13} /> {recipe.prepTime} {t('min', 'мин')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icons.Users size={13} /> {recipe.servings} {t('kishi', 'порц.')}
+                <Users size={13} /> {recipe.servings} {t('kishi', 'порц.')}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Icons.Zap size={13} /> {recipe.calories} kcal
+                <Zap size={13} /> {recipe.calories} kcal
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 {recipe.protein}g {t('oqsil', 'белок')}
@@ -132,7 +134,7 @@ export function RecipeOfDay() {
             color: 'var(--text-primary)', fontSize: 'var(--text-sm)', fontWeight: 700,
           }}>
             {expanded ? t('Yopish', 'Свернуть') : t("Retseptni ko'rish", 'Показать рецепт')}
-            <Icons.ChevronRight size={16} style={{
+            <ChevronRight size={16} style={{
               transform: expanded ? 'rotate(90deg)' : 'rotate(0)',
               transition: 'transform 0.2s',
             }} />
@@ -184,7 +186,7 @@ export function RecipeOfDay() {
                 fontSize: 12, fontWeight: 600, color: cat.colorFrom,
                 display: 'flex', alignItems: 'flex-start', gap: 8,
               }}>
-                <Icons.Lightbulb size={16} style={{ flexShrink: 0, marginTop: 1 }} />
+                <Lightbulb size={16} style={{ flexShrink: 0, marginTop: 1 }} />
                 {tip}
               </div>
             </div>

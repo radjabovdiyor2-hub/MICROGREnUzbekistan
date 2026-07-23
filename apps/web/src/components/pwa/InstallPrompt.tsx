@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { Download, Leaf, X } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 
 export function InstallPrompt() {
@@ -81,7 +81,7 @@ export function InstallPrompt() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)'
         }}>
-          <Icons.Leaf color="white" size={24} />
+          <Leaf color="white" size={24} />
         </div>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-bold)', marginBottom: 2 }}>
@@ -98,12 +98,12 @@ export function InstallPrompt() {
           background: 'none', border: 'none', color: 'var(--text-muted)',
           cursor: 'pointer', padding: 4, display: 'flex'
         }}>
-          <Icons.X size={18} />
+          <X size={18} />
         </button>
       </div>
       <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
         <button onClick={handleInstall} className="btn btn-primary" style={{ flex: 1, padding: '10px 0', fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'center', gap: 6 }}>
-          <Icons.Download size={16} /> {t("O'rnatish", "Установить")}
+          <Download size={16} /> {t("O'rnatish", "Установить")}
         </button>
       </div>
     </div>

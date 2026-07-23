@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, Banknote, BarChart, CheckCircle, ClipboardList, Clock, Leaf, Moon, RefreshCw, ShoppingCart, Sun, TrendingUp, Truck,
+} from 'lucide-react';
 
 interface StatsData {
   // Online orders
@@ -95,10 +97,10 @@ export function AdminStats() {
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
   const STAT_CARDS = [
-    { label: 'Выручка за сегодня', value: `${fmt(stats?.todayTotalRevenue || 0)}`, icon: <Icons.Banknote size={22} />, color: 'var(--success)' },
-    { label: 'Чистая прибыль', value: `${fmt(stats?.todayProfit || 0)}`, icon: <Icons.TrendingUp size={22} />, color: (stats?.todayProfit || 0) >= 0 ? '#10B981' : 'var(--error)' },
-    { label: 'POS продаж', value: `${stats?.todayPOSSales || 0} шт`, icon: <Icons.ShoppingCart size={22} />, color: 'var(--brand-primary)' },
-    { label: 'Возвраты', value: stats?.todayReturnCount ? `-${fmt(stats.todayReturns)}` : '0', icon: <Icons.RefreshCw size={22} />, color: stats?.todayReturnCount ? '#EF4444' : 'var(--text-muted)' },
+    { label: 'Выручка за сегодня', value: `${fmt(stats?.todayTotalRevenue || 0)}`, icon: <Banknote size={22} />, color: 'var(--success)' },
+    { label: 'Чистая прибыль', value: `${fmt(stats?.todayProfit || 0)}`, icon: <TrendingUp size={22} />, color: (stats?.todayProfit || 0) >= 0 ? '#10B981' : 'var(--error)' },
+    { label: 'POS продаж', value: `${stats?.todayPOSSales || 0} шт`, icon: <ShoppingCart size={22} />, color: 'var(--brand-primary)' },
+    { label: 'Возвраты', value: stats?.todayReturnCount ? `-${fmt(stats.todayReturns)}` : '0', icon: <RefreshCw size={22} />, color: stats?.todayReturnCount ? '#EF4444' : 'var(--text-muted)' },
   ];
 
   if (loading) {
@@ -140,23 +142,23 @@ export function AdminStats() {
       {/* Revenue breakdown */}
       <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
         <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-        <Icons.BarChart size={16} /> Распределение за сегодня
+        <BarChart size={16} /> Распределение за сегодня
         </h3>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Icons.ShoppingCart size={12} /> POS: {fmt(stats?.todayPOSRevenue || 0)} сум
+            <ShoppingCart size={12} /> POS: {fmt(stats?.todayPOSRevenue || 0)} сум
           </span>
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#3B82F615', color: '#3B82F6', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Icons.Truck size={12} /> Онлайн (товары): {fmt(stats?.todayOnlineRevenue || 0)} сум
+            <Truck size={12} /> Онлайн (товары): {fmt(stats?.todayOnlineRevenue || 0)} сум
           </span>
           {(stats?.todayDeliveryFees || 0) > 0 && (
             <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#8B5CF615', color: '#8B5CF6', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Icons.Truck size={12} /> Доставка: {fmt(stats?.todayDeliveryFees || 0)} сум
+              <Truck size={12} /> Доставка: {fmt(stats?.todayDeliveryFees || 0)} сум
             </span>
           )}
           {(stats?.todayReturnCount || 0) > 0 && (
             <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#EF444415', color: '#EF4444', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Icons.RefreshCw size={12} /> Возвраты: -{fmt(stats?.todayPOSReturns || 0)} сум
+              <RefreshCw size={12} /> Возвраты: -{fmt(stats?.todayPOSReturns || 0)} сум
             </span>
           )}
         </div>
@@ -165,17 +167,17 @@ export function AdminStats() {
       {/* Order status */}
       <div className="card" style={{ padding: 'var(--space-4)' }}>
         <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-          <Icons.ClipboardList size={16} /> Статус заказов
+          <ClipboardList size={16} /> Статус заказов
         </h3>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#F59E0B15', color: '#F59E0B', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Icons.Clock size={12} /> Ожидание: {stats?.pendingOrders || 0}
+            <Clock size={12} /> Ожидание: {stats?.pendingOrders || 0}
           </span>
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#2D5BFF15', color: '#2D5BFF', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Icons.Truck size={12} /> Доставляется: {stats?.deliveringOrders || 0}
+            <Truck size={12} /> Доставляется: {stats?.deliveringOrders || 0}
           </span>
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#10B98115', color: '#10B981', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Icons.Banknote size={12} /> Всего онлайн: {fmt(stats?.onlineRevenue || 0)} сум
+            <Banknote size={12} /> Всего онлайн: {fmt(stats?.onlineRevenue || 0)} сум
           </span>
         </div>
       </div>
@@ -202,20 +204,20 @@ export function AdminStats() {
           return (
             <div className="card" style={{ padding: 'var(--space-4)' }}>
               <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-                <Icons.Leaf size={16} /> Посадки ({total} активных)
+                <Leaf size={16} /> Посадки ({total} активных)
               </h3>
               <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                 {darkCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#6366F115', color: '#6366F1', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Icons.Moon size={12} /> Темно: {darkCount}
+                  <Moon size={12} /> Темно: {darkCount}
                 </span>}
                 {lightCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#F59E0B15', color: '#F59E0B', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Icons.Sun size={12} /> На свету: {lightCount}
+                  <Sun size={12} /> На свету: {lightCount}
                 </span>}
                 {readyCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#10B98115', color: '#10B981', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Icons.CheckCircle size={12} /> Готовы: {readyCount}
+                  <CheckCircle size={12} /> Готовы: {readyCount}
                 </span>}
                 {expiredCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#EF444415', color: '#EF4444', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Icons.AlertTriangle size={12} /> Просрочено: {expiredCount} (убыток {fmt(expiredLoss)} сум)
+                  <AlertTriangle size={12} /> Просрочено: {expiredCount} (убыток {fmt(expiredLoss)} сум)
                 </span>}
               </div>
             </div>

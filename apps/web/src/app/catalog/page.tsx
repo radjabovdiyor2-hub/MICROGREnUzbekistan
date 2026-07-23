@@ -3,22 +3,25 @@
 import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from '@/components/shop/ProductCard';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, Clock, Droplet, Folder, Leaf, Package, Plug, Plus, RefreshCw, Search, Sparkles,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { motion } from 'framer-motion';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 
 const PAGE_SIZE = 24;
 
 const CATEGORIES = [
-  { slug: '', nameUz: 'Barchasi', nameRu: 'Все', icon: <Icons.Package size={18} /> },
-  { slug: 'microgreens', nameUz: "Mikroko'katlar", nameRu: 'Микрозелень', icon: <Icons.Leaf size={18} /> },
-  { slug: 'baby-leaf', nameUz: 'Baby Leaf', nameRu: 'Бейби лист', icon: <Icons.Leaf size={18} /> },
-  { slug: 'salads', nameUz: 'Salatlar', nameRu: 'Салаты', icon: <Icons.Leaf size={18} /> },
-  { slug: 'flowers', nameUz: 'Gullar', nameRu: 'Цветы', icon: <Icons.Sparkles size={18} /> },
-  { slug: 'seeds', nameUz: "Urug'lar", nameRu: 'Семена', icon: <Icons.Droplet size={18} /> },
-  { slug: 'equipment', nameUz: 'Uskunalar', nameRu: 'Оборудование', icon: <Icons.Plug size={18} /> },
-  { slug: 'sets', nameUz: "To'plamlar", nameRu: 'Наборы', icon: <Icons.Package size={18} /> },
+  { slug: '', nameUz: 'Barchasi', nameRu: 'Все', icon: <Package size={18} /> },
+  { slug: 'microgreens', nameUz: "Mikroko'katlar", nameRu: 'Микрозелень', icon: <Leaf size={18} /> },
+  { slug: 'baby-leaf', nameUz: 'Baby Leaf', nameRu: 'Бейби лист', icon: <Leaf size={18} /> },
+  { slug: 'salads', nameUz: 'Salatlar', nameRu: 'Салаты', icon: <Leaf size={18} /> },
+  { slug: 'flowers', nameUz: 'Gullar', nameRu: 'Цветы', icon: <Sparkles size={18} /> },
+  { slug: 'seeds', nameUz: "Urug'lar", nameRu: 'Семена', icon: <Droplet size={18} /> },
+  { slug: 'equipment', nameUz: 'Uskunalar', nameRu: 'Оборудование', icon: <Plug size={18} /> },
+  { slug: 'sets', nameUz: "To'plamlar", nameRu: 'Наборы', icon: <Package size={18} /> },
 ];
 
 const SORT_OPTIONS = [
@@ -135,7 +138,7 @@ function CatalogContent() {
       <ScrollReveal variant="left">
         <div style={{ marginBottom: 'var(--space-6)' }}>
           <h1 className="section-title" style={{ marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Icons.Folder size={28} /> {t('Katalog', 'Каталог')}
+            <Folder size={28} /> {t('Katalog', 'Каталог')}
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
             {t('Barcha mahsulotlar bir joyda — tanlang va buyurtma bering!', 'Все товары в одном месте — выбирайте и заказывайте!')}
@@ -146,7 +149,7 @@ function CatalogContent() {
       {/* Search */}
       <form onSubmit={handleSearch} style={{ marginBottom: 'var(--space-4)' }}>
         <div className="search-bar" style={{ maxWidth: 'none' }}>
-          <span className="search-bar__icon"><Icons.Search size={18} /></span>
+          <span className="search-bar__icon"><Search size={18} /></span>
           <input
             className="search-bar__input"
             type="text"
@@ -156,7 +159,7 @@ function CatalogContent() {
             id="catalog-search"
           />
           <span className="search-bar__ai-badge">
-            <Icons.Sparkles size={14} style={{ marginRight: '4px' }} /> AI
+            <Sparkles size={14} style={{ marginRight: '4px' }} /> AI
           </span>
         </div>
       </form>
@@ -230,11 +233,14 @@ function CatalogContent() {
         <>
           <div className="product-grid">
             {products.map((product, idx) => (
-              <div key={product.id} style={{
-                animation: `page-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(idx * 50, 400)}ms both`,
-              }}>
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 120, delay: Math.min(idx * 0.05, 0.3) }}
+              >
                 <ProductCard product={product} />
-              </div>
+              </motion.div>
             ))}
           </div>
 
@@ -259,9 +265,9 @@ function CatalogContent() {
                 id="load-more-btn"
               >
                 {loadingMore ? (
-                  <><Icons.Clock size={18} style={{ animation: 'pulse 1.5s infinite' }} /> {t('Yuklanmoqda...', 'Загрузка...')}</>
+                  <><Clock size={18} style={{ animation: 'pulse 1.5s infinite' }} /> {t('Yuklanmoqda...', 'Загрузка...')}</>
                 ) : (
-                  <><Icons.Plus size={18} /> {t(`Ko'proq ko'rsatish (${pagination!.total - products.length} ta qoldi)`, `Показать еще (осталось ${pagination!.total - products.length})`)}</>
+                  <><Plus size={18} /> {t(`Ko'proq ko'rsatish (${pagination!.total - products.length} ta qoldi)`, `Показать еще (осталось ${pagination!.total - products.length})`)}</>
                 )}
               </button>
             </div>
@@ -269,7 +275,7 @@ function CatalogContent() {
         </>
       ) : error ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-16)', color: 'var(--text-muted)' }}>
-          <div style={{ marginBottom: 'var(--space-4)', color: 'var(--error)' }}><Icons.AlertTriangle size={64} /></div>
+          <div style={{ marginBottom: 'var(--space-4)', color: 'var(--error)' }}><AlertTriangle size={64} /></div>
           <h3 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)', color: 'var(--error)' }}>
             {t('Xatolik yuz berdi', 'Произошла ошибка')}
           </h3>
@@ -277,7 +283,7 @@ function CatalogContent() {
             {t('Ma\'lumotlarni yuklashda xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.', 'Ошибка при загрузке данных. Пожалуйста, попробуйте еще раз.')}
           </p>
           <button className="btn btn-primary" onClick={() => fetchProducts(1, false)} style={{ display: 'inline-flex', alignItems: 'center' }}>
-            <Icons.RefreshCw size={18} style={{ marginRight: 8 }} />
+            <RefreshCw size={18} style={{ marginRight: 8 }} />
             {t('Qayta urinish', 'Повторить')}
           </button>
         </div>
@@ -287,7 +293,7 @@ function CatalogContent() {
           padding: 'var(--space-16)',
           color: 'var(--text-muted)',
         }}>
-          <div style={{ marginBottom: 'var(--space-4)' }}><Icons.Search size={64} /></div>
+          <div style={{ marginBottom: 'var(--space-4)' }}><Search size={64} /></div>
           <h3 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)', color: 'var(--text-primary)' }}>
             {t('Hech narsa topilmadi', 'Ничего не найдено')}
           </h3>

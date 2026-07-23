@@ -1,6 +1,8 @@
 'use client';
 
-import * as Icons from '@/components/ui/Icons';
+import {
+  Instagram, MessageCircle, Phone, Leaf, Droplet, Plug, MapPin,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { LogoIcon } from '@/components/ui/Logo';
 
@@ -52,10 +54,10 @@ export function Footer() {
           {/* Social icons */}
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
             {[
-              { href: 'https://www.instagram.com/microgreenuzbekistan', icon: <Icons.Instagram size={18} />, label: 'Instagram' },
-              { href: 'https://t.me/Microgreenuzbekistan_bot', icon: <Icons.MessageCircle size={18} />, label: 'Telegram' },
-              { href: 'https://wa.me/998949999599', icon: <Icons.Phone size={18} />, label: 'WhatsApp' },
-              { href: 'tel:+998949999599', icon: <Icons.Phone size={18} />, label: 'Phone' },
+              { href: 'https://www.instagram.com/microgreenuzbekistan', icon: <Instagram size={18} />, label: 'Instagram' },
+              { href: 'https://t.me/Microgreenuzbekistan_bot', icon: <MessageCircle size={18} />, label: 'Telegram' },
+              { href: 'https://wa.me/998949999599', icon: <Phone size={18} />, label: 'WhatsApp' },
+              { href: 'tel:+998949999599', icon: <Phone size={18} />, label: 'Phone' },
             ].map((social, i) => (
               <a key={i} href={social.href} target="_blank" rel="noopener noreferrer"
                 aria-label={social.label}
@@ -79,11 +81,11 @@ export function Footer() {
         <div>
           <h4 className="footer__section-title">{t('Kategoriyalar', 'Категории')}</h4>
           <ul className="footer__links">
-            <li><a href="/catalog?category=microgreens" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</a></li>
-            <li><a href="/catalog?category=baby-leaf" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Baby Leaf", 'Бейби лист')}</a></li>
-            <li><a href="/catalog?category=salads" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Leaf size={14} /> {t("Salatlar", 'Салаты')}</a></li>
-            <li><a href="/catalog?category=seeds" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Droplet size={14} /> {t("Urug'lar", 'Семена')}</a></li>
-            <li><a href="/catalog?category=equipment" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.Plug size={14} /> {t("Uskunalar", 'Оборудование')}</a></li>
+            <li><a href="/catalog?category=microgreens" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</a></li>
+            <li><a href="/catalog?category=baby-leaf" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Baby Leaf", 'Бейби лист')}</a></li>
+            <li><a href="/catalog?category=salads" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Salatlar", 'Салаты')}</a></li>
+            <li><a href="/catalog?category=seeds" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Droplet size={14} /> {t("Urug'lar", 'Семена')}</a></li>
+            <li><a href="/catalog?category=equipment" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plug size={14} /> {t("Uskunalar", 'Оборудование')}</a></li>
           </ul>
         </div>
 
@@ -104,26 +106,26 @@ export function Footer() {
           <ul className="footer__links">
             <li>
               <a href="tel:+998949999599" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.Phone size={14} /> +998 94 999 95 99
+                <Phone size={14} /> +998 94 999 95 99
               </a>
             </li>
             <li>
               <a href="https://www.instagram.com/microgreenuzbekistan" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.Instagram size={14} /> @microgreenuzbekistan
+                <Instagram size={14} /> @microgreenuzbekistan
               </a>
             </li>
             <li>
               <a href="https://t.me/Microgreenuzbekistan_bot" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.MessageCircle size={14} /> Telegram Bot
+                <MessageCircle size={14} /> Telegram Bot
               </a>
             </li>
             <li>
               <a href="tel:+998980072020" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.Phone size={14} /> +998 98 007 20 20
+                <Phone size={14} /> +998 98 007 20 20
               </a>
             </li>
             <li style={{ marginTop: 'var(--space-2)', color: 'var(--text-muted)', fontSize: 'var(--text-xs)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Icons.MapPin size={14} /> {t('Ray senter, Hokimiyat yonida', 'Рай центр, рядом с Хокимиятом')}
+              <MapPin size={14} /> {t('Ray senter, Hokimiyat yonida', 'Рай центр, рядом с Хокимиятом')}
             </li>
           </ul>
         </div>

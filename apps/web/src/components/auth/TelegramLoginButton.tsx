@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAuth, TelegramUser } from '@/components/providers/AuthProvider';
-import * as Icons from '@/components/ui/Icons';
+import { MessageCircle } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { motion } from 'framer-motion';
 
 interface TelegramLoginProps {
   botName?: string;
@@ -84,14 +85,17 @@ export function TelegramLoginButton({
       <div ref={containerRef} id="telegram-login-widget" style={{ minHeight: 40 }} />
 
       {/* Fallback button — always show as alternative */}
-      <button
+      <motion.button
         onClick={handleFallbackLogin}
+        className="ripple"
+        whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0, 136, 204, 0.4)' }}
+        whileTap={{ scale: 0.98 }}
         style={{
+          width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           gap: '10px',
-          width: '100%',
           maxWidth: '320px',
           padding: '12px 24px',
           background: 'linear-gradient(135deg, #0088cc, #0099e6)',
@@ -101,16 +105,13 @@ export function TelegramLoginButton({
           fontSize: '15px',
           fontWeight: 700,
           cursor: 'pointer',
-          transition: 'all 0.2s ease',
           boxShadow: '0 4px 14px rgba(0, 136, 204, 0.3)',
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 136, 204, 0.4)'; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 136, 204, 0.3)'; }}
         id="telegram-login-fallback"
       >
-        <Icons.MessageCircle size={20} />
+        <MessageCircle size={20} />
         {t("Telegram orqali kirish", "Войти через Telegram")}
-      </button>
+      </motion.button>
 
       {widgetFailed && (
         <p style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.4 }}>

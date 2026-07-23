@@ -2,9 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import * as Icons from '@/components/ui/Icons';
+import {
+  CheckCircle, Clock, Droplet, Instagram, Leaf, ShoppingCart, Sparkles, Sun, Zap,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { useCart } from '@/components/providers/CartProvider';
+import { motion } from 'framer-motion';
 
 // Growing stages timeline — real microgreen growth cycle
 const GROW_STAGES = [
@@ -78,11 +81,11 @@ interface ShopProduct {
 }
 
 function StageIcon({ type, size = 24 }: { type: string; size?: number }) {
-  if (type === 'seed') return <Icons.Droplet size={size} />;
-  if (type === 'sprout') return <Icons.Leaf size={size} />;
-  if (type === 'grow') return <Icons.Sun size={size} />;
-  if (type === 'harvest') return <Icons.CheckCircle size={size} />;
-  return <Icons.Leaf size={size} />;
+  if (type === 'seed') return <Droplet size={size} />;
+  if (type === 'sprout') return <Leaf size={size} />;
+  if (type === 'grow') return <Sun size={size} />;
+  if (type === 'harvest') return <CheckCircle size={size} />;
+  return <Leaf size={size} />;
 }
 
 // Color palette for fallback posts without images
@@ -171,7 +174,7 @@ export function InstagramFeed() {
               fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
               fontSize: 'var(--text-2xl)', display: 'flex', alignItems: 'center', gap: '10px',
             }}>
-              <Icons.Leaf size={24} style={{ color: 'var(--brand-primary)' }} />
+              <Leaf size={24} style={{ color: 'var(--brand-primary)' }} />
               {t("O'sish jarayoni", 'Процесс выращивания')}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginTop: '4px' }}>
@@ -186,7 +189,7 @@ export function InstagramFeed() {
             style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '20px' }}
             id="instagram-follow-btn"
           >
-            <Icons.Instagram size={16} />
+            <Instagram size={16} />
             {t("Obuna bo'lish", 'Подписаться')}
           </a>
         </div>
@@ -202,7 +205,7 @@ export function InstagramFeed() {
             marginBottom: 'var(--space-4)',
             fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600,
           }}>
-            <Icons.Clock size={14} />
+            <Clock size={14} />
             {t('7 kunlik o\'sish sikli', '7-дневный цикл выращивания')}
           </div>
 
@@ -333,7 +336,7 @@ export function InstagramFeed() {
                       color: FALLBACK_COLORS[i % FALLBACK_COLORS.length],
                       marginBottom: '8px',
                     }}>
-                      <Icons.Leaf size={22} />
+                      <Leaf size={22} />
                     </div>
                     <div style={{
                       fontSize: '11px', fontWeight: 600, textAlign: 'center',
@@ -360,7 +363,7 @@ export function InstagramFeed() {
                   onMouseEnter={e => { e.currentTarget.style.opacity = '1'; }}
                   onMouseLeave={e => { e.currentTarget.style.opacity = '0'; }}
                 >
-                  <Icons.Instagram size={24} color="white" />
+                  <Instagram size={24} color="white" />
                   {post.caption && (
                     <p style={{
                       color: 'white', fontSize: '11px', textAlign: 'center',
@@ -381,7 +384,7 @@ export function InstagramFeed() {
                     padding: '2px 6px', color: 'white', fontSize: '10px',
                     display: 'flex', alignItems: 'center', gap: '3px',
                   }}>
-                    <Icons.Zap size={10} /> Video
+                    <Zap size={10} /> Video
                   </div>
                 )}
 
@@ -392,7 +395,7 @@ export function InstagramFeed() {
                     background: 'rgba(0,0,0,0.5)', borderRadius: '4px',
                     padding: '2px 6px', color: 'white', fontSize: '10px',
                   }}>
-                    <Icons.Sparkles size={10} />
+                    <Sparkles size={10} />
                   </div>
                 )}
 
@@ -413,7 +416,7 @@ export function InstagramFeed() {
                         boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
                       }}
                     >
-                      <Icons.ShoppingCart size={12} />
+                      <ShoppingCart size={12} />
                       {inCart
                         ? t('Savatda ✓', 'В корзине ✓')
                         : `${t('Sotib olish', 'Купить')} · ${prod.price.toLocaleString('ru-RU')}`}
@@ -457,7 +460,7 @@ export function InstagramFeed() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white',
             }}>
-              <Icons.Instagram size={22} />
+              <Instagram size={22} />
             </div>
             <div>
               <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>
@@ -471,21 +474,20 @@ export function InstagramFeed() {
               </div>
             </div>
           </div>
-          <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"
+          <motion.a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             style={{
               padding: '10px 24px', borderRadius: '20px', border: 'none',
               background: 'linear-gradient(135deg, #833AB4, #E1306C)',
               color: 'white', fontWeight: 700, fontSize: 'var(--text-sm)',
               textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px',
               boxShadow: '0 4px 16px rgba(225, 48, 108, 0.3)',
-              transition: 'transform 0.2s, box-shadow 0.2s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
           >
-            <Icons.Instagram size={16} />
+            <Instagram size={16} />
             {t("Instagram ochish", 'Открыть Instagram')}
-          </a>
+          </motion.a>
         </div>
       </div>
     </section>

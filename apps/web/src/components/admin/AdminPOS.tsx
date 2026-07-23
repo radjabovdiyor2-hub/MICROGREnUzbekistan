@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, Banknote, Camera, CheckCircle, Clock, Copy, CreditCard, Edit, FileText, MessageCircle, Minus, Plus, RefreshCw, Search, ShoppingCart, Trash,
+} from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 interface Product {
@@ -297,7 +299,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
     const isReturn = saleResult.isReturn;
     const itemCount = saleResult.items?.reduce((s, i) => s + i.quantity, 0) || 0;
     const payLabel = saleResult.payMethod === 'cash' ? 'Наличные' : saleResult.payMethod === 'card' ? 'Карта' : 'В долг';
-    const payIcon = saleResult.payMethod === 'cash' ? <Icons.Banknote size={14} /> : saleResult.payMethod === 'card' ? <Icons.CreditCard size={14} /> : <Icons.Clock size={14} />;
+    const payIcon = saleResult.payMethod === 'cash' ? <Banknote size={14} /> : saleResult.payMethod === 'card' ? <CreditCard size={14} /> : <Clock size={14} />;
 
     return (
       <div style={{ animation: 'reveal-up 0.5s cubic-bezier(.4,0,.2,1) both' }}>
@@ -353,7 +355,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               margin: '0 auto 12px', animation: 'checkPop 0.6s cubic-bezier(.4,0,.2,1) 0.2s both',
               boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
             }}>
-              {isReturn ? <Icons.RefreshCw size={32} /> : <Icons.CheckCircle size={32} />}
+              {isReturn ? <RefreshCw size={32} /> : <CheckCircle size={32} />}
             </div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 900, fontSize: '20px', marginBottom: 4, letterSpacing: '-0.3px' }}>
               {isReturn ? 'Возврат оформлен' : 'Продажа завершена'}
@@ -488,7 +490,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)',
                 transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
               }}>
-              <Icons.FileText size={18} /> Печать
+              <FileText size={18} /> Печать
             </button>
             <button className="receipt-btn" onClick={() => handleCopyImage()} disabled={isCapturing}
               style={{
@@ -500,7 +502,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                 opacity: isCapturing ? 0.7 : 1,
               }}>
-              {copied ? <><Icons.CheckCircle size={18} /> Скопирован</> : isCapturing ? 'Копируем...' : <><Icons.Copy size={18} /> Копировать</>}
+              {copied ? <><CheckCircle size={18} /> Скопирован</> : isCapturing ? 'Копируем...' : <><Copy size={18} /> Копировать</>}
             </button>
           </div>
 
@@ -514,7 +516,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
                 opacity: isCapturing ? 0.7 : 1,
               }}>
-              <Icons.MessageCircle size={18} /> Отправить чек клиенту
+              <MessageCircle size={18} /> Отправить чек клиенту
             </button>
           </div>
 
@@ -528,7 +530,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               color: 'white', transition: 'all 0.2s ease',
               boxShadow: '0 6px 24px rgba(var(--brand-primary-rgb), 0.35)',
             }}>
-            <Icons.Plus size={20} /> Новая операция
+            <Plus size={20} /> Новая операция
           </button>
         </div>
       </div>
@@ -549,7 +551,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         <button onClick={() => { setReturnMode(false); setCart([]); }}
           className={`btn btn-sm ${!returnMode ? 'btn-primary' : 'btn-ghost'}`}
           style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', borderRadius: '12px', padding: '12px', fontSize: '15px', fontWeight: 700 }}>
-          <Icons.ShoppingCart size={18} /> Продажа
+          <ShoppingCart size={18} /> Продажа
         </button>
         <button onClick={() => { setReturnMode(true); setCart([]); }}
           style={{
@@ -559,7 +561,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             color: returnMode ? 'white' : 'var(--text-secondary)',
             transition: 'all 0.2s',
           }}>
-          <Icons.RefreshCw size={18} /> Возврат
+          <RefreshCw size={18} /> Возврат
         </button>
       </div>
 
@@ -569,7 +571,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           background: '#FEF3C7', border: '1.5px solid #F59E0B', color: '#92400E',
           display: 'flex', alignItems: 'center', gap: '10px', fontSize: 'var(--text-sm)', fontWeight: 600,
         }}>
-          <Icons.AlertTriangle size={18} /> РЕЖИМ ВОЗВРАТА — выберите товар
+          <AlertTriangle size={18} /> РЕЖИМ ВОЗВРАТА — выберите товар
         </div>
       )}
       {/* Mobile toggle: Products vs Cart */}
@@ -577,12 +579,12 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         <button onClick={() => setShowCart(false)}
           className={`btn ${!showCart ? 'btn-primary' : 'btn-ghost'}`}
           style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', borderRadius: '12px', padding: '12px', fontSize: '14px', fontWeight: 700 }}>
-          <Icons.Search size={16} /> Товары ({products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length})
+          <Search size={16} /> Товары ({products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length})
         </button>
         <button onClick={() => setShowCart(true)}
           className={`btn ${showCart ? 'btn-primary' : 'btn-ghost'}`}
           style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', position: 'relative', borderRadius: '12px', padding: '12px', fontSize: '14px', fontWeight: 700 }}>
-          <Icons.ShoppingCart size={16} /> Чек
+          <ShoppingCart size={16} /> Чек
           {cart.length > 0 && <span style={{
             position: 'absolute', top: -6, right: -6,
             padding: '2px 8px', minWidth: 22, height: 22,
@@ -606,7 +608,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               boxShadow: '0 8px 32px rgba(var(--brand-primary-rgb), 0.4)',
             }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Icons.ShoppingCart size={20} />
+              <ShoppingCart size={20} />
               Чек ({cart.reduce((s, i) => s + i.quantity, 0)} шт)
             </span>
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>
@@ -648,7 +650,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         {/* LEFT: Product search */}
         <div className="pos-products">
           <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
-            <Icons.Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input
               type="text"
               placeholder="Поиск товара..."
@@ -711,11 +713,11 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           }}>
             {loading ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-                <Icons.Clock size={28} style={{ animation: 'pulse 1.5s infinite' }} />
+                <Clock size={28} style={{ animation: 'pulse 1.5s infinite' }} />
               </div>
             ) : products.length === 0 ? (
               <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-                <Icons.Search size={36} style={{ marginBottom: 'var(--space-3)', opacity: 0.4 }} />
+                <Search size={36} style={{ marginBottom: 'var(--space-3)', opacity: 0.4 }} />
                 <p style={{ fontSize: 'var(--text-sm)' }}>Товар не найден</p>
               </div>
             ) : (
@@ -763,7 +765,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                           <img src={product.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         ) : (
                           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                            <Icons.Camera size={16} />
+                            <Camera size={16} />
                           </div>
                         )}
                       </div>
@@ -811,7 +813,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             fontSize: 'var(--text-lg)', marginBottom: 'var(--space-4)',
             display: 'flex', alignItems: 'center', gap: '10px',
           }}>
-            <Icons.ShoppingCart size={22} /> Чек
+            <ShoppingCart size={22} /> Чек
             {cart.length > 0 && <span style={{
               fontSize: 'var(--text-xs)', color: 'var(--text-muted)',
               background: 'var(--bg-tertiary)', padding: '3px 10px',
@@ -822,7 +824,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           {cart.length === 0 ? (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
               <div style={{ textAlign: 'center' }}>
-                <Icons.ShoppingCart size={52} style={{ marginBottom: 'var(--space-3)', opacity: 0.2 }} />
+                <ShoppingCart size={52} style={{ marginBottom: 'var(--space-3)', opacity: 0.2 }} />
                 <p style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>Выберите товар</p>
               </div>
             </div>
@@ -867,7 +869,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                         <div onClick={() => { setEditingPriceId(item.product.id); setEditPriceValue(String(item.customPrice)); }}
                           style={{ fontSize: 'var(--text-xs)', color: priceChanged ? '#D97706' : 'var(--brand-primary)', fontWeight: 'var(--font-bold)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           {fmt(item.customPrice * item.quantity)} сум
-                          <Icons.Edit size={10} style={{ opacity: 0.5 }} />
+                          <Edit size={10} style={{ opacity: 0.5 }} />
                           {priceChanged && <span style={{ fontSize: '9px', color: '#D97706', textDecoration: 'line-through', opacity: 0.6 }}>{fmt(item.product.price)}</span>}
                         </div>
                       )}
@@ -875,17 +877,17 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <button onClick={() => updateQuantity(item.product.id, -1)} className="btn btn-ghost btn-sm"
                         style={{ width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
-                        <Icons.Minus size={14} />
+                        <Minus size={14} />
                       </button>
                       <span style={{ fontWeight: 'var(--font-bold)', minWidth: 24, textAlign: 'center', fontSize: '15px' }}>{item.quantity}</span>
                       <button onClick={() => updateQuantity(item.product.id, 1)} className="btn btn-ghost btn-sm"
                         style={{ width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
-                        <Icons.Plus size={14} />
+                        <Plus size={14} />
                       </button>
                     </div>
                     <button onClick={() => removeFromCart(item.product.id)} className="btn btn-ghost btn-sm"
                       style={{ color: 'var(--error)', width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
-                      <Icons.Trash size={14} />
+                      <Trash size={14} />
                     </button>
                   </div>
                   );
@@ -919,9 +921,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                         background: '#F59E0B', boxShadow: '0 6px 20px rgba(245, 158, 11, 0.3)',
                       }}>
                       {processing ? (
-                        <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
+                        <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
                       ) : (
-                        <><Icons.RefreshCw size={18} /> ВОЗВРАТ</>
+                        <><RefreshCw size={18} /> ВОЗВРАТ</>
                       )}
                     </button>
                   </div>
@@ -934,9 +936,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Способ оплаты:</div>
                     <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
                       {([
-                        { key: 'cash' as const, label: 'Нал', icon: <Icons.Banknote size={14} /> },
-                        { key: 'card' as const, label: 'Карта', icon: <Icons.CreditCard size={14} /> },
-                        { key: 'debt' as const, label: 'В долг', icon: <Icons.Clock size={14} /> },
+                        { key: 'cash' as const, label: 'Нал', icon: <Banknote size={14} /> },
+                        { key: 'card' as const, label: 'Карта', icon: <CreditCard size={14} /> },
+                        { key: 'debt' as const, label: 'В долг', icon: <Clock size={14} /> },
                       ]).map(method => (
                         <button key={method.key} onClick={() => setPaymentMethod(method.key)}
                           className={`btn btn-sm ${paymentMethod === method.key ? 'btn-primary' : 'btn-outline'}`}
@@ -991,9 +993,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                         boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.3)',
                       }}>
                       {processing ? (
-                        <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
+                        <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
                       ) : (
-                        <><Icons.CheckCircle size={18} /> ПОДТВЕРДИТЬ</>
+                        <><CheckCircle size={18} /> ПОДТВЕРДИТЬ</>
                       )}
                     </button>
                   </div>

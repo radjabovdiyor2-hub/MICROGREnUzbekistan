@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { CalendarClock, CheckCircle, Zap } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
 
@@ -28,13 +28,13 @@ export function SmartSubscriptionWidget() {
       
       {active && (
         <div style={{ position: 'absolute', right: -20, top: -20, background: '#10B981', color: 'white', padding: '20px', borderRadius: '50%' }}>
-          <Icons.CheckCircle size={24} style={{ position: 'relative', top: 5, right: 5 }} />
+          <CheckCircle size={24} style={{ position: 'relative', top: 5, right: 5 }} />
         </div>
       )}
 
       <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
         <div style={{ background: '#10B981', padding: '10px', borderRadius: '12px', color: 'white' }}>
-          <Icons.CalendarClock size={24} />
+          <CalendarClock size={24} />
         </div>
         <div>
           <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -48,7 +48,7 @@ export function SmartSubscriptionWidget() {
       
       {active && (
         <div style={{ marginTop: '15px', padding: '10px', background: 'var(--bg)', borderRadius: '8px', fontSize: '13px', color: '#10B981', fontWeight: 600 }}>
-          <Icons.Zap size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
+          <Zap size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
           Активировано! Мы пришлем ссылку на оплату в Telegram за день до доставки.
         </div>
       )}

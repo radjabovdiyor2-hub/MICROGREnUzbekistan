@@ -5,7 +5,12 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { TelegramLoginButton } from '@/components/auth/TelegramLoginButton';
-import * as Icons from '@/components/ui/Icons';
+import {
+  ArrowLeft, CheckCircle, ChevronRight, Instagram, MessageCircle, Moon, Percent, Phone, Settings, Share2, ShoppingCart, Star, Sun, User, Users, XCircle,
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+
+const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 
 function SimpleRegisterForm() {
   const { simpleLogin } = useAuth();
@@ -62,7 +67,7 @@ function SimpleRegisterForm() {
         width: '100%', padding: '12px', fontWeight: 700, opacity: loading ? 0.6 : 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
       }}>
-        <Icons.User size={16} /> {loading ? '...' : t("Ro'yxatdan o'tish", 'Зарегистрироваться')}
+        <User size={16} /> {loading ? '...' : t("Ro'yxatdan o'tish", 'Зарегистрироваться')}
       </button>
     </div>
   );
@@ -91,9 +96,9 @@ function UserOrders() {
   if (!dbUser?.id) return null;
 
   return (
-    <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-6)', animation: 'page-enter 0.5s ease 0.2s both' }}>
+    <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.15 }} style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-6)' }}>
       <h3 style={{ fontWeight: 700, fontSize: '16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Icons.ShoppingCart size={18} /> {t("Mening buyurtmalarim", "Мои заказы")}
+        <ShoppingCart size={18} /> {t("Mening buyurtmalarim", "Мои заказы")}
       </h3>
       
       {loading ? (
@@ -139,7 +144,7 @@ function UserOrders() {
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -155,12 +160,12 @@ export default function ProfilePage() {
 
   return (
     <div className="container" style={{ paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
-      <h1 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', animation: 'page-enter 0.4s ease both' }}>
-        <Icons.User size={28} /> {t('Profil', 'Профиль')}
-      </h1>
+      <motion.h1 className="section-title" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={spring} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <User size={28} /> {t('Profil', 'Профиль')}
+      </motion.h1>
 
       {/* Profile Card */}
-      <div className="card glow-green" style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)', animation: 'page-enter 0.5s ease 0.1s both' }}>
+      <motion.div className="card glow-green" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ ...spring, delay: 0.08 }} style={{ padding: 'var(--space-6)', marginBottom: 'var(--space-6)' }}>
         {isLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)' }}>
             <div className="skeleton" style={{ width: 72, height: 72, borderRadius: 'var(--radius-full)' }} />
@@ -201,11 +206,11 @@ export default function ProfilePage() {
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Ball', 'Баллы')}</div>
               </div>
               <div style={{ padding: 'var(--space-3)', background: 'var(--brand-accent-light)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-accent)' }}><Icons.StarFilled size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-accent)' }}><Star fill="currentColor" strokeWidth={1} size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{dbUser?.role === 'ADMIN' ? 'Admin' : t('Mijoz', 'Клиент')}</div>
               </div>
               <div style={{ padding: 'var(--space-3)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--success)' }}><Icons.CheckCircle size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--success)' }}><CheckCircle size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Faol', 'Активен')}</div>
               </div>
             </div>
@@ -219,7 +224,7 @@ export default function ProfilePage() {
                 background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-accent))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'white',
-              }}><Icons.User size={32} /></div>
+              }}><User size={32} /></div>
               <div>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)' }}>{t('Xush kelibsiz', 'Добро пожаловать')}</h2>
                 <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{t("Ro'yxatdan o'ting yoki Telegram orqali kiring", 'Зарегистрируйтесь или войдите через Telegram')}</p>
@@ -254,7 +259,7 @@ export default function ProfilePage() {
             )}
           </>
         )}
-      </div>
+      </motion.div>
 
       {/* Orders */}
       {isLoggedIn && <UserOrders />}
@@ -263,7 +268,7 @@ export default function ProfilePage() {
       <div className="card" style={{ overflow: 'hidden' }}>
         <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--border)' }}>
           <h3 style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.Settings size={18} /> {t('Sozlamalar', 'Настройки')}
+            <Settings size={18} /> {t('Sozlamalar', 'Настройки')}
           </h3>
         </div>
 
@@ -279,7 +284,7 @@ export default function ProfilePage() {
           id="profile-theme-toggle"
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <span>{theme === 'light' ? <Icons.Sun size={18} /> : <Icons.Moon size={18} />}</span>
+            <span>{theme === 'light' ? <Sun size={18} /> : <Moon size={18} />}</span>
             <span>{t('Mavzu', 'Тема')}</span>
           </span>
           <span style={{
@@ -302,7 +307,7 @@ export default function ProfilePage() {
           id="profile-lang-toggle"
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <Icons.MessageCircle size={18} />
+            <MessageCircle size={18} />
             <span>{t('Til', 'Язык')}</span>
           </span>
           <span style={{
@@ -323,10 +328,10 @@ export default function ProfilePage() {
           color: 'var(--text-primary)', textDecoration: 'none',
         }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <Icons.Phone size={18} />
+            <Phone size={18} />
             <span>{t('Aloqa', 'Контакты')}: +998 94 999 95 99</span>
           </span>
-          <Icons.ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
+          <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
         </a>
 
         {/* Logout */}
@@ -340,7 +345,7 @@ export default function ProfilePage() {
             }}
             id="logout-btn"
           >
-            <Icons.ArrowLeft size={18} />
+            <ArrowLeft size={18} />
             <span>{t('Chiqish', 'Выйти')}</span>
           </button>
         )}
@@ -353,15 +358,15 @@ export default function ProfilePage() {
       }}>
         <a href="https://www.instagram.com/microgreenuzbekistan" target="_blank" rel="noopener noreferrer"
           className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.Instagram size={16} /> Instagram
+          <Instagram size={16} /> Instagram
         </a>
         <a href="https://t.me/Microgreenuzbekistan_bot" target="_blank" rel="noopener noreferrer"
           className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.MessageCircle size={16} /> Telegram Bot
+          <MessageCircle size={16} /> Telegram Bot
         </a>
         <a href="https://t.me/Microgreen_Uzbekistan" target="_blank" rel="noopener noreferrer"
           className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.MessageCircle size={16} /> {t('Kanal', 'Канал')}
+          <MessageCircle size={16} /> {t('Kanal', 'Канал')}
         </a>
       </div>
 
@@ -476,10 +481,10 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
           <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Icons.Users size={12} /> {referralData?.referralCount || 0} {t('taklif', 'приглашений')}
+            <Users size={12} /> {referralData?.referralCount || 0} {t('taklif', 'приглашений')}
           </div>
           <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Icons.Percent size={12} /> 3% {t("har xariddan", "с каждой покупки")}
+            <Percent size={12} /> 3% {t("har xariddan", "с каждой покупки")}
           </div>
         </div>
       </div>
@@ -498,7 +503,7 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
           </div>
         </div>
         <button onClick={copyCode} className="btn btn-primary btn-sm" style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {copied ? <Icons.CheckCircle size={14} /> : <Icons.Share2 size={14} />} {copied ? t('Nusxalandi', 'Скопировано') : t('Ulashish', 'Поделиться')}
+          {copied ? <CheckCircle size={14} /> : <Share2 size={14} />} {copied ? t('Nusxalandi', 'Скопировано') : t('Ulashish', 'Поделиться')}
         </button>
       </div>
 
@@ -527,7 +532,7 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
           </div>
           {applyStatus && (
             <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: applyStatus.ok ? 'var(--success)' : 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {applyStatus.ok ? <Icons.CheckCircle size={12} /> : <Icons.XCircle size={12} />} {applyStatus.msg}
+              {applyStatus.ok ? <CheckCircle size={12} /> : <XCircle size={12} />} {applyStatus.msg}
             </div>
           )}
         </div>
@@ -542,7 +547,7 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', padding: 'var(--space-2)',
         }}
       >
-        <Icons.ChevronRight size={12} style={{ transform: showRules ? 'rotate(270deg)' : 'rotate(90deg)', transition: 'transform 0.2s' }} /> {t("Bonus qoidalari", "Правила бонусов")}
+        <ChevronRight size={12} style={{ transform: showRules ? 'rotate(270deg)' : 'rotate(90deg)', transition: 'transform 0.2s' }} /> {t("Bonus qoidalari", "Правила бонусов")}
       </button>
 
       {showRules && (

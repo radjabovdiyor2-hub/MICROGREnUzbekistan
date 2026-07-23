@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { Droplet, Sparkles } from 'lucide-react';
 import { triggerHaptic } from '@/utils/haptic';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const spring = { type: 'spring' as const, damping: 15, stiffness: 200 };
 
 export function Tamagotchi() {
   const [level, setLevel] = useState(0);
@@ -19,7 +22,6 @@ export function Tamagotchi() {
     triggerHaptic('success');
     const now = Date.now();
     
-    // Can water once every 5 seconds for demo (usually once a day)
     if (now - lastWatered < 5000) {
       triggerHaptic('warning');
       return;
@@ -54,56 +56,80 @@ export function Tamagotchi() {
       boxShadow: '0 4px 20px rgba(16, 185, 129, 0.1)'
     }}>
       <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-        <Icons.Sparkles size={18} style={{ display: 'inline', color: '#10B981', marginRight: '5px' }} />
+        <Sparkles size={18} style={{ display: 'inline', color: '#10B981', marginRight: '5px' }} />
         Ваш эко-питомец
       </h3>
       
-      <div 
-        style={{ fontSize: '60px', animation: 'bounce 2s infinite', transition: 'all 0.3s' }}
+      {/* Framer Motion bounce replaces dangerouslySetInnerHTML keyframe */}
+      <motion.div
+        animate={{ y: [0, -10, 0] }}
+        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        style={{ fontSize: '60px', cursor: 'pointer' }}
+        whileTap={{ scale: 1.3 }}
         onClick={waterPlant}
       >
-        {getPlantEmoji()}
-      </div>
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={getPlantEmoji()}
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.5, opacity: 0 }}
+            transition={spring}
+          >
+            {getPlantEmoji()}
+          </motion.span>
+        </AnimatePresence>
+      </motion.div>
       
+      {/* Progress bar with motion width */}
       <div style={{ width: '100%', background: 'var(--bg)', borderRadius: '10px', height: '10px', overflow: 'hidden' }}>
-        <div style={{
-          width: `${level}%`,
-          height: '100%',
-          background: 'linear-gradient(90deg, #10B981, #34D399)',
-          transition: 'width 0.5s ease-out'
-        }} />
+        <motion.div
+          animate={{ width: `${level}%` }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            height: '100%',
+            background: 'linear-gradient(90deg, #10B981, #34D399)',
+            borderRadius: '10px',
+          }}
+        />
       </div>
       
-      {level >= 100 ? (
-        <div style={{ textAlign: 'center', color: '#10B981', fontWeight: 'bold' }}>
-          🎉 Выращено! Промокод: <b>ECO-WOW-26</b> (-10%)
-        </div>
-      ) : (
-        <button 
-          onClick={waterPlant}
-          style={{
-            background: '#10B981',
-            color: 'white',
-            border: 'none',
-            padding: '10px 20px',
-            borderRadius: '12px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-        >
-          <Icons.Droplet size={18} />
-          Полить (уровень {level}%)
-        </button>
-      )}
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes bounce {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
-        }
-      `}} />
+      <AnimatePresence mode="wait">
+        {level >= 100 ? (
+          <motion.div
+            key="complete"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={spring}
+            style={{ textAlign: 'center', color: '#10B981', fontWeight: 'bold' }}
+          >
+            🎉 Выращено! Промокод: <b>ECO-WOW-26</b> (-10%)
+          </motion.div>
+        ) : (
+          <motion.button
+            key="water"
+            onClick={waterPlant}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={spring}
+            style={{
+              background: '#10B981',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <Droplet size={18} />
+            Полить (уровень {level}%)
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

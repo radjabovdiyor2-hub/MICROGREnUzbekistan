@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, BarChart, CheckCircle, Edit, Leaf, Moon, Package, Plus, Sun, Trash,
+} from 'lucide-react';
 
 // Microgreen crop database with growing parameters
 const CROP_DB: Record<string, { nameRu: string; darkDays: number; lightDays: number; shelfDays: number; color: string }> = {
@@ -252,9 +254,9 @@ export function AdminGrowing() {
 
   const statusColors: Record<string, string> = { dark: '#6366F1', light: '#F59E0B', ready: '#10B981', expired: '#EF4444', harvested: '#9CA3AF' };
   const statusIcons: Record<string, React.ReactNode> = {
-    dark: <Icons.Moon size={14} />, light: <Icons.Sun size={14} />,
-    ready: <Icons.CheckCircle size={14} />, expired: <Icons.AlertTriangle size={14} />,
-    harvested: <Icons.Package size={14} />,
+    dark: <Moon size={14} />, light: <Sun size={14} />,
+    ready: <CheckCircle size={14} />, expired: <AlertTriangle size={14} />,
+    harvested: <Package size={14} />,
   };
 
   const inputStyle = {
@@ -271,7 +273,7 @@ export function AdminGrowing() {
           padding: '12px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px',
           background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', border: '1.5px solid #F59E0B40',
         }}>
-          <Icons.AlertTriangle size={20} color="#D97706" />
+          <AlertTriangle size={20} color="#D97706" />
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: '13px', color: '#92400E' }}>
               {alerts.filter(a => a.info.status === 'ready').length} партий готовы к продаже
@@ -288,14 +290,14 @@ export function AdminGrowing() {
       {/* Header + Add button */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 'var(--text-lg)', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Icons.Leaf size={20} color="var(--brand-primary)" /> Выращивание
+          <Leaf size={20} color="var(--brand-primary)" /> Выращивание
           <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '8px' }}>
             {enriched.filter(b => b.info.status !== 'harvested').length} активных
           </span>
         </h3>
         <button onClick={() => { setEditingId(null); setShowForm(!showForm); }} className="btn btn-primary btn-sm"
           style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '10px' }}>
-          <Icons.Plus size={16} /> Посадка
+          <Plus size={16} /> Посадка
         </button>
       </div>
 
@@ -303,7 +305,7 @@ export function AdminGrowing() {
       {showForm && (
         <div className="card" style={{ padding: 'var(--space-4)', animation: 'reveal-up 0.3s ease both' }}>
           <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.Leaf size={16} color="var(--brand-primary)" /> {editingId ? 'Изменить посадку' : 'Новая посадка'}
+            <Leaf size={16} color="var(--brand-primary)" /> {editingId ? 'Изменить посадку' : 'Новая посадка'}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
             <div>
@@ -399,7 +401,7 @@ export function AdminGrowing() {
             )}
             <button onClick={addBatch} className="btn btn-primary"
               style={{ flex: 2, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-              {editingId ? <Icons.CheckCircle size={16} /> : <Icons.Plus size={16} />} {editingId ? 'Сохранить изменения' : 'Добавить посадку'}
+              {editingId ? <CheckCircle size={16} /> : <Plus size={16} />} {editingId ? 'Сохранить изменения' : 'Добавить посадку'}
             </button>
           </div>
         </div>
@@ -428,7 +430,7 @@ export function AdminGrowing() {
       {/* Batch cards */}
       {filtered.length === 0 ? (
         <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-muted)' }}>
-          <Icons.Leaf size={48} style={{ opacity: 0.2, marginBottom: 'var(--space-2)' }} />
+          <Leaf size={48} style={{ opacity: 0.2, marginBottom: 'var(--space-2)' }} />
           <p style={{ fontSize: 'var(--text-sm)' }}>Нет посадок</p>
           <p style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Нажмите «Посадка» чтобы начать</p>
         </div>
@@ -456,7 +458,7 @@ export function AdminGrowing() {
                     background: `${crop.color}15`, color: crop.color,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <Icons.Leaf size={18} />
+                    <Leaf size={18} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -469,7 +471,7 @@ export function AdminGrowing() {
                     </div>
                     {batch.productName && (
                       <div style={{ fontSize: '10px', color: 'var(--brand-primary)', fontWeight: 600, marginTop: 1, display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <Icons.Package size={10} /> → {batch.productName} (+{batch.harvestQty || batch.trays} шт)
+                        <Package size={10} /> → {batch.productName} (+{batch.harvestQty || batch.trays} шт)
                         {batch.costPrice ? <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>· с/с {fmt(batch.costPrice)} сум</span> : null}
                       </div>
                     )}
@@ -541,11 +543,11 @@ export function AdminGrowing() {
                 <div style={{ marginTop: info.status === 'expired' ? '6px' : '10px', display: 'flex', gap: '6px', justifyContent: 'flex-end', borderTop: info.status === 'expired' || info.status === 'harvested' ? 'none' : '1px solid var(--border)', paddingTop: info.status === 'expired' || info.status === 'harvested' ? '0' : '10px' }}>
                   {info.status !== 'harvested' && info.status !== 'expired' && (
                     <button onClick={() => handleEdit(batch)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Icons.Edit size={12} /> Изменить
+                      <Edit size={12} /> Изменить
                     </button>
                   )}
                   <button onClick={() => deleteBatch(batch.id)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Icons.Trash size={12} /> Удалить
+                    <Trash size={12} /> Удалить
                   </button>
                 </div>
               </div>
@@ -558,14 +560,14 @@ export function AdminGrowing() {
       {enriched.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, fontSize: '13px', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.BarChart size={14} /> Статистика посадок
+            <BarChart size={14} /> Статистика посадок
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
             {[
-              { label: 'В темноте', count: enriched.filter(b => b.info.status === 'dark').length, color: '#6366F1', icon: <Icons.Moon size={14} /> },
-              { label: 'На свету', count: enriched.filter(b => b.info.status === 'light').length, color: '#F59E0B', icon: <Icons.Sun size={14} /> },
-              { label: 'Готовы', count: enriched.filter(b => b.info.status === 'ready').length, color: '#10B981', icon: <Icons.CheckCircle size={14} /> },
-              { label: 'Лотков', count: enriched.filter(b => b.info.status !== 'harvested').reduce((s, b) => s + b.trays, 0), color: 'var(--brand-primary)', icon: <Icons.Package size={14} /> },
+              { label: 'В темноте', count: enriched.filter(b => b.info.status === 'dark').length, color: '#6366F1', icon: <Moon size={14} /> },
+              { label: 'На свету', count: enriched.filter(b => b.info.status === 'light').length, color: '#F59E0B', icon: <Sun size={14} /> },
+              { label: 'Готовы', count: enriched.filter(b => b.info.status === 'ready').length, color: '#10B981', icon: <CheckCircle size={14} /> },
+              { label: 'Лотков', count: enriched.filter(b => b.info.status !== 'harvested').reduce((s, b) => s + b.trays, 0), color: 'var(--brand-primary)', icon: <Package size={14} /> },
             ].map((s, i) => (
               <div key={i} style={{ textAlign: 'center', padding: '8px', borderRadius: '10px', background: `${s.color}08` }}>
                 <div style={{ color: s.color, marginBottom: 4 }}>{s.icon}</div>

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  Calculator, Camera, CheckCircle, Copy, Leaf, Mic, MicOff, Phone, Send, Share2, Sparkles, Trash, X,
+} from 'lucide-react';
 import { useCart } from '@/components/providers/CartProvider';
 import { QuickCalcPanel } from './QuickCalc';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -51,7 +53,7 @@ function TypingIndicator() {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
       }}>
-        <Icons.Sparkles size={14} color="white" />
+        <Sparkles size={14} color="white" />
       </div>
       <div style={{
         background: 'var(--bg-secondary)', borderRadius: '16px 16px 16px 4px',
@@ -93,10 +95,10 @@ export function AiChatWidget() {
 
   // Quick actions for craftsmen
   const QUICK_ACTIONS = [
-    { icon: <Icons.Camera size={18} />, label: 'Foto tahlil', color: '#8B5CF6', action: () => fileInputRef.current?.click() },
-    { icon: <Icons.Leaf size={18} />, label: 'Parvarish', color: '#10B981', action: () => { setInput('Mikroko\'katlarni qanday to\'g\'ri sug\'orish kerak?'); setTimeout(() => document.getElementById("ai-chat-send")?.click(), 50); } },
-    { icon: <Icons.Calculator size={18} />, label: 'Kalkulyator', color: '#3B82F6', action: () => setMode('tools') },
-    { icon: <Icons.Phone size={18} />, label: 'Qo\'ng\'iroq', color: '#10B981', action: () => window.open('tel:+998949999599') },
+    { icon: <Camera size={18} />, label: 'Foto tahlil', color: '#8B5CF6', action: () => fileInputRef.current?.click() },
+    { icon: <Leaf size={18} />, label: 'Parvarish', color: '#10B981', action: () => { setInput('Mikroko\'katlarni qanday to\'g\'ri sug\'orish kerak?'); setTimeout(() => document.getElementById("ai-chat-send")?.click(), 50); } },
+    { icon: <Calculator size={18} />, label: 'Kalkulyator', color: '#3B82F6', action: () => setMode('tools') },
+    { icon: <Phone size={18} />, label: 'Qo\'ng\'iroq', color: '#10B981', action: () => window.open('tel:+998949999599') },
   ];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -224,7 +226,7 @@ export function AiChatWidget() {
     return (
       <button className="ai-chat-fab" onClick={() => { setIsOpen(true); triggerHaptic('light'); }} aria-label="Open AI chat" id="ai-chat-fab"
         style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + var(--space-4))', right: 'var(--space-4)' }}>
-        <Icons.Sparkles size={24} />
+        <Sparkles size={24} />
       </button>
     );
   }
@@ -249,7 +251,7 @@ export function AiChatWidget() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             backdropFilter: 'blur(8px)',
           }}>
-            <Icons.Sparkles size={18} />
+            <Sparkles size={18} />
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px' }}>Microgreen Agro</div>
@@ -261,15 +263,15 @@ export function AiChatWidget() {
         <div style={{ display: 'flex', gap: 4 }}>
           <button onClick={() => setMode(mode === 'tools' ? 'chat' : 'tools')} title="Asboblar"
             style={{ background: mode === 'tools' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-            <Icons.Calculator size={15} />
+            <Calculator size={15} />
           </button>
           <button onClick={clearChat} title="Tozalash"
             style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-            <Icons.Trash size={14} />
+            <Trash size={14} />
           </button>
           <button onClick={() => setIsOpen(false)} id="ai-chat-close" title="Yopish"
             style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-            <Icons.X size={16} />
+            <X size={16} />
           </button>
         </div>
       </div>
@@ -289,7 +291,7 @@ export function AiChatWidget() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 2px 8px rgba(99,102,241,0.2)',
               }}>
-                <Icons.Sparkles size={13} color="white" />
+                <Sparkles size={13} color="white" />
               </div>
             )}
 
@@ -310,11 +312,11 @@ export function AiChatWidget() {
                 <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
                   <button onClick={() => copyMessage(msg)} title="Nusxa"
                     style={{ background: 'none', border: 'none', color: copiedId === msg.id ? 'var(--success)' : 'var(--text-muted)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, transition: 'all 0.15s' }}>
-                    {copiedId === msg.id ? <><Icons.CheckCircle size={11} /> Nusxalandi</> : <><Icons.Copy size={11} /> Nusxa</>}
+                    {copiedId === msg.id ? <><CheckCircle size={11} /> Nusxalandi</> : <><Copy size={11} /> Nusxa</>}
                   </button>
                   <button onClick={() => shareMessage(msg)} title="Ulashish"
                     style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6 }}>
-                    <Icons.Share2 size={11} /> Ulashish
+                    <Share2 size={11} /> Ulashish
                   </button>
                 </div>
               )}
@@ -330,7 +332,7 @@ export function AiChatWidget() {
               background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Icons.Sparkles size={13} color="white" />
+              <Sparkles size={13} color="white" />
             </div>
             <div style={{
               maxWidth: '80%', padding: '10px 14px',
@@ -399,7 +401,7 @@ export function AiChatWidget() {
           </div>
           <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1 }}>Rasm tayyor</span>
           <button onClick={removeImage} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-            <Icons.X size={18} />
+            <X size={18} />
           </button>
         </div>
       )}
@@ -411,7 +413,7 @@ export function AiChatWidget() {
       }}>
         <button onClick={() => fileInputRef.current?.click()} title="Rasm yuklash"
           style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: 6, borderRadius: 8, transition: 'all 0.15s', flexShrink: 0 }}>
-          <Icons.Camera size={20} />
+          <Camera size={20} />
         </button>
         <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
 
@@ -444,7 +446,7 @@ export function AiChatWidget() {
             width: isListening ? 34 : 'auto', height: isListening ? 34 : 'auto',
             alignItems: 'center', justifyContent: 'center',
           }}>
-          {isListening ? <Icons.MicOff size={16} /> : <Icons.Mic size={20} />}
+          {isListening ? <MicOff size={16} /> : <Mic size={20} />}
         </button>
 
         <button className="btn btn-primary btn-sm" onClick={sendMessage}
@@ -455,7 +457,7 @@ export function AiChatWidget() {
             opacity: (isLoading || (!input.trim() && !imagePreview)) ? 0.5 : 1,
             transition: 'all 0.15s',
           }}>
-          <Icons.Send size={16} />
+          <Send size={16} />
         </button>
       </div>
     </div>

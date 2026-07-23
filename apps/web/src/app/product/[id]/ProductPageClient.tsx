@@ -4,7 +4,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, ArrowLeft, CheckCircle, ChevronRight, ClipboardList, Clock, Droplet, FileText, Flame, Folder, Heart, Home, Leaf, MapPin, MessageSquare, Minus, Package, Phone, Plug, Plus, Send, ShoppingCart, Sparkles, Star, Truck, XCircle, Zap,
+} from 'lucide-react';
 import { useCart } from '@/components/providers/CartProvider';
 import { trackViewed } from '@/lib/recentlyViewed';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
@@ -60,13 +62,13 @@ interface RelatedProduct {
 }
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
-  'microgreens': <Icons.Leaf size={64} />,
-  'baby-leaf': <Icons.Leaf size={64} />,
-  'salads': <Icons.Leaf size={64} />,
-  'flowers': <Icons.Sparkles size={64} />,
-  'seeds': <Icons.Droplet size={64} />,
-  'equipment': <Icons.Plug size={64} />,
-  'sets': <Icons.Package size={64} />,
+  'microgreens': <Leaf size={64} />,
+  'baby-leaf': <Leaf size={64} />,
+  'salads': <Leaf size={64} />,
+  'flowers': <Sparkles size={64} />,
+  'seeds': <Droplet size={64} />,
+  'equipment': <Plug size={64} />,
+  'sets': <Package size={64} />,
 };
 
 function getOrCreateGuestId(): string {
@@ -111,8 +113,8 @@ function StarRow({ value, onChange, readOnly = false }: {
           aria-label={`${s} stars`}
         >
           {s <= active
-            ? <Icons.StarFilled size={readOnly ? 16 : 24} />
-            : <Icons.Star size={readOnly ? 16 : 24} />}
+            ? <Star fill="currentColor" strokeWidth={1} size={readOnly ? 16 : 24} />
+            : <Star size={readOnly ? 16 : 24} />}
         </button>
       ))}
     </div>
@@ -261,7 +263,7 @@ export function ProductPageClient({ id }: { id: string }) {
   if (loading) {
     return (
       <div className="container" style={{ paddingTop: 'var(--space-8)', textAlign: 'center' }}>
-        <Icons.Clock size={48} style={{ color: 'var(--text-muted)', animation: 'pulse 1.5s infinite' }} />
+        <Clock size={48} style={{ color: 'var(--text-muted)', animation: 'pulse 1.5s infinite' }} />
         <p style={{ color: 'var(--text-muted)', marginTop: 'var(--space-4)' }}>{t("Yuklanmoqda...", "Загрузка...")}</p>
       </div>
     );
@@ -270,17 +272,17 @@ export function ProductPageClient({ id }: { id: string }) {
   if (!product) {
     return (
       <div className="container" style={{ paddingTop: 'var(--space-12)', textAlign: 'center' }}>
-        <Icons.Folder size={64} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }} />
+        <Folder size={64} style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }} />
         <h2 style={{ fontSize: 'var(--text-xl)', marginBottom: 'var(--space-2)' }}>{t("Mahsulot topilmadi", "Товар не найден")}</h2>
         <Link href="/catalog" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-          <Icons.ArrowLeft size={16} /> {t("Katalogga qaytish", "Вернуться в каталог")}
+          <ArrowLeft size={16} /> {t("Katalogga qaytish", "Вернуться в каталог")}
         </Link>
       </div>
     );
   }
 
   const discount = product.oldPrice ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100) : 0;
-  const catIcon = CATEGORY_ICONS[product.category?.slug] || <Icons.Package size={64} />;
+  const catIcon = CATEGORY_ICONS[product.category?.slug] || <Package size={64} />;
   const fav = isFavorite(product.id);
 
   const handleAddToCart = () => {
@@ -299,10 +301,10 @@ export function ProductPageClient({ id }: { id: string }) {
   };
 
   const TABS = [
-    { id: 'desc',     labelUz: "Tavsif",      labelRu: "Описание",       icon: <Icons.FileText size={14} /> },
-    { id: 'specs',    labelUz: "Xususiyatlar", labelRu: "Характеристики", icon: <Icons.ClipboardList size={14} /> },
-    { id: 'delivery', labelUz: "Yetkazish",    labelRu: "Доставка",       icon: <Icons.Truck size={14} /> },
-    { id: 'reviews',  labelUz: "Sharhlar",     labelRu: "Отзывы",         icon: <Icons.MessageSquare size={14} /> },
+    { id: 'desc',     labelUz: "Tavsif",      labelRu: "Описание",       icon: <FileText size={14} /> },
+    { id: 'specs',    labelUz: "Xususiyatlar", labelRu: "Характеристики", icon: <ClipboardList size={14} /> },
+    { id: 'delivery', labelUz: "Yetkazish",    labelRu: "Доставка",       icon: <Truck size={14} /> },
+    { id: 'reviews',  labelUz: "Sharhlar",     labelRu: "Отзывы",         icon: <MessageSquare size={14} /> },
   ];
 
   return (
@@ -315,11 +317,11 @@ export function ProductPageClient({ id }: { id: string }) {
       {/* Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
         <Link href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Icons.Home size={14} /> {t("Bosh sahifa", "Главная")}
+          <Home size={14} /> {t("Bosh sahifa", "Главная")}
         </Link>
-        <Icons.ChevronRight size={14} />
+        <ChevronRight size={14} />
         <Link href="/catalog" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>{t("Katalog", "Каталог")}</Link>
-        <Icons.ChevronRight size={14} />
+        <ChevronRight size={14} />
         <span style={{ color: 'var(--text-primary)' }}>{t(product.nameUz, product.nameRu)}</span>
       </div>
 
@@ -329,7 +331,7 @@ export function ProductPageClient({ id }: { id: string }) {
         <div className="card" style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', position: 'relative', overflow: 'hidden' }}>
           {discount > 0 && (
             <span style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, padding: '6px 12px', background: 'var(--error)', color: 'white', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Icons.Flame size={14} /> -{discount}%
+              <Flame size={14} /> -{discount}%
             </span>
           )}
           {product.images && product.images.length > 0
@@ -360,9 +362,9 @@ export function ProductPageClient({ id }: { id: string }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
             {product.stock > 0 ? (
               product.stock <= 5
-                ? <span style={{ color: 'var(--brand-accent)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.Flame size={16} /> {t(`Faqat ${product.stock} dona qoldi — shoshiling!`, `Осталось всего ${product.stock} шт — успейте!`)}</span>
-                : <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.CheckCircle size={16} /> {t(`Mavjud (${product.stock} dona)`, `В наличии (${product.stock} шт)`)}</span>
-            ) : <span style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px' }}><Icons.XCircle size={16} /> {t("Tugagan", "Нет в наличии")}</span>}
+                ? <span style={{ color: 'var(--brand-accent)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}><Flame size={16} /> {t(`Faqat ${product.stock} dona qoldi — shoshiling!`, `Осталось всего ${product.stock} шт — успейте!`)}</span>
+                : <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={16} /> {t(`Mavjud (${product.stock} dona)`, `В наличии (${product.stock} шт)`)}</span>
+            ) : <span style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px' }}><XCircle size={16} /> {t("Tugagan", "Нет в наличии")}</span>}
           </div>
 
           {/* Price */}
@@ -373,44 +375,44 @@ export function ProductPageClient({ id }: { id: string }) {
 
           {/* Free delivery */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', padding: 'var(--space-2) var(--space-3)', background: 'var(--success-bg)', color: 'var(--success)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)' }}>
-            <Icons.Truck size={16} /> {t(`${fmt(DELIVERY.freeThreshold)} so'mdan yetkazish BEPUL`, `Доставка БЕСПЛАТНО от ${fmt(DELIVERY.freeThreshold)} сум`)}
+            <Truck size={16} /> {t(`${fmt(DELIVERY.freeThreshold)} so'mdan yetkazish BEPUL`, `Доставка БЕСПЛАТНО от ${fmt(DELIVERY.freeThreshold)} сум`)}
           </div>
 
           {/* Qty + Cart */}
           <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
             <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Icons.Minus size={16} /></button>
+              <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Minus size={16} /></button>
               <span style={{ width: 44, textAlign: 'center', fontWeight: 'var(--font-bold)' }}>{quantity}</span>
-              <button onClick={() => setQuantity(quantity + 1)} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Icons.Plus size={16} /></button>
+              <button onClick={() => setQuantity(quantity + 1)} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Plus size={16} /></button>
             </div>
             <button className="btn btn-lg" onClick={handleAddToCart} disabled={product.stock === 0}
               style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', color: '#fff', fontWeight: 'var(--font-bold)', background: added ? 'var(--success)' : 'var(--brand-primary)', transform: added ? 'scale(1.02)' : 'scale(1)', transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease' }}>
-              {added ? <><Icons.CheckCircle size={20} /> {t("Savatga qo'shildi", "Добавлено в корзину")}</> : <><Icons.ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}</>}
+              {added ? <><CheckCircle size={20} /> {t("Savatga qo'shildi", "Добавлено в корзину")}</> : <><ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}</>}
             </button>
           </div>
 
           {/* Buy Now */}
           <button className="btn btn-accent btn-lg btn-block ripple" onClick={handleBuyNow} disabled={product.stock === 0} id="buy-now-btn"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontWeight: 'var(--font-bold)' }}>
-            <Icons.Zap size={20} /> {t('Hozir sotib olish', 'Купить сейчас')}
+            <Zap size={20} /> {t('Hozir sotib olish', 'Купить сейчас')}
           </button>
 
           {/* Secondary */}
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             <button onClick={handleToggleFav} className="btn btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: fav ? 'var(--error)' : undefined }}>
-              {fav ? <Icons.HeartFilled size={18} /> : <Icons.Heart size={18} />} {t("Sevimli", "В избранное")}
+              {fav ? <Heart fill="currentColor" size={18} /> : <Heart size={18} />} {t("Sevimli", "В избранное")}
             </button>
             <a href={CONTACT.phonePrimaryHref} className="btn btn-outline" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-              <Icons.Phone size={18} /> {t("Qo'ng'iroq", "Позвонить")}
+              <Phone size={18} /> {t("Qo'ng'iroq", "Позвонить")}
             </a>
           </div>
 
           {/* Trust badges */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', padding: 'var(--space-3)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
             {[
-              { icon: <Icons.Leaf size={18} />, title: t('Yangi kesilgan', 'Свежий срез'), sub: t('yetkazish kunida', 'в день доставки'), c: 'var(--success)' },
-              { icon: <Icons.Truck size={18} />, title: t('Bugun', 'Сегодня'), sub: t('yetkazib beramiz', 'доставим'), c: 'var(--brand-primary)' },
-              { icon: <Icons.CheckCircle size={18} />, title: t("To'lov", 'Оплата'), sub: 'Click · Payme · Naqd', c: 'var(--brand-accent)' },
+              { icon: <Leaf size={18} />, title: t('Yangi kesilgan', 'Свежий срез'), sub: t('yetkazish kunida', 'в день доставки'), c: 'var(--success)' },
+              { icon: <Truck size={18} />, title: t('Bugun', 'Сегодня'), sub: t('yetkazib beramiz', 'доставим'), c: 'var(--brand-primary)' },
+              { icon: <CheckCircle size={18} />, title: t("To'lov", 'Оплата'), sub: 'Click · Payme · Naqd', c: 'var(--brand-accent)' },
             ].map((b, i) => (
               <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '4px' }}>
                 <span style={{ color: b.c }}>{b.icon}</span>
@@ -459,7 +461,7 @@ export function ProductPageClient({ id }: { id: string }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
                 {Object.entries(product.specs).map(([key, val]) => (
                   <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}><Icons.CheckCircle size={14} style={{ color: 'var(--success)' }} /> {key}</span>
+                    <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}><CheckCircle size={14} style={{ color: 'var(--success)' }} /> {key}</span>
                     <span style={{ fontWeight: 'var(--font-semibold)' }}>{val}</span>
                   </div>
                 ))}
@@ -472,9 +474,9 @@ export function ProductPageClient({ id }: { id: string }) {
           <div className="card" style={{ padding: 'var(--space-6)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               {[
-                { icon: <Icons.Truck size={24} />, title: t("Yetkazib berish", "Доставка"), sub: t("30-90 daqiqada · 25 000 so'm (500K dan bepul)", "За 30-90 минут · 25 000 сум (от 500К бесплатно)") },
-                { icon: <Icons.MapPin size={24} />, title: t("O'zingiz olib ketish", "Самовывоз"), sub: t("Ray senter, Hokimiyat yonida", "Райцентр, возле Хокимията") },
-                { icon: <Icons.Phone size={24} />, title: t("Maslahat", "Консультация"), sub: '+998 94 999 95 99' },
+                { icon: <Truck size={24} />, title: t("Yetkazib berish", "Доставка"), sub: t("30-90 daqiqada · 25 000 so'm (500K dan bepul)", "За 30-90 минут · 25 000 сум (от 500К бесплатно)") },
+                { icon: <MapPin size={24} />, title: t("O'zingiz olib ketish", "Самовывоз"), sub: t("Ray senter, Hokimiyat yonida", "Райцентр, возле Хокимията") },
+                { icon: <Phone size={24} />, title: t("Maslahat", "Консультация"), sub: '+998 94 999 95 99' },
               ].map((d, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                   <span style={{ color: 'var(--brand-primary)', flexShrink: 0 }}>{d.icon}</span>
@@ -506,7 +508,7 @@ export function ProductPageClient({ id }: { id: string }) {
                       return (
                         <div key={star} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', width: 16, textAlign: 'right' }}>{star}</span>
-                          <Icons.StarFilled size={12} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                          <Star fill="currentColor" strokeWidth={1} size={12} style={{ color: '#F59E0B', flexShrink: 0 }} />
                           <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: star >= 4 ? 'var(--success)' : star === 3 ? 'var(--warning)' : 'var(--error)', borderRadius: 4, transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)' }} />
                           </div>
@@ -538,7 +540,7 @@ export function ProductPageClient({ id }: { id: string }) {
               </div>
             ) : reviews.length === 0 ? (
               <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                <Icons.MessageSquare size={48} style={{ marginBottom: 'var(--space-3)', opacity: 0.4 }} />
+                <MessageSquare size={48} style={{ marginBottom: 'var(--space-3)', opacity: 0.4 }} />
                 <p>{t("Hali sharhlar yo'q. Birinchi bo'lib fikr qoldiring!", "Отзывов пока нет. Будьте первым!")}</p>
               </div>
             ) : (
@@ -571,12 +573,12 @@ export function ProductPageClient({ id }: { id: string }) {
             {/* Submit form — BELOW the list (Amazon / WB order) */}
             <div className="card" style={{ padding: 'var(--space-6)' }}>
               <h3 style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Icons.MessageSquare size={20} style={{ color: 'var(--brand-primary)' }} />
+                <MessageSquare size={20} style={{ color: 'var(--brand-primary)' }} />
                 {t("Sharh qoldiring", "Оставить отзыв")}
               </h3>
               {submitState === 'done' ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: 'var(--space-4)', background: 'var(--success-bg)', borderRadius: 'var(--radius-md)', color: 'var(--success)', fontWeight: 'var(--font-medium)' }}>
-                  <Icons.CheckCircle size={20} /> {t("Sharh muvaffaqiyatli qo'shildi!", "Отзыв успешно добавлен!")}
+                  <CheckCircle size={20} /> {t("Sharh muvaffaqiyatli qo'shildi!", "Отзыв успешно добавлен!")}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -596,12 +598,12 @@ export function ProductPageClient({ id }: { id: string }) {
                   </div>
                   {submitError && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: 'var(--space-3)', background: 'var(--error-bg)', borderRadius: 'var(--radius-md)', color: 'var(--error)', fontSize: 'var(--text-sm)' }}>
-                      <Icons.AlertTriangle size={16} /> {submitError}
+                      <AlertTriangle size={16} /> {submitError}
                     </div>
                   )}
                   <button className="btn btn-primary" onClick={handleSubmitReview} disabled={submitState === 'submitting'} id="submit-review-btn"
                     style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', opacity: submitState === 'submitting' ? 0.6 : 1 }}>
-                    {submitState === 'submitting' ? <><Icons.Clock size={16} /> {t("Yuborilmoqda...", "Отправка...")}</> : <><Icons.Send size={16} /> {t("Sharh yuborish", "Отправить отзыв")}</>}
+                    {submitState === 'submitting' ? <><Clock size={16} /> {t("Yuborilmoqda...", "Отправка...")}</> : <><Send size={16} /> {t("Sharh yuborish", "Отправить отзыв")}</>}
                   </button>
                 </div>
               )}
@@ -616,7 +618,7 @@ export function ProductPageClient({ id }: { id: string }) {
       {(relatedLoading || related.length > 0) && (
         <div className="container" style={{ position: 'relative', zIndex: 1, marginTop: 'var(--space-10)', paddingBottom: 'var(--space-8)' }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Icons.ShoppingCart size={22} style={{ color: 'var(--brand-primary)' }} />
+            <ShoppingCart size={22} style={{ color: 'var(--brand-primary)' }} />
             {t("Bu bilan birga olishadi", "С этим часто берут")}
           </h2>
           <div className="product-grid">

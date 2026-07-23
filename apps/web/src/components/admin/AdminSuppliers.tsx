@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  Clock, Edit, Plus, Trash, Truck,
+} from 'lucide-react';
 
 interface Supplier {
   id: string;
@@ -77,12 +79,12 @@ export function AdminSuppliers() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Icons.Truck size={20} /> Yetkazuvchilar
+          <Truck size={20} /> Yetkazuvchilar
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({suppliers.length})</span>
         </h3>
         <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm({ name: '', phone: '', address: '', note: '' }); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Icons.Plus size={14} /> Yangi
+          <Plus size={14} /> Yangi
         </button>
       </div>
 
@@ -112,11 +114,11 @@ export function AdminSuppliers() {
       {/* Suppliers List */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+          <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
       ) : suppliers.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Truck size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
+          <Truck size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
           <p>Yetkazuvchilar yo&apos;q</p>
         </div>
       ) : (
@@ -125,7 +127,7 @@ export function AdminSuppliers() {
             <div key={s.id} className="card" style={{ padding: 'var(--space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-lg)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icons.Truck size={22} />
+                  <Truck size={22} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 'var(--font-bold)' }}>{s.name}</div>
@@ -135,10 +137,10 @@ export function AdminSuppliers() {
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
                   <button onClick={() => startEdit(s)} className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0 }}>
-                    <Icons.Edit size={14} />
+                    <Edit size={14} />
                   </button>
                   <button onClick={() => handleDelete(s.id)} className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0, color: 'var(--error)' }}>
-                    <Icons.Trash size={14} />
+                    <Trash size={14} />
                   </button>
                 </div>
               </div>

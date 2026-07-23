@@ -1,18 +1,20 @@
 'use client';
 
-import * as Icons from '@/components/ui/Icons';
+import {
+  Banknote, Calculator, Camera, ChevronRight, CloudSun, Gift, MessageCircle, Mic, Sparkles, User, Zap,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 
 export function AiBanner() {
   const { t } = useLang();
 
   const FEATURES = [
-    { icon: <Icons.Calculator size={20} />, title: t('ai.calc'), desc: t('ai.calc_desc') },
-    { icon: <Icons.Camera size={20} />, title: t('ai.photo'), desc: t('ai.photo_desc') },
-    { icon: <Icons.CloudSun size={20} />, title: t('ai.weather'), desc: t('ai.weather_desc') },
-    { icon: <Icons.Zap size={20} />, title: t('ai.electric'), desc: t('ai.electric_desc') },
-    { icon: <Icons.Banknote size={20} />, title: t('ai.price'), desc: t('ai.price_desc') },
-    { icon: <Icons.Gift size={20} />, title: t('ai.bonus'), desc: t('ai.bonus_desc') },
+    { icon: <Calculator size={20} />, title: t('ai.calc'), desc: t('ai.calc_desc') },
+    { icon: <Camera size={20} />, title: t('ai.photo'), desc: t('ai.photo_desc') },
+    { icon: <CloudSun size={20} />, title: t('ai.weather'), desc: t('ai.weather_desc') },
+    { icon: <Zap size={20} />, title: t('ai.electric'), desc: t('ai.electric_desc') },
+    { icon: <Banknote size={20} />, title: t('ai.price'), desc: t('ai.price_desc') },
+    { icon: <Gift size={20} />, title: t('ai.bonus'), desc: t('ai.bonus_desc') },
   ];
 
   const openChat = () => {
@@ -50,7 +52,7 @@ export function AiBanner() {
               letterSpacing: '1px', textTransform: 'uppercase',
               border: '1px solid rgba(255,255,255,0.15)',
             }}>
-              <Icons.Sparkles size={13} /> AI Agronom
+              <Sparkles size={13} /> AI Agronom
             </div>
 
             {/* Title */}
@@ -95,7 +97,7 @@ export function AiBanner() {
                 onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)'; }}
                 onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
               >
-                <Icons.Sparkles size={16} /> {t('ai.try')}
+                <Sparkles size={16} /> {t('ai.try')}
               </button>
               <a
                 href="https://t.me/Microgreenuzbekistan_bot"
@@ -111,7 +113,7 @@ export function AiBanner() {
                   transition: 'all 0.2s',
                 }}
               >
-                <Icons.MessageCircle size={16} /> Telegram Bot
+                <MessageCircle size={16} /> Telegram Bot
               </a>
             </div>
 
@@ -123,8 +125,8 @@ export function AiBanner() {
               {[
                 { val: '6+', label: t('ai.stats.skills') },
                 { val: '24/7', label: t('ai.stats.works') },
-                { icon: <Icons.Camera size={18} />, label: t('ai.stats.photo') },
-                { icon: <Icons.Mic size={18} />, label: t('ai.stats.voice') },
+                { icon: <Camera size={18} />, label: t('ai.stats.photo') },
+                { icon: <Mic size={18} />, label: t('ai.stats.voice') },
               ].map((s, i) => (
                 <div key={i} style={{ textAlign: 'center' }}>
                   <div style={{
@@ -208,7 +210,7 @@ export function AiBanner() {
               alignItems: 'center', justifyContent: 'center',
               backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)',
             }}>
-              <Icons.Gift size={24} />
+              <Gift size={24} />
             </div>
             <div>
               <div style={{
@@ -235,8 +237,8 @@ export function AiBanner() {
               position: 'relative', zIndex: 1,
             }}
           >
-            <Icons.User size={15} /> {t('ref.get_code')}
-            <Icons.ChevronRight size={15} />
+            <User size={15} /> {t('ref.get_code')}
+            <ChevronRight size={15} />
           </a>
         </div>
       </div>

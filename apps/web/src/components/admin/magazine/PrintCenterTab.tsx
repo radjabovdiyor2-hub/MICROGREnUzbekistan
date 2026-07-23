@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { Trash } from 'lucide-react';
 import { adminFetch } from '@/lib/adminClient';
 
 export function PrintCenterTab() {
@@ -136,7 +136,7 @@ function SubscriptionsTab() {
               <td style={{ padding: 'var(--space-2)' }}>{s.plan}</td>
               <td style={{ padding: 'var(--space-2)' }}>{s.copiesPerIssue} шт</td>
               <td style={{ padding: 'var(--space-2)' }}>{s.pricePerCopy.toLocaleString()} UZS</td>
-              <td style={{ padding: 'var(--space-2)' }}><button onClick={() => remove(s.id)} style={{ background: 'transparent', color: 'var(--error)', border: 'none', cursor: 'pointer' }}><Icons.Trash size={16} /></button></td>
+              <td style={{ padding: 'var(--space-2)' }}><button onClick={() => remove(s.id)} style={{ background: 'transparent', color: 'var(--error)', border: 'none', cursor: 'pointer' }}><Trash size={16} /></button></td>
             </tr>
           ))}
           {subs.length === 0 && <tr><td colSpan={5} style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-muted)' }}>Нет подписок</td></tr>}

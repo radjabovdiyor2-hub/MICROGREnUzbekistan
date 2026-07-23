@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, CheckCircle, Clock, DollarSign, Eye, EyeOff, Home, Lock, MessageCircle, Settings, Shield, Zap,
+} from 'lucide-react';
 
 export function AdminSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -95,7 +97,7 @@ export function AdminSettings() {
               background: 'var(--brand-primary-light)', color: 'var(--brand-primary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Icons.Lock size={24} />
+              <Lock size={24} />
             </div>
             <div>
               <h3 style={{
@@ -127,7 +129,7 @@ export function AdminSettings() {
                     autoComplete="current-password"
                   />
                   <button type="button" className="pwd-toggle" onClick={() => setShowCurrent(!showCurrent)}>
-                    {showCurrent ? <Icons.EyeOff size={18} /> : <Icons.Eye size={18} />}
+                    {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
@@ -147,7 +149,7 @@ export function AdminSettings() {
                     autoComplete="new-password"
                   />
                   <button type="button" className="pwd-toggle" onClick={() => setShowNew(!showNew)}>
-                    {showNew ? <Icons.EyeOff size={18} /> : <Icons.Eye size={18} />}
+                    {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
                 {/* Strength indicator */}
@@ -193,7 +195,7 @@ export function AdminSettings() {
                   fontWeight: 600,
                   display: 'flex', alignItems: 'center', gap: '8px',
                 }}>
-                  {passwordMsg.type === 'success' ? <Icons.CheckCircle size={16} /> : <Icons.AlertTriangle size={16} />}
+                  {passwordMsg.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
                   {passwordMsg.text}
                 </div>
               )}
@@ -210,9 +212,9 @@ export function AdminSettings() {
                 }}
               >
                 {saving ? (
-                  <><Icons.Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Saqlanmoqda...</>
+                  <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Saqlanmoqda...</>
                 ) : (
-                  <><Icons.Lock size={18} /> Parolni o&apos;zgartirish</>
+                  <><Lock size={18} /> Parolni o&apos;zgartirish</>
                 )}
               </button>
             </div>
@@ -230,7 +232,7 @@ export function AdminSettings() {
               background: 'var(--success-bg)', color: 'var(--success)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Icons.Settings size={24} />
+              <Settings size={24} />
             </div>
             <div>
               <h3 style={{
@@ -247,11 +249,11 @@ export function AdminSettings() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
             {[
-              { label: 'Platforma', value: 'Microgreen Admin v2.0', icon: <Icons.Home size={16} /> },
-              { label: 'Til', value: "O'zbek (UZ)", icon: <Icons.MessageCircle size={16} /> },
-              { label: 'Valyuta', value: "So'm (UZS)", icon: <Icons.DollarSign size={16} /> },
-              { label: 'Vaqt zonasi', value: 'Asia/Tashkent (UTC+5)', icon: <Icons.Clock size={16} /> },
-              { label: 'Domen', value: 'Microgreen.uz', icon: <Icons.Zap size={16} /> },
+              { label: 'Platforma', value: 'Microgreen Admin v2.0', icon: <Home size={16} /> },
+              { label: 'Til', value: "O'zbek (UZ)", icon: <MessageCircle size={16} /> },
+              { label: 'Valyuta', value: "So'm (UZS)", icon: <DollarSign size={16} /> },
+              { label: 'Vaqt zonasi', value: 'Asia/Tashkent (UTC+5)', icon: <Clock size={16} /> },
+              { label: 'Domen', value: 'Microgreen.uz', icon: <Zap size={16} /> },
             ].map((item, i) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
@@ -272,7 +274,7 @@ export function AdminSettings() {
             border: '1px solid #F59E0B30',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Icons.Shield size={16} style={{ color: '#F59E0B' }} />
+              <Shield size={16} style={{ color: '#F59E0B' }} />
               <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: '#D97706' }}>Xavfsizlik maslahatlari</span>
             </div>
             <ul style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  CheckCircle, Heart, Leaf, Lightbulb, Plus, X, Zap,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
 
@@ -94,7 +96,7 @@ export function NutritionistPanel() {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
           }}>
-            <Icons.Heart size={18} />
+            <Heart size={18} />
           </div>
           <div>
             <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
@@ -143,7 +145,7 @@ export function NutritionistPanel() {
                     background: 'none', border: 'none', color: 'var(--error)',
                     cursor: 'pointer', padding: 4, display: 'flex', flexShrink: 0,
                   }}>
-                    <Icons.X size={18} />
+                    <X size={18} />
                   </button>
                 )}
               </div>
@@ -157,7 +159,7 @@ export function NutritionistPanel() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 transition: 'all 0.2s',
               }}>
-                <Icons.Plus size={14} /> {t("Qo'shish", "Добавить")}
+                <Plus size={14} /> {t("Qo'shish", "Добавить")}
               </button>
               <button onClick={calculate} disabled={loading} style={{
                 flex: 2, padding: 10, borderRadius: 12, fontSize: 13, fontWeight: 700,
@@ -166,7 +168,7 @@ export function NutritionistPanel() {
                 justifyContent: 'center', gap: 6, opacity: loading ? 0.6 : 1,
                 boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', transition: 'all 0.2s',
               }}>
-                <Icons.Zap size={14} /> {loading ? '...' : t('Hisoblash', 'Рассчитать')}
+                <Zap size={14} /> {loading ? '...' : t('Hisoblash', 'Рассчитать')}
               </button>
             </div>
           </div>
@@ -220,7 +222,7 @@ export function NutritionistPanel() {
                   background: 'var(--bg-secondary)', border: '1px solid var(--border)',
                 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Icons.Leaf size={13} color="var(--brand-primary)" />
+                    <Leaf size={13} color="var(--brand-primary)" />
                     {lang === 'ru' ? d.nameRu : d.nameUz} ({d.grams}g)
                     <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--brand-primary)', fontWeight: 800, background: 'var(--brand-primary-light)', padding: '2px 8px', borderRadius: 6 }}>
                       ×{d.antioxidantMultiplier} {t("antioksidant", "антиоксид.")}
@@ -228,7 +230,7 @@ export function NutritionistPanel() {
                   </div>
                   {d.benefits?.map((b: any, j: number) => (
                     <div key={j} style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                      <Icons.CheckCircle size={11} color="var(--success)" /> {lang === 'ru' ? b.ru : b.uz}
+                      <CheckCircle size={11} color="var(--success)" /> {lang === 'ru' ? b.ru : b.uz}
                     </div>
                   ))}
                 </div>
@@ -241,7 +243,7 @@ export function NutritionistPanel() {
                 fontSize: 12, color: '#059669', fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
-                <Icons.Lightbulb size={15} style={{ flexShrink: 0 }} />
+                <Lightbulb size={15} style={{ flexShrink: 0 }} />
                 {t(
                   `Jami ${result.total.fiber.toFixed(1)}g tolalar — kunlik me'yorning ${((result.total.fiber / 25) * 100).toFixed(0)}%`,
                   `Всего ${result.total.fiber.toFixed(1)}г клетчатки — ${((result.total.fiber / 25) * 100).toFixed(0)}% дневной нормы`

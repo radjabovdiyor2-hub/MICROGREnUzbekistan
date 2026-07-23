@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import * as Icons from '@/components/ui/Icons';
+import { Search } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { motion } from 'framer-motion';
 
 interface Story {
   id: string;
@@ -103,17 +104,16 @@ export function StoriesBar() {
             scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch'
           }}>
             {stories.map((s, i) => (
-              <button
+              <motion.button
                 key={s.id}
                 onClick={() => { setIdx(i); setProgress(0); setOpen(true); }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 style={{
                   flex: '0 0 auto', display: 'flex', flexDirection: 'column',
                   alignItems: 'center', gap: '8px', background: 'none', border: 'none',
                   cursor: 'pointer', width: '80px',
-                  transition: 'transform 0.2s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 aria-label={`Story ${i + 1}`}
               >
                 <div style={{
@@ -136,7 +136,7 @@ export function StoriesBar() {
                 <span style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: 600 }}>
                   {t('Story', 'Сторис')} {i + 1}
                 </span>
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
@@ -242,7 +242,7 @@ export function StoriesBar() {
                   display: 'flex', alignItems: 'center', gap: '8px'
                 }}
               >
-                <Icons.Search size={16} /> Смотреть в Instagram
+                <Search size={16} /> Смотреть в Instagram
               </a>
             )}
           </div>

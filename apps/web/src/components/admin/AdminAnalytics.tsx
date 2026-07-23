@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, BarChart, ClipboardList, Clock, CreditCard, Download, Package,
+} from 'lucide-react';
 
 interface MonthData { month: string; orders: number; revenue: number; posRevenue: number; posSales: number; }
 interface TopProduct { id: string; nameUz: string; price: number; stock: number; sold: number; revenue: number; category?: { nameUz: string }; }
@@ -48,7 +50,7 @@ export function AdminAnalytics() {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-        <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+        <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         <p style={{ marginTop: 'var(--space-2)' }}>Analitika yuklanmoqda...</p>
       </div>
     );
@@ -71,7 +73,7 @@ export function AdminAnalytics() {
       {warnings.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-4)', borderLeft: '3px solid var(--error)' }}>
           <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--error)' }}>
-            <Icons.AlertTriangle size={16} /> Ogohlantirishlar ({warnings.length})
+            <AlertTriangle size={16} /> Ogohlantirishlar ({warnings.length})
           </h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             {warnings.slice(0, 5).map((w, i) => (
@@ -88,7 +90,7 @@ export function AdminAnalytics() {
       {/* Monthly Sales Chart (CSS bar chart) */}
       <div className="card" style={{ padding: 'var(--space-4)' }}>
         <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.BarChart size={16} /> Oylik savdolar
+          <BarChart size={16} /> Oylik savdolar
         </h4>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)', height: 180, padding: '0 var(--space-2)' }}>
           {monthlyData.map((d, i) => {
@@ -206,14 +208,14 @@ export function AdminAnalytics() {
       {/* Export Buttons */}
       <div className="card" style={{ padding: 'var(--space-4)' }}>
         <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)' }}>
-          <Icons.Download size={16} /> Hisobotlar yuklab olish (CSV)
+          <Download size={16} /> Hisobotlar yuklab olish (CSV)
         </h4>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           {[
-            { type: 'inventory', label: 'Ombor hisoboti', icon: <Icons.Package size={14} /> },
-            { type: 'debts', label: 'Qarzlar hisoboti', icon: <Icons.CreditCard size={14} /> },
-            { type: 'movements', label: 'Harakatlar tarixi', icon: <Icons.ClipboardList size={14} /> },
-            { type: 'sales', label: 'Sotishlar (30 kun)', icon: <Icons.BarChart size={14} /> },
+            { type: 'inventory', label: 'Ombor hisoboti', icon: <Package size={14} /> },
+            { type: 'debts', label: 'Qarzlar hisoboti', icon: <CreditCard size={14} /> },
+            { type: 'movements', label: 'Harakatlar tarixi', icon: <ClipboardList size={14} /> },
+            { type: 'sales', label: 'Sotishlar (30 kun)', icon: <BarChart size={14} /> },
           ].map(exp => (
             <a key={exp.type} href={`/api/inventory/export?type=${exp.type}`} download
               className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -239,7 +241,7 @@ function HealthScoreWidget() {
     fetch('/api/inventory/analytics?section=health').then(r => r.json()).then(setData).catch(console.error);
   }, []);
 
-  if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Icons.Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
+  if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
 
   const { healthScore, healthLabel, healthColor, breakdown } = data;
   const circumference = 2 * Math.PI * 45;
@@ -297,7 +299,7 @@ function ABCXYZWidget() {
     fetch('/api/inventory/analytics?section=abcxyz').then(r => r.json()).then(setData).catch(console.error);
   }, []);
 
-  if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Icons.Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
+  if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
 
   const { classSummary } = data;
   const matrixColors: Record<string, string> = {

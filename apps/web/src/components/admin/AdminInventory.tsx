@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, Banknote, BarChart, Clock, CreditCard, Search,
+} from 'lucide-react';
 
 interface InventoryProduct {
   id: string;
@@ -77,9 +79,9 @@ export function AdminInventory() {
         <div style={{ marginBottom: 'var(--space-3)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
             {[
-              { label: 'Ombor qiymati', value: `${fmt(summary.totalStockValue)}`, icon: <Icons.Banknote size={16} />, color: 'var(--brand-primary)' },
-              { label: 'Bugungi savdo', value: `${fmt(summary.todayRevenue)}`, icon: <Icons.BarChart size={16} />, color: 'var(--success)' },
-              { label: 'Qarzlar', value: `${fmt(summary.debtsOwedToUs)}`, icon: <Icons.CreditCard size={16} />, color: 'var(--info)' },
+              { label: 'Ombor qiymati', value: `${fmt(summary.totalStockValue)}`, icon: <Banknote size={16} />, color: 'var(--brand-primary)' },
+              { label: 'Bugungi savdo', value: `${fmt(summary.todayRevenue)}`, icon: <BarChart size={16} />, color: 'var(--success)' },
+              { label: 'Qarzlar', value: `${fmt(summary.debtsOwedToUs)}`, icon: <CreditCard size={16} />, color: 'var(--info)' },
             ].map((stat, i) => (
               <div key={i} className="card" style={{ padding: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                 <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: `${stat.color}15`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -95,7 +97,7 @@ export function AdminInventory() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-2)' }}>
             <div className="card" style={{ padding: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: '#EF444415', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icons.AlertTriangle size={16} />
+                <AlertTriangle size={16} />
               </div>
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Kritik</div>
@@ -104,7 +106,7 @@ export function AdminInventory() {
             </div>
             <div className="card" style={{ padding: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: '#F59E0B15', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icons.AlertTriangle size={16} />
+                <AlertTriangle size={16} />
               </div>
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Kam qolgan</div>
@@ -130,7 +132,7 @@ export function AdminInventory() {
         ))}
         <div style={{ flex: '1 1 100%', marginTop: 'var(--space-1)' }}>
           <div style={{ position: 'relative' }}>
-            <Icons.Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
             <input type="text" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)}
               style={{ width: '100%', padding: 'var(--space-2) var(--space-2) var(--space-2) 32px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
           </div>
@@ -140,7 +142,7 @@ export function AdminInventory() {
       {/* Products Table */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+          <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
       ) : (
         <div className="card" style={{ overflow: 'hidden' }}>

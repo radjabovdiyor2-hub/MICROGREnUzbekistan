@@ -19,57 +19,59 @@ import { AdminRevenue } from '@/components/admin/AdminRevenue';
 import { AdminGrowing } from '@/components/admin/AdminGrowing';
 import { AdminMagazine } from '@/components/admin/AdminMagazine';
 import { AdminDepartment } from '@/components/admin/AdminDepartment';
-import * as Icons from '@/components/ui/Icons';
+import {
+  ArrowLeft, ArrowRight, BarChart, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Home, Leaf, Lightbulb, Lock, LogOut, Package, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
+} from 'lucide-react';
 
 const TAB_GROUPS = [
   {
     title: { ru: 'Главное', uz: 'Asosiy' },
     tabs: [
-      { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
-      { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <Icons.BarChart size={16} /> },
-      { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <Icons.DollarSign size={16} /> },
-      { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Icons.Leaf size={16} /> },
+      { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <ShoppingCart size={16} /> },
+      { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <BarChart size={16} /> },
+      { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <DollarSign size={16} /> },
+      { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Leaf size={16} /> },
     ]
   },
   {
     title: { ru: 'Управление', uz: 'Boshqaruv' },
     tabs: [
-      { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Icons.Package size={16} /> },
-      { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <Icons.ClipboardList size={16} /> },
-      { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Icons.Truck size={16} /> },
-      { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Icons.Truck size={16} /> },
-      { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <Icons.CreditCard size={16} /> },
-      { id: 'products', ru: 'Товары', uz: 'Mahsulotlar', icon: <Icons.Tag size={16} /> },
+      { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Package size={16} /> },
+      { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <ClipboardList size={16} /> },
+      { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Truck size={16} /> },
+      { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Truck size={16} /> },
+      { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <CreditCard size={16} /> },
+      { id: 'products', ru: 'Товары', uz: 'Mahsulotlar', icon: <Tag size={16} /> },
     ]
   },
   {
     title: { ru: 'Отделы (Telegram)', uz: "Bo'limlar (Telegram)" },
     tabs: [
-      { id: 'dept_sales', ru: 'Продажи', uz: 'Sotuvlar', icon: <Icons.ShoppingCart size={16} /> },
-      { id: 'dept_marketing', ru: 'Маркетинг', uz: 'Marketing', icon: <Icons.TrendingUp size={16} /> },
-      { id: 'dept_content', ru: 'Контент', uz: 'Kontent', icon: <Icons.FileText size={16} /> },
-      { id: 'dept_hr', ru: 'Кадры (HR)', uz: 'Kadrlar (HR)', icon: <Icons.Users size={16} /> },
-      { id: 'dept_finance', ru: 'Финансы', uz: 'Moliya', icon: <Icons.DollarSign size={16} /> },
-      { id: 'dept_devops', ru: 'DevOps / IT', uz: 'DevOps / IT', icon: <Icons.Settings size={16} /> },
-      { id: 'dept_qa', ru: 'QA / Тесты', uz: 'QA / Testlar', icon: <Icons.Eye size={16} /> },
-      { id: 'dept_rnd', ru: 'R&D', uz: 'R&D', icon: <Icons.Lightbulb size={16} /> },
-      { id: 'dept_support', ru: 'Поддержка', uz: "Qo'llab", icon: <Icons.Send size={16} /> },
+      { id: 'dept_sales', ru: 'Продажи', uz: 'Sotuvlar', icon: <ShoppingCart size={16} /> },
+      { id: 'dept_marketing', ru: 'Маркетинг', uz: 'Marketing', icon: <TrendingUp size={16} /> },
+      { id: 'dept_content', ru: 'Контент', uz: 'Kontent', icon: <FileText size={16} /> },
+      { id: 'dept_hr', ru: 'Кадры (HR)', uz: 'Kadrlar (HR)', icon: <Users size={16} /> },
+      { id: 'dept_finance', ru: 'Финансы', uz: 'Moliya', icon: <DollarSign size={16} /> },
+      { id: 'dept_devops', ru: 'DevOps / IT', uz: 'DevOps / IT', icon: <Settings size={16} /> },
+      { id: 'dept_qa', ru: 'QA / Тесты', uz: 'QA / Testlar', icon: <Eye size={16} /> },
+      { id: 'dept_rnd', ru: 'R&D', uz: 'R&D', icon: <Lightbulb size={16} /> },
+      { id: 'dept_support', ru: 'Поддержка', uz: "Qo'llab", icon: <Send size={16} /> },
     ]
   },
   {
     title: { ru: 'Аналитика и Система', uz: 'Analitika va Tizim' },
     tabs: [
-      { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <Icons.BarChart size={16} /> },
-      { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <Icons.TrendingUp size={16} /> },
-      { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <Icons.User size={16} /> },
-      { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <Icons.FileText size={16} /> },
-      { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Icons.Lock size={16} /> },
+      { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <BarChart size={16} /> },
+      { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <TrendingUp size={16} /> },
+      { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <User size={16} /> },
+      { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <FileText size={16} /> },
+      { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Lock size={16} /> },
     ]
   }
 ];
 
 const SELLER_TABS = [
-  { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <Icons.ShoppingCart size={16} /> },
+  { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <ShoppingCart size={16} /> },
 ];
 
 const ADMIN_KEY = 'Microgreen_admin_auth';
@@ -179,7 +181,7 @@ export default function AdminPage() {
       return (
         <div className="container" style={{ maxWidth: 400, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
           <div style={{ marginBottom: 'var(--space-6)', color: 'var(--brand-primary)' }}>
-            <Icons.Settings size={56} />
+            <Settings size={56} />
           </div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-2)' }}>
             Microgreen
@@ -190,30 +192,30 @@ export default function AdminPage() {
             <button onClick={() => setAuthMode('owner_login')} className="card"
               style={{ padding: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-4)', cursor: 'pointer', textAlign: 'left' }}>
               <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-lg)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.Settings size={24} />
+                <Settings size={24} />
               </div>
               <div>
                 <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{t('Владелец', 'Egasi')}</div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Полное управление', "To'liq boshqaruv")}</div>
               </div>
-              <Icons.ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
+              <ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
             </button>
 
             <button onClick={() => setAuthMode('seller_login')} className="card"
               style={{ padding: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-4)', cursor: 'pointer', textAlign: 'left' }}>
               <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-lg)', background: 'var(--success-bg)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icons.Tag size={24} />
+                <Tag size={24} />
               </div>
               <div>
                 <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{t('Продавец', 'Sotuvchi')}</div>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Только продажи', 'Faqat sotish')}</div>
               </div>
-              <Icons.ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
+              <ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
             </button>
           </div>
 
           <Link href="/" className="btn btn-ghost" style={{ marginTop: 'var(--space-6)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.Home size={16} /> {t('На главную', 'Bosh sahifaga')}
+            <Home size={16} /> {t('На главную', 'Bosh sahifaga')}
           </Link>
         </div>
       );
@@ -224,10 +226,10 @@ export default function AdminPage() {
       return (
         <div className="container" style={{ maxWidth: 400, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
           <button onClick={() => { setAuthMode('choose'); setAuthError(''); }} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
+            <ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
           </button>
           <div style={{ marginBottom: 'var(--space-4)', color: 'var(--brand-primary)' }}>
-            <Icons.Lock size={48} />
+            <Lock size={48} />
           </div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>{t('Вход владельца', 'Egasi kirishi')}</h2>
           <form onSubmit={handleOwnerLogin} className="card" style={{ padding: 'var(--space-6)', textAlign: 'left' }}>
@@ -236,7 +238,7 @@ export default function AdminPage() {
               style={{ width: '100%', padding: 'var(--space-3)', border: `1px solid ${authError ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }} />
             {authError && <p style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-3)' }}>{authError}</p>}
             <button type="submit" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-              <Icons.ArrowRight size={18} /> {t('Войти', 'Kirish')}
+              <ArrowRight size={18} /> {t('Войти', 'Kirish')}
             </button>
           </form>
         </div>
@@ -248,10 +250,10 @@ export default function AdminPage() {
       return (
         <div className="container" style={{ maxWidth: 360, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
           <button onClick={() => { setAuthMode('choose'); setAuthError(''); setPin(''); }} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Icons.ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
+            <ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
           </button>
           <div style={{ marginBottom: 'var(--space-4)', color: 'var(--success)' }}>
-            <Icons.Tag size={48} />
+            <Tag size={48} />
           </div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>{t('PIN продавца', 'Sotuvchi PIN')}</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)' }}>{t('Введите 4-значный PIN', '4 raqamli PIN kiriting')}</p>
@@ -278,7 +280,7 @@ export default function AdminPage() {
                 return (
                   <button key={i} onClick={() => setPin(p => p.slice(0, -1))} className="btn btn-ghost"
                     style={{ height: 56, fontSize: 'var(--text-lg)', borderRadius: 'var(--radius-lg)' }}>
-                    <Icons.ArrowLeft size={20} />
+                    <ArrowLeft size={20} />
                   </button>
                 );
               }
@@ -439,7 +441,7 @@ export default function AdminPage() {
       <aside className="admin-sidebar">
         <div className="admin-header">
           <h1>
-            {isOwner ? <><Icons.Settings size={24} color="var(--brand-primary)" /> Microgreen Admin</> : <><Icons.Tag size={24} color="var(--success)" /> {sellerName}</>}
+            {isOwner ? <><Settings size={24} color="var(--brand-primary)" /> Microgreen Admin</> : <><Tag size={24} color="var(--success)" /> {sellerName}</>}
           </h1>
           <div className="admin-header-actions">
             {!isOwner && (
@@ -453,11 +455,11 @@ export default function AdminPage() {
               {lang === 'ru' ? '🇷🇺' : '🇺🇿'}
             </button>
             <Link href="/" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
-              <Icons.Home size={14} /> {t('Сайт', 'Sayt')}
+              <Home size={14} /> {t('Сайт', 'Sayt')}
             </Link>
             <button onClick={handleLogout} className="btn btn-ghost btn-sm"
               style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(239, 68, 68, 0.1)' }}>
-              <Icons.LogOut size={14} /> {t('Выйти', 'Chiqish')}
+              <LogOut size={14} /> {t('Выйти', 'Chiqish')}
             </button>
           </div>
         </div>

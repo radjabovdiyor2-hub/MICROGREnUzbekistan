@@ -7,8 +7,13 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useCity } from '@/components/providers/CityProvider';
-import * as Icons from '@/components/ui/Icons';
+import {
+  Search, ShoppingCart, User, Moon, Sun, Mic, ArrowDown,
+} from 'lucide-react';
 import { LogoIcon } from '@/components/ui/Logo';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const spring = { type: 'spring' as const, damping: 20, stiffness: 300 };
 
 export function Header() {
   const { theme, toggleTheme } = useTheme();
@@ -92,14 +97,14 @@ export function Header() {
             <option value="tashkent">Toshkent</option>
             <option value="samarkand">Samarqand</option>
             <option value="bukhara">Buxoro</option>
-            <option value="fergana">Farg'ona</option>
+            <option value="fergana">Farg&apos;ona</option>
           </select>
-          <Icons.ArrowDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+          <ArrowDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
         </div>
 
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="search-bar" id="search-bar">
-          <span className="search-bar__icon"><Icons.Search size={18} /></span>
+          <span className="search-bar__icon"><Search size={18} /></span>
           <input
             type="text"
             className="search-bar__input"
@@ -109,28 +114,24 @@ export function Header() {
             id="search-input"
           />
           
-          {/* Voice Search Button */}
-          <button 
+          {/* Voice Search Button — Framer Motion replaces dangerouslySetInnerHTML */}
+          <motion.button 
             type="button" 
             onClick={startVoiceSearch}
+            animate={isListening ? { scale: [1, 1.2, 1] } : { scale: 1 }}
+            transition={isListening
+              ? { repeat: Infinity, duration: 1.5, ease: 'easeInOut' }
+              : { duration: 0.2 }}
             style={{ 
               background: 'none', border: 'none', cursor: 'pointer', 
               color: isListening ? '#EF4444' : 'var(--text-muted)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 8px', animation: isListening ? 'pulse 1.5s infinite' : 'none'
+              padding: '0 8px',
             }}
           >
-            <Icons.Mic size={18} />
-          </button>
+            <Mic size={18} />
+          </motion.button>
         </form>
-        
-        <style dangerouslySetInnerHTML={{__html: `
-          @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.7; }
-            100% { transform: scale(1); opacity: 1; }
-          }
-        `}} />
 
         {/* Desktop Navigation Links */}
         <nav className="header__nav" id="desktop-nav">
@@ -142,39 +143,64 @@ export function Header() {
         {/* Actions */}
         <div className="header__actions">
           {/* Language Toggle */}
-          <button
+          <motion.button
             className="theme-toggle"
             onClick={toggleLang}
             aria-label="Toggle language"
             id="lang-toggle"
             style={{ fontSize: '12px', fontWeight: 700, minWidth: 36 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
           >
             {lang === 'uz' ? 'RU' : 'UZ'}
-          </button>
+          </motion.button>
 
           {/* Theme Toggle */}
-          <button
+          <motion.button
             className="theme-toggle"
             onClick={toggleTheme}
             aria-label="Toggle theme"
             id="theme-toggle"
+            whileHover={{ rotate: 20, scale: 1.08 }}
+            whileTap={{ scale: 0.9 }}
           >
-            {theme === 'light' ? <Icons.Moon size={20} /> : <Icons.Sun size={20} />}
-          </button>
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={theme}
+                initial={{ rotate: -90, opacity: 0 }}
+                animate={{ rotate: 0, opacity: 1 }}
+                exit={{ rotate: 90, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ display: 'flex' }}
+              >
+                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
 
           {/* Cart */}
           <Link href="/cart" className="header__action-btn" id="cart-btn">
-            <Icons.ShoppingCart size={22} />
-            {cart.totalItems > 0 && (
-              <span className="header__cart-badge" id="cart-count">
-                {cart.totalItems > 99 ? '99+' : cart.totalItems}
-              </span>
-            )}
+            <ShoppingCart size={22} />
+            <AnimatePresence>
+              {cart.totalItems > 0 && (
+                <motion.span
+                  className="header__cart-badge"
+                  id="cart-count"
+                  key={cart.totalItems}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  transition={spring}
+                >
+                  {cart.totalItems > 99 ? '99+' : cart.totalItems}
+                </motion.span>
+              )}
+            </AnimatePresence>
           </Link>
 
           {/* Profile */}
           <Link href="/profile" className="header__action-btn" id="profile-btn">
-            <Icons.User size={22} />
+            <User size={22} />
           </Link>
         </div>
       </div>

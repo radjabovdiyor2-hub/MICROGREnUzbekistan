@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ProductCard } from '@/components/shop/ProductCard';
-import * as Icons from '@/components/ui/Icons';
+import { Clock } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { getViewed, ViewedProduct } from '@/lib/recentlyViewed';
 
@@ -23,7 +23,7 @@ export function RecentlyViewed() {
     <section className="section" style={{ padding: 'var(--space-8) 0' }}>
       <div className="container">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--space-4)' }}>
-          <Icons.Clock size={22} style={{ color: 'var(--brand-primary)' }} />
+          <Clock size={22} style={{ color: 'var(--brand-primary)' }} />
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)', margin: 0 }}>
             {t("Yaqinda ko'rganlaringiz", 'Вы недавно смотрели')}
           </h2>

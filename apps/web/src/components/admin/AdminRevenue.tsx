@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  ArrowLeft, Banknote, BarChart, Clock, DollarSign, Percent, TrendingDown, TrendingUp,
+} from 'lucide-react';
 
 interface RevenueData {
   todayRevenue: number;
@@ -44,7 +46,7 @@ export function AdminRevenue() {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-        <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+        <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         <p style={{ marginTop: 'var(--space-2)' }}>Загрузка дохода...</p>
       </div>
     );
@@ -53,7 +55,7 @@ export function AdminRevenue() {
   if (!data) {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-        <Icons.DollarSign size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
+        <DollarSign size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
         <p>Данные не найдены</p>
         <p style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Доход появится после продаж и поступлений</p>
       </div>
@@ -81,10 +83,10 @@ export function AdminRevenue() {
       {/* Today KPIs */}
       <div className="rev-grid">
         {[
-          { label: 'Выручка сегодня', value: fmt(data.todayRevenue), icon: <Icons.Banknote size={18} />, color: 'var(--brand-primary)', sub: `${data.todaySales} продаж` },
-          { label: 'Себестоимость', value: fmt(data.todayCost), icon: <Icons.ArrowLeft size={18} />, color: 'var(--error)', sub: 'Цена поставщика' },
-          { label: 'Чистая прибыль', value: fmt(data.todayProfit), icon: <Icons.TrendingUp size={18} />, color: data.todayProfit >= 0 ? 'var(--success)' : 'var(--error)', sub: `${data.todayMargin.toFixed(1)}% маржа` },
-          { label: 'Маржа', value: `${data.todayMargin.toFixed(1)}%`, icon: <Icons.Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? '#F59E0B' : 'var(--error)', sub: data.todayMargin >= 20 ? 'Хорошо' : 'Низкая' },
+          { label: 'Выручка сегодня', value: fmt(data.todayRevenue), icon: <Banknote size={18} />, color: 'var(--brand-primary)', sub: `${data.todaySales} продаж` },
+          { label: 'Себестоимость', value: fmt(data.todayCost), icon: <ArrowLeft size={18} />, color: 'var(--error)', sub: 'Цена поставщика' },
+          { label: 'Чистая прибыль', value: fmt(data.todayProfit), icon: <TrendingUp size={18} />, color: data.todayProfit >= 0 ? 'var(--success)' : 'var(--error)', sub: `${data.todayMargin.toFixed(1)}% маржа` },
+          { label: 'Маржа', value: `${data.todayMargin.toFixed(1)}%`, icon: <Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? '#F59E0B' : 'var(--error)', sub: data.todayMargin >= 20 ? 'Хорошо' : 'Низкая' },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-3)', borderTop: `3px solid ${stat.color}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
@@ -103,7 +105,7 @@ export function AdminRevenue() {
       <div className="card" style={{ padding: 'var(--space-4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Icons.BarChart size={16} /> По периоду
+            <BarChart size={16} /> По периоду
           </h4>
           <div style={{ display: 'flex', gap: 2, background: 'var(--bg-secondary)', borderRadius: '10px', padding: 2 }}>
             {(['week', 'month'] as const).map(p => (
@@ -156,7 +158,7 @@ export function AdminRevenue() {
       {data.dailyData && data.dailyData.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-            <Icons.TrendingUp size={16} /> Ежедневная выручка
+            <TrendingUp size={16} /> Ежедневная выручка
           </h4>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 140 }}>
             {data.dailyData.map((d, i) => {
@@ -196,7 +198,7 @@ export function AdminRevenue() {
       <div className="rev-grid-2">
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)' }}>
-            <Icons.TrendingUp size={14} /> Самые прибыльные товары
+            <TrendingUp size={14} /> Самые прибыльные товары
           </h4>
           {(!data.topProfitable || data.topProfitable.length === 0) ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center', padding: 'var(--space-4)' }}>
@@ -220,7 +222,7 @@ export function AdminRevenue() {
 
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--error)' }}>
-            <Icons.TrendingDown size={14} /> Наименее прибыльные
+            <TrendingDown size={14} /> Наименее прибыльные
           </h4>
           {(!data.topLoss || data.topLoss.length === 0) ? (
             <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center', padding: 'var(--space-4)' }}>

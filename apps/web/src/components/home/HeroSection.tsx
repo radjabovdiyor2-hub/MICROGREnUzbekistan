@@ -1,25 +1,28 @@
 'use client';
 
-import * as Icons from '@/components/ui/Icons';
+import { ArrowRight, Phone, Package, Droplet, Sparkles } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
 import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 import { CONTACT } from '@/lib/site';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { motion, useReducedMotion } from 'framer-motion';
 
-// "Grow" hero — editorial type over a generative microgreens field that
-// sprouts on load and sways toward the pointer. No stock photo.
+const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+};
+
+const rise = {
+  hidden: { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0 },
+};
+
 export function HeroSection() {
   const { t } = useLang();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const rise = (delay: number) => ({
-    opacity: mounted ? 1 : 0,
-    transform: mounted ? 'none' : 'translateY(18px)',
-    transition: `opacity .7s ${delay}s cubic-bezier(.16,1,.3,1), transform .7s ${delay}s cubic-bezier(.16,1,.3,1)`,
-  });
+  const prefersReduced = useReducedMotion();
 
   return (
     <section className="hero" id="hero-section" style={{
@@ -33,80 +36,93 @@ export function HeroSection() {
       borderBottom: '1px solid var(--border)',
       paddingBottom: 'clamp(24px, 5vh, 50px)',
     }}>
-      {/* Ambient floating greenery (microgreens + salad leaves drifting) */}
+      {/* Ambient floating greenery */}
       <FloatingGreenery count={22} style={{
         position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
         width: '100%', height: '100%', zIndex: 0,
       }} />
-      {/* generative field at the bottom — mixed mode: sprouts + salad leaves */}
+      {/* Generative field at the bottom */}
       <MicrogreensCanvas count={100} variant="mixed" style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: '42%', zIndex: 0,
       }} />
-      {/* ground the field + keep text legible */}
+      {/* Ground gradient */}
       <div style={{
         position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none',
         background: 'linear-gradient(to top, var(--bg-secondary) 28%, transparent 65%)',
       }} />
 
-      <div className="container" style={{ position: 'relative', zIndex: 2, width: '100%' }}>
-        {/* eyebrow */}
-        <div style={{
+      <motion.div
+        className="container"
+        style={{ position: 'relative', zIndex: 2, width: '100%' }}
+        initial={prefersReduced ? 'visible' : 'hidden'}
+        animate="visible"
+        variants={stagger}
+      >
+        {/* Eyebrow */}
+        <motion.div variants={rise} transition={spring} style={{
           display: 'inline-flex', alignItems: 'center', gap: '10px',
           fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-          color: 'var(--brand-primary-hover)', marginBottom: '14px', ...rise(0),
+          color: 'var(--brand-primary-hover)', marginBottom: '14px',
         }}>
           <span style={{ width: 26, height: 1, background: 'var(--brand-primary)' }} /> {t('hero.badge')}
-        </div>
+        </motion.div>
 
-        {/* editorial headline */}
-        <h1 style={{
+        {/* Editorial headline */}
+        <motion.h1 variants={rise} transition={spring} style={{
           fontFamily: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.0,
           margin: '0 0 0.5rem', fontSize: 'clamp(2.2rem, 6vw, 4.2rem)', textWrap: 'balance',
-          maxWidth: '16ch', color: 'var(--text-primary)', ...rise(0.05),
+          maxWidth: '16ch', color: 'var(--text-primary)',
         }}>
           {t('hero.title1')}<br />
           <span style={{ color: 'var(--brand-primary)' }}>{t('hero.title2')}</span>
-        </h1>
-        {/* animated gold accent bar */}
-        <div style={{
-          height: 5, width: 104, borderRadius: 999, background: 'var(--brand-accent)', margin: '0 0 22px',
-          transformOrigin: 'left', transform: mounted ? 'scaleX(1)' : 'scaleX(0)',
-          transition: 'transform .9s .5s cubic-bezier(.16,1,.3,1)',
-        }} />
+        </motion.h1>
 
-        <p style={{
+        {/* Animated gold accent bar */}
+        <motion.div
+          variants={{
+            hidden: { scaleX: 0, originX: 0 },
+            visible: { scaleX: 1, originX: 0 },
+          }}
+          transition={{ ...spring, delay: 0.4 }}
+          style={{
+            height: 5, width: 104, borderRadius: 999,
+            background: 'var(--brand-accent)', margin: '0 0 22px',
+            transformOrigin: 'left',
+          }}
+        />
+
+        <motion.p variants={rise} transition={spring} style={{
           maxWidth: '42ch', color: 'var(--text-secondary)', fontSize: 'clamp(1rem, 1.8vw, 1.2rem)',
-          margin: '0 0 26px', lineHeight: 1.6, ...rise(0.15),
+          margin: '0 0 26px', lineHeight: 1.6,
         }}>
           {t('hero.subtitle')}
-        </p>
+        </motion.p>
 
-        <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', ...rise(0.22) }}>
+        <motion.div variants={rise} transition={spring} style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
           <Link href="/catalog" className="btn btn-primary btn-lg ripple btn-shimmer" style={{
             display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '15px 30px', borderRadius: '14px', fontWeight: 700,
             boxShadow: '0 12px 30px -10px rgba(var(--brand-primary-rgb), 0.5)',
           }}>
-            {t('hero.catalog_btn')} <Icons.ArrowRight size={18} />
+            {t('hero.catalog_btn')} <ArrowRight size={18} />
           </Link>
           <a href={CONTACT.phonePrimaryHref} className="btn btn-outline btn-lg" style={{
             display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '15px 30px', borderRadius: '14px',
           }}>
-            <Icons.Phone size={18} /> {t('hero.contact_btn')}
+            <Phone size={18} /> {t('hero.contact_btn')}
           </a>
-        </div>
+        </motion.div>
 
-        {/* trust indicators */}
-        <div style={{ marginTop: '32px', display: 'flex', gap: '22px', flexWrap: 'wrap', ...rise(0.32) }}>
+        {/* Trust indicators */}
+        <motion.div variants={rise} transition={spring} style={{ marginTop: '32px', display: 'flex', gap: '22px', flexWrap: 'wrap' }}>
           {[
-            { icon: <Icons.Package size={16} />, text: t('hero.products_count'), c: 'var(--brand-primary)' },
-            { icon: <Icons.Droplet size={16} />, text: t('hero.delivery'), c: 'var(--success)' },
-            { icon: <Icons.Sparkles size={16} />, text: t('hero.prices'), c: 'var(--brand-accent)' },
+            { icon: <Package size={16} />, text: t('hero.products_count'), c: 'var(--brand-primary)' },
+            { icon: <Droplet size={16} />, text: t('hero.delivery'), c: 'var(--success)' },
+            { icon: <Sparkles size={16} />, text: t('hero.prices'), c: 'var(--brand-accent)' },
           ].map((it, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>
               <span style={{
                 width: 30, height: 30, borderRadius: '9px', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                /* rgba instead of color-mix — Safari 15 compat */
                 background: it.c === 'var(--brand-primary)'
                   ? 'rgba(16,185,129,0.13)'
                   : it.c === 'var(--success)'
@@ -117,8 +133,8 @@ export function HeroSection() {
               <span>{it.text}</span>
             </div>
           ))}
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </section>
   );
 }

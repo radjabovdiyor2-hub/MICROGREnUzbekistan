@@ -1,6 +1,8 @@
 'use client';
 
-import * as Icons from '@/components/ui/Icons';
+import {
+  Clock, Home, Instagram, MapPin, Navigation, Phone, Truck,
+} from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 
 export function StoreLocation() {
@@ -10,7 +12,7 @@ export function StoreLocation() {
     <section className="section" id="location-section">
       <div className="container">
         <h2 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Icons.MapPin size={28} /> {t('Bizning manzil', 'Наш адрес')}
+          <MapPin size={28} /> {t('Bizning manzil', 'Наш адрес')}
         </h2>
 
         <div style={{
@@ -35,12 +37,12 @@ export function StoreLocation() {
               color: 'var(--brand-primary)',
               display: 'flex', alignItems: 'center', gap: '8px',
             }}>
-              <Icons.Home size={22} /> {t("Microgreen Do'koni", 'Магазин Махалу')}
+              <Home size={22} /> {t("Microgreen Do'koni", 'Магазин Махалу')}
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-                <span style={{ color: 'var(--brand-primary)' }}><Icons.MapPin size={20} /></span>
+                <span style={{ color: 'var(--brand-primary)' }}><MapPin size={20} /></span>
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{t('Manzil', 'Адрес')}</div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{t("Samarqand viloyati, Kamolot mahallasi, posyolok Super yonida", 'Самаркандская область, махалля Камолот, ориентир посёлок Супер')}</div>
@@ -48,7 +50,7 @@ export function StoreLocation() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-                <span style={{ color: 'var(--brand-primary)' }}><Icons.Phone size={20} /></span>
+                <span style={{ color: 'var(--brand-primary)' }}><Phone size={20} /></span>
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{t('Telefon', 'Телефон')}</div>
                   <a href="tel:+998949999599" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>+998 94 999 95 99</a>
@@ -58,7 +60,7 @@ export function StoreLocation() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-                <span style={{ color: 'var(--brand-primary)' }}><Icons.Clock size={20} /></span>
+                <span style={{ color: 'var(--brand-primary)' }}><Clock size={20} /></span>
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{t('Ish vaqti', 'Режим работы')}</div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
@@ -70,7 +72,7 @@ export function StoreLocation() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-                <span style={{ color: 'var(--brand-primary)' }}><Icons.Truck size={20} /></span>
+                <span style={{ color: 'var(--brand-primary)' }}><Truck size={20} /></span>
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{t('Yetkazib berish', 'Доставка')}</div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
@@ -86,11 +88,11 @@ export function StoreLocation() {
               <a href="https://www.instagram.com/microgreenuzbekistan" target="_blank" rel="noopener noreferrer"
                 className="btn btn-outline btn-sm" id="location-instagram"
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icons.Instagram size={16} /> Instagram
+                <Instagram size={16} /> Instagram
               </a>
               <a href="tel:+998949999599" className="btn btn-primary btn-sm" id="location-call"
                 style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icons.Phone size={16} /> {t("Qo'ng'iroq", 'Позвонить')}
+                <Phone size={16} /> {t("Qo'ng'iroq", 'Позвонить')}
               </a>
             </div>
           </div>
@@ -135,7 +137,7 @@ export function StoreLocation() {
                 }}
                 id="map-yandex"
               >
-                <Icons.MapPin size={14} /> {t('Yandex Xarita', 'Яндекс Карты')}
+                <MapPin size={14} /> {t('Yandex Xarita', 'Яндекс Карты')}
               </a>
               <a
                 href="https://www.google.com/maps?q=39.581813,66.961888"
@@ -150,7 +152,7 @@ export function StoreLocation() {
                 }}
                 id="map-google"
               >
-                <Icons.Navigation size={14} /> Google Maps
+                <Navigation size={14} /> Google Maps
               </a>
             </div>
           </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import * as Icons from '@/components/ui/Icons';
+import { ArrowRight, Camera, Scan } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
 import { CONTACT } from '@/lib/site';
@@ -47,7 +47,7 @@ export function AiNutritionistBanner() {
             fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)',
             width: 'fit-content', border: '1px solid rgba(52, 211, 153, 0.3)'
           }}>
-            <Icons.Scan size={14} /> NEW: AI Nutritionist
+            <Scan size={14} /> NEW: AI Nutritionist
           </div>
 
           <h2 style={{ 
@@ -83,9 +83,9 @@ export function AiNutritionistBanner() {
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
             onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            <Icons.Camera size={20} />
+            <Camera size={20} />
             Анализировать еду в Telegram
-            <Icons.ArrowRight size={18} />
+            <ArrowRight size={18} />
           </button>
         </div>
       </div>

@@ -1,16 +1,26 @@
 'use client';
 
-import * as Icons from '@/components/ui/Icons';
-import { useEffect, useState } from 'react';
+import { Folder, Home, Leaf } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { motion, useReducedMotion } from 'framer-motion';
+import { LottieAnimation } from '@/components/ui/LottieAnimation';
+import emptyState from '@/assets/lottie/empty-state.json';
+
+const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
+
+const stagger = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.05 } },
+};
+
+const rise = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 },
+};
 
 export default function NotFound() {
   const { t } = useLang();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const prefersReduced = useReducedMotion();
 
   return (
     <div className="bg-mesh" style={{
@@ -36,112 +46,91 @@ export default function NotFound() {
         background: 'radial-gradient(circle, rgba(var(--brand-accent-rgb), 0.08) 0%, transparent 70%)',
         animation: 'float-orb 12s ease-in-out infinite reverse',
       }} />
-      <div style={{
-        position: 'absolute', top: '50%', right: '30%',
-        width: '60px', height: '60px', borderRadius: '50%',
-        background: 'radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%)',
-        animation: 'float-up-down 6s ease-in-out infinite',
-      }} />
 
-      {/* Animated Leaf Icon */}
-      <div style={{
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? 'translateY(0) scale(1)' : 'translateY(30px) scale(0.5)',
-        transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
-        marginBottom: '24px',
-        position: 'relative',
-      }}>
-        <div style={{
-          width: '120px', height: '120px', borderRadius: '50%',
-          background: 'linear-gradient(135deg, rgba(var(--brand-primary-rgb), 0.1), rgba(var(--brand-accent-rgb), 0.05))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          animation: 'float-up-down 4s ease-in-out infinite',
-          border: '2px solid rgba(var(--brand-primary-rgb), 0.1)',
+      <motion.div
+        initial={prefersReduced ? 'visible' : 'hidden'}
+        animate="visible"
+        variants={stagger}
+        style={{
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', textAlign: 'center',
+        }}
+      >
+        {/* Lottie empty-state animation */}
+        <motion.div variants={rise} transition={spring}>
+          <LottieAnimation
+            animationData={emptyState}
+            loop
+            style={{ width: 160, height: 160, marginBottom: 8 }}
+          />
+        </motion.div>
+
+        {/* 404 number with gradient */}
+        <motion.h1 variants={rise} transition={spring} style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 'clamp(5rem, 15vw, 10rem)',
+          fontWeight: 800,
+          lineHeight: 1,
+          background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 50%, #8B5CF6 100%)',
+          backgroundSize: '200% 200%',
+          animation: 'hero-gradient-shift 4s ease infinite',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          marginBottom: '8px',
+          letterSpacing: '-4px',
         }}>
-          <Icons.Leaf size={56} style={{ color: 'var(--brand-primary)', opacity: 0.6 }} />
-        </div>
-        {/* Animated ring */}
-        <div style={{
-          position: 'absolute', inset: '-8px', borderRadius: '50%',
-          border: '2px dashed rgba(var(--brand-primary-rgb), 0.15)',
-          animation: 'spin-slow 20s linear infinite',
-        }} />
-      </div>
+          404
+        </motion.h1>
 
-      {/* 404 number with gradient */}
-      <h1 style={{
-        fontFamily: 'var(--font-display)',
-        fontSize: 'clamp(5rem, 15vw, 10rem)',
-        fontWeight: 800,
-        lineHeight: 1,
-        background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 50%, #8B5CF6 100%)',
-        backgroundSize: '200% 200%',
-        animation: 'hero-gradient-shift 4s ease infinite',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? 'translateY(0)' : 'translateY(20px)',
-        transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s',
-        marginBottom: '8px',
-        letterSpacing: '-4px',
-      }}>
-        404
-      </h1>
-
-      {/* Subtitle */}
-      <p style={{
-        color: 'var(--text-secondary)',
-        fontSize: 'clamp(1rem, 3vw, 1.3rem)',
-        textAlign: 'center',
-        marginBottom: '8px',
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? 'translateY(0)' : 'translateY(15px)',
-        transition: 'all 0.6s ease 0.2s',
-        fontWeight: 500,
-      }}>
-        {t("Bu sahifa topilmadi", "Эта страница не найдена")}
-      </p>
-      <p style={{
-        color: 'var(--text-muted)',
-        fontSize: 'var(--text-sm)',
-        textAlign: 'center',
-        marginBottom: '36px',
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? 'translateY(0)' : 'translateY(15px)',
-        transition: 'all 0.6s ease 0.25s',
-        maxWidth: '400px',
-      }}>
-        {t("Siz qidirayotgan sahifa o'chirilgan, nomi o'zgartirilgan yoki vaqtincha mavjud emas", "Страница, которую вы ищете, удалена, переименована или временно недоступна")}
-      </p>
-
-      {/* CTA Buttons */}
-      <div style={{
-        display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center',
-        opacity: mounted ? 1 : 0,
-        transform: mounted ? 'translateY(0)' : 'translateY(15px)',
-        transition: 'all 0.6s ease 0.35s',
-      }}>
-        <a href="/" className="btn btn-primary btn-magnetic ripple" style={{
-          padding: '14px 32px', borderRadius: '14px', fontSize: '1rem',
-          display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700,
-          boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.3)',
+        {/* Subtitle */}
+        <motion.p variants={rise} transition={spring} style={{
+          color: 'var(--text-secondary)',
+          fontSize: 'clamp(1rem, 3vw, 1.3rem)',
+          marginBottom: '8px',
+          fontWeight: 500,
         }}>
-          <Icons.Home size={20} /> {t("Bosh sahifa", "Главная")}
-        </a>
-        <a href="/catalog" className="btn btn-outline btn-magnetic" style={{
-          padding: '14px 32px', borderRadius: '14px', fontSize: '1rem',
-          display: 'flex', alignItems: 'center', gap: '10px',
+          {t("Bu sahifa topilmadi", "Эта страница не найдена")}
+        </motion.p>
+        <motion.p variants={rise} transition={spring} style={{
+          color: 'var(--text-muted)',
+          fontSize: 'var(--text-sm)',
+          marginBottom: '36px',
+          maxWidth: '400px',
         }}>
-          <Icons.Folder size={20} /> {t("Katalog", "Каталог")}
-        </a>
-      </div>
+          {t("Siz qidirayotgan sahifa o'chirilgan, nomi o'zgartirilgan yoki vaqtincha mavjud emas", "Страница, которую вы ищете, удалена, переименована или временно недоступна")}
+        </motion.p>
 
-      <style>{`
-        @keyframes spin-slow {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
+        {/* CTA Buttons */}
+        <motion.div variants={rise} transition={spring} style={{
+          display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center',
+        }}>
+          <motion.a
+            href="/"
+            className="btn btn-primary btn-magnetic ripple"
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.96 }}
+            style={{
+              padding: '14px 32px', borderRadius: '14px', fontSize: '1rem',
+              display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700,
+              boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.3)',
+            }}
+          >
+            <Home size={20} /> {t("Bosh sahifa", "Главная")}
+          </motion.a>
+          <motion.a
+            href="/catalog"
+            className="btn btn-outline btn-magnetic"
+            whileHover={{ scale: 1.04, y: -2 }}
+            whileTap={{ scale: 0.96 }}
+            style={{
+              padding: '14px 32px', borderRadius: '14px', fontSize: '1rem',
+              display: 'flex', alignItems: 'center', gap: '10px',
+            }}
+          >
+            <Folder size={20} /> {t("Katalog", "Каталог")}
+          </motion.a>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

@@ -3,8 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ProductCard } from '@/components/shop/ProductCard';
-import * as Icons from '@/components/ui/Icons';
+import { ArrowRight, Star } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { motion } from 'framer-motion';
+
+const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 
 interface Product {
   id: string;
@@ -41,14 +44,14 @@ export function FeaturedProducts() {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 'var(--space-6)', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           <div>
             <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Icons.StarFilled size={24} style={{ color: 'var(--brand-accent)' }} /> {t('Haftaning xitlari', 'Хиты недели')}
+              <Star fill="currentColor" strokeWidth={1} size={24} style={{ color: 'var(--brand-accent)' }} /> {t('Haftaning xitlari', 'Хиты недели')}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginTop: '4px' }}>
               {t("Mijozlarimiz eng ko'p tanlaydigan mahsulotlar", 'То, что чаще всего выбирают наши клиенты')}
             </p>
           </div>
           <Link href="/catalog" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '20px' }}>
-            {t('featured.all')} <Icons.ArrowRight size={14} />
+            {t('featured.all')} <ArrowRight size={14} />
           </Link>
         </div>
 
@@ -66,15 +69,25 @@ export function FeaturedProducts() {
             ))}
           </div>
         ) : (
-          <div className="product-grid">
-            {products.map((product, idx) => (
-              <div key={product.id} style={{
-                animation: `page-enter 0.45s cubic-bezier(0.16, 1, 0.3, 1) ${Math.min(idx * 70, 420)}ms both`,
-              }}>
+          <motion.div
+            className="product-grid"
+            initial="hidden"
+            animate="visible"
+            variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06 } } }}
+          >
+            {products.map((product) => (
+              <motion.div
+                key={product.id}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0 },
+                }}
+                transition={spring}
+              >
                 <ProductCard product={product} />
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
     </section>

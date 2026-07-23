@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import {
+  AlertTriangle, ArrowLeft, ArrowRight, Banknote, CheckCircle, Clock, Plus,
+} from 'lucide-react';
 
 interface Debt {
   id: string;
@@ -86,10 +88,10 @@ export function AdminDebts() {
       {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
         {[
-          { label: "Bizga qarzdor", value: `${fmt(summary.theyOweUs)} so'm`, color: 'var(--success)', icon: <Icons.ArrowRight size={20} /> },
-          { label: "Biz qarzdormiz", value: `${fmt(summary.weOwe)} so'm`, color: 'var(--error)', icon: <Icons.ArrowLeft size={20} /> },
-          { label: "Balans", value: `${fmt(summary.theyOweUs - summary.weOwe)} so'm`, color: 'var(--brand-primary)', icon: <Icons.Banknote size={20} /> },
-          { label: "Muddati o'tgan", value: summary.overdue, color: '#F59E0B', icon: <Icons.AlertTriangle size={20} /> },
+          { label: "Bizga qarzdor", value: `${fmt(summary.theyOweUs)} so'm`, color: 'var(--success)', icon: <ArrowRight size={20} /> },
+          { label: "Biz qarzdormiz", value: `${fmt(summary.weOwe)} so'm`, color: 'var(--error)', icon: <ArrowLeft size={20} /> },
+          { label: "Balans", value: `${fmt(summary.theyOweUs - summary.weOwe)} so'm`, color: 'var(--brand-primary)', icon: <Banknote size={20} /> },
+          { label: "Muddati o'tgan", value: summary.overdue, color: '#F59E0B', icon: <AlertTriangle size={20} /> },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: `${stat.color}15`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -106,10 +108,10 @@ export function AdminDebts() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <button onClick={() => setActiveTab('WHO_OWES_US')} className={`btn ${activeTab === 'WHO_OWES_US' ? 'btn-primary' : 'btn-ghost'}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.ArrowRight size={14} /> Bizga qarzdorlar
+          <ArrowRight size={14} /> Bizga qarzdorlar
         </button>
         <button onClick={() => setActiveTab('WE_OWE')} className={`btn ${activeTab === 'WE_OWE' ? 'btn-primary' : 'btn-ghost'}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Icons.ArrowLeft size={14} /> Biz qarzdormiz
+          <ArrowLeft size={14} /> Biz qarzdormiz
         </button>
         <div style={{ flex: 1 }} />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
@@ -120,7 +122,7 @@ export function AdminDebts() {
           <option value="paid">To&apos;langan</option>
         </select>
         <button onClick={() => setShowAdd(true)} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Icons.Plus size={14} /> Qarz qo&apos;shish
+          <Plus size={14} /> Qarz qo&apos;shish
         </button>
       </div>
 
@@ -152,11 +154,11 @@ export function AdminDebts() {
       {/* Debts List */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+          <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
       ) : debts.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-          <Icons.CheckCircle size={48} style={{ marginBottom: 'var(--space-2)', opacity: 0.3 }} />
+          <CheckCircle size={48} style={{ marginBottom: 'var(--space-2)', opacity: 0.3 }} />
           <p>Qarz topilmadi</p>
         </div>
       ) : (
@@ -200,7 +202,7 @@ export function AdminDebts() {
                   {!debt.isPaid && (
                     <button onClick={() => { setPaymentModal(debt); setPaymentAmount(''); }} className="btn btn-primary btn-sm"
                       style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Icons.Banknote size={14} /> To&apos;lash
+                      <Banknote size={14} /> To&apos;lash
                     </button>
                   )}
                 </div>
