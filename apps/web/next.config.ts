@@ -122,7 +122,9 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(self), geolocation=()",
+            // camera=(self) — AR-сканер журнала (/magazine/ar) снимает
+            // коллекционную карточку; со сторонних origin камера по-прежнему закрыта
+            value: "camera=(self), microphone=(self), geolocation=()",
           },
           {
             key: "X-DNS-Prefetch-Control",

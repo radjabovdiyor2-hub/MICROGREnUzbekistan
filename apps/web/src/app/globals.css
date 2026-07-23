@@ -1925,57 +1925,152 @@ main {
    PREMIUM MICRO-ANIMATIONS SYSTEM v2.0
    ============================================ */
 
-/* === Scroll Reveal System === */
-.reveal {
-  opacity: 0;
-  transform: translateY(40px);
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.reveal-left {
-  opacity: 0;
-  transform: translateX(-60px);
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.reveal-left.visible {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.reveal-scale {
-  opacity: 0;
-  transform: scale(0.85);
-  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.reveal-scale.visible {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* Stagger children reveal */
+/* === Scroll Reveal — now powered by Framer Motion (ScrollReveal.tsx) ===
+   Legacy CSS classes kept as no-op fallbacks for any remaining consumers. */
+.reveal,
+.reveal-left,
+.reveal-scale,
 .stagger-children > * {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  /* Framer Motion controls opacity/transform — these are no-ops */
 }
 
-.stagger-children.visible > *:nth-child(1) { transition-delay: 0ms; opacity: 1; transform: translateY(0); }
-.stagger-children.visible > *:nth-child(2) { transition-delay: 60ms; opacity: 1; transform: translateY(0); }
-.stagger-children.visible > *:nth-child(3) { transition-delay: 120ms; opacity: 1; transform: translateY(0); }
-.stagger-children.visible > *:nth-child(4) { transition-delay: 180ms; opacity: 1; transform: translateY(0); }
-.stagger-children.visible > *:nth-child(5) { transition-delay: 240ms; opacity: 1; transform: translateY(0); }
-.stagger-children.visible > *:nth-child(6) { transition-delay: 300ms; opacity: 1; transform: translateY(0); }
-.stagger-children.visible > *:nth-child(7) { transition-delay: 360ms; opacity: 1; transform: translateY(0); }
-.stagger-children.visible > *:nth-child(8) { transition-delay: 420ms; opacity: 1; transform: translateY(0); }
+/* ============================================
+   DaisyUI-INSPIRED UTILITY CLASSES
+   Accessible, composable patterns without the dependency.
+   ============================================ */
+
+/* === Swap — toggle between two states with crossfade === */
+.swap {
+  position: relative;
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.swap > .swap-on,
+.swap > .swap-off {
+  grid-area: 1 / 1;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.swap > .swap-on {
+  opacity: 0;
+  transform: rotate(-45deg) scale(0.8);
+}
+
+.swap > .swap-off {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+
+.swap.active > .swap-on {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+
+.swap.active > .swap-off {
+  opacity: 0;
+  transform: rotate(45deg) scale(0.8);
+}
+
+/* === Badge — compact indicator === */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.badge-primary {
+  background: var(--brand-primary);
+  color: var(--text-inverse);
+}
+
+.badge-accent {
+  background: var(--brand-accent);
+  color: #1A1A2E;
+}
+
+.badge-ghost {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.badge-outline {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+/* === Progress — linear progress bar === */
+.progress {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent));
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* === Indicator — small dot/number overlaid on parent === */
+.indicator {
+  position: relative;
+  display: inline-flex;
+}
+
+.indicator-item {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(50%, -50%);
+  z-index: 1;
+}
+
+/* === Divider — horizontal/vertical with optional text === */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* === Skeleton — enhanced shimmer (complements existing .skeleton) === */
+.skeleton-text {
+  height: 1em;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-circle {
+  border-radius: var(--radius-full);
+  aspect-ratio: 1;
+}
+
+/* === Interactive states — DaisyUI-style focus rings === */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(var(--brand-primary-rgb), 0.12);
+}
 
 /* === Animated Gradient Border === */
 .gradient-border {
@@ -2185,6 +2280,16 @@ main {
 
 main, [data-page] {
   animation: page-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Камера «Живого меню» — видоискатель на весь экран.
+   page-enter имеет fill-mode: both и навсегда оставляет на main transform,
+   а любой transform делает элемент containing block для position: fixed —
+   полноэкранный оверлей камеры схлопывался в нулевую высоту. */
+.mag-camera-root {
+  animation: none;
+  transform: none;
+  height: 100dvh;
 }
 
 /* === Badge Pulse (New/Sale) === */

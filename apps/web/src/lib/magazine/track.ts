@@ -5,17 +5,19 @@
 // ════════════════════════════════════════════════════════════
 
 type EventType =
-  | 'page_view' | 'ar_scan' | 'ar_collect' | 'qr_scan'
-  | 'kids_riddle' | 'kids_tale' | 'kids_passport';
+  | 'page_view' | 'qr_scan'
+  | 'dish_view' | 'frame_open' | 'photo_submitted' | 'photo_shared'
+  | 'stamp_earned' | 'reward_issued'
+  | 'recipe_view' | 'recipe_cart';
 
 interface TrackPayload {
   type: EventType;
   slug?: string;
-  charId?: string;
+  dishId?: string;
   meta?: Record<string, unknown>;
 }
 
-function getSessionId(): string {
+export function getSessionId(): string {
   if (typeof window === 'undefined') return 'ssr';
   const KEY = 'fw_session_id';
   let id = sessionStorage.getItem(KEY);

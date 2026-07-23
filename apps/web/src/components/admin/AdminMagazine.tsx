@@ -1,17 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import * as Icons from '@/components/ui/Icons';
+import { Trash } from 'lucide-react';
 import { adminFetch } from '@/lib/adminClient';
 import { SlotEditor } from '@/components/admin/magazine/SlotEditor';
 import { PrintCenterTab } from '@/components/admin/magazine/PrintCenterTab';
 import { BriefTab } from '@/components/admin/magazine/BriefTab';
+import { MenuTab } from '@/components/admin/magazine/MenuTab';
+import { GuestPhotosTab } from '@/components/admin/magazine/GuestPhotosTab';
+import { RecipesTab } from '@/components/admin/magazine/RecipesTab';
 
-type Tab = 'brief' | 'restaurants' | 'editions' | 'assembly' | 'leads' | 'advertisers' | 'printcenter';
+type Tab = 'brief' | 'restaurants' | 'menu' | 'guests' | 'recipes' | 'editions' | 'assembly' | 'leads' | 'advertisers' | 'printcenter';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'brief', label: '🔥 Брифинг недели' },
   { id: 'restaurants', label: 'Рестораны-партнёры' },
+  { id: 'menu', label: '🍽 Меню ресторанов' },
+  { id: 'guests', label: '📸 Гости недели' },
+  { id: 'recipes', label: '🥗 Рецепты' },
   { id: 'editions', label: 'Выпуск недели' },
   { id: 'assembly', label: 'Сборка' },
   { id: 'leads', label: 'Заявки (печать)' },
@@ -39,6 +45,9 @@ export function AdminMagazine() {
 
       {tab === 'brief' && <BriefTab />}
       {tab === 'restaurants' && <RestaurantsTab />}
+      {tab === 'menu' && <MenuTab />}
+      {tab === 'guests' && <GuestPhotosTab />}
+      {tab === 'recipes' && <RecipesTab />}
       {tab === 'editions' && <EditionsTab />}
       {tab === 'assembly' && <AssemblyTab />}
       {tab === 'leads' && <LeadsTab />}
@@ -168,7 +177,7 @@ function RestaurantsTab() {
               </td>
               <td style={{ padding: 'var(--space-2)', display: 'flex', gap: '8px' }}>
                 <button onClick={() => edit(r)} style={{ background: 'transparent', border: 'none', color: 'var(--brand-primary)', cursor: 'pointer' }}>Изменить</button>
-                <button onClick={() => remove(r.id)} style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer' }}><Icons.Trash size={16} /></button>
+                <button onClick={() => remove(r.id)} style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer' }}><Trash size={16} /></button>
               </td>
             </tr>
           ))}
@@ -435,7 +444,7 @@ function AdvertisersTab() {
               <td style={{ padding: 'var(--space-2)' }}>{adv.status}</td>
               <td style={{ padding: 'var(--space-2)' }}>{adv.format || '—'}</td>
               <td style={{ padding: 'var(--space-2)' }}>{adv.amount ? adv.amount.toLocaleString() + ' UZS' : '—'}</td>
-              <td style={{ padding: 'var(--space-2)' }}><button onClick={() => remove(adv.id)} style={{ background: 'transparent', color: 'var(--error)', border: 'none', cursor: 'pointer' }}><Icons.Trash size={16} /></button></td>
+              <td style={{ padding: 'var(--space-2)' }}><button onClick={() => remove(adv.id)} style={{ background: 'transparent', color: 'var(--error)', border: 'none', cursor: 'pointer' }}><Trash size={16} /></button></td>
             </tr>
           ))}
           {advertisers.length === 0 && <tr><td colSpan={6} style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-muted)' }}>Нет рекламодателей</td></tr>}

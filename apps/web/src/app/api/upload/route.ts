@@ -1,49 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir, readlink, stat } from 'fs/promises';
+import { writeFile } from 'fs/promises';
 import path from 'path';
+import { getUploadsDir } from '@/lib/uploads';
 
 // ==========================================
 // Upload API — Image upload for products
 // Supports large phone photos up to 50MB
 // Validates by file extension (not MIME — mobile browsers unreliable)
 //
-// STANDALONE FIX:
-// PM2 cwd = /home/ubuntu/MICROGREnUzbekistan
-// Standalone serves from: apps/web/.next/standalone/apps/web/public/
-// Upload writes to the PERSISTENT dir (/home/ubuntu/microgreen-uploads)
-// which is symlinked into standalone/public/uploads/
+// Директория загрузки — общий помощник lib/uploads.ts
 // ==========================================
 
 export const runtime = 'nodejs';
-
-// Find the correct uploads directory for the current environment
-async function getUploadsDir(): Promise<string> {
-  // 1. Try persistent uploads directory (production). In Docker this is the
-  //    mounted volume (UPLOADS_DIR=/data/uploads); on bare metal the host dir.
-  const persistentDir = process.env.UPLOADS_DIR || '/home/ubuntu/microgreen-uploads';
-  try {
-    const s = await stat(persistentDir);
-    if (s.isDirectory()) {
-      return persistentDir;
-    }
-  } catch {
-    // Not on production server
-  }
-
-  // 2. Try standalone public/uploads (standalone mode)
-  const standaloneDir = path.resolve(process.cwd(), 'apps/web/.next/standalone/apps/web/public/uploads');
-  try {
-    await mkdir(standaloneDir, { recursive: true });
-    return standaloneDir;
-  } catch {
-    // Not available
-  }
-
-  // 3. Fallback: local development — use public/uploads relative to this file's context
-  const localDir = path.join(process.cwd(), 'public', 'uploads');
-  await mkdir(localDir, { recursive: true });
-  return localDir;
-}
 
 export async function POST(request: NextRequest) {
   try {

@@ -1,15 +1,17 @@
 // ════════════════════════════════════════════════════════════
 // POST /api/magazine/analytics — лёгкий трекинг событий журнала.
 // Анонимный: sessionId — рандомный fingerprint из клиента.
-// Типы: page_view, ar_scan, ar_collect, qr_scan,
-//       kids_riddle, kids_tale, kids_passport
+// Типы: page_view, qr_scan, dish_view, frame_open, photo_submitted, photo_shared,
+//       stamp_earned, reward_issued, recipe_view, recipe_cart
 // ════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 
 const VALID_TYPES = [
-  'page_view', 'ar_scan', 'ar_collect', 'qr_scan',
-  'kids_riddle', 'kids_tale', 'kids_passport',
+  'page_view', 'qr_scan',
+  'dish_view', 'frame_open', 'photo_submitted', 'photo_shared',
+  'stamp_earned', 'reward_issued',
+  'recipe_view', 'recipe_cart',
 ] as const;
 
 export async function POST(req: NextRequest) {
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
     data: {
       type: body.type,
       slug: body.slug || null,
-      charId: body.charId || null,
+      dishId: body.dishId || null,
       sessionId: body.sessionId,
       meta: body.meta || null,
     },
