@@ -222,10 +222,12 @@ async function main() {
   }
   console.log(`✅ ${setProducts.length} sets`);
 
-  // ===== SERVICES (Услуги и Сервисы) =====
+  // ===== SERVICES & FRANCHISE (Услуги, Франшиза и Обучение) =====
   const serviceProducts = [
     { uz: "Restoranlar uchun buyurtma asosida o'stirish", ru: "Выращивание микрозелени под заказ (HoReCa)", slug: 'custom-growing-service', price: 500000, cost: 200000, desc: "Restoran menyuingiz uchun maxsus turdagi mikroko'kat va sifat nazorati bilan haftalik yetkazib berish." },
     { uz: "Aqlli ferma ijarasi va o'rnatish", ru: "Аренда и установка авто-ферм для офиса и ресторана", slug: 'smart-farm-rental-service', price: 1200000, cost: 500000, desc: "Restoran yoki ofisingizda yangi mikroko mevalar o'stirish uchun avtomatlashtirilgan ferma ijarasi va servis." },
+    { uz: "Microgreen UZ Franshizasi (Tayyor biznes)", ru: "Франшиза сити-фермы Microgreen UZ (Готовый бизнес)", slug: 'franchise-business-service', price: 15000000, cost: 8000000, desc: "Shaxsiy сити-ферма biznesingizni oching. To'liq uskunalar, texnologiya, brend va mijozlar oqimi bilan ta'minlaymiz." },
+    { uz: "Shahar fermerchilik bo'yicha onlayn ta'lim kursi", ru: "Онлайн-курс по сити-фермерству и бизнес-модели", slug: 'education-course-service', price: 600000, cost: 100000, desc: "Noldan boshlab mikroko'kat yetishtirish va sotish bo me'yoriy ta'lim kursi. Sertifikat bilan." },
     { uz: "Nutritsiolog maslahati va ratsion tanlash", ru: "Консультация нутрициолога и подбор рациона", slug: 'nutritionist-consult-service', price: 150000, cost: 50000, desc: "Professional nutritsiolog bilan shaxsiy konsultatsiya, vitamin va mikroko'katlar ratsionini shakllantirish." },
     { uz: "Mikroko'kat o'stirish bo'yicha mahorat darsi", ru: "Мастер-класс по выращиванию микрозелени дома", slug: 'masterclass-growing-service', price: 200000, cost: 60000, desc: "Kattalar va bolalar uchun uy sharoitida mikroko'kat o'stirish bo'yicha amaliy mahorat darsi." },
   ];
