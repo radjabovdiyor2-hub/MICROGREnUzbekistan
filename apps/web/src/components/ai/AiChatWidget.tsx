@@ -8,6 +8,9 @@ import { useCart } from '@/components/providers/CartProvider';
 import { QuickCalcPanel } from './QuickCalc';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { triggerHaptic } from '@/utils/haptic';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const spring = { type: 'spring' as const, damping: 25, stiffness: 300 };
 
 interface Message {
   id: string;
@@ -224,20 +227,34 @@ export function AiChatWidget() {
   // FAB
   if (!isOpen) {
     return (
-      <button className="ai-chat-fab" onClick={() => { setIsOpen(true); triggerHaptic('light'); }} aria-label="Open AI chat" id="ai-chat-fab"
-        style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + var(--space-4))', right: 'var(--space-4)' }}>
+      <motion.button
+        className="ai-chat-fab"
+        onClick={() => { setIsOpen(true); triggerHaptic('light'); }}
+        aria-label="Open AI chat"
+        id="ai-chat-fab"
+        whileHover={{ scale: 1.1, boxShadow: '0 8px 24px rgba(99,102,241,0.5)' }}
+        whileTap={{ scale: 0.9 }}
+        transition={spring}
+        style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + var(--space-4))', right: 'var(--space-4)' }}
+      >
         <Sparkles size={24} />
-      </button>
+      </motion.button>
     );
   }
 
 
 
   return (
-    <div className="ai-chat-panel" id="ai-chat-panel" style={{
-      display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      animation: 'slideUp 0.35s cubic-bezier(0.22, 1, 0.36, 1)',
-    }}>
+    <AnimatePresence>
+      <motion.div
+        className="ai-chat-panel"
+        id="ai-chat-panel"
+        initial={{ opacity: 0, y: 40, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 40, scale: 0.95 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 260 }}
+        style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
       {/* Header */}
       <div style={{
         padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -281,8 +298,15 @@ export function AiChatWidget() {
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {messages.map((msg) => (
-          <div key={msg.id} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end' }}>
+        <AnimatePresence initial={false}>
+          {messages.map((msg) => (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+              style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end' }}
+            >
             {/* Avatar */}
             {msg.role === 'assistant' && (
               <div style={{
@@ -321,8 +345,9 @@ export function AiChatWidget() {
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         ))}
+        </AnimatePresence>
 
         {/* Streaming text */}
         {streamText && (
@@ -460,6 +485,7 @@ export function AiChatWidget() {
           <Send size={16} />
         </button>
       </div>
-    </div>
+    </motion.div>
+    </AnimatePresence>
   );
 }

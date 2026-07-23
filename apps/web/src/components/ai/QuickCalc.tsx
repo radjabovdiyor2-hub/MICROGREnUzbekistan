@@ -5,6 +5,9 @@ import {
   CheckCircle, DollarSign, Droplet, Heart, Leaf, Share2, Sparkles, Sun, Zap,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { motion, AnimatePresence } from 'framer-motion';
+
+const spring = { type: 'spring' as const, damping: 24, stiffness: 280 };
 
 interface CalcResult {
   title: string;
@@ -239,10 +242,18 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
   };
 
   return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1.5px solid var(--border)',
-      borderRadius: 16, padding: 16, animation: 'reveal-up 0.3s ease',
-    }}>
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={result.title}
+        initial={{ opacity: 0, y: 16, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -10, scale: 0.98 }}
+        transition={spring}
+        style={{
+          background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+          borderRadius: 16, padding: 16,
+        }}
+      >
       <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         <CheckCircle size={16} style={{ color: 'var(--success)' }} /> {result.title}
       </div>
@@ -273,7 +284,8 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
           <Share2 size={12} /> Ulashish
         </button>
       </div>
-    </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
