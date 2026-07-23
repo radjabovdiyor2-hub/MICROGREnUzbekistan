@@ -140,8 +140,10 @@ export const metadata: Metadata = {
     title: 'Microgreen',
   },
   verification: {
-    // Add Google Search Console verification when available
-    // google: 'your-verification-code',
+    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || undefined,
+    other: process.env.NEXT_PUBLIC_YANDEX_VERIFICATION
+      ? { 'yandex-verification': process.env.NEXT_PUBLIC_YANDEX_VERIFICATION }
+      : undefined,
   },
   category: 'food',
   other: {
@@ -238,13 +240,13 @@ function JsonLd() {
           '@type': 'OfferCatalog',
           name: "Microgreen Uzbekistan — mahsulotlar katalogi",
           itemListElement: [
-            { '@type': 'OfferCatalog', name: "Микрозелень (Microgreens)", url: `${DOMAIN}/catalog?category=microgreens` },
-            { '@type': 'OfferCatalog', name: "Бейби лист (Baby Leaf)", url: `${DOMAIN}/catalog?category=baby-leaf` },
-            { '@type': 'OfferCatalog', name: "Салаты (Salads)", url: `${DOMAIN}/catalog?category=salads` },
-            { '@type': 'OfferCatalog', name: "Цветы (Flowers)", url: `${DOMAIN}/catalog?category=flowers` },
-            { '@type': 'OfferCatalog', name: "Семена (Seeds)", url: `${DOMAIN}/catalog?category=seeds` },
-            { '@type': 'OfferCatalog', name: "Оборудование — Гидропоника, Аэропоника", url: `${DOMAIN}/catalog?category=equipment` },
-            { '@type': 'OfferCatalog', name: "Наборы (Sets)", url: `${DOMAIN}/catalog?category=sets` },
+            { '@type': 'OfferCatalog', name: "Микрозелень (Microgreens)", url: `${DOMAIN}/catalog/microgreens` },
+            { '@type': 'OfferCatalog', name: "Бейби лист (Baby Leaf)", url: `${DOMAIN}/catalog/baby-leaf` },
+            { '@type': 'OfferCatalog', name: "Салаты (Salads)", url: `${DOMAIN}/catalog/salads` },
+            { '@type': 'OfferCatalog', name: "Цветы (Flowers)", url: `${DOMAIN}/catalog/flowers` },
+            { '@type': 'OfferCatalog', name: "Семена (Seeds)", url: `${DOMAIN}/catalog/seeds` },
+            { '@type': 'OfferCatalog', name: "Оборудование — Гидропоника, Аэропоника", url: `${DOMAIN}/catalog/equipment` },
+            { '@type': 'OfferCatalog', name: "Наборы (Sets)", url: `${DOMAIN}/catalog/sets` },
           ],
         },
         keywords: 'микрозелень, microgreens, салаты, ЗОЖ, ПП, похудение, ресторан, кафе, снабжение, гидропоника, аэропоника, нутрициолог',

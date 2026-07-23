@@ -5,6 +5,7 @@ import { formatPrice } from '@/lib/magazine/menu';
 import { RecipeTracker } from '@/components/recipe/RecipeTracker';
 import { CollectSetButton } from '@/components/recipe/CollectSetButton';
 import { StepTimer } from '@/components/recipe/StepTimer';
+import { recipeSchema, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 // Страница рецепта — куда ведёт QR из журнала. Текст рецепта наполняется
 // в админке; ключевая механика — «собрать набор микрозелени» в корзину.
@@ -15,13 +16,51 @@ const ACCENT = '#10B981';
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const r = await loadRecipeBySlug(slug);
-  return { title: r ? r.titleRu : 'Рецепт' };
+  if (!r) return { title: 'Рецепт' };
+  const url = `${SITE_DOMAIN}/recipe/${slug}`;
+  const description = r.descriptionRu
+    || `${r.titleRu} — рецепт с микрозеленью${r.cookMinutes ? ` за ${r.cookMinutes} минут` : ''}. ЗОЖ, ПП, здоровое питание от Microgreen Uzbekistan.`;
+  const image = r.heroImage ? (r.heroImage.startsWith('http') ? r.heroImage : `${SITE_DOMAIN}${r.heroImage}`) : `${SITE_DOMAIN}/hero-microgreens.png`;
+  return {
+    title: r.titleRu,
+    description,
+    keywords: [r.titleRu, r.titleUz || '', 'рецепт с микрозеленью', 'ЗОЖ рецепт', 'ПП рецепт', 'здоровое питание', "mikroko'kat retsept"].filter(Boolean),
+    alternates: { canonical: url },
+    openGraph: {
+      title: r.titleRu,
+      description,
+      url,
+      type: 'article',
+      siteName: 'Microgreen Uzbekistan',
+      locale: 'ru_RU',
+      images: [{ url: image, width: 1200, height: 900, alt: r.titleRu }],
+    },
+    twitter: { card: 'summary_large_image', title: r.titleRu, description, images: [image] },
+  };
 }
 
 export default async function RecipePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const recipe = await loadRecipeBySlug(slug);
   if (!recipe) notFound();
+
+  const ld = [
+    recipeSchema({
+      slug,
+      name: recipe.titleRu,
+      description: recipe.descriptionRu || `${recipe.titleRu} — рецепт с микрозеленью`,
+      image: recipe.heroImage,
+      cookMinutes: recipe.cookMinutes,
+      servings: recipe.servings,
+      ingredients: recipe.ingredients.map((i) => ({ nameRu: i.nameRu, amount: i.amount })),
+      steps: recipe.steps.map((s) => ({ textRu: s.textRu, image: s.image })),
+    }),
+    breadcrumbList([
+      { name: 'Главная', url: '/' },
+      { name: 'Рецепты', url: '/magazine' },
+      { name: recipe.titleRu, url: `/recipe/${slug}` },
+    ]),
+  ];
 
   const cartProducts = recipeCartProducts(recipe);
   const meta = [
@@ -31,6 +70,9 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0B0B14)', padding: '90px 16px 60px' }}>
+      {ld.map((data, i) => (
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+      ))}
       <RecipeTracker slug={slug} />
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
 

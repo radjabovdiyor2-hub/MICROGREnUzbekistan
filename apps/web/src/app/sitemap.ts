@@ -59,17 +59,32 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // БД недоступна на этапе сборки — карта сайта без выпусков
   }
 
-  // Category pages — high priority for SEO
+  // Category landing pages — реальные индексируемые URL /catalog/<slug>,
+  // а не query-параметры (Google их схлопывает в дубль /catalog).
   const categories = [
     'microgreens', 'baby-leaf', 'salads', 'flowers',
-    'seeds', 'equipment', 'sets',
+    'seeds', 'equipment', 'sets', 'services',
   ];
-  const categoryPages: MetadataRoute.Sitemap = categories.map(slug => ({
-    url: `${BASE}/catalog?category=${slug}`,
-    lastModified: new Date(),
-    changeFrequency: 'daily' as const,
-    priority: 0.85,
-  }));
+  const categoryPages: MetadataRoute.Sitemap = categories.flatMap(slug => [
+    {
+      url: `${BASE}/catalog/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const,
+      priority: 0.9,
+    },
+    {
+      url: `${BASE}/uz/catalog/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const,
+      priority: 0.85,
+    },
+    {
+      url: `${BASE}/ru/catalog/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const,
+      priority: 0.85,
+    },
+  ]);
 
   // Dynamic product pages — fetched from database
   let productPages: MetadataRoute.Sitemap = [];
@@ -90,5 +105,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Database not available — skip dynamic pages
   }
 
-  return [...staticPages, ...magazinePages, ...categoryPages, ...productPages];
+  // Recipe pages — карточки рецептов (schema.org/Recipe) для rich-результатов
+  let recipePages: MetadataRoute.Sitemap = [];
+  try {
+    const recipes = await prisma.recipe.findMany({
+      where: { isActive: true },
+      select: { slug: true, updatedAt: true },
+    });
+    recipePages = recipes.map((r) => ({
+      url: `${BASE}/recipe/${r.slug}`,
+      lastModified: r.updatedAt,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    }));
+  } catch {
+    // Database not available — skip
+  }
+
+  // Restaurant menu storefronts — публичные витрины /m/<slug>
+  let menuPages: MetadataRoute.Sitemap = [];
+  try {
+    const restaurants = await prisma.restaurant.findMany({
+      where: { slug: { not: null }, isPartner: true },
+      select: { slug: true, updatedAt: true },
+    });
+    menuPages = restaurants
+      .filter((r): r is { slug: string; updatedAt: Date } => Boolean(r.slug))
+      .map((r) => ({
+        url: `${BASE}/m/${r.slug}`,
+        lastModified: r.updatedAt,
+        changeFrequency: 'weekly' as const,
+        priority: 0.7,
+      }));
+  } catch {
+    // Database not available — skip
+  }
+
+  return [
+    ...staticPages, ...magazinePages, ...categoryPages,
+    ...productPages, ...recipePages, ...menuPages,
+  ];
 }

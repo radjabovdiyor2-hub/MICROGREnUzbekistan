@@ -53,11 +53,13 @@ interface Pagination {
   totalPages: number;
 }
 
-function CatalogContent() {
+function CatalogContent({ initialCategory = '' }: { initialCategory?: string }) {
   const { t } = useLang();
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
-  const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || '');
+  // initialCategory приходит с категорийного лендинга /catalog/<slug>, где
+  // категория закодирована в пути, а не в query.
+  const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || initialCategory);
   const [sort, setSort] = useState('featured');
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,7 @@ function CatalogContent() {
       return;
     }
     const urlSearch = searchParams.get('search') || '';
-    const urlCat = searchParams.get('category') || '';
+    const urlCat = searchParams.get('category') || initialCategory;
     if (urlSearch !== search) setSearch(urlSearch);
     if (urlCat !== activeCategory) setActiveCategory(urlCat);
   }, [searchParams]); // eslint-disable-line
@@ -304,6 +306,25 @@ function CatalogContent() {
       )}
       </div>
     </div>
+  );
+}
+
+// Переиспользуется категорийным лендингом /catalog/<slug>: тот же клиент,
+// но с предустановленной категорией из пути.
+export function CatalogView({ initialCategory = '' }: { initialCategory?: string }) {
+  return (
+    <Suspense fallback={
+      <div className="container" style={{ paddingTop: 'var(--space-6)' }}>
+        <div className="skeleton skeleton-title" style={{ width: '200px', marginBottom: 'var(--space-6)' }} />
+        <div className="product-grid">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="product-card"><div className="skeleton skeleton-image" /></div>
+          ))}
+        </div>
+      </div>
+    }>
+      <CatalogContent initialCategory={initialCategory} />
+    </Suspense>
   );
 }
 

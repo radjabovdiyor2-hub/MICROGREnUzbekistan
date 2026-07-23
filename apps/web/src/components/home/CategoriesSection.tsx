@@ -39,7 +39,7 @@ export function CategoriesSection() {
               transition={spring}
             >
               <Link
-                href={`/catalog?category=${cat.slug}`}
+                href={`/catalog/${cat.slug}`}
                 className="category-pill"
                 id={`cat-${cat.slug}`}
                 onClick={() => {

@@ -78,7 +78,7 @@ export function LoyaltyCard({ slug, accent }: { slug: string; accent: string }) 
             letterSpacing: 1, color: accent, userSelect: 'all',
           }}>{card.rewardCode}</div>
           <a
-            href="/catalog?category=microgreens"
+            href="/catalog/microgreens"
             style={{
               display: 'inline-block', marginTop: 10, padding: '10px 18px', borderRadius: 12,
               background: accent, color: '#fff', fontFamily: "'Inter', sans-serif",

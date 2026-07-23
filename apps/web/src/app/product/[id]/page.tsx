@@ -65,6 +65,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
   // Fetch product server-side for JSON-LD (SEO structured data)
   let jsonLd = null;
+  let breadcrumb = null;
   try {
     const product = await prisma.product.findUnique({
       where: { id },
@@ -126,6 +127,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           })),
         } : {}),
       };
+
+      // Хлебные крошки: Главная → Каталог → Категория → Товар
+      const catSlug = product.category?.slug;
+      breadcrumb = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Главная', item: DOMAIN },
+          { '@type': 'ListItem', position: 2, name: 'Каталог', item: `${DOMAIN}/catalog` },
+          ...(catSlug ? [{ '@type': 'ListItem', position: 3, name: product.category!.nameRu, item: `${DOMAIN}/catalog/${catSlug}` }] : []),
+          { '@type': 'ListItem', position: catSlug ? 4 : 3, name: product.nameRu, item: `${DOMAIN}/product/${id}` },
+        ],
+      };
     }
   } catch {
     // Product will be fetched client-side anyway
@@ -137,6 +151,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      {breadcrumb && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
         />
       )}
       <ProductPageClient id={id} />
