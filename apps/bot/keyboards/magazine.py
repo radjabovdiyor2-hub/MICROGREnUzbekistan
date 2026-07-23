@@ -16,8 +16,8 @@ def magazine_keyboard(issue_number: int) -> InlineKeyboardMarkup:
                     callback_data=f"mag_pdf_{issue_number}"
                 ),
                 InlineKeyboardButton(
-                    text="📸 AR-магия",
-                    url="https://microgreenuzbekistan.com/magazine/ar"
+                    text="📖 Читать онлайн",
+                    url="https://microgreenuzbekistan.com/magazine"
                 )
             ],
             [
