@@ -17,10 +17,10 @@ const DOMAIN = 'https://microgreenuzbekistan.com';
 export const metadata: Metadata = {
   metadataBase: new URL(DOMAIN),
   title: {
-    default: "Microgreen Uzbekistan — Mikroko'katlar, salatlar, zelen, gullar | Restoran ta'minoti | ZOJ, PP, sog'lom ovqatlanish | Samarqand",
+    default: "Микрозелень в Узбекистане — Купить свежую микрозелень, семена и наборы | Microgreen Uzbekistan (Самарканд)",
     template: "%s | Microgreen Uzbekistan",
   },
-  description: "Mikroko'katlar, salatlar, gullar, urug'lar, gidroponika, aeroponika uskunalari — Samarqandda yetkazib berish. Restoranlar, kafelar, mehmonxonalar uchun B2B zelen ta'minoti. Sog'lom hayot (ZOJ), PP, organik superfud, nутрициология, ozish uchun sog'lom ovqat. Rukkola, bazilik, shpinat, brokkoli, redis, no'xat, qulupnay. O'zbekistonda #1 mikroko'kat do'koni.",
+  description: "Купить свежую микрозелень, семена, лотки, фитолампы и наборы для выращивания с доставкой по Самарканду и Узбекистану. Поставки для ресторанов (HoReCa) и здорового питания (ЗОЖ, ПП). 100% Эко качество.",
   keywords: [
     // ═══════════ UZBEK — Primary keywords ═══════════
     "mikroko'katlar", "mikrozelen", "salatlar", "gullar", "urug'lar",
