@@ -59,11 +59,12 @@ model Product {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  orderItems     OrderItem[]
-  cartItems      CartItem[]
-  favorites      Favorite[]
-  reviews        Review[]
-  stockMovements StockMovement[]
+  orderItems        OrderItem[]
+  cartItems         CartItem[]
+  favorites         Favorite[]
+  reviews           Review[]
+  stockMovements    StockMovement[]
+  recipeIngredients RecipeIngredient[]
 
   @@index([categoryId])
   @@index([slug])
@@ -370,31 +371,11 @@ enum DebtType {
 // MAGAZINE SYSTEM (FRESH WEEKLY)
 // ==========================================
 
-model MagazineIssue {
-  id          String    @id @default(cuid())
-  issueNumber Int       @unique @map("issue_number")
-  title       String
-  coverImage  String?   @map("cover_image")
-  pdfUrl      String?   @map("pdf_url")
-  htmlPath    String?   @map("html_path") // Relative path to HTML file
-  isPublished Boolean   @default(false) @map("is_published")
-  publishedAt DateTime? @map("published_at")
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  subscribers MagazineSubscriber[]
-
-  @@map("magazine_issues")
-}
-
 model MagazineSubscriber {
   id      String  @id @default(cuid())
   userId  String? @map("user_id")
   phone   String?
   type    String  @default("digital") // digital | print
-  issueId String? @map("issue_id")
-  issue   MagazineIssue? @relation(fields: [issueId], references: [id])
   address String? // Для печатной версии (print-on-demand)
   isPaid  Boolean @default(false) @map("is_paid")
 
@@ -411,9 +392,9 @@ model MagazineSubscriber {
 model Restaurant {
   id          String   @id @default(cuid())
   name        String
-  city        String   // "tashkent" | "samarkand"
+  city        String // "tashkent" | "samarkand"
   cuisine     String[] // ["european", "japanese", "uzbek"]
-  tier        String   // "premium" | "traditional" | "cafe" | "tourist"
+  tier        String // "premium" | "traditional" | "cafe" | "tourist"
   dishes      String[] // Ключевые блюда
   microgreens String[] // Рекомендуемая микрозелень
   flowers     String[] // Рекомендуемые съедобные цветы
@@ -424,24 +405,52 @@ model Restaurant {
 
   // ── FRESH WEEKLY: HoReCa Edition (индивидуализация журнала) ──
   slug              String?  @unique
-  logo              String?  // /uploads/... логотип ресторана
-  instagram         String?  // @handle (ввод вручную, без парсинга)
+  logo              String? // /uploads/... логотип ресторана
+  instagram         String? // @handle (ввод вручную, без парсинга)
   brandPrimary      String?  @map("brand_primary") // фирменный цвет #hex → --accent
-  brandAccent       String?  @map("brand_accent")  // акцентный цвет #hex → --gold
-  promoCode         String?  @map("promo_code")     // код для семейного QR-блока
+  brandAccent       String?  @map("brand_accent") // акцентный цвет #hex → --gold
+  promoCode         String?  @map("promo_code") // код для семейного QR-блока
   promoDiscount     Int?     @map("promo_discount") // % скидки
-  menuItems         String[] @map("menu_items")     // блюда меню для контекста ИИ
+  menuItems         String[] @map("menu_items") // блюда меню для контекста ИИ
   isMagazinePartner Boolean  @default(false) @map("is_magazine_partner")
+
+  // Карта лояльности: N штампов (за кадры) → промокод в магазин микрозелени
+  loyaltyGoal          Int? @default(5) @map("loyalty_goal")
+  loyaltyRewardPercent Int? @default(15) @map("loyalty_reward_percent")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  magazineIssues RestaurantIssue[]
+  magazineIssues     RestaurantIssue[]
   printSubscriptions PrintSubscription[]
+  menuDishes         Dish[]
+  guestPhotos        GuestPhoto[]
+  loyaltyCards       LoyaltyCard[]
 
   @@index([city])
   @@index([isPartner])
   @@map("restaurants")
+}
+
+// Карта лояльности гостя (без регистрации: ключ — sessionId).
+// Штамп даётся за снятый кадр блюда, максимум один в день.
+model LoyaltyCard {
+  id            String     @id @default(cuid())
+  restaurantId  String     @map("restaurant_id")
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  sessionId     String     @map("session_id")
+  stamps        Int        @default(0)
+  // YYYY-MM-DD последнего штампа — гейт «один штамп в день»
+  lastStampedOn String?    @map("last_stamped_on")
+  // Промокод-награда, выданный при достижении цели (в магазин микрозелени)
+  rewardCode    String?    @map("reward_code")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([restaurantId, sessionId])
+  @@index([restaurantId])
+  @@map("loyalty_cards")
 }
 
 // ==========================================
@@ -494,15 +503,15 @@ model RestaurantIssue {
 // ==========================================
 
 model Advertiser {
-  id            String   @id @default(cuid())
-  companyName   String   @map("company_name")
-  contactPerson String?  @map("contact_person")
+  id            String  @id @default(cuid())
+  companyName   String  @map("company_name")
+  contactPerson String? @map("contact_person")
   phone         String?
   email         String?
-  status        String   @default("lead") // lead | active | past
-  format        String?  // cover_ar | spread | page
-  notes         String?  @db.Text
-  amount        Int?     // сумма контракта в сумах или USD
+  status        String  @default("lead") // lead | active | past
+  format        String? // cover_ar | spread | page
+  notes         String? @db.Text
+  amount        Int? // сумма контракта в сумах или USD
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -515,14 +524,14 @@ model Advertiser {
 // ==========================================
 
 model FranchiseJournal {
-  id          String   @id @default(cuid())
-  city        String   // 'samarkand', 'bukhara', 'fergana'
-  department  String   // 'sales', 'finance', 'pm', 'analytics'
-  action      String   // Краткое описание действия
-  content     String   @db.Text // Развернутый текст от ИИ-бота
-  metrics     Json?    // Структурированные данные (выручка, расходы и т.д.)
-  
-  createdAt   DateTime @default(now()) @map("created_at")
+  id         String @id @default(cuid())
+  city       String // 'samarkand', 'bukhara', 'fergana'
+  department String // 'sales', 'finance', 'pm', 'analytics'
+  action     String // Краткое описание действия
+  content    String @db.Text // Развернутый текст от ИИ-бота
+  metrics    Json? // Структурированные данные (выручка, расходы и т.д.)
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([city, createdAt])
   @@map("franchise_journals")
@@ -533,18 +542,18 @@ model FranchiseJournal {
 // ==========================================
 
 model PrintSubscription {
-  id             String   @id @default(cuid())
-  restaurantId   String   @map("restaurant_id")
-  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  plan           String   @default("weekly") // weekly | biweekly | monthly
-  copiesPerIssue Int      @map("copies_per_issue")
-  pricePerCopy   Int      @map("price_per_copy") // цена ресторану за копию, UZS
-  unitCost       Int      @default(0) @map("unit_cost") // себестоимость печати копии, UZS
-  status         String   @default("active") // active | paused | cancelled
-  startedAt      DateTime @default(now()) @map("started_at")
-  nextBillingAt  DateTime? @map("next_billing_at")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id             String       @id @default(cuid())
+  restaurantId   String       @map("restaurant_id")
+  restaurant     Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan           String       @default("weekly") // weekly | biweekly | monthly
+  copiesPerIssue Int          @map("copies_per_issue")
+  pricePerCopy   Int          @map("price_per_copy") // цена ресторану за копию, UZS
+  unitCost       Int          @default(0) @map("unit_cost") // себестоимость печати копии, UZS
+  status         String       @default("active") // active | paused | cancelled
+  startedAt      DateTime     @default(now()) @map("started_at")
+  nextBillingAt  DateTime?    @map("next_billing_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
   orders         PrintOrder[]
 
   @@index([restaurantId])
@@ -552,22 +561,22 @@ model PrintSubscription {
 }
 
 model PrintOrder {
-  id                String   @id @default(cuid())
-  restaurantIssueId String   @map("restaurant_issue_id")
-  restaurantIssue   RestaurantIssue @relation(fields: [restaurantIssueId], references: [id], onDelete: Cascade)
-  subscriptionId    String?  @map("subscription_id")
+  id                String             @id @default(cuid())
+  restaurantIssueId String             @map("restaurant_issue_id")
+  restaurantIssue   RestaurantIssue    @relation(fields: [restaurantIssueId], references: [id], onDelete: Cascade)
+  subscriptionId    String?            @map("subscription_id")
   subscription      PrintSubscription? @relation(fields: [subscriptionId], references: [id])
   copies            Int
-  unitCost          Int      @map("unit_cost")
-  unitPrice         Int      @map("unit_price")
-  revenue           Int      // unitPrice * copies
-  cost              Int      // unitCost * copies
-  margin            Int      // revenue - cost
-  status            String   @default("pending") // pending | paid | printing | shipped | delivered
-  paymentProvider   String?  @map("payment_provider") // click | payme | cash
-  paidAt            DateTime? @map("paid_at")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  unitCost          Int                @map("unit_cost")
+  unitPrice         Int                @map("unit_price")
+  revenue           Int // unitPrice * copies
+  cost              Int // unitCost * copies
+  margin            Int // revenue - cost
+  status            String             @default("pending") // pending | paid | printing | shipped | delivered
+  paymentProvider   String?            @map("payment_provider") // click | payme | cash
+  paidAt            DateTime?          @map("paid_at")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
 
   @@index([restaurantIssueId])
   @@map("print_orders")
@@ -576,11 +585,11 @@ model PrintOrder {
 // ── Аналитика журнала ──
 model MagazineEvent {
   id        String   @id @default(cuid())
-  type      String   // page_view | ar_scan | ar_collect | qr_scan | kids_riddle | kids_tale | kids_passport
-  slug      String?  // webSlug выпуска (если применимо)
-  charId    String?  @map("char_id")    // id персонажа (для AR)
+  type      String // page_view | qr_scan | dish_view | frame_open | photo_submitted | photo_shared
+  slug      String? // webSlug выпуска (если применимо)
+  dishId    String?  @map("dish_id") // id блюда (для событий меню)
   sessionId String   @map("session_id") // fingerprint сессии (анонимный)
-  meta      Json?    // доп. данные (язык, userAgent, и т.д.)
+  meta      Json? // доп. данные (язык, userAgent, и т.д.)
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([type, createdAt])
@@ -588,3 +597,114 @@ model MagazineEvent {
   @@map("magazine_events")
 }
 
+// ── Живое меню: блюда ресторана ──
+// Заполняется импортом CSV-шаблона, который рестораны присылают заполненным.
+// Живёт отдельно от выпуска: меню переиспользуется между номерами.
+model Dish {
+  id            String     @id @default(cuid())
+  restaurantId  String     @map("restaurant_id")
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  // Короткий номер внутри ресторана: попадает в печатный QR (/m/<slug>/d/<code>),
+  // поэтому URL остаётся коротким и код читается даже с маленькой картинки.
+  code          Int
+  nameRu        String     @map("name_ru")
+  nameUz        String?    @map("name_uz")
+  descriptionRu String?    @map("description_ru") @db.Text
+  descriptionUz String?    @map("description_uz") @db.Text
+  price         Int?
+  category      String? // starter | main | dessert | drink
+  pairsWith     String?    @map("pairs_with") // блюдо-апселл
+  photo         String?
+  sortOrder     Int        @default(0) @map("sort_order")
+  isActive      Boolean    @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  guestPhotos GuestPhoto[]
+
+  @@unique([restaurantId, code])
+  @@index([restaurantId, isActive])
+  @@map("dishes")
+}
+
+// ── Кадр гостя ──
+// Награда за кадр — печать в следующем номере, поэтому статусы ведут
+// от модерации до попадания в выпуск.
+model GuestPhoto {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  dishId       String?    @map("dish_id")
+  dish         Dish?      @relation(fields: [dishId], references: [id], onDelete: SetNull)
+  guestName    String?    @map("guest_name")
+  guestHandle  String?    @map("guest_handle")
+  imageUrl     String     @map("image_url")
+  // Публикуем фото гостя в печати — без явного согласия кадр не модерируется
+  consent      Boolean    @default(false)
+  status       String     @default("pending") // pending | approved | printed | rejected
+  sessionId    String     @map("session_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([restaurantId, status])
+  @@map("guest_photos")
+}
+
+// ── Рецепт-CMS ──
+// Веб-страницы рецептов достижимы по QR из журнала. Ключевая механика —
+// «собрать набор микрозелени» одним тапом в корзину магазина.
+model Recipe {
+  id            String  @id @default(cuid())
+  slug          String  @unique
+  titleRu       String  @map("title_ru")
+  titleUz       String? @map("title_uz")
+  descriptionRu String? @map("description_ru") @db.Text
+  descriptionUz String? @map("description_uz") @db.Text
+  heroImage     String? @map("hero_image")
+  cookMinutes   Int?    @map("cook_minutes")
+  servings      Int?
+  isActive      Boolean @default(true) @map("is_active")
+  sortOrder     Int     @default(0) @map("sort_order")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  steps       RecipeStep[]
+  ingredients RecipeIngredient[]
+
+  @@map("recipes")
+}
+
+model RecipeStep {
+  id           String  @id @default(cuid())
+  recipeId     String  @map("recipe_id")
+  recipe       Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  order        Int
+  textRu       String  @map("text_ru") @db.Text
+  textUz       String? @map("text_uz") @db.Text
+  image        String?
+  // Таймер шага в секундах (варка/настаивание): на странице — кнопка-таймер
+  timerSeconds Int?    @map("timer_seconds")
+
+  @@index([recipeId])
+  @@map("recipe_steps")
+}
+
+model RecipeIngredient {
+  id        String   @id @default(cuid())
+  recipeId  String   @map("recipe_id")
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  order     Int
+  nameRu    String   @map("name_ru")
+  nameUz    String?  @map("name_uz")
+  amount    String? // «20 г», «пучок»
+  // Ссылка на товар магазина заполнена только для продаваемого (микрозелень) —
+  // именно эти ингредиенты уходят в кнопку «собрать набор».
+  productId String?  @map("product_id")
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([recipeId])
+  @@map("recipe_ingredients")
+}

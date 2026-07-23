@@ -7,7 +7,6 @@ export async function GET(request: Request) {
   try {
     const leads = await prisma.magazineSubscriber.findMany({
       where: { type: 'print' },
-      include: { issue: true },
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(leads);
@@ -33,14 +32,13 @@ export async function PATCH(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { userId, phone, issueId, address } = await request.json();
+    const { userId, phone, address } = await request.json();
     
     const lead = await prisma.magazineSubscriber.create({
       data: {
         userId,
         phone,
         type: 'print',
-        issueId,
         address
       }
     });
