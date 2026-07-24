@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
+  },
   // Workspace packages resolve through node_modules (@repo/database -> dist,
   // @repo/shared -> src, transpiled here). Do NOT re-alias them in turbopack/
   // webpack: Turbopack fails to resolve absolute-path aliases and the prod

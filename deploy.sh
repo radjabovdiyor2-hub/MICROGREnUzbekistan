@@ -24,6 +24,12 @@ git pull --ff-only
 echo "🏗  Сборка и запуск ($*)…"
 $COMPOSE up -d --build "$@"
 
+echo "🔧 Применение лимитов Nginx (100MB)..."
+sudo sed -i 's/client_max_body_size [0-9]*[a-zA-Z]*;/client_max_body_size 100M;/g' /etc/nginx/sites-available/* /etc/nginx/sites-enabled/* /etc/nginx/conf.d/* /etc/nginx/nginx.conf 2>/dev/null || true
+$COMPOSE exec -T nginx nginx -s reload 2>/dev/null || true
+sudo systemctl reload nginx 2>/dev/null || true
+sudo service nginx reload 2>/dev/null || true
+
 echo "📋 Статус контейнеров:"
 $COMPOSE ps
 
