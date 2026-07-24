@@ -26,7 +26,7 @@ export function AdminMagazine() {
         method: 'POST',
         body: JSON.stringify({ name: 'Fresh Weekly', slug: 'fresh', isMagazinePartner: true }),
       });
-      const created = await res.json();
+      const created = await res.json().catch(() => null);
       if (created?.id) {
         setRestaurant(created);
         return created;
@@ -56,8 +56,8 @@ export function AdminMagazine() {
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (!data.url) { alert(data.error || 'Ошибка загрузки'); return; }
+      const data = await res.json().catch(() => null);
+      if (!data?.url) { alert(data?.error || 'Ошибка загрузки файла'); return; }
       await adminFetch('/api/admin/magazine/restaurants', {
         method: 'PATCH',
         body: JSON.stringify({ id: restaurant.id, [field]: data.url }),
@@ -124,9 +124,9 @@ export function AdminMagazine() {
         method: 'POST',
         body: JSON.stringify(dishData),
       });
-      const dish = await res.json();
-      if (dish.error) {
-        alert(`Ошибка создания блюда: ${dish.error}`);
+      const dish = await res.json().catch(() => null);
+      if (!dish || dish.error) {
+        alert(`Ошибка создания блюда: ${dish?.error || res.statusText || 'Сервер не вернул данные'}`);
         return;
       }
       const slug = dish.restaurant?.slug || targetResto?.slug || 'fresh';
