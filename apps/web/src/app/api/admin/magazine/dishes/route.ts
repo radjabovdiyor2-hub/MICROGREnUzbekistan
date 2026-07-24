@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Быстрое создание одного блюда (без CSV) — для потока «загрузил видео → получил QR»
-  if (body.nameRu && !body.csv) {
+  if (!body.csv) {
+    const nameRu = body.nameRu?.trim() || 'Блюдо с видео';
     const existing = await prisma.dish.findMany({
       where: { restaurantId: body.restaurantId },
       select: { code: true },
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
     const dish = await prisma.dish.create({
       data: {
         restaurantId: body.restaurantId,
-        nameRu: body.nameRu,
+        nameRu,
         nameUz: body.nameUz || null,
         code: nextCode,
         videoUrl: body.videoUrl || null,

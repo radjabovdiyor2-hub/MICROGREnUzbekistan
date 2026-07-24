@@ -79,9 +79,6 @@ export function AdminMagazine() {
     setUploading('quick');
     setLastQr(null);
     try {
-      let poster: Blob | null = null;
-      try { poster = (await captureLastFrame(file)).blob; } catch { /* без постера */ }
-
       const send = async (f: File | Blob, n: string) => {
         const form = new FormData();
         form.append('file', f instanceof File ? f : new File([f], n, { type: f.type }));
@@ -95,20 +92,34 @@ export function AdminMagazine() {
         return data;
       };
 
+      // 1. Загружаем видео сразу
       const videoRes = await send(file, file.name);
       if (!videoRes.url) return;
 
+      // 2. Снимаем постер с таймаутом 2сек (не блокируя)
+      let posterBlob: Blob | null = null;
+      try {
+        const posterPromise = captureLastFrame(file).then((r) => r.blob);
+        const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 2000));
+        posterBlob = await Promise.race([posterPromise, timeoutPromise]);
+      } catch {}
+
       const dishData: any = { restaurantId: restaurant.id, nameRu: name, videoUrl: videoRes.url };
-      if (poster) {
-        const posterRes = await send(poster, `poster-${Date.now()}.jpg`);
+      if (posterBlob) {
+        const posterRes = await send(posterBlob, `poster-${Date.now()}.jpg`);
         if (posterRes.url) dishData.videoPoster = posterRes.url;
       }
 
+      // 3. Создаем блюдо
       const res = await adminFetch('/api/admin/magazine/dishes', {
         method: 'POST',
         body: JSON.stringify(dishData),
       });
       const dish = await res.json();
+      if (dish.error) {
+        alert(`Ошибка создания блюда: ${dish.error}`);
+        return;
+      }
       if (dish.code) setLastQr({ code: dish.code, slug: restaurant.slug });
       setQuickName('');
       await loadDishes(restaurant.id);
@@ -121,9 +132,6 @@ export function AdminMagazine() {
     if (!restaurant) return;
     setUploading(`video-${dishId}`);
     try {
-      let poster: Blob | null = null;
-      try { poster = (await captureLastFrame(file)).blob; } catch {}
-
       const send = async (f: File | Blob, n: string) => {
         const form = new FormData();
         form.append('file', f instanceof File ? f : new File([f], n, { type: f.type }));
@@ -140,9 +148,16 @@ export function AdminMagazine() {
       const videoRes = await send(file, file.name);
       if (!videoRes.url) return;
 
+      let posterBlob: Blob | null = null;
+      try {
+        const posterPromise = captureLastFrame(file).then((r) => r.blob);
+        const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 2000));
+        posterBlob = await Promise.race([posterPromise, timeoutPromise]);
+      } catch {}
+
       const patch: Record<string, string> = { videoUrl: videoRes.url };
-      if (poster) {
-        const posterRes = await send(poster, `poster-${Date.now()}.jpg`);
+      if (posterBlob) {
+        const posterRes = await send(posterBlob, `poster-${Date.now()}.jpg`);
         if (posterRes.url) patch.videoPoster = posterRes.url;
       }
 
