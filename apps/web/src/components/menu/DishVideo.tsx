@@ -2,36 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// ════════════════════════════════════════════════════════════
-// «Живое меню»: блюдо на странице, куда ведёт печатный QR.
-// Есть ролик — играем его, нет — прежнее фото. Вёрстка в обоих случаях
-// на месте, потому что видео появится не у всех блюд сразу.
-//
-// Почему так, а не autoPlay loop:
-//  · preload="none" + постер — пока гость не долистал, качается только
-//    картинка. Ролики отдаёт тот же сервер без CDN, а гость сидит в зале
-//    с мобильного интернета;
-//  · один проход без зацикливания — на стыке склейки виден скачок, и
-//    повтор еды раздражает. Замираем на финальном кадре с готовым блюдом,
-//    он же постер;
-//  · muted обязателен: автовоспроизведение в мобильных браузерах работает
-//    только для беззвучного видео.
-// ════════════════════════════════════════════════════════════
-
 interface Props {
   videoUrl: string | null;
   videoPoster: string | null;
   photo: string | null;
   alt: string;
+  fullScreen?: boolean;
 }
 
-export function DishVideo({ videoUrl, videoPoster, photo, alt }: Props) {
+export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = false }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
 
-  const toggleSound = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleSound = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (!ref.current) return;
     const nextMuted = !isMuted;
     ref.current.muted = nextMuted;
@@ -45,28 +30,73 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt }: Props) {
     const el = ref.current;
     if (!el || !videoUrl) return;
 
-    // Без IntersectionObserver (старый браузер) просто играем сразу
-    if (typeof IntersectionObserver === 'undefined') {
-      el.play().catch(() => { /* автозапуск мог быть запрещён — останется постер */ });
-      return;
-    }
-
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        io.disconnect();               // один запуск за жизнь страницы
-        el.play().catch(() => { /* остаётся постер, и это нормально */ });
-      },
-      { threshold: 0.5 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    el.play().catch(() => {});
   }, [videoUrl]);
 
-  const radius = 20;
-
-  // Битый или отсутствующий ролик не должен оставлять пустое место
   if (videoUrl && !failed) {
+    if (fullScreen) {
+      return (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          width: '100vw',
+          height: '100dvh',
+          zIndex: 0,
+          background: '#000',
+          overflow: 'hidden',
+        }}>
+          <video
+            ref={ref}
+            src={videoUrl}
+            poster={videoPoster ?? photo ?? undefined}
+            muted={isMuted}
+            playsInline
+            autoPlay
+            loop
+            preload="auto"
+            controls={false}
+            aria-label={alt}
+            onError={() => setFailed(true)}
+            onClick={toggleSound}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+              cursor: 'pointer',
+            }}
+          />
+
+          {/* Кнопка включения звука */}
+          <button
+            type="button"
+            onClick={toggleSound}
+            style={{
+              position: 'absolute',
+              top: 20,
+              right: 20,
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(12px)',
+              color: '#fff',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: 30,
+              padding: '10px 18px',
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
+              zIndex: 10,
+            }}
+          >
+            {isMuted ? '🔊 Включить звук' : '🔇 Без звука'}
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div style={{ position: 'relative', margin: '16px 0' }}>
         <video
@@ -75,7 +105,9 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt }: Props) {
           poster={videoPoster ?? photo ?? undefined}
           muted={isMuted}
           playsInline
-          preload="none"
+          autoPlay
+          loop
+          preload="auto"
           controls={false}
           aria-label={alt}
           onError={() => setFailed(true)}
@@ -84,7 +116,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt }: Props) {
             width: '100%',
             aspectRatio: '9 / 16',
             objectFit: 'cover',
-            borderRadius: radius,
+            borderRadius: 20,
             display: 'block',
             cursor: 'pointer',
             background: 'var(--bg-elevated, rgba(255,255,255,0.03))',
@@ -130,7 +162,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt }: Props) {
         width: '100%',
         aspectRatio: '4 / 3',
         objectFit: 'cover',
-        borderRadius: radius,
+        borderRadius: 20,
         margin: '16px 0',
       }}
     />
