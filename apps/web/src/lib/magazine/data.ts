@@ -92,3 +92,34 @@ export async function listIssueSlugs(status?: string): Promise<string[]> {
   });
   return rows.map((x) => x.webSlug);
 }
+
+// Загруженные через админку журналы (PDF/HTML на Restaurant)
+export interface UploadedMagazine {
+  restaurantName: string;
+  slug: string;
+  pdfUrl: string | null;
+  htmlUrl: string | null;
+  logo: string | null;
+  brandPrimary: string | null;
+}
+
+export async function listUploadedMagazines(): Promise<UploadedMagazine[]> {
+  const rows = await prisma.restaurant.findMany({
+    where: {
+      isMagazinePartner: true,
+      OR: [
+        { magazinePdfUrl: { not: null } },
+        { magazineHtmlUrl: { not: null } },
+      ],
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+  return rows.map((r) => ({
+    restaurantName: r.name,
+    slug: r.slug ?? r.id,
+    pdfUrl: r.magazinePdfUrl,
+    htmlUrl: r.magazineHtmlUrl,
+    logo: r.logo,
+    brandPrimary: r.brandPrimary,
+  }));
+}
