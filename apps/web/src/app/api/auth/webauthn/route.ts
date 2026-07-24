@@ -37,7 +37,12 @@ function saveStore(store: WebAuthnStore): void {
   fs.writeFileSync(WEBAUTHN_FILE, JSON.stringify(store, null, 2), 'utf-8');
 }
 
-const RP_ID = process.env.WEBAUTHN_RP_ID || 'localhost';
+function getRpId(req: NextRequest): string {
+  if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost';
+  return host.split(':')[0];
+}
+
 const RP_NAME = 'Microgreen Admin';
 const USER_ID = 'admin';
 
@@ -62,11 +67,13 @@ export async function POST(req: NextRequest) {
     store.challenges[sessionId] = { challenge, expires: Date.now() + 5 * 60 * 1000 };
     saveStore(store);
 
+    const rpId = getRpId(req);
+
     return NextResponse.json({
       sessionId,
       publicKey: {
         challenge,
-        rp: { id: RP_ID, name: RP_NAME },
+        rp: { id: rpId, name: RP_NAME },
         user: {
           id: base64url(Buffer.from(USER_ID)),
           name: 'admin',
@@ -122,11 +129,13 @@ export async function POST(req: NextRequest) {
     store.challenges[sessionId] = { challenge, expires: Date.now() + 5 * 60 * 1000 };
     saveStore(store);
 
+    const rpId = getRpId(req);
+
     return NextResponse.json({
       sessionId,
       publicKey: {
         challenge,
-        rpId: RP_ID,
+        rpId,
         timeout: 60000,
         userVerification: 'required',
         allowCredentials: store.credentials.map((c) => ({
