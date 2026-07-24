@@ -11,6 +11,9 @@ export function AdminMagazine() {
   const [loading, setLoading] = useState(true);
   const [quickName, setQuickName] = useState('');
   const [lastQr, setLastQr] = useState<{ code: number; slug: string } | null>(null);
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
 
   // Загрузить или создать ресторан-по-умолчанию
   const ensureRestaurant = useCallback(async () => {
@@ -47,6 +50,14 @@ export function AdminMagazine() {
   }, []);
 
   useEffect(() => { ensureRestaurant().then((r) => { if (r) loadDishes(r.id); }); }, []);
+
+  // Скопировать ссылку в буфер обмена
+  const copyLink = (slug: string, code: number, id: string) => {
+    const url = `${window.location.origin}/m/${slug}/d/${code}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Загрузить журнал (PDF/HTML)
   const uploadMagazine = async (field: 'magazinePdfUrl' | 'magazineHtmlUrl', file: File) => {
@@ -205,7 +216,7 @@ export function AdminMagazine() {
   if (loading) return <div style={{ padding: 'var(--space-6)' }}>Загрузка...</div>;
 
   return (
-    <div style={{ padding: 'var(--space-6)', maxWidth: 800 }}>
+    <div style={{ padding: 'var(--space-6)', maxWidth: 840 }}>
       <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>Журнал · FRESH WEEKLY</h2>
 
       {/* Журнал: PDF / HTML */}
@@ -230,15 +241,36 @@ export function AdminMagazine() {
         />
       </div>
 
-      {/* Быстрое добавление видео → QR */}
-      <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-        <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>🎬 Загрузить видео → получить QR</h3>
+      {/* Быстрое добавление видео → QR с поддержкой Drag-and-Drop */}
+      <div
+        className="card"
+        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragActive(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f && (f.type.startsWith('video/') || f.name.match(/\.(mp4|webm|mov)$/i))) {
+            quickAddVideo(f);
+          }
+        }}
+        style={{
+          padding: 'var(--space-4)', marginBottom: 'var(--space-4)',
+          border: dragActive ? '2px dashed var(--brand-primary)' : '1px solid var(--border-color)',
+          background: dragActive ? 'var(--brand-primary-light)' : undefined,
+          transition: 'all 0.2s ease',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+          <h3 style={{ fontWeight: 'var(--font-bold)' }}>🎬 Загрузить видео → получить QR</h3>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Перетащите .mp4 сюда</span>
+        </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
           <input className="input" placeholder="Название блюда (необязательно)" value={quickName} onChange={(e) => setQuickName(e.target.value)}
             style={{ flex: 1, minWidth: 180 }} />
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: '10px', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 'var(--text-base)', cursor: uploading === 'quick' ? 'wait' : 'pointer' }}>
             {uploading === 'quick' ? '⏳ Загрузка...' : '📹 Загрузить видео'}
-            <input type="file" accept="video/mp4,video/webm" style={{ display: 'none' }} disabled={!!uploading}
+            <input type="file" accept="video/mp4,video/webm,video/quicktime" style={{ display: 'none' }} disabled={!!uploading}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) quickAddVideo(f); e.target.value = ''; }} />
           </label>
         </div>
@@ -247,6 +279,9 @@ export function AdminMagazine() {
           <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)', border: '1px solid var(--success)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
             <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success)', fontWeight: 700 }}>✅ Готово · #{lastQr.code}</div>
             <a href={`/m/${lastQr.slug}/d/${lastQr.code}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть страницу ↗</a>
+            <button onClick={() => copyLink(lastQr.slug, lastQr.code, 'last')} style={qrBtn}>
+              {copiedId === 'last' ? '✅ Скопировано!' : '📋 Копировать ссылку'}
+            </button>
             <button onClick={() => downloadQr(lastQr.code, 'png')} style={qrBtn}>⬇ QR PNG</button>
             <button onClick={() => downloadQr(lastQr.code, 'svg')} style={qrBtn}>⬇ QR SVG</button>
           </div>
@@ -264,16 +299,24 @@ export function AdminMagazine() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{d.nameRu}</div>
                   {d.videoUrl
-                    ? <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)' }}>▶ Видео загружено</div>
+                    ? <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span>▶ Видео загружено</span>
+                        <button onClick={() => setPreviewVideoUrl(d.videoUrl)} style={{ border: 'none', background: 'none', color: 'var(--brand-primary)', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}>👁 Просмотр</button>
+                      </div>
                     : <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Без видео</div>}
                 </div>
+                {d.videoUrl && (
+                  <button onClick={() => copyLink(restaurant.slug, d.code, d.id)} style={qrBtn}>
+                    {copiedId === d.id ? '✅' : '📋 Ссылка'}
+                  </button>
+                )}
                 <label style={{
                   padding: '4px 12px', borderRadius: '6px', fontSize: 'var(--text-sm)', fontWeight: 600,
                   border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer',
                   ...(d.videoUrl ? { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' } : {}),
                 }}>
                   {d.videoUrl ? '▶ Заменить' : '+ Видео'}
-                  <input type="file" accept="video/mp4,video/webm" style={{ display: 'none' }} disabled={!!uploading}
+                  <input type="file" accept="video/mp4,video/webm,video/quicktime" style={{ display: 'none' }} disabled={!!uploading}
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideoToDish(d.id, f); e.target.value = ''; }} />
                 </label>
                 <button onClick={() => downloadQr(d.code, 'png')} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>QR</button>
@@ -282,6 +325,16 @@ export function AdminMagazine() {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно предпросмотра видео */}
+      {previewVideoUrl && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setPreviewVideoUrl(null)}>
+          <div style={{ position: 'relative', maxWidth: 400, width: '100%', background: '#000', borderRadius: 16, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            <video src={previewVideoUrl} controls autoPlay playsInline style={{ width: '100%', maxHeight: '75vh', display: 'block' }} />
+            <button onClick={() => setPreviewVideoUrl(null)} style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 18, cursor: 'pointer' }}>✕</button>
           </div>
         </div>
       )}
