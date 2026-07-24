@@ -53,6 +53,7 @@ jobs:
               sleep 2
             done
             echo "📦 db-push…"
+            docker compose -f docker-compose.prod.yml build db-push
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-push
             echo "🌱 db-seed…"
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-seed

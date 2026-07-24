@@ -92,8 +92,9 @@ jobs:
               echo "Waiting for postgres… ($i/15)"
               sleep 2
             done
-            # Run db-push: --no-deps prevents compose from recreating the
+            # Build and run db-push: --no-deps prevents compose from recreating the
             # already-running postgres (which races on port 5432).
+            docker compose -f docker-compose.prod.yml build db-push
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-push 2>&1 || {
               echo "=== db-push FAILED. Showing container logs: ==="
               docker logs mg_db_push 2>&1 || true

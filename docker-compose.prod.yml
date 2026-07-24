@@ -95,6 +95,8 @@ services:
     container_name: mg_db_push
     working_dir: /app
     command: sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma --skip-generate --accept-data-loss"
+    volumes:
+      - ./packages/database/prisma/schema.prisma:/app/packages/database/prisma/schema.prisma:ro
     environment:
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
     depends_on:
