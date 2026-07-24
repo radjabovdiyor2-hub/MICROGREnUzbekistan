@@ -20,7 +20,7 @@ import { AdminGrowing } from '@/components/admin/AdminGrowing';
 import { AdminMagazine } from '@/components/admin/AdminMagazine';
 import { AdminDepartment } from '@/components/admin/AdminDepartment';
 import {
-  ArrowLeft, ArrowRight, BarChart, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Home, Leaf, Lightbulb, Lock, LogOut, Package, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
+  ArrowLeft, ArrowRight, BarChart, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Fingerprint, Home, Leaf, Lightbulb, Lock, LogOut, Package, Send, Settings, ShieldCheck, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
 } from 'lucide-react';
 
 const TAB_GROUPS = [
@@ -113,6 +113,100 @@ export default function AdminPage() {
     }
     setChecking(false);
   }, []);
+
+  const handleFaceIdLogin = async () => {
+    setAuthError('');
+    try {
+      const optsRes = await fetch('/api/auth/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login-options' }),
+      });
+      const opts = await optsRes.json();
+      if (!optsRes.ok) {
+        setAuthError(opts.error || t('Face ID не привязан', "Face ID biriktirilmagan"));
+        return;
+      }
+
+      const { sessionId, publicKey } = opts;
+      publicKey.challenge = Uint8Array.from(atob(publicKey.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      if (publicKey.allowCredentials) {
+        publicKey.allowCredentials = publicKey.allowCredentials.map((c: any) => ({
+          ...c,
+          id: Uint8Array.from(atob(c.id.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0)),
+        }));
+      }
+
+      const cred = await navigator.credentials.get({ publicKey }) as any;
+      if (!cred) return;
+
+      const verifyRes = await fetch('/api/auth/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'login-verify',
+          sessionId,
+          credential: { id: cred.id },
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (verifyData.ok) {
+        setIsOwner(true);
+        sessionStorage.setItem(ADMIN_KEY, 'true');
+        sessionStorage.setItem('Microgreen_admin_pw', 'Microgreen2026');
+        setAuthError('');
+      } else {
+        setAuthError(verifyData.error || t('Ошибка Face ID', 'Face ID xatosi'));
+      }
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        setAuthError(err.message || t('Ошибка биометрии', 'Biometriya xatosi'));
+      }
+    }
+  };
+
+  const handleFaceIdRegister = async () => {
+    try {
+      const optsRes = await fetch('/api/auth/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'register-options' }),
+      });
+      const opts = await optsRes.json();
+      const { sessionId, publicKey } = opts;
+
+      publicKey.challenge = Uint8Array.from(atob(publicKey.challenge.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      publicKey.user.id = Uint8Array.from(atob(publicKey.user.id.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+      if (publicKey.excludeCredentials) {
+        publicKey.excludeCredentials = publicKey.excludeCredentials.map((c: any) => ({
+          ...c,
+          id: Uint8Array.from(atob(c.id.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0)),
+        }));
+      }
+
+      const cred = await navigator.credentials.create({ publicKey }) as any;
+      if (!cred) return;
+
+      const verifyRes = await fetch('/api/auth/webauthn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'register-verify',
+          sessionId,
+          credential: { id: cred.id },
+          label: 'Face ID / Touch ID',
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (verifyData.ok) {
+        alert(t('Face ID успешно привязан!', "Face ID muvaffaqiyatli biriktirildi!"));
+      }
+    } catch (err: any) {
+      if (err.name !== 'NotAllowedError') {
+        alert(err.message || 'Face ID error');
+      }
+    }
+  };
 
   const handleOwnerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,9 +331,16 @@ export default function AdminPage() {
             <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('Пароль администратора', 'Admin parol')} id="admin-password"
               style={{ width: '100%', padding: 'var(--space-3)', border: `1px solid ${authError ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }} />
             {authError && <p style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-3)' }}>{authError}</p>}
-            <button type="submit" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-              <ArrowRight size={18} /> {t('Войти', 'Kirish')}
-            </button>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+              <button type="submit" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                <ArrowRight size={18} /> {t('Войти по паролю', 'Parol bilan kirish')}
+              </button>
+
+              <button type="button" onClick={handleFaceIdLogin} className="btn btn-outline btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                <Fingerprint size={20} color="var(--brand-primary)" /> {t('Вход по Face ID / Touch ID', 'Face ID / Touch ID orqali kirish')}
+              </button>
+            </div>
           </form>
         </div>
       );
@@ -450,6 +551,12 @@ export default function AdminPage() {
               </span>
             )}
             {isOwner && <AdminNotifications />}
+            {isOwner && (
+              <button onClick={handleFaceIdRegister} title={t('Привязать Face ID / Touch ID', "Face ID / Touch ID biriktirish")}
+                style={{ padding: '4px 8px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Fingerprint size={14} /> Face ID
+              </button>
+            )}
             <button onClick={toggleLang}
               style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
               {lang === 'ru' ? '🇷🇺' : '🇺🇿'}

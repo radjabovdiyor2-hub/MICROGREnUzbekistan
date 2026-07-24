@@ -4,8 +4,8 @@ import path from 'path';
 import { getUploadsDir } from '@/lib/uploads';
 
 // ==========================================
-// Upload API — Image upload for products
-// Supports large phone photos up to 50MB
+// Upload API — file upload for products, magazine media, and PDFs
+// Supports large files up to 100MB
 // Validates by file extension (not MIME — mobile browsers unreliable)
 //
 // Директория загрузки — общий помощник lib/uploads.ts
@@ -16,8 +16,8 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     const contentLength = request.headers.get('content-length');
-    if (contentLength && parseInt(contentLength) > 50 * 1024 * 1024) {
-      return NextResponse.json({ error: 'Fayl hajmi 50MB dan oshmasin' }, { status: 400 });
+    if (contentLength && parseInt(contentLength) > 100 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Fayl hajmi 100MB dan oshmasin' }, { status: 400 });
     }
 
     const formData = await request.formData();
@@ -29,18 +29,17 @@ export async function POST(request: NextRequest) {
 
     // Validate by file extension — MIME types from mobile browsers are unreliable
     const ext = (file.name || '').split('.').pop()?.toLowerCase() || '';
-    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif', 'gif', 'bmp', 'tiff', 'tif', 'svg'];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif', 'gif', 'bmp', 'tiff', 'tif', 'svg', 'pdf', 'html', 'htm'];
 
-    // Видео «Живого меню»: ролик блюда, куда ведёт печатный QR.
-    // Держим отдельным списком — у него свой, куда более жёсткий потолок веса.
-    const videoExtensions = ['mp4', 'webm'];
-    const videoMimes = ['video/mp4', 'video/webm'];
+    const videoExtensions = ['mp4', 'webm', 'mov'];
+    const videoMimes = ['video/mp4', 'video/webm', 'video/quicktime'];
 
     // Also check MIME as fallback (but don't reject if extension is valid)
     const allowedMimes = [
       'image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/heic',
       'image/heif', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg+xml',
-      'application/octet-stream', // Some phones send this
+      'application/pdf', 'text/html',
+      'application/octet-stream',
     ];
 
     // Видео определяем по расширению, а не по MIME: комментарий выше не зря —
@@ -55,15 +54,12 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Потолок веса. Для видео он куда жёстче картинок: файлы раздаёт тот же
-    // сервер без CDN, а ролик открывает гость в зале с мобильного интернета.
-    const maxMB = isVideo ? 8 : 50;
+    // Единый лимит 100MB для всех типов файлов
+    const maxMB = 100;
     if (file.size > maxMB * 1024 * 1024) {
       const actual = (file.size / 1024 / 1024).toFixed(1);
       return NextResponse.json({
-        error: isVideo
-          ? `Video juda katta: ${actual}MB (max ${maxMB}MB). Rolikni siqib qayta yuklang.`
-          : `Fayl hajmi juda katta: ${actual}MB (max ${maxMB}MB)`,
+        error: `Fayl hajmi juda katta: ${actual}MB (max ${maxMB}MB)`,
       }, { status: 400 });
     }
 
