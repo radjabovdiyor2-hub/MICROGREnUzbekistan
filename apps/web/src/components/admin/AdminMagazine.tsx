@@ -85,7 +85,14 @@ export function AdminMagazine() {
       const send = async (f: File | Blob, n: string) => {
         const form = new FormData();
         form.append('file', f instanceof File ? f : new File([f], n, { type: f.type }));
-        return (await fetch('/api/upload', { method: 'POST', body: form })).json();
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.url) {
+          const err = data?.error || (res.status === 413 ? 'Файл слишком большой (максимум 100МБ)' : `Ошибка сервера (${res.status})`);
+          alert(err);
+          return { url: null };
+        }
+        return data;
       };
 
       const videoRes = await send(file, file.name);
@@ -105,6 +112,8 @@ export function AdminMagazine() {
       if (dish.code) setLastQr({ code: dish.code, slug: restaurant.slug });
       setQuickName('');
       await loadDishes(restaurant.id);
+    } catch (err: any) {
+      alert(`Ошибка: ${err?.message || 'Не удалось загрузить видео'}`);
     } finally { setUploading(''); }
   };
 
@@ -118,7 +127,14 @@ export function AdminMagazine() {
       const send = async (f: File | Blob, n: string) => {
         const form = new FormData();
         form.append('file', f instanceof File ? f : new File([f], n, { type: f.type }));
-        return (await fetch('/api/upload', { method: 'POST', body: form })).json();
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.url) {
+          const err = data?.error || (res.status === 413 ? 'Файл слишком большой (максимум 100МБ)' : `Ошибка сервера (${res.status})`);
+          alert(err);
+          return { url: null };
+        }
+        return data;
       };
 
       const videoRes = await send(file, file.name);
@@ -135,6 +151,8 @@ export function AdminMagazine() {
         body: JSON.stringify({ id: dishId, ...patch }),
       });
       await loadDishes(restaurant.id);
+    } catch (err: any) {
+      alert(`Ошибка: ${err?.message || 'Не удалось прикрепить видео'}`);
     } finally { setUploading(''); }
   };
 
