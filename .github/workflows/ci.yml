@@ -110,5 +110,8 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --build \
               web_office stepan sales support hr finance marketing \
               analytics content qa rnd devops n8n_bridge
+            # Reload Nginx (both Docker container and system service if present) to apply client_max_body_size 100M
+            docker compose -f docker-compose.prod.yml exec -T nginx nginx -s reload 2>/dev/null || true
+            sudo systemctl reload nginx 2>/dev/null || true
             docker compose -f docker-compose.prod.yml ps
             docker image prune -f
