@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     });
     if (!defaultResto) {
       defaultResto = await prisma.restaurant.create({
-        data: { name: 'Fresh Weekly', slug: 'fresh', isMagazinePartner: true, isPartner: true },
+        data: { name: 'Fresh Weekly', slug: 'fresh', city: 'samarkand', tier: 'premium', isMagazinePartner: true, isPartner: true },
         select: { id: true },
       });
     }
