@@ -41,13 +41,37 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) return unauthorized();
   const body = await req.json().catch(() => null);
-  if (!body?.restaurantId || typeof body.csv !== 'string') {
-    return NextResponse.json({ error: 'restaurantId and csv required' }, { status: 400 });
+  if (!body?.restaurantId) {
+    return NextResponse.json({ error: 'restaurantId required' }, { status: 400 });
+  }
+
+  // Быстрое создание одного блюда (без CSV) — для потока «загрузил видео → получил QR»
+  if (body.nameRu && !body.csv) {
+    const existing = await prisma.dish.findMany({
+      where: { restaurantId: body.restaurantId },
+      select: { code: true },
+    });
+    const nextCode = existing.reduce((max, d) => Math.max(max, d.code), 0) + 1;
+    const dish = await prisma.dish.create({
+      data: {
+        restaurantId: body.restaurantId,
+        nameRu: body.nameRu,
+        nameUz: body.nameUz || null,
+        code: nextCode,
+        videoUrl: body.videoUrl || null,
+        videoPoster: body.videoPoster || null,
+        isActive: true,
+        sortOrder: nextCode,
+      },
+    });
+    return NextResponse.json(dish);
+  }
+
+  if (typeof body.csv !== 'string') {
+    return NextResponse.json({ error: 'csv or nameRu required' }, { status: 400 });
   }
 
   const { dishes, issues } = parseDishCsv(body.csv);
-  // dryRun — превью в админке до сохранения: владелец видит, что именно
-  // приедет из файла ресторана, и только потом жмёт «сохранить».
   if (body.dryRun) return NextResponse.json({ dishes, issues, saved: 0 });
   if (!dishes.length) return NextResponse.json({ dishes, issues, saved: 0 }, { status: 400 });
 

@@ -44,6 +44,8 @@ function JournalsTab() {
   const [newSlug, setNewSlug] = useState('');
   const [uploading, setUploading] = useState('');
   const [loading, setLoading] = useState(true);
+  const [quickName, setQuickName] = useState('');
+  const [lastQr, setLastQr] = useState<{ code: number; slug: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +146,53 @@ function JournalsTab() {
     await loadDishes(selected.id);
   };
 
+  // Быстрое добавление: загрузить видео → создать блюдо → показать QR
+  const quickAddVideo = async (file: File) => {
+    if (!selected) return;
+    const name = quickName.trim() || file.name.replace(/\.[^.]+$/, '');
+    setUploading('quick');
+    setLastQr(null);
+    try {
+      let poster: Blob | null = null;
+      try { poster = (await captureLastFrame(file)).blob; } catch { /* без постера */ }
+
+      const send = async (f: File | Blob, n: string) => {
+        const form = new FormData();
+        form.append('file', f instanceof File ? f : new File([f], n, { type: f.type }));
+        return (await fetch('/api/upload', { method: 'POST', body: form })).json();
+      };
+
+      const videoRes = await send(file, file.name);
+      if (!videoRes.url) return;
+
+      const dishData: any = { restaurantId: selected.id, nameRu: name, videoUrl: videoRes.url };
+      if (poster) {
+        const posterRes = await send(poster, `poster-${Date.now()}.jpg`);
+        if (posterRes.url) dishData.videoPoster = posterRes.url;
+      }
+
+      const res = await adminFetch('/api/admin/magazine/dishes', {
+        method: 'POST',
+        body: JSON.stringify(dishData),
+      });
+      const dish = await res.json();
+      if (dish.code) setLastQr({ code: dish.code, slug: selected.slug });
+      setQuickName('');
+      await loadDishes(selected.id);
+    } finally { setUploading(''); }
+  };
+
+  const downloadQr = async (slug: string, code: number, format: 'png' | 'svg') => {
+    const res = await adminFetch(`/api/admin/magazine/dishes/qr?restaurantId=${selected?.id}&code=${code}&format=${format}`);
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `qr-${slug}-${code}.${format}`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   if (loading) return <div>Загрузка...</div>;
 
   return (
@@ -203,38 +252,59 @@ function JournalsTab() {
               />
             </div>
 
-            <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>🎬 Видео для QR-кодов</h4>
-            {dishes.length === 0 ? (
-              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                Нет блюд. Перейди на вкладку «🍽 Меню и видео» чтобы загрузить меню.
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {dishes.map((d: any) => (
-                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2)', borderBottom: '1px solid var(--border-color)' }}>
-                    <span style={{ width: 32, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>#{d.code}</span>
-                    {d.photo
-                      ? <img src={d.photo} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
-                      : <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--bg-elevated)' }} />}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{d.nameRu}</div>
-                      {d.videoUrl && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)' }}>▶ Видео загружено</div>}
-                    </div>
-                    <label style={{
-                      padding: '4px 12px', borderRadius: '6px', fontSize: 'var(--text-sm)', fontWeight: 600,
-                      border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer',
-                      ...(d.videoUrl ? { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' } : {}),
-                    }}>
-                      {d.videoUrl ? '▶ Заменить' : '+ Видео'}
-                      <input type="file" accept="video/mp4,video/webm" style={{ display: 'none' }} disabled={!!uploading}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideo(d.id, f); e.target.value = ''; }} />
-                    </label>
-                    {d.videoUrl && (
-                      <button onClick={() => removeVideo(d.id)} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>Убрать</button>
-                    )}
-                  </div>
-                ))}
+            {/* Быстрое добавление видео → QR */}
+            <div style={{ padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', border: '2px dashed var(--border-color)', background: 'var(--bg-secondary)', marginBottom: 'var(--space-4)' }}>
+              <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>🎬 Добавить видео → получить QR</h4>
+              <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input className="input" placeholder="Название блюда" value={quickName} onChange={(e) => setQuickName(e.target.value)}
+                  style={{ flex: 1, minWidth: 180 }} />
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: '8px', background: 'var(--brand-primary)', color: '#fff', fontWeight: 600, cursor: uploading === 'quick' ? 'wait' : 'pointer' }}>
+                  {uploading === 'quick' ? '⏳ Загрузка...' : '📹 Загрузить видео'}
+                  <input type="file" accept="video/mp4,video/webm" style={{ display: 'none' }} disabled={!!uploading}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) quickAddVideo(f); e.target.value = ''; }} />
+                </label>
               </div>
+              {lastQr && (
+                <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)', border: '1px solid var(--success)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success)', fontWeight: 600 }}>✅ Видео загружено · Блюдо #{lastQr.code}</div>
+                  <a href={`/m/${lastQr.slug}/d/${lastQr.code}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть страницу ↗</a>
+                  <button onClick={() => downloadQr(lastQr.slug, lastQr.code, 'png')} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600 }}>⬇ QR PNG</button>
+                  <button onClick={() => downloadQr(lastQr.slug, lastQr.code, 'svg')} style={{ padding: '4px 12px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600 }}>⬇ QR SVG</button>
+                </div>
+              )}
+            </div>
+
+            {/* Список блюд с видео */}
+            {dishes.length > 0 && (
+              <>
+                <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>Блюда с видео</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  {dishes.map((d: any) => (
+                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2)', borderBottom: '1px solid var(--border-color)' }}>
+                      <span style={{ width: 32, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>#{d.code}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{d.nameRu}</div>
+                        {d.videoUrl
+                          ? <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)' }}>▶ Видео загружено</div>
+                          : <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Без видео</div>}
+                      </div>
+                      <label style={{
+                        padding: '4px 12px', borderRadius: '6px', fontSize: 'var(--text-sm)', fontWeight: 600,
+                        border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer',
+                        ...(d.videoUrl ? { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' } : {}),
+                      }}>
+                        {d.videoUrl ? '▶ Заменить' : '+ Видео'}
+                        <input type="file" accept="video/mp4,video/webm" style={{ display: 'none' }} disabled={!!uploading}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideo(d.id, f); e.target.value = ''; }} />
+                      </label>
+                      <button onClick={() => downloadQr(selected.slug, d.code, 'png')} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>QR</button>
+                      {d.videoUrl && (
+                        <button onClick={() => removeVideo(d.id)} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>Убрать</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </>
         ) : (
