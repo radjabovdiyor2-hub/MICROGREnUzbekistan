@@ -414,6 +414,10 @@ model Restaurant {
   menuItems         String[] @map("menu_items") // блюда меню для контекста ИИ
   isMagazinePartner Boolean  @default(false) @map("is_magazine_partner")
 
+  // Готовый журнал: PDF/HTML загружается владельцем через админку
+  magazinePdfUrl  String? @map("magazine_pdf_url")
+  magazineHtmlUrl String? @map("magazine_html_url")
+
   // Карта лояльности: N штампов (за кадры) → промокод в магазин микрозелени
   loyaltyGoal          Int? @default(5) @map("loyalty_goal")
   loyaltyRewardPercent Int? @default(15) @map("loyalty_reward_percent")

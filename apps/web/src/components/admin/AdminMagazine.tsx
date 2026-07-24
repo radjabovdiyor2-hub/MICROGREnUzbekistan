@@ -1,314 +1,86 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Trash } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
-import { SlotEditor } from '@/components/admin/magazine/SlotEditor';
-import { PrintCenterTab } from '@/components/admin/magazine/PrintCenterTab';
-import { BriefTab } from '@/components/admin/magazine/BriefTab';
 import { MenuTab } from '@/components/admin/magazine/MenuTab';
-import { GuestPhotosTab } from '@/components/admin/magazine/GuestPhotosTab';
-import { RecipesTab } from '@/components/admin/magazine/RecipesTab';
+import { captureLastFrame } from '@/lib/magazine/videoPoster';
 
-type Tab = 'brief' | 'restaurants' | 'menu' | 'guests' | 'recipes' | 'editions' | 'assembly' | 'leads' | 'advertisers' | 'printcenter';
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'brief', label: '🔥 Брифинг недели' },
-  { id: 'restaurants', label: 'Рестораны-партнёры' },
-  { id: 'menu', label: '🍽 Меню ресторанов' },
-  { id: 'guests', label: '📸 Гости недели' },
-  { id: 'recipes', label: '🥗 Рецепты' },
-  { id: 'editions', label: 'Выпуск недели' },
-  { id: 'assembly', label: 'Сборка' },
-  { id: 'leads', label: 'Заявки (печать)' },
-  { id: 'advertisers', label: 'Рекламодатели' },
-  { id: 'printcenter', label: 'Print Center' },
-];
+type Tab = 'journals' | 'menu';
 
 export function AdminMagazine() {
-  const [tab, setTab] = useState<Tab>('restaurants');
+  const [tab, setTab] = useState<Tab>('journals');
 
   return (
     <div style={{ padding: 'var(--space-6)' }}>
       <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>Управление Журналом · FRESH WEEKLY</h2>
 
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-6)', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
-        {TABS.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            padding: 'var(--space-2) var(--space-4)',
-            background: tab === t.id ? 'var(--brand-primary)' : 'transparent',
-            color: tab === t.id ? '#fff' : 'var(--text-primary)',
-            borderRadius: 'var(--radius-md)', fontWeight: 'var(--font-semibold)', border: 'none', cursor: 'pointer',
-          }}>{t.label}</button>
-        ))}
+      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-6)', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-2)' }}>
+        <button onClick={() => setTab('journals')} style={{
+          padding: 'var(--space-2) var(--space-4)',
+          background: tab === 'journals' ? 'var(--brand-primary)' : 'transparent',
+          color: tab === 'journals' ? '#fff' : 'var(--text-primary)',
+          borderRadius: 'var(--radius-md)', fontWeight: 'var(--font-semibold)', border: 'none', cursor: 'pointer',
+        }}>📋 Журналы</button>
+        <button onClick={() => setTab('menu')} style={{
+          padding: 'var(--space-2) var(--space-4)',
+          background: tab === 'menu' ? 'var(--brand-primary)' : 'transparent',
+          color: tab === 'menu' ? '#fff' : 'var(--text-primary)',
+          borderRadius: 'var(--radius-md)', fontWeight: 'var(--font-semibold)', border: 'none', cursor: 'pointer',
+        }}>🍽 Меню и видео</button>
       </div>
 
-      {tab === 'brief' && <BriefTab />}
-      {tab === 'restaurants' && <RestaurantsTab />}
+      {tab === 'journals' && <JournalsTab />}
       {tab === 'menu' && <MenuTab />}
-      {tab === 'guests' && <GuestPhotosTab />}
-      {tab === 'recipes' && <RecipesTab />}
-      {tab === 'editions' && <EditionsTab />}
-      {tab === 'assembly' && <AssemblyTab />}
-      {tab === 'leads' && <LeadsTab />}
-      {tab === 'advertisers' && <AdvertisersTab />}
-      {tab === 'printcenter' && <PrintCenterTab />}
     </div>
   );
 }
 
-// ════════════════════ РЕСТОРАНЫ-ПАРТНЁРЫ (онбординг) ════════════════════
-const emptyRestaurant = {
-  id: '', name: '', slug: '', city: 'samarkand', tier: 'premium',
-  logo: '', instagram: '', brandPrimary: '#2d5a27', brandAccent: '#c9a84c',
-  promoCode: '', promoDiscount: 10, menuItems: [] as string[], phone: '', contactName: '',
-};
-
-function RestaurantsTab() {
-  const [list, setList] = useState<any[]>([]);
-  const [form, setForm] = useState({ ...emptyRestaurant });
-  const [editing, setEditing] = useState(false);
-  const [uploading, setUploading] = useState(false);
+// ════════════════════ ЖУРНАЛЫ ════════════════════
+function JournalsTab() {
+  const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [dishes, setDishes] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any | null>(null);
+  const [newName, setNewName] = useState('');
+  const [newSlug, setNewSlug] = useState('');
+  const [uploading, setUploading] = useState('');
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    try { setList(await adminJsonArray('/api/admin/magazine/restaurants')); }
-    finally { setLoading(false); }
-  };
+    try {
+      const list = await adminJsonArray('/api/admin/magazine/restaurants');
+      setRestaurants(list);
+      if (selected) {
+        const fresh = list.find((r: any) => r.id === selected.id);
+        if (fresh) setSelected(fresh);
+      }
+    } finally { setLoading(false); }
+  }, [selected]);
+
   useEffect(() => { load(); }, []);
 
-  const uploadLogo = async (file: File) => {
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (data.url) setForm((f) => ({ ...f, logo: data.url }));
-    } finally { setUploading(false); }
-  };
+  const loadDishes = useCallback(async (restaurantId: string) => {
+    if (!restaurantId) return setDishes([]);
+    const res = await adminFetch(`/api/admin/magazine/dishes?restaurantId=${restaurantId}`);
+    const data = await res.json().catch(() => []);
+    setDishes(Array.isArray(data) ? data : []);
+  }, []);
 
-  const save = async (e: React.FormEvent) => {
+  useEffect(() => { if (selected) loadDishes(selected.id); }, [selected, loadDishes]);
+
+  const addRestaurant = async (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = { ...form, menuItems: Array.isArray(form.menuItems) ? form.menuItems : String(form.menuItems).split(',').map((s) => s.trim()).filter(Boolean) };
-    if (editing && form.id) {
-      await adminFetch('/api/admin/magazine/restaurants', { method: 'PATCH', body: JSON.stringify(payload) });
-    } else {
-      await adminFetch('/api/admin/magazine/restaurants', { method: 'POST', body: JSON.stringify(payload) });
-    }
-    setForm({ ...emptyRestaurant }); setEditing(false); load();
+    if (!newName.trim()) return;
+    await adminFetch('/api/admin/magazine/restaurants', {
+      method: 'POST',
+      body: JSON.stringify({ name: newName.trim(), slug: newSlug.trim() || undefined, isMagazinePartner: true }),
+    });
+    setNewName(''); setNewSlug('');
+    await load();
   };
 
-  const edit = (r: any) => { setForm({ ...emptyRestaurant, ...r, menuItems: r.menuItems || [] }); setEditing(true); };
-  const remove = async (id: string) => {
-    if (!confirm('Удалить ресторан?')) return;
-    await adminFetch(`/api/admin/magazine/restaurants?id=${id}`, { method: 'DELETE' }); load();
-  };
-
-  if (loading) return <div>Загрузка...</div>;
-
-  return (
-    <div className="card" style={{ padding: 'var(--space-4)' }}>
-      <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)' }}>{editing ? 'Редактирование ресторана' : 'Новый ресторан-партнёр'}</h3>
-      <form onSubmit={save} style={{ display: 'grid', gap: 'var(--space-3)', background: 'var(--bg-secondary)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-6)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-          <input required className="input" placeholder="Название ресторана" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input className="input" placeholder="slug (латиницей, напр. ora)" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
-          <select className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })}>
-            <option value="samarkand">Самарканд</option>
-            <option value="tashkent">Ташкент</option>
-          </select>
-          <select className="input" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
-            <option value="premium">Premium</option>
-            <option value="traditional">Traditional</option>
-            <option value="cafe">Cafe</option>
-            <option value="tourist">Tourist</option>
-          </select>
-          <input className="input" placeholder="Instagram @handle" value={form.instagram} onChange={(e) => setForm({ ...form, instagram: e.target.value })} />
-          <input className="input" placeholder="Телефон" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-          <input className="input" placeholder="Промокод (напр. ORA10)" value={form.promoCode} onChange={(e) => setForm({ ...form, promoCode: e.target.value })} />
-          <input className="input" type="number" placeholder="Скидка %" value={form.promoDiscount} onChange={(e) => setForm({ ...form, promoDiscount: Number(e.target.value) })} />
-        </div>
-
-        <label style={{ display: 'flex', gap: 'var(--space-4)', alignItems: 'center' }}>
-          <span>Фирменные цвета:</span>
-          <span>Основной <input type="color" value={form.brandPrimary} onChange={(e) => setForm({ ...form, brandPrimary: e.target.value })} /></span>
-          <span>Акцент <input type="color" value={form.brandAccent} onChange={(e) => setForm({ ...form, brandAccent: e.target.value })} /></span>
-        </label>
-
-        <div style={{ display: 'flex', gap: 'var(--space-3)', alignItems: 'center' }}>
-          <label style={{ cursor: 'pointer', background: 'var(--bg-primary)', border: '1px dashed var(--border-color)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
-            {uploading ? 'Загрузка...' : 'Загрузить логотип'}
-            <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
-          </label>
-          {form.logo && <img src={form.logo} alt="logo" style={{ height: 40, borderRadius: 4 }} />}
-        </div>
-
-        <textarea className="input" placeholder="Блюда меню через запятую (контекст для ИИ)" rows={2}
-          value={Array.isArray(form.menuItems) ? form.menuItems.join(', ') : form.menuItems}
-          onChange={(e) => setForm({ ...form, menuItems: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} />
-
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button type="submit" style={{ background: 'var(--success)', color: '#fff', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>{editing ? 'Сохранить' : 'Добавить'}</button>
-          {editing && <button type="button" onClick={() => { setForm({ ...emptyRestaurant }); setEditing(false); }} style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer' }}>Отмена</button>}
-        </div>
-      </form>
-
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
-            <th style={{ padding: 'var(--space-2)' }}>Ресторан</th>
-            <th style={{ padding: 'var(--space-2)' }}>slug</th>
-            <th style={{ padding: 'var(--space-2)' }}>Промокод</th>
-            <th style={{ padding: 'var(--space-2)' }}>Цвета</th>
-            <th style={{ padding: 'var(--space-2)' }}>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          {list.map((r) => (
-            <tr key={r.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={{ padding: 'var(--space-2)', fontWeight: 'bold' }}>{r.name}</td>
-              <td style={{ padding: 'var(--space-2)' }}>{r.slug || '—'}</td>
-              <td style={{ padding: 'var(--space-2)' }}>{r.promoCode ? `${r.promoCode} (−${r.promoDiscount || 10}%)` : '—'}</td>
-              <td style={{ padding: 'var(--space-2)' }}>
-                <span style={{ display: 'inline-block', width: 14, height: 14, background: r.brandPrimary || '#2d5a27', borderRadius: 3, marginRight: 3 }} />
-                <span style={{ display: 'inline-block', width: 14, height: 14, background: r.brandAccent || '#c9a84c', borderRadius: 3 }} />
-              </td>
-              <td style={{ padding: 'var(--space-2)', display: 'flex', gap: '8px' }}>
-                <button onClick={() => edit(r)} style={{ background: 'transparent', border: 'none', color: 'var(--brand-primary)', cursor: 'pointer' }}>Изменить</button>
-                <button onClick={() => remove(r.id)} style={{ background: 'transparent', border: 'none', color: 'var(--error)', cursor: 'pointer' }}><Trash size={16} /></button>
-              </td>
-            </tr>
-          ))}
-          {list.length === 0 && <tr><td colSpan={5} style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-muted)' }}>Нет ресторанов</td></tr>}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ════════════════════ ВЫПУСК НЕДЕЛИ (общий 50%) ════════════════════
-function EditionsTab() {
-  const [list, setList] = useState<any[]>([]);
-  const [sel, setSel] = useState<any | null>(null);
-  const [blocks, setBlocks] = useState<any[]>([]);
-  const [form, setForm] = useState({ weekNumber: '', title: '', coverTheme: '' });
-  const [saving, setSaving] = useState(false);
-
-  const load = async () => { setList(await (await adminFetch('/api/admin/magazine/editions')).json()); };
-  useEffect(() => { load(); }, []);
-
-  const select = (ed: any) => { setSel(ed); setBlocks(ed.sharedSpec?.blocks || []); };
-
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await adminFetch('/api/admin/magazine/editions', { method: 'POST', body: JSON.stringify({ weekNumber: Number(form.weekNumber), title: form.title, coverTheme: form.coverTheme }) });
-    setForm({ weekNumber: '', title: '', coverTheme: '' }); load();
-  };
-
-  const saveBlocks = async () => {
-    if (!sel) return;
-    setSaving(true);
-    try {
-      await adminFetch('/api/admin/magazine/editions', { method: 'PATCH', body: JSON.stringify({ id: sel.id, sharedSpec: { blocks } }) });
-      await load();
-    } finally { setSaving(false); }
-  };
-
-  const togglePublish = async (ed: any) => {
-    await adminFetch('/api/admin/magazine/editions', { method: 'PATCH', body: JSON.stringify({ id: ed.id, isPublished: !ed.isPublished }) });
-    load();
-  };
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 'var(--space-4)' }}>
-      <div className="card" style={{ padding: 'var(--space-4)' }}>
-        <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>Выпуски</h3>
-        <form onSubmit={create} style={{ display: 'grid', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-          <input required className="input" type="number" placeholder="№ недели" value={form.weekNumber} onChange={(e) => setForm({ ...form, weekNumber: e.target.value })} />
-          <input className="input" placeholder="Заголовок" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <input className="input" placeholder="Тема обложки" value={form.coverTheme} onChange={(e) => setForm({ ...form, coverTheme: e.target.value })} />
-          <button type="submit" style={{ background: 'var(--brand-primary)', color: '#fff', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>+ Создать выпуск</button>
-        </form>
-        {list.map((ed) => (
-          <div key={ed.id} onClick={() => select(ed)} style={{ padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: sel?.id === ed.id ? 'var(--bg-secondary)' : 'transparent', marginBottom: '4px' }}>
-            <div style={{ fontWeight: 600 }}>№{ed.weekNumber} · {ed.title}</div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{ed._count?.issues ?? 0} ресторанов · {ed.isPublished ? 'опубликован' : 'черновик'}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="card" style={{ padding: 'var(--space-4)' }}>
-        {sel ? (
-          <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-              <h3 style={{ fontWeight: 'var(--font-bold)' }}>Общий контент · №{sel.weekNumber}</h3>
-              <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                <button onClick={() => togglePublish(sel)} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'transparent', cursor: 'pointer' }}>{sel.isPublished ? 'Снять с публикации' : 'Опубликовать'}</button>
-                <button onClick={saveBlocks} disabled={saving} style={{ background: 'var(--success)', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>{saving ? 'Сохранение...' : 'Сохранить'}</button>
-              </div>
-            </div>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>Вставьте тексты от ИИ в слоты или нажмите «✨ ИИ» на блоке для черновика. Этот контент одинаков для всех ресторанов недели (50%).</p>
-            <SlotEditor blocks={blocks} onChange={setBlocks} context={{ weekTheme: sel.coverTheme || sel.title }} />
-          </>
-        ) : <div style={{ color: 'var(--text-muted)' }}>Выберите или создайте выпуск слева.</div>}
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════ СБОРКА (персональный 50%) ════════════════════
-function AssemblyTab() {
-  const [editions, setEditions] = useState<any[]>([]);
-  const [restaurants, setRestaurants] = useState<any[]>([]);
-  const [issues, setIssues] = useState<any[]>([]);
-  const [newIssue, setNewIssue] = useState({ editionId: '', restaurantId: '' });
-  const [sel, setSel] = useState<any | null>(null);
-  const [blocks, setBlocks] = useState<any[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState('');
-
-  const loadAll = async () => {
-    const [e, r, i] = await Promise.all([
-      adminJsonArray('/api/admin/magazine/editions'),
-      adminJsonArray('/api/admin/magazine/restaurants'),
-      adminJsonArray('/api/admin/magazine/issues'),
-    ]);
-    setEditions(e); setRestaurants(r); setIssues(i);
-    if (sel) {
-      const fresh = i.find((x: any) => x.id === sel.id);
-      if (fresh) setSel(fresh);
-    }
-  };
-  useEffect(() => { loadAll(); }, []);
-
-  const create = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await adminFetch('/api/admin/magazine/issues', { method: 'POST', body: JSON.stringify(newIssue) });
-    if (!res.ok) { const err = await res.json(); alert(err.error || 'Ошибка'); return; }
-    setNewIssue({ editionId: '', restaurantId: '' }); loadAll();
-  };
-
-  const select = (iss: any) => { setSel(iss); setBlocks(iss.spec?.blocks || []); };
-
-  const saveBlocks = async () => {
-    if (!sel) return;
-    setSaving(true);
-    try {
-      await adminFetch('/api/admin/magazine/issues', { method: 'PATCH', body: JSON.stringify({ id: sel.id, spec: { blocks } }) });
-      await loadAll();
-    } finally { setSaving(false); }
-  };
-
-  const setStatus = async (status: string) => {
-    if (!sel) return;
-    await adminFetch('/api/admin/magazine/issues', { method: 'PATCH', body: JSON.stringify({ id: sel.id, status }) });
-    loadAll();
-  };
-
-  const uploadMagazineFile = async (field: 'pdfUrl' | 'htmlUrl', file: File) => {
-    if (!sel) return;
+  const uploadFile = async (field: 'magazinePdfUrl' | 'magazineHtmlUrl', file: File) => {
+    if (!selected) return;
     setUploading(field);
     try {
       const fd = new FormData();
@@ -316,215 +88,187 @@ function AssemblyTab() {
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json();
       if (!data.url) { alert(data.error || 'Ошибка загрузки'); return; }
-      await adminFetch('/api/admin/magazine/issues', {
+      await adminFetch('/api/admin/magazine/restaurants', {
         method: 'PATCH',
-        body: JSON.stringify({ id: sel.id, [field]: data.url }),
+        body: JSON.stringify({ id: selected.id, [field]: data.url }),
       });
-      await loadAll();
+      await load();
     } finally { setUploading(''); }
   };
 
-  const removeMagazineFile = async (field: 'pdfUrl' | 'htmlUrl') => {
-    if (!sel) return;
-    await adminFetch('/api/admin/magazine/issues', {
+  const removeFile = async (field: 'magazinePdfUrl' | 'magazineHtmlUrl') => {
+    if (!selected) return;
+    await adminFetch('/api/admin/magazine/restaurants', {
       method: 'PATCH',
-      body: JSON.stringify({ id: sel.id, [field]: null }),
+      body: JSON.stringify({ id: selected.id, [field]: null }),
     });
-    await loadAll();
+    await load();
   };
 
+  const uploadVideo = async (dishId: string, file: File) => {
+    if (!selected) return;
+    setUploading(`video-${dishId}`);
+    try {
+      let poster: Blob | null = null;
+      try { poster = (await captureLastFrame(file)).blob; } catch { /* без постера */ }
+
+      const send = async (f: File | Blob, name: string) => {
+        const form = new FormData();
+        form.append('file', f instanceof File ? f : new File([f], name, { type: f.type }));
+        return (await fetch('/api/upload', { method: 'POST', body: form })).json();
+      };
+
+      const videoRes = await send(file, file.name);
+      if (!videoRes.url) return;
+
+      const patch: Record<string, string> = { videoUrl: videoRes.url };
+      if (poster) {
+        const posterRes = await send(poster, `poster-${Date.now()}.jpg`);
+        if (posterRes.url) patch.videoPoster = posterRes.url;
+      }
+
+      await adminFetch('/api/admin/magazine/dishes', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: dishId, ...patch }),
+      });
+      await loadDishes(selected.id);
+    } finally { setUploading(''); }
+  };
+
+  const removeVideo = async (dishId: string) => {
+    if (!selected) return;
+    await adminFetch('/api/admin/magazine/dishes', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: dishId, videoUrl: null, videoPoster: null }),
+    });
+    await loadDishes(selected.id);
+  };
+
+  if (loading) return <div>Загрузка...</div>;
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 'var(--space-4)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 'var(--space-4)', minHeight: 400 }}>
+      {/* Список ресторанов */}
       <div className="card" style={{ padding: 'var(--space-4)' }}>
-        <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>Персональные выпуски</h3>
-        <form onSubmit={create} style={{ display: 'grid', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-          <select required className="input" value={newIssue.editionId} onChange={(e) => setNewIssue({ ...newIssue, editionId: e.target.value })}>
-            <option value="">Выпуск недели…</option>
-            {editions.map((ed) => <option key={ed.id} value={ed.id}>№{ed.weekNumber} · {ed.title}</option>)}
-          </select>
-          <select required className="input" value={newIssue.restaurantId} onChange={(e) => setNewIssue({ ...newIssue, restaurantId: e.target.value })}>
-            <option value="">Ресторан…</option>
-            {restaurants.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </select>
-          <button type="submit" style={{ background: 'var(--brand-primary)', color: '#fff', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>+ Собрать выпуск</button>
+        <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>Рестораны</h3>
+
+        <form onSubmit={addRestaurant} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
+          <input className="input" placeholder="Название ресторана" value={newName} onChange={(e) => setNewName(e.target.value)} required />
+          <input className="input" placeholder="slug (латиницей)" value={newSlug} onChange={(e) => setNewSlug(e.target.value)} />
+          <button type="submit" style={{ background: 'var(--brand-primary)', color: '#fff', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 600 }}>+ Добавить</button>
         </form>
-        {issues.map((iss) => (
-          <div key={iss.id} onClick={() => select(iss)} style={{ padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: sel?.id === iss.id ? 'var(--bg-secondary)' : 'transparent', marginBottom: '4px' }}>
+
+        {restaurants.map((r) => (
+          <div key={r.id} onClick={() => setSelected(r)} style={{
+            padding: 'var(--space-2) var(--space-3)', borderRadius: 'var(--radius-md)', cursor: 'pointer',
+            background: selected?.id === r.id ? 'var(--bg-secondary)' : 'transparent', marginBottom: 4,
+          }}>
             <div style={{ fontWeight: 600 }}>
-              {iss.restaurant?.name} · №{iss.edition?.weekNumber}
-              {(iss.pdfUrl || iss.htmlUrl) && <span style={{ marginLeft: 6, color: 'var(--success)', fontSize: 'var(--text-xs)' }}>📎</span>}
+              {r.name}
+              {(r.magazinePdfUrl || r.magazineHtmlUrl) && <span style={{ marginLeft: 6, fontSize: 12 }}>📎</span>}
             </div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{iss.webSlug} · {iss.status}</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>/m/{r.slug}</div>
           </div>
         ))}
+        {restaurants.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>Нет ресторанов</div>}
       </div>
 
+      {/* Файлы + видео */}
       <div className="card" style={{ padding: 'var(--space-4)' }}>
-        {sel ? (
+        {selected ? (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-              <h3 style={{ fontWeight: 'var(--font-bold)' }}>{sel.restaurant?.name} · персональный 50%</h3>
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                <a href={`/magazine/r/${sel.webSlug}`} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', textDecoration: 'none', color: 'var(--text-primary)' }}>👁 Предпросмотр</a>
-                <a href={`/magazine/print/${sel.webSlug}`} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', textDecoration: 'none', color: 'var(--text-primary)' }}>🖨 Печать</a>
-                <button onClick={saveBlocks} disabled={saving} style={{ background: 'var(--success)', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>{saving ? '...' : 'Сохранить'}</button>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', alignItems: 'center' }}>
-              <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Статус:</span>
-              {['draft', 'ready', 'published'].map((s) => (
-                <button key={s} onClick={() => setStatus(s)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, background: sel.status === s ? 'var(--brand-primary)' : 'var(--bg-secondary)', color: sel.status === s ? '#fff' : 'var(--text-primary)' }}>{s}</button>
-              ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              <h3 style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)' }}>{selected.name}</h3>
+              <a href={`/m/${selected.slug}`} target="_blank" rel="noopener noreferrer" style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid var(--border-color)', textDecoration: 'none', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>👁 Живое меню →</a>
             </div>
 
-            {/* Загрузка файлов журнала */}
-            <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 200, padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>📄 PDF журнала</div>
-                {sel.pdfUrl ? (
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                    <a href={sel.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть PDF</a>
-                    <label style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer' }}>
-                      Заменить
-                      <input type="file" accept=".pdf" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('pdfUrl', f); e.target.value = ''; }} />
-                    </label>
-                    <button onClick={() => removeMagazineFile('pdfUrl')} style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer' }}>Удалить</button>
-                  </div>
-                ) : (
-                  <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: '#fff', cursor: uploading === 'pdfUrl' ? 'wait' : 'pointer' }}>
-                    {uploading === 'pdfUrl' ? 'Загрузка...' : '⬆ Загрузить PDF'}
-                    <input type="file" accept=".pdf" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('pdfUrl', f); e.target.value = ''; }} />
-                  </label>
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 200, padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>🌐 HTML журнала</div>
-                {sel.htmlUrl ? (
-                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
-                    <a href={sel.htmlUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть HTML</a>
-                    <label style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer' }}>
-                      Заменить
-                      <input type="file" accept=".html,.htm" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('htmlUrl', f); e.target.value = ''; }} />
-                    </label>
-                    <button onClick={() => removeMagazineFile('htmlUrl')} style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer' }}>Удалить</button>
-                  </div>
-                ) : (
-                  <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: '#fff', cursor: uploading === 'htmlUrl' ? 'wait' : 'pointer' }}>
-                    {uploading === 'htmlUrl' ? 'Загрузка...' : '⬆ Загрузить HTML'}
-                    <input type="file" accept=".html,.htm" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('htmlUrl', f); e.target.value = ''; }} />
-                  </label>
-                )}
-              </div>
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
+              <FileUploadCard
+                label="📄 PDF журнала"
+                url={selected.magazinePdfUrl}
+                accept=".pdf"
+                uploading={uploading === 'magazinePdfUrl'}
+                disabled={!!uploading}
+                onUpload={(f) => uploadFile('magazinePdfUrl', f)}
+                onRemove={() => removeFile('magazinePdfUrl')}
+              />
+              <FileUploadCard
+                label="🌐 HTML журнала"
+                url={selected.magazineHtmlUrl}
+                accept=".html,.htm"
+                uploading={uploading === 'magazineHtmlUrl'}
+                disabled={!!uploading}
+                onUpload={(f) => uploadFile('magazineHtmlUrl', f)}
+                onRemove={() => removeFile('magazineHtmlUrl')}
+              />
             </div>
 
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>Персональные блоки (слово шефа, обложка, семейный QR-блок) собираются с общим контентом выпуска автоматически. «✨ ИИ» генерит текст с учётом меню ресторана.</p>
-            <SlotEditor blocks={blocks} onChange={setBlocks} context={{ restaurantName: sel.restaurant?.name, menuItems: sel.restaurant?.menuItems, weekTheme: sel.edition?.title, city: sel.restaurant?.city }} />
+            <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>🎬 Видео для QR-кодов</h4>
+            {dishes.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                Нет блюд. Перейди на вкладку «🍽 Меню и видео» чтобы загрузить меню.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                {dishes.map((d: any) => (
+                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2)', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ width: 32, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>#{d.code}</span>
+                    {d.photo
+                      ? <img src={d.photo} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                      : <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--bg-elevated)' }} />}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{d.nameRu}</div>
+                      {d.videoUrl && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)' }}>▶ Видео загружено</div>}
+                    </div>
+                    <label style={{
+                      padding: '4px 12px', borderRadius: '6px', fontSize: 'var(--text-sm)', fontWeight: 600,
+                      border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer',
+                      ...(d.videoUrl ? { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' } : {}),
+                    }}>
+                      {d.videoUrl ? '▶ Заменить' : '+ Видео'}
+                      <input type="file" accept="video/mp4,video/webm" style={{ display: 'none' }} disabled={!!uploading}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideo(d.id, f); e.target.value = ''; }} />
+                    </label>
+                    {d.videoUrl && (
+                      <button onClick={() => removeVideo(d.id)} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>Убрать</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </>
-        ) : <div style={{ color: 'var(--text-muted)' }}>Выберите или соберите персональный выпуск слева.</div>}
-      </div>
-    </div>
-  );
-}
-
-// ════════════════════ ЗАЯВКИ (print-on-demand) — без изменений логики ════════════════════
-function LeadsTab() {
-  const [leads, setLeads] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const load = async () => { setLoading(true); try { setLeads(await (await adminFetch('/api/admin/magazine/leads')).json()); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
-  const togglePaid = async (id: string, isPaid: boolean) => {
-    await adminFetch('/api/admin/magazine/leads', { method: 'PATCH', body: JSON.stringify({ id, isPaid: !isPaid }) });
-    load();
-  };
-  if (loading) return <div>Загрузка...</div>;
-  return (
-    <div className="card" style={{ padding: 'var(--space-4)' }}>
-      <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)' }}>Лиды на печатную версию</h3>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
-            <th style={{ padding: 'var(--space-2)' }}>Дата</th><th style={{ padding: 'var(--space-2)' }}>Контакт</th><th style={{ padding: 'var(--space-2)' }}>Выпуск</th><th style={{ padding: 'var(--space-2)' }}>Адрес</th><th style={{ padding: 'var(--space-2)' }}>Оплата</th>
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map((lead) => (
-            <tr key={lead.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={{ padding: 'var(--space-2)' }}>{new Date(lead.createdAt).toLocaleDateString()}</td>
-              <td style={{ padding: 'var(--space-2)' }}>{lead.userId || 'Неизвестно'}<div style={{ color: 'var(--text-muted)' }}>{lead.phone || ''}</div></td>
-              <td style={{ padding: 'var(--space-2)' }}>№{lead.issue?.issueNumber || '?'}</td>
-              <td style={{ padding: 'var(--space-2)' }}>{lead.address || '—'}</td>
-              <td style={{ padding: 'var(--space-2)' }}>
-                <button onClick={() => togglePaid(lead.id, lead.isPaid)} style={{ padding: '4px 8px', borderRadius: '4px', background: lead.isPaid ? 'var(--success-bg)' : 'var(--warning-bg)', color: lead.isPaid ? 'var(--success)' : 'var(--warning)', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>{lead.isPaid ? 'Оплачено' : 'Ожидает'}</button>
-              </td>
-            </tr>
-          ))}
-          {leads.length === 0 && <tr><td colSpan={5} style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-muted)' }}>Нет заявок</td></tr>}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ════════════════════ РЕКЛАМОДАТЕЛИ — без изменений логики ════════════════════
-function AdvertisersTab() {
-  const [advertisers, setAdvertisers] = useState<any[]>([]);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newAdv, setNewAdv] = useState({ companyName: '', contactPerson: '', phone: '', email: '', status: 'lead', format: '', amount: 0, notes: '' });
-  const [loading, setLoading] = useState(true);
-  const load = async () => { setLoading(true); try { setAdvertisers(await adminJsonArray('/api/admin/magazine/advertisers')); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
-  const add = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await adminFetch('/api/admin/magazine/advertisers', { method: 'POST', body: JSON.stringify({ ...newAdv, amount: Number(newAdv.amount) }) });
-    setShowAddForm(false); setNewAdv({ companyName: '', contactPerson: '', phone: '', email: '', status: 'lead', format: '', amount: 0, notes: '' }); load();
-  };
-  const remove = async (id: string) => { if (!confirm('Удалить рекламодателя?')) return; await adminFetch(`/api/admin/magazine/advertisers?id=${id}`, { method: 'DELETE' }); load(); };
-  if (loading) return <div>Загрузка...</div>;
-  return (
-    <div className="card" style={{ padding: 'var(--space-4)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
-        <h3 style={{ fontWeight: 'var(--font-bold)' }}>База рекламодателей</h3>
-        <button onClick={() => setShowAddForm(!showAddForm)} style={{ background: 'var(--brand-primary)', color: '#fff', padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>{showAddForm ? 'Отмена' : '+ Добавить'}</button>
-      </div>
-      {showAddForm && (
-        <form onSubmit={add} style={{ display: 'grid', gap: 'var(--space-3)', background: 'var(--bg-secondary)', padding: 'var(--space-4)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
-            <input required className="input" placeholder="Название компании" value={newAdv.companyName} onChange={(e) => setNewAdv({ ...newAdv, companyName: e.target.value })} />
-            <input className="input" placeholder="Контактное лицо" value={newAdv.contactPerson} onChange={(e) => setNewAdv({ ...newAdv, contactPerson: e.target.value })} />
-            <input className="input" placeholder="Телефон" value={newAdv.phone} onChange={(e) => setNewAdv({ ...newAdv, phone: e.target.value })} />
-            <input className="input" placeholder="Email" value={newAdv.email} onChange={(e) => setNewAdv({ ...newAdv, email: e.target.value })} />
-            <select className="input" value={newAdv.status} onChange={(e) => setNewAdv({ ...newAdv, status: e.target.value })}>
-              <option value="lead">Потенциальный (Lead)</option><option value="active">Активный</option><option value="past">Архив</option>
-            </select>
-            <select className="input" value={newAdv.format} onChange={(e) => setNewAdv({ ...newAdv, format: e.target.value })}>
-              <option value="">Без формата</option><option value="cover_ar">AR Обложка ($500)</option><option value="spread">Разворот ($300)</option><option value="page">Полоса ($150)</option>
-            </select>
-            <input className="input" type="number" placeholder="Сумма (UZS)" value={newAdv.amount} onChange={(e) => setNewAdv({ ...newAdv, amount: Number(e.target.value) })} />
-            <input className="input" placeholder="Заметки" value={newAdv.notes} onChange={(e) => setNewAdv({ ...newAdv, notes: e.target.value })} />
+        ) : (
+          <div style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            Выбери ресторан слева или добавь новый
           </div>
-          <button type="submit" style={{ background: 'var(--success)', color: '#fff', padding: '8px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>Сохранить</button>
-        </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function FileUploadCard({ label, url, accept, uploading, disabled, onUpload, onRemove }: {
+  label: string; url: string | null; accept: string; uploading: boolean; disabled: boolean;
+  onUpload: (f: File) => void; onRemove: () => void;
+}) {
+  return (
+    <div style={{ flex: 1, minWidth: 200, padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
+      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>{label}</div>
+      {url ? (
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+          <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть ↗</a>
+          <label style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: disabled ? 'wait' : 'pointer' }}>
+            Заменить
+            <input type="file" accept={accept} style={{ display: 'none' }} disabled={disabled} onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
+          </label>
+          <button onClick={onRemove} style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer' }}>Удалить</button>
+        </div>
+      ) : (
+        <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: '#fff', cursor: disabled ? 'wait' : 'pointer' }}>
+          {uploading ? 'Загрузка...' : '⬆ Загрузить'}
+          <input type="file" accept={accept} style={{ display: 'none' }} disabled={disabled} onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
+        </label>
       )}
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--border-color)', textAlign: 'left', color: 'var(--text-muted)' }}>
-            <th style={{ padding: 'var(--space-2)' }}>Компания</th><th style={{ padding: 'var(--space-2)' }}>Контакты</th><th style={{ padding: 'var(--space-2)' }}>Статус</th><th style={{ padding: 'var(--space-2)' }}>Формат</th><th style={{ padding: 'var(--space-2)' }}>Сумма</th><th style={{ padding: 'var(--space-2)' }}>Действия</th>
-          </tr>
-        </thead>
-        <tbody>
-          {advertisers.map((adv) => (
-            <tr key={adv.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-              <td style={{ padding: 'var(--space-2)', fontWeight: 'bold' }}>{adv.companyName}</td>
-              <td style={{ padding: 'var(--space-2)' }}>{adv.contactPerson || '—'}<div style={{ color: 'var(--text-muted)' }}>{adv.phone || adv.email || ''}</div></td>
-              <td style={{ padding: 'var(--space-2)' }}>{adv.status}</td>
-              <td style={{ padding: 'var(--space-2)' }}>{adv.format || '—'}</td>
-              <td style={{ padding: 'var(--space-2)' }}>{adv.amount ? adv.amount.toLocaleString() + ' UZS' : '—'}</td>
-              <td style={{ padding: 'var(--space-2)' }}><button onClick={() => remove(adv.id)} style={{ background: 'transparent', color: 'var(--error)', border: 'none', cursor: 'pointer' }}><Trash size={16} /></button></td>
-            </tr>
-          ))}
-          {advertisers.length === 0 && <tr><td colSpan={6} style={{ padding: 'var(--space-4)', textAlign: 'center', color: 'var(--text-muted)' }}>Нет рекламодателей</td></tr>}
-        </tbody>
-      </table>
     </div>
   );
 }
