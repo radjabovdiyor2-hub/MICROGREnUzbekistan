@@ -3,7 +3,7 @@
 // GET    ?restaurantId=…            — меню ресторана
 // GET    ?restaurantId=…&template=1 — CSV-шаблон для отправки ресторану
 // POST   { restaurantId, csv }      — импорт заполненного файла (превью/сохранение)
-// PATCH  { id, ...поля }            — правка блюда (фото, порядок, активность)
+// PATCH  { id, ...поля }            — правка блюда (фото, видео, порядок, активность)
 // DELETE ?id=…                      — убрать блюдо
 // ════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
@@ -92,7 +92,7 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json().catch(() => null);
   if (!body?.id) return NextResponse.json({ error: 'id required' }, { status: 400 });
   const { id, ...rest } = body;
-  const allowed = ['nameRu', 'nameUz', 'descriptionRu', 'descriptionUz', 'price', 'category', 'pairsWith', 'photo', 'sortOrder', 'isActive'];
+  const allowed = ['nameRu', 'nameUz', 'descriptionRu', 'descriptionUz', 'price', 'category', 'pairsWith', 'photo', 'videoUrl', 'videoPoster', 'sortOrder', 'isActive'];
   const data = Object.fromEntries(Object.entries(rest).filter(([k]) => allowed.includes(k)));
   const dish = await prisma.dish.update({ where: { id }, data });
   return NextResponse.json(dish);

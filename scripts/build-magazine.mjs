@@ -24,6 +24,12 @@ const FONT_CACHE = join(TPL, 'fonts');
 
 const SITE = process.env.NEXT_PUBLIC_URL || 'https://microgreenuzbekistan.com';
 
+// Логин бота держим здесь одной строкой и подставляем в макет плейсхолдером:
+// в шаблоне он был захардкожен как @microgreen_uzb_bot — такого бота нет,
+// в приложении и в боте везде Microgreenuzbekistan_bot
+// (apps/web/src/lib/site.ts → CONTACT.telegramBot).
+const TELEGRAM_BOT = 'Microgreenuzbekistan_bot';
+
 // Те же опции, что в apps/web/src/lib/magazine/qr.ts: тихая зона 4 и
 // коррекция M — без них код плохо читается с матовой бумаги.
 const QR_OPTS = { margin: 4, errorCorrectionLevel: 'M', type: 'svg', color: { dark: '#000000', light: '#ffffff' } };
@@ -33,23 +39,25 @@ const QR_OPTS = { margin: 4, errorCorrectionLevel: 'M', type: 'svg', color: { da
 const PHOTO_SLOTS = {
   PHOTO_COVER:      { mm: '154×216', px: '1820×2551', what: 'Обложка (в край)' },
   PHOTO_CHEF:       { mm: '38×48',   px: '450×570',   what: 'Портрет шефа' },
-  PHOTO_RESTAURANT: { mm: '128×45',  px: '1512×532',  what: 'Зал ресторана' },
-  PHOTO_RECIPE:     { mm: '128×38',  px: '1512×449',  what: 'Готовое блюдо рецепта' },
-  PHOTO_HEALTH:     { mm: '128×36',  px: '1512×425',  what: 'Микрозелень крупно' },
-  PHOTO_KIDS:       { mm: '128×36',  px: '1512×425',  what: 'Ребёнок и ростки' },
-  PHOTO_FARM:       { mm: '128×36',  px: '1512×425',  what: 'Ферма, стеллажи' },
+  // Горизонтальные плашки — 128×48 (≈8:3). До этого 36–38 мм давали почти
+  // 3.5:1: блюдо и стеллажи фермы срезались в узкую полосу.
+  PHOTO_RESTAURANT: { mm: '128×48',  px: '1512×567',  what: 'Зал ресторана' },
+  PHOTO_RECIPE:     { mm: '128×48',  px: '1512×567',  what: 'Готовое блюдо рецепта' },
+  PHOTO_HEALTH:     { mm: '128×48',  px: '1512×567',  what: 'Микрозелень крупно' },
+  PHOTO_KIDS:       { mm: '128×48',  px: '1512×567',  what: 'Ребёнок и ростки' },
+  PHOTO_FARM:       { mm: '128×48',  px: '1512×567',  what: 'Ферма, стеллажи' },
   PHOTO_DISH_1:     { mm: '24×24',   px: '300×300',   what: 'Блюдо 1' },
   PHOTO_DISH_2:     { mm: '24×24',   px: '300×300',   what: 'Блюдо 2' },
   PHOTO_DISH_3:     { mm: '24×24',   px: '300×300',   what: 'Блюдо 3' },
   PHOTO_DISH_4:     { mm: '24×24',   px: '300×300',   what: 'Блюдо 4' },
   PHOTO_DISH_5:     { mm: '24×24',   px: '300×300',   what: 'Блюдо 5' },
   PHOTO_DISH_6:     { mm: '24×24',   px: '300×300',   what: 'Блюдо 6' },
-  PHOTO_GUEST_1:    { mm: '30×53',   px: '355×627',   what: 'Кадр гостя 1' },
-  PHOTO_GUEST_2:    { mm: '30×53',   px: '355×627',   what: 'Кадр гостя 2' },
-  PHOTO_GUEST_3:    { mm: '30×53',   px: '355×627',   what: 'Кадр гостя 3' },
-  PHOTO_GUEST_4:    { mm: '30×53',   px: '355×627',   what: 'Кадр гостя 4' },
-  PHOTO_GUEST_5:    { mm: '30×53',   px: '355×627',   what: 'Кадр гостя 5' },
-  PHOTO_GUEST_6:    { mm: '30×53',   px: '355×627',   what: 'Кадр гостя 6' },
+  PHOTO_GUEST_1:    { mm: '39×52',   px: '465×614',   what: 'Кадр гостя 1' },
+  PHOTO_GUEST_2:    { mm: '39×52',   px: '465×614',   what: 'Кадр гостя 2' },
+  PHOTO_GUEST_3:    { mm: '39×52',   px: '465×614',   what: 'Кадр гостя 3' },
+  PHOTO_GUEST_4:    { mm: '39×52',   px: '465×614',   what: 'Кадр гостя 4' },
+  PHOTO_GUEST_5:    { mm: '39×52',   px: '465×614',   what: 'Кадр гостя 5' },
+  PHOTO_GUEST_6:    { mm: '39×52',   px: '465×614',   what: 'Кадр гостя 6' },
 };
 
 // Шрифты номера. Конкретные ссылки на файлы не хардкодим — Google меняет
@@ -169,6 +177,7 @@ html = html.replace('{{STYLES}}', `<style>\n${fonts}\n${css}\n${brandVars}\n</st
 const qrMap = {
   QR_MENU: [`${SITE}/m/${cfg.slug}`, 18],
   QR_RECIPE: [`${SITE}/recipe/${cfg.recipeSlug}`, 20],
+  QR_BOT: [`https://t.me/${TELEGRAM_BOT}`, 18],
 };
 for (let i = 1; i <= 6; i++) qrMap[`QR_D${i}`] = [`${SITE}/m/${cfg.slug}/d/${i}`, 15];
 for (const [key, [url, mm]] of Object.entries(qrMap)) {
@@ -191,6 +200,7 @@ const text = {
   ADDRESS: cfg.address,
   INSTAGRAM: cfg.instagram,
   SIGNATURE_DISH: cfg.signatureDish,
+  TELEGRAM_BOT,
 };
 for (const [k, v] of Object.entries(text)) html = html.replaceAll(`{{${k}}}`, v);
 

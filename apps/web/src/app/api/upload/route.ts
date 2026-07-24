@@ -31,6 +31,11 @@ export async function POST(request: NextRequest) {
     const ext = (file.name || '').split('.').pop()?.toLowerCase() || '';
     const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif', 'gif', 'bmp', 'tiff', 'tif', 'svg'];
 
+    // Видео «Живого меню»: ролик блюда, куда ведёт печатный QR.
+    // Держим отдельным списком — у него свой, куда более жёсткий потолок веса.
+    const videoExtensions = ['mp4', 'webm'];
+    const videoMimes = ['video/mp4', 'video/webm'];
+
     // Also check MIME as fallback (but don't reject if extension is valid)
     const allowedMimes = [
       'image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/heic',
@@ -38,22 +43,32 @@ export async function POST(request: NextRequest) {
       'application/octet-stream', // Some phones send this
     ];
 
-    const extValid = allowedExtensions.includes(ext);
-    const mimeValid = allowedMimes.includes(file.type);
+    // Видео определяем по расширению, а не по MIME: комментарий выше не зря —
+    // телефоны шлют octet-stream, и по MIME ролик не отличить от картинки.
+    const isVideo = videoExtensions.includes(ext);
+    const extValid = allowedExtensions.includes(ext) || isVideo;
+    const mimeValid = allowedMimes.includes(file.type) || videoMimes.includes(file.type);
 
     if (!extValid && !mimeValid) {
       return NextResponse.json({
-        error: `Rasm formati qo'llab-quvvatlanmaydi. Fayl: ${file.name}, Tur: ${file.type}`,
+        error: `Format qo'llab-quvvatlanmaydi. Fayl: ${file.name}, Tur: ${file.type}`,
       }, { status: 400 });
     }
 
-    // Max 50MB
-    if (file.size > 50 * 1024 * 1024) {
-      return NextResponse.json({ error: `Fayl hajmi juda katta: ${(file.size / 1024 / 1024).toFixed(1)}MB (max 50MB)` }, { status: 400 });
+    // Потолок веса. Для видео он куда жёстче картинок: файлы раздаёт тот же
+    // сервер без CDN, а ролик открывает гость в зале с мобильного интернета.
+    const maxMB = isVideo ? 8 : 50;
+    if (file.size > maxMB * 1024 * 1024) {
+      const actual = (file.size / 1024 / 1024).toFixed(1);
+      return NextResponse.json({
+        error: isVideo
+          ? `Video juda katta: ${actual}MB (max ${maxMB}MB). Rolikni siqib qayta yuklang.`
+          : `Fayl hajmi juda katta: ${actual}MB (max ${maxMB}MB)`,
+      }, { status: 400 });
     }
 
     // Generate unique filename — preserve original extension
-    const safeExt = allowedExtensions.includes(ext) ? ext : 'jpg';
+    const safeExt = extValid ? ext : 'jpg';
     const timestamp = Date.now().toString(36);
     const rand = Math.random().toString(36).substring(2, 6);
     const filename = `product-${timestamp}-${rand}.${safeExt}`;

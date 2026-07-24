@@ -97,6 +97,7 @@ export function Footer() {
             <li><a href="/#location-section">{t('Yetkazib berish', 'Доставка')}</a></li>
             <li><a href="/#location-section">{t('Aloqa', 'Контакты')}</a></li>
             <li><a href="/catalog">{t('Barcha mahsulotlar', 'Все товары')}</a></li>
+            <li><a href="/recipe">{t('Retseptlar', 'Рецепты')}</a></li>
           </ul>
         </div>
 

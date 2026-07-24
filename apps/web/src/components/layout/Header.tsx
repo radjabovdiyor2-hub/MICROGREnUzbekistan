@@ -136,6 +136,7 @@ export function Header() {
         {/* Desktop Navigation Links */}
         <nav className="header__nav" id="desktop-nav">
           <Link href="/catalog" className="header__nav-link">{t('nav.catalog')}</Link>
+          <Link href="/recipe" className="header__nav-link">Рецепты</Link>
           <Link href="/magazine" className="header__nav-link">Журнал</Link>
           <Link href="/favorites" className="header__nav-link">{t('nav.favorites')}</Link>
         </nav>

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@repo/database';
 import { CatalogView } from '../../../catalog/page';
-import { CATEGORY_SEO, CATEGORY_SLUGS } from '@/lib/seo/categories';
+import { CATEGORY_SEO, CATEGORY_SLUGS, categoryAlternates } from '@/lib/seo/categories';
 import { breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 const SUPPORTED_LANGS = ['ru', 'uz'] as const;
@@ -41,14 +41,7 @@ export async function generateMetadata({
     title,
     description,
     keywords: seo.keywords,
-    alternates: {
-      canonical: url,
-      languages: {
-        'uz-UZ': `${SITE_DOMAIN}/uz/catalog/${category}`,
-        'ru-RU': `${SITE_DOMAIN}/ru/catalog/${category}`,
-        'x-default': `${SITE_DOMAIN}/catalog/${category}`,
-      },
-    },
+    alternates: { canonical: url, languages: categoryAlternates(category) },
     openGraph: {
       title,
       description,
@@ -76,7 +69,7 @@ export default async function LocalizedCategoryPage({
   const h1 = isRu ? seo.h1Ru : seo.h1Uz;
   const intro = isRu ? seo.introRu : seo.introUz;
 
-  let items: { id: string; name: string }[] = [];
+  let items: { url: string; name: string }[] = [];
   try {
     const products = await prisma.product.findMany({
       where: { isActive: true, category: { slug: category } },
@@ -84,7 +77,7 @@ export default async function LocalizedCategoryPage({
       orderBy: { viewCount: 'desc' },
       take: 30,
     });
-    items = products.map((p) => ({ id: p.id, name: isRu ? (p.nameRu || p.nameUz) : (p.nameUz || p.nameRu) }));
+    items = products.map((p) => ({ url: `/product/${p.id}`, name: isRu ? (p.nameRu || p.nameUz) : (p.nameUz || p.nameRu) }));
   } catch {
     /* database unavailable during static build */
   }

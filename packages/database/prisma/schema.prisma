@@ -615,6 +615,12 @@ model Dish {
   category      String? // starter | main | dessert | drink
   pairsWith     String?    @map("pairs_with") // блюдо-апселл
   photo         String?
+  // «Живое меню»: вертикальный ролик блюда, куда ведёт печатный QR.
+  // videoPoster — последний кадр ролика, снятый при загрузке в админке:
+  // он показывается до старта, поэтому само видео качается только когда
+  // гость дошёл до него (у <video> стоит preload="none").
+  videoUrl      String?    @map("video_url")
+  videoPoster   String?    @map("video_poster")
   sortOrder     Int        @default(0) @map("sort_order")
   isActive      Boolean    @default(true) @map("is_active")
 

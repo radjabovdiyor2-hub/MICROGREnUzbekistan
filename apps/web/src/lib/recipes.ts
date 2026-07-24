@@ -40,6 +40,44 @@ export interface RecipeView {
   ingredients: RecipeIngredientView[];
 }
 
+/** Карточка рецепта для списков: хаб /recipe, «другие рецепты», блок на товаре. */
+export interface RecipeCardView {
+  slug: string;
+  titleRu: string;
+  titleUz: string | null;
+  descriptionRu: string | null;
+  heroImage: string | null;
+  cookMinutes: number | null;
+  servings: number | null;
+}
+
+const CARD_SELECT = {
+  slug: true, titleRu: true, titleUz: true,
+  descriptionRu: true, heroImage: true, cookMinutes: true, servings: true,
+} as const;
+
+/** Все активные рецепты — для хаба /recipe и блока «другие рецепты». */
+export async function listRecipes(): Promise<RecipeCardView[]> {
+  return prisma.recipe.findMany({
+    where: { isActive: true },
+    select: CARD_SELECT,
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+  });
+}
+
+/**
+ * Рецепты, где товар указан ингредиентом — перелинковка товар → рецепт.
+ * Идём по существующей связи RecipeIngredient.productId, новых полей не нужно.
+ */
+export async function recipesForProduct(productId: string, take = 4): Promise<RecipeCardView[]> {
+  return prisma.recipe.findMany({
+    where: { isActive: true, ingredients: { some: { productId } } },
+    select: CARD_SELECT,
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    take,
+  });
+}
+
 function toCartProduct(p: {
   id: string; nameUz: string; nameRu: string; price: number; oldPrice: number | null;
   slug: string; images: string[]; category?: { nameUz: string; slug: string } | null;

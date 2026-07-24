@@ -95,9 +95,11 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   alternates: {
     canonical: DOMAIN,
+    // Только uz-UZ: ?lang=ru не отдельная страница (язык переключает клиентский
+    // LangProvider), Google канонизирует её в / — alternate указывал бы сам на
+    // себя. Локализованная главная появится вместе с /ru- и /uz-роутингом.
     languages: {
       'uz-UZ': DOMAIN,
-      'ru-RU': `${DOMAIN}?lang=ru`,
     },
   },
   openGraph: {

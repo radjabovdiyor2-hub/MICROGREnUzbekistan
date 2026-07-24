@@ -27,9 +27,10 @@ export function breadcrumbList(crumbs: Crumb[]) {
   };
 }
 
-interface CollectionItem { id: string; name: string }
+/** Позиция списка: URL строит вызывающий — товары, рецепты и прочее. */
+interface CollectionItem { url: string; name: string }
 
-/** Категория как CollectionPage + ItemList товаров. */
+/** Раздел как CollectionPage + ItemList его страниц. */
 export function collectionPage(opts: {
   name: string;
   description: string;
@@ -49,7 +50,7 @@ export function collectionPage(opts: {
       itemListElement: opts.items.map((it, i) => ({
         '@type': 'ListItem',
         position: i + 1,
-        url: `${SITE_DOMAIN}/product/${it.id}`,
+        url: it.url.startsWith('http') ? it.url : `${SITE_DOMAIN}${it.url}`,
         name: it.name,
       })),
     },

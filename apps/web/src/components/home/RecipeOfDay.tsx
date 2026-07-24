@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   ChevronRight, Clock, Leaf, Lightbulb, Users, Zap,
 } from 'lucide-react';
@@ -69,6 +70,18 @@ export function RecipeOfDay() {
               {t("Har kuni yangi — mikroko'katlar bilan", "Каждый день новый — с микрозеленью")}
             </p>
           </div>
+          {/* Ссылка на хаб рецептов — вход в раздел с главной */}
+          <Link
+            href="/recipe"
+            style={{
+              marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 2,
+              fontSize: 'var(--text-sm)', fontWeight: 700, color: cat.colorFrom,
+              textDecoration: 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            {t('Barcha retseptlar', 'Все рецепты')}
+            <ChevronRight size={15} />
+          </Link>
         </div>
 
         {/* Recipe card */}

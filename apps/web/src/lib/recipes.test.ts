@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { recipeCartProducts, type RecipeView } from './recipes';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+const findMany = vi.fn().mockResolvedValue([]);
+vi.mock('@repo/database', () => ({ prisma: { recipe: { findMany: (...a: unknown[]) => findMany(...a) } } }));
+
+import { recipeCartProducts, listRecipes, recipesForProduct, type RecipeView } from './recipes';
 
 const P = (id: string) => ({
   id, nameUz: 'x', nameRu: 'X', price: 10000, oldPrice: null, slug: id, images: [],
@@ -40,5 +44,26 @@ describe('recipes · recipeCartProducts', () => {
       ingredients: [{ id: 'i1', nameRu: 'Соль', nameUz: null, amount: null, product: null }],
     };
     expect(recipeCartProducts(recipe)).toEqual([]);
+  });
+});
+
+// Запросы списков проверяем по форме: локальной БД для e2e нет, а сломанный
+// фильтр тихо отдаст пустой список и рецепты снова останутся без ссылок.
+describe('recipes · списки для хаба и перелинковки', () => {
+  beforeEach(() => findMany.mockClear());
+
+  it('listRecipes берёт только активные, в порядке sortOrder', async () => {
+    await listRecipes();
+    const arg = findMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ isActive: true });
+    expect(arg.orderBy).toEqual([{ sortOrder: 'asc' }, { createdAt: 'desc' }]);
+    expect(arg.select.slug).toBe(true);
+  });
+
+  it('recipesForProduct фильтрует по ингредиенту-товару и ограничивает выдачу', async () => {
+    await recipesForProduct('prod-1');
+    const arg = findMany.mock.calls[0][0];
+    expect(arg.where).toEqual({ isActive: true, ingredients: { some: { productId: 'prod-1' } } });
+    expect(arg.take).toBe(4);
   });
 });

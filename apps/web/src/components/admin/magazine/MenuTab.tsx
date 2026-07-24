@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { adminFetch } from '@/lib/adminClient';
 import { DISH_CATEGORY_LABELS, isDishCategory, formatPrice } from '@/lib/magazine/menu';
 import type { ParsedDish, ParseIssue } from '@/lib/magazine/dishCsv';
+import { captureLastFrame } from '@/lib/magazine/videoPoster';
 
 /* ─────────────────────────────────────────────
    Меню ресторана: скачать шаблон → получить заполненный файл →
@@ -21,6 +22,8 @@ interface Dish {
   category: string | null;
   pairsWith: string | null;
   photo: string | null;
+  videoUrl: string | null;
+  videoPoster: string | null;
   isActive: boolean;
 }
 
@@ -95,6 +98,55 @@ export function MenuTab() {
     await adminFetch('/api/admin/magazine/dishes', {
       method: 'PATCH',
       body: JSON.stringify({ id: dishId, photo: data.url }),
+    });
+    await loadDishes(restaurantId);
+  };
+
+  // Видео блюда: ролик + постер уходят одной операцией. Постер снимаем здесь,
+  // в браузере — на сервере нет ffmpeg, а гость до старта видит именно его.
+  const uploadVideo = async (dishId: string, file: File) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      let poster: Blob | null = null;
+      try {
+        poster = (await captureLastFrame(file)).blob;
+      } catch (e) {
+        // Без постера ролик всё равно рабочий — просто до старта будет пусто
+        setMessage(`Постер снять не удалось (${e instanceof Error ? e.message : 'ошибка'}), заливаю без него`);
+      }
+
+      const send = async (f: File | Blob, name: string) => {
+        const form = new FormData();
+        form.append('file', f instanceof File ? f : new File([f], name, { type: f.type }));
+        const res = await fetch('/api/upload', { method: 'POST', body: form });
+        return res.json();
+      };
+
+      const videoRes = await send(file, file.name);
+      if (!videoRes.url) return setMessage(videoRes.error ?? 'Не удалось загрузить видео');
+
+      const patch: Record<string, string> = { videoUrl: videoRes.url };
+      if (poster) {
+        const posterRes = await send(poster, `poster-${Date.now()}.jpg`);
+        if (posterRes.url) patch.videoPoster = posterRes.url;
+      }
+
+      await adminFetch('/api/admin/magazine/dishes', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: dishId, ...patch }),
+      });
+      await loadDishes(restaurantId);
+      if (poster) setMessage('Видео и постер загружены');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const removeVideo = async (dishId: string) => {
+    await adminFetch('/api/admin/magazine/dishes', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: dishId, videoUrl: null, videoPoster: null }),
     });
     await loadDishes(restaurantId);
   };
@@ -247,6 +299,27 @@ export function MenuTab() {
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(d.id, f); }}
                   />
                 </label>
+                <label
+                  style={{
+                    ...btn, cursor: busy ? 'wait' : 'pointer', fontSize: 'var(--text-sm)',
+                    ...(d.videoUrl ? { borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' } : {}),
+                  }}
+                  title="Вертикальный ролик блюда, max 8 МБ"
+                >
+                  {d.videoUrl ? '▶ Заменить видео' : 'Добавить видео'}
+                  <input
+                    type="file"
+                    accept="video/mp4,video/webm"
+                    style={{ display: 'none' }}
+                    disabled={busy}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadVideo(d.id, f); e.target.value = ''; }}
+                  />
+                </label>
+                {d.videoUrl && (
+                  <button onClick={() => removeVideo(d.id)} style={{ ...btn, fontSize: 'var(--text-sm)' }} title="Убрать видео, фото останется">
+                    Убрать видео
+                  </button>
+                )}
                 <button onClick={() => removeDish(d.id)} style={{ ...btn, color: '#dc2626' }}>Удалить</button>
               </div>
             ))}

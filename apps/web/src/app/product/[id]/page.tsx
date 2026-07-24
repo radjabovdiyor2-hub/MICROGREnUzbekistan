@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { prisma } from '@repo/database';
 import { ProductPageClient } from './ProductPageClient';
+import { recipesForProduct, type RecipeCardView } from '@/lib/recipes';
+import { RecipeCard } from '@/components/recipe/RecipeCard';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -145,6 +147,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     // Product will be fetched client-side anyway
   }
 
+  // Рецепты, где товар — ингредиент. Серверный рендер: ссылки товар → рецепт
+  // попадают в исходный HTML, иначе рецепты остаются без входящих ссылок.
+  let recipes: RecipeCardView[] = [];
+  try {
+    recipes = await recipesForProduct(id);
+  } catch {
+    // БД недоступна — блок просто не показываем
+  }
+
   return (
     <>
       {jsonLd && (
@@ -160,6 +171,24 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         />
       )}
       <ProductPageClient id={id} />
+
+      {recipes.length > 0 && (
+        <section className="container" style={{ paddingBottom: 'var(--space-8)' }}>
+          <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 800, marginBottom: 4 }}>
+            Retseptlar bilan
+          </h2>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)' }}>
+            Рецепты с этим товаром
+          </p>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: 'var(--space-3)',
+          }}>
+            {recipes.map((r) => <RecipeCard key={r.slug} recipe={r} />)}
+          </div>
+        </section>
+      )}
     </>
   );
 }

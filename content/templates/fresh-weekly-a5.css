@@ -15,7 +15,7 @@
 :root {
   /* Фирменные цвета. Меняются на цвета ресторана — остальное подстроится */
   --ink: #1a1a1a;
-  --ink-soft: #444;
+  --ink-soft: #4a4a4a;  /* второй язык: контраст ниже основного, но читаемый в печати */
   --paper: #fafaf7;
   --paper-pure: #fff;
   --accent: #0f3d2e;
@@ -209,7 +209,9 @@ body {
 /* ── Языковая пара: узбекский основной, русский вторым уровнем ──
    Единый паттерн на всех полосах — иначе номер читается как склейка
    разных изданий, что и было в прототипе. */
-.lang-pair .uz { font-size: inherit; }
+/* Узбекский — полужирный: без веса два языка сливаются в сплошное серое
+   полотно, и глаз не понимает, где начало абзаца на его языке. */
+.lang-pair .uz { font-size: inherit; font-weight: 600; }
 .lang-pair .ru {
   font-size: var(--fs-second);
   color: var(--ink-soft);
@@ -234,14 +236,19 @@ body {
 .card-warm { background: var(--gold-soft); padding: 3mm 4mm; border-radius: 2mm; }
 .card-dark { background: var(--dark); color: #fff; padding: 4mm 5mm; border-radius: 2mm; }
 .card-dark .body, .card-dark .h3 { color: rgba(255, 255, 255, 0.92); }
-.card-dark .ru { color: rgba(255, 255, 255, 0.6); border-left-color: rgba(255, 255, 255, 0.2); }
+/* На тёмном втором языку нужен запас по контрасту: 60 % белого при кегле 7.4pt
+   на матовой бумаге растекается и читается тяжело. */
+.card-dark .ru { color: rgba(255, 255, 255, 0.72); border-left-color: rgba(255, 255, 255, 0.28); }
 
 /* ── Изображения ──
    Слоты заданы в мм: снимать нужно в этих пропорциях, иначе object-fit
    срежет кадр вслепую. Размеры продублированы в docs/magazine-print-spec.md. */
+/* Высота горизонтальных плашек — 48 мм при ширине 128 мм (≈8:3).
+   Было 36–38 мм (почти 3.5:1): блюдо и стеллажи фермы срезались по вертикали
+   до полосы. Запас на полосах померен scripts/check-magazine-fit.mjs. */
 .photo { display: block; width: 100%; object-fit: cover; border-radius: 2mm; }
-.photo-hero { height: 45mm; }
-.photo-wide { height: 36mm; }
+.photo-hero { height: 48mm; }
+.photo-wide { height: 48mm; }
 .photo-portrait { width: 38mm; height: 48mm; flex-shrink: 0; border-radius: 2mm; object-fit: cover; }
 .photo-full { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .photo-caption { font-family: 'Inter', sans-serif; font-size: var(--fs-caption); color: var(--caption); margin-top: 1mm; }
@@ -278,12 +285,30 @@ body {
 .menu-qr svg, .menu-qr img { width: 15mm; height: 15mm; display: block; }
 .menu-code { font-family: 'Inter', sans-serif; font-size: 5.5pt; color: var(--caption); margin-top: 0.5mm; }
 
+/* Хит недели: код крупнее и в золотой рамке — из шести одинаковых квадратов
+   на развороте глазу не за что зацепиться. Остальные не уменьшаем: ниже 15 мм
+   код перестаёт уверенно считываться с матовой бумаги. */
+.menu-qr.hit { width: 20mm; }
+.menu-qr.hit svg, .menu-qr.hit img { width: 20mm; height: 20mm; }
+.menu-item.hit { background: var(--gold-soft); border-radius: 2mm; padding: 2mm; }
+.menu-item.hit .menu-qr.hit { border: 0.5mm solid var(--gold); border-radius: 1.5mm; padding: 0.8mm; background: #fff; }
+.menu-item.hit .menu-code { color: var(--accent); font-weight: 700; }
+
 /* ── Гости недели ──
-   Кадры вертикальные (сторис 9:16), но две строки по 9:16 не помещаются на
-   A5 — сетка выезжала за поле реза. Поэтому высота фиксирована, а object-fit
-   подрезает кадр сверху/снизу предсказуемо. */
+   Кадр из «Живого меню» приходит вертикальным 9:16 (1080×1920). Две строки
+   по 9:16 на A5 не помещаются, поэтому карточка — 3:4 (≈39×52 мм): это
+   максимум, который влезает в запас полосы, померенный check-magazine-fit.
+   object-position смещён вверх: снизу у кадра фирменный подвал рамки, его
+   и надо срезать, а не блюдо с лицом гостя. */
 .guests-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5mm; }
-.guest-card img { width: 100%; height: 42mm; object-fit: cover; border-radius: 1.5mm; display: block; }
+.guest-card img {
+  width: 100%;
+  height: 52mm;
+  object-fit: cover;
+  object-position: center 35%;
+  border-radius: 1.5mm;
+  display: block;
+}
 .guest-name { font-family: 'Inter', sans-serif; font-size: var(--fs-caption); font-weight: 700; display: block; margin-top: 1mm; }
 .guest-dish { font-family: 'Inter', sans-serif; font-size: 5.5pt; color: var(--caption); display: block; }
 

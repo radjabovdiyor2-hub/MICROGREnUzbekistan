@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { prisma } from '@repo/database';
 import { CatalogView } from '../page';
-import { CATEGORY_SEO, CATEGORY_SLUGS } from '@/lib/seo/categories';
+import { CATEGORY_SEO, CATEGORY_SLUGS, categoryAlternates } from '@/lib/seo/categories';
 import { breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 // Категорийный лендинг: настоящий индексируемый URL /catalog/<slug> вместо
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
     title: seo.title,
     description: seo.description,
     keywords: seo.keywords,
-    alternates: { canonical: url },
+    alternates: { canonical: url, languages: categoryAlternates(category) },
     openGraph: {
       title: seo.title,
       description: seo.description,
@@ -46,7 +46,7 @@ export default async function CategoryLandingPage({ params }: { params: Promise<
 
   // Товары категории для ItemList — сборка в билд-тайме (force-static),
   // БД может быть недоступна: тогда лендинг остаётся с текстом и клиентом.
-  let items: { id: string; name: string }[] = [];
+  let items: { url: string; name: string }[] = [];
   try {
     const products = await prisma.product.findMany({
       where: { isActive: true, category: { slug: category } },
@@ -54,7 +54,7 @@ export default async function CategoryLandingPage({ params }: { params: Promise<
       orderBy: { viewCount: 'desc' },
       take: 30,
     });
-    items = products.map((p) => ({ id: p.id, name: p.nameRu || p.nameUz }));
+    items = products.map((p) => ({ url: `/product/${p.id}`, name: p.nameRu || p.nameUz }));
   } catch { /* билд без БД — ItemList пустой */ }
 
   const url = `${SITE_DOMAIN}/catalog/${category}`;

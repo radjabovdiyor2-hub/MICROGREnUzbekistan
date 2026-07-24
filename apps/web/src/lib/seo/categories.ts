@@ -4,6 +4,7 @@
 // именно они дают странице шанс ранжироваться отдельно, а не как дубль
 // /catalog. Двуязычно: узбекский основной, русский следом.
 // ════════════════════════════════════════════════════════════
+import { SITE_DOMAIN } from './jsonLd';
 
 export interface CategorySeo {
   slug: string;
@@ -100,3 +101,16 @@ export const CATEGORY_SEO: Record<string, CategorySeo> = {
 };
 
 export const CATEGORY_SLUGS = Object.keys(CATEGORY_SEO);
+
+/**
+ * hreflang-кластер категории. Один источник на все три версии страницы:
+ * hreflang работает только взаимно — если /catalog/x не объявит тот же набор,
+ * что /uz/… и /ru/…, Google проигнорирует связь и посчитает их дублями.
+ */
+export function categoryAlternates(slug: string) {
+  return {
+    'uz-UZ': `${SITE_DOMAIN}/uz/catalog/${slug}`,
+    'ru-RU': `${SITE_DOMAIN}/ru/catalog/${slug}`,
+    'x-default': `${SITE_DOMAIN}/catalog/${slug}`,
+  };
+}

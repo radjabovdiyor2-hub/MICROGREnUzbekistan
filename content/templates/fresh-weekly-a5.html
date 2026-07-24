@@ -230,7 +230,7 @@
       <div class="h1" style="margin-top:1mm;">Samarqand salati</div>
       <div class="caption">Салат с микрозеленью и розовыми томатами · 15 daqiqa</div>
 
-      <img class="photo" style="height:38mm;" src="{{PHOTO_RECIPE}}" alt="">
+      <img class="photo photo-wide" src="{{PHOTO_RECIPE}}" alt="">
 
       <div style="display:flex;gap:4mm;">
         <div style="flex:1;">
@@ -282,14 +282,17 @@
       <hr class="rule-gold">
 
       <div class="menu-grid">
-        <div class="menu-item">
+        <!-- Хит недели: карточка и QR выделены, чтобы код не терялся среди
+             шести одинаковых квадратов разворота -->
+        <div class="menu-item hit">
           <img class="menu-photo" src="{{PHOTO_DISH_1}}" alt="">
           <div class="menu-body">
-            <div class="h3">Samarqandcha palov</div>
+            <span class="ui" style="font-size:5pt;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Hafta xiti · Хит недели</span>
+            <div class="h3" style="margin-top:0.5mm;">Samarqandcha palov</div>
             <div class="caption">Самаркандский плов</div>
             <div class="menu-price">55 000 so‘m</div>
           </div>
-          <div class="menu-qr">{{QR_D1}}<div class="menu-code">01</div></div>
+          <div class="menu-qr hit">{{QR_D1}}<div class="menu-code">01</div></div>
         </div>
         <div class="menu-item">
           <img class="menu-photo" src="{{PHOTO_DISH_2}}" alt="">
@@ -311,11 +314,13 @@
         </div>
       </div>
 
+      <!-- Метка «хит недели» стоит на самой карточке блюда выше, здесь только
+           цифра — иначе одна и та же плашка повторяется дважды на полосе -->
       <div class="card-warm">
-        <div class="kicker" style="color:var(--gold);">Hafta xiti · Хит недели</div>
+        <div class="kicker" style="color:var(--gold);">Hafta statistikasi · Статистика недели</div>
         <div class="lang-pair body" style="margin-top:1.5mm;">
-          <div class="uz">O‘tgan haftada mehmonlar eng ko‘p <b>Samarqandcha palov</b>ni suratga olishdi — 41 kadr. Uning QR kodi 01 raqami ostida.</div>
-          <div class="ru"><span class="lang-tag">ru</span>На прошлой неделе гости чаще всего снимали <b>самаркандский плов</b> — 41 кадр. Его QR под номером 01.</div>
+          <div class="uz">O‘tgan haftada mehmonlar eng ko‘p <b>Samarqandcha palov</b>ni suratga olishdi — 41 kadr.</div>
+          <div class="ru"><span class="lang-tag">ru</span>На прошлой неделе гости чаще всего снимали <b>самаркандский плов</b> — 41 кадр.</div>
         </div>
       </div>
 
@@ -548,11 +553,16 @@
         <div class="ru"><span class="lang-tag">ru</span>Мы выращиваем зелень в закрытой ферме: без земли, без пестицидов, круглый год при одной температуре и освещении. Заказ срезается утром и в тот же день едет в ресторан или к вам домой.</div>
       </div>
 
-      <div class="card-warm">
-        <div class="kicker" style="color:var(--gold);">Uyga buyurtma · Заказ домой</div>
-        <div class="lang-pair body" style="margin-top:1.5mm;">
-          <div class="uz">Telegram: @microgreen_uzb_bot — to‘plamni tanlang, yetkazib berish Samarqand bo‘ylab har kuni.</div>
-          <div class="ru"><span class="lang-tag">ru</span>Telegram: @microgreen_uzb_bot — выберите набор, доставка по Самарканду ежедневно.</div>
+      <!-- QR ведёт прямо в бота: логин с бумаги вручную никто не набирает -->
+      <div class="card-warm" style="display:flex;gap:3.5mm;align-items:center;">
+        <div class="menu-qr" style="width:18mm;background:#fff;padding:1mm;border-radius:1mm;">{{QR_BOT}}</div>
+        <div>
+          <div class="kicker" style="color:var(--gold);">Uyga buyurtma · Заказ домой</div>
+          <div class="lang-pair body" style="margin-top:1.5mm;">
+            <div class="uz">QR ni skanerlang — Telegram bot ochiladi. To‘plamni tanlang, yetkazib berish Samarqand bo‘ylab har kuni.</div>
+            <div class="ru"><span class="lang-tag">ru</span>Отсканируйте QR — откроется Telegram-бот. Выберите набор, доставка по Самарканду ежедневно.</div>
+          </div>
+          <div class="caption" style="margin-top:1mm;">@{{TELEGRAM_BOT}}</div>
         </div>
       </div>
 
@@ -591,7 +601,12 @@
         <div class="h1" style="color:#fff;margin-top:2mm;">Har tashrif — bitta shtamp</div>
         <div class="lang-pair body" style="color:rgba(255,255,255,.85);margin-top:2mm;">
           <div class="uz">Kadr oling — kunlik shtamp olasiz.</div>
-          <div class="ru" style="color:rgba(255,255,255,.65);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Снимите кадр — получите штамп за день.</div>
+          <div class="ru" style="color:rgba(255,255,255,.72);border-left-color:rgba(255,255,255,.28);"><span class="lang-tag">ru</span>Снимите кадр — получите штамп за день.</div>
+        </div>
+        <!-- Гость не должен гадать, не нужна ли бумажная печать -->
+        <div class="lang-pair body" style="color:rgba(255,255,255,.85);margin-top:1.5mm;">
+          <div class="uz">Shtamplar Telegram botda avtomatik yig‘iladi — qog‘ozga muhr bosilmaydi, kartani ko‘rsatish shart emas.</div>
+          <div class="ru" style="color:rgba(255,255,255,.72);border-left-color:rgba(255,255,255,.28);"><span class="lang-tag">ru</span>Штампы копятся автоматически в Telegram-боте — бумажная печать не нужна, показывать карту не надо.</div>
         </div>
       </div>
 
@@ -604,9 +619,9 @@
       </div>
 
       <div class="steps">
-        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">1</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">Taom yonidagi QR ni skanerlang.</div><div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Отсканируйте QR рядом с блюдом.</div></div></div>
-        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">2</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">Ramka bilan kadr oling — kuniga bitta shtamp.</div><div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Снимите кадр в рамке — один штамп в день.</div></div></div>
-        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">3</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">5 ta shtamp to‘lgach — mikroko‘katga chegirma kodi.</div><div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>5 штампов — промокод на микрозелень.</div></div></div>
+        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">1</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">Taom yonidagi QR ni skanerlang.</div><div class="ru" style="color:rgba(255,255,255,.72);border-left-color:rgba(255,255,255,.28);"><span class="lang-tag">ru</span>Отсканируйте QR рядом с блюдом.</div></div></div>
+        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">2</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">Ramka bilan kadr oling — kuniga bitta shtamp.</div><div class="ru" style="color:rgba(255,255,255,.72);border-left-color:rgba(255,255,255,.28);"><span class="lang-tag">ru</span>Снимите кадр в рамке — один штамп в день.</div></div></div>
+        <div class="step"><div class="step-num" style="background:var(--gold);color:var(--accent);">3</div><div class="lang-pair body" style="color:rgba(255,255,255,.9);"><div class="uz">5 ta shtamp to‘lgach — mikroko‘katga chegirma kodi.</div><div class="ru" style="color:rgba(255,255,255,.72);border-left-color:rgba(255,255,255,.28);"><span class="lang-tag">ru</span>5 штампов — промокод на микрозелень.</div></div></div>
       </div>
 
       <div style="display:flex;gap:4mm;align-items:center;background:rgba(255,255,255,.08);border:1px solid var(--gold);border-radius:2mm;padding:3mm;">
@@ -615,7 +630,7 @@
           <div class="ui" style="font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Skanerlang · Сканируйте</div>
           <div class="lang-pair body" style="color:rgba(255,255,255,.9);margin-top:1mm;">
             <div class="uz">Ilova o‘rnatish shart emas.</div>
-            <div class="ru" style="color:rgba(255,255,255,.6);border-left-color:rgba(255,255,255,.25);"><span class="lang-tag">ru</span>Без установки приложений.</div>
+            <div class="ru" style="color:rgba(255,255,255,.72);border-left-color:rgba(255,255,255,.28);"><span class="lang-tag">ru</span>Без установки приложений.</div>
           </div>
         </div>
       </div>
@@ -627,7 +642,7 @@
         </div>
         <div style="flex:1;">
           <div class="ui" style="font-size:6pt;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Ferma · Ферма</div>
-          <div class="body" style="color:rgba(255,255,255,.9);margin-top:1mm;">Microgreen Uzbekistan<br>@microgreen_uzb_bot<br>microgreenuzbekistan.com</div>
+          <div class="body" style="color:rgba(255,255,255,.9);margin-top:1mm;">Microgreen Uzbekistan<br>@{{TELEGRAM_BOT}}<br>microgreenuzbekistan.com</div>
         </div>
       </div>
 

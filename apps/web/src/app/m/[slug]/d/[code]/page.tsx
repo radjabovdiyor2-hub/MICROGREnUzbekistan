@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import { loadRestaurantBySlug, loadDishByCode, loadMenu } from '@/lib/magazine/restaurantMenu';
 import { formatPrice } from '@/lib/magazine/menu';
 import { MenuTracker } from '@/components/menu/MenuTracker';
+import { DishVideo } from '@/components/menu/DishVideo';
 
 // Страница блюда — то, куда ведёт QR со страницы журнала.
 export const dynamic = 'force-dynamic';
@@ -41,13 +42,12 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
           color: 'var(--text-secondary)', textDecoration: 'none',
         }}>← {restaurant.name}</Link>
 
-        {dish.photo && (
-          <img
-            src={dish.photo}
-            alt={dish.nameRu}
-            style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 20, margin: '16px 0' }}
-          />
-        )}
+        <DishVideo
+          videoUrl={dish.videoUrl}
+          videoPoster={dish.videoPoster}
+          photo={dish.photo}
+          alt={dish.nameRu}
+        />
 
         <h1 style={{
           fontFamily: "'Playfair Display', serif", fontSize: 'clamp(26px, 6vw, 36px)',
