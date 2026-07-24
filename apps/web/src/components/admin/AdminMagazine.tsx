@@ -267,6 +267,7 @@ function AssemblyTab() {
   const [sel, setSel] = useState<any | null>(null);
   const [blocks, setBlocks] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState('');
 
   const loadAll = async () => {
     const [e, r, i] = await Promise.all([
@@ -275,6 +276,10 @@ function AssemblyTab() {
       adminJsonArray('/api/admin/magazine/issues'),
     ]);
     setEditions(e); setRestaurants(r); setIssues(i);
+    if (sel) {
+      const fresh = i.find((x: any) => x.id === sel.id);
+      if (fresh) setSel(fresh);
+    }
   };
   useEffect(() => { loadAll(); }, []);
 
@@ -302,6 +307,32 @@ function AssemblyTab() {
     loadAll();
   };
 
+  const uploadMagazineFile = async (field: 'pdfUrl' | 'htmlUrl', file: File) => {
+    if (!sel) return;
+    setUploading(field);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!data.url) { alert(data.error || 'Ошибка загрузки'); return; }
+      await adminFetch('/api/admin/magazine/issues', {
+        method: 'PATCH',
+        body: JSON.stringify({ id: sel.id, [field]: data.url }),
+      });
+      await loadAll();
+    } finally { setUploading(''); }
+  };
+
+  const removeMagazineFile = async (field: 'pdfUrl' | 'htmlUrl') => {
+    if (!sel) return;
+    await adminFetch('/api/admin/magazine/issues', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: sel.id, [field]: null }),
+    });
+    await loadAll();
+  };
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 'var(--space-4)' }}>
       <div className="card" style={{ padding: 'var(--space-4)' }}>
@@ -319,7 +350,10 @@ function AssemblyTab() {
         </form>
         {issues.map((iss) => (
           <div key={iss.id} onClick={() => select(iss)} style={{ padding: 'var(--space-2)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', background: sel?.id === iss.id ? 'var(--bg-secondary)' : 'transparent', marginBottom: '4px' }}>
-            <div style={{ fontWeight: 600 }}>{iss.restaurant?.name} · №{iss.edition?.weekNumber}</div>
+            <div style={{ fontWeight: 600 }}>
+              {iss.restaurant?.name} · №{iss.edition?.weekNumber}
+              {(iss.pdfUrl || iss.htmlUrl) && <span style={{ marginLeft: 6, color: 'var(--success)', fontSize: 'var(--text-xs)' }}>📎</span>}
+            </div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{iss.webSlug} · {iss.status}</div>
           </div>
         ))}
@@ -336,12 +370,53 @@ function AssemblyTab() {
                 <button onClick={saveBlocks} disabled={saving} style={{ background: 'var(--success)', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer' }}>{saving ? '...' : 'Сохранить'}</button>
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', alignItems: 'center' }}>
               <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Статус:</span>
               {['draft', 'ready', 'published'].map((s) => (
                 <button key={s} onClick={() => setStatus(s)} style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 600, background: sel.status === s ? 'var(--brand-primary)' : 'var(--bg-secondary)', color: sel.status === s ? '#fff' : 'var(--text-primary)' }}>{s}</button>
               ))}
             </div>
+
+            {/* Загрузка файлов журнала */}
+            <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 200, padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>📄 PDF журнала</div>
+                {sel.pdfUrl ? (
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                    <a href={sel.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть PDF</a>
+                    <label style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer' }}>
+                      Заменить
+                      <input type="file" accept=".pdf" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('pdfUrl', f); e.target.value = ''; }} />
+                    </label>
+                    <button onClick={() => removeMagazineFile('pdfUrl')} style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer' }}>Удалить</button>
+                  </div>
+                ) : (
+                  <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: '#fff', cursor: uploading === 'pdfUrl' ? 'wait' : 'pointer' }}>
+                    {uploading === 'pdfUrl' ? 'Загрузка...' : '⬆ Загрузить PDF'}
+                    <input type="file" accept=".pdf" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('pdfUrl', f); e.target.value = ''; }} />
+                  </label>
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 200, padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>🌐 HTML журнала</div>
+                {sel.htmlUrl ? (
+                  <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                    <a href={sel.htmlUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть HTML</a>
+                    <label style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: uploading ? 'wait' : 'pointer' }}>
+                      Заменить
+                      <input type="file" accept=".html,.htm" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('htmlUrl', f); e.target.value = ''; }} />
+                    </label>
+                    <button onClick={() => removeMagazineFile('htmlUrl')} style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: '#dc2626', cursor: 'pointer' }}>Удалить</button>
+                  </div>
+                ) : (
+                  <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: '#fff', cursor: uploading === 'htmlUrl' ? 'wait' : 'pointer' }}>
+                    {uploading === 'htmlUrl' ? 'Загрузка...' : '⬆ Загрузить HTML'}
+                    <input type="file" accept=".html,.htm" style={{ display: 'none' }} disabled={!!uploading} onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadMagazineFile('htmlUrl', f); e.target.value = ''; }} />
+                  </label>
+                )}
+              </div>
+            </div>
+
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>Персональные блоки (слово шефа, обложка, семейный QR-блок) собираются с общим контентом выпуска автоматически. «✨ ИИ» генерит текст с учётом меню ресторана.</p>
             <SlotEditor blocks={blocks} onChange={setBlocks} context={{ restaurantName: sel.restaurant?.name, menuItems: sel.restaurant?.menuItems, weekTheme: sel.edition?.title, city: sel.restaurant?.city }} />
           </>

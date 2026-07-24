@@ -70,6 +70,7 @@ export async function PATCH(request: Request) {
     const data: any = {};
     if ('spec' in d) data.spec = d.spec;
     if ('pdfUrl' in d) data.pdfUrl = d.pdfUrl || null;
+    if ('htmlUrl' in d) data.htmlUrl = d.htmlUrl || null;
     if ('status' in d) {
       data.status = d.status;
       data.publishedAt = d.status === 'published' ? new Date() : null;
