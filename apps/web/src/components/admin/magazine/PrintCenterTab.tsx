@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Trash } from 'lucide-react';
-import { adminFetch } from '@/lib/adminClient';
+import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 
 export function PrintCenterTab() {
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'subscriptions' | 'orders'>('dashboard');
@@ -78,8 +78,8 @@ function SubscriptionsTab() {
   
   const load = async () => {
     const [s, r] = await Promise.all([
-      adminFetch('/api/admin/magazine/subscriptions').then(x => x.json()),
-      adminFetch('/api/admin/magazine/restaurants').then(x => x.json())
+      adminJsonArray('/api/admin/magazine/subscriptions'),
+      adminJsonArray('/api/admin/magazine/restaurants')
     ]);
     setSubs(s);
     setRestaurants(r);

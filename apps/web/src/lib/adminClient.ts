@@ -14,3 +14,16 @@ export function adminFetch(url: string, init: RequestInit = {}) {
     headers: { ...adminHeaders(), ...((init.headers as Record<string, string>) || {}) },
   });
 }
+
+// Parse response as JSON array; return [] on non-ok status or non-array body.
+// Prevents `TypeError: x.map is not a function` when API returns {error: "..."}.
+export async function adminJsonArray(url: string, init?: RequestInit): Promise<any[]> {
+  try {
+    const res = await adminFetch(url, init ?? {});
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}

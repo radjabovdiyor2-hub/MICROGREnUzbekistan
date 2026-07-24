@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Trash } from 'lucide-react';
-import { adminFetch } from '@/lib/adminClient';
+import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { SlotEditor } from '@/components/admin/magazine/SlotEditor';
 import { PrintCenterTab } from '@/components/admin/magazine/PrintCenterTab';
 import { BriefTab } from '@/components/admin/magazine/BriefTab';
@@ -73,7 +73,7 @@ function RestaurantsTab() {
 
   const load = async () => {
     setLoading(true);
-    try { setList(await (await adminFetch('/api/admin/magazine/restaurants')).json()); }
+    try { setList(await adminJsonArray('/api/admin/magazine/restaurants')); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -270,9 +270,9 @@ function AssemblyTab() {
 
   const loadAll = async () => {
     const [e, r, i] = await Promise.all([
-      adminFetch('/api/admin/magazine/editions').then((x) => x.json()),
-      adminFetch('/api/admin/magazine/restaurants').then((x) => x.json()),
-      adminFetch('/api/admin/magazine/issues').then((x) => x.json()),
+      adminJsonArray('/api/admin/magazine/editions'),
+      adminJsonArray('/api/admin/magazine/restaurants'),
+      adminJsonArray('/api/admin/magazine/issues'),
     ]);
     setEditions(e); setRestaurants(r); setIssues(i);
   };
@@ -396,7 +396,7 @@ function AdvertisersTab() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newAdv, setNewAdv] = useState({ companyName: '', contactPerson: '', phone: '', email: '', status: 'lead', format: '', amount: 0, notes: '' });
   const [loading, setLoading] = useState(true);
-  const load = async () => { setLoading(true); try { setAdvertisers(await (await adminFetch('/api/admin/magazine/advertisers')).json()); } finally { setLoading(false); } };
+  const load = async () => { setLoading(true); try { setAdvertisers(await adminJsonArray('/api/admin/magazine/advertisers')); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
