@@ -17,7 +17,7 @@ export function AdminMagazine() {
     setLoading(true);
     try {
       const list = await adminJsonArray('/api/admin/magazine/restaurants');
-      if (list.length > 0) {
+      if (Array.isArray(list) && list.length > 0 && list[0]?.id) {
         setRestaurant(list[0]);
         return list[0];
       }
@@ -27,14 +27,17 @@ export function AdminMagazine() {
         body: JSON.stringify({ name: 'Fresh Weekly', slug: 'fresh', isMagazinePartner: true }),
       });
       const created = await res.json();
-      setRestaurant(created);
-      return created;
+      if (created?.id) {
+        setRestaurant(created);
+        return created;
+      }
+      return null;
     } finally { setLoading(false); }
   }, []);
 
   const refreshRestaurant = useCallback(async () => {
     const list = await adminJsonArray('/api/admin/magazine/restaurants');
-    if (list.length > 0) setRestaurant(list[0]);
+    if (Array.isArray(list) && list.length > 0 && list[0]?.id) setRestaurant(list[0]);
   }, []);
 
   const loadDishes = useCallback(async (rid: string) => {
@@ -74,7 +77,11 @@ export function AdminMagazine() {
 
   // Загрузить видео → создать блюдо → показать QR
   const quickAddVideo = async (file: File) => {
-    if (!restaurant) return;
+    let targetResto = restaurant;
+    if (!targetResto?.id) {
+      targetResto = await ensureRestaurant();
+    }
+
     const name = quickName.trim() || file.name.replace(/\.[^.]+$/, '');
     setUploading('quick');
     setLastQr(null);
@@ -104,7 +111,9 @@ export function AdminMagazine() {
         posterBlob = await Promise.race([posterPromise, timeoutPromise]);
       } catch {}
 
-      const dishData: any = { restaurantId: restaurant.id, nameRu: name, videoUrl: videoRes.url };
+      const dishData: any = { nameRu: name, videoUrl: videoRes.url };
+      if (targetResto?.id) dishData.restaurantId = targetResto.id;
+
       if (posterBlob) {
         const posterRes = await send(posterBlob, `poster-${Date.now()}.jpg`);
         if (posterRes.url) dishData.videoPoster = posterRes.url;
@@ -120,9 +129,10 @@ export function AdminMagazine() {
         alert(`Ошибка создания блюда: ${dish.error}`);
         return;
       }
-      if (dish.code) setLastQr({ code: dish.code, slug: restaurant.slug });
+      const slug = dish.restaurant?.slug || targetResto?.slug || 'fresh';
+      if (dish.code) setLastQr({ code: dish.code, slug });
       setQuickName('');
-      await loadDishes(restaurant.id);
+      if (dish.restaurantId) await loadDishes(dish.restaurantId);
     } catch (err: any) {
       alert(`Ошибка: ${err?.message || 'Не удалось загрузить видео'}`);
     } finally { setUploading(''); }

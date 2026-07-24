@@ -41,26 +41,39 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) return unauthorized();
   const body = await req.json().catch(() => null);
-  if (!body?.restaurantId) {
-    return NextResponse.json({ error: 'restaurantId required' }, { status: 400 });
+  
+  // Автоматический резолв ресторана, если restaurantId не передан
+  let restaurantId = body?.restaurantId;
+  if (!restaurantId) {
+    let defaultResto = await prisma.restaurant.findFirst({
+      where: { isMagazinePartner: true },
+      select: { id: true },
+    });
+    if (!defaultResto) {
+      defaultResto = await prisma.restaurant.create({
+        data: { name: 'Fresh Weekly', slug: 'fresh', isMagazinePartner: true, isPartner: true },
+        select: { id: true },
+      });
+    }
+    restaurantId = defaultResto.id;
   }
 
   // Быстрое создание одного блюда (без CSV) — для потока «загрузил видео → получил QR»
-  if (!body.csv) {
-    const nameRu = body.nameRu?.trim() || 'Блюдо с видео';
+  if (!body?.csv) {
+    const nameRu = body?.nameRu?.trim() || 'Блюдо с видео';
     const existing = await prisma.dish.findMany({
-      where: { restaurantId: body.restaurantId },
+      where: { restaurantId },
       select: { code: true },
     });
     const nextCode = existing.reduce((max, d) => Math.max(max, d.code), 0) + 1;
     const dish = await prisma.dish.create({
       data: {
-        restaurantId: body.restaurantId,
+        restaurantId,
         nameRu,
-        nameUz: body.nameUz || null,
+        nameUz: body?.nameUz || null,
         code: nextCode,
-        videoUrl: body.videoUrl || null,
-        videoPoster: body.videoPoster || null,
+        videoUrl: body?.videoUrl || null,
+        videoPoster: body?.videoPoster || null,
         isActive: true,
         sortOrder: nextCode,
       },
