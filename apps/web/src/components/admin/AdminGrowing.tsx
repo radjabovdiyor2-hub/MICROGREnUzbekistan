@@ -7,22 +7,22 @@ import {
 
 // Microgreen crop database with growing parameters
 const CROP_DB: Record<string, { nameRu: string; darkDays: number; lightDays: number; shelfDays: number; color: string }> = {
-  'radish': { nameRu: 'Редис', darkDays: 3, lightDays: 4, shelfDays: 7, color: '#EF4444' },
-  'broccoli': { nameRu: 'Брокколи', darkDays: 3, lightDays: 6, shelfDays: 7, color: '#10B981' },
-  'sunflower': { nameRu: 'Подсолнух', darkDays: 4, lightDays: 6, shelfDays: 7, color: '#F59E0B' },
-  'pea': { nameRu: 'Горошек', darkDays: 4, lightDays: 8, shelfDays: 7, color: '#22C55E' },
-  'arugula': { nameRu: 'Руккола', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#6366F1' },
-  'mustard': { nameRu: 'Горчица', darkDays: 3, lightDays: 4, shelfDays: 7, color: '#EAB308' },
-  'amaranth': { nameRu: 'Амарант', darkDays: 4, lightDays: 8, shelfDays: 5, color: '#EC4899' },
-  'basil': { nameRu: 'Базилик', darkDays: 4, lightDays: 10, shelfDays: 5, color: '#8B5CF6' },
-  'cilantro': { nameRu: 'Кинза', darkDays: 5, lightDays: 10, shelfDays: 7, color: '#14B8A6' },
-  'kohlrabi': { nameRu: 'Кольраби', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#7C3AED' },
-  'mizuna': { nameRu: 'Мизуна', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#059669' },
-  'wheatgrass': { nameRu: 'Витграсс', darkDays: 3, lightDays: 6, shelfDays: 5, color: '#16A34A' },
-  'spinach': { nameRu: 'Шпинат', darkDays: 3, lightDays: 8, shelfDays: 5, color: '#047857' },
-  'beet': { nameRu: 'Свёкла', darkDays: 4, lightDays: 8, shelfDays: 5, color: '#BE123C' },
-  'cabbage': { nameRu: 'Капуста', darkDays: 3, lightDays: 5, shelfDays: 7, color: '#0D9488' },
-  'other': { nameRu: 'Другое', darkDays: 3, lightDays: 6, shelfDays: 5, color: '#6B7280' },
+  'radish': { nameRu: 'Редис', darkDays: 3, lightDays: 4, shelfDays: 7, color: 'var(--error)' },
+  'broccoli': { nameRu: 'Брокколи', darkDays: 3, lightDays: 6, shelfDays: 7, color: 'var(--success)' },
+  'sunflower': { nameRu: 'Подсолнух', darkDays: 4, lightDays: 6, shelfDays: 7, color: 'var(--warning)' },
+  'pea': { nameRu: 'Горошек', darkDays: 4, lightDays: 8, shelfDays: 7, color: 'var(--cat-7)' },
+  'arugula': { nameRu: 'Руккола', darkDays: 3, lightDays: 5, shelfDays: 7, color: 'var(--cat-1)' },
+  'mustard': { nameRu: 'Горчица', darkDays: 3, lightDays: 4, shelfDays: 7, color: 'var(--cat-6)' },
+  'amaranth': { nameRu: 'Амарант', darkDays: 4, lightDays: 8, shelfDays: 5, color: 'var(--cat-3)' },
+  'basil': { nameRu: 'Базилик', darkDays: 4, lightDays: 10, shelfDays: 5, color: 'var(--cat-2)' },
+  'cilantro': { nameRu: 'Кинза', darkDays: 5, lightDays: 10, shelfDays: 7, color: 'var(--cat-4)' },
+  'kohlrabi': { nameRu: 'Кольраби', darkDays: 3, lightDays: 5, shelfDays: 7, color: 'var(--cat-9)' },
+  'mizuna': { nameRu: 'Мизуна', darkDays: 3, lightDays: 5, shelfDays: 7, color: 'var(--brand-primary-hover)' },
+  'wheatgrass': { nameRu: 'Витграсс', darkDays: 3, lightDays: 6, shelfDays: 5, color: 'var(--cat-10)' },
+  'spinach': { nameRu: 'Шпинат', darkDays: 3, lightDays: 8, shelfDays: 5, color: 'var(--cat-11)' },
+  'beet': { nameRu: 'Свёкла', darkDays: 4, lightDays: 8, shelfDays: 5, color: 'var(--cat-8)' },
+  'cabbage': { nameRu: 'Капуста', darkDays: 3, lightDays: 5, shelfDays: 7, color: 'var(--cat-12)' },
+  'other': { nameRu: 'Другое', darkDays: 3, lightDays: 6, shelfDays: 5, color: 'var(--text-secondary)' },
 };
 
 interface Batch {
@@ -252,7 +252,7 @@ export function AdminGrowing() {
     return true;
   });
 
-  const statusColors: Record<string, string> = { dark: '#6366F1', light: '#F59E0B', ready: '#10B981', expired: '#EF4444', harvested: '#9CA3AF' };
+  const statusColors: Record<string, string> = { dark: 'var(--cat-1)', light: 'var(--warning)', ready: 'var(--success)', expired: 'var(--error)', harvested: 'var(--text-muted)' };
   const statusIcons: Record<string, React.ReactNode> = {
     dark: <Moon size={14} />, light: <Sun size={14} />,
     ready: <CheckCircle size={14} />, expired: <AlertTriangle size={14} />,
@@ -373,23 +373,23 @@ export function AdminGrowing() {
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
               <div>
-                <label style={{ fontSize: '10px', color: '#6366F1', fontWeight: 600, marginBottom: 2, display: 'block' }}>🌑 Темнота (груз)</label>
+                <label style={{ fontSize: '10px', color: 'var(--cat-1)', fontWeight: 600, marginBottom: 2, display: 'block' }}>🌑 Темнота (груз)</label>
                 <input type="number" min={0} value={customDark} onChange={e => setCustomDark(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
               </div>
               <div>
-                <label style={{ fontSize: '10px', color: '#F59E0B', fontWeight: 600, marginBottom: 2, display: 'block' }}>☀️ На свету</label>
+                <label style={{ fontSize: '10px', color: 'var(--warning)', fontWeight: 600, marginBottom: 2, display: 'block' }}>☀️ На свету</label>
                 <input type="number" min={0} value={customLight} onChange={e => setCustomLight(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
               </div>
               <div>
-                <label style={{ fontSize: '10px', color: '#10B981', fontWeight: 600, marginBottom: 2, display: 'block' }}>📦 Хранение</label>
+                <label style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 600, marginBottom: 2, display: 'block' }}>📦 Хранение</label>
                 <input type="number" min={0} value={customShelf} onChange={e => setCustomShelf(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
               </div>
             </div>
 
             <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
-              <div style={{ flex: customDark, background: '#6366F1', borderRadius: '4px 0 0 4px' }} title={`Темно: ${customDark} дн`} />
-              <div style={{ flex: customLight, background: '#F59E0B' }} title={`Свет: ${customLight} дн`} />
-              <div style={{ flex: customShelf, background: '#10B981', borderRadius: '0 4px 4px 0' }} title={`Хранение: ${customShelf} дн`} />
+              <div style={{ flex: customDark, background: 'var(--cat-1)', borderRadius: '4px 0 0 4px' }} title={`Темно: ${customDark} дн`} />
+              <div style={{ flex: customLight, background: 'var(--warning)' }} title={`Свет: ${customLight} дн`} />
+              <div style={{ flex: customShelf, background: 'var(--success)', borderRadius: '0 4px 4px 0' }} title={`Хранение: ${customShelf} дн`} />
             </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -439,7 +439,7 @@ export function AdminGrowing() {
           {filtered.map(batch => {
             const crop = CROP_DB[batch.cropType] || CROP_DB['other'];
             const { info } = batch;
-            const sc = statusColors[info.status] || '#6B7280';
+            const sc = statusColors[info.status] || 'var(--text-secondary)';
             const total = batch.darkDays + batch.lightDays + batch.shelfDays;
             const lightDate = new Date(new Date(batch.seedDate).getTime() + batch.darkDays * 86400000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
             const readyDate = new Date(new Date(batch.seedDate).getTime() + (batch.darkDays + batch.lightDays) * 86400000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
@@ -512,7 +512,7 @@ export function AdminGrowing() {
                       <button onClick={() => harvestBatch(batch.id)} disabled={harvesting === batch.id}
                         style={{
                           padding: '4px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-                          background: '#059669', color: 'white', fontSize: '11px', fontWeight: 700,
+                          background: 'var(--brand-primary-hover)', color: 'white', fontSize: '11px', fontWeight: 700,
                           opacity: harvesting === batch.id ? 0.6 : 1,
                         }}>
                         {harvesting === batch.id ? 'Добавляем...' : batch.productId ? 'Собрать → Склад' : 'Собрано'}
@@ -564,9 +564,9 @@ export function AdminGrowing() {
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
             {[
-              { label: 'В темноте', count: enriched.filter(b => b.info.status === 'dark').length, color: '#6366F1', icon: <Moon size={14} /> },
-              { label: 'На свету', count: enriched.filter(b => b.info.status === 'light').length, color: '#F59E0B', icon: <Sun size={14} /> },
-              { label: 'Готовы', count: enriched.filter(b => b.info.status === 'ready').length, color: '#10B981', icon: <CheckCircle size={14} /> },
+              { label: 'В темноте', count: enriched.filter(b => b.info.status === 'dark').length, color: 'var(--cat-1)', icon: <Moon size={14} /> },
+              { label: 'На свету', count: enriched.filter(b => b.info.status === 'light').length, color: 'var(--warning)', icon: <Sun size={14} /> },
+              { label: 'Готовы', count: enriched.filter(b => b.info.status === 'ready').length, color: 'var(--success)', icon: <CheckCircle size={14} /> },
               { label: 'Лотков', count: enriched.filter(b => b.info.status !== 'harvested').reduce((s, b) => s + b.trays, 0), color: 'var(--brand-primary)', icon: <Package size={14} /> },
             ].map((s, i) => (
               <div key={i} style={{ textAlign: 'center', padding: '8px', borderRadius: '10px', background: `${s.color}08` }}>
