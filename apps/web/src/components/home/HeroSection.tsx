@@ -3,7 +3,6 @@
 import { ArrowRight, Phone, Package, Droplet, Sparkles } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
-import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 import { CONTACT } from '@/lib/site';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -30,19 +29,14 @@ export function HeroSection() {
       minHeight: 'min(76vh, 660px)',
       display: 'flex',
       flexDirection: 'column',
-      justifyContent: 'flex-end',
+      justifyContent: 'center',
       overflow: 'hidden',
       background: 'var(--bg-secondary)',
       borderBottom: '1px solid var(--border)',
-      paddingTop: 'var(--space-8)',
-      paddingBottom: 'clamp(28px, 5vh, 52px)',
+      paddingTop: 'var(--space-10)',
+      paddingBottom: 'clamp(120px, 22vh, 220px)',
       textAlign: 'center',
     }}>
-      {/* Ambient floating greenery */}
-      <FloatingGreenery count={22} style={{
-        position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
-        width: '100%', height: '100%', zIndex: 0,
-      }} />
       {/* Generative field at the bottom */}
       <MicrogreensCanvas count={100} variant="mixed" style={{
         position: 'absolute', left: 0, right: 0, bottom: 0, width: '100%', height: '42%', zIndex: 0,
