@@ -31,6 +31,16 @@ tgas/
 apps/tgas/
 apps/game/
 
+# Dev-only: storybook, design-system tooling, e2e tests, playwright
+apps/web/.storybook/
+apps/web/design-system/
+apps/web/e2e/
+apps/web/playwright.config.ts
+apps/web/playwright-report/
+apps/web/test-results/
+**/*.stories.ts
+**/*.stories.tsx
+
 # Never bake secrets into the storefront-bot image — runtime env_file provides them
 apps/bot/.env
 apps/bot/venv/
