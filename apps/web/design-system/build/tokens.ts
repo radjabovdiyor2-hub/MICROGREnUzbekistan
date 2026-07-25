@@ -162,6 +162,14 @@ export const tokensGlobal = {
   "z-modal": "200",
   "z-toast": "300",
   "z-ai-chat": "250",
+  "breakpoint-sm": "480px",
+  "breakpoint-md": "768px",
+  "breakpoint-lg": "1024px",
+  "breakpoint-xl": "1280px",
+  "breakpoint-2xl": "1536px",
+  "grid-columns": "12",
+  "grid-gutter": "24px",
+  "grid-margin": "16px",
 } as const;
 
 export const tokens = { light: tokensLight, dark: tokensDark, global: tokensGlobal } as const;

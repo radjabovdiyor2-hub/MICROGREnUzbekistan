@@ -194,5 +194,41 @@
       "value": "250",
       "type": "number"
     }
+  },
+  "breakpoint": {
+    "sm": {
+      "value": "480px",
+      "type": "dimension"
+    },
+    "md": {
+      "value": "768px",
+      "type": "dimension"
+    },
+    "lg": {
+      "value": "1024px",
+      "type": "dimension"
+    },
+    "xl": {
+      "value": "1280px",
+      "type": "dimension"
+    },
+    "2xl": {
+      "value": "1536px",
+      "type": "dimension"
+    }
+  },
+  "grid": {
+    "columns": {
+      "value": "12",
+      "type": "number"
+    },
+    "gutter": {
+      "value": "24px",
+      "type": "dimension"
+    },
+    "margin": {
+      "value": "16px",
+      "type": "dimension"
+    }
   }
 }

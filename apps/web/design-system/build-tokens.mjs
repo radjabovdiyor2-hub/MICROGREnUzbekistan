@@ -107,6 +107,12 @@ const fontSizeVars = global
   .map((t) => `  --${t.name}: ${t.value};`)
   .join('\n');
 
+// Breakpoints → Tailwind responsive prefixes (sm:, md:, lg:, xl:, 2xl:).
+const breakpointVars = global
+  .filter((t) => t.name.startsWith('breakpoint-'))
+  .map((t) => `  --${t.name}: ${t.value};`)
+  .join('\n');
+
 const themeCss =
   `${banner('Merged into Tailwind via @import in globals.css (theme + utilities layers; no Preflight).')}\n` +
   `@theme {\n` +
@@ -114,7 +120,8 @@ const themeCss =
   `${colorVars}\n\n` +
   `  /* Radius — rounded-sm|md|lg|xl|2xl|full */\n${radiusVars}\n\n` +
   `  /* Font family — font-body, font-display */\n${fontFamilyVars}\n\n` +
-  `  /* Font size — text-xs … text-4xl */\n${fontSizeVars}\n` +
+  `  /* Font size — text-xs … text-4xl */\n${fontSizeVars}\n\n` +
+  `  /* Breakpoints — Tailwind responsive prefixes (sm:, md:, lg:, xl:, 2xl:) */\n${breakpointVars}\n` +
   `}\n`;
 
 // ---- build/tokens.ts -------------------------------------------------------
