@@ -106,7 +106,7 @@ function StarRow({ value, onChange, readOnly = false }: {
             background: 'none', border: 'none',
             padding: readOnly ? 0 : '2px',
             cursor: readOnly ? 'default' : 'pointer',
-            color: s <= active ? '#F59E0B' : 'var(--border)',
+            color: s <= active ? 'var(--brand-accent)' : 'var(--border)',
             transition: 'color var(--transition-fast)',
             lineHeight: 1,
           }}
@@ -462,10 +462,10 @@ export function ProductPageClient({ id }: { id: string }) {
               <span style={{ padding: '6px 12px', background: 'var(--success-bg)', color: 'var(--success)', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Sparkles size={12} /> {t("100% Ekologik toza", "100% Эко продукт")}
               </span>
-              <span style={{ padding: '6px 12px', background: 'rgba(99,102,241,0.1)', color: '#6366F1', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ padding: '6px 12px', background: 'color-mix(in srgb, var(--cat-1) 12%, transparent)', color: 'var(--cat-1)', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Leaf size={12} /> {t("Vitaminlar: A, C, E, K, B-complex", "Витамины: A, C, E, K, B-комплекс")}
               </span>
-              <span style={{ padding: '6px 12px', background: 'rgba(245,158,11,0.1)', color: '#F59E0B', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span style={{ padding: '6px 12px', background: 'var(--warning-bg)', color: 'var(--warning)', borderRadius: 'var(--radius-full)', fontSize: 'var(--text-xs)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Flame size={12} /> {t("Antioksidant & Detox", "Антиоксидант и Детокс")}
               </span>
             </div>
@@ -554,7 +554,7 @@ export function ProductPageClient({ id }: { id: string }) {
                       return (
                         <div key={star} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', width: 16, textAlign: 'right' }}>{star}</span>
-                          <Star fill="currentColor" strokeWidth={1} size={12} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                          <Star fill="currentColor" strokeWidth={1} size={12} style={{ color: 'var(--brand-accent)', flexShrink: 0 }} />
                           <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 4, overflow: 'hidden' }}>
                             <div style={{ height: '100%', width: `${pct}%`, background: star >= 4 ? 'var(--success)' : star === 3 ? 'var(--warning)' : 'var(--error)', borderRadius: 4, transition: 'width 0.6s cubic-bezier(0.16,1,0.3,1)' }} />
                           </div>

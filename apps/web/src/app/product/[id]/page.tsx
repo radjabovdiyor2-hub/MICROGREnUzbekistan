@@ -174,10 +174,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
       {recipes.length > 0 && (
         <section className="container" style={{ paddingBottom: 'var(--space-8)' }}>
-          <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 800, marginBottom: 4 }}>
+          <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-semibold)', letterSpacing: '-0.025em', marginBottom: 4 }}>
             Retseptlar bilan
           </h2>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-4)' }}>
+          <p style={{ fontSize: 'var(--text-base)', color: 'var(--text-secondary)', marginBottom: 'var(--space-6)' }}>
             Рецепты с этим товаром
           </p>
           <div style={{

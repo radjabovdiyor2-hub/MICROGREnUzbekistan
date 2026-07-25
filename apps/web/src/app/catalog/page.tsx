@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ProductCard } from '@/components/shop/ProductCard';
 import {
-  AlertTriangle, Clock, Droplet, Folder, Leaf, Package, Plug, Plus, RefreshCw, Search, Sparkles,
+  AlertTriangle, Clock, Droplet, Leaf, Package, Plug, Plus, RefreshCw, Search, Sparkles,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { motion } from 'framer-motion';
@@ -138,12 +138,12 @@ function CatalogContent({ initialCategory = '' }: { initialCategory?: string }) 
       <div className="container" style={{ position: 'relative', zIndex: 1, paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
       {/* Page Header */}
       <ScrollReveal variant="left">
-        <div style={{ marginBottom: 'var(--space-6)' }}>
-          <h1 className="section-title" style={{ marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Folder size={28} /> {t('Katalog', 'Каталог')}
+        <div style={{ marginBottom: 'var(--space-8)', paddingTop: 'var(--space-4)' }}>
+          <h1 className="section-title" style={{ marginBottom: 'var(--space-3)', letterSpacing: '-0.03em' }}>
+            {t('Katalog', 'Каталог')}
           </h1>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-            {t('Barcha mahsulotlar bir joyda — tanlang va buyurtma bering!', 'Все товары в одном месте — выбирайте и заказывайте!')}
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-lg)', maxWidth: '46ch' }}>
+            {t('Barcha mahsulotlar bir joyda — tanlang va buyurtma bering!', 'Все товары в одном месте — выбирайте и заказывайте.')}
           </p>
         </div>
       </ScrollReveal>
@@ -258,7 +258,6 @@ function CatalogContent({ initialCategory = '' }: { initialCategory?: string }) 
                   alignItems: 'center',
                   gap: '10px',
                   padding: '14px 40px',
-                  borderRadius: '14px',
                   fontSize: 'var(--text-base)',
                   fontWeight: 600,
                   opacity: loadingMore ? 0.6 : 1,
