@@ -105,7 +105,7 @@ export function ProductCard({ product }: { product: Product }) {
         transition={spring}
         style={{
           position: 'absolute', top: 8, right: 8, zIndex: 2,
-          background: fav ? 'var(--error)' : 'rgba(0,0,0,0.3)', border: 'none',
+          background: fav ? 'var(--error)' : 'var(--scrim)', border: 'none',
           borderRadius: 'var(--radius-full)', width: 32, height: 32,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', color: 'white', transition: 'background var(--transition-fast)',
@@ -153,7 +153,7 @@ export function ProductCard({ product }: { product: Product }) {
         {/* Rating */}
         {product.rating > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: 'var(--space-2)' }}>
-            <Star size={14} fill="#F59E0B" strokeWidth={1} style={{ color: '#F59E0B' }} />
+            <Star size={14} fill="currentColor" strokeWidth={0} style={{ color: 'var(--brand-accent)' }} />
             <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)' }}>{product.rating}</span>
             <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>({product.reviewCount})</span>
           </div>
@@ -184,14 +184,14 @@ export function ProductCard({ product }: { product: Product }) {
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 borderRadius: 'var(--radius-sm)', overflow: 'hidden',
-                background: 'var(--brand-primary)', color: '#fff',
+                background: 'var(--brand-primary)', color: 'var(--text-inverse)',
               }}>
               <button
                 aria-label="−"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty - 1); }}
                 style={{
                   width: 36, height: 32, border: 'none', cursor: 'pointer',
-                  background: 'transparent', color: '#fff',
+                  background: 'transparent', color: 'var(--text-inverse)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                 <Minus size={14} />
@@ -213,7 +213,7 @@ export function ProductCard({ product }: { product: Product }) {
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty + 1); }}
                 style={{
                   width: 36, height: 32, border: 'none', cursor: 'pointer',
-                  background: 'transparent', color: '#fff',
+                  background: 'transparent', color: 'var(--text-inverse)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                 <Plus size={14} />
@@ -232,7 +232,7 @@ export function ProductCard({ product }: { product: Product }) {
               transition={spring}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                border: 'none', color: '#fff', fontWeight: 'var(--font-semibold)',
+                border: 'none', color: 'var(--text-inverse)', fontWeight: 'var(--font-semibold)',
                 background: added ? 'var(--success)' : 'var(--brand-primary)',
               }}
             >
