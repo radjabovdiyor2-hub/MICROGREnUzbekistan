@@ -31,15 +31,25 @@ tgas/
 apps/tgas/
 apps/game/
 
-# Dev-only: storybook, design-system tooling, e2e tests, playwright
+# Dev-only: storybook, e2e tests, playwright
 apps/web/.storybook/
-apps/web/design-system/
 apps/web/e2e/
 apps/web/playwright.config.ts
 apps/web/playwright-report/
 apps/web/test-results/
 **/*.stories.ts
 **/*.stories.tsx
+
+# design-system: dev tooling (token source, figma bundle, generator, docs) is
+# excluded, BUT build/*.css is @imported by globals.css at build time, so the
+# generated build output MUST stay in the context. The negations below override
+# the broad `**/build` rule above.
+apps/web/design-system/tokens/
+apps/web/design-system/figma/
+apps/web/design-system/build-tokens.mjs
+apps/web/design-system/*.md
+!apps/web/design-system/build/
+!apps/web/design-system/build/**
 
 # Never bake secrets into the storefront-bot image — runtime env_file provides them
 apps/bot/.env
