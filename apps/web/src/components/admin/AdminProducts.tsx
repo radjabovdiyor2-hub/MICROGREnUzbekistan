@@ -489,7 +489,7 @@ export function AdminProducts() {
           </div>
         </div>
         <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
+          <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Мало', 'Kam')}</div>
             <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{lowStock}</div>
@@ -567,14 +567,14 @@ export function AdminProducts() {
                   {/* Stock badge */}
                   <span style={{
                     padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 'var(--font-semibold)',
-                    background: p.stock === 0 ? '#EF444415' : p.stock < 5 ? '#F59E0B15' : '#10B98115',
-                    color: p.stock === 0 ? '#EF4444' : p.stock < 5 ? '#F59E0B' : '#10B981',
+                    background: p.stock === 0 ? 'var(--error-bg)' : p.stock < 5 ? 'var(--warning-bg)' : 'var(--success-bg)',
+                    color: p.stock === 0 ? 'var(--error)' : p.stock < 5 ? 'var(--warning)' : 'var(--success)',
                   }}>
                     {p.stock} {t('шт', 'dona')}
                   </span>
                   {/* Status indicator */}
                   {!p.isActive && (
-                    <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '10px', background: '#EF444415', color: '#EF4444' }}>
+                    <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '10px', background: 'var(--error-bg)', color: 'var(--error)' }}>
                       {t('Неактив', 'Nofaol')}
                     </span>
                   )}
@@ -596,7 +596,7 @@ export function AdminProducts() {
                       padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                       display: 'flex', alignItems: 'center', gap: '4px',
                       background: p.isActive ? '#10B98118' : '#EF444418',
-                      color: p.isActive ? '#059669' : '#EF4444',
+                      color: p.isActive ? '#059669' : 'var(--error)',
                       border: `1.5px solid ${p.isActive ? '#10B98140' : '#EF444440'}`,
                       transition: 'all 0.2s',
                     }}>

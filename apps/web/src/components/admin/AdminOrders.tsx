@@ -30,12 +30,12 @@ interface Order {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  PENDING: { label: 'Kutilmoqda', color: '#F59E0B', icon: <Clock size={14} /> },
-  CONFIRMED: { label: 'Tasdiqlandi', color: '#3B82F6', icon: <CheckCircle size={14} /> },
+  PENDING: { label: 'Kutilmoqda', color: 'var(--warning)', icon: <Clock size={14} /> },
+  CONFIRMED: { label: 'Tasdiqlandi', color: 'var(--info)', icon: <CheckCircle size={14} /> },
   PREPARING: { label: 'Tayyorlanmoqda', color: '#8B5CF6', icon: <Package size={14} /> },
   DELIVERING: { label: 'Yetkazilmoqda', color: '#2D5BFF', icon: <Truck size={14} /> },
-  DELIVERED: { label: 'Yetkazildi', color: '#10B981', icon: <PartyPopper size={14} /> },
-  CANCELLED: { label: 'Bekor qilindi', color: '#EF4444', icon: <XCircle size={14} /> },
+  DELIVERED: { label: 'Yetkazildi', color: 'var(--success)', icon: <PartyPopper size={14} /> },
+  CANCELLED: { label: 'Bekor qilindi', color: 'var(--error)', icon: <XCircle size={14} /> },
 };
 
 const STATUS_TABS = ['ALL', 'PENDING', 'CONFIRMED', 'PREPARING', 'DELIVERING', 'DELIVERED', 'CANCELLED'];

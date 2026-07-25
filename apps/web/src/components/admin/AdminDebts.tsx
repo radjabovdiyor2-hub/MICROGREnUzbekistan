@@ -91,7 +91,7 @@ export function AdminDebts() {
           { label: "Bizga qarzdor", value: `${fmt(summary.theyOweUs)} so'm`, color: 'var(--success)', icon: <ArrowRight size={20} /> },
           { label: "Biz qarzdormiz", value: `${fmt(summary.weOwe)} so'm`, color: 'var(--error)', icon: <ArrowLeft size={20} /> },
           { label: "Balans", value: `${fmt(summary.theyOweUs - summary.weOwe)} so'm`, color: 'var(--brand-primary)', icon: <Banknote size={20} /> },
-          { label: "Muddati o'tgan", value: summary.overdue, color: '#F59E0B', icon: <AlertTriangle size={20} /> },
+          { label: "Muddati o'tgan", value: summary.overdue, color: 'var(--warning)', icon: <AlertTriangle size={20} /> },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
             <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: `${stat.color}15`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -120,7 +120,7 @@ export function RecipesTab() {
                     <button onClick={() => download(`/api/admin/magazine/recipes/qr?slug=${r.slug}&format=png`, `qr-recipe-${r.slug}.png`)} style={btn}>QR PNG</button>
                     <button onClick={() => download(`/api/admin/magazine/recipes/qr?slug=${r.slug}&format=svg`, `qr-recipe-${r.slug}.svg`)} style={btn}>SVG</button>
                     <a href={`/recipe/${r.slug}`} target="_blank" rel="noreferrer" style={{ ...btn, textDecoration: 'none' }}>↗</a>
-                    <button onClick={() => remove(r.id)} style={{ ...btn, color: '#dc2626' }}>Удалить</button>
+                    <button onClick={() => remove(r.id)} style={{ ...btn, color: 'var(--error)' }}>Удалить</button>
                   </td>
                 </tr>
               ))}
@@ -172,7 +172,7 @@ export function RecipesTab() {
               <option value="">— не товар —</option>
               {products.map((p) => <option key={p.id} value={p.id}>{p.nameRu}</option>)}
             </select>
-            <button onClick={() => setForm({ ...form, ingredients: form.ingredients.filter((_, idx) => idx !== i) })} style={{ ...btn, color: '#dc2626' }}>✕</button>
+            <button onClick={() => setForm({ ...form, ingredients: form.ingredients.filter((_, idx) => idx !== i) })} style={{ ...btn, color: 'var(--error)' }}>✕</button>
           </div>
         ))}
       </div>
@@ -182,7 +182,7 @@ export function RecipesTab() {
         <div style={rowBetween}><strong>Шаги</strong><button onClick={() => setForm({ ...form, steps: [...form.steps, { textRu: '', textUz: '', image: '', timerSeconds: null }] })} style={btn}>+ Шаг</button></div>
         {form.steps.map((s, i) => (
           <div key={i} style={{ marginTop: 10, padding: 10, border: '1px solid var(--border-color)', borderRadius: 8 }}>
-            <div style={rowBetween}><span style={{ color: 'var(--text-secondary)' }}>Шаг {i + 1}</span><button onClick={() => setForm({ ...form, steps: form.steps.filter((_, idx) => idx !== i) })} style={{ ...btn, color: '#dc2626' }}>✕</button></div>
+            <div style={rowBetween}><span style={{ color: 'var(--text-secondary)' }}>Шаг {i + 1}</span><button onClick={() => setForm({ ...form, steps: form.steps.filter((_, idx) => idx !== i) })} style={{ ...btn, color: 'var(--error)' }}>✕</button></div>
             <textarea style={{ ...input, minHeight: 50, marginTop: 6 }} placeholder="Текст шага (ru)" value={s.textRu} onChange={(e) => setStep(i, { textRu: e.target.value })} />
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 6 }}>
               <input style={{ ...input, width: 140 }} type="number" placeholder="Таймер, сек" value={s.timerSeconds ?? ''} onChange={(e) => setStep(i, { timerSeconds: e.target.value ? Number(e.target.value) : null })} />

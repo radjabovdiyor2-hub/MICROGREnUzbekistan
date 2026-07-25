@@ -20,14 +20,14 @@ interface ForecastItem {
 }
 
 const URGENCY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  CRITICAL: { label: 'Tezkor', color: '#EF4444', bg: '#EF444415' },
-  SOON: { label: 'Tez orada', color: '#F59E0B', bg: '#F59E0B15' },
-  NORMAL: { label: 'Normal', color: '#10B981', bg: '#10B98115' },
+  CRITICAL: { label: 'Tezkor', color: 'var(--error)', bg: 'var(--error-bg)' },
+  SOON: { label: 'Tez orada', color: 'var(--warning)', bg: 'var(--warning-bg)' },
+  NORMAL: { label: 'Normal', color: 'var(--success)', bg: 'var(--success-bg)' },
 };
 
 const TREND_ICON: Record<string, { icon: React.ReactNode; color: string }> = {
-  UP: { icon: <TrendingUp size={14} />, color: '#10B981' },
-  DOWN: { icon: <TrendingDown size={14} />, color: '#EF4444' },
+  UP: { icon: <TrendingUp size={14} />, color: 'var(--success)' },
+  DOWN: { icon: <TrendingDown size={14} />, color: 'var(--error)' },
   STABLE: { icon: <Minus size={14} />, color: 'var(--text-muted)' },
 };
 
@@ -73,9 +73,9 @@ export function AdminForecast() {
           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tezkor</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xl)', color: 'var(--error)' }}>{criticalCount}</div>
         </div>
-        <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center', borderLeft: '3px solid #F59E0B' }}>
+        <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center', borderLeft: '3px solid var(--warning)' }}>
           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tez orada</div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xl)', color: '#F59E0B' }}>{soonCount}</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xl)', color: 'var(--warning)' }}>{soonCount}</div>
         </div>
         <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center', borderLeft: '3px solid var(--brand-primary)' }}>
           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Byudjet</div>
@@ -132,7 +132,7 @@ export function AdminForecast() {
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-muted)' }}>Qolgan: </span>
-                    <span style={{ fontWeight: 'var(--font-semibold)', color: item.daysOfSupply <= 7 ? 'var(--error)' : item.daysOfSupply <= 14 ? '#F59E0B' : 'var(--text-secondary)' }}>
+                    <span style={{ fontWeight: 'var(--font-semibold)', color: item.daysOfSupply <= 7 ? 'var(--error)' : item.daysOfSupply <= 14 ? 'var(--warning)' : 'var(--text-secondary)' }}>
                       {item.daysOfSupply >= 999 ? '∞' : `${item.daysOfSupply} kun`}
                     </span>
                   </div>

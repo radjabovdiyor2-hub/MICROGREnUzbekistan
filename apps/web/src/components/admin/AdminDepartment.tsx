@@ -41,15 +41,15 @@ interface Props {
 
 const STATUS_COLORS: Record<string, { bg: string; fg: string; label: string }> = {
   done: { bg: 'rgba(34, 197, 94, 0.15)', fg: '#22c55e', label: '✓ Done' },
-  in_progress: { bg: 'rgba(59, 130, 246, 0.15)', fg: '#3b82f6', label: '⏳ В работе' },
-  todo: { bg: 'rgba(156, 163, 175, 0.15)', fg: '#9ca3af', label: '📋 Todo' },
-  review: { bg: 'rgba(245, 158, 11, 0.15)', fg: '#f59e0b', label: '👀 Review' },
+  in_progress: { bg: 'rgba(59, 130, 246, 0.15)', fg: 'var(--info)', label: '⏳ В работе' },
+  todo: { bg: 'rgba(156, 163, 175, 0.15)', fg: 'var(--text-muted)', label: '📋 Todo' },
+  review: { bg: 'rgba(245, 158, 11, 0.15)', fg: 'var(--warning)', label: '👀 Review' },
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  high: '#ef4444',
+  high: 'var(--error)',
   critical: '#dc2626',
-  medium: '#f59e0b',
+  medium: 'var(--warning)',
   low: '#22c55e',
 };
 
@@ -118,7 +118,7 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-3)' }}>
         <StatCard label={t('Всего задач', 'Jami vazifalar')} value={stats.total} icon={<ClipboardList size={20} />} color="var(--brand-primary)" />
         <StatCard label={t('Выполнено', 'Bajarilgan')} value={stats.done} icon={<CheckCircle size={20} />} color="var(--success)" />
-        <StatCard label={t('В работе', 'Jarayonda')} value={stats.in_progress} icon={<Clock size={20} />} color="#3b82f6" />
+        <StatCard label={t('В работе', 'Jarayonda')} value={stats.in_progress} icon={<Clock size={20} />} color="var(--info)" />
         <StatCard label={t('Ожидают', 'Kutmoqda')} value={stats.todo} icon={<Package size={20} />} color="var(--text-muted)" />
         <StatCard label={t('Просрочено', "Muddati o'tgan")} value={stats.overdue} icon={<AlertTriangle size={20} />} color="var(--error)" />
       </div>
@@ -129,7 +129,7 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
           <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', color: 'var(--text-secondary)' }}>
             {t('Прогресс выполнения', 'Bajarilish jarayoni')}
           </span>
-          <span style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: completionRate >= 70 ? 'var(--success)' : completionRate >= 40 ? '#f59e0b' : 'var(--error)' }}>
+          <span style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: completionRate >= 70 ? 'var(--success)' : completionRate >= 40 ? 'var(--warning)' : 'var(--error)' }}>
             {completionRate}%
           </span>
         </div>
@@ -137,7 +137,7 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
           <div style={{
             width: `${completionRate}%`,
             height: '100%',
-            background: completionRate >= 70 ? 'var(--success)' : completionRate >= 40 ? '#f59e0b' : 'var(--error)',
+            background: completionRate >= 70 ? 'var(--success)' : completionRate >= 40 ? 'var(--warning)' : 'var(--error)',
             borderRadius: 'var(--radius-full)',
             transition: 'width 0.6s ease-out',
           }} />

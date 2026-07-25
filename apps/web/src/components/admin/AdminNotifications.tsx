@@ -150,9 +150,9 @@ export function AdminNotifications() {
   };
 
   const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
-    sale: { icon: <ShoppingCart size={14} />, color: '#10B981' },
-    low_stock: { icon: <AlertTriangle size={14} />, color: '#EF4444' },
-    order: { icon: <Package size={14} />, color: '#3B82F6' },
+    sale: { icon: <ShoppingCart size={14} />, color: 'var(--success)' },
+    low_stock: { icon: <AlertTriangle size={14} />, color: 'var(--error)' },
+    order: { icon: <Package size={14} />, color: 'var(--info)' },
     growing: { icon: <Leaf size={14} />, color: '#22C55E' },
     info: { icon: <Clock size={14} />, color: '#6366F1' },
   };

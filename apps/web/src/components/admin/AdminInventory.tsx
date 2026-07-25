@@ -37,10 +37,10 @@ interface Summary {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  CRITICAL: { label: 'Kritik', color: '#EF4444', bg: '#EF444415' },
-  LOW: { label: 'Kam', color: '#F59E0B', bg: '#F59E0B15' },
-  NORMAL: { label: 'Normal', color: '#10B981', bg: '#10B98115' },
-  EXCESS: { label: 'Ortiqcha', color: '#3B82F6', bg: '#3B82F615' },
+  CRITICAL: { label: 'Kritik', color: 'var(--error)', bg: 'var(--error-bg)' },
+  LOW: { label: 'Kam', color: 'var(--warning)', bg: 'var(--warning-bg)' },
+  NORMAL: { label: 'Normal', color: 'var(--success)', bg: 'var(--success-bg)' },
+  EXCESS: { label: 'Ortiqcha', color: 'var(--info)', bg: 'var(--info-bg)' },
 };
 
 export function AdminInventory() {
@@ -96,7 +96,7 @@ export function AdminInventory() {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--space-2)' }}>
             <div className="card" style={{ padding: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: '#EF444415', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--error-bg)', color: 'var(--error)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <AlertTriangle size={16} />
               </div>
               <div>
@@ -105,12 +105,12 @@ export function AdminInventory() {
               </div>
             </div>
             <div className="card" style={{ padding: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: '#F59E0B15', color: '#F59E0B', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: 'var(--warning-bg)', color: 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <AlertTriangle size={16} />
               </div>
               <div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Kam qolgan</div>
-                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)', color: '#F59E0B' }}>{summary.lowCount}</div>
+                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)', color: 'var(--warning)' }}>{summary.lowCount}</div>
               </div>
             </div>
           </div>
@@ -187,7 +187,7 @@ export function AdminInventory() {
                         {p.avgDailySales > 0 ? p.avgDailySales.toFixed(1) : '-'}
                       </td>
                       <td className="inv-table-stock">
-                        <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)', color: p.daysOfSupply <= 7 ? 'var(--error)' : p.daysOfSupply <= 14 ? '#F59E0B' : 'var(--text-secondary)' }}>
+                        <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)', color: p.daysOfSupply <= 7 ? 'var(--error)' : p.daysOfSupply <= 14 ? 'var(--warning)' : 'var(--text-secondary)' }}>
                           {p.daysOfSupply >= 999 ? '∞' : `${p.daysOfSupply}k`}
                         </span>
                       </td>

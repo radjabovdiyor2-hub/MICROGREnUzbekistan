@@ -320,7 +320,7 @@ export function MenuTab() {
                     Убрать видео
                   </button>
                 )}
-                <button onClick={() => removeDish(d.id)} style={{ ...btn, color: '#dc2626' }}>Удалить</button>
+                <button onClick={() => removeDish(d.id)} style={{ ...btn, color: 'var(--error)' }}>Удалить</button>
               </div>
             ))}
           </div>

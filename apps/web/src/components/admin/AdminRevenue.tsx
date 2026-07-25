@@ -86,7 +86,7 @@ export function AdminRevenue() {
           { label: 'Выручка сегодня', value: fmt(data.todayRevenue), icon: <Banknote size={18} />, color: 'var(--brand-primary)', sub: `${data.todaySales} продаж` },
           { label: 'Себестоимость', value: fmt(data.todayCost), icon: <ArrowLeft size={18} />, color: 'var(--error)', sub: 'Цена поставщика' },
           { label: 'Чистая прибыль', value: fmt(data.todayProfit), icon: <TrendingUp size={18} />, color: data.todayProfit >= 0 ? 'var(--success)' : 'var(--error)', sub: `${data.todayMargin.toFixed(1)}% маржа` },
-          { label: 'Маржа', value: `${data.todayMargin.toFixed(1)}%`, icon: <Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? '#F59E0B' : 'var(--error)', sub: data.todayMargin >= 20 ? 'Хорошо' : 'Низкая' },
+          { label: 'Маржа', value: `${data.todayMargin.toFixed(1)}%`, icon: <Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? 'var(--warning)' : 'var(--error)', sub: data.todayMargin >= 20 ? 'Хорошо' : 'Низкая' },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-3)', borderTop: `3px solid ${stat.color}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
@@ -144,11 +144,11 @@ export function AdminRevenue() {
           <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
             <div style={{
               height: '100%', width: `${Math.min(periodMargin, 100)}%`, borderRadius: 'var(--radius-full)',
-              background: periodMargin >= 20 ? 'var(--success)' : periodMargin >= 10 ? '#F59E0B' : 'var(--error)',
+              background: periodMargin >= 20 ? 'var(--success)' : periodMargin >= 10 ? 'var(--warning)' : 'var(--error)',
               transition: 'width 0.5s',
             }} />
           </div>
-          <span style={{ fontWeight: 800, fontSize: 'var(--text-sm)', color: periodMargin >= 20 ? 'var(--success)' : periodMargin >= 10 ? '#F59E0B' : 'var(--error)', minWidth: 45, textAlign: 'right' }}>
+          <span style={{ fontWeight: 800, fontSize: 'var(--text-sm)', color: periodMargin >= 20 ? 'var(--success)' : periodMargin >= 10 ? 'var(--warning)' : 'var(--error)', minWidth: 45, textAlign: 'right' }}>
             {periodMargin.toFixed(1)}%
           </span>
         </div>
@@ -237,7 +237,7 @@ export function AdminRevenue() {
                     <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
                     <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.sold} шт · {p.margin.toFixed(0)}% маржа</div>
                   </div>
-                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: p.profit < 0 ? 'var(--error)' : '#F59E0B', minWidth: 55, textAlign: 'right' }}>{fmt(p.profit)}</span>
+                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: p.profit < 0 ? 'var(--error)' : 'var(--warning)', minWidth: 55, textAlign: 'right' }}>{fmt(p.profit)}</span>
                 </div>
               ))}
             </div>

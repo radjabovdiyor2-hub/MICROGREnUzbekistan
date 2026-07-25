@@ -157,7 +157,7 @@ export function AdminSettings() {
                   <div className="pwd-strength">
                     <div className="pwd-strength-bar" style={{
                       width: newPassword.length < 6 ? '25%' : newPassword.length < 10 ? '50%' : newPassword.length < 14 ? '75%' : '100%',
-                      background: newPassword.length < 6 ? 'var(--error)' : newPassword.length < 10 ? '#F59E0B' : newPassword.length < 14 ? '#3B82F6' : 'var(--success)',
+                      background: newPassword.length < 6 ? 'var(--error)' : newPassword.length < 10 ? 'var(--warning)' : newPassword.length < 14 ? 'var(--info)' : 'var(--success)',
                     }} />
                   </div>
                 )}
@@ -274,7 +274,7 @@ export function AdminSettings() {
             border: '1px solid #F59E0B30',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Shield size={16} style={{ color: '#F59E0B' }} />
+              <Shield size={16} style={{ color: 'var(--warning)' }} />
               <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: '#D97706' }}>Xavfsizlik maslahatlari</span>
             </div>
             <ul style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
