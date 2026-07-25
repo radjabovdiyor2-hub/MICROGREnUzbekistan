@@ -40,6 +40,25 @@ function flatten(node, prefix = []) {
   return out;
 }
 
+/** Deep-convert a DTCG node ($value/$type) to Tokens Studio native (value/type)
+ *  so the Figma plugin imports it one-click. */
+function toStudio(node) {
+  if (node && typeof node === 'object') {
+    if ('$value' in node) {
+      const o = { value: node.$value };
+      if (node.$type) o.type = node.$type;
+      return o;
+    }
+    const out = {};
+    for (const [k, v] of Object.entries(node)) {
+      if (k.startsWith('$')) continue;
+      out[k] = toStudio(v);
+    }
+    return out;
+  }
+  return node;
+}
+
 const tokens = JSON.parse(readFileSync(SRC, 'utf8'));
 const light = flatten(tokens.light);
 const dark = flatten(tokens.dark);
@@ -111,13 +130,30 @@ const tokensTs =
   `export const tokensGlobal = ${toObj(global)} as const;\n\n` +
   `export const tokens = { light: tokensLight, dark: tokensDark, global: tokensGlobal } as const;\n`;
 
+// ---- Tokens Studio bundle (import into Figma to sync Variables) -------------
+// Three token sets + $metadata (order) + $themes (Light/Dark modes). See FIGMA.md.
+const FIGMA = join(__dirname, 'figma');
+const themes = [
+  { id: 'light', name: 'Light', group: 'Theme', $figmaStyleReferences: {}, $figmaVariableReferences: {},
+    selectedTokenSets: { global: 'source', light: 'enabled', dark: 'disabled' } },
+  { id: 'dark', name: 'Dark', group: 'Theme', $figmaStyleReferences: {}, $figmaVariableReferences: {},
+    selectedTokenSets: { global: 'source', light: 'disabled', dark: 'enabled' } },
+];
+
 // ---- write -----------------------------------------------------------------
 mkdirSync(OUT, { recursive: true });
 writeFileSync(join(OUT, 'tokens.css'), tokensCss);
 writeFileSync(join(OUT, 'theme.css'), themeCss);
 writeFileSync(join(OUT, 'tokens.ts'), tokensTs);
 
+mkdirSync(FIGMA, { recursive: true });
+writeFileSync(join(FIGMA, 'global.json'), JSON.stringify(toStudio(tokens.global), null, 2));
+writeFileSync(join(FIGMA, 'light.json'), JSON.stringify(toStudio(tokens.light), null, 2));
+writeFileSync(join(FIGMA, 'dark.json'), JSON.stringify(toStudio(tokens.dark), null, 2));
+writeFileSync(join(FIGMA, '$metadata.json'), JSON.stringify({ tokenSetOrder: ['global', 'light', 'dark'] }, null, 2));
+writeFileSync(join(FIGMA, '$themes.json'), JSON.stringify(themes, null, 2));
+
 console.log(
-  `✓ tokens built → build/{tokens.css, theme.css, tokens.ts}\n` +
+  `✓ tokens built → build/{tokens.css, theme.css, tokens.ts} + figma/{global,light,dark,$metadata,$themes}.json\n` +
     `  light: ${light.length}  dark: ${dark.length}  global: ${global.length}  colors→tailwind: ${light.filter(isColor).length}`,
 );

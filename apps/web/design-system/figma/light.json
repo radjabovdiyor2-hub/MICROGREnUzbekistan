@@ -1,0 +1,226 @@
+{
+  "brand": {
+    "primary": {
+      "value": "#10B981",
+      "type": "color"
+    },
+    "primary-hover": {
+      "value": "#059669",
+      "type": "color"
+    },
+    "primary-light": {
+      "value": "#D1FAE5",
+      "type": "color"
+    },
+    "primary-rgb": {
+      "value": "16, 185, 129",
+      "type": "other"
+    },
+    "accent": {
+      "value": "#FFB800",
+      "type": "color"
+    },
+    "accent-hover": {
+      "value": "#E5A600",
+      "type": "color"
+    },
+    "accent-light": {
+      "value": "#FFF8E1",
+      "type": "color"
+    },
+    "accent-rgb": {
+      "value": "255, 184, 0",
+      "type": "other"
+    }
+  },
+  "bg": {
+    "primary": {
+      "value": "#FFFFFF",
+      "type": "color"
+    },
+    "secondary": {
+      "value": "#F7F8FA",
+      "type": "color"
+    },
+    "tertiary": {
+      "value": "#ECEEF2",
+      "type": "color"
+    },
+    "card": {
+      "value": "#FFFFFF",
+      "type": "color"
+    },
+    "elevated": {
+      "value": "#FFFFFF",
+      "type": "color"
+    },
+    "overlay": {
+      "value": "rgba(0, 0, 0, 0.5)",
+      "type": "color"
+    },
+    "glass": {
+      "value": "rgba(255, 255, 255, 0.8)",
+      "type": "color"
+    }
+  },
+  "text": {
+    "primary": {
+      "value": "#1A1A2E",
+      "type": "color"
+    },
+    "secondary": {
+      "value": "#6B7280",
+      "type": "color"
+    },
+    "muted": {
+      "value": "#9CA3AF",
+      "type": "color"
+    },
+    "inverse": {
+      "value": "#FFFFFF",
+      "type": "color"
+    },
+    "link": {
+      "value": "#10B981",
+      "type": "color"
+    }
+  },
+  "success": {
+    "value": "#10B981",
+    "type": "color"
+  },
+  "success-bg": {
+    "value": "rgba(16, 185, 129, 0.1)",
+    "type": "color"
+  },
+  "warning": {
+    "value": "#F59E0B",
+    "type": "color"
+  },
+  "warning-bg": {
+    "value": "rgba(245, 158, 11, 0.1)",
+    "type": "color"
+  },
+  "error": {
+    "value": "#EF4444",
+    "type": "color"
+  },
+  "error-bg": {
+    "value": "rgba(239, 68, 68, 0.1)",
+    "type": "color"
+  },
+  "info": {
+    "value": "#3B82F6",
+    "type": "color"
+  },
+  "info-bg": {
+    "value": "rgba(59, 130, 246, 0.1)",
+    "type": "color"
+  },
+  "border": {
+    "value": "#E5E7EB",
+    "type": "color"
+  },
+  "border-strong": {
+    "value": "#D1D5DB",
+    "type": "color"
+  },
+  "scrim": {
+    "value": "rgba(0, 0, 0, 0.3)",
+    "type": "color"
+  },
+  "cat": {
+    "1": {
+      "value": "#6366F1",
+      "type": "color"
+    },
+    "2": {
+      "value": "#8B5CF6",
+      "type": "color"
+    },
+    "3": {
+      "value": "#EC4899",
+      "type": "color"
+    },
+    "4": {
+      "value": "#14B8A6",
+      "type": "color"
+    },
+    "5": {
+      "value": "#2D5BFF",
+      "type": "color"
+    },
+    "6": {
+      "value": "#EAB308",
+      "type": "color"
+    },
+    "7": {
+      "value": "#22C55E",
+      "type": "color"
+    },
+    "8": {
+      "value": "#BE123C",
+      "type": "color"
+    },
+    "9": {
+      "value": "#7C3AED",
+      "type": "color"
+    },
+    "10": {
+      "value": "#16A34A",
+      "type": "color"
+    },
+    "11": {
+      "value": "#047857",
+      "type": "color"
+    },
+    "12": {
+      "value": "#0D9488",
+      "type": "color"
+    }
+  },
+  "shadow": {
+    "xs": {
+      "value": "0 1px 2px rgba(0, 0, 0, 0.04)",
+      "type": "other"
+    },
+    "sm": {
+      "value": "0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)",
+      "type": "other"
+    },
+    "md": {
+      "value": "0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04)",
+      "type": "other"
+    },
+    "lg": {
+      "value": "0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04)",
+      "type": "other"
+    },
+    "xl": {
+      "value": "0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 10px rgba(0, 0, 0, 0.04)",
+      "type": "other"
+    },
+    "card": {
+      "value": "0 2px 12px rgba(0, 0, 0, 0.06)",
+      "type": "other"
+    },
+    "button": {
+      "value": "0 4px 14px rgba(16, 185, 129, 0.35)",
+      "type": "other"
+    },
+    "accent": {
+      "value": "0 4px 14px rgba(255, 184, 0, 0.35)",
+      "type": "other"
+    }
+  },
+  "header": {
+    "bg": {
+      "value": "rgba(255, 255, 255, 0.92)",
+      "type": "color"
+    },
+    "blur": {
+      "value": "20px",
+      "type": "dimension"
+    }
+  }
+}

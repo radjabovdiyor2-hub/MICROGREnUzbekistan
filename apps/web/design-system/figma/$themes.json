@@ -1,0 +1,26 @@
+[
+  {
+    "id": "light",
+    "name": "Light",
+    "group": "Theme",
+    "$figmaStyleReferences": {},
+    "$figmaVariableReferences": {},
+    "selectedTokenSets": {
+      "global": "source",
+      "light": "enabled",
+      "dark": "disabled"
+    }
+  },
+  {
+    "id": "dark",
+    "name": "Dark",
+    "group": "Theme",
+    "$figmaStyleReferences": {},
+    "$figmaVariableReferences": {},
+    "selectedTokenSets": {
+      "global": "source",
+      "light": "disabled",
+      "dark": "enabled"
+    }
+  }
+]

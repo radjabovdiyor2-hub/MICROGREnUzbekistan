@@ -1,0 +1,230 @@
+{
+  "brand": {
+    "primary": {
+      "value": "#34D399",
+      "type": "color"
+    },
+    "primary-hover": {
+      "value": "#6EE7B7",
+      "type": "color"
+    },
+    "primary-light": {
+      "value": "rgba(52, 211, 153, 0.15)",
+      "type": "color"
+    },
+    "primary-rgb": {
+      "value": "52, 211, 153",
+      "type": "other"
+    },
+    "accent": {
+      "value": "#FFC633",
+      "type": "color"
+    },
+    "accent-hover": {
+      "value": "#FFD666",
+      "type": "color"
+    },
+    "accent-light": {
+      "value": "rgba(255, 198, 51, 0.12)",
+      "type": "color"
+    },
+    "accent-rgb": {
+      "value": "255, 198, 51",
+      "type": "other"
+    }
+  },
+  "bg": {
+    "primary": {
+      "value": "#0B0B14",
+      "type": "color"
+    },
+    "secondary": {
+      "value": "#12121F",
+      "type": "color"
+    },
+    "tertiary": {
+      "value": "#1A1A2E",
+      "type": "color"
+    },
+    "card": {
+      "value": "#16162A",
+      "type": "color"
+    },
+    "elevated": {
+      "value": "#1E1E35",
+      "type": "color"
+    },
+    "overlay": {
+      "value": "rgba(0, 0, 0, 0.7)",
+      "type": "color"
+    },
+    "glass": {
+      "value": "rgba(11, 11, 20, 0.85)",
+      "type": "color"
+    },
+    "mesh": {
+      "value": "radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(5, 150, 105, 0.1) 0px, transparent 50%)",
+      "type": "other"
+    }
+  },
+  "text": {
+    "primary": {
+      "value": "#F1F1F4",
+      "type": "color"
+    },
+    "secondary": {
+      "value": "#A0A3B1",
+      "type": "color"
+    },
+    "muted": {
+      "value": "#6B6E7D",
+      "type": "color"
+    },
+    "inverse": {
+      "value": "#0B0B14",
+      "type": "color"
+    },
+    "link": {
+      "value": "#34D399",
+      "type": "color"
+    }
+  },
+  "success": {
+    "value": "#34D399",
+    "type": "color"
+  },
+  "success-bg": {
+    "value": "rgba(52, 211, 153, 0.12)",
+    "type": "color"
+  },
+  "warning": {
+    "value": "#FBBF24",
+    "type": "color"
+  },
+  "warning-bg": {
+    "value": "rgba(251, 191, 36, 0.12)",
+    "type": "color"
+  },
+  "error": {
+    "value": "#F87171",
+    "type": "color"
+  },
+  "error-bg": {
+    "value": "rgba(248, 113, 113, 0.12)",
+    "type": "color"
+  },
+  "info": {
+    "value": "#60A5FA",
+    "type": "color"
+  },
+  "info-bg": {
+    "value": "rgba(96, 165, 250, 0.12)",
+    "type": "color"
+  },
+  "border": {
+    "value": "#3A3A5C",
+    "type": "color"
+  },
+  "border-strong": {
+    "value": "#4A4A6E",
+    "type": "color"
+  },
+  "scrim": {
+    "value": "rgba(0, 0, 0, 0.4)",
+    "type": "color"
+  },
+  "cat": {
+    "1": {
+      "value": "#818CF8",
+      "type": "color"
+    },
+    "2": {
+      "value": "#A78BFA",
+      "type": "color"
+    },
+    "3": {
+      "value": "#F472B6",
+      "type": "color"
+    },
+    "4": {
+      "value": "#2DD4BF",
+      "type": "color"
+    },
+    "5": {
+      "value": "#60A5FA",
+      "type": "color"
+    },
+    "6": {
+      "value": "#FBBF24",
+      "type": "color"
+    },
+    "7": {
+      "value": "#4ADE80",
+      "type": "color"
+    },
+    "8": {
+      "value": "#FB7185",
+      "type": "color"
+    },
+    "9": {
+      "value": "#A78BFA",
+      "type": "color"
+    },
+    "10": {
+      "value": "#4ADE80",
+      "type": "color"
+    },
+    "11": {
+      "value": "#34D399",
+      "type": "color"
+    },
+    "12": {
+      "value": "#2DD4BF",
+      "type": "color"
+    }
+  },
+  "shadow": {
+    "xs": {
+      "value": "0 1px 2px rgba(0, 0, 0, 0.2)",
+      "type": "other"
+    },
+    "sm": {
+      "value": "0 1px 3px rgba(0, 0, 0, 0.3)",
+      "type": "other"
+    },
+    "md": {
+      "value": "0 4px 6px rgba(0, 0, 0, 0.3)",
+      "type": "other"
+    },
+    "lg": {
+      "value": "0 10px 15px rgba(0, 0, 0, 0.4)",
+      "type": "other"
+    },
+    "xl": {
+      "value": "0 20px 25px rgba(0, 0, 0, 0.5)",
+      "type": "other"
+    },
+    "card": {
+      "value": "0 2px 12px rgba(0, 0, 0, 0.3)",
+      "type": "other"
+    },
+    "button": {
+      "value": "0 4px 14px rgba(52, 211, 153, 0.3)",
+      "type": "other"
+    },
+    "accent": {
+      "value": "0 4px 14px rgba(255, 198, 51, 0.25)",
+      "type": "other"
+    }
+  },
+  "header": {
+    "bg": {
+      "value": "rgba(11, 11, 20, 0.92)",
+      "type": "color"
+    },
+    "blur": {
+      "value": "20px",
+      "type": "dimension"
+    }
+  }
+}

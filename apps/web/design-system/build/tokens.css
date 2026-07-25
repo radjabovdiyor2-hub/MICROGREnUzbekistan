@@ -42,6 +42,10 @@
   --cat-6: #EAB308;
   --cat-7: #22C55E;
   --cat-8: #BE123C;
+  --cat-9: #7C3AED;
+  --cat-10: #16A34A;
+  --cat-11: #047857;
+  --cat-12: #0D9488;
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04);
@@ -96,6 +100,10 @@
   --cat-6: #FBBF24;
   --cat-7: #4ADE80;
   --cat-8: #FB7185;
+  --cat-9: #A78BFA;
+  --cat-10: #4ADE80;
+  --cat-11: #34D399;
+  --cat-12: #2DD4BF;
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);

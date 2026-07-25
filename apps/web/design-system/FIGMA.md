@@ -13,17 +13,29 @@ brownfield-проект, где **источник правды сейчас —
 
 ---
 
-## 1. Токены → Figma Variables (плагин Tokens Studio)
+## 1. Токены → Figma Variables (плагин Tokens Studio) — почти в один клик
+
+Готовый бандл уже сгенерирован в **`design-system/figma/`** (нативный формат Tokens
+Studio, пересобирается вместе с `npm run tokens:build`):
+
+```
+figma/$metadata.json   ← порядок наборов: global → light → dark
+figma/$themes.json     ← темы Light / Dark уже настроены
+figma/global.json      ← типографика, отступы, радиусы, z-index
+figma/light.json       ← цвета/тени/скрим/cat-палитра (светлая)
+figma/dark.json        ← то же (тёмная)
+```
 
 1. В Figma поставь плагин **Tokens Studio for Figma** (бесплатный).
-2. Plugin → Settings → Token Storage → **File/JSON** (или GitHub-sync на этот репо).
-3. Импортируй **`design-system/tokens/tokens.json`**. Наборы разложатся так:
-   - `global` — типографика, отступы, радиусы, z-index (не-тематические);
-   - `light` / `dark` — цвета/тени/скримы под тему.
-4. Настрой **Themes** в Tokens Studio: тема *Light* = `global` + `light`,
-   тема *Dark* = `global` + `dark`.
-5. **Export to Figma → Create Variables.** Получишь Variable Collections с режимами
+2. Plugin → Settings → Token Storage → **GitHub** (укажи репо + путь `apps/web/design-system/figma`)
+   либо **Local/File** и загрузи содержимое папки `figma/`.
+3. Плагин подхватит наборы `global/light/dark` и **две готовые темы Light/Dark**
+   из `$themes.json` — вручную ничего собирать не надо.
+4. **Export → Create Variables.** Получишь Variable Collection с режимами
    Light/Dark — ровно как `[data-theme]` в коде.
+
+> Сырой единый файл `design-system/tokens/tokens.json` (DTCG) тоже импортируется —
+> если предпочитаешь один файл и настроить темы руками.
 
 Направление синка: **код → Figma** (сейчас код — источник правды). Правишь токен в
 `tokens.json`, `npm run tokens:build`, ре-импорт в Tokens Studio. Если решите
