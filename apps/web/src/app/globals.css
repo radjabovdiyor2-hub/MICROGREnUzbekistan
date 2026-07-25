@@ -2611,3 +2611,26 @@ h1, h2, h3,
   letter-spacing: -0.025em;
 }
 
+/* Apple layout rhythm — generous section spacing, larger section titles,
+   calmer card hover, subtle global tracking. Applies site-wide. */
+.section {
+  padding: clamp(48px, 8vw, 100px) 0;
+}
+.section-title {
+  font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+  font-weight: var(--font-semibold);
+}
+.section-subtitle {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+}
+body {
+  letter-spacing: -0.011em;
+}
+@media (hover: hover) {
+  .product-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: var(--shadow-lg);
+  }
+}
+

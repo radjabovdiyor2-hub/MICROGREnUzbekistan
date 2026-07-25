@@ -27,14 +27,15 @@ export function HeroSection() {
   return (
     <section className="hero" id="hero-section" style={{
       position: 'relative',
-      minHeight: 'min(72vh, 680px)',
+      minHeight: 'min(84vh, 780px)',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'flex-end',
       overflow: 'hidden',
       background: 'var(--bg-secondary)',
       borderBottom: '1px solid var(--border)',
-      paddingBottom: 'clamp(24px, 5vh, 50px)',
+      paddingBottom: 'clamp(32px, 6vh, 60px)',
+      textAlign: 'center',
     }}>
       {/* Ambient floating greenery */}
       <FloatingGreenery count={22} style={{
@@ -53,82 +54,61 @@ export function HeroSection() {
 
       <motion.div
         className="container"
-        style={{ position: 'relative', zIndex: 2, width: '100%' }}
+        style={{ position: 'relative', zIndex: 2, width: '100%', maxWidth: 920, marginInline: 'auto' }}
         initial={prefersReduced ? 'visible' : 'hidden'}
         animate="visible"
         variants={stagger}
       >
         {/* Eyebrow */}
         <motion.div variants={rise} transition={spring} style={{
-          display: 'inline-flex', alignItems: 'center', gap: '10px',
-          fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-          color: 'var(--brand-primary-hover)', marginBottom: '14px',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+          fontSize: '0.9rem', fontWeight: 600, letterSpacing: '0.01em',
+          color: 'var(--brand-primary)', marginBottom: '16px',
         }}>
-          <span style={{ width: 26, height: 1, background: 'var(--brand-primary)' }} /> {t('hero.badge')}
+          {t('hero.badge')}
         </motion.div>
 
-        {/* Editorial headline */}
+        {/* Oversized headline */}
         <motion.h1 variants={rise} transition={spring} style={{
-          fontFamily: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.03em', lineHeight: 1.0,
-          margin: '0 0 0.5rem', fontSize: 'clamp(2.2rem, 6vw, 4.2rem)', textWrap: 'balance',
-          maxWidth: '16ch', color: 'var(--text-primary)',
+          fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '-0.035em', lineHeight: 1.03,
+          margin: '0 auto 20px', fontSize: 'clamp(2.6rem, 8vw, 5.2rem)', textWrap: 'balance',
+          maxWidth: '15ch', color: 'var(--text-primary)',
         }}>
           {t('hero.title1')}<br />
           <span style={{ color: 'var(--brand-primary)' }}>{t('hero.title2')}</span>
         </motion.h1>
 
-        {/* Animated gold accent bar */}
-        <motion.div
-          variants={{
-            hidden: { scaleX: 0, originX: 0 },
-            visible: { scaleX: 1, originX: 0 },
-          }}
-          transition={{ ...spring, delay: 0.4 }}
-          style={{
-            height: 5, width: 104, borderRadius: 999,
-            background: 'var(--brand-accent)', margin: '0 0 22px',
-            transformOrigin: 'left',
-          }}
-        />
-
         <motion.p variants={rise} transition={spring} style={{
-          maxWidth: '42ch', color: 'var(--text-secondary)', fontSize: 'clamp(1rem, 1.8vw, 1.2rem)',
-          margin: '0 0 26px', lineHeight: 1.6,
+          maxWidth: '46ch', marginInline: 'auto', marginBottom: '32px',
+          color: 'var(--text-secondary)', fontSize: 'clamp(1.1rem, 2.2vw, 1.5rem)',
+          lineHeight: 1.5, letterSpacing: '-0.01em',
         }}>
           {t('hero.subtitle')}
         </motion.p>
 
-        <motion.div variants={rise} transition={spring} style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-          <Link href="/catalog" className="btn btn-primary btn-lg ripple btn-shimmer" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '15px 30px', borderRadius: '14px', fontWeight: 700,
-            boxShadow: '0 12px 30px -10px rgba(var(--brand-primary-rgb), 0.5)',
-          }}>
+        {/* Pill CTAs — no inline radius so the global pill treatment applies */}
+        <motion.div variants={rise} transition={spring} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center' }}>
+          <Link href="/catalog" className="btn btn-primary btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px' }}>
             {t('hero.catalog_btn')} <ArrowRight size={18} />
           </Link>
-          <a href={CONTACT.phonePrimaryHref} className="btn btn-outline btn-lg" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '15px 30px', borderRadius: '14px',
-          }}>
+          <a href={CONTACT.phonePrimaryHref} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--brand-primary)' }}>
             <Phone size={18} /> {t('hero.contact_btn')}
           </a>
         </motion.div>
 
         {/* Trust indicators */}
-        <motion.div variants={rise} transition={spring} style={{ marginTop: '32px', display: 'flex', gap: '22px', flexWrap: 'wrap' }}>
+        <motion.div variants={rise} transition={spring} style={{ marginTop: '36px', display: 'flex', gap: '28px', flexWrap: 'wrap', justifyContent: 'center' }}>
           {[
-            { icon: <Package size={16} />, text: t('hero.products_count'), c: 'var(--brand-primary)' },
-            { icon: <Droplet size={16} />, text: t('hero.delivery'), c: 'var(--success)' },
-            { icon: <Sparkles size={16} />, text: t('hero.prices'), c: 'var(--brand-accent)' },
+            { icon: <Package size={16} />, text: t('hero.products_count') },
+            { icon: <Droplet size={16} />, text: t('hero.delivery') },
+            { icon: <Sparkles size={16} />, text: t('hero.prices') },
           ].map((it, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
               <span style={{
-                width: 30, height: 30, borderRadius: '9px', flexShrink: 0,
+                width: 30, height: 30, borderRadius: 'var(--radius-sm)', flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: it.c === 'var(--brand-primary)'
-                  ? 'rgba(16,185,129,0.13)'
-                  : it.c === 'var(--success)'
-                    ? 'rgba(16,185,129,0.13)'
-                    : 'rgba(255,184,0,0.15)',
-                color: it.c,
+                background: 'color-mix(in srgb, var(--brand-primary) 12%, transparent)',
+                color: 'var(--brand-primary)',
               }}>{it.icon}</span>
               <span>{it.text}</span>
             </div>
