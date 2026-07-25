@@ -27,14 +27,15 @@ export function HeroSection() {
   return (
     <section className="hero" id="hero-section" style={{
       position: 'relative',
-      minHeight: 'min(84vh, 780px)',
+      minHeight: 'min(76vh, 660px)',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'flex-end',
       overflow: 'hidden',
       background: 'var(--bg-secondary)',
       borderBottom: '1px solid var(--border)',
-      paddingBottom: 'clamp(32px, 6vh, 60px)',
+      paddingTop: 'var(--space-8)',
+      paddingBottom: 'clamp(28px, 5vh, 52px)',
       textAlign: 'center',
     }}>
       {/* Ambient floating greenery */}
@@ -70,9 +71,9 @@ export function HeroSection() {
 
         {/* Oversized headline */}
         <motion.h1 variants={rise} transition={spring} style={{
-          fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '-0.035em', lineHeight: 1.03,
-          margin: '0 auto 20px', fontSize: 'clamp(2.6rem, 8vw, 5.2rem)', textWrap: 'balance',
-          maxWidth: '15ch', color: 'var(--text-primary)',
+          fontFamily: 'var(--font-display)', fontWeight: 600, letterSpacing: '-0.035em', lineHeight: 1.05,
+          margin: '0 auto 18px', fontSize: 'clamp(2.2rem, 6.2vw, 4rem)', textWrap: 'balance',
+          maxWidth: '16ch', color: 'var(--text-primary)',
         }}>
           {t('hero.title1')}<br />
           <span style={{ color: 'var(--brand-primary)' }}>{t('hero.title2')}</span>
