@@ -13,7 +13,6 @@ import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { CONTACT, DELIVERY } from '@/lib/site';
 import { ProductCard } from '@/components/shop/ProductCard';
-import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 
 interface Product {
   id: string;
@@ -309,11 +308,7 @@ export function ProductPageClient({ id }: { id: string }) {
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Ambient canvas: floating microgreens + salad leaves */}
-      <FloatingGreenery count={10} style={{
-        position: 'fixed', inset: 0, width: '100%', height: '100%', zIndex: 0,
-      }} />
-      <div className="container" style={{ position: 'relative', zIndex: 1, paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
+      <div className="container" style={{ position: 'relative', zIndex: 1, paddingTop: 'var(--space-8)', paddingBottom: 'var(--space-8)' }}>
       {/* Breadcrumb */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
         <Link href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -342,7 +337,7 @@ export function ProductPageClient({ id }: { id: string }) {
         {/* Info */}
         <div>
           {product.brand && <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>{product.brand}</div>}
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-3)' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-semibold)', fontSize: 'clamp(1.9rem, 4vw, 2.75rem)', letterSpacing: '-0.03em', lineHeight: 1.08, marginBottom: 'var(--space-3)' }}>
             {t(product.nameUz, product.nameRu)}
           </h1>
 
@@ -386,13 +381,13 @@ export function ProductPageClient({ id }: { id: string }) {
               <button onClick={() => setQuantity(quantity + 1)} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Plus size={16} /></button>
             </div>
             <button className="btn btn-lg" onClick={handleAddToCart} disabled={product.stock === 0}
-              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', color: '#fff', fontWeight: 'var(--font-bold)', background: added ? 'var(--success)' : 'var(--brand-primary)', transform: added ? 'scale(1.02)' : 'scale(1)', transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease' }}>
+              style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', color: 'var(--text-inverse)', fontWeight: 'var(--font-bold)', background: added ? 'var(--success)' : 'var(--brand-primary)', transform: added ? 'scale(1.02)' : 'scale(1)', transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease' }}>
               {added ? <><CheckCircle size={20} /> {t("Savatga qo'shildi", "Добавлено в корзину")}</> : <><ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}</>}
             </button>
           </div>
 
           {/* Buy Now */}
-          <button className="btn btn-accent btn-lg btn-block ripple" onClick={handleBuyNow} disabled={product.stock === 0} id="buy-now-btn"
+          <button className="btn btn-accent btn-lg btn-block" onClick={handleBuyNow} disabled={product.stock === 0} id="buy-now-btn"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontWeight: 'var(--font-bold)' }}>
             <Zap size={20} /> {t('Hozir sotib olish', 'Купить сейчас')}
           </button>
