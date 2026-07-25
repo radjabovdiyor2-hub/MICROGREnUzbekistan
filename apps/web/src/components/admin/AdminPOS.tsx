@@ -341,7 +341,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           <div className="receipt-zigzag" style={{
             background: isReturn
               ? 'linear-gradient(135deg, #F59E0B, #D97706)'
-              : 'linear-gradient(135deg, #10B981, #059669)',
+              : 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))',
             padding: '28px 24px 32px', borderRadius: '20px 20px 0 0', textAlign: 'center', color: 'white',
             position: 'relative', overflow: 'hidden',
           }}>
@@ -526,7 +526,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
               width: '100%', padding: '16px', borderRadius: '14px', border: 'none', cursor: 'pointer',
               fontWeight: 800, fontSize: '15px', letterSpacing: '-0.2px',
-              background: 'linear-gradient(135deg, var(--brand-primary), #059669)',
+              background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))',
               color: 'white', transition: 'all 0.2s ease',
               boxShadow: '0 6px 24px rgba(var(--brand-primary-rgb), 0.35)',
             }}>
@@ -843,7 +843,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         {item.product.nameUz}
-                        {belowCost && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '6px', background: '#EF444420', color: '#EF4444', fontWeight: 800 }}>УБЫТОК</span>}
+                        {belowCost && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '6px', background: 'color-mix(in srgb, var(--error) 15%, transparent)', color: 'var(--error)', fontWeight: 800 }}>УБЫТОК</span>}
                       </div>
                       {/* Editable price */}
                       {isEditing ? (

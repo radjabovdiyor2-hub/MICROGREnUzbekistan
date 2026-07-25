@@ -152,7 +152,7 @@ export function AdminStats() {
             <Truck size={12} /> Онлайн (товары): {fmt(stats?.todayOnlineRevenue || 0)} сум
           </span>
           {(stats?.todayDeliveryFees || 0) > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#8B5CF615', color: '#8B5CF6', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'color-mix(in srgb, var(--cat-2) 12%, transparent)', color: 'var(--cat-2)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <Truck size={12} /> Доставка: {fmt(stats?.todayDeliveryFees || 0)} сум
             </span>
           )}
@@ -173,7 +173,7 @@ export function AdminStats() {
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Clock size={12} /> Ожидание: {stats?.pendingOrders || 0}
           </span>
-          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#2D5BFF15', color: '#2D5BFF', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'color-mix(in srgb, var(--cat-5) 12%, transparent)', color: 'var(--cat-5)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Truck size={12} /> Доставляется: {stats?.deliveringOrders || 0}
           </span>
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -207,7 +207,7 @@ export function AdminStats() {
                 <Leaf size={16} /> Посадки ({total} активных)
               </h3>
               <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {darkCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#6366F115', color: '#6366F1', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {darkCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'color-mix(in srgb, var(--cat-1) 12%, transparent)', color: 'var(--cat-1)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Moon size={12} /> Темно: {darkCount}
                 </span>}
                 {lightCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>

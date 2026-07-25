@@ -153,8 +153,8 @@ export function AdminNotifications() {
     sale: { icon: <ShoppingCart size={14} />, color: 'var(--success)' },
     low_stock: { icon: <AlertTriangle size={14} />, color: 'var(--error)' },
     order: { icon: <Package size={14} />, color: 'var(--info)' },
-    growing: { icon: <Leaf size={14} />, color: '#22C55E' },
-    info: { icon: <Clock size={14} />, color: '#6366F1' },
+    growing: { icon: <Leaf size={14} />, color: 'var(--cat-7)' },
+    info: { icon: <Clock size={14} />, color: 'var(--cat-1)' },
   };
 
   const fmtTime = (d: Date) => {

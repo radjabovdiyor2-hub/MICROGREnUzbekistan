@@ -579,7 +579,7 @@ export function AdminProducts() {
                     </span>
                   )}
                   {p.isFeatured && (
-                    <span style={{ padding: '2px 6px', borderRadius: 'var(--radius-full)', fontSize: '10px', background: '#6366F115', color: '#6366F1' }}>
+                    <span style={{ padding: '2px 6px', borderRadius: 'var(--radius-full)', fontSize: '10px', background: 'color-mix(in srgb, var(--cat-1) 12%, transparent)', color: 'var(--cat-1)' }}>
                       ★
                     </span>
                   )}

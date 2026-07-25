@@ -58,7 +58,7 @@ export function AdminAnalytics() {
 
   const maxRevenue = Math.max(...monthlyData.map(d => d.revenue + d.posRevenue), 1);
   const totalCatRevenue = categories.reduce((s, c) => s + c.totalRevenue, 0);
-  const catColors = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#14B8A6'];
+  const catColors = ['var(--cat-1)', 'var(--cat-2)', 'var(--cat-3)', 'var(--cat-4)', 'var(--cat-5)', 'var(--cat-6)', 'var(--cat-7)', 'var(--cat-8)'];
 
   const currentTopList = topView === 'sales' ? topBySales : topView === 'revenue' ? topByRevenue : deadStock;
 
@@ -78,7 +78,7 @@ export function AdminAnalytics() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
             {warnings.slice(0, 5).map((w, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: 'var(--space-1) 0', fontSize: 'var(--text-sm)' }}>
-                <span style={{ width: 8, height: 8, borderRadius: 'var(--radius-full)', background: w.level === 'CRITICAL' ? 'var(--error)' : '#F59E0B', flexShrink: 0 }} />
+                <span style={{ width: 8, height: 8, borderRadius: 'var(--radius-full)', background: w.level === 'CRITICAL' ? 'var(--error)' : 'var(--warning)', flexShrink: 0 }} />
                 <span style={{ flex: 1 }}>{w.message}</span>
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--brand-primary)', fontWeight: 'var(--font-medium)' }}>{w.action}</span>
               </div>
