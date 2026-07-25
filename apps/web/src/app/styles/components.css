@@ -1,0 +1,110 @@
+/* ============================================================================
+   Design system — TIER 2: components (new / consolidated component classes).
+   Imported (unlayered) by globals.css so it shares priority with the legacy
+   component classes. Token-only: every value is a var(--token). Over Phase 4
+   the existing component classes migrate out of globals.css into this file.
+   ============================================================================ */
+
+/* === Field — generic form control (Input primitive) ======================= */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field__label {
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+}
+
+.field__label--required::after {
+  content: ' *';
+  color: var(--error);
+}
+
+.field__input {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.field__input::placeholder {
+  color: var(--text-muted);
+}
+
+.field__input:hover:not(:disabled):not(:focus) {
+  border-color: var(--border-strong);
+}
+
+.field__input:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(var(--brand-primary-rgb), 0.12);
+}
+
+.field__input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--bg-secondary);
+}
+
+.field__input--sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+}
+
+.field__input--lg {
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--text-lg);
+}
+
+.field--error .field__input {
+  border-color: var(--error);
+}
+
+.field--error .field__input:focus {
+  box-shadow: 0 0 0 3px var(--error-bg);
+}
+
+.field__hint {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.field--error .field__hint {
+  color: var(--error);
+}
+
+/* === Badge — semantic variants (complements .badge-primary/accent/ghost/outline
+   in globals.css). Reuses the shared .badge base defined there. ============= */
+.badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.badge-error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+.badge-info {
+  background: var(--info-bg);
+  color: var(--info);
+}
+
+/* === Toast — warning variant (complements .toast--success/error/info) ===== */
+.toast--warning {
+  border-left: 4px solid var(--warning);
+}

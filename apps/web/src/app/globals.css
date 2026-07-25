@@ -4,8 +4,27 @@
    Inspired by: IKEA (clean) × Uzum (local) × Apple (premium)
    ============================================ */
 
-/* === Google Fonts === */
+/* Cascade layers — declared FIRST (an empty @layer statement is the one thing,
+   besides @charset, allowed before @import). Tailwind utilities live in @layer
+   utilities so they sit BELOW the unlayered legacy component classes: components
+   keep their current look, utilities fill gaps and power new markup. */
+@layer theme, base, components, utilities;
+
+/* ── All @import rules must be contiguous and precede every other statement ── */
+/* Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,600&display=swap');
+/* Design tokens — single source of truth: design-system/tokens/tokens.json (regen: npm run tokens:build) */
+@import "../../design-system/build/tokens.css";
+/* Tailwind v4 — theme + utilities only; Preflight intentionally OMITTED so the
+   existing reset + component CSS stays authoritative (no visual regressions). */
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+/* Tokens → Tailwind @theme (theme-aware utilities: bg-brand-primary, rounded-lg, …) */
+@import "../../design-system/build/theme.css";
+/* Tier-2 component classes (new / consolidated) — unlayered, token-only */
+@import "./styles/components.css";
+/* Tier-3 template / layout blocks — unlayered, token-only */
+@import "./styles/templates.css";
 
 /* === CSS Reset === */
 *, *::before, *::after {
@@ -47,191 +66,7 @@
   }
 }
 
-/* === Light Theme (Default) === */
-:root,
-[data-theme="light"] {
-  /* Brand */
-  --brand-primary: #10B981;
-  --brand-primary-hover: #059669;
-  --brand-primary-light: #D1FAE5;
-  --brand-primary-rgb: 16, 185, 129;
-  --brand-accent: #FFB800;
-  --brand-accent-hover: #E5A600;
-  --brand-accent-light: #FFF8E1;
-  --brand-accent-rgb: 255, 184, 0;
-
-  /* Backgrounds */
-  --bg-primary: #FFFFFF;
-  --bg-secondary: #F7F8FA;
-  --bg-tertiary: #ECEEF2;
-  --bg-card: #FFFFFF;
-  --bg-elevated: #FFFFFF;
-  --bg-overlay: rgba(0, 0, 0, 0.5);
-  --bg-glass: rgba(255, 255, 255, 0.8);
-
-  /* Text */
-  --text-primary: #1A1A2E;
-  --text-secondary: #6B7280;
-  --text-muted: #9CA3AF;
-  --text-inverse: #FFFFFF;
-  --text-link: #10B981;
-
-  /* Semantic */
-  --success: #10B981;
-  --success-bg: rgba(16, 185, 129, 0.1);
-  --warning: #F59E0B;
-  --warning-bg: rgba(245, 158, 11, 0.1);
-  --error: #EF4444;
-  --error-bg: rgba(239, 68, 68, 0.1);
-  --info: #3B82F6;
-  --info-bg: rgba(59, 130, 246, 0.1);
-
-  /* Borders */
-  --border: #E5E7EB;
-  --border-strong: #D1D5DB;
-
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.08), 0 4px 6px rgba(0, 0, 0, 0.04);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 8px 10px rgba(0, 0, 0, 0.04);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
-  --shadow-button: 0 4px 14px rgba(16, 185, 129, 0.35);
-  --shadow-accent: 0 4px 14px rgba(255, 184, 0, 0.35);
-
-  /* Header */
-  --header-bg: rgba(255, 255, 255, 0.92);
-  --header-blur: 20px;
-
-  color-scheme: light;
-}
-
-/* === Dark Theme === */
-[data-theme="dark"] {
-  /* Brand (boosted luminance) */
-  --brand-primary: #34D399;
-  --brand-primary-hover: #6EE7B7;
-  --brand-primary-light: rgba(52, 211, 153, 0.15);
-  --brand-primary-rgb: 52, 211, 153;
-  --brand-accent: #FFC633;
-  --brand-accent-hover: #FFD666;
-  --brand-accent-light: rgba(255, 198, 51, 0.12);
-  --brand-accent-rgb: 255, 198, 51;
-
-  /* Backgrounds */
-  --bg-primary: #0B0B14;
-  --bg-secondary: #12121F;
-  --bg-tertiary: #1A1A2E;
-  --bg-card: #16162A;
-  --bg-elevated: #1E1E35;
-  --bg-overlay: rgba(0, 0, 0, 0.7);
-  --bg-glass: rgba(11, 11, 20, 0.85);
-
-  /* Text */
-  --text-primary: #F1F1F4;
-  --text-secondary: #A0A3B1;
-  --text-muted: #6B6E7D;
-  --text-inverse: #0B0B14;
-  --text-link: #34D399;
-
-  /* Semantic */
-  --success: #34D399;
-  --success-bg: rgba(52, 211, 153, 0.12);
-  --warning: #FBBF24;
-  --warning-bg: rgba(251, 191, 36, 0.12);
-  --error: #F87171;
-  --error-bg: rgba(248, 113, 113, 0.12);
-  --info: #60A5FA;
-  --info-bg: rgba(96, 165, 250, 0.12);
-
-  /* Deep gradients */
-  --bg-mesh: radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
-             radial-gradient(at 100% 0%, rgba(5, 150, 105, 0.1) 0px, transparent 50%);
-
-  /* Borders */
-  --border: #3A3A5C;
-  --border-strong: #4A4A6E;
-
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.3);
-  --shadow-button: 0 4px 14px rgba(52, 211, 153, 0.3);
-  --shadow-accent: 0 4px 14px rgba(255, 198, 51, 0.25);
-
-  /* Header */
-  --header-bg: rgba(11, 11, 20, 0.92);
-  --header-blur: 20px;
-
-  color-scheme: dark;
-}
-
-/* === Design Tokens (shared) === */
-:root {
-  /* Typography */
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-display: 'Outfit', 'Inter', sans-serif;
-
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 2rem;
-  --text-4xl: 2.5rem;
-
-  --font-normal: 400;
-  --font-medium: 500;
-  --font-semibold: 600;
-  --font-bold: 700;
-  --font-extrabold: 800;
-
-  /* Spacing */
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-5: 1.25rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-10: 2.5rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
-
-  /* Radius */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-2xl: 24px;
-  --radius-full: 9999px;
-
-  /* Transitions */
-  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 350ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
-
-  /* Layout */
-  --header-height: 64px;
-  --bottom-nav-height: 68px;
-  --max-width: 1280px;
-  --mobile-max: 480px;
-
-  /* Z-index */
-  --z-dropdown: 50;
-  --z-header: 100;
-  --z-bottom-nav: 100;
-  --z-drawer: 150;
-  --z-modal: 200;
-  --z-toast: 300;
-  --z-ai-chat: 250;
-}
+/* === Design tokens live in design-system/tokens/tokens.json → build/tokens.css (imported above). === */
 
 /* === Base Styles === */
 html {
@@ -1086,54 +921,7 @@ input, textarea, select {
   color: var(--info);
 }
 
-/* === Footer === */
-.footer {
-  background: var(--bg-secondary);
-  border-top: 1px solid var(--border);
-  padding: var(--space-12) var(--space-4) calc(var(--bottom-nav-height) + var(--space-8));
-}
-
-.footer__inner {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--space-8);
-}
-
-.footer__section-title {
-  font-family: var(--font-display);
-  font-size: var(--text-base);
-  font-weight: var(--font-bold);
-  color: var(--text-primary);
-  margin-bottom: var(--space-4);
-}
-
-.footer__links {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.footer__links a {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  transition: color var(--transition-fast);
-}
-
-.footer__links a:hover {
-  color: var(--brand-primary);
-}
-
-.footer__copyright {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border);
-}
+/* === Footer → moved to styles/templates.css (tier-3) === */
 
 /* === Toast === */
 .toast {
@@ -2617,44 +2405,7 @@ main, [data-page] {
   .sticky-cart-bar { animation: none; }
 }
 
-/* ============================================
-   SPROUT DIVIDER — animated section separator
-   ============================================ */
-.sprout-divider {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-6) var(--space-4);
-  max-width: var(--max-width);
-  margin: 0 auto;
-}
-
-.sprout-divider__line {
-  flex: 1;
-  max-width: 220px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--border), transparent);
-  margin-bottom: 6px;
-}
-
-.sprout-divider__svg {
-  flex-shrink: 0;
-  overflow: visible;
-}
-
-.sprout-divider__stem {
-  animation: sprout-grow 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes sprout-grow {
-  from { transform: scaleY(0); opacity: 0; }
-  to   { transform: scaleY(1); opacity: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sprout-divider__stem { animation: none; transform: none; }
-}
+/* === Sprout divider → moved to styles/templates.css (tier-3) === */
 
 /* ============================================
    PREMIUM POLISH — depth, CTAs, focus, selection
@@ -2801,5 +2552,24 @@ button:active, .btn:active {
   .header__actions {
     display: none;
   }
+}
+
+/* ============================================
+   SPINNER — currentColor loading indicator (used by <Button loading>)
+   ============================================ */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.btn-spinner {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-full);
+  animation: spin 0.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner { animation-duration: 1.2s; }
 }
 
