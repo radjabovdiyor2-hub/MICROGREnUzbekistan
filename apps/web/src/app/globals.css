@@ -2573,3 +2573,41 @@ button:active, .btn:active {
   .btn-spinner { animation-duration: 1.2s; }
 }
 
+/* ============================================
+   APPLE-INSPIRED POLISH
+   Most of the Apple feel comes from the retuned tokens
+   (neutrals, larger radii, soft shadows, system display
+   font). These rules add the signature specifics: pill
+   buttons, solid (not gradient) CTAs, tighter display type.
+   Appended last so it wins by source order.
+   ============================================ */
+.btn,
+.btn-sm,
+.btn-lg,
+.btn-icon {
+  border-radius: var(--radius-full);
+  letter-spacing: -0.01em;
+}
+
+.btn-primary {
+  background: var(--brand-primary);
+  box-shadow: none;
+}
+.btn-primary:hover {
+  background: var(--brand-primary-hover);
+  filter: brightness(1.04);
+  box-shadow: 0 6px 20px -6px rgba(var(--brand-primary-rgb), 0.45);
+  transform: translateY(-1px);
+}
+
+.card,
+.product-card {
+  border-radius: var(--radius-2xl);
+}
+
+h1, h2, h3,
+.section-title,
+.hero__title {
+  letter-spacing: -0.025em;
+}
+

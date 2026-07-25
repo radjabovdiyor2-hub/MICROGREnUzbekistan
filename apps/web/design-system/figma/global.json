@@ -5,7 +5,7 @@
       "type": "fontFamily"
     },
     "display": {
-      "value": "'Outfit', 'Inter', sans-serif",
+      "value": "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Outfit', 'Inter', system-ui, sans-serif",
       "type": "fontFamily"
     },
     "normal": {
@@ -107,23 +107,23 @@
   },
   "radius": {
     "sm": {
-      "value": "8px",
+      "value": "10px",
       "type": "dimension"
     },
     "md": {
-      "value": "12px",
+      "value": "14px",
       "type": "dimension"
     },
     "lg": {
-      "value": "16px",
+      "value": "18px",
       "type": "dimension"
     },
     "xl": {
-      "value": "20px",
+      "value": "22px",
       "type": "dimension"
     },
     "2xl": {
-      "value": "24px",
+      "value": "28px",
       "type": "dimension"
     },
     "full": {

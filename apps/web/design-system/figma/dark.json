@@ -35,23 +35,23 @@
   },
   "bg": {
     "primary": {
-      "value": "#0B0B14",
+      "value": "#000000",
       "type": "color"
     },
     "secondary": {
-      "value": "#12121F",
+      "value": "#1D1D1F",
       "type": "color"
     },
     "tertiary": {
-      "value": "#1A1A2E",
+      "value": "#2C2C2E",
       "type": "color"
     },
     "card": {
-      "value": "#16162A",
+      "value": "#1C1C1E",
       "type": "color"
     },
     "elevated": {
-      "value": "#1E1E35",
+      "value": "#2C2C2E",
       "type": "color"
     },
     "overlay": {
@@ -122,11 +122,11 @@
     "type": "color"
   },
   "border": {
-    "value": "#3A3A5C",
+    "value": "#38383A",
     "type": "color"
   },
   "border-strong": {
-    "value": "#4A4A6E",
+    "value": "#48484A",
     "type": "color"
   },
   "scrim": {
