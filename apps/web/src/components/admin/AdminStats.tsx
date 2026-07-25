@@ -98,9 +98,9 @@ export function AdminStats() {
 
   const STAT_CARDS = [
     { label: 'Выручка за сегодня', value: `${fmt(stats?.todayTotalRevenue || 0)}`, icon: <Banknote size={22} />, color: 'var(--success)' },
-    { label: 'Чистая прибыль', value: `${fmt(stats?.todayProfit || 0)}`, icon: <TrendingUp size={22} />, color: (stats?.todayProfit || 0) >= 0 ? '#10B981' : 'var(--error)' },
+    { label: 'Чистая прибыль', value: `${fmt(stats?.todayProfit || 0)}`, icon: <TrendingUp size={22} />, color: (stats?.todayProfit || 0) >= 0 ? 'var(--success)' : 'var(--error)' },
     { label: 'POS продаж', value: `${stats?.todayPOSSales || 0} шт`, icon: <ShoppingCart size={22} />, color: 'var(--brand-primary)' },
-    { label: 'Возвраты', value: stats?.todayReturnCount ? `-${fmt(stats.todayReturns)}` : '0', icon: <RefreshCw size={22} />, color: stats?.todayReturnCount ? '#EF4444' : 'var(--text-muted)' },
+    { label: 'Возвраты', value: stats?.todayReturnCount ? `-${fmt(stats.todayReturns)}` : '0', icon: <RefreshCw size={22} />, color: stats?.todayReturnCount ? 'var(--error)' : 'var(--text-muted)' },
   ];
 
   if (loading) {
@@ -124,7 +124,7 @@ export function AdminStats() {
           }}>
             <div style={{
               width: 42, height: 42, borderRadius: 'var(--radius-md)',
-              background: `${stat.color}15`, color: stat.color,
+              background: `color-mix(in srgb, ${stat.color} 12%, transparent)`, color: stat.color,
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
               {stat.icon}
@@ -148,7 +148,7 @@ export function AdminStats() {
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <ShoppingCart size={12} /> POS: {fmt(stats?.todayPOSRevenue || 0)} сум
           </span>
-          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#3B82F615', color: '#3B82F6', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--info-bg)', color: 'var(--info)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Truck size={12} /> Онлайн (товары): {fmt(stats?.todayOnlineRevenue || 0)} сум
           </span>
           {(stats?.todayDeliveryFees || 0) > 0 && (
@@ -157,7 +157,7 @@ export function AdminStats() {
             </span>
           )}
           {(stats?.todayReturnCount || 0) > 0 && (
-            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#EF444415', color: '#EF4444', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--error-bg)', color: 'var(--error)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <RefreshCw size={12} /> Возвраты: -{fmt(stats?.todayPOSReturns || 0)} сум
             </span>
           )}
@@ -170,13 +170,13 @@ export function AdminStats() {
           <ClipboardList size={16} /> Статус заказов
         </h3>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#F59E0B15', color: '#F59E0B', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Clock size={12} /> Ожидание: {stats?.pendingOrders || 0}
           </span>
           <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#2D5BFF15', color: '#2D5BFF', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Truck size={12} /> Доставляется: {stats?.deliveringOrders || 0}
           </span>
-          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#10B98115', color: '#10B981', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Banknote size={12} /> Всего онлайн: {fmt(stats?.onlineRevenue || 0)} сум
           </span>
         </div>
@@ -210,13 +210,13 @@ export function AdminStats() {
                 {darkCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#6366F115', color: '#6366F1', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Moon size={12} /> Темно: {darkCount}
                 </span>}
-                {lightCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#F59E0B15', color: '#F59E0B', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {lightCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Sun size={12} /> На свету: {lightCount}
                 </span>}
-                {readyCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#10B98115', color: '#10B981', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {readyCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <CheckCircle size={12} /> Готовы: {readyCount}
                 </span>}
-                {expiredCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: '#EF444415', color: '#EF4444', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {expiredCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--error-bg)', color: 'var(--error)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <AlertTriangle size={12} /> Просрочено: {expiredCount} (убыток {fmt(expiredLoss)} сум)
                 </span>}
               </div>
