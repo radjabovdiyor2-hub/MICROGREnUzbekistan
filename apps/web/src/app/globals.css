@@ -2611,10 +2611,11 @@ h1, h2, h3,
   letter-spacing: -0.025em;
 }
 
-/* Apple layout rhythm — generous section spacing, larger section titles,
-   calmer card hover, subtle global tracking. Applies site-wide. */
+/* Apple layout rhythm — a bit more breathing room than the old 32px, but not so
+   much that adjacent sections leave a dead gap. Larger section titles, calmer
+   card hover, subtle global tracking. Applies site-wide. */
 .section {
-  padding: clamp(48px, 8vw, 100px) 0;
+  padding: clamp(28px, 3vw, 52px) 0;
 }
 .section-title {
   font-size: clamp(1.75rem, 3.5vw, 2.75rem);
