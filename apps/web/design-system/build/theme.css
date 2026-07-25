@@ -33,6 +33,14 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-scrim: var(--scrim);
+  --color-cat-1: var(--cat-1);
+  --color-cat-2: var(--cat-2);
+  --color-cat-3: var(--cat-3);
+  --color-cat-4: var(--cat-4);
+  --color-cat-5: var(--cat-5);
+  --color-cat-6: var(--cat-6);
+  --color-cat-7: var(--cat-7);
+  --color-cat-8: var(--cat-8);
 
   /* Radius — rounded-sm|md|lg|xl|2xl|full */
   --radius-sm: 8px;
