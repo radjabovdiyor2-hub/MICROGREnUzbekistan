@@ -14,6 +14,8 @@ export function AdminMagazine() {
   const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   // Загрузить или создать ресторан-по-умолчанию
   const ensureRestaurant = useCallback(async () => {
@@ -201,6 +203,28 @@ export function AdminMagazine() {
     await loadDishes(restaurant.id);
   };
 
+  const removeDish = async (id: string, name: string) => {
+    if (!restaurant) return;
+    if (!window.confirm(`Удалить «${name}»? QR-код перестанет работать.`)) return;
+    await adminFetch(`/api/admin/magazine/dishes?id=${id}`, { method: 'DELETE' });
+    await loadDishes(restaurant.id);
+  };
+
+  const startRename = (d: any) => {
+    setEditingId(d.id);
+    setEditingName(d.nameRu);
+  };
+
+  const saveRename = async () => {
+    if (!editingId || !editingName.trim() || !restaurant) { setEditingId(null); return; }
+    await adminFetch('/api/admin/magazine/dishes', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: editingId, nameRu: editingName.trim() }),
+    });
+    setEditingId(null);
+    await loadDishes(restaurant.id);
+  };
+
   const downloadQr = async (code: number, format: 'png' | 'svg') => {
     if (!restaurant) return;
     const res = await adminFetch(`/api/admin/magazine/dishes/qr?restaurantId=${restaurant.id}&code=${code}&format=${format}`);
@@ -296,8 +320,29 @@ export function AdminMagazine() {
             {dishes.map((d: any) => (
               <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2)', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ width: 36, fontWeight: 700, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>#{d.code}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{d.nameRu}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {editingId === d.id ? (
+                    <input
+                      className="input"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onBlur={saveRename}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveRename();
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                      autoFocus
+                      style={{ fontWeight: 600, fontSize: 'var(--text-sm)', padding: '2px 6px', width: '100%' }}
+                    />
+                  ) : (
+                    <div
+                      style={{ fontWeight: 600, fontSize: 'var(--text-sm)', cursor: 'pointer' }}
+                      onClick={() => startRename(d)}
+                      title="Нажмите чтобы переименовать"
+                    >
+                      {d.nameRu} <span style={{ fontSize: '10px', opacity: 0.4 }}>✎</span>
+                    </div>
+                  )}
                   {d.videoUrl
                     ? <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>▶ Видео загружено</span>
@@ -323,6 +368,7 @@ export function AdminMagazine() {
                 {d.videoUrl && (
                   <button onClick={() => removeVideo(d.id)} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--error)', cursor: 'pointer', fontSize: 'var(--text-xs)' }}>Убрать</button>
                 )}
+                <button onClick={() => removeDish(d.id, d.nameRu)} style={{ padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--error)', cursor: 'pointer', fontSize: 'var(--text-xs)' }} title="Удалить запись целиком">🗑</button>
               </div>
             ))}
           </div>
