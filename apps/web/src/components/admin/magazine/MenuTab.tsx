@@ -35,6 +35,8 @@ export function MenuTab() {
   const [csv, setCsv] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -151,8 +153,24 @@ export function MenuTab() {
     await loadDishes(restaurantId);
   };
 
-  const removeDish = async (id: string) => {
+  const removeDish = async (id: string, name: string) => {
+    if (!window.confirm(`Удалить блюдо «${name}»? QR-код перестанет работать.`)) return;
     await adminFetch(`/api/admin/magazine/dishes?id=${id}`, { method: 'DELETE' });
+    await loadDishes(restaurantId);
+  };
+
+  const startRename = (dish: Dish) => {
+    setEditingId(dish.id);
+    setEditingName(dish.nameRu);
+  };
+
+  const saveRename = async () => {
+    if (!editingId || !editingName.trim()) { setEditingId(null); return; }
+    await adminFetch('/api/admin/magazine/dishes', {
+      method: 'PATCH',
+      body: JSON.stringify({ id: editingId, nameRu: editingName.trim() }),
+    });
+    setEditingId(null);
     await loadDishes(restaurantId);
   };
 
@@ -274,8 +292,34 @@ export function MenuTab() {
                 {d.photo
                   ? <img src={d.photo} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />
                   : <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--bg-elevated)' }} />}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>{d.nameRu}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {editingId === d.id ? (
+                    <input
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onBlur={saveRename}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') saveRename();
+                        if (e.key === 'Escape') setEditingId(null);
+                      }}
+                      autoFocus
+                      style={{
+                        ...input,
+                        width: '100%',
+                        fontWeight: 600,
+                        fontSize: 'inherit',
+                        padding: '2px 6px',
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{ fontWeight: 600, cursor: 'pointer' }}
+                      onClick={() => startRename(d)}
+                      title="Нажмите чтобы переименовать"
+                    >
+                      {d.nameRu} <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', opacity: 0.5 }}>✎</span>
+                    </div>
+                  )}
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
                     {formatPrice(d.price) ?? 'без цены'}
                     {d.pairsWith ? ` · с чем берут: ${d.pairsWith}` : ''}
@@ -320,7 +364,7 @@ export function MenuTab() {
                     Убрать видео
                   </button>
                 )}
-                <button onClick={() => removeDish(d.id)} style={{ ...btn, color: 'var(--error)' }}>Удалить</button>
+                <button onClick={() => removeDish(d.id, d.nameRu)} style={{ ...btn, color: 'var(--error)', fontSize: 'var(--text-sm)' }}>🗑</button>
               </div>
             ))}
           </div>
