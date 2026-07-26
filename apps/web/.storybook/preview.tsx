@@ -48,6 +48,15 @@ const preview: Preview = {
   parameters: {
     layout: 'centered',
     controls: { matchers: { color: /(background|color)$/i, date: /Date$/i } },
+    viewport: {
+      viewports: {
+        mobile: { name: 'Mobile (375)', styles: { width: '375px', height: '812px' } },
+        mobileLg: { name: 'Mobile LG (480)', styles: { width: '480px', height: '896px' } },
+        tablet: { name: 'Tablet (768)', styles: { width: '768px', height: '1024px' } },
+        desktop: { name: 'Desktop (1024)', styles: { width: '1024px', height: '768px' } },
+        wide: { name: 'Wide (1280)', styles: { width: '1280px', height: '800px' } },
+      },
+    },
   },
 };
 

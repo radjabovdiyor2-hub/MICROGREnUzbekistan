@@ -595,9 +595,9 @@ export function AdminProducts() {
                     style={{
                       padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                       display: 'flex', alignItems: 'center', gap: '4px',
-                      background: p.isActive ? '#10B98118' : '#EF444418',
-                      color: p.isActive ? '#059669' : 'var(--error)',
-                      border: `1.5px solid ${p.isActive ? '#10B98140' : '#EF444440'}`,
+                      background: p.isActive ? 'var(--success-bg)' : 'var(--error-bg)',
+                      color: p.isActive ? 'var(--success)' : 'var(--error)',
+                      border: `1.5px solid ${p.isActive ? 'var(--success)' : 'var(--error)'}`,
                       transition: 'all 0.2s',
                     }}>
                     {p.isActive ? <CheckCircle size={13} /> : <XCircle size={13} />}

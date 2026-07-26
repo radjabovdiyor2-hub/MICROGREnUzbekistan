@@ -9,7 +9,7 @@ const config: StorybookConfig = {
   ],
   // Core (controls, actions, viewport, toolbars, backgrounds) ships in Storybook
   // itself — no extra addons needed for the state catalog.
-  addons: [],
+  addons: ['@storybook/addon-viewport'],
   framework: {
     name: '@storybook/nextjs-vite',
     options: {},

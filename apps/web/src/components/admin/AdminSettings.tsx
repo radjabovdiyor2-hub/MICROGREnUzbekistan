@@ -270,24 +270,24 @@ export function AdminSettings() {
           {/* Security Tips */}
           <div style={{
             marginTop: 'var(--space-4)', padding: '14px',
-            borderRadius: '12px', background: '#F59E0B10',
-            border: '1px solid #F59E0B30',
+            borderRadius: '12px', background: 'var(--warning-bg)',
+            border: '1px solid var(--warning)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Shield size={16} style={{ color: 'var(--warning)' }} />
-              <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: '#D97706' }}>Xavfsizlik maslahatlari</span>
+              <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)', color: 'var(--warning)' }}>Xavfsizlik maslahatlari</span>
             </div>
             <ul style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                <span style={{ color: '#D97706', marginTop: 1 }}>•</span>
+                <span style={{ color: 'var(--warning)', marginTop: 1 }}>•</span>
                 Parolni har 30 kunda yangilang
               </li>
               <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                <span style={{ color: '#D97706', marginTop: 1 }}>•</span>
+                <span style={{ color: 'var(--warning)', marginTop: 1 }}>•</span>
                 Kuchli parol: harf + raqam + belgi
               </li>
               <li style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                <span style={{ color: '#D97706', marginTop: 1 }}>•</span>
+                <span style={{ color: 'var(--warning)', marginTop: 1 }}>•</span>
                 Parolni boshqalar bilan ulashmang
               </li>
             </ul>

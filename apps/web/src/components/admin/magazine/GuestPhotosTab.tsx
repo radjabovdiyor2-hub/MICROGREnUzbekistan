@@ -144,7 +144,7 @@ export function GuestPhotosTab() {
                     <button onClick={() => setPhotoStatus(p.id, 'approved')} style={mini('var(--cat-10)')}>Одобрить</button>
                   )}
                   {p.status === 'approved' && (
-                    <button onClick={() => setPhotoStatus(p.id, 'printed')} style={mini('#2563eb')}>Напечатан</button>
+                    <button onClick={() => setPhotoStatus(p.id, 'printed')} style={mini('var(--info)')}>Напечатан</button>
                   )}
                   {p.status !== 'rejected' && (
                     <button onClick={() => setPhotoStatus(p.id, 'rejected')} style={mini('var(--error)')}>Отклонить</button>

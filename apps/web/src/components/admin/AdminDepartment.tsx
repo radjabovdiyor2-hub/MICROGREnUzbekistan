@@ -48,7 +48,7 @@ const STATUS_COLORS: Record<string, { bg: string; fg: string; label: string }> =
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: 'var(--error)',
-  critical: '#dc2626',
+  critical: 'var(--error)',
   medium: 'var(--warning)',
   low: 'var(--cat-7)',
 };

@@ -223,7 +223,7 @@ export function MenuTab() {
           </h3>
 
           {preview.issues.length > 0 && (
-            <ul style={{ marginBottom: 'var(--space-3)', color: '#d97706', fontSize: 'var(--text-sm)' }}>
+            <ul style={{ marginBottom: 'var(--space-3)', color: 'var(--warning)', fontSize: 'var(--text-sm)' }}>
               {preview.issues.map((i, idx) => (
                 <li key={idx}>{i.row ? `Строка ${i.row}: ` : ''}{i.message}</li>
               ))}

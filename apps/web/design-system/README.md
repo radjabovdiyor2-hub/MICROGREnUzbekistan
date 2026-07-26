@@ -15,8 +15,8 @@
 | Уровень | Что | Где |
 |---|---|---|
 | **1. Токены** | цвета, типографика, отступы, радиусы, тени, z-index; свет+тьма | `design-system/tokens/tokens.json` → сборка в `build/*` |
-| **2. Компоненты** | Button, Card, Badge, Input, Modal, Toast, Progress, Skeleton — все состояния | `src/components/ui/*` (+ `*.stories.tsx`) |
-| **3. Шаблоны** | реальные блоки/экраны: product-grid, footer, section, hero | `src/app/styles/templates.css` + `Templates/*` сторис |
+| **2. Компоненты** | Button, Card, Badge, Input, Modal, Drawer, Tooltip, Toast, Progress, Skeleton — все состояния | `src/components/ui/*` (+ `*.stories.tsx`) |
+| **3. Шаблоны** | реальные блоки/экраны: hero, product-grid, footer, section | `src/app/styles/templates.css` + `Templates/*` сторис |
 
 Карта файлов:
 
@@ -134,13 +134,16 @@ Reference-компонент — [`src/components/shop/ProductCard.tsx`](../src/
 Бэклог на момент внедрения: **~240 захардкоженных hex в 40 файлах** (замер
 `rg '#[0-9A-Fa-f]{6}' src/components`). Крупнейшее — админка
 (`AdminGrowing` ~38, `AdminPOS` ~21, `NutritionistPanel` ~13, `AdminStats` ~12).
-Новые примитивы `components/ui/*` — уже чистые (0 хардкода).
+Важно: **не всё это баги.** Часть хексов легитимна — цвета canvas/three.js,
+палитры графиков (напр. AdminAnalytics стеллажи AX/BX/CX), намеренные брендовые градиенты.
 
 Важно: **не всё это баги.** Часть хексов легитимна — цвета canvas/three.js,
 палитры графиков, намеренные брендовые градиенты, цветокодирование категорий.
 Правило: переводи на токены **UI-хром** (фоны/текст/бордеры/тени поверхностей),
 а осмысленные данные/бренд-цвета оставляй (или заводи под них именованные токены).
-Мигрируй по одному компоненту, каждый — с визуальной сверкой светлой/тёмной темы.
+
+**Статус миграции:** UI-примитивы (`ui/*`) и админка (`admin/*`) — **0 хардкодов**.
+Остаток: палитра графиков (AdminAnalytics) — легитимные data-цвета.
 
 ## Команды
 

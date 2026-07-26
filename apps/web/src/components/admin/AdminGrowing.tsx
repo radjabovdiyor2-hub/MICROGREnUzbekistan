@@ -271,18 +271,18 @@ export function AdminGrowing() {
       {alerts.length > 0 && (
         <div style={{
           padding: '12px 16px', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '10px',
-          background: 'linear-gradient(135deg, #FEF3C7, #FDE68A)', border: '1.5px solid #F59E0B40',
+          background: 'var(--warning-bg)', border: '1.5px solid var(--warning)',
         }}>
-          <AlertTriangle size={20} color="#D97706" />
+          <AlertTriangle size={20} color="var(--warning)" />
           <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: '13px', color: '#92400E' }}>
+            <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--warning)' }}>
               {alerts.filter(a => a.info.status === 'ready').length} партий готовы к продаже
               {alerts.filter(a => a.info.status === 'expired').length > 0 && ` · ${alerts.filter(a => a.info.status === 'expired').length} просрочены!`}
             </div>
           </div>
           <button onClick={() => setFilter('ready')} style={{
             padding: '6px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-            background: '#D97706', color: 'white', fontSize: '12px', fontWeight: 700,
+            background: 'var(--warning)', color: 'var(--text-inverse)', fontSize: '12px', fontWeight: 700,
           }}>Смотреть</button>
         </div>
       )}
@@ -503,8 +503,8 @@ export function AdminGrowing() {
                 {info.alert && (
                   <div style={{
                     padding: '8px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                    background: info.status === 'expired' ? '#FEE2E2' : '#D1FAE5',
-                    color: info.status === 'expired' ? '#991B1B' : '#065F46',
+                    background: info.status === 'expired' ? 'var(--error-bg)' : 'var(--success-bg)',
+                    color: info.status === 'expired' ? 'var(--error)' : 'var(--success)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   }}>
                     <span>{info.alert}</span>
@@ -523,16 +523,16 @@ export function AdminGrowing() {
 
                 {/* Actions for expired → write off */}
                 {info.status === 'expired' && (
-                  <div style={{ marginTop: '6px', padding: '8px 12px', borderRadius: '8px', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ marginTop: '6px', padding: '8px 12px', borderRadius: '8px', background: 'var(--error-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: '#991B1B' }}>Просрочено! Списать?</div>
-                      <div style={{ fontSize: '10px', color: '#B91C1C' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--error)' }}>Просрочено! Списать?</div>
+                      <div style={{ fontSize: '10px', color: 'var(--error)' }}>
                         Убыток: {fmt((batch.costPrice || 0) * (batch.harvestQty || batch.trays))} сум
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: '6px' }}>
                       <button onClick={() => writeOffBatch(batch.id)} disabled={harvesting === batch.id}
-                        style={{ padding: '5px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: '#DC2626', color: 'white', fontSize: '11px', fontWeight: 700, opacity: harvesting === batch.id ? 0.6 : 1 }}>
+                        style={{ padding: '5px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--error)', color: 'var(--text-inverse)', fontSize: '11px', fontWeight: 700, opacity: harvesting === batch.id ? 0.6 : 1 }}>
                         {harvesting === batch.id ? 'Списываем...' : 'Списать'}
                       </button>
                     </div>

@@ -17,9 +17,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // а обёртка PullToRefresh ломает position: fixed внутри (трансформ создаёт
   // containing block), из-за чего оверлей камеры схлопывается.
   const isCamera = /^\/m\/[^/]+\/frame\//.test(pathname ?? '');
+  // Страница блюда (QR-код) — полноэкранный Reels-viewer без хрома сайта
+  const isDishView = /^\/m\/[^/]+\/d\//.test(pathname ?? '');
 
-  if (isAdmin || isMagPrint || isCamera) {
-    return <main className={isAdmin ? 'admin-root' : isMagPrint ? 'mag-print-root' : 'mag-camera-root'}>{children}</main>;
+  if (isAdmin || isMagPrint || isCamera || isDishView) {
+    return <main className={isAdmin ? 'admin-root' : isMagPrint ? 'mag-print-root' : 'mag-dish-root'}>{children}</main>;
   }
 
   return (

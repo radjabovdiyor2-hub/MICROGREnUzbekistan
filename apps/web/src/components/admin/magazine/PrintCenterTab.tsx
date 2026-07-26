@@ -210,8 +210,8 @@ function OrdersTab() {
                   <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>Да ({o.paymentProvider})</span>
                 ) : (
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {o.payLinks?.click && <a href={o.payLinks.click} target="_blank" rel="noopener noreferrer" style={{ padding: '4px 8px', borderRadius: '4px', background: '#0099ff', color: '#fff', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>💳 Click</a>}
-                    {o.payLinks?.payme && <a href={o.payLinks.payme} target="_blank" rel="noopener noreferrer" style={{ padding: '4px 8px', borderRadius: '4px', background: '#33cc99', color: '#fff', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>Payme</a>}
+                    {o.payLinks?.click && <a href={o.payLinks.click} target="_blank" rel="noopener noreferrer" style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--info)', color: 'var(--text-inverse)', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>💳 Click</a>}
+                    {o.payLinks?.payme && <a href={o.payLinks.payme} target="_blank" rel="noopener noreferrer" style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--success)', color: 'var(--text-inverse)', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>Payme</a>}
                     <button onClick={() => markPaid(o.id)} title="Отметить оплаченным вручную" style={{ padding: '4px 8px', borderRadius: '4px', background: 'var(--warning-bg)', color: 'var(--warning)', border: 'none', cursor: 'pointer', fontSize: '12px' }}>Отметить</button>
                   </div>
                 )}

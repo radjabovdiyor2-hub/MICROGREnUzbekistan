@@ -14,6 +14,8 @@
   "accent": "#0f3d2e",
   "gold": "#c9a876",
 
-  "_photos": "Пути к фото относительно корня или абсолютные file:/// либо http. Не заданные слоты рисуются рамкой с требуемым размером — см. docs/magazine-print-spec.md",
-  "photos": {}
+  "photos": {
+    "PHOTO_DISH_1": "plov-jasmin.jpeg",
+    "PHOTO_DISH_2": "tandir-kabob-jasmin.jpg"
+  }
 }

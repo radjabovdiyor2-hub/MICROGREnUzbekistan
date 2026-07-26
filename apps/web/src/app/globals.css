@@ -2080,6 +2080,40 @@ main, [data-page] {
   height: 100dvh;
 }
 
+/* Страница блюда (QR) — полноэкранный Reels-viewer без хрома сайта */
+.mag-dish-root {
+  animation: none;
+  transform: none;
+  margin: 0;
+  padding: 0;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #000;
+}
+
+/* === Reels Dish Viewer Animations === */
+@keyframes reels-fade-in {
+  0% { opacity: 0; transform: scale(1.08); filter: blur(8px); }
+  60% { opacity: 1; filter: blur(2px); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+@keyframes reels-slide-up {
+  0% { opacity: 0; transform: translateY(60px) scale(0.96); }
+  50% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes reels-pulse-play {
+  0% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); }
+}
+
+@keyframes reels-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
 /* === Badge Pulse (New/Sale) === */
 @keyframes badge-pulse {
   0%, 100% { transform: scale(1); }

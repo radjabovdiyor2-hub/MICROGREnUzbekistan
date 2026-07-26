@@ -340,9 +340,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           {/* Header with gradient */}
           <div className="receipt-zigzag" style={{
             background: isReturn
-              ? 'linear-gradient(135deg, #F59E0B, #D97706)'
+              ? 'linear-gradient(135deg, var(--warning), var(--brand-accent))'
               : 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))',
-            padding: '28px 24px 32px', borderRadius: '20px 20px 0 0', textAlign: 'center', color: 'white',
+            padding: '28px 24px 32px', borderRadius: '20px 20px 0 0', textAlign: 'center', color: 'var(--text-inverse)',
             position: 'relative', overflow: 'hidden',
           }}>
             {/* Decorative circles */}
@@ -395,8 +395,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 }}>
                   <span style={{
                     width: 22, height: 22, borderRadius: '6px', flexShrink: 0,
-                    background: isReturn ? '#FEF3C7' : 'var(--brand-primary-light)',
-                    color: isReturn ? '#92400E' : 'var(--brand-primary)',
+                    background: isReturn ? 'var(--warning-bg)' : 'var(--brand-primary-light)',
+                    color: isReturn ? 'var(--warning)' : 'var(--brand-primary)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '11px', fontWeight: 800, marginTop: 1,
                   }}>{i + 1}</span>
@@ -428,8 +428,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 <span style={{
                   display: 'flex', alignItems: 'center', gap: '5px',
                   padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
-                  background: saleResult.payMethod === 'cash' ? '#10B98115' : saleResult.payMethod === 'card' ? '#3B82F615' : '#F59E0B15',
-                  color: saleResult.payMethod === 'cash' ? '#059669' : saleResult.payMethod === 'card' ? '#2563EB' : '#D97706',
+                  background: saleResult.payMethod === 'cash' ? 'var(--success-bg)' : saleResult.payMethod === 'card' ? 'var(--info-bg)' : 'var(--warning-bg)',
+                  color: saleResult.payMethod === 'cash' ? 'var(--success)' : saleResult.payMethod === 'card' ? 'var(--info)' : 'var(--warning)',
                 }}>
                   {payIcon} {payLabel}
                 </span>
@@ -440,9 +440,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
             <div style={{
               padding: '16px', borderRadius: '14px', marginTop: '8px',
               background: isReturn
-                ? 'linear-gradient(135deg, #FEF3C7, #FDE68A)'
+                ? 'var(--warning-bg)'
                 : 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.12))',
-              border: isReturn ? '1.5px solid #F59E0B40' : '1.5px solid rgba(16,185,129,0.2)',
+              border: isReturn ? '1.5px solid var(--warning)' : '1.5px solid rgba(16,185,129,0.2)',
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <div>
@@ -455,7 +455,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               </div>
               <div style={{
                 fontFamily: 'var(--font-display)', fontWeight: 900, letterSpacing: '-1px',
-                fontSize: '26px', color: isReturn ? '#B45309' : 'var(--brand-primary)',
+                fontSize: '26px', color: isReturn ? 'var(--warning)' : 'var(--brand-primary)',
               }}>
                 {isReturn ? '−' : ''}{fmt(saleResult.total)}
                 <span style={{ fontSize: '14px', fontWeight: 600, marginLeft: 4, letterSpacing: 0 }}>сум</span>
@@ -512,8 +512,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
               style={{
                 flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                 padding: '14px', borderRadius: '14px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
-                background: 'linear-gradient(135deg, #3B82F6, #2563EB)', color: 'white',
-                transition: 'all 0.2s ease', boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
+                background: 'linear-gradient(135deg, var(--info), var(--cat-5))', color: 'var(--text-inverse)',
+                transition: 'all 0.2s ease', boxShadow: 'var(--shadow-md)',
                 opacity: isCapturing ? 0.7 : 1,
               }}>
               <MessageCircle size={18} /> Отправить чек клиенту
@@ -557,8 +557,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center',
             borderRadius: '12px', padding: '12px', fontSize: '15px', fontWeight: 700, border: 'none', cursor: 'pointer',
-            background: returnMode ? '#F59E0B' : 'var(--bg-tertiary)',
-            color: returnMode ? 'white' : 'var(--text-secondary)',
+            background: returnMode ? 'var(--warning)' : 'var(--bg-tertiary)',
+            color: returnMode ? 'var(--text-inverse)' : 'var(--text-secondary)',
             transition: 'all 0.2s',
           }}>
           <RefreshCw size={18} /> Возврат
@@ -568,7 +568,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
       {returnMode && (
         <div style={{
           padding: '10px 16px', marginBottom: 'var(--space-3)', borderRadius: '12px',
-          background: '#FEF3C7', border: '1.5px solid #F59E0B', color: '#92400E',
+          background: 'var(--warning-bg)', border: '1.5px solid var(--warning)', color: 'var(--warning)',
           display: 'flex', alignItems: 'center', gap: '10px', fontSize: 'var(--text-sm)', fontWeight: 600,
         }}>
           <AlertTriangle size={18} /> РЕЖИМ ВОЗВРАТА — выберите товар
@@ -784,8 +784,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                           )}
                           <span className="pos-product-stock" style={{
                             padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
-                            background: outOfStock ? '#EF444418' : product.stock <= 5 ? '#F59E0B18' : '#10B98118',
-                            color: outOfStock ? '#EF4444' : product.stock <= 5 ? '#D97706' : '#059669',
+                            background: outOfStock ? 'var(--error-bg)' : product.stock <= 5 ? 'var(--warning-bg)' : 'var(--success-bg)',
+                            color: outOfStock ? 'var(--error)' : product.stock <= 5 ? 'var(--warning)' : 'var(--success)',
                           }}>
                             {product.stock}
                           </span>
@@ -867,10 +867,10 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                         </div>
                       ) : (
                         <div onClick={() => { setEditingPriceId(item.product.id); setEditPriceValue(String(item.customPrice)); }}
-                          style={{ fontSize: 'var(--text-xs)', color: priceChanged ? '#D97706' : 'var(--brand-primary)', fontWeight: 'var(--font-bold)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          style={{ fontSize: 'var(--text-xs)', color: priceChanged ? 'var(--warning)' : 'var(--brand-primary)', fontWeight: 'var(--font-bold)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                           {fmt(item.customPrice * item.quantity)} сум
                           <Edit size={10} style={{ opacity: 0.5 }} />
-                          {priceChanged && <span style={{ fontSize: '9px', color: '#D97706', textDecoration: 'line-through', opacity: 0.6 }}>{fmt(item.product.price)}</span>}
+                          {priceChanged && <span style={{ fontSize: '9px', color: 'var(--warning)', textDecoration: 'line-through', opacity: 0.6 }}>{fmt(item.product.price)}</span>}
                         </div>
                       )}
                     </div>
@@ -898,17 +898,17 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                 /* Return mode: reason + return button */
                 <>
                   <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: '#92400E', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Причина возврата:</div>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Причина возврата:</div>
                     <input type="text" placeholder="Брак / Неверный товар / Другое..."
                       value={returnReason} onChange={e => setReturnReason(e.target.value)}
-                      style={{ ...inputStyle, borderColor: '#F59E0B' }} />
+                      style={{ ...inputStyle, borderColor: 'var(--warning)' }} />
                   </div>
-                  <div style={{ borderTop: '2px solid #F59E0B', paddingTop: 'var(--space-4)' }}>
+                  <div style={{ borderTop: '2px solid var(--warning)', paddingTop: 'var(--space-4)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)', alignItems: 'baseline' }}>
-                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: '#92400E' }}>Возврат:</span>
+                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: 'var(--warning)' }}>Возврат:</span>
                       <span style={{
                         fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-                        fontSize: 'var(--text-2xl)', color: '#D97706', letterSpacing: '-0.5px',
+                        fontSize: 'var(--text-2xl)', color: 'var(--warning)', letterSpacing: '-0.5px',
                       }}>
                         -{fmt(total)} сум
                       </span>
@@ -918,7 +918,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
                         width: '100%', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center',
                         opacity: processing ? 0.6 : 1, borderRadius: '14px', border: 'none', cursor: 'pointer',
                         fontSize: '1rem', fontWeight: 700, padding: '16px', color: 'white',
-                        background: '#F59E0B', boxShadow: '0 6px 20px rgba(245, 158, 11, 0.3)',
+                        background: 'var(--warning)', boxShadow: 'var(--shadow-accent)',
                       }}>
                       {processing ? (
                         <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
