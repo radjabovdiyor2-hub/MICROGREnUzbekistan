@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isDishView = /^\/m\/[^/]+\/d\//.test(pathname ?? '');
 
   if (isAdmin || isMagPrint || isCamera || isDishView) {
-    return <main className={isAdmin ? 'admin-root' : isMagPrint ? 'mag-print-root' : 'mag-dish-root'}>{children}</main>;
+    return <main className={isAdmin ? 'admin-root' : isMagPrint ? 'mag-print-root' : isCamera ? 'mag-camera-root' : 'mag-dish-root'}>{children}</main>;
   }
 
   return (

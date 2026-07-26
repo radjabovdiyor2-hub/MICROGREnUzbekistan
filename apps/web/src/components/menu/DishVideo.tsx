@@ -10,6 +10,12 @@ interface Props {
   fullScreen?: boolean;
 }
 
+// Apple-style constants
+const FONT = "-apple-system, 'SF Pro Text', 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif";
+const VIBRANCY = 'rgba(30, 30, 30, 0.65)';
+const VIBRANCY_BORDER = 'rgba(255, 255, 255, 0.18)';
+const BLUR = 'saturate(180%) blur(20px)';
+
 export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = false }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const [failed, setFailed] = useState(false);
@@ -38,7 +44,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
       setIsPaused(true);
     }
     setShowPauseIcon(true);
-    setTimeout(() => setShowPauseIcon(false), 600);
+    setTimeout(() => setShowPauseIcon(false), 700);
   };
 
   useEffect(() => {
@@ -47,7 +53,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
     el.play().catch(() => {});
   }, [videoUrl]);
 
-  // — Fullscreen video (Reels-style) —
+  // — Fullscreen video (Apple-style) —
   if (videoUrl && !failed && fullScreen) {
     return (
       <div style={{
@@ -58,7 +64,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
         zIndex: 0,
         background: '#000',
         overflow: 'hidden',
-        animation: 'reels-fade-in 0.6s ease-out both',
+        animation: 'reels-fade-in 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) both',
       }}>
         <video
           ref={ref}
@@ -82,29 +88,44 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
           }}
         />
 
-        {/* Pause indicator — like Reels */}
+        {/* Play/Pause indicator — Apple-style vibrancy square */}
         {showPauseIcon && (
           <div style={{
             position: 'absolute',
-            top: '50%',
-            left: '50%',
-            width: 80,
-            height: 80,
-            borderRadius: '50%',
-            background: 'rgba(0, 0, 0, 0.5)',
+            inset: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            animation: 'reels-pulse-play 0.6s ease-out forwards',
             pointerEvents: 'none',
+            zIndex: 15,
           }}>
-            <span style={{ fontSize: 32, color: '#fff', marginLeft: isPaused ? 4 : 0 }}>
-              {isPaused ? '▶' : '⏸'}
-            </span>
+            <div style={{
+              width: 72,
+              height: 72,
+              borderRadius: 18,
+              background: VIBRANCY,
+              backdropFilter: BLUR,
+              WebkitBackdropFilter: BLUR,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: 'reels-pulse-play 0.7s cubic-bezier(0.25, 0.1, 0.25, 1) forwards',
+              border: `0.5px solid ${VIBRANCY_BORDER}`,
+            }}>
+              <span style={{
+                fontFamily: FONT,
+                fontSize: 28,
+                color: '#fff',
+                fontWeight: 300,
+                marginLeft: isPaused ? 3 : 0,
+              }}>
+                {isPaused ? '▶︎' : '❚❚'}
+              </span>
+            </div>
           </div>
         )}
 
-        {/* Sound toggle — small circle like Reels */}
+        {/* Sound toggle — Apple-style rounded square */}
         <button
           type="button"
           onClick={toggleSound}
@@ -113,21 +134,22 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
             position: 'absolute',
             top: 'calc(env(safe-area-inset-top, 16px) + 16px)',
             right: 16,
-            width: 40,
-            height: 40,
-            borderRadius: '50%',
-            background: 'rgba(0, 0, 0, 0.55)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            background: VIBRANCY,
+            backdropFilter: BLUR,
+            WebkitBackdropFilter: BLUR,
             color: '#fff',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            fontSize: 18,
+            border: `0.5px solid ${VIBRANCY_BORDER}`,
+            fontSize: 16,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 20,
             padding: 0,
+            transition: 'transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1)',
           }}
         >
           {isMuted ? '🔇' : '🔊'}
@@ -136,7 +158,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
     );
   }
 
-  // — Fullscreen photo (Reels-style, when no video) —
+  // — Fullscreen photo (Apple-style, when no video) —
   if (fullScreen) {
     if (!photo) return null;
     return (
@@ -148,7 +170,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
         zIndex: 0,
         background: '#000',
         overflow: 'hidden',
-        animation: 'reels-fade-in 0.6s ease-out both',
+        animation: 'reels-fade-in 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) both',
       }}>
         <img
           src={photo}
@@ -185,7 +207,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
             width: '100%',
             aspectRatio: '9 / 16',
             objectFit: 'cover',
-            borderRadius: 20,
+            borderRadius: 16,
             display: 'block',
             cursor: 'pointer',
             background: 'var(--bg-elevated, rgba(255,255,255,0.03))',
@@ -197,25 +219,27 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
           aria-label={isMuted ? 'Включить звук' : 'Выключить звук'}
           style={{
             position: 'absolute',
-            bottom: 16,
-            right: 16,
-            background: 'rgba(0, 0, 0, 0.65)',
-            backdropFilter: 'blur(10px)',
+            bottom: 12,
+            right: 12,
+            background: VIBRANCY,
+            backdropFilter: BLUR,
+            WebkitBackdropFilter: BLUR,
             color: '#fff',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            borderRadius: 30,
-            padding: '8px 16px',
+            border: `0.5px solid ${VIBRANCY_BORDER}`,
+            borderRadius: 10,
+            padding: '6px 12px',
+            fontFamily: FONT,
             fontSize: 13,
-            fontWeight: 700,
+            fontWeight: 500,
+            letterSpacing: -0.08,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            gap: 4,
             zIndex: 5,
           }}
         >
-          {isMuted ? '🔊 Включить звук' : '🔇 Выключить звук'}
+          {isMuted ? '🔊' : '🔇'}
         </button>
       </div>
     );
@@ -232,7 +256,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
         width: '100%',
         aspectRatio: '4 / 3',
         objectFit: 'cover',
-        borderRadius: 20,
+        borderRadius: 16,
         margin: '16px 0',
       }}
     />
