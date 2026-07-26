@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { loadRestaurantBySlug, loadDishByCode, loadMenu } from '@/lib/magazine/restaurantMenu';
 import { formatPrice } from '@/lib/magazine/menu';
 import { MenuTracker } from '@/components/menu/MenuTracker';
@@ -8,6 +8,10 @@ import { DishVideo } from '@/components/menu/DishVideo';
 
 // Страница блюда — Apple-стиль просмотр по QR-коду.
 export const dynamic = 'force-dynamic';
+
+export const viewport: Viewport = {
+  themeColor: '#000000',
+};
 
 // Apple-style constants
 const FONT = "-apple-system, 'SF Pro Text', 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif";
@@ -21,7 +25,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const r = await loadRestaurantBySlug(slug);
   if (!r) return { title: 'Блюдо' };
   const dish = await loadDishByCode(r.id, Number(code));
-  return { title: dish ? `${dish.nameRu} — ${r.name}` : r.name };
+  return {
+    title: dish ? `${dish.nameRu} — ${r.name}` : r.name,
+  };
 }
 
 export default async function DishPage({ params }: { params: Promise<{ slug: string; code: string }> }) {
@@ -97,7 +103,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
         left: 0,
         right: 0,
         zIndex: 20,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.6) 55%, rgba(0,0,0,0.15) 80%, transparent 100%)',
+        background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.65) 50%, rgba(0,0,0,0.35) 65%, rgba(0,0,0,0.12) 80%, transparent 100%)',
         paddingTop: 100,
         paddingBottom: `calc(env(safe-area-inset-bottom, 16px) + 16px)`,
         paddingLeft: 20,
@@ -148,7 +154,9 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
             color: 'rgba(255,255,255,0.7)',
             marginTop: 8,
             letterSpacing: -0.24,
-            maxHeight: 62,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical' as const,
             overflow: 'hidden',
           }}>
             {dish.descriptionRu}

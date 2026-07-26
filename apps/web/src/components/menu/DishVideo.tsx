@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Props {
   videoUrl: string | null;
@@ -16,12 +16,52 @@ const VIBRANCY = 'rgba(30, 30, 30, 0.65)';
 const VIBRANCY_BORDER = 'rgba(255, 255, 255, 0.18)';
 const BLUR = 'saturate(180%) blur(20px)';
 
+// SF Symbol-style SVG icons
+function SpeakerSlash() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <line x1="23" y1="9" x2="17" y2="15" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+      <line x1="17" y1="9" x2="23" y2="15" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function SpeakerWave() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M15.54 8.46a5 5 0 010 7.07" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M19.07 4.93a10 10 0 010 14.14" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function PlayIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff">
+      <path d="M8 5v14l11-7z"/>
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="#fff">
+      <rect x="6" y="4" width="4" height="16" rx="1"/>
+      <rect x="14" y="4" width="4" height="16" rx="1"/>
+    </svg>
+  );
+}
+
 export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = false }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
+  const progressRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [showPauseIcon, setShowPauseIcon] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   const toggleSound = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -47,11 +87,19 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
     setTimeout(() => setShowPauseIcon(false), 700);
   };
 
+  const updateProgress = useCallback(() => {
+    const el = ref.current;
+    if (!el || !el.duration) return;
+    setProgress((el.currentTime / el.duration) * 100);
+  }, []);
+
   useEffect(() => {
     const el = ref.current;
     if (!el || !videoUrl) return;
     el.play().catch(() => {});
-  }, [videoUrl]);
+    el.addEventListener('timeupdate', updateProgress);
+    return () => el.removeEventListener('timeupdate', updateProgress);
+  }, [videoUrl, updateProgress]);
 
   // — Fullscreen video (Apple-style) —
   if (videoUrl && !failed && fullScreen) {
@@ -88,6 +136,28 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
           }}
         />
 
+        {/* Video progress bar — Apple-style thin line at bottom */}
+        <div
+          ref={progressRef}
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: 'rgba(255, 255, 255, 0.2)',
+            zIndex: 25,
+          }}
+        >
+          <div style={{
+            height: '100%',
+            width: `${progress}%`,
+            background: 'rgba(255, 255, 255, 0.85)',
+            borderRadius: '0 1.5px 1.5px 0',
+            transition: 'width 0.25s linear',
+          }} />
+        </div>
+
         {/* Play/Pause indicator — Apple-style vibrancy square */}
         {showPauseIcon && (
           <div style={{
@@ -112,20 +182,12 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
               animation: 'reels-pulse-play 0.7s cubic-bezier(0.25, 0.1, 0.25, 1) forwards',
               border: `0.5px solid ${VIBRANCY_BORDER}`,
             }}>
-              <span style={{
-                fontFamily: FONT,
-                fontSize: 28,
-                color: '#fff',
-                fontWeight: 300,
-                marginLeft: isPaused ? 3 : 0,
-              }}>
-                {isPaused ? '▶︎' : '❚❚'}
-              </span>
+              {isPaused ? <PlayIcon /> : <PauseIcon />}
             </div>
           </div>
         )}
 
-        {/* Sound toggle — Apple-style rounded square */}
+        {/* Sound toggle — Apple-style rounded square with SVG */}
         <button
           type="button"
           onClick={toggleSound}
@@ -142,17 +204,15 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
             WebkitBackdropFilter: BLUR,
             color: '#fff',
             border: `0.5px solid ${VIBRANCY_BORDER}`,
-            fontSize: 16,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 20,
             padding: 0,
-            transition: 'transform 0.2s cubic-bezier(0.25, 0.1, 0.25, 1)',
           }}
         >
-          {isMuted ? '🔇' : '🔊'}
+          {isMuted ? <SpeakerSlash /> : <SpeakerWave />}
         </button>
       </div>
     );
@@ -239,7 +299,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
             zIndex: 5,
           }}
         >
-          {isMuted ? '🔊' : '🔇'}
+          {isMuted ? <SpeakerWave /> : <SpeakerSlash />}
         </button>
       </div>
     );

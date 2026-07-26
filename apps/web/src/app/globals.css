@@ -2080,7 +2080,7 @@ main, [data-page] {
   height: 100dvh;
 }
 
-/* Страница блюда (QR) — полноэкранный Reels-viewer без хрома сайта */
+/* Страница блюда (QR) — полноэкранный Apple-viewer без хрома сайта */
 .mag-dish-root {
   animation: none;
   transform: none;
@@ -2089,6 +2089,20 @@ main, [data-page] {
   min-height: 100dvh;
   overflow: hidden;
   background: #000;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Apple-style active press for interactive elements inside dish viewer */
+.mag-dish-root a:active,
+.mag-dish-root button:active {
+  transform: scale(0.97);
+  transition: transform 0.1s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* === Apple-style Dish Viewer Animations === */
