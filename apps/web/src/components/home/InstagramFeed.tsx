@@ -186,7 +186,7 @@ export function InstagramFeed() {
           </div>
           <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"
             className="btn btn-primary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '20px' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
             id="instagram-follow-btn"
           >
             <Instagram size={16} />
@@ -478,7 +478,7 @@ export function InstagramFeed() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             style={{
-              padding: '10px 24px', borderRadius: '20px', border: 'none',
+              padding: '10px 24px', border: 'none',
               background: 'linear-gradient(135deg, #833AB4, #E1306C)',
               color: 'white', fontWeight: 700, fontSize: 'var(--text-sm)',
               textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px',

@@ -88,7 +88,7 @@ export function AiBanner() {
                 onClick={openChat}
                 style={{
                   background: 'white', color: '#4F46E5', border: 'none',
-                  borderRadius: '14px', padding: '13px 26px',
+                  padding: '13px 26px',
                   fontWeight: 700, fontSize: '14px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '10px',
                   boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
@@ -106,7 +106,7 @@ export function AiBanner() {
                 style={{
                   background: 'rgba(255,255,255,0.12)', color: 'white',
                   border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '14px', padding: '13px 26px',
+                  padding: '13px 26px',
                   fontWeight: 600, fontSize: '14px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '10px',
                   textDecoration: 'none', backdropFilter: 'blur(8px)',
@@ -230,7 +230,7 @@ export function AiBanner() {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               marginTop: 'var(--space-4)', background: 'rgba(255,255,255,0.18)',
-              borderRadius: '12px', padding: '10px 20px',
+              padding: '10px 20px',
               color: 'white', textDecoration: 'none', fontSize: '13px', fontWeight: 700,
               border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
               transition: 'all 0.2s',

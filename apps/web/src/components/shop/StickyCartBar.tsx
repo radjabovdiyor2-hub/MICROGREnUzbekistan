@@ -62,7 +62,7 @@ export function StickyCartBar() {
             {formatPrice(cart.total)} {t('product.currency')}
           </span>
         </div>
-        <Link href="/cart" className="btn btn-primary ripple sticky-cart-bar__cta" id="sticky-cart-checkout">
+        <Link href="/cart" className="btn btn-primary sticky-cart-bar__cta" id="sticky-cart-checkout">
           <ShoppingCart size={17} />
           {t('cart.checkout')}
           <ArrowRight size={17} />

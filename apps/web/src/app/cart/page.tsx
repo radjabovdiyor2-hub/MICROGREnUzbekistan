@@ -207,7 +207,7 @@ export default function CartPage() {
               {t("Katalogdan mahsulotlarni qo'shing", "Добавьте товары из каталога")}
             </p>
             <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
-              <Link href="/catalog" className="btn btn-primary btn-lg btn-magnetic ripple" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+              <Link href="/catalog" className="btn btn-primary btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                 <Folder size={20} /> {t("Katalogga o'tish", "Перейти в каталог")}
               </Link>
             </motion.div>

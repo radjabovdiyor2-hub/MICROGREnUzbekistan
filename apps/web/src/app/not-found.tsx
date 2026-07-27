@@ -106,11 +106,11 @@ export default function NotFound() {
         }}>
           <motion.a
             href="/"
-            className="btn btn-primary btn-magnetic ripple"
+            className="btn btn-primary"
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.96 }}
             style={{
-              padding: '14px 32px', borderRadius: '14px', fontSize: '1rem',
+              padding: '14px 32px', fontSize: '1rem',
               display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700,
               boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.3)',
             }}
@@ -123,7 +123,7 @@ export default function NotFound() {
             whileHover={{ scale: 1.04, y: -2 }}
             whileTap={{ scale: 0.96 }}
             style={{
-              padding: '14px 32px', borderRadius: '14px', fontSize: '1rem',
+              padding: '14px 32px', fontSize: '1rem',
               display: 'flex', alignItems: 'center', gap: '10px',
             }}
           >

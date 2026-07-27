@@ -50,7 +50,7 @@ export function FeaturedProducts() {
               {t("Mijozlarimiz eng ko'p tanlaydigan mahsulotlar", 'То, что чаще всего выбирают наши клиенты')}
             </p>
           </div>
-          <Link href="/catalog" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '20px' }}>
+          <Link href="/catalog" className="btn btn-outline btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             {t('featured.all')} <ArrowRight size={14} />
           </Link>
         </div>
