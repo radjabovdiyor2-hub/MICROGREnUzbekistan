@@ -84,7 +84,7 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <Link href={`/product/${product.id}`} className="product-card card" id={`product-${product.id}`}
-      style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+      style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', height: '100%' }}>
 
       {/* Discount Badge */}
       {discount > 0 && (
