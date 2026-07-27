@@ -1416,6 +1416,17 @@ body:has(#sticky-cart-bar) .main-content {
   padding-bottom: calc(var(--bottom-nav-height) + 104px);
 }
 
+/* Solid fixed bars — a translucent header / bottom nav / sticky cart bar let bright
+   page text bleed through and overlap the labels. Opaque surfaces (+ their existing
+   borders/shadows) keep everything clean and readable, everywhere. */
+.header,
+.bottom-nav,
+.sticky-cart-bar {
+  background: var(--bg-elevated);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 @media (min-width: 768px) {
   .main-content {
     padding-bottom: 0 !important;

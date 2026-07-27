@@ -62,24 +62,6 @@ export function BottomNav() {
                   {item.badge > 99 ? '99+' : item.badge}
                 </motion.span>
               )}
-
-              {/* Magic Motion active indicator — slides between tabs */}
-              {active && (
-                <motion.div
-                  layoutId="activeTab"
-                  transition={spring}
-                  style={{
-                    position: 'absolute',
-                    bottom: -14,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    width: 24,
-                    height: 3,
-                    borderRadius: 999,
-                    background: 'var(--brand-primary)',
-                  }}
-                />
-              )}
             </span>
             <span className="bottom-nav__label">{item.label}</span>
           </Link>
