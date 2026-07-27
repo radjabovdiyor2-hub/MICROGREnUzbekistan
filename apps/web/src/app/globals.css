@@ -1410,6 +1410,12 @@ main {
   padding-bottom: var(--bottom-nav-height);
 }
 
+/* When the sticky checkout bar is visible (cart has items) it stacks ABOVE the
+   bottom nav — reserve extra bottom space so it never covers page content. */
+body:has(#sticky-cart-bar) .main-content {
+  padding-bottom: calc(var(--bottom-nav-height) + 104px);
+}
+
 @media (min-width: 768px) {
   .main-content {
     padding-bottom: 0 !important;
