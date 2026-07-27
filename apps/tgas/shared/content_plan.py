@@ -191,18 +191,19 @@ HERO_GREENS = [
     "витграсс (в дрессинге/смузи)", "съедобные цветы", "салатный микс", "микро-кинза",
 ]
 
-# Темы утреннего факта/пользы — чтобы факт каждый день был про разное.
+# Темы утреннего факта/пользы — широкие, любопытные, «сохраняемые». Про еду, кухню,
+# культуру и локальную жизнь; зелень/микрозелень — лишь иногда и как акцент, не всегда.
 FACT_THEMES = [
-    "почему в микрозелени нутриентов заметно больше, чем во взрослом растении",
-    "конкретная польза микрозелени для иммунитета и энергии",
-    "витграсс и хлорофилл: чем полезен для организма",
-    "польза съедобных цветов и чем они хороши в подаче блюд",
-    "сульфорафан и антиоксиданты в микрозелени брокколи",
-    "как дольше сохранить свежесть зелени дома (практичный лайфхак)",
-    "утренняя ЗОЖ-привычка с зеленью для бодрости на весь день",
-    "культурный факт: как свежую зелень используют в кухнях мира",
-    "клетчатка и салаты для лёгкого пищеварения",
-    "витамины и минералы руколы/базилика простыми словами",
+    "неожиданный факт о еде или продукте, который удивит (история блюда, происхождение специи)",
+    "почему свежие овощи и зелень полезнее — простыми словами, без занудства и обещаний",
+    "лайфхак здорового завтрака, который реально даёт энергию до обеда",
+    "интересный факт о кухне одной из стран мира (традиция, ингредиент, ритуал)",
+    "как сочетать вкусы и текстуры, чтобы простое домашнее блюдо заиграло",
+    "популярный миф о питании, в который все верят, но он неправда",
+    "чем микрозелень отличается от обычной зелени и когда это реально важно",
+    "сезонный продукт этого месяца в Узбекистане: чем хорош и что из него приготовить",
+    "маленькая привычка за столом или на кухне, что заметно улучшает самочувствие",
+    "культурный факт о гостеприимстве и еде в Узбекистане (mehmon, dasturxon, choy)",
 ]
 
 
@@ -230,20 +231,20 @@ def get_daily_fact_theme(d: Optional[date] = None) -> str:
     return _pick(FACT_THEMES, d.timetuple().tm_yday * 3)
 
 
-# Темы утреннего ЛАЙФХАКА — конкретные, предметные советы (не общие фразы).
+# Темы утреннего ЛАЙФХАКА — конкретные, предметные бытовые/кухонные советы (не общие фразы).
+# Широко: хранение продуктов, готовка, порядок, приём гостей; зелень — лишь иногда.
 # Каждый день другой; AI разворачивает тему в 2-3 конкретных пункта.
 TIP_THEMES = [
-    "как хранить микрозелень в холодильнике, чтобы держалась свежей 7-10 дней "
-    "(влажная салфетка, контейнер, нижняя полка +4°C)",
-    "почему микрозелень нельзя мыть заранее — мыть только прямо перед подачей",
-    "как оживить подвявшую зелень: опустить в ледяную воду на 10-15 минут",
-    "как срезать микрозелень чистыми ножницами у самого основания для свежести",
-    "как продлить свежесть срезанной зелени: сухой контейнер + бумажное полотенце сверху",
-    "почему микрозелень кладут в блюдо в самом конце и не готовят на огне",
-    "как выбрать свежую микрозелень: упругие стебли, яркий цвет, без слизи и запаха",
-    "лучшее место в холодильнике для зелени — подальше от морозилки и фруктов",
-    "как хранить съедобные цветы, чтобы не потеряли форму (герметичный контейнер + бумага)",
-    "как порционно заморозить витграсс кубиками льда для смузи",
+    "как дольше хранить зелень и салат свежими (влажная салфетка, контейнер, нижняя полка +4°C)",
+    "как быстро освежить подвявшую зелень или овощи: ледяная вода на 10-15 минут",
+    "как правильно хранить помидоры, авокадо и хлеб — частые ошибки на кухне",
+    "как заточить и правильно хранить нож, чтобы готовить быстрее и безопаснее",
+    "3 быстрых завтрака на буднее утро, когда времени в обрез",
+    "как накрыть простой стол для гостей красиво и без стресса (dasturxon)",
+    "как не выбрасывать еду: что вкусного приготовить из вчерашних остатков",
+    "как выбрать свежие продукты на базаре: зелень, овощи, мясо, рыба",
+    "чем заменить майонез, сахар или белый хлеб в привычных блюдах — легче и вкуснее",
+    "порядок на кухне за 10 минут: простая система, которая реально работает",
 ]
 
 
@@ -296,8 +297,8 @@ MORNING_FORMATS: list[dict] = [
         "layout": "top", "kind": "info", "section": "FOYDASI",
         "angle": "Раскрой ОДИН неожиданный факт по теме «{fact}». Заголовок — сам факт. "
                  "Пункты (points) — 2-3 КОНКРЕТНЫХ следствия/пользы. Не выдумывай цифр.",
-        "photo": "extreme macro close-up of dew-fresh microgreens sprouts, morning backlight, "
-                 "soft bokeh, vibrant green",
+        "photo": "appetizing fresh-food or breakfast flat-lay in soft morning backlight, vibrant "
+                 "natural colors, soft bokeh, a touch of fresh greens as a subtle accent",
         "cta": "Batafsil", "trigger": "do'stingizga yuboring (share)", "note": "Do'stga yuboring",
     },
     {
@@ -305,7 +306,7 @@ MORNING_FORMATS: list[dict] = [
         "layout": "center", "kind": "engage",
         "angle": "Задай аудитории тёплый вопрос про их утро/питание/привычки, "
                  "чтобы захотелось ответить в директ. Один короткий вопрос.",
-        "photo": "cozy morning breakfast scene, hands holding a bowl of fresh salad with microgreens, "
+        "photo": "cozy morning scene at a home table, hands holding a warm bowl or a cup of tea, "
                  "warm lifestyle, natural window light",
         "cta": "Javob yozing", "trigger": "javobingizni izohda yozing", "note": "Javob yozing",
     },
@@ -314,7 +315,7 @@ MORNING_FORMATS: list[dict] = [
         "layout": "poll", "kind": "engage",
         "angle": "Предложи выбор из ДВУХ вариантов (вкус/блюдо/привычка), чтобы подписчик выбрал. "
                  "Сформулируй интригующе, оба варианта — про нашу зелень/еду.",
-        "photo": "two different fresh dishes with microgreens side by side on a clean light table, "
+        "photo": "two different appetizing dishes or drinks side by side on a clean light table, "
                  "top-down split composition, bright daylight",
         "cta": "Tanlang", "trigger": "qaysi birini tanlaysiz? belgilang", "note": "Qaysi biri?",
     },
@@ -323,8 +324,8 @@ MORNING_FORMATS: list[dict] = [
         "layout": "bottom", "kind": "info", "section": "MASLAHAT",
         "angle": "Разверни КОНКРЕТНЫЙ лайфхак по теме «{tip}». Заголовок — суть выгоды. "
                  "Пункты (points) — 2-3 конкретных шага КАК именно это сделать (способ, срок, °C).",
-        "photo": "chef's hands preparing and cutting fresh microgreens on a wooden board in a bright "
-                 "modern kitchen, action shot, shallow depth of field",
+        "photo": "hands preparing and cutting fresh food on a wooden board in a bright modern home "
+                 "kitchen, action shot, shallow depth of field",
         "cta": "Saqlang", "trigger": "saqlab qo'ying (bookmark)", "note": "Saqlab qo'ying",
     },
     {
@@ -332,8 +333,8 @@ MORNING_FORMATS: list[dict] = [
         "layout": "bottom", "kind": "info", "section": "TARKIBI",
         "angle": "Простое блюдо на 3 ингредиента с микрозеленью — «за 15 секунд». Заголовок — "
                  "название блюда. Пункты (points) — 3 ингредиента ИЛИ 3 коротких шага.",
-        "photo": "appetizing finished plated dish beautifully garnished with fresh microgreens, "
-                 "close-up, warm restaurant light",
+        "photo": "appetizing finished home-plated dish, beautifully served and garnished, "
+                 "close-up, warm inviting light",
         "cta": "Retsept", "trigger": "retseptni saqlab qo'ying", "note": "Retseptni saqlang",
     },
     {
@@ -341,8 +342,8 @@ MORNING_FORMATS: list[dict] = [
         "layout": "center", "kind": "engage",
         "angle": "Короткая тёплая мысль/мотивация о свежести, здоровье и заботе о себе с утра. "
                  "Без клише, живо и по-человечески.",
-        "photo": "minimalist aesthetic still life of a single microgreen sprig on a neutral background, "
-                 "soft moody morning light, lots of negative space",
+        "photo": "minimalist aesthetic still life — a cup of coffee or tea and a little fresh food on a "
+                 "neutral background, soft moody morning light, lots of negative space",
         "cta": "Batafsil", "trigger": "rozimisiz? 💚 belgilang", "note": "Rozimisiz?",
     },
     {
@@ -350,7 +351,7 @@ MORNING_FORMATS: list[dict] = [
         "layout": "bottom", "kind": "info", "section": "SHARTLAR",
         "angle": "Утреннее спецпредложение. Заголовок — суть выгоды. Пункты (points) — "
                  "3 конкретных условия: «10% chegirma», «BODRLIK kodi», «Faqat 24 soat».",
-        "photo": "premium product hero shot of a microgreens gift set / box with fresh greens, "
+        "photo": "premium product hero shot of a fresh-food / greens gift box, "
                  "studio light, warm golden accents",
         "cta": "Buyurtma berish", "trigger": "bugun 10% chegirma — buyurtma bering", "note": "Bugun -10%",
     },
