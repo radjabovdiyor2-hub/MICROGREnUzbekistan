@@ -67,6 +67,7 @@ model Product {
   recipeIngredients RecipeIngredient[]
 
   @@index([categoryId])
+  @@index([categoryId, isActive])
   @@index([slug])
   @@index([isActive, isFeatured])
   @@map("products")
@@ -173,8 +174,11 @@ model Order {
 
   items OrderItem[]
 
-  @@index([userId])
-  @@index([status])
+  // Composite indexes for the hot list queries (newest-first pagination):
+  // admin list by status, a customer's own orders, and lookup by phone.
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([phone])
   @@index([orderNumber])
   @@map("orders")
 }
@@ -235,6 +239,7 @@ model Review {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@unique([userId, productId])
+  @@index([productId])
   @@map("reviews")
 }
 
