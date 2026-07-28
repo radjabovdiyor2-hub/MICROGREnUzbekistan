@@ -7,7 +7,7 @@ import { formatPrice } from '@/lib/magazine/menu';
 import { RecipeTracker } from '@/components/recipe/RecipeTracker';
 import { CollectSetButton } from '@/components/recipe/CollectSetButton';
 import { StepTimer } from '@/components/recipe/StepTimer';
-import { recipeSchema, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
+import { jsonLdScript, recipeSchema, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 // Страница рецепта — куда ведёт QR из журнала. Текст рецепта наполняется
 // в админке; ключевая механика — «собрать набор микрозелени» в корзину.
@@ -81,7 +81,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0B0B14)', padding: '90px 16px 60px' }}>
       {ld.map((data, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }} />
       ))}
       <RecipeTracker slug={slug} />
       <div style={{ maxWidth: 640, margin: '0 auto' }}>

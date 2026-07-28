@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { ProductPageClient } from './ProductPageClient';
 import { recipesForProduct, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
+import { jsonLdScript } from '@/lib/seo/jsonLd';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -161,13 +162,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       {jsonLd && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
         />
       )}
       {breadcrumb && (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumb) }}
         />
       )}
       <ProductPageClient id={id} />

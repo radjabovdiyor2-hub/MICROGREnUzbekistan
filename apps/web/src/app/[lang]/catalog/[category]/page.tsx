@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { prisma } from '@repo/database';
 import { CatalogView } from '../../../catalog/page';
 import { CATEGORY_SEO, CATEGORY_SLUGS, categoryAlternates } from '@/lib/seo/categories';
-import { breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
+import { jsonLdScript, breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 const SUPPORTED_LANGS = ['ru', 'uz'] as const;
 type Lang = (typeof SUPPORTED_LANGS)[number];
@@ -95,7 +95,7 @@ export default async function LocalizedCategoryPage({
   return (
     <>
       {ld.map((data, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }} />
       ))}
 
       <section className="container" style={{ paddingTop: 'var(--space-6)' }}>

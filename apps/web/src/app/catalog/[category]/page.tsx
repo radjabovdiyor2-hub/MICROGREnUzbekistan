@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { prisma } from '@repo/database';
 import { CatalogView } from '../page';
 import { CATEGORY_SEO, CATEGORY_SLUGS, categoryAlternates } from '@/lib/seo/categories';
-import { breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
+import { jsonLdScript, breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 // Категорийный лендинг: настоящий индексируемый URL /catalog/<slug> вместо
 // query-параметра. Уникальные метатеги и вводный текст дают странице шанс
@@ -70,7 +70,7 @@ export default async function CategoryLandingPage({ params }: { params: Promise<
   return (
     <>
       {ld.map((data, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }} />
       ))}
 
       {/* SEO-шапка: индексируемый H1 и вводный текст в исходном HTML */}

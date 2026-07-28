@@ -29,16 +29,22 @@ export async function POST(request: NextRequest) {
 
     // Validate by file extension — MIME types from mobile browsers are unreliable
     const ext = (file.name || '').split('.').pop()?.toLowerCase() || '';
-    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif', 'gif', 'bmp', 'tiff', 'tif', 'svg', 'pdf', 'html', 'htm'];
+    // svg/html/htm УБРАНЫ из белого списка намеренно: файлы отдаются с того же
+    // origin по /uploads/, поэтому загруженный .html или .svg выполнял свой
+    // JavaScript на домене магазина — то есть был готовым stored XSS.
+    // Растровые форматы и PDF такого не позволяют.
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif', 'gif', 'bmp', 'tiff', 'tif', 'pdf'];
 
     const videoExtensions = ['mp4', 'webm', 'mov'];
     const videoMimes = ['video/mp4', 'video/webm', 'video/quicktime'];
 
-    // Also check MIME as fallback (but don't reject if extension is valid)
+    // Also check MIME as fallback (but don't reject if extension is valid).
+    // image/svg+xml и text/html убраны по той же причине, что и расширения:
+    // иначе MIME-ветка возвращала бы обратно только что закрытую дыру.
     const allowedMimes = [
       'image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/heic',
-      'image/heif', 'image/gif', 'image/bmp', 'image/tiff', 'image/svg+xml',
-      'application/pdf', 'text/html',
+      'image/heif', 'image/gif', 'image/bmp', 'image/tiff',
+      'application/pdf',
       'application/octet-stream',
     ];
 

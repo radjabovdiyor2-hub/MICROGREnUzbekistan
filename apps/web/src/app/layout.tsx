@@ -11,6 +11,7 @@ import { ReferralCapture } from '@/components/providers/ReferralCapture';
 import { TelegramInit } from '@/components/providers/TelegramInit';
 import { Analytics } from '@/components/providers/Analytics';
 import { CityProvider } from '@/components/providers/CityProvider';
+import { jsonLdScript } from '@/lib/seo/jsonLd';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -359,7 +360,7 @@ function JsonLd() {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }}
     />
   );
 }

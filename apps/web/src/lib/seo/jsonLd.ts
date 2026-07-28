@@ -6,9 +6,23 @@
 export const SITE_DOMAIN = 'https://microgreenuzbekistan.com';
 const ORG_ID = `${SITE_DOMAIN}/#organization`;
 
-/** Тег <script type="application/ld+json"> одной строкой для вставки в JSX. */
+/**
+ * Тег <script type="application/ld+json"> одной строкой для вставки в JSX.
+ *
+ * Экранирование обязательно: JSON.stringify не трогает '<', поэтому строка
+ *   </script><script>…</script>
+ * внутри любого поля разрывала тег и выполнялась как код. Дотянуться до
+ * этого можно было через отзыв к товару — имя гостя и текст отзыва
+ * попадают в schema.org Review, а отзывы принимаются без авторизации.
+ * CSP не помогала: в ней стоит 'unsafe-inline'.
+ *
+ * \uXXXX остаётся тем же символом для JSON-парсера, но тег им не закрыть.
+ */
 export function jsonLdScript(data: object): string {
-  return JSON.stringify(data);
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026');
 }
 
 interface Crumb { name: string; url: string }

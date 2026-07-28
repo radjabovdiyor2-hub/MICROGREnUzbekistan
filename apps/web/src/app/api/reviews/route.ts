@@ -1,6 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@repo/database';
 import { notifyOfficeFeedback } from '@/lib/office';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
+
+/** Предел длины отзыва. Раньше его не было вовсе. */
+const MAX_COMMENT = 1000;
+const MAX_GUEST_NAME = 50;
+
+/** 10 отзывов за час с одного IP — против массового спама. */
+const REVIEW_LIMIT = 10;
+const REVIEW_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Гостевой id пользователя из localStorage-токена.
+ *
+ * Раньше guestId клали прямо в `upsert({ where: { id: guestId } })`, то есть
+ * клиент сам выбирал первичный ключ. Зная cuid реального покупателя, можно
+ * было перезаписать его имя и оставлять отзывы от его лица. Хешируем и
+ * добавляем префикс — попасть в чужую запись теперь нельзя.
+ */
+function guestUserId(guestId: string): string {
+  const digest = crypto.createHash('sha256').update(guestId).digest('hex');
+  return `guest_${digest.slice(0, 24)}`;
+}
 
 // ==========================================
 // Product reviews. Writes the (previously unused) Review model, keeps the
@@ -27,13 +50,22 @@ export async function GET(request: NextRequest) {
 //            or  { guestId, guestName, productId, rating, comment } (guest)
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIp(request);
+    const limit = consume(`review:${ip}`, REVIEW_LIMIT, REVIEW_WINDOW_MS);
+    if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
     const body = await request.json();
-    const { userId, guestId, guestName, productId, rating, comment } = body;
+    const { userId, guestId, guestName, productId, rating } = body;
     const r = Number(rating);
 
     if (!productId || !(r >= 1 && r <= 5)) {
       return NextResponse.json({ error: 'productId and rating 1-5 required' }, { status: 400 });
     }
+
+    // Текст отзыва уходит в schema.org Review на странице товара, поэтому
+    // ограничиваем длину — экранирование делает lib/seo/jsonLd.
+    const comment =
+      typeof body.comment === 'string' ? body.comment.slice(0, MAX_COMMENT) : null;
 
     // Resolve the effective userId — either authenticated or guest
     let effectiveUserId: string;
@@ -53,17 +85,19 @@ export async function POST(request: NextRequest) {
       firstName = user.firstName;
       telegramId = user.telegramId;
     } else if (guestId && typeof guestId === 'string' && guestId.length >= 8) {
-      // Guest path — upsert a lightweight user row keyed by the stable localStorage UUID.
-      // referralCode must be unique; we use guestId itself as the code (truncated to 36 chars).
+      // Guest path — upsert a lightweight user row keyed by a HASH of the stable
+      // localStorage UUID (см. guestUserId): клиент не должен выбирать себе
+      // первичный ключ, иначе он попадает в чужую запись.
+      const derivedId = guestUserId(guestId);
       const guestUser = await prisma.user.upsert({
-        where: { id: guestId },
+        where: { id: derivedId },
         create: {
-          id: guestId,
-          firstName: (guestName as string | undefined)?.slice(0, 50) || 'Guest',
-          referralCode: guestId.slice(0, 36),
+          id: derivedId,
+          firstName: (guestName as string | undefined)?.slice(0, MAX_GUEST_NAME) || 'Guest',
+          referralCode: derivedId.slice(0, 36),
         },
         update: {
-          firstName: (guestName as string | undefined)?.slice(0, 50) || undefined,
+          firstName: (guestName as string | undefined)?.slice(0, MAX_GUEST_NAME) || undefined,
         },
         select: { id: true, firstName: true, telegramId: true },
       });

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { listRecipes, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
-import { breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
+import { jsonLdScript, breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 // Хаб рецептов. До него /recipe/<slug> были страницами-сиротами: лежали в
 // sitemap, но ни одной внутренней ссылки на них не вело — Google такие
@@ -74,7 +74,7 @@ export default async function RecipeHubPage() {
   return (
     <>
       {ld.map((data, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }} />
       ))}
 
       <section className="container" style={{ paddingTop: 'var(--space-6)' }}>

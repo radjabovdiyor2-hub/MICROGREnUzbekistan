@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Script from 'next/script';
+import { jsonLdScript } from '@/lib/seo/jsonLd';
 
 const SITE = process.env.NEXT_PUBLIC_URL || 'https://microgreenuzbekistan.com';
 
@@ -61,7 +62,7 @@ export default function MagazineLayout({
       <Script
         id="magazine-jsonld"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
         strategy="afterInteractive"
       />
       {children}
