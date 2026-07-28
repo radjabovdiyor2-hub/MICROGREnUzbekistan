@@ -1,46 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyOfficeCustomer } from '@/lib/office';
-import crypto from 'crypto';
+import { validateInitData, getBotToken } from '@/lib/telegramAuth';
 import { prisma } from '@repo/database';
 
 // ==========================================
 // Telegram Mini App auth — validates WebApp.initData server-side.
-// Algorithm (Telegram docs): secret = HMAC_SHA256("WebAppData", bot_token);
-// check = HMAC_SHA256(secret, data_check_string) must equal the `hash` field.
+// Сама проверка подписи живёт в lib/telegramAuth: тот же код нужен
+// маршруту выгрузки/удаления персональных данных (/api/users/data).
 // ==========================================
-
-function validateInitData(initData: string, botToken: string): { ok: boolean; user?: any } {
-  const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-  if (!hash) return { ok: false };
-  params.delete('hash');
-
-  const dataCheckString = [...params.entries()]
-    .map(([k, v]) => `${k}=${v}`)
-    .sort()
-    .join('\n');
-
-  const secret = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
-  const computed = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
-
-  // constant-time compare
-  const a = Buffer.from(computed, 'hex');
-  const b = Buffer.from(hash, 'hex');
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { ok: false };
-
-  // reject stale payloads (> 24h)
-  const authDate = Number(params.get('auth_date') || 0);
-  if (!authDate || Date.now() / 1000 - authDate > 86400) return { ok: false };
-
-  let user: any = null;
-  try { user = JSON.parse(params.get('user') || 'null'); } catch { user = null; }
-  return { ok: true, user };
-}
 
 export async function POST(request: NextRequest) {
   try {
     const { initData } = await request.json();
-    const botToken = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN;
+    const botToken = getBotToken();
     if (!initData) return NextResponse.json({ error: 'initData required' }, { status: 400 });
     if (!botToken) return NextResponse.json({ error: 'bot token not configured' }, { status: 500 });
 
