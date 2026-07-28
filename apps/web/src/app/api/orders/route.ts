@@ -3,6 +3,9 @@ import { prisma } from '@repo/database';
 import { deliveryFeeFor } from '@/lib/site';
 import { syncOrderStatus } from '@/lib/orderSync';
 import { validatePromo, consumePromo } from '@/lib/promo';
+import { isStaff, unauthorized } from '@/lib/adminAuth';
+import { audit } from '@/lib/audit';
+import { inc } from '@/lib/metrics';
 import { z } from 'zod';
 
 // ==========================================
@@ -36,6 +39,8 @@ async function notifyTelegram(order: {
 
   if (!token || !adminChatId) {
     console.warn('Telegram notification skipped: Missing TELEGRAM_BOT_TOKEN or ADMIN_CHAT_ID in .env');
+    audit({ action: 'order.notify.skipped', target: order.orderNumber, meta: { reason: 'not configured' } });
+    inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'telegram' });
     return;
   }
 
@@ -56,18 +61,54 @@ ${itemsList}
 💵 <b>Umumiy summa: ${order.total.toLocaleString('ru-RU')} sum</b>
   `;
 
-  try {
-    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: adminChatId,
-        text: message,
-        parse_mode: 'HTML'
-      })
+  // ADMIN_CHAT_ID может содержать несколько получателей через запятую.
+  // Раньше подразумевался ровно один: пока владелец в отпуске или заблокировал
+  // бота, о новом заказе не узнавал никто, хотя в базе он лежал.
+  const recipients = adminChatId.split(',').map((s) => s.trim()).filter(Boolean);
+
+  let delivered = 0;
+
+  for (const chatId of recipients) {
+    // Две попытки: разовый сетевой сбой не должен стоить уведомления о заказе.
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
+          signal: AbortSignal.timeout(5000),
+        });
+
+        // Ответ обязательно проверяем: Telegram отвечает 400/403 на
+        // заблокированного бота или неверный chat_id, и без этой проверки
+        // недоставленное уведомление считалось успешным.
+        if (res.ok) {
+          delivered += 1;
+          break;
+        }
+
+        const detail = await res.text().catch(() => '');
+        console.error(`Telegram sendMessage → ${res.status} для chat_id=${chatId}: ${detail.slice(0, 200)}`);
+        if (res.status >= 400 && res.status < 500) break; // повтор не поможет
+      } catch (err) {
+        console.error(`Telegram notification attempt ${attempt} failed for ${chatId}:`, err);
+      }
+
+      if (attempt === 1) await new Promise((r) => setTimeout(r, 1000));
+    }
+  }
+
+  if (delivered === 0) {
+    // Заказ в базе есть, но операционно его никто не видит — это и есть
+    // сценарий «заказ пропал». Оставляем след в журнале и в метриках,
+    // чтобы сработал алерт, а не тишина.
+    console.error(`ORDER NOT DELIVERED to any admin: ${order.orderNumber}`);
+    audit({
+      action: 'order.notify.failed',
+      target: order.orderNumber,
+      meta: { recipients: recipients.length },
     });
-  } catch (err) {
-    console.error('Failed to send telegram notification', err);
+    inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'telegram' });
   }
 }
 
@@ -144,6 +185,10 @@ async function notifyOffice(
     } catch (err) {
       if (attempt === maxRetries) {
         console.error('AI-office ingest failed after 3 attempts (order still created):', err);
+        // Заказ создан, но в CRM не попал: Stepan и отделы его не увидят.
+        // Раньше это оставалось только строкой в логах.
+        audit({ action: 'order.crm_sync.failed', target: order.orderNumber });
+        inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'crm' });
       } else {
         console.warn(`AI-office ingest attempt ${attempt} failed, retrying in 2s...`);
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -425,6 +470,16 @@ export async function GET(request: NextRequest) {
   const phone = searchParams.get('phone');
   const userId = searchParams.get('userId');
   const telegramId = searchParams.get('telegramId');
+
+  // Выборка без привязки к конкретному покупателю — это выгрузка всей базы
+  // заказов с именами и телефонами. Раньше она была открыта: /api/orders
+  // без параметров отдавал всё подряд кому угодно.
+  // Запрос своих заказов (профиль покупателя фильтрует по userId) остаётся
+  // доступным без сессии — это существующее поведение личного кабинета.
+  const scopedToUser = Boolean(phone || userId || telegramId);
+  if (!scopedToUser && !isStaff(request)) {
+    return unauthorized();
+  }
 
   const where: any = status && status !== 'ALL' ? { status: status as any } : {};
   if (phone) where.phone = phone;

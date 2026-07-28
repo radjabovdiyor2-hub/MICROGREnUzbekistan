@@ -86,3 +86,29 @@ groups:
           severity: warning
         annotations:
           summary: "Массовые отказы по лимиту на {{ $labels.route }}"
+
+  - name: orders
+    rules:
+      - alert: OrderNotificationLost
+        # Заказ лежит в базе, но ни один администратор о нём не узнал —
+        # операционно это и есть «пропавший заказ».
+        expr: increase(mg_order_notify_failed_total[15m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Заказ не доставлен получателю ({{ $labels.channel }})"
+          description: >-
+            Найти номера: grep '"action":"order.notify.failed"' logs/audit-$(date +%F).jsonl
+            Заказы в базе есть — обработать вручную через админку.
+
+      - alert: NoOrdersDuringBusinessHours
+        # Обратная задача: тишина тоже бывает симптомом (сломался checkout).
+        # Окно 3 часа, только в рабочее время по Ташкенту (UTC+5 → 04:00-15:00 UTC).
+        expr: increase(mg_orders_today[3h]) == 0 and hour() >= 5 and hour() < 14
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ни одного заказа за 3 часа в рабочее время"
+          description: "Проверить оформление заказа вручную — возможно, сломался checkout."
