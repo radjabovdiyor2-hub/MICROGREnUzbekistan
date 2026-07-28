@@ -38,11 +38,23 @@ keywords = ["access_token", "EA"]
 [allowlist]
 description = "Пути и плейсхолдеры, которые не считаем утечкой"
 paths = [
-    '''(^|/)\.env\.example$''',
+    # ВАЖНО: раньше здесь стоял шаблон по имени — '''(^|/)\.env\.example$''' —
+    # то есть скан молчал про ЛЮБОЙ файл с таким именем. А в
+    # apps/web/.env.example лежат боевые ключи (Telegram-токен, Gemini,
+    # DATABASE_URL с паролем): он не отслеживается git, но попади он в
+    # коммит — gitleaks бы это пропустил. Теперь перечислены только два
+    # реально отслеживаемых файла, содержимое которых проверено (плейсхолдеры).
+    '''^\.env\.example$''',
+    '''^apps/tgas/\.env\.example$''',
     '''(^|/)node_modules/''',
     '''(^|/)\.git/''',
     '''(^|/)package-lock\.json$''',
     '''(^|/)pnpm-lock\.yaml$''',
+    # Сгенерированные HTML/CSS с base64-картинками и шрифтами: правило
+    # meta-graph-token ловит в них длинные строки, начинающиеся с EA.
+    '''^content/generated/''',
+    '''^content/templates/fonts/''',
+    '''(^|/)playwright-report/''',
 ]
 regexes = [
     '''(?i)(your[_-]?token|placeholder|example|changeme|xxxx+|<[^>]+>)''',

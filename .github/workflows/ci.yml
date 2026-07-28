@@ -26,10 +26,49 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
 
       - run: npm ci
-      - run: npm audit --audit-level=critical || true
       - run: cd packages/database && npx prisma generate && npm run build
+      - run: cd apps/web && npm run lint
       - run: cd apps/web && npx tsc --noEmit
       - run: cd apps/web && npx vitest run
+
+  # ─────────────────────────── SECURITY ───────────────────────────
+  # Форма Due Diligence (§7.5) числила проверку безопасности как ручную.
+  # Два автоматических барьера, которых не хватало: утёкшие секреты и
+  # уязвимые зависимости.
+  security:
+    name: Secrets & Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Полная история: gitleaks сверяет коммиты, а не только рабочее дерево.
+          fetch-depth: 0
+
+      # Конфиг лежит в .gitleaks.toml, но до сих пор запускался только вручную.
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      # Блокируем только critical. Единственные оставшиеся high — это sharp
+      # 0.34.x (CVE-2026-33327/33328/35590/35591 в libvips): next 16.2.12
+      # держит его как optionalDependency "^0.34.5", а исправление вышло
+      # в 0.35, и npm-override этот вложенный экземпляр не перебивает.
+      # Ставить high блокирующим сейчас — значит держать CI вечно красным
+      # и приучить всех его игнорировать. Ограничение снимается, когда next
+      # перейдёт на sharp ^0.35 (см. SECURITY.md, «Принятые риски»).
+      - name: Audit production dependencies (blocking)
+        run: npm audit --omit=dev --audit-level=critical
+      - name: Audit all dependencies (report only)
+        run: npm audit --audit-level=high || true
 
   python-quality:
     name: Python Lint & TypeCheck
@@ -53,7 +92,7 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [quality, python-quality]
+    needs: [quality, python-quality, security]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     timeout-minutes: 30
