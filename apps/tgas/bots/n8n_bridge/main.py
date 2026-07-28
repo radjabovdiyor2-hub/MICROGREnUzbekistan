@@ -116,7 +116,8 @@ async def main():
         "assistant": handle_assistant,
     })
 
-    await asyncio.gather(listener, _periodic_cleanup())
+    from shared.health import start_heartbeat
+    await asyncio.gather(listener, _periodic_cleanup(), start_heartbeat("n8n_bridge"))
 
 
 if __name__ == "__main__":

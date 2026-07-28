@@ -113,7 +113,10 @@ async def main():
     await event_bus.start_listening(8090, app)
     
     logger.info("QA Bot running on port 8090")
-    
+
+    from shared.health import start_heartbeat
+    asyncio.create_task(start_heartbeat("qa_bot"))
+
     # Keep running
     while True:
         await asyncio.sleep(3600)

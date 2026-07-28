@@ -133,7 +133,10 @@ async def main():
     from shared.bot_bus import start_listener
     from shared.event_bus import BotBusActions
     asyncio.create_task(start_listener("rnd_bot", {}))
-    
+
+    from shared.health import start_heartbeat
+    asyncio.create_task(start_heartbeat("rnd_bot"))
+
     logger.info("R&D Bot running on port 8091 (weekly Instagram trends: Mon 10:00)")
 
     while True:

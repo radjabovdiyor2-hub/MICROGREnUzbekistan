@@ -120,7 +120,10 @@ async def main():
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
     asyncio.create_task(bus_listen("devops_bot", {}))
-    
+
+    from shared.health import start_heartbeat
+    asyncio.create_task(start_heartbeat("devops_bot"))
+
     logger.info("DevOps Bot running on port 8092")
     
     while True:

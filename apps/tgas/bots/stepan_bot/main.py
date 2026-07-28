@@ -464,29 +464,47 @@ async def auto_task_creation():
         logger.warning(f"Ошибка автосоздания задач: {e}")
 
 
-async def bot_health_check():
-    """Каждые 15 минут: проверка здоровья всех ботов."""
+_last_down_bots: set[str] = set()
+
+
+async def bot_health_check(force: bool = False):
+    """Проверка здоровья всех ботов. Алертит при ИЗМЕНЕНИИ статуса (новый упавший /
+    восстановление), а не каждый интервал — так частая проверка не спамит. `force=True`
+    (ежедневная сводка) присылает полный статус всегда."""
+    global _last_down_bots
     try:
         statuses = await check_all_bots()
         if not statuses:
             return
 
-        # Проверяем есть ли упавшие боты
-        down_bots = [name for name, info in statuses.items() if not info["alive"]]
+        down = {name for name, info in statuses.items() if not info["alive"]}
+        newly_down = down - _last_down_bots
+        recovered = _last_down_bots - down
+        _last_down_bots = down
 
-        if down_bots:
-            admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
-            if admin_id:
-                report = format_health_report(statuses)
-                alert = (
-                    f"🚨 <b>АЛЕРТ: Боты не отвечают!</b>\n\n"
-                    f"{report}\n\n"
-                    f"⚠️ Проверьте работу ботов!"
-                )
-                await _bot.send_message(admin_id, alert, parse_mode="HTML")
-                logger.warning(f"Боты не отвечают: {', '.join(down_bots)}")
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if not admin_id:
+            return
+
+        report = format_health_report(statuses)
+        if down and (force or newly_down):
+            await _bot.send_message(
+                admin_id,
+                f"🚨 <b>АЛЕРТ: боты не отвечают!</b>\n\n{report}\n\n⚠️ Проверьте работу ботов!",
+                parse_mode="HTML",
+            )
+            logger.warning("Боты не отвечают: %s", ", ".join(sorted(down)))
+        elif recovered and not down:
+            await _bot.send_message(admin_id, f"✅ <b>Все боты снова онлайн</b>\n\n{report}", parse_mode="HTML")
+        elif force:
+            await _bot.send_message(admin_id, report, parse_mode="HTML")
     except Exception as e:
         logger.warning(f"Ошибка проверки здоровья: {e}")
+
+
+async def bot_health_summary():
+    """Ежедневная (09:00) полная сводка статуса ботов — всегда присылается."""
+    await bot_health_check(force=True)
 
 
 # ── Регистрация задач ────────────────────────────────────────────────────
@@ -499,8 +517,10 @@ async def bot_health_check():
 # scheduler.add_cron(name="evening_summary", func=evening_summary, hour=20, minute=0)
 # scheduler.add_cron(name="weekly_report", func=weekly_report, hour=9, minute=5, day_of_week=0)
 # scheduler.add_interval(name="auto_task_creation", func=auto_task_creation, seconds=4 * 3600)
-# scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=900)  # отключено: спам каждые 15 мин
-scheduler.add_cron(name="bot_health_check_morning", func=bot_health_check, hour=9, minute=0)
+# Частая проверка (5 мин) — теперь антиспам: алертит только при ИЗМЕНЕНИИ (упал/восстановился).
+scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=300)
+# Ежедневная полная сводка в 09:00 (всегда присылается).
+scheduler.add_cron(name="bot_health_summary", func=bot_health_summary, hour=9, minute=0)
 
 # Инфраструктура
 async def _daily_backup():

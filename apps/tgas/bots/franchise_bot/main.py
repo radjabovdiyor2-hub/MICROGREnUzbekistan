@@ -123,7 +123,10 @@ async def start_server():
     # Подключаем Event Bus
     await event_bus.connect()
     scheduler.start()
-    
+
+    from shared.health import start_heartbeat
+    asyncio.create_task(start_heartbeat("franchise_bot"))
+
     # Бесконечный цикл
     while True:
         await asyncio.sleep(3600)

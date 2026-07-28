@@ -1308,6 +1308,35 @@ async def bots_kanban():
                 
     return JSONResponse({"tasks": tasks})
 
+@app.get("/api/health/bots")
+async def api_health_bots():
+    """JSON-статус всех ботов (heartbeat) — надзор за работой ботов не только в Telegram."""
+    from shared.health import check_all_bots
+    statuses = await check_all_bots()
+    alive = sum(1 for i in statuses.values() if i.get("alive"))
+    return JSONResponse({
+        "bots": statuses,
+        "alive": alive,
+        "total": len(statuses),
+        "all_ok": alive == len(statuses) and len(statuses) > 0,
+    })
+
+
+@app.get("/health/bots", response_class=HTMLResponse)
+async def health_bots_view():
+    """Простая авто-обновляемая HTML-страница статуса ботов."""
+    from shared.health import check_all_bots, format_health_report
+    statuses = await check_all_bots()
+    body = format_health_report(statuses).replace("\n", "<br>")
+    return HTMLResponse(
+        "<html><head><meta charset='utf-8'><title>Bot Health</title>"
+        "<meta http-equiv='refresh' content='30'>"
+        "<style>body{font-family:system-ui;background:#0b0b14;color:#e6e6e6;"
+        "padding:24px;line-height:1.7}code{color:#f88}</style></head><body>"
+        f"{body}</body></html>"
+    )
+
+
 @app.get("/admin/ai-office", response_class=HTMLResponse)
 async def ai_office_dashboard(request: Request):
     """Страница визуального Kanban-дашборда ИИ Офиса."""
