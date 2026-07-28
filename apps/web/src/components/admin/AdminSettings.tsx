@@ -40,7 +40,9 @@ export function AdminSettings() {
       const res = await fetch('/api/auth/password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ currentPassword, newPassword }),
+        credentials: 'same-origin',
+        // action отличает смену пароля от входа — оба на одном маршруте.
+        body: JSON.stringify({ action: 'change', currentPassword, newPassword }),
       });
       const data = await res.json();
       if (data.success) {

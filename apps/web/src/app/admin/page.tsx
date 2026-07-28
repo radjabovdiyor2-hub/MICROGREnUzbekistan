@@ -120,10 +120,14 @@ export default function AdminPage() {
       const optsRes = await fetch('/api/auth/webauthn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ action: 'login-options' }),
       });
       const opts = await optsRes.json();
       if (!optsRes.ok) {
+        // WEBAUTHN_DISABLED — прежняя реализация не проверяла подпись и
+        // пускала владельцем по одному лишь id ключа. Вход отключён до
+        // переделки на @simplewebauthn/server, пароль работает как прежде.
         setAuthError(opts.error || t('Face ID не привязан', "Face ID biriktirilmagan"));
         return;
       }
@@ -153,7 +157,6 @@ export default function AdminPage() {
       if (verifyData.ok) {
         setIsOwner(true);
         sessionStorage.setItem(ADMIN_KEY, 'true');
-        sessionStorage.setItem('Microgreen_admin_pw', 'Microgreen2026');
         setAuthError('');
       } else {
         setAuthError(verifyData.error || t('Ошибка Face ID', 'Face ID xatosi'));
@@ -212,16 +215,30 @@ export default function AdminPage() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await fetch(`/api/auth/password?password=${encodeURIComponent(password)}`);
+      // POST, а не GET: в query-строке пароль оседал в логах nginx,
+      // в истории браузера и в Referer. Сервер в ответ ставит
+      // httpOnly-cookie — пароль на клиенте больше не хранится.
+      const res = await fetch('/api/auth/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: 'login', password }),
+      });
       const data = await res.json();
-      if (data.valid) {
+      if (res.ok && data.valid) {
         setIsOwner(true);
         sessionStorage.setItem(ADMIN_KEY, 'true');
-        // Пароль нужен для серверной авторизации admin-API журнала (заголовок x-admin-password)
-        sessionStorage.setItem('Microgreen_admin_pw', password);
         setAuthError('');
+        setPassword('');
+      } else if (res.status === 429) {
+        setAuthError(
+          t(
+            `Слишком много попыток. Повторите через ${data.retryAfter ?? 900} с`,
+            `Juda ko'p urinish. ${data.retryAfter ?? 900} soniyadan keyin urining`,
+          ),
+        );
       } else {
-        setAuthError("Parol noto'g'ri");
+        setAuthError(data.error || "Parol noto'g'ri");
       }
     } catch {
       setAuthError("Server bilan bog'lanib bo'lmadi");
@@ -250,7 +267,15 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Гасим серверную сессию, а не только флаг в браузере: иначе cookie
+    // осталась бы валидной и после «выхода».
+    const endpoint = isOwner ? '/api/auth/password' : '/api/inventory/employees/auth';
+    try {
+      await fetch(endpoint, { method: 'DELETE', credentials: 'same-origin' });
+    } catch {
+      // сеть недоступна — локальное состояние всё равно сбрасываем
+    }
     sessionStorage.removeItem(ADMIN_KEY);
     sessionStorage.removeItem(SELLER_KEY);
     setIsOwner(false);

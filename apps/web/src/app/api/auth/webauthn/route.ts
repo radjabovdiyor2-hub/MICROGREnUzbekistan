@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 
 // WebAuthn credential storage — JSON file alongside password
 const WEBAUTHN_FILE = path.join(process.cwd(), '.admin-webauthn.json');
@@ -59,6 +60,37 @@ function fromBase64url(s: string): Buffer {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { action } = body;
+
+  // ════════════════════════════════════════════════════════════════════
+  // ВХОД ПО FACE ID ОТКЛЮЧЁН.
+  //
+  // Реализация ниже не проверяла подпись: `login-verify` сверял только то,
+  // что присланный credential.id есть в хранилище, а `login-options` этот
+  // самый id и отдавал в allowCredentials. То есть вход владельцем
+  // выполнялся двумя обычными HTTP-запросами, без устройства и биометрии.
+  // Хранилище это и не позволяло починить на месте: в поле publicKey
+  // записывался тот же id, настоящий ключ никогда не сохранялся.
+  //
+  // Чинить это вручную (разбор CBOR/COSE, проверка attestation и подписи)
+  // — писать криптографию с нуля, чего делать нельзя. Правильный путь:
+  // @simplewebauthn/server + перерегистрация ключей. До тех пор вход
+  // закрыт, пароль остаётся рабочим способом входа.
+  // ════════════════════════════════════════════════════════════════════
+  if (action === 'login-options' || action === 'login-verify') {
+    return NextResponse.json(
+      {
+        error:
+          'Face ID kirish vaqtincha o\'chirilgan (xavfsizlik yangilanishi). Parol bilan kiring.',
+        code: 'WEBAUTHN_DISABLED',
+      },
+      { status: 501 },
+    );
+  }
+
+  // Регистрация ключа, список и удаление — только для вошедшего владельца.
+  // Раньше не проверялось вообще: посторонний мог привязать свой Face ID
+  // и войти как владелец.
+  if (!isAuthorized(req)) return unauthorized();
 
   if (action === 'register-options') {
     const store = loadStore();
