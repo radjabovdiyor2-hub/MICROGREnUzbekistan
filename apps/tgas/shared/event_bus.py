@@ -120,10 +120,14 @@ class EventBus:
                 ("mg_franchise", 8093),
             ]
             
+            from shared.config import settings
+            _secret = getattr(settings, "event_bus_secret", None)
+            _hdrs = {"X-Bot-Secret": _secret} if _secret else {}
+
             async def send_direct(host, port):
                 try:
                     url = f"http://{host}:{port}/event"
-                    async with session.post(url, json=message, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                    async with session.post(url, json=message, headers=_hdrs, timeout=aiohttp.ClientTimeout(total=3)) as resp:
                         if resp.status == 200:
                             logger.info(f"Direct EventBus: [{source_bot}] → {host}:{port} ({event_type})")
                 except Exception:
@@ -154,6 +158,15 @@ class EventBus:
 
     async def _handle_webhook(self, request: web.Request):
         try:
+            # Аутентификация события между ботами: если задан EVENT_BUS_SECRET, требуем
+            # заголовок X-Bot-Secret. Без него любой, кто достучится до mg_<bot>:808x/event,
+            # мог бы инъектировать поддельные события (заказ/задача). Порты 808x наружу не
+            # публикуются, но это защита-в-глубину и правдивость DD-заявления про bot-auth.
+            from shared.config import settings
+            secret = getattr(settings, "event_bus_secret", None)
+            if secret and request.headers.get("X-Bot-Secret") != secret:
+                logger.warning("EventBus: отклонено событие без валидного X-Bot-Secret")
+                return web.json_response({"error": "unauthorized"}, status=401)
             payload = await request.json()
             event_type = payload.get("event")
             if not event_type:

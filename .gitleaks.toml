@@ -1,0 +1,49 @@
+# gitleaks config — секрет-скан перед пушем / в CI.
+# Запуск:  gitleaks detect --config .gitleaks.toml --no-banner
+#          gitleaks protect --staged --config .gitleaks.toml   # только застейдженное
+#
+# История репозитория была публичной и содержит утёкшие ключи (см. SECURITY.md).
+# Эта конфигурация ловит НОВЫЕ утечки; для истории требуется ротация ключей.
+
+title = "Microgreen Uzbekistan secret scan"
+
+[extend]
+# Наследуем встроенный набор правил gitleaks (AWS, Google, generic API keys и т.д.)
+useDefault = true
+
+[[rules]]
+id = "telegram-bot-token"
+description = "Telegram Bot API token"
+regex = '''\b\d{8,10}:[A-Za-z0-9_-]{35}\b'''
+keywords = ["bot", "token", "telegram"]
+
+[[rules]]
+id = "postgres-url-with-password"
+description = "Postgres connection string with inline password"
+regex = '''postgres(?:ql)?://[^:@/\s]+:[^@/\s]+@[^\s'"]+'''
+keywords = ["postgres", "postgresql"]
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API key"
+regex = '''\bsk-[A-Za-z0-9_-]{20,}\b'''
+keywords = ["sk-"]
+
+[[rules]]
+id = "meta-graph-token"
+description = "Facebook/Instagram Graph long-lived access token"
+regex = '''\bEA[A-Za-z0-9]{80,}\b'''
+keywords = ["access_token", "EA"]
+
+[allowlist]
+description = "Пути и плейсхолдеры, которые не считаем утечкой"
+paths = [
+    '''(^|/)\.env\.example$''',
+    '''(^|/)node_modules/''',
+    '''(^|/)\.git/''',
+    '''(^|/)package-lock\.json$''',
+    '''(^|/)pnpm-lock\.yaml$''',
+]
+regexes = [
+    '''(?i)(your[_-]?token|placeholder|example|changeme|xxxx+|<[^>]+>)''',
+]
