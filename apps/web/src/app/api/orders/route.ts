@@ -13,8 +13,11 @@ import { z } from 'zod';
 function generateOrderNumber(): string {
   const now = new Date();
   const date = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `M-${date}-${rand}`;
+  // Extra entropy (6 random chars + ms suffix) — under heavy concurrent load a
+  // short random tail collides (orderNumber is unique → the insert would throw).
+  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const ms = now.getTime().toString(36).slice(-4).toUpperCase();
+  return `M-${date}-${rand}${ms}`;
 }
 
 // Helper to send message to Telegram Admin
@@ -234,10 +237,13 @@ export async function POST(request: NextRequest) {
     // Resolve the ordering user: prefer the logged-in account (userId), then
     // phone, else create a guest by phone.
     let user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
-    if (!user) user = await prisma.user.findUnique({ where: { phone: customer.phone } });
     if (!user) {
-      user = await prisma.user.create({
-        data: {
+      // Atomic upsert by phone — two concurrent first-time orders sharing a phone
+      // would otherwise both miss findUnique and both create → unique-violation 500.
+      user = await prisma.user.upsert({
+        where: { phone: customer.phone },
+        update: {},
+        create: {
           phone: customer.phone,
           firstName: customer.firstName,
           lastName: customer.lastName || null,
@@ -248,7 +254,7 @@ export async function POST(request: NextRequest) {
     // Bonus redemption — only for the authenticated account, capped by the
     // balance and by the goods subtotal (delivery is never covered by points).
     const authed = !!userId && user.id === userId;
-    const bonusApplied = authed
+    let bonusApplied = authed
       ? Math.max(0, Math.min(Math.floor(Number(bonusToUse) || 0), user.bonusPoints, subtotal))
       : 0;
 
@@ -264,73 +270,85 @@ export async function POST(request: NextRequest) {
       promoApplied = Math.min(promoResult.discount, subtotal - bonusApplied);
     }
 
-    // Create order with items in a transaction
-    const order = await prisma.order.create({
-      data: {
-        orderNumber: generateOrderNumber(),
-        userId: user.id,
-        status: 'PENDING',
-        subtotal,
-        deliveryFee,
-        total: subtotal + deliveryFee - bonusApplied - promoApplied,
-        discount: bonusApplied + promoApplied,
-        city: city || 'tashkent',
-        address: customer.address,
-        phone: customer.phone,
-        note: customer.note || null,
-        paymentMethod: paymentMethod || 'cash',
-        paymentStatus: 'PENDING',
-        items: {
-          create: items.map((item: any) => ({
-            productId: item.productId || item.id || '',
-            quantity: item.quantity,
-            price: item.price,
-          })),
-        },
-      },
-      include: {
-        items: {
-          include: {
-            product: { select: { nameUz: true } },
+    // Reserve bonus points + create the order ATOMICALLY (single transaction):
+    //  • the reservation is a CONDITIONAL decrement, so two concurrent orders from
+    //    the same account can't double-spend the same balance (TOCTOU-safe);
+    //  • a failure mid-flight never debits points without creating the order.
+    const order = await prisma.$transaction(async (tx) => {
+      if (bonusApplied > 0) {
+        const reserved = await tx.user.updateMany({
+          where: { id: user!.id, bonusPoints: { gte: bonusApplied } },
+          data: { bonusPoints: { decrement: bonusApplied } },
+        });
+        // Balance changed under us (another concurrent order spent it) → don't apply.
+        if (reserved.count === 0) bonusApplied = 0;
+      }
+      return tx.order.create({
+        data: {
+          orderNumber: generateOrderNumber(),
+          userId: user!.id,
+          status: 'PENDING',
+          subtotal,
+          deliveryFee,
+          total: subtotal + deliveryFee - bonusApplied - promoApplied,
+          discount: bonusApplied + promoApplied,
+          city: city || 'tashkent',
+          address: customer!.address,
+          phone: customer!.phone,
+          note: customer!.note || null,
+          paymentMethod: paymentMethod || 'cash',
+          paymentStatus: 'PENDING',
+          items: {
+            create: items!.map((item: any) => ({
+              productId: item.productId || item.id || '',
+              quantity: item.quantity,
+              price: item.price,
+            })),
           },
         },
-      },
+        include: {
+          items: { include: { product: { select: { nameUz: true } } } },
+        },
+      });
     });
-
-    // Deduct redeemed bonus points from the account
-    if (bonusApplied > 0) {
-      try {
-        await prisma.user.update({ where: { id: user.id }, data: { bonusPoints: { decrement: bonusApplied } } });
-      } catch (e) { console.error('Bonus deduction error:', e); }
-    }
 
     // Count the promo use
     if (promoCode && promoApplied > 0) {
       await consumePromo(promoCode);
     }
 
-    // Auto-deduct stock + create StockMovements
+    // Auto-deduct stock — ATOMIC guarded decrement so simultaneous orders can never
+    // drive stock negative (oversell). Microgreens are grown-to-order, so an order
+    // beyond current stock is accepted but flagged as backorder and stock clamps at 0.
     const lowStockAlerts: string[] = [];
     try {
       for (const item of order.items) {
-        const [, updatedProduct] = await prisma.$transaction([
-          prisma.stockMovement.create({
-            data: {
-              productId: item.productId,
-              type: 'OUT',
-              quantity: -item.quantity,
-              reason: `Online buyurtma #${order.orderNumber}`,
-              orderId: order.id,
-              performedBy: 'System',
-            },
-          }),
-          prisma.product.update({
-            where: { id: item.productId },
-            data: { stock: { decrement: item.quantity } },
-          }),
-        ]);
-        if (updatedProduct.stock <= 5) {
-          lowStockAlerts.push(`⚠️ ${item.product.nameUz} — faqat ${updatedProduct.stock} dona qoldi!`);
+        const dec = await prisma.product.updateMany({
+          where: { id: item.productId, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
+        });
+        const soldOut = dec.count === 0;
+        await prisma.stockMovement.create({
+          data: {
+            productId: item.productId,
+            type: 'OUT',
+            quantity: -item.quantity,
+            reason: soldOut
+              ? `Online buyurtma #${order.orderNumber} (backorder — zaxira yetarli emas)`
+              : `Online buyurtma #${order.orderNumber}`,
+            orderId: order.id,
+            performedBy: 'System',
+          },
+        });
+        if (soldOut) {
+          // Never go negative — clamp remaining stock to zero (idempotent under races).
+          await prisma.product.updateMany({ where: { id: item.productId, stock: { gt: 0 } }, data: { stock: 0 } });
+          lowStockAlerts.push(`⚠️ ${item.product.nameUz} — zaxira tugadi (backorder)!`);
+        } else {
+          const fresh = await prisma.product.findUnique({ where: { id: item.productId }, select: { stock: true } });
+          if (fresh && fresh.stock <= 5) {
+            lowStockAlerts.push(`⚠️ ${item.product.nameUz} — faqat ${fresh.stock} dona qoldi!`);
+          }
         }
       }
     } catch (stockErr) {

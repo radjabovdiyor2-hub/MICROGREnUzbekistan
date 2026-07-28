@@ -26,19 +26,29 @@ export async function findOrderByRef(ref: string) {
 export async function markOrderPaid(ref: string) {
   const found = await findOrderByRef(ref);
   if (!found) return null;
-  if (found.paymentStatus === 'PAID') return found; // already done — no double notify
+  if (found.paymentStatus === 'PAID') return found; // fast path — already done
 
-  const order = await prisma.order.update({
-    where: { id: found.id },
+  // Atomic flip: only ONE concurrent webhook (a Click retry / Payme PerformTransaction
+  // re-delivery) wins the PENDING→PAID transition. The losers get count 0 and MUST NOT
+  // re-fire side-effects (double customer DM / double office-sync / double income record).
+  const flip = await prisma.order.updateMany({
+    where: { id: found.id, paymentStatus: { not: 'PAID' } },
     data: {
       paymentStatus: 'PAID',
       // Move a still-pending order forward; don't rewind a later status.
       status: found.status === 'PENDING' ? 'CONFIRMED' : found.status,
     },
+  });
+  if (flip.count === 0) {
+    // Lost the race — a concurrent call already marked it paid. No side-effects.
+    return prisma.order.findUnique({ where: { id: found.id } });
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: found.id },
     include: { user: { select: { telegramId: true, language: true } } },
   });
-
-  await syncOrderPaid(order);
+  if (order) await syncOrderPaid(order);
   return order;
 }
 
