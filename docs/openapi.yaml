@@ -1,0 +1,527 @@
+openapi: 3.1.0
+
+# ══════════════════════════════════════════════════════════════════════
+# Microgreen Uzbekistan — контракт публичного и админского API.
+#
+# Форма Due Diligence (§3, строка «API-hujjat (Swagger, Postman)») ссылалась
+# на API.md — текстовое описание. Здесь машиночитаемый контракт: его можно
+# импортировать в Postman/Insomnia, генерировать по нему клиентов и
+# прогонять контрактные тесты.
+#
+# Просмотр:  npx @redocly/cli preview-docs docs/openapi.yaml
+# Проверка:  npx @redocly/cli lint docs/openapi.yaml
+# ══════════════════════════════════════════════════════════════════════
+
+info:
+  title: Microgreen Uzbekistan API
+  version: "1.0.0"
+  description: |
+    API интернет-магазина микрозелени (Next.js App Router) и его интеграций
+    с Telegram-ботами, AI-офисом и платёжными системами Click/Payme.
+
+    ## Модель доступа
+
+    | Уровень   | Как подтверждается            | Что открывает                       |
+    |-----------|-------------------------------|-------------------------------------|
+    | публичный | —                             | каталог, отзывы, оформление заказа  |
+    | `SELLER`  | cookie `mg_session` (вход по PIN) | касса, движения склада          |
+    | `ADMIN`   | cookie `mg_session` (пароль)  | весь `/api/admin/*`, склад, товары  |
+    | сервис    | `BOT_SECRET`                  | вызовы бот→сайт, cron               |
+
+    Роль проверяется в `middleware.ts` до попадания в обработчик, поэтому
+    новый маршрут под защищённым префиксом закрыт по умолчанию.
+  contact:
+    name: Microgreen Uzbekistan
+    email: dev@microgreenuzbekistan.com
+  license:
+    name: Proprietary
+
+servers:
+  - url: https://microgreenuzbekistan.com
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Вход владельца и продавца, сессии
+  - name: Catalog
+    description: Товары и категории
+  - name: Orders
+    description: Оформление и статусы заказов
+  - name: Payments
+    description: Webhook'и Click и Payme
+  - name: Inventory
+    description: Склад, касса, персонал
+  - name: Privacy
+    description: Права субъекта персональных данных
+  - name: Ops
+    description: Health-check и метрики
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: mg_session
+      description: |
+        Подписанный HS256-токен (jose), httpOnly. Выдаётся при входе,
+        живёт 12 часов. Содержит роль (`ADMIN` / `SELLER`).
+    botSecret:
+      type: apiKey
+      in: header
+      name: x-bot-secret
+      description: Общий секрет `BOT_SECRET` для вызовов бот→сайт и cron.
+    metricsToken:
+      type: http
+      scheme: bearer
+      description: '`METRICS_TOKEN` — используется только Prometheus для scrape.'
+
+  responses:
+    Unauthorized:
+      description: Не аутентифицирован
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: Роли недостаточно
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    TooManyRequests:
+      description: Превышен лимит запросов
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Через сколько секунд повторить
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/Error'
+              - type: object
+                properties:
+                  retryAfter: { type: integer }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+
+    Product:
+      type: object
+      properties:
+        id: { type: string }
+        nameUz: { type: string }
+        nameRu: { type: string }
+        slug: { type: string }
+        price: { type: integer, description: Цена в сумах }
+        oldPrice: { type: integer, nullable: true }
+        stock: { type: integer }
+        images:
+          type: array
+          items: { type: string, format: uri }
+        isActive: { type: boolean }
+        isFeatured: { type: boolean }
+        rating: { type: number }
+        reviewCount: { type: integer }
+
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer, maximum: 100 }
+        total: { type: integer }
+        totalPages: { type: integer }
+
+    Review:
+      type: object
+      properties:
+        id: { type: string }
+        productId: { type: string }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment:
+          type: string
+          nullable: true
+          maxLength: 1000
+          description: Обрезается сервером до 1000 символов.
+        createdAt: { type: string, format: date-time }
+
+paths:
+  # ────────────────────────────── Auth ──────────────────────────────
+  /api/auth/password:
+    post:
+      tags: [Auth]
+      summary: Вход владельца или смена пароля
+      description: |
+        `action: login` проверяет пароль и ставит cookie `mg_session` с ролью
+        `ADMIN`. `action: change` меняет пароль.
+
+        Лимит: 10 попыток за 15 минут на IP.
+
+        GET-варианта нет намеренно — пароль в query-строке оседал в логах
+        nginx, в истории браузера и в Referer.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  title: Вход
+                  properties:
+                    action: { type: string, enum: [login] }
+                    password: { type: string }
+                  required: [password]
+                - type: object
+                  title: Смена пароля
+                  properties:
+                    action: { type: string, enum: [change] }
+                    currentPassword: { type: string }
+                    newPassword: { type: string, minLength: 8 }
+                  required: [action, currentPassword, newPassword]
+      responses:
+        '200':
+          description: Успех; в заголовке Set-Cookie приходит mg_session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  valid: { type: boolean }
+                  role: { type: string, enum: [ADMIN] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '503':
+          description: Пароль или SESSION_SECRET не настроены на сервере
+    delete:
+      tags: [Auth]
+      summary: Выход владельца (гасит cookie)
+      security:
+        - sessionCookie: []
+      responses:
+        '200': { description: Сессия завершена }
+
+  /api/inventory/employees/auth:
+    post:
+      tags: [Auth]
+      summary: Вход продавца по PIN
+      description: |
+        Выдаёт сессию с ролью `SELLER`. Лимит — 5 попыток за 15 минут на IP:
+        PIN четырёхзначный, без лимита перебор занимал меньше 20 минут.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin: { type: string, pattern: '^\d{4}$' }
+              required: [pin]
+      responses:
+        '200':
+          description: Вход выполнен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  employee:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      role: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    delete:
+      tags: [Auth]
+      summary: Выход продавца
+      security:
+        - sessionCookie: []
+      responses:
+        '200': { description: Смена закрыта }
+
+  /api/auth/telegram-webapp:
+    post:
+      tags: [Auth]
+      summary: Вход через Telegram Mini App
+      description: |
+        Проверяет подпись `initData` по алгоритму Telegram
+        (HMAC-SHA256, сверка в постоянном времени, отсечка старше 24 часов).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                initData: { type: string }
+              required: [initData]
+      responses:
+        '200': { description: Пользователь опознан или создан }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ───────────────────────────── Catalog ─────────────────────────────
+  /api/products:
+    get:
+      tags: [Catalog]
+      summary: Список товаров
+      security: []
+      parameters:
+        - { name: category, in: query, schema: { type: string }, description: slug или id }
+        - { name: search, in: query, schema: { type: string } }
+        - { name: featured, in: query, schema: { type: boolean } }
+        - { name: sale, in: query, schema: { type: boolean } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, default: 24, maximum: 100 } }
+      responses:
+        '200':
+          description: Страница каталога
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Product' }
+                  pagination: { $ref: '#/components/schemas/Pagination' }
+    post:
+      tags: [Catalog]
+      summary: Создать товар
+      security:
+        - sessionCookie: []
+        - botSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Product' }
+      responses:
+        '200': { description: Товар создан }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    put:
+      tags: [Catalog]
+      summary: Обновить товар
+      security:
+        - sessionCookie: []
+        - botSecret: []
+      responses:
+        '200': { description: Товар обновлён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [Catalog]
+      summary: Удалить товар
+      security:
+        - sessionCookie: []
+        - botSecret: []
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Товар удалён }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/products/{id}:
+    get:
+      tags: [Catalog]
+      summary: Товар по идентификатору
+      security: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Товар
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '404': { description: Не найден }
+
+  /api/reviews:
+    get:
+      tags: [Catalog]
+      summary: Отзывы о товаре
+      security: []
+      parameters:
+        - { name: productId, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: До 50 последних отзывов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reviews:
+                    type: array
+                    items: { $ref: '#/components/schemas/Review' }
+    post:
+      tags: [Catalog]
+      summary: Оставить отзыв
+      description: |
+        Гостевой путь принимает `guestId` из localStorage. Сервер хеширует его
+        перед использованием как первичный ключ — иначе клиент мог указать id
+        чужого пользователя и писать от его имени.
+
+        Лимит: 10 отзывов в час на IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productId: { type: string }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string, maxLength: 1000 }
+                userId: { type: string, description: для авторизованного пользователя }
+                guestId: { type: string, minLength: 8, description: для гостя }
+                guestName: { type: string, maxLength: 50 }
+              required: [productId, rating]
+      responses:
+        '200': { description: Отзыв сохранён }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ────────────────────────────── Payments ───────────────────────────
+  /api/payment/click:
+    post:
+      tags: [Payments]
+      summary: Webhook Click.uz (Prepare / Complete)
+      description: |
+        Подпись MD5 (`sign_string`) проверяется до любого изменения статуса
+        оплаты, сумма сверяется с заказом. Переход `PENDING → PAID` идемпотентен.
+        При ненастроенных ключах маршрут money-state не трогает.
+      security: []
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                click_trans_id: { type: string }
+                service_id: { type: string }
+                merchant_trans_id: { type: string }
+                amount: { type: string }
+                action: { type: string, enum: ['0', '1'] }
+                sign_time: { type: string }
+                sign_string: { type: string }
+      responses:
+        '200':
+          description: Ответ в формате Click (поле `error` — код результата)
+
+  /api/payment/payme:
+    post:
+      tags: [Payments]
+      summary: Webhook Payme (JSON-RPC)
+      description: Авторизация HTTP Basic `Paycom:<PAYME_KEY>`.
+      security: []
+      responses:
+        '200': { description: JSON-RPC результат }
+
+  # ───────────────────────────── Inventory ───────────────────────────
+  /api/inventory/pos:
+    post:
+      tags: [Inventory]
+      summary: Провести продажу в кассе
+      security:
+        - sessionCookie: []
+      responses:
+        '200': { description: Продажа проведена }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/inventory/export:
+    get:
+      tags: [Inventory]
+      summary: Выгрузка отчётов в CSV
+      description: Содержит ФИО и телефоны должников — только для роли ADMIN.
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string, enum: [inventory, debts, movements] }
+      responses:
+        '200':
+          description: CSV-файл
+          content:
+            text/csv:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ────────────────────────────── Privacy ────────────────────────────
+  /api/users/data:
+    post:
+      tags: [Privacy]
+      summary: Выгрузить или удалить свои персональные данные
+      description: |
+        Реализует право на доступ и удаление (Закон РУз «О персональных
+        данных», ст. 20). Личность подтверждается подписанным Telegram
+        `initData`.
+
+        При удалении заказы сохраняются в обезличенном виде — они первичный
+        учётный документ и требуются налоговым законодательством.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                initData: { type: string }
+                action: { type: string, enum: [export, delete] }
+              required: [initData, action]
+      responses:
+        '200':
+          description: JSON с данными пользователя либо подтверждение удаления
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  # ──────────────────────────────── Ops ──────────────────────────────
+  /api/health:
+    get:
+      tags: [Ops]
+      summary: Health-check
+      security: []
+      parameters:
+        - name: ready
+          in: query
+          schema: { type: string }
+          description: Любое значение включает проверку соединения с БД.
+      responses:
+        '200':
+          description: Сервис жив
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  uptimeSeconds: { type: integer }
+        '503': { description: БД недоступна }
+
+  /api/metrics:
+    get:
+      tags: [Ops]
+      summary: Метрики для Prometheus
+      description: Формат text/plain version=0.0.4. Закрыт токеном или сессией владельца.
+      security:
+        - metricsToken: []
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Метрики
+          content:
+            text/plain:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
