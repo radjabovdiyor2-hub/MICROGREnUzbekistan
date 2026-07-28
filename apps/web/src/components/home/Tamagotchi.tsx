@@ -53,7 +53,7 @@ export function Tamagotchi() {
       alignItems: 'center',
       gap: '15px',
       border: '1px solid var(--border)',
-      boxShadow: '0 4px 20px rgba(16, 185, 129, 0.1)'
+      boxShadow: '0 4px 20px rgba(var(--brand-primary-rgb), 0.1)'
     }}>
       <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
         <Sparkles size={18} style={{ display: 'inline', color: '#10B981', marginRight: '5px' }} />

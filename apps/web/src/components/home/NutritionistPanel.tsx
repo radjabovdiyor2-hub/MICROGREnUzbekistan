@@ -94,7 +94,7 @@ export function NutritionistPanel() {
             width: 36, height: 36, borderRadius: 10,
             background: 'linear-gradient(135deg, #10B981, #059669)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+            color: 'white', boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)',
           }}>
             <Heart size={18} />
           </div>
@@ -166,7 +166,7 @@ export function NutritionistPanel() {
                 background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white',
                 border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', gap: 6, opacity: loading ? 0.6 : 1,
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)', transition: 'all 0.2s',
+                boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)', transition: 'all 0.2s',
               }}>
                 <Zap size={14} /> {loading ? '...' : t('Hisoblash', 'Рассчитать')}
               </button>

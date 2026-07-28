@@ -23,7 +23,7 @@ export function AiNutritionistBanner() {
           borderRadius: 'var(--radius-2xl)',
           overflow: 'hidden',
           background: '#0F172A',
-          boxShadow: '0 20px 40px rgba(16, 185, 129, 0.15)',
+          boxShadow: '0 20px 40px rgba(var(--brand-primary-rgb), 0.15)',
         }}
       >
         {/* Background Image */}
@@ -42,7 +42,7 @@ export function AiNutritionistBanner() {
         <div style={{ position: 'relative', zIndex: 1, padding: 'var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxWidth: '500px' }}>
           <div style={{ 
             display: 'inline-flex', alignItems: 'center', gap: '8px', 
-            background: 'rgba(16, 185, 129, 0.2)', color: '#34D399', 
+            background: 'rgba(var(--brand-primary-rgb), 0.2)', color: '#34D399', 
             padding: '6px 12px', borderRadius: 'var(--radius-full)', 
             fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)',
             width: 'fit-content', border: '1px solid rgba(52, 211, 153, 0.3)'
@@ -77,7 +77,7 @@ export function AiNutritionistBanner() {
               cursor: 'pointer',
               width: 'fit-content',
               marginTop: 'var(--space-2)',
-              boxShadow: '0 10px 20px rgba(16, 185, 129, 0.3)',
+              boxShadow: '0 10px 20px rgba(var(--brand-primary-rgb), 0.3)',
               transition: 'all 0.3s ease'
             }}
             onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}

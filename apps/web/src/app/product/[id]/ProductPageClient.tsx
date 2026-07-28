@@ -436,7 +436,7 @@ export function ProductPageClient({ id }: { id: string }) {
               }}>
               {tab.icon} {t(tab.labelUz, tab.labelRu)}
               {tab.id === 'reviews' && product.reviewCount > 0 && (
-                <span style={{ background: activeTab === 'reviews' ? 'rgba(255,255,255,0.25)' : 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', fontSize: '11px', padding: '0 6px', fontWeight: 'var(--font-bold)' }}>
+                <span style={{ background: activeTab === 'reviews' ? 'color-mix(in srgb, var(--brand-primary) 14%, transparent)' : 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', fontSize: '11px', padding: '0 6px', fontWeight: 'var(--font-bold)' }}>
                   {product.reviewCount}
                 </span>
               )}

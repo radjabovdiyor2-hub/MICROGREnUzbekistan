@@ -411,7 +411,7 @@ export function InstagramFeed() {
                         position: 'absolute', bottom: 6, left: 6, right: 6, zIndex: 3,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                         padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: inCart ? 'rgba(16,185,129,0.95)' : 'rgba(255,255,255,0.95)',
+                        background: inCart ? 'rgba(var(--brand-primary-rgb),0.95)' : 'rgba(255,255,255,0.95)',
                         color: inCart ? '#fff' : '#111', fontSize: 11, fontWeight: 700,
                         boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
                       }}
@@ -437,7 +437,7 @@ export function InstagramFeed() {
           }}>
             <div style={{
               width: 6, height: 6, borderRadius: '50%',
-              background: '#10B981',
+              background: 'var(--brand-primary)',
               animation: 'pulse 2s ease-in-out infinite',
             }} />
             {t('Haqiqiy Instagram postlar', 'Реальные посты из Instagram')}
