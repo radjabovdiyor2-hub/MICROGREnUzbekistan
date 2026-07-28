@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getRecipeForDay } from '../nutrition/route';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
@@ -176,6 +177,13 @@ async function fallbackResponse(message: string): Promise<string> {
 // ==========================================
 export async function POST(request: NextRequest) {
   try {
+    // Маршрут открытый и на каждый вызов тратит платные токены Gemini
+    // (а с полем image — ещё и vision). Без лимита это прямой способ
+    // сжечь бюджет: 20 сообщений в минуту с адреса — потолок живого диалога.
+    const ip = clientIp(request);
+    const limit = consume(`ai:${ip}`, 20, 60 * 1000);
+    if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
     const { message, history, userId, cartItems, image } = await request.json();
 
     if (!message?.trim() && !image) {
