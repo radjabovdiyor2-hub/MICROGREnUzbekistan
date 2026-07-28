@@ -13,7 +13,16 @@ router = Router()
 WEB_APP_URL = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com")
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_CHAT_ID", "847872669").split(",") if x.strip()]
+BOT_SECRET = os.getenv("BOT_SECRET", "")
 _start_time = time.time()
+
+
+def _api_headers() -> dict:
+    """Заголовки для вызовов сайта: общий секрет бот→сайт."""
+    headers = {"Content-Type": "application/json"}
+    if BOT_SECRET:
+        headers["Authorization"] = f"Bearer {BOT_SECRET}"
+    return headers
 
 
 @router.message(Command("start"))
@@ -24,13 +33,15 @@ async def cmd_start(message: Message):
         try:
             referrer_id = int(args[1].replace("ref_", ""))
             if referrer_id != message.from_user.id:
-                # Credit bonuses via API
+                # Credit bonuses via API.
+                # Заголовок обязателен: маршрут начисляет бонусы (это деньги)
+                # и теперь закрыт общим секретом — без него сайт ответит 401.
                 async with httpx.AsyncClient(timeout=5) as client:
                     await client.post(f"{WEB_API_URL}/users/referral", json={
                         "referrerId": referrer_id,
                         "newUserId": message.from_user.id,
                         "newUserName": message.from_user.full_name,
-                    })
+                    }, headers=_api_headers())
                     logging.info(f"Referral: {message.from_user.id} from {referrer_id}")
         except Exception as e:
             logging.debug(f"Referral processing failed: {e}")

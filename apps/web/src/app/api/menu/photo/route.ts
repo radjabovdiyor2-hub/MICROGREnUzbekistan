@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { saveUpload } from '@/lib/uploads';
 import { awardStamp } from '@/lib/magazine/loyalty';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,11 @@ export const dynamic = 'force-dynamic';
 const MAX_BYTES = 12 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
+  // Маршрут публичный и пишет файл на диск (до 12 МБ). Лимит держит
+  // заполнение диска в разумных рамках, не мешая живому гостю.
+  const limit = consume(`menuphoto:${clientIp(req)}`, 10, 60 * 60 * 1000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
   const form = await req.formData().catch(() => null);
   if (!form) return NextResponse.json({ error: 'multipart/form-data required' }, { status: 400 });
 

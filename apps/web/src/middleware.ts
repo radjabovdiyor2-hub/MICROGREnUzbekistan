@@ -70,6 +70,16 @@ const RULES: Rule[] = [
   // Было открыто: любой мог слать текст в админский чат под видом алерта.
   { prefix: '/api/notify', access: 'ADMIN' },
 
+  // /api/telegram/notify — зеркало /api/notify для бота;
+  // /api/telegram/channel — публикация в канал бренда: без проверки любой
+  // мог запостить произвольный текст подписчикам от имени компании.
+  // Бот ходит сюда с Bearer BOT_SECRET (ecosystem_bridge.py).
+  { prefix: '/api/telegram', access: 'ADMIN' },
+
+  // Начисление реферальных бонусов — это деньги (бонусы уменьшают сумму
+  // заказа). Вызывается ботом из handlers/start.py с BOT_SECRET.
+  { prefix: '/api/users/referral', access: 'ADMIN' },
+
   // Face ID (/api/auth/webauthn) намеренно НЕ здесь: часть его действий —
   // это сам вход, до которого сессии ещё нет. Разграничение по действию
   // делает сам роут.
