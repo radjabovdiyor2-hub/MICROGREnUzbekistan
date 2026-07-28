@@ -239,12 +239,42 @@ async def salary_reminder():
         logger.exception("salary_reminder error: %s", e)
 
 
+async def ai_cost_report():
+    """Ежедневный (23:30) отчёт по расходу AI-токенов + бюджет-алерт; запись стоимости дня в P&L."""
+    try:
+        from shared.ai_usage import build_cost_report
+        bot = Bot(token=settings.finance_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        try:
+            rep = await build_cost_report()
+            if admin_id:
+                await bot.send_message(admin_id, rep["summary"], parse_mode="HTML")
+            # Стоимость AI за день → в P&L (finances) как расход в сумах (по курсу USD→UZS).
+            cost_usd = float(rep.get("today_cost", 0.0) or 0.0)
+            if cost_usd > 0:
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                rate = float(getattr(settings, "usd_uzs_rate", 12600.0) or 12600.0)
+                async with get_session_ctx() as session:
+                    await session.execute(text(
+                        "INSERT INTO finances (type, category, amount, description, date, created_at) "
+                        "VALUES ('expense', 'ai_tokens', :amt, :desc, CURRENT_DATE, NOW())"
+                    ), {"amt": round(cost_usd * rate, 2), "desc": f"AI-токены ${cost_usd:.4f}"})
+            logger.info("ai_cost_report: today=$%.4f over_daily=%s", cost_usd, rep.get("over_daily"))
+        finally:
+            await bot.session.close()
+    except Exception as e:
+        logger.exception("ai_cost_report error: %s", e)
+
+
 # Отключено: ежедневный/частотный спам
 # scheduler.add_cron(name="daily_finance_report", func=daily_finance_report, hour=18, minute=0)
 # scheduler.add_interval(name="overdue_payments", func=overdue_payments, seconds=8 * 3600)
 # scheduler.add_interval(name="large_expense_check", func=large_expense_check, seconds=4 * 3600)
 scheduler.add_cron(name="monthly_pnl", func=monthly_pnl, hour=9, minute=0, day_of_month=1)
 scheduler.add_cron(name="salary_reminder", func=salary_reminder, hour=9, minute=0, day_of_month=28)
+# Расход AI-токенов: ежедневный отчёт в 23:30 (день почти закрыт) + бюджет-алерт.
+scheduler.add_cron(name="ai_cost_report", func=ai_cost_report, hour=23, minute=30)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -74,6 +74,8 @@ services:
     container_name: mg_stepan
     restart: unless-stopped
     command: python -m bots.stepan_bot.main
+    environment:
+      BOT_NAME: stepan
     env_file: .env
     depends_on:
       postgres:
@@ -94,6 +96,8 @@ services:
     container_name: mg_sales
     restart: unless-stopped
     command: python -m bots.sales_bot.main
+    environment:
+      BOT_NAME: sales
     env_file: .env
     depends_on:
       postgres:
@@ -114,6 +118,8 @@ services:
     container_name: mg_hr
     restart: unless-stopped
     command: python -m bots.hr_bot.main
+    environment:
+      BOT_NAME: hr
     env_file: .env
     depends_on:
       postgres:
@@ -134,6 +140,8 @@ services:
     container_name: mg_finance
     restart: unless-stopped
     command: python -m bots.finance_bot.main
+    environment:
+      BOT_NAME: finance
     env_file: .env
     depends_on:
       postgres:
@@ -154,6 +162,8 @@ services:
     container_name: mg_marketing
     restart: unless-stopped
     command: python -m bots.marketing_bot.main
+    environment:
+      BOT_NAME: marketing
     env_file: .env
     depends_on:
       postgres:
@@ -174,6 +184,8 @@ services:
     container_name: mg_support
     restart: unless-stopped
     command: python -m bots.support_bot.main
+    environment:
+      BOT_NAME: support
     env_file: .env
     depends_on:
       postgres:
@@ -194,6 +206,8 @@ services:
     container_name: mg_analytics
     restart: unless-stopped
     command: python -m bots.analytics_bot.main
+    environment:
+      BOT_NAME: analytics
     env_file: .env
     depends_on:
       postgres:
@@ -214,6 +228,8 @@ services:
     container_name: mg_content
     restart: unless-stopped
     command: python -m bots.content_bot.main
+    environment:
+      BOT_NAME: content
     env_file: .env
     depends_on:
       postgres:
@@ -234,6 +250,8 @@ services:
     container_name: mg_qa
     restart: unless-stopped
     command: python -m bots.qa_bot.main
+    environment:
+      BOT_NAME: qa
     env_file: .env
     depends_on:
       postgres:
@@ -254,6 +272,8 @@ services:
     container_name: mg_rnd
     restart: unless-stopped
     command: python -m bots.rnd_bot.main
+    environment:
+      BOT_NAME: rnd
     env_file: .env
     depends_on:
       postgres:
@@ -274,6 +294,8 @@ services:
     container_name: mg_devops
     restart: unless-stopped
     command: python -m bots.devops_bot.main
+    environment:
+      BOT_NAME: devops
     env_file: .env
     volumes:
     - ./backups:/app/backups
@@ -297,6 +319,7 @@ services:
     command: python -m bots.n8n_bridge.main
     env_file: .env
     environment:
+      BOT_NAME: n8n_bridge
       N8N_ASSISTANT_WEBHOOK: http://host.docker.internal:5678/webhook/assistant
       N8N_TIMEOUT: '120'
     extra_hosts:
@@ -320,6 +343,8 @@ services:
     container_name: mg_franchise
     restart: unless-stopped
     command: python -m bots.franchise_bot.main
+    environment:
+      BOT_NAME: franchise
     env_file: .env
     depends_on:
       postgres:

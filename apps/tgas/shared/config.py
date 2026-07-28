@@ -85,6 +85,26 @@ class Settings(BaseSettings):
         description="Модель Gemini для генерации ответов",
     )
 
+    # ── Бюджеты на AI-токены (учёт + алерт; НЕ жёсткий стоп) ───────────
+    ai_daily_budget_usd: float = Field(
+        default=5.0,
+        description="Дневной бюджет на AI-токены (USD). Превышение → алерт админу.",
+    )
+    ai_monthly_budget_usd: float = Field(
+        default=100.0,
+        description="Месячный бюджет на AI-токены (USD). Превышение → алерт админу.",
+    )
+    usd_uzs_rate: float = Field(
+        default=12600.0,
+        description="Курс USD→UZS для записи стоимости AI-токенов в P&L (finances, в сумах).",
+    )
+
+    # ── Секрет авторизации event-bus (bot→bot /event) ─────────────────
+    event_bus_secret: str | None = Field(
+        default=None,
+        description="Общий секрет для аутентификации событий между ботами (заголовок X-Bot-Secret)",
+    )
+
     # ── Администраторы и Каналы ───────────────────────────────────────
     admin_telegram_ids: List[int] = Field(
         default_factory=list,

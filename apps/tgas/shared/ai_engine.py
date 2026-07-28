@@ -98,10 +98,27 @@ FALLBACK_RESPONSES = {
 }
 
 
+def _persist_usage(bot_name: str, model: str, input_tokens: int, output_tokens: int, cost_usd: float) -> None:
+    """Best-effort: планирует запись расхода токенов в БД (таблица ai_usage).
+    Не блокирует и не роняет генерацию — если нет event loop или БД недоступна, тихо пропускаем."""
+    try:
+        import asyncio
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return  # вызвано вне event loop — пропускаем персист
+    try:
+        from shared.ai_usage import record_ai_usage
+        provider = "gemini" if str(model).startswith("gemini") else "openai"
+        loop.create_task(record_ai_usage(bot_name, provider, model, input_tokens, output_tokens, cost_usd))
+    except Exception as e:  # noqa: BLE001
+        logger.debug("persist usage skip: %s", e)
+
+
 @dataclass
 class UsageStats:
     """Статистика использования AI за сессию."""
 
+    bot_name: str = "unknown"
     total_input_tokens: int = 0
     total_output_tokens: int = 0
     total_requests: int = 0
@@ -138,6 +155,9 @@ class UsageStats:
             }
         )
 
+        # Персистентный учёт по боту/модели (для отчёта о стоимости и бюджет-алертов).
+        _persist_usage(self.bot_name, model, input_tokens, output_tokens, cost)
+
 
 class AIEngine:
     """
@@ -169,8 +189,9 @@ class AIEngine:
         self._default_system_prompt = default_system_prompt or MICROGREEN_SYSTEM_PROMPT
         self._session: Optional[aiohttp.ClientSession] = None
 
-        # Статистика
-        self.usage = UsageStats()
+        # Статистика (bot_name из env BOT_NAME — атрибуция расхода по боту в ai_usage)
+        import os
+        self.usage = UsageStats(bot_name=os.getenv("BOT_NAME", "unknown"))
 
         provider = "Gemini" if self._gemini_key else "OpenAI"
         logger.info(f"AI-движок инициализирован: {provider}, модель={self._gemini_model if self._gemini_key else self._openai_model}")

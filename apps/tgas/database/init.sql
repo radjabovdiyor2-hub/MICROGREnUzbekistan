@@ -293,6 +293,25 @@ COMMENT ON COLUMN finances.category IS 'Категория: sales, delivery, sal
 COMMENT ON COLUMN finances.related_order_id IS 'Связанный заказ (для доходов от продаж)';
 
 -- ============================================================================
+-- Таблица: ai_usage (Расход AI-токенов)
+-- Один вызов LLM = одна строка. Пишется best-effort из shared/ai_engine.py.
+-- Источник для ежедневного отчёта о стоимости (shared/ai_usage.build_cost_report).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS ai_usage (
+    id              BIGSERIAL PRIMARY KEY,
+    bot             VARCHAR(64) NOT NULL DEFAULT 'unknown',
+    provider        VARCHAR(32),
+    model           VARCHAR(64),
+    input_tokens    INTEGER NOT NULL DEFAULT 0,
+    output_tokens   INTEGER NOT NULL DEFAULT 0,
+    cost_usd        DECIMAL(12, 6) NOT NULL DEFAULT 0,
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_created_at ON ai_usage(created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_bot ON ai_usage(bot);
+COMMENT ON TABLE ai_usage IS 'Учёт расхода AI-токенов по ботам/моделям (стоимость в USD)';
+
+-- ============================================================================
 -- Таблица: employees (Сотрудники)
 -- Данные о сотрудниках компании (курьеры, садоводы и т.д.)
 -- ============================================================================
