@@ -26,6 +26,7 @@ from shared.database import get_session_ctx
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat, check_all_bots, format_health_report
+from shared.notifications import alert_admins
 
 logging.basicConfig(
     level=logging.INFO,
@@ -482,22 +483,23 @@ async def bot_health_check(force: bool = False):
         recovered = _last_down_bots - down
         _last_down_bots = down
 
-        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
-        if not admin_id:
+        if not settings.admin_telegram_ids:
             return
 
+        # Рассылаем ВСЕМ администраторам, а не только первому: пока алерт
+        # уходил на admin_telegram_ids[0], отпуск владельца означал, что
+        # об упавшем боте не узнавал никто.
         report = format_health_report(statuses)
         if down and (force or newly_down):
-            await _bot.send_message(
-                admin_id,
+            await alert_admins(
+                _bot,
                 f"🚨 <b>АЛЕРТ: боты не отвечают!</b>\n\n{report}\n\n⚠️ Проверьте работу ботов!",
-                parse_mode="HTML",
             )
             logger.warning("Боты не отвечают: %s", ", ".join(sorted(down)))
         elif recovered and not down:
-            await _bot.send_message(admin_id, f"✅ <b>Все боты снова онлайн</b>\n\n{report}", parse_mode="HTML")
+            await alert_admins(_bot, f"✅ <b>Все боты снова онлайн</b>\n\n{report}")
         elif force:
-            await _bot.send_message(admin_id, report, parse_mode="HTML")
+            await alert_admins(_bot, report)
     except Exception as e:
         logger.warning(f"Ошибка проверки здоровья: {e}")
 
@@ -525,7 +527,9 @@ scheduler.add_cron(name="bot_health_summary", func=bot_health_summary, hour=9, m
 # Инфраструктура
 async def _daily_backup():
     from shared.backup import daily_backup_task
-    await daily_backup_task()
+    # Передаём бота, чтобы о неудачном или повреждённом бэкапе узнали все
+    # администраторы, а не только логи на сервере.
+    await daily_backup_task(_bot)
 
 async def _token_refresh():
     try:

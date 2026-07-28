@@ -29,6 +29,41 @@ async def notify_admin(bot: Bot, admin_ids: list, text_msg: str):
             logger.error(f"Не удалось отправить уведомление админу {admin_id}: {e}")
 
 
+async def alert_admins(bot: Bot, text_msg: str, parse_mode: str | None = "HTML") -> int:
+    """
+    Разослать АВАРИЙНОЕ сообщение всем администраторам из ADMIN_TELEGRAM_IDS.
+
+    Зачем отдельная функция: аварийные уведомления (упавший бот, ошибка
+    оплаты, кончился диск) уходили только на admin_telegram_ids[0] — первому
+    в списке. Пока владелец в отпуске или без сети, такие алерты попадали в
+    чат, который никто не читает, и авария оставалась незамеченной.
+
+    Обычную доставку контента (черновики сторис и т.п.) сюда переводить не
+    надо — иначе все админы получат по копии каждого черновика.
+
+    Возвращает число успешных доставок: 0 означает, что не узнал никто,
+    и это стоит записать в лог как отдельную проблему.
+    """
+    admin_ids = settings.admin_telegram_ids or []
+    if not admin_ids:
+        logger.error("ALERT не доставлен: ADMIN_TELEGRAM_IDS пуст. Текст: %s", text_msg[:200])
+        return 0
+
+    delivered = 0
+    for admin_id in admin_ids:
+        try:
+            await bot.send_message(admin_id, text_msg, parse_mode=parse_mode)
+            delivered += 1
+        except Exception as e:
+            # Один недоступный получатель не должен блокировать остальных.
+            logger.error("Не удалось доставить алерт админу %s: %s", admin_id, e)
+
+    if delivered == 0:
+        logger.error("ALERT не дошёл ни до кого из %d админов: %s", len(admin_ids), text_msg[:200])
+
+    return delivered
+
+
 # ─── Степан (Менеджер) обработчики событий ─────────────────
 
 async def pm_on_order_created(bot: Bot, payload: dict):
