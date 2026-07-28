@@ -814,12 +814,34 @@ async def check_and_refresh_token_job():
                 parse_mode="HTML"
             )
 
+async def weekly_reach_report():
+    """Еженедельный отчёт по ОХВАТУ админу в Telegram: reach% по постам/сторис + вердикт
+    о здоровье аудитории. Данные уже собирает shared.instagram_analytics — здесь сводка.
+    Главный индикатор: охват <10% базы ≈ подписчики неактивны/накручены (контентом не лечится)."""
+    try:
+        from shared.instagram_analytics import build_reach_report
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if not (admin_id and _bot):
+            return
+        rep = await build_reach_report()
+        if not rep.get("configured"):
+            await _bot.send_message(
+                admin_id, "📊 Reach-отчёт: Instagram Graph API не настроен (нет токена/доступа).",
+                parse_mode="HTML")
+            return
+        await _bot.send_message(admin_id, rep["summary"], parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"weekly_reach_report error: {e}", exc_info=True)
+
+
 # daily_site_recipe, daily_content_ideas, product_description_audit, weekly_content_plan —
 # отключены: спам в личку админу, не несёт ценности.
 scheduler.add_cron(name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5)
 scheduler.add_interval(seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check)
 scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
 scheduler.add_cron(name="instagram_token_refresh", func=check_and_refresh_token_job, hour=10, minute=0, day_of_week=0)
+# Еженедельный отчёт по охвату (пн 10:00): смотрим reach% и здоровье аудитории.
+scheduler.add_cron(name="weekly_reach_report", func=weekly_reach_report, hour=10, minute=0, day_of_week=0)
 
 async def daily_magazine_rubric():
     """Ежедневная нарезка журнала в Telegram-канал."""
