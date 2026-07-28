@@ -18,5 +18,8 @@
     "workspaces": [
         "apps/*",
         "packages/*"
-    ]
+    ],
+    "overrides": {
+        "sharp": "^0.35.3"
+    }
 }
