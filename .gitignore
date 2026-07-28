@@ -128,3 +128,6 @@ apps/tgas/*.png
 apps/tgas/*.mp4
 jobs*.json
 runs.json
+
+# Токен scrape'а Prometheus — секрет, создаётся оператором при развёртывании
+deploy/monitoring/metrics_token

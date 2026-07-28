@@ -1,0 +1,12 @@
+# Автопривязка Prometheus к Grafana при первом старте — чтобы дашборд не
+# пришлось настраивать руками (и чтобы это мог сделать не только владелец).
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

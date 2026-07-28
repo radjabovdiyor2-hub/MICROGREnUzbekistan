@@ -1,0 +1,88 @@
+# Правила оповещений Prometheus — Microgreen Uzbekistan (DD §4.8).
+#
+# Цель этих правил — снять зависимость от того, что владелец сам заметит
+# проблему. Алерты рассчитаны на отпуск/недоступность одного человека:
+# они срабатывают на факты (сервис не отвечает, диск кончается), а не на
+# «кому-то показалось».
+
+groups:
+  - name: availability
+    rules:
+      - alert: WebDown
+        expr: up{job="web"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Сайт не отвечает на scrape более 2 минут"
+          description: "Проверить: docker compose -f docker-compose.prod.yml logs web"
+
+      - alert: DatabaseDown
+        # Метрику отдаёт само приложение: 0 — запрос SELECT 1 не прошёл.
+        expr: mg_database_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Приложение не видит PostgreSQL"
+
+      - alert: ContainerRestarting
+        # Рестарт чаще раза в 15 минут — это краш-петля, а не плановый деплой.
+        expr: rate(container_start_time_seconds[15m]) > 0.0011
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Контейнер {{ $labels.name }} перезапускается по кругу"
+
+  - name: resources
+    rules:
+      - alert: DiskFillingUp
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/host"}
+            / node_filesystem_size_bytes{mountpoint="/host"} < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "На диске осталось меньше 15%"
+          description: "Кандидаты на чистку: docker image prune, старые бэкапы, logs/"
+
+      - alert: DiskAlmostFull
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/host"}
+            / node_filesystem_size_bytes{mountpoint="/host"} < 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Диск заполнен более чем на 95% — БД скоро перестанет писать"
+
+      - alert: MemoryPressure
+        expr: |
+          node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Свободной памяти меньше 10%"
+
+  - name: security
+    rules:
+      - alert: BruteForceAttempt
+        # Всплеск неудачных входов: лимит их уже режет, но знать об этом надо.
+        expr: increase(mg_auth_failed_total[10m]) > 30
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Более 30 неудачных входов за 10 минут ({{ $labels.kind }})"
+          description: "Проверить журнал: logs/audit-<дата>.jsonl"
+
+      - alert: RateLimitStorm
+        expr: increase(mg_rate_limited_total[10m]) > 200
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Массовые отказы по лимиту на {{ $labels.route }}"
