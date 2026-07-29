@@ -69,7 +69,7 @@ export function Modal({ open, onClose, children, className = '' }: ModalProps) {
             background: 'transparent',
             border: 'none',
             padding: 0,
-            zIndex: 'var(--z-modal, 200)' as any,
+            zIndex: 'var(--z-modal, 200)' as React.CSSProperties['zIndex'],
           }}
         >
           <motion.div

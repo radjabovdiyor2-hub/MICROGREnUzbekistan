@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { LogoIcon } from '@/components/ui/Logo';
+import Link from 'next/link';
 
 export function Footer() {
   const { t } = useLang();
@@ -81,11 +82,11 @@ export function Footer() {
         <div>
           <h4 className="footer__section-title">{t('Kategoriyalar', 'Категории')}</h4>
           <ul className="footer__links">
-            <li><a href="/catalog/microgreens" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</a></li>
-            <li><a href="/catalog/baby-leaf" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Baby Leaf", 'Бейби лист')}</a></li>
-            <li><a href="/catalog/salads" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Salatlar", 'Салаты')}</a></li>
-            <li><a href="/catalog/seeds" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Droplet size={14} /> {t("Urug'lar", 'Семена')}</a></li>
-            <li><a href="/catalog/equipment" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plug size={14} /> {t("Uskunalar", 'Оборудование')}</a></li>
+            <li><Link href="/catalog/microgreens" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</Link></li>
+            <li><Link href="/catalog/baby-leaf" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Baby Leaf", 'Бейби лист')}</Link></li>
+            <li><Link href="/catalog/salads" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Salatlar", 'Салаты')}</Link></li>
+            <li><Link href="/catalog/seeds" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Droplet size={14} /> {t("Urug'lar", 'Семена')}</Link></li>
+            <li><Link href="/catalog/equipment" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plug size={14} /> {t("Uskunalar", 'Оборудование')}</Link></li>
           </ul>
         </div>
 
@@ -93,11 +94,11 @@ export function Footer() {
         <div>
           <h4 className="footer__section-title">{t("Ma'lumot", 'Информация')}</h4>
           <ul className="footer__links">
-            <li><a href="/#location-section">{t('Biz haqimizda', 'О нас')}</a></li>
-            <li><a href="/#location-section">{t('Yetkazib berish', 'Доставка')}</a></li>
-            <li><a href="/#location-section">{t('Aloqa', 'Контакты')}</a></li>
-            <li><a href="/catalog">{t('Barcha mahsulotlar', 'Все товары')}</a></li>
-            <li><a href="/recipe">{t('Retseptlar', 'Рецепты')}</a></li>
+            <li><Link href="/#location-section">{t('Biz haqimizda', 'О нас')}</Link></li>
+            <li><Link href="/#location-section">{t('Yetkazib berish', 'Доставка')}</Link></li>
+            <li><Link href="/#location-section">{t('Aloqa', 'Контакты')}</Link></li>
+            <li><Link href="/catalog">{t('Barcha mahsulotlar', 'Все товары')}</Link></li>
+            <li><Link href="/recipe">{t('Retseptlar', 'Рецепты')}</Link></li>
           </ul>
         </div>
 

@@ -15,11 +15,11 @@ export function TelegramInit() {
   const { webAppLogin, isLoggedIn } = useAuth();
 
   useEffect(() => {
-    const wa = (window as unknown as { Telegram?: { WebApp?: any } })?.Telegram?.WebApp;
+    const wa = window.Telegram?.WebApp;
     if (!wa || !wa.initData) return; // not inside Telegram
     try {
-      wa.ready();
-      wa.expand();
+      wa.ready?.();
+      wa.expand?.();
       wa.setHeaderColor?.('#10B981');
       wa.setBackgroundColor?.('#ffffff');
     } catch {

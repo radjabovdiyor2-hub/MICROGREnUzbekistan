@@ -65,7 +65,7 @@ export function ArViewer({ modelUrl = 'https://modelviewer.dev/shared-assets/mod
       </div>
       
       <div style={{ flex: 1, position: 'relative' }}>
-        {/* @ts-ignore - model-viewer is a web component */}
+        {/* @ts-expect-error - model-viewer is a web component */}
         <model-viewer
           src={modelUrl}
           ios-src=""
@@ -78,7 +78,7 @@ export function ArViewer({ modelUrl = 'https://modelviewer.dev/shared-assets/mod
           ar-modes="webxr scene-viewer quick-look"
           style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
         >
-          {/* @ts-ignore */}
+          {/* @ts-expect-error - closing web component */}
         </model-viewer>
       </div>
       

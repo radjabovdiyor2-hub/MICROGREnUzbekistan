@@ -7,7 +7,7 @@ import { triggerHaptic } from '@/utils/haptic';
 import { CONTACT } from '@/lib/site';
 
 export function AiNutritionistBanner() {
-  const { t } = useLang();
+  useLang();
 
   const openBot = () => {
     triggerHaptic('heavy');

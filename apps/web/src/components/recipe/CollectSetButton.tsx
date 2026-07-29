@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useCart } from '@/components/providers/CartProvider';
 import { trackEvent } from '@/lib/magazine/track';
 import type { RecipeCartProduct } from '@/lib/recipes';
+import Link from 'next/link';
 
 /* ─────────────────────────────────────────────
    «Собрать набор микрозелени»: кладёт в корзину все связанные с товаром
@@ -42,14 +43,14 @@ export function CollectSetButton({ products, slug, accent }: {
         {added ? '✓ Набор в корзине' : `🛒 Собрать набор микрозелени (${products.length})`}
       </button>
       {added && (
-        <a
+        <Link
           href="/cart"
           style={{
             display: 'block', textAlign: 'center', marginTop: 10,
             fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700,
             color: accent, textDecoration: 'none',
           }}
-        >Перейти в корзину →</a>
+        >Перейти в корзину →</Link>
       )}
     </div>
   );

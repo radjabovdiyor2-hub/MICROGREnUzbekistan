@@ -83,7 +83,7 @@ export function AiChatWidget() {
   const [mode, setMode] = useState<ChatMode>('chat');
   const cart = useCart();
   const { dbUser } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<Message[]>(() => [
     {
       id: '1', role: 'assistant', timestamp: Date.now(),
       content: "Assalomu alaykum! Men **Microgreen Agro** — mikroko'katlar va gidroponika bo'yicha AI maslahatchiman.\n\nMenga bemalol so'rang:\n- Mikroko'katlar parvarishi\n- Ozuqa va pH balansi\n- Yorug'lik va harorat\n- Rasmdan kasallikni aniqlash\n- Biznes hisob-kitob",
@@ -157,11 +157,12 @@ export function AiChatWidget() {
 
   const toggleListening = () => {
     if (isListening) { setIsListening(false); return; }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Web Speech API not in TS lib
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Brauzeringiz ovozni qo'llab-quvvatlamaydi"); return; }
     const r = new SR(); r.lang = 'uz-UZ'; r.interimResults = false;
     r.onstart = () => setIsListening(true);
-    r.onresult = (e: any) => { setInput(p => p ? `${p} ${e.results[0][0].transcript}` : e.results[0][0].transcript); setIsListening(false); };
+    r.onresult = (e: SpeechRecognitionEvent) => { setInput(p => p ? `${p} ${e.results[0][0].transcript}` : e.results[0][0].transcript); setIsListening(false); };
     r.onerror = () => setIsListening(false);
     r.onend = () => setIsListening(false);
     r.start();
@@ -204,7 +205,7 @@ export function AiChatWidget() {
     setMessages(prev => [...prev, userMsg]);
     setInput(''); setIsLoading(true);
 
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       message: userContent,
       history: [...messages].filter(m => m.role !== 'assistant' || m.id !== '1').slice(-10).map(m => ({ role: m.role, content: m.content })),
       userId: dbUser?.id,

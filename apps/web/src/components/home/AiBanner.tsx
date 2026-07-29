@@ -4,6 +4,7 @@ import {
   Banknote, Calculator, Camera, ChevronRight, CloudSun, Gift, MessageCircle, Mic, Sparkles, User, Zap,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import Link from 'next/link';
 
 export function AiBanner() {
   const { t } = useLang();
@@ -225,7 +226,7 @@ export function AiBanner() {
               </div>
             </div>
           </div>
-          <a
+          <Link
             href="/profile"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
@@ -239,7 +240,7 @@ export function AiBanner() {
           >
             <User size={15} /> {t('ref.get_code')}
             <ChevronRight size={15} />
-          </a>
+          </Link>
         </div>
       </div>
     </section>

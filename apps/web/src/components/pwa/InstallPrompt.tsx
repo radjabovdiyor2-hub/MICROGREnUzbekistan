@@ -5,9 +5,9 @@ import { Download, Leaf, X } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 
 export function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const { lang, t } = useLang();
+  const { t } = useLang();
 
   useEffect(() => {
     // Check if already installed or dismissed recently
@@ -22,7 +22,7 @@ export function InstallPrompt() {
 
     const handler = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       // Add a slight delay before showing the prompt for better UX
       setTimeout(() => setShowPrompt(true), 3000);
     };

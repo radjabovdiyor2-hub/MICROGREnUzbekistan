@@ -242,7 +242,8 @@ export async function POST(request: NextRequest) {
     //   { customer: { firstName, phone, address }, items: [{ productId, price, quantity }], city }
     // Detect bot format (has `name` string at top level instead of `customer` object)
     // and normalise before the rest of the handler runs.
-    let { customer, items, paymentMethod, userId, bonusToUse, city } = body;
+    let { customer, items, paymentMethod, userId } = body;
+    const { bonusToUse, city } = body;
 
     if (typeof body.name === 'string' && !customer) {
       // Bot format → normalise to web format

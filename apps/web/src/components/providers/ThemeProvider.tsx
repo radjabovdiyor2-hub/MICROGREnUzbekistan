@@ -6,7 +6,7 @@ type Theme = 'light' | 'dark';
 
 interface ThemeContextType {
   theme: Theme;
-  toggleTheme: (e?: any) => void;
+  toggleTheme: (e?: React.MouseEvent) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -19,12 +19,6 @@ export const useTheme = () => useContext(ThemeContext);
 function getSystemTheme(): Theme {
   if (typeof window === 'undefined') return 'light';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
-function getInitialTheme(): Theme {
-  if (typeof window === 'undefined') return 'light';
-  const stored = localStorage.getItem('Microgreen-theme') as Theme | null;
-  return stored || getSystemTheme();
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -66,7 +60,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const next = theme === 'light' ? 'dark' : 'light';
     
     // Fallback for browsers that don't support View Transitions API
-    // @ts-ignore
     if (!document.startViewTransition) {
       setTheme(next);
       localStorage.setItem('Microgreen-theme', next);
@@ -79,18 +72,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     
     if (e) {
       // Try to get coordinates from click event
-      // @ts-ignore
-      x = e.clientX ?? (e.nativeEvent && e.nativeEvent.clientX) ?? x;
-      // @ts-ignore
-      y = e.clientY ?? (e.nativeEvent && e.nativeEvent.clientY) ?? y;
+      x = e.clientX ?? x;
+      y = e.clientY ?? y;
     }
     
     const endRadius = Math.hypot(
-      Math.max(x, innerWidth - x),
-      Math.max(y, innerHeight - y)
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
     );
     
-    // @ts-ignore
     const transition = document.startViewTransition(() => {
       setTheme(next);
       localStorage.setItem('Microgreen-theme', next);

@@ -22,7 +22,7 @@ export function TelegramLoginButton({
   const containerRef = useRef<HTMLDivElement>(null);
   const { login } = useAuth();
   const { t } = useLang();
-  const [widgetLoaded, setWidgetLoaded] = useState(false);
+  const [, /* widgetLoaded */ setWidgetLoaded] = useState(false);
   const [widgetFailed, setWidgetFailed] = useState(false);
 
   // Check if widget actually rendered an iframe

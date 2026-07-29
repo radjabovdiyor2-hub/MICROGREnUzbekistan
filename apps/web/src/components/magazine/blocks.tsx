@@ -6,7 +6,7 @@ import type {
   RestaurantBrand, Audience, L10n,
 } from '@/lib/magazine/types';
 import {
-  UI, LANGS, t, tri, inline,
+  UI, t, tri, inline,
   type Lang, type UIKey,
 } from '@/lib/magazine/i18n';
 

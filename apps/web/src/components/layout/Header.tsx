@@ -19,7 +19,7 @@ export function Header() {
   const { theme, toggleTheme } = useTheme();
   const cart = useCart();
   const { lang, toggleLang, t } = useLang();
-  const { city, setCity, cityName } = useCity();
+  const { city, setCity } = useCity();
   const router = useRouter();
   const [searchVal, setSearchVal] = useState('');
   const [isListening, setIsListening] = useState(false);
@@ -34,7 +34,6 @@ export function Header() {
   const startVoiceSearch = () => {
     if (typeof window === 'undefined') return;
     
-    // @ts-ignore
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert(t('Овозли qidiruv qollab quvvatlanmaydi', 'Голосовой поиск не поддерживается вашим браузером.'));
@@ -47,17 +46,17 @@ export function Header() {
 
     recognition.onstart = () => {
       setIsListening(true);
-      if ((window as any).Telegram?.WebApp?.HapticFeedback) {
-        (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
       }
     };
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       const text = event.results[0][0].transcript;
       setSearchVal(text);
       router.push(`/catalog?search=${encodeURIComponent(text.trim())}`);
-      if ((window as any).Telegram?.WebApp?.HapticFeedback) {
-        (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
       }
     };
 
@@ -80,7 +79,7 @@ export function Header() {
         <div style={{ marginLeft: 16, position: 'relative' }}>
           <select 
             value={city} 
-            onChange={(e) => setCity(e.target.value as any)}
+            onChange={(e) => setCity(e.target.value as 'tashkent' | 'samarkand')}
             style={{
               appearance: 'none',
               background: 'var(--bg-card)',

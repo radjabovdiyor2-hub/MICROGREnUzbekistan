@@ -13,7 +13,7 @@ const spring = { type: 'spring' as const, damping: 20, stiffness: 300 };
 export function BottomNav() {
   const pathname = usePathname();
   const cart = useCart();
-  const { count: favCount } = useFavorites();
+  useFavorites();
   const { t } = useLang();
 
   const NAV_ITEMS = [

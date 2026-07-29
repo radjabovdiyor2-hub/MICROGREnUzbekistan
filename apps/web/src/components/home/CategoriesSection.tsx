@@ -43,8 +43,8 @@ export function CategoriesSection() {
                 className="category-pill"
                 id={`cat-${cat.slug}`}
                 onClick={() => {
-                  if (typeof window !== 'undefined' && (window as any).Telegram?.WebApp?.HapticFeedback) {
-                    (window as any).Telegram.WebApp.HapticFeedback.impactOccurred('light');
+                  if (typeof window !== 'undefined' && window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.impactOccurred('light');
                   }
                 }}
               >

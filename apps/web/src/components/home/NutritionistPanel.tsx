@@ -8,9 +8,10 @@ import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
 
 interface CropInfo { key: string; nameUz: string; nameRu: string; }
+interface NutrientDetail { nameUz: string; nameRu: string; grams: number; antioxidantMultiplier: number; benefits?: Array<{ uz: string; ru: string }>; }
 interface NutrientResult {
   total: Record<string, number>;
-  details: any[];
+  details: NutrientDetail[];
   dailyValuePercent: Record<string, number>;
 }
 
@@ -49,7 +50,7 @@ export function NutritionistPanel() {
   useEffect(() => {
     fetch('/api/ai/nutrition?type=crops')
       .then(r => r.json())
-      .then(d => setCrops(d.crops?.map((c: any) => ({ key: c.key, nameUz: c.nameUz, nameRu: c.nameRu })) || []))
+      .then(d => setCrops(d.crops?.map((c: CropInfo) => ({ key: c.key, nameUz: c.nameUz, nameRu: c.nameRu })) || []))
       .catch(() => {});
   }, []);
 
@@ -216,7 +217,7 @@ export function NutritionistPanel() {
               </div>
 
               {/* Benefits from each crop */}
-              {result.details.map((d: any, i: number) => (
+              {result.details.map((d: NutrientDetail, i: number) => (
                 <div key={i} style={{
                   padding: '10px 14px', borderRadius: 12, marginBottom: 8,
                   background: 'var(--bg-secondary)', border: '1px solid var(--border)',
@@ -228,7 +229,7 @@ export function NutritionistPanel() {
                       ×{d.antioxidantMultiplier} {t("antioksidant", "антиоксид.")}
                     </span>
                   </div>
-                  {d.benefits?.map((b: any, j: number) => (
+                  {d.benefits?.map((b: { uz: string; ru: string }, j: number) => (
                     <div key={j} style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                       <CheckCircle size={11} color="var(--success)" /> {lang === 'ru' ? b.ru : b.uz}
                     </div>

@@ -91,7 +91,7 @@ export default async function Image() {
             lineHeight: 1.4,
           }}
         >
-          Sog'lom hayot uchun yangi uzilgan mikroko'katlar va salatlar
+          Sog{"'"}lom hayot uchun yangi uzilgan mikroko{"'"}katlar va salatlar
         </p>
       </div>
     ),

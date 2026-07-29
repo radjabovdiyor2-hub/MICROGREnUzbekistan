@@ -18,7 +18,7 @@ type Story = StoryObj<typeof meta>;
 /** Click to open. Backdrop click / Esc closes it. Fully token-driven and
  *  theme-aware — toggle the Theme toolbar with the modal open. */
 export const Default: Story = {
-  render: () => {
+  render: function Render() {
     const [open, setOpen] = useState(false);
     return (
       <>

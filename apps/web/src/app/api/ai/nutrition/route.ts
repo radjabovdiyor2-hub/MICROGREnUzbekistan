@@ -299,7 +299,7 @@ export async function getRecipeForDay(dateStr?: string): Promise<Record<string, 
 
 // Nutritionist calculation
 function calculateNutrition(items: { crop: string; grams: number }[]) {
-  let total = { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, vitC: 0, vitA: 0, vitK: 0, vitE: 0, iron: 0, calcium: 0, potassium: 0, magnesium: 0, zinc: 0 };
+  const total = { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, vitC: 0, vitA: 0, vitK: 0, vitE: 0, iron: 0, calcium: 0, potassium: 0, magnesium: 0, zinc: 0 };
   const details: any[] = [];
   for (const item of items) {
     const db = NUTRITION_DB[item.crop];

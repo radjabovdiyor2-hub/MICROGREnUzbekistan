@@ -6,7 +6,7 @@ import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
 
 export function SmartSubscriptionWidget() {
-  const { t } = useLang();
+  useLang();
   const [active, setActive] = useState(false);
 
   const toggleSub = () => {

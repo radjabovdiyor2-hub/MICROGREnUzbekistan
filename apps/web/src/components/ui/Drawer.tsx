@@ -48,7 +48,7 @@ export function Drawer({
               position: 'fixed',
               inset: 0,
               background: 'var(--bg-overlay)',
-              zIndex: 'var(--z-drawer, 150)' as any,
+              zIndex: 'var(--z-drawer, 150)' as React.CSSProperties['zIndex'],
             }}
           />
 
@@ -81,7 +81,7 @@ export function Drawer({
               border: '1px solid var(--border)',
               borderBottom: 'none',
               boxShadow: 'var(--shadow-xl)',
-              zIndex: 'var(--z-drawer, 150)' as any,
+              zIndex: 'var(--z-drawer, 150)' as React.CSSProperties['zIndex'],
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',

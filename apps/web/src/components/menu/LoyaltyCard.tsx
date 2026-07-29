@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getSessionId } from '@/lib/magazine/track';
+import Link from 'next/link';
 
 /* ─────────────────────────────────────────────
    Карта лояльности на витрине ресторана.
@@ -77,14 +78,14 @@ export function LoyaltyCard({ slug, accent }: { slug: string; accent: string }) 
             fontFamily: "'Inter', sans-serif", fontSize: 18, fontWeight: 800,
             letterSpacing: 1, color: accent, userSelect: 'all',
           }}>{card.rewardCode}</div>
-          <a
+          <Link
             href="/catalog/microgreens"
             style={{
               display: 'inline-block', marginTop: 10, padding: '10px 18px', borderRadius: 12,
               background: accent, color: '#fff', fontFamily: "'Inter', sans-serif",
               fontSize: 14, fontWeight: 700, textDecoration: 'none',
             }}
-          >В магазин микрозелени →</a>
+          >В магазин микрозелени →</Link>
         </div>
       ) : (
         <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, #999)', marginTop: 12, lineHeight: 1.5 }}>

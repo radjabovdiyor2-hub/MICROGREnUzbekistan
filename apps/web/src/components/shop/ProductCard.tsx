@@ -140,7 +140,7 @@ export function ProductCard({ product }: { product: Product }) {
       {/* Info */}
       <div style={{ padding: 'var(--space-3)', flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>
-          {lang === 'ru' ? (product.category as any)?.nameRu || product.category?.nameUz : product.category?.nameUz}
+          {lang === 'ru' ? (product.category as { nameRu?: string } | undefined)?.nameRu || product.category?.nameUz : product.category?.nameUz}
         </div>
         <div style={{
           fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)',
