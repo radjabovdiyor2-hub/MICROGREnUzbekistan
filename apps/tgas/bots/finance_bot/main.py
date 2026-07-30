@@ -144,22 +144,29 @@ async def monthly_pnl():
         admin_id = settings.admin_telegram_ids[0]
         try:
             async with get_session_ctx() as session:
+                # Считаем по колонке date — это ДЕЛОВАЯ дата операции, её можно
+                # проставить задним числом. Раньше здесь стоял created_at, то есть
+                # момент ВНЕСЕНИЯ строки: расход за январь, занесённый в феврале,
+                # в январский P&L не попадал. По date считают все остальные отчёты
+                # системы (analytics, Стёпан и экран баланса самого finance —
+                # handlers/start.py), поэтому суммы расходились между экранами.
+                # Плюс date это DATE: границы месяца однозначны, без часовых поясов.
                 result = await session.execute(text(
                     "SELECT "
                     "  COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income, "
                     "  COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expense, "
                     "  COUNT(*) AS transactions "
                     "FROM finances "
-                    "WHERE created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month' "
-                    "AND created_at < DATE_TRUNC('month', NOW())"
+                    "WHERE date >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date "
+                    "AND date < DATE_TRUNC('month', CURRENT_DATE)::date"
                 ))
                 row = result.fetchone()
                 # Breakdown by category
                 cat_result = await session.execute(text(
                     "SELECT type, category, SUM(amount) AS total "
                     "FROM finances "
-                    "WHERE created_at >= DATE_TRUNC('month', NOW()) - INTERVAL '1 month' "
-                    "AND created_at < DATE_TRUNC('month', NOW()) "
+                    "WHERE date >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date "
+                    "AND date < DATE_TRUNC('month', CURRENT_DATE)::date "
                     "GROUP BY type, category ORDER BY total DESC"
                 ))
                 categories = cat_result.fetchall()
