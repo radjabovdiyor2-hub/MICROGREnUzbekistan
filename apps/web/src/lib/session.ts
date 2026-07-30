@@ -1,5 +1,4 @@
 import { SignJWT, jwtVerify } from 'jose';
-import crypto from 'crypto';
 
 // ════════════════════════════════════════════════════════════════════
 // Подписанная сессия админки (HS256, httpOnly-cookie).
@@ -97,8 +96,13 @@ export async function verifySession(
  * Truncated SHA-256 (первые 16 hex символов) — достаточно для привязки,
  * не содержит raw PII.
  */
-export function sessionFingerprint(ip: string, ua: string): string {
-  return crypto.createHash('sha256').update(`${ip}|${ua}`).digest('hex').slice(0, 16);
+export async function sessionFingerprint(ip: string, ua: string): Promise<string> {
+  const data = new TextEncoder().encode(`${ip}|${ua}`);
+  const buffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16);
 }
 
 /** Атрибуты cookie сессии. Secure — только по HTTPS, т.е. не ломает localhost. */

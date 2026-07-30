@@ -627,30 +627,6 @@ async def main():
 
     asyncio.create_task(followups_worker(bot))
 
-async def _pick_restaurant(params: dict) -> str:
-    """Выбор 'Ресторана недели' для журнала."""
-    try:
-        from sqlalchemy import text
-        from shared.database import get_session_ctx
-        async with get_session_ctx() as session:
-            # Ищем лучшие лиды с высоким рейтингом
-            res = await session.execute(text(
-                "SELECT name, review_score, review_summary "
-                "FROM customers "
-                "WHERE customer_type = 'b2b' AND review_score >= 4.5 "
-                "ORDER BY random() LIMIT 1"
-            ))
-            row = res.fetchone()
-            
-        if not row:
-            return "Не удалось найти подходящий ресторан в базе лидов."
-            
-        name, score, summary = row
-        return f"Ресторан недели: {name} (Рейтинг {score} ⭐)\n\nОтзывы:\n{summary}"
-    except Exception as e:
-        logging.error(f"Error picking restaurant: {e}")
-        return "Ошибка выбора ресторана"
-
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
@@ -669,5 +645,29 @@ async def _pick_restaurant(params: dict) -> str:
         await event_bus.stop()
         await bot.session.close()
 
+async def _pick_restaurant(params: dict) -> str:
+    """Выбор 'Ресторана недели' для журнала."""
+    try:
+        from sqlalchemy import text
+        from shared.database import get_session_ctx
+        async with get_session_ctx() as session:
+            res = await session.execute(text(
+                "SELECT name, review_score, review_summary "
+                "FROM customers "
+                "WHERE customer_type = 'b2b' AND review_score >= 4.5 "
+                "ORDER BY random() LIMIT 1"
+            ))
+            row = res.fetchone()
+
+        if not row:
+            return "Не удалось найти подходящий ресторан в базе лидов."
+
+        name, score, summary = row
+        return f"Ресторан недели: {name} (Рейтинг {score} ⭐)\n\nОтзывы:\n{summary}"
+    except Exception as e:
+        logging.error(f"Error picking restaurant: {e}")
+        return "Ошибка выбора ресторана"
+
 if __name__ == "__main__":
     asyncio.run(main())
+

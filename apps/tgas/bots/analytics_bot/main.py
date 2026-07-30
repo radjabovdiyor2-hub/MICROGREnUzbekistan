@@ -513,9 +513,22 @@ async def main():
     event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8088)  # mg_analytics — порт из карты доставки event_bus
 
-    # ── Запуск планировщика и heartbeat ──
-    await scheduler.start()
-    asyncio.create_task(start_heartbeat("analytics_bot"))
+    # ── Bot Bus: слушаем задачи от Степана ──
+    from shared.bot_bus import start_listener as bus_listen
+    from shared.event_bus import BotBusActions
+    asyncio.create_task(bus_listen("analytics_bot", {
+        "get_report": bus_get_report,
+        "get_instagram_stats": bus_get_instagram_stats,
+        BotBusActions.GET_TOP_PRODUCTS: _get_top_products,
+    }))
+
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(bot)
+    finally:
+        await scheduler.stop()
+        await event_bus.stop()
+        await bot.session.close()
 
 async def _get_top_products(params: dict) -> str:
     """Возвращает хиты продаж для журнала."""
@@ -540,23 +553,6 @@ async def _get_top_products(params: dict) -> str:
     except Exception as e:
         logger.error(f"Error in _get_top_products: {e}")
         return "Ошибка аналитики"
-
-    # ── Bot Bus: слушаем задачи от Степана ──
-    from shared.bot_bus import start_listener as bus_listen
-    from shared.event_bus import BotBusActions
-    asyncio.create_task(bus_listen("analytics_bot", {
-        "get_report": bus_get_report,
-        "get_instagram_stats": bus_get_instagram_stats,
-        BotBusActions.GET_TOP_PRODUCTS: _get_top_products,
-    }))
-
-    try:
-        await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot)
-    finally:
-        await scheduler.stop()
-        await event_bus.stop()
-        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())

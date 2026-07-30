@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ua = request.headers.get('user-agent') ?? '';
-    const fp = sessionFingerprint(ip, ua);
+    const fp = await sessionFingerprint(ip, ua);
     const token = await createSession({ role: 'SELLER', name: employee.name, fp });
     if (!token) {
       return NextResponse.json(
