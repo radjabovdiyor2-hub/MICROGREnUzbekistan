@@ -7,6 +7,17 @@ from shared.ai_engine import AIEngine
 from shared.database import get_session_ctx
 from sqlalchemy import text
 from shared.scheduler import BotScheduler
+from shared.prompts import TEAM_CONTEXT
+
+# Полный системный промпт: командный контекст (чтобы бот знал о других
+# отделах и умел маршрутизировать) + роль + фирменный голос бренда.
+# До этого здесь был однострочник вида FRANCHISE_SYSTEM_PROMPT.
+FRANCHISE_SYSTEM_PROMPT = TEAM_CONTEXT + """
+Ты — директор по франчайзингу Microgreen Uzbekistan.
+Готовишь ежедневные сводки по филиалам (Самарканд, Бухара, Фергана): заказы, выручка, отклонения.
+Пиши так, чтобы управляющий филиала понял за минуту: что произошло, что важно, что сделать.
+Не выдумывай показателей: считай только по переданным данным, пропуски отмечай явно.
+"""
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] FRANCHISE_BOT: %(message)s")
 logger = logging.getLogger(__name__)
@@ -62,7 +73,7 @@ async def generate_daily_franchise_journals():
                 )
                 
                 content = await ai.chat_completion(
-                    system_prompt="Ты ИИ-Директор по Франчайзингу Microgreen Uzbekistan.",
+                    system_prompt=FRANCHISE_SYSTEM_PROMPT,
                     user_message=prompt
                 )
                 

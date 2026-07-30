@@ -21,6 +21,27 @@ logging.basicConfig(level=logging.INFO)
 # ── Планировщик ──────────────────────────────────────────────────────────
 scheduler = BotScheduler("marketing_bot")
 
+# Промпт для коммерческих предложений в HoReCa. Раньше здесь стояла одна строка
+# «Ты эксперт по B2B продажам HoReCa.» — а этим текстом уходят КП ресторанам по
+# почте, то есть без фирменного голоса и без запрета выдумывать факты.
+_B2B_OFFER_ROLE = """
+Ты — руководитель B2B-направления Microgreen Uzbekistan. Пишешь коммерческие
+предложения шеф-поварам и закупщикам ресторанов, кафе и отелей Самарканда.
+Опирайся на то, что важно кухне: стабильность поставок, срок годности после
+среза, режем утром — привозим в тот же день, отсутствие пестицидов.
+Не выдумывай цифр, скидок и условий: если данных о клиенте мало — пиши общими
+выгодами и предложи созвон. Никаких обещаний, которых нет в предложении.
+"""
+
+
+def _b2b_offer_prompt() -> str:
+    """Собирается лениво: TEAM_CONTEXT уже включает фирменный голос бренда."""
+    from shared.prompts import TEAM_CONTEXT
+    return TEAM_CONTEXT + _B2B_OFFER_ROLE
+
+
+B2B_OFFER_SYSTEM_PROMPT = _b2b_offer_prompt()
+
 
 async def _get_bot():
     return Bot(token=settings.marketing_bot_token,
@@ -273,7 +294,7 @@ async def b2b_outreach():
                     f"2-3 абзаца, тёплый деловой тон, без markdown."
                 )
                 ai_text = await ai.chat_completion(
-                    system_prompt="Ты эксперт по B2B продажам HoReCa.",
+                    system_prompt=B2B_OFFER_SYSTEM_PROMPT,
                     user_message=prompt
                 )
 
