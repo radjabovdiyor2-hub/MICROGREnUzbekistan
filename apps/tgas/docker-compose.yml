@@ -7,6 +7,18 @@ services:
       POSTGRES_DB: microgreen
       POSTGRES_USER: mg_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mg_secret_2024}
+      # Тот же пояс, что на проде: иначе отчёты в разработке считаются по другой
+      # границе суток и расхождение всплывает только на сервере.
+      TZ: Asia/Samarkand
+      PGTZ: Asia/Samarkand
+    # См. комментарий в docker-compose.prod.yml: на уже созданном томе пояс
+    # берётся из postgresql.conf, поэтому задаём аргументом запуска.
+    command:
+      - postgres
+      - -c
+      - timezone=Asia/Samarkand
+      - -c
+      - log_timezone=Asia/Samarkand
     volumes:
     - pg_data:/var/lib/postgresql/data
     - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql

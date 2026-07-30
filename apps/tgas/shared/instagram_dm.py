@@ -14,6 +14,10 @@ from typing import List, Dict, Optional
 from datetime import datetime, timezone, timedelta
 from shared.config import settings
 from shared.ai_engine import AIEngine
+# Телефон берём из brand.py: там он в человеческом виде (+998 94 999 95 99),
+# тогда как settings.company_phone приходит из .env без пробелов. Клиенту
+# показываем фирменное написание — как в instagram_stories.py и в PDF.
+from shared.brand import BRAND
 
 logger = logging.getLogger(__name__)
 
@@ -52,8 +56,8 @@ IG_SALES_SYSTEM_PROMPT = """Ты — менеджер по продажам ко
 
 Актуальные цены и наличие уточнит менеджер при подтверждении заказа.
 
-💳 ОПЛАТА: наличные, карта, Click, Payme
-📞 Телефон: +998 94 999 95 99
+💳 ОПЛАТА: наличные, карта, банковский перевод
+📞 Телефон: """ + BRAND["phone"] + """
 
 ═══════════════════════════════════════════
 ТВОЯ ГЛАВНАЯ ЗАДАЧА — БЫСТРО ОФОРМИТЬ ЗАКАЗ!

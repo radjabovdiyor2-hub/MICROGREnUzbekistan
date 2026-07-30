@@ -1,4 +1,6 @@
 """Support Bot — FAQ, Orders, Recipes, Complaints, AI"""
+import logging
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
@@ -8,12 +10,14 @@ from shared.utils import format_price, simulate_typing
 from shared.ai_engine import AIEngine
 from bots.support_bot.keyboards.inline import back_kb, sup_menu_kb
 from bots.support_bot.states import ComplaintStates
+logger = logging.getLogger(__name__)
 router = Router()
 ai = AIEngine()
 
 FAQ = [("Как заказать?","Нажмите /start в боте продаж и выберите Каталог."),
        ("Доставка?","Бесплатно от 500 000 сум по Самарканду."),
-       ("Оплата?","Наличные, Click, Payme, перевод."),
+       # Click/Payme не предлагаем: онлайн-оплаты в системе нет (см. CLAUDE.md).
+       ("Оплата?","Наличные, картой курьеру, банковский перевод."),
        ("Возврат?","В течение 24 часов при сохранении упаковки."),
        ("Хранение?","В холодильнике при +4°C, до 7 дней.")]
 
@@ -84,42 +88,84 @@ def _get_embeddings_client():
         _openai_embeddings_client = AsyncOpenAI(api_key=settings.openai_api_key)
     return _openai_embeddings_client
 
+# Про сломанную базу знаний пишем в лог один раз за процесс: иначе каждое
+# сообщение клиента давало бы одинаковую строку и утопило остальные записи.
+_kb_failure_logged = False
+
+
 async def search_knowledge(query: str, limit: int = 2) -> str:
+    """Ищет ответ в базе знаний. Пустая строка — база недоступна или пуста.
+
+    ВАЖНО: пустой результат означает «искать было негде», а не «ответа нет».
+    Вызывающий обязан это различать — иначе бот отвечает из общих знаний,
+    пообещав клиенту поиск по базе. Раньше любая ошибка уходила в print()
+    мимо логгера, и отсутствие таблицы knowledge_base никак не проявлялось:
+    ответы выглядели правдоподобно, а база не участвовала вовсе.
+    """
+    global _kb_failure_logged
     try:
         client = _get_embeddings_client()
         if not client:
+            if not _kb_failure_logged:
+                logger.warning(
+                    "База знаний недоступна: не задан OPENAI_API_KEY — "
+                    "поиск по базе выключен, бот отвечает из общих знаний"
+                )
+                _kb_failure_logged = True
             return ""
         response = await client.embeddings.create(input=query, model="text-embedding-3-small")
         emb = response.data[0].embedding
-        
+
         async with get_session_ctx() as session:
             r = await session.execute(text("""
-                SELECT title, content FROM knowledge_base 
+                SELECT title, content FROM knowledge_base
                 ORDER BY embedding <=> CAST(:emb AS vector) LIMIT :lim
             """), {"emb": str(emb), "lim": limit})
             rows = r.fetchall()
-            
+
         if not rows:
             return ""
-        
+
         context_str = "\n\n".join([f"[{row.title}]\n{row.content}" for row in rows])
         return f"\nДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ:\n{context_str}\n"
     except Exception as e:
-        print(f"RAG Error: {e}")
+        if not _kb_failure_logged:
+            # Обычная причина — таблицы knowledge_base нет: её создаёт только
+            # scripts/build_knowledge_base.py, а init.sql применяется лишь при
+            # первой инициализации тома.
+            logger.warning(
+                "Поиск по базе знаний не работает (%s). Проверьте расширение "
+                "vector и запустите scripts/build_knowledge_base.py", e
+            )
+            _kb_failure_logged = True
         return ""
 
 @router.callback_query(F.data == "sup:ai")
 async def start_ai(cb: CallbackQuery):
-    await cb.message.edit_text("🤖 Задайте вопрос (я поищу ответ в базе знаний):", reply_markup=back_kb())
+    # Не обещаем поиск по базе знаний: она может быть не собрана, и тогда
+    # обещание оказывается ложным — проверить это заранее нечем.
+    await cb.message.edit_text("🤖 Задайте вопрос — постараюсь помочь:", reply_markup=back_kb())
     await cb.answer()
 
 @router.message(F.text, F.chat.type == "private")
 async def ai_chat(msg: Message):
     await simulate_typing(msg, delay=2)
     from shared.prompts import TEAM_CONTEXT
-    
+
     kb_context = await search_knowledge(msg.text)
-    system_prompt = f"{TEAM_CONTEXT}\n\nТы ИИ-консультант поддержки Microgreen Uzbekistan. Опирайся на предоставленную базу знаний для ответов на вопросы клиента. Если ответа нет в базе, отвечай вежливо из общих знаний, но не придумывай правила компании.{kb_context}"
-    
+
+    role = "Ты ИИ-консультант поддержки Microgreen Uzbekistan."
+    if kb_context:
+        task = ("Опирайся на приведённую базу знаний. Если ответа в ней нет, отвечай "
+                "вежливо из общих знаний, но не придумывай правила компании.")
+    else:
+        # База не отдала ничего — не упоминаем её вовсе, иначе модель ссылается
+        # на источник, которого не видела, и звучит увереннее, чем вправе.
+        task = ("Отвечай вежливо и по делу. НЕ придумывай правила компании, цены, "
+                "сроки и условия: если точных данных нет — скажи об этом и "
+                "предложи уточнить у менеджера.")
+
+    system_prompt = f"{TEAM_CONTEXT}\n\n{role} {task}{kb_context}"
+
     resp = await ai.chat_completion(system_prompt, msg.text)
     await msg.answer(resp)

@@ -4,7 +4,7 @@ from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
 from shared.ai_engine import AIEngine
-from shared.database import get_session_ctx
+from shared.database import get_session_ctx, get_storefront_session_ctx
 from sqlalchemy import text
 from shared.scheduler import BotScheduler
 from shared.prompts import TEAM_CONTEXT
@@ -25,31 +25,57 @@ logger = logging.getLogger(__name__)
 ai = AIEngine()
 scheduler = BotScheduler("franchise_bot")
 
+# Город у клиента записан как придётся: латиницей из выгрузок, кириллицей из
+# 2ГИС и от менеджеров. Сравнение по одному написанию давало ноль совпадений,
+# а нули выглядели как «день без заказов», а не как ошибка. Поэтому у каждого
+# филиала список допустимых написаний, и сверяем в нижнем регистре.
+CITY_SPELLINGS: dict[str, list[str]] = {
+    "samarkand": ["samarkand", "самарканд"],
+    "bukhara": ["bukhara", "buxoro", "бухара"],
+    "fergana": ["fergana", "fargona", "farg'ona", "фергана", "фаргона"],
+}
+
+# Заголовок филиала для отчёта — по-русски, как его читает управляющий.
+CITY_TITLES = {"samarkand": "Самарканд", "bukhara": "Бухара", "fergana": "Фергана"}
+
+
 async def generate_daily_franchise_journals():
     """Ежедневный сборник (Daily Digest) для франчайзи по каждому городу"""
-    cities = ['samarkand', 'bukhara', 'fergana']
-    
+    cities = list(CITY_SPELLINGS)
+
     logger.info("Начинаем генерацию журналов франчайзи...")
     
     for city in cities:
         try:
             async with get_session_ctx() as session:
-                # 1. Получаем статистику по заказам
+                names = CITY_SPELLINGS[city]
+
+                # 1. Статистика по заказам.
+                # Город берём у клиента: в orders его нет вовсе (есть только
+                # delivery_address), а сумма лежит в total_amount, не в total.
+                # Прежний запрос обращался к несуществующим колонкам city и
+                # total и падал на каждом филиале — сводка не выходила ни разу.
                 orders_res = await session.execute(text(
-                    "SELECT COUNT(id) as cnt, COALESCE(SUM(total), 0) as total_rev "
-                    "FROM orders "
-                    "WHERE city = :city "
-                    "AND DATE(created_at AT TIME ZONE 'Asia/Samarkand') = (NOW() AT TIME ZONE 'Asia/Samarkand')::date"
-                ), {"city": city})
+                    "SELECT COUNT(o.id) AS cnt, COALESCE(SUM(o.total_amount), 0) AS total_rev "
+                    "FROM orders o "
+                    "JOIN customers c ON c.id = o.customer_id "
+                    "WHERE LOWER(c.city) = ANY(:names) "
+                    # created_at — timestamp без пояса, NOW() — с поясом. Прежнее
+                    # "created_at AT TIME ZONE 'Asia/Samarkand' = NOW() AT TIME ZONE
+                    # 'Asia/Samarkand'" разворачивало время в разные стороны: слева
+                    # получалось 30-е, справа 31-е, и совпадений не было. Держим обе
+                    # стороны в одной системе отсчёта — часовой пояс задаёт база.
+                    "AND DATE(o.created_at) = CURRENT_DATE"
+                ), {"names": names})
                 orders_data = orders_res.fetchone()
-                
+
                 # 2. Получаем статистику по клиентам (B2B лиды)
                 leads_res = await session.execute(text(
                     "SELECT COUNT(id) as cnt "
                     "FROM customers "
-                    "WHERE city = :city AND customer_type = 'b2b' "
-                    "AND DATE(created_at AT TIME ZONE 'Asia/Samarkand') = (NOW() AT TIME ZONE 'Asia/Samarkand')::date"
-                ), {"city": city})
+                    "WHERE LOWER(city) = ANY(:names) AND customer_type = 'b2b' "
+                    "AND DATE(created_at) = CURRENT_DATE"
+                ), {"names": names})
                 leads_data = leads_res.fetchone()
                 
                 orders_count = orders_data[0] if orders_data else 0
@@ -63,7 +89,7 @@ async def generate_daily_franchise_journals():
                 }
                 
                 prompt = (
-                    f"Напиши короткий и мотивирующий управленческий отчет для владельца франшизы в городе {city.capitalize()}.\n"
+                    f"Напиши короткий и мотивирующий управленческий отчет для владельца франшизы в городе {CITY_TITLES[city]}.\n"
                     f"Данные за сегодня:\n"
                     f"- Новых заказов: {orders_count}\n"
                     f"- Выручка: {revenue} сум\n"
@@ -77,16 +103,25 @@ async def generate_daily_franchise_journals():
                     user_message=prompt
                 )
                 
-                # Сохраняем в FranchiseJournal
+                # Сохраняем в FranchiseJournal.
+                # Таблицу объявляет Prisma (model FranchiseJournal, @@map
+                # "franchise_journals"), то есть владелец — витрина, и на проде
+                # она лежит в отдельной базе. Раньше запись шла обычной сессией
+                # в базу ботов, где такой таблицы нет вовсе, — вставка падала.
                 import json
-                await session.execute(text(
-                    "INSERT INTO franchise_journals (id, city, department, action, content, metrics, created_at) "
-                    "VALUES (gen_random_uuid()::text, :city, 'management', 'Ежедневный отчет филиала', :content, :metrics::jsonb, NOW())"
-                ), {
-                    "city": city,
-                    "content": content,
-                    "metrics": json.dumps(metrics)
-                })
+                async with get_storefront_session_ctx() as store:
+                    await store.execute(text(
+                        "INSERT INTO franchise_journals (id, city, department, action, content, metrics, created_at) "
+                        # CAST(...), а не :metrics::jsonb — SQLAlchemy не считает
+                        # параметром имя, за которым сразу идёт двоеточие, и в
+                        # Postgres уходил литерал «:metrics»: syntax error at ":".
+                        "VALUES (gen_random_uuid()::text, :city, 'management', "
+                        "'Ежедневный отчет филиала', :content, CAST(:metrics AS jsonb), NOW())"
+                    ), {
+                        "city": city,
+                        "content": content,
+                        "metrics": json.dumps(metrics)
+                    })
                 
                 logger.info(f"Журнал для {city} успешно сгенерирован и сохранен.")
                 

@@ -65,6 +65,16 @@ class Settings(BaseSettings):
         description="URL подключения к PostgreSQL через asyncpg",
     )
 
+    # Витрина (Next.js + Prisma) на проде живёт в ОТДЕЛЬНОЙ базе microgreen_db,
+    # а боты — в microgreen (см. docker-compose.prod.yml). Локально обе стороны
+    # смотрят в microgreen, поэтому расхождение проявляется только на сервере:
+    # ресторан, заведённый через админку, для content_bot не существовал.
+    # Пусто — значит база одна, как в разработке.
+    storefront_database_url: str | None = Field(
+        default=None,
+        description="URL базы витрины (рестораны, журнал). Пусто — та же база, что у ботов",
+    )
+
     # ── Redis ──────────────────────────────────────────────────────────
     redis_url: str = Field(
         default="redis://localhost:6379/0",
@@ -271,6 +281,19 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """URL для синхронного подключения (миграции, скрипты)."""
         return self.database_url.replace("+asyncpg", "")
+
+    @property
+    def storefront_url(self) -> str:
+        """База, где живут рестораны и журнал. Владелец схемы — Prisma.
+
+        В docker-compose витрине URL задан в формате Prisma (`postgresql://`).
+        Движку ботов нужен диалект asyncpg, иначе SQLAlchemy молча возьмёт
+        psycopg2, которого в образе нет, — поэтому приводим схему явно.
+        """
+        url = self.storefront_database_url or self.database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
 
 
 @lru_cache()

@@ -14,6 +14,11 @@ client = AsyncOpenAI(api_key=settings.openai_api_key)
 
 async def setup_vector_table():
     async with get_session_ctx() as session:
+        # Расширение pgvector. Оно объявлено и в database/init.sql, но init.sql
+        # выполняется ТОЛЬКО при первой инициализации тома Postgres — на уже
+        # работающей базе его нет, и CREATE TABLE с типом vector падал.
+        # Образ pgvector/pgvector:pg16 расширение содержит, нужно лишь включить.
+        await session.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         # Создаем таблицу для эмбеддингов
         await session.execute(text("""
             CREATE TABLE IF NOT EXISTS knowledge_base (

@@ -20,6 +20,11 @@ x-tgas-bot: &tgas-bot
   environment:
     ENVIRONMENT: production
     DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
+    # Витрина (Next.js + Prisma) живёт в ОТДЕЛЬНОЙ базе — там рестораны и журнал,
+    # туда пишет админка. Без этого content_bot читал одноимённую таблицу из
+    # microgreen и не видел партнёров, заведённых через админку. Задано всем
+    # ботам, но движок поднимается лениво — только у того, кто реально читает.
+    STOREFRONT_DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
     REDIS_URL: redis://redis:6379/0
     # Shared secret guarding web_office's /ingest/order bridge (empty = off).
     INGEST_SECRET: ${INGEST_SECRET:-}
@@ -58,6 +63,23 @@ services:
       POSTGRES_USER: mg_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: microgreen
+      # Бизнес живёт в UTC+5. Без этого CURRENT_DATE отдавал дату по UTC, и
+      # операции, внесённые с полуночи до 5 утра по местному, получали вчерашнее
+      # число: колонка date заполняется как DEFAULT CURRENT_DATE.
+      # Уже записанные даты не пересчитываются — влияет только на новые.
+      TZ: Asia/Samarkand
+      PGTZ: Asia/Samarkand
+    # Пояс задаём именно аргументом запуска, а не только переменной окружения:
+    # timezone попадает в postgresql.conf при первичной инициализации тома
+    # ('Etc/UTC'), и на уже работающей базе переменные его НЕ перебивают —
+    # правка выглядела бы применённой, но CURRENT_DATE остался бы в UTC.
+    # Аргументы командной строки приоритетнее postgresql.conf.
+    command:
+      - postgres
+      - -c
+      - timezone=Asia/Samarkand
+      - -c
+      - log_timezone=Asia/Samarkand
     volumes:
       - pg_data:/var/lib/postgresql/data
       - ./deploy/db-init/00_create_storefront_db.sh:/docker-entrypoint-initdb.d/00_create_storefront_db.sh:ro

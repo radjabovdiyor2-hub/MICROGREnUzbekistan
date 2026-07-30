@@ -1796,7 +1796,7 @@ async def _handle_task(message: Message, data: dict):
         ],
     ])
 
-    msg = await message.answer(
+    await message.answer(
         f"✅ <b>Задача #{task_id} создана!</b>\n\n"
         f"{dept_icons.get(dept, '📌')} <b>Отдел:</b> {dept}\n"
         f"{pri_icons.get(priority, '🟡')} <b>Приоритет:</b> {priority}\n"
@@ -1808,15 +1808,13 @@ async def _handle_task(message: Message, data: dict):
         reply_markup=kb,
     )
 
-    try:
-        async with get_session_ctx() as session:
-            await session.execute(
-                text("UPDATE tasks SET message_id = :mid, chat_id = :cid WHERE id = :tid"),
-                {"mid": msg.message_id, "cid": msg.chat.id, "tid": task_id}
-            )
-            await session.commit()
-    except Exception as e:
-        logger.error(f"Failed to save message_id for task {task_id}: {e}")
+    # Здесь была попытка запомнить message_id/chat_id карточки задачи:
+    #   UPDATE tasks SET message_id = :mid, chat_id = :cid WHERE id = :tid
+    # В таблице `tasks` таких колонок нет (см. database/init.sql), поэтому запрос
+    # падал при КАЖДОЙ созданной задаче и уходил в logger.error. Прочитать эти
+    # значения всё равно было некому — ни один обработчик к ним не обращался.
+    # Если понадобится обновлять карточку по месту (например, вычёркивать
+    # выполненную), добавьте обе колонки в схему и вернитесь к этой мысли.
 
 
 async def _query_db(query_type: str) -> str:

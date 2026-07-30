@@ -751,21 +751,34 @@ async def reel_post():
 async def publish_restaurant_of_week():
     """Публикация рубрики 'Ресторан недели' и запуск события MAGAZINE_PUBLISHED."""
     try:
-        from shared.database import get_session_ctx
+        from shared.database import get_storefront_session_ctx
         from sqlalchemy import text
         from shared.event_bus import event_bus
         admin_id = settings.admin_telegram_ids[0]
-        
-        async with get_session_ctx() as session:
+
+        # Рестораны берём из базы витрины: там их заводит админка журнала.
+        # На проде у этой таблицы есть двойник в CRM-базе с точно такой же
+        # схемой, и обычная сессия попадала в него — рубрика уходила в
+        # Instagram по старым сид-записям, а партнёров из админки не видела.
+        async with get_storefront_session_ctx() as session:
             res = await session.execute(text(
+                # LOWER — не украшение: в базе лежит tier='PREMIUM', а сравнение
+                # строк в Postgres регистрозависимое, поэтому 'premium' не
+                # находил ничего и рубрика не выходила ни разу. Та же история,
+                # что с department без .lower() (см. CLAUDE.md).
                 "SELECT name, city, cuisine, dishes, microgreens FROM restaurants "
-                "WHERE tier = 'premium' ORDER BY RANDOM() LIMIT 1"
+                "WHERE LOWER(tier) = 'premium' ORDER BY RANDOM() LIMIT 1"
             ))
             row = res.fetchone()
-            
+
         if not row:
+            # Публиковать нечего — но молчать нельзя, иначе рубрика тихо
+            # пропадает из ленты и никто не узнает почему.
+            logging.warning(
+                "Ресторан недели: в базе витрины нет заведений с tier='premium' — публикация пропущена"
+            )
             return
-            
+
         name, city, cuisine, dishes, microgreens = row
         cuisine_str = ", ".join(cuisine) if isinstance(cuisine, list) else str(cuisine)
         dishes_str = ", ".join(dishes) if isinstance(dishes, list) else str(dishes)

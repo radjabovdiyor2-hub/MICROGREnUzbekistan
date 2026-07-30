@@ -432,6 +432,12 @@ CREATE TRIGGER trg_inventory_updated_at
 -- ============================================================================
 -- Готово! Схема Microgreen Uzbekistan инициализирована.
 -- ============================================================================
+-- franchise_journals здесь НЕТ намеренно: таблицу объявляет Prisma
+-- (model FranchiseJournal, @@map "franchise_journals"), владелец — витрина.
+-- franchise_bot пишет туда через get_storefront_session_ctx(). Не заводите
+-- одноимённую таблицу здесь: на проде это разные базы, и данные разъедутся —
+-- ровно так вышло с restaurants.
+
 CREATE TABLE IF NOT EXISTS storefront_outbox (
     id SERIAL PRIMARY KEY,
     order_number VARCHAR(64) NOT NULL,
