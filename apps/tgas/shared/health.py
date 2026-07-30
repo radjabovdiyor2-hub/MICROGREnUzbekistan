@@ -41,7 +41,19 @@ async def start_heartbeat(bot_name: str):
                 await r.hset(key, "ts", str(int(time.time())))
                 await r.expire(key, HEARTBEAT_TTL)
             except Exception as e:
-                logger.warning("[%s] Heartbeat ошибка: %s", bot_name, e)
+                # Ключ старого формата (раньше пульс писался строкой через SET)
+                # ломает hset навсегда: WRONGTYPE, бот молча остаётся «НЕ ЗАПУЩЕН»
+                # до ручной чистки Redis. Такой ключ сносим и пишем заново.
+                if "WRONGTYPE" in str(e).upper():
+                    logger.warning("[%s] Ключ пульса устаревшего типа — пересоздаю", bot_name)
+                    try:
+                        await r.delete(key)
+                        await r.hset(key, "ts", str(int(time.time())))
+                        await r.expire(key, HEARTBEAT_TTL)
+                    except Exception as e2:
+                        logger.warning("[%s] Heartbeat ошибка после пересоздания: %s", bot_name, e2)
+                else:
+                    logger.warning("[%s] Heartbeat ошибка: %s", bot_name, e)
             await asyncio.sleep(HEARTBEAT_INTERVAL)
     except Exception as e:
         logger.error("[%s] Heartbeat не запустился: %s", bot_name, e)
@@ -71,7 +83,19 @@ async def check_all_bots() -> dict[str, dict]:
         now = int(time.time())
         for bot in ALL_BOTS:
             key = f"{HEARTBEAT_KEY_PREFIX}{bot}"
-            data = await r.hgetall(key)
+            # Каждый бот в своём try: один битый ключ не должен прятать остальных.
+            # Раньше весь обход шёл в одном блоке, и ключ старого формата (строка
+            # вместо хеша) ронял hgetall на WRONGTYPE — цикл обрывался, и все боты
+            # ПОСЛЕ проблемного молча исчезали из отчёта. Проверено на живом Redis:
+            # одна строка вместо хеша давала 6 ботов из 13, семь пропадали без следа.
+            try:
+                data = await r.hgetall(key)
+            except Exception as e:
+                logger.warning("Пульс %s не прочитан (%s) — считаю недоступным", bot, e)
+                result[bot] = {"alive": False, "last_seen_ago": -1, "errors": 0,
+                               "last_error": f"ключ пульса нечитаем: {e}"}
+                continue
+
             if data and data.get("ts"):
                 ago = now - int(data["ts"])
                 result[bot] = {
