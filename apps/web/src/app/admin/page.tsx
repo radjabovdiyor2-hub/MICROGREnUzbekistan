@@ -19,6 +19,7 @@ import { AdminRevenue } from '@/components/admin/AdminRevenue';
 import { AdminGrowing } from '@/components/admin/AdminGrowing';
 import { AdminMagazine } from '@/components/admin/AdminMagazine';
 import { AdminGuestPhotos } from '@/components/admin/AdminGuestPhotos';
+import { AdminRecipes } from '@/components/admin/AdminRecipes';
 import { AdminDepartment } from '@/components/admin/AdminDepartment';
 import {
   ArrowLeft, ArrowRight, BarChart, Camera, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Fingerprint, Home, Leaf, Lightbulb, Lock, LogOut, Package, Send, Settings, ShieldCheck, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
@@ -67,6 +68,7 @@ const TAB_GROUPS = [
       { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <User size={16} /> },
       { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <FileText size={16} /> },
       { id: 'guest_photos', ru: 'Кадры гостей', uz: 'Mehmon kadrlari', icon: <Camera size={16} /> },
+      { id: 'recipes', ru: 'Рецепты', uz: 'Retseptlar', icon: <Leaf size={16} /> },
       { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Lock size={16} /> },
     ]
   }
@@ -657,6 +659,7 @@ export default function AdminPage() {
         {activeTab === 'employees' && isOwner && <AdminEmployees />}
         {activeTab === 'magazine' && isOwner && <AdminMagazine />}
         {activeTab === 'guest_photos' && isOwner && <AdminGuestPhotos />}
+        {activeTab === 'recipes' && isOwner && <AdminRecipes />}
         {activeTab === 'products' && isOwner && <AdminProducts />}
         {activeTab === 'settings' && isOwner && <AdminSettings />}
       </main>
