@@ -3,6 +3,9 @@ Microgreen Uzbekistan — Асинхронное подключение к ба�
 =============================================================
 SQLAlchemy 2.0 async с asyncpg драйвером.
 Предоставляет движок, фабрику сессий и утилиту инициализации.
+
+Единая база: и боты, и витрина работают с одной PostgreSQL.
+Prisma владеет схемой (packages/database/prisma/schema.prisma).
 """
 
 from __future__ import annotations
@@ -55,55 +58,6 @@ AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
 )
 
 
-# ── Движок витрины (рестораны, журнал) ───────────────────────────────────
-# На проде витрина — отдельная база microgreen_db, боты — microgreen.
-_storefront_engine: AsyncEngine | None = None
-_storefront_sessionmaker: async_sessionmaker[AsyncSession] | None = None
-
-
-def _get_storefront_sessionmaker() -> async_sessionmaker[AsyncSession]:
-    """Фабрика сессий к базе витрины; движок поднимается при первом обращении.
-
-    Лениво — намеренно. Переменная окружения задана всем ботам одинаково (иначе
-    в compose пришлось бы переопределять весь блок `environment` и потерять
-    остальные), но читает оттуда один content_bot. Создавай мы движок на
-    импорте, каждый из 13 ботов держал бы свой пул к базе витрины — это
-    десятки простаивающих соединений при лимите Postgres в 100.
-    """
-    global _storefront_engine, _storefront_sessionmaker
-    if _storefront_sessionmaker is not None:
-        return _storefront_sessionmaker
-
-    url = settings.storefront_url
-    if url == settings.database_url:
-        # База одна (так в разработке) — второй пул не нужен.
-        _storefront_engine = engine
-        _storefront_sessionmaker = AsyncSessionLocal
-    else:
-        logger.info("Витрина в отдельной базе — поднимаю отдельный движок")
-        _storefront_engine = create_async_engine(
-            url,
-            echo=False,
-            pool_size=5,         # читаем оттуда редко, большой пул ни к чему
-            max_overflow=5,
-            pool_pre_ping=True,
-            pool_recycle=3600,
-            connect_args={
-                "server_settings": {
-                    "application_name": "microgreen_uz_storefront",
-                    "jit": "off",
-                }
-            },
-        )
-        _storefront_sessionmaker = async_sessionmaker(
-            bind=_storefront_engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autoflush=False,
-        )
-    return _storefront_sessionmaker
-
-
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Асинхронный генератор сессий для Dependency Injection.
@@ -146,24 +100,9 @@ async def get_session_ctx() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-@asynccontextmanager
-async def get_storefront_session_ctx() -> AsyncGenerator[AsyncSession, None]:
-    """Сессия к базе витрины — рестораны, блюда, выпуски журнала.
-
-    Схемой владеет Prisma (`packages/database/prisma/schema.prisma`), пишет туда
-    админка. Боты отсюда только читают: у `restaurants` на проде есть двойник в
-    CRM-базе с той же схемой, и запрос через обычный `get_session_ctx()` попадал
-    в него — админка добавляла ресторан, а бот его не видел.
-    """
-    async with _get_storefront_sessionmaker()() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            await session.close()
+# Единая база: витрина и боты в одном PostgreSQL.
+# Алиас сохранён для обратной совместимости (franchise_bot, content_bot).
+get_storefront_session_ctx = get_session_ctx
 
 
 async def init_db() -> None:
@@ -171,7 +110,7 @@ async def init_db() -> None:
     Инициализация базы данных.
 
     Создаёт все таблицы, определённые через ORM-модели (Base.metadata).
-    Для таблиц из init.sql используйте: psql -f database/init.sql
+    Основная схема управляется Prisma (prisma db push).
     """
     logger.info("Инициализация базы данных...")
     try:
@@ -208,7 +147,4 @@ async def close_db() -> None:
     """
     logger.info("Закрытие соединений с БД...")
     await engine.dispose()
-    # Движок витрины мог и не подниматься (ленивый) либо оказаться тем же самым.
-    if _storefront_engine is not None and _storefront_engine is not engine:
-        await _storefront_engine.dispose()
     logger.info("Соединения с БД закрыты.")

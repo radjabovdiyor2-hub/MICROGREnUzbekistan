@@ -167,5 +167,5 @@ async def ai_chat(msg: Message):
 
     system_prompt = f"{TEAM_CONTEXT}\n\n{role} {task}{kb_context}"
 
-    resp = await ai.chat_completion(system_prompt, msg.text)
+    resp = await ai.chat_completion(system_prompt, msg.text, effort="medium")
     await msg.answer(resp)

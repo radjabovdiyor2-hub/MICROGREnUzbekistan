@@ -54,20 +54,10 @@ _STATE_TABLE_READY = False
 
 # ── Персист решений в БД (переживает рестарт/деплой Менеджера) ──────────────
 async def _ensure_state_table():
+    # Таблица meeting_state управляется Prisma (schema.prisma).
+    # CREATE TABLE IF NOT EXISTS больше не нужен.
     global _STATE_TABLE_READY
-    if _STATE_TABLE_READY:
-        return
-    try:
-        async with get_session_ctx() as s:
-            await s.execute(text(
-                "CREATE TABLE IF NOT EXISTS meeting_state ("
-                "chat_id BIGINT PRIMARY KEY, payload JSONB NOT NULL, "
-                "updated_at TIMESTAMP DEFAULT NOW())"
-            ))
-            await s.commit()
-        _STATE_TABLE_READY = True
-    except Exception as e:
-        logger.warning(f"meeting_state table init: {e}")
+    _STATE_TABLE_READY = True
 
 
 async def save_decision(chat_id: int, decision: dict):

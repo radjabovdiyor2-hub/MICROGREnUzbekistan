@@ -42,7 +42,7 @@ async def handle_debate_turn(payload: dict, bot_token: str, bot_name: str, bot_r
         user_prompt = f"Тема совещания: {topic}\n\nИстория дискуссии:\n{history_text}\n\nСлово передано тебе. Модератор (Степан) спрашивает/поручает:\n{question}\n\nТвой ответ (обращайся к коллегам напрямую):"
         
         ai = AIEngine()
-        answer = await ai.chat_completion(sys_prompt, user_prompt)
+        answer = await ai.chat_completion(sys_prompt, user_prompt, effort="high")
         
         # Send message to chat
         display_name = bot_name.upper()

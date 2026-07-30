@@ -54,17 +54,9 @@ def _is_inquiry(text: str) -> bool:
 
 
 async def _ensure_seen_table():
-    try:
-        from shared.database import get_session_ctx
-        from sqlalchemy import text
-        async with get_session_ctx() as s:
-            await s.execute(text(
-                "CREATE TABLE IF NOT EXISTS ig_comment_seen ("
-                "comment_id TEXT PRIMARY KEY, seen_at TIMESTAMP DEFAULT NOW())"
-            ))
-            await s.commit()
-    except Exception as e:
-        logger.warning(f"ig_comment_seen init: {e}")
+    # Таблица ig_comment_seen управляется Prisma (schema.prisma).
+    # CREATE TABLE IF NOT EXISTS больше не нужен.
+    pass
 
 
 async def _already_seen(comment_id: str) -> bool:
@@ -151,7 +143,7 @@ async def reply_to_comment(comment_id: str, message: str) -> bool:
 async def _gen_reply(comment_text: str) -> str:
     try:
         return (await ai.chat_completion(REPLY_SYSTEM, f"Комментарий клиента: {comment_text}",
-                                         temperature=0.6, max_tokens=120)).strip()
+                                         temperature=0.6, max_tokens=120, effort="medium")).strip()
     except Exception as e:
         logger.warning(f"IG reply gen error: {e}")
         return "Спасибо за интерес! Напишите нам в Директ или на +998 94 999 95 99 — всё расскажем 🌱"

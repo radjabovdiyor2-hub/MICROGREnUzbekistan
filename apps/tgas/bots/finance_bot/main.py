@@ -193,7 +193,8 @@ async def monthly_pnl():
             ai = AIEngine()
             analysis = await ai.chat_completion(
                 "Ты финансовый аналитик микрозелени в Узбекистане. Дай краткий анализ (3-5 предложений).",
-                f"Проанализируй P&L:\n{report_text}"
+                f"Проанализируй P&L:\n{report_text}",
+                effort="high"
             )
 
             emoji = "📈" if profit >= 0 else "📉"
@@ -274,10 +275,10 @@ async def ai_cost_report():
         logger.exception("ai_cost_report error: %s", e)
 
 
-# Отключено: ежедневный/частотный спам
-# scheduler.add_cron(name="daily_finance_report", func=daily_finance_report, hour=18, minute=0)
-# scheduler.add_interval(name="overdue_payments", func=overdue_payments, seconds=8 * 3600)
-# scheduler.add_interval(name="large_expense_check", func=large_expense_check, seconds=4 * 3600)
+# ── Регистрация задач финансового мониторинга ────────────────────────────
+scheduler.add_cron(name="daily_finance_report", func=daily_finance_report, hour=18, minute=0)
+scheduler.add_interval(name="overdue_payments", func=overdue_payments, seconds=8 * 3600)
+scheduler.add_interval(name="large_expense_check", func=large_expense_check, seconds=4 * 3600)
 scheduler.add_cron(name="monthly_pnl", func=monthly_pnl, hour=9, minute=0, day_of_month=1)
 scheduler.add_cron(name="salary_reminder", func=salary_reminder, hour=9, minute=0, day_of_month=28)
 # Расход AI-токенов: ежедневный отчёт в 23:30 (день почти закрыт) + бюджет-алерт.

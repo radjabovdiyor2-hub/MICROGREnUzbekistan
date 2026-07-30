@@ -17,6 +17,7 @@ from shared.ai_engine import AIEngine
 from sqlalchemy import text
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ── Планировщик ──────────────────────────────────────────────────────────
 scheduler = BotScheduler("marketing_bot")
@@ -137,7 +138,7 @@ async def handle_task_created(payload: dict):
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Директор по Маркетингу (CMO) и Marketing Bot. Твой фокус: CAC, LTV, Churn Rate, омниканальные стратегии. Предлагай нестандартные маркетинговые ходы для B2B и B2C, анализируй сегменты аудитории."
         user_prompt = f"Руководитель поручил задачу по маркетингу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
         logging.info("MARKETING BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350, effort="medium")
 
         logging.info(f"MARKETING BOT sending message to {chat_id}")
         from shared.task_ui import get_task_keyboard
@@ -613,8 +614,8 @@ async def main():
     # Запуск планировщика и heartbeat
     # Ночью собираем новых лидов (2ГИС)
     scheduler.add_cron(name="collect_leads_nightly", func=collect_leads_nightly, hour=3, minute=0)
-    # b2b_outreach отключена (чтобы избежать ежедневного спама админа предложениями КП)
-    # scheduler.add_cron(name="b2b_outreach", func=b2b_outreach, hour=10, minute=0)
+    # B2B outreach: подготавливает КП и отправляет карточку на одобрение в 10:00
+    scheduler.add_cron(name="b2b_outreach", func=b2b_outreach, hour=10, minute=0)
     await scheduler.start()
     asyncio.create_task(start_heartbeat("marketing_bot"))
 

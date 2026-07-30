@@ -1,11 +1,12 @@
 # ============================================================================
 #  Microgreen Uzbekistan — UNIFIED production stack
 #  Website (Next.js + /api) + storefront bot (Gemini) + 13 internal AI bots
-#  (tgas, OpenAI) + web_office, on one Postgres (two DBs) + Redis.
+#  (tgas, OpenAI) + web_office, on one Postgres (single DB) + Redis.
 #
-#  Two databases in one Postgres instance:
-#    - microgreen     -> tgas CRM   (seeded by apps/tgas/database/init.sql)
-#    - microgreen_db  -> storefront (Prisma db push, service `db-push`)
+#  Single database: microgreen
+#    - Prisma owns the schema (packages/database/prisma/schema.prisma)
+#    - init.sql is retired; tables managed by Prisma db push
+#    - CRM tables use crm_* prefix where names conflict with web tables
 #
 #  Bring up:   docker compose -f docker-compose.prod.yml up -d --build
 # ============================================================================
@@ -20,11 +21,6 @@ x-tgas-bot: &tgas-bot
   environment:
     ENVIRONMENT: production
     DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
-    # Витрина (Next.js + Prisma) живёт в ОТДЕЛЬНОЙ базе — там рестораны и журнал,
-    # туда пишет админка. Без этого content_bot читал одноимённую таблицу из
-    # microgreen и не видел партнёров, заведённых через админку. Задано всем
-    # ботам, но движок поднимается лениво — только у того, кто реально читает.
-    STOREFRONT_DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
     REDIS_URL: redis://redis:6379/0
     # Shared secret guarding web_office's /ingest/order bridge (empty = off).
     INGEST_SECRET: ${INGEST_SECRET:-}
@@ -82,7 +78,6 @@ services:
       - log_timezone=Asia/Samarkand
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./deploy/db-init/00_create_storefront_db.sh:/docker-entrypoint-initdb.d/00_create_storefront_db.sh:ro
       - ./apps/tgas/database/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mg_user -d microgreen"]
@@ -108,7 +103,7 @@ services:
     networks:
       - mg_net
 
-  # One-shot: push the Prisma schema into microgreen_db, then exit.
+  # One-shot: push the Prisma schema into the unified database, then exit.
   db-push:
     build:
       context: .
@@ -120,7 +115,7 @@ services:
     volumes:
       - ./packages/database/prisma/schema.prisma:/app/packages/database/prisma/schema.prisma:ro
     environment:
-      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
     depends_on:
       postgres:
         condition: service_healthy
@@ -141,7 +136,7 @@ services:
     working_dir: /app/packages/database
     command: sh -c "npx tsx prisma/seed-if-empty.ts"
     environment:
-      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
     depends_on:
       db-push:
         condition: service_completed_successfully
@@ -168,7 +163,7 @@ services:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
-      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
       REDIS_URL: redis://redis:6379/0
       NEXT_PUBLIC_URL: https://microgreenuzbekistan.com
       UPLOADS_DIR: /data/uploads
@@ -216,7 +211,7 @@ services:
     env_file: .env
     environment:
       ENVIRONMENT: production
-      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen_db
+      DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
       WEB_API_URL: http://web:3000/api
       # Must match the web service's BOT_SECRET so admin API calls authorize.
       BOT_SECRET: ${BOT_SECRET:-}

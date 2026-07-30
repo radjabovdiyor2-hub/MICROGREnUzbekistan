@@ -167,7 +167,8 @@ async def process_report(msg: Message):
     try:
         response = await ai.chat_completion(
             "Ты контролёр качества. Оцени выполнение задачи строго но справедливо.",
-            verify_prompt
+            verify_prompt,
+            effort="high"
         )
         response = response.strip()
         if response.startswith("```"):

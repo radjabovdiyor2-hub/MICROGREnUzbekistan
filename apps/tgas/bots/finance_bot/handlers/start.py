@@ -151,5 +151,5 @@ async def start_ai(cb: CallbackQuery): await cb.message.edit_text("🤖 Зада
 @router.message(F.text, F.chat.type == "private")
 async def ai_fin(msg: Message):
     await simulate_typing(msg, delay=2)
-    r = await ai.chat_completion("Ты финансист Microgreen Uzbekistan.", msg.text)
+    r = await ai.chat_completion("Ты финансист Microgreen Uzbekistan.", msg.text, effort="high")
     await msg.answer(r)

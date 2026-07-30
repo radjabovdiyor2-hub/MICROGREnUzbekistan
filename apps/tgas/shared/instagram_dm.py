@@ -599,6 +599,7 @@ async def auto_reply_to_new_messages():
                     conversation_history=history,
                     temperature=0.6,
                     max_tokens=500,
+                    effort="medium",
                 )
                 
                 # Проверяем, не содержит ли ответ оформленный заказ

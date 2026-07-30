@@ -142,10 +142,10 @@ async def training_reminder():
 
 
 scheduler.add_cron(name="payroll_reminder", func=payroll_reminder, hour=10, minute=0, day_of_month=25)
-# Отключено: ежедневный/еженедельный спам
-# scheduler.add_cron(name="employee_report", func=employee_report, hour=10, minute=0)
-# scheduler.add_interval(name="new_applications_check", func=new_applications_check, seconds=12 * 3600)
-# scheduler.add_cron(name="training_reminder", func=training_reminder, hour=10, minute=0, day_of_week=0)
+# ── Регистрация задач HR-мониторинга ────────────────────────────────────
+scheduler.add_cron(name="employee_report", func=employee_report, hour=10, minute=0)
+scheduler.add_interval(name="new_applications_check", func=new_applications_check, seconds=12 * 3600)
+scheduler.add_cron(name="training_reminder", func=training_reminder, hour=10, minute=0, day_of_week=0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

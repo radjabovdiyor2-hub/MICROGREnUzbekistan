@@ -16,6 +16,7 @@ from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ── Глобальные ссылки для задач ──────────────────────────────────────────
 _bot: Bot = None
@@ -389,14 +390,13 @@ async def b2b_funnel_report():
         logging.error(f"b2b_funnel_report error: {e}", exc_info=True)
 
 
-# ── Регистрация задач ────────────────────────────────────────────────────
-# Отключено: ежедневный/частотный спам → только ежемесячный отчёт
-# scheduler.add_cron(name="daily_kpi_snapshot", func=daily_kpi_snapshot, hour=20, minute=0)
-# scheduler.add_cron(name="b2b_funnel_report", func=b2b_funnel_report, hour=16, minute=0)
-# scheduler.add_cron(name="weekly_trends", func=weekly_trends, hour=9, minute=0, day_of_week=0)
-# scheduler.add_interval(name="sales_anomaly", func=sales_anomaly, seconds=6 * 3600)
+# ── Регистрация задач аналитики ──────────────────────────────────────────
+scheduler.add_cron(name="daily_kpi_snapshot", func=daily_kpi_snapshot, hour=20, minute=0)
+scheduler.add_cron(name="b2b_funnel_report", func=b2b_funnel_report, hour=16, minute=0)
+scheduler.add_cron(name="weekly_trends", func=weekly_trends, hour=9, minute=0, day_of_week=0)
+scheduler.add_interval(name="sales_anomaly", func=sales_anomaly, seconds=6 * 3600)
 scheduler.add_cron(name="monthly_executive", func=monthly_executive, hour=10, minute=0, day_of_month=1)
-# scheduler.add_cron(name="conversion_funnel", func=conversion_funnel, hour=15, minute=0)
+scheduler.add_cron(name="conversion_funnel", func=conversion_funnel, hour=15, minute=0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -469,7 +469,7 @@ async def handle_task_created(payload: dict):
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Data Scientist и Руководитель аналитики (Chief Data Officer). Мысли категориями когортного анализа, статистических аномалий и data-driven гипотез. Находи инсайты там, где другие видят просто цифры."
         user_prompt = f"Руководитель поручил аналитическую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
         logging.info("ANALYTICS_BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350, effort="high")
 
         logging.info(f"ANALYTICS_BOT sending message to {chat_id}")
         from shared.task_ui import get_task_keyboard

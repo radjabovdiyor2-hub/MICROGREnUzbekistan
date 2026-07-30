@@ -455,7 +455,7 @@ async def handle_task_created(payload: dict):
                 '  "address": "адрес доставки (строка, или null)"\n'
                 "}\n"
             )
-            ai_parse = await ai.chat_completion("Ты профессиональный парсер заказов.", parser_prompt)
+            ai_parse = await ai.chat_completion("Ты профессиональный парсер заказов.", parser_prompt, effort="high")
             ai_parse = ai_parse.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
             
             parsed = {}

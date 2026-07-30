@@ -177,11 +177,11 @@ async def auto_poll_instagram_comments():
         logging.error(f"auto_poll_instagram_comments error: {e}", exc_info=True)
 
 
-# Регистрация задач — отключено: частотный спам в лс админа
-# scheduler.add_interval(name="csat_survey_check", func=csat_survey_check, seconds=7200)
-# scheduler.add_interval(name="complaint_followup", func=complaint_followup, seconds=43200)
-# scheduler.add_interval(name="delivery_status_report", func=delivery_status_report, seconds=14400)
-# scheduler.add_cron(name="faq_analysis", func=faq_analysis, hour=10, minute=0, day_of_week=0)
+# ── Регистрация задач поддержки ───────────────────────────────────────────
+scheduler.add_interval(name="csat_survey_check", func=csat_survey_check, seconds=7200)
+scheduler.add_interval(name="complaint_followup", func=complaint_followup, seconds=43200)
+scheduler.add_interval(name="delivery_status_report", func=delivery_status_report, seconds=14400)
+scheduler.add_cron(name="faq_analysis", func=faq_analysis, hour=10, minute=0, day_of_week=0)
 # Instagram polling оставлен — обслуживает клиентов, не шлёт спам админу
 scheduler.add_interval(name="auto_poll_instagram_dms", func=auto_poll_instagram_dms, seconds=180)
 scheduler.add_interval(name="auto_poll_instagram_comments", func=auto_poll_instagram_comments, seconds=600)

@@ -35,7 +35,17 @@ TOKEN_COSTS: Dict[str, Dict[str, float]] = {
     "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    # ⚠️ Плейсхолдер цен gpt-5.5 (уточнить и поправить при выходе точных тарифов):
+    "gpt-5.5": {"input": 1.25, "output": 5.00},
+    "o4-mini": {"input": 1.10, "output": 4.40},
 }
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """Проверяет, относится ли модель к семейству рассуждающих (o1, o3, o4, gpt-5)."""
+    m = model.lower()
+    return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
 
 # ── Gemini REST API URL ──────────────────────────────────────────────────
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -149,6 +159,10 @@ class UsageStats:
         self.total_output_tokens += output_tokens
         self.total_requests += 1
 
+        if model not in TOKEN_COSTS:
+            logger.warning(
+                f"Модель {model} отсутствует в TOKEN_COSTS — расчёт по дефолтной ставке (input=1.0, output=3.0)"
+            )
         costs = TOKEN_COSTS.get(model, {"input": 1.0, "output": 3.0})
         cost = (
             (input_tokens / 1_000_000) * costs["input"]
@@ -338,8 +352,9 @@ class AIEngine:
         temperature: float = 0.7,
         max_tokens: int = 1024,
         image_base64: Optional[str] = None,
+        effort: str = "low",
     ) -> str:
-        """Fallback через OpenAI SDK."""
+        """Fallback через OpenAI SDK с поддержкой рассуждающих моделей."""
         client = self._get_openai_client()
         if not client:
             raise Exception("OpenAI API key not configured")
@@ -363,17 +378,41 @@ class AIEngine:
                 })
                 messages.append({"role": "user", "content": content})
 
-        start_time = time.monotonic()
-        response = await client.chat.completions.create(
-            model=self._openai_model,
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=0.95,
-        )
+        is_reasoning = _is_reasoning_model(self._openai_model)
 
+        # Выбираем параметры вызова в зависимости от семейства модели
+        kwargs: Dict = {
+            "model": self._openai_model,
+            "messages": messages,
+        }
+
+        if is_reasoning:
+            kwargs["max_completion_tokens"] = max_tokens
+            kwargs["reasoning_effort"] = effort
+        else:
+            kwargs["max_tokens"] = max_tokens
+            kwargs["temperature"] = temperature
+            kwargs["top_p"] = 0.95
+
+        start_time = time.monotonic()
+        response = await client.chat.completions.create(**kwargs)
         duration_ms = (time.monotonic() - start_time) * 1000
-        reply = response.choices[0].message.content or ""
+
+        choice = response.choices[0]
+        reply = (choice.message.content or "").strip()
+        finish_reason = getattr(choice, "finish_reason", None)
+
+        # Если рассуждающая модель остановилась по лимиту (length) и не успела напечатать ответ — делаем 1 повтор с увеличенным лимитом
+        if not reply and finish_reason == "length" and is_reasoning:
+            logger.warning(
+                f"OpenAI {self._openai_model} остановился по finish_reason='length' без ответа. Пробуем повтор с +2000 токенов."
+            )
+            kwargs["max_completion_tokens"] = max_tokens + 2000
+            start_time = time.monotonic()
+            response = await client.chat.completions.create(**kwargs)
+            duration_ms += (time.monotonic() - start_time) * 1000
+            choice = response.choices[0]
+            reply = (choice.message.content or "").strip()
 
         usage = response.usage
         if usage:
@@ -384,7 +423,7 @@ class AIEngine:
                 duration_ms=duration_ms,
             )
 
-        return reply.strip()
+        return reply
 
     # ─── Public API ──────────────────────────────────────────────────
 
@@ -397,31 +436,40 @@ class AIEngine:
         max_tokens: int = 1024,
         language: str = "ru",
         image_base64: Optional[str] = None,
+        effort: str = "low",
     ) -> str:
         """
-        Генерация ответа: Gemini → OpenAI fallback → fallback текст.
+        Генерация ответа через OpenAI (primary).
         """
         prompt = system_prompt or self._default_system_prompt
 
-        # 1. Gemini (primary)
-        if self._gemini_key:
-            try:
-                return await self._gemini_chat(
-                    system_prompt=prompt,
-                    user_message=user_message,
-                    conversation_history=conversation_history,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    image_base64=image_base64,
-                )
-            except Exception as e:
-                self.usage.total_errors += 1
-                logger.warning(f"Gemini сбой, пробуем OpenAI: {e}")
+        # Для рассуждающих моделей выделяем резерв токенов на размышления (минимум 2000 суммарно)
+        openai_max_tokens = max_tokens
+        if _is_reasoning_model(self._openai_model):
+            openai_max_tokens = max(max_tokens + 1500, 2000)
 
-        # 2. OpenAI (fallback)
+        res = ""
+
+        # 1. OpenAI (primary)
         if self._openai_key:
             try:
-                return await self._openai_chat(
+                res = await self._openai_chat(
+                    system_prompt=prompt,
+                    user_message=user_message,
+                    conversation_history=conversation_history,
+                    temperature=temperature,
+                    max_tokens=openai_max_tokens,
+                    image_base64=image_base64,
+                    effort=effort,
+                )
+            except Exception as e:
+                self.usage.total_errors += 1
+                logger.error(f"OpenAI сбой: {e}")
+
+        # 2. Gemini (fallback, если OpenAI не сработал)
+        if not res and self._gemini_key:
+            try:
+                res = await self._gemini_chat(
                     system_prompt=prompt,
                     user_message=user_message,
                     conversation_history=conversation_history,
@@ -431,11 +479,15 @@ class AIEngine:
                 )
             except Exception as e:
                 self.usage.total_errors += 1
-                logger.error(f"OpenAI fallback сбой: {e}")
+                logger.warning(f"Gemini fallback сбой: {e}")
 
-        # 3. Fallback текст
-        self.usage.total_errors += 1
-        return self._get_fallback(language)
+        # Guard: пустой ответ недопустим
+        if not res or not res.strip():
+            logger.warning("AI-движок вернул пустой ответ: отдаём fallback-заглушку")
+            self.usage.total_errors += 1
+            return self._get_fallback(language)
+
+        return res.strip()
 
     async def chat_with_tools(
         self,
@@ -446,51 +498,51 @@ class AIEngine:
         temperature: float = 0.7,
     ):
         """
-        Chat with function calling — Gemini → OpenAI fallback.
-
-        Gemini использует REST API с functionDeclarations,
-        OpenAI — стандартный tools API.
+        Chat with function calling — OpenAI (primary).
         """
-        # Gemini function calling
-        if self._gemini_key:
-            try:
-                return await self._gemini_tools_call(
-                    system_prompt, user_message, tools,
-                    conversation_history, temperature,
-                )
-            except Exception as e:
-                logger.warning(f"Gemini tools сбой, пробуем OpenAI: {e}")
-
-        # OpenAI fallback
+        # 1. OpenAI (primary)
         client = self._get_openai_client()
-        if not client:
-            raise Exception("Ни Gemini, ни OpenAI не настроены")
+        if client:
+            try:
+                messages = [{"role": "system", "content": system_prompt}]
+                if conversation_history:
+                    messages.extend(conversation_history)
+                if user_message:
+                    messages.append({"role": "user", "content": user_message})
 
-        messages = [{"role": "system", "content": system_prompt}]
-        if conversation_history:
-            messages.extend(conversation_history)
-        if user_message:
-            messages.append({"role": "user", "content": user_message})
+                kwargs: Dict = {
+                    "model": self._openai_model,
+                    "messages": messages,
+                    "tools": tools,
+                    "tool_choice": "auto",
+                }
+                if not _is_reasoning_model(self._openai_model):
+                    kwargs["temperature"] = temperature
 
-        start_time = time.monotonic()
-        response = await client.chat.completions.create(
-            model=self._openai_model,
-            messages=messages,
-            temperature=temperature,
-            tools=tools,
-            tool_choice="auto",
-        )
-        duration_ms = (time.monotonic() - start_time) * 1000
+                start_time = time.monotonic()
+                response = await client.chat.completions.create(**kwargs)
+                duration_ms = (time.monotonic() - start_time) * 1000
 
-        usage = response.usage
-        if usage:
-            self.usage.add_usage(
-                input_tokens=usage.prompt_tokens,
-                output_tokens=usage.completion_tokens,
-                model=self._openai_model,
-                duration_ms=duration_ms,
+                usage = response.usage
+                if usage:
+                    self.usage.add_usage(
+                        input_tokens=usage.prompt_tokens,
+                        output_tokens=usage.completion_tokens,
+                        model=self._openai_model,
+                        duration_ms=duration_ms,
+                    )
+                return response.choices[0].message
+            except Exception as e:
+                logger.warning(f"OpenAI tools сбой, пробуем Gemini: {e}")
+
+        # 2. Gemini fallback
+        if self._gemini_key:
+            return await self._gemini_tools_call(
+                system_prompt, user_message, tools,
+                conversation_history, temperature,
             )
-        return response.choices[0].message
+
+        raise Exception("Ни OpenAI, ни Gemini не настроены")
 
     async def _gemini_tools_call(
         self,

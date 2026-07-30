@@ -510,15 +510,12 @@ async def bot_health_summary():
 
 
 # ── Регистрация задач ────────────────────────────────────────────────────
-# Мигрированные старые задачи (Отключены, перенесены в n8n)
-# scheduler.add_interval(name="check_deadlines", func=check_deadlines, seconds=3600)
-# scheduler.add_cron(name="daily_report", func=daily_report, hour=9, minute=0)
-# scheduler.add_interval(name="check_followups", func=check_followups, seconds=1800)
-
-# Новые задачи (Отключены, перенесены в n8n)
-# scheduler.add_cron(name="evening_summary", func=evening_summary, hour=20, minute=0)
-# scheduler.add_cron(name="weekly_report", func=weekly_report, hour=9, minute=5, day_of_week=0)
-# scheduler.add_interval(name="auto_task_creation", func=auto_task_creation, seconds=4 * 3600)
+# ── Регистрация задач операционного управления ────────────────────────────
+scheduler.add_interval(name="check_deadlines", func=check_deadlines, seconds=3600)
+scheduler.add_interval(name="check_followups", func=check_followups, seconds=1800)
+scheduler.add_cron(name="evening_summary", func=evening_summary, hour=20, minute=0)
+scheduler.add_cron(name="weekly_report", func=weekly_report, hour=9, minute=5, day_of_week=0)
+scheduler.add_interval(name="auto_task_creation", func=auto_task_creation, seconds=4 * 3600)
 # Частая проверка (5 мин) — теперь антиспам: алертит только при ИЗМЕНЕНИИ (упал/восстановился).
 scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=300)
 # Ежедневная полная сводка в 09:00 (всегда присылается).

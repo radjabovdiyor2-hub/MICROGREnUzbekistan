@@ -54,7 +54,8 @@ async def ai_fallback(message: Message, state: FSMContext):
     
     response = await ai.chat_completion(
         system_prompt=prompt,
-        user_message=message.text)
+        user_message=message.text,
+        effort="high")
     await message.answer(response)
 
 @router.message(F.photo, F.chat.type == "private")

@@ -60,9 +60,12 @@ async def handle_n8n_webhook(request: web.Request):
                     system_prompt=QA_SYSTEM_PROMPT,
                     user_message=prompt_text,
                     image_base64=image_url if image_url.startswith("data:") else None,
+                    effort="high",
                 )
             except Exception as e:
                 logger.error(f"AI error: {e}")
+                from shared.health import record_bot_error
+                await record_bot_error("qa_bot", str(e))
                 analysis = "ИИ-анализ временно недоступен. Пожалуйста, проверьте лоток вручную."
                 
             # Send result back to Степан via Event Bus
@@ -79,6 +82,8 @@ async def handle_n8n_webhook(request: web.Request):
         
     except Exception as e:
         logger.error(f"Error handling webhook: {e}")
+        from shared.health import record_bot_error
+        await record_bot_error("qa_bot", str(e))
         return web.json_response({"error": str(e)}, status=500)
 
 async def handle_task_created(payload: dict):
@@ -103,9 +108,12 @@ async def handle_task_created(payload: dict):
         analysis = await ai.chat_completion(
             system_prompt=QA_SYSTEM_PROMPT,
             user_message=prompt_text,
+            effort="high",
         )
     except Exception as e:
         logger.error(f"AI error: {e}")
+        from shared.health import record_bot_error
+        await record_bot_error("qa_bot", str(e))
         analysis = "ИИ-анализ временно недоступен. Возникла ошибка."
         
     # Send result back to Степан via Event Bus

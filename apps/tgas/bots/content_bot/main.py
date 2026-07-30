@@ -44,9 +44,9 @@ scheduler = BotScheduler("content_bot")
 # следующей же публикацией.
 from shared.content_archive import (
     mark_published as _mark_published,
-    status_message as _content_status_message,
-    get_publications,
-    get_last_publications,
+    status_message_async as _content_status_message,
+    get_publications_async as get_publications,
+    get_last_publications_async as get_last_publications,
     tz_now as _tz_now,
 )
 
@@ -420,7 +420,7 @@ async def morning_post(d: date | None = None):
             channel_caption = f"<b>{headline}</b>\n\n{post_text}\n\n{fmt['cta']}\nmicrogreenuzbekistan.com"
             await _post_to_channel(final_img, channel_caption)
             if success:
-                _mark_published("morning", image=final_img, caption=post_text, title=headline)
+                await _mark_published("morning", image=final_img, caption=post_text, title=headline)
                 await _bot.send_message(admin_id, "✅ <i>Опубликовано в Instagram Stories</i>", parse_mode="HTML")
         else:
             channel_caption = f"<b>{headline}</b>\n\n{post_text}\n\n{fmt['cta']}\nmicrogreenuzbekistan.com"
@@ -553,7 +553,7 @@ async def evening_post(d: date | None = None):
             success = await post_to_instagram(final_img, "", post_type="story")
             await _post_to_channel(final_img, channel_caption)
             if success:
-                _mark_published("recipe", image=final_img, caption=caption, title=title)
+                await _mark_published("recipe", image=final_img, caption=caption, title=title)
                 await _bot.send_message(admin_id, "✅ <i>Рецепт опубликован в Instagram Stories</i>", parse_mode="HTML")
         else:
             await _post_to_channel(None, channel_caption)
@@ -614,7 +614,7 @@ async def weekly_grid_post(d: date | None = None):
             ok = await post_to_instagram(image_url, feed_caption, post_type='feed')
             await _post_to_channel(image_url, feed_caption)
             if ok:
-                _mark_published("grid", image=image_url, caption=post_text, title=pillar["name"])
+                await _mark_published("grid", image=image_url, caption=post_text, title=pillar["name"])
                 await _bot.send_message(admin_id, "✅ <i>Пост недели опубликован в ленту Instagram</i>", parse_mode="HTML")
         else:
             await _post_to_channel(None, feed_caption)
@@ -683,8 +683,11 @@ async def reel_post():
             await _bot.send_message(admin_id, "⚠️ Reel не собран: ffmpeg недоступен в окружении.", parse_mode="HTML")
             return
 
-        # Ротация info-формата по дню (лайфхак / факт / мини-рецепт)
-        key = REEL_INFO_FORMATS[now.timetuple().tm_yday % len(REEL_INFO_FORMATS)]
+        # Динамический выбор формата на основе показателей зашедшего контента (петля обратной связи)
+        from shared.content_archive import get_format_performance_weights_async
+        import random
+        weights = await get_format_performance_weights_async(REEL_INFO_FORMATS)
+        key = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
         fmt = next(f for f in MORNING_FORMATS if f["key"] == key)
         # Тема из актуальной повестки — только для нужного плейсхолдера (не оба)
         ctx = await get_daily_context()
@@ -741,9 +744,9 @@ async def reel_post():
         await _bot.send_video(admin_id, video=FSInputFile(reel),
                               caption=f"🎬 <b>Reel: {fmt['ru']}</b>", parse_mode="HTML")
         from shared.instagram import post_reel
-        ok = await post_reel(reel, caption, share_to_feed=True)
-        if ok:
-            _mark_published("reel", image=frame, caption=caption, title=headline)
+        media_id = await post_reel(reel, caption, share_to_feed=True)
+        if media_id:
+            await _mark_published("reel", image=frame, caption=caption, title=headline, media_id=media_id)
             await _bot.send_message(admin_id, "✅ <i>Reel опубликован в Instagram</i>", parse_mode="HTML")
     except Exception as e:
         logging.error(f"reel_post error: {e}", exc_info=True)
@@ -832,10 +835,11 @@ async def weekly_reach_report():
     о здоровье аудитории. Данные уже собирает shared.instagram_analytics — здесь сводка.
     Главный индикатор: охват <10% базы ≈ подписчики неактивны/накручены (контентом не лечится)."""
     try:
-        from shared.instagram_analytics import build_reach_report
+        from shared.instagram_analytics import build_reach_report, sync_publication_metrics
         admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
         if not (admin_id and _bot):
             return
+        await sync_publication_metrics()
         rep = await build_reach_report()
         if not rep.get("configured"):
             await _bot.send_message(
@@ -987,7 +991,7 @@ async def bus_generate_meme(params: dict) -> dict:
 
 async def bus_get_status(params: dict) -> dict:
     """Реальный статус публикаций контента на сегодня (для Степана)."""
-    return {"status": "ok", "message": _content_status_message()}
+    return {"status": "ok", "message": await _content_status_message()}
 
 
 async def bus_product_description(params: dict) -> dict:
@@ -1055,11 +1059,11 @@ async def bus_get_last_post(params: dict) -> dict:
     else:
         target = day  # ожидаем YYYY-MM-DD
 
-    posts = get_publications(target) if target else get_last_publications()
+    posts = await get_publications(target) if target else await get_last_publications()
     fell_back = False
     if not posts and target:
         # за нужный день ничего — покажем последнее, что реально выходило
-        posts = get_last_publications()
+        posts = await get_last_publications()
         fell_back = True
 
     if not posts:
@@ -1068,7 +1072,7 @@ async def bus_get_last_post(params: dict) -> dict:
             "data": {"posts": [], "fell_back": False},
             "message": (
                 "Пока нет ни одной сохранённой публикации.\n\n"
-                + _content_status_message()
+                + await _content_status_message()
             ),
         }
 

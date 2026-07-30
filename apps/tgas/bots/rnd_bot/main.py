@@ -57,9 +57,12 @@ async def generate_instagram_rnd_report() -> str:
         report = await ai.chat_completion(
             system_prompt=RND_SYSTEM_PROMPT,
             user_message=prompt,
+            effort="high",
         )
     except Exception as e:
         logger.error(f"AI error: {e}")
+        from shared.health import record_bot_error
+        await record_bot_error("rnd_bot", str(e))
         report = "Не удалось сгенерировать R&D-отчёт из-за ошибки ИИ."
 
     if not stats.get("configured"):
@@ -76,6 +79,8 @@ async def weekly_instagram_rnd():
         logger.info("weekly_instagram_rnd: отчёт отправлен руководителю")
     except Exception as e:
         logger.error(f"weekly_instagram_rnd error: {e}", exc_info=True)
+        from shared.health import record_bot_error
+        await record_bot_error("rnd_bot", str(e))
 
 async def handle_n8n_webhook(request: web.Request):
     """Webhook from n8n for R&D tasks"""
@@ -92,6 +97,8 @@ async def handle_n8n_webhook(request: web.Request):
         
     except Exception as e:
         logger.error(f"Error handling webhook: {e}")
+        from shared.health import record_bot_error
+        await record_bot_error("rnd_bot", str(e))
         return web.json_response({"error": str(e)}, status=500)
 
 async def handle_task_created(payload: dict):
@@ -116,9 +123,12 @@ async def handle_task_created(payload: dict):
         report = await ai.chat_completion(
             system_prompt=RND_SYSTEM_PROMPT,
             user_message=prompt_text,
+            effort="high",
         )
     except Exception as e:
         logger.error(f"AI error: {e}")
+        from shared.health import record_bot_error
+        await record_bot_error("rnd_bot", str(e))
         report = "Не удалось сгенерировать отчет R&D из-за ошибки ИИ."
         
     # Send result back via Event Bus to Stepan
