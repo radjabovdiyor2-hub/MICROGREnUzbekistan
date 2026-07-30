@@ -580,9 +580,9 @@ async def run_magazine_pipeline():
         
         # Фаза 1: Сбор данных
         logger.info("Magazine Phase 1: Data Gathering")
-        facts_task = await send_task("stepan", "rnd_bot", BotBusActions.GENERATE_MAGAZINE_FACTS)
-        products_task = await send_task("stepan", "analytics_bot", BotBusActions.GET_TOP_PRODUCTS)
-        restaurant_task = await send_task("stepan", "marketing_bot", BotBusActions.PICK_RESTAURANT)
+        facts_task = await send_task("stepan_bot", "rnd_bot", BotBusActions.GENERATE_MAGAZINE_FACTS)
+        products_task = await send_task("stepan_bot", "analytics_bot", BotBusActions.GET_TOP_PRODUCTS)
+        restaurant_task = await send_task("stepan_bot", "marketing_bot", BotBusActions.PICK_RESTAURANT)
         
         # Ждем результаты первой фазы
         facts_res = await get_result(facts_task, timeout=120)
@@ -591,13 +591,13 @@ async def run_magazine_pipeline():
         
         # Фаза 2: Контент и реклама
         logger.info("Magazine Phase 2: Content & Ads")
-        content_task = await send_task("stepan", "content_bot", BotBusActions.DRAFT_MAGAZINE, params={
+        content_task = await send_task("stepan_bot", "content_bot", BotBusActions.DRAFT_MAGAZINE, params={
             "facts": facts_res.get("result") if facts_res else "Факты не получены",
             "products": products_res.get("result") if products_res else "Продукты не получены",
             "restaurant": restaurant_res.get("result") if restaurant_res else "Ресторан не получен"
         })
         
-        ads_task = await send_task("stepan", "sales_bot", BotBusActions.SELL_MAGAZINE_ADS)
+        ads_task = await send_task("stepan_bot", "sales_bot", BotBusActions.SELL_MAGAZINE_ADS)
         
         content_res = await get_result(content_task, timeout=300)
         ads_res = await get_result(ads_task, timeout=300)
@@ -608,7 +608,7 @@ async def run_magazine_pipeline():
             return
             
         logger.info("Magazine Phase 3: Publishing")
-        publish_task = await send_task("stepan", "devops_bot", BotBusActions.PUBLISH_MAGAZINE, params={
+        publish_task = await send_task("stepan_bot", "devops_bot", BotBusActions.PUBLISH_MAGAZINE, params={
             "content": content_res.get("result"),
             "ads": ads_res.get("result") if ads_res else []
         })

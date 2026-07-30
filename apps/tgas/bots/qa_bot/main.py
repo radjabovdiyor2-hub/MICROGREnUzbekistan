@@ -4,6 +4,17 @@ from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
 from shared.ai_engine import AIEngine
+from shared.prompts import TEAM_CONTEXT
+
+# Полный системный промпт: командный контекст (чтобы бот знал о других
+# отделах и умел маршрутизировать) + роль + фирменный голос бренда.
+# До этого здесь был однострочник вида QA_SYSTEM_PROMPT.
+QA_SYSTEM_PROMPT = TEAM_CONTEXT + """
+Ты — инженер контроля качества сити-фермы Microgreen Uzbekistan.
+Осматриваешь лотки и партии: всхожесть, плесень, вытягивание, цвет, срок до среза.
+Вывод давай коротко и по делу: вердикт (годно / под наблюдение / брак), причина, действие.
+Не выдумывай наблюдений: если по фото или описанию не видно — так и скажи и запроси уточнение.
+"""
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] QA_BOT: %(message)s")
 logger = logging.getLogger(__name__)
@@ -46,7 +57,7 @@ async def handle_n8n_webhook(request: web.Request):
 
             try:
                 analysis = await ai.chat_completion(
-                    system_prompt="Ты инженер QA на ферме микрозелени.",
+                    system_prompt=QA_SYSTEM_PROMPT,
                     user_message=prompt_text,
                     image_base64=image_url if image_url.startswith("data:") else None,
                 )
@@ -73,7 +84,9 @@ async def handle_n8n_webhook(request: web.Request):
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
     data = payload.get("data", {})
-    if data.get("department") != "qa":
+    # Регистр приводим, как у остальных ботов: диспетчер может прислать
+    # "QA"/"DevOps", и строгое сравнение молча теряло такую задачу.
+    if str(data.get("department", "")).lower() != "qa":
         return
         
     logger.info(f"QA Bot received task via event_bus: {payload}")
@@ -88,7 +101,7 @@ async def handle_task_created(payload: dict):
     
     try:
         analysis = await ai.chat_completion(
-            system_prompt="Ты инженер QA на ферме микрозелени.",
+            system_prompt=QA_SYSTEM_PROMPT,
             user_message=prompt_text,
         )
     except Exception as e:

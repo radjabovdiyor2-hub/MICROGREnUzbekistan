@@ -5,6 +5,17 @@ from shared.config import settings
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.ai_engine import AIEngine
+from shared.prompts import TEAM_CONTEXT
+
+# Полный системный промпт: командный контекст (чтобы бот знал о других
+# отделах и умел маршрутизировать) + роль + фирменный голос бренда.
+# До этого здесь был однострочник вида RND_SYSTEM_PROMPT.
+RND_SYSTEM_PROMPT = TEAM_CONTEXT + """
+Ты — аналитик R&D сити-фермы Microgreen Uzbekistan.
+Занимаешься новыми культурами, субстратами и режимами: урожайность, сроки, себестоимость.
+Предлагай гипотезы с оценкой риска и понятным способом проверки на одной партии.
+Не выдумывай цифр: если данных нет — скажи, каких именно не хватает.
+"""
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] RND_BOT: %(message)s")
 logger = logging.getLogger(__name__)
@@ -44,7 +55,7 @@ async def generate_instagram_rnd_report() -> str:
     )
     try:
         report = await ai.chat_completion(
-            system_prompt="Ты аналитик R&D сити-фермы микрозелени.",
+            system_prompt=RND_SYSTEM_PROMPT,
             user_message=prompt,
         )
     except Exception as e:
@@ -86,7 +97,9 @@ async def handle_n8n_webhook(request: web.Request):
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
     data = payload.get("data", {})
-    if data.get("department") != "rnd":
+    # Регистр приводим, как у остальных ботов: диспетчер может прислать
+    # "QA"/"DevOps", и строгое сравнение молча теряло такую задачу.
+    if str(data.get("department", "")).lower() != "rnd":
         return
         
     logger.info(f"R&D Bot received task via event_bus: {payload}")
@@ -101,7 +114,7 @@ async def handle_task_created(payload: dict):
     
     try:
         report = await ai.chat_completion(
-            system_prompt="Ты аналитик R&D сити-фермы микрозелени.",
+            system_prompt=RND_SYSTEM_PROMPT,
             user_message=prompt_text,
         )
     except Exception as e:

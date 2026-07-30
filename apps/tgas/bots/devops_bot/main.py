@@ -66,7 +66,9 @@ async def handle_n8n_webhook(request: web.Request):
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
     data = payload.get("data", {})
-    if data.get("department") != "devops":
+    # Регистр приводим, как у остальных ботов: диспетчер может прислать
+    # "QA"/"DevOps", и строгое сравнение молча теряло такую задачу.
+    if str(data.get("department", "")).lower() != "devops":
         return
         
     logger.info(f"DevOps Bot received task via event_bus: {payload}")

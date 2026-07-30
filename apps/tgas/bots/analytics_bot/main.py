@@ -513,6 +513,19 @@ async def main():
     event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8088)  # mg_analytics — порт из карты доставки event_bus
 
+    # Пульс живости. start_heartbeat был импортирован в шапке модуля, но нигде
+    # не вызывался: бот работал нормально, а ключа bot:heartbeat:analytics_bot
+    # в Redis не появлялось никогда, и мониторинг вечно показывал
+    # «Analytics — НЕ ЗАПУЩЕН». Сверка реестра — scripts/check_bot_roster.py.
+    asyncio.create_task(start_heartbeat("analytics_bot"))
+
+    # Планировщик тоже не запускался: задача monthly_executive была
+    # зарегистрирована, в finally стоял scheduler.stop(), а start() не вызывался
+    # ни разу — то есть месячный отчёт не выходил никогда. Второй дефект того же
+    # класса, что и пропущенный heartbeat выше: код на месте, вызова нет.
+    # Пять других задач (строки ~394-399) закомментированы намеренно — не трогаем.
+    await scheduler.start()
+
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
