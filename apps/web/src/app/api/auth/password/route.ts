@@ -5,7 +5,7 @@ import {
   isPasswordConfigured,
   MIN_PASSWORD_LENGTH,
 } from '@/lib/password';
-import { createSession, SESSION_COOKIE, sessionCookieOptions } from '@/lib/session';
+import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
 import { consume, reset, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { audit } from '@/lib/audit';
 import { Metrics } from '@/lib/metrics';
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Barcha maydonlarni to'ldiring" }, { status: 400 });
     }
 
-    const limit = consume(`pwchange:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+    const limit = await consume(`pwchange:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
     if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
     if (!verifyPassword(currentPassword)) {
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     }
 
     setPassword(newPassword);
-    reset(`pwchange:${ip}`);
+    await reset(`pwchange:${ip}`);
     audit({ action: 'password.change', actor: 'owner', ip });
 
     return NextResponse.json({
@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'password required' }, { status: 400 });
   }
 
-  const limit = consume(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+  const limit = await consume(`login:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
   if (!limit.ok) {
     audit({ action: 'login.ratelimited', actor: 'owner', ip });
     Metrics.rateLimited('auth/password');
@@ -108,7 +108,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ valid: false, error: "Parol noto'g'ri" }, { status: 401 });
   }
 
-  const token = await createSession({ role: 'ADMIN' });
+  const ua = req.headers.get('user-agent') ?? '';
+  const fp = sessionFingerprint(ip, ua);
+  const token = await createSession({ role: 'ADMIN', fp });
   if (!token) {
     return NextResponse.json(
       { error: 'SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq' },
@@ -116,7 +118,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  reset(`login:${ip}`);
+  await reset(`login:${ip}`);
   audit({ action: 'login.success', actor: 'owner', role: 'ADMIN', ip });
   Metrics.loginSuccess('ADMIN');
 

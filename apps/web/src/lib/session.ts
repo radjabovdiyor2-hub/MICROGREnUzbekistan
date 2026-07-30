@@ -1,4 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
+import crypto from 'crypto';
 
 // ════════════════════════════════════════════════════════════════════
 // Подписанная сессия админки (HS256, httpOnly-cookie).
@@ -26,6 +27,8 @@ export interface SessionPayload {
   role: SessionRole;
   /** Имя сотрудника для роли SELLER — показывается в шапке POS. */
   name?: string;
+  /** SHA-256 truncated hash of IP + User-Agent — привязка к устройству. */
+  fp?: string;
 }
 
 /**
@@ -56,15 +59,21 @@ export async function createSession(payload: SessionPayload): Promise<string | n
   const secret = getSecret();
   if (!secret) return null;
 
-  return new SignJWT({ role: payload.role, name: payload.name })
+  return new SignJWT({ role: payload.role, name: payload.name, fp: payload.fp })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(SESSION_TTL)
     .sign(secret);
 }
 
-/** Проверяет токен. null — подпись невалидна, срок истёк или секрета нет. */
-export async function verifySession(token: string | undefined): Promise<SessionPayload | null> {
+/**
+ * Проверяет токен. null — подпись невалидна, срок истёк или секрета нет.
+ * Если в токене есть fingerprint и передан expectedFp — проверяет совпадение.
+ */
+export async function verifySession(
+  token: string | undefined,
+  expectedFp?: string,
+): Promise<SessionPayload | null> {
   if (!token) return null;
   const secret = getSecret();
   if (!secret) return null;
@@ -73,10 +82,23 @@ export async function verifySession(token: string | undefined): Promise<SessionP
     const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
     const role = payload.role;
     if (role !== 'ADMIN' && role !== 'SELLER') return null;
-    return { role, name: typeof payload.name === 'string' ? payload.name : undefined };
+
+    const fp = typeof payload.fp === 'string' ? payload.fp : undefined;
+    if (fp && expectedFp && fp !== expectedFp) return null;
+
+    return { role, name: typeof payload.name === 'string' ? payload.name : undefined, fp };
   } catch {
     return null;
   }
+}
+
+/**
+ * Генерирует fingerprint из IP и User-Agent.
+ * Truncated SHA-256 (первые 16 hex символов) — достаточно для привязки,
+ * не содержит raw PII.
+ */
+export function sessionFingerprint(ip: string, ua: string): string {
+  return crypto.createHash('sha256').update(`${ip}|${ua}`).digest('hex').slice(0, 16);
 }
 
 /** Атрибуты cookie сессии. Secure — только по HTTPS, т.е. не ломает localhost. */

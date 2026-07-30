@@ -56,7 +56,7 @@ export function customerStatusText(
   return `📦 <b>#${orderNumber}</b>\n${primary}\n<i>${secondary}</i>`;
 }
 
-// Fire-and-forget push to the AI-office. Best-effort: never throws.
+// Push status to the AI-office with retry. Best-effort: never throws.
 export async function pushStatusToOffice(params: {
   orderNumber: string;
   status?: string | null;
@@ -67,22 +67,31 @@ export async function pushStatusToOffice(params: {
     process.env.OFFICE_INGEST_URL?.replace(/\/order$/, '/order-status');
   if (!url) return;
 
-  try {
-    await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
-      },
-      body: JSON.stringify({
-        order_number: params.orderNumber,
-        status: params.status ? STATUS_TO_OFFICE[params.status] ?? null : null,
-        payment_status: params.paymentStatus ? PAYMENT_TO_OFFICE[params.paymentStatus] ?? null : null,
-      }),
-      signal: AbortSignal.timeout(4000),
-    });
-  } catch (err) {
-    console.error('Office status sync failed (order still updated):', err);
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
+        },
+        body: JSON.stringify({
+          order_number: params.orderNumber,
+          status: params.status ? STATUS_TO_OFFICE[params.status] ?? null : null,
+          payment_status: params.paymentStatus ? PAYMENT_TO_OFFICE[params.paymentStatus] ?? null : null,
+        }),
+        signal: AbortSignal.timeout(4000),
+      });
+      if (!response.ok) throw new Error(`Office returned ${response.status}`);
+      return;
+    } catch (err) {
+      if (attempt === maxRetries) {
+        console.error('Office status sync failed after 3 attempts (order still updated):', err);
+      } else {
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
   }
 }
 

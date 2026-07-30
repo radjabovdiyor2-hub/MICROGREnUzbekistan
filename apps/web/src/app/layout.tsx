@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { CartProvider } from '@/components/providers/CartProvider';
@@ -365,11 +366,12 @@ function JsonLd() {
   );
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const nonce = (await headers()).get('x-nonce') ?? '';
   return (
     <html lang="uz" suppressHydrationWarning>
       <head>
@@ -381,8 +383,9 @@ export default function RootLayout({
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <JsonLd />
-        <script src="https://telegram.org/js/telegram-web-app.js" async></script>
+        <script src="https://telegram.org/js/telegram-web-app.js" nonce={nonce} async></script>
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('Microgreen-theme');if(t){document.documentElement.setAttribute('data-theme',t)}else{var d=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',d)}}catch(e){document.documentElement.setAttribute('data-theme','light')}})()`,
           }}

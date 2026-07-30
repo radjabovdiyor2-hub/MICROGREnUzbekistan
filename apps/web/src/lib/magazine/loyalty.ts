@@ -7,6 +7,7 @@
 // HTTP-роута приёма кадра.
 // ════════════════════════════════════════════════════════════
 import { prisma } from '@repo/database';
+import crypto from 'crypto';
 
 export interface StampResult {
   stamps: number;
@@ -25,7 +26,7 @@ export function tashkentDay(now = new Date()): string {
 
 // Уникальный код награды: FW-<slug>-<6 символов>.
 function makeRewardCode(slug: string): string {
-  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
   return `FW-${slug.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${rand}`;
 }
 

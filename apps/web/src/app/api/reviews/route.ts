@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIp(request);
-    const limit = consume(`review:${ip}`, REVIEW_LIMIT, REVIEW_WINDOW_MS);
+    const limit = await consume(`review:${ip}`, REVIEW_LIMIT, REVIEW_WINDOW_MS);
     if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
     const body = await request.json();

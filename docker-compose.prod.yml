@@ -277,7 +277,6 @@ services:
     volumes:
       - bus_tasks:/app/bus_tasks
       - ./backups:/app/backups
-      - /var/run/docker.sock:/var/run/docker.sock
 
   # n8n_bridge reaches an (optional) external n8n on the host
   n8n_bridge:

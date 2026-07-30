@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@repo/database';
 
 // ==========================================
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
     // Generate sale number
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
     const saleNumber = `S-${dateStr}-${rand}`;
 
     // Execute all operations in a single transaction
@@ -199,7 +200,7 @@ export async function PUT(request: NextRequest) {
     // Generate return number
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
     const returnNumber = `R-${dateStr}-${rand}`;
 
     // Execute return in a transaction

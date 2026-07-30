@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { createSession, SESSION_COOKIE, sessionCookieOptions } from '@/lib/session';
+import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
 import { consume, reset, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { audit } from '@/lib/audit';
 import { Metrics } from '@/lib/metrics';
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'PIN majburiy' }, { status: 400 });
     }
 
-    const limit = consume(`pin:${ip}`, PIN_LIMIT, PIN_WINDOW_MS);
+    const limit = await consume(`pin:${ip}`, PIN_LIMIT, PIN_WINDOW_MS);
     if (!limit.ok) {
       audit({ action: 'pin.ratelimited', ip });
       Metrics.rateLimited('inventory/employees/auth');
@@ -52,7 +52,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PIN noto'g'ri" }, { status: 401 });
     }
 
-    const token = await createSession({ role: 'SELLER', name: employee.name });
+    const ua = request.headers.get('user-agent') ?? '';
+    const fp = sessionFingerprint(ip, ua);
+    const token = await createSession({ role: 'SELLER', name: employee.name, fp });
     if (!token) {
       return NextResponse.json(
         { error: "SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq" },
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    reset(`pin:${ip}`);
+    await reset(`pin:${ip}`);
     Metrics.loginSuccess('SELLER');
     audit({
       action: 'pin.success',

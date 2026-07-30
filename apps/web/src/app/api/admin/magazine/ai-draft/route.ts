@@ -71,6 +71,6 @@ export async function POST(request: Request) {
     const merged = reconcile(block, generated);
     return NextResponse.json({ block: merged, source: aiProvider() });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'AI error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

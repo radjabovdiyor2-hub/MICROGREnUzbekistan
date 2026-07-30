@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@repo/database';
 import { findPayableByRef, markPayablePaid } from '@/lib/payments';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
+import crypto from 'crypto';
 
 // ==========================================
 // Payme Merchant API webhook (JSON-RPC 2.0).
 // Docs: https://developer.help.paycom.uz/protokol-merchant-api/
 // Auth: HTTP Basic "Paycom:<PAYME_KEY>". Amount is in tiyin (1 so'm = 100).
 //
-// NOTE: a fully certified Payme integration needs a transactions table to track
-// state across Create/Perform/Cancel by Payme transaction id. This handler maps
-// via params.account.order_id (present on Check/Create) and marks the order PAID
-// on PerformTransaction. Robust multi-call reconciliation is a follow-up — see
-// the integration notes. The order is only ever touched after auth passes.
+// Transactions are persisted in payme_transactions for certification:
+// Payme requires correct state reporting across Create → Perform / Cancel.
 // ==========================================
 
 const PAYME_KEY = process.env.PAYME_KEY || '';
 
 function authOk(request: NextRequest): boolean {
-  if (!PAYME_KEY) return false; // not configured → reject, never confirm blindly
+  if (!PAYME_KEY) return false;
   const h = request.headers.get('authorization') || '';
   if (!h.startsWith('Basic ')) return false;
   try {
-    const decoded = Buffer.from(h.slice(6), 'base64').toString('utf8'); // "Paycom:<key>"
-    return (decoded.split(':')[1] ?? '') === PAYME_KEY;
+    const decoded = Buffer.from(h.slice(6), 'base64').toString('utf8');
+    const provided = decoded.split(':')[1] ?? '';
+    if (provided.length !== PAYME_KEY.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(PAYME_KEY));
   } catch {
     return false;
   }
@@ -38,6 +40,10 @@ function accountRef(params: Record<string, unknown> | undefined): string | null 
 }
 
 export async function POST(request: NextRequest) {
+  const ip = clientIp(request);
+  const limit = await consume(`payme:${ip}`, 30, 60_000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const id = body.id;
   const method = body.method as string | undefined;
@@ -49,6 +55,7 @@ export async function POST(request: NextRequest) {
 
   const ref = accountRef(params);
   const amount = Number(params?.amount) || 0;
+  const paymeId = String(params?.id ?? '');
 
   switch (method) {
     case 'CheckPerformTransaction': {
@@ -64,23 +71,80 @@ export async function POST(request: NextRequest) {
     case 'CreateTransaction': {
       const payable = ref ? await findPayableByRef(ref) : null;
       if (!payable) return rpcError(id, -31050, 'Order not found');
-      return rpc(id, { create_time: Date.now(), transaction: String(params?.id ?? ''), state: 1 });
+
+      // Idempotent: if transaction already exists, return its data.
+      const existing = await prisma.paymeTransaction.findUnique({ where: { paymeId } });
+      if (existing) {
+        if (existing.orderRef !== ref) return rpcError(id, -31050, 'Order mismatch');
+        return rpc(id, {
+          create_time: existing.createTime.getTime(),
+          transaction: existing.paymeId,
+          state: existing.state,
+        });
+      }
+
+      const tx = await prisma.paymeTransaction.create({
+        data: {
+          paymeId,
+          orderRef: ref as string,
+          amount,
+          state: 1,
+        },
+      });
+
+      return rpc(id, { create_time: tx.createTime.getTime(), transaction: tx.paymeId, state: 1 });
     }
 
     case 'PerformTransaction': {
-      // Confirm payment — the payable (Order or PrintOrder) must exist to mark it paid.
-      const payable = ref ? await findPayableByRef(ref) : null;
-      if (!payable) return rpcError(id, -31050, 'Order not found');
-      await markPayablePaid(ref as string);
-      return rpc(id, { perform_time: Date.now(), transaction: String(params?.id ?? ''), state: 2 });
+      const tx = await prisma.paymeTransaction.findUnique({ where: { paymeId } });
+      if (!tx) return rpcError(id, -31003, 'Transaction not found');
+      if (tx.state === 2) {
+        return rpc(id, { perform_time: tx.performTime!.getTime(), transaction: tx.paymeId, state: 2 });
+      }
+      if (tx.state !== 1) return rpcError(id, -31008, 'Transaction cannot be performed');
+
+      await markPayablePaid(tx.orderRef);
+
+      const now = new Date();
+      await prisma.paymeTransaction.update({
+        where: { paymeId },
+        data: { state: 2, performTime: now },
+      });
+
+      return rpc(id, { perform_time: now.getTime(), transaction: tx.paymeId, state: 2 });
     }
 
     case 'CancelTransaction': {
-      return rpc(id, { cancel_time: Date.now(), transaction: String(params?.id ?? ''), state: -1 });
+      const tx = await prisma.paymeTransaction.findUnique({ where: { paymeId } });
+      if (!tx) return rpcError(id, -31003, 'Transaction not found');
+      if (tx.state < 0) {
+        return rpc(id, { cancel_time: tx.cancelTime!.getTime(), transaction: tx.paymeId, state: tx.state });
+      }
+
+      const reason = Number((params as Record<string, unknown>)?.reason) || 0;
+      const cancelState = tx.state === 2 ? -2 : -1;
+      const now = new Date();
+
+      await prisma.paymeTransaction.update({
+        where: { paymeId },
+        data: { state: cancelState, cancelTime: now, reason },
+      });
+
+      return rpc(id, { cancel_time: now.getTime(), transaction: tx.paymeId, state: cancelState });
     }
 
     case 'CheckTransaction': {
-      return rpc(id, { transaction: String(params?.id ?? ''), state: 2 });
+      const tx = await prisma.paymeTransaction.findUnique({ where: { paymeId } });
+      if (!tx) return rpcError(id, -31003, 'Transaction not found');
+
+      return rpc(id, {
+        create_time: tx.createTime.getTime(),
+        perform_time: tx.performTime?.getTime() ?? 0,
+        cancel_time: tx.cancelTime?.getTime() ?? 0,
+        transaction: tx.paymeId,
+        state: tx.state,
+        reason: tx.reason ?? null,
+      });
     }
 
     default:

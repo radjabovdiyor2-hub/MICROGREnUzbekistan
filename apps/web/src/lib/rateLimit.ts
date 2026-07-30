@@ -3,14 +3,56 @@ import { NextRequest, NextResponse } from 'next/server';
 // ════════════════════════════════════════════════════════════════════
 // Лимит запросов по ключу (IP или IP+логин).
 //
-// Зачем: вход владельца и PIN сотрудника не имели вообще никакого счётчика
-// попыток. PIN четырёхзначный — 10 000 комбинаций, то есть полный перебор
-// упирался только в nginx (10 r/s), а это меньше 20 минут.
+// Два режима:
+//   1. Redis (REDIS_URL задан) — счётчики в Redis, работает на N инстансов.
+//   2. In-memory fallback — для одного контейнера, как раньше.
 //
-// Счётчик в памяти процесса: `web` крутится одним контейнером
-// (docker-compose.prod.yml), поэтому общего хранилища не требуется. Если
-// однажды появится второй инстанс — переносить в Redis, он уже в стеке.
+// web работает одним контейнером (docker-compose.prod.yml), поэтому
+// in-memory по умолчанию достаточен. При масштабировании задать REDIS_URL
+// в .env контейнера web — лимиты автоматически перейдут на Redis.
 // ════════════════════════════════════════════════════════════════════
+
+// ─── Redis (ленивая инициализация) ──────────────────────────────────
+
+type RedisClient = {
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<number>;
+  del(key: string): Promise<number>;
+  ttl(key: string): Promise<number>;
+  quit(): Promise<string>;
+};
+
+let redisClient: RedisClient | null = null;
+let redisUnavailable = false;
+
+async function getRedis(): Promise<RedisClient | null> {
+  if (redisUnavailable) return null;
+  if (redisClient) return redisClient;
+
+  const url = process.env.REDIS_URL;
+  if (!url) return null;
+
+  try {
+    // ioredis is a runtime-optional peer dependency.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Redis = require('ioredis');
+    const client = new Redis(url, {
+      maxRetriesPerRequest: 1,
+      lazyConnect: true,
+      connectTimeout: 2000,
+      enableReadyCheck: false,
+    });
+    await client.connect();
+    redisClient = client as RedisClient;
+    return redisClient;
+  } catch {
+    console.warn('Rate limiter: Redis unavailable, falling back to in-memory.');
+    redisUnavailable = true;
+    return null;
+  }
+}
+
+// ─── In-memory fallback ─────────────────────────────────────────────
 
 interface Bucket {
   count: number;
@@ -19,8 +61,6 @@ interface Bucket {
 }
 
 const buckets = new Map<string, Bucket>();
-
-/** Чтобы Map не рос бесконечно от разовых IP. */
 const MAX_BUCKETS = 10_000;
 
 function sweep(now: number): void {
@@ -28,6 +68,8 @@ function sweep(now: number): void {
     if (bucket.resetAt <= now) buckets.delete(key);
   }
 }
+
+// ─── Public API ─────────────────────────────────────────────────────
 
 export interface RateLimitResult {
   ok: boolean;
@@ -43,7 +85,49 @@ export interface RateLimitResult {
  * @param limit    сколько попыток разрешено за окно
  * @param windowMs длина окна в миллисекундах
  */
-export function consume(key: string, limit: number, windowMs: number): RateLimitResult {
+export async function consume(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+  const redis = await getRedis();
+  if (redis) return consumeRedis(redis, key, limit, windowMs);
+  return consumeMemory(key, limit, windowMs);
+}
+
+/** Сбрасывает счётчик — вызывается после успешного входа. */
+export async function reset(key: string): Promise<void> {
+  const redis = await getRedis();
+  if (redis) {
+    const rkey = `rl:${key}`;
+    await redis.del(rkey).catch(() => {});
+  }
+  buckets.delete(key);
+}
+
+// ─── Redis implementation ───────────────────────────────────────────
+
+async function consumeRedis(redis: RedisClient, key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+  const rkey = `rl:${key}`;
+  const windowSec = Math.ceil(windowMs / 1000);
+
+  try {
+    const count = await redis.incr(rkey);
+    if (count === 1) {
+      await redis.expire(rkey, windowSec);
+    }
+
+    if (count > limit) {
+      const ttl = await redis.ttl(rkey);
+      return { ok: false, retryAfter: ttl > 0 ? ttl : windowSec, remaining: 0 };
+    }
+
+    return { ok: true, retryAfter: 0, remaining: limit - count };
+  } catch {
+    // Redis failed mid-operation — fall back to in-memory for this request.
+    return consumeMemory(key, limit, windowMs);
+  }
+}
+
+// ─── In-memory implementation ───────────────────────────────────────
+
+function consumeMemory(key: string, limit: number, windowMs: number): RateLimitResult {
   const now = Date.now();
 
   if (buckets.size > MAX_BUCKETS) sweep(now);
@@ -66,11 +150,6 @@ export function consume(key: string, limit: number, windowMs: number): RateLimit
   }
 
   return { ok: true, retryAfter: 0, remaining: limit - bucket.count };
-}
-
-/** Сбрасывает счётчик — вызывается после успешного входа. */
-export function reset(key: string): void {
-  buckets.delete(key);
 }
 
 /**

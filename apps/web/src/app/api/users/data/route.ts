@@ -27,7 +27,7 @@ const WINDOW_MS = 60 * 60 * 1000;
 
 export async function POST(request: NextRequest) {
   const ip = clientIp(request);
-  const limit = consume(`userdata:${ip}`, LIMIT, WINDOW_MS);
+  const limit = await consume(`userdata:${ip}`, LIMIT, WINDOW_MS);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   let body: { initData?: string; action?: string };

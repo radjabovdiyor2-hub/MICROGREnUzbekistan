@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ dishes, issues, saved });
   } catch (error: any) {
     console.error('Error in dishes POST:', error);
-    return NextResponse.json({ error: error.message || 'Ошибка сервера при создании блюда' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -159,7 +159,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(dish);
   } catch (error: any) {
     console.error('Error in dishes PATCH:', error);
-    return NextResponse.json({ error: error.message || 'Ошибка обновления блюда' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -172,6 +172,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error('Error in dishes DELETE:', error);
-    return NextResponse.json({ error: error.message || 'Ошибка удаления блюда' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

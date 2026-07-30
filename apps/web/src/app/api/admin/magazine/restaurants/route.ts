@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     });
     return NextResponse.json(restaurants);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     await upsertPromo(created.promoCode, created.promoDiscount);
     return NextResponse.json(created);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -92,7 +92,7 @@ export async function PATCH(request: Request) {
     await upsertPromo(updated.promoCode, updated.promoDiscount);
     return NextResponse.json(updated);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -105,6 +105,6 @@ export async function DELETE(request: Request) {
     await prisma.restaurant.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

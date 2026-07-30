@@ -211,3 +211,52 @@ git reset --hard <хеш>
 | Диёр Раджабов (владелец) | всё, что в разделе 7 | Telegram @Rd2445, +998 94 999 95 99 |
 | Второй администратор | штатные аварии | указать при заполнении п.1 раздела 1 |
 | Хостинг VPS | сервер недоступен целиком | панель провайдера |
+
+---
+
+## 9. Обязательная ротация после утечки (июль 2026)
+
+Старые пароли и токены попали в git-историю, пока репо было публичным.
+Очистка HEAD не помогает — история компрометирует навсегда.
+
+**Чеклист (выполнить на сервере по SSH):**
+
+```bash
+# 1. Сменить пароль системного пользователя
+passwd ubuntu
+
+# 2. Перейти на SSH-ключи, отключить парольный вход
+# В /etc/ssh/sshd_config:
+#   PasswordAuthentication no
+#   PubkeyAuthentication yes
+sudo nano /etc/ssh/sshd_config
+sudo systemctl restart sshd
+
+# 3. Ревизовать authorized_keys
+cat ~/.ssh/authorized_keys
+# Оставить только свой ключ + ключ CI (GitHub Actions)
+
+# 4. Ротировать Telegram Bot Token
+# BotFather → /revoke → выпустить новый → обновить в .env → рестарт ботов
+nano /opt/microgreen/.env
+# Обновить TELEGRAM_BOT_TOKEN=<новый>
+cd /opt/microgreen && docker compose -f docker-compose.prod.yml restart web
+cd /opt/microgreen && docker compose -f docker-compose.prod.yml up -d --build \
+  stepan sales support hr finance marketing analytics content qa rnd devops n8n_bridge
+
+# 5. Ротировать Instagram/Facebook токены (если используются)
+# Обновить INSTAGRAM_TOKEN, FACEBOOK_TOKEN в .env
+
+# 6. N8N: включить аутентификацию (если N8N запущен на хосте)
+# В конфиге N8N:
+#   N8N_BASIC_AUTH_ACTIVE=true
+#   N8N_BASIC_AUTH_USER=admin
+#   N8N_BASIC_AUTH_PASSWORD=<сильный пароль>
+# Или закрыть порт 5678 через iptables/nginx
+```
+
+**Проверка:**
+- `ssh ubuntu@сервер` — старый пароль не работает
+- `curl http://сервер:5678` — требует Basic Auth или не отвечает
+- отправить `/start` боту — бот работает с новым токеном
+

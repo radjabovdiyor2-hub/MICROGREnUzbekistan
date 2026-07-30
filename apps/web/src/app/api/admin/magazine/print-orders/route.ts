@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     }));
     return NextResponse.json(withLinks);
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json(order);
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -103,7 +103,7 @@ export async function PATCH(req: NextRequest) {
     });
     return NextResponse.json(order);
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -116,6 +116,6 @@ export async function DELETE(req: NextRequest) {
     await prisma.printOrder.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

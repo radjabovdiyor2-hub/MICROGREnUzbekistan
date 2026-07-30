@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CATEGORY_SLUGS } from '@/lib/seo/categories';
 import { SESSION_COOKIE, verifySession, type SessionRole } from '@/lib/session';
+import crypto from 'crypto';
 
 // ════════════════════════════════════════════════════════════════════
 // Единая точка авторизации API + SEO-редирект каталога.
@@ -106,15 +107,26 @@ function findRule(pathname: string, method: string): Rule | null {
 /**
  * Server-to-server: боты и cron ходят с общим секретом.
  * Заголовок x-bot-secret (админка журнала) либо Bearer (storefront-бот).
+ * Сравнение через timingSafeEqual — иначе timing attack подберёт секрет
+ * за ~256×len запросов.
  */
 function hasBotSecret(request: NextRequest): boolean {
   const secret = process.env.BOT_SECRET;
   if (!secret) return false;
 
-  if (request.headers.get('x-bot-secret') === secret) return true;
-  if (request.headers.get('authorization') === `Bearer ${secret}`) return true;
+  const xBot = request.headers.get('x-bot-secret') ?? '';
+  if (xBot.length === secret.length && safeEq(xBot, secret)) return true;
+
+  const bearer = request.headers.get('authorization') ?? '';
+  const expected = `Bearer ${secret}`;
+  if (bearer.length === expected.length && safeEq(bearer, expected)) return true;
 
   return false;
+}
+
+function safeEq(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 
 function roleSatisfies(role: SessionRole, access: Access): boolean {
@@ -122,12 +134,39 @@ function roleSatisfies(role: SessionRole, access: Access): boolean {
   return role === 'ADMIN' || role === 'SELLER';
 }
 
+// ════════════════════════════════════════════════════════════════════
+// CSP nonce: генерируем per-request, прокидываем через x-nonce header.
+// Layout читает его через headers() и ставит на инлайн-скрипт темы.
+// unsafe-inline в script-src убран — nonce его заменяет.
+// unsafe-eval убран — в коде нет eval(), он был добавлен «на всякий случай».
+// style-src оставлен с unsafe-inline — Google Fonts и инлайн-стили.
+// ════════════════════════════════════════════════════════════════════
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://telegram.org https://oauth.telegram.org https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: https: blob:",
+    "media-src 'self' blob:",
+    "connect-src 'self' https://www.google-analytics.com https://mc.yandex.ru https://api.telegram.org https://oauth.telegram.org https://*.googleapis.com https://dl.polyhaven.org https://poly.pizza https://graph.instagram.com",
+    "frame-src 'self' https://telegram.org https://oauth.telegram.org",
+    "worker-src 'self' blob:",
+  ].join('; ');
+}
+
+// ── Утилита: оборачивает ответ CSP nonce-заголовком ──────────────────
+function addCspHeaders(response: NextResponse): NextResponse {
+  const nonce = crypto.randomUUID();
+  response.headers.set('x-nonce', nonce);
+  response.headers.set('Content-Security-Policy', buildCsp(nonce));
+  return response;
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
   // ── SEO: /catalog?category=<slug> → /catalog/<slug> ────────────────
-  // Плитки категорий меняют только состояние и query не ставят, поэтому
-  // редирект не мешает фильтрации внутри приложения.
   if (pathname === '/catalog') {
     const cat = searchParams.get('category');
     if (cat && CATEGORY_SLUGS.includes(cat) && !searchParams.get('search')) {
@@ -136,34 +175,33 @@ export async function middleware(req: NextRequest) {
       url.searchParams.delete('category');
       return NextResponse.redirect(url, 301);
     }
-    return NextResponse.next();
   }
 
   // ── Авторизация API ───────────────────────────────────────────────
-  if (!pathname.startsWith('/api/')) return NextResponse.next();
-
-  if (PUBLIC_EXCEPTIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-    return NextResponse.next();
+  if (pathname.startsWith('/api/')) {
+    if (!PUBLIC_EXCEPTIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      const rule = findRule(pathname, req.method);
+      if (rule && !hasBotSecret(req)) {
+        const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
+        if (!session) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        if (!roleSatisfies(session.role, rule.access)) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
+      }
+    }
   }
 
-  const rule = findRule(pathname, req.method);
-  if (!rule) return NextResponse.next();
-
-  if (hasBotSecret(req)) return NextResponse.next();
-
-  const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
-
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (!roleSatisfies(session.role, rule.access)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
-
-  return NextResponse.next();
+  // ── CSP nonce на ВСЕ ответы (страницы + API) ──────────────────────
+  const response = NextResponse.next({
+    request: { headers: new Headers(req.headers) },
+  });
+  return addCspHeaders(response);
 }
 
+// Matcher: все маршруты кроме статики. _next/static, _next/image, favicon —
+// это файлы, которым CSP не нужен и middleware только тратит время.
 export const config = {
-  matcher: ['/catalog', '/api/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|favicon\\.svg|icons/|manifest\\.json|sw\\.js|workbox-).*)'],
 };

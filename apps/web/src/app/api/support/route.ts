@@ -10,7 +10,7 @@ import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 export async function POST(request: NextRequest) {
   // Каждое обращение доходит до владельца в Telegram и заводит срочную
   // задачу в CRM — без лимита это флуд чата и очереди задач.
-  const limit = consume(`support:${clientIp(request)}`, 5, 60 * 60 * 1000);
+  const limit = await consume(`support:${clientIp(request)}`, 5, 60 * 60 * 1000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   try {

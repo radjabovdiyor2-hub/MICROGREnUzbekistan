@@ -1,5 +1,6 @@
 import { mkdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 
 // ==========================================
 // Куда писать загруженные файлы.
@@ -47,7 +48,7 @@ export async function getUploadsDir(): Promise<string> {
 /** Записывает буфер в uploads и возвращает публичный URL. */
 export async function saveUpload(buffer: Buffer, prefix: string, ext = 'jpg'): Promise<string> {
   const timestamp = Date.now().toString(36);
-  const rand = Math.random().toString(36).substring(2, 6);
+  const rand = crypto.randomBytes(8).toString('hex');
   const filename = `${prefix}-${timestamp}-${rand}.${ext}`;
   const dir = await getUploadsDir();
   await writeFile(path.join(dir, filename), buffer);

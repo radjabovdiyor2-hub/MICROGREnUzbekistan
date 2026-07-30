@@ -28,4 +28,4 @@ conn.on('ready', () => {
       });
     });
   });
-}).connect({host: '82.115.50.30', username: 'ubuntu', password: process.env.DEPLOY_PASS});
+}).connect({host: process.env.DEPLOY_HOST || '82.115.50.30', username: process.env.DEPLOY_USER || 'ubuntu', password: process.env.DEPLOY_PASS});

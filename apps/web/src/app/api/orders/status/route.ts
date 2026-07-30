@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@repo/database';
 import { notifyCustomer } from '@/lib/notify';
 import { customerStatusText } from '@/lib/orderSync';
@@ -38,10 +39,14 @@ function normalizeStatus(raw: unknown): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  // Auth
+  // Auth — timing-safe comparison
   const secret = process.env.INGEST_SECRET;
-  if (secret && request.headers.get('x-ingest-secret') !== secret) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (secret) {
+    const provided = request.headers.get('x-ingest-secret') ?? '';
+    if (provided.length !== secret.length ||
+        !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(secret))) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
   }
 
   try {

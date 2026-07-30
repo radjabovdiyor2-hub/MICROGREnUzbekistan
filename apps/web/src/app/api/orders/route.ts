@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { prisma } from '@repo/database';
 import { deliveryFeeFor } from '@/lib/site';
 import { syncOrderStatus } from '@/lib/orderSync';
@@ -6,6 +7,7 @@ import { validatePromo, consumePromo } from '@/lib/promo';
 import { isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { inc } from '@/lib/metrics';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { z } from 'zod';
 
 // ==========================================
@@ -16,9 +18,7 @@ import { z } from 'zod';
 function generateOrderNumber(): string {
   const now = new Date();
   const date = now.toISOString().slice(0, 10).replace(/-/g, '');
-  // Extra entropy (6 random chars + ms suffix) — under heavy concurrent load a
-  // short random tail collides (orderNumber is unique → the insert would throw).
-  const rand = Math.random().toString(36).substring(2, 8).toUpperCase();
+  const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
   const ms = now.getTime().toString(36).slice(-4).toUpperCase();
   return `M-${date}-${rand}${ms}`;
 }
@@ -227,6 +227,10 @@ const orderSchema = z.object({
 
 // POST — Create order
 export async function POST(request: NextRequest) {
+  const ip = clientIp(request);
+  const orderLimit = await consume(`order:${ip}`, 10, 60_000);
+  if (!orderLimit.ok) return tooManyRequests(orderLimit.retryAfter);
+
   try {
     const rawBody = await request.json();
     const parseResult = orderSchema.safeParse(rawBody);

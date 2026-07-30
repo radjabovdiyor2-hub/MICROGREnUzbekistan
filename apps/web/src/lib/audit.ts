@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 // ══════════════════════════════════════════════════════════════════════
 // Журнал действий (DD §6.4 «Session log»).
@@ -12,6 +13,9 @@ import path from 'path';
 // Формат — JSON Lines: одна запись в строке, читается grep/jq, легко
 // грузится в ELK, если он появится. Дублируется в stdout, чтобы попадать
 // в docker json-file драйвер (он уже настроен с ротацией).
+//
+// Каждая строка подписана HMAC-SHA256 с цепочкой (prev_hmac):
+// подделка или удаление записей детектируется верификацией.
 // ══════════════════════════════════════════════════════════════════════
 
 export interface AuditEntry {
@@ -47,15 +51,33 @@ function ensureDir(file: string): boolean {
   }
 }
 
+// Chain: HMAC каждой записи включает HMAC предыдущей — удаление строки
+// нарушает цепочку и обнаруживается при верификации.
+let prevHmac = '0';
+
+function hmacSign(data: string): string {
+  const secret = process.env.AUDIT_SECRET || process.env.SESSION_SECRET || process.env.JWT_SECRET || '';
+  if (!secret) return '';
+  return crypto.createHmac('sha256', secret).update(data).digest('hex').slice(0, 16);
+}
+
 /**
  * Пишет запись в журнал. Никогда не бросает исключение: аудит не должен
  * ронять бизнес-операцию, ради которой его вызвали.
  */
 export function audit(entry: AuditEntry): void {
-  const record = {
+  const record: Record<string, unknown> = {
     ts: new Date().toISOString(),
     ...entry,
   };
+
+  const body = JSON.stringify(record);
+  const sig = hmacSign(`${prevHmac}|${body}`);
+  if (sig) {
+    record._prev = prevHmac;
+    record._sig = sig;
+    prevHmac = sig;
+  }
 
   const line = JSON.stringify(record);
 
@@ -70,3 +92,4 @@ export function audit(entry: AuditEntry): void {
     // Диск недоступен — довольствуемся stdout.
   }
 }
+

@@ -96,10 +96,14 @@ export function getSession(request: Request): VerifiedSession | null {
   return verifySessionSync(readSessionCookie(request));
 }
 
-/** Доступ владельца (или доверенного сервиса по BOT_SECRET). */
 export function isAuthorized(request: Request): boolean {
-  const secret = request.headers.get('x-bot-secret');
-  if (secret && process.env.BOT_SECRET && secret === process.env.BOT_SECRET) return true;
+  const header = request.headers.get('x-bot-secret') ?? '';
+  const expected = process.env.BOT_SECRET ?? '';
+  if (expected && header.length === expected.length) {
+    const a = Buffer.from(header);
+    const b = Buffer.from(expected);
+    if (crypto.timingSafeEqual(a, b)) return true;
+  }
 
   return getSession(request)?.role === 'ADMIN';
 }

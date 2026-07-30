@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile } from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 import { getUploadsDir } from '@/lib/uploads';
 
 // ==========================================
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     // Generate unique filename — preserve original extension
     const safeExt = extValid ? ext : 'jpg';
     const timestamp = Date.now().toString(36);
-    const rand = Math.random().toString(36).substring(2, 6);
+    const rand = crypto.randomBytes(8).toString('hex');
     const filename = `product-${timestamp}-${rand}.${safeExt}`;
 
     // Get the correct uploads directory
@@ -98,7 +99,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Upload error:', error);
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    return NextResponse.json({ error: `Yuklashda xatolik: ${msg}` }, { status: 500 });
+    return NextResponse.json({ error: 'Yuklashda xatolik' }, { status: 500 });
   }
 }

@@ -17,7 +17,7 @@ const MAX_BYTES = 12 * 1024 * 1024;
 export async function POST(req: NextRequest) {
   // Маршрут публичный и пишет файл на диск (до 12 МБ). Лимит держит
   // заполнение диска в разумных рамках, не мешая живому гостю.
-  const limit = consume(`menuphoto:${clientIp(req)}`, 10, 60 * 60 * 1000);
+  const limit = await consume(`menuphoto:${clientIp(req)}`, 10, 60 * 60 * 1000);
   if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
   const form = await req.formData().catch(() => null);

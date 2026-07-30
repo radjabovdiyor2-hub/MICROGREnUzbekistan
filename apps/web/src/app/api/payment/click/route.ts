@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { md5, findPayableByRef, markPayablePaid } from '@/lib/payments';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 // ==========================================
 // Click Shop API webhook — Prepare (action=0) + Complete (action=1).
@@ -12,6 +14,10 @@ const SERVICE_ID = process.env.CLICK_SERVICE_ID || '';
 const SECRET_KEY = process.env.CLICK_SECRET_KEY || '';
 
 export async function POST(request: NextRequest) {
+  const ip = clientIp(request);
+  const limit = await consume(`click:${ip}`, 30, 60_000);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
   // Click posts application/x-www-form-urlencoded (accept JSON too, for tests).
   const p: Record<string, string> = {};
   try {
@@ -39,11 +45,14 @@ export async function POST(request: NextRequest) {
     return reply({}, -8, 'Payment provider not configured');
   }
 
-  // Signature validation (MD5). Complete additionally binds merchant_prepare_id.
+  // Signature validation (MD5). Timing-safe comparison prevents guessing.
   const base = action === '1'
     ? `${p.click_trans_id}${p.service_id}${SECRET_KEY}${p.merchant_trans_id}${p.merchant_prepare_id}${p.amount}${p.action}${p.sign_time}`
     : `${p.click_trans_id}${p.service_id}${SECRET_KEY}${p.merchant_trans_id}${p.amount}${p.action}${p.sign_time}`;
-  if (!p.sign_string || md5(base) !== p.sign_string) {
+  const computed = md5(base);
+  const provided = p.sign_string || '';
+  if (!provided || computed.length !== provided.length ||
+      !crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(provided))) {
     return reply({}, -1, 'SIGN CHECK FAILED');
   }
 

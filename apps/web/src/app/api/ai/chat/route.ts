@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
     // (а с полем image — ещё и vision). Без лимита это прямой способ
     // сжечь бюджет: 20 сообщений в минуту с адреса — потолок живого диалога.
     const ip = clientIp(request);
-    const limit = consume(`ai:${ip}`, 20, 60 * 1000);
+    const limit = await consume(`ai:${ip}`, 20, 60 * 1000);
     if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
     const { message, history, userId, cartItems, image } = await request.json();

@@ -41,4 +41,4 @@ conn.on('ready', () => {
     };
     run();
   }
-}).connect({ host:'82.115.50.30', username:'ubuntu', password:process.env.DEPLOY_PASS, algorithms:{serverHostKey:['ssh-ed25519','ecdsa-sha2-nistp256','ssh-rsa']}, hostVerifier:()=>true });
+}).connect({ host: process.env.DEPLOY_HOST || '82.115.50.30', username: process.env.DEPLOY_USER || 'ubuntu', password:process.env.DEPLOY_PASS, algorithms:{serverHostKey:['ssh-ed25519','ecdsa-sha2-nistp256','ssh-rsa']}, hostVerifier:()=>true });

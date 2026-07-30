@@ -724,3 +724,20 @@ model RecipeIngredient {
   @@index([recipeId])
   @@map("recipe_ingredients")
 }
+
+// Payme JSON-RPC transaction log for certification compliance.
+// Tracks Create → Perform / Cancel lifecycle by Payme transaction id.
+model PaymeTransaction {
+  id              String   @id @default(cuid())
+  paymeId         String   @unique @map("payme_id")  // Payme's transaction id
+  orderRef        String   @map("order_ref")         // our order_id / order_number
+  amount          Int                                 // tiyin (1 so'm = 100)
+  state           Int      @default(1)                // 1=created, 2=performed, -1=cancelled, -2=cancelled after perform
+  reason          Int?                                // cancel reason code
+  createTime      DateTime @default(now()) @map("create_time")
+  performTime     DateTime? @map("perform_time")
+  cancelTime      DateTime? @map("cancel_time")
+
+  @@index([orderRef])
+  @@map("payme_transactions")
+}

@@ -18,7 +18,7 @@
 - [x] Stage 10: Fix Plan (Initial drafts)
 
 ## Key Findings
-1. **Critical Security Leak:** Multiple root-level JS and python scripts contain hardcoded SSH credentials (`82.115.50.30`, `ubuntu`, `izxir(Kpaqfmsvaamtw8`, `eddogvjzfdug&wAjugg5`).
+1. **Critical Security Leak:** Multiple root-level JS and python scripts contained hardcoded SSH credentials (`82.115.50.30`, `ubuntu`, `[REDACTED]`). Passwords rotated; see SECURITY.md §2.
 2. **Ports:** 3000 (Next.js web), 8050 (web_office), 5432 (Postgres), 6379 (Redis), 5678 (n8n).
 3. **Integration:** Next.js sends orders to `web_office` via `OFFICE_INGEST_URL`. Office syncs back to `STOREFRONT_STATUS_URL`. Bots use `WEB_API_URL`.
 4. **Nginx:** Only starts with `edge` profile, meaning by default the project relies on system-level Nginx to proxy to `127.0.0.1:3000`.
