@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from shared.ai_engine import AIEngine
 from shared.utils import simulate_typing
 from bots.sales_bot.keyboards.inline import main_menu_kb, back_menu_kb
+from shared.prompts import TEAM_CONTEXT
 
 router = Router()
 ai = AIEngine()
@@ -84,7 +85,14 @@ async def ai_vision_recipe(message: Message, state: FSMContext):
         )
         
         response = await ai.chat_completion(
-            system_prompt="Ты шеф-повар и гениальный менеджер по продажам Microgreen Uzbekistan.",
+            # Командный контекст (включает фирменный голос) — как в соседнем
+            # обработчике ниже. Раньше здесь была одна строка без бренда.
+            system_prompt=(
+                f"{TEAM_CONTEXT}\n\n"
+                "Ты — шеф-повар и менеджер по продажам Microgreen Uzbekistan. "
+                "Смотришь на фото продуктов клиента и предлагаешь рецепт. "
+                "Не выдумывай, чего на фото нет: перечисляй только то, что видишь."
+            ),
             user_message=vision_prompt,
             image_base64=image_b64,
             max_tokens=800

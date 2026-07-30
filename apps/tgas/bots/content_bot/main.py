@@ -1397,8 +1397,15 @@ async def _draft_magazine(params: dict) -> dict:
         import json
         import re
         
+        # Здесь НЕ подмешиваем TEAM_CONTEXT намеренно: ответ разбирается как JSON
+        # (ниже regex по {...}), а командный контекст с указаниями по тону и
+        # формату провоцирует модель добавить прозу вокруг структуры.
         response = await ai.chat_completion(
-            system_prompt="Ты главный редактор журнала о микрозелени. Отвечай только валидным JSON.",
+            system_prompt=(
+                "Ты главный редактор журнала о микрозелени Microgreen Uzbekistan. "
+                "Отвечай ТОЛЬКО валидным JSON, без markdown и пояснений. "
+                "Не выдумывай фактов и цифр: если данных нет — оставляй поле пустым."
+            ),
             user_message=prompt,
         )
         

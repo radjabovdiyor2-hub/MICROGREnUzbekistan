@@ -116,13 +116,23 @@ for bot in ALL_BOTS:
 # ── 4. Однострочные системные промпты ──────────────────────────────────
 # Признак недоделанного бота: system_prompt="одна фраза" вместо константы
 # с ролью и фирменным голосом.
-SHORT = 45
+# 90, а не 45: порог 45 пропустил промпт на 69 символов
+# («Ты шеф-повар и гениальный менеджер по продажам Microgreen Uzbekistan.»)
+# в vision-обработчике sales_bot — при том что соседний обработчик в том же
+# файле командный контекст подмешивал. Нормальный промпт с TEAM_CONTEXT — это
+# константа на тысячи символов, так что 90 не даёт ложных срабатываний.
+SHORT = 90
 for path in sorted((ROOT / "bots").rglob("*.py")):
     if "__pycache__" in path.as_posix():
         continue
     rel = path.relative_to(ROOT).as_posix()
     for num, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
         m = re.search(r'system_prompt\s*=\s*(["\'])(.*?)\1', line)
+        # Промпты «ответь только JSON» — законное исключение: TEAM_CONTEXT с
+        # указаниями по тону и формату провоцирует модель добавить прозу вокруг
+        # структуры, и разбор ломается. Такие оставляем короткими намеренно.
+        if m and "JSON" in m.group(2).upper():
+            continue
         if m and len(m.group(2)) < SHORT:
             problems.append(
                 f"{rel}:{num} — системный промпт задан строкой в {len(m.group(2))} символов "
