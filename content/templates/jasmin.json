@@ -1,21 +1,44 @@
 {
-  "_comment": "Конфиг номера. Копия этого файла + свои значения = номер для другого ресторана. Сборка: node scripts/build-magazine.mjs content/templates/<файл>.json",
+  "_comment": "Конфиг номера. Копия этого файла + свои значения = номер для другого ресторана. Порядок: node scripts/build-magazine-qr.mjs → apply-magazine-design.mjs → build-booklet.mjs, затем три проверки (check-magazine-qr / -fit / -photos). Подробно — docs/magazine-print-spec.md.",
 
   "slug": "jasmin",
   "restaurant": "Jasmin",
   "issue": 1,
   "issueDate": "Iyul 2026",
   "chefName": "Oshpaz Jasmin",
-  "address": "Samarqand · Amir Temur ko'chasi 202",
+  "address": "Samarqand · Amir Temur ko‘chasi 202",
   "instagram": "@jasminsamarkand",
   "signatureDish": "Samarqandcha damlama palov",
   "recipeSlug": "samarqand-salati",
+
+  "_qr": "menuSlug — слаг ресторана В АДМИНКЕ, он попадает в адреса QR. Может не совпадать с slug выше: slug — это имя файлов номера (бренд), menuSlug — запись в базе. dishCodes — код блюда из админки для позиций меню 01…06, по порядку. Коды присваивает база при загрузке видео, они НЕ обязаны быть 1…6: у Jasmin это 3,5,6,7,8,9. Сверять со списком в админке → «🎬 Загрузить видео → получить QR», кнопка ⬇ QR SVG подписывает файл как qr-<menuSlug>-<code>.svg.",
+  "menuSlug": "fresh",
+  "dishCodes": [3, 5, 6, 7, 8, 9],
 
   "accent": "#0f3d2e",
   "gold": "#c9a876",
 
   "photos": {
+    "PHOTO_COVER": "img/cover.jpg",
+    "PHOTO_CHEF": "img/chef_real.jpg",
+    "PHOTO_RESTAURANT": "img/restaurant.png",
+    "PHOTO_RECIPE": "img/recipe.png",
+    "PHOTO_HEALTH": "img/health-skin.png",
+    "PHOTO_KIDS": "img/kids.png",
+    "PHOTO_FARM": "img/farm.png",
+
     "PHOTO_DISH_1": "plov-jasmin.jpeg",
-    "PHOTO_DISH_2": "tandir-kabob-jasmin.jpg"
+    "PHOTO_DISH_2": "tandir-kabob-jasmin.jpg",
+    "PHOTO_DISH_3": "lagmon-jasmin.jpg",
+    "PHOTO_DISH_4": "somsa-jasmin.jpg",
+    "PHOTO_DISH_5": "achchiq-chuchuk-jasmin.jpg",
+    "PHOTO_DISH_6": "choy-shirinliklar-jasmin.jpg",
+
+    "PHOTO_GUEST_1": "img/guest1.png",
+    "PHOTO_GUEST_2": "img/guest2.png",
+    "PHOTO_GUEST_3": "img/guest3.png",
+    "PHOTO_GUEST_4": "img/guest4.png",
+    "PHOTO_GUEST_5": "img/guest5.png",
+    "PHOTO_GUEST_6": "img/guest6.png"
   }
 }

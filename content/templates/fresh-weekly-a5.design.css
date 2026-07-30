@@ -1,0 +1,991 @@
+/* ════════════════════════════════════════════════════════════
+   FRESH WEEKLY · A5 — печатный номер
+
+   ГЕОМЕТРИЯ ПОД ТИПОГРАФИЮ
+     обрезной формат  148 × 210 мм
+     вылет (bleed)      3 мм с каждой стороны
+     полоса в файле   154 × 216 мм
+   Всё, что должно доходить до края готового журнала, рисуется
+   на полные 154×216 — лишнее уйдёт под нож.
+   Безопасное поле — 10 мм от линии реза. У корешка +5 мм:
+   в скрепке внутреннее поле частично съедается фальцем.
+
+   ТИПОГРАФИКА
+   Две системы отсчёта, намеренно смешанные:
+     · газетная школа (Washington Post) — дидон высокого контраста
+       в заголовках, плотный текстовый антиква-шрифт, волосяные
+       линейки, флаг рубрики на линейке, капитель в ярлыках;
+     · интерфейсная школа (Apple) — Inter вместо SF, отрицательный
+       трекинг, растущий с кеглем, табличные цифры, шаг отбивок
+       кратный 0.5 мм, ноль скруглений и теней.
+
+   Три гарнитуры, у каждой одна работа:
+     --font-display  Playfair Display — только заголовки. Дидон,
+                     ближайший свободный аналог Postoni из WP.
+     --font-text     Source Serif 4 — весь наборный текст. Пришёл
+                     на место Cormorant Garamond: тот нарисован под
+                     крупный кегль, на 9 pt штрихи истончаются, а
+                     кириллица теряет очко. У Source Serif выше рост
+                     строчных и плотнее штрих — на матовой бумаге
+                     держит краску. Ось optical size настроена по
+                     кеглю каждого уровня (--opsz-*).
+     --font-ui       Inter — ярлыки, цифры, колонцифры, подписи.
+
+   Шрифты вшиты в файл как подмножество по фактическому набору
+   символов номера (латиница + кириллица + пунктуация), поэтому
+   макет открывается и печатается без интернета.
+   ════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Гарнитуры ── */
+  --font-display: 'Playfair Display', 'Times New Roman', serif;
+  --font-text: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-ui: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+
+  /* ── Краска ──
+     Нейтральный ряд с ровным шагом контраста. Чёрный уведён в холод
+     (как газетная краска), три ступени серого закрывают три уровня
+     текста: основной / второй язык / подпись. */
+  --ink: #15181b;
+  --ink-2: #3c4247;   /* второй язык: тише основного, но не серая муть */
+  --ink-3: #6d7378;   /* подписи, колонцифры */
+  --paper: #fbfaf8;
+  --paper-pure: #fff;
+  --tint: #f2f0ea;    /* нейтральная плашка */
+  --tint-warm: #f6f1e6;
+
+  /* Фирменные цвета приходят из :root в конце файла (--accent, --gold). */
+  --accent-tint: #edf1ee;
+
+  /* Золото фирменное — светлое, на кремовой плашке текстом не читается
+     (контраст ≈ 1.7:1). Для текста на светлом фоне есть затемнённая
+     версия, для линеек и текста на тёмном — фирменная. */
+  --gold-ink: #86682f;
+  --gold-ink: color-mix(in srgb, var(--gold) 58%, #241804);
+
+  /* Линейки: волосяная (разделители), тонкая (рубрики), жирная (флаг) */
+  --hair: #d7d3cb;
+  --hair-2: #e9e6e0;
+  --w-hair: 0.3pt;
+  --w-rule: 0.6pt;
+  --w-flag: 1.6pt;
+
+  /* ── Печатная геометрия ── */
+  --trim-w: 148mm;
+  --trim-h: 210mm;
+  --bleed: 3mm;
+  --page-w: 154mm;   /* trim + bleed × 2 */
+  --page-h: 216mm;
+  --safe: 10mm;      /* поле от линии реза до текста */
+  --gutter-extra: 5mm; /* добавка у корешка */
+
+  /* ── Кегли ──
+     Source Serif крупнее Cormorant в очке, поэтому основной текст
+     стоит на 9 pt и читается больше прежних 9.5 pt. */
+  --fs-nameplate: 33pt;
+  --fs-h1: 21pt;
+  --fs-h2: 15.5pt;
+  --fs-h3: 11.4pt;
+  --fs-deck: 10pt;
+  --fs-body: 9pt;
+  --fs-second: 7.4pt;   /* второй язык = 0.82 от основного */
+  --fs-caption: 6.6pt;
+  --fs-label: 5.8pt;
+  --fs-folio: 7pt;
+
+  /* ── Трекинг ──
+     Чем крупнее кегль, тем плотнее набор: на 21 pt дефолтные
+     апроши дидона расползаются, на 5.8 pt капитель без разгонки
+     слипается. Это та самая оптическая кривая из интерфейсов Apple. */
+  --tr-nameplate: -0.034em;
+  --tr-h1: -0.021em;
+  --tr-h2: -0.016em;
+  --tr-h3: -0.009em;
+  --tr-label: 0.15em;
+  --tr-folio: 0.06em;
+
+  /* ── Интерлиньяж ── */
+  --lh-body: 1.44;
+  --lh-second: 1.4;
+
+  /* ── Оптический размер Source Serif 4 (ось opsz) ── */
+  --opsz-body: 10;
+  --opsz-small: 8;
+  --opsz-deck: 20;
+
+  /* ── Шаг отбивок: всё кратно 0.5 мм ── */
+  --sp-1: 1mm;
+  --sp-2: 1.5mm;
+  --sp-3: 2mm;
+  --sp-4: 3mm;
+  --sp-5: 4mm;
+  --sp-6: 6mm;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  font-family: var(--font-text);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Капитель, лигатуры и контекстные подстановки — по умолчанию везде.
+     Цифры принудительно маюскульные: у Source Serif и Playfair по
+     умолчанию минускульные, и «41 kadr» читается как «4I kadr». */
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  font-variant-numeric: lining-nums;
+}
+
+/* Экранное превью: тёмный фон, полосы стопкой. В печати всё это гасится. */
+body {
+  background: #17191c;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 24px 0;
+}
+
+@page {
+  size: 154mm 216mm;
+  margin: 0;
+}
+
+/* ── Полоса ── */
+.mag-page {
+  width: var(--page-w);
+  height: var(--page-h);
+  min-height: var(--page-h);
+  max-height: var(--page-h);
+  background: var(--paper);
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+  break-after: page;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.mag-page:last-child { page-break-after: auto; break-after: auto; }
+
+/* Внутренний блок с учётом вылета и безопасного поля.
+   Нечётные полосы правые (корешок слева), чётные — левые. */
+.page-inner {
+  position: absolute;
+  inset: var(--bleed);
+  display: flex;
+  flex-direction: column;
+}
+.mag-page:nth-child(odd) .page-inner { padding-left: var(--gutter-extra); }
+.mag-page:nth-child(even) .page-inner { padding-right: var(--gutter-extra); }
+
+/* Линия реза — только для превью */
+.trim-guide {
+  position: absolute;
+  inset: var(--bleed);
+  border: 0.3mm dashed rgba(200, 30, 30, 0.35);
+  pointer-events: none;
+  z-index: 900;
+}
+
+/* ── Колонтитул ──
+   Газетная шапка: слева логотип издания, справа рубрика, снизу
+   волосяная линейка на всю ширину наборной полосы. */
+.running-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4.2mm var(--safe) 2mm;
+  border-bottom: var(--w-hair) solid var(--hair);
+  font-family: var(--font-ui);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  height: 10mm;
+  flex-shrink: 0;
+}
+.masthead {
+  font-family: var(--font-display);
+  font-size: 8.4pt;
+  font-weight: 800;
+  color: var(--accent);
+  letter-spacing: -0.012em;
+  text-transform: none;
+}
+.masthead .cobrand { color: var(--gold-ink); font-weight: 700; }
+
+/* ── Колонцифра ──
+   Табличные цифры: колонцифра не должна «плавать» от полосы к полосе. */
+.page-num {
+  position: absolute;
+  bottom: 5.5mm;
+  font-family: var(--font-ui);
+  font-size: var(--fs-folio);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: var(--tr-folio);
+  color: var(--ink-3);
+  z-index: 100;
+  line-height: 1;
+}
+.page-num-l { left: var(--safe); }
+.page-num-r { right: var(--safe); }
+
+/* ── Тело полосы ──
+   Отбивка между блоками 3 мм: на 2.5 мм блоки слипались в одно серое
+   полотно, а внизу оставался непрошеный провал в 3–6 см. */
+.page-body {
+  flex: 1;
+  padding: 4mm var(--safe) 9mm;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5mm;
+  overflow: hidden;
+}
+/* Полосы без колонтитула (задняя обложка): сверху нужно полное безопасное
+   поле, иначе заголовок подходит вплотную к линии реза. */
+.page-body.no-header { padding-top: var(--safe); }
+
+/* ── Заголовки ──
+   Playfair, вес 700–800 вместо 900: на A5 «чёрный» дидон заплывает,
+   контрформы закрываются. Плюс отрицательный трекинг по кеглю. */
+.h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--fs-h1);
+  line-height: 1.02;
+  letter-spacing: var(--tr-h1);
+  color: var(--ink);
+  text-wrap: balance;
+}
+.h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-h2);
+  line-height: 1.08;
+  letter-spacing: var(--tr-h2);
+  color: var(--ink);
+  text-wrap: balance;
+}
+.h3 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--fs-h3);
+  line-height: 1.14;
+  letter-spacing: var(--tr-h3);
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.body {
+  font-family: var(--font-text);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--ink);
+  font-variation-settings: 'opsz' var(--opsz-body);
+  text-wrap: pretty;
+  hyphens: auto;
+}
+/* Вводка под заголовком: курсив текстовой антиквы на увеличенном кегле */
+.deck {
+  font-family: var(--font-text);
+  font-style: italic;
+  font-size: var(--fs-deck);
+  line-height: 1.32;
+  letter-spacing: -0.004em;
+  color: var(--ink-2);
+  font-variation-settings: 'opsz' var(--opsz-deck);
+  text-wrap: pretty;
+}
+.caption {
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  line-height: 1.35;
+  letter-spacing: 0.002em;
+}
+.ui { font-family: var(--font-ui); }
+
+/* Служебный надзаголовок («Содержание») — капитель, не подпись */
+.subhead {
+  font-family: var(--font-ui);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-top: 1.4mm;
+}
+/* Адресная строка материала: набор в одну строку через разделители */
+.dateline {
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+  letter-spacing: 0.045em;
+  color: var(--ink-3);
+  margin-top: 0.8mm;
+}
+
+/* ── Ярлык рубрики ──
+   Микрозаголовок на волосяной линейке. Линейка обязательна: она
+   привязывает ярлык к блоку и заменяет рамку. */
+.kicker {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--accent);
+  line-height: 1.2;
+}
+.kicker::before {
+  content: '';
+  display: inline-block;
+  width: 3.2mm;
+  height: 1.1pt;
+  background: currentColor;
+  vertical-align: 0.62mm;
+  margin-right: 1.5mm;
+}
+/* На кремовой плашке фирменное золото текстом не читается — берём
+   затемнённую версию. На тёмной — наоборот, фирменное. */
+.card-warm .kicker, .kicker.gold { color: var(--gold-ink); }
+.card-dark .kicker { color: var(--gold); }
+
+/* ── Флаг рубрики ──
+   Было: скруглённая рамка-«пилюля» во всю ширину — интерфейсный
+   элемент, в печати читается как кнопка. Стало: газетный флаг —
+   жирная линейка на всю наборную полосу и капитель под ней. */
+.section-tag {
+  display: block;
+  border: none;
+  border-top: var(--w-flag) solid var(--accent);
+  border-radius: 0;
+  padding: 1.5mm 0 0;
+  background: none;
+  font-family: var(--font-ui);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+/* Главный материал полосы — линейка втрое толще */
+.section-tag.filled {
+  border-top-width: 3.2pt;
+  background: none;
+  color: var(--accent);
+}
+.section-tag.gold {
+  border-top-color: var(--gold);
+  color: var(--gold-ink);
+}
+
+/* ── Линейки ──
+   rule-gold: волосяная линейка во всю наборную полосу с золотым
+   отрезком слева. Раньше это был висящий обрубок в 25 мм — рядом
+   с собственной линейкой таблицы он читался как случайный штрих. */
+.rule-gold {
+  border: none;
+  border-top: var(--w-hair) solid var(--hair);
+  width: 100%;
+  margin: var(--sp-3) 0;
+  position: relative;
+  overflow: visible;
+}
+.rule-gold::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--w-hair) - 0.6pt);
+  left: 0;
+  width: 14mm;
+  height: 1.2pt;
+  background: var(--gold);
+}
+.rule-thin { border: none; border-top: var(--w-hair) solid var(--hair); margin: var(--sp-3) 0; }
+
+/* ── Буквица ──
+   Две строки основного текста. Прижата к левому краю наборной полосы
+   (без отступа слева) и подрезана сверху на выносной элемент —
+   иначе дидон висит выше строки прописных. */
+.dropcap > .uz:first-child::first-letter,
+.dropcap::first-letter {
+  float: left;
+  font-family: var(--font-display);
+  font-weight: 800;
+  /* 27 pt — расчёт, не на глаз: буквица должна встать основанием на
+     базовую линию второй строки. Высота прописных Playfair = 0.70 em,
+     нужный рост = интерлиньяж (9 × 1.44) + рост прописных текста
+     (9 × 0.66) ≈ 18.9 pt → 18.9 / 0.70 = 27 pt. На 25.5 pt буква
+     не доходила до второй базовой линии и висела с зазором снизу. */
+  font-size: 27pt;
+  line-height: 0.86;
+  letter-spacing: -0.02em;
+  padding: 0.5mm 1.8mm 0 0;
+  margin-top: -0.4mm;
+  color: var(--accent);
+}
+
+/* ── Языковая пара: узбекский основной, русский вторым уровнем ──
+   Единый паттерн на всех полосах — иначе номер читается как склейка
+   разных изданий. Узбекский — полужирный: без разницы веса два языка
+   сливаются, и глаз не находит начало абзаца на своём языке. */
+/* Вес 500, не 600: у Cormorant полужирный едва отличался от светлого,
+   у Source Serif 600 — настоящий semibold, и полоса читалась целиком
+   набранной жирным. Русский и так отделён кеглем, цветом и линейкой —
+   узбекскому хватает половины ступени веса. */
+.lang-pair .uz { font-size: inherit; font-weight: 500; }
+.lang-pair .ru {
+  font-size: var(--fs-second);
+  color: var(--ink-2);
+  line-height: var(--lh-second);
+  margin-top: var(--sp-1);
+  padding-left: 2.6mm;
+  border-left: var(--w-hair) solid var(--hair);
+  font-variation-settings: 'opsz' var(--opsz-small);
+}
+/* Метка языка — капитель, не подпись: она служебная и не должна
+   перебивать первое слово абзаца. */
+.lang-tag {
+  font-family: var(--font-ui);
+  font-size: 4.8pt;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold-ink);
+  margin-right: 1.4mm;
+  vertical-align: 0.35mm;
+}
+
+/* ── Панели ──
+   Ни одного скругления и ни одной тени: скругления и тени — язык
+   экрана, на бумаге они выдают «свёрстано в браузере».
+   card-elegant: выносной блок на жирной линейке слева, без плашки —
+     белая плашка на бумаге цвета paper всё равно не читалась.
+   card-warm: тёплая плашка под золотой линейкой.
+   card-dark: инверсный блок, самый сильный акцент на полосе. */
+.card-elegant {
+  border-left: 2.2pt solid var(--accent);
+  border-radius: 0;
+  background: none;
+  padding: 0.5mm 0 0.5mm 3.4mm;
+}
+.card-warm {
+  background: var(--tint-warm);
+  border-top: 1.2pt solid var(--gold);
+  border-radius: 0;
+  padding: 2.8mm 3.4mm 3mm;
+}
+.card-dark {
+  background: var(--ink);
+  color: #fff;
+  border-radius: 0;
+  padding: 3.4mm 4mm;
+}
+.card-dark .body, .card-dark .h3 { color: rgba(255, 255, 255, 0.94); }
+/* На тёмном второму языку нужен запас по контрасту: 60 % белого при
+   кегле 7.5 pt на матовой бумаге растекается и читается тяжело. */
+.card-dark .ru { color: rgba(255, 255, 255, 0.74); border-left-color: rgba(255, 255, 255, 0.3); }
+.card-dark .lang-tag { color: var(--gold); }
+
+/* ── Изображения ──
+   Прямой угол вместо радиуса 2 мм и волосяной контур по кромке:
+   в печати кадр обязан иметь край, иначе светлые сюжеты растворяются
+   в бумаге. Слоты заданы в мм — снимать нужно в этих пропорциях,
+   иначе object-fit срежет кадр вслепую (спека в
+   docs/magazine-print-spec.md). */
+.photo {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  border-radius: 0;
+  outline: var(--w-hair) solid rgba(0, 0, 0, 0.13);
+  outline-offset: calc(-1 * var(--w-hair));
+}
+/* Высота горизонтальных плашек — 44 мм при ширине 128 мм (≈2.9:1).
+   Было 48 мм: на полосах 4, 9 и 11 контент съезжал на колонцифру и
+   подходил к линии реза ближе 5 мм. Снимки приходят в 1512×567
+   (2.67:1), object-fit: cover подрезает их сверху и снизу на ~8 % —
+   на кадрах фермы, зелени и детской тарелки это незаметно.
+   Размеры слотов продублированы в scripts/check-magazine-photos.mjs
+   и в docs/magazine-print-spec.md — менять втроём. */
+.photo-hero { height: 44mm; }
+.photo-wide { height: 44mm; }
+.photo-portrait {
+  width: 38mm;
+  height: 48mm;
+  flex-shrink: 0;
+  border-radius: 0;
+  object-fit: cover;
+  outline: var(--w-hair) solid rgba(0, 0, 0, 0.13);
+  outline-offset: calc(-1 * var(--w-hair));
+}
+.photo-full { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Подпись под кадром — на волосяной линейке, как в газете */
+.photo-caption {
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  margin-top: 1.2mm;
+  padding-top: 1.1mm;
+  border-top: var(--w-hair) solid var(--hair);
+  letter-spacing: 0.01em;
+}
+
+/* Плейсхолдер под фото: показывает требуемый размер, пока снимка нет */
+.photo-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(45deg, var(--hair-2), var(--hair-2) 3mm, var(--paper-pure) 3mm, var(--paper-pure) 6mm);
+  border: 0.4mm dashed var(--hair);
+  border-radius: 0;
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  color: var(--ink-3);
+  text-align: center;
+  line-height: 1.4;
+}
+
+/* ── Живое меню (центральный разворот) ── */
+.menu-grid { display: flex; flex-direction: column; gap: 0; }
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 3.4mm;
+  padding: 2.8mm 0;
+  border-bottom: var(--w-hair) solid var(--hair);
+}
+.menu-item:last-child { border-bottom: none; }
+.menu-photo {
+  width: 26.5mm;
+  height: 26.5mm;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 0;
+  outline: var(--w-hair) solid rgba(0, 0, 0, 0.13);
+  outline-offset: calc(-1 * var(--w-hair));
+}
+.menu-body { flex: 1; min-width: 0; }
+/* Цена — интерфейсный шрифт табличными цифрами: в прейскуранте
+   разряды обязаны стоять в колонку, а минускульные цифры антиквы
+   читаются как буквы. */
+.menu-price {
+  font-family: var(--font-ui);
+  font-size: 8.4pt;
+  font-weight: 700;
+  letter-spacing: -0.008em;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--accent);
+  margin-top: 0.6mm;
+}
+/* Код заполняет свой контейнер: ширина задана на .menu-qr (15 мм в
+   меню, 18–22 мм на выносных блоках), а не жёстко на самом svg —
+   раньше код рецепта в боксе 22 мм всё равно рисовался в 15 мм. */
+.menu-qr { width: 15mm; flex-shrink: 0; text-align: center; }
+.menu-qr svg, .menu-qr img { width: 100%; height: auto; aspect-ratio: 1 / 1; display: block; }
+/* Отрицательная отбивка компенсирует тихую зону кода.
+   В svg 4 модуля из 41 с каждой стороны — на 15 мм это 1.5 мм пустоты
+   ниже последнего чёрного модуля. Пока зона заливалась белым, зазор
+   читался как часть плашки; на прозрачной он превратился в провал
+   между кодом и его номером. */
+.menu-code {
+  font-family: var(--font-ui);
+  font-size: 5.4pt;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink-3);
+  margin-top: -0.6mm;
+}
+.menu-qr.hit .menu-code { margin-top: -0.9mm; }
+
+/* ── Пояснение к блюду ──
+   Раньше под названием стоял только перевод («Кебаб из тандыра») —
+   строка словаря, которая ничего не добавляла. Теперь тут живёт
+   деталь о самом блюде, поэтому нужен тот же языковой паттерн, что
+   на остальных полосах, но на ступень мельче: пояснение не должно
+   перебивать название и цену.
+   Высоту строки задаёт фото (26.5 мм), а текстовый блок занимал
+   меньше половины — два языка встают в этот запас без роста полосы. */
+.menu-note { margin-top: 1.1mm; }
+.menu-note .uz { font-size: 8.1pt; font-weight: 500; line-height: 1.38; }
+.menu-note.lang-pair .ru { font-size: 6.8pt; line-height: 1.34; margin-top: 0.7mm; }
+
+/* Хит недели: код крупнее и в золотой рамке — из шести одинаковых
+   квадратов на развороте глазу не за что зацепиться. Остальные не
+   уменьшаем: ниже 15 мм код перестаёт уверенно считываться с матовой
+   бумаги. */
+.menu-qr.hit { width: 20mm; }
+.menu-qr.hit svg, .menu-qr.hit img { width: 20mm; height: 20mm; }
+.menu-item.hit {
+  background: var(--tint-warm);
+  border-radius: 0;
+  border-top: 1.2pt solid var(--gold);
+  border-bottom: 1.2pt solid var(--gold);
+  padding: 2.6mm;
+}
+.menu-item.hit .menu-qr.hit {
+  border: 0.4mm solid var(--gold);
+  border-radius: 0;
+  padding: 0.7mm;
+  background: #fff;
+}
+.menu-item.hit .menu-code { color: var(--gold-ink); font-weight: 700; }
+
+/* ── Гости недели ──
+   Кадр из «Живого меню» приходит вертикальным 9:16 (1080×1920). Две
+   строки по 9:16 на A5 не помещаются, поэтому карточка — 3:4
+   (≈39×52 мм): максимум, который влезает в запас полосы.
+   object-position смещён вверх: снизу у кадра фирменный подвал рамки,
+   его и надо срезать, а не блюдо с лицом гостя. */
+.guests-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.4mm; }
+.guest-card img {
+  width: 100%;
+  height: 52mm;
+  object-fit: cover;
+  object-position: center 35%;
+  border-radius: 0;
+  display: block;
+  outline: var(--w-hair) solid rgba(0, 0, 0, 0.13);
+  outline-offset: calc(-1 * var(--w-hair));
+}
+.guest-name {
+  font-family: var(--font-ui);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  display: block;
+  margin-top: 1.1mm;
+}
+.guest-dish {
+  font-family: var(--font-ui);
+  font-size: 5.4pt;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  display: block;
+  margin-top: 0.3mm;
+}
+
+/* ── Содержание ──
+   Убран столбец с буквами: он складывал акростих «JASMIN» на первых
+   шести строках и рассыпался на последних трёх. Вместо него —
+   газетная строка: рубрика антиквой, перевод подписью, колонцифра
+   табличными цифрами по правому краю. */
+.toc-row {
+  display: flex;
+  align-items: baseline;
+  gap: 3mm;
+  padding: 2.9mm 0;
+  border-bottom: var(--w-hair) solid var(--hair);
+}
+.toc-letter { display: none; }
+.toc-title { flex: 1; min-width: 0; }
+.toc-page {
+  font-family: var(--font-ui);
+  font-size: 8.6pt;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Цифры и факты ──
+   Было: три скруглённых плашки цвета accent-tint — интерфейсные
+   «чипы». Стало: газетная таблица на жирной линейке с волосяными
+   разделителями колонок. Цифры маюскульные и табличные. */
+.stat-row {
+  display: flex;
+  gap: 0;
+  border-top: var(--w-flag) solid var(--accent);
+  border-bottom: var(--w-hair) solid var(--hair);
+  background: none;
+}
+.stat {
+  flex: 1;
+  text-align: left;
+  padding: 2.2mm 2.6mm 2.4mm;
+  background: none;
+  border-radius: 0;
+  border-left: var(--w-hair) solid var(--hair);
+}
+.stat:first-child { border-left: none; padding-left: 0; }
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 17pt;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 0.98;
+  letter-spacing: -0.022em;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+/* Строковые значения («10–23», «Bor») набираются мельче цифровых:
+   на 17 pt слово не помещается в колонку и рвётся. */
+.stat-value.small { font-size: 11.5pt; letter-spacing: -0.014em; }
+/* Единица измерения при числе: у Playfair знак × нарисован тонким
+   математическим крестом и рядом с цифрой веса 800 выглядел обрывком.
+   Ставим его мельче, светлее и приподнимаем к верхней части цифры. */
+.stat-value .unit {
+  font-size: 0.58em;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: 0.16em;
+  margin-left: 0.03em;
+}
+.stat-label {
+  font-family: var(--font-ui);
+  font-size: 5.4pt;
+  color: var(--ink-2);
+  margin-top: 1.2mm;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+}
+
+/* ── Шаги (карта лояльности, инструкции) ──
+   Номер шага — квадрат, не круг: круг с цифрой внутри читается как
+   кнопка интерфейса. */
+.steps { display: flex; flex-direction: column; gap: 2.2mm; }
+.step { display: flex; gap: 3mm; align-items: flex-start; }
+.step-num {
+  flex-shrink: 0;
+  width: 5.4mm;
+  height: 5.4mm;
+  border-radius: 0;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-ui);
+  font-size: 7pt;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums lining-nums;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.3mm;
+}
+/* ── Клетки Fresh Kids ──
+   Идеи для тарелки: квадрат с волосяной рамкой, последняя — золотая.
+   Скругление 1.5 мм убрано вместе с остальными. */
+.kids-cell {
+  height: 9mm;
+  border: var(--w-hair) solid var(--hair);
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15pt;
+  line-height: 1;
+  background: var(--paper-pure);
+}
+.kids-cell.gold { border-color: var(--gold); border-width: 0.9pt; }
+
+/* Штампы карты гостя остаются круглыми: это отсылка к бумажной печати,
+   единственное место, где круг оправдан. */
+.stamps { display: flex; gap: 2.2mm; }
+.stamp {
+  width: 9mm;
+  height: 9mm;
+  border-radius: 50%;
+  border: 0.4mm dashed var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 6pt;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink-3);
+}
+
+/* ── Обложка ──
+   Логотип издания: дидон с плотным трекингом, под ним волосяная
+   линейка и подзаголовок разгонкой — газетная шапка, а не леттеринг. */
+.nameplate {
+  font-family: var(--font-display);
+  font-size: var(--fs-nameplate);
+  font-weight: 800;
+  line-height: 0.88;
+  letter-spacing: var(--tr-nameplate);
+  color: #fff;
+}
+.nameplate-sub {
+  font-family: var(--font-ui);
+  font-size: 6pt;
+  font-weight: 600;
+  letter-spacing: 0.52em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.72);
+  border-top: var(--w-hair) solid rgba(255, 255, 255, 0.5);
+  padding-top: 1.6mm;
+  margin-top: 1.8mm;
+}
+.cover-issue {
+  font-family: var(--font-display);
+  font-size: 11pt;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: lining-nums;
+  color: var(--gold);
+}
+.cover-dateline {
+  font-family: var(--font-ui);
+  font-size: 5.6pt;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.66);
+  margin-top: 1.4mm;
+}
+.cover-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 25pt;
+  line-height: 1.06;
+  letter-spacing: -0.024em;
+  color: #fff;
+  text-wrap: balance;
+}
+/* Вторая строка заголовка — золотом. Кадр обложки сам золотисто-тёплый,
+   поэтому под этой строкой градиент уже выведен почти в чёрный
+   (см. .cover-scrim), иначе золото по золоту не читается. */
+.cover-title .accent { color: var(--gold); }
+.cover-deck {
+  font-family: var(--font-text);
+  font-style: italic;
+  font-size: 10.6pt;
+  line-height: 1.36;
+  color: rgba(255, 255, 255, 0.93);
+  font-variation-settings: 'opsz' var(--opsz-deck);
+}
+/* Рубрики номера на обложке: капитель через разделители, без рамок.
+   Было три скруглённых «чипа» — язык интерфейса. */
+.cover-tags {
+  font-family: var(--font-ui);
+  font-size: 5.6pt;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.74);
+  border-top: var(--w-hair) solid rgba(255, 255, 255, 0.34);
+  padding-top: 2mm;
+}
+.cover-tags span { white-space: nowrap; }
+.cover-tags i {
+  font-style: normal;
+  color: var(--gold);
+  margin: 0 2mm;
+}
+.cover-foot {
+  font-family: var(--font-ui);
+  font-size: 5.8pt;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.62);
+  border-top: var(--w-hair) solid rgba(255, 255, 255, 0.28);
+  padding-top: 2.6mm;
+  display: flex;
+  justify-content: space-between;
+}
+.cover-foot .site { color: var(--gold); font-weight: 600; }
+
+/* Затемнение обложки: нижняя половина уведена почти в чёрный, чтобы
+   золотая строка заголовка читалась на любом, даже светлом кадре. */
+.cover-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg,
+      rgba(0,0,0,.70) 0%,
+      rgba(0,0,0,.30) 16%,
+      rgba(0,0,0,.16) 30%,
+      rgba(0,0,0,.34) 44%,
+      rgba(0,0,0,.72) 58%,
+      rgba(0,0,0,.88) 72%,
+      rgba(0,0,0,.95) 100%);
+}
+
+/* ── Задняя обложка (карта гостя) ── */
+.mag-page.back .h1 { color: #fff; }
+.mag-page.back .body { color: rgba(255, 255, 255, 0.92); }
+.mag-page.back .ru { color: rgba(255, 255, 255, 0.74); border-left-color: rgba(255, 255, 255, 0.3); }
+.mag-page.back .lang-tag { color: var(--gold); }
+.mag-page.back .kicker { color: var(--gold); }
+.mag-page.back .step-num { background: var(--gold); color: var(--accent); }
+/* Ряд штампов сам по себе висел в пустоте посреди полосы. Золотые
+   линейки сверху и снизу превращают его в блок с границами. */
+.mag-page.back .stamps {
+  border-top: var(--w-hair) solid rgba(201, 168, 118, 0.55);
+  border-bottom: var(--w-hair) solid rgba(201, 168, 118, 0.55);
+  padding: 3mm 0;
+  justify-content: space-between;
+}
+.mag-page.back .stamp { color: rgba(255, 255, 255, 0.75); }
+.back-label {
+  font-family: var(--font-ui);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: var(--tr-label);
+  text-transform: uppercase;
+  color: var(--gold);
+  border-top: var(--w-hair) solid rgba(201, 168, 118, 0.55);
+  padding-top: 1.4mm;
+  display: block;
+}
+.back-panel {
+  display: flex;
+  gap: 4mm;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  border-top: 1.2pt solid var(--gold);
+  border-bottom: 1.2pt solid var(--gold);
+  border-radius: 0;
+  padding: 3mm;
+}
+/* Блоки задней обложки идут ритмичным шагом сверху, а выходные
+   данные прижаты к нижнему полю. Раньше здесь стоял space-between:
+   45 мм запаса разъезжались в шесть случайных провалов, и ряд
+   штампов висел в пустоте посреди полосы. */
+.mag-page.back .page-body { justify-content: flex-start; gap: var(--sp-5); }
+.back-foot {
+  font-family: var(--font-ui);
+  font-size: 5.8pt;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.6);
+  border-top: var(--w-hair) solid rgba(255, 255, 255, 0.26);
+  padding-top: 2.6mm;
+  margin-top: auto;
+  display: flex;
+  justify-content: space-between;
+}
+.back-foot .site { color: var(--gold); font-weight: 600; }
+
+/* ── Печать ── */
+@media print {
+  html, body {
+    background: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    width: var(--page-w) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .mag-page {
+    box-shadow: none !important;
+    margin: 0 !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  /* Направляющие реза не должны попасть в типографию */
+  .trim-guide, .screen-only { display: none !important; }
+  /* QR печатается чистым чёрным по белому без растра — иначе камера
+     не берёт код с матовой бумаги. */
+  .menu-qr svg, .menu-qr img { image-rendering: crisp-edges; }
+}
