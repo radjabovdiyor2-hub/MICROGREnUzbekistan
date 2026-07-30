@@ -465,7 +465,12 @@ body {
   float: left;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: 25.5pt;
+  /* 27 pt — расчёт, не на глаз: буквица должна встать основанием на
+     базовую линию второй строки. Высота прописных Playfair = 0.70 em,
+     нужный рост = интерлиньяж (9 × 1.44) + рост прописных текста
+     (9 × 0.66) ≈ 18.9 pt → 18.9 / 0.70 = 27 pt. На 25.5 pt буква
+     не доходила до второй базовой линии и висела с зазором снизу. */
+  font-size: 27pt;
   line-height: 0.86;
   letter-spacing: -0.02em;
   padding: 0.5mm 1.8mm 0 0;
@@ -631,6 +636,11 @@ body {
    раньше код рецепта в боксе 22 мм всё равно рисовался в 15 мм. */
 .menu-qr { width: 15mm; flex-shrink: 0; text-align: center; }
 .menu-qr svg, .menu-qr img { width: 100%; height: auto; aspect-ratio: 1 / 1; display: block; }
+/* Отрицательная отбивка компенсирует тихую зону кода.
+   В svg 4 модуля из 41 с каждой стороны — на 15 мм это 1.5 мм пустоты
+   ниже последнего чёрного модуля. Пока зона заливалась белым, зазор
+   читался как часть плашки; на прозрачной он превратился в провал
+   между кодом и его номером. */
 .menu-code {
   font-family: var(--font-ui);
   font-size: 5.4pt;
@@ -638,8 +648,21 @@ body {
   letter-spacing: 0.1em;
   font-variant-numeric: tabular-nums lining-nums;
   color: var(--ink-3);
-  margin-top: 0.8mm;
+  margin-top: -0.6mm;
 }
+.menu-qr.hit .menu-code { margin-top: -0.9mm; }
+
+/* ── Пояснение к блюду ──
+   Раньше под названием стоял только перевод («Кебаб из тандыра») —
+   строка словаря, которая ничего не добавляла. Теперь тут живёт
+   деталь о самом блюде, поэтому нужен тот же языковой паттерн, что
+   на остальных полосах, но на ступень мельче: пояснение не должно
+   перебивать название и цену.
+   Высоту строки задаёт фото (26.5 мм), а текстовый блок занимал
+   меньше половины — два языка встают в этот запас без роста полосы. */
+.menu-note { margin-top: 1.1mm; }
+.menu-note .uz { font-size: 8.1pt; font-weight: 500; line-height: 1.38; }
+.menu-note.lang-pair .ru { font-size: 6.8pt; line-height: 1.34; margin-top: 0.7mm; }
 
 /* Хит недели: код крупнее и в золотой рамке — из шести одинаковых
    квадратов на развороте глазу не за что зацепиться. Остальные не
@@ -754,6 +777,16 @@ body {
 /* Строковые значения («10–23», «Bor») набираются мельче цифровых:
    на 17 pt слово не помещается в колонку и рвётся. */
 .stat-value.small { font-size: 11.5pt; letter-spacing: -0.014em; }
+/* Единица измерения при числе: у Playfair знак × нарисован тонким
+   математическим крестом и рядом с цифрой веса 800 выглядел обрывком.
+   Ставим его мельче, светлее и приподнимаем к верхней части цифры. */
+.stat-value .unit {
+  font-size: 0.58em;
+  font-weight: 500;
+  letter-spacing: 0;
+  vertical-align: 0.16em;
+  margin-left: 0.03em;
+}
 .stat-label {
   font-family: var(--font-ui);
   font-size: 5.4pt;
@@ -1233,147 +1266,25 @@ body {
             <div class="ru"><span class="lang-tag">ru</span>Розовые томаты — 200 г; микрозелень гороха — 30 г; оливковое масло — 1 ст. л.; кунжут, соль, чёрный перец</div>
           </div>
         </div>
-        <div class="menu-qr" style="width:22mm;">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path stroke="#000000" d="M4 4.5h7m2 0h1m1 0h3m2 0h6m1 0h1m2 0h7M4 5.5h1m5 0h1m3 0h1m1 0h4m10 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h2m4 0h2m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h6m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h2m3 0h1m1 0h2m3 0h1m1 0h1m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h4m2 0h2m5 0h2m1 0h1M4 12.5h1m1 0h5m6 0h3m1 0h1m4 0h1m1 0h1m1 0h5M7 13.5h2m2 0h2m1 0h2m6 0h6m2 0h2m1 0h4M5 14.5h1m2 0h3m1 0h4m3 0h1m2 0h1m2 0h1m2 0h2m2 0h1m1 0h2M4 15.5h6m3 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h5m2 0h5M4 16.5h1m1 0h1m3 0h2m1 0h2m6 0h1m1 0h1m2 0h1m1 0h1m2 0h3m1 0h2M4 17.5h1m2 0h2m6 0h1m1 0h5m1 0h3m1 0h1m2 0h1m3 0h3M6 18.5h3m1 0h2m1 0h2m2 0h2m2 0h2m1 0h1m4 0h3m3 0h1M5 19.5h1m1 0h1m1 0h1m1 0h1m3 0h2m3 0h1m2 0h1m1 0h1m3 0h3m1 0h2M4 20.5h2m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h2m3 0h1M4 21.5h1m2 0h1m1 0h1m1 0h2m2 0h3m2 0h1m1 0h4m1 0h1m2 0h2m1 0h2m1 0h1M10 22.5h3m1 0h1m1 0h5m3 0h2m3 0h4m1 0h1M6 23.5h4m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h12M4 24.5h3m3 0h6m1 0h5m2 0h1m1 0h1m1 0h2m2 0h2m1 0h2M4 25.5h3m1 0h1m3 0h1m1 0h1m1 0h4m1 0h5m1 0h1m1 0h2m2 0h2m1 0h1M4 26.5h1m4 0h3m1 0h1m5 0h2m1 0h1m1 0h3m2 0h2m2 0h3M4 27.5h1m1 0h4m2 0h3m1 0h1m2 0h1m4 0h3m1 0h2m1 0h4M4 28.5h1m3 0h5m2 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m3 0h1M12 29.5h1m3 0h2m2 0h2m1 0h2m3 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h2m2 0h2m2 0h1m3 0h3m1 0h1m1 0h1m1 0h2M4 31.5h1m5 0h1m1 0h6m1 0h2m2 0h3m1 0h2m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h2m2 0h1m1 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h2m1 0h1m1 0h3m2 0h1m1 0h3M4 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m2 0h2m3 0h2m1 0h1M4 35.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h3m5 0h3M4 36.5h7m1 0h4m2 0h1m1 0h2m4 0h6m3 0h1"/></svg>
-          <div class="menu-code">Retsept onlayn</div>
-        </div>
-      </div>
-
-      <div class="card-elegant">
-        <div class="kicker">Tayyorlanishi · Приготовление</div>
-        <div class="lang-pair body" style="margin-top:1.5mm;">
-          <div class="uz">Pomidorni yirik bo‘laklarga to‘g‘rang, tuz sepib 5 daqiqa turing — sharbat ajralsin. Zaytun yog‘i va murch bilan aralashtiring. Mikroko‘katni eng oxirida soling va darhol dasturxonga tortlang.</div>
-          <div class="ru"><span class="lang-tag">ru</span>Нарежьте томаты крупно, посолите и дайте постоять 5 минут — пустят сок. Смешайте с маслом и перцем. Микрозелень добавьте в самом конце и сразу подавайте.</div>
-        </div>
-      </div>
-
-      <div class="card-warm">
-        <div class="lang-pair body">
-          <div class="uz">QR kodni skanerlang — retsept telefoningizda ochiladi, mikroko‘kat to‘plamini bir bosishda savatga solish mumkin.</div>
-          <div class="ru"><span class="lang-tag">ru</span>Отсканируйте QR — рецепт откроется в телефоне, а набор микрозелени добавится в корзину одним касанием.</div>
-        </div>
-      </div>
-    </div>
-    <div class="page-num page-num-l">5</div>
-  </div>
-  <div class="trim-guide"></div>
-</div>
-
-<!-- ═══════════ 6 · ЖИВОЕ МЕНЮ (левая полоса центрального разворота) ═══════════ -->
-<div class="mag-page">
-  <div class="page-inner">
-    <div class="running-header">
-      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; JASMIN</span></div>
-      <div>JONLI MENYU · ЖИВОЕ МЕНЮ</div>
-    </div>
-    <div class="page-body">
-      <div class="h1">Jonli menyu</div>
-      <div class="lang-pair body">
-        <div class="uz">Taom yonidagi QR — uning sahifasi: tarkibi, narxi va «kadr olish» tugmasi.</div>
-        <div class="ru"><span class="lang-tag">ru</span>QR рядом с блюдом — его страница: состав, цена и кнопка «снять кадр».</div>
-      </div>
-      <hr class="rule-gold">
-
-      <div class="menu-grid">
-        <!-- Хит недели: карточка и QR выделены, чтобы код не терялся среди
-             шести одинаковых квадратов разворота -->
-        <div class="menu-item hit">
-          <img class="menu-photo" src="plov-jasmin.jpeg" alt="">
-          <div class="menu-body">
-            <span class="ui" style="font-size:5pt;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);">Hafta xiti · Хит недели</span>
-            <div class="h3" style="margin-top:0.5mm;">Samarqandcha palov</div>
-            <div class="caption">Самаркандский плов</div>
-            <div class="menu-price">55 000 so‘m</div>
-          </div>
-          <div class="menu-qr hit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path stroke="#000000" d="M4 4.5h7m2 0h1m1 0h3m2 0h6m1 0h1m2 0h7M4 5.5h1m5 0h1m3 0h1m1 0h4m10 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h2m4 0h2m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h6m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h2m3 0h1m1 0h2m3 0h1m1 0h1m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h4m2 0h2m5 0h2m1 0h1M4 12.5h1m1 0h5m6 0h3m1 0h1m4 0h1m1 0h1m1 0h5M7 13.5h2m2 0h2m1 0h2m6 0h6m2 0h2m1 0h4M5 14.5h1m2 0h3m1 0h4m3 0h1m2 0h1m2 0h1m2 0h2m2 0h1m1 0h2M4 15.5h6m3 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h5m2 0h5M4 16.5h1m1 0h1m3 0h2m1 0h2m6 0h1m1 0h1m2 0h1m1 0h1m2 0h3m1 0h2M4 17.5h1m2 0h2m6 0h1m1 0h5m1 0h3m1 0h1m2 0h1m3 0h3M6 18.5h3m1 0h2m1 0h2m2 0h2m2 0h2m1 0h1m4 0h3m3 0h1M5 19.5h1m1 0h1m1 0h1m1 0h1m3 0h2m3 0h1m2 0h1m1 0h1m3 0h3m1 0h2M4 20.5h2m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h2m3 0h1M4 21.5h1m2 0h1m1 0h1m1 0h2m2 0h3m2 0h1m1 0h4m1 0h1m2 0h2m1 0h2m1 0h1M10 22.5h3m1 0h1m1 0h5m3 0h2m3 0h4m1 0h1M6 23.5h4m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h12M4 24.5h3m3 0h6m1 0h5m2 0h1m1 0h1m1 0h2m2 0h2m1 0h2M4 25.5h3m1 0h1m3 0h1m1 0h1m1 0h4m1 0h5m1 0h1m1 0h2m2 0h2m1 0h1M4 26.5h1m4 0h3m1 0h1m5 0h2m1 0h1m1 0h3m2 0h2m2 0h3M4 27.5h1m1 0h4m2 0h3m1 0h1m2 0h1m4 0h3m1 0h2m1 0h4M4 28.5h1m3 0h5m2 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m3 0h1M12 29.5h1m3 0h2m2 0h2m1 0h2m3 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h2m2 0h2m2 0h1m3 0h3m1 0h1m1 0h1m1 0h2M4 31.5h1m5 0h1m1 0h6m1 0h2m2 0h3m1 0h2m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h2m2 0h1m1 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h2m1 0h1m1 0h3m2 0h1m1 0h3M4 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m2 0h2m3 0h2m1 0h1M4 35.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h3m5 0h3M4 36.5h7m1 0h4m2 0h1m1 0h2m4 0h6m3 0h1"/></svg><div class="menu-code">01</div></div>
-        </div>
-        <div class="menu-item">
-          <img class="menu-photo" src="tandir-kabob-jasmin.jpg" alt="">
-          <div class="menu-body">
-            <div class="h3">Tandir kabob</div>
-            <div class="caption">Кебаб из тандыра</div>
-            <div class="menu-price">48 000 so‘m</div>
-          </div>
-          <div class="menu-qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path stroke="#000000" d="M4 4.5h7m2 0h1m1 0h3m2 0h6m1 0h1m2 0h7M4 5.5h1m5 0h1m3 0h1m1 0h4m10 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h2m4 0h2m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h6m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h2m3 0h1m1 0h2m3 0h1m1 0h1m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h4m2 0h2m5 0h2m1 0h1M4 12.5h1m1 0h5m6 0h3m1 0h1m4 0h1m1 0h1m1 0h5M7 13.5h2m2 0h2m1 0h2m6 0h6m2 0h2m1 0h4M5 14.5h1m2 0h3m1 0h4m3 0h1m2 0h1m2 0h1m2 0h2m2 0h1m1 0h2M4 15.5h6m3 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h5m2 0h5M4 16.5h1m1 0h1m3 0h2m1 0h2m6 0h1m1 0h1m2 0h1m1 0h1m2 0h3m1 0h2M4 17.5h1m2 0h2m6 0h1m1 0h5m1 0h3m1 0h1m2 0h1m3 0h3M6 18.5h3m1 0h2m1 0h2m2 0h2m2 0h2m1 0h1m4 0h3m3 0h1M5 19.5h1m1 0h1m1 0h1m1 0h1m3 0h2m3 0h1m2 0h1m1 0h1m3 0h3m1 0h2M4 20.5h2m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h2m3 0h1M4 21.5h1m2 0h1m1 0h1m1 0h2m2 0h3m2 0h1m1 0h4m1 0h1m2 0h2m1 0h2m1 0h1M10 22.5h3m1 0h1m1 0h5m3 0h2m3 0h4m1 0h1M6 23.5h4m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h12M4 24.5h3m3 0h6m1 0h5m2 0h1m1 0h1m1 0h2m2 0h2m1 0h2M4 25.5h3m1 0h1m3 0h1m1 0h1m1 0h4m1 0h5m1 0h1m1 0h2m2 0h2m1 0h1M4 26.5h1m4 0h3m1 0h1m5 0h2m1 0h1m1 0h3m2 0h2m2 0h3M4 27.5h1m1 0h4m2 0h3m1 0h1m2 0h1m4 0h3m1 0h2m1 0h4M4 28.5h1m3 0h5m2 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m3 0h1M12 29.5h1m3 0h2m2 0h2m1 0h2m3 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h2m2 0h2m2 0h1m3 0h3m1 0h1m1 0h1m1 0h2M4 31.5h1m5 0h1m1 0h6m1 0h2m2 0h3m1 0h2m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h2m2 0h1m1 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h2m1 0h1m1 0h3m2 0h1m1 0h3M4 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m2 0h2m3 0h2m1 0h1M4 35.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h3m5 0h3M4 36.5h7m1 0h4m2 0h1m1 0h2m4 0h6m3 0h1"/></svg><div class="menu-code">02</div></div>
-        </div>
-        <div class="menu-item">
-          <img class="menu-photo" src="lagmon-jasmin.jpg" alt="">
-          <div class="menu-body">
-            <div class="h3">Lag‘mon</div>
-            <div class="caption">Лагман с домашней лапшой</div>
-            <div class="menu-price">42 000 so‘m</div>
-          </div>
-          <div class="menu-qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path stroke="#000000" d="M4 4.5h7m2 0h1m1 0h3m2 0h6m1 0h1m2 0h7M4 5.5h1m5 0h1m3 0h1m1 0h4m10 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h2m4 0h2m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h6m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h2m3 0h1m1 0h2m3 0h1m1 0h1m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h4m2 0h2m5 0h2m1 0h1M4 12.5h1m1 0h5m6 0h3m1 0h1m4 0h1m1 0h1m1 0h5M7 13.5h2m2 0h2m1 0h2m6 0h6m2 0h2m1 0h4M5 14.5h1m2 0h3m1 0h4m3 0h1m2 0h1m2 0h1m2 0h2m2 0h1m1 0h2M4 15.5h6m3 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h5m2 0h5M4 16.5h1m1 0h1m3 0h2m1 0h2m6 0h1m1 0h1m2 0h1m1 0h1m2 0h3m1 0h2M4 17.5h1m2 0h2m6 0h1m1 0h5m1 0h3m1 0h1m2 0h1m3 0h3M6 18.5h3m1 0h2m1 0h2m2 0h2m2 0h2m1 0h1m4 0h3m3 0h1M5 19.5h1m1 0h1m1 0h1m1 0h1m3 0h2m3 0h1m2 0h1m1 0h1m3 0h3m1 0h2M4 20.5h2m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h2m3 0h1M4 21.5h1m2 0h1m1 0h1m1 0h2m2 0h3m2 0h1m1 0h4m1 0h1m2 0h2m1 0h2m1 0h1M10 22.5h3m1 0h1m1 0h5m3 0h2m3 0h4m1 0h1M6 23.5h4m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h12M4 24.5h3m3 0h6m1 0h5m2 0h1m1 0h1m1 0h2m2 0h2m1 0h2M4 25.5h3m1 0h1m3 0h1m1 0h1m1 0h4m1 0h5m1 0h1m1 0h2m2 0h2m1 0h1M4 26.5h1m4 0h3m1 0h1m5 0h2m1 0h1m1 0h3m2 0h2m2 0h3M4 27.5h1m1 0h4m2 0h3m1 0h1m2 0h1m4 0h3m1 0h2m1 0h4M4 28.5h1m3 0h5m2 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m3 0h1M12 29.5h1m3 0h2m2 0h2m1 0h2m3 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h2m2 0h2m2 0h1m3 0h3m1 0h1m1 0h1m1 0h2M4 31.5h1m5 0h1m1 0h6m1 0h2m2 0h3m1 0h2m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h2m2 0h1m1 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h2m1 0h1m1 0h3m2 0h1m1 0h3M4 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m2 0h2m3 0h2m1 0h1M4 35.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h3m5 0h3M4 36.5h7m1 0h4m2 0h1m1 0h2m4 0h6m3 0h1"/></svg><div class="menu-code">03</div></div>
-        </div>
-      </div>
-
-      <!-- Метка «хит недели» стоит на самой карточке блюда выше, здесь только
-           цифра — иначе одна и та же плашка повторяется дважды на полосе -->
-      <div class="card-warm">
-        <div class="kicker">Hafta statistikasi · Статистика недели</div>
-        <div class="lang-pair body" style="margin-top:1.5mm;">
-          <div class="uz">O‘tgan haftada mehmonlar eng ko‘p <b>Samarqandcha palov</b>ni suratga olishdi — 41 kadr.</div>
-          <div class="ru"><span class="lang-tag">ru</span>На прошлой неделе гости чаще всего снимали <b>самаркандский плов</b> — 41 кадр.</div>
-        </div>
-      </div>
-
-      <div>
-        <div class="kicker">Qanday ishlaydi · Как это работает</div>
-        <hr class="rule-thin" style="margin:2mm 0;">
-        <div class="steps">
-          <div class="step"><div class="step-num">1</div><div class="lang-pair body"><div class="uz">Taom yonidagi QR ni telefon kamerasiga tuting.</div><div class="ru"><span class="lang-tag">ru</span>Наведите камеру телефона на QR рядом с блюдом.</div></div></div>
-          <div class="step"><div class="step-num">2</div><div class="lang-pair body"><div class="uz">Tarkibi, narxi va «kadr olish» tugmasi ochiladi.</div><div class="ru"><span class="lang-tag">ru</span>Откроются состав, цена и кнопка «снять кадр».</div></div></div>
-        </div>
-      </div>
-    </div>
-    <div class="page-num page-num-r">6</div>
-  </div>
-  <div class="trim-guide"></div>
-</div>
-
-<!-- ═══════════ 7 · ЖИВОЕ МЕНЮ (правая полоса центрального разворота) ═══════════ -->
-<div class="mag-page">
-  <div class="page-inner">
-    <div class="running-header">
-      <div class="masthead">Fresh Weekly <span class="cobrand">&amp; JASMIN</span></div>
-      <div>JONLI MENYU · ЖИВОЕ МЕНЮ</div>
-    </div>
-    <div class="page-body">
-      <div class="menu-grid">
-        <div class="menu-item">
-          <img class="menu-photo" src="somsa-jasmin.jpg" alt="Somsa">
-          <div class="menu-body">
-            <div class="h3">Somsa</div>
-            <div class="caption">Самса из тандыра</div>
-            <div class="menu-price">18 000 so‘m</div>
-          </div>
-          <div class="menu-qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path stroke="#000000" d="M4 4.5h7m2 0h1m1 0h3m2 0h6m1 0h1m2 0h7M4 5.5h1m5 0h1m3 0h1m1 0h4m10 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h2m4 0h2m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h6m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h2m3 0h1m1 0h2m3 0h1m1 0h1m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h4m2 0h2m5 0h2m1 0h1M4 12.5h1m1 0h5m6 0h3m1 0h1m4 0h1m1 0h1m1 0h5M7 13.5h2m2 0h2m1 0h2m6 0h6m2 0h2m1 0h4M5 14.5h1m2 0h3m1 0h4m3 0h1m2 0h1m2 0h1m2 0h2m2 0h1m1 0h2M4 15.5h6m3 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h5m2 0h5M4 16.5h1m1 0h1m3 0h2m1 0h2m6 0h1m1 0h1m2 0h1m1 0h1m2 0h3m1 0h2M4 17.5h1m2 0h2m6 0h1m1 0h5m1 0h3m1 0h1m2 0h1m3 0h3M6 18.5h3m1 0h2m1 0h2m2 0h2m2 0h2m1 0h1m4 0h3m3 0h1M5 19.5h1m1 0h1m1 0h1m1 0h1m3 0h2m3 0h1m2 0h1m1 0h1m3 0h3m1 0h2M4 20.5h2m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h2m3 0h1M4 21.5h1m2 0h1m1 0h1m1 0h2m2 0h3m2 0h1m1 0h4m1 0h1m2 0h2m1 0h2m1 0h1M10 22.5h3m1 0h1m1 0h5m3 0h2m3 0h4m1 0h1M6 23.5h4m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h12M4 24.5h3m3 0h6m1 0h5m2 0h1m1 0h1m1 0h2m2 0h2m1 0h2M4 25.5h3m1 0h1m3 0h1m1 0h1m1 0h4m1 0h5m1 0h1m1 0h2m2 0h2m1 0h1M4 26.5h1m4 0h3m1 0h1m5 0h2m1 0h1m1 0h3m2 0h2m2 0h3M4 27.5h1m1 0h4m2 0h3m1 0h1m2 0h1m4 0h3m1 0h2m1 0h4M4 28.5h1m3 0h5m2 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m3 0h1M12 29.5h1m3 0h2m2 0h2m1 0h2m3 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h2m2 0h2m2 0h1m3 0h3m1 0h1m1 0h1m1 0h2M4 31.5h1m5 0h1m1 0h6m1 0h2m2 0h3m1 0h2m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h2m2 0h1m1 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h2m1 0h1m1 0h3m2 0h1m1 0h3M4 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m2 0h2m3 0h2m1 0h1M4 35.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h3m5 0h3M4 36.5h7m1 0h4m2 0h1m1 0h2m4 0h6m3 0h1"/></svg><div class="menu-code">04</div></div>
-        </div>
-        <div class="menu-item">
-          <img class="menu-photo" src="achchiq-chuchuk-jasmin.jpg" alt="Achchiq-chuchuk">
-          <div class="menu-body">
-            <div class="h3">Achchiq-chuchuk</div>
-            <div class="caption">Салат к плову</div>
-            <div class="menu-price">22 000 so‘m</div>
-          </div>
-          <div class="menu-qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path stroke="#000000" d="M4 4.5h7m2 0h1m1 0h3m2 0h6m1 0h1m2 0h7M4 5.5h1m5 0h1m3 0h1m1 0h4m10 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h2m4 0h2m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h6m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h2m3 0h1m1 0h2m3 0h1m1 0h1m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h4m2 0h2m5 0h2m1 0h1M4 12.5h1m1 0h5m6 0h3m1 0h1m4 0h1m1 0h1m1 0h5M7 13.5h2m2 0h2m1 0h2m6 0h6m2 0h2m1 0h4M5 14.5h1m2 0h3m1 0h4m3 0h1m2 0h1m2 0h1m2 0h2m2 0h1m1 0h2M4 15.5h6m3 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h5m2 0h5M4 16.5h1m1 0h1m3 0h2m1 0h2m6 0h1m1 0h1m2 0h1m1 0h1m2 0h3m1 0h2M4 17.5h1m2 0h2m6 0h1m1 0h5m1 0h3m1 0h1m2 0h1m3 0h3M6 18.5h3m1 0h2m1 0h2m2 0h2m2 0h2m1 0h1m4 0h3m3 0h1M5 19.5h1m1 0h1m1 0h1m1 0h1m3 0h2m3 0h1m2 0h1m1 0h1m3 0h3m1 0h2M4 20.5h2m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h2m3 0h1M4 21.5h1m2 0h1m1 0h1m1 0h2m2 0h3m2 0h1m1 0h4m1 0h1m2 0h2m1 0h2m1 0h1M10 22.5h3m1 0h1m1 0h5m3 0h2m3 0h4m1 0h1M6 23.5h4m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h12M4 24.5h3m3 0h6m1 0h5m2 0h1m1 0h1m1 0h2m2 0h2m1 0h2M4 25.5h3m1 0h1m3 0h1m1 0h1m1 0h4m1 0h5m1 0h1m1 0h2m2 0h2m1 0h1M4 26.5h1m4 0h3m1 0h1m5 0h2m1 0h1m1 0h3m2 0h2m2 0h3M4 27.5h1m1 0h4m2 0h3m1 0h1m2 0h1m4 0h3m1 0h2m1 0h4M4 28.5h1m3 0h5m2 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m3 0h1M12 29.5h1m3 0h2m2 0h2m1 0h2m3 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h2m2 0h2m2 0h1m3 0h3m1 0h1m1 0h1m1 0h2M4 31.5h1m5 0h1m1 0h6m1 0h2m2 0h3m1 0h2m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h2m2 0h1m1 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h2m1 0h1m1 0h3m2 0h1m1 0h3M4 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m2 0h2m3 0h2m1 0h1M4 35.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h3m5 0h3M4 36.5h7m1 0h4m2 0h1m1 0h2m4 0h6m3 0h1"/></svg><div class="menu-code">05</div></div>
-        </div>
-        <div class="menu-item">
-          <img class="menu-photo" src="choy-shirinliklar-jasmin.jpg" alt="Choy va shirinliklar">
-          <div class="menu-body">
-            <div class="h3">Choy va shirinliklar</div>
-            <div class="caption">Чай и десерты</div>
-            <div class="menu-price">12 000 so‘m</div>
-          </div>
-          <div class="menu-qr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 41 41" shape-rendering="crispEdges"><path stroke="#000000" d="M4 4.5h7m2 0h1m1 0h3m2 0h6m1 0h1m2 0h7M4 5.5h1m5 0h1m3 0h1m1 0h4m10 0h1m5 0h1M4 6.5h1m1 0h3m1 0h1m1 0h1m4 0h1m2 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M4 7.5h1m1 0h3m1 0h1m1 0h4m2 0h1m1 0h2m4 0h2m2 0h1m1 0h3m1 0h1M4 8.5h1m1 0h3m1 0h1m1 0h3m1 0h1m2 0h1m2 0h6m2 0h1m1 0h3m1 0h1M4 9.5h1m5 0h1m1 0h2m3 0h1m1 0h2m3 0h1m1 0h1m3 0h1m5 0h1M4 10.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 11.5h4m2 0h2m5 0h2m1 0h1M4 12.5h1m1 0h5m6 0h3m1 0h1m4 0h1m1 0h1m1 0h5M7 13.5h2m2 0h2m1 0h2m6 0h6m2 0h2m1 0h4M5 14.5h1m2 0h3m1 0h4m3 0h1m2 0h1m2 0h1m2 0h2m2 0h1m1 0h2M4 15.5h6m3 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h5m2 0h5M4 16.5h1m1 0h1m3 0h2m1 0h2m6 0h1m1 0h1m2 0h1m1 0h1m2 0h3m1 0h2M4 17.5h1m2 0h2m6 0h1m1 0h5m1 0h3m1 0h1m2 0h1m3 0h3M6 18.5h3m1 0h2m1 0h2m2 0h2m2 0h2m1 0h1m4 0h3m3 0h1M5 19.5h1m1 0h1m1 0h1m1 0h1m3 0h2m3 0h1m2 0h1m1 0h1m3 0h3m1 0h2M4 20.5h2m1 0h1m2 0h1m1 0h4m2 0h1m2 0h1m2 0h1m1 0h2m1 0h1m1 0h2m3 0h1M4 21.5h1m2 0h1m1 0h1m1 0h2m2 0h3m2 0h1m1 0h4m1 0h1m2 0h2m1 0h2m1 0h1M10 22.5h3m1 0h1m1 0h5m3 0h2m3 0h4m1 0h1M6 23.5h4m2 0h1m1 0h1m1 0h1m1 0h2m2 0h1m1 0h12M4 24.5h3m3 0h6m1 0h5m2 0h1m1 0h1m1 0h2m2 0h2m1 0h2M4 25.5h3m1 0h1m3 0h1m1 0h1m1 0h4m1 0h5m1 0h1m1 0h2m2 0h2m1 0h1M4 26.5h1m4 0h3m1 0h1m5 0h2m1 0h1m1 0h3m2 0h2m2 0h3M4 27.5h1m1 0h4m2 0h3m1 0h1m2 0h1m4 0h3m1 0h2m1 0h4M4 28.5h1m3 0h5m2 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m3 0h1M12 29.5h1m3 0h2m2 0h2m1 0h2m3 0h1m3 0h1m1 0h1m1 0h1M4 30.5h7m3 0h2m2 0h2m2 0h1m3 0h3m1 0h1m1 0h1m1 0h2M4 31.5h1m5 0h1m1 0h6m1 0h2m2 0h3m1 0h2m3 0h5M4 32.5h1m1 0h3m1 0h1m1 0h1m1 0h2m2 0h2m2 0h2m2 0h1m1 0h6m1 0h2M4 33.5h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3m1 0h2m1 0h1m1 0h3m2 0h1m1 0h3M4 34.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m2 0h2m3 0h2m1 0h1M4 35.5h1m5 0h1m3 0h2m1 0h2m1 0h1m3 0h3m5 0h3M4 36.5h7m1 0h4m2 0h1m1 0h2m4 0h6m3 0h1"/></svg><div class="menu-code">06</div></div>
+        <div class="menu-qr" style="width:22mm;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 35 35" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h35v35H0z"/><path stroke="#000000" d="M1 1.5h7m1 0h1m1 0h1m1 0h5m1 0h1m4 0h1m2 0h7M1 2.5h1m5 0h1m2 0h2m2 0h2m3 0h5m3 0h1m5 0h1M1 3.5h1m1 0h3m1 0h1m2 0h1m4 0h1m2 0h3m1 0h2m1 0h1m1 0h1m1 0h3m1 0h1M1 4.5h1m1 0h3m1 0h1m1 0h1m2 0h1m4 0h2m3 0h2m1 0h1m1 0h1m1 0h3m1 0h1M1 5.5h1m1 0h3m1 0h1m1 0h1m1 0h2m1 0h1m2 0h1m2 0h1m3 0h2m1 0h1m1 0h3m1 0h1M1 6.5h1m5 0h1m1 0h1m2 0h2m1 0h2m4 0h3m3 0h1m5 0h1M1 7.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M9 8.5h2m1 0h2m1 0h1m2 0h5m2 0h1M1 9.5h1m3 0h1m1 0h6m3 0h1m1 0h1m2 0h10m2 0h1M1 10.5h3m4 0h2m5 0h2m1 0h2m2 0h3m1 0h1m3 0h3M1 11.5h4m2 0h1m1 0h2m1 0h6m1 0h1m4 0h1m1 0h2m2 0h1m1 0h1M1 12.5h3m10 0h1m5 0h1m2 0h1m2 0h1m5 0h2M1 13.5h1m2 0h2m1 0h2m2 0h2m1 0h1m1 0h2m5 0h1m1 0h1m1 0h1m1 0h2M1 14.5h1m1 0h1m1 0h1m3 0h4m2 0h1m2 0h4m2 0h3m1 0h1m1 0h1M2 15.5h4m1 0h3m1 0h1m3 0h2m4 0h1m1 0h2m1 0h2m4 0h1M1 16.5h3m5 0h1m1 0h1m1 0h1m1 0h5m2 0h9M2 17.5h2m1 0h3m2 0h1m7 0h1m1 0h1m1 0h2m3 0h1m1 0h1m2 0h1M3 18.5h3m2 0h1m1 0h1m1 0h1m3 0h2m1 0h1m4 0h1m1 0h1m3 0h3M4 19.5h1m2 0h1m2 0h3m2 0h2m1 0h1m2 0h5m1 0h2m1 0h1M1 20.5h5m2 0h1m1 0h1m1 0h1m1 0h6m1 0h2m3 0h1m1 0h1m3 0h1M4 21.5h8m1 0h1m1 0h1m3 0h3m3 0h1m1 0h4M1 22.5h2m1 0h2m2 0h2m3 0h1m1 0h1m1 0h2m1 0h1m2 0h2m1 0h1m1 0h1m1 0h1m1 0h1M3 23.5h3m1 0h3m1 0h2m1 0h2m1 0h2m1 0h1m1 0h1m1 0h4m1 0h1m1 0h2M5 24.5h1m3 0h2m1 0h1m5 0h5m2 0h2m1 0h2m2 0h1M1 25.5h3m1 0h3m2 0h2m3 0h2m1 0h1m3 0h8M9 26.5h1m2 0h2m1 0h4m3 0h1m2 0h1m3 0h1m1 0h2M1 27.5h7m1 0h2m2 0h2m1 0h2m1 0h1m5 0h1m1 0h1m1 0h2m1 0h1M1 28.5h1m5 0h1m4 0h5m3 0h2m1 0h1m1 0h1m3 0h1m2 0h2M1 29.5h1m1 0h3m1 0h1m1 0h1m4 0h2m1 0h1m5 0h1m1 0h6M1 30.5h1m1 0h3m1 0h1m3 0h1m2 0h1m4 0h3m2 0h2m1 0h3m2 0h1M1 31.5h1m1 0h3m1 0h1m3 0h3m2 0h1m4 0h2m1 0h2m1 0h5M1 32.5h1m5 0h1m5 0h1m1 0h5m2 0h1m1 0h4M1 33.5h7m1 0h1m1 0h1m2 0h1m2 0h2m1 0h4m1 0h2m6 0h1"/></svg>
+<div class="menu-code">06</div></div>
         </div>
       </div>
 
       <div class="card-dark">
-        <div class="kicker">Kadr oling · Снимите кадр</div>
+        <div class="kicker">Kadringiz jurnalda · Ваш кадр в журнале</div>
         <div class="lang-pair body" style="margin-top:1.5mm;">
-          <div class="uz">Taom sahifasida «Kadr olish» tugmasi bor: kamera restoran ramkasi bilan ochiladi va tayyor surat telefoningizda qoladi. Eng yaxshi kadrlar keyingi sonda chop etiladi.</div>
-          <div class="ru"><span class="lang-tag">ru</span>На странице блюда есть кнопка «Снять кадр»: камера откроется с фирменной рамкой, готовое фото останется в телефоне. Лучшие кадры печатаем в следующем номере.</div>
+          <div class="uz">Tugma kamerani jurnal ramkasi bilan ochadi. Surat sizda qoladi, eng yaxshilari keyingi sonda ism bilan chiqadi — o‘tgan hafta kadrlari 10-betda.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Кнопка открывает камеру с рамкой журнала. Фото остаётся у вас, лучшие выходят в следующем номере с именем автора — кадры прошлой недели на стр. 10.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="kicker">Iyul issig‘ida · В июльскую жару</div>
+        <hr class="rule-thin" style="margin:2mm 0;">
+        <div class="lang-pair body">
+          <div class="uz">Kunduzi — achchiq-chuchuk va ko‘k choy: issiqni yengil o‘tkazadi. Palovni kechqurun oling, teras salqinlaganda.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Днём — ачик-чучук и зелёный чай: с ними жара переносится легче. Плов оставьте на вечер, когда терраса остынет.</div>
         </div>
       </div>
 
@@ -1410,7 +1321,7 @@ body {
       </div>
 
       <div class="stat-row">
-        <div class="stat"><div class="stat-value">40×</div><div class="stat-label">vitamin C va E<br>витаминов C и E</div></div>
+        <div class="stat"><div class="stat-value">40<span class="unit">×</span></div><div class="stat-label">vitamin C va E<br>витаминов C и E</div></div>
         <div class="stat"><div class="stat-value">7</div><div class="stat-label">kun o‘sadi<br>дней до среза</div></div>
         <div class="stat"><div class="stat-value">0</div><div class="stat-label">pestitsid<br>пестицидов</div></div>
       </div>
