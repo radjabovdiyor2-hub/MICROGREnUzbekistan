@@ -5,7 +5,19 @@
 // Зачем: у .page-body высота фиксирована и стоит overflow:hidden —
 // лишний контент не ломает вёрстку заметно, он молча уходит под обрез.
 // На экране полоса выглядит целой, а в PDF пропадает последний блок.
-// Скрипт меряет запас каждой полосы и падает, если где-то минус.
+//
+// ПОЧЕМУ МЕТОДИКА ПОМЕНЯЛАСЬ
+// Прошлая версия суммировала scrollHeight прямых детей .page-body и
+// сравнивала сумму с высотой бокса. Это давало ложное «всё вмещается»:
+// .page-body — flex-колонка, она ужимает детей, их scrollHeight
+// подстраивается под сжатую высоту, и сумма всегда сходится. На полосе 9
+// контент реально уходил под обрез, а скрипт был зелёный.
+//
+// Теперь меряем факт: положение низа последнего блока против двух границ.
+//   ОБРЕЗ — низ самого .page-body: дальше overflow:hidden режет.
+//   ПОЛЕ  — низ минус padding-bottom: нижнее безопасное поле, за ним
+//           контент лезет на колонцифру и подходит к линии реза.
+// Первое — ошибка, второе — предупреждение.
 // ════════════════════════════════════════════════════════════
 import { chromium } from 'playwright';
 import { pathToFileURL } from 'node:url';
@@ -16,32 +28,27 @@ const file = resolve(process.argv[2] ?? 'content/generated/jasmin-print.html');
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
 await page.goto(pathToFileURL(file).href, { waitUntil: 'load' });
+// Без этого мерим по системной подмене шрифтов, а она уже другой ширины
+await page.evaluate(() => document.fonts.ready);
 
 const rows = await page.evaluate(() => {
   const toMm = (px) => +(px / (96 / 25.4)).toFixed(1);
   return [...document.querySelectorAll('.mag-page')].map((p, i) => {
     const body = p.querySelector('.page-body');
-    if (!body) return { 'полоса': i + 1, 'запас, мм': '—', 'сжато блоков': '—', 'заметка': 'обложка' };
+    if (!body) return { 'полоса': i + 1, 'до поля, мм': '—', 'до обреза, мм': '—', 'заметка': 'обложка' };
 
-    // .page-body — flex-колонка: лишний контент не переполняет её, а ужимает
-    // блоки. Поэтому смотрим на каждого прямого ребёнка: если его scrollHeight
-    // больше видимой высоты, текст внутри уже режется.
-    const kids = [...body.children];
-    // Порог 4px ≈ 1мм: у заголовков с line-height < 1.1 scrollHeight всегда
-    // на доли миллиметра больше из-за выносных элементов — это не обрезка.
-    const squeezed = kids.filter((el) => el.scrollHeight - el.clientHeight > 4);
+    const box = body.getBoundingClientRect();
+    const pad = parseFloat(getComputedStyle(body).paddingBottom) || 0;
+    const last = body.lastElementChild?.getBoundingClientRect();
+    if (!last) return { 'полоса': i + 1, 'до поля, мм': '—', 'до обреза, мм': '—', 'заметка': 'пусто' };
 
-    // Запас = сколько ещё влезет: разница между высотой бокса и суммой
-    // естественных высот детей с учётом gap.
-    const gap = parseFloat(getComputedStyle(body).rowGap) || 0;
-    const natural = kids.reduce((s, el) => s + Math.max(el.scrollHeight, el.getBoundingClientRect().height), 0)
-      + gap * Math.max(0, kids.length - 1);
-
+    const toTrim = box.bottom - last.bottom;          // до нижней кромки .page-body
+    const toSafe = toTrim - pad;                       // до нижнего безопасного поля
     return {
       'полоса': i + 1,
-      'запас, мм': toMm(body.clientHeight - natural),
-      'сжато блоков': squeezed.length,
-      'заметка': squeezed.length ? squeezed.map((e) => e.className || e.tagName).join(', ').slice(0, 40) : '',
+      'до поля, мм': toMm(toSafe),
+      'до обреза, мм': toMm(toTrim),
+      'заметка': toTrim < 0 ? 'РЕЖЕТ' : (toSafe < 0 ? 'в поле' : ''),
     };
   });
 });
@@ -49,11 +56,14 @@ const rows = await page.evaluate(() => {
 console.table(rows);
 await browser.close();
 
-const over = rows.filter((r) => typeof r['запас, мм'] === 'number' && r['запас, мм'] < 0);
-const cut = rows.filter((r) => typeof r['сжато блоков'] === 'number' && r['сжато блоков'] > 0);
-if (over.length || cut.length) {
-  if (over.length) console.error(`\n✗ Не хватает места на полосах: ${over.map((r) => r['полоса']).join(', ')}`);
-  if (cut.length) console.error(`✗ Контент режется на полосах: ${cut.map((r) => r['полоса']).join(', ')}`);
+const cut = rows.filter((r) => r['заметка'] === 'РЕЖЕТ');
+const tight = rows.filter((r) => r['заметка'] === 'в поле');
+
+if (tight.length) {
+  console.warn(`⚠ заходит в нижнее поле (колонцифра рядом): полосы ${tight.map((r) => r['полоса']).join(', ')}`);
+}
+if (cut.length) {
+  console.error(`\n✗ контент обрезан: полосы ${cut.map((r) => r['полоса']).join(', ')}`);
   process.exit(1);
 }
-console.log('\n✓ Все полосы вмещают контент');
+console.log(tight.length ? '\n✓ ничего не обрезано' : '\n✓ все полосы держат нижнее поле');
