@@ -20,6 +20,11 @@ import base64
 import logging
 import random
 from pathlib import Path
+
+# brand.py — единственный источник фирменных контактов. Раньше телефон был
+# вписан здесь строкой заглушкой «+998 91 123 45 67», и он уходил в
+# публикуемые Stories.
+from shared.brand import BRAND
 from typing import Optional
 
 import aiohttp
@@ -32,7 +37,7 @@ logger = logging.getLogger(__name__)
 GRAPH_BASE_URL = "https://graph.facebook.com/v19.0"
 
 # ── Каталог продукции (контекст для AI) ──────────────────────────────────
-PRODUCT_CATALOG = """
+PRODUCT_CATALOG = f"""
 ПРОДУКЦИЯ Microgreen Uzbekistan:
 
 1. Микрозелень (руккола, базилик, горох, подсолнечник):
@@ -52,7 +57,7 @@ PRODUCT_CATALOG = """
    - Всё включено: семена, субстрат, лоток, инструкция
 
 ДОСТАВКА: Бесплатно от 500,000 сум по Самарканду
-ТЕЛЕФОН: +998 91 123 45 67
+ТЕЛЕФОН: {BRAND['phone']}
 САЙТ: microgreenuzbekistan.com
 """.strip()
 
@@ -73,7 +78,7 @@ PROMO_THEMES = [
 ]
 
 # ── Системный промпт для генерации текста Stories ────────────────────────
-STORY_TEXT_SYSTEM_PROMPT = """Ты — креативный маркетолог компании Microgreen Uzbekistan.
+STORY_TEXT_SYSTEM_PROMPT = f"""Ты — креативный маркетолог компании Microgreen Uzbekistan.
 Твоя задача — писать короткие, цепляющие промо-тексты для Instagram Stories.
 
 ПРАВИЛА:
@@ -82,7 +87,7 @@ STORY_TEXT_SYSTEM_PROMPT = """Ты — креативный маркетолог
 - Пиши на русском языке
 - Обязательно укажи цену или выгоду
 - Добавь призыв к действию (закажи, напиши, переходи)
-- Упомяни телефон +998 91 123 45 67 или "напишите в Direct"
+- Упомяни телефон {BRAND['phone']} или "напишите в Direct"
 - Не используй хештеги (это Story, не пост)
 - Стиль: дружелюбный, живой, не рекламный
 - Каждый текст должен быть уникальным

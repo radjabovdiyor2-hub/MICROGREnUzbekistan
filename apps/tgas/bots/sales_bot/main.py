@@ -21,14 +21,14 @@ logger = logging.getLogger(__name__)
 scheduler = BotScheduler("sales_bot")
 
 
-import base64
+# Ссылки на онлайн-оплату (Click/Payme) убраны намеренно.
+# Они собирались из settings.click_merchant_id / payme_merchant_id, у которых
+# в конфиге стояли заглушки «12345» и «1234567890», а в .env их никто не задавал.
+# То есть клиент получал кликабельную кнопку «Оплатить», которая никуда не ведёт.
+# Онлайн-оплата в системе не используется: наличные, карта, банковский перевод.
+# Приём события PAYMENT_RECEIVED от n8n ниже оставлен — это другой механизм.
+PAYMENT_METHODS_HINT = "💳 Оплата: наличные, карта или банковский перевод"
 
-def _payme_url(order_number: str, amount_uzs: int) -> str:
-    params = f"m={settings.payme_merchant_id};ac.order_id={order_number};a={amount_uzs * 100}"
-    return "https://checkout.paycom.uz/" + base64.b64encode(params.encode()).decode()
-
-def _click_url(order_number: str, amount_uzs: int) -> str:
-    return f"https://my.click.uz/services/pay?merchant_id={settings.click_merchant_id}&amount={amount_uzs}&transaction_param={order_number}"
 
 async def handle_payment_received(payload: dict):
     """Обработка успешной оплаты от Click/Payme (через n8n)."""
@@ -569,18 +569,12 @@ async def handle_task_created(payload: dict):
                         logger.error(f"Failed to post order to storefront in task_created: {e}")
 
                 if storefront_success:
-                    # Генерация ссылок на оплату для реального заказа
-                    click_url = _click_url(real_order_number, amount)
-                    payme_url = _payme_url(real_order_number, amount)
-                    
                     # Сообщаем об успехе в чат задачи
                     await bot.send_message(
-                        chat_id, 
+                        chat_id,
                         f"✅ <b>Заказ {real_order_number} успешно оформлен в магазине!</b>\nСумма: {amount} UZS\n"
                         f"Склад зарезервирован.\n\n"
-                        f"💳 <b>Оплатить онлайн:</b>\n"
-                        f"<a href='{click_url}'>Оплатить через Click</a>\n"
-                        f"<a href='{payme_url}'>Оплатить через Payme</a>", 
+                        f"{PAYMENT_METHODS_HINT}",
                         parse_mode="HTML"
                     )
                 else:
@@ -595,16 +589,10 @@ async def handle_task_created(payload: dict):
                         ), {"cid": customer_id, "onum": order_number, "amount": amount, "notes": f"[ОШИБКА МАГАЗИНА] {desc}"[:200]})
                         await session.commit()
                         
-                        # Генерация ссылок на оплату для локального черновика
-                        click_url = _click_url(order_number, amount)
-                        payme_url = _payme_url(order_number, amount)
-                        
                         await bot.send_message(
-                            chat_id, 
+                            chat_id,
                             f"⚠️ <b>Магазин недоступен, заказ {order_number} оформлен локально!</b>\nСумма: {amount} UZS\n\n"
-                            f"💳 <b>Оплатить онлайн:</b>\n"
-                            f"<a href='{click_url}'>Оплатить через Click</a>\n"
-                            f"<a href='{payme_url}'>Оплатить через Payme</a>", 
+                            f"{PAYMENT_METHODS_HINT}",
                             parse_mode="HTML"
                         )
                     else:
@@ -781,18 +769,12 @@ async def bus_process_ig_order(params: dict) -> dict:
             notes = f"IG: {product or '—'} x {quantity}, Phone: {phone}, Address: {address}"
             
             if storefront_success:
-                # Генерация ссылок на оплату для реального заказа
-                click_url = _click_url(real_order_number, amount)
-                payme_url = _payme_url(real_order_number, amount)
-                
                 msg_text = (
                     f"✅ <b>Заказ {real_order_number} оформлен в магазине!</b>\n"
                     f"Клиент: {customer_name}\n"
                     f"Товар: {product or '—'} x {quantity}\n"
                     f"Сумма: {amount} UZS\n\n"
-                    f"💳 <b>Ссылки на оплату:</b>\n"
-                    f"<a href='{click_url}'>Оплатить через Click</a>\n"
-                    f"<a href='{payme_url}'>Оплатить через Payme</a>"
+                    f"{PAYMENT_METHODS_HINT}"
                 )
                 order_number = real_order_number
             else:
@@ -808,17 +790,12 @@ async def bus_process_ig_order(params: dict) -> dict:
                     ), {"cid": customer_id, "onum": order_number, "amount": amount, "notes": f"[ОШИБКА] {notes}"[:200]})
                     await session.commit()
                     
-                    click_url = _click_url(order_number, amount)
-                    payme_url = _payme_url(order_number, amount)
-                    
                     msg_text = (
                         f"⚠️ <b>Магазин недоступен, заказ {order_number} оформлен локально!</b>\n"
                         f"Клиент: {customer_name}\n"
                         f"Товар: {product or '—'} x {quantity}\n"
                         f"Сумма: {amount} UZS\n\n"
-                        f"💳 <b>Ссылки на оплату:</b>\n"
-                        f"<a href='{click_url}'>Оплатить через Click</a>\n"
-                        f"<a href='{payme_url}'>Оплатить через Payme</a>"
+                        f"{PAYMENT_METHODS_HINT}"
                     )
                 else:
                     # Оформляем как LEAD/manual заказ с 0 суммой

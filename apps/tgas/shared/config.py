@@ -13,6 +13,10 @@ from typing import List
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# brand.py — единственный источник фирменных контактов; он ничего не импортирует
+# из проекта, поэтому направление config → brand цикла не создаёт.
+from shared.brand import BRAND
+
 
 class Settings(BaseSettings):
     """
@@ -132,9 +136,14 @@ class Settings(BaseSettings):
         default="Microgreen Uzbekistan",
         description="Название компании",
     )
+    # Default берём из brand.py — там единственный источник фирменных контактов.
+    # Раньше здесь стояла заглушка «+998 91 123 45 67», и она же была вписана
+    # строкой в промпт продаж, промпт сторис и подвал PDF: бот, сторис и
+    # коммерческие предложения называли клиенту несуществующий номер.
+    # .env по-прежнему перекрывает значение.
     company_phone: str = Field(
-        default="+998 91 123 45 67",
-        description="Основной телефон компании",
+        default=BRAND["phone"],
+        description="Основной телефон компании (по умолчанию — из shared/brand.py)",
     )
     free_delivery_threshold: int = Field(
         default=500_000,
@@ -142,14 +151,13 @@ class Settings(BaseSettings):
     )
     
     # ── Платежные системы ──────────────────────────────────────────────
-    click_merchant_id: str = Field(
-        default="12345",
-        description="Merchant ID для Click.uz",
-    )
-    payme_merchant_id: str = Field(
-        default="1234567890",
-        description="Merchant ID для Paycom.uz",
-    )
+    # click_merchant_id / payme_merchant_id удалены вместе с генерацией ссылок
+    # на онлайн-оплату в sales_bot. У них стояли defaults «12345» и
+    # «1234567890», в .env их никто не задавал — и клиент получал кликабельную
+    # кнопку «Оплатить», которая никуда не ведёт. Онлайн-оплата не используется:
+    # наличные, карта, банковский перевод.
+    # Если Click/Payme понадобятся — добавлять БЕЗ defaults, чтобы отсутствие
+    # настройки было видно сразу, а не подменялось выдуманным ID.
 
     @field_validator("free_delivery_threshold", mode="before")
     @classmethod

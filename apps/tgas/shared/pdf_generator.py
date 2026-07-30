@@ -74,7 +74,10 @@ def generate_commercial_offer_pdf(client_name: str, ai_text: str, prices: list, 
         
     # Подвал
     c.setFont(font_name, 10)
-    c.drawString(50, 50, "Microgreen Uzbekistan | +998 91 123 45 67 | microgreenuzbekistan.com")
+    # Контакты из brand.py — единственного источника фирменных данных.
+    # Заглушка «+998 91 123 45 67» уходила в коммерческие предложения клиентам.
+    from shared.brand import BRAND
+    c.drawString(50, 50, f"Microgreen Uzbekistan | {BRAND['phone']} | microgreenuzbekistan.com")
     
     c.save()
     logger.info(f"PDF Commercial Offer generated: {file_path}")
