@@ -8,14 +8,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { slugify as makeSlug } from '@/lib/slug';
 
 export const dynamic = 'force-dynamic';
 
-function slugify(s: string): string {
-  const base = (s || '').toLowerCase().trim()
-    .replace(/[^a-z0-9а-яё]+/gi, '-').replace(/^-+|-+$/g, '');
-  return base || `recipe-${Date.now().toString(36)}`;
-}
+// slugify общий для всех публичных адресов (lib/slug.ts): транслитерирует
+// кириллицу. Прежняя локальная версия её СОХРАНЯЛА, и рецепт с русским
+// названием получал слаг вида «укц» — его страница отдавала 404.
+const slugify = (s: string) => makeSlug(s, 'recipe');
 
 interface StepInput { order?: number; textRu?: string; textUz?: string; image?: string; timerSeconds?: number | null }
 interface IngredientInput { order?: number; nameRu?: string; nameUz?: string; amount?: string; productId?: string | null }

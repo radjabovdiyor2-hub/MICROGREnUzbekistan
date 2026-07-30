@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { slugify as makeSlug } from '@/lib/slug';
 
 export const dynamic = 'force-dynamic';
 
-function slugify(s: string): string {
-  const base = (s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return base || `resto-${Date.now().toString(36)}`;
-}
+// Общий slugify: раньше здесь кириллица вырезалась целиком, и «Ресторан Джаз»
+// вырождался в resto-<timestamp>. Теперь транслитерируется в restoran-dzhaz.
+const slugify = (s: string) => makeSlug(s, 'resto');
 
 // Фикс: промокод ресторана делаем рабочим — upsert в модель PromoCode,
 // чтобы «скидка N% от ресторана» реально применялась в корзине.
