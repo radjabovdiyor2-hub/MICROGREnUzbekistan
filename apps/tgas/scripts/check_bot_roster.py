@@ -146,12 +146,9 @@ for name, comment in (("start_all.ps1", "#"), ("start_all.bat", "rem")):
         continue
     compare(name, launcher_bots(text, comment))
 
-# start_all_wmi.ps1 намеренно не сверяем строго: он давно отстал (8 ботов).
-wmi = read(ROOT / "start_all_wmi.ps1")
-if wmi:
-    n = len(launcher_bots(wmi, "#"))
-    if n != len(EXPECTED):
-        notes.append(f"  ⚠   start_all_wmi.ps1 — {n} из {len(EXPECTED)}, устарел")
+# start_all_wmi.ps1 удалён проверкой 31.07.2026: он отстал на 8 ботов из 13,
+# был помечен устаревшим в CLAUDE.md и ничем не запускался. Если файл вернут —
+# сверяем как обычный лаунчер, а не как исключение.
 
 # ── итог ────────────────────────────────────────────────────────────────
 print(f"Реестр ботов: {len(EXPECTED)} (shared/health.py → ALL_BOTS)\n")

@@ -19,7 +19,23 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from shared.config import settings
-from shared.ai_engine import AIEngine, TOKEN_COSTS, _is_reasoning_model
+
+# В отличие от check_bot_roster/check_prompts эта сверка действительно щупает
+# движок, поэтому без пакета mg_ai работать не может. Раньше это выглядело
+# голым traceback'ом про «No module named 'mg_ai'», по которому непонятно,
+# сломан код или просто не то окружение. Говорим прямо.
+try:
+    from shared.ai_engine import AIEngine, TOKEN_COSTS, _is_reasoning_model
+except ModuleNotFoundError as exc:
+    if exc.name != "mg_ai":
+        raise
+    print(
+        "Сверка AI-движка требует пакет mg_ai (Python 3.11+).\n"
+        "  В контейнере он ставится сам: apps/tgas/Dockerfile → pip install /opt/mg_ai\n"
+        "  Локально:  pip install -e packages/mg_ai\n"
+        "Остальные сверки (check_bot_roster, check_prompts, check_schema) mg_ai не требуют."
+    )
+    sys.exit(2)
 
 problems: list[str] = []
 notes: list[str] = []

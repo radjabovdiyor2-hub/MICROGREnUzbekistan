@@ -8,9 +8,10 @@ Microgreen Uzbekistan — Общая библиотека (shared)
 - utils: вспомогательные функции
 """
 
+from typing import Any
+
 from shared.config import settings
 from shared.database import get_async_session, init_db, AsyncSessionLocal
-from shared.ai_engine import AIEngine
 from shared.utils import (
     format_price,
     generate_order_number,
@@ -18,6 +19,27 @@ from shared.utils import (
     get_greeting,
     escape_md,
 )
+
+
+def __getattr__(name: str) -> Any:
+    """Ленивая выдача AIEngine (PEP 562).
+
+    Раньше AIEngine импортировался здесь же, наверху. После выделения движка
+    в пакет mg_ai это означало, что ЛЮБОЙ импорт из shared — включая
+    `from shared.health import ALL_BOTS`, где нет ни строчки про AI, — тянул
+    за собой mg_ai. Пакет ставится только внутри контейнера (apps/tgas/
+    Dockerfile: pip install /opt/mg_ai), поэтому вне Docker падали
+    scripts/check_bot_roster.py и scripts/check_prompts.py — те самые
+    сверки, на которые ссылается CLAUDE.md как на способ проверить работу.
+
+    Публичный контракт не меняется: `from shared import AIEngine` работает
+    как прежде, просто движок подгружается в момент обращения.
+    """
+    if name == "AIEngine":
+        from shared.ai_engine import AIEngine
+
+        return AIEngine
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     # Конфигурация
