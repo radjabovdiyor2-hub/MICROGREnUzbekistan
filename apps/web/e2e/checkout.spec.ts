@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures";
 
 test.describe('Checkout Flow', () => {
   test('should show error message when API fails (preventing fake orders)', async ({ page }) => {
@@ -41,19 +41,26 @@ test.describe('Checkout Flow', () => {
     await page.locator('#checkout-phone').fill('+998901234567');
     await page.locator('#checkout-address').fill('Test Address 123');
 
-    // 3. Mock the checkout API to fail (simulate network down)
+    // 3. Заказ отклоняется сервером.
+    //
+    // Раньше здесь стоял route.abort('failed') в паре с waitForResponse:
+    // у оборванного запроса ответа не бывает никогда, поэтому ожидание
+    // висело до таймаута и сценарий падал ещё до самой проверки. Отдаём
+    // честную пятисотку — путь обработки ошибки в UI тот же, а ответ есть.
     await page.route('/api/orders', async route => {
-      await route.abort('failed');
+      await route.fulfill({ status: 500, json: { error: 'Xatolik' } });
     });
 
-    // Submit and wait for API mock to fail
-    const [response] = await Promise.all([
+    await Promise.all([
       page.waitForResponse('/api/orders'),
       page.locator('#submit-order-btn').click()
     ]);
 
-    // 4. Verify that error message appears
-    await expect(page.locator('.card')).toContainText(/xatolik|ошибка/i);
+    // 4. Verify that error message appears.
+    // Селектор '.card' указывал на обёртку, в которой сообщения об ошибке нет:
+    // оно рендерится отдельным блоком. Привязываемся к якорю #order-error,
+    // как это уже сделано для #submit-order-btn и полей формы.
+    await expect(page.locator('#order-error')).toContainText(/xatolik|ошибка/i);
 
     // 5. Verify that cart is NOT cleared
     await expect(page.getByText(/Savat bo'sh|Корзина пуста/i)).not.toBeVisible();

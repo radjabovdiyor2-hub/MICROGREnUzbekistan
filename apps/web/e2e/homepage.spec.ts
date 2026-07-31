@@ -1,22 +1,30 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
+
+// Сценарии писались под старую версию витрины и с тех пор ни разу не гонялись:
+// в CI стоит только vitest, а локально Playwright не поднимался, потому что
+// postgres наружу не опубликован. Проверка 31.07.2026 запустила их против
+// контейнера и нашла, что все ожидания устарели: заголовок сменился на
+// SEO-строку под узбекский рынок, магазин переехал с /shop на /catalog,
+// noscript-блока в разметке больше нет вовсе. Приведено к текущему сайту.
 
 test.describe("Homepage", () => {
     test("renders hero section with title", async ({ page }) => {
         await page.goto("/");
-        await expect(page).toHaveTitle(/AgroTech Ecosystem/);
+        await expect(page).toHaveTitle(/Microgreen Uzbekistan/);
         await expect(page.locator("body")).toBeVisible();
     });
 
     test("navigation links are visible on desktop", async ({ page }) => {
         await page.goto("/");
-        const nav = page.locator("header nav, header");
-        await expect(nav).toBeVisible();
+        await expect(page.locator("header#main-header")).toBeVisible();
     });
 
-    test("shop link navigates to catalog", async ({ page }) => {
+    test("catalog link navigates to catalog", async ({ page }) => {
         await page.goto("/");
-        await page.click('a[href="/shop"]');
-        await expect(page).toHaveURL(/\/shop/);
+        // Ссылок на каталог на главной несколько (шапка, нижняя навигация,
+        // плитки рубрик) — берём первую, а не рассчитываем на единственную.
+        await page.locator('a[href="/catalog"]').first().click();
+        await expect(page).toHaveURL(/\/catalog/);
     });
 
     test("has JSON-LD structured data", async ({ page }) => {
@@ -25,9 +33,12 @@ test.describe("Homepage", () => {
         await expect(jsonLd.first()).toBeAttached();
     });
 
-    test("noscript fallback content exists", async ({ page }) => {
+    test("category tiles link into catalog sections", async ({ page }) => {
         await page.goto("/");
-        const noscript = page.locator("noscript");
-        await expect(noscript).toBeAttached();
+        // Раньше здесь проверялся noscript-фолбэк, которого в разметке нет.
+        // Полезнее убедиться, что рубрики каталога разведены по разделам:
+        // именно они — точка входа в товары с главной.
+        const tiles = page.locator('a[href^="/catalog/"]');
+        expect(await tiles.count()).toBeGreaterThan(0);
     });
 });
