@@ -1014,168 +1014,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
 
     # история уже получена в начале _process_brain (state_data)
 
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "create_task",
-                "description": "Создать и делегировать задачу одному из отделов (sales, marketing, support, hr, finance, pm, analytics, content)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "department": {"type": "string"},
-                        "title": {"type": "string"},
-                        "description": {"type": "string"},
-                        "priority": {"type": "string", "enum": ["low", "medium", "high", "urgent"]}
-                    },
-                    "required": ["department", "title", "description", "priority"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "roll_call",
-                "description": "Провести перекличку: отправить всем ботам команду отозваться в общем чате",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "message": {"type": "string", "description": "Текст сообщения для переклички"}
-                    }
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_report",
-                "description": "Сформировать отчет (ежедневный, финансовый и т.д.)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "report_kind": {"type": "string", "enum": ["daily", "finance", "sales", "tasks", "full"]}
-                    },
-                    "required": ["report_kind"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "query_db",
-                "description": "Запросить данные из БД (не отчет, а сырые данные)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "db_query": {"type": "string"}
-                    }
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "show_published_post",
-                "description": (
-                    "ПОКАЗАТЬ руководителю сам опубликованный контент — прислать картинку и текст "
-                    "поста/сторис/рецепта. Вызывай ВСЕГДА, когда просят показать, скинуть, прислать, "
-                    "отправить, дать посмотреть или глянуть публикацию/пост/сторис/контент — в ЛЮБОЙ "
-                    "формулировке, включая короткое «покажи» как продолжение разговора о публикациях. "
-                    "⚠️ Ничего не публикует и не создаёт задачу — только показывает уже вышедшее."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "day": {
-                            "type": "string",
-                            "description": "Какой день показать: today, yesterday, last или YYYY-MM-DD",
-                        }
-                    },
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_content_status",
-                "description": (
-                    "Статус публикаций на сегодня: что уже вышло, а что ещё по плану. "
-                    "Вызывай на вопросы «опубликовали ли», «когда выйдет», «во сколько», "
-                    "«какой статус публикаций». ⚠️ Ничего не публикует и не создаёт задачу."
-                ),
-                "parameters": {"type": "object", "properties": {}},
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "register_sale",
-                "description": (
-                    "ЗАРЕГИСТРИРОВАТЬ СОСТОЯВШУЮСЯ ПРОДАЖУ в CRM: завести/найти клиента, создать заказ, "
-                    "учесть доход. Вызывай ВСЕГДА, когда руководитель или менеджер сообщает о факте "
-                    "продажи: «зарегистрируй продажу», «продали N штук ресторану X», «оформи продажу», "
-                    "«запиши продажу», «мы продали». Это реальное действие отдела продаж — НЕ создавай "
-                    "для этого задачу через create_task. Незаполненные поля оставляй пустыми: цену и "
-                    "сумму НЕ ВЫДУМЫВАЙ, отдел сам возьмёт цену из каталога или переспросит."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "customer_name": {"type": "string", "description": "Кому продали: ресторан, кафе, человек"},
-                        "phone": {"type": "string", "description": "Телефон клиента, если назван"},
-                        "items": {
-                            "type": "array",
-                            "description": (
-                                "ВСЕ позиции продажи одним списком — это ОДИН заказ. "
-                                "«10 гороха и 13 редиса, из них 5 Санго по 15 тысяч» → три позиции "
-                                "в одном вызове, а не три вызова register_sale."
-                            ),
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "product": {"type": "string", "description": "Товар, как назвал менеджер"},
-                                    "quantity": {"type": "number", "description": "Количество"},
-                                    "unit_price": {"type": "number", "description": "Цена за единицу — ТОЛЬКО если названа явно"},
-                                },
-                                "required": ["product", "quantity"],
-                            },
-                        },
-                        "customer_type": {"type": "string", "enum": ["b2b", "b2c"], "description": "Ресторан/кафе/отель → b2b"},
-                        "payment_status": {"type": "string", "enum": ["paid", "pending"], "description": "Оплачено или ждём оплату"},
-                    },
-                    "required": ["customer_name", "items"],
-                },
-            },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "add_product",
-                "description": (
-                    "ДОБАВИТЬ НОВЫЙ ТОВАР В КАТАЛОГ — сразу и в магазин (витрину), и в CRM. "
-                    "⚠️ Вызывай ТОЛЬКО после ЯВНОГО одобрения руководителя («да, добавь», «добавляй», "
-                    "«заводи»). Сам, без спроса, товары не добавляй. Обычный сценарий: отдел продаж "
-                    "сообщил, что товара нет в каталоге → ты спросил разрешение → руководитель одобрил "
-                    "→ вызываешь add_product, а следом register_sale, чтобы дозаписать продажу."
-                ),
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string", "description": "Название товара, напр. «Микрозелень Санго»"},
-                        "price": {"type": "number", "description": "Цена за единицу в сумах"},
-                        "unit": {"type": "string", "enum": ["piece", "kg", "g", "pack", "set"], "description": "Единица измерения"},
-                        "category": {
-                            "type": "string",
-                            "enum": ["microgreens", "baby-leaf", "salads", "flowers", "seeds", "substrate", "equipment", "sets"],
-                            "description": "Категория каталога",
-                        },
-                        "stock": {"type": "number", "description": "Остаток на складе, если известен"},
-                    },
-                    "required": ["name", "price"],
-                },
-            },
-        },
-    ]
+    # ── Инструменты из единого реестра (tools.ts → HTTP → кеш) ──
+    from shared.stepan_tools import load_registry
+    tools = await load_registry("tg")
 
     try:
         response_msg = await ai.chat_with_tools(
@@ -1301,6 +1142,27 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 if await _content_status(message):
                     tool_results_text.append("Статус публикаций отдан.")
                     intent_after = "status"
+
+            else:
+                # Инструмент без нативного обработчика — исполняем удалённо через витрину.
+                # Так работают все web-инструменты: get_inventory_status, find_product,
+                # get_ai_spend, set_setting, change_product_price и т.д.
+                from shared.stepan_tools import execute_remote
+                result = await execute_remote(name, args)
+                if result.get("status") == "ok":
+                    # Форматируем результат для модели и отправляем в чат
+                    res_data = result.get("result")
+                    if isinstance(res_data, dict) and res_data.get("message"):
+                        await message.answer(str(res_data["message"]))
+                    elif isinstance(res_data, dict) and res_data.get("ok") is not None:
+                        # WriteTool.execute() вернул {ok, message}
+                        msg = res_data.get("message", "Готово")
+                        await message.answer(f"{'✅' if res_data['ok'] else '❌'} {msg}")
+                    tool_results_text.append(f"Инструмент {name} выполнен.")
+                else:
+                    error = result.get("error", "неизвестная ошибка")
+                    await message.answer(f"⚠️ Инструмент {name}: {error}")
+                    tool_results_text.append(f"Инструмент {name} не выполнен: {error}")
 
         # Update history with tool execution result
         if state:

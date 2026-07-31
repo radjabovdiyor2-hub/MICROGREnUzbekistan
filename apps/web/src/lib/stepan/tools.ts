@@ -4,19 +4,25 @@ import { SETTINGS, type SettingDef } from '@/lib/settings/registry';
 import { officeFetch } from '@/lib/office/client';
 
 // ══════════════════════════════════════════════════════════════════════
-// Инструменты Стёпана — то, чем он может пользоваться в админке.
+// Единый реестр инструментов Стёпана.
 //
-// Разделение принципиальное:
+// Это мастер-каталог для ОБОИХ рантаймов: админки (web) и Telegram (tg).
+// Каждый инструмент объявляет `runtimes` — в каких средах он работает.
+// Telegram-бот получает каталог через GET /api/admin/stepan/tools
+// и исполняет web-инструменты через POST /api/admin/stepan/tools/execute.
+//
+// Разделение чтения и записи принципиальное:
 //
 //   ЧТЕНИЕ  — выполняется сразу, в цикле рассуждения. Ошибиться нельзя:
 //             ничего не меняется.
-//   ЗАПИСЬ  — НЕ выполняется. Стёпан только описывает намерение, оно
-//             уходит владельцу карточкой с «было → стало», и лишь после
-//             явного подтверждения попадает в execute().
-//
-// Поэтому executor у write-инструмента вызывается только из
-// /api/admin/stepan/execute, никогда — из цикла чата.
+//   ЗАПИСЬ  — в веб-рантайме НЕ выполняется: готовится предложение,
+//             которое владелец подтверждает вручную. В Telegram подтверждение
+//             происходит в диалоге, и execute вызывается через удалённый
+//             эндпоинт /api/admin/stepan/tools/execute.
 // ══════════════════════════════════════════════════════════════════════
+
+/** Где инструмент доступен: web = админка, tg = Telegram-бот. */
+export type ToolRuntime = 'web' | 'tg';
 
 export interface ToolParam {
   type: 'string' | 'number' | 'boolean';
@@ -24,19 +30,28 @@ export interface ToolParam {
   enum?: string[];
 }
 
+/** Массив разрешён внутри params, но только для Telegram-стиля (register_sale.items). */
+export interface ArrayToolParam {
+  type: 'array';
+  description: string;
+  items: { type: 'object'; properties: Record<string, ToolParam>; required?: string[] };
+}
+
 export interface ReadTool {
   name: string;
   description: string;
-  params: Record<string, ToolParam>;
+  params: Record<string, ToolParam | ArrayToolParam>;
   required?: string[];
+  runtimes: ToolRuntime[];
   run: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
 export interface WriteTool {
   name: string;
   description: string;
-  params: Record<string, ToolParam>;
+  params: Record<string, ToolParam | ArrayToolParam>;
   required?: string[];
+  runtimes: ToolRuntime[];
   /** Человеческое описание намерения + «было → стало» для карточки. */
   preview: (args: Record<string, unknown>) => Promise<{
     summary: string;
@@ -58,6 +73,7 @@ export const READ_TOOLS: ReadTool[] = [
     name: 'get_business_summary',
     description: 'Сводка за сегодня: онлайн-заказы, продажи в магазине (POS), выручка, новые клиенты.',
     params: {},
+    runtimes: ['web', 'tg'],
     run: async () => {
       const since = new Date();
       since.setHours(0, 0, 0, 0);
@@ -89,6 +105,7 @@ export const READ_TOOLS: ReadTool[] = [
     name: 'get_inventory_status',
     description: 'Остатки на складе: что заканчивается и что в избытке. Пороги берутся из настроек.',
     params: { limit: { type: 'number', description: 'Сколько позиций вернуть, по умолчанию 20' } },
+    runtimes: ['web', 'tg'],
     run: async (args) => {
       const limit = Math.min(Number(args.limit) || 20, 100);
       const s = await getSettings();
@@ -117,6 +134,7 @@ export const READ_TOOLS: ReadTool[] = [
     name: 'get_finance_summary',
     description: 'Доходы, расходы и прибыль за период. Считается по деловой дате операции.',
     params: { days: { type: 'number', description: 'Период в днях, по умолчанию 30' } },
+    runtimes: ['web', 'tg'],
     run: async (args) => {
       const days = Math.min(Math.max(Number(args.days) || 30, 1), 365);
       const from = new Date();
@@ -146,6 +164,7 @@ export const READ_TOOLS: ReadTool[] = [
     name: 'get_bot_health',
     description: 'Живы ли 13 ИИ-ботов, сколько у них ошибок и какая последняя.',
     params: {},
+    runtimes: ['web', 'tg'],
     run: async () => {
       const res = await officeFetch<{ bots: unknown[]; alive: number; total: number }>('/api/admin/bots');
       if (!res.ok) return { error: res.error, hint: 'ИИ-офис недоступен — проверьте контейнер mg_web_office' };
@@ -156,6 +175,7 @@ export const READ_TOOLS: ReadTool[] = [
     name: 'get_active_learnings',
     description: 'Активные выводы петель самообучения: что боты решили поменять в своём поведении.',
     params: { bot: { type: 'string', description: 'Фильтр по боту, например sales_bot' } },
+    runtimes: ['web', 'tg'],
     run: async (args) => {
       const rows = await prisma.botLearning.findMany({
         where: { isActive: true, ...(args.bot ? { bot: String(args.bot) } : {}) },
@@ -173,6 +193,7 @@ export const READ_TOOLS: ReadTool[] = [
     name: 'get_ai_spend',
     description: 'Расходы на ИИ по ботам и остаток бюджета.',
     params: {},
+    runtimes: ['web', 'tg'],
     run: async () => {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
@@ -197,6 +218,7 @@ export const READ_TOOLS: ReadTool[] = [
   {
     name: 'get_orders',
     description: 'Последние заказы, можно отфильтровать по статусу.',
+    runtimes: ['web', 'tg'],
     params: {
       status: {
         type: 'string', description: 'Статус заказа',
@@ -232,11 +254,13 @@ export const READ_TOOLS: ReadTool[] = [
     name: 'get_settings',
     description: 'Текущие бизнес-настройки: доставка, бонусы, пороги склада, контакты.',
     params: {},
+    runtimes: ['web', 'tg'],
     run: async () => getSettings(),
   },
   {
     name: 'get_tasks',
     description: 'Задачи отделов: что в работе, что просрочено.',
+    runtimes: ['web', 'tg'],
     params: { department: { type: 'string', description: 'Фильтр по отделу' } },
     run: async (args) => {
       const tasks = await prisma.task.findMany({
@@ -259,6 +283,7 @@ export const READ_TOOLS: ReadTool[] = [
   {
     name: 'find_product',
     description: 'Найти товар по названию, чтобы узнать его id, цену и остаток.',
+    runtimes: ['web', 'tg'],
     params: { query: { type: 'string', description: 'Часть названия товара' } },
     required: ['query'],
     run: async (args) => {
@@ -285,6 +310,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   {
     name: 'set_setting',
     description: 'Изменить бизнес-настройку (цена доставки, бонусы, пороги склада, тексты на сайте).',
+    runtimes: ['web', 'tg'],
     params: {
       key: { type: 'string', description: 'Ключ настройки, например delivery.fee' },
       value: { type: 'string', description: 'Новое значение' },
@@ -312,6 +338,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   {
     name: 'change_product_price',
     description: 'Изменить цену товара. Нужен id товара — сначала найдите его через find_product.',
+    runtimes: ['web', 'tg'],
     params: {
       productId: { type: 'string', description: 'ID товара' },
       newPrice: { type: 'number', description: 'Новая цена в сумах' },
@@ -348,6 +375,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   {
     name: 'create_task',
     description: 'Поставить задачу отделу. Бот отдела получит её через шину событий.',
+    runtimes: ['web', 'tg'],
     params: {
       department: {
         type: 'string', description: 'Отдел-исполнитель',
@@ -390,6 +418,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   {
     name: 'dispatch_bot_action',
     description: 'Запустить задачу бота: бекап базы, снимок KPI, синк метрик Instagram, аудит лидов.',
+    runtimes: ['web', 'tg'],
     params: {
       action: {
         type: 'string', description: 'Что запустить',
@@ -417,6 +446,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   {
     name: 'toggle_bot_job',
     description: 'Включить или выключить фоновую задачу бота по расписанию.',
+    runtimes: ['web', 'tg'],
     params: {
       bot: { type: 'string', description: 'Имя бота, например finance_bot' },
       name: { type: 'string', description: 'Имя задачи, например daily_finance_report' },
@@ -441,6 +471,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   {
     name: 'update_order_status',
     description: 'Изменить статус заказа. Клиенту уйдёт уведомление в Telegram.',
+    runtimes: ['web', 'tg'],
     params: {
       orderId: { type: 'string', description: 'ID заказа' },
       status: {
@@ -478,6 +509,7 @@ export const WRITE_TOOLS: WriteTool[] = [
   {
     name: 'deactivate_learning',
     description: 'Отключить вредный вывод петли самообучения, чтобы бот перестал его применять.',
+    runtimes: ['web', 'tg'],
     params: { id: { type: 'number', description: 'ID вывода' } },
     required: ['id'],
     preview: async (args) => {
@@ -499,24 +531,248 @@ export const WRITE_TOOLS: WriteTool[] = [
   },
 ];
 
-export const READ_BY_NAME = new Map(READ_TOOLS.map(t => [t.name, t]));
-export const WRITE_BY_NAME = new Map(WRITE_TOOLS.map(t => [t.name, t]));
+// ──────────────── TELEGRAM-ВОЗМОЖНОСТИ, ДОСТУПНЫЕ В ВЕБЕ ─────────────
 
-/** Описание инструментов в формате JSON Schema — для OpenAI и Gemini. */
-export function toolSchemas() {
-  const build = (t: ReadTool | WriteTool) => ({
+/**
+ * Инструменты, которые раньше жили только в Telegram (assistant.py).
+ * Веб-реализация делегирует в ИИ-офис через officeFetch.
+ */
+export const TG_READ_TOOLS: ReadTool[] = [
+  {
+    name: 'get_content_status',
+    description:
+      'Статус публикаций на сегодня: что уже вышло, а что ещё по плану. ' +
+      'Вызывай на вопросы «опубликовали ли», «когда выйдет», «какой статус публикаций».',
+    params: {},
+    runtimes: ['web', 'tg'],
+    run: async () => {
+      const res = await officeFetch<{ status: string; result?: { message?: string } }>(
+        '/api/admin/bot-action',
+        { method: 'POST', body: JSON.stringify({ action: 'get_status', bot: 'content_bot' }), timeoutMs: 30_000 },
+      );
+      if (!res.ok) return { error: res.error ?? 'ИИ-офис недоступен' };
+      return { status: res.data?.result?.message ?? 'Нет данных о публикациях' };
+    },
+  },
+  {
+    name: 'show_published_post',
+    description:
+      'Показать опубликованный контент — текст и описание поста/сторис. ' +
+      'Вызывай, когда просят показать, скинуть или глянуть публикацию.',
+    params: { day: { type: 'string', description: 'Какой день: today, yesterday, last или YYYY-MM-DD' } },
+    runtimes: ['web', 'tg'],
+    run: async (args) => {
+      const res = await officeFetch<{ status: string; result?: { message?: string; data?: { posts?: unknown[] } } }>(
+        '/api/admin/bot-action',
+        {
+          method: 'POST',
+          body: JSON.stringify({ action: 'get_last_post', bot: 'content_bot', params: { day: args.day ?? 'today' } }),
+          timeoutMs: 30_000,
+        },
+      );
+      if (!res.ok) return { error: res.error ?? 'ИИ-офис недоступен' };
+      const result = res.data?.result ?? {};
+      return {
+        message: result.message ?? 'Нет данных',
+        posts: result.data?.posts ?? [],
+      };
+    },
+  },
+  // ── Telegram-only инструменты: реализация только в Python ──
+  {
+    name: 'roll_call',
+    description: 'Провести перекличку: все боты отозовутся в текущем Telegram-чате. В вебе недоступно.',
+    params: { message: { type: 'string', description: 'Текст сообщения для переклички' } },
+    runtimes: ['tg'],
+    run: async () => ({ error: 'roll_call работает только в Telegram' }),
+  },
+  {
+    name: 'get_report',
+    description: 'Сформировать сводный отчёт (ежедневный, финансовый, по задачам).',
+    params: {
+      report_kind: {
+        type: 'string', description: 'Тип отчёта',
+        enum: ['daily', 'finance', 'sales', 'tasks', 'full'],
+      },
+    },
+    required: ['report_kind'],
+    runtimes: ['tg'],
+    run: async () => ({ error: 'get_report — используйте get_business_summary + get_finance_summary' }),
+  },
+  {
+    name: 'query_db',
+    description: 'Запросить данные из БД (продажи, задачи, финансы, клиенты, сотрудники).',
+    params: {
+      db_query: {
+        type: 'string', description: 'Тип запроса',
+        enum: ['sales_summary', 'tasks_status', 'finance_report', 'orders_today', 'customers_count', 'employees'],
+      },
+    },
+    runtimes: ['tg'],
+    run: async () => ({ error: 'query_db — используйте get_orders, get_tasks, get_finance_summary' }),
+  },
+];
+
+export const TG_WRITE_TOOLS: WriteTool[] = [
+  {
+    name: 'register_sale',
+    description:
+      'Зарегистрировать продажу в CRM: завести/найти клиента, создать заказ, учесть доход. ' +
+      'Вызывай, когда руководитель сообщает о состоявшейся продаже.',
+    runtimes: ['web', 'tg'],
+    params: {
+      customer_name: { type: 'string', description: 'Кому продали: ресторан, кафе, человек' },
+      phone: { type: 'string', description: 'Телефон клиента, если назван' },
+      items: {
+        type: 'array',
+        description: 'Позиции продажи — один заказ',
+        items: {
+          type: 'object',
+          properties: {
+            product: { type: 'string', description: 'Товар, как назвал менеджер' },
+            quantity: { type: 'number', description: 'Количество' },
+            unit_price: { type: 'number', description: 'Цена за единицу — только если названа явно' },
+          },
+          required: ['product', 'quantity'],
+        },
+      },
+      customer_type: { type: 'string', enum: ['b2b', 'b2c'], description: 'Ресторан/кафе/отель → b2b' },
+      payment_status: { type: 'string', enum: ['paid', 'pending'], description: 'Оплачено или ждём оплату' },
+    },
+    required: ['customer_name', 'items'],
+    preview: async (args) => ({
+      summary: `Зарегистрировать продажу для «${args.customer_name}»`,
+      after: `${(args.items as Array<{ product: string }>)?.length ?? 0} позиций`,
+      risky: true,
+    }),
+    execute: async (args) => {
+      const res = await officeFetch<{ status: string; result?: { message?: string } }>(
+        '/api/admin/bot-action',
+        {
+          method: 'POST',
+          body: JSON.stringify({ action: 'register_sale', bot: 'sales_bot', params: args }),
+          timeoutMs: 60_000,
+        },
+      );
+      if (!res.ok) return { ok: false, message: res.error ?? 'Отдел продаж недоступен' };
+      if (res.data?.status === 'error') return { ok: false, message: res.data?.result?.message ?? 'Ошибка' };
+      return { ok: true, message: res.data?.result?.message ?? 'Продажа зарегистрирована' };
+    },
+  },
+  {
+    name: 'add_product',
+    description:
+      'Добавить новый товар в каталог — и в магазин, и в CRM. ' +
+      'Вызывай ТОЛЬКО после явного одобрения руководителя.',
+    runtimes: ['web', 'tg'],
+    params: {
+      name: { type: 'string', description: 'Название товара' },
+      price: { type: 'number', description: 'Цена за единицу в сумах' },
+      unit: { type: 'string', enum: ['piece', 'kg', 'g', 'pack', 'set'], description: 'Единица измерения' },
+      category: {
+        type: 'string',
+        enum: ['microgreens', 'baby-leaf', 'salads', 'flowers', 'seeds', 'substrate', 'equipment', 'sets'],
+        description: 'Категория каталога',
+      },
+      stock: { type: 'number', description: 'Остаток на складе, если известен' },
+    },
+    required: ['name', 'price'],
+    preview: async (args) => ({
+      summary: `Добавить товар «${args.name}» в каталог`,
+      after: `${money(Number(args.price))}`,
+    }),
+    execute: async (args) => {
+      const res = await officeFetch<{ status: string; result?: { message?: string } }>(
+        '/api/admin/bot-action',
+        {
+          method: 'POST',
+          body: JSON.stringify({ action: 'add_product', bot: 'sales_bot', params: args }),
+          timeoutMs: 60_000,
+        },
+      );
+      if (!res.ok) return { ok: false, message: res.error ?? 'Отдел продаж недоступен' };
+      return { ok: true, message: res.data?.result?.message ?? `Товар «${args.name}» добавлен` };
+    },
+  },
+];
+
+// ──────────────────── ОБЪЕДИНЁННЫЕ РЕЕСТРЫ ─────────────────────────────
+
+const ALL_READ = [...READ_TOOLS, ...TG_READ_TOOLS];
+const ALL_WRITE = [...WRITE_TOOLS, ...TG_WRITE_TOOLS];
+
+export const READ_BY_NAME = new Map(ALL_READ.map(t => [t.name, t]));
+export const WRITE_BY_NAME = new Map(ALL_WRITE.map(t => [t.name, t]));
+
+/** Список Telegram-only инструментов — для честного отказа в промпте. */
+export const TG_ONLY_NAMES = ALL_READ.filter(t => !t.runtimes.includes('web')).map(t => t.name);
+
+// ─────────────────── JSON Schema для провайдеров ──────────────────────
+
+function buildParamSchema(p: ToolParam | ArrayToolParam): Record<string, unknown> {
+  if (p.type === 'array') {
+    const ap = p as ArrayToolParam;
+    return {
+      type: 'array',
+      description: ap.description,
+      items: {
+        type: 'object',
+        properties: Object.fromEntries(
+          Object.entries(ap.items.properties).map(([k, v]) => [k, buildParamSchema(v)]),
+        ),
+        required: ap.items.required ?? [],
+      },
+    };
+  }
+  return {
+    type: p.type,
+    description: p.description,
+    ...(p.enum ? { enum: p.enum } : {}),
+  };
+}
+
+function buildToolSchema(t: ReadTool | WriteTool) {
+  return {
     name: t.name,
     description: t.description,
     parameters: {
       type: 'object',
       properties: Object.fromEntries(
-        Object.entries(t.params).map(([k, p]) => [
-          k,
-          { type: p.type, description: p.description, ...(p.enum ? { enum: p.enum } : {}) },
-        ]),
+        Object.entries(t.params).map(([k, p]) => [k, buildParamSchema(p)]),
       ),
       required: t.required ?? [],
     },
-  });
-  return [...READ_TOOLS.map(build), ...WRITE_TOOLS.map(build)];
+  };
 }
+
+/**
+ * Описание инструментов в формате JSON Schema — для OpenAI и Gemini.
+ * Без аргумента возвращает все; с runtime — только те, что доступны.
+ */
+export function toolSchemas(runtime?: ToolRuntime) {
+  const filter = (t: ReadTool | WriteTool) => !runtime || t.runtimes.includes(runtime);
+  return [...ALL_READ.filter(filter).map(buildToolSchema), ...ALL_WRITE.filter(filter).map(buildToolSchema)];
+}
+
+/** Полный каталог для GET /api/admin/stepan/tools — определения без функций. */
+export function registryPayload() {
+  const entry = (t: ReadTool | WriteTool, kind: 'read' | 'write') => ({
+    name: t.name,
+    description: t.description,
+    parameters: {
+      type: 'object' as const,
+      properties: Object.fromEntries(
+        Object.entries(t.params).map(([k, p]) => [k, buildParamSchema(p)]),
+      ),
+      required: t.required ?? [],
+    },
+    runtimes: t.runtimes,
+    kind,
+    risky: kind === 'write' ? true : false,
+  });
+  return [
+    ...ALL_READ.map(t => entry(t, 'read')),
+    ...ALL_WRITE.map(t => entry(t, 'write')),
+  ];
+}
+

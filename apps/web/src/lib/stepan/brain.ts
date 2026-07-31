@@ -1,4 +1,4 @@
-import { READ_BY_NAME, WRITE_BY_NAME, toolSchemas } from './tools';
+import { READ_BY_NAME, WRITE_BY_NAME, toolSchemas, TG_ONLY_NAMES } from './tools';
 import { signProposal, type ProposalPayload } from './proposal';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -51,12 +51,14 @@ const SYSTEM_PROMPT = `Ты — Стёпан, операционный дире�
 4. Прежде чем менять цену товара, найди его через find_product и возьми оттуда id.
 5. Заметил проблему в данных (критический остаток, просроченные задачи, упавший бот,
    перерасход бюджета ИИ) — скажи об этом, даже если не спрашивали.
-6. Не знаешь или данных нет — так и скажи. Выдумывать факты о бизнесе нельзя.`;
+6. Не знаешь или данных нет — так и скажи. Выдумывать факты о бизнесе нельзя.
+7. Эти инструменты работают ТОЛЬКО в Telegram: ${TG_ONLY_NAMES.join(', ')}.
+   Если владелец спросит — объясни, что они доступны в Telegram-версии Стёпана.`;
 
 // ─────────────────────────── OpenAI ───────────────────────────
 
 async function runOpenAI(messages: ChatMessage[]): Promise<BrainResult> {
-  const tools = toolSchemas().map(t => ({ type: 'function' as const, function: t }));
+  const tools = toolSchemas('web').map(t => ({ type: 'function' as const, function: t }));
   const convo: any[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role, content: m.content })),
@@ -112,7 +114,7 @@ async function runOpenAI(messages: ChatMessage[]): Promise<BrainResult> {
 // ─────────────────────────── Gemini ───────────────────────────
 
 async function runGemini(messages: ChatMessage[]): Promise<BrainResult> {
-  const functionDeclarations = toolSchemas();
+  const functionDeclarations = toolSchemas('web');
   const contents: any[] = messages.map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
