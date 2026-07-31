@@ -1,17 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Database, RefreshCw, Send, BarChart3, Sparkles, FileText, CheckCircle2, AlertTriangle, Zap, Cpu } from 'lucide-react';
+import { Database, RefreshCw, Send, BarChart3, Sparkles, FileText, CheckCircle2, AlertTriangle, Zap } from 'lucide-react';
 
 interface BotActionConfig {
   bot: string;
   name: string;
   action: string;
   description: string;
-  icon: any;
-  btnGradient: string;
-  badgeStyle: string;
-  iconColor: string;
+  icon: typeof Database;
+  color: string;
 }
 
 const BOT_ACTIONS: BotActionConfig[] = [
@@ -21,9 +19,7 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'daily_backup',
     description: 'Мгновенный бекап базы данных PostgreSQL в резервное хранилище.',
     icon: Database,
-    btnGradient: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30',
-    badgeStyle: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-    iconColor: 'text-emerald-400',
+    color: 'var(--brand-primary)',
   },
   {
     bot: 'analytics_bot',
@@ -31,9 +27,7 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'daily_kpi_snapshot',
     description: 'Запуск расчёта ежедневного снимка KPI (Выручка, Чеки, Лиды) и отправка в Telegram.',
     icon: BarChart3,
-    btnGradient: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30',
-    badgeStyle: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-    iconColor: 'text-emerald-400',
+    color: 'var(--info)',
   },
   {
     bot: 'content_bot',
@@ -41,9 +35,7 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'sync_publication_metrics',
     description: 'Синхронизация лайков/охватов постов из Instagram API и публикация отчёта.',
     icon: FileText,
-    btnGradient: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30',
-    badgeStyle: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-    iconColor: 'text-emerald-400',
+    color: 'var(--cat-2)',
   },
   {
     bot: 'web_office',
@@ -51,9 +43,7 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'sync_catalog_from_storefront',
     description: 'Принудительный синк товаров и категорий между витриной и CRM.',
     icon: RefreshCw,
-    btnGradient: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30',
-    badgeStyle: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-    iconColor: 'text-emerald-400',
+    color: 'var(--cat-4)',
   },
   {
     bot: 'stepan_bot',
@@ -61,9 +51,7 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'force_learning_cycle',
     description: 'Принудительный запуск круга рассуждений и совещания отделов.',
     icon: Sparkles,
-    btnGradient: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30',
-    badgeStyle: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
-    iconColor: 'text-amber-400',
+    color: 'var(--brand-accent)',
   },
   {
     bot: 'marketing_bot',
@@ -71,20 +59,19 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'trigger_lead_audit',
     description: 'Аудит эффективности маркетинговых каналов и конверсии лидов.',
     icon: Send,
-    btnGradient: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/30',
-    badgeStyle: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400',
-    iconColor: 'text-emerald-400',
+    color: 'var(--cat-3)',
   },
 ];
 
 type ResultStatus = 'ok' | 'pending' | 'error';
 
-function describeResult(data: any): string {
+function describeResult(data: Record<string, unknown>): string {
   const payload = data?.result;
   if (payload == null) return '';
   if (typeof payload === 'string') return payload;
   if (typeof payload === 'object') {
-    if (typeof payload.message === 'string') return payload.message;
+    const p = payload as Record<string, unknown>;
+    if (typeof p.message === 'string') return p.message;
     try { return JSON.stringify(payload); } catch { return ''; }
   }
   return String(payload);
@@ -104,19 +91,19 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
         credentials: 'same-origin',
         body: JSON.stringify({ action: item.action, bot: item.bot }),
       });
-      const data = await res.json().catch(() => ({}));
+      const data: Record<string, unknown> = await res.json().catch(() => ({}));
 
       if (!res.ok || data.status === 'error') {
         setLastResult({
           action: item.name,
           status: 'error',
-          message: data.error || `Ошибка ${res.status}`,
+          message: (data.error as string) || `Ошибка ${res.status}`,
         });
       } else if (data.status === 'pending') {
         setLastResult({
           action: item.name,
           status: 'pending',
-          message: data.message || 'Задача в очереди, бот пока не ответил.',
+          message: (data.message as string) || 'Задача в очереди, бот пока не ответил.',
         });
       } else {
         const detail = describeResult(data);
@@ -125,34 +112,73 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
           status: 'ok',
           message: detail
             ? `Выполнено: ${detail}`
-            : `${item.action} выполнено ботом ${data.bot || item.name}.`,
+            : `${item.action} выполнено ботом ${(data.bot as string) || item.name}.`,
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setLastResult({
         action: item.name,
         status: 'error',
-        message: err?.message || 'Сеть недоступна',
+        message: err instanceof Error ? err.message : 'Сеть недоступна',
       });
     } finally {
       setRunningAction(null);
     }
   };
 
+  const statusColor = lastResult
+    ? lastResult.status === 'ok' ? 'var(--success)'
+      : lastResult.status === 'pending' ? 'var(--warning)'
+      : 'var(--error)'
+    : '';
+
   return (
-    <div className="space-y-8">
-      {/* Brand Header Banner */}
-      <div className="relative overflow-hidden p-6 md:p-8 rounded-3xl border border-[var(--brand-primary)]/30 bg-gradient-to-r from-emerald-950/80 via-[var(--bg-card)] to-teal-950/80 shadow-2xl backdrop-blur-xl">
-        <div className="absolute -right-12 -top-12 w-56 h-56 bg-[var(--brand-primary)]/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--brand-primary)]/10 border border-[var(--brand-primary)]/30 text-[var(--brand-primary)] text-xs font-semibold tracking-wide mb-3">
-            <Sparkles size={14} className="animate-pulse text-[var(--brand-primary)]" />
-            <span>{lang === 'ru' ? 'Пульт Управления ИИ-Офисом и Командами' : 'AI Office Boshqaruv Pult'}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+      {/* Banner */}
+      <div className="card" style={{
+        padding: 'var(--space-6) var(--space-6) var(--space-5)',
+        background: `linear-gradient(135deg, color-mix(in srgb, var(--brand-primary) 18%, var(--bg-card)) 0%, var(--bg-card) 60%, color-mix(in srgb, var(--brand-accent) 10%, var(--bg-card)) 100%)`,
+        borderColor: `color-mix(in srgb, var(--brand-primary) 35%, transparent)`,
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {/* Decorative glow */}
+        <div style={{
+          position: 'absolute', right: -30, top: -30, width: 200, height: 200,
+          borderRadius: '50%', background: `color-mix(in srgb, var(--brand-primary) 15%, transparent)`,
+          filter: 'blur(50px)', pointerEvents: 'none',
+        }} />
+        <div style={{
+          position: 'absolute', left: '30%', bottom: -60, width: 160, height: 160,
+          borderRadius: '50%', background: `color-mix(in srgb, var(--brand-accent) 10%, transparent)`,
+          filter: 'blur(60px)', pointerEvents: 'none',
+        }} />
+        {/* Top accent line */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+          background: `linear-gradient(90deg, var(--brand-primary), var(--brand-accent), var(--brand-primary))`,
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '5px 14px', borderRadius: 'var(--radius-full)',
+            background: `color-mix(in srgb, var(--brand-primary) 15%, transparent)`,
+            border: `1px solid color-mix(in srgb, var(--brand-primary) 30%, transparent)`,
+            color: 'var(--brand-primary)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)',
+            marginBottom: 'var(--space-3)',
+          }}>
+            <Sparkles size={14} />
+            <span>{lang === 'ru' ? 'Пульт Управления ИИ-Офисом' : 'AI Office Boshqaruv Pult'}</span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight font-display">
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
+            fontSize: 'var(--text-2xl)', color: 'var(--text-primary)',
+            margin: '0 0 var(--space-2)',
+          }}>
             {lang === 'ru' ? 'Мгновенный запуск задач и функций 11 Ботов' : '11 Botlar Buyruqlarini Bajarish'}
           </h2>
-          <p className="text-[var(--text-secondary)] text-sm md:text-base leading-relaxed mt-2 max-w-3xl">
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.6, maxWidth: 640, margin: 0 }}>
             {lang === 'ru'
               ? 'Прямой запуск бекапов, отчётов, синхронизаций и петель обучения в один клик из центральной админки.'
               : 'Zahiraviy nusxa, hisobot va sinxronizatsiyani bir bosishda ishga tushirish.'}
@@ -160,84 +186,130 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
         </div>
       </div>
 
-      {/* Result Toast Alert */}
+      {/* Result Toast */}
       {lastResult && (
-        <div
-          className={`p-4 md:p-5 rounded-2xl border flex items-start gap-4 transition-all duration-300 shadow-xl backdrop-blur-xl ${
-            lastResult.status === 'ok'
-              ? 'bg-[var(--success-bg)] border-[var(--success)]/40 text-[var(--success)]'
-              : lastResult.status === 'pending'
-                ? 'bg-[var(--warning-bg)] border-[var(--warning)]/40 text-[var(--warning)]'
-                : 'bg-[var(--error-bg)] border-[var(--error)]/40 text-[var(--error)]'
-          }`}
-        >
+        <div className="card" style={{
+          padding: 'var(--space-4)',
+          display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)',
+          background: `color-mix(in srgb, ${statusColor} 12%, var(--bg-card))`,
+          borderColor: `color-mix(in srgb, ${statusColor} 40%, transparent)`,
+          color: statusColor,
+        }}>
           {lastResult.status === 'ok'
-            ? <CheckCircle2 size={22} className="shrink-0 mt-0.5" />
+            ? <CheckCircle2 size={20} style={{ flexShrink: 0, marginTop: 2 }} />
             : lastResult.status === 'pending'
-              ? <RefreshCw size={22} className="animate-spin shrink-0 mt-0.5" />
-              : <AlertTriangle size={22} className="shrink-0 mt-0.5" />}
+              ? <RefreshCw size={20} style={{ flexShrink: 0, marginTop: 2, animation: 'spin 1s linear infinite' }} />
+              : <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: 2 }} />}
           <div>
-            <div className="font-bold text-sm md:text-base flex items-center gap-2">
+            <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 8 }}>
               <span>[{lastResult.action}]</span>
-              <span className="text-xs px-2 py-0.5 rounded-md bg-black/40 font-mono">
+              <span style={{
+                fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: 'var(--radius-sm)',
+                background: `color-mix(in srgb, ${statusColor} 20%, transparent)`,
+                fontFamily: 'monospace',
+              }}>
                 {lastResult.status.toUpperCase()}
               </span>
             </div>
-            <div className="text-xs md:text-sm text-[var(--text-secondary)] mt-1">{lastResult.message}</div>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginTop: 4 }}>
+              {lastResult.message}
+            </div>
           </div>
         </div>
       )}
 
       {/* Action Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gap: 'var(--space-4)',
+      }}>
         {BOT_ACTIONS.map((item) => {
           const Icon = item.icon;
           const isRunning = runningAction === item.action;
           return (
-            <div
-              key={item.action}
-              className="group relative bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border)] hover:border-[var(--brand-primary)]/50 rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 shadow-lg hover:shadow-2xl backdrop-blur-xl overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-300 from-transparent via-[var(--brand-primary)] to-transparent" />
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-xl border ${item.badgeStyle}`}>
-                      <Icon size={22} className={item.iconColor} />
+            <div key={item.action} className="card" style={{
+              padding: 0,
+              display: 'flex', flexDirection: 'column',
+              position: 'relative', overflow: 'hidden',
+            }}>
+              {/* Colored top accent bar */}
+              <div style={{
+                height: 3,
+                background: `linear-gradient(90deg, ${item.color}, color-mix(in srgb, ${item.color} 40%, transparent))`,
+                flexShrink: 0,
+              }} />
+
+              {/* Subtle colored glow in top-right corner */}
+              <div style={{
+                position: 'absolute', right: -20, top: -20, width: 100, height: 100,
+                borderRadius: '50%', background: `color-mix(in srgb, ${item.color} 8%, transparent)`,
+                filter: 'blur(30px)', pointerEvents: 'none',
+              }} />
+
+              <div style={{
+                padding: 'var(--space-4) var(--space-5) var(--space-5)',
+                display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between',
+                position: 'relative', zIndex: 1,
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                    <div style={{
+                      width: 46, height: 46, borderRadius: 'var(--radius-lg)',
+                      background: `color-mix(in srgb, ${item.color} 15%, transparent)`,
+                      border: `1px solid color-mix(in srgb, ${item.color} 25%, transparent)`,
+                      color: item.color,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <Icon size={22} />
                     </div>
                     <div>
-                      <h3 className="font-bold text-[var(--text-primary)] text-lg tracking-tight group-hover:text-[var(--brand-primary)] transition-colors font-display">
+                      <h3 style={{
+                        fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)',
+                        fontSize: 'var(--text-base)', color: 'var(--text-primary)', margin: 0,
+                      }}>
                         {item.name}
                       </h3>
-                      <span className="text-xs font-mono text-[var(--text-muted)] block mt-0.5">
+                      <span style={{
+                        fontSize: '11px', fontFamily: 'monospace', color: 'var(--text-muted)',
+                        display: 'block', marginTop: 2,
+                      }}>
                         {item.action}
                       </span>
                     </div>
                   </div>
+
+                  <p style={{
+                    color: 'var(--text-secondary)', fontSize: 'var(--text-xs)',
+                    lineHeight: 1.6, margin: '0 0 var(--space-4)',
+                  }}>
+                    {item.description}
+                  </p>
                 </div>
 
-                <p className="text-[var(--text-secondary)] text-xs md:text-sm leading-relaxed mb-6 font-normal">
-                  {item.description}
-                </p>
+                <button
+                  onClick={() => triggerAction(item)}
+                  disabled={isRunning}
+                  className="btn btn-primary btn-block"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    opacity: isRunning ? 0.6 : 1,
+                    cursor: isRunning ? 'wait' : 'pointer',
+                  }}
+                >
+                  {isRunning ? (
+                    <>
+                      <RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                      <span>Выполнение...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap size={16} />
+                      <span>Запустить Задачу</span>
+                    </>
+                  )}
+                </button>
               </div>
-
-              <button
-                onClick={() => triggerAction(item)}
-                disabled={isRunning}
-                className={`w-full py-3 px-4 text-sm font-semibold rounded-xl transition-all duration-300 shadow-lg flex items-center justify-center gap-2.5 disabled:opacity-50 active:scale-95 ${item.btnGradient}`}
-              >
-                {isRunning ? (
-                  <>
-                    <RefreshCw size={18} className="animate-spin text-white" />
-                    <span>Выполнение...</span>
-                  </>
-                ) : (
-                  <>
-                    <Zap size={18} className="text-white fill-white/20" />
-                    <span>Запустить Задачу</span>
-                  </>
-                )}
-              </button>
             </div>
           );
         })}
