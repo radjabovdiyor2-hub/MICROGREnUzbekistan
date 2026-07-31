@@ -12,6 +12,14 @@
       "value": "#D1FAE5",
       "type": "color"
     },
+    "primary-deep": {
+      "value": "#047857",
+      "type": "color"
+    },
+    "primary-soft": {
+      "value": "#6EE7B7",
+      "type": "color"
+    },
     "primary-rgb": {
       "value": "16, 185, 129",
       "type": "other"
@@ -109,6 +117,10 @@
     "value": "rgba(239, 68, 68, 0.1)",
     "type": "color"
   },
+  "error-rgb": {
+    "value": "239, 68, 68",
+    "type": "other"
+  },
   "info": {
     "value": "#3B82F6",
     "type": "color"
@@ -128,6 +140,12 @@
   "scrim": {
     "value": "rgba(0, 0, 0, 0.3)",
     "type": "color"
+  },
+  "surface": {
+    "ink": {
+      "value": "#0F172A",
+      "type": "color"
+    }
   },
   "cat": {
     "1": {

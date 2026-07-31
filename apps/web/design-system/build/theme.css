@@ -7,6 +7,8 @@
   --color-brand-primary: var(--brand-primary);
   --color-brand-primary-hover: var(--brand-primary-hover);
   --color-brand-primary-light: var(--brand-primary-light);
+  --color-brand-primary-deep: var(--brand-primary-deep);
+  --color-brand-primary-soft: var(--brand-primary-soft);
   --color-brand-accent: var(--brand-accent);
   --color-brand-accent-hover: var(--brand-accent-hover);
   --color-brand-accent-light: var(--brand-accent-light);
@@ -33,6 +35,7 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-scrim: var(--scrim);
+  --color-surface-ink: var(--surface-ink);
   --color-cat-1: var(--cat-1);
   --color-cat-2: var(--cat-2);
   --color-cat-3: var(--cat-3);
