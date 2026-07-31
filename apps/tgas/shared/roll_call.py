@@ -20,10 +20,11 @@ BOT_DISPLAY_NAMES = {
     "finance_bot": "Отдел Финансов",
     "analytics_bot": "Отдел Аналитики",
     "content_bot": "Отдел Контента",
-    "qa_bot": "Отдел QA",
-    "rnd_bot": "Отдел R&D",
-    "devops_bot": "Отдел DevOps",
-    "stepan_bot": "Степан (PM)",
+    "qa_bot": "Отдел QA (Качество)",
+    "rnd_bot": "Отдел R&D (Исследования)",
+    "devops_bot": "Отдел DevOps (IT)",
+    "franchise_bot": "Отдел Франшизы",
+    "stepan_bot": "Степан (PM / Руководитель)",
 }
 
 
@@ -33,9 +34,9 @@ async def handle_roll_call(bot_name: str, payload: dict) -> None:
     if not chat_id:
         return
 
-    token = getattr(settings, f"{bot_name}_token", None)
+    token = getattr(settings, f"{bot_name}_token", None) or settings.stepan_bot_token or settings.sales_bot_token
     if not token:
-        logger.error("ROLL_CALL: токен для %s не найден", bot_name)
+        logger.error("ROLL_CALL: токен для %s и фоллбэк не найдены", bot_name)
         return
 
     display_name = BOT_DISPLAY_NAMES.get(bot_name, bot_name)

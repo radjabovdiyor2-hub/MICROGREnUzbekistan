@@ -130,10 +130,16 @@ async def handle_task_created(payload: dict):
         "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{status_msg}"
     }, "devops_bot")
 
+async def handle_roll_call(payload: dict):
+    from shared.roll_call import handle_roll_call as _shared_roll_call
+    await _shared_roll_call("devops_bot", payload)
+
+
 async def main():
     logger.info("Starting DevOps Bot Microservice...")
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
+    event_bus.on("ROLL_CALL", handle_roll_call)
     
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)

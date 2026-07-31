@@ -33,7 +33,8 @@ async def analyze_tray_photo(image_url: str, batch_id: str | None = None) -> dic
 
     has_opencv = False
     try:
-        import cv2  # noqa: F401
+        import importlib
+        importlib.import_module("cv2")
         has_opencv = True
         logger.info("OpenCV is available. Preprocessing image...")
     except ImportError:
@@ -150,10 +151,16 @@ async def handle_task_created(payload: dict):
         "text": f"🔬 <b>Отчет Отдела Контроля Качества (QA):</b>\n\n{analysis}"
     }, "qa_bot")
 
+async def handle_roll_call(payload: dict):
+    from shared.roll_call import handle_roll_call as _shared_roll_call
+    await _shared_roll_call("qa_bot", payload)
+
+
 async def main():
     logger.info("Starting QA Bot Microservice...")
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
+    event_bus.on("ROLL_CALL", handle_roll_call)
     
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)

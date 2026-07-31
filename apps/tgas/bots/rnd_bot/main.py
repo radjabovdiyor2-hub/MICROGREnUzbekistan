@@ -144,10 +144,16 @@ async def handle_task_created(payload: dict):
         "text": f"🧬 <b>Отчет Отдела R&D (Анализ рынка и трендов):</b>\n\n{report}"
     }, "rnd_bot")
 
+async def handle_roll_call(payload: dict):
+    from shared.roll_call import handle_roll_call as _shared_roll_call
+    await _shared_roll_call("rnd_bot", payload)
+
+
 async def main():
     logger.info("Starting R&D Bot Microservice...")
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
+    event_bus.on("ROLL_CALL", handle_roll_call)
     
     app = web.Application()
     app.router.add_post('/n8n-webhook', handle_n8n_webhook)
@@ -160,7 +166,34 @@ async def main():
     
     from shared.bot_bus import start_listener
     from shared.event_bus import BotBusActions
-    asyncio.create_task(start_listener("rnd_bot", {}))
+
+    async def bus_generate_magazine_facts(params: dict) -> str:
+        """Собирает научные факты о микрозелени для еженедельного журнала."""
+        prompt = (
+            "Подготовь 3-4 интересных факта о микрозелени для еженедельного журнала "
+            "FRESH WEEKLY. Факты должны быть научно обоснованы, кратки и полезны "
+            "для потребителя. Темы: питательная ценность, преимущества перед обычной "
+            "зеленью, рецепты, тренды HoReCa. Пиши на русском."
+        )
+        try:
+            report = await ai.chat_completion(
+                system_prompt=RND_SYSTEM_PROMPT,
+                user_message=prompt,
+            )
+            return report
+        except Exception as e:
+            logger.error(f"bus_generate_magazine_facts error: {e}")
+            return "Факты временно недоступны из-за ошибки ИИ."
+
+    async def bus_weekly_trend_report(params: dict) -> dict:
+        """R&D-отчёт по трендам Instagram по запросу из админки."""
+        report = await generate_instagram_rnd_report()
+        return {"status": "ok", "message": report}
+
+    asyncio.create_task(start_listener("rnd_bot", {
+        BotBusActions.GENERATE_MAGAZINE_FACTS: bus_generate_magazine_facts,
+        "weekly_trend_report": bus_weekly_trend_report,
+    }))
 
     from shared.health import start_heartbeat
     asyncio.create_task(start_heartbeat("rnd_bot"))

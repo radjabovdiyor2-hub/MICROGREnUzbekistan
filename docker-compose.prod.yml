@@ -296,14 +296,6 @@ services:
       - ./backups:/app/backups
 
   # franchise — планировщик: ежедневная сводка для франчайзи по городам.
-  # Отсутствовал в этом файле целиком, хотя в shared/health.py:ALL_BOTS и в
-  # apps/tgas/docker-compose.yml он есть. Из-за этого мониторинг постоянно
-  # показывал «Franchise — НЕ ЗАПУЩЕН»: на прод его просто не разворачивали.
-  # Telegram-токен не нужен — это воркер без Dispatcher.
-  # franchise — планировщик: ежедневная сводка для франчайзи по городам.
-  # Отсутствовал в этом файле целиком, хотя в shared/health.py:ALL_BOTS и в
-  # apps/tgas/docker-compose.yml он есть. Из-за этого мониторинг постоянно
-  # показывал «Franchise — НЕ ЗАПУЩЕН»: на прод его просто не разворачивали.
   # Telegram-токен не нужен — это воркер без Dispatcher.
   franchise:
     <<: *tgas-bot

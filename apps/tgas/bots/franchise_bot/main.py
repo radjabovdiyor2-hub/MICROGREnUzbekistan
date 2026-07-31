@@ -155,29 +155,30 @@ async def handle_n8n_webhook(request: web.Request):
         logger.error(f"Webhook error: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
+async def handle_roll_call(payload: dict):
+    from shared.roll_call import handle_roll_call as _shared_roll_call
+    await _shared_roll_call("franchise_bot", payload)
+
+
 async def start_server():
     app = web.Application()
-    app.router.add_post("/event", handle_n8n_webhook)
+    app.router.add_post("/n8n-webhook", handle_n8n_webhook)
     app.router.add_get("/health", lambda r: web.Response(text="OK"))
-    
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8093)
-    await site.start()
-    logger.info("Franchise Bot (worker) HTTP server started on port 8093")
-    
-    # Подключаем Event Bus
+
+    # Подключаем Event Bus: start_listening добавляет роут /event для
+    # приёма событий Redis Pub/Sub fallback и запускает aiohttp-сервер.
+    # Раньше бот поднимал web.TCPSite вручную, и /event обрабатывал
+    # handle_n8n_webhook — Redis Pub/Sub события до бота не доходили.
     await event_bus.connect()
+    event_bus.on("ROLL_CALL", handle_roll_call)
+
     # await обязателен: start() — корутина. Без него планировщик не
     # запускался вообще (корутина создавалась и тут же выбрасывалась),
     # и единственная задача бота — суточные сводки по городам в 23:55 —
-    # не отрабатывала ни разу. Ошибки при этом не было, только warning
-    # "coroutine was never awaited" в логах.
+    # не отрабатывала ни разу.
     await scheduler.start()
 
-    # Bot bus: слушателя не было совсем. Делегированных задач боту не шлют
-    # намеренно (он планировщик), но без слушателя недоступна и ручная
-    # пересборка сводок из админки.
+    # Bot bus: ручная пересборка сводок из админки.
     from shared.bot_bus import start_listener as bus_listen
     async def bus_generate_journals(params: dict) -> dict:
         await generate_daily_franchise_journals()
@@ -190,6 +191,9 @@ async def start_server():
     from shared.health import start_heartbeat
     asyncio.create_task(start_heartbeat("franchise_bot"))
 
+    logger.info("Franchise Bot (worker) starting on port 8093")
+    await event_bus.start_listening(8093, app)
+
     # Бесконечный цикл
     while True:
         await asyncio.sleep(3600)
@@ -199,3 +203,4 @@ if __name__ == "__main__":
         asyncio.run(start_server())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Franchise Bot stopped.")
+

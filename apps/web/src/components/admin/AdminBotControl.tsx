@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Database, RefreshCw, Send, ShieldAlert, BarChart3, Sparkles, FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Play, Database, RefreshCw, Send, BarChart3, Sparkles, FileText, CheckCircle2, AlertTriangle, Zap } from 'lucide-react';
 
 interface BotActionConfig {
   bot: string;
@@ -9,7 +9,9 @@ interface BotActionConfig {
   action: string;
   description: string;
   icon: any;
-  btnColor: string;
+  btnGradient: string;
+  badgeBg: string;
+  iconColor: string;
 }
 
 const BOT_ACTIONS: BotActionConfig[] = [
@@ -19,7 +21,9 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'daily_backup',
     description: 'Мгновенный бекап базы данных PostgreSQL в резервное хранилище.',
     icon: Database,
-    btnColor: 'bg-emerald-600 hover:bg-emerald-500',
+    btnGradient: 'from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-900/30',
+    badgeBg: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+    iconColor: 'text-emerald-400',
   },
   {
     bot: 'analytics_bot',
@@ -27,7 +31,9 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'daily_kpi_snapshot',
     description: 'Запуск расчёта ежедневного снимка KPI (Выручка, Чеки, Лиды) и отправка в Telegram.',
     icon: BarChart3,
-    btnColor: 'bg-blue-600 hover:bg-blue-500',
+    btnGradient: 'from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-blue-900/30',
+    badgeBg: 'bg-blue-500/10 border-blue-500/20 text-blue-400',
+    iconColor: 'text-blue-400',
   },
   {
     bot: 'content_bot',
@@ -35,7 +41,9 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'sync_publication_metrics',
     description: 'Синхронизация лайков/охватов постов из Instagram API и публикация отчёта.',
     icon: FileText,
-    btnColor: 'bg-purple-600 hover:bg-purple-500',
+    btnGradient: 'from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-purple-900/30',
+    badgeBg: 'bg-purple-500/10 border-purple-500/20 text-purple-400',
+    iconColor: 'text-purple-400',
   },
   {
     bot: 'web_office',
@@ -43,7 +51,9 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'sync_catalog_from_storefront',
     description: 'Принудительный синк товаров и категорий между витриной и CRM.',
     icon: RefreshCw,
-    btnColor: 'bg-teal-600 hover:bg-teal-500',
+    btnGradient: 'from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 shadow-teal-900/30',
+    badgeBg: 'bg-teal-500/10 border-teal-500/20 text-teal-400',
+    iconColor: 'text-teal-400',
   },
   {
     bot: 'stepan_bot',
@@ -51,7 +61,9 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'force_learning_cycle',
     description: 'Принудительный запуск круга рассуждений и совещания отделов.',
     icon: Sparkles,
-    btnColor: 'bg-amber-600 hover:bg-amber-500',
+    btnGradient: 'from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 shadow-amber-900/30',
+    badgeBg: 'bg-amber-500/10 border-amber-500/20 text-amber-400',
+    iconColor: 'text-amber-400',
   },
   {
     bot: 'marketing_bot',
@@ -59,13 +71,14 @@ const BOT_ACTIONS: BotActionConfig[] = [
     action: 'trigger_lead_audit',
     description: 'Аудит эффективности маркетинговых каналов и конверсии лидов.',
     icon: Send,
-    btnColor: 'bg-pink-600 hover:bg-pink-500',
+    btnGradient: 'from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 shadow-pink-900/30',
+    badgeBg: 'bg-pink-500/10 border-pink-500/20 text-pink-400',
+    iconColor: 'text-pink-400',
   },
 ];
 
 type ResultStatus = 'ok' | 'pending' | 'error';
 
-/** Показать то, что вернул бот, а не голое «успешно». */
 function describeResult(data: any): string {
   const payload = data?.result;
   if (payload == null) return '';
@@ -81,9 +94,6 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
   const [runningAction, setRunningAction] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ action: string; status: ResultStatus; message: string } | null>(null);
 
-  // Раньше здесь всегда выставлялся status:'ok' — даже когда запрос падал,
-  // а сам эндпоинт в ИИ-офисе отсутствовал. Кнопки рапортовали об успехе,
-  // не сделав ничего. Теперь показываем настоящий исход.
   const triggerAction = async (item: BotActionConfig) => {
     setRunningAction(item.action);
     setLastResult(null);
@@ -130,42 +140,50 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Banner */}
-      <div className="p-6 bg-gradient-to-r from-amber-900/40 via-orange-900/30 to-red-900/40 border border-amber-500/20 rounded-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-2 text-amber-400 font-semibold mb-1">
-          <Sparkles size={22} className="animate-pulse" />
-          <span>{lang === 'ru' ? 'Пульт Управления ИИ-Офисом и Командами' : 'AI Office Boshqaruv Pult'}</span>
+      <div className="relative overflow-hidden p-6 md:p-8 bg-gradient-to-r from-slate-900/90 via-amber-950/40 to-slate-900/90 border border-amber-500/30 rounded-3xl backdrop-blur-2xl shadow-2xl">
+        <div className="absolute -right-10 -top-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold tracking-wide mb-3">
+            <Sparkles size={14} className="animate-pulse text-amber-400" />
+            <span>{lang === 'ru' ? 'Пульт Управления ИИ-Офисом и Командами' : 'AI Office Boshqaruv Pult'}</span>
+          </div>
+          <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+            {lang === 'ru' ? 'Мгновенный запуск задач и функций 11 Ботов' : '11 Botlar Buyruqlarini Bajarish'}
+          </h2>
+          <p className="text-slate-300 text-sm md:text-base leading-relaxed mt-2 max-w-3xl">
+            {lang === 'ru'
+              ? 'Прямой запуск бекапов, отчётов, синхронизаций и петель обучения в один клик из центральной админки.'
+              : 'Zahiraviy nusxa, hisobot va sinxronizatsiyani bir bosishda ishga tushirish.'}
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-white">
-          {lang === 'ru' ? 'Мгновенный запуск задач и функций 11 Ботов' : '11 Botlar Buyruqlarini Bajarish'}
-        </h2>
-        <p className="text-slate-400 text-sm mt-1">
-          {lang === 'ru'
-            ? 'Прямой запуск бекапов, отчетов, синхронизаций и петель обучения в один клик из админки.'
-            : 'Zahiraviy nusxa, hisobot va sinxronizatsiyani bir bosishda ishga tushirish.'}
-        </p>
       </div>
 
       {/* Result Toast Alert */}
       {lastResult && (
         <div
-          className={`p-4 rounded-xl border flex items-center gap-3 transition-all ${
+          className={`p-4 md:p-5 rounded-2xl border flex items-start gap-4 transition-all duration-300 shadow-xl backdrop-blur-xl ${
             lastResult.status === 'ok'
-              ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+              ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-200'
               : lastResult.status === 'pending'
-                ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
-                : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+                ? 'bg-amber-950/80 border-amber-500/50 text-amber-200'
+                : 'bg-rose-950/80 border-rose-500/50 text-rose-200'
           }`}
         >
           {lastResult.status === 'ok'
-            ? <CheckCircle2 size={20} />
+            ? <CheckCircle2 size={22} className="text-emerald-400 shrink-0 mt-0.5" />
             : lastResult.status === 'pending'
-              ? <RefreshCw size={20} />
-              : <AlertTriangle size={20} />}
+              ? <RefreshCw size={22} className="text-amber-400 animate-spin shrink-0 mt-0.5" />
+              : <AlertTriangle size={22} className="text-rose-400 shrink-0 mt-0.5" />}
           <div>
-            <div className="font-bold text-sm">[{lastResult.action}]</div>
-            <div className="text-xs">{lastResult.message}</div>
+            <div className="font-bold text-sm md:text-base flex items-center gap-2">
+              <span>[{lastResult.action}]</span>
+              <span className="text-xs px-2 py-0.5 rounded-md bg-black/40 font-mono">
+                {lastResult.status.toUpperCase()}
+              </span>
+            </div>
+            <div className="text-xs md:text-sm text-slate-300 mt-1">{lastResult.message}</div>
           </div>
         </div>
       )}
@@ -178,34 +196,44 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
           return (
             <div
               key={item.action}
-              className="bg-slate-900/70 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 flex flex-col justify-between shadow-lg"
+              className="group relative bg-slate-900/80 hover:bg-slate-900/95 border border-slate-800/80 hover:border-slate-700/90 rounded-2xl p-6 flex flex-col justify-between transition-all duration-300 shadow-xl hover:shadow-2xl backdrop-blur-xl overflow-hidden"
             >
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity duration-300 from-transparent via-amber-500/50 to-transparent" />
               <div>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2.5 bg-slate-800 text-amber-400 rounded-xl">
-                    <Icon size={20} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white text-base">{item.name}</h3>
-                    <span className="text-xs font-mono text-slate-500">{item.action}</span>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-3 rounded-xl border ${item.badgeBg}`}>
+                      <Icon size={22} className={item.iconColor} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-lg tracking-tight group-hover:text-amber-300 transition-colors">
+                        {item.name}
+                      </h3>
+                      <span className="text-xs font-mono text-slate-400 block mt-0.5">
+                        {item.action}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <p className="text-slate-400 text-xs leading-relaxed mb-4">{item.description}</p>
+
+                <p className="text-slate-300 text-xs md:text-sm leading-relaxed mb-6 font-normal">
+                  {item.description}
+                </p>
               </div>
 
               <button
                 onClick={() => triggerAction(item)}
                 disabled={isRunning}
-                className={`w-full py-2.5 px-4 text-white text-sm font-medium rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 ${item.btnColor}`}
+                className={`w-full py-3 px-4 text-white text-sm font-semibold rounded-xl transition-all duration-300 bg-gradient-to-r shadow-lg flex items-center justify-center gap-2.5 disabled:opacity-50 active:scale-95 ${item.btnGradient}`}
               >
                 {isRunning ? (
                   <>
-                    <RefreshCw size={16} className="animate-spin" />
+                    <RefreshCw size={18} className="animate-spin text-white" />
                     <span>Выполнение...</span>
                   </>
                 ) : (
                   <>
-                    <Play size={16} />
+                    <Zap size={18} className="text-white fill-white/20" />
                     <span>Запустить Задачу</span>
                   </>
                 )}
