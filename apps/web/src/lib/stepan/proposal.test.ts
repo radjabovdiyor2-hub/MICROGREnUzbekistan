@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import crypto from 'node:crypto';
 import { signProposal, verifyProposal } from './proposal';
 
 // Подпись гарантирует, что выполнено будет ровно то действие, которое
@@ -44,7 +45,6 @@ describe('подпись предложений Стёпана', () => {
 
   it('отвергает просроченное предложение', () => {
     // Собираем токен с истёкшим exp тем же секретом.
-    const crypto = require('node:crypto');
     const expired = JSON.stringify({ ...payload, exp: Date.now() - 1000 });
     const b64 = Buffer.from(expired, 'utf-8').toString('base64url');
     const sig = crypto.createHmac('sha256', process.env.SESSION_SECRET)

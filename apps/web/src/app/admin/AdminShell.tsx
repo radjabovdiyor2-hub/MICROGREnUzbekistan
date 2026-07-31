@@ -33,7 +33,7 @@ import { AdminAiSpend } from '@/components/admin/AdminAiSpend';
 import { AdminTasks } from '@/components/admin/AdminTasks';
 import { AdminCategories } from '@/components/admin/AdminCategories';
 import {
-  Activity, ArrowLeft, ArrowRight, BarChart, Brain, Camera, ChevronRight, ClipboardList, Command, Cpu, CreditCard, DollarSign, Eye, FileText, History, Home, Layers, Leaf, Lightbulb, Lock, LogOut, Package, Percent, Play, Search, Send, Settings, ShieldCheck, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet,
+  Activity, ArrowLeft, ArrowRight, BarChart, Brain, Camera, ChevronRight, ClipboardList, Command, Cpu, CreditCard, DollarSign, Eye, FileText, History, Home, Layers, Leaf, Lightbulb, Lock, LogOut, Package, Percent, Play, Search, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet,
 } from 'lucide-react';
 
 const TAB_GROUPS = [
@@ -133,18 +133,16 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
   const [password, setPassword] = useState('');
   const [pin, setPin] = useState('');
   const [authError, setAuthError] = useState('');
-  const [lang, setLang] = useState<'ru' | 'uz'>('ru');
+  const [lang, setLang] = useState<'ru' | 'uz'>(() => {
+    if (typeof window === 'undefined') return 'ru';
+    const saved = sessionStorage.getItem('admin_lang');
+    return saved === 'uz' || saved === 'ru' ? saved : 'ru';
+  });
 
   // Палитра команд: вкладок стало больше тридцати, и листать боковое меню
   // ради одной — дольше, чем набрать пару букв.
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState('');
-
-  // Load saved language
-  useEffect(() => {
-    const saved = sessionStorage.getItem('admin_lang');
-    if (saved === 'uz' || saved === 'ru') setLang(saved);
-  }, []);
   const toggleLang = () => {
     const next = lang === 'ru' ? 'uz' : 'ru';
     setLang(next);
@@ -222,13 +220,14 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
     }
   };
 
-  const handleSellerLogin = async () => {
-    if (pin.length !== 4) return;
+  const handleSellerLogin = async (pinValue?: string) => {
+    const p = pinValue ?? pin;
+    if (p.length !== 4) return;
     try {
       const res = await fetch('/api/inventory/employees/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ pin: p }),
       });
       const data = await res.json();
       if (data.success) {
@@ -240,6 +239,15 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
       }
     } catch {
       setAuthError(t('Ошибка', 'Xatolik yuz berdi'));
+    }
+  };
+
+  const handlePinPress = (digit: number) => {
+    if (pin.length >= 4) return;
+    const nextPin = pin + String(digit);
+    setPin(nextPin);
+    if (nextPin.length === 4) {
+      handleSellerLogin(nextPin);
     }
   };
 
@@ -258,10 +266,6 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
     setPassword('');
     setPin('');
   };
-
-  useEffect(() => {
-    if (pin.length === 4) handleSellerLogin();
-  }, [pin]);
 
   const isAuthenticated = isOwner || sellerName;
 
@@ -382,7 +386,7 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
                 );
               }
               return (
-                <button key={i} onClick={() => pin.length < 4 && setPin(p => p + key)}
+                <button key={i} onClick={() => handlePinPress(key as number)}
                   className="btn btn-ghost"
                   style={{ height: 56, fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', borderRadius: 'var(--radius-lg)', fontFamily: 'var(--font-display)' }}>
                   {key}
