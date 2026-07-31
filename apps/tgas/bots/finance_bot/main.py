@@ -53,6 +53,17 @@ async def daily_finance_report():
                 parse_mode="HTML",
             )
             logger.info("daily_finance_report: income=%s expense=%s profit=%s", income, expense, profit)
+            # Замыкаем петлю: Финансы (замер маржи -> вывод -> адаптация порогов затрат)
+            try:
+                from shared.feedback_loop import feedback_loop
+                await feedback_loop.evaluate_and_adapt(
+                    bot="finance_bot",
+                    metric="daily_pnl",
+                    current_data={"income": float(income), "expense": float(expense), "profit": float(profit)},
+                    benchmark_data={"min_profit_margin": 0.30}
+                )
+            except Exception as fe:
+                logger.warning(f"Finance feedback loop error: {fe}")
         finally:
             await bot.session.close()
     except Exception as e:

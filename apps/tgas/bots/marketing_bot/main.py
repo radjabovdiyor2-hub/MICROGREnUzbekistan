@@ -109,8 +109,16 @@ async def bus_send_broadcast(params: dict) -> dict:
         )
         try:
             await bot.send_message(admin_id, report, parse_mode="HTML")
-        except:
-            pass
+            # Замыкаем петлю: Маркетинг (замер конверсии/ошибок -> вывод -> изменение таргетинга)
+            from shared.feedback_loop import feedback_loop
+            await feedback_loop.evaluate_and_adapt(
+                bot="marketing_bot",
+                metric="broadcast_conversion",
+                current_data={"target": target, "success_count": success_count, "fail_count": fail_count},
+                benchmark_data={"min_success_rate": 0.90}
+            )
+        except Exception as fe:
+            logging.warning(f"Marketing feedback loop error: {fe}")
         await bot.session.close()
 
     asyncio.create_task(send_loop())

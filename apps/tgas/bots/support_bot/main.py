@@ -47,6 +47,17 @@ async def csat_survey_check():
                 f"📊 {count} заказов без обратной связи\n"
                 f"(доставлены более 24ч назад)",
                 parse_mode="HTML")
+        # Замыкаем петлю: Поддержка (замер CSAT / заказов без фидбека -> вывод -> пополнение базы знаний)
+        try:
+            from shared.feedback_loop import feedback_loop
+            await feedback_loop.evaluate_and_adapt(
+                bot="support_bot",
+                metric="ticket_sla",
+                current_data={"orders_without_feedback": count},
+                benchmark_data={"max_unanswered": 5}
+            )
+        except Exception as fe:
+            logging.warning(f"Support feedback loop error: {fe}")
         await bot.session.close()
     except Exception as e:
         logging.error(f"csat_survey_check error: {e}", exc_info=True)
