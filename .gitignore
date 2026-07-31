@@ -133,3 +133,8 @@ runs.json
 
 # Токен scrape'а Prometheus — секрет, создаётся оператором при развёртывании
 deploy/monitoring/metrics_token
+
+# Выходные данные Playwright — скриншоты падений, трассы и HTML-отчёт.
+# Были закоммичены (в т.ч. скриншот падения checkout, которого уже нет).
+/apps/web/test-results/
+/apps/web/playwright-report/
