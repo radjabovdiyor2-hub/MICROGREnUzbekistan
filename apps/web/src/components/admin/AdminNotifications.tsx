@@ -2,15 +2,26 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  AlertTriangle, Clock, Leaf, Package, ShoppingCart,
+  AlertTriangle, Bot, Clock, Leaf, Package, ShoppingCart,
 } from 'lucide-react';
 
 interface Notification {
   id: string;
-  type: 'sale' | 'low_stock' | 'order' | 'info' | 'growing';
+  type: 'sale' | 'low_stock' | 'order' | 'info' | 'growing' | 'office';
   message: string;
   time: Date;
   read: boolean;
+}
+
+/** Сигнал из ИИ-офиса: упавший бот, неудачный бэкап, просевший KPI. */
+interface OfficeAlert {
+  id: string;
+  kind: string;
+  severity: string;
+  title: string;
+  message: string;
+  source: string;
+  createdAt: string;
 }
 
 // In-memory notification store (persists across tab sessions via localStorage)
@@ -119,6 +130,38 @@ export function AdminNotifications() {
         }
       } catch {}
 
+      // Сигналы ИИ-офиса: упавшие боты, неудачный бэкап, просевший KPI.
+      // Раньше всё это уходило только в Telegram — работая в админке,
+      // владелец о проблеме не узнавал.
+      try {
+        const alertRes = await fetch('/api/admin/alerts', { credentials: 'same-origin' });
+        const alertData = await alertRes.json();
+        if (alertRes.ok && Array.isArray(alertData.alerts) && alertData.alerts.length > 0) {
+          const existing3 = loadNotifications();
+          for (const a of alertData.alerts as OfficeAlert[]) {
+            const alertId = `office_${a.id}`;
+            if (existing3.some(n => n.id === alertId)) continue;
+            newNotifs.push({
+              id: alertId,
+              type: 'office',
+              message: `${a.title} — ${a.message}`.slice(0, 300),
+              time: new Date(a.createdAt),
+              read: false,
+            });
+          }
+          // Помечаем прочитанными: сигнал доставлен и лежит в списке.
+          // Иначе он приходил бы заново каждые 30 секунд.
+          await fetch('/api/admin/alerts', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ all: true }),
+          });
+        }
+      } catch (e) {
+        console.error('[Notifications] Office alerts error:', e);
+      }
+
       if (newNotifs.length > 0) {
         const all = [...newNotifs, ...loadNotifications()].slice(0, 50);
         saveNotifications(all);
@@ -155,6 +198,7 @@ export function AdminNotifications() {
     order: { icon: <Package size={14} />, color: 'var(--info)' },
     growing: { icon: <Leaf size={14} />, color: 'var(--cat-7)' },
     info: { icon: <Clock size={14} />, color: 'var(--cat-1)' },
+    office: { icon: <Bot size={14} />, color: 'var(--error)' },
   };
 
   const fmtTime = (d: Date) => {

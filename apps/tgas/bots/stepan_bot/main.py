@@ -496,8 +496,28 @@ async def bot_health_check(force: bool = False):
                 f"🚨 <b>АЛЕРТ: боты не отвечают!</b>\n\n{report}\n\n⚠️ Проверьте работу ботов!",
             )
             logger.warning("Боты не отвечают: %s", ", ".join(sorted(down)))
+            # Второй канал: владелец мог сидеть в админке, а не в Telegram.
+            # Дублируем только НОВОЕ падение, чтобы не копить одинаковые
+            # сигналы каждые пять минут, пока бот лежит.
+            if newly_down:
+                from shared.owner_alerts import raise_alert, SEVERITY_CRITICAL
+                await raise_alert(
+                    kind="bot_down",
+                    severity=SEVERITY_CRITICAL,
+                    title=f"Не отвечают боты: {', '.join(sorted(newly_down))}",
+                    message=report,
+                    source="stepan_bot",
+                )
         elif recovered and not down:
             await alert_admins(_bot, f"✅ <b>Все боты снова онлайн</b>\n\n{report}")
+            from shared.owner_alerts import raise_alert, SEVERITY_INFO
+            await raise_alert(
+                kind="bot_recovered",
+                severity=SEVERITY_INFO,
+                title="Все боты снова онлайн",
+                message=report,
+                source="stepan_bot",
+            )
         elif force:
             await alert_admins(_bot, report)
     except Exception as e:

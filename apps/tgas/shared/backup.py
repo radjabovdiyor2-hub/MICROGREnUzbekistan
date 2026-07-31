@@ -249,4 +249,20 @@ async def daily_backup_task(bot=None):
             except Exception as e:
                 logger.error("Не удалось разослать алерт о бэкапе: %s", e)
 
+        # Второй канал — админка. Владелец может не смотреть в Telegram, а
+        # неудачный бэкап обнаруживается ровно тогда, когда он уже нужен.
+        try:
+            from shared.owner_alerts import raise_alert, SEVERITY_CRITICAL, SEVERITY_WARNING
+            await raise_alert(
+                kind="backup_failed",
+                severity=SEVERITY_CRITICAL if not result["ok"] else SEVERITY_WARNING,
+                title="Бэкап базы не удался" if not result["ok"] else "Бэкап не уехал наружу",
+                message=result["message"],
+                source="devops_bot",
+                # Факт плюс решение: кнопка запускает тот же бэкап через пульт.
+                suggested_action={"action": "daily_backup", "bot": "devops_bot"},
+            )
+        except Exception as e:
+            logger.error("Не удалось поднять сигнал о бэкапе в админке: %s", e)
+
     logger.info("Ежедневный бэкап завершён: %s", result["message"])

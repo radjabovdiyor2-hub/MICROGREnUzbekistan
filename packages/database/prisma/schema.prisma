@@ -1259,3 +1259,42 @@ model AssistantMessage {
   @@index([conversationId, createdAt])
   @@map("assistant_messages")
 }
+
+/// Сигнал владельцу от ИИ-офиса: аномалия, отказ, требующее внимания событие.
+///
+/// У Стёпана дюжина расписаний — проверка здоровья ботов каждые пять минут,
+/// KPI-watchdog, бекап, дедлайны. Всё это доходило только в Telegram: если
+/// владелец работал в админке, он о проблеме не узнавал. Теперь сигнал
+/// кладётся сюда, и его видят оба канала.
+///
+/// Правило: сообщать не голый факт, а факт и что с ним делать. Поэтому
+/// рядом с текстом лежит действие, которое владелец может запустить одной
+/// кнопкой — оно уходит в тот же путь с подтверждением, что и остальные.
+model OwnerAlert {
+  id BigInt @id @default(autoincrement())
+
+  /// bot_down | kpi_drop | backup_failed | stock_low | deadline — вид сигнала.
+  kind String @db.VarChar(48)
+
+  /// info | warning | critical
+  severity String @default("warning") @db.VarChar(16)
+
+  title   String @db.VarChar(255)
+  message String @db.Text
+
+  /// Кто поднял тревогу: stepan_bot, devops_bot, analytics_bot.
+  source String @db.VarChar(48)
+
+  /// Предлагаемое действие в терминах пульта: {action, bot}. Пусто, если
+  /// сигнал только информирует.
+  suggestedAction Json? @map("suggested_action")
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  /// Проставляется, когда владелец сигнал увидел. Не удаляем: история
+  /// аномалий нужна, чтобы отличить разовый сбой от постоянного.
+  readAt    DateTime? @map("read_at") @db.Timestamptz
+
+  @@index([readAt, createdAt])
+  @@index([kind])
+  @@map("owner_alerts")
+}
