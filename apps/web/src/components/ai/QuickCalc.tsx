@@ -119,7 +119,7 @@ function LightCalc({ onResult }: { onResult: (r: CalcResult) => void }) {
         <option value="led">LED Fitolampa (tejamkor)</option>
         <option value="lum">Lyuminessent (oddiy)</option>
       </select>
-      <button onClick={calc} disabled={!area} style={{ padding: 11, borderRadius: 10, background: '#F59E0B', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !area ? 0.5 : 1 }}>
+      <button onClick={calc} disabled={!area} style={{ padding: 11, borderRadius: 10, background: 'var(--warning)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !area ? 0.5 : 1 }}>
         Hisoblash
       </button>
     </div>
@@ -161,7 +161,7 @@ function WaterCalc({ onResult }: { onResult: (r: CalcResult) => void }) {
         <option value="veg">O&#39;sish bosqichi (3-7 kun)</option>
         <option value="bloom">Hosil bosqichi (7+ kun)</option>
       </select>
-      <button onClick={calc} disabled={!volume} style={{ padding: 11, borderRadius: 10, background: '#3B82F6', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !volume ? 0.5 : 1 }}>
+      <button onClick={calc} disabled={!volume} style={{ padding: 11, borderRadius: 10, background: 'var(--info)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !volume ? 0.5 : 1 }}>
         Hisoblash
       </button>
     </div>
@@ -212,7 +212,7 @@ function ProfitCalc({ onResult }: { onResult: (r: CalcResult) => void }) {
       </select>
       <input type="number" min="1" placeholder="Sotiladigan lotoklar soni" value={trays} onChange={e => setTrays(e.target.value)} style={inputStyle} />
       <input type="number" placeholder="1 lotok narxi (so'm)" value={sellPrice} onChange={e => setSellPrice(e.target.value)} style={inputStyle} />
-      <button onClick={calc} disabled={!trays} style={{ padding: 11, borderRadius: 10, background: '#10B981', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !trays ? 0.5 : 1 }}>
+      <button onClick={calc} disabled={!trays} style={{ padding: 11, borderRadius: 10, background: 'var(--brand-primary)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !trays ? 0.5 : 1 }}>
         Hisoblash
       </button>
     </div>
@@ -293,10 +293,10 @@ function ResultCard({ result, onSend }: { result: CalcResult; onSend: (text: str
 export type CalcType = 'yield' | 'light' | 'water' | 'profit';
 
 export const CALC_TABS: { key: CalcType; labelUz: string; labelRu: string; icon: React.ReactNode; color: string }[] = [
-  { key: 'yield', labelUz: 'Hosil', labelRu: 'Урожай', icon: <Leaf size={16} />, color: '#10B981' },
-  { key: 'water', labelUz: 'Ozuqa', labelRu: 'Питание', icon: <Droplet size={16} />, color: '#3B82F6' },
-  { key: 'light', labelUz: 'Yoritish', labelRu: 'Свет', icon: <Sun size={16} />, color: '#F59E0B' },
-  { key: 'profit', labelUz: "Biznes", labelRu: 'Бизнес', icon: <DollarSign size={16} />, color: '#8B5CF6' },
+  { key: 'yield', labelUz: 'Hosil', labelRu: 'Урожай', icon: <Leaf size={16} />, color: 'var(--brand-primary)' },
+  { key: 'water', labelUz: 'Ozuqa', labelRu: 'Питание', icon: <Droplet size={16} />, color: 'var(--info)' },
+  { key: 'light', labelUz: 'Yoritish', labelRu: 'Свет', icon: <Sun size={16} />, color: 'var(--warning)' },
+  { key: 'profit', labelUz: "Biznes", labelRu: 'Бизнес', icon: <DollarSign size={16} />, color: 'var(--cat-2)' },
 ];
 
 export function QuickCalcPanel({ onSendToChat }: { onSendToChat: (text: string) => void }) {

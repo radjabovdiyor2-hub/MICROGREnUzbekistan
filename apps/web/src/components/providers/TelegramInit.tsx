@@ -20,6 +20,8 @@ export function TelegramInit() {
     try {
       wa.ready?.();
       wa.expand?.();
+      // Литеральный цвет намеренно: setHeaderColor уходит в нативный клиент
+      // Telegram, CSS-переменные там не существуют. Держать в паре с --brand-primary.
       wa.setHeaderColor?.('#10B981');
       wa.setBackgroundColor?.('#ffffff');
     } catch {

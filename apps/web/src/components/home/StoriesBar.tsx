@@ -124,7 +124,6 @@ export function StoriesBar() {
                     width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden',
                     border: '3px solid var(--bg-primary)', background: 'var(--bg-tertiary)',
                   }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={s.mediaUrl}
                       alt="story"
@@ -179,7 +178,7 @@ export function StoriesBar() {
             style={{
               position: 'absolute', top: '32px', right: '16px', zIndex: 3,
               background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
-              width: '40px', height: '40px', color: '#fff', cursor: 'pointer',
+              width: '40px', height: '40px', color: 'var(--text-inverse)', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               backdropFilter: 'blur(10px)'
             }}
@@ -219,7 +218,6 @@ export function StoriesBar() {
                 }}
               />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={cur.mediaUrl}
                 alt="story"
@@ -237,7 +235,7 @@ export function StoriesBar() {
                 style={{
                   position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
                   padding: '12px 24px', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
-                  color: '#fff', borderRadius: '30px', textDecoration: 'none',
+                  color: 'var(--text-inverse)', borderRadius: '30px', textDecoration: 'none',
                   fontSize: '14px', fontWeight: 600, border: '1px solid rgba(255,255,255,0.4)',
                   display: 'flex', alignItems: 'center', gap: '8px'
                 }}

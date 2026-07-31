@@ -58,7 +58,7 @@ describe('payments · markPayablePaid (PrintOrder)', () => {
     db.printOrder.findUnique.mockResolvedValue({ id: 'abc', status: 'paid' });
     const r = await markPayablePaid('print_abc');
     expect(db.printOrder.update).not.toHaveBeenCalled();
-    expect((r as any).status).toBe('paid');
+    expect(r?.status).toBe('paid');
   });
 
   it('pending тираж → помечается paid c paidAt', async () => {

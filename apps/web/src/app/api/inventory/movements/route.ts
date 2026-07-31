@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Execute in transaction
-    const [movement, updatedProduct] = await prisma.$transaction([
+    const [movement] = await prisma.$transaction([
       prisma.stockMovement.create({
         data: {
           productId,

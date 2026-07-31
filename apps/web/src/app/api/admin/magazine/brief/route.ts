@@ -76,7 +76,15 @@ async function generateTopics(news: string[], season: string): Promise<Record<st
   if (!aiProvider()) return {};
   try {
     const prompt = `Сезон: ${season}. Новости недели:\n${news.slice(0, 6).map((n) => `- ${n}`).join('\n')}\n\nПредложи по ОДНОЙ короткой идее темы (одна фраза, на русском) для секций журнала FRESH WEEKLY. Где уместно — свяжи с микрозеленью/здоровой едой. Верни JSON: {"health": "...", "beauty": "...", "recipe": "...", "tech": "...", "news": "...", "kids": "..."}`;
-    return await generateJSON('Ты — главный редактор премиального журнала о еде и здоровье FRESH WEEKLY (Узбекистан).', prompt, { temperature: 0.9, maxTokens: 512 });
+    const raw = await generateJSON('Ты — главный редактор премиального журнала о еде и здоровье FRESH WEEKLY (Узбекистан).', prompt, { temperature: 0.9, maxTokens: 512 });
+    // Модель обещает плоский {секция: строка}, но обещание — не гарантия.
+    // Раньше ответ шёл дальше как есть (тип был any), и вложенный объект
+    // добрался бы до вёрстки строкой «[object Object]». Берём только строки.
+    const topics: Record<string, string> = {};
+    for (const [section, idea] of Object.entries(raw)) {
+      if (typeof idea === 'string' && idea.trim()) topics[section] = idea.trim();
+    }
+    return topics;
   } catch {
     return {};
   }

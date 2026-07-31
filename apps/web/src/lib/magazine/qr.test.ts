@@ -4,7 +4,12 @@ import { qrPng, qrSvg, dishUrl, menuUrl } from './qr';
 // canvas npm package is required for PNG rendering but may not be
 // available in CI (native dependency). Skip PNG tests gracefully.
 let hasCanvas = false;
-try { require.resolve('canvas'); hasCanvas = true; } catch {}
+try {
+  require.resolve('canvas');
+  hasCanvas = true;
+} catch {
+  // Пакета нет — это и есть ответ на вопрос «доступен ли canvas». Не ошибка.
+}
 
 describe('magazine/qr · печатные QR', () => {
   it('qrSvg возвращает валидный SVG', async () => {

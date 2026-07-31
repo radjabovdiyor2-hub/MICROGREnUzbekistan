@@ -17,6 +17,16 @@ interface StoryItem {
   timestamp: string;
 }
 
+/** Сторис в том виде, в каком её отдаёт Graph API — любое поле может не прийти. */
+interface RawStory {
+  id?: string;
+  media_type?: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  permalink?: string;
+  timestamp?: string;
+}
+
 export async function GET() {
   const token = process.env.INSTAGRAM_ACCESS_TOKEN;
 
@@ -47,12 +57,12 @@ export async function GET() {
     }
 
     const data = await res.json();
-    const stories: StoryItem[] = (data.data || []).map((s: any) => ({
-      id: s.id,
-      mediaType: s.media_type,
-      mediaUrl: s.media_type === 'VIDEO' ? s.media_url : (s.media_url || s.thumbnail_url),
-      permalink: s.permalink,
-      timestamp: s.timestamp,
+    const stories: StoryItem[] = (data.data as RawStory[] || []).map((s) => ({
+      id: s.id ?? '',
+      mediaType: s.media_type ?? 'IMAGE',
+      mediaUrl: (s.media_type === 'VIDEO' ? s.media_url : (s.media_url || s.thumbnail_url)) ?? '',
+      permalink: s.permalink ?? '',
+      timestamp: s.timestamp ?? '',
     })).filter((s: StoryItem) => s.mediaUrl);
 
     cachedData = { stories, timestamp: Date.now() };

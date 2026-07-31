@@ -66,7 +66,8 @@ export async function POST(req: Request) {
       slugs: slugsToPrint // Return slugs so the bot can generate PDFs
     });
 
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/cron/print-run] POST:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

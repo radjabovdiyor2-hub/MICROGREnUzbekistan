@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Brain, RefreshCw, Search, CheckCircle2, AlertCircle, Bot, Activity } from 'lucide-react';
+import { clientErrorMessage } from '@/lib/safeError';
 
 interface BotLearningItem {
   id: number;
@@ -9,7 +10,7 @@ interface BotLearningItem {
   metric: string;
   observation: string;
   inference: string;
-  adjustment: any;
+  adjustment: unknown; // Json из Prisma: показывается через JSON.stringify, структура плавающая
   appliedAt: string;
 }
 
@@ -42,8 +43,8 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
       if (!res.ok) throw new Error('Failed to fetch learnings');
       const data = await res.json();
       setLearnings(data.learnings || []);
-    } catch (err: any) {
-      setError(err.message || 'Ошибка загрузки вычислений');
+    } catch (err: unknown) {
+      setError(clientErrorMessage(err, 'Ошибка загрузки вычислений'));
     } finally {
       setLoading(false);
     }

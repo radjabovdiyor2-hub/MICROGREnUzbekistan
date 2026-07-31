@@ -61,9 +61,9 @@ export function StepTimer({ seconds, accent }: { seconds: number; accent: string
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 8,
         marginTop: 8, padding: '8px 14px', borderRadius: 12,
-        border: `1px solid ${done ? '#16a34a' : accent}`,
+        border: `1px solid ${done ? 'var(--cat-10)' : accent}`,
         background: 'transparent',
-        color: done ? '#16a34a' : accent,
+        color: done ? 'var(--cat-10)' : accent,
         fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700, cursor: 'pointer',
       }}
     >

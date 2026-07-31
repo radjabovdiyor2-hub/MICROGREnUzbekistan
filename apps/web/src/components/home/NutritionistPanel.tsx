@@ -93,7 +93,7 @@ export function NutritionistPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <div style={{
             width: 36, height: 36, borderRadius: 10,
-            background: 'linear-gradient(135deg, #10B981, #059669)',
+            background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: 'white', boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)',
           }}>
@@ -164,7 +164,7 @@ export function NutritionistPanel() {
               </button>
               <button onClick={calculate} disabled={loading} style={{
                 flex: 2, padding: 10, borderRadius: 12, fontSize: 13, fontWeight: 700,
-                background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white',
+                background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))', color: 'white',
                 border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
                 justifyContent: 'center', gap: 6, opacity: loading ? 0.6 : 1,
                 boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)', transition: 'all 0.2s',
@@ -183,10 +183,10 @@ export function NutritionistPanel() {
                 marginBottom: 20,
               }}>
                 {[
-                  { label: t('Kaloriya', 'Калории'), value: `${result.total.calories.toFixed(0)}`, unit: 'kcal', color: '#F59E0B' },
-                  { label: t('Oqsil', 'Белок'), value: `${result.total.protein.toFixed(1)}`, unit: 'g', color: '#3B82F6' },
-                  { label: t("Yog'", 'Жиры'), value: `${result.total.fat.toFixed(1)}`, unit: 'g', color: '#EC4899' },
-                  { label: t("Uglevod", 'Углеводы'), value: `${result.total.carbs.toFixed(1)}`, unit: 'g', color: '#8B5CF6' },
+                  { label: t('Kaloriya', 'Калории'), value: `${result.total.calories.toFixed(0)}`, unit: 'kcal', color: 'var(--warning)' },
+                  { label: t('Oqsil', 'Белок'), value: `${result.total.protein.toFixed(1)}`, unit: 'g', color: 'var(--info)' },
+                  { label: t("Yog'", 'Жиры'), value: `${result.total.fat.toFixed(1)}`, unit: 'g', color: 'var(--cat-3)' },
+                  { label: t("Uglevod", 'Углеводы'), value: `${result.total.carbs.toFixed(1)}`, unit: 'g', color: 'var(--cat-2)' },
                 ].map((m, i) => (
                   <div key={i} style={{
                     textAlign: 'center', padding: '14px 8px', borderRadius: 14,
@@ -207,12 +207,12 @@ export function NutritionistPanel() {
                   {t("Kunlik me'yor % (RDI)", "% дневной нормы (RDI)")}
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <DvBar label="Vit C" percent={result.dailyValuePercent.vitC} color="#F59E0B" />
-                  <DvBar label="Vit A" percent={result.dailyValuePercent.vitA} color="#10B981" />
-                  <DvBar label="Vit K" percent={result.dailyValuePercent.vitK} color="#8B5CF6" />
-                  <DvBar label="Fe" percent={result.dailyValuePercent.iron} color="#EF4444" />
-                  <DvBar label="Ca" percent={result.dailyValuePercent.calcium} color="#3B82F6" />
-                  <DvBar label="K" percent={result.dailyValuePercent.potassium} color="#059669" />
+                  <DvBar label="Vit C" percent={result.dailyValuePercent.vitC} color="var(--warning)" />
+                  <DvBar label="Vit A" percent={result.dailyValuePercent.vitA} color="var(--brand-primary)" />
+                  <DvBar label="Vit K" percent={result.dailyValuePercent.vitK} color="var(--cat-2)" />
+                  <DvBar label="Fe" percent={result.dailyValuePercent.iron} color="var(--error)" />
+                  <DvBar label="Ca" percent={result.dailyValuePercent.calcium} color="var(--info)" />
+                  <DvBar label="K" percent={result.dailyValuePercent.potassium} color="var(--brand-primary-hover)" />
                 </div>
               </div>
 
@@ -240,8 +240,8 @@ export function NutritionistPanel() {
               {/* Fiber bonus */}
               <div style={{
                 padding: '10px 14px', borderRadius: 12, marginTop: 12,
-                background: '#10B98110', border: '1px solid #10B98120',
-                fontSize: 12, color: '#059669', fontWeight: 600,
+                background: 'var(--brand-primary)10', border: '1px solid var(--brand-primary)20',
+                fontSize: 12, color: 'var(--brand-primary-hover)', fontWeight: 600,
                 display: 'flex', alignItems: 'center', gap: 8,
               }}>
                 <Lightbulb size={15} style={{ flexShrink: 0 }} />

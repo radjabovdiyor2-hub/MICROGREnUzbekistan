@@ -106,7 +106,10 @@ export function AdminProducts() {
   useEffect(() => {
     const timer = setTimeout(() => fetchProducts(1), 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, categoryFilter]); // eslint-disable-line
+    // Дебаунс поиска: перезапуск нужен только при смене фильтров.
+    // fetchProducts не мемоизирована и в зависимостях сбрасывала бы таймер.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, categoryFilter]);
 
   const toggleActive = async (product: Product) => {
     try {
@@ -400,7 +403,6 @@ export function AdminProducts() {
                     position: 'relative', width: 72, height: 72, borderRadius: 'var(--radius-sm)',
                     overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0,
                   }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={url} alt={`Rasm ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <button onClick={() => removeImage(idx)} type="button"
                       style={{
@@ -542,7 +544,6 @@ export function AdminProducts() {
                   background: 'var(--bg-tertiary)', flexShrink: 0, border: '1px solid var(--border)',
                 }}>
                   {p.images && p.images.length > 0 ? (
-                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
@@ -553,7 +554,7 @@ export function AdminProducts() {
                 {/* Name */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nameUz}</div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lang === 'ru' ? ((p.category as any)?.nameRu || p.category?.nameUz) : p.category?.nameUz || t('Без категории', 'Kategoriyasiz')}</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lang === 'ru' ? (p.category?.nameRu || p.category?.nameUz) : p.category?.nameUz || t('Без категории', 'Kategoriyasiz')}</div>
                 </div>
                 {/* Price */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>

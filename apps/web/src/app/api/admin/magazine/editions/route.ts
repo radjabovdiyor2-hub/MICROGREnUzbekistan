@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { defaultSharedSpec } from '@/lib/magazine/defaults';
 
@@ -15,7 +15,8 @@ export async function GET(request: Request) {
       include: { _count: { select: { issues: true } } },
     });
     return NextResponse.json(editions);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/editions] GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -33,11 +34,12 @@ export async function POST(request: Request) {
         title: d.title || `Выпуск №${weekNumber}`,
         coverTheme: d.coverTheme || null,
         // Стартовый общий контент, если не передан — редактируется в админке
-        sharedSpec: d.sharedSpec ?? (defaultSharedSpec(weekNumber) as any),
+        sharedSpec: (d.sharedSpec ?? defaultSharedSpec(weekNumber)) as unknown as Prisma.InputJsonValue,
       },
     });
     return NextResponse.json(created);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/editions] POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -49,7 +51,7 @@ export async function PATCH(request: Request) {
     const { id } = d;
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
 
-    const data: any = {};
+    const data: Prisma.MagazineEditionUpdateInput = {};
     if ('title' in d) data.title = d.title;
     if ('coverTheme' in d) data.coverTheme = d.coverTheme || null;
     if ('sharedSpec' in d) data.sharedSpec = d.sharedSpec;
@@ -60,7 +62,8 @@ export async function PATCH(request: Request) {
 
     const updated = await prisma.magazineEdition.update({ where: { id }, data });
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/editions] PATCH:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -73,7 +76,8 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     await prisma.magazineEdition.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/editions] DELETE:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

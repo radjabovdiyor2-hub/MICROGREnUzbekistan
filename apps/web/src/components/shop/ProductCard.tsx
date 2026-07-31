@@ -47,7 +47,7 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
 
-    import('@/lib/haptic').then(({ triggerHaptic }) => triggerHaptic('success'));
+    import('@/utils/haptic').then(({ triggerHaptic }) => triggerHaptic('success'));
 
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
@@ -68,7 +68,7 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
 
-    import('@/lib/haptic').then(({ triggerHaptic }) => triggerHaptic(fav ? 'light' : 'medium'));
+    import('@/utils/haptic').then(({ triggerHaptic }) => triggerHaptic(fav ? 'light' : 'medium'));
 
     toggleFavorite({
       id: product.id,

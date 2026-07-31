@@ -6,7 +6,7 @@ import Image from 'next/image';
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Banknote, CheckCircle, ClipboardList, Clock, CreditCard, FileText, Folder, Home, Lightbulb, MapPin, Minus, Package, PartyPopper, Phone, Plus, ShoppingCart, Smartphone, Sparkles, Trash, Truck, User, XCircle,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { LottieAnimation } from '@/components/ui/LottieAnimation';
 import emptyStateData from '@/assets/lottie/empty-state.json';
 
@@ -355,7 +355,7 @@ export default function CartPage() {
                           <button
                             className="btn btn-sm"
                             onClick={() => cart.addItem({ id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price, oldPrice: p.oldPrice, slug: p.slug, images: p.images, category: p.category } as CartProduct)}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', border: 'none', color: '#fff', background: 'var(--brand-primary)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)' }}
+                            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', border: 'none', color: 'var(--text-inverse)', background: 'var(--brand-primary)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)' }}
                             id={`reco-add2-${p.id}`}
                           >
                             <Plus size={12} /> {t("Qo'shish", "Добавить")}
@@ -386,7 +386,7 @@ export default function CartPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           {apiError && (
-            <div style={{ padding: 'var(--space-4)', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', border: '1px solid rgba(var(--error-rgb), 0.2)' }}>
+            <div id="order-error" role="alert" style={{ padding: 'var(--space-4)', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', border: '1px solid rgba(var(--error-rgb), 0.2)' }}>
               <AlertTriangle size={20} />
               {apiError}
             </div>

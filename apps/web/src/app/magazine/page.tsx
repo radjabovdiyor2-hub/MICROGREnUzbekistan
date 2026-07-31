@@ -67,7 +67,7 @@ export default async function MagazinePage() {
           <a href="#latest" style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
             padding: '16px 32px', borderRadius: '30px',
-            background: 'var(--brand-primary)', color: '#fff',
+            background: 'var(--brand-primary)', color: 'var(--text-inverse)',
             fontWeight: 700, fontSize: '15px', textDecoration: 'none',
             boxShadow: '0 8px 24px rgba(16,185,129,0.4)',
           }}>
@@ -138,7 +138,7 @@ export default async function MagazinePage() {
                   position: 'absolute', top: '24px', left: '24px',
                   padding: '8px 16px', background: 'rgba(255,255,255,0.1)',
                   backdropFilter: 'blur(12px)', borderRadius: '20px',
-                  fontSize: '12px', fontWeight: 700, color: '#fff',
+                  fontSize: '12px', fontWeight: 700, color: 'var(--text-inverse)',
                   letterSpacing: '2px', textTransform: 'uppercase'
                 }}>
                   Ресторан недели
@@ -146,14 +146,14 @@ export default async function MagazinePage() {
                 <span style={{ fontSize: '64px', marginBottom: '24px' }}>🌿</span>
                 <h3 style={{
                   fontFamily: "'Playfair Display', serif", fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 800,
-                  color: '#fff', textAlign: 'center', padding: '0 24px', lineHeight: 1.1, maxWidth: '800px'
+                  color: 'var(--text-inverse)', textAlign: 'center', padding: '0 24px', lineHeight: 1.1, maxWidth: '800px'
                 }}>
                   {latest.title}
                 </h3>
                 <div style={{
                   marginTop: '32px', padding: '12px 24px',
                   background: 'var(--brand-primary)', borderRadius: '24px',
-                  color: '#fff', fontWeight: 700, fontSize: '14px',
+                  color: 'var(--text-inverse)', fontWeight: 700, fontSize: '14px',
                   display: 'flex', alignItems: 'center', gap: '8px'
                 }}>
                   Читать выпуск <span style={{ fontSize: '18px' }}>→</span>
@@ -288,8 +288,8 @@ export default async function MagazinePage() {
                     {mag.restaurantName}
                   </h3>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    {mag.htmlUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>HTML</span>}
-                    {mag.pdfUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59,130,246,0.15)', color: '#3B82F6' }}>PDF</span>}
+                    {mag.htmlUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(16,185,129,0.15)', color: 'var(--brand-primary)' }}>HTML</span>}
+                    {mag.pdfUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59,130,246,0.15)', color: 'var(--info)' }}>PDF</span>}
                   </div>
                 </div>
               </a>
@@ -328,7 +328,7 @@ export default async function MagazinePage() {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               padding: '16px 32px', borderRadius: '30px',
-              background: '#229ED9', color: '#fff',
+              background: '#229ED9', color: 'var(--text-inverse)',
               fontWeight: 700, fontSize: '15px', textDecoration: 'none',
               boxShadow: '0 8px 24px rgba(34,158,217,0.3)',
             }}

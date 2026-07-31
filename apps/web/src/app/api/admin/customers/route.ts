@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
+import { safeError } from '@/lib/safeError';
 
 export async function GET(request: NextRequest) {
   try {
@@ -7,7 +8,7 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('q') || '';
     const status = searchParams.get('status') || '';
 
-    const where: any = {};
+    const where: Prisma.CustomerWhereInput = {};
     if (query) {
       where.OR = [
         { name: { contains: query, mode: 'insensitive' } },
@@ -46,10 +47,10 @@ export async function GET(request: NextRequest) {
         createdAt: c.createdAt.toISOString(),
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Admin Customers GET Error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to fetch customers' },
+      { error: safeError(error) },
       { status: 500 }
     );
   }
@@ -84,10 +85,10 @@ export async function PUT(request: NextRequest) {
         notes: updated.notes,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Admin Customers PUT Error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to update customer' },
+      { error: safeError(error) },
       { status: 500 }
     );
   }

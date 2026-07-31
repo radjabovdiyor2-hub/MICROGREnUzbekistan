@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { defaultSharedSpec, defaultPersonalSpec } from '@/lib/magazine/defaults';
 
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
           title: `FRESH WEEKLY #${weekNumber}`,
           coverTheme: 'Автоматический выпуск',
           isPublished: false,
-          sharedSpec: defaultSharedSpec(weekNumber) as any,
+          sharedSpec: defaultSharedSpec(weekNumber) as unknown as Prisma.InputJsonValue,
         },
       });
     }
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
             restaurantId: restaurant.id,
             status: 'draft',
             webSlug: `${restaurant.slug || restaurant.id}-w${weekNumber}`,
-            spec: defaultPersonalSpec(restaurant.name) as any,
+            spec: defaultPersonalSpec(restaurant.name) as unknown as Prisma.InputJsonValue,
           },
         });
         createdCount++;
@@ -54,7 +54,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, edition: edition.weekNumber, createdIssues: createdCount });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/cron/prepare] POST:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

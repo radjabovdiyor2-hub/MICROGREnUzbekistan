@@ -1,6 +1,6 @@
 'use client';
 
-import { Folder, Home, Leaf } from 'lucide-react';
+import { Folder, Home } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { motion, useReducedMotion } from 'framer-motion';
 import { LottieAnimation } from '@/components/ui/LottieAnimation';
@@ -71,7 +71,7 @@ export default function NotFound() {
           fontSize: 'clamp(5rem, 15vw, 10rem)',
           fontWeight: 800,
           lineHeight: 1,
-          background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 50%, #8B5CF6 100%)',
+          background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 50%, var(--cat-2) 100%)',
           backgroundSize: '200% 200%',
           animation: 'hero-gradient-shift 4s ease infinite',
           WebkitBackgroundClip: 'text',

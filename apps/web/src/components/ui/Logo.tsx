@@ -13,16 +13,16 @@ export function LogoIcon({ size = 36, className }: { size?: number; className?: 
     >
       <defs>
         <linearGradient id="logo-gradient-circle" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#059669" />
-          <stop offset="100%" stopColor="#10B981" />
+          <stop offset="0%" stopColor="var(--brand-primary-hover)" />
+          <stop offset="100%" stopColor="var(--brand-primary)" />
         </linearGradient>
         <linearGradient id="logo-gradient-leaf1" x1="20" y1="10" x2="32" y2="24" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#34D399" />
-          <stop offset="100%" stopColor="#10B981" />
+          <stop offset="0%" stopColor="var(--brand-primary)" />
+          <stop offset="100%" stopColor="var(--brand-primary)" />
         </linearGradient>
         <linearGradient id="logo-gradient-leaf2" x1="16" y1="16" x2="24" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#6EE7B7" />
-          <stop offset="100%" stopColor="#34D399" />
+          <stop offset="0%" stopColor="var(--brand-primary-soft)" />
+          <stop offset="100%" stopColor="var(--brand-primary)" />
         </linearGradient>
       </defs>
       {/* Circle */}

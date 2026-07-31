@@ -27,18 +27,28 @@ interface OfficeAlert {
 // In-memory notification store (persists across tab sessions via localStorage)
 const STORAGE_KEY = 'Microgreen_admin_notifications';
 
+/** Предупреждение об остатках — из /api/inventory/analytics?section=warnings. */
+interface StockWarning {
+  level: string;
+  message: string;
+}
+
 function loadNotifications(): Notification[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return [];
-    return JSON.parse(stored).map((n: any) => ({ ...n, time: new Date(n.time) }));
+    const raw: (Omit<Notification, 'time'> & { time: string })[] = JSON.parse(stored);
+    return raw.map((n) => ({ ...n, time: new Date(n.time) }));
   } catch { return []; }
 }
 
 function saveNotifications(notifs: Notification[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(notifs.slice(0, 50)));
-  } catch {}
+  } catch {
+    // Приватный режим или переполненная квота: уведомления просто не переживут
+    // перезагрузку вкладки. Ронять из-за этого админку незачем.
+  }
 }
 
 export function AdminNotifications() {
@@ -82,7 +92,7 @@ export function AdminNotifications() {
       const warnRes = await fetch('/api/inventory/analytics?section=warnings');
       const warnData = await warnRes.json();
       if (warnData.warnings?.length > 0) {
-        const criticals = warnData.warnings.filter((w: any) => w.level === 'CRITICAL');
+        const criticals = (warnData.warnings as StockWarning[]).filter((w) => w.level === 'CRITICAL');
         for (const w of criticals.slice(0, 3)) {
           const warnId = `warn_${w.message.replace(/\s/g, '_').slice(0, 30)}`;
           const existing = loadNotifications();
@@ -128,7 +138,10 @@ export function AdminNotifications() {
             });
           }
         }
-      } catch {}
+      } catch (err) {
+        // Витрина недоступна — уведомления просто не пополнятся в этот тик.
+        console.warn('Проверка остатков не удалась:', err);
+      }
 
       // Сигналы ИИ-офиса: упавшие боты, неудачный бэкап, просевший KPI.
       // Раньше всё это уходило только в Telegram — работая в админке,

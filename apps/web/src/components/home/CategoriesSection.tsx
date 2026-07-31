@@ -13,13 +13,13 @@ export function CategoriesSection() {
   const { t } = useLang();
 
   const CATEGORIES = [
-    { slug: 'microgreens', icon: <Leaf size={22} />, name: t("Mikroko'katlar", 'Микрозелень'), color: '#10B981' },
-    { slug: 'baby-leaf', icon: <Leaf size={22} />, name: t('Baby Leaf', 'Бейби лист'), color: '#22C55E' },
-    { slug: 'salads', icon: <Leaf size={22} />, name: t('Salatlar', 'Салаты'), color: '#34D399' },
-    { slug: 'flowers', icon: <Sparkles size={22} />, name: t('Gullar', 'Цветы'), color: '#EC4899' },
-    { slug: 'seeds', icon: <Droplet size={22} />, name: t("Urug'lar", 'Семена'), color: '#F59E0B' },
-    { slug: 'equipment', icon: <Plug size={22} />, name: t('Uskunalar', 'Оборудование'), color: '#06B6D4' },
-    { slug: 'sets', icon: <Package size={22} />, name: t("To'plamlar", 'Наборы'), color: '#EF4444' },
+    { slug: 'microgreens', icon: <Leaf size={22} />, name: t("Mikroko'katlar", 'Микрозелень'), color: 'var(--brand-primary)' },
+    { slug: 'baby-leaf', icon: <Leaf size={22} />, name: t('Baby Leaf', 'Бейби лист'), color: 'var(--cat-7)' },
+    { slug: 'salads', icon: <Leaf size={22} />, name: t('Salatlar', 'Салаты'), color: 'var(--brand-primary)' },
+    { slug: 'flowers', icon: <Sparkles size={22} />, name: t('Gullar', 'Цветы'), color: 'var(--cat-3)' },
+    { slug: 'seeds', icon: <Droplet size={22} />, name: t("Urug'lar", 'Семена'), color: 'var(--warning)' },
+    { slug: 'equipment', icon: <Plug size={22} />, name: t('Uskunalar', 'Оборудование'), color: 'var(--cat-12)' },
+    { slug: 'sets', icon: <Package size={22} />, name: t("To'plamlar", 'Наборы'), color: 'var(--error)' },
   ];
 
   return (

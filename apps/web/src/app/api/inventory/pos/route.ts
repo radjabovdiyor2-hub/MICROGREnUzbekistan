@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 
 // ==========================================
 // POS (Point of Sale) — Quick Store Sales
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const saleNumber = `S-${dateStr}-${rand}`;
 
     // Execute all operations in a single transaction
-    const operations: unknown[] = [];
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
 
     // 1. Create StockMovement for each item + update stock
     for (const item of items as { productId: string; quantity: number; price: number }[]) {
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await prisma.$transaction(operations as any);
+    await prisma.$transaction(operations);
 
     // Check for low stock alerts
     const alerts: { productName: string; stock: number; level: string }[] = [];
@@ -204,7 +204,7 @@ export async function PUT(request: NextRequest) {
     const returnNumber = `R-${dateStr}-${rand}`;
 
     // Execute return in a transaction
-    const operations: unknown[] = [];
+    const operations: Prisma.PrismaPromise<unknown>[] = [];
 
     for (const item of items as { productId: string; quantity: number; price: number }[]) {
       // Create RETURN stock movement (IN type, positive quantity)
@@ -231,7 +231,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    await prisma.$transaction(operations as any);
+    await prisma.$transaction(operations);
 
     // Send Telegram notification to admin (fire-and-forget)
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;

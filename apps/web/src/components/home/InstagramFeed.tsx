@@ -26,7 +26,7 @@ const GROW_STAGES = [
     titleRu: 'Прорастание',
     descUz: 'Urug\'lar unib chiqadi, dastlabki ildizlar ko\'rinadi',
     descRu: 'Семена прорастают, появляются первые корешки',
-    color: '#10B981',
+    color: 'var(--brand-primary)',
     icon: 'sprout',
   },
   {
@@ -35,7 +35,7 @@ const GROW_STAGES = [
     titleRu: 'Стадия роста',
     descUz: 'Barglar ochiladi, fotosintez boshlanadi. Yorug\'lik va suv muhim',
     descRu: 'Листочки раскрываются, начинается фотосинтез. Свет и вода важны',
-    color: '#3B82F6',
+    color: 'var(--info)',
     icon: 'grow',
   },
   {
@@ -44,7 +44,7 @@ const GROW_STAGES = [
     titleRu: 'Срез — Готово!',
     descUz: 'Mikroko\'katlar to\'liq yetildi. Yangi va sog\'lom holda yetkaziladi',
     descRu: 'Микрозелень полностью созрела. Доставляется свежей и полезной',
-    color: '#F59E0B',
+    color: 'var(--warning)',
     icon: 'harvest',
   },
 ];
@@ -89,7 +89,7 @@ function StageIcon({ type, size = 24 }: { type: string; size?: number }) {
 }
 
 // Color palette for fallback posts without images
-const FALLBACK_COLORS = ['#10B981', '#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899', '#06B6D4'];
+const FALLBACK_COLORS = ['var(--brand-primary)', 'var(--info)', '#8B5CF6', 'var(--warning)', '#EC4899', '#06B6D4'];
 
 export function InstagramFeed() {
   const { t } = useLang();

@@ -43,7 +43,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
     ? menu.find((d) => d.nameRu.toLowerCase() === dish.pairsWith!.toLowerCase())
     : undefined;
 
-  const accent = restaurant.brandPrimary || '#0A84FF';
+  const accent = restaurant.brandPrimary || 'var(--info)';
 
   return (
     <div style={{
@@ -77,7 +77,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
           fontSize: 15,
           fontWeight: 400,
           letterSpacing: -0.24,
-          color: '#fff',
+          color: 'var(--text-inverse)',
           textDecoration: 'none',
           background: VIBRANCY,
           backdropFilter: BLUR,
@@ -115,7 +115,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
           fontFamily: DISPLAY_FONT,
           fontSize: 'clamp(28px, 8vw, 34px)',
           fontWeight: 700,
-          color: '#fff',
+          color: 'var(--text-inverse)',
           lineHeight: 1.06,
           margin: 0,
           letterSpacing: 0.36,
@@ -186,7 +186,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
             padding: '14px 20px',
             borderRadius: 14,
             background: accent,
-            color: '#fff',
+            color: 'var(--text-inverse)',
             fontFamily: FONT,
             fontSize: 17,
             fontWeight: 600,
@@ -240,7 +240,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                 fontFamily: FONT,
                 fontSize: 15,
                 fontWeight: 500,
-                color: '#fff',
+                color: 'var(--text-inverse)',
                 letterSpacing: -0.24,
               }}>{pair.nameRu}</div>
             </div>

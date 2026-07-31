@@ -31,10 +31,10 @@ describe('magazine/defaults · defaultPersonalSpec', () => {
 
   it('подставляет имя ресторана в персональные блоки', () => {
     const blocks = defaultPersonalSpec('Плов-Хаус').blocks;
-    const row = blocks.find((b) => b.type === 'restaurantOfWeek') as any;
-    expect(row.name).toBe('Плов-Хаус');
-    const toc = blocks.find((b) => b.type === 'toc') as any;
-    expect(toc.editorialNote).toContain('Плов-Хаус');
+    const row = blocks.find((b) => b.type === 'restaurantOfWeek');
+    expect(row?.type === 'restaurantOfWeek' && row.name).toBe('Плов-Хаус');
+    const toc = blocks.find((b) => b.type === 'toc');
+    expect(toc?.type === 'toc' ? toc.editorialNote : '').toContain('Плов-Хаус');
   });
 
   it('ресторан недели и слово шефа — персональные', () => {

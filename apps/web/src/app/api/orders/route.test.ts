@@ -23,7 +23,7 @@ vi.mock('@repo/database', () => ({
   }
 }));
 
-function createRequest(body: any) {
+function createRequest(body: unknown) {
   return new NextRequest('http://localhost:3000/api/orders', {
     method: 'POST',
     body: JSON.stringify(body),

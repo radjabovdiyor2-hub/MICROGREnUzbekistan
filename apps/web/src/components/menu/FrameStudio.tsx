@@ -33,7 +33,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
   const [consent, setConsent] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const accent = brand.brandPrimary || '#10B981';
+  const accent = brand.brandPrimary || 'var(--brand-primary)';
 
   // Логотип грузим заранее: в момент снимка ждать сеть нельзя
   useEffect(() => {
@@ -154,14 +154,14 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
             background: 'linear-gradient(180deg, rgba(0,0,0,0.7), transparent)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <div style={{ color: '#fff' }}>
+            <div style={{ color: 'var(--text-inverse)' }}>
               <div style={{ fontSize: 15, fontWeight: 700 }}>{content.dishName}</div>
               <div style={{ fontSize: 12, opacity: 0.6 }}>{brand.name}</div>
             </div>
             <Link
               href={`/m/${slug}/d/${dishCode}`}
               style={{
-                padding: '8px 16px', borderRadius: 20, color: '#fff', fontSize: 13, fontWeight: 600,
+                padding: '8px 16px', borderRadius: 20, color: 'var(--text-inverse)', fontSize: 13, fontWeight: 600,
                 background: 'rgba(255,255,255,0.15)', textDecoration: 'none',
               }}
             >Закрыть</Link>
@@ -171,7 +171,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
             <div style={{
               position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
               alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center',
-              color: '#fff', gap: 16,
+              color: 'var(--text-inverse)', gap: 16,
             }}>
               <div style={{ fontSize: 40 }}>📷</div>
               <p style={{ fontSize: 15, lineHeight: 1.6, opacity: 0.8 }}>{error}</p>
@@ -216,7 +216,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
               padding: 16, borderRadius: 16, background: 'rgba(255,255,255,0.06)',
               border: '1px solid rgba(255,255,255,0.1)',
             }}>
-              <div style={{ color: '#fff', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+              <div style={{ color: 'var(--text-inverse)', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
                 Хотите в следующий номер?
               </div>
               <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
@@ -230,7 +230,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
                 style={{
                   width: '100%', padding: '12px 14px', borderRadius: 12, marginBottom: 10,
                   background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.15)',
-                  color: '#fff', fontSize: 14, fontFamily: 'inherit',
+                  color: 'var(--text-inverse)', fontSize: 14, fontFamily: 'inherit',
                 }}
               />
               <label style={{
@@ -257,7 +257,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
             <button onClick={() => window.location.reload()} style={btn('transparent', accent)}>
               🔄 Снять заново
             </button>
-            {error && <p style={{ color: '#f87171', fontSize: 13, textAlign: 'center' }}>{error}</p>}
+            {error && <p style={{ color: 'var(--error)', fontSize: 13, textAlign: 'center' }}>{error}</p>}
           </div>
         </div>
       )}
@@ -269,7 +269,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
           alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center', gap: 14,
         }}>
           <div style={{ fontSize: 56 }}>✨</div>
-          <h2 style={{ color: '#fff', fontSize: 22, fontWeight: 800 }}>Кадр отправлен</h2>
+          <h2 style={{ color: 'var(--text-inverse)', fontSize: 22, fontWeight: 800 }}>Кадр отправлен</h2>
           <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.6, maxWidth: 320 }}>
             Он участвует в отборе в следующий номер. Загляните в журнал через неделю —
             вдруг там вы.

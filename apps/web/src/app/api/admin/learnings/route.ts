@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
+import { safeError } from '@/lib/safeError';
 
 // ══════════════════════════════════════════════════════════════════════
 // Выводы петель обучения ботов.
@@ -47,10 +48,10 @@ export async function GET(request: NextRequest) {
         appliedAt: l.appliedAt.toISOString(),
       })),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API Admin Learnings GET Error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Failed to fetch bot learnings' },
+      { error: safeError(error) },
       { status: 500 }
     );
   }

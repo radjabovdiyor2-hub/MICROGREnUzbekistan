@@ -9,11 +9,11 @@ import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
 
 const CATEGORY_ICONS: Record<string, { label: string; colorFrom: string; colorTo: string }> = {
-  breakfast: { label: 'B', colorFrom: '#F59E0B', colorTo: '#F97316' },
-  salad: { label: 'S', colorFrom: '#10B981', colorTo: '#059669' },
-  smoothie: { label: 'D', colorFrom: '#8B5CF6', colorTo: '#6366F1' },
-  snack: { label: 'N', colorFrom: '#EC4899', colorTo: '#F43F5E' },
-  main: { label: 'M', colorFrom: '#3B82F6', colorTo: '#2563EB' },
+  breakfast: { label: 'B', colorFrom: 'var(--warning)', colorTo: '#F97316' },
+  salad: { label: 'S', colorFrom: 'var(--brand-primary)', colorTo: 'var(--brand-primary-hover)' },
+  smoothie: { label: 'D', colorFrom: 'var(--cat-2)', colorTo: 'var(--cat-1)' },
+  snack: { label: 'N', colorFrom: 'var(--cat-3)', colorTo: '#F43F5E' },
+  main: { label: 'M', colorFrom: 'var(--info)', colorTo: 'var(--info)' },
 };
 
 interface Recipe {
@@ -124,11 +124,11 @@ export function RecipeOfDay() {
           {/* Micronutrient highlights */}
           <div style={{ display: 'flex', gap: 8, padding: '14px 20px', overflowX: 'auto', borderBottom: '1px solid var(--border)' }}>
             {[
-              { label: 'Vit C', value: `${recipe.nutrition.vitC.toFixed(0)}mg`, color: '#F59E0B' },
-              { label: 'Vit A', value: `${recipe.nutrition.vitA.toFixed(0)}µg`, color: '#10B981' },
-              { label: 'Vit K', value: `${recipe.nutrition.vitK.toFixed(0)}µg`, color: '#8B5CF6' },
-              { label: 'Fe', value: `${recipe.nutrition.iron.toFixed(1)}mg`, color: '#EF4444' },
-              { label: 'Ca', value: `${recipe.nutrition.calcium.toFixed(0)}mg`, color: '#3B82F6' },
+              { label: 'Vit C', value: `${recipe.nutrition.vitC.toFixed(0)}mg`, color: 'var(--warning)' },
+              { label: 'Vit A', value: `${recipe.nutrition.vitA.toFixed(0)}µg`, color: 'var(--brand-primary)' },
+              { label: 'Vit K', value: `${recipe.nutrition.vitK.toFixed(0)}µg`, color: 'var(--cat-2)' },
+              { label: 'Fe', value: `${recipe.nutrition.iron.toFixed(1)}mg`, color: 'var(--error)' },
+              { label: 'Ca', value: `${recipe.nutrition.calcium.toFixed(0)}mg`, color: 'var(--info)' },
             ].map((n, i) => (
               <div key={i} style={{
                 padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 700,

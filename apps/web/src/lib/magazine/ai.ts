@@ -17,7 +17,10 @@ export function aiProvider(): 'openai' | 'gemini' | null {
 
 interface Opts { temperature?: number; maxTokens?: number }
 
-async function openaiJSON(system: string, prompt: string, o: Opts): Promise<any> {
+/** Модель возвращает произвольный JSON-объект: ключи известны только вызывающему. */
+export type JsonRecord = Record<string, unknown>;
+
+async function openaiJSON(system: string, prompt: string, o: Opts): Promise<JsonRecord> {
   const body = JSON.stringify({
     model: OPENAI_MODEL,
     messages: [
@@ -44,7 +47,7 @@ async function openaiJSON(system: string, prompt: string, o: Opts): Promise<any>
   throw new Error('OpenAI: max retries exceeded');
 }
 
-async function geminiJSON(system: string, prompt: string, o: Opts): Promise<any> {
+async function geminiJSON(system: string, prompt: string, o: Opts): Promise<JsonRecord> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
   const body = JSON.stringify({
     system_instruction: { parts: [{ text: system }] },
@@ -64,7 +67,7 @@ async function geminiJSON(system: string, prompt: string, o: Opts): Promise<any>
 }
 
 /** Сгенерировать JSON-объект. OpenAI приоритетно, Gemini — fallback. */
-export async function generateJSON(system: string, prompt: string, opts: Opts = {}): Promise<any> {
+export async function generateJSON(system: string, prompt: string, opts: Opts = {}): Promise<JsonRecord> {
   const provider = aiProvider();
   if (provider === 'openai') return openaiJSON(system, prompt, opts);
   if (provider === 'gemini') return geminiJSON(system, prompt, opts);

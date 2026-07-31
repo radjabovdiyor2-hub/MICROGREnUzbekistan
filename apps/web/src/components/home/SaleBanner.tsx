@@ -31,7 +31,7 @@ export function SaleBanner() {
       background: 'rgba(255,255,255,0.08)', borderRadius: '10px',
       padding: '8px 10px', backdropFilter: 'blur(4px)',
     }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800, color: accent ? 'var(--brand-accent)' : '#FFFFFF', lineHeight: 1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden' }}>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800, color: accent ? 'var(--brand-accent)' : 'var(--text-inverse)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden' }}>
         <AnimatePresence mode="popLayout">
           <motion.span
             key={value}
@@ -56,7 +56,7 @@ export function SaleBanner() {
     <section className="section" id="sale-section">
       <div className="container">
         <div style={{
-          background: 'linear-gradient(135deg, #059669 0%, #10B981 50%, #34D399 100%)',
+          background: 'linear-gradient(135deg, var(--brand-primary-hover) 0%, var(--brand-primary) 50%, var(--brand-primary) 100%)',
           backgroundSize: '200% 200%',
           animation: 'hero-gradient-shift 8s ease infinite',
           borderRadius: '20px',

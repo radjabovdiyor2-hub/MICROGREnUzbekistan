@@ -384,16 +384,19 @@ export async function GET(request: NextRequest) {
 
     const healthScore = stockoutScore + balanceScore + turnoverScore + diversityScore;
 
+    // API отдаёт УРОВЕНЬ, а не цвет: раньше здесь лежал захардкоженный hex,
+    // и палитра склада жила отдельно от дизайн-системы — тему переключали, а
+    // индикатор оставался в старых цветах. Цвет выбирает витрина по токенам.
     let healthLabel = 'Ajoyib';
-    let healthColor = '#10B981';
-    if (healthScore < 40) { healthLabel = 'Kritik'; healthColor = '#EF4444'; }
-    else if (healthScore < 60) { healthLabel = "E'tibor kerak"; healthColor = '#F59E0B'; }
-    else if (healthScore < 80) { healthLabel = 'Yaxshi'; healthColor = '#3B82F6'; }
+    let healthLevel: 'ok' | 'info' | 'warning' | 'critical' = 'ok';
+    if (healthScore < 40) { healthLabel = 'Kritik'; healthLevel = 'critical'; }
+    else if (healthScore < 60) { healthLabel = "E'tibor kerak"; healthLevel = 'warning'; }
+    else if (healthScore < 80) { healthLabel = 'Yaxshi'; healthLevel = 'info'; }
 
     return NextResponse.json({
       healthScore,
       healthLabel,
-      healthColor,
+      healthLevel,
       breakdown: { stockoutScore, balanceScore, turnoverScore, diversityScore },
       stats: { totalStockValue, totalItems, criticalCount, lowCount, zeroCount },
     });

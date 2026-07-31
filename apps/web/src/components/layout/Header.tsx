@@ -123,7 +123,7 @@ export function Header() {
               : { duration: 0.2 }}
             style={{ 
               background: 'none', border: 'none', cursor: 'pointer', 
-              color: isListening ? '#EF4444' : 'var(--text-muted)',
+              color: isListening ? 'var(--error)' : 'var(--text-muted)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               padding: '0 8px',
             }}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 
 // ==========================================
 // Products API — Prisma-backed CRUD
@@ -115,21 +115,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Majburiy maydonlar to'ldirilmagan" }, { status: 400 });
     }
 
-    const createData: Record<string, unknown> = {
+    const createData: Prisma.ProductUncheckedCreateInput = {
       nameUz, nameRu: nameRu || nameUz, slug,
       descriptionUz, descriptionRu,
       price, oldPrice: oldPrice || null, costPrice: costPrice || null,
       images: images || [],
       categoryId, stock: stock || 0,
       sku: sku || null, brand: brand || null,
-      specs: specs || null,
+      // DbNull, а не JsonNull: первый пишет в колонку SQL NULL (как было до
+      // типизации), второй — JSON-литерал null. Их путать нельзя: после
+      // JsonNull запрос `WHERE specs IS NULL` перестал бы находить товары.
+      specs: specs || Prisma.DbNull,
       isFeatured: isFeatured || false,
       isOnSale: isOnSale || false,
     };
 
     const product = await prisma.product.create({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data: createData as any,
+      data: createData,
       include: { category: true },
     });
 

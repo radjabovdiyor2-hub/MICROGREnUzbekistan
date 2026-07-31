@@ -40,7 +40,11 @@ function loadStore(): WebAuthnStore {
     if (fs.existsSync(WEBAUTHN_FILE)) {
       return JSON.parse(fs.readFileSync(WEBAUTHN_FILE, 'utf-8'));
     }
-  } catch {}
+  } catch (error) {
+    // Файл хранилища битый или недоступен: работаем как с пустым — иначе
+    // сломанный JSON уронил бы вход по ключу целиком. Но молчать нельзя.
+    console.error('[webauthn] хранилище не прочитано:', error);
+  }
   return { credentials: [], challenges: {} };
 }
 

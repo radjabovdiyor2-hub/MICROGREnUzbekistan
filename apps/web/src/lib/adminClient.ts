@@ -27,7 +27,7 @@ export function adminFetch(url: string, init: RequestInit = {}) {
 
 // Parse response as JSON array; return [] on non-ok status or non-array body.
 // Prevents `TypeError: x.map is not a function` when API returns {error: "..."}.
-export async function adminJsonArray(url: string, init?: RequestInit): Promise<any[]> {
+export async function adminJsonArray<T = unknown>(url: string, init?: RequestInit): Promise<T[]> {
   try {
     const res = await adminFetch(url, init ?? {});
     if (!res.ok) return [];

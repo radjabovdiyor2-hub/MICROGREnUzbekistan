@@ -3,10 +3,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { captureLastFrame } from '@/lib/magazine/videoPoster';
+import { clientErrorMessage } from '@/lib/safeError';
+
+/** Ресторан-владелец журнала — из /api/admin/magazine/restaurants. */
+interface MagazineRestaurant {
+  id: string;
+  slug: string;
+  magazinePdfUrl?: string | null;
+  magazineHtmlUrl?: string | null;
+}
+
+/** Блюдо с видео-кадром — из /api/admin/magazine/dishes. */
+interface MagazineDish {
+  id: string;
+  code: number;
+  nameRu: string;
+  videoUrl?: string | null;
+  restaurantId?: string;
+}
 
 export function AdminMagazine() {
-  const [restaurant, setRestaurant] = useState<any | null>(null);
-  const [dishes, setDishes] = useState<any[]>([]);
+  const [restaurant, setRestaurant] = useState<MagazineRestaurant | null>(null);
+  const [dishes, setDishes] = useState<MagazineDish[]>([]);
   const [uploading, setUploading] = useState('');
   const [loading, setLoading] = useState(true);
   const [quickName, setQuickName] = useState('');
@@ -21,7 +39,7 @@ export function AdminMagazine() {
   const ensureRestaurant = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await adminJsonArray('/api/admin/magazine/restaurants');
+      const list = await adminJsonArray<MagazineRestaurant>('/api/admin/magazine/restaurants');
       if (Array.isArray(list) && list.length > 0 && list[0]?.id) {
         setRestaurant(list[0]);
         return list[0];
@@ -41,7 +59,7 @@ export function AdminMagazine() {
   }, []);
 
   const refreshRestaurant = useCallback(async () => {
-    const list = await adminJsonArray('/api/admin/magazine/restaurants');
+    const list = await adminJsonArray<MagazineRestaurant>('/api/admin/magazine/restaurants');
     if (Array.isArray(list) && list.length > 0 && list[0]?.id) setRestaurant(list[0]);
   }, []);
 
@@ -122,9 +140,12 @@ export function AdminMagazine() {
         const posterPromise = captureLastFrame(file).then((r) => r.blob);
         const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 2000));
         posterBlob = await Promise.race([posterPromise, timeoutPromise]);
-      } catch {}
+      } catch (err) {
+        // Постер — необязательная обложка: видео загрузится и без него.
+        console.warn('Не удалось снять кадр для постера:', err);
+      }
 
-      const dishData: any = { nameRu: name, videoUrl: videoRes.url };
+      const dishData: Record<string, string> = { nameRu: name, videoUrl: videoRes.url };
       if (targetResto?.id) dishData.restaurantId = targetResto.id;
 
       if (posterBlob) {
@@ -146,8 +167,8 @@ export function AdminMagazine() {
       if (dish.code) setLastQr({ code: dish.code, slug });
       setQuickName('');
       if (dish.restaurantId) await loadDishes(dish.restaurantId);
-    } catch (err: any) {
-      alert(`Ошибка: ${err?.message || 'Не удалось загрузить видео'}`);
+    } catch (err: unknown) {
+      alert(`Ошибка: ${clientErrorMessage(err, 'Не удалось загрузить видео')}`);
     } finally { setUploading(''); }
   };
 
@@ -176,7 +197,10 @@ export function AdminMagazine() {
         const posterPromise = captureLastFrame(file).then((r) => r.blob);
         const timeoutPromise = new Promise<null>((r) => setTimeout(() => r(null), 2000));
         posterBlob = await Promise.race([posterPromise, timeoutPromise]);
-      } catch {}
+      } catch (err) {
+        // Постер — необязательная обложка: видео загрузится и без него.
+        console.warn('Не удалось снять кадр для постера:', err);
+      }
 
       const patch: Record<string, string> = { videoUrl: videoRes.url };
       if (posterBlob) {
@@ -189,8 +213,8 @@ export function AdminMagazine() {
         body: JSON.stringify({ id: dishId, ...patch }),
       });
       await loadDishes(restaurant.id);
-    } catch (err: any) {
-      alert(`Ошибка: ${err?.message || 'Не удалось прикрепить видео'}`);
+    } catch (err: unknown) {
+      alert(`Ошибка: ${clientErrorMessage(err, 'Не удалось прикрепить видео')}`);
     } finally { setUploading(''); }
   };
 
@@ -210,7 +234,7 @@ export function AdminMagazine() {
     await loadDishes(restaurant.id);
   };
 
-  const startRename = (d: any) => {
+  const startRename = (d: MagazineDish) => {
     setEditingId(d.id);
     setEditingName(d.nameRu);
   };
@@ -247,7 +271,7 @@ export function AdminMagazine() {
       <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
         <FileCard
           label="📄 PDF журнала"
-          url={restaurant?.magazinePdfUrl}
+          url={restaurant?.magazinePdfUrl ?? null}
           accept=".pdf"
           uploading={uploading === 'magazinePdfUrl'}
           disabled={!!uploading}
@@ -256,7 +280,7 @@ export function AdminMagazine() {
         />
         <FileCard
           label="🌐 HTML журнала"
-          url={restaurant?.magazineHtmlUrl}
+          url={restaurant?.magazineHtmlUrl ?? null}
           accept=".html,.htm"
           uploading={uploading === 'magazineHtmlUrl'}
           disabled={!!uploading}
@@ -292,7 +316,7 @@ export function AdminMagazine() {
         <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
           <input className="input" placeholder="Название блюда (необязательно)" value={quickName} onChange={(e) => setQuickName(e.target.value)}
             style={{ flex: 1, minWidth: 180 }} />
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: '10px', background: 'var(--brand-primary)', color: '#fff', fontWeight: 700, fontSize: 'var(--text-base)', cursor: uploading === 'quick' ? 'wait' : 'pointer' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: '10px', background: 'var(--brand-primary)', color: 'var(--text-inverse)', fontWeight: 700, fontSize: 'var(--text-base)', cursor: uploading === 'quick' ? 'wait' : 'pointer' }}>
             {uploading === 'quick' ? '⏳ Загрузка...' : '📹 Загрузить видео'}
             <input type="file" accept="video/mp4,video/webm,video/quicktime" style={{ display: 'none' }} disabled={!!uploading}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) quickAddVideo(f); e.target.value = ''; }} />
@@ -315,9 +339,9 @@ export function AdminMagazine() {
       {/* Список загруженных видео */}
       {dishes.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-4)' }}>
-          <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>Загруженные видео · {dishes.filter((d: any) => d.videoUrl).length} из {dishes.length}</h3>
+          <h3 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>Загруженные видео · {dishes.filter((d) => d.videoUrl).length} из {dishes.length}</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {dishes.map((d: any) => (
+            {dishes.map((d) => (
               <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-2)', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ width: 36, fontWeight: 700, color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>#{d.code}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -346,12 +370,12 @@ export function AdminMagazine() {
                   {d.videoUrl
                     ? <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span>▶ Видео загружено</span>
-                        <button onClick={() => setPreviewVideoUrl(d.videoUrl)} style={{ border: 'none', background: 'none', color: 'var(--brand-primary)', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}>👁 Просмотр</button>
+                        <button onClick={() => setPreviewVideoUrl(d.videoUrl ?? null)} style={{ border: 'none', background: 'none', color: 'var(--brand-primary)', cursor: 'pointer', fontSize: '11px', textDecoration: 'underline' }}>👁 Просмотр</button>
                       </div>
                     : <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Без видео</div>}
                 </div>
                 {d.videoUrl && (
-                  <button onClick={() => copyLink(restaurant.slug, d.code, d.id)} style={qrBtn}>
+                  <button onClick={() => restaurant && copyLink(restaurant.slug, d.code, d.id)} style={qrBtn}>
                     {copiedId === d.id ? '✅' : '📋 Ссылка'}
                   </button>
                 )}
@@ -380,7 +404,7 @@ export function AdminMagazine() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setPreviewVideoUrl(null)}>
           <div style={{ position: 'relative', maxWidth: 400, width: '100%', background: '#000', borderRadius: 16, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <video src={previewVideoUrl} controls autoPlay playsInline style={{ width: '100%', maxHeight: '75vh', display: 'block' }} />
-            <button onClick={() => setPreviewVideoUrl(null)} style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 18, cursor: 'pointer' }}>✕</button>
+            <button onClick={() => setPreviewVideoUrl(null)} style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.6)', color: 'var(--text-inverse)', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 18, cursor: 'pointer' }}>✕</button>
           </div>
         </div>
       )}
@@ -410,7 +434,7 @@ function FileCard({ label, url, accept, uploading, disabled, onUpload, onRemove 
           <button onClick={onRemove} style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--error)', cursor: 'pointer' }}>Удалить</button>
         </div>
       ) : (
-        <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: '#fff', cursor: disabled ? 'wait' : 'pointer', fontWeight: 600 }}>
+        <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: 'var(--text-inverse)', cursor: disabled ? 'wait' : 'pointer', fontWeight: 600 }}>
           {uploading ? 'Загрузка...' : '⬆ Загрузить'}
           <input type="file" accept={accept} style={{ display: 'none' }} disabled={disabled} onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
         </label>

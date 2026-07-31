@@ -43,7 +43,7 @@ export default async function StatsPage({ params }: { params: Promise<{ slug: st
   });
   const dishById = new Map(dishes.map((d) => [d.id, d]));
 
-  const accent = restaurant.brandPrimary || '#10B981';
+  const accent = restaurant.brandPrimary || 'var(--brand-primary)';
   const tiles = [
     { label: 'Открытий меню', value: count('page_view') },
     { label: 'Сканов блюд', value: count('dish_view') },

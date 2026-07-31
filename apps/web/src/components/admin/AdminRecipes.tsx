@@ -47,7 +47,7 @@ export function AdminRecipes() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setList(await adminJsonArray('/api/admin/magazine/recipes'));
+      setList(await adminJsonArray<Recipe>('/api/admin/magazine/recipes'));
       // Товары нужны, чтобы связать продаваемый ингредиент с корзиной.
       // Эндпоинт отдаёт { items, pagination }, а не массив — adminJsonArray
       // здесь не подходит, он вернул бы пустой список и селект был бы пуст.
@@ -92,7 +92,7 @@ export function AdminRecipes() {
     setBusy(true);
     setNote('');
     try {
-      const body: any = {
+      const body: Omit<Recipe, 'id' | '_count'> = {
         titleRu: editing.titleRu, titleUz: editing.titleUz, slug: editing.slug || editing.titleRu,
         descriptionRu: editing.descriptionRu, heroImage: editing.heroImage,
         cookMinutes: editing.cookMinutes, servings: editing.servings, isActive: editing.isActive,
@@ -253,7 +253,7 @@ export function AdminRecipes() {
               <a href={`/recipe/${r.slug}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, textDecoration: 'none' }}>Открыть ↗</a>
               <button style={btn} onClick={() => downloadQr(r.slug)}>⬇ QR</button>
               <button style={btn} onClick={() => openEditor(r.id)}>Правка</button>
-              <button style={{ ...btn, color: '#b04a4a' }} onClick={() => remove(r.id, r.titleRu)}>Удалить</button>
+              <button style={{ ...btn, color: 'var(--error)' }} onClick={() => remove(r.id, r.titleRu)}>Удалить</button>
             </div>
           ))}
         </div>
@@ -282,7 +282,7 @@ const btn: React.CSSProperties = {
   background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600,
   color: 'var(--text-primary)', whiteSpace: 'nowrap',
 };
-const btnPrimary: React.CSSProperties = { border: '1px solid var(--brand-primary)', background: 'var(--brand-primary)', color: '#fff' };
+const btnPrimary: React.CSSProperties = { border: '1px solid var(--brand-primary)', background: 'var(--brand-primary)', color: 'var(--text-inverse)' };
 const h3: React.CSSProperties = { fontSize: 'var(--text-base)', fontWeight: 700, margin: 'var(--space-5) 0 var(--space-2)' };
 const row: React.CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 };
 const warnBox: React.CSSProperties = {

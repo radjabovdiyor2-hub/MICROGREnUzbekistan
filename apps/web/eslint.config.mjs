@@ -28,15 +28,29 @@ const eslintConfig = defineConfig([
       "react-hooks/purity": "warn",
       "react-hooks/static-components": "warn",
       "react-hooks/error-boundaries": "warn",
-      // img tags are used intentionally in magazine/AR/external-content components
+      // img tags are used intentionally in magazine/AR/external-content components:
+      // адрес картинки задаёт владелец в админке, и хост может быть любым —
+      // next/image отдал бы 400 на всё, чего нет в remotePatterns.
       "@next/next/no-img-element": "off",
-      // Downgrade any to warn — systematic removal requires major refactor
-      "@typescript-eslint/no-explicit-any": "warn",
+      // Аудит 31.07.2026 вычистил все 96 использований any, поэтому послабление
+      // снято: правило снова ошибка и не даёт `any` вернуться в код незаметно.
+      "@typescript-eslint/no-explicit-any": "error",
+      // `const { secret, ...rest } = obj` — штатный способ убрать поле из
+      // ответа API, а `_`-префикс — признак намеренно неиспользуемого
+      // аргумента. Без этих опций правило ругалось именно на такой код и
+      // приучало глушить его целиком.
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        ignoreRestSiblings: true,
+        argsIgnorePattern: "^_",
+        varsIgnorePattern: "^_",
+        caughtErrorsIgnorePattern: "^_",
+      }],
     },
   },
-  // next.config.ts uses dynamic require() for optional Sentry
+  // next.config.ts uses dynamic require() for optional Sentry;
+  // rateLimit.ts — для необязательной зависимости ioredis (её может не быть).
   {
-    files: ["next.config.ts"],
+    files: ["next.config.ts", "src/lib/rateLimit.ts"],
     rules: {
       "@typescript-eslint/no-require-imports": "off",
     },

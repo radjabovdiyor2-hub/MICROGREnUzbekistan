@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' }
     });
     return NextResponse.json(subscriptions);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/subscriptions] GET:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -32,7 +33,8 @@ export async function POST(req: NextRequest) {
       }
     });
     return NextResponse.json(sub);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/subscriptions] POST:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -48,7 +50,8 @@ export async function PATCH(req: NextRequest) {
       data: updateData
     });
     return NextResponse.json(sub);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/subscriptions] PATCH:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -61,7 +64,8 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     await prisma.printSubscription.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/subscriptions] DELETE:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

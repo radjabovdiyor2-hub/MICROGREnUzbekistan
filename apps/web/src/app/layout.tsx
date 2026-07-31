@@ -164,6 +164,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: [
+    // Литералы намеренно: themeColor уходит в манифест PWA и в мета-тег,
+    // который читает системный браузер — CSS-переменных там нет.
     { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
     { media: '(prefers-color-scheme: dark)', color: '#0B0B14' },
   ],

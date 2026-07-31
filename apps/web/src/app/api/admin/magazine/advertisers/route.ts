@@ -9,7 +9,8 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(advertisers);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/advertisers] GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -19,7 +20,8 @@ export async function POST(request: Request) {
     const data = await request.json();
     const created = await prisma.advertiser.create({ data });
     return NextResponse.json(created);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/advertisers] POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -35,7 +37,8 @@ export async function PATCH(request: Request) {
       data: updateData,
     });
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/advertisers] PATCH:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -48,7 +51,8 @@ export async function DELETE(request: Request) {
 
     await prisma.advertiser.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/advertisers] DELETE:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

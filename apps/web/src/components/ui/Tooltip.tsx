@@ -55,7 +55,7 @@ export function Tooltip({
               color: 'var(--text-primary)',
               whiteSpace: 'nowrap',
               pointerEvents: 'none',
-              zIndex: 'var(--z-dropdown, 50)' as any,
+              zIndex: 50, // CSS-переменная в zIndex не разворачивается: React ждёт число
             }}
           >
             {content}

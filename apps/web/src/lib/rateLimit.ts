@@ -33,8 +33,9 @@ async function getRedis(): Promise<RedisClient | null> {
   if (!url) return null;
 
   try {
-    // ioredis is a runtime-optional peer dependency.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // ioredis is a runtime-optional peer dependency: пакета может не быть
+    // вовсе, поэтому require, а не import. Исключение вынесено в
+    // eslint.config.mjs, чтобы не держать глушилку в коде.
     const Redis = require('ioredis');
     const client = new Redis(url, {
       maxRetriesPerRequest: 1,

@@ -1,8 +1,8 @@
 export const triggerHaptic = (type: 'light' | 'medium' | 'heavy' | 'success' | 'warning' = 'light') => {
   if (typeof window !== 'undefined') {
     // 1. Try Telegram native Haptic Feedback (Works on iOS and Android)
-    const tg = (window as any).Telegram?.WebApp;
-    if (tg && tg.HapticFeedback) {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.HapticFeedback) {
       if (['light', 'medium', 'heavy'].includes(type)) {
         tg.HapticFeedback.impactOccurred(type);
       } else if (type === 'success') {
@@ -24,8 +24,8 @@ export const triggerHaptic = (type: 'light' | 'medium' | 'heavy' | 'success' | '
           case 'warning': window.navigator.vibrate([60, 50, 60, 50, 100]); break;
           default: window.navigator.vibrate(30);
         }
-      } catch (e) {
-        // Ignore vibration errors
+      } catch {
+        // Вибрация — украшение: браузер вправе её запретить, и это не ошибка.
       }
     }
   }

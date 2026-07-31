@@ -5,7 +5,29 @@ import { NextResponse } from 'next/server';
 // Requires INSTAGRAM_ACCESS_TOKEN (Page Token) in .env
 
 const CACHE_TTL = 3600 * 1000; // 1 hour cache
-let cachedData: { posts: any[]; timestamp: number } | null = null;
+
+/** Пост в том виде, в каком его отдаёт Graph API — все поля необязательны. */
+interface RawInstagramPost {
+  id?: string;
+  caption?: string;
+  media_type?: string;
+  media_url?: string;
+  thumbnail_url?: string;
+  permalink?: string;
+  timestamp?: string;
+}
+
+/** Пост в том виде, в каком его ждёт витрина. */
+interface FormattedPost {
+  id: string;
+  caption: string;
+  mediaUrl: string;
+  mediaType: string;
+  permalink: string;
+  timestamp: string;
+}
+
+let cachedData: { posts: FormattedPost[]; timestamp: number } | null = null;
 
 // Instagram Business Account ID (from Facebook Page)
 const IG_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID || '17841475487793099';
@@ -61,15 +83,15 @@ export async function GET() {
 }
 
 // Format posts for frontend consumption
-function formatPosts(rawPosts: any[]) {
+function formatPosts(rawPosts: RawInstagramPost[]): FormattedPost[] {
   return rawPosts
-    .filter((p: any) => p.media_type !== 'VIDEO' || p.thumbnail_url) // skip videos without thumbnails
-    .map((post: any) => ({
-      id: post.id,
+    .filter((p) => p.media_type !== 'VIDEO' || p.thumbnail_url) // skip videos without thumbnails
+    .map((post) => ({
+      id: post.id ?? '',
       caption: post.caption || '',
-      mediaUrl: post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url,
-      mediaType: post.media_type, // IMAGE, VIDEO, CAROUSEL_ALBUM
-      permalink: post.permalink,
-      timestamp: post.timestamp,
+      mediaUrl: (post.media_type === 'VIDEO' ? post.thumbnail_url : post.media_url) ?? '',
+      mediaType: post.media_type ?? 'IMAGE', // IMAGE, VIDEO, CAROUSEL_ALBUM
+      permalink: post.permalink ?? '',
+      timestamp: post.timestamp ?? '',
     }));
 }

@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { buildTemplate, parseDishCsv } from '@/lib/magazine/dishCsv';
+import { prismaErrorCode } from '@/lib/safeError';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,8 +86,8 @@ export async function POST(req: NextRequest) {
             include: { restaurant: true },
           });
           break;
-        } catch (e: any) {
-          if (e.code === 'P2002') {
+        } catch (e: unknown) {
+          if (prismaErrorCode(e) === 'P2002') {
             nextCode++;
           } else {
             throw e;
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ dishes, issues, saved });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in dishes POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -157,7 +158,7 @@ export async function PATCH(req: NextRequest) {
     const data = Object.fromEntries(Object.entries(rest).filter(([k]) => allowed.includes(k)));
     const dish = await prisma.dish.update({ where: { id }, data });
     return NextResponse.json(dish);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in dishes PATCH:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -170,7 +171,7 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
     await prisma.dish.delete({ where: { id } });
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in dishes DELETE:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

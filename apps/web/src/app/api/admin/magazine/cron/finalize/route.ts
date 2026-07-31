@@ -38,7 +38,8 @@ export async function POST(req: Request) {
       finalizedIssues: res.count 
     });
 
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/cron/finalize] POST:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -104,6 +104,10 @@ ${userInfo || ''}
 // ==========================================
 // Gemini API — with retry for 429
 // ==========================================
+
+/** Часть сообщения Gemini: либо текст, либо вложенное изображение. */
+type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+
 async function callGemini(
   message: string,
   history: { role: string; content: string }[],
@@ -113,12 +117,12 @@ async function callGemini(
 ): Promise<string> {
   if (!GEMINI_API_KEY) throw new Error('No API key');
 
-  const contents = history.map(h => ({
+  const contents: { role: string; parts: GeminiPart[] }[] = history.map(h => ({
     role: h.role === 'user' ? 'user' : 'model',
     parts: [{ text: h.content }],
   }));
 
-  const parts: any[] = [{ text: message }];
+  const parts: GeminiPart[] = [{ text: message }];
   if (image) {
     parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
   }

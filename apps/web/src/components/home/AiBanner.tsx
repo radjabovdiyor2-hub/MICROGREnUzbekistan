@@ -28,7 +28,7 @@ export function AiBanner() {
       <div className="container">
         {/* Main AI Banner */}
         <div style={{
-          background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 30%, #A855F7 60%, #C084FC 100%)',
+          background: 'linear-gradient(135deg, var(--cat-1) 0%, var(--cat-9) 30%, var(--cat-9) 60%, #C084FC 100%)',
           backgroundSize: '300% 300%',
           animation: 'ai-gradient 10s ease infinite',
           borderRadius: '24px',
@@ -88,7 +88,7 @@ export function AiBanner() {
               <button
                 onClick={openChat}
                 style={{
-                  background: 'white', color: '#4F46E5', border: 'none',
+                  background: 'white', color: 'var(--cat-1)', border: 'none',
                   padding: '13px 26px',
                   fontWeight: 700, fontSize: '14px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '10px',
@@ -190,7 +190,7 @@ export function AiBanner() {
         {/* Referral Banner */}
         <div style={{
           marginTop: 'var(--space-5)',
-          background: 'linear-gradient(135deg, #047857, #059669, #10B981)',
+          background: 'linear-gradient(135deg, var(--brand-primary-deep), var(--brand-primary-hover), var(--brand-primary))',
           backgroundSize: '200% 200%',
           animation: 'hero-gradient-shift 8s ease infinite',
           borderRadius: '20px',

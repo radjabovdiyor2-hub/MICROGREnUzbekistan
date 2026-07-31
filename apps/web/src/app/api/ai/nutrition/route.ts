@@ -232,7 +232,7 @@ function todayKey(dateStr?: string): string {
   return (dateStr ? new Date(dateStr) : new Date()).toISOString().slice(0, 10);
 }
 
-async function generateAiRecipe(dateStr?: string): Promise<Record<string, unknown> | null> {
+async function generateAiRecipe(_dateStr?: string): Promise<Record<string, unknown> | null> {
   if (!GEMINI_API_KEY) return null;
   const crops = Object.entries(NUTRITION_DB).map(([k, v]) => `${k} (${v.nameRu})`).join(', ');
   const prompt = `Ты шеф-повар и нутрициолог бренда Microgreen Uzbekistan. Придумай ОДИН рецепт «блюдо дня» с микрозеленью.
@@ -297,10 +297,27 @@ export async function getRecipeForDay(dateStr?: string): Promise<Record<string, 
   return recipe;
 }
 
+/** Нутриенты, которые суммируются по всем культурам в порции. */
+type NutrientTotals = {
+  calories: number; protein: number; fat: number; carbs: number; fiber: number;
+  vitC: number; vitA: number; vitK: number; vitE: number;
+  iron: number; calcium: number; potassium: number; magnesium: number; zinc: number;
+};
+
+/** Строка расчёта по одной культуре: нутриенты плюс справочные поля. */
+type NutritionRow = NutrientTotals & {
+  crop: string;
+  nameUz: string;
+  nameRu: string;
+  grams: number;
+  antioxidantMultiplier: number;
+  benefits: { uz: string; ru: string }[];
+};
+
 // Nutritionist calculation
 function calculateNutrition(items: { crop: string; grams: number }[]) {
-  const total = { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, vitC: 0, vitA: 0, vitK: 0, vitE: 0, iron: 0, calcium: 0, potassium: 0, magnesium: 0, zinc: 0 };
-  const details: any[] = [];
+  const total: NutrientTotals = { calories: 0, protein: 0, fat: 0, carbs: 0, fiber: 0, vitC: 0, vitA: 0, vitK: 0, vitE: 0, iron: 0, calcium: 0, potassium: 0, magnesium: 0, zinc: 0 };
+  const details: NutritionRow[] = [];
   for (const item of items) {
     const db = NUTRITION_DB[item.crop];
     if (!db) continue;

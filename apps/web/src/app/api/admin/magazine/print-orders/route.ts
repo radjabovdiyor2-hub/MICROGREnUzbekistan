@@ -55,7 +55,8 @@ export async function GET(req: NextRequest) {
       payLinks: o.status === 'paid' ? null : buildPayLinks(o.id, o.revenue),
     }));
     return NextResponse.json(withLinks);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/print-orders] GET:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -81,7 +82,8 @@ export async function POST(req: NextRequest) {
       }
     });
     return NextResponse.json(order);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/print-orders] POST:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -102,7 +104,8 @@ export async function PATCH(req: NextRequest) {
       data: updateData
     });
     return NextResponse.json(order);
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/print-orders] PATCH:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -115,7 +118,8 @@ export async function DELETE(req: NextRequest) {
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     await prisma.printOrder.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    console.error('[/api/admin/magazine/print-orders] DELETE:', e);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

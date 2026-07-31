@@ -52,7 +52,7 @@ function TypingIndicator() {
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'flex-start', maxWidth: '85%' }}>
       <div style={{
         width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-        background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+        background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2))',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
       }}>
@@ -98,10 +98,10 @@ export function AiChatWidget() {
 
   // Quick actions for craftsmen
   const QUICK_ACTIONS = [
-    { icon: <Camera size={18} />, label: 'Foto tahlil', color: '#8B5CF6', action: () => fileInputRef.current?.click() },
-    { icon: <Leaf size={18} />, label: 'Parvarish', color: '#10B981', action: () => { setInput('Mikroko\'katlarni qanday to\'g\'ri sug\'orish kerak?'); setTimeout(() => document.getElementById("ai-chat-send")?.click(), 50); } },
-    { icon: <Calculator size={18} />, label: 'Kalkulyator', color: '#3B82F6', action: () => setMode('tools') },
-    { icon: <Phone size={18} />, label: 'Qo\'ng\'iroq', color: '#10B981', action: () => window.open('tel:+998949999599') },
+    { icon: <Camera size={18} />, label: 'Foto tahlil', color: 'var(--cat-2)', action: () => fileInputRef.current?.click() },
+    { icon: <Leaf size={18} />, label: 'Parvarish', color: 'var(--brand-primary)', action: () => { setInput('Mikroko\'katlarni qanday to\'g\'ri sug\'orish kerak?'); setTimeout(() => document.getElementById("ai-chat-send")?.click(), 50); } },
+    { icon: <Calculator size={18} />, label: 'Kalkulyator', color: 'var(--info)', action: () => setMode('tools') },
+    { icon: <Phone size={18} />, label: 'Qo\'ng\'iroq', color: 'var(--brand-primary)', action: () => window.open('tel:+998949999599') },
   ];
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -157,7 +157,7 @@ export function AiChatWidget() {
 
   const toggleListening = () => {
     if (isListening) { setIsListening(false); return; }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Web Speech API not in TS lib
+    // Типы Web Speech API объявлены в src/types/telegram.d.ts, глушилка не нужна.
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) { alert("Brauzeringiz ovozni qo'llab-quvvatlamaydi"); return; }
     const r = new SR(); r.lang = 'uz-UZ'; r.interimResults = false;
@@ -259,7 +259,7 @@ export function AiChatWidget() {
       {/* Header */}
       <div style={{
         padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+        background: 'linear-gradient(135deg, var(--cat-1) 0%, var(--cat-9) 50%, var(--cat-9) 100%)',
         backgroundSize: '200% 200%', animation: 'ai-gradient 8s ease infinite',
         color: 'white', flexShrink: 0,
       }}>
@@ -312,7 +312,7 @@ export function AiChatWidget() {
             {msg.role === 'assistant' && (
               <div style={{
                 width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 boxShadow: '0 2px 8px rgba(99,102,241,0.2)',
               }}>
@@ -355,7 +355,7 @@ export function AiChatWidget() {
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
             <div style={{
               width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+              background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Sparkles size={13} color="white" />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@repo/database';
+import { prisma, OrderStatus } from '@repo/database';
 import { notifyCustomer } from '@/lib/notify';
 import { customerStatusText } from '@/lib/orderSync';
 
@@ -17,24 +17,26 @@ import { customerStatusText } from '@/lib/orderSync';
 // ==========================================
 
 // Office status (microgreen.orders CHECK) -> Prisma OrderStatus.
-const OFFICE_TO_PRISMA: Record<string, string> = {
-  new: 'PENDING',
-  confirmed: 'CONFIRMED',
-  preparing: 'PREPARING',
-  ready: 'PREPARING',
-  delivering: 'DELIVERING',
-  delivered: 'DELIVERED',
-  cancelled: 'CANCELLED',
+const OFFICE_TO_PRISMA: Record<string, OrderStatus> = {
+  new: OrderStatus.PENDING,
+  confirmed: OrderStatus.CONFIRMED,
+  preparing: OrderStatus.PREPARING,
+  ready: OrderStatus.PREPARING,
+  delivering: OrderStatus.DELIVERING,
+  delivered: OrderStatus.DELIVERED,
+  cancelled: OrderStatus.CANCELLED,
 };
 
-const PRISMA_STATUSES = new Set([
-  'PENDING', 'CONFIRMED', 'PREPARING', 'DELIVERING', 'DELIVERED', 'CANCELLED',
-]);
-
-function normalizeStatus(raw: unknown): string | null {
+/** Приводит статус офиса к enum витрины. null — статус неизвестен, запись не делаем.
+ *
+ *  Возвращаемый тип — именно OrderStatus, а не string: раньше здесь был string,
+ *  и на записи стояло `status as any`. Каст глушил как раз ту проверку, ради
+ *  которой функция и написана — добавь кто-нибудь в OFFICE_TO_PRISMA значение
+ *  с опечаткой, компилятор бы промолчал, а Prisma упала бы в рантайме. */
+function normalizeStatus(raw: unknown): OrderStatus | null {
   if (typeof raw !== 'string' || !raw) return null;
   const upper = raw.toUpperCase();
-  if (PRISMA_STATUSES.has(upper)) return upper;
+  if (upper in OrderStatus) return OrderStatus[upper as keyof typeof OrderStatus];
   return OFFICE_TO_PRISMA[raw.toLowerCase()] ?? null;
 }
 
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     const order = await prisma.order.update({
       where: { orderNumber },
-      data: { status: status as any },
+      data: { status },
       include: { user: { select: { telegramId: true, language: true } } },
     });
 

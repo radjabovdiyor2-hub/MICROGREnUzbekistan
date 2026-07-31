@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, Prisma, OrderStatus } from '@repo/database';
 import { requireBotAuth } from '@/lib/botAuth';
 
 // ==========================================
@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 50);
   const status = searchParams.get('status');
 
-  const where = status && status !== 'ALL' ? { status: status as any } : {};
+  const where: Prisma.OrderWhereInput =
+    status && status !== 'ALL' && status in OrderStatus
+      ? { status: OrderStatus[status as keyof typeof OrderStatus] }
+      : {};
 
   const orders = await prisma.order.findMany({
     where,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@repo/database';
+import { prisma, Prisma, OrderStatus } from '@repo/database';
 import { deliveryFeeForSubtotal, getNumber } from '@/lib/settings/store';
 import { syncOrderStatus } from '@/lib/orderSync';
 import { validatePromo, consumePromo } from '@/lib/promo';
@@ -205,6 +205,8 @@ const orderItemSchema = z.object({
   quantity: z.number().min(1),
 });
 
+type OrderItemInput = z.infer<typeof orderItemSchema>;
+
 const orderSchema = z.object({
   customer: z.object({
     firstName: z.string().min(1),
@@ -257,7 +259,7 @@ export async function POST(request: NextRequest) {
         address: body.address || 'Telegram bot orqali',
       };
       // Map bot item shape: { id → productId }
-      items = (body.items || []).map((item: any) => ({
+      items = (body.items || []).map((item: OrderItemInput) => ({
         productId: item.productId || item.id || '',
         price: item.price,
         quantity: item.quantity,
@@ -354,7 +356,7 @@ export async function POST(request: NextRequest) {
           paymentMethod: paymentMethod || 'cash',
           paymentStatus: 'PENDING',
           items: {
-            create: items!.map((item: any) => ({
+            create: items!.map((item: OrderItemInput) => ({
               productId: item.productId || item.id || '',
               quantity: item.quantity,
               price: item.price,
@@ -495,7 +497,10 @@ export async function GET(request: NextRequest) {
     return unauthorized();
   }
 
-  const where: any = status && status !== 'ALL' ? { status: status as any } : {};
+  const where: Prisma.OrderWhereInput =
+    status && status !== 'ALL' && status in OrderStatus
+      ? { status: OrderStatus[status as keyof typeof OrderStatus] }
+      : {};
   if (phone) where.phone = phone;
   if (userId) where.userId = userId;
 

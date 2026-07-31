@@ -10,7 +10,8 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(leads);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/leads] GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -25,7 +26,8 @@ export async function PATCH(request: Request) {
       data: { isPaid },
     });
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/leads] PATCH:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -43,7 +45,8 @@ export async function POST(request: Request) {
       }
     });
     return NextResponse.json(lead);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/leads] POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

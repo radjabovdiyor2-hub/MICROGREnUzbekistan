@@ -22,7 +22,7 @@ export function AiNutritionistBanner() {
           position: 'relative',
           borderRadius: 'var(--radius-2xl)',
           overflow: 'hidden',
-          background: '#0F172A',
+          background: 'var(--surface-ink)',
           boxShadow: '0 20px 40px rgba(var(--brand-primary-rgb), 0.15)',
         }}
       >
@@ -35,14 +35,14 @@ export function AiNutritionistBanner() {
             style={{ objectFit: 'cover' }} 
           />
           {/* Gradient Overlay for text readability */}
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, #0F172A 30%, transparent)' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, var(--surface-ink) 30%, transparent)' }} />
         </div>
 
         {/* Content */}
         <div style={{ position: 'relative', zIndex: 1, padding: 'var(--space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxWidth: '500px' }}>
           <div style={{ 
             display: 'inline-flex', alignItems: 'center', gap: '8px', 
-            background: 'rgba(var(--brand-primary-rgb), 0.2)', color: '#34D399', 
+            background: 'rgba(var(--brand-primary-rgb), 0.2)', color: 'var(--brand-primary)', 
             padding: '6px 12px', borderRadius: 'var(--radius-full)', 
             fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)',
             width: 'fit-content', border: '1px solid rgba(52, 211, 153, 0.3)'
@@ -57,14 +57,14 @@ export function AiNutritionistBanner() {
             Узнайте, чего не хватает вашему завтраку
           </h2>
           
-          <p style={{ color: '#94A3B8', fontSize: 'var(--text-base)', lineHeight: 1.5 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-base)', lineHeight: 1.5 }}>
             Сфотографируйте свою еду и отправьте нашему ИИ-Боту. Нейросеть проанализирует блюдо и подскажет, какая микрозелень добавит недостающие витамины и сделает его в 2 раза полезнее!
           </p>
 
           <button 
             onClick={openBot}
             style={{
-              background: 'linear-gradient(135deg, #10B981, #059669)',
+              background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))',
               color: 'white',
               border: 'none',
               padding: '16px 24px',

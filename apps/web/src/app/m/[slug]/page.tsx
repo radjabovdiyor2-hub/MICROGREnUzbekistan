@@ -26,8 +26,8 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
     loadApprovedPhotos(restaurant.id),
   ]);
 
-  const accent = restaurant.brandPrimary || '#10B981';
-  const gold = restaurant.brandAccent || '#C9A84C';
+  const accent = restaurant.brandPrimary || 'var(--brand-primary)';
+  const gold = restaurant.brandAccent || 'var(--brand-accent)';
 
   const grouped = dishes.reduce<Record<string, typeof dishes>>((acc, d) => {
     const key = d.category && isDishCategory(d.category) ? d.category : 'other';

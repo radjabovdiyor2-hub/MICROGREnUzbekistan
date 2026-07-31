@@ -57,9 +57,20 @@ const SYSTEM_PROMPT = `Ты — Стёпан, операционный дире�
 
 // ─────────────────────────── OpenAI ───────────────────────────
 
+/** Сообщение в диалоге OpenAI: системное/пользовательское, ответ модели с
+ *  вызовами инструментов, либо результат инструмента. */
+type OpenAiMessage =
+  | { role: 'system' | 'user' | 'assistant'; content: string | null; tool_calls?: OpenAiToolCall[] }
+  | { role: 'tool'; tool_call_id: string; content: string };
+
+interface OpenAiToolCall {
+  id: string;
+  function?: { name: string; arguments?: string };
+}
+
 async function runOpenAI(messages: ChatMessage[]): Promise<BrainResult> {
   const tools = toolSchemas('web').map(t => ({ type: 'function' as const, function: t }));
-  const convo: any[] = [
+  const convo: OpenAiMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     ...messages.map(m => ({ role: m.role, content: m.content })),
   ];
@@ -113,9 +124,25 @@ async function runOpenAI(messages: ChatMessage[]): Promise<BrainResult> {
 
 // ─────────────────────────── Gemini ───────────────────────────
 
+/** Часть сообщения Gemini: текст, вызов функции или её результат. */
+type GeminiPart =
+  | { text: string }
+  | { functionCall: { name: string; args?: Record<string, unknown> } }
+  | { functionResponse: { name: string; response: { result: unknown } } };
+
+interface GeminiContent {
+  role: 'user' | 'model';
+  parts: GeminiPart[];
+}
+
+/** Сужение: часть с вызовом функции. */
+function isFunctionCall(p: GeminiPart): p is { functionCall: { name: string; args?: Record<string, unknown> } } {
+  return 'functionCall' in p;
+}
+
 async function runGemini(messages: ChatMessage[]): Promise<BrainResult> {
   const functionDeclarations = toolSchemas('web');
-  const contents: any[] = messages.map(m => ({
+  const contents: GeminiContent[] = messages.map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }));
@@ -145,16 +172,16 @@ async function runGemini(messages: ChatMessage[]): Promise<BrainResult> {
 
     const data = await res.json();
     const parts = data.candidates?.[0]?.content?.parts ?? [];
-    const fnCalls = parts.filter((p: any) => p.functionCall).map((p: any) => p.functionCall);
+    const fnCalls = (parts as GeminiPart[]).filter(isFunctionCall).map((p) => p.functionCall);
 
     if (!fnCalls.length) {
-      const text = parts.map((p: any) => p.text).filter(Boolean).join('\n');
+      const text = (parts as GeminiPart[]).map((p) => ('text' in p ? p.text : '')).filter(Boolean).join('\n');
       return { reply: text, proposals, usedTools };
     }
 
     contents.push({ role: 'model', parts });
 
-    const responseParts: any[] = [];
+    const responseParts: GeminiPart[] = [];
     for (const call of fnCalls) {
       usedTools.push(call.name);
       const output = await handleCall(call.name, call.args ?? {}, proposals);

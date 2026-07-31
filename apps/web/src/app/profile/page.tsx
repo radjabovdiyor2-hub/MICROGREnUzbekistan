@@ -73,10 +73,19 @@ function SimpleRegisterForm() {
   );
 }
 
+/** Заказ в списке личного кабинета — из GET /api/orders. */
+interface ProfileOrder {
+  orderNumber: string;
+  status: string;
+  total: number;
+  createdAt: string;
+  items?: { quantity: number; product?: { nameRu?: string } }[];
+}
+
 function UserOrders() {
   const { dbUser } = useAuth();
   const { t } = useLang();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<ProfileOrder[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -122,8 +131,8 @@ function UserOrders() {
                 </div>
                 <span style={{ 
                   fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '20px',
-                  background: o.status === 'PENDING' ? '#FEF3C7' : o.status === 'DELIVERING' ? '#DBEAFE' : o.status === 'DELIVERED' ? '#D1FAE5' : '#FEE2E2',
-                  color: o.status === 'PENDING' ? '#D97706' : o.status === 'DELIVERING' ? '#2563EB' : o.status === 'DELIVERED' ? '#059669' : '#DC2626'
+                  background: o.status === 'PENDING' ? 'var(--warning-bg)' : o.status === 'DELIVERING' ? 'var(--info-bg)' : o.status === 'DELIVERED' ? 'var(--brand-primary-light)' : 'var(--error-bg)',
+                  color: o.status === 'PENDING' ? 'var(--warning)' : o.status === 'DELIVERING' ? 'var(--info)' : o.status === 'DELIVERED' ? 'var(--brand-primary-hover)' : 'var(--error)'
                 }}>
                   {o.status === 'PENDING' ? t('Kutilyapti', 'В ожидании') : 
                    o.status === 'DELIVERING' ? t('Yetkazilyapti', 'В пути') : 
@@ -133,7 +142,7 @@ function UserOrders() {
               
               {/* Items preview */}
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                {o.items?.map((i: any) => `${i.quantity}x ${i.product?.nameRu || 'Товар'}`).join(', ')}
+                {o.items?.map((i) => `${i.quantity}x ${i.product?.nameRu || 'Товар'}`).join(', ')}
               </div>
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
@@ -382,6 +391,13 @@ export default function ProfilePage() {
 // ==========================================
 
 
+/** Реферальная статистика пользователя — из GET /api/referral. */
+interface ReferralData {
+  referralCode?: string;
+  referralCount?: number;
+  referredBy?: string | null;
+}
+
 function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
   userId?: string;
   referralCode?: string;
@@ -394,7 +410,7 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
   const [applyStatus, setApplyStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [applying, setApplying] = useState(false);
   const [showRules, setShowRules] = useState(false);
-  const [referralData, setReferralData] = useState<any>(null);
+  const [referralData, setReferralData] = useState<ReferralData | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   // Load referral data
@@ -413,7 +429,10 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
   // Load on first render (properly via useEffect)
   useEffect(() => {
     loadData();
-  }, [userId, loaded]); // eslint-disable-line
+    // loadData пересоздаётся каждый рендер и сама завязана на loaded —
+    // в зависимостях она даёт бесконечный цикл. Условие входа внутри неё.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, loaded]);
 
   const shortCode = referralData?.referralCode || (referralCode ? `AGRO-${referralCode.slice(-6).toUpperCase()}` : '...');
   const shareUrl = `https://microgreenuzbekistan.com/?ref=${referralCode || ''}`;
@@ -466,7 +485,7 @@ function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: {
     <div style={{ marginTop: 'var(--space-5)' }}>
       {/* Bonus Balance Card */}
       <div style={{
-        background: 'linear-gradient(135deg, #6366F1, #8B5CF6, #A855F7)',
+        background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2), var(--cat-9))',
         borderRadius: 'var(--radius-xl)', padding: 'var(--space-5)',
         color: 'white', position: 'relative', overflow: 'hidden',
       }}>

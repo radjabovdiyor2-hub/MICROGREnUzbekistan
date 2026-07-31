@@ -196,7 +196,7 @@ export function AdminGuestPhotos() {
                     <button disabled={busyId === p.id} onClick={() => setPhotoStatus(p.id, 'rejected')} style={btn}>Отклонить</button>
                   )}
                   {status === 'rejected' && (
-                    <button disabled={busyId === p.id} onClick={() => remove(p.id)} style={{ ...btn, color: 'var(--danger, #b04a4a)' }}>Удалить</button>
+                    <button disabled={busyId === p.id} onClick={() => remove(p.id)} style={{ ...btn, color: 'var(--danger, var(--error))' }}>Удалить</button>
                   )}
                 </div>
               </figcaption>
@@ -214,5 +214,5 @@ const btn: React.CSSProperties = {
 };
 
 const btnPrimary: React.CSSProperties = {
-  ...btn, border: '1px solid var(--brand-primary)', background: 'var(--brand-primary)', color: '#fff',
+  ...btn, border: '1px solid var(--brand-primary)', background: 'var(--brand-primary)', color: 'var(--text-inverse)',
 };

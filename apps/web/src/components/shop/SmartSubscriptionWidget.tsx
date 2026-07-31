@@ -18,7 +18,7 @@ export function SmartSubscriptionWidget() {
     <div className="card" style={{ 
       padding: 'var(--space-4)', 
       marginTop: 'var(--space-4)', 
-      border: active ? '2px solid #10B981' : '1px solid var(--border)',
+      border: active ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
       background: active ? 'rgba(16, 185, 129, 0.05)' : 'var(--card)',
       transition: 'all 0.3s ease',
       cursor: 'pointer',
@@ -27,13 +27,13 @@ export function SmartSubscriptionWidget() {
     }} onClick={toggleSub}>
       
       {active && (
-        <div style={{ position: 'absolute', right: -20, top: -20, background: '#10B981', color: 'white', padding: '20px', borderRadius: '50%' }}>
+        <div style={{ position: 'absolute', right: -20, top: -20, background: 'var(--brand-primary)', color: 'white', padding: '20px', borderRadius: '50%' }}>
           <CheckCircle size={24} style={{ position: 'relative', top: 5, right: 5 }} />
         </div>
       )}
 
       <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-        <div style={{ background: '#10B981', padding: '10px', borderRadius: '12px', color: 'white' }}>
+        <div style={{ background: 'var(--brand-primary)', padding: '10px', borderRadius: '12px', color: 'white' }}>
           <CalendarClock size={24} />
         </div>
         <div>
@@ -47,7 +47,7 @@ export function SmartSubscriptionWidget() {
       </div>
       
       {active && (
-        <div style={{ marginTop: '15px', padding: '10px', background: 'var(--bg)', borderRadius: '8px', fontSize: '13px', color: '#10B981', fontWeight: 600 }}>
+        <div style={{ marginTop: '15px', padding: '10px', background: 'var(--bg)', borderRadius: '8px', fontSize: '13px', color: 'var(--brand-primary)', fontWeight: 600 }}>
           <Zap size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} />
           Активировано! Мы пришлем ссылку на оплату в Telegram за день до доставки.
         </div>

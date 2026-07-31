@@ -24,7 +24,7 @@ export default async function MagazineReaderPage({ params }: { params: Promise<{
 
   const barBtn: React.CSSProperties = {
     fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600,
-    color: '#fff', textDecoration: 'none', padding: '8px 16px',
+    color: 'var(--text-inverse)', textDecoration: 'none', padding: '8px 16px',
     borderRadius: '30px', border: '1px solid rgba(255,255,255,0.25)',
   };
 

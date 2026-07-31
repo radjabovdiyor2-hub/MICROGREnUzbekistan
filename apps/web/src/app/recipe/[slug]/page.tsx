@@ -13,7 +13,7 @@ import { jsonLdScript, recipeSchema, breadcrumbList, SITE_DOMAIN } from '@/lib/s
 // в админке; ключевая механика — «собрать набор микрозелени» в корзину.
 export const dynamic = 'force-dynamic';
 
-const ACCENT = '#10B981';
+const ACCENT = 'var(--brand-primary)';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -178,7 +178,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
                 <div key={s.id} style={{ display: 'flex', gap: 14 }}>
                   <div style={{
                     flexShrink: 0, width: 32, height: 32, borderRadius: '50%',
-                    background: ACCENT, color: '#fff',
+                    background: ACCENT, color: 'var(--text-inverse)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontFamily: "'Inter', sans-serif", fontWeight: 800,
                   }}>{i + 1}</div>

@@ -231,9 +231,20 @@ export function AdminAnalytics() {
 // ==========================================
 // Health Score Widget
 // ==========================================
+
+/** Уровень здоровья склада приходит с API; цвет для него выбирает витрина
+ *  по токенам дизайн-системы, чтобы индикатор жил в теме, а не в hex. */
+type HealthLevel = 'ok' | 'info' | 'warning' | 'critical';
+
+const HEALTH_COLORS: Record<HealthLevel, string> = {
+  ok: 'var(--brand-primary)',
+  info: 'var(--info)',
+  warning: 'var(--warning)',
+  critical: 'var(--error)',
+};
 function HealthScoreWidget() {
   const [data, setData] = useState<{
-    healthScore: number; healthLabel: string; healthColor: string;
+    healthScore: number; healthLabel: string; healthLevel: HealthLevel;
     breakdown: { stockoutScore: number; balanceScore: number; turnoverScore: number; diversityScore: number };
   } | null>(null);
 
@@ -243,7 +254,8 @@ function HealthScoreWidget() {
 
   if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
 
-  const { healthScore, healthLabel, healthColor, breakdown } = data;
+  const { healthScore, healthLabel, healthLevel, breakdown } = data;
+  const healthColor = HEALTH_COLORS[healthLevel] ?? HEALTH_COLORS.ok;
   const circumference = 2 * Math.PI * 45;
   const progress = (healthScore / 100) * circumference;
 
@@ -265,7 +277,7 @@ function HealthScoreWidget() {
           <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>/100</span>
         </div>
       </div>
-      <div style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', background: `${healthColor}15`, color: healthColor, fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', display: 'inline-block', marginBottom: 'var(--space-3)' }}>
+      <div style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', background: `color-mix(in srgb, ${healthColor} 12%, transparent)`, color: healthColor, fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)', display: 'inline-block', marginBottom: 'var(--space-3)' }}>
         {healthLabel}
       </div>
       {/* Breakdown */}
@@ -302,10 +314,13 @@ function ABCXYZWidget() {
   if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
 
   const { classSummary } = data;
+  // Девять классов ABC-XYZ должны читаться как девять РАЗНЫХ ячеек, поэтому
+  // здесь категориальная палитра --cat-*, а не статусные --success/--warning:
+  // те дали бы одинаковый цвет соседним классам и матрица потеряла бы смысл.
   const matrixColors: Record<string, string> = {
-    AX: '#10B981', AY: '#34D399', AZ: '#6EE7B7',
-    BX: '#3B82F6', BY: '#60A5FA', BZ: '#93C5FD',
-    CX: '#F59E0B', CY: '#FBBF24', CZ: '#EF4444',
+    AX: 'var(--cat-10)', AY: 'var(--cat-7)', AZ: 'var(--cat-12)',
+    BX: 'var(--cat-5)', BY: 'var(--cat-1)', BZ: 'var(--cat-4)',
+    CX: 'var(--cat-6)', CY: 'var(--cat-2)', CZ: 'var(--cat-8)',
   };
   const matrixLabels: Record<string, string> = {
     AX: 'Ideal', AY: 'Yaxshi', AZ: 'Ehtiyot',

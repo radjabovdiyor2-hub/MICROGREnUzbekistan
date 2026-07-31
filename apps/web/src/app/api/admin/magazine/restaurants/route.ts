@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { slugify as makeSlug } from '@/lib/slug';
 
@@ -28,7 +28,8 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' },
     });
     return NextResponse.json(restaurants);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/restaurants] GET:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -63,7 +64,8 @@ export async function POST(request: Request) {
     });
     await upsertPromo(created.promoCode, created.promoDiscount);
     return NextResponse.json(created);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/restaurants] POST:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -75,13 +77,35 @@ export async function PATCH(request: Request) {
     const { id, ...rest } = d;
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
 
-    const data: any = {};
-    for (const k of ['name', 'city', 'tier', 'logo', 'instagram', 'brandPrimary', 'brandAccent', 'promoCode', 'contactName', 'phone']) {
-      if (k in rest) data[k] = rest[k] || null;
-    }
-    for (const k of ['cuisine', 'dishes', 'microgreens', 'flowers', 'menuItems']) {
-      if (k in rest) data[k] = rest[k] ?? [];
-    }
+    // Правка частичная: трогаем только те поля, что реально пришли в теле.
+    // Раньше это был цикл по массиву строк с `data: any` — строковый ключ
+    // нельзя проверить типом, и опечатка в имени поля молча создавала бы
+    // мусорный ключ. Перечисляем поля явно: компилятор сверяет каждое.
+    const data: Prisma.RestaurantUpdateInput = {};
+    const text = (v: unknown): string | null => (v ? String(v) : null);
+    const list = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+
+    // name / city / tier в схеме NOT NULL. Прежний общий цикл писал в них
+    // `null`, когда поле в форме очищали, — Prisma такой update отвергает,
+    // и вся правка ресторана падала целиком. Обязательные поля меняем
+    // только на непустое значение, пустое означает «не трогать».
+    if (text(rest.name)) data.name = String(rest.name);
+    if (text(rest.city)) data.city = String(rest.city);
+    if (text(rest.tier)) data.tier = String(rest.tier);
+    if ('logo' in rest) data.logo = text(rest.logo);
+    if ('instagram' in rest) data.instagram = text(rest.instagram);
+    if ('brandPrimary' in rest) data.brandPrimary = text(rest.brandPrimary);
+    if ('brandAccent' in rest) data.brandAccent = text(rest.brandAccent);
+    if ('promoCode' in rest) data.promoCode = text(rest.promoCode);
+    if ('contactName' in rest) data.contactName = text(rest.contactName);
+    if ('phone' in rest) data.phone = text(rest.phone);
+
+    if ('cuisine' in rest) data.cuisine = list(rest.cuisine);
+    if ('dishes' in rest) data.dishes = list(rest.dishes);
+    if ('microgreens' in rest) data.microgreens = list(rest.microgreens);
+    if ('flowers' in rest) data.flowers = list(rest.flowers);
+    if ('menuItems' in rest) data.menuItems = list(rest.menuItems);
+
     if ('slug' in rest) data.slug = slugify(rest.slug);
     if ('promoDiscount' in rest) data.promoDiscount = rest.promoDiscount ? Number(rest.promoDiscount) : null;
     if ('isMagazinePartner' in rest) data.isMagazinePartner = !!rest.isMagazinePartner;
@@ -91,7 +115,8 @@ export async function PATCH(request: Request) {
     const updated = await prisma.restaurant.update({ where: { id }, data });
     await upsertPromo(updated.promoCode, updated.promoDiscount);
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/restaurants] PATCH:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -104,7 +129,8 @@ export async function DELETE(request: Request) {
     if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
     await prisma.restaurant.delete({ where: { id } });
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    console.error('[/api/admin/magazine/restaurants] DELETE:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
