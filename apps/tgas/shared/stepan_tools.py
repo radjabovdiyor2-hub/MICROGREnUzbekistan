@@ -83,26 +83,16 @@ async def load_registry(runtime: str = "tg") -> list[dict[str, Any]]:
 def _filter_for_runtime(tools: list[dict[str, Any]], runtime: str) -> list[dict[str, Any]]:
     """Отфильтровать инструменты по рантайму и вернуть в формате OpenAI.
 
-    Изменяющие инструменты (kind == "write") в Telegram НЕ отдаются модели.
-    Причина не в осторожности, а в главном правиле системы: действие,
-    меняющее данные, никогда не выполняется само. В админке это обеспечено
-    подписанными предложениями — карточка «было → стало» и кнопка
-    «Выполнить». В Telegram такого пути пока нет, поэтому витрина отвечает
-    на них 403, и предлагать их модели значит обещать невыполнимое:
-    владелец услышал бы «сейчас подниму цену», а в базе ничего бы не
-    изменилось.
-
-    Когда в Telegram появится подтверждение (подписанный токен предложения
-    + inline-кнопки aiogram), фильтр снимается здесь и в
-    apps/web/src/app/api/admin/stepan/tools/execute/route.ts — в двух
-    местах сразу, не по отдельности.
+    Изменяющие инструменты модели отдаются, но сами по себе не выполняются:
+    витрина возвращает на них status="confirm" с подписанным предложением,
+    бот показывает карточку «было → стало» с кнопками, и только нажатие
+    владельца отправляет токен на исполнение. Правило системы соблюдено —
+    действие, меняющее данные, никогда не выполняется само.
     """
     result = []
     for t in tools:
         runtimes = t.get("runtimes") or []
         if runtime not in runtimes:
-            continue
-        if runtime == "tg" and (t.get("kind") == "write" or t.get("risky")):
             continue
         result.append({
             "type": "function",
@@ -163,3 +153,25 @@ _NATIVE_TOOLS = frozenset({
     "register_sale",
     "add_product",
 })
+
+
+async def confirm_remote(token: str) -> dict[str, Any]:
+    """Подтвердить ранее предложенное действие.
+
+    Отправляет подписанный токен в /admin/stepan/execute — тот же роут, что
+    жмёт кнопка в веб-админке. Витрина проверит подпись и срок (15 минут) и
+    выполнит ровно то, что было показано владельцу, а не то, что пришло в
+    запросе: в этом и смысл подписи.
+    """
+    url = f"{STOREFRONT_URL}/admin/stepan/execute"
+    try:
+        timeout = aiohttp.ClientTimeout(total=120)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(url, headers=_headers(), json={"token": token}) as resp:
+                data = await resp.json()
+                if resp.status != 200:
+                    return {"ok": False, "error": data.get("error", f"витрина ответила {resp.status}")}
+                return {"ok": True, "message": data.get("message") or "Выполнено"}
+    except Exception as exc:
+        logger.error("Подтверждение не удалось: %s", exc)
+        return {"ok": False, "error": str(exc)}

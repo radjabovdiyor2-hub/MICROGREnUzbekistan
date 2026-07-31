@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { READ_BY_NAME, WRITE_BY_NAME } from '@/lib/stepan/tools';
+import { signProposal, type ProposalPayload } from '@/lib/stepan/proposal';
 
 // ══════════════════════════════════════════════════════════════════════
 // Удалённое исполнение инструмента Стёпана.
@@ -11,8 +12,10 @@ import { READ_BY_NAME, WRITE_BY_NAME } from '@/lib/stepan/tools';
 //
 // ЧИТАЮЩИЕ инструменты исполняются здесь — они ничего не меняют.
 //
-// ИЗМЕНЯЮЩИЕ — НЕ исполняются. Здесь стоит 403, и это не временная мера
-// осторожности, а главное правило системы: действие, меняющее данные,
+// ИЗМЕНЯЮЩИЕ — здесь не исполняются никогда. Вместо этого возвращается
+// подписанное предложение (status: confirm), бот показывает карточку
+// «было → стало» с кнопками, и только нажатие владельца отправляет токен
+// в /admin/stepan/execute. Главное правило системы: действие, меняющее данные,
 // никогда не выполняется само. В админке оно соблюдается подписанными
 // предложениями (/admin/stepan/execute + lib/stepan/proposal.ts): модель
 // показывает карточку «было → стало», и до нажатия «Выполнить» в базе
@@ -23,9 +26,8 @@ import { READ_BY_NAME, WRITE_BY_NAME } from '@/lib/stepan/tools';
 // В боте его не было: assistant.py шёл прямо в исполнение. Фраза в
 // Telegram «подними цену на микс» меняла цену в живом каталоге сразу.
 //
-// Чтобы включить изменяющие инструменты в Telegram, нужен там такой же
-// путь с подтверждением: подписанный токен предложения + inline-кнопки
-// aiogram. Пока его нет — 403.
+// Тот же самый механизм подписи, что и в админке (lib/stepan/proposal.ts):
+// выполняется ровно то, что было предъявлено, и не позже чем через 15 минут.
 //
 // Авторизация: x-bot-secret — тот же, что для /admin/stepan/memory.
 // Секрет общий для 14 контейнеров офиса, то есть поверхность шире, чем у
@@ -51,26 +53,51 @@ export async function POST(request: NextRequest) {
 
   const params = (body.params && typeof body.params === 'object' ? body.params : {}) as Record<string, unknown>;
 
-  // Изменяющие инструменты проверяем ПЕРВЫМИ: отказ должен быть отказом
-  // независимо от того, что окажется в реестре чтения потом.
-  if (WRITE_BY_NAME.has(toolName)) {
-    audit({
-      action: 'stepan.tool.write_denied',
-      actor: 'bot',
-      role: 'ADMIN',
-      target: toolName,
-      meta: { params },
-    });
-    return NextResponse.json(
-      {
-        status: 'error',
-        error:
-          `Инструмент «${toolName}» меняет данные, а из Telegram это делается только ` +
-          `с подтверждением. Откройте админку — Стёпан покажет карточку «было → стало» ` +
-          `и выполнит после вашего нажатия.`,
-      },
-      { status: 403 },
-    );
+  // Изменяющие инструменты проверяем ПЕРВЫМИ: здесь они не выполняются
+  // никогда — только превращаются в подписанное предложение. Выполнит его
+  // /admin/stepan/execute после того, как владелец нажмёт «Выполнить».
+  const writeTool = WRITE_BY_NAME.get(toolName);
+  if (writeTool) {
+    try {
+      const preview = await writeTool.preview(params);
+      if (preview.error) {
+        return NextResponse.json({ status: 'error', error: preview.error }, { status: 400 });
+      }
+
+      const payload: ProposalPayload = {
+        tool: toolName,
+        args: params,
+        summary: preview.summary,
+        before: preview.before,
+        after: preview.after,
+        risky: preview.risky,
+      };
+      const token = signProposal(payload);
+      if (!token) {
+        return NextResponse.json(
+          { status: 'error', error: 'Подтверждение недоступно: не настроен SESSION_SECRET' },
+          { status: 503 },
+        );
+      }
+
+      audit({
+        action: 'stepan.tool.proposed',
+        actor: 'bot',
+        role: 'ADMIN',
+        target: toolName,
+        meta: { summary: preview.summary },
+      });
+
+      // status: confirm — сигнал вызывающему рантайму показать карточку и
+      // спросить владельца. Не ok и не error: ничего ещё не произошло.
+      return NextResponse.json({ status: 'confirm', proposal: { ...payload, token } });
+    } catch (error) {
+      console.error(`[stepan/tools/execute] preview ${toolName} упал:`, error);
+      return NextResponse.json(
+        { status: 'error', error: error instanceof Error ? error.message : 'Ошибка подготовки' },
+        { status: 500 },
+      );
+    }
   }
 
   const readTool = READ_BY_NAME.get(toolName);

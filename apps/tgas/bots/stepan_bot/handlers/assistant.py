@@ -1149,7 +1149,15 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 # get_ai_spend, set_setting, change_product_price и т.д.
                 from shared.stepan_tools import execute_remote
                 result = await execute_remote(name, args)
-                if result.get("status") == "ok":
+
+                if result.get("status") == "confirm":
+                    # Изменяющее действие: витрина вернула подписанное
+                    # предложение, но ничего не выполнила. Показываем карточку
+                    # «было → стало» и ждём нажатия — ровно как в админке.
+                    prop = result.get("proposal") or {}
+                    await _offer_write_action(message, prop)
+                    tool_results_text.append(f"Предложено подтвердить: {name}.")
+                elif result.get("status") == "ok":
                     # Форматируем результат для модели и отправляем в чат
                     res_data = result.get("result")
                     if isinstance(res_data, dict) and res_data.get("message"):
@@ -1812,3 +1820,79 @@ async def _generate_report(kind: str) -> str:
             return "\n".join(lines)
     except Exception as e:
         return f"⚠️ Ошибка: {e}"
+
+
+# ── Подтверждение изменяющих действий ────────────────────────────────────
+# Токен предложения длиннее 64 байт, а столько вмещает callback_data кнопки.
+# Поэтому в кнопку кладём короткий ключ, а сам токен держим здесь. Словарь
+# живёт в памяти процесса: перезапуск бота обнуляет неподтверждённые
+# карточки, и это правильно — подпись всё равно протухает через 15 минут.
+_PENDING: dict[str, dict] = {}
+
+
+async def _offer_write_action(message: Message, proposal: dict) -> None:
+    """Показать карточку «было → стало» с кнопками подтверждения."""
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+    import uuid
+
+    token = proposal.get("token")
+    if not token:
+        await message.answer("⚠️ Действие не подготовлено: витрина не прислала подтверждение.")
+        return
+
+    key = uuid.uuid4().hex[:12]
+    _PENDING[key] = proposal
+
+    lines = [f"<b>{proposal.get('summary') or 'Действие'}</b>"]
+    if proposal.get("before") or proposal.get("after"):
+        lines.append(f"\n<i>было:</i> {proposal.get('before') or '—'}")
+        lines.append(f"<i>станет:</i> {proposal.get('after') or '—'}")
+    if proposal.get("risky"):
+        lines.append("\n⚠️ Действие затрагивает клиентов или публичный аккаунт.")
+    lines.append("\nВ базе пока ничего не изменилось.")
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="✅ Выполнить", callback_data=f"stx:{key}"),
+        InlineKeyboardButton(text="✖️ Отклонить", callback_data=f"stxn:{key}"),
+    ]])
+    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+
+
+@router.callback_query(F.data.startswith("stx:"))
+async def _confirm_write_action(cb: CallbackQuery):
+    """Владелец нажал «Выполнить» — отправляем подписанный токен витрине."""
+    if not is_admin(cb.from_user.id):
+        await cb.answer("Недоступно", show_alert=True)
+        return
+
+    key = cb.data.split(":", 1)[1]
+    proposal = _PENDING.pop(key, None)
+    if not proposal:
+        await cb.answer("Карточка устарела — попросите заново", show_alert=True)
+        return
+
+    await cb.answer("Выполняю…")
+    from shared.stepan_tools import confirm_remote
+    res = await confirm_remote(proposal["token"])
+
+    mark = "✅" if res.get("ok") else "❌"
+    text = res.get("message") if res.get("ok") else res.get("error", "не удалось")
+    try:
+        await cb.message.edit_text(f"{mark} {text}", parse_mode="HTML")
+    except Exception:
+        await cb.message.answer(f"{mark} {text}")
+
+
+@router.callback_query(F.data.startswith("stxn:"))
+async def _reject_write_action(cb: CallbackQuery):
+    """Владелец отказался. Ничего не выполняем, предложение выбрасываем."""
+    if not is_admin(cb.from_user.id):
+        await cb.answer("Недоступно", show_alert=True)
+        return
+
+    _PENDING.pop(cb.data.split(":", 1)[1], None)
+    await cb.answer("Отклонено")
+    try:
+        await cb.message.edit_text("✖️ Отклонено — в базе ничего не изменилось.")
+    except Exception:
+        pass
