@@ -371,6 +371,17 @@ async def _collect_data() -> str:
         except Exception as e:
             logger.warning(f"meeting data (interactions): {e}")
 
+        # ── Активные выводы петель обучения (bot_learnings) ──
+        try:
+            r = await q("SELECT bot, metric, observation, inference FROM bot_learnings WHERE is_active = TRUE ORDER BY applied_at DESC LIMIT 5")
+            learn_rows = r.fetchall()
+            if learn_rows:
+                lines.append("\n🧠 <b>Активные выводы петель обучения отделов (Feedback Loops):</b>")
+                for lr in learn_rows:
+                    lines.append(f"  • [{lr[0]} / {lr[1]}]: {lr[2]} → <i>{lr[3]}</i>")
+        except Exception as e:
+            logger.warning(f"meeting data (learnings): {e}")
+
         # ── Активные задачи по отделам ──
         try:
             r = await q("SELECT department, COUNT(*) FROM tasks WHERE status IN ('todo','in_progress') "

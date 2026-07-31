@@ -68,6 +68,19 @@ async def handle_n8n_webhook(request: web.Request):
                 await record_bot_error("qa_bot", str(e))
                 analysis = "ИИ-анализ временно недоступен. Пожалуйста, проверьте лоток вручную."
                 
+            # Замыкаем меж-ботовую петлю: QA -> R&D (вывод и корректировка рецептов выращивания)
+            try:
+                from shared.feedback_loop import feedback_loop
+                is_defect = "брак" in analysis.lower() or "под наблюдение" in analysis.lower()
+                await feedback_loop.evaluate_and_adapt(
+                    bot="rnd_bot",
+                    metric="recipe_yield",
+                    current_data={"qa_analysis": analysis, "is_defect": is_defect, "image_url": image_url},
+                    benchmark_data={"max_allowed_defect_rate": 0.02, "target_germination_pct": 95.0}
+                )
+            except Exception as fe:
+                logger.warning(f"QA -> R&D feedback loop error: {fe}")
+
             # Send result back to Степан via Event Bus
             await event_bus.publish("TASK_COMPLETED", {
                 "task_id": "qa_inspection",

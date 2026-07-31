@@ -1060,6 +1060,104 @@ async def ingest_feedback(request: Request):
     return JSONResponse({"status": "ok"})
 
 
+# ─── Learnings & AI Reasoning API & Dashboard ───────────────
+@app.get("/api/learnings")
+async def get_learnings():
+    """Возвращает активные выводы и адаптации петель обратной связи всех ботов."""
+    try:
+        async with get_session_ctx() as session:
+            res = await session.execute(text(
+                "SELECT id, bot, metric, observation, inference, adjustment, applied_at "
+                "FROM bot_learnings WHERE is_active = TRUE ORDER BY applied_at DESC"
+            ))
+            rows = res.fetchall()
+            learnings = [
+                {
+                    "id": row[0],
+                    "bot": row[1],
+                    "metric": row[2],
+                    "observation": row[3],
+                    "inference": row[4],
+                    "adjustment": json.loads(row[5]) if isinstance(row[5], str) else row[5],
+                    "applied_at": _safe_str(row[6]),
+                }
+                for row in rows
+            ]
+            return JSONResponse({"status": "ok", "learnings": learnings})
+    except Exception as exc:
+        logger.exception("Learnings-API: ошибка: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/learnings", response_class=HTMLResponse)
+async def learnings_dashboard():
+    """Визуальный дашборд интелекта и петель обучения ботов."""
+    return HTMLResponse("""<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Office — Интеллект и обучение ботов</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: system-ui, sans-serif; }
+        .card { background-color: #1e293b; border: 1px solid #334155; color: #f8fafc; border-radius: 12px; }
+        .card-header { background-color: #334155; border-bottom: none; font-weight: 600; }
+        .badge-bot { background-color: #3b82f6; }
+        .badge-metric { background-color: #10b981; }
+        pre { background: #090d16; padding: 10px; border-radius: 6px; color: #38bdf8; }
+    </style>
+</head>
+<body class="p-4">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>🧠 AI Office — Петли обучения ботов (Action → Measurement → Inference → Behavior)</h2>
+            <button class="btn btn-outline-light" onclick="loadLearnings()">🔄 Обновить</button>
+        </div>
+        <div id="learnings-list" class="row g-4">
+            <div class="col-12"><p class="text-muted">Загрузка данных...</p></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadLearnings() {
+            const container = document.getElementById('learnings-list');
+            try {
+                const res = await fetch('/api/learnings');
+                const data = await res.json();
+                if (!data.learnings || data.learnings.length === 0) {
+                    container.innerHTML = '<div class="col-12"><div class="alert alert-info">Активных петель обучения пока не зафиксировано.</div></div>';
+                    return;
+                }
+                container.innerHTML = data.learnings.map(item => `
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card h-100 shadow-sm">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>🤖 ${item.bot}</span>
+                                <span class="badge badge-metric">${item.metric}</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="small text-muted mb-2">Применено: ${item.applied_at}</p>
+                                <h6>🔍 Измерение (Observation):</h6>
+                                <p class="small">${item.observation}</p>
+                                <h6>🧠 Вывод (Inference):</h6>
+                                <p class="small text-warning">${item.inference}</p>
+                                <h6>⚙️ Адаптация поведения (Adjustments):</h6>
+                                <pre><code>${JSON.stringify(item.adjustment, null, 2)}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                container.innerHTML = `<div class="col-12"><div class="alert alert-danger">Ошибка загрузки: ${err}</div></div>`;
+            }
+        }
+        loadLearnings();
+    </script>
+</body>
+</html>""")
+
+
 # ─── Синхронизация каталога витрина → офис ───────────────────
 @app.post("/admin/sync-catalog")
 async def sync_catalog(request: Request):
