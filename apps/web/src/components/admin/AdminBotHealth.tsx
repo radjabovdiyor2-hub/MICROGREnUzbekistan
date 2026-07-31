@@ -68,7 +68,10 @@ export function AdminBotHealth({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       if (botsData.status === 'ok') setBots(botsData.bots ?? []);
       else setError(botsData.error || t('ИИ-офис недоступен', 'AI ofis mavjud emas'));
 
+      // Отказ чтения расписаний раньше проваливался в тишину: ветки else не
+      // было, и пустой список выглядел как «задач нет». Теперь причина видна.
       if (jobsData.status === 'ok') setJobs(jobsData.jobs ?? []);
+      else setError(jobsData.error || t('Расписания не загрузились', 'Jadvallar yuklanmadi'));
     } catch {
       setError(t('Ошибка сети', 'Tarmoq xatosi'));
     } finally {

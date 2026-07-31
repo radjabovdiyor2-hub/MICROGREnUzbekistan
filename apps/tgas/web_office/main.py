@@ -286,8 +286,12 @@ async def dashboard(request: Request):
                     }
                     for row in result.fetchall()
                 ]
-            except Exception:
-                # If inventory table doesn't exist yet
+            except Exception as exc:
+                # Таблицы inventory может не быть на свежей базе. Пустой
+                # список на дашборде неотличим от «склад пуст», поэтому
+                # причина обязана попасть в лог — иначе расхождение между
+                # экраном и реальностью не с чем сопоставить.
+                logger.warning("Сводка: таблица inventory не прочитана: %s", exc)
                 inventory = []
 
             # ── Funnel ───────────────────────────────────────
@@ -1580,8 +1584,16 @@ async def admin_bot_jobs():
         return JSONResponse({"status": "ok", "jobs": jobs})
     except Exception as exc:
         # Таблицы может не быть до первого prisma db push.
+        #
+        # Раньше здесь отдавалось {"status": "ok", "jobs": []} — и пульт
+        # рисовал «расписаний нет» вместо «расписания не прочитались».
+        # 45 задач ботов исчезали с экрана бесшумно, а поле note, в которое
+        # клалась причина, не читал никто. Отказ должен выглядеть отказом.
         logger.warning("bot-jobs: чтение не удалось: %s", exc)
-        return JSONResponse({"status": "ok", "jobs": [], "note": str(exc)})
+        return JSONResponse(
+            {"status": "error", "error": f"расписания недоступны: {exc}", "jobs": []},
+            status_code=503,
+        )
 
 
 @app.post("/api/admin/bot-jobs")
@@ -1707,7 +1719,13 @@ async def admin_config_updated(request: Request):
         await event_bus.publish("config_updated", {"source": "web_admin"}, "web_admin")
         return JSONResponse({"status": "ok"})
     except Exception as exc:
-        return JSONResponse({"status": "error", "error": str(exc)}, status_code=503)
+        # Наружу — общая формулировка, подробности в лог: эндпоинт
+        # server-to-server, но текст исключения всё равно ни к чему в ответе.
+        logger.error("config_updated не опубликован: %s", exc)
+        return JSONResponse(
+            {"status": "error", "error": "не удалось разослать сигнал ботам"},
+            status_code=503,
+        )
 
 
 @app.get("/health/bots", response_class=HTMLResponse)

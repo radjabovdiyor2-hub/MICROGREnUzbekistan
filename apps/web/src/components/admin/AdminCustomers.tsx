@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Search, RefreshCw, Edit3, Gift, Phone, MessageSquare, Award, Check, X } from 'lucide-react';
+import { Users, Search, RefreshCw, Edit3, Gift, Phone, X, AlertCircle } from 'lucide-react';
+import { clientErrorMessage } from '@/lib/safeError';
 
 interface CustomerItem {
   id: number;
@@ -42,8 +43,8 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
       if (!res.ok) throw new Error('Failed to fetch customers');
       const data = await res.json();
       setCustomers(data.customers || []);
-    } catch (err: any) {
-      setError(err.message || 'Ошибка загрузки клиентов');
+    } catch (err: unknown) {
+      setError(clientErrorMessage(err, 'Ошибка загрузки клиентов'));
     } finally {
       setLoading(false);
     }
@@ -82,8 +83,8 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
       if (!res.ok) throw new Error('Failed to update customer');
       setEditingCustomer(null);
       fetchCustomers();
-    } catch (err: any) {
-      alert(err.message || 'Ошибка при сохранении');
+    } catch (err: unknown) {
+      alert(clientErrorMessage(err, 'Ошибка при сохранении'));
     } finally {
       setSaving(false);
     }
@@ -117,6 +118,16 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
           <span>{lang === 'ru' ? 'Обновить' : 'Yangilash'}</span>
         </button>
       </div>
+
+      {/* Ошибка загрузки. Раньше error присваивался, но не выводился нигде:
+          при отказе API экран просто оставался пустым, и владелец видел
+          «клиентов нет» вместо «список не загрузился». */}
+      {error && (
+        <div className="p-4 bg-rose-900/30 border border-rose-500/30 text-rose-300 rounded-xl flex items-center gap-3">
+          <AlertCircle size={20} />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Toolbar & Filters */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-900/60 p-4 border border-slate-800 rounded-xl">
