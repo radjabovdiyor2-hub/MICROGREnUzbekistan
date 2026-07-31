@@ -587,7 +587,16 @@ async def _kpi_watchdog_job():
         admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
         chat = getattr(settings, "sales_group_id", 0) or admin_id
         if _bot and chat:
-            await run_kpi_watchdog(_bot, chat)
+            kpi_dropped = await run_kpi_watchdog(_bot, chat)
+            if kpi_dropped:
+                from shared.owner_alerts import raise_alert, SEVERITY_WARNING
+                await raise_alert(
+                    kind="kpi_drop",
+                    severity=SEVERITY_WARNING,
+                    title="Зафиксировано проседание KPI отделов",
+                    message="KPI-watchdog зафиксировал снижение показателей и автоматически созвал совещание отделов.",
+                    source="stepan_bot",
+                )
     except Exception as e:
         logger.warning(f"KPI watchdog job error: {e}")
 
