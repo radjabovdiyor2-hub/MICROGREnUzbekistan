@@ -21,8 +21,9 @@ import { AdminMagazine } from '@/components/admin/AdminMagazine';
 import { AdminGuestPhotos } from '@/components/admin/AdminGuestPhotos';
 import { AdminRecipes } from '@/components/admin/AdminRecipes';
 import { AdminDepartment } from '@/components/admin/AdminDepartment';
+import { AdminLearnings } from '@/components/admin/AdminLearnings';
 import {
-  ArrowLeft, ArrowRight, BarChart, Camera, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Fingerprint, Home, Leaf, Lightbulb, Lock, LogOut, Package, Send, Settings, ShieldCheck, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
+  ArrowLeft, ArrowRight, BarChart, Brain, Camera, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Fingerprint, Home, Leaf, Lightbulb, Lock, LogOut, Package, Send, Settings, ShieldCheck, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
 } from 'lucide-react';
 
 const TAB_GROUPS = [
@@ -63,6 +64,7 @@ const TAB_GROUPS = [
   {
     title: { ru: 'Аналитика и Система', uz: 'Analitika va Tizim' },
     tabs: [
+      { id: 'learnings', ru: 'Обучение ИИ', uz: "AI O'rgatish", icon: <Brain size={16} /> },
       { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <BarChart size={16} /> },
       { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <TrendingUp size={16} /> },
       { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <User size={16} /> },
@@ -654,6 +656,7 @@ export default function AdminPage() {
         {activeTab === 'dept_support' && isOwner && <AdminDepartment departmentId="support" departmentName={t('Поддержка', "Qo'llab-quvvatlash")} botName="MicrogreenSupport_bot" lang={lang} />}
         
         {/* Analytics & System */}
+        {activeTab === 'learnings' && isOwner && <AdminLearnings lang={lang} />}
         {activeTab === 'analytics' && isOwner && <AdminAnalytics />}
         {activeTab === 'forecast' && isOwner && <AdminForecast />}
         {activeTab === 'employees' && isOwner && <AdminEmployees />}
