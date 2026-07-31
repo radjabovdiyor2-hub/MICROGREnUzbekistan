@@ -1,9 +1,14 @@
 import os
 import base64
+import tempfile
 import time
+from typing import Optional
+
 import httpx
 from dotenv import load_dotenv
 from pathlib import Path
+
+from mg_ai.engine import AIEngine
 
 # Load env
 env_path = Path(__file__).parent.parent / '.env'
@@ -12,8 +17,6 @@ load_dotenv(env_path, override=True)
 import logging
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 
 # ==================== PRODUCT CATALOG ====================
@@ -133,127 +136,92 @@ async def _get_system_prompt() -> str:
     return SYSTEM_PROMPT_BASE + catalog
 
 
+# ── AI: всё через OpenAI ──────────────────────────────────────────────
+# Раньше здесь было три поставщика: Groq (llama-3.3-70b) для текста,
+# Gemini для картинок и аудио, и собственный REST-клиент к каждому. Теперь
+# один движок mg_ai — тот же, что у ИИ-офиса, — и один поставщик.
+#
+# Следствие, о котором стоит помнить: Gemini flash был дешевле, а Groq
+# бесплатен. Ответы витрины теперь стоят денег; расход виден в админке,
+# раздел «Расходы на ИИ».
+
+_engine: Optional[AIEngine] = None
+
+
+def _get_engine() -> AIEngine:
+    """Ленивый общий движок. Один на процесс — держит HTTP-сессию и клиент."""
+    global _engine
+    if _engine is None:
+        _engine = AIEngine(
+            openai_key=os.getenv("OPENAI_API_KEY"),
+            openai_model=os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+            bot_name="storefront_bot",
+        )
+    return _engine
+
+
 async def analyze_image(image_bytes: bytes, user_question: str = "") -> str:
-    """Analyze ANY image using Gemini (Plant, Document, etc)."""
-    
-    # Build prompt with catalog
+    """Разобрать изображение: растение, документ, что угодно."""
     prompt = await _get_system_prompt()
     if user_question:
         prompt += f"\n\nВопрос пользователя: {user_question}"
-    prompt += "\n\nПроанализируй это изображение. Если это растение — дай диагностику. Если текст — прочитай. Если что-то другое — опиши."
-    
-    # Try Gemini first
-    if GEMINI_API_KEY:
-        try:
-            return await _analyze_with_gemini(image_bytes, prompt, mime_type="image/jpeg")
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
-    
-    return "⚠️ AI-сервисы временно недоступны для изображений."
+    prompt += (
+        "\n\nПроанализируй это изображение. Если это растение — дай диагностику. "
+        "Если текст — прочитай. Если что-то другое — опиши."
+    )
+
+    encoded = base64.b64encode(image_bytes).decode("utf-8")
+    res = await _get_engine().chat_completion(
+        system_prompt=prompt,
+        user_message=user_question or "Что на изображении?",
+        image_base64=encoded,
+        max_tokens=1024,
+    )
+    return res or "⚠️ AI-сервисы временно недоступны для изображений."
 
 
 async def transcribe_audio(audio_bytes: bytes, user_question: str = "") -> str:
-    """Transcribe and answer audio using Gemini."""
-    
+    """Расшифровать голосовое и ответить на него.
+
+    Два шага вместо одного: Whisper переводит речь в текст, ответ даёт
+    обычный диалог. Раньше аудио уходило в Gemini одним мультимодальным
+    запросом — с уходом на OpenAI такой возможности нет, зато расшифровка
+    точнее, а сам вопрос теперь виден в логах и в расходе.
+    """
+    engine = _get_engine()
+
+    fd, path = tempfile.mkstemp(prefix="voice_", suffix=".ogg")
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(audio_bytes)
+        text = await engine.transcribe_audio(path)
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+    if not text:
+        return "⚠️ Не удалось разобрать голосовое сообщение."
+
     prompt = await _get_system_prompt()
     if user_question:
-        prompt += f"\n\nПользователь отправил аудио с таким контекстом: {user_question}"
-    prompt += "\n\nПрослушай это аудиозаобщение. Ответь на него. Если это вопрос — дай ответ. Если просьба — выполни."
-    
-    if GEMINI_API_KEY:
-        try:
-            # Gemini supports audio files directly
-            return await _analyze_with_gemini(audio_bytes, prompt, mime_type="audio/ogg")
-        except Exception as e:
-            logger.error(f"Gemini Audio error: {e}")
-            
-    return "⚠️ Голосовые сообщения временно недоступны (требуется Gemini API)."
+        prompt += f"\n\nКонтекст от пользователя: {user_question}"
 
-
-async def _analyze_with_gemini(data_bytes: bytes, prompt: str, mime_type: str = "image/jpeg") -> str:
-    """Use Gemini Vision/Audio API via REST to avoid gRPC timeouts and blocking the event loop."""
-    import base64
-    
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-    encoded_data = base64.b64encode(data_bytes).decode('utf-8')
-    
-    payload = {
-        "contents": [
-            {
-                "parts": [
-                    {"text": prompt},
-                    {
-                        "inline_data": {
-                            "mime_type": mime_type,
-                            "data": encoded_data
-                        }
-                    }
-                ]
-            }
-        ]
-    }
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.post(url, json=payload)
-        
-        if response.status_code != 200:
-            logger.error(f"Gemini REST error: {response.status_code} - {response.text}")
-            raise Exception(f"Gemini API error: {response.status_code}")
-            
-        data = response.json()
-        try:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
-        except (KeyError, IndexError) as e:
-            logger.error(f"Gemini parse error: {e} - Response: {data}")
-            if "promptFeedback" in data and data["promptFeedback"].get("blockReason"):
-                return "Извините, запрос был заблокирован из-за настроек безопасности."
-            raise Exception("Invalid response format from Gemini")
+    res = await engine.chat_completion(
+        system_prompt=prompt,
+        user_message=text,
+        max_tokens=1024,
+    )
+    return res or f"Расслышал: «{text}», но ответить сейчас не могу."
 
 
 async def get_ai_response(user_message: str, system_context: str = "") -> str:
-    """Get AI text response for group/bot questions using Groq (free) or Gemini."""
-    
+    """Текстовый ответ для группы и личных вопросов."""
     system = system_context or await _get_system_prompt()
-    
-    # Try Groq first (faster, free tier) - TEXT ONLY
-    if GROQ_API_KEY:
-        try:
-            from groq import AsyncGroq
-            
-            client = AsyncGroq(api_key=GROQ_API_KEY)
-            response = await client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user_message}
-                ],
-                max_tokens=1000,
-                temperature=0.7
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"Groq error: {e}")
-            # Continue to Gemini fallback
-    
-    # Fallback to Gemini via REST
-    if GEMINI_API_KEY:
-        try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-            prompt = f"{system}\n\nВопрос пользователя: {user_message}"
-            
-            payload = {
-                "contents": [{"parts": [{"text": prompt}]}]
-            }
-            
-            async with httpx.AsyncClient(timeout=20.0) as client:
-                response = await client.post(url, json=payload)
-                if response.status_code == 200:
-                    data = response.json()
-                    return data["candidates"][0]["content"]["parts"][0]["text"]
-                else:
-                    logger.error(f"Gemini text REST error: {response.status_code} - {response.text}")
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
-    
-    return "Мозг перезагружается... 🤖 Попробуйте позже!"
-
+    res = await _get_engine().chat_completion(
+        system_prompt=system,
+        user_message=user_message,
+        max_tokens=1000,
+    )
+    return res or "Мозг перезагружается... 🤖 Попробуйте позже!"

@@ -217,6 +217,11 @@ services:
       ENVIRONMENT: production
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
       WEB_API_URL: http://web:3000/api
+      # Весь ИИ витрины идёт через OpenAI (mg_ai): текст, зрение, распознавание
+      # речи и озвучка. Без ключа бот не упадёт, но будет отвечать заглушкой —
+      # прописываем явно, как у веб-сервиса, чтобы это не осталось незамеченным.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       # Must match the web service's BOT_SECRET so admin API calls authorize.
       BOT_SECRET: ${BOT_SECRET:-}
       # Степан-менеджер (@MG_PM1_bot) — для уведомлений о заказах
