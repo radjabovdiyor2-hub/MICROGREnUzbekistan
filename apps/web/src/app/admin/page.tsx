@@ -22,8 +22,10 @@ import { AdminGuestPhotos } from '@/components/admin/AdminGuestPhotos';
 import { AdminRecipes } from '@/components/admin/AdminRecipes';
 import { AdminDepartment } from '@/components/admin/AdminDepartment';
 import { AdminLearnings } from '@/components/admin/AdminLearnings';
+import { AdminCustomers } from '@/components/admin/AdminCustomers';
+import { AdminBotControl } from '@/components/admin/AdminBotControl';
 import {
-  ArrowLeft, ArrowRight, BarChart, Brain, Camera, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Fingerprint, Home, Leaf, Lightbulb, Lock, LogOut, Package, Send, Settings, ShieldCheck, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
+  ArrowLeft, ArrowRight, BarChart, Brain, Camera, ChevronRight, ClipboardList, CreditCard, DollarSign, Eye, FileText, Fingerprint, Home, Leaf, Lightbulb, Lock, LogOut, Package, Play, Send, Settings, ShieldCheck, ShoppingCart, Tag, TrendingUp, Truck, User, Users,
 } from 'lucide-react';
 
 const TAB_GROUPS = [
@@ -39,6 +41,8 @@ const TAB_GROUPS = [
   {
     title: { ru: 'Управление', uz: 'Boshqaruv' },
     tabs: [
+      { id: 'customers', ru: 'Клиенты', uz: 'Mijozlar', icon: <Users size={16} /> },
+      { id: 'bot_control', ru: 'Пульт ИИ', uz: 'AI Pult', icon: <Play size={16} /> },
       { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Package size={16} /> },
       { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <ClipboardList size={16} /> },
       { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Truck size={16} /> },
@@ -638,6 +642,8 @@ export default function AdminPage() {
         {activeTab === 'stats' && isOwner && <AdminStats />}
         {activeTab === 'revenue' && isOwner && <AdminRevenue />}
         {activeTab === 'growing' && isOwner && <AdminGrowing />}
+        {activeTab === 'customers' && isOwner && <AdminCustomers lang={lang} />}
+        {activeTab === 'bot_control' && isOwner && <AdminBotControl lang={lang} />}
         {activeTab === 'inventory' && isOwner && <AdminInventory />}
         {activeTab === 'movements' && isOwner && <AdminMovements />}
         {activeTab === 'orders' && isOwner && <AdminOrders />}
