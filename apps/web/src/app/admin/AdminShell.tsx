@@ -32,9 +32,7 @@ import { AdminAudit } from '@/components/admin/AdminAudit';
 import { AdminAiSpend } from '@/components/admin/AdminAiSpend';
 import { AdminTasks } from '@/components/admin/AdminTasks';
 import { AdminCategories } from '@/components/admin/AdminCategories';
-import {
-  Activity, ArrowLeft, ArrowRight, BarChart, Brain, Camera, ChevronRight, ClipboardList, Command, Cpu, CreditCard, DollarSign, Eye, FileText, History, Home, Layers, Leaf, Lightbulb, Lock, LogOut, Package, Percent, Play, Search, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet,
-} from 'lucide-react';
+import { Command, Home, LogOut, Search, Settings, Tag } from 'lucide-react';
 
 import { TAB_GROUPS, ALL_TABS, SELLER_TABS } from './adminTabs';
 import { AdminAuthScreens, type AuthMode } from './AdminAuthScreens';

@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  AlertTriangle, Banknote, Camera, CheckCircle, Clock, Copy, CreditCard, Edit, FileText, MessageCircle, Minus, Plus, RefreshCw, Search, ShoppingCart, Trash,
-} from 'lucide-react';
+import { AlertTriangle, RefreshCw, Search, ShoppingCart } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { AdminPOSReceipt } from './AdminPOSReceipt';
 import { AdminPOSProducts } from './AdminPOSProducts';

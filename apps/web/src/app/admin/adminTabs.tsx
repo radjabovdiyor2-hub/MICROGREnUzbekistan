@@ -1,9 +1,7 @@
 'use client';
 
 import {
-  Activity, BarChart, Brain, Camera, ClipboardList, Cpu, CreditCard, DollarSign,
-  Eye, FileText, History, Home, Layers, Leaf, Lightbulb, Lock, Package, Percent,
-  Play, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet,
+  Activity, BarChart, Brain, Camera, ClipboardList, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet,
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не

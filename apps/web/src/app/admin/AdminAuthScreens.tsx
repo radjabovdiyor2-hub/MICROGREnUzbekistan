@@ -2,9 +2,7 @@
 
 import Link from 'next/link';
 import type { Dispatch, SetStateAction } from 'react';
-import {
-  ArrowLeft, ArrowRight, ChevronRight, Home, Lock, Settings, Tag, User,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, Home, Lock, Settings, Tag } from 'lucide-react';
 
 // Экраны входа в админку: выбор роли, пароль владельца, PIN продавца.
 // Вынесены из AdminShell — до входа основная панель не рендерится вовсе,
