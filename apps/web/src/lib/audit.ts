@@ -86,10 +86,37 @@ export function audit(entry: AuditEntry): void {
 
   try {
     const file = logFile();
-    if (!ensureDir(file)) return;
-    fs.appendFileSync(file, `${line}\n`, 'utf-8');
+    if (ensureDir(file)) fs.appendFileSync(file, `${line}\n`, 'utf-8');
   } catch {
     // Диск недоступен — довольствуемся stdout.
+  }
+
+  // Дубль в БД — только чтобы журнал можно было листать в админке.
+  // Источником доказательств остаётся файл: там цепочка HMAC, а строку в
+  // таблице администратор БД может незаметно поправить.
+  //
+  // Не блокируем вызывающего и гасим ошибку: аудит не имеет права уронить
+  // операцию, ради которой его позвали (тот же контракт, что и у файла).
+  void persistToDb(entry);
+}
+
+async function persistToDb(entry: AuditEntry): Promise<void> {
+  try {
+    // Ленивый импорт: audit() зовут из путей, где Prisma может быть не нужна,
+    // а таблицы может ещё не быть — сразу после деплоя, до db push.
+    const { prisma } = await import('@repo/database');
+    await prisma.auditLog.create({
+      data: {
+        action: entry.action,
+        actor: entry.actor ?? null,
+        role: entry.role ?? null,
+        ip: entry.ip ?? null,
+        target: entry.target ? String(entry.target).slice(0, 255) : null,
+        meta: (entry.meta ?? undefined) as never,
+      },
+    });
+  } catch {
+    // Файл и stdout уже записаны — этого достаточно.
   }
 }
 

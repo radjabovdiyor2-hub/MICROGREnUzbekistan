@@ -417,8 +417,18 @@ scheduler.add_cron(name="conversion_funnel", func=conversion_funnel, hour=15, mi
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# BOT BUS HANDLERS — задачи от Степана
+# BOT BUS HANDLERS — задачи от Степана и из веб-админки
 # ═══════════════════════════════════════════════════════════════════════════
+
+async def bus_daily_kpi_snapshot(params: dict) -> dict:
+    """Пересчитать KPI сейчас — кнопка «Снимок KPI» в админке.
+
+    Переиспользуем ту же daily_kpi_snapshot(), что стоит в расписании на
+    20:00: отдельная реализация неминуемо разошлась бы с плановой.
+    """
+    await daily_kpi_snapshot()
+    return {"message": "Снимок KPI рассчитан и отправлен в Telegram"}
+
 
 async def bus_get_report(params: dict) -> dict:
     """KPI-отчёт (дневной или недельный)."""
@@ -550,6 +560,9 @@ async def main():
         "get_report": bus_get_report,
         "get_instagram_stats": bus_get_instagram_stats,
         BotBusActions.GET_TOP_PRODUCTS: _get_top_products,
+        # Кнопка «Снимок KPI» в веб-админке: тот же расчёт, что и в 20:00,
+        # но по требованию владельца.
+        "daily_kpi_snapshot": bus_daily_kpi_snapshot,
     }))
 
     try:

@@ -10,7 +10,25 @@ from bots.sales_bot.states import OrderStates
 from bots.sales_bot.keyboards.inline import confirm_order_kb, main_menu_kb
 
 router = Router()
-DELIVERY_FEE = 25000
+
+
+async def _delivery_terms() -> tuple[int, int]:
+    """Стоимость доставки и порог бесплатной — из настроек в админке.
+
+    Раньше цена доставки была вписана сюда числом (25 000), а на сайте
+    жила своей константой в lib/site.ts. Владелец, поменяв её в одном
+    месте, получал два разных ответа: один в боте, другой на витрине,
+    и расхождение ничем не проявлялось до жалобы клиента.
+
+    Дефолты — прежние значения, поэтому при недоступной базе бот считает
+    ровно как считал.
+    """
+    from shared import settings_store
+    fee = await settings_store.get_int("delivery.fee", 25000)
+    threshold = await settings_store.get_int(
+        "delivery.freeThreshold", int(settings.free_delivery_threshold)
+    )
+    return fee, threshold
 
 @router.callback_query(F.data == "cart:checkout")
 async def start_checkout(cb: CallbackQuery, state: FSMContext):
@@ -49,7 +67,8 @@ async def process_notes(message: Message, state: FSMContext):
     
     cart = data.get("cart", {})
     total = sum(item["price"] * item["qty"] for item in cart.values())
-    delivery = 0 if total >= settings.free_delivery_threshold else DELIVERY_FEE
+    fee, free_from = await _delivery_terms()
+    delivery = 0 if total >= free_from else fee
     grand_total = total + delivery
     
     lines = ["📋 <b>Ваш заказ:</b>\n" if lang == "ru" else "📋 <b>Buyurtmangiz:</b>\n"]
@@ -73,7 +92,8 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
     lang = data.get("lang", "ru")
     cart = data.get("cart", {})
     total = sum(item["price"] * item["qty"] for item in cart.values())
-    delivery = 0 if total >= settings.free_delivery_threshold else DELIVERY_FEE
+    fee, free_from = await _delivery_terms()
+    delivery = 0 if total >= free_from else fee
     
     await simulate_typing(cb.message, delay=1.5)
     

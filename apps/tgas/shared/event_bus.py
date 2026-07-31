@@ -105,21 +105,12 @@ class EventBus:
         # 3. Резервный канал (HTTP Direct) — только если Redis Pub/Sub не сработал
         if not published_to_redis:
             logger.warning("EventBus: Redis Pub/Sub недоступен, используем резервную прямую доставку по HTTP.")
-            bot_endpoints = [
-                ("mg_stepan", 8081),
-                ("mg_sales", 8082),
-                ("mg_support", 8083),
-                ("mg_hr", 8084),
-                ("mg_finance", 8085),
-                ("mg_marketing", 8086),
-                ("mg_analytics", 8088),
-                ("mg_content", 8089),
-                ("mg_qa", 8090),
-                ("mg_rnd", 8091),
-                ("mg_devops", 8092),
-                ("mg_franchise", 8093),
-            ]
-            
+            # Карта берётся из общего реестра (shared/bot_registry.py):
+            # раньше она жила здесь копией и расходилась с health.ALL_BOTS.
+            from shared.bot_registry import EVENT_ENDPOINTS
+            bot_endpoints = EVENT_ENDPOINTS
+
+
             from shared.config import settings
             _secret = getattr(settings, "event_bus_secret", None)
             _hdrs = {"X-Bot-Secret": _secret} if _secret else {}

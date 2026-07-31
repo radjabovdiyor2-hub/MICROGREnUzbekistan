@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy import text
 
+from shared import settings_store
 from shared.ai_engine import ai_engine
 from shared.database import get_session_ctx
 
@@ -28,11 +29,35 @@ class FeedbackLoopEngine:
         target: Optional[float] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Записать измерение (Action -> Measurement)."""
+        """Записать измерение (Action -> Measurement).
+
+        Раньше метод только писал строку в лог: история измерений нигде не
+        сохранялась, поэтому построить график «как метрика менялась» было
+        не из чего, и оценить, помогла ли адаптация поведения, — тоже.
+        Теперь замер уходит в bot_measurements и виден в админке.
+        """
         logger.info(
             "[%s] Measurement recorded: metric=%s, value=%s, target=%s",
             bot, metric, value, target
         )
+        try:
+            async with get_session_ctx() as session:
+                await session.execute(
+                    text(
+                        "INSERT INTO bot_measurements (bot, metric, value, target, context) "
+                        "VALUES (:bot, :metric, :value, :target, CAST(:ctx AS jsonb))"
+                    ),
+                    {
+                        "bot": bot,
+                        "metric": metric,
+                        "value": float(value),
+                        "target": float(target) if target is not None else None,
+                        "ctx": json.dumps(context, ensure_ascii=False) if context else None,
+                    },
+                )
+        except Exception as exc:
+            # Замер — телеметрия: его потеря не должна ронять задачу бота.
+            logger.debug("[%s] Замер %s не сохранён: %s", bot, metric, exc)
 
     async def evaluate_and_adapt(
         self,
@@ -47,7 +72,7 @@ class FeedbackLoopEngine:
         2. Формирует выводы и новые адаптивные параметры поведения.
         3. Сохраняет новое состояние в таблицу `bot_learnings` PostgreSQL.
         """
-        system_prompt = (
+        default_prompt = (
             f"Ты — главный аналитик и мета-оптимизатор для бота '{bot}' в экосистеме Microgreen Uzbekistan.\n"
             "Твоя задача — замкнуть петлю обратной связи:\n"
             "1. Измерить текущие результаты относительно бенчмарка.\n"
@@ -64,17 +89,24 @@ class FeedbackLoopEngine:
             "}"
         )
 
+        # Промпт рассуждения, бенчмарки и температура правятся из админки:
+        # раньше они были вписаны сюда и в каждое место вызова, поэтому
+        # подстроить цель под сезон можно было только правкой Python.
+        system_prompt = await settings_store.get_prompt(bot, "feedback.system", default_prompt)
+        benchmarks = await settings_store.get_benchmarks(bot, metric, benchmark_data or {})
+        temperature = await settings_store.get_float("ai.feedbackTemperature", 0.3)
+
         user_message = (
             f"Метрика: {metric}\n"
             f"Текущие данные: {json.dumps(current_data, ensure_ascii=False, indent=2)}\n"
-            f"Бенчмарки: {json.dumps(benchmark_data or {}, ensure_ascii=False, indent=2)}"
+            f"Бенчмарки: {json.dumps(benchmarks, ensure_ascii=False, indent=2)}"
         )
 
         try:
             raw_response = await ai_engine.generate_text(
                 prompt=user_message,
                 system_prompt=system_prompt,
-                temperature=0.3,
+                temperature=temperature,
             )
 
             # Очистка JSON от markdown блоков

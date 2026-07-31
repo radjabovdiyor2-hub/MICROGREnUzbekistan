@@ -9,6 +9,7 @@ import asyncio
 import logging
 import time
 from shared.config import settings
+from shared.bot_registry import ALL_BOTS  # noqa: F401  (реэкспорт для старых импортов)
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,9 @@ HEARTBEAT_KEY_PREFIX = "bot:heartbeat:"
 HEARTBEAT_INTERVAL = 30       # секунд между пульсами
 HEARTBEAT_TTL = 300            # 5 минут — если нет обновления, бот считается мёртвым
 
-# Полный список сервисов (совпадает с docker-compose). Стёпан = PM, отдельного pm нет.
-ALL_BOTS = [
-    "stepan_bot", "sales_bot", "hr_bot", "finance_bot",
-    "marketing_bot", "support_bot", "analytics_bot", "content_bot",
-    "qa_bot", "rnd_bot", "devops_bot", "franchise_bot", "n8n_bridge",
-]
+# Состав команды теперь один на всех — shared/bot_registry.py. Здесь список
+# только реэкспортируется: `from shared.health import ALL_BOTS` продолжает
+# работать, но править его надо в реестре.
 
 
 async def _get_redis():

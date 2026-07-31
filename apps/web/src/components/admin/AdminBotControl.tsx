@@ -63,10 +63,27 @@ const BOT_ACTIONS: BotActionConfig[] = [
   },
 ];
 
+type ResultStatus = 'ok' | 'pending' | 'error';
+
+/** Показать то, что вернул бот, а не голое «успешно». */
+function describeResult(data: any): string {
+  const payload = data?.result;
+  if (payload == null) return '';
+  if (typeof payload === 'string') return payload;
+  if (typeof payload === 'object') {
+    if (typeof payload.message === 'string') return payload.message;
+    try { return JSON.stringify(payload); } catch { return ''; }
+  }
+  return String(payload);
+}
+
 export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
   const [runningAction, setRunningAction] = useState<string | null>(null);
-  const [lastResult, setLastResult] = useState<{ action: string; status: 'ok' | 'error'; message: string } | null>(null);
+  const [lastResult, setLastResult] = useState<{ action: string; status: ResultStatus; message: string } | null>(null);
 
+  // Раньше здесь всегда выставлялся status:'ok' — даже когда запрос падал,
+  // а сам эндпоинт в ИИ-офисе отсутствовал. Кнопки рапортовали об успехе,
+  // не сделав ничего. Теперь показываем настоящий исход.
   const triggerAction = async (item: BotActionConfig) => {
     setRunningAction(item.action);
     setLastResult(null);
@@ -74,22 +91,38 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
       const res = await fetch('/api/admin/bot-action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: item.action,
-          bot: item.bot,
-        }),
+        credentials: 'same-origin',
+        body: JSON.stringify({ action: item.action, bot: item.bot }),
       });
-      const data = await res.json();
-      setLastResult({
-        action: item.name,
-        status: 'ok',
-        message: data.message || `Команда ${item.action} успешно отправлена боту ${item.name}!`,
-      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || data.status === 'error') {
+        setLastResult({
+          action: item.name,
+          status: 'error',
+          message: data.error || `Ошибка ${res.status}`,
+        });
+      } else if (data.status === 'pending') {
+        setLastResult({
+          action: item.name,
+          status: 'pending',
+          message: data.message || 'Задача в очереди, бот пока не ответил.',
+        });
+      } else {
+        const detail = describeResult(data);
+        setLastResult({
+          action: item.name,
+          status: 'ok',
+          message: detail
+            ? `Выполнено: ${detail}`
+            : `${item.action} выполнено ботом ${data.bot || item.name}.`,
+        });
+      }
     } catch (err: any) {
       setLastResult({
         action: item.name,
         status: 'error',
-        message: err.message || 'Ошибка отправки команды',
+        message: err?.message || 'Сеть недоступна',
       });
     } finally {
       setRunningAction(null);
@@ -120,10 +153,16 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
           className={`p-4 rounded-xl border flex items-center gap-3 transition-all ${
             lastResult.status === 'ok'
               ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
-              : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+              : lastResult.status === 'pending'
+                ? 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
           }`}
         >
-          {lastResult.status === 'ok' ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
+          {lastResult.status === 'ok'
+            ? <CheckCircle2 size={20} />
+            : lastResult.status === 'pending'
+              ? <RefreshCw size={20} />
+              : <AlertTriangle size={20} />}
           <div>
             <div className="font-bold text-sm">[{lastResult.action}]</div>
             <div className="text-xs">{lastResult.message}</div>

@@ -1070,3 +1070,139 @@ model BotLearning {
   @@index([isActive])
   @@map("bot_learnings")
 }
+
+// ════════════════════════════════════════════════════════════════════
+//  ПУЛЬТ УПРАВЛЕНИЯ — админка как центр управления платформой.
+//
+//  До этих таблиц бизнес-правила (цена доставки, бонусы, пороги склада,
+//  45 расписаний ботов, промпты, бенчмарки петель обучения) жили
+//  константами в коде: поменять их можно было только правкой файла и
+//  передеплоем. Владелец не мог изменить ничего, кроме товаров и пароля.
+// ════════════════════════════════════════════════════════════════════
+
+/// Значение любой бизнес-настройки. Ключи и дефолты объявлены в
+/// apps/web/src/lib/settings/registry.ts — таблица хранит ТОЛЬКО то, что
+/// владелец изменил. Пустая таблица = поведение как до изменений.
+model AppSetting {
+  key      String @id @db.VarChar(100) // "delivery.fee", "bonus.referralPercent"
+  value    Json
+  category String @db.VarChar(50) // delivery | contacts | bonus | stock | ai | bots | content
+
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.VarChar(100)
+
+  @@index([category])
+  @@map("app_settings")
+}
+
+/// Журнал действий для просмотра в админке. Дублирует JSONL-файл из
+/// lib/audit.ts: файл остаётся доказательством неподделываемости (цепочка
+/// HMAC), а таблица нужна, чтобы журнал можно было листать и фильтровать.
+model AuditLog {
+  id     BigInt   @id @default(autoincrement())
+  ts     DateTime @default(now()) @db.Timestamptz
+  action String   @db.VarChar(100) // login.success, product.update, bot.action
+  actor  String?  @db.VarChar(100) // owner, имя продавца, stepan, bot
+  role   String?  @db.VarChar(32)
+  ip     String?  @db.VarChar(64)
+  target String?  @db.VarChar(255)
+  meta   Json?
+
+  @@index([ts])
+  @@index([action])
+  @@index([actor])
+  @@map("audit_log")
+}
+
+/// Расписание фоновой задачи бота. Код регистрирует задачу со своим
+/// дефолтом, строка здесь его перекрывает — включая enabled=false, чтобы
+/// задачу можно было выключить из админки без правки Python.
+model BotJob {
+  id   String @id @default(cuid())
+  bot  String @db.VarChar(50)
+  name String @db.VarChar(100)
+  kind String @db.VarChar(16) // "cron" | "interval"
+
+  hour       Int?
+  minute     Int?
+  dayOfWeek  Int? @map("day_of_week") // 0=Mon .. 6=Sun
+  dayOfMonth Int? @map("day_of_month")
+  seconds    Int? // для kind="interval"
+
+  enabled Boolean @default(true)
+
+  /// Факт исполнения — админка показывает, что реально отработало.
+  lastRunAt  DateTime? @map("last_run_at")
+  lastStatus String?   @map("last_status") @db.VarChar(16) // ok | error
+  lastError  String?   @map("last_error") @db.Text
+
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([bot, name])
+  @@index([bot])
+  @@map("bot_jobs")
+}
+
+/// Редактируемый текст промпта или JSON бенчмарков петли обучения.
+/// Дефолт остаётся в Python — строка здесь его перекрывает.
+model BotPrompt {
+  id   String @id @default(cuid())
+  bot  String @db.VarChar(50)
+  key  String @db.VarChar(100) // "feedback.system", "bench.daily_pnl"
+  text String @db.Text
+
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  updatedBy String?  @map("updated_by") @db.VarChar(100)
+
+  @@unique([bot, key])
+  @@index([bot])
+  @@map("bot_prompts")
+}
+
+/// Замер метрики петли обратной связи. До этой таблицы
+/// feedback_loop.record_measurement() только писал в лог — история
+/// измерений нигде не сохранялась, и построить график было не из чего.
+model BotMeasurement {
+  id     BigInt   @id @default(autoincrement())
+  bot    String   @db.VarChar(50)
+  metric String   @db.VarChar(50)
+  value  Float
+  target Float?
+  ctx    Json?    @map("context")
+  ts     DateTime @default(now()) @db.Timestamptz
+
+  @@index([bot, metric, ts])
+  @@map("bot_measurements")
+}
+
+/// Партия посадки микрозелени. До этой таблицы вкладка «Посадки» держала
+/// партии в localStorage браузера: смена устройства или очистка кэша
+/// стирала весь производственный план, и с телефона его не было видно.
+model GrowBatch {
+  id       String @id @default(cuid())
+  cropType String @map("crop_type") @db.VarChar(50)
+  trays    Int    @default(1)
+
+  seedDate  DateTime @map("seed_date") @db.Date
+  darkDays  Int      @map("dark_days")
+  lightDays Int      @map("light_days")
+  shelfDays Int      @map("shelf_days")
+
+  /// dark | light | ready | harvested | expired — вычисляется из дат,
+  /// хранится только необратимое состояние (harvested).
+  status String  @default("dark") @db.VarChar(16)
+  note   String? @db.Text
+
+  harvestDate DateTime? @map("harvest_date") @db.Date
+  harvestQty  Float?    @map("harvest_qty")
+  costPrice   Float?    @map("cost_price")
+  productId   String?   @map("product_id")
+  productName String?   @map("product_name") @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([seedDate])
+  @@map("grow_batches")
+}

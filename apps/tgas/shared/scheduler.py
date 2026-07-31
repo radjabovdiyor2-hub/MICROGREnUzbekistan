@@ -35,8 +35,21 @@ class _Job:
             logger.info("[%s] ⏳ Задача '%s' запущена", self.bot_name, self.name)
             await self.func()
             logger.info("[%s] ✅ Задача '%s' выполнена", self.bot_name, self.name)
+            await self._report("ok")
         except Exception as exc:
             logger.exception("[%s] ❌ Задача '%s' упала: %s", self.bot_name, self.name, exc)
+            await self._report("error", str(exc))
+
+    async def _report(self, status: str, error: str | None = None):
+        """Отметить исполнение в bot_jobs, чтобы владелец видел это в админке.
+
+        Best-effort: отчёт о задаче не имеет права уронить саму задачу.
+        """
+        try:
+            from shared.settings_store import record_job_run
+            await record_job_run(self.bot_name, self.name, status, error)
+        except Exception:
+            pass
 
 
 class _CronJob(_Job):
@@ -58,31 +71,85 @@ class _CronJob(_Job):
         self.day_of_week = day_of_week
         self.day_of_month = day_of_month
 
-    async def loop(self):
-        while True:
-            now = datetime.now(UZ_TZ)
-            target = now.replace(hour=self.hour, minute=self.minute, second=0, microsecond=0)
-            if now >= target:
+    def _next_target(self, now: datetime) -> datetime:
+        target = now.replace(hour=self.hour, minute=self.minute, second=0, microsecond=0)
+        if now >= target:
+            target += timedelta(days=1)
+
+        # Skip if day_of_week constraint doesn't match
+        if self.day_of_week is not None:
+            while target.weekday() != self.day_of_week:
                 target += timedelta(days=1)
 
-            # Skip if day_of_week constraint doesn't match
-            if self.day_of_week is not None:
-                while target.weekday() != self.day_of_week:
-                    target += timedelta(days=1)
+        # Skip if day_of_month constraint doesn't match
+        if self.day_of_month is not None:
+            while target.day != self.day_of_month:
+                target += timedelta(days=1)
 
-            # Skip if day_of_month constraint doesn't match
-            if self.day_of_month is not None:
-                while target.day != self.day_of_month:
-                    target += timedelta(days=1)
+        return target
 
-            wait = (target - now).total_seconds()
+    async def _refresh(self) -> bool:
+        """Перечитать расписание из админки. True — если что-то изменилось.
+
+        Ждём не одним длинным sleep до цели, а короткими отрезками с проверкой:
+        иначе задача, которая спит до завтрашних 18:00, узнала бы о переносе
+        на 19:00 только ПОСЛЕ сегодняшнего запуска, то есть через сутки.
+        Чтение дешёвое — settings_store держит кэш на 60 секунд.
+        """
+        try:
+            from shared.settings_store import get_job_overrides
+            cfg = (await get_job_overrides(self.bot_name)).get(self.name)
+        except Exception:
+            return False
+        if not cfg:
+            return False
+
+        changed = False
+        for attr, col in (("hour", "hour"), ("minute", "minute"),
+                          ("day_of_week", "day_of_week"), ("day_of_month", "day_of_month")):
+            value = cfg.get(col)
+            if value is not None and getattr(self, attr, None) != value:
+                setattr(self, attr, value)
+                changed = True
+
+        self.enabled = cfg.get("enabled", True)
+        return changed
+
+    async def loop(self):
+        self.enabled = True
+        while True:
+            now = datetime.now(UZ_TZ)
+            target = self._next_target(now)
             logger.info(
                 "[%s] ⏰ '%s' следующий запуск через %.0f мин (%s)",
-                self.bot_name, self.name, wait / 60,
+                self.bot_name, self.name, (target - now).total_seconds() / 60,
                 target.strftime("%d.%m %H:%M"),
             )
-            await asyncio.sleep(wait)
-            await self._run_safe()
+
+            # Дробим ожидание, чтобы подхватывать правки расписания на лету.
+            rescheduled = False
+            while True:
+                now = datetime.now(UZ_TZ)
+                remaining = (target - now).total_seconds()
+                if remaining <= 0:
+                    break
+                await asyncio.sleep(min(remaining, 60))
+                if await self._refresh():
+                    logger.info(
+                        "[%s] ⚙️ '%s': расписание изменено в админке, пересчитываю",
+                        self.bot_name, self.name,
+                    )
+                    rescheduled = True
+                    break
+
+            if rescheduled:
+                continue
+
+            if getattr(self, "enabled", True):
+                await self._run_safe()
+            else:
+                logger.info("[%s] ⏸ '%s' выключена в админке — пропуск", self.bot_name, self.name)
+
             # Small delay to avoid double-fire
             await asyncio.sleep(60)
 
@@ -145,14 +212,90 @@ class BotScheduler:
             _IntervalJob(name, func, self.bot_name, seconds, initial_delay)
         )
 
+    async def _apply_overrides(self):
+        """Наложить расписания, заданные владельцем в админке.
+
+        Код остаётся источником дефолта: задача регистрируется в bot_jobs
+        как есть, а строка в БД перекрывает время и флаг enabled. Если БД
+        недоступна или таблицы ещё нет — работаем ровно по коду, как раньше.
+
+        Возвращает список задач к запуску (без выключенных).
+        """
+        try:
+            from shared.settings_store import get_job_overrides, register_job
+        except Exception:
+            return list(self._jobs)
+
+        # Показать владельцу полный список задач, включая нетронутые.
+        for job in self._jobs:
+            fields = {
+                "hour": getattr(job, "hour", None),
+                "minute": getattr(job, "minute", None),
+                "day_of_week": getattr(job, "day_of_week", None),
+                "day_of_month": getattr(job, "day_of_month", None),
+                "seconds": getattr(job, "seconds", None),
+            }
+            kind = "interval" if isinstance(job, _IntervalJob) else "cron"
+            await register_job(self.bot_name, job.name, kind, **fields)
+
+        overrides = await get_job_overrides(self.bot_name)
+        if not overrides:
+            return list(self._jobs)
+
+        runnable = []
+        for job in self._jobs:
+            cfg = overrides.get(job.name)
+            if not cfg:
+                runnable.append(job)
+                continue
+
+            if cfg.get("enabled") is False:
+                logger.info("[%s] ⏸ Задача '%s' выключена в админке", self.bot_name, job.name)
+                continue
+
+            # Перекрываем только заданные поля: NULL в БД означает
+            # «оставить как в коде», а не «сбросить в None».
+            for attr, col in (
+                ("hour", "hour"), ("minute", "minute"),
+                ("day_of_week", "day_of_week"), ("day_of_month", "day_of_month"),
+                ("seconds", "seconds"),
+            ):
+                value = cfg.get(col)
+                if value is not None and hasattr(job, attr):
+                    if getattr(job, attr) != value:
+                        logger.info(
+                            "[%s] ⚙️ '%s': %s %s → %s (из админки)",
+                            self.bot_name, job.name, attr, getattr(job, attr), value,
+                        )
+                    setattr(job, attr, value)
+
+            runnable.append(job)
+        return runnable
+
     async def start(self):
         """Запустить все задачи как asyncio.Tasks."""
+        jobs = await self._apply_overrides()
         logger.info(
-            "[%s] 🚀 Планировщик: запуск %d задач", self.bot_name, len(self._jobs)
+            "[%s] 🚀 Планировщик: запуск %d задач (из %d зарегистрированных)",
+            self.bot_name, len(jobs), len(self._jobs),
         )
-        for job in self._jobs:
+        for job in jobs:
             task = asyncio.create_task(job.loop(), name=f"{self.bot_name}:{job.name}")
             self._tasks.append(task)
+
+    async def restart(self):
+        """Перечитать расписания и перезапустить задачи без рестарта контейнера.
+
+        Вызывается по событию CONFIG_UPDATED: владелец поменял время в
+        админке — задачи подхватывают его сразу, а не после деплоя.
+        """
+        await self.stop()
+        try:
+            from shared.settings_store import invalidate
+            invalidate()
+        except Exception:
+            pass
+        await self.start()
 
     async def stop(self):
         """Остановить все задачи."""

@@ -899,6 +899,26 @@ scheduler.add_cron(name="publish_restaurant_of_week", func=publish_restaurant_of
 # BOT BUS HANDLERS — задачи от Степана
 # ═══════════════════════════════════════════════════════════════════════════
 
+async def bus_sync_publication_metrics(params: dict) -> dict:
+    """Подтянуть лайки/охваты из Instagram Graph API по требованию из админки.
+
+    Раньше метрики обновлялись только в еженедельном reach-отчёте
+    (понедельник 10:00), и посмотреть свежие цифры в середине недели было
+    нельзя.
+    """
+    from shared.instagram_analytics import sync_publication_metrics, build_reach_report
+
+    updated = await sync_publication_metrics()
+    report = await build_reach_report()
+    if not report.get("configured"):
+        raise RuntimeError("Instagram Graph API не настроен: нет токена или доступа")
+
+    return {
+        "message": f"Метрики обновлены ({updated if updated is not None else '—'} публикаций)",
+        "summary": report.get("summary", ""),
+    }
+
+
 async def bus_publish_story(params: dict) -> dict:
     """Генерирует картинку по теме и публикует в Instagram Stories."""
     topic = params.get("topic", "микрозелень")
@@ -1372,6 +1392,8 @@ async def main():
         "generate_meme": bus_generate_meme,
         "get_status": bus_get_status,
         "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
+        # Кнопка «Синк метрик Instagram» в веб-админке.
+        "sync_publication_metrics": bus_sync_publication_metrics,
         "product_description": bus_product_description,  # текст карточки нового товара
         BotBusActions.DRAFT_MAGAZINE: _draft_magazine,
     }))

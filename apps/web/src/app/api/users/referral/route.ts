@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { getNumber } from '@/lib/settings/store';
 
 // ==========================================
 // Referral via Telegram deep link — called by the storefront bot on
@@ -48,13 +49,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Welcome + referral bonuses (same amounts as /api/referral).
+    // Суммы те же, что и в /api/referral, потому что берутся из одного
+    // источника — настроек. Раньше это были две независимые копии чисел.
+    const referrerReward = await getNumber('bonus.referrerReward');
+    const newUserReward = await getNumber('bonus.newUserReward');
+
     await prisma.$transaction([
-      prisma.user.update({ where: { id: referrer.id }, data: { bonusPoints: { increment: 5000 } } }),
-      prisma.user.update({ where: { id: newUser.id }, data: { bonusPoints: { increment: 2000 } } }),
+      prisma.user.update({ where: { id: referrer.id }, data: { bonusPoints: { increment: referrerReward } } }),
+      prisma.user.update({ where: { id: newUser.id }, data: { bonusPoints: { increment: newUserReward } } }),
     ]);
 
-    return NextResponse.json({ success: true, referrerBonus: 5000, newUserBonus: 2000 });
+    return NextResponse.json({ success: true, referrerBonus: referrerReward, newUserBonus: newUserReward });
   } catch (error) {
     console.error('Telegram referral error:', error);
     return NextResponse.json({ error: 'server error' }, { status: 500 });

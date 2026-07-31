@@ -96,11 +96,24 @@ for bot in sorted(EXPECTED):
 if hb_found == EXPECTED:
     notes.append(f"  ok  вызов start_heartbeat — {len(hb_found)}")
 
-# ── 2. карта портов event_bus ───────────────────────────────────────────
-bus = read(ROOT / "shared" / "event_bus.py") or ""
-bus_bots = {m.group(1) if m.group(1).endswith("_bot") else f"{m.group(1)}_bot"
-            for m in re.finditer(r'\("mg_([a-z0-9_]+)",\s*\d+\)', bus)}
-compare("shared/event_bus.py карта портов", bus_bots, expected=EXPECTED - NO_EVENT_PORT)
+# ── 2. карта портов прямой доставки событий ─────────────────────────────
+# Карта переехала из shared/event_bus.py в shared/bot_registry.py: теперь
+# это единственный источник и для неё, и для ALL_BOTS. event_bus его просто
+# импортирует, поэтому разъехаться они больше не могут — но проверяем, что
+# в реестре у каждого бота (кроме безпортовых) порт действительно указан.
+registry = read(ROOT / "shared" / "bot_registry.py") or ""
+registry_ports = {
+    m.group(1) if m.group(1).endswith("_bot") else f"{m.group(1)}_bot"
+    for m in re.finditer(r'BotInfo\(\s*"([a-z0-9_]+)",\s*"mg_[a-z0-9_]+",\s*\d+', registry)
+}
+compare("shared/bot_registry.py карта портов", registry_ports,
+        expected=EXPECTED - NO_EVENT_PORT)
+
+if "from shared.bot_registry import EVENT_ENDPOINTS" not in (read(ROOT / "shared" / "event_bus.py") or ""):
+    problems.append(
+        "shared/event_bus.py: карта портов задана вручную вместо импорта "
+        "EVENT_ENDPOINTS из shared/bot_registry.py — источники снова разъедутся"
+    )
 
 # ── 3. compose-файлы ────────────────────────────────────────────────────
 for label, path in (

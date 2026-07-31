@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@repo/database';
-import { deliveryFeeFor } from '@/lib/site';
+import { deliveryFeeForSubtotal, getNumber } from '@/lib/settings/store';
 import { syncOrderStatus } from '@/lib/orderSync';
 import { validatePromo, consumePromo } from '@/lib/promo';
 import { isStaff, unauthorized } from '@/lib/adminAuth';
@@ -282,7 +282,7 @@ export async function POST(request: NextRequest) {
     }
 
     const subtotal = items.reduce((sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0);
-    const deliveryFee = deliveryFeeFor(subtotal);
+    const deliveryFee = await deliveryFeeForSubtotal(subtotal);
 
     // Resolve the ordering user: prefer the logged-in account (userId), then
     // phone, else create a guest by phone.
@@ -303,8 +303,13 @@ export async function POST(request: NextRequest) {
 
     // Bonus redemption — only for the authenticated account, capped by the
     // balance and by the goods subtotal (delivery is never covered by points).
+    // Порог списания брался из настроек: клиенту его показывали в
+    // /api/referral ("minCashout: 50000"), но при оформлении не проверяли —
+    // списать можно было с любого баланса. Теперь обещание и поведение
+    // совпадают; чтобы вернуть прежнюю вольницу, поставьте порог в 0.
+    const minCashout = await getNumber('bonus.minCashout');
     const authed = !!userId && user.id === userId;
-    let bonusApplied = authed
+    let bonusApplied = authed && user.bonusPoints >= minCashout
       ? Math.max(0, Math.min(Math.floor(Number(bonusToUse) || 0), user.bonusPoints, subtotal))
       : 0;
 
@@ -371,6 +376,7 @@ export async function POST(request: NextRequest) {
     // drive stock negative (oversell). Microgreens are grown-to-order, so an order
     // beyond current stock is accepted but flagged as backorder and stock clamps at 0.
     const lowStockAlerts: string[] = [];
+    const lowStockThreshold = await getNumber('stock.lowStockAlert');
     try {
       for (const item of order.items) {
         const dec = await prisma.product.updateMany({
@@ -396,7 +402,7 @@ export async function POST(request: NextRequest) {
           lowStockAlerts.push(`⚠️ ${item.product.nameUz} — zaxira tugadi (backorder)!`);
         } else {
           const fresh = await prisma.product.findUnique({ where: { id: item.productId }, select: { stock: true } });
-          if (fresh && fresh.stock <= 5) {
+          if (fresh && fresh.stock <= lowStockThreshold) {
             lowStockAlerts.push(`⚠️ ${item.product.nameUz} — faqat ${fresh.stock} dona qoldi!`);
           }
         }
@@ -430,14 +436,17 @@ export async function POST(request: NextRequest) {
     notifyOffice(order, user).catch(console.error);
 
 
-    // Referral bonus: 3% to referrer
+    // Кэшбэк пригласившему. Процент задаётся в админке (bonus.referralPercent):
+    // раньше 3% были вписаны здесь числом, а клиенту показывались отдельной
+    // константой в /api/referral — две цифры могли разойтись незаметно.
     try {
       if (user.referredBy) {
         const referrer = await prisma.user.findFirst({
           where: { referralCode: user.referredBy },
         });
         if (referrer) {
-          const bonus = Math.round(order.total * 0.03); // 3%
+          const percent = await getNumber('bonus.referralPercent');
+          const bonus = Math.round(order.total * (percent / 100));
           await prisma.user.update({
             where: { id: referrer.id },
             data: { bonusPoints: { increment: bonus } },

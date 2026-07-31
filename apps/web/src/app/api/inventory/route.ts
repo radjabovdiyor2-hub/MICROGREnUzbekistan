@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { getNumber } from '@/lib/settings/store';
 
 // ==========================================
 // Inventory Dashboard — Main stock overview
@@ -36,9 +37,21 @@ export async function GET(request: NextRequest) {
     prisma.product.count({ where: productWhere }),
   ]);
 
-  // Get sales data for last 90 days for demand calculation
+  // Пороги склада задаются в админке: раньше 2 / 14 / 3 / 90 были вписаны
+  // числами прямо в расчёт, и подстроить их под сезон было нельзя.
+  const [
+    criticalLevel, lowDaysOfSupply, excessMultiplier, reorderLeadDays, demandWindow,
+  ] = await Promise.all([
+    getNumber('stock.criticalLevel'),
+    getNumber('stock.lowDaysOfSupply'),
+    getNumber('stock.excessMultiplier'),
+    getNumber('stock.reorderLeadDays'),
+    getNumber('stock.demandWindowDays'),
+  ]);
+
+  // Get sales data over the demand window for demand calculation
   const ninetyDaysAgo = new Date();
-  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - demandWindow);
 
   const recentSales = await prisma.orderItem.findMany({
     where: {
@@ -73,21 +86,21 @@ export async function GET(request: NextRequest) {
   // Enrich products with analytics
   const enrichedProducts = products.map(product => {
     const totalSold90d = salesByProduct.get(product.id) || 0;
-    const avgDailySales = totalSold90d / 90;
-    const avgMonthlySales = totalSold90d / 3;
+    const avgDailySales = totalSold90d / demandWindow;
+    const avgMonthlySales = totalSold90d / (demandWindow / 30);
     const daysOfSupply = avgDailySales > 0
       ? Math.round(product.stock / avgDailySales)
       : product.stock > 0 ? 999 : 0;
 
     // Stock status
     let status: string;
-    if (product.stock <= 2) status = 'CRITICAL';
-    else if (daysOfSupply <= 14) status = 'LOW';
-    else if (product.stock > avgMonthlySales * 3 && avgMonthlySales > 0) status = 'EXCESS';
+    if (product.stock <= criticalLevel) status = 'CRITICAL';
+    else if (daysOfSupply <= lowDaysOfSupply) status = 'LOW';
+    else if (product.stock > avgMonthlySales * excessMultiplier && avgMonthlySales > 0) status = 'EXCESS';
     else status = 'NORMAL';
 
-    // Reorder point (lead time 7 days + 7 days safety)
-    const reorderPoint = Math.ceil(avgDailySales * 14);
+    // Reorder point (срок поставки + страховой запас, настраивается)
+    const reorderPoint = Math.ceil(avgDailySales * reorderLeadDays);
 
     // Stock value
     const stockValue = product.stock * product.price;

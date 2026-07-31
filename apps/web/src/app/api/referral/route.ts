@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { getNumber } from '@/lib/settings/store';
 
 // ==========================================
 // Referral API — Bonus system for masters
@@ -49,11 +50,12 @@ export async function GET(request: NextRequest) {
         name: r.firstName || 'Mehmon',
         date: r.createdAt,
       })),
-      // Bonus rules
+      // Правила показываем те же, по которым реально начисляем: значения
+      // берутся из настроек, а не из отдельной копии констант.
       rules: {
-        bonusPerReferral: 5000, // 5000 so'm per new user
-        bonusPercentPerOrder: 3, // 3% from each referral's order
-        minCashout: 50000, // Min 50,000 so'm to use
+        bonusPerReferral: await getNumber('bonus.referrerReward'),
+        bonusPercentPerOrder: await getNumber('bonus.referralPercent'),
+        minCashout: await getNumber('bonus.minCashout'),
       },
     });
   } catch (error) {
@@ -99,6 +101,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Kod topilmadi. Tekshirib qayta kiriting.' }, { status: 404 });
     }
 
+    // Суммы задаются в админке — раньше они были вписаны числами здесь и
+    // ещё раз в api/users/referral, и правка в одном месте расходилась.
+    const referrerReward = await getNumber('bonus.referrerReward');
+    const newUserReward = await getNumber('bonus.newUserReward');
+
     // Apply referral + give bonus to referrer
     await prisma.$transaction([
       // Mark user as referred
@@ -106,23 +113,22 @@ export async function POST(request: NextRequest) {
         where: { id: userId },
         data: { referredBy: referrer.referralCode },
       }),
-      // Give referrer bonus (5000 so'm = 5000 points)
       prisma.user.update({
         where: { id: referrer.id },
-        data: { bonusPoints: { increment: 5000 } },
+        data: { bonusPoints: { increment: referrerReward } },
       }),
-      // Give new user welcome bonus (2000 so'm)
       prisma.user.update({
         where: { id: userId },
-        data: { bonusPoints: { increment: 2000 } },
+        data: { bonusPoints: { increment: newUserReward } },
       }),
     ]);
 
+    const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
     return NextResponse.json({
       success: true,
-      message: `Tabriklaymiz! Siz 2 000 so'm bonus oldingiz. ${referrer.firstName || 'Agro'}ga 5 000 so'm bonus berildi!`,
-      yourBonus: 2000,
-      referrerBonus: 5000,
+      message: `Tabriklaymiz! Siz ${fmt(newUserReward)} so'm bonus oldingiz. ${referrer.firstName || 'Agro'}ga ${fmt(referrerReward)} so'm bonus berildi!`,
+      yourBonus: newUserReward,
+      referrerBonus: referrerReward,
     });
   } catch (error) {
     console.error('Referral POST error:', error);

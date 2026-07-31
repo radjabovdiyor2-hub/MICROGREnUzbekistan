@@ -168,7 +168,24 @@ async def start_server():
     
     # Подключаем Event Bus
     await event_bus.connect()
-    scheduler.start()
+    # await обязателен: start() — корутина. Без него планировщик не
+    # запускался вообще (корутина создавалась и тут же выбрасывалась),
+    # и единственная задача бота — суточные сводки по городам в 23:55 —
+    # не отрабатывала ни разу. Ошибки при этом не было, только warning
+    # "coroutine was never awaited" в логах.
+    await scheduler.start()
+
+    # Bot bus: слушателя не было совсем. Делегированных задач боту не шлют
+    # намеренно (он планировщик), но без слушателя недоступна и ручная
+    # пересборка сводок из админки.
+    from shared.bot_bus import start_listener as bus_listen
+    async def bus_generate_journals(params: dict) -> dict:
+        await generate_daily_franchise_journals()
+        return {"message": "Сводки по городам пересобраны"}
+
+    asyncio.create_task(bus_listen("franchise_bot", {
+        "generate_franchise_journals": bus_generate_journals,
+    }))
 
     from shared.health import start_heartbeat
     asyncio.create_task(start_heartbeat("franchise_bot"))

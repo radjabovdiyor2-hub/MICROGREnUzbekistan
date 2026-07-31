@@ -508,6 +508,80 @@ async def bus_b2b_outreach(params: dict) -> dict:
         return {"status": "error", "message": str(e)}
 
 
+async def bus_trigger_lead_audit(params: dict) -> dict:
+    """Аудит воронки лидов: сколько собрано, обработано и во что превратилось.
+
+    Считаем по customers: лид приходит со status='lead', при квалификации
+    статус меняется. Сравнение статусов через LOWER — в базе встречаются и
+    'LEAD', и 'lead' (та же болезнь, что с department без .lower()).
+    """
+    try:
+        from sqlalchemy import text
+        from shared.database import get_session_ctx
+
+        async with get_session_ctx() as session:
+            res = await session.execute(text(
+                "SELECT LOWER(COALESCE(status, 'unknown')) AS st, COUNT(*) "
+                "FROM customers WHERE customer_type = 'b2b' GROUP BY st"
+            ))
+            by_status = {row[0]: row[1] for row in res.fetchall()}
+
+            res = await session.execute(text(
+                "SELECT COUNT(*) FROM customers "
+                "WHERE customer_type = 'b2b' AND created_at >= NOW() - INTERVAL '7 days'"
+            ))
+            fresh_week = res.scalar() or 0
+
+            res = await session.execute(text(
+                "SELECT COUNT(DISTINCT customer_id) FROM interactions "
+                "WHERE interaction_type = 'b2b_offer_sent' "
+                "AND created_at >= NOW() - INTERVAL '7 days'"
+            ))
+            contacted_week = res.scalar() or 0
+
+        total = sum(by_status.values())
+        leads = by_status.get("lead", 0)
+        converted = total - leads
+        conversion = round(converted / total * 100, 1) if total else 0.0
+
+        lines = [
+            "📊 <b>Аудит B2B-воронки</b>",
+            f"Всего компаний в базе: {total}",
+            f"Из них ещё лиды: {leads}",
+            f"Квалифицированы/клиенты: {converted} ({conversion}%)",
+            f"Новых за 7 дней: +{fresh_week}",
+            f"Контактов за 7 дней: {contacted_week}",
+        ]
+        summary = "\n".join(lines)
+
+        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        if admin_id:
+            # В этом модуле нет глобального объекта бота — экземпляр создаётся
+            # на вызов и закрывается, иначе сессия aiohttp течёт.
+            bot = await _get_bot()
+            try:
+                await bot.send_message(admin_id, summary, parse_mode="HTML")
+            finally:
+                await bot.session.close()
+
+        # Замыкаем петлю: результат аудита -> вывод -> правка поведения рассылок.
+        try:
+            from shared.feedback_loop import feedback_loop
+            await feedback_loop.record_measurement(
+                bot="marketing_bot", metric="lead_conversion",
+                value=conversion, target=20.0,
+                context={"total": total, "leads": leads, "fresh_week": fresh_week},
+            )
+        except Exception as fe:
+            logging.warning(f"lead audit feedback error: {fe}")
+
+        return {"status": "ok", "message": summary, "conversion_pct": conversion,
+                "total": total, "fresh_week": fresh_week}
+    except Exception as e:
+        logging.error(f"bus_trigger_lead_audit error: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+
 async def bus_collect_leads(params: dict) -> dict:
     """Собрать новых B2B-лидов (рестораны) из внешних источников."""
     try:
@@ -664,6 +738,8 @@ async def main():
         "send_broadcast": bus_send_broadcast,
         "b2b_outreach": bus_b2b_outreach,
         "collect_leads": bus_collect_leads,
+        # Кнопка «Аудит лидов» в веб-админке.
+        "trigger_lead_audit": bus_trigger_lead_audit,
         BotBusActions.PICK_RESTAURANT: _pick_restaurant,
     }))
 

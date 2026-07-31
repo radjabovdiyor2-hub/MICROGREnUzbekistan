@@ -1092,9 +1092,57 @@ async def main():
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
+    async def bus_force_learning_cycle(params: dict) -> dict:
+        """Прогнать петли обучения по всем ботам сейчас — кнопка в админке.
+
+        Обычно каждая петля срабатывает по своему расписанию (KPI в 20:00,
+        P&L в 18:00 и т.д.), и увидеть эффект правки бенчмарков можно было
+        только на следующий день. Здесь прогоняем их разом.
+        """
+        from shared.feedback_loop import feedback_loop
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+
+        # Берём метрики, по которым уже есть история: так цикл сам
+        # подхватывает новые петли, добавленные в другие боты.
+        pairs: list[tuple[str, str]] = []
+        try:
+            async with get_session_ctx() as session:
+                res = await session.execute(text(
+                    "SELECT DISTINCT bot, metric FROM bot_learnings ORDER BY bot, metric"
+                ))
+                pairs = [(r[0], r[1]) for r in res.fetchall()]
+        except Exception as exc:
+            return {"status": "error", "message": f"Не удалось прочитать петли: {exc}"}
+
+        if not pairs:
+            return {"status": "ok",
+                    "message": "Петли ещё не запускались — нечего пересчитывать. "
+                               "Дождитесь первого планового цикла."}
+
+        done, failed = 0, 0
+        for bot_name, metric in pairs:
+            try:
+                await feedback_loop.evaluate_and_adapt(
+                    bot=bot_name, metric=metric,
+                    current_data={"trigger": "manual", "source": "web_admin"},
+                    benchmark_data={},
+                )
+                done += 1
+            except Exception as exc:
+                logger.warning("force_learning_cycle: %s/%s упал: %s", bot_name, metric, exc)
+                failed += 1
+
+        return {
+            "status": "ok",
+            "message": f"Петли пересчитаны: {done} успешно, {failed} с ошибкой",
+            "processed": done, "failed": failed,
+        }
+
     asyncio.create_task(bus_listen("stepan_bot", {
         "get_tasks": bus_get_tasks,
         "get_deadlines": bus_get_deadlines,
+        "force_learning_cycle": bus_force_learning_cycle,
     }))
 
 

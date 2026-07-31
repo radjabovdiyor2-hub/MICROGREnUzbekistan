@@ -51,13 +51,63 @@ interface ProductOption {
   price: number;
 }
 
-const STORAGE_KEY = 'mg_grow_batches';
+// ══════════════════════════════════════════════════════════════════════
+// Партии хранятся в базе (таблица grow_batches), а не в localStorage.
+//
+// Раньше весь производственный план жил в браузере: с телефона посадок
+// не было видно, очистка кэша стирала их целиком, а бот и отчёты о них
+// вообще не знали. Ключ ниже нужен только для разового переноса того,
+// что уже накопилось у владельца в браузере.
+// ══════════════════════════════════════════════════════════════════════
 
-function loadBatches(): Batch[] {
-  if (typeof window === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch { return []; }
+const LEGACY_KEY = 'mg_grow_batches';
+const MIGRATED_KEY = 'mg_grow_batches_migrated';
+
+async function fetchBatches(): Promise<Batch[]> {
+  const res = await fetch('/api/admin/grow-batches?all=1', { credentials: 'same-origin' });
+  const data = await res.json();
+  return data.status === 'ok' ? (data.batches as Batch[]) : [];
 }
-function saveBatches(b: Batch[]) { localStorage.setItem(STORAGE_KEY, JSON.stringify(b)); }
+
+/**
+ * Разовый перенос партий из localStorage в базу.
+ *
+ * Флаг ставим ДО отправки: повторный запуск при частичной ошибке создал бы
+ * дубли, а потерянную партию владелец увидит и заведёт заново — это
+ * дешевле, чем разбирать удвоенный список.
+ */
+async function migrateLegacyBatches(): Promise<boolean> {
+  if (typeof window === 'undefined') return false;
+  if (localStorage.getItem(MIGRATED_KEY)) return false;
+
+  let legacy: Batch[] = [];
+  try {
+    legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || '[]');
+  } catch {
+    legacy = [];
+  }
+
+  localStorage.setItem(MIGRATED_KEY, '1');
+  if (!Array.isArray(legacy) || !legacy.length) return false;
+
+  for (const b of legacy) {
+    try {
+      await fetch('/api/admin/grow-batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          cropType: b.cropType, trays: b.trays, seedDate: b.seedDate,
+          darkDays: b.darkDays, lightDays: b.lightDays, shelfDays: b.shelfDays,
+          note: b.note,
+        }),
+      });
+    } catch {
+      // Продолжаем: одна неудача не должна оборвать перенос остальных.
+    }
+  }
+  return true;
+}
 
 function daysBetween(a: string, b: string) {
   return Math.floor((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
@@ -109,7 +159,21 @@ export function AdminGrowing() {
   const [customLight, setCustomLight] = useState<number>(4);
   const [customShelf, setCustomShelf] = useState<number>(7);
 
-  useEffect(() => { setBatches(loadBatches()); }, []);
+  const reload = useCallback(async () => {
+    try {
+      setBatches(await fetchBatches());
+    } catch (err) {
+      console.error('[growing] не удалось загрузить партии:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      await migrateLegacyBatches();
+      await reload();
+    })();
+  }, [reload]);
+
   useEffect(() => {
     fetch('/api/products?limit=200').then(r => r.json()).then(d => {
       const mapped = (d.items || []).map((p: Record<string, unknown>) => ({ id: p.id as string, nameUz: p.nameUz as string, nameRu: p.nameRu as string, stock: p.stock as number, costPrice: (p.costPrice as number) || 0, price: (p.price as number) || 0 }));
@@ -117,7 +181,16 @@ export function AdminGrowing() {
     }).catch(() => {});
   }, []);
 
-  const save = useCallback((updated: Batch[]) => { setBatches(updated); saveBatches(updated); }, []);
+  /** Записать изменения партии в базу и перечитать список. */
+  const patchBatch = useCallback(async (id: string, patch: Record<string, unknown>) => {
+    await fetch('/api/admin/grow-batches', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ id, ...patch }),
+    });
+    await reload();
+  }, [reload]);
 
   const handleEdit = (batch: Batch) => {
     setEditingId(batch.id);
@@ -135,8 +208,7 @@ export function AdminGrowing() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const addBatch = () => {
-    const crop = CROP_DB[cropType] || CROP_DB['other'];
+  const addBatch = async () => {
     const prod = products.find(p => p.id === selectedProductId);
     const newBatchData = {
       cropType, trays, seedDate, note,
@@ -146,17 +218,18 @@ export function AdminGrowing() {
       harvestQty,
       costPrice: costPriceInput || prod?.costPrice || 0,
     };
-    
+
     if (editingId) {
-      save(batches.map(b => b.id === editingId ? { ...b, ...newBatchData } : b));
+      await patchBatch(editingId, { trays, note });
       setEditingId(null);
     } else {
-      const batch: Batch = {
-        id: Date.now().toString(36),
-        status: 'dark',
-        ...newBatchData,
-      };
-      save([batch, ...batches]);
+      await fetch('/api/admin/grow-batches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(newBatchData),
+      });
+      await reload();
     }
     setShowForm(false); setNote(''); setTrays(1); setHarvestQty(1); setCostPriceInput(0);
     setCustomDark(CROP_DB['radish'].darkDays);
@@ -192,7 +265,12 @@ export function AdminGrowing() {
           alert(`Ошибка: ${data.error}`);
         }
       }
-      save(batches.map(b => b.id === id ? { ...b, status: 'harvested' as const, harvestDate: new Date().toISOString().slice(0, 10) } : b));
+      await patchBatch(id, {
+        harvestQty: batch.harvestQty || batch.trays,
+        productId: batch.productId,
+        productName: batch.productName,
+        costPrice: batch.costPrice,
+      });
     } catch (err) {
       console.error(err);
       alert('Ошибка при добавлении на склад');
@@ -201,8 +279,10 @@ export function AdminGrowing() {
     }
   };
 
-  const deleteBatch = (id: string) => {
-    if (confirm('Удалить эту посадку?')) save(batches.filter(b => b.id !== id));
+  const deleteBatch = async (id: string) => {
+    if (!confirm('Удалить эту посадку?')) return;
+    await fetch(`/api/admin/grow-batches?id=${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    await reload();
   };
 
   // Write off expired batch → WRITE_OFF movement (loss)
@@ -229,7 +309,13 @@ export function AdminGrowing() {
           }),
         });
       }
-      save(batches.map(b => b.id === id ? { ...b, status: 'harvested' as const, harvestDate: new Date().toISOString().slice(0, 10), note: (b.note ? b.note + ' | ' : '') + `СПИСАНО, убыток ${fmt(loss)}` } : b));
+      await patchBatch(id, {
+        harvestQty: qty,
+        productId: batch.productId,
+        productName: batch.productName,
+        costPrice: batch.costPrice,
+        note: (batch.note ? batch.note + ' | ' : '') + `СПИСАНО, убыток ${fmt(loss)}`,
+      });
       alert(`❌ Списано. Убыток: ${fmt(loss)} сум`);
     } catch (err) {
       console.error(err);
