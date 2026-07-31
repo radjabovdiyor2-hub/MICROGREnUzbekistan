@@ -79,6 +79,17 @@ async def employee_report():
                 parse_mode="HTML",
             )
             logger.info("employee_report: active=%d inactive=%d on_leave=%d", active, inactive, on_leave)
+            # Замыкаем петлю: HR (замер загрузки/штата -> вывод -> адаптация нагрузки)
+            try:
+                from shared.feedback_loop import feedback_loop
+                await feedback_loop.evaluate_and_adapt(
+                    bot="hr_bot",
+                    metric="task_completion_rate",
+                    current_data={"active": active, "inactive": inactive, "on_leave": on_leave, "total": total},
+                    benchmark_data={"target_active_ratio": 0.85}
+                )
+            except Exception as fe:
+                logger.warning(f"HR feedback loop error: {fe}")
         finally:
             await bot.session.close()
     except Exception as e:

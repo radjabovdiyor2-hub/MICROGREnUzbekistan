@@ -47,6 +47,18 @@ async def handle_n8n_webhook(request: web.Request):
                     f.write(f"-- BACKUP GENERATED AT {timestamp} --\n-- DUMMY FILE --\n")
                 status_msg = f"Симуляция бекапа (pg_dump не найден). Файл: {filename}"
                 
+            # Замыкаем петлю: DevOps (замер надёжности системы / бекапов -> вывод -> адаптация порогов)
+            try:
+                from shared.feedback_loop import feedback_loop
+                await feedback_loop.evaluate_and_adapt(
+                    bot="devops_bot",
+                    metric="system_reliability",
+                    current_data={"backup_file": filename, "backup_success": os.path.exists(filepath)},
+                    benchmark_data={"target_uptime_pct": 99.9}
+                )
+            except Exception as fe:
+                logger.warning(f"DevOps feedback loop error: {fe}")
+
             # Send result back via Event Bus to Stepan
             await event_bus.publish("TASK_COMPLETED", {
                 "task_id": "devops_daily_backup",
