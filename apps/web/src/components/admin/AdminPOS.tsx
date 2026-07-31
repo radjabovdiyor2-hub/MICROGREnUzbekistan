@@ -6,29 +6,10 @@ import {
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { AdminPOSReceipt } from './AdminPOSReceipt';
+import { AdminPOSProducts } from './AdminPOSProducts';
+import { AdminPOSCart } from './AdminPOSCart';
+import type { CartItem, DebtInfo, Product } from './AdminPOSTypes';
 
-interface Product {
-  id: string;
-  nameUz: string;
-  nameRu: string;
-  price: number;
-  costPrice: number | null;
-  stock: number;
-  images: string[];
-  category?: { nameUz: string };
-}
-
-interface CartItem {
-  product: Product;
-  quantity: number;
-  customPrice: number; // editable sale price
-}
-
-interface DebtInfo {
-  personName: string;
-  phone: string;
-  dueDate: string;
-}
 
 export function AdminPOS({ sellerName }: { sellerName?: string }) {
   const [products, setProducts] = useState<Product[]>([]);
@@ -421,362 +402,42 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)',
         minHeight: 'calc(100vh - 200px)',
       }}>
-        {/* LEFT: Product search */}
-        <div className="pos-products">
-          <div style={{ position: 'relative', marginBottom: 'var(--space-3)' }}>
-            <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input
-              type="text"
-              placeholder="Поиск товара..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                ...inputStyle,
-                paddingLeft: '42px', fontSize: 'var(--text-base)',
-                borderRadius: '14px', height: '48px',
-              }}
-              onFocus={e => { e.target.style.borderColor = 'var(--brand-primary)'; e.target.style.boxShadow = '0 0 0 3px rgba(var(--brand-primary-rgb), 0.1)'; }}
-              onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none'; }}
-            />
-          </div>
+        <AdminPOSProducts
+          products={products}
+          cart={cart}
+          loading={loading}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          addToCart={addToCart}
+          fmt={fmt}
+          inputStyle={inputStyle}
+        />
 
-          {/* Category filter pills */}
-          {(() => {
-            const categories = Array.from(new Set(products.map(p => p.category?.nameUz).filter(Boolean))) as string[];
-            return (
-              <div className="pos-cat-pills" style={{
-                display: 'flex', gap: '6px', marginBottom: 'var(--space-3)',
-                overflowX: 'auto', paddingBottom: '4px',
-                scrollbarWidth: 'none',
-                position: 'sticky', top: 0, zIndex: 5,
-                background: 'var(--bg-primary)',
-              }}>
-                <button className="pos-cat-btn" onClick={() => setSelectedCategory('all')}
-                  style={{
-                    padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
-                    fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', transition: 'all 0.2s',
-                    background: selectedCategory === 'all' ? 'var(--brand-primary)' : 'var(--bg-tertiary)',
-                    color: selectedCategory === 'all' ? 'white' : 'var(--text-secondary)',
-                    boxShadow: selectedCategory === 'all' ? '0 2px 8px rgba(var(--brand-primary-rgb), 0.3)' : 'none',
-                  }}>
-                  Все ({products.length})
-                </button>
-                {categories.map(cat => {
-                  const count = products.filter(p => p.category?.nameUz === cat).length;
-                  return (
-                    <button key={cat} className="pos-cat-btn" onClick={() => setSelectedCategory(cat)}
-                      style={{
-                        padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
-                        fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', transition: 'all 0.2s',
-                        background: selectedCategory === cat ? 'var(--brand-primary)' : 'var(--bg-tertiary)',
-                        color: selectedCategory === cat ? 'white' : 'var(--text-secondary)',
-                        boxShadow: selectedCategory === cat ? '0 2px 8px rgba(var(--brand-primary-rgb), 0.3)' : 'none',
-                      }}>
-                      {cat} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })()}
-
-          <div className="pos-product-grid" style={{
-            display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px',
-            maxHeight: 'calc(100vh - 370px)', overflowY: 'auto',
-            borderRadius: '14px', paddingRight: '2px', paddingBottom: cart.length > 0 ? '70px' : '0',
-          }}>
-            {loading ? (
-              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-                <Clock size={28} style={{ animation: 'pulse 1.5s infinite' }} />
-              </div>
-            ) : products.length === 0 ? (
-              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-                <Search size={36} style={{ marginBottom: 'var(--space-3)', opacity: 0.4 }} />
-                <p style={{ fontSize: 'var(--text-sm)' }}>Товар не найден</p>
-              </div>
-            ) : (
-              products
-                .filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory)
-                .map(product => {
-                const inCart = cart.find(item => item.product.id === product.id);
-                const outOfStock = product.stock <= 0;
-                return (
-                  <div key={product.id} className="pos-product-card" onClick={() => !outOfStock && addToCart(product)}
-                    style={{
-                      padding: '10px', cursor: outOfStock ? 'not-allowed' : 'pointer',
-                      display: 'flex', flexDirection: 'column', gap: '6px',
-                      opacity: outOfStock ? 0.4 : 1,
-                      transition: 'all 0.15s ease',
-                      background: inCart ? 'var(--brand-primary-light)' : 'var(--bg-primary)',
-                      borderRadius: '12px',
-                      border: inCart ? '2px solid var(--brand-primary)' : '1.5px solid var(--border)',
-                      position: 'relative',
-                      boxShadow: inCart ? '0 2px 12px rgba(var(--brand-primary-rgb), 0.12)' : 'none',
-                    }}>
-                    {/* Cart quantity badge */}
-                    {inCart && (
-                      <span style={{
-                        position: 'absolute', top: -6, right: -6,
-                        minWidth: 24, height: 24, borderRadius: '8px',
-                        background: 'var(--brand-primary)', color: 'white',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '12px', fontWeight: 800, zIndex: 2,
-                        border: '2px solid var(--bg-primary)',
-                        boxShadow: '0 2px 6px rgba(var(--brand-primary-rgb), 0.3)',
-                      }}>
-                        {inCart.quantity}
-                      </span>
-                    )}
-                    {/* Thumbnail row */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div className="pos-product-thumb" style={{
-                        width: 40, height: 40, borderRadius: '10px', overflow: 'hidden',
-                        background: 'var(--bg-tertiary)', flexShrink: 0,
-                        border: '1px solid var(--border)',
-                      }}>
-                        {product.images && product.images.length > 0 ? (
-                          <img src={product.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        ) : (
-                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                            <Camera size={16} />
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div className="pos-product-name" style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {product.nameUz}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', flexWrap: 'wrap' }}>
-                          {product.category?.nameUz && (
-                            <span className="pos-product-cat" style={{
-                              padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 600,
-                              background: 'var(--bg-tertiary)', color: 'var(--text-muted)',
-                            }}>
-                              {product.category.nameUz}
-                            </span>
-                          )}
-                          <span className="pos-product-stock" style={{
-                            padding: '1px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 700,
-                            background: outOfStock ? 'var(--error-bg)' : product.stock <= 5 ? 'var(--warning-bg)' : 'var(--success-bg)',
-                            color: outOfStock ? 'var(--error)' : product.stock <= 5 ? 'var(--warning)' : 'var(--success)',
-                          }}>
-                            {product.stock}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Price */}
-                    <div className="pos-product-price" style={{ fontWeight: 800, color: 'var(--brand-primary)', fontSize: '14px', fontFamily: 'var(--font-display)', textAlign: 'right' }}>
-                      {fmt(product.price)}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* RIGHT: Cart + checkout */}
-        <div className="pos-cart card" style={{
-          padding: 'var(--space-5)', display: 'flex', flexDirection: 'column',
-          borderRadius: '20px',
-        }}>
-          <h3 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)',
-            fontSize: 'var(--text-lg)', marginBottom: 'var(--space-4)',
-            display: 'flex', alignItems: 'center', gap: '10px',
-          }}>
-            <ShoppingCart size={22} /> Чек
-            {cart.length > 0 && <span style={{
-              fontSize: 'var(--text-xs)', color: 'var(--text-muted)',
-              background: 'var(--bg-tertiary)', padding: '3px 10px',
-              borderRadius: 'var(--radius-full)',
-            }}>({cart.length} шт)</span>}
-          </h3>
-
-          {cart.length === 0 ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-              <div style={{ textAlign: 'center' }}>
-                <ShoppingCart size={52} style={{ marginBottom: 'var(--space-3)', opacity: 0.2 }} />
-                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>Выберите товар</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div style={{ flex: 1, overflowY: 'auto', marginBottom: 'var(--space-4)' }}>
-                {cart.map(item => {
-                  const priceChanged = item.customPrice !== item.product.price;
-                  const isEditing = editingPriceId === item.product.id;
-                  const belowCost = item.product.costPrice && item.customPrice < item.product.costPrice;
-                  return (
-                  <div key={item.product.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-                    padding: '12px 0', borderBottom: '1px solid var(--border)',
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {item.product.nameUz}
-                        {belowCost && <span style={{ fontSize: '9px', padding: '1px 6px', borderRadius: '6px', background: 'color-mix(in srgb, var(--error) 15%, transparent)', color: 'var(--error)', fontWeight: 800 }}>УБЫТОК</span>}
-                      </div>
-                      {/* Editable price */}
-                      {isEditing ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input type="number" value={editPriceValue}
-                            onChange={e => setEditPriceValue(e.target.value)}
-                            onKeyDown={e => {
-                              if (e.key === 'Enter') {
-                                const v = parseInt(editPriceValue);
-                                if (v > 0) updatePrice(item.product.id, v);
-                                setEditingPriceId(null);
-                              } else if (e.key === 'Escape') setEditingPriceId(null);
-                            }}
-                            onBlur={() => {
-                              const v = parseInt(editPriceValue);
-                              if (v > 0) updatePrice(item.product.id, v);
-                              setEditingPriceId(null);
-                            }}
-                            style={{ width: 90, padding: '4px 8px', border: '2px solid var(--brand-primary)', borderRadius: '8px', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: 700, outline: 'none' }}
-                          />
-                        </div>
-                      ) : (
-                        <div onClick={() => { setEditingPriceId(item.product.id); setEditPriceValue(String(item.customPrice)); }}
-                          style={{ fontSize: 'var(--text-xs)', color: priceChanged ? 'var(--warning)' : 'var(--brand-primary)', fontWeight: 'var(--font-bold)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {fmt(item.customPrice * item.quantity)} сум
-                          <Edit size={10} style={{ opacity: 0.5 }} />
-                          {priceChanged && <span style={{ fontSize: '9px', color: 'var(--warning)', textDecoration: 'line-through', opacity: 0.6 }}>{fmt(item.product.price)}</span>}
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <button onClick={() => updateQuantity(item.product.id, -1)} className="btn btn-ghost btn-sm"
-                        style={{ width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
-                        <Minus size={14} />
-                      </button>
-                      <span style={{ fontWeight: 'var(--font-bold)', minWidth: 24, textAlign: 'center', fontSize: '15px' }}>{item.quantity}</span>
-                      <button onClick={() => updateQuantity(item.product.id, 1)} className="btn btn-ghost btn-sm"
-                        style={{ width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                    <button onClick={() => removeFromCart(item.product.id)} className="btn btn-ghost btn-sm"
-                      style={{ color: 'var(--error)', width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
-                      <Trash size={14} />
-                    </button>
-                  </div>
-                  );
-                })}
-              </div>
-
-              {returnMode ? (
-                /* Return mode: reason + return button */
-                <>
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Причина возврата:</div>
-                    <input type="text" placeholder="Брак / Неверный товар / Другое..."
-                      value={returnReason} onChange={e => setReturnReason(e.target.value)}
-                      style={{ ...inputStyle, borderColor: 'var(--warning)' }} />
-                  </div>
-                  <div style={{ borderTop: '2px solid var(--warning)', paddingTop: 'var(--space-4)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)', alignItems: 'baseline' }}>
-                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: 'var(--warning)' }}>Возврат:</span>
-                      <span style={{
-                        fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-                        fontSize: 'var(--text-2xl)', color: 'var(--warning)', letterSpacing: '-0.5px',
-                      }}>
-                        -{fmt(total)} сум
-                      </span>
-                    </div>
-                    <button onClick={processReturn} disabled={processing}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center',
-                        opacity: processing ? 0.6 : 1, borderRadius: '14px', border: 'none', cursor: 'pointer',
-                        fontSize: '1rem', fontWeight: 700, padding: '16px', color: 'white',
-                        background: 'var(--warning)', boxShadow: 'var(--shadow-accent)',
-                      }}>
-                      {processing ? (
-                        <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
-                      ) : (
-                        <><RefreshCw size={18} /> ВОЗВРАТ</>
-                      )}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                /* Sale mode: payment methods + total + submit */
-                <>
-                  {/* Payment method */}
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Способ оплаты:</div>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                      {([
-                        { key: 'cash' as const, label: 'Нал', icon: <Banknote size={14} /> },
-                        { key: 'card' as const, label: 'Карта', icon: <CreditCard size={14} /> },
-                        { key: 'debt' as const, label: 'В долг', icon: <Clock size={14} /> },
-                      ]).map(method => (
-                        <button key={method.key} onClick={() => setPaymentMethod(method.key)}
-                          className={`btn btn-sm ${paymentMethod === method.key ? 'btn-primary' : 'btn-outline'}`}
-                          style={{
-                            flex: 1, fontSize: 'var(--text-xs)', borderRadius: '10px',
-                            display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center',
-                          }}>
-                          {method.icon} {method.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Debt info */}
-                  {paymentMethod === 'debt' && (
-                    <div style={{
-                      marginBottom: 'var(--space-4)', padding: 'var(--space-4)',
-                      background: 'var(--bg-secondary)', borderRadius: '14px',
-                      border: '1px solid var(--border)',
-                      display: 'flex', flexDirection: 'column', gap: '10px',
-                    }}>
-                      <input type="text" placeholder="Имя должника *" value={debtInfo.personName}
-                        onChange={e => setDebtInfo(prev => ({ ...prev, personName: e.target.value }))}
-                        style={inputStyle} />
-                      <input type="tel" placeholder="Телефон" value={debtInfo.phone}
-                        onChange={e => setDebtInfo(prev => ({ ...prev, phone: e.target.value }))}
-                        style={inputStyle} />
-                      <input type="date" value={debtInfo.dueDate}
-                        onChange={e => setDebtInfo(prev => ({ ...prev, dueDate: e.target.value }))}
-                        style={inputStyle} />
-                    </div>
-                  )}
-
-                  {/* Total + Submit */}
-                  <div style={{ borderTop: '2px solid var(--border)', paddingTop: 'var(--space-4)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)', alignItems: 'baseline' }}>
-                      <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Итого:</span>
-                      <span style={{
-                        fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-                        fontSize: 'var(--text-2xl)', color: 'var(--brand-primary)',
-                        letterSpacing: '-0.5px',
-                      }}>
-                        {fmt(total)} сум
-                      </span>
-                    </div>
-                    <button onClick={processSale} disabled={processing || (paymentMethod === 'debt' && !debtInfo.personName)}
-                      className="btn btn-primary btn-lg btn-block"
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center',
-                        opacity: processing ? 0.6 : 1, borderRadius: '14px',
-                        fontSize: '1rem', fontWeight: 700, padding: '16px',
-                        boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.3)',
-                      }}>
-                      {processing ? (
-                        <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
-                      ) : (
-                        <><CheckCircle size={18} /> ПОДТВЕРДИТЬ</>
-                      )}
-                    </button>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
+        <AdminPOSCart
+          cart={cart}
+          returnMode={returnMode}
+          processing={processing}
+          paymentMethod={paymentMethod}
+          setPaymentMethod={setPaymentMethod}
+          returnReason={returnReason}
+          setReturnReason={setReturnReason}
+          debtInfo={debtInfo}
+          setDebtInfo={setDebtInfo}
+          editingPriceId={editingPriceId}
+          setEditingPriceId={setEditingPriceId}
+          editPriceValue={editPriceValue}
+          setEditPriceValue={setEditPriceValue}
+          updateQuantity={updateQuantity}
+          updatePrice={updatePrice}
+          removeFromCart={removeFromCart}
+          processSale={processSale}
+          processReturn={processReturn}
+          total={total}
+          fmt={fmt}
+          inputStyle={inputStyle}
+        />
       </div>
     </>
   );
