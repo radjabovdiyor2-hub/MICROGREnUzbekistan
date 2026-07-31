@@ -217,8 +217,17 @@ async def transcribe_audio(audio_bytes: bytes, user_question: str = "") -> str:
 
 
 async def get_ai_response(user_message: str, system_context: str = "") -> str:
-    """Текстовый ответ для группы и личных вопросов."""
-    system = system_context or await _get_system_prompt()
+    """Текстовый ответ для группы и личных вопросов.
+
+    `system_context` ДОПОЛНЯЕТ базовый промпт, а не заменяет его. Раньше здесь
+    стояло `system_context or await _get_system_prompt()`, и единственный
+    вызывающий — обработчик групповых чатов — передавал трёхстрочную роль.
+    Это выбрасывало и каталог с ценами, и фирменный голос, и запрет выдумывать
+    факты: в группе бот отвечал про товары по памяти модели, а не по базе.
+    """
+    system = await _get_system_prompt()
+    if system_context:
+        system = f"{system}\n\n{system_context}"
     res = await _get_engine().chat_completion(
         system_prompt=system,
         user_message=user_message,

@@ -164,7 +164,10 @@ async def handle_group_message(message: Message):
                     f"💬 Больше вопросов? @Microgreenuzbekistan_bot"
                 )
         except Exception as e:
-            # Fallback if AI fails
+            # Fallback if AI fails. Пользователю — честное «недоступен», но и
+            # в лог обязательно: иначе отказ ИИ в группе не виден никому, а
+            # клиент просто перестаёт получать ответы.
+            logger.error("AI-агроном не ответил в группе: %s", e, exc_info=True)
             await message.reply(
                 "🤖 AI-агроном временно недоступен.\n"
                 "Напишите напрямую боту: @Microgreenuzbekistan_bot"
