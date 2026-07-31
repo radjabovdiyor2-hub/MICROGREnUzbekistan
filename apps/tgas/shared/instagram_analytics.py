@@ -458,5 +458,23 @@ async def sync_publication_metrics() -> None:
 
             if updated:
                 logging.info(f"sync_publication_metrics: обновлены показатели по {updated} публикациям")
+                # Замыкаем петлю: Измерение -> Вывод -> Изменение поведения
+                try:
+                    from shared.feedback_loop import feedback_loop
+                    metrics_res = await session.execute(sqt(
+                        "SELECT slot, AVG(reach) as avg_reach, AVG(likes) as avg_likes "
+                        "FROM content_publications WHERE reach IS NOT NULL "
+                        "GROUP BY slot"
+                    ))
+                    slot_stats = {r[0]: {"avg_reach": float(r[1] or 0), "avg_likes": float(r[2] or 0)} for r in metrics_res.fetchall()}
+                    
+                    await feedback_loop.evaluate_and_adapt(
+                        bot="content_bot",
+                        metric="engagement_rate",
+                        current_data=slot_stats,
+                        benchmark_data={"target_reach_per_post": 500, "target_engagement_rate": 0.05}
+                    )
+                except Exception as fe:
+                    logging.warning(f"Feedback loop trigger warning in content_bot: {fe}")
     except Exception as e:
-        logging.warning(f"sync_publication_metrics error: {e}")
+        logger.error(f"sync_publication_metrics error: {e}", exc_info=True)

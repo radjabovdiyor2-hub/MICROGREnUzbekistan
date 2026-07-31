@@ -50,7 +50,18 @@ async def show_orders(cb: CallbackQuery, state: FSMContext):
 async def ai_fallback(message: Message, state: FSMContext):
     await simulate_typing(message, delay=2)
     from shared.prompts import TEAM_CONTEXT
-    prompt = f"{TEAM_CONTEXT}\n\nТы — Коммерческий Директор (CRO) Microgreen Uzbekistan. Сейчас ты общаешься с клиентом. Твоя цель: квалифицировать лид, провести презентацию ценности (value proposition) микрозелени и закрыть сделку."
+    from shared.feedback_loop import feedback_loop
+    
+    # Получаем динамические параметры поведения (петля обратной связи)
+    active_behavior = await feedback_loop.get_active_behavior("sales_bot", "conversion")
+    tone_modifier = active_behavior.get("tone_modifier", "Будь доброжелателен и подчеркивай свежесть продукции.")
+    
+    prompt = (
+        f"{TEAM_CONTEXT}\n\n"
+        "Ты — Коммерческий Директор (CRO) Microgreen Uzbekistan. Сейчас ты общаешься с клиентом.\n"
+        f"Указание по стилю (из петель обучения): {tone_modifier}\n"
+        "Твоя цель: квалифицировать лид, провести презентацию ценности (value proposition) микрозелени и закрыть сделку."
+    )
     
     response = await ai.chat_completion(
         system_prompt=prompt,

@@ -66,6 +66,23 @@ async def daily_kpi_snapshot():
             "📈 <i>Analytics Bot — ежедневный снимок</i>"
         )
         await _bot.send_message(admin_id, report, parse_mode="HTML")
+
+        # Замыкаем петлю рассуждений для аналитики
+        try:
+            from shared.feedback_loop import feedback_loop
+            await feedback_loop.evaluate_and_adapt(
+                bot="analytics_bot",
+                metric="daily_kpi",
+                current_data={
+                    "revenue": float(revenue),
+                    "order_count": int(order_count),
+                    "new_customers": int(new_customers),
+                    "avg_order": float(avg_order),
+                },
+                benchmark_data={"target_daily_revenue": 1000000, "target_orders": 10}
+            )
+        except Exception as fe:
+            logging.warning(f"Feedback loop trigger error in analytics_bot: {fe}")
     except Exception as e:
         logging.error(f"daily_kpi_snapshot error: {e}", exc_info=True)
 

@@ -1052,3 +1052,21 @@ model KnowledgeBase {
 
   @@map("knowledge_base")
 }
+
+model BotLearning {
+  id          Int      @id @default(autoincrement())
+  bot         String   @db.VarChar(50)  // content, sales, marketing, etc.
+  metric      String   @db.VarChar(50)  // engagement, conversion, cac, etc.
+  observation String   @db.Text        // Measured result vs benchmark
+  inference   String   @db.Text        // AI reasoning logic and conclusion
+  adjustment  Json                     // Dynamic behavioral parameters (prompts, weights, thresholds)
+  isActive    Boolean  @default(true) @map("is_active")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+  appliedAt   DateTime @default(now()) @map("applied_at")
+
+  @@index([bot])
+  @@index([bot, metric])
+  @@index([isActive])
+  @@map("bot_learnings")
+}
