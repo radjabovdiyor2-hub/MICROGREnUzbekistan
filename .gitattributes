@@ -7,3 +7,10 @@
 *.py        text eol=lf
 Dockerfile  text eol=lf
 .dockerignore text eol=lf
+
+# Spec Kit сверяет SHA-256 этих файлов с .specify/integrations/*.manifest.json.
+# Конвертация в CRLF при checkout сломала бы проверку целостности на Windows.
+.specify/**         text eol=lf
+.claude/skills/**   text eol=lf
+.gemini/commands/** text eol=lf
+.agents/**          text eol=lf

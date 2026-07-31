@@ -60,9 +60,11 @@ __pycache__/
 .venv/
 .test_venv/
 
-# AI agent configs
-.gemini/
-.claude/
+# AI agent configs (Spec Kit skills/commands версионируются, локальные настройки — нет)
+.gemini/*
+!.gemini/commands/
+.claude/*
+!.claude/skills/
 .claude-flow/
 
 # One-off test/debug scripts in root

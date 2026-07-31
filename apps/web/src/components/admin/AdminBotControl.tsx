@@ -38,8 +38,8 @@ const BOT_ACTIONS: BotActionConfig[] = [
     color: 'var(--cat-2)',
   },
   {
-    bot: 'web_office',
-    name: 'WebOffice',
+    bot: 'sales_bot',
+    name: 'SalesBot',
     action: 'sync_catalog_from_storefront',
     description: 'Принудительный синк товаров и категорий между витриной и CRM.',
     icon: RefreshCw,

@@ -319,6 +319,12 @@ async def bus_add_product(params: dict) -> dict:
     return await add_product(dict(params or {}))
 
 
+async def bus_sync_catalog(params: dict) -> dict:
+    """Принудительная синхронизация каталога: витрина -> CRM."""
+    from shared.catalog_sync import sync_catalog_from_storefront
+    return await sync_catalog_from_storefront()
+
+
 async def _extract_sale_params(ai, title: str, description: str) -> dict:
     """Вытаскиваем параметры продажи из формулировки руководителя (без домыслов)."""
     import json
@@ -913,6 +919,7 @@ async def main():
         "get_b2b_targets": bus_get_b2b_targets,  # кому сегодня готовить КП
         "register_sale": bus_register_sale,      # менеджер сообщил о продаже → заказ в CRM
         "add_product": bus_add_product,          # новый товар → каталог витрины + CRM
+        "sync_catalog_from_storefront": bus_sync_catalog, # принудительный синк каталога
         BotBusActions.SELL_MAGAZINE_ADS: _sell_magazine_ads,
     }))
 

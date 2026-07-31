@@ -1439,6 +1439,7 @@ ADMIN_BOT_ACTIONS: dict[str, str] = {
     "daily_backup": "devops_bot",
     "daily_kpi_snapshot": "analytics_bot",
     "sync_publication_metrics": "content_bot",
+    "sync_catalog_from_storefront": "sales_bot",
     "force_learning_cycle": "stepan_bot",
     "trigger_lead_audit": "marketing_bot",
     "get_report": "analytics_bot",
