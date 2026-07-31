@@ -133,6 +133,14 @@ jobs:
               echo "Waiting for postgres… ($i/15)"
               sleep 2
             done
+            # Unified DB migration: rename conflicting CRM tables → crm_* and
+            # clean up constraints so Prisma db-push can run cleanly.
+            MIGRATION_SQL="packages/database/prisma/migrations/unify_databases.sql"
+            if [ -f "$MIGRATION_SQL" ]; then
+              echo "🔧 Running unify_databases.sql migration..."
+              docker cp "$MIGRATION_SQL" mg_postgres:/tmp/unify_databases.sql
+              docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/unify_databases.sql
+            fi
             # Build and run db-push: --no-deps prevents compose from recreating the
             # already-running postgres (which races on port 5432).
             docker compose -f docker-compose.prod.yml build db-push
@@ -141,15 +149,6 @@ jobs:
               docker logs mg_db_push 2>&1 || true
               exit 1
             }
-            # Unified DB migration: rename conflicting CRM tables → crm_* and
-            # create backward-compatible views so existing bot SQL keeps working.
-            # Idempotent (IF NOT EXISTS / IF EXISTS throughout).
-            MIGRATION_SQL="packages/database/prisma/migrations/unify_databases.sql"
-            if [ -f "$MIGRATION_SQL" ]; then
-              echo "🔧 Running unify_databases.sql migration..."
-              docker cp "$MIGRATION_SQL" mg_postgres:/tmp/unify_databases.sql
-              docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/unify_databases.sql
-            fi
             # Seed (self-skips when already populated)
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-seed
             # Now build and start web (skip db-push dependency since it already ran)

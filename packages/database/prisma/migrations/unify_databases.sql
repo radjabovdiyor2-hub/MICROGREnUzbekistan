@@ -1,17 +1,13 @@
 -- ============================================================================
 -- Migration: Unify databases — move CRM tables into Prisma-managed database
 -- ============================================================================
--- Выполнять НА БЭКЕНДЕ после prisma db push.
--- Этот скрипт:
---   1. Переименовывает init.sql таблицы с конфликтующими именами в crm_* 
---   2. Создаёт обратные views для совместимости с ботами (временно)
---   3. Создаёт новые таблицы для контент-публикаций и состояния совещаний
+-- Выполняется НА БЭКЕНДЕ ДО/ПОСЛЕ prisma db push.
+-- Скрипт идемпотентный (безопасен для повторных запусков).
 -- ============================================================================
 
 -- ── Шаг 1: Переименовать конфликтующие таблицы ──────────────────────────
 
 -- products (init.sql) → crm_products
--- Проверяем: если crm_products ещё нет, а products (с integer PK) есть
 DO $$
 BEGIN
   IF EXISTS (
@@ -29,9 +25,7 @@ BEGIN
   )
   THEN
     ALTER TABLE products RENAME TO crm_products;
-    -- Обратный view для совместимости бот-SQL
-    CREATE OR REPLACE VIEW products AS SELECT * FROM crm_products;
-    RAISE NOTICE 'products → crm_products (view создан)';
+    RAISE NOTICE 'products → crm_products';
   END IF;
 END $$;
 
@@ -53,8 +47,7 @@ BEGIN
   )
   THEN
     ALTER TABLE orders RENAME TO crm_orders;
-    CREATE OR REPLACE VIEW orders AS SELECT * FROM crm_orders;
-    RAISE NOTICE 'orders → crm_orders (view создан)';
+    RAISE NOTICE 'orders → crm_orders';
   END IF;
 END $$;
 
@@ -76,8 +69,7 @@ BEGIN
   )
   THEN
     ALTER TABLE order_items RENAME TO crm_order_items;
-    CREATE OR REPLACE VIEW order_items AS SELECT * FROM crm_order_items;
-    RAISE NOTICE 'order_items → crm_order_items (view создан)';
+    RAISE NOTICE 'order_items → crm_order_items';
   END IF;
 END $$;
 
@@ -99,16 +91,46 @@ BEGIN
   )
   THEN
     ALTER TABLE employees RENAME TO crm_employees;
-    CREATE OR REPLACE VIEW employees AS SELECT * FROM crm_employees;
-    RAISE NOTICE 'employees → crm_employees (view создан)';
+    RAISE NOTICE 'employees → crm_employees';
   END IF;
 END $$;
 
--- ── Шаг 2: web_user_id колонка (связка Customer ↔ User) ────────────────
+-- ── Шаг 2: Снятие старых CHECK-ограничений и переименование ключей/последовательностей ─
+ALTER TABLE crm_orders DROP CONSTRAINT IF EXISTS orders_status_check;
+ALTER TABLE crm_orders DROP CONSTRAINT IF EXISTS orders_payment_status_check;
+ALTER TABLE crm_orders DROP CONSTRAINT IF EXISTS orders_payment_method_check;
+ALTER TABLE crm_products DROP CONSTRAINT IF EXISTS products_category_check;
+ALTER TABLE crm_products DROP CONSTRAINT IF EXISTS products_unit_check;
+ALTER TABLE crm_employees DROP CONSTRAINT IF EXISTS employees_status_check;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_pkey') THEN
+    ALTER TABLE crm_orders RENAME CONSTRAINT orders_pkey TO crm_orders_pkey;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'orders_order_number_key') THEN
+    ALTER TABLE crm_orders RENAME CONSTRAINT orders_order_number_key TO crm_orders_order_number_key;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'products_pkey') THEN
+    ALTER TABLE crm_products RENAME CONSTRAINT products_pkey TO crm_products_pkey;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'order_items_pkey') THEN
+    ALTER TABLE crm_order_items RENAME CONSTRAINT order_items_pkey TO crm_order_items_pkey;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'employees_pkey') THEN
+    ALTER TABLE crm_employees RENAME CONSTRAINT employees_pkey TO crm_employees_pkey;
+  END IF;
+END $$;
+
+ALTER SEQUENCE IF EXISTS orders_id_seq RENAME TO crm_orders_id_seq;
+ALTER SEQUENCE IF EXISTS products_id_seq RENAME TO crm_products_id_seq;
+ALTER SEQUENCE IF EXISTS order_items_id_seq RENAME TO crm_order_items_id_seq;
+ALTER SEQUENCE IF EXISTS employees_id_seq RENAME TO crm_employees_id_seq;
+
+-- ── Шаг 3: web_user_id колонка (связка Customer ↔ User) ────────────────
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS web_user_id VARCHAR(255) UNIQUE;
 
--- ── Шаг 3: Таблицы состояния ботов ──────────────────────────────────────
--- content_publications — замена content_status.json
+-- ── Шаг 4: Таблицы состояния ботов (если не были созданы Prisma) ─────────
 CREATE TABLE IF NOT EXISTS content_publications (
     id SERIAL PRIMARY KEY,
     date VARCHAR(10) NOT NULL,
@@ -127,7 +149,6 @@ CREATE TABLE IF NOT EXISTS content_publications (
 );
 CREATE INDEX IF NOT EXISTS idx_content_pub_date ON content_publications(date);
 
--- knowledge_base — векторная база знаний
 CREATE TABLE IF NOT EXISTS knowledge_base (
     id SERIAL PRIMARY KEY,
     chunk TEXT NOT NULL,
@@ -135,10 +156,3 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
     source VARCHAR(255),
     created_at TIMESTAMP DEFAULT NOW()
 );
-
--- ── Готово ───────────────────────────────────────────────────────────────
--- После выполнения этого скрипта:
--- 1. Prisma владеет crm_products, crm_orders, crm_order_items, crm_employees
--- 2. Views products, orders, order_items, employees обеспечивают обратную
---    совместимость для бот-SQL
--- 3. Постепенно боты перейдут на прямые имена crm_*, views будут удалены
