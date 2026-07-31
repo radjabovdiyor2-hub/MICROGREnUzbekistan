@@ -69,6 +69,16 @@ async def check_deadlines():
             lines.append(f"\n🔴 Всего просрочено: {len(overdue)}")
             await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
             logger.info(f"Отправлено уведомление о {len(overdue)} просроченных задачах")
+
+            # Второй канал — админка: владелец мог не смотреть в Telegram.
+            from shared.owner_alerts import raise_alert, SEVERITY_WARNING
+            await raise_alert(
+                kind="deadline",
+                severity=SEVERITY_WARNING,
+                title=f"Просрочено задач: {len(overdue)}",
+                message="\n".join(lines[1:]),
+                source="stepan_bot",
+            )
     except Exception as e:
         logger.warning(f"Ошибка проверки дедлайнов: {e}")
 
