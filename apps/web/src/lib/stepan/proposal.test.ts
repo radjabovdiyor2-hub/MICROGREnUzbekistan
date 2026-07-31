@@ -47,7 +47,7 @@ describe('подпись предложений Стёпана', () => {
     // Собираем токен с истёкшим exp тем же секретом.
     const expired = JSON.stringify({ ...payload, exp: Date.now() - 1000 });
     const b64 = Buffer.from(expired, 'utf-8').toString('base64url');
-    const sig = crypto.createHmac('sha256', process.env.SESSION_SECRET)
+    const sig = crypto.createHmac('sha256', process.env.SESSION_SECRET!)
       .update(b64).digest('base64url');
 
     expect(verifyProposal(`${b64}.${sig}`)).toBeNull();
