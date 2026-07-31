@@ -784,12 +784,23 @@ def _last_plan_from_history(history: list) -> tuple:
 
 async def _remember(state: FSMContext, user_text: str, assistant_text: str, intent: str = None):
     """
-    Записать обмен в историю.
+    Записать обмен в общую память владельца и в FSM.
 
     Без этого быстрые перехваты (статус/показ/совещание) выходили через return,
     история не пополнялась — и следующее короткое «Покажи» приходило к AI без
     контекста, из-за чего он отвечал отпиской вместо самого поста.
+
+    Общая память — источник истины: тот же разговор виден в веб-админке.
+    FSM остаётся для короткого шага диалога (last_intent) и как запасной
+    контекст, если витрина недоступна.
     """
+    try:
+        from shared import assistant_memory
+        await assistant_memory.append("user", user_text)
+        await assistant_memory.append("assistant", assistant_text)
+    except Exception as e:
+        logger.warning(f"Не удалось записать обмен в общую память: {e}")
+
     if not state:
         return
     try:
@@ -863,7 +874,18 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         except Exception:
             state_data = {}
     last_intent = state_data.get("last_intent")
+
+    # Контекст берём из общей памяти: тот же разговор владелец мог начать в
+    # веб-админке, и продолжение здесь обязано его помнить. FSM — запасной
+    # вариант на случай, когда витрина недоступна.
     history = state_data.get("history", [])
+    try:
+        from shared import assistant_memory
+        shared_history = await assistant_memory.load_context()
+        if shared_history:
+            history = shared_history
+    except Exception as e:
+        logger.warning(f"Общая память недоступна, работаю по локальной истории: {e}")
 
     # ── КОНТЕНТ: ПОКАЗАТЬ реальный пост / отдать статус публикаций ──
     # «Покажи пост» → присылаем сам пост (картинка + текст), а не расписание.

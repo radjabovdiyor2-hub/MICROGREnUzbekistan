@@ -754,7 +754,7 @@ async def reel_post():
 async def publish_restaurant_of_week():
     """Публикация рубрики 'Ресторан недели' и запуск события MAGAZINE_PUBLISHED."""
     try:
-        from shared.database import get_storefront_session_ctx
+        from shared.database import get_session_ctx
         from sqlalchemy import text
         from shared.event_bus import event_bus
         admin_id = settings.admin_telegram_ids[0]
@@ -763,7 +763,7 @@ async def publish_restaurant_of_week():
         # На проде у этой таблицы есть двойник в CRM-базе с точно такой же
         # схемой, и обычная сессия попадала в него — рубрика уходила в
         # Instagram по старым сид-записям, а партнёров из админки не видела.
-        async with get_storefront_session_ctx() as session:
+        async with get_session_ctx() as session:
             res = await session.execute(text(
                 # LOWER — не украшение: в базе лежит tier='PREMIUM', а сравнение
                 # строк в Postgres регистрозависимое, поэтому 'premium' не

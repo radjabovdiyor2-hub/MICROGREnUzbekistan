@@ -4,7 +4,7 @@ from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
 from shared.ai_engine import AIEngine
-from shared.database import get_session_ctx, get_storefront_session_ctx
+from shared.database import get_session_ctx
 from sqlalchemy import text
 from shared.scheduler import BotScheduler
 from shared.prompts import TEAM_CONTEXT
@@ -109,7 +109,7 @@ async def generate_daily_franchise_journals():
                 # она лежит в отдельной базе. Раньше запись шла обычной сессией
                 # в базу ботов, где такой таблицы нет вовсе, — вставка падала.
                 import json
-                async with get_storefront_session_ctx() as store:
+                async with get_session_ctx() as store:
                     await store.execute(text(
                         "INSERT INTO franchise_journals (id, city, department, action, content, metrics, created_at) "
                         # CAST(...), а не :metrics::jsonb — SQLAlchemy не считает

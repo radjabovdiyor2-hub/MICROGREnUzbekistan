@@ -3,6 +3,7 @@ import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { think, aiAvailable, type ChatMessage } from '@/lib/stepan/brain';
+import { loadRecentMessages, appendMessage } from '@/lib/stepan/memory';
 
 // ══════════════════════════════════════════════════════════════════════
 // Стёпан в админке — диалог с доступом к данным компании.
@@ -44,10 +45,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Нужен непустой messages' }, { status: 400 });
   }
 
-  // Держим короткий хвост истории: длинная переписка удорожает каждый
-  // следующий вопрос, а Стёпану для решения нужен свежий контекст.
-  const messages: ChatMessage[] = body.messages
-    .slice(-12)
+  // Из тела берём только сам вопрос. Контекст — из общей памяти, чтобы
+  // разговор продолжался при смене канала и переживал перезагрузку.
+  const incoming = body.messages
     .filter((m: unknown): m is ChatMessage => {
       if (typeof m !== 'object' || m === null) return false;
       const msg = m as ChatMessage;
@@ -55,12 +55,41 @@ export async function POST(request: NextRequest) {
     })
     .map(m => ({ role: m.role, content: m.content.slice(0, 4000) }));
 
-  if (!messages.length) {
+  const question = [...incoming].reverse().find(m => m.role === 'user');
+  if (!question) {
     return NextResponse.json({ error: 'Сообщения не распознаны' }, { status: 400 });
   }
 
+  // Недоступность памяти — не повод отказать в ответе, но и не повод
+  // молча ответить без контекста: владелец должен узнать об этом сам.
+  let history: ChatMessage[] = [];
+  let memoryWarning: string | null = null;
+  try {
+    history = (await loadRecentMessages()).map(m => ({ role: m.role, content: m.content }));
+    await appendMessage({ role: 'user', content: question.content, channel: 'web' });
+  } catch (error) {
+    console.error('[stepan] память недоступна:', error);
+    memoryWarning = 'Отвечаю без памяти: хранилище разговора недоступно, прошлый контекст не учтён.';
+  }
+
+  const messages: ChatMessage[] = [...history, question];
+
   try {
     const result = await think(messages);
+
+    if (!memoryWarning) {
+      try {
+        await appendMessage({
+          role: 'assistant',
+          content: result.reply,
+          channel: 'web',
+          toolCalls: result.usedTools,
+        });
+      } catch (error) {
+        console.error('[stepan] ответ не сохранён в память:', error);
+        memoryWarning = 'Ответ не сохранён в память — следующий вопрос его не увидит.';
+      }
+    }
 
     audit({
       action: 'stepan.chat',
@@ -76,6 +105,7 @@ export async function POST(request: NextRequest) {
       reply: result.reply,
       proposals: result.proposals,
       usedTools: result.usedTools,
+      memoryWarning,
     });
   } catch (error) {
     console.error('[stepan] цикл рассуждения упал:', error);

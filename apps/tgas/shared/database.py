@@ -100,11 +100,6 @@ async def get_session_ctx() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-# Единая база: витрина и боты в одном PostgreSQL.
-# Алиас сохранён для обратной совместимости (franchise_bot, content_bot).
-get_storefront_session_ctx = get_session_ctx
-
-
 async def init_db() -> None:
     """
     Инициализация базы данных.

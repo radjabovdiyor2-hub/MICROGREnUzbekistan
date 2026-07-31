@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@repo/database';
-import { notifyOfficeFeedback } from '@/lib/office';
+import { notifyOfficeFeedback } from '@/lib/office/client';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 /** Предел длины отзыва. Раньше его не было вовсе. */

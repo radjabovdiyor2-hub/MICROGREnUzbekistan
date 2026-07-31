@@ -65,13 +65,6 @@ class Settings(BaseSettings):
         description="URL подключения к PostgreSQL через asyncpg",
     )
 
-    # DEPRECATED: единая база, отдельная витрина больше не используется.
-    # Поле сохранено для обратной совместимости — значение игнорируется.
-    storefront_database_url: str | None = Field(
-        default=None,
-        description="[DEPRECATED] Не используется — единая база microgreen",
-    )
-
     # ── Redis ──────────────────────────────────────────────────────────
     redis_url: str = Field(
         default="redis://localhost:6379/0",
@@ -278,11 +271,6 @@ class Settings(BaseSettings):
     def sync_database_url(self) -> str:
         """URL для синхронного подключения (миграции, скрипты)."""
         return self.database_url.replace("+asyncpg", "")
-
-    @property
-    def storefront_url(self) -> str:
-        """[DEPRECATED] Единая база — возвращает database_url."""
-        return self.database_url
 
 
 @lru_cache()

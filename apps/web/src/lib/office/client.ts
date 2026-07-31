@@ -1,10 +1,21 @@
 // ══════════════════════════════════════════════════════════════════════
-// Клиент ИИ-офиса (apps/tgas/web_office, FastAPI на 8050).
+// Единственный клиент ИИ-офиса (apps/tgas/web_office, FastAPI на 8050).
 //
-// Собран в одном месте, потому что каждый маршрут админки, который ходит
-// в офис, обязан делать три вещи одинаково: слать общий секрет, держать
-// таймаут и НЕ выдавать недоступность офиса за успех. Именно последнее
-// сломало «Пульт ИИ»: роут отвечал {status:'ok'}, когда запрос падал.
+// Здесь собраны ОБА способа обращения к офису, потому что раньше их было
+// три: этот модуль, lib/office.ts и сырой fetch прямо в роутах. Четыре
+// файла делали одно и то же по-разному — каждый со своим таймаутом и
+// своей трактовкой отказа, и один из них год выдавал недоступность офиса
+// за успех, из-за чего «Пульт ИИ» молча не работал.
+//
+// Способа ровно два, и они отличаются НАМЕРЕННО:
+//
+//   officeFetch  — запрос-ответ для админки. Владелец ждёт результат,
+//                  поэтому отказ обязан дойти до него как отказ.
+//   notifyOffice — сигнал «выстрелил и забыл» с витрины. Покупатель не
+//                  должен пострадать от того, что офис лежит, поэтому
+//                  ошибка гасится и только пишется в лог.
+//
+// Третьего способа быть не должно. Нужен новый вызов — он идёт сюда.
 // ══════════════════════════════════════════════════════════════════════
 
 const OFFICE_URL =
@@ -17,6 +28,10 @@ export interface OfficeResult<T> {
   error?: string;
 }
 
+/**
+ * Запрос-ответ к офису. Отказ возвращается честно: вызывающий роут обязан
+ * передать его наружу, а не подменять пустым результатом или заглушкой.
+ */
 export async function officeFetch<T = unknown>(
   path: string,
   init: RequestInit & { timeoutMs?: number } = {},
@@ -58,4 +73,109 @@ export async function officeFetch<T = unknown>(
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ── Сигналы с витрины ─────────────────────────────────────────────────
+// Каждое действие покупателя (регистрация, жалоба, B2B-заявка, отзыв)
+// зеркалится в офис, чтобы Стёпан, продажи, поддержка и аналитика на него
+// среагировали. Витрина при этом не должна ломаться, если офис лежит.
+
+/**
+ * Адрес приёмника сигнала. Порядок: явная переменная под суффикс, затем
+ * вывод из OFFICE_INGEST_URL, затем общий адрес офиса. Последняя ступень
+ * добавлена при слиянии: раньше при заданном только WEB_OFFICE_URL
+ * сигналы молча никуда не уходили.
+ */
+function ingestUrl(suffix: string): string {
+  const explicit = process.env[`OFFICE_${suffix.toUpperCase().replace(/-/g, '_')}_URL`];
+  if (explicit) return explicit;
+
+  const derived = process.env.OFFICE_INGEST_URL?.replace(/\/order$/, `/${suffix}`);
+  if (derived) return derived;
+
+  return `${OFFICE_URL}/ingest/${suffix}`;
+}
+
+async function postOffice(suffix: string, body: unknown): Promise<void> {
+  try {
+    await fetch(ingestUrl(suffix), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(4000),
+    });
+  } catch (err) {
+    // Намеренно гасим: заказ или регистрация уже прошли, и падение офиса
+    // не повод отказать покупателю. Но в лог это обязано попасть.
+    console.error(`[office] сигнал ${suffix} не доставлен (запрос покупателя выполнен):`, err);
+  }
+}
+
+/** Регистрация или обновление клиента в CRM офиса (signup / первый вход). */
+export async function notifyOfficeCustomer(user: {
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  telegramId?: bigint | number | string | null;
+  bonusPoints?: number | null;
+  language?: string | null;
+}): Promise<void> {
+  const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
+  await postOffice('customer', {
+    name,
+    phone: user.phone ?? null,
+    telegram_id: user.telegramId ? user.telegramId.toString() : null,
+    bonus_balance: user.bonusPoints ?? 0,
+    language: user.language ?? 'ru',
+  });
+}
+
+/** Обращение или жалоба покупателя — поддержке офиса (PM заводит срочную задачу). */
+export async function notifyOfficeSupport(input: {
+  name?: string | null;
+  phone?: string | null;
+  telegramId?: bigint | number | string | null;
+  message: string;
+}): Promise<void> {
+  await postOffice('support', {
+    name: input.name ?? null,
+    phone: input.phone ?? null,
+    telegram_id: input.telegramId ? input.telegramId.toString() : null,
+    message: input.message,
+  });
+}
+
+/** B2B-заявка с сайта — в воронку продаж офиса. */
+export async function notifyOfficeLead(input: {
+  companyName?: string | null;
+  contactName?: string | null;
+  phone?: string | null;
+  message?: string | null;
+}): Promise<void> {
+  await postOffice('lead', {
+    company_name: input.companyName ?? null,
+    contact_name: input.contactName ?? null,
+    phone: input.phone ?? null,
+    message: input.message ?? null,
+  });
+}
+
+/** Отзыв о товаре — в офис (аналитика и Стёпан видят тональность). */
+export async function notifyOfficeFeedback(input: {
+  name?: string | null;
+  telegramId?: bigint | number | string | null;
+  product?: string | null;
+  rating: number;
+  comment?: string | null;
+}): Promise<void> {
+  await postOffice('feedback', {
+    name: input.name ?? null,
+    telegram_id: input.telegramId ? input.telegramId.toString() : null,
+    product: input.product ?? null,
+    rating: input.rating,
+    comment: input.comment ?? null,
+  });
 }

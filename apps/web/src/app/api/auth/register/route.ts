@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { notifyOfficeCustomer } from '@/lib/office';
+import { notifyOfficeCustomer } from '@/lib/office/client';
 
 // Simple registration — no verification required
 export async function POST(request: NextRequest) {
@@ -51,7 +51,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Register error:', error);
-    // Even if DB fails, return success for local-only auth
-    return NextResponse.json({ success: true, user: null });
+    // Отдаём 503 при ошибке БД. Локальный фолбэк для авторизации обрабатывается на клиенте в AuthProvider.
+    return NextResponse.json(
+      { error: 'Ошибка сервера при регистрации пользователя' },
+      { status: 503 },
+    );
   }
 }

@@ -60,6 +60,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[audit] чтение журнала не удалось:', error);
-    return NextResponse.json({ status: 'ok', entries: [], nextCursor: null });
+    return NextResponse.json(
+      { status: 'error', error: 'Не удалось прочитать журнал аудита из базы данных' },
+      { status: 503 },
+    );
   }
 }

@@ -56,27 +56,38 @@ const PRIORITY_COLORS: Record<string, string> = {
 export function AdminDepartment({ departmentId, departmentName, botName, lang }: Props) {
   const [data, setData] = useState<DeptData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
   const t = (ru: string, uz: string) => lang === 'ru' ? ru : uz;
 
+  // Считаем до эффекта: вызывать t() внутри него — значит тащить всю
+  // функцию в зависимости и перезапрашивать отдел на каждый рендер.
+  const officeDownMessage = lang === 'ru' ? 'ИИ-офис недоступен' : 'AI-ofis mavjud emas';
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      setError('');
       try {
-        const res = await fetch(`/api/admin/departments/${departmentId}`);
+        const res = await fetch(`/api/admin/departments/${departmentId}`, { credentials: 'same-origin' });
         const json = await res.json();
         if (json.success && json.department) {
           setData(json.department);
+        } else {
+          // Раньше роут в этом случае присылал выдуманный пустой отдел, и
+          // владелец видел «0 просрочено» вместо «офис недоступен».
+          setError(json.error || officeDownMessage);
         }
       } catch (err) {
         console.error('Failed to load department:', err);
+        setError(officeDownMessage);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [departmentId]);
+  }, [departmentId, officeDownMessage]);
 
   if (loading) {
     return (
@@ -84,6 +95,18 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
         <div style={{ width: 40, height: 40, border: '3px solid var(--border)', borderTopColor: 'var(--brand-primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto var(--space-4)' }} />
         <p>{t('Загрузка данных отдела...', "Bo'lim ma'lumotlari yuklanmoqda...")}</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--error)' }}>
+        <AlertTriangle size={28} style={{ marginBottom: 8 }} />
+        <div style={{ fontWeight: 'var(--font-bold)', marginBottom: 4 }}>
+          {t('Данные отдела недоступны', "Bo'lim ma'lumotlari mavjud emas")}
+        </div>
+        <div style={{ color: 'var(--text-muted)' }}>{error}</div>
       </div>
     );
   }

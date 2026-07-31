@@ -1,35 +1,34 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { officeFetch } from '@/lib/office/client';
 
-const WEB_OFFICE_URL = process.env.WEB_OFFICE_URL || 'http://localhost:8050';
+// ══════════════════════════════════════════════════════════════════════
+// Карточка отдела ИИ-офиса.
+//
+// Было: при недоступности офиса роут отдавал success:true с выдуманным
+// отделом — нулевая статистика и пустой список задач. Владелец видел
+// «0 просрочено» и зелёный «Online», когда на самом деле лежал весь
+// ИИ-контур. Выдуманные данные, поданные как настоящие, хуже ошибки.
+//
+// Стало: недоступность офиса возвращается как 503. Это само по себе
+// важная новость — так же, как в /api/admin/bots.
+// ══════════════════════════════════════════════════════════════════════
 
 export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  if (!isAuthorized(request)) return unauthorized();
+
   const { id } = await params;
 
-  try {
-    const res = await fetch(`${WEB_OFFICE_URL}/api/department/${id}`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return NextResponse.json(data);
-    }
-  } catch {
-    // web_office not reachable
+  const res = await officeFetch<{ department: unknown }>(`/api/department/${id}`, {
+    timeoutMs: 3000,
+  });
+
+  if (!res.ok) {
+    return NextResponse.json({ success: false, error: res.error }, { status: 503 });
   }
 
-  // Fallback mock
-  return NextResponse.json({
-    success: true,
-    department: {
-      id,
-      name: id,
-      bot: `${id}_bot`,
-      icon: '📋',
-      stats: { total: 0, done: 0, in_progress: 0, todo: 0, overdue: 0 },
-      tasks: [],
-    },
-  });
+  return NextResponse.json(res.data);
 }

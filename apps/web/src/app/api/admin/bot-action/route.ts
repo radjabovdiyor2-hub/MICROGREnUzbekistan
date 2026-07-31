@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
+import { officeFetch } from '@/lib/office/client';
 
 // ══════════════════════════════════════════════════════════════════════
 // Мост «админка → ИИ-офис».
@@ -13,8 +14,6 @@ import { audit } from '@/lib/audit';
 //
 // Теперь ответ офиса передаётся как есть: ok / pending / error.
 // ══════════════════════════════════════════════════════════════════════
-
-const TGAS_OFFICE_URL = process.env.TGAS_OFFICE_URL || process.env.WEB_OFFICE_URL || 'http://localhost:8050';
 
 /** Бекап и синк каталога идут дольше обычного запроса. */
 const TIMEOUT_MS = 100_000;
@@ -46,50 +45,28 @@ export async function POST(request: NextRequest) {
     meta: { params },
   });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const res = await officeFetch<{ status?: string; bot?: string }>('/api/admin/bot-action', {
+    method: 'POST',
+    body: JSON.stringify({ action, bot, params: params ?? {} }),
+    timeoutMs: TIMEOUT_MS,
+  });
 
-  try {
-    const res = await fetch(`${TGAS_OFFICE_URL}/api/admin/bot-action`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Тот же секрет, которым витрина уже пользуется для /ingest/*.
-        ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
-      },
-      body: JSON.stringify({ action, bot, params: params ?? {} }),
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          status: 'error',
-          error: data?.error || `ИИ-офис ответил ${res.status}`,
-          bot: data?.bot ?? bot,
-        },
-        { status: res.status === 401 ? 502 : res.status },
-      );
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    const aborted = error instanceof Error && error.name === 'AbortError';
-    console.error('[bot-action] запрос в ИИ-офис не удался:', error);
-
+  if (!res.ok) {
     return NextResponse.json(
       {
         status: 'error',
-        error: aborted
-          ? 'ИИ-офис не ответил вовремя — задача могла остаться в очереди'
-          : 'ИИ-офис недоступен. Проверьте, запущен ли контейнер mg_web_office',
+        // Таймаут здесь значит не «не сработало», а «не дождались»: задача
+        // уже в очереди офиса и может доработать сама.
+        error:
+          res.status === 504
+            ? 'ИИ-офис не ответил вовремя — задача могла остаться в очереди'
+            : res.error,
+        bot: res.data?.bot ?? bot,
       },
-      { status: 504 },
+      // 401 от офиса значит расхождение секретов, а не проблему владельца.
+      { status: res.status === 401 ? 502 : res.status },
     );
-  } finally {
-    clearTimeout(timer);
   }
+
+  return NextResponse.json(res.data);
 }

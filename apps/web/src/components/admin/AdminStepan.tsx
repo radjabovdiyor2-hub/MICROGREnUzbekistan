@@ -56,6 +56,32 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, busy]);
 
+  // История приезжает с сервера, а не живёт в состоянии компонента: раньше
+  // перезагрузка вкладки стирала весь разговор, а начатое в Telegram здесь
+  // вообще не было видно.
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const res = await fetch('/api/admin/stepan/memory', { credentials: 'same-origin' });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.messages)) {
+          setMessages(
+            data.messages.map((m: { role: string; content: string }) => ({
+              role: m.role === 'assistant' ? 'assistant' : 'user',
+              content: m.content,
+              proposals: [],
+              done: {},
+            })),
+          );
+        }
+      } catch {
+        // Молчим: пустой разговор — рабочее состояние, а о недоступности
+        // памяти Стёпан скажет сам при первом же ответе (memoryWarning).
+      }
+    };
+    loadHistory();
+  }, []);
+
   const send = async (text: string) => {
     const question = text.trim();
     if (!question || busy) return;
@@ -90,6 +116,10 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         proposals: data.proposals ?? [],
         done: {},
       }]);
+
+      // Ответ без памяти внешне неотличим от ответа с памятью — поэтому
+      // говорим об этом прямо, а не оставляем владельца гадать.
+      if (data.memoryWarning) setError(data.memoryWarning);
     } catch {
       setError(t('Ошибка сети', 'Tarmoq xatosi'));
     } finally {

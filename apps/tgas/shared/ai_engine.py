@@ -699,7 +699,13 @@ class AIEngine:
                 input=text,
                 response_format="opus"
             )
-            file_path = "voice.ogg"
+            # Уникальное имя, а не общий voice.ogg в рабочем каталоге: два
+            # голосовых вопроса подряд затирали файл друг друга, и тот, кто
+            # успевал первым, удалял озвучку второго после отправки.
+            import os
+            import tempfile
+            fd, file_path = tempfile.mkstemp(prefix="tts_", suffix=".ogg")
+            os.close(fd)
             response.stream_to_file(file_path)
             return file_path
         except Exception as e:

@@ -16,9 +16,9 @@
     не отработала ни разу.
   · `franchise_journals` не создавалась ничем: в `init.sql` её не было, а сам
     init.sql применяется ТОЛЬКО при первой инициализации тома Postgres.
-  · `restaurants` — таблица витрины (Prisma), её нет в схеме ботов вовсе;
-    на проде витрина живёт в отдельной базе, и читать её надо через
-    `get_storefront_session_ctx()`.
+  · `restaurants` — таблица витрины (Prisma), её нет в схеме ботов вовсе.
+    База при этом одна: все сервисы в docker-compose.prod.yml смотрят в
+    microgreen, поэтому такие таблицы читаются обычной сессией.
 
 Скрипт ловит повторение каждого случая. Инфраструктура не нужна — только чтение
 файлов, как в check_bot_roster.py и check_prompts.py.
@@ -208,14 +208,15 @@ def main() -> int:
             if tbl in init_tables or tbl in runtime_tables:
                 continue
             if tbl in prisma_tables:
-                # Таблица витрины. Обычной сессией на проде попадём в другую
-                # базу — ругаемся, только если запрос открыт НЕ storefront-сессией.
-                if _session_kind(rel, line) != "storefront":
-                    problems.append(
-                        f"{rel}:{line} — «{tbl}» принадлежит витрине (Prisma), а не "
-                        f"схеме ботов. На проде это ОТДЕЛЬНАЯ база: читать через "
-                        f"get_storefront_session_ctx()"
-                    )
+                # Таблица витрины, объявленная в schema.prisma. База одна и та
+                # же (см. DATABASE_URL всех сервисов в docker-compose.prod.yml),
+                # поэтому обычной сессией она читается корректно.
+                #
+                # Раньше здесь была ругань «на проде это ОТДЕЛЬНАЯ база» и
+                # проверка, что запрос открыт особой storefront-сессией. Базы
+                # разъехались только в истории проекта: сессия-«витрина» была
+                # псевдонимом обычной, то есть проверка сравнивала одно и то же
+                # с самим собой и держала в коде память о несуществующем делении.
                 continue
             problems.append(
                 f"{rel}:{line} — таблица «{tbl}» не определена нигде: ни в "
@@ -262,23 +263,6 @@ def main() -> int:
 
     print("\n✓ все таблицы и колонки на месте")
     return 0
-
-
-def _session_kind(rel: str, line: int) -> str:
-    """Какой сессией открыт запрос — чтобы не ругаться на осознанное обращение
-    к витрине через get_storefront_session_ctx()."""
-    path = ROOT / rel
-    try:
-        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
-    except OSError:
-        return ""
-    # смотрим вверх от запроса: ближайший открытый контекст сессии
-    for i in range(min(line, len(lines)) - 1, max(0, line - 40), -1):
-        if "get_storefront_session_ctx" in lines[i]:
-            return "storefront"
-        if "get_session_ctx" in lines[i]:
-            return "crm"
-    return ""
 
 
 if __name__ == "__main__":

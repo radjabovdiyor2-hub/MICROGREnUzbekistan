@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyOfficeSupport } from '@/lib/office';
+import { notifyOfficeSupport } from '@/lib/office/client';
 import { notifyAdmin } from '@/lib/notify';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 

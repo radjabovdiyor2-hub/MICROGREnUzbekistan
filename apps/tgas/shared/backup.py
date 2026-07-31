@@ -180,41 +180,73 @@ async def copy_offsite(backup_file: str) -> bool:
         return False
 
 
+async def run_backup_cycle() -> dict:
+    """Полный цикл бэкапа: создать → проверить целостность → вывезти наружу.
+
+    ЕДИНСТВЕННАЯ реализация бэкапа в проекте. Раньше их было две: эта и
+    собственный pg_dump внутри devops_bot. Расходились они не косметически,
+    а по надёжности — и худшая досталась владельцу:
+
+      · дамп из админки не проверялся на обрезанность и не уезжал с сервера;
+      · при отказе pg_dump он клал на диск файл-заглушку;
+      · имя файла было другим (`microgreen_backup_*`), поэтому такие дампы
+        не подчищались ротацией и не показывались в списке бэкапов —
+        оба перебора ищут только `tgas_backup_*`.
+
+    Оповещений отсюда не шлём: у расписания и у кнопки в админке разные
+    адресаты. Вызывающий сам решает, что делать с результатом.
+
+    Возвращает {ok, file, size, message, offsite}.
+    """
+    path = await create_backup()
+    if not path:
+        return {
+            "ok": False, "file": None, "size": 0, "offsite": False,
+            "message": "🚨 Бэкап БД НЕ создан. Проверьте место на диске и доступность PostgreSQL.",
+        }
+
+    name = Path(path).name
+    size = Path(path).stat().st_size if Path(path).exists() else 0
+
+    if not await verify_backup(path):
+        return {
+            "ok": False, "file": name, "size": size, "offsite": False,
+            "message": f"🚨 Бэкап повреждён: {name}. Вероятно, кончилось место.",
+        }
+
+    offsite = await copy_offsite(path)
+    await cleanup_old_backups()
+
+    if not offsite and os.getenv("BACKUP_REMOTE_TARGET", "").strip():
+        return {
+            "ok": True, "file": name, "size": size, "offsite": False,
+            "message": f"⚠️ Бэкап создан, но не уехал наружу: {name}. Копия только на этом сервере.",
+        }
+
+    return {
+        "ok": True, "file": name, "size": size, "offsite": offsite,
+        "message": f"✅ Бэкап готов: {name} ({size // 1024} КБ)",
+    }
+
+
 async def daily_backup_task(bot=None):
     """
     Задача для планировщика: ежедневный бэкап в 03:00.
 
-    Полный цикл: создать → проверить целостность → скопировать наружу.
     О провале любого шага сообщаем ВСЕМ администраторам: молчаливо неудачный
     бэкап — худший из возможных вариантов, потому что его отсутствие
     обнаруживается только когда он уже нужен.
     """
     logger.info("Запуск ежедневного бэкапа...")
 
-    async def _alert(text: str) -> None:
-        if bot is None:
-            return
-        try:
-            from shared.notifications import alert_admins
-            await alert_admins(bot, text)
-        except Exception as e:
-            logger.error("Не удалось разослать алерт о бэкапе: %s", e)
+    result = await run_backup_cycle()
 
-    result = await create_backup()
-    if not result:
-        logger.error("Ежедневный бэкап не удался!")
-        await _alert("🚨 <b>Бэкап БД НЕ создан</b>\n\nПроверьте место на диске и доступность PostgreSQL.")
-        return
+    if not result["ok"] or not result["offsite"]:
+        if bot is not None:
+            try:
+                from shared.notifications import alert_admins
+                await alert_admins(bot, f"<b>Бэкап БД</b>\n\n{result['message']}")
+            except Exception as e:
+                logger.error("Не удалось разослать алерт о бэкапе: %s", e)
 
-    if not await verify_backup(result):
-        await _alert(f"🚨 <b>Бэкап повреждён</b>\n\nФайл: {Path(result).name}\nВероятно, кончилось место.")
-        return
-
-    offsite = await copy_offsite(result)
-    if not offsite and os.getenv("BACKUP_REMOTE_TARGET", "").strip():
-        await _alert(
-            f"⚠️ <b>Бэкап создан, но не уехал наружу</b>\n\nФайл: {Path(result).name}\n"
-            "Копия существует только на этом сервере."
-        )
-
-    logger.info("Ежедневный бэкап завершён: %s (внешняя копия: %s)", result, offsite)
+    logger.info("Ежедневный бэкап завершён: %s", result["message"])

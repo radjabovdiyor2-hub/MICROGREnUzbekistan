@@ -1,8 +1,6 @@
 import asyncio
 import logging
-import os
 
-from datetime import datetime
 from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
@@ -10,47 +8,25 @@ from shared.event_bus import event_bus
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] DEVOPS_BOT: %(message)s")
 logger = logging.getLogger(__name__)
 
-BACKUP_DIR = "/app/backups"
-os.makedirs(BACKUP_DIR, exist_ok=True)
+# Каталог бэкапов и его создание живут в shared/backup.py — единственном
+# месте, которое знает, куда и как класть дампы.
 
 
 async def run_backup() -> dict:
-    """Сделать дамп базы. Возвращает {ok, file, message}.
+    """Сделать дамп базы. Возвращает {ok, file, size, message}.
 
-    Одна реализация на все три входа: вебхук n8n, задача от Стёпана через
-    event_bus и кнопка «Бекап БД» в веб-админке. Раньше тело бекапа было
-    скопировано в двух местах и уже начало расходиться — в ветке вебхука
-    замыкалась петля обучения, а в ветке задачи нет.
+    Один вход на все три источника: вебхук n8n, задача от Стёпана через
+    event_bus и кнопка «Бекап БД» в веб-админке.
 
-    ВАЖНО: при отсутствии pg_dump создаётся файл-заглушка, и функция
-    честно сообщает об этом (ok=False). Прежний код в обеих ветках
-    рапортовал об успехе — «бекап» на диске был, а данных в нём не было.
+    Сам бэкап делает shared/backup.py — единственная реализация в проекте.
+    Здесь раньше был собственный pg_dump, и он был хуже общего: не проверял
+    дамп на обрезанность, не вывозил копию с сервера, при отказе клал на
+    диск файл-заглушку и называл файлы так, что их не подчищала ротация.
+    Осталась только петля обучения — она специфична для DevOps.
     """
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"microgreen_backup_{timestamp}.sql"
-    filepath = os.path.join(BACKUP_DIR, filename)
+    from shared.backup import run_backup_cycle
 
-    try:
-        db_url = settings.database_url.replace("+asyncpg", "")
-        process = await asyncio.create_subprocess_shell(
-            f"pg_dump {db_url} > {filepath}",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await process.communicate()
-
-        if process.returncode != 0:
-            raise Exception(stderr.decode())
-
-        size = os.path.getsize(filepath) if os.path.exists(filepath) else 0
-        ok, status_msg = True, f"✅ Бекап базы готов: {filename} ({size // 1024} КБ)"
-    except Exception as exc:
-        logger.error(f"Backup failed: {exc}. Creating dummy backup.")
-        with open(filepath, "w") as f:
-            f.write(f"-- BACKUP GENERATED AT {timestamp} --\n-- DUMMY FILE --\n")
-        size = 0
-        ok = False
-        status_msg = f"⚠️ Настоящий бекап НЕ сделан (pg_dump недоступен: {exc}). Файл-заглушка: {filename}"
+    result = await run_backup_cycle()
 
     # Замыкаем петлю: DevOps (замер надёжности бекапов -> вывод -> адаптация).
     try:
@@ -58,13 +34,17 @@ async def run_backup() -> dict:
         await feedback_loop.evaluate_and_adapt(
             bot="devops_bot",
             metric="system_reliability",
-            current_data={"backup_file": filename, "backup_success": ok, "size_bytes": size},
+            current_data={
+                "backup_file": result["file"],
+                "backup_success": result["ok"],
+                "size_bytes": result["size"],
+            },
             benchmark_data={"target_uptime_pct": 99.9},
         )
     except Exception as fe:
         logger.warning(f"DevOps feedback loop error: {fe}")
 
-    return {"ok": ok, "file": filename, "size": size, "message": status_msg}
+    return result
 
 
 async def bus_daily_backup(params: dict) -> dict:

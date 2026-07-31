@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { notifyOfficeCustomer } from '@/lib/office';
+import { notifyOfficeCustomer } from '@/lib/office/client';
 import { validateInitData, getBotToken } from '@/lib/telegramAuth';
 import { prisma } from '@repo/database';
 

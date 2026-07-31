@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Bot, History, Search, ShieldCheck, User } from 'lucide-react';
+import { AlertTriangle, Bot, History, Search, ShieldCheck, User } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
 // Журнал действий.
@@ -30,11 +30,12 @@ function actionColor(action: string): string {
 }
 
 export function AdminAudit({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
-  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
+  const t = useCallback((ru: string, uz: string) => (lang === 'ru' ? ru : uz), [lang]);
 
   const [entries, setEntries] = useState<Entry[]>([]);
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -47,14 +48,19 @@ export function AdminAudit({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
 
       const res = await fetch(`/api/admin/audit?${params}`, { credentials: 'same-origin' });
       const data = await res.json();
-      if (data.status === 'ok') {
+      if (res.ok && data.status === 'ok') {
+        setError(null);
         setEntries(prev => (append ? [...prev, ...data.entries] : data.entries));
         setCursor(data.nextCursor);
+      } else {
+        setError(data.error || t('Ошибка при загрузке журнала аудита', 'Audit jurnalini yuklashda xatolik'));
       }
+    } catch {
+      setError(t('Ошибка при загрузке журнала аудита', 'Audit jurnalini yuklashda xatolik'));
     } finally {
       setLoading(false);
     }
-  }, [q]);
+  }, [q, t]);
 
   useEffect(() => {
     // Небольшая задержка, чтобы не дёргать сервер на каждую букву поиска.
@@ -135,7 +141,14 @@ export function AdminAudit({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         </div>
       )}
 
-      {!loading && !entries.length && (
+      {!loading && error && (
+        <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--error)' }}>
+          <AlertTriangle size={28} style={{ marginBottom: 8 }} />
+          <div>{error}</div>
+        </div>
+      )}
+
+      {!loading && !error && !entries.length && (
         <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
           <History size={28} style={{ marginBottom: 8 }} />
           <div>{t('Записей нет', 'Yozuvlar yo\'q')}</div>

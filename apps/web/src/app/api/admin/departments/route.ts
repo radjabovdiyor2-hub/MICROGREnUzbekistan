@@ -1,32 +1,30 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { officeFetch } from '@/lib/office/client';
 
-const WEB_OFFICE_URL = process.env.WEB_OFFICE_URL || 'http://localhost:8050';
+// ══════════════════════════════════════════════════════════════════════
+// Сводка по отделам ИИ-офиса.
+//
+// Было: при недоступности офиса роут отдавал success:true и жёстко
+// прошитый список из десяти отделов с нулевой статистикой. Владелец
+// видел рабочую сводку в момент, когда ИИ-контур лежал.
+//
+// Стало: недоступность офиса — это 503 и честная причина.
+// ══════════════════════════════════════════════════════════════════════
 
-// Fallback mock data when web_office is unreachable
-const MOCK_DEPARTMENTS = [
-  { id: 'marketing', name: 'Маркетинг', bot: 'MG_Marketing_bot', icon: '📢', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'content', name: 'Контент', bot: 'MG_Content1_bot', icon: '✍️', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'hr', name: 'Кадры (HR)', bot: 'MG_HR1_bot', icon: '👥', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'finance', name: 'Финансы', bot: 'MG_Finance1_bot', icon: '💰', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'devops', name: 'DevOps / IT', bot: 'MG_PM1_bot', icon: '⚙️', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'qa', name: 'QA / Тесты', bot: 'MG_PM1_bot', icon: '🔍', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'rnd', name: 'R&D', bot: 'MG_PM1_bot', icon: '💡', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'support', name: 'Поддержка', bot: 'MicrogreenSupport_bot', icon: '🎧', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'sales', name: 'Продажи', bot: 'MicrogreenSales_bot', icon: '🛒', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-  { id: 'analytics', name: 'Аналитика', bot: 'MG_Analytics_bot', icon: '📊', status: 'unknown', tasks_total: 0, tasks_done: 0, tasks_in_progress: 0, tasks_todo: 0 },
-];
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) return unauthorized();
 
-export async function GET() {
-  try {
-    const res = await fetch(`${WEB_OFFICE_URL}/api/departments/summary`, {
-      signal: AbortSignal.timeout(3000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return NextResponse.json(data);
-    }
-  } catch {
-    // web_office not reachable — use fallback
+  const res = await officeFetch<{ departments: unknown[] }>('/api/departments/summary', {
+    timeoutMs: 3000,
+  });
+
+  if (!res.ok) {
+    return NextResponse.json(
+      { success: false, error: res.error, departments: [] },
+      { status: 503 },
+    );
   }
-  return NextResponse.json({ success: true, departments: MOCK_DEPARTMENTS });
+
+  return NextResponse.json(res.data);
 }
