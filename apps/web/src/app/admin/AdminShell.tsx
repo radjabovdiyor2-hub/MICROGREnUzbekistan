@@ -36,86 +36,8 @@ import {
   Activity, ArrowLeft, ArrowRight, BarChart, Brain, Camera, ChevronRight, ClipboardList, Command, Cpu, CreditCard, DollarSign, Eye, FileText, History, Home, Layers, Leaf, Lightbulb, Lock, LogOut, Package, Percent, Play, Search, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet,
 } from 'lucide-react';
 
-const TAB_GROUPS = [
-  {
-    title: { ru: 'Главное', uz: 'Asosiy' },
-    tabs: [
-      { id: 'stepan', ru: 'Стёпан (ИИ)', uz: 'Stepan (AI)', icon: <Brain size={16} /> },
-      { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <ShoppingCart size={16} /> },
-      { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <BarChart size={16} /> },
-      { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <DollarSign size={16} /> },
-      { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Leaf size={16} /> },
-    ]
-  },
-  {
-    title: { ru: 'Управление', uz: 'Boshqaruv' },
-    tabs: [
-      { id: 'customers', ru: 'Клиенты', uz: 'Mijozlar', icon: <Users size={16} /> },
-      { id: 'orders', ru: 'Заказы', uz: 'Buyurtmalar', icon: <Truck size={16} /> },
-      { id: 'products', ru: 'Товары', uz: 'Mahsulotlar', icon: <Tag size={16} /> },
-      { id: 'categories', ru: 'Категории', uz: 'Kategoriyalar', icon: <Layers size={16} /> },
-      { id: 'promo', ru: 'Промокоды', uz: 'Promokodlar', icon: <Percent size={16} /> },
-      { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Package size={16} /> },
-      { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <ClipboardList size={16} /> },
-      { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Truck size={16} /> },
-      { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <CreditCard size={16} /> },
-      { id: 'finance', ru: 'Финансы', uz: 'Moliya', icon: <Wallet size={16} /> },
-      { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <User size={16} /> },
-    ]
-  },
-  {
-    title: { ru: 'ИИ-офис', uz: 'AI ofis' },
-    tabs: [
-      { id: 'bot_control', ru: 'Пульт ИИ', uz: 'AI Pult', icon: <Play size={16} /> },
-      { id: 'bot_health', ru: 'Здоровье ботов', uz: 'Botlar holati', icon: <Activity size={16} /> },
-      { id: 'tasks', ru: 'Задачи отделам', uz: 'Vazifalar', icon: <ClipboardList size={16} /> },
-      { id: 'learnings', ru: 'Обучение ИИ', uz: "AI O'rgatish", icon: <Brain size={16} /> },
-      { id: 'ai_spend', ru: 'Расходы ИИ', uz: 'AI xarajatlari', icon: <Cpu size={16} /> },
-    ]
-  },
-  {
-    title: { ru: 'Отделы (Telegram)', uz: "Bo'limlar (Telegram)" },
-    tabs: [
-      { id: 'dept_sales', ru: 'Продажи', uz: 'Sotuvlar', icon: <ShoppingCart size={16} /> },
-      { id: 'dept_marketing', ru: 'Маркетинг', uz: 'Marketing', icon: <TrendingUp size={16} /> },
-      { id: 'dept_content', ru: 'Контент', uz: 'Kontent', icon: <FileText size={16} /> },
-      { id: 'dept_hr', ru: 'Кадры (HR)', uz: 'Kadrlar (HR)', icon: <Users size={16} /> },
-      { id: 'dept_finance', ru: 'Финансы', uz: 'Moliya', icon: <DollarSign size={16} /> },
-      { id: 'dept_devops', ru: 'DevOps / IT', uz: 'DevOps / IT', icon: <Settings size={16} /> },
-      { id: 'dept_qa', ru: 'QA / Тесты', uz: 'QA / Testlar', icon: <Eye size={16} /> },
-      { id: 'dept_rnd', ru: 'R&D', uz: 'R&D', icon: <Lightbulb size={16} /> },
-      { id: 'dept_support', ru: 'Поддержка', uz: "Qo'llab", icon: <Send size={16} /> },
-    ]
-  },
-  {
-    title: { ru: 'Контент и журнал', uz: 'Kontent va jurnal' },
-    tabs: [
-      { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <FileText size={16} /> },
-      { id: 'guest_photos', ru: 'Кадры гостей', uz: 'Mehmon kadrlari', icon: <Camera size={16} /> },
-      { id: 'recipes', ru: 'Рецепты', uz: 'Retseptlar', icon: <Leaf size={16} /> },
-    ]
-  },
-  {
-    title: { ru: 'Аналитика и система', uz: 'Analitika va tizim' },
-    tabs: [
-      { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <BarChart size={16} /> },
-      { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <TrendingUp size={16} /> },
-      { id: 'audit', ru: 'Журнал действий', uz: 'Amallar jurnali', icon: <History size={16} /> },
-      { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Lock size={16} /> },
-    ]
-  }
-];
-
-/** Плоский список для палитры команд (Cmd+K). */
-const ALL_TABS = TAB_GROUPS.flatMap(g =>
-  g.tabs.map(tab => ({ ...tab, group: g.title }))
-);
-
-const SELLER_TABS = [
-  { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <ShoppingCart size={16} /> },
-];
-
-type AuthMode = 'choose' | 'owner_login' | 'seller_login';
+import { TAB_GROUPS, ALL_TABS, SELLER_TABS } from './adminTabs';
+import { AdminAuthScreens, type AuthMode } from './AdminAuthScreens';
 
 interface AdminShellProps {
   /** Роль из подписанной cookie, проверенной на сервере. null — не вошёл. */
@@ -271,132 +193,21 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
 
   // === AUTH SCREENS ===
   if (!isAuthenticated) {
-    // Choose mode
-    if (authMode === 'choose') {
-      return (
-        <div className="container" style={{ maxWidth: 400, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
-          <div style={{ marginBottom: 'var(--space-6)', color: 'var(--brand-primary)' }}>
-            <Settings size={56} />
-          </div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-2xl)', marginBottom: 'var(--space-2)' }}>
-            Microgreen
-          </h1>
-          <p style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-8)' }}>{t('Кто вы?', 'Kim siz?')}</p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-            <button onClick={() => setAuthMode('owner_login')} className="card"
-              style={{ padding: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-4)', cursor: 'pointer', textAlign: 'left' }}>
-              <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-lg)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Settings size={24} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{t('Владелец', 'Egasi')}</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Полное управление', "To'liq boshqaruv")}</div>
-              </div>
-              <ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
-            </button>
-
-            <button onClick={() => setAuthMode('seller_login')} className="card"
-              style={{ padding: 'var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-4)', cursor: 'pointer', textAlign: 'left' }}>
-              <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-lg)', background: 'var(--success-bg)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Tag size={24} />
-              </div>
-              <div>
-                <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{t('Продавец', 'Sotuvchi')}</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Только продажи', 'Faqat sotish')}</div>
-              </div>
-              <ChevronRight size={20} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }} />
-            </button>
-          </div>
-
-          <Link href="/" className="btn btn-ghost" style={{ marginTop: 'var(--space-6)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <Home size={16} /> {t('На главную', 'Bosh sahifaga')}
-          </Link>
-        </div>
-      );
-    }
-
-    // Owner login
-    if (authMode === 'owner_login') {
-      return (
-        <div className="container" style={{ maxWidth: 400, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
-          <button onClick={() => { setAuthMode('choose'); setAuthError(''); }} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
-          </button>
-          <div style={{ marginBottom: 'var(--space-4)', color: 'var(--brand-primary)' }}>
-            <Lock size={48} />
-          </div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>{t('Вход владельца', 'Egasi kirishi')}</h2>
-          <form onSubmit={handleOwnerLogin} className="card" style={{ padding: 'var(--space-6)', textAlign: 'left' }}>
-            <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)' }}>{t('Пароль', 'Parol')}</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t('Пароль администратора', 'Admin parol')} id="admin-password"
-              style={{ width: '100%', padding: 'var(--space-3)', border: `1px solid ${authError ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }} />
-            {authError && <p style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-3)' }}>{authError}</p>}
-            
-            {/* Кнопки «Вход по Face ID» здесь больше нет: сервер отвечает на
-                неё 501. Прежняя реализация WebAuthn не проверяла подпись —
-                владельцем можно было представиться, зная лишь id ключа, —
-                и вход отключён до переделки. Кнопка, которая всегда даёт
-                ошибку, хуже её отсутствия. */}
-            <button type="submit" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-              <ArrowRight size={18} /> {t('Войти по паролю', 'Parol bilan kirish')}
-            </button>
-          </form>
-        </div>
-      );
-    }
-
-    // Seller PIN login
-    if (authMode === 'seller_login') {
-      return (
-        <div className="container" style={{ maxWidth: 360, paddingTop: 'var(--space-16)', textAlign: 'center' }}>
-          <button onClick={() => { setAuthMode('choose'); setAuthError(''); setPin(''); }} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <ArrowLeft size={16} /> {t('Назад', 'Orqaga')}
-          </button>
-          <div style={{ marginBottom: 'var(--space-4)', color: 'var(--success)' }}>
-            <Tag size={48} />
-          </div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>{t('PIN продавца', 'Sotuvchi PIN')}</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)' }}>{t('Введите 4-значный PIN', '4 raqamli PIN kiriting')}</p>
-
-          {/* PIN dots */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-6)' }}>
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} style={{
-                width: 16, height: 16, borderRadius: 'var(--radius-full)',
-                background: pin.length > i ? 'var(--brand-primary)' : 'var(--bg-tertiary)',
-                border: '2px solid var(--border)',
-                transition: 'all 0.15s',
-              }} />
-            ))}
-          </div>
-
-          {authError && <p style={{ color: 'var(--error)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-4)' }}>{authError}</p>}
-
-          {/* PIN pad */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', maxWidth: 280, margin: '0 auto' }}>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, null, 0, 'del'].map((key, i) => {
-              if (key === null) return <div key={i} />;
-              if (key === 'del') {
-                return (
-                  <button key={i} onClick={() => setPin(p => p.slice(0, -1))} className="btn btn-ghost"
-                    style={{ height: 56, fontSize: 'var(--text-lg)', borderRadius: 'var(--radius-lg)' }}>
-                    <ArrowLeft size={20} />
-                  </button>
-                );
-              }
-              return (
-                <button key={i} onClick={() => handlePinPress(key as number)}
-                  className="btn btn-ghost"
-                  style={{ height: 56, fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', borderRadius: 'var(--radius-lg)', fontFamily: 'var(--font-display)' }}>
-                  {key}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      );
-    }
+    return (
+      <AdminAuthScreens
+        authMode={authMode}
+        setAuthMode={setAuthMode}
+        password={password}
+        setPassword={setPassword}
+        pin={pin}
+        setPin={setPin}
+        authError={authError}
+        setAuthError={setAuthError}
+        handleOwnerLogin={handleOwnerLogin}
+        handlePinPress={handlePinPress}
+        t={t}
+      />
+    );
   }
 
   // === MAIN ADMIN PANEL ===
