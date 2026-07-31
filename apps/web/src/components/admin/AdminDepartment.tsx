@@ -126,7 +126,11 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
             {departmentName}
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: '4px 0 0' }}>
-            Telegram: <strong>@{botName}</strong> • {t('Статус', 'Holat')}: <span style={{ color: 'var(--success)', fontWeight: 700 }}>● Online</span>
+            {/* Раньше здесь всегда горело зелёное «● Online» — при том, что
+                данных о состоянии бота в этом ответе нет вовсе. Настоящее
+                здоровье ботов живёт в /api/admin/bots (пульс из Redis) и
+                показано в разделе «Здоровье ботов». */}
+            Telegram: <strong>@{botName}</strong>
           </p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>

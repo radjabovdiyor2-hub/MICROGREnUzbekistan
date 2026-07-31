@@ -637,10 +637,9 @@ async def _cron_magazine_prepare():
         import aiohttp
         import os
         secret = os.environ.get("BOT_SECRET", "")
+        storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
         async with aiohttp.ClientSession() as session:
-            # We assume Next.js runs on 3000 or 3005, typical dev ports
-            port = os.environ.get("PORT", "3000")
-            async with session.post(f"http://127.0.0.1:{port}/api/admin/magazine/cron/prepare", headers={"x-bot-secret": secret}) as resp:
+            async with session.post(f"{storefront_url}/admin/magazine/cron/prepare", headers={"x-bot-secret": secret}) as resp:
                 data = await resp.json()
                 logger.info(f"Cron Prepare: {data}")
     except Exception as e:
@@ -651,9 +650,9 @@ async def _cron_magazine_finalize():
         import aiohttp
         import os
         secret = os.environ.get("BOT_SECRET", "")
+        storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
         async with aiohttp.ClientSession() as session:
-            port = os.environ.get("PORT", "3000")
-            async with session.post(f"http://127.0.0.1:{port}/api/admin/magazine/cron/finalize", headers={"x-bot-secret": secret}) as resp:
+            async with session.post(f"{storefront_url}/admin/magazine/cron/finalize", headers={"x-bot-secret": secret}) as resp:
                 data = await resp.json()
                 logger.info(f"Cron Finalize: {data}")
     except Exception as e:
@@ -665,10 +664,10 @@ async def _cron_magazine_print_run():
         import os
         import asyncio
         secret = os.environ.get("BOT_SECRET", "")
+        storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
         admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
         async with aiohttp.ClientSession() as session:
-            port = os.environ.get("PORT", "3000")
-            async with session.post(f"http://127.0.0.1:{port}/api/admin/magazine/cron/print-run", headers={"x-bot-secret": secret}) as resp:
+            async with session.post(f"{storefront_url}/admin/magazine/cron/print-run", headers={"x-bot-secret": secret}) as resp:
                 data = await resp.json()
                 logger.info(f"Cron Print-Run: {data}")
                 
