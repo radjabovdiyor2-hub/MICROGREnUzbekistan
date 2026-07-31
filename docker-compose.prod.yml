@@ -14,7 +14,11 @@
 # --- shared config for every internal tgas bot -----------------------------
 x-tgas-bot: &tgas-bot
   build:
-    context: ./apps/tgas
+    # Контекст — корень репозитория, чтобы образы офиса видели общий пакет
+    # packages/mg_ai. Следствие: применяется корневой .dockerignore, а
+    # apps/tgas/.dockerignore — нет; его исключения перенесены в корневой.
+    context: .
+    dockerfile: apps/tgas/Dockerfile
   restart: unless-stopped
   mem_limit: 320m
   env_file: ./apps/tgas/.env

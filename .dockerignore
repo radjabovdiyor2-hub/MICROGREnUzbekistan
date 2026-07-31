@@ -1,5 +1,10 @@
-# Build context excludes for the ROOT-context images (apps/web, apps/bot).
-# The tgas image builds with context ./apps/tgas and uses apps/tgas/.dockerignore instead.
+# Build context excludes для ВСЕХ образов: apps/web, apps/bot и apps/tgas.
+#
+# Раньше tgas собирался с контекстом ./apps/tgas и пользовался собственным
+# apps/tgas/.dockerignore. Контекст переехал в корень, чтобы образы офиса
+# видели общий Python-пакет packages/mg_ai, — а значит здесь обязаны быть
+# все исключения, которые раньше жили в apps/tgas/.dockerignore. Главное из
+# них — apps/tgas/.env: там боевые токены всех ботов.
 
 .git
 .github
@@ -27,9 +32,25 @@ tree.txt
 # Legacy stub left after moving tgas -> apps/tgas
 tgas/
 
-# Not needed by the web/bot images (tgas has its own build context; game is separate)
-apps/tgas/
+# Не нужно веб-образу; у офиса свой набор исключений ниже.
 apps/game/
+
+# ── apps/tgas: перенесено из apps/tgas/.dockerignore ──────────────────
+# Он больше не применяется: контекст сборки офиса теперь корень репозитория.
+# СЕКРЕТЫ — токены ботов приходят из env_file в рантайме, в образ не пекутся.
+apps/tgas/.env
+apps/tgas/.env.example
+apps/tgas/venv/
+apps/tgas/.venv/
+# Рабочие данные, которым нечего делать в образе: файловая очередь задач,
+# дампы базы, локальные sqlite.
+apps/tgas/bus_tasks/
+apps/tgas/backups/
+apps/tgas/**/*.db
+apps/tgas/.vscode/
+apps/tgas/.gemini/
+apps/tgas/.agents/
+apps/tgas/**/*.md
 
 # Dev-only: storybook, e2e tests, playwright
 apps/web/.storybook/
