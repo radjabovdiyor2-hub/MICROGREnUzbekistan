@@ -77,16 +77,18 @@ async def complaint_text(msg: Message, state: FSMContext):
 
 from shared.config import settings
 
-# OpenAI embeddings для vector search в базе знаний
-# (Gemini embedding имеет другой формат, оставляем OpenAI для этой задачи)
-_openai_embeddings_client = None
+# Эмбеддинги для векторного поиска по базе знаний идут через общий движок.
+# Свой AsyncOpenAI здесь был прямым AI-клиентом в обход mg_ai: расход мимо
+# учёта ai_usage и третья копия ключа. Движок одноразовый на процесс.
+_embeddings_engine = None
 
-def _get_embeddings_client():
-    global _openai_embeddings_client
-    if _openai_embeddings_client is None and settings.openai_api_key:
-        from openai import AsyncOpenAI
-        _openai_embeddings_client = AsyncOpenAI(api_key=settings.openai_api_key)
-    return _openai_embeddings_client
+
+def _get_embeddings_engine():
+    global _embeddings_engine
+    if _embeddings_engine is None and settings.openai_api_key:
+        from shared.ai_engine import AIEngine
+        _embeddings_engine = AIEngine()
+    return _embeddings_engine
 
 # Про сломанную базу знаний пишем в лог один раз за процесс: иначе каждое
 # сообщение клиента давало бы одинаковую строку и утопило остальные записи.
@@ -104,8 +106,8 @@ async def search_knowledge(query: str, limit: int = 2) -> str:
     """
     global _kb_failure_logged
     try:
-        client = _get_embeddings_client()
-        if not client:
+        engine = _get_embeddings_engine()
+        if not engine:
             if not _kb_failure_logged:
                 logger.warning(
                     "База знаний недоступна: не задан OPENAI_API_KEY — "
@@ -113,8 +115,9 @@ async def search_knowledge(query: str, limit: int = 2) -> str:
                 )
                 _kb_failure_logged = True
             return ""
-        response = await client.embeddings.create(input=query, model="text-embedding-3-small")
-        emb = response.data[0].embedding
+        emb = await engine.embed(query)
+        if emb is None:
+            return ""
 
         async with get_session_ctx() as session:
             r = await session.execute(text("""

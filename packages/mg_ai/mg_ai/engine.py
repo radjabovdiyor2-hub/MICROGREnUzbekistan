@@ -31,6 +31,9 @@ TOKEN_COSTS: Dict[str, Dict[str, float]] = {
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
     "gpt-5.5": {"input": 1.25, "output": 5.00},
     "o4-mini": {"input": 1.10, "output": 4.40},
+    # Эмбеддинги: выхода у них нет, стоимость только за вход.
+    "text-embedding-3-small": {"input": 0.02, "output": 0.0},
+    "text-embedding-3-large": {"input": 0.13, "output": 0.0},
 }
 
 
@@ -639,6 +642,41 @@ class AIEngine:
             return response.text
         except Exception as e:
             logger.error("Ошибка STT (Whisper): %s", e, exc_info=True)
+            return None
+
+    async def embed(
+        self,
+        text: str,
+        model: str = "text-embedding-3-small",
+    ) -> Optional[List[float]]:
+        """Вектор эмбеддинга для строки. None — ключа нет или запрос не удался.
+
+        Живёт здесь, а не у потребителя: до аудита 31.07.2026 базу знаний
+        support-бота и сборщик knowledge_base обслуживали два собственных
+        экземпляра AsyncOpenAI. Прямые AI-клиенты в Python запрещены
+        конституцией ровно поэтому — расход мимо учёта и ключ в третьем месте.
+
+        Fallback на Gemini здесь намеренно НЕТ: у него другая размерность
+        вектора, а колонка knowledge_base.embedding уже создана под 1536.
+        Молча подменить провайдера — значит сломать поиск, а не спасти его.
+        """
+        client = self._get_openai_client()
+        if not client:
+            logger.error("OpenAI API key не настроен — эмбеддинги недоступны")
+            return None
+        started = time.monotonic()
+        try:
+            response = await client.embeddings.create(input=text, model=model)
+            usage = getattr(response, "usage", None)
+            self.usage.add_usage(
+                input_tokens=getattr(usage, "prompt_tokens", 0) or 0,
+                output_tokens=0,
+                model=model,
+                duration_ms=(time.monotonic() - started) * 1000,
+            )
+            return list(response.data[0].embedding)
+        except Exception as e:
+            logger.error("Ошибка эмбеддинга: %s", e, exc_info=True)
             return None
 
     def get_stats_summary(self) -> str:

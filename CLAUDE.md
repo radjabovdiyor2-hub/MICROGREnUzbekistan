@@ -20,7 +20,7 @@ Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 - **Нет прямых импортов между модулями.** `apps/web` ↔ `apps/bot` ↔ `apps/tgas` общаются только через HTTP API или Event Bus. `apps/web` — единственный владелец каталога, `apps/tgas` — CRM/задач.
 - **Нет ручного SQL DDL.** Только `npx prisma db push` / `npx prisma generate` из `packages/database`.
 - **Нет захардкоженных цветов.** Только CSS-переменные (`--brand-primary`, `--bg-primary`, `--text-primary`). Цепочка: `design-system/tokens/tokens.json` → `npm run tokens:build` → `globals.css`.
-- **Нет прямых AI-клиентов в Python.** Все вызовы — через `apps/tgas/shared/ai_engine.py`. Прямые OpenAI/Gemini клиенты запрещены.
+- **Нет прямых AI-клиентов в Python.** Движок один — `packages/mg_ai`; приложения ходят в него через свою обёртку: офис через `apps/tgas/shared/ai_engine.py`, витринный бот через `apps/bot/services/ai_service.py`. Обёртка подставляет ключи и учёт расхода, поэтому `AsyncOpenAI`/Gemini напрямую создавать нельзя — расход уйдёт мимо `ai_usage`.
 - **Нет `any`, `@ts-ignore`, `eslint-disable`, пустого `catch`, `TODO` и заглушек.** Компоненты ≤200 строк.
 - **Нет секретов в выводе.** `.env`, токены и ключи не печатать, не логировать, не коммитить.
 - **Нет git side effects** без явного запроса в этом же ходе.

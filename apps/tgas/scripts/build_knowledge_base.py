@@ -5,12 +5,13 @@ import sys
 # Добавляем корневую папку проекта в sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from openai import AsyncOpenAI
 from sqlalchemy import text
+from shared.ai_engine import AIEngine
 from shared.database import get_session_ctx
-from shared.config import settings
 
-client = AsyncOpenAI(api_key=settings.openai_api_key)
+# Эмбеддинги через общий движок: прямой AsyncOpenAI здесь был обходом mg_ai,
+# из-за чего сборка базы знаний не попадала в учёт расхода токенов.
+engine = AIEngine()
 
 async def setup_vector_table():
     async with get_session_ctx() as session:
@@ -58,11 +59,10 @@ async def build_knowledge_base():
             text_content = chunk
 
             # Генерируем эмбеддинг
-            response = await client.embeddings.create(
-                input=text_content,
-                model="text-embedding-3-small"
-            )
-            embedding = response.data[0].embedding
+            embedding = await engine.embed(text_content)
+            if embedding is None:
+                print(f"Пропущен чанк (эмбеддинг не получен): {title}")
+                continue
 
             # Сохраняем в БД
             async with get_session_ctx() as session:
