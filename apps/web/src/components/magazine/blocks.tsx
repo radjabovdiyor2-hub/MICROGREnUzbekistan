@@ -1,6 +1,6 @@
 import React from 'react';
 import type {
-  CoverBlock, TocBlock, ChefWordBlock, RestaurantOfWeekBlock,
+  ChefWordBlock, RestaurantOfWeekBlock,
   TrendAnalyticsBlock, RecipeBlock,
   FamilyConversionBlock,
   RestaurantBrand, Audience, L10n,
@@ -9,138 +9,19 @@ import {
   UI, t, tri, inline,
   type Lang, type UIKey,
 } from '@/lib/magazine/i18n';
+import { Tri, PageNum, Figure } from './blockParts';
 
-// ════════════════════════════════════════════════════════════
-// Журнал печатается на двух языках: узбекский (основной, крупно)
-// и русский — мельче под ним (.mag-lang-sec).
-// ════════════════════════════════════════════════════════════
+export { CoverPage } from './CoverPage';
+export { TocPage } from './TocPage';
 
 const PRIMARY: Lang = 'uz';
 
-/** Подпись интерфейса на двух языках в одну строку. */
 function ui(key: UIKey) { return inline(key); }
-
-/**
- * Двуязычный текст: узбекский в основном стиле, русский —
- * мельче, приглушённо, с языковой меткой.
- */
-import { Tri, PageNum, RunningHeader, Figure } from './blockParts';
 
 const H1: React.CSSProperties = { fontFamily: "'Playfair Display', serif", fontWeight: 900, color: 'var(--ink)', lineHeight: 1.1 };
 const BODY: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", color: 'var(--ink)', lineHeight: 1.6 };
 const contentPad: React.CSSProperties = { padding: '4mm var(--margin-page) 8mm' };
 
-// ── COVER ──
-export function CoverPage({ b, brand, weekLabel }: { b: CoverBlock; brand: RestaurantBrand; weekLabel: string }) {
-  const titleParts = tri(b.title);
-  const accentParts = tri(b.accentTitle);
-  return (
-    <div className="mag-page" style={{ background: 'rgb(var(--overlay-dark-rgb))', color: 'rgb(var(--overlay-light-rgb))' }}>
-      {b.background && (
-        <div style={{ position: 'absolute', inset: 0 }}>
-          <img src={b.background} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }} />
-        </div>
-      )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(var(--overlay-dark-rgb), 0.5) 0%,rgba(var(--overlay-dark-rgb), 0.1) 35%,rgba(var(--overlay-dark-rgb), 0.05) 55%,rgba(var(--overlay-dark-rgb), 0.7) 85%,rgba(var(--overlay-dark-rgb), 0.85) 100%)' }} />
-      <div style={{ position: 'relative', zIndex: 1, minHeight: '210mm', display: 'flex', flexDirection: 'column' }}>
-        {/* Со-брендирование: издатель × ресторан */}
-        <div style={{ padding: '5mm 10mm 0', textAlign: 'center' }}>
-          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '6pt', fontWeight: 700, letterSpacing: '2.5px', textTransform: 'uppercase', color: 'var(--editorial-gold-light)' }}>
-            Microgreen Uzbekistan
-            <span style={{ opacity: 0.55, margin: '0 2.5mm' }}>&amp;</span>
-            {brand.name}
-          </span>
-        </div>
-        <div style={{ padding: '3mm 10mm 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '36pt', fontWeight: 900, lineHeight: 0.9 }}>FRESH</div>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', fontWeight: 700, letterSpacing: '10px', color: 'rgba(var(--overlay-light-rgb), 0.5)', marginTop: '2mm' }}>WEEKLY</div>
-          </div>
-          <div style={{ textAlign: 'right', fontFamily: "'Inter', sans-serif", fontSize: '7pt', color: 'rgba(var(--overlay-light-rgb), 0.6)', lineHeight: 1.8 }}>
-            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '10pt', fontWeight: 900, color: 'rgba(var(--overlay-light-rgb), 0.9)' }}>{weekLabel}</span><br />
-            UZ · RU
-          </div>
-        </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '0 10mm 18mm' }}>
-          <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '26pt', fontWeight: 900, lineHeight: 1.1, maxWidth: '92%' }}>
-            <span style={{ color: 'var(--editorial-gold-light)' }}>{titleParts[0]?.text}</span>
-            {accentParts[0] && <><br />{accentParts[0].text}</>}
-          </div>
-          {/* Заголовок на втором языке */}
-          {(titleParts.length > 1 || accentParts.length > 1) && (
-            <div style={{ marginTop: '3mm', borderLeft: '1.5px solid color-mix(in srgb, var(--editorial-gold-light) 50%, transparent)', paddingLeft: '3mm' }}>
-              {titleParts.slice(1).map((p, i) => (
-                <div key={p.lang} style={{ fontFamily: "'Playfair Display', serif", fontSize: '11pt', fontWeight: 700, color: 'rgba(var(--overlay-light-rgb), 0.72)', lineHeight: 1.25 }}>
-                  {p.text} {accentParts[i + 1]?.text ?? ''}
-                </div>
-              ))}
-            </div>
-          )}
-          {b.subtitle && (
-            <div style={{ marginTop: '4mm', maxWidth: '86%' }}>
-              {tri(b.subtitle).map((p) => (
-                <div key={p.lang} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: p.lang === PRIMARY ? '10.5pt' : '8pt', color: p.lang === PRIMARY ? 'rgba(var(--overlay-light-rgb), 0.8)' : 'rgba(var(--overlay-light-rgb), 0.55)', fontStyle: 'italic', lineHeight: 1.4 }}>{p.text}</div>
-              ))}
-            </div>
-          )}
-          {b.tags && b.tags.length > 0 && (
-            <div style={{ display: 'flex', gap: '3mm', marginTop: '5mm', flexWrap: 'wrap' }}>
-              {b.tags.map((tag, i) => (
-                <span key={i} className="mag-kicker" style={{ color: 'rgba(var(--overlay-light-rgb), 0.5)' }}>{t(tag as L10n, PRIMARY)}</span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div style={{ background: 'rgba(var(--overlay-dark-rgb), 0.5)', padding: '3.5mm 10mm', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '6.5pt', color: 'rgba(var(--overlay-light-rgb), 0.5)' }}>
-          <span>© Microgreen Uzbekistan &amp; {brand.name}</span>
-          <span style={{ color: 'var(--editorial-gold-light)', fontWeight: 600 }}>freshweekly.uz</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── TABLE OF CONTENTS ──
-export function TocPage({ b, brand, entries, n, weekLabel }: {
-  b: TocBlock;
-  brand: RestaurantBrand;
-  entries: { letter: string; titles: string[]; page: number }[];
-  n: number; weekLabel: string;
-}) {
-  return (
-    <div className="mag-page">
-      <RunningHeader right={`${ui('issue')} ${weekLabel}`} cobrand={brand.name.toUpperCase()} />
-      <div style={{ padding: '8mm var(--margin-page) 6mm' }}>
-        <div style={{ ...H1, fontSize: '22pt' }}>{UI.uz.contents}</div>
-        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '6.5pt', letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--caption)', marginTop: '1mm' }}>
-          {UI.ru.contents}
-        </div>
-        <div style={{ width: '20mm', height: '2px', background: 'var(--gold)', margin: '3mm 0 5mm' }} />
-        <div>
-          {entries.map((e, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'baseline', padding: '3mm 0', borderBottom: '0.5px solid var(--rule-light)' }}>
-              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '17pt', fontWeight: 800, color: 'var(--accent)', width: '12mm', flexShrink: 0, lineHeight: 1 }}>{e.letter}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '10.5pt', fontWeight: 800, color: 'var(--ink)' }}>{e.titles[0]}</div>
-                <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '7.5pt', color: 'var(--caption)', lineHeight: 1.3 }}>{e.titles.slice(1).join(' · ')}</div>
-              </div>
-              <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '9pt', fontWeight: 700, color: 'var(--caption)', paddingLeft: '4mm' }}>{e.page}</div>
-            </div>
-          ))}
-        </div>
-        {b.editorialNote && (
-          <div style={{ marginTop: '5mm', borderTop: '2px solid var(--gold)', paddingTop: '3.5mm' }}>
-            <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '2mm', fontSize: '6.5pt' }}>{ui('editorial')}</div>
-            <Tri v={b.editorialNote} style={{ ...BODY, fontSize: '9.5pt', color: 'var(--ink-soft)', fontStyle: 'italic' }} />
-          </div>
-        )}
-      </div>
-      <PageNum n={n} />
-    </div>
-  );
-}
-
-// ── Обёртка контентной страницы с hero ──
 function SectionPage({ tag, heroImage, caption, n, children }: {
   tag: string; audience?: Audience; heroImage?: string; caption?: L10n; n: number; children: React.ReactNode;
 }) {
@@ -170,7 +51,6 @@ function SectionPage({ tag, heroImage, caption, n, children }: {
   );
 }
 
-// ── CHEF WORD (портрет + буквица) ──
 export function ChefWordPage({ b, n }: { b: ChefWordBlock; n: number }) {
   const textParts = tri(b.text);
   return (
@@ -211,7 +91,6 @@ export function ChefWordPage({ b, n }: { b: ChefWordBlock; n: number }) {
   );
 }
 
-// ── RESTAURANT OF WEEK ──
 export function RestaurantOfWeekPage({ b, n }: { b: RestaurantOfWeekBlock; n: number }) {
   return (
     <SectionPage tag={ui('restaurantOfWeek')} heroImage={b.heroImage} n={n}>
@@ -258,7 +137,6 @@ export function RestaurantOfWeekPage({ b, n }: { b: RestaurantOfWeekBlock; n: nu
   );
 }
 
-// ── HEALTH & BEAUTY (склейка: несколько тем на одной полосе) ──
 export function TrendAnalyticsPage({ b, n }: { b: TrendAnalyticsBlock; n: number }) {
   return (
     <SectionPage tag={ui('healthBeauty')} n={n}>
@@ -293,7 +171,6 @@ export function TrendAnalyticsPage({ b, n }: { b: TrendAnalyticsBlock; n: number
   );
 }
 
-// ── RECIPE (фото у каждого шага) ──
 export function RecipePage({ b, n }: { b: RecipeBlock; n: number }) {
   return (
     <SectionPage tag={ui('recipeOfWeek')} heroImage={b.heroImage} caption={b.caption} n={n}>
@@ -327,9 +204,6 @@ export function RecipePage({ b, n }: { b: RecipeBlock; n: number }) {
   );
 }
 
-
-
-// ── FAMILY CONVERSION (QR + промокод) ──
 export function FamilyConversionPage({ b, brand, qrDataUrl, n }: {
   b: FamilyConversionBlock; brand: RestaurantBrand; qrDataUrl?: string; n: number;
 }) {
