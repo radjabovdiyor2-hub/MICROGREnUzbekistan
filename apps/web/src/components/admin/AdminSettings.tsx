@@ -1,22 +1,11 @@
 'use client';
 
 import { PasswordCard } from './AdminPasswordCard';
-
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Clock, RotateCcw, Save, Search } from 'lucide-react';
+import { AdminSettingField } from './AdminSettingField';
 
-// ══════════════════════════════════════════════════════════════════════
-// Настройки бизнеса.
-//
-// Раньше на этой вкладке была ровно одна работающая вещь — смена пароля,
-// и пять строк справочного текста. Всё остальное (доставка, бонусы,
-// пороги склада, контакты, баннер) жило константами в коде.
-//
-// Форма строится из ответа /api/admin/settings: добавили ключ в реестр
-// (lib/settings/registry.ts) — поле появилось здесь само.
-// ══════════════════════════════════════════════════════════════════════
-
-interface Field {
+export interface Field {
   key: string;
   category: string;
   type: 'number' | 'money' | 'string' | 'text' | 'boolean' | 'list';
@@ -30,7 +19,7 @@ interface Field {
   modified: boolean;
 }
 
-interface Category { id: string; ru: string; uz: string }
+export interface Category { id: string; ru: string; uz: string }
 
 export function AdminSettings({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
@@ -138,7 +127,6 @@ export function AdminSettings({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      {/* Панель действий: липкая, чтобы «Сохранить» был виден на длинной форме */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 5, display: 'flex', gap: 'var(--space-3)',
         alignItems: 'center', flexWrap: 'wrap', padding: 'var(--space-3)',
@@ -195,77 +183,18 @@ export function AdminSettings({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 'var(--space-4)' }}>
-            {(grouped.get(cat.id) ?? []).map(f => {
-              const val = current(f);
-              const changed = f.key in draft;
-              const err = fieldErrors[f.key];
-
-              return (
-                <div key={f.key}>
-                  <label style={{
-                    fontSize: 'var(--text-xs)', fontWeight: 600, display: 'block', marginBottom: 4,
-                    color: changed ? 'var(--brand-primary)' : 'var(--text-muted)',
-                  }}>
-                    {lang === 'ru' ? f.labelRu : f.labelUz}
-                    {f.modified && !changed && (
-                      <span title={t('Изменено владельцем', 'Egasi tomonidan o\'zgartirilgan')}
-                        style={{ marginLeft: 6, color: 'var(--warning)' }}>•</span>
-                    )}
-                  </label>
-
-                  {f.type === 'boolean' ? (
-                    <button
-                      type="button"
-                      onClick={() => setValue(f.key, !val)}
-                      style={{
-                        ...inputStyle, cursor: 'pointer', textAlign: 'left', fontWeight: 600,
-                        color: val ? 'var(--success)' : 'var(--text-muted)',
-                        borderColor: changed ? 'var(--brand-primary)' : 'var(--border)',
-                      }}>
-                      {val ? t('Включено', 'Yoqilgan') : t('Выключено', "O'chirilgan")}
-                    </button>
-                  ) : f.type === 'text' ? (
-                    <textarea
-                      value={String(val ?? '')}
-                      onChange={e => setValue(f.key, e.target.value)}
-                      rows={3}
-                      style={{ ...inputStyle, resize: 'vertical', borderColor: err ? 'var(--error)' : changed ? 'var(--brand-primary)' : 'var(--border)' }}
-                    />
-                  ) : f.type === 'list' ? (
-                    <input
-                      value={Array.isArray(val) ? val.join(', ') : String(val ?? '')}
-                      onChange={e => setValue(f.key, e.target.value.split(',').map(s => s.trim()))}
-                      style={{ ...inputStyle, borderColor: err ? 'var(--error)' : changed ? 'var(--brand-primary)' : 'var(--border)' }}
-                    />
-                  ) : (
-                    <input
-                      type={f.type === 'number' || f.type === 'money' ? 'number' : 'text'}
-                      value={String(val ?? '')}
-                      min={f.min ?? undefined}
-                      max={f.max ?? undefined}
-                      onChange={e => setValue(f.key, f.type === 'number' || f.type === 'money'
-                        ? e.target.value === '' ? '' : Number(e.target.value)
-                        : e.target.value)}
-                      style={{ ...inputStyle, borderColor: err ? 'var(--error)' : changed ? 'var(--brand-primary)' : 'var(--border)' }}
-                    />
-                  )}
-
-                  {err && (
-                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', marginTop: 4 }}>{err}</p>
-                  )}
-                  {!err && f.hintRu && lang === 'ru' && (
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>
-                      {f.hintRu}
-                    </p>
-                  )}
-                  {!err && changed && (
-                    <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 4 }}>
-                      {t('Было', 'Oldin')}: <b>{String(f.value)}</b>
-                    </p>
-                  )}
-                </div>
-              );
-            })}
+            {(grouped.get(cat.id) ?? []).map(f => (
+              <AdminSettingField
+                key={f.key}
+                f={f}
+                val={current(f)}
+                changed={f.key in draft}
+                err={fieldErrors[f.key]}
+                lang={lang}
+                t={t}
+                onSetValue={setValue}
+              />
+            ))}
           </div>
         </div>
       ))}
@@ -274,5 +203,3 @@ export function AdminSettings({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     </div>
   );
 }
-
-/** Смена пароля — единственное, что было на этой вкладке раньше. */
