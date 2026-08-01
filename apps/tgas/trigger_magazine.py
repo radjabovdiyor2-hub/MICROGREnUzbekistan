@@ -7,7 +7,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 
-async def main():
+async def main() -> None:
     from shared.config import settings
     import bots.stepan_bot.main as stepan_main
 

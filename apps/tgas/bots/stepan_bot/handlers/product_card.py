@@ -62,7 +62,7 @@ async def start_product_card(
     price: Optional[float] = None,
     sale_token: Optional[str] = None,
     sale_index: Optional[int] = None,
-):
+) -> None:
     """Запустить мастер. name/price могут прийти из незакрытой продажи."""
     await state.set_data(
         {
@@ -92,7 +92,7 @@ async def start_product_card(
     await _ask_category(message, state)
 
 
-def _category_kb():
+def _category_kb() -> dict:
     builder = InlineKeyboardBuilder()
     for slug, title in CATEGORIES:
         builder.button(text=title, callback_data=f"pc:cat:{slug}")
@@ -101,7 +101,7 @@ def _category_kb():
     return builder.as_markup()
 
 
-def _unit_kb():
+def _unit_kb() -> dict:
     builder = InlineKeyboardBuilder()
     for slug, title in UNITS:
         builder.button(text=title, callback_data=f"pc:unit:{slug}")
@@ -110,7 +110,7 @@ def _unit_kb():
     return builder.as_markup()
 
 
-def _photo_kb():
+def _photo_kb() -> dict:
     builder = InlineKeyboardBuilder()
     builder.button(text="🚫 Без фото", callback_data="pc:nophoto")
     builder.button(text="✖️ Отмена", callback_data="pc:cancel")
@@ -118,7 +118,7 @@ def _photo_kb():
     return builder.as_markup()
 
 
-def _confirm_kb():
+def _confirm_kb() -> dict:
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Опубликовать", callback_data="pc:publish")
     builder.button(text="🔄 Другое описание", callback_data="pc:regen")
@@ -127,13 +127,13 @@ def _confirm_kb():
     return builder.as_markup()
 
 
-async def _ask_category(message: Message, state: FSMContext):
+async def _ask_category(message: Message, state: FSMContext) -> None:
     await state.set_state(ProductCard.category)
     await message.answer("3/4. Категория товара?", reply_markup=_category_kb())
 
 
 @product_card_router.message(ProductCard.name)
-async def on_name(message: Message, state: FSMContext):
+async def on_name(message: Message, state: FSMContext) -> None:
     name = (message.text or "").strip()
     if len(name) < 2:
         await message.answer(
@@ -150,7 +150,7 @@ async def on_name(message: Message, state: FSMContext):
 
 
 @product_card_router.message(ProductCard.price)
-async def on_price(message: Message, state: FSMContext):
+async def on_price(message: Message, state: FSMContext) -> None:
     from shared.sales_ops import _to_float
 
     price = _to_float(message.text)
@@ -162,7 +162,7 @@ async def on_price(message: Message, state: FSMContext):
 
 
 @product_card_router.callback_query(ProductCard.category, F.data.startswith("pc:cat:"))
-async def on_category(callback: CallbackQuery, state: FSMContext):
+async def on_category(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(category=callback.data.split(":")[2])
     await callback.message.edit_reply_markup(reply_markup=None)
     await state.set_state(ProductCard.unit)
@@ -171,7 +171,7 @@ async def on_category(callback: CallbackQuery, state: FSMContext):
 
 
 @product_card_router.callback_query(ProductCard.unit, F.data.startswith("pc:unit:"))
-async def on_unit(callback: CallbackQuery, state: FSMContext):
+async def on_unit(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(unit=callback.data.split(":")[2])
     await callback.message.edit_reply_markup(reply_markup=None)
     await state.set_state(ProductCard.photo)
@@ -184,7 +184,7 @@ async def on_unit(callback: CallbackQuery, state: FSMContext):
 
 
 @product_card_router.message(ProductCard.photo, F.photo)
-async def on_photo(message: Message, state: FSMContext):
+async def on_photo(message: Message, state: FSMContext) -> None:
     from shared.catalog_ops import upload_image
 
     await message.answer("📤 Загружаю фото в магазин…")
@@ -200,7 +200,7 @@ async def on_photo(message: Message, state: FSMContext):
 
 
 @product_card_router.callback_query(ProductCard.photo, F.data == "pc:nophoto")
-async def on_no_photo(callback: CallbackQuery, state: FSMContext):
+async def on_no_photo(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.message.edit_reply_markup(reply_markup=None)
     await state.update_data(image_url=None)
     await callback.answer()
@@ -233,7 +233,7 @@ async def _request_description(data: dict) -> dict:
     return result.get("data") or {}
 
 
-async def _build_preview(message: Message, state: FSMContext):
+async def _build_preview(message: Message, state: FSMContext) -> None:
     await message.answer("✍️ Контент-отдел пишет описание…")
 
     data = await state.get_data()
@@ -289,14 +289,14 @@ async def _build_preview(message: Message, state: FSMContext):
 
 
 @product_card_router.callback_query(ProductCard.confirm, F.data == "pc:regen")
-async def on_regen(callback: CallbackQuery, state: FSMContext):
+async def on_regen(callback: CallbackQuery, state: FSMContext) -> None:
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer("Прошу контент-отдел переписать…")
     await _build_preview(callback.message, state)
 
 
 @product_card_router.callback_query(ProductCard.confirm, F.data == "pc:publish")
-async def on_publish(callback: CallbackQuery, state: FSMContext):
+async def on_publish(callback: CallbackQuery, state: FSMContext) -> None:
     """Публикуем карточку: отдел продаж заводит товар в магазин и CRM."""
     from shared.bot_bus import send_task, get_result
 
@@ -368,7 +368,7 @@ async def on_publish(callback: CallbackQuery, state: FSMContext):
 
 
 @product_card_router.callback_query(F.data == "pc:cancel")
-async def on_cancel(callback: CallbackQuery, state: FSMContext):
+async def on_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     try:
         await callback.message.edit_reply_markup(reply_markup=None)

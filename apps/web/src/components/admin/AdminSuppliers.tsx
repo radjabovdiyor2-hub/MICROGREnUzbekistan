@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Edit, Plus, Trash, Truck,
 } from 'lucide-react';
@@ -19,23 +20,20 @@ interface Supplier {
 }
 
 export function AdminSuppliers() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' });
-
-  const fetch_ = async () => {
-    setLoading(true);
-    try {
+  const queryClient = useQueryClient();
+  const { data: suppliers = [], isLoading: loading } = useQuery<Supplier[]>({
+    queryKey: ['admin-suppliers'],
+    queryFn: async () => {
       const res = await fetch('/api/inventory/suppliers');
       const data = await res.json();
-      setSuppliers(data.suppliers || []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+      return data.suppliers || [];
+    }
+  });
 
-  useEffect(() => { fetch_(); }, []);
+  const fetch_ = () => queryClient.invalidateQueries({ queryKey: ['admin-suppliers'] });
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 

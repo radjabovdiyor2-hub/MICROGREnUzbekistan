@@ -1,0 +1,1 @@
+{ extraPaths: [apps/tgas, apps/bot] }

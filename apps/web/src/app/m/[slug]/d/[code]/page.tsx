@@ -16,7 +16,6 @@ export const viewport: Viewport = {
 
 // Apple-style constants
 const FONT = "-apple-system, 'SF Pro Text', 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif";
-const DISPLAY_FONT = "-apple-system, 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif";
 const VIBRANCY = 'var(--surface-vibrancy)';
 const VIBRANCY_BORDER = 'rgba(var(--overlay-light-rgb), 0.18)';
 const BLUR = 'saturate(180%) blur(20px)';

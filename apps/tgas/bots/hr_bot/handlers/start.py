@@ -31,7 +31,7 @@ VACANCIES = [
 
 
 @router.message(CommandStart())
-async def cmd_start(msg: Message):
+async def cmd_start(msg: Message) -> None:
     await msg.answer(
         "👥 <b>HR Bot</b>\n\nВакансии, заявки и управление персоналом.",
         reply_markup=hr_menu_kb(),
@@ -39,13 +39,13 @@ async def cmd_start(msg: Message):
 
 
 @router.callback_query(F.data == "hr:menu")
-async def menu(cb: CallbackQuery):
+async def menu(cb: CallbackQuery) -> None:
     await cb.message.edit_text("👥 HR:", reply_markup=hr_menu_kb())
     await cb.answer()
 
 
 @router.callback_query(F.data == "hr:vacancies")
-async def vacancies(cb: CallbackQuery):
+async def vacancies(cb: CallbackQuery) -> None:
     lines = ["📋 <b>Открытые вакансии</b>\n━━━━━━━━━━━━━━━━━━"]
     for title, desc, pay in VACANCIES:
         lines.append(f"\n{title}\n{desc}\n💰 {pay}")
@@ -54,28 +54,28 @@ async def vacancies(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "hr:apply")
-async def apply(cb: CallbackQuery, state: FSMContext):
+async def apply(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(ApplicationStates.entering_name)
     await cb.message.edit_text("📝 <b>Подача заявки</b>\n\nВведите ваше ФИО:")
     await cb.answer()
 
 
 @router.message(ApplicationStates.entering_name)
-async def app_name(msg: Message, state: FSMContext):
+async def app_name(msg: Message, state: FSMContext) -> None:
     await state.update_data(name=msg.text)
     await state.set_state(ApplicationStates.entering_phone)
     await msg.answer("📞 Ваш номер телефона:")
 
 
 @router.message(ApplicationStates.entering_phone)
-async def app_phone(msg: Message, state: FSMContext):
+async def app_phone(msg: Message, state: FSMContext) -> None:
     await state.update_data(phone=msg.text)
     await state.set_state(ApplicationStates.entering_position)
     await msg.answer("💼 На какую должность претендуете?")
 
 
 @router.message(ApplicationStates.entering_position)
-async def app_position(msg: Message, state: FSMContext):
+async def app_position(msg: Message, state: FSMContext) -> None:
     d = await state.get_data()
     async with get_session_ctx() as session:
         await session.execute(
@@ -104,7 +104,7 @@ async def app_position(msg: Message, state: FSMContext):
 
 
 @router.callback_query(F.data == "hr:shifts")
-async def shifts(cb: CallbackQuery):
+async def shifts(cb: CallbackQuery) -> None:
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -125,7 +125,7 @@ async def shifts(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "hr:leave")
-async def leave(cb: CallbackQuery, state: FSMContext):
+async def leave(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(LeaveStates.entering_type)
     await cb.message.edit_text(
         "🏖 Выберите тип отсутствия:", reply_markup=leave_type_kb()
@@ -134,7 +134,7 @@ async def leave(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(LeaveStates.entering_type, F.data.startswith("leave:"))
-async def leave_type(cb: CallbackQuery, state: FSMContext):
+async def leave_type(cb: CallbackQuery, state: FSMContext) -> None:
     ltype = cb.data.split(":")[1]
     await state.update_data(leave_type=ltype)
     await state.set_state(LeaveStates.entering_start_date)
@@ -143,21 +143,21 @@ async def leave_type(cb: CallbackQuery, state: FSMContext):
 
 
 @router.message(LeaveStates.entering_start_date)
-async def leave_start(msg: Message, state: FSMContext):
+async def leave_start(msg: Message, state: FSMContext) -> None:
     await state.update_data(start_date=msg.text)
     await state.set_state(LeaveStates.entering_end_date)
     await msg.answer("📅 Введите дату окончания:")
 
 
 @router.message(LeaveStates.entering_end_date)
-async def leave_end(msg: Message, state: FSMContext):
+async def leave_end(msg: Message, state: FSMContext) -> None:
     await state.update_data(end_date=msg.text)
     await state.set_state(LeaveStates.entering_reason)
     await msg.answer("📝 Введите причину:")
 
 
 @router.message(LeaveStates.entering_reason)
-async def leave_reason(msg: Message, state: FSMContext):
+async def leave_reason(msg: Message, state: FSMContext) -> None:
     d = await state.get_data()
     async with get_session_ctx() as session:
         await session.execute(
@@ -189,7 +189,7 @@ async def leave_reason(msg: Message, state: FSMContext):
 
 
 @router.callback_query(F.data == "hr:training")
-async def training(cb: CallbackQuery):
+async def training(cb: CallbackQuery) -> None:
     await cb.message.edit_text(
         "📚 <b>Обучение</b>\n━━━━━━━━━━━━━━━━━━\n\n"
         "1. 🌱 Основы микрозелени\n2. 🧪 Гидропоника и аэропоника\n"
@@ -201,13 +201,13 @@ async def training(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "hr:ai")
-async def start_ai(cb: CallbackQuery):
+async def start_ai(cb: CallbackQuery) -> None:
     await cb.message.edit_text("🤖 Задайте HR вопрос:", reply_markup=back_kb())
     await cb.answer()
 
 
 @router.message(F.text, F.chat.type == "private")
-async def ai_hr(msg: Message):
+async def ai_hr(msg: Message) -> None:
     await simulate_typing(msg, delay=2)
     r = await ai.chat_completion("Ты HR-менеджер Microgreen Uzbekistan.", msg.text)
     await msg.answer(r)

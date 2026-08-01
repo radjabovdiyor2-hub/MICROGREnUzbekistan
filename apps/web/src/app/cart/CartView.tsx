@@ -4,8 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
-  ArrowRight, ClipboardList, Folder, Lightbulb, Minus, Package, PartyPopper, CreditCard, Plus, ShoppingCart, Sparkles, Trash,
-} from 'lucide-react';
+  ArrowRight, ClipboardList, Folder, Lightbulb, Package, PartyPopper, CreditCard, Plus, ShoppingCart, Sparkles, } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { LottieAnimation } from '@/components/ui/LottieAnimation';
 import emptyStateData from '@/assets/lottie/empty-state.json';

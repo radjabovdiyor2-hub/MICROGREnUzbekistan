@@ -1,40 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Field, Category } from './settingsTypes';
 
 export function useAdminSettings(lang: 'ru' | 'uz') {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
+  const queryClient = useQueryClient();
 
-  const [fields, setFields] = useState<Field[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['admin-settings'],
+    queryFn: async () => {
       const res = await fetch('/api/admin/settings', { credentials: 'same-origin' });
-      const data = await res.json();
-      if (data.status === 'ok') {
-        setFields(data.fields);
-        setCategories(data.categories);
-        setDraft({});
-      } else {
-        setMsg({ type: 'error', text: data.error || t('Не удалось загрузить', 'Yuklab bo\'lmadi') });
+      const d = await res.json();
+      if (d.status === 'ok') {
+        return { fields: d.fields as Field[], categories: d.categories as Category[] };
       }
-    } catch {
-      setMsg({ type: 'error', text: t('Ошибка сети', 'Tarmoq xatosi') });
-    } finally {
-      setLoading(false);
+      throw new Error(d.error || t('Не удалось загрузить', 'Yuklab bo\'lmadi'));
     }
-  }, [lang]);
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const fields = useMemo(() => data?.fields || [], [data?.fields]);
+  const categories = useMemo(() => data?.categories || [], [data?.categories]);
 
   const dirty = Object.keys(draft);
 
@@ -63,7 +56,8 @@ export function useAdminSettings(lang: 'ru' | 'uz') {
             ? t(`Сохранено ${okCount}, с ошибками ${errCount}`, `${okCount} saqlandi, ${errCount} xato`)
             : t(`Сохранено настроек: ${okCount}`, `${okCount} sozlama saqlandi`),
         });
-        await load();
+        setDraft({});
+        await queryClient.invalidateQueries({ queryKey: ['admin-settings'] });
       } else {
         setMsg({ type: 'error', text: t('Ничего не сохранено', 'Hech narsa saqlanmadi') });
       }

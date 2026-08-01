@@ -3,8 +3,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import {
   AlertTriangle, ArrowLeft, Banknote, CheckCircle, Clock, CreditCard, FileText,
-  MapPin, PartyPopper, Phone, Smartphone, Sparkles, Truck, User, XCircle,
-} from 'lucide-react';
+  MapPin, Phone, Smartphone, Truck, User, } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import type { useCart } from '@/components/providers/CartProvider';
 import { CheckoutSummary } from './CheckoutSummary';

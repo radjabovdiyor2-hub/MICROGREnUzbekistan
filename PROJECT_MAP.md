@@ -4,7 +4,7 @@ Status: PHASE_3_SYSTEM_MAPPING
 
 ## Основные директории
 - `apps/web`: Next.js фронтенд (Storefront витрина).
-- `apps/bot`: Storefront Telegram Bot (внешний бот).
+- `apps/bot`: Storefront Telegram Bot (декомпозирован на пакеты: `agronomist`, `shop`, `unified`, `ai_service`, `crosspost`, `ecosystem`).
 - `apps/tgas`: AI-офис (CRM, шины событий и 11 ботов tgas).
 - `packages/database`: Prisma-схема для Storefront (витрина).
 

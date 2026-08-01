@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def run_migration():
+async def run_migration() -> None:
     async with get_session_ctx() as session:
         # Add bonus_balance to customers
         try:

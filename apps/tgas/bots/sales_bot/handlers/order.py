@@ -34,7 +34,7 @@ async def _delivery_terms() -> tuple[int, int]:
 
 
 @router.callback_query(F.data == "cart:checkout")
-async def start_checkout(cb: CallbackQuery, state: FSMContext):
+async def start_checkout(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.set_state(OrderStates.entering_address)
@@ -47,7 +47,7 @@ async def start_checkout(cb: CallbackQuery, state: FSMContext):
 
 
 @router.message(OrderStates.entering_address)
-async def process_address(message: Message, state: FSMContext):
+async def process_address(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.update_data(address=message.text)
@@ -60,7 +60,7 @@ async def process_address(message: Message, state: FSMContext):
 
 
 @router.message(OrderStates.entering_delivery_time)
-async def process_time(message: Message, state: FSMContext):
+async def process_time(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.update_data(delivery_time=message.text)
@@ -73,7 +73,7 @@ async def process_time(message: Message, state: FSMContext):
 
 
 @router.message(OrderStates.entering_notes)
-async def process_notes(message: Message, state: FSMContext):
+async def process_notes(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.update_data(notes=message.text)
@@ -109,7 +109,7 @@ async def process_notes(message: Message, state: FSMContext):
 
 
 @router.callback_query(OrderStates.confirming_order, F.data == "order:confirm")
-async def confirm_order(cb: CallbackQuery, state: FSMContext):
+async def confirm_order(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     cart = data.get("cart", {})
@@ -255,7 +255,7 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == "order:cancel")
-async def cancel_order(cb: CallbackQuery, state: FSMContext):
+async def cancel_order(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.set_state(None)

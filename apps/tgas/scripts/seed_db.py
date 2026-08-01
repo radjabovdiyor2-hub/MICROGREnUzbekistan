@@ -9,7 +9,7 @@ from sqlalchemy import text
 from shared.database import get_session_ctx
 
 
-async def seed_products():
+async def seed_products() -> None:
     print("Очищаем старые товары и загружаем реальный прайс-лист...")
     products_data = [
         # Салаты и зелень (кг)
@@ -214,7 +214,7 @@ async def seed_products():
         print("Реальные товары успешно загружены в базу!")
 
 
-async def main():
+async def main() -> None:
     await seed_products()
 
 

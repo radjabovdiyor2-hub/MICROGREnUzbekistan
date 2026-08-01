@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ChefWordBlock, RestaurantOfWeekBlock } from '@/lib/magazine/types';
+import type { ChefWordBlock, RestaurantOfWeekBlock, L10n } from '@/lib/magazine/types';
 import { inline, tri, t, type Lang, type UIKey } from '@/lib/magazine/i18n';
 import { Tri, PageNum } from './blockParts';
 
@@ -11,7 +11,7 @@ const BODY: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", c
 const contentPad: React.CSSProperties = { padding: '4mm var(--margin-page) 8mm' };
 
 export function SectionPage({ tag, heroImage, caption, n, children }: {
-  tag: string; audience?: unknown; heroImage?: string; caption?: any; n: number; children: React.ReactNode;
+  tag: string; audience?: unknown; heroImage?: string; caption?: L10n; n: number; children: React.ReactNode;
 }) {
   return (
     <div className="mag-page">

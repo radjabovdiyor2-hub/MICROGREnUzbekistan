@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Edit, Plus, Trash, User,
 } from 'lucide-react';
@@ -16,23 +17,21 @@ interface Employee {
 }
 
 export function AdminEmployees() {
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', pin: '', phone: '', role: 'seller' });
 
-  const fetch_ = async () => {
-    setLoading(true);
-    try {
+  const { data: employees = [], isLoading: loading } = useQuery<Employee[]>({
+    queryKey: ['admin-employees'],
+    queryFn: async () => {
       const res = await fetch('/api/inventory/employees');
       const data = await res.json();
-      setEmployees(data.employees || []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+      return data.employees || [];
+    }
+  });
 
-  useEffect(() => { fetch_(); }, []);
+  const fetch_ = () => queryClient.invalidateQueries({ queryKey: ['admin-employees'] });
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 

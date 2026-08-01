@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft, ArrowRight, BarChart, ClipboardList, Package, Settings, Trash } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { BarChart, ClipboardList} from 'lucide-react';
 
 import { type Movement, type Product, type Sale, TYPE_CONFIG } from './movementTypes';
 export type { Movement, Product, Sale };
@@ -11,47 +12,39 @@ import { AdminSalesTab } from './AdminSalesTab';
 import { AdminMovementsTab } from './AdminMovementsTab';
 
 export function AdminMovements() {
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [prodSearch, setProdSearch] = useState('');
   const [form, setForm] = useState({ productId: '', type: 'IN', quantity: '', reason: '', costPrice: '', performedBy: '' });
   const [tab, setTab] = useState<'movements' | 'sales'>('movements');
-  const [sales, setSales] = useState<Sale[]>([]);
   const [salesDate, setSalesDate] = useState(new Date().toISOString().slice(0, 10));
-  const [salesLoading, setSalesLoading] = useState(false);
-  const [salesSummary, setSalesSummary] = useState({ totalSales: 0, totalItems: 0, totalRevenue: 0 });
-  const [total, setTotal] = useState(0);
   const [deleting, setDeleting] = useState<string | null>(null);
-
-  const fetchMovements = async () => {
-    setLoading(true);
-    try {
+  const { data: movementsData, isLoading: movementsLoading, refetch: fetchMovements } = useQuery({
+    queryKey: ['admin-movements', typeFilter],
+    queryFn: async () => {
       let url = '/api/inventory/movements?limit=100';
       if (typeFilter) url += `&type=${typeFilter}`;
       const res = await fetch(url);
-      const data = await res.json();
-      setMovements(data.movements || []);
-      setTotal(data.total || 0);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
+      return await res.json();
+    },
+    enabled: tab === 'movements',
+  });
+  const movements: Movement[] = movementsData?.movements || [];
+  const total: number = movementsData?.total || 0;
+  const loading = movementsLoading && tab === 'movements';
 
-  const fetchSales = async () => {
-    setSalesLoading(true);
-    try {
+  const { data: salesData, isLoading: salesLoadingLoading } = useQuery({
+    queryKey: ['admin-sales', salesDate],
+    queryFn: async () => {
       const res = await fetch(`/api/inventory/pos?date=${salesDate}`);
-      const data = await res.json();
-      setSales(data.sales || []);
-      setSalesSummary(data.summary || { totalSales: 0, totalItems: 0, totalRevenue: 0 });
-    } catch (err) { console.error(err); }
-    finally { setSalesLoading(false); }
-  };
-
-  useEffect(() => { if (tab === 'movements') fetchMovements(); }, [typeFilter, tab]);
-  useEffect(() => { if (tab === 'sales') fetchSales(); }, [salesDate, tab]);
+      return await res.json();
+    },
+    enabled: tab === 'sales',
+  });
+  const sales: Sale[] = salesData?.sales || [];
+  const salesSummary = salesData?.summary || { totalSales: 0, totalItems: 0, totalRevenue: 0 };
+  const salesLoading = salesLoadingLoading && tab === 'sales';
 
   const searchProducts = async (q: string) => {
     if (q.length < 2) { setProducts([]); return; }

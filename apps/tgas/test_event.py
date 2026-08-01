@@ -2,7 +2,7 @@ import asyncio
 from shared.config import settings
 from shared.event_bus import EventBus
 
-async def main():
+async def main() -> None:
     eb = EventBus()
     await eb.connect()
     await eb.publish("TASK_CREATED", {

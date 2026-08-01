@@ -4,7 +4,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
 
-def an_menu_kb(lang="ru"):
+def an_menu_kb(lang: str="ru") -> dict:
     b = InlineKeyboardBuilder()
     b.row(
         InlineKeyboardButton(text="📊 Дашборд продаж", callback_data="an:dashboard"),
@@ -22,13 +22,13 @@ def an_menu_kb(lang="ru"):
     return b.as_markup()
 
 
-def back_kb():
+def back_kb() -> dict:
     b = InlineKeyboardBuilder()
     b.button(text="⬅️ Назад", callback_data="an:menu")
     return b.as_markup()
 
 
-def lang_kb():
+def lang_kb() -> dict:
     b = InlineKeyboardBuilder()
     b.button(text="🇷🇺 Русский", callback_data="an:setlang:ru")
     b.button(text="🇺🇿 O'zbekcha", callback_data="an:setlang:uz")

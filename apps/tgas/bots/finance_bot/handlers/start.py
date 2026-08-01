@@ -21,7 +21,7 @@ ai = AIEngine()
 
 
 @router.message(CommandStart())
-async def cmd_start(msg: Message):
+async def cmd_start(msg: Message) -> None:
     await msg.answer(
         "💰 <b>Finance Bot</b>\n\nУчёт финансов, P&L и зарплаты.",
         reply_markup=fin_menu_kb(),
@@ -29,13 +29,13 @@ async def cmd_start(msg: Message):
 
 
 @router.callback_query(F.data == "fin:menu")
-async def menu(cb: CallbackQuery):
+async def menu(cb: CallbackQuery) -> None:
     await cb.message.edit_text("💰 Финансы:", reply_markup=fin_menu_kb())
     await cb.answer()
 
 
 @router.callback_query(F.data == "fin:expense")
-async def expense(cb: CallbackQuery, state: FSMContext):
+async def expense(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(ExpenseStates.entering_category)
     await cb.message.edit_text(
         "💸 Выберите категорию расхода:", reply_markup=expense_categories_kb()
@@ -44,7 +44,7 @@ async def expense(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(ExpenseStates.entering_category, F.data.startswith("exp_cat:"))
-async def exp_category(cb: CallbackQuery, state: FSMContext):
+async def exp_category(cb: CallbackQuery, state: FSMContext) -> None:
     cat = cb.data.split(":")[1]
     await state.update_data(category=cat)
     await state.set_state(ExpenseStates.entering_amount)
@@ -55,7 +55,7 @@ async def exp_category(cb: CallbackQuery, state: FSMContext):
 
 
 @router.message(ExpenseStates.entering_amount)
-async def exp_amount(msg: Message, state: FSMContext):
+async def exp_amount(msg: Message, state: FSMContext) -> None:
     try:
         amt = float((msg.text or "").replace(" ", ""))
     except (ValueError, AttributeError) as exc:
@@ -68,7 +68,7 @@ async def exp_amount(msg: Message, state: FSMContext):
 
 
 @router.message(ExpenseStates.entering_description)
-async def exp_desc(msg: Message, state: FSMContext):
+async def exp_desc(msg: Message, state: FSMContext) -> None:
     d = await state.get_data()
     async with get_session_ctx() as session:
         await session.execute(
@@ -94,7 +94,7 @@ async def exp_desc(msg: Message, state: FSMContext):
 
 
 @router.callback_query(F.data == "fin:income")
-async def income(cb: CallbackQuery, state: FSMContext):
+async def income(cb: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(IncomeStates.entering_category)
     await cb.message.edit_text(
         "💰 Выберите категорию дохода:", reply_markup=income_categories_kb()
@@ -103,7 +103,7 @@ async def income(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(IncomeStates.entering_category, F.data.startswith("inc_cat:"))
-async def inc_category(cb: CallbackQuery, state: FSMContext):
+async def inc_category(cb: CallbackQuery, state: FSMContext) -> None:
     cat = cb.data.split(":")[1]
     await state.update_data(category=cat)
     await state.set_state(IncomeStates.entering_amount)
@@ -114,7 +114,7 @@ async def inc_category(cb: CallbackQuery, state: FSMContext):
 
 
 @router.message(IncomeStates.entering_amount)
-async def inc_amount(msg: Message, state: FSMContext):
+async def inc_amount(msg: Message, state: FSMContext) -> None:
     try:
         amt = float((msg.text or "").replace(" ", ""))
     except (ValueError, AttributeError) as exc:
@@ -127,7 +127,7 @@ async def inc_amount(msg: Message, state: FSMContext):
 
 
 @router.message(IncomeStates.entering_description)
-async def inc_desc(msg: Message, state: FSMContext):
+async def inc_desc(msg: Message, state: FSMContext) -> None:
     d = await state.get_data()
     async with get_session_ctx() as session:
         await session.execute(
@@ -144,7 +144,7 @@ async def inc_desc(msg: Message, state: FSMContext):
 
 
 @router.callback_query(F.data == "fin:pnl")
-async def pnl(cb: CallbackQuery):
+async def pnl(cb: CallbackQuery) -> None:
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -166,7 +166,7 @@ async def pnl(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "fin:balance")
-async def balance(cb: CallbackQuery):
+async def balance(cb: CallbackQuery) -> None:
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -181,7 +181,7 @@ async def balance(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "fin:debts")
-async def debts(cb: CallbackQuery):
+async def debts(cb: CallbackQuery) -> None:
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -206,7 +206,7 @@ async def debts(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "fin:salary")
-async def salary(cb: CallbackQuery):
+async def salary(cb: CallbackQuery) -> None:
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -229,13 +229,13 @@ async def salary(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "fin:ai")
-async def start_ai(cb: CallbackQuery):
+async def start_ai(cb: CallbackQuery) -> None:
     await cb.message.edit_text("🤖 Задайте финансовый вопрос:", reply_markup=back_kb())
     await cb.answer()
 
 
 @router.message(F.text, F.chat.type == "private")
-async def ai_fin(msg: Message):
+async def ai_fin(msg: Message) -> None:
     await simulate_typing(msg, delay=2)
     r = await ai.chat_completion(
         "Ты финансист Microgreen Uzbekistan.", msg.text, effort="high"

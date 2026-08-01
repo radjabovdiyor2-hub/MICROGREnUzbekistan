@@ -39,7 +39,9 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
     } catch { /* ignore */ }
   }, [userId]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    Promise.resolve().then(() => loadData());
+  }, [loadData]);
 
   const shortCode = referralData?.referralCode || (referralCode ? `AGRO-${referralCode.slice(-6).toUpperCase()}` : '...');
   const shareUrl = `https://microgreenuzbekistan.com/?ref=${referralCode || ''}`;

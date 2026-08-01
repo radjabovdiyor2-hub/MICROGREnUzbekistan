@@ -12,10 +12,15 @@ export function Tamagotchi() {
   const [lastWatered, setLastWatered] = useState(0);
   
   useEffect(() => {
-    const savedLevel = localStorage.getItem('tamagotchi_level');
-    const savedTime = localStorage.getItem('tamagotchi_time');
-    if (savedLevel) setLevel(parseInt(savedLevel));
-    if (savedTime) setLastWatered(parseInt(savedTime));
+    let mounted = true;
+    Promise.resolve().then(() => {
+      if (!mounted) return;
+      const savedLevel = localStorage.getItem('tamagotchi_level');
+      const savedTime = localStorage.getItem('tamagotchi_time');
+      if (savedLevel) setLevel(parseInt(savedLevel));
+      if (savedTime) setLastWatered(parseInt(savedTime));
+    });
+    return () => { mounted = false; };
   }, []);
 
   const waterPlant = () => {

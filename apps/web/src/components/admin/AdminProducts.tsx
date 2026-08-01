@@ -5,6 +5,7 @@ import { AdminProductMetrics } from './AdminProductMetrics';
 import { AdminProductList } from './AdminProductList';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AdminProductForm } from './AdminProductForm';
 import { uploadImage } from './productImages';
 import { useProductForm } from './useProductForm';
@@ -18,7 +19,6 @@ const ADMIN_PAGE_SIZE = 50;
 
 export function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,7 +28,6 @@ export function AdminProducts() {
   const [page, setPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
-  const [counts, setCounts] = useState({ total: 0, active: 0 });
 
 
   const fetchProducts = useCallback(async (pageNum = 1, append = false) => {
@@ -64,26 +63,24 @@ export function AdminProducts() {
     images, setImages, handleNameChange, removeImage, openAdd, openEdit, handleSubmit,
   } = useProductForm(() => fetchProducts());
 
-  const fetchCounts = useCallback(async () => {
-    try {
+  const { data: counts = { total: 0, active: 0 } } = useQuery({
+    queryKey: ['admin-products-counts'],
+    queryFn: async () => {
       const res = await fetch('/api/products?count=true');
       const data = await res.json();
-      setCounts({ total: data.total || 0, active: data.active || 0 });
-    } catch { /* ignore */ }
-  }, []);
+      return { total: data.total || 0, active: data.active || 0 };
+    }
+  });
 
-  const fetchCategories = useCallback(async () => {
-    try {
+  const { data: rawCategories = [] } = useQuery({
+    queryKey: ['admin-products-categories'],
+    queryFn: async () => {
       const res = await fetch('/api/categories');
       const data = await res.json();
-      setCategories(data.categories || []);
-    } catch (err) {
-      console.error('Categories fetch error:', err);
+      return data.categories || [];
     }
-  }, []);
-
-  // Справочники не зависят от фильтров — грузим один раз.
-  useEffect(() => { fetchCategories(); fetchCounts(); }, [fetchCategories, fetchCounts]);
+  });
+  const categories: Category[] = rawCategories;
 
   // Товары — с дебаунсом, и на первом рендере, и при смене фильтров.
   // Раньше первый запрос уходил дважды: сразу на маунте и ещё раз по таймеру.

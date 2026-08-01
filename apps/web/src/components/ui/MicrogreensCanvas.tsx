@@ -179,7 +179,7 @@ export function MicrogreensCanvas({
       window.removeEventListener('scroll', onScroll);
       themeObs.disconnect();
     };
-  }, [count, scrollLinked, staticAfterGrow, seed]);
+  }, [count, scrollLinked, staticAfterGrow, seed, variant]);
 
   return <canvas ref={ref} aria-hidden="true" className={className} style={style} />;
 }

@@ -24,7 +24,7 @@ logging.basicConfig(
 )
 
 
-async def main():
+async def main() -> None:
     parser = argparse.ArgumentParser(description="Сбор ресторанов в лид-базу")
     parser.add_argument("--source", choices=["2gis", "manual"], required=True)
     parser.add_argument(

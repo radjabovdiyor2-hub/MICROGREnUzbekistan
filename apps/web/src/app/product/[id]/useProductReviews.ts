@@ -27,15 +27,17 @@ export function useProductReviews({
 
   useEffect(() => {
     if (activeTab !== 'reviews' || reviewsLoaded) return;
-    setReviewsLoading(true);
-    fetch(`/api/reviews?productId=${productId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setReviews(data.reviews || []);
-        setReviewsLoaded(true);
-      })
-      .catch(() => setReviews([]))
-      .finally(() => setReviewsLoading(false));
+    Promise.resolve().then(() => {
+      setReviewsLoading(true);
+      fetch(`/api/reviews?productId=${productId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setReviews(data.reviews || []);
+          setReviewsLoaded(true);
+        })
+        .catch(() => setReviews([]))
+        .finally(() => setReviewsLoading(false));
+    });
   }, [activeTab, productId, reviewsLoaded]);
 
   const handleRatingClick = useCallback(() => {

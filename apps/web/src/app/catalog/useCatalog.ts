@@ -47,7 +47,9 @@ export function useCatalog(initialCategory: string) {
   }, [activeCategory, sort, search]);
 
   useEffect(() => {
-    fetchProducts(1, false);
+    Promise.resolve().then(() => {
+      fetchProducts(1, false);
+    });
   }, [fetchProducts]);
 
   const lastUrlRef = useRef<string | null>(null);

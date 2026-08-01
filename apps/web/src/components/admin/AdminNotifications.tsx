@@ -2,11 +2,8 @@
 
 import { AdminNotificationsList } from './AdminNotificationsList';
 
-import { useState, useEffect, useCallback } from 'react';
-import {
-  AlertTriangle, Bot, Clock, Leaf, Package, ShoppingCart,
-} from 'lucide-react';
-import { fetchBatches, getBatchStatus } from './growingData';
+import { useState, useEffect } from 'react';
+import { Clock } from 'lucide-react';
 
 import { typeConfig, type Notification } from './notificationTypes';
 export type { Notification };
@@ -21,7 +18,9 @@ export function AdminNotifications() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setNotifications(loadNotifications());
+    Promise.resolve().then(() => {
+      setNotifications(loadNotifications());
+    });
   }, []);
 
   const checkForUpdates = useNotificationPoller(setNotifications);

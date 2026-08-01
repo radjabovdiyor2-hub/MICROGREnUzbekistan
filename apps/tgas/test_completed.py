@@ -1,7 +1,7 @@
 import asyncio
 from shared.event_bus import EventBus
 
-async def test():
+async def test() -> None:
     eb = EventBus()
     await eb.connect()
     await eb.publish('TASK_COMPLETED', {'task_id': 11, 'completed_by': 'content', 'chat_id': -5095038892}, 'test')

@@ -1,11 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { CheckCircle, Heart, Share2, Sparkles, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { CROP_DATA, inputStyle, type CalcResult } from './quickCalcData';
-import { motion, AnimatePresence } from 'framer-motion';
 
-const spring = { type: 'spring' as const, damping: 24, stiffness: 280 };
 
 // Четыре калькулятора и карточка результата. Вынесены из QuickCalc —
 // каждый самодостаточен и общается с панелью через onResult.

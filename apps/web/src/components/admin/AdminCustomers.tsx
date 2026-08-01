@@ -4,7 +4,8 @@ import { AdminCustomerTable } from './AdminCustomerTable';
 
 import { AdminCustomerEdit } from './AdminCustomerEdit';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Users, Search, RefreshCw, AlertCircle } from 'lucide-react';
 import { clientErrorMessage } from '@/lib/safeError';
 
@@ -12,9 +13,6 @@ import { type CustomerItem } from './customerTypes';
 export type { CustomerItem };
 
 export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
-  const [customers, setCustomers] = useState<CustomerItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -24,26 +22,17 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
   const [editNotes, setEditNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const fetchCustomers = async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const { data: customers = [], isLoading: loading, error, refetch: fetchCustomers } = useQuery<CustomerItem[], Error>({
+    queryKey: ['admin-customers', statusFilter],
+    queryFn: async () => {
       const query = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
       const status = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
       const res = await fetch(`/api/admin/customers?${query}${status}`);
       if (!res.ok) throw new Error('Failed to fetch customers');
       const data = await res.json();
-      setCustomers(data.customers || []);
-    } catch (err: unknown) {
-      setError(clientErrorMessage(err, 'Ошибка загрузки клиентов'));
-    } finally {
-      setLoading(false);
+      return data.customers || [];
     }
-  };
-
-  useEffect(() => {
-    fetchCustomers();
-  }, [statusFilter]);
+  });
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,7 +90,7 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
         </div>
 
         <button
-          onClick={fetchCustomers}
+          onClick={() => fetchCustomers()}
           disabled={loading}
           className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-blue-900/30 disabled:opacity-50 self-start md:self-auto"
         >
@@ -116,7 +105,7 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
       {error && (
         <div className="p-4 bg-rose-900/30 border border-rose-500/30 text-rose-300 rounded-xl flex items-center gap-3">
           <AlertCircle size={20} />
-          <span>{error}</span>
+          <span>{error.message}</span>
         </div>
       )}
 

@@ -20,7 +20,7 @@
 
 import logging
 import os
-from typing import Any, Optional
+from typing import dict, Optional
 
 import aiohttp
 
@@ -42,7 +42,7 @@ async def raise_alert(
     message: str,
     source: str,
     severity: str = SEVERITY_WARNING,
-    suggested_action: Optional[dict[str, Any]] = None,
+    suggested_action: Optional[dict[str]] = None,
 ) -> bool:
     """Поднять сигнал владельцу в админке.
 
@@ -53,7 +53,7 @@ async def raise_alert(
     :param kind: bot_down | kpi_drop | backup_failed | stock_low | deadline
     :param suggested_action: {"action": "daily_backup", "bot": "devops_bot"}
     """
-    payload: dict[str, Any] = {
+    payload: dict[str] = {
         "kind": kind,
         "severity": severity,
         "title": title[:255],

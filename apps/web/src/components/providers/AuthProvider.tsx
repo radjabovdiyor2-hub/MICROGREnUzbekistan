@@ -55,24 +55,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restore session from localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('Microgreen-user');
-      const savedDb = localStorage.getItem('Microgreen-db-user');
-      if (saved) {
-        const parsed = JSON.parse(saved) as AppUser;
-        const age = Date.now() / 1000 - parsed.auth_date;
-        if (age < 90 * 24 * 60 * 60) {
-          setUser(parsed);
-          if (savedDb) setDbUser(JSON.parse(savedDb));
-        } else {
-          localStorage.removeItem('Microgreen-user');
-          localStorage.removeItem('Microgreen-db-user');
+    let mounted = true;
+    Promise.resolve().then(() => {
+      if (!mounted) return;
+      try {
+        const saved = localStorage.getItem('Microgreen-user');
+        const savedDb = localStorage.getItem('Microgreen-db-user');
+        if (saved) {
+          const parsed = JSON.parse(saved) as AppUser;
+          const age = Date.now() / 1000 - parsed.auth_date;
+          if (age < 90 * 24 * 60 * 60) {
+            setUser(parsed);
+            if (savedDb) setDbUser(JSON.parse(savedDb));
+          } else {
+            localStorage.removeItem('Microgreen-user');
+            localStorage.removeItem('Microgreen-db-user');
+          }
         }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
-    setIsLoading(false);
+      setIsLoading(false);
+    });
+    return () => { mounted = false; };
   }, []);
 
   // Telegram login

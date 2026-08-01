@@ -29,7 +29,7 @@ WELCOME_UZ = (
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
     await simulate_typing(message, delay=1.0)
 
@@ -79,7 +79,7 @@ async def cmd_start(message: Message, state: FSMContext):
 
 
 @router.message(Command("help"))
-async def cmd_help(message: Message, state: FSMContext):
+async def cmd_help(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     help_text = (
@@ -103,7 +103,7 @@ async def cmd_help(message: Message, state: FSMContext):
 
 
 @router.message(Command("contacts"))
-async def cmd_contacts(message: Message, state: FSMContext):
+async def cmd_contacts(message: Message, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     contacts = (
@@ -129,7 +129,7 @@ async def cmd_contacts(message: Message, state: FSMContext):
 
 
 @router.callback_query(F.data == "menu:contacts")
-async def on_contacts(cb: CallbackQuery, state: FSMContext):
+async def on_contacts(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await cb.message.edit_text(
@@ -140,7 +140,7 @@ async def on_contacts(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == "menu:language")
-async def on_language(cb: CallbackQuery):
+async def on_language(cb: CallbackQuery) -> None:
     await cb.message.edit_text(
         "🌐 Выберите язык / Tilni tanlang:", reply_markup=language_kb()
     )
@@ -148,7 +148,7 @@ async def on_language(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("lang:"))
-async def on_lang_set(cb: CallbackQuery, state: FSMContext):
+async def on_lang_set(cb: CallbackQuery, state: FSMContext) -> None:
     lang = cb.data.split(":")[1]
     await state.update_data(lang=lang)
     async with get_session_ctx() as session:
@@ -166,7 +166,7 @@ async def on_lang_set(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == "nav:main_menu")
-async def on_main_menu(cb: CallbackQuery, state: FSMContext):
+async def on_main_menu(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.set_state(None)

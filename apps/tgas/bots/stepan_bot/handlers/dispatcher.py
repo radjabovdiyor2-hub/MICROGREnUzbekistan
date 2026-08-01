@@ -74,7 +74,7 @@ VERIFY_PROMPT = """Ты — Операционный Директор в Microgr
 # ─── Клавиатуры ─────────────────────────────────────────────
 
 
-def task_actions_kb(task_id: int):
+def task_actions_kb(task_id: int) -> dict:
     b = InlineKeyboardBuilder()
     b.row(
         InlineKeyboardButton(
@@ -95,7 +95,7 @@ def task_actions_kb(task_id: int):
     return b.as_markup()
 
 
-def verify_kb(task_id: int):
+def verify_kb(task_id: int) -> dict:
     b = InlineKeyboardBuilder()
     b.row(
         InlineKeyboardButton(
@@ -138,7 +138,7 @@ DEPT_NAME = {
 
 
 @router.callback_query(F.data.startswith("dispatch:report:"))
-async def request_report(cb: CallbackQuery):
+async def request_report(cb: CallbackQuery) -> None:
     task_id = int(cb.data.split(":")[-1])
     await cb.message.answer(
         f"📝 <b>Задача #{task_id}</b>\n\n"
@@ -149,7 +149,7 @@ async def request_report(cb: CallbackQuery):
 
 
 @router.message(F.text.lower().startswith("отчёт") | F.text.lower().startswith("отчет"))
-async def process_report(msg: Message):
+async def process_report(msg: Message) -> None:
     """Получает отчёт и проверяет через AI."""
     parts = msg.text.split(maxsplit=1)
     if len(parts) < 2:
@@ -267,7 +267,7 @@ async def process_report(msg: Message):
 
 
 @router.callback_query(F.data.startswith("dispatch:done:"))
-async def mark_done(cb: CallbackQuery):
+async def mark_done(cb: CallbackQuery) -> None:
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
         await session.execute(
@@ -283,7 +283,7 @@ async def mark_done(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("dispatch:status:"))
-async def check_status(cb: CallbackQuery):
+async def check_status(cb: CallbackQuery) -> None:
     """Показать все активные задачи."""
     async with get_session_ctx() as session:
         result = await session.execute(
@@ -317,7 +317,7 @@ async def check_status(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("dispatch:cancel:"))
-async def cancel_task(cb: CallbackQuery):
+async def cancel_task(cb: CallbackQuery) -> None:
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
         await session.execute(
@@ -331,7 +331,7 @@ async def cancel_task(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("dispatch:approve:"))
-async def approve_task(cb: CallbackQuery):
+async def approve_task(cb: CallbackQuery) -> None:
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
         await session.execute(
@@ -344,7 +344,7 @@ async def approve_task(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("dispatch:revise:"))
-async def revise_task(cb: CallbackQuery):
+async def revise_task(cb: CallbackQuery) -> None:
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
         await session.execute(

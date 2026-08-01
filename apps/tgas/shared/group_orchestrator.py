@@ -1,3 +1,4 @@
+import typing
 import logging
 from aiogram import Router, F
 from aiogram.types import Message, ReactionTypeEmoji
@@ -5,7 +6,7 @@ from aiogram.types import Message, ReactionTypeEmoji
 logger = logging.getLogger(__name__)
 
 
-async def set_reaction(message: Message, emoji: str):
+async def set_reaction(message: Message, emoji: str) -> None:
     """Установить реакцию на сообщение."""
     try:
         await message.react([ReactionTypeEmoji(emoji=emoji)])
@@ -31,7 +32,7 @@ def create_group_router(
         (F.text.icontains(f"@{bot_username}"))
         | (F.reply_to_message.from_user.username == bot_username),
     )
-    async def group_mention_handler(message: Message, **kwargs):
+    async def group_mention_handler(message: Message, **kwargs) -> None:
         await set_reaction(message, "👀")
 
         try:

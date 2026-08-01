@@ -3,7 +3,7 @@ from shared.database import engine
 from sqlalchemy import text
 
 
-async def main():
+async def main() -> None:
     async with engine.begin() as conn:
         await conn.execute(
             text(

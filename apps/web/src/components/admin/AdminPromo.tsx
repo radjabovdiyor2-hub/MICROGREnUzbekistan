@@ -3,7 +3,8 @@
 import type { Promo } from './adminPromoTypes';
 
 import { AdminPromoForm } from './AdminPromoForm';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Plus } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -19,8 +20,8 @@ import { AdminPromoList } from './AdminPromoList';
 export function AdminPromo({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
-  const [codes, setCodes] = useState<Promo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -32,21 +33,17 @@ export function AdminPromo({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const [maxUses, setMaxUses] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: codes = [], isLoading: loading } = useQuery<Promo[]>({
+    queryKey: ['admin-promo'],
+    queryFn: async () => {
       const res = await fetch('/api/admin/promo', { credentials: 'same-origin' });
       const data = await res.json();
-      if (data.status === 'ok') setCodes(data.codes);
-      else setError(data.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
-    } catch {
-      setError(t('Ошибка сети', 'Tarmoq xatosi'));
-    } finally {
-      setLoading(false);
+      if (data.status === 'ok') return data.codes;
+      throw new Error(data.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
     }
-  }, [lang]);
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const load = async () => queryClient.invalidateQueries({ queryKey: ['admin-promo'] });
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();

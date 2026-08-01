@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { useMagazineVideo } from './useMagazineVideo';
 import type { MagazineRestaurant, MagazineDish } from './magazineTypes';
@@ -15,10 +16,8 @@ import type { MagazineRestaurant, MagazineDish } from './magazineTypes';
 // ══════════════════════════════════════════════════════════════════════
 
 export function useMagazineAdmin() {
-  const [restaurant, setRestaurant] = useState<MagazineRestaurant | null>(null);
-  const [dishes, setDishes] = useState<MagazineDish[]>([]);
+  const queryClient = useQueryClient();
   const [uploading, setUploading] = useState('');
-  const [loading, setLoading] = useState(true);
   const [quickName, setQuickName] = useState('');
   const [lastQr, setLastQr] = useState<{ code: number; slug: string } | null>(null);
   const [previewVideoUrl, setPreviewVideoUrl] = useState<string | null>(null);
@@ -28,40 +27,60 @@ export function useMagazineAdmin() {
   const [editingName, setEditingName] = useState('');
 
   // Загрузить или создать ресторан-по-умолчанию
-  const ensureRestaurant = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: restaurant = null, isLoading: isLoadingRestaurant } = useQuery<MagazineRestaurant | null>({
+    queryKey: ['magazine', 'restaurant'],
+    queryFn: async () => {
       const list = await adminJsonArray<MagazineRestaurant>('/api/admin/magazine/restaurants');
-      if (Array.isArray(list) && list.length > 0 && list[0]?.id) {
-        setRestaurant(list[0]);
-        return list[0];
-      }
+      if (Array.isArray(list) && list.length > 0 && list[0]?.id) return list[0];
       // Автосоздание
       const res = await adminFetch('/api/admin/magazine/restaurants', {
         method: 'POST',
         body: JSON.stringify({ name: 'Fresh Weekly', slug: 'fresh', isMagazinePartner: true }),
       });
       const created = await res.json().catch(() => null);
-      if (created?.id) {
-        setRestaurant(created);
-        return created;
+      return created?.id ? created : null;
+    }
+  });
+
+  const refreshRestaurant = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['magazine', 'restaurant'] });
+  };
+
+  const { data: dishes = [], isLoading: isLoadingDishes } = useQuery<MagazineDish[]>({
+    queryKey: ['magazine', 'dishes', restaurant?.id],
+    queryFn: async () => {
+      if (!restaurant?.id) return [];
+      const res = await adminFetch(`/api/admin/magazine/dishes?restaurantId=${restaurant.id}`);
+      const data = await res.json().catch(() => []);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!restaurant?.id,
+  });
+
+  const loading = isLoadingRestaurant || isLoadingDishes;
+
+  const loadDishes = async (rid?: string) => {
+    const id = rid || restaurant?.id;
+    if (id) {
+      await queryClient.invalidateQueries({ queryKey: ['magazine', 'dishes', id] });
+    }
+  };
+
+  const ensureRestaurant = async () => {
+    return queryClient.fetchQuery({
+      queryKey: ['magazine', 'restaurant'],
+      queryFn: async () => {
+        const list = await adminJsonArray<MagazineRestaurant>('/api/admin/magazine/restaurants');
+        if (Array.isArray(list) && list.length > 0 && list[0]?.id) return list[0];
+        const res = await adminFetch('/api/admin/magazine/restaurants', {
+          method: 'POST',
+          body: JSON.stringify({ name: 'Fresh Weekly', slug: 'fresh', isMagazinePartner: true }),
+        });
+        const created = await res.json().catch(() => null);
+        return created?.id ? created : null;
       }
-      return null;
-    } finally { setLoading(false); }
-  }, []);
-
-  const refreshRestaurant = useCallback(async () => {
-    const list = await adminJsonArray<MagazineRestaurant>('/api/admin/magazine/restaurants');
-    if (Array.isArray(list) && list.length > 0 && list[0]?.id) setRestaurant(list[0]);
-  }, []);
-
-  const loadDishes = useCallback(async (rid: string) => {
-    const res = await adminFetch(`/api/admin/magazine/dishes?restaurantId=${rid}`);
-    const data = await res.json().catch(() => []);
-    setDishes(Array.isArray(data) ? data : []);
-  }, []);
-
-  useEffect(() => { ensureRestaurant().then((r) => { if (r) loadDishes(r.id); }); }, [ensureRestaurant, loadDishes]);
+    });
+  };
 
   // Скопировать ссылку в буфер обмена
   const copyLink = (slug: string, code: number, id: string) => {

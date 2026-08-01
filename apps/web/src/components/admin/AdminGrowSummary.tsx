@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle, Leaf, Moon, Sun } from 'lucide-react';
 import { fetchBatches, getBatchStatus, type Batch } from './growingData';
 
@@ -47,20 +48,17 @@ const chipStyle = (bg: string, color: string) => ({
 });
 
 export function AdminGrowSummary({ fmt }: { fmt: (n: number) => string }) {
-  const [batches, setBatches] = useState<Batch[]>([]);
-
-  const load = useCallback(async () => {
-    try {
-      setBatches(await fetchBatches());
-    } catch (err) {
-      // Партии — не главный блок дашборда: сеть отвалилась, полоса просто
-      // не появится, остальные показатели останутся на месте.
-      console.warn('Не удалось загрузить партии посадок:', err);
-      setBatches([]);
+  const { data: batches = [] } = useQuery<Batch[]>({
+    queryKey: ['admin-grow-summary'],
+    queryFn: async () => {
+      try {
+        return await fetchBatches();
+      } catch (err) {
+        console.warn('Не удалось загрузить партии посадок:', err);
+        return [];
+      }
     }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  });
 
   const summary = useMemo(() => summarize(batches), [batches]);
 

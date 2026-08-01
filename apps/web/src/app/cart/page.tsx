@@ -12,7 +12,7 @@ import { trackPurchase } from '@/lib/analytics';
 type Step = 'cart' | 'checkout' | 'success';
 
 import { CartView, type RecoProduct } from './CartView';
-import { CheckoutForm, PAYMENT_METHODS } from './CheckoutForm';
+import { CheckoutForm } from './CheckoutForm';
 import { CartOrderSuccess } from './CartOrderSuccess';
 
 

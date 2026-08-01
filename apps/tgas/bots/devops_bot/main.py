@@ -60,7 +60,7 @@ async def bus_daily_backup(params: dict) -> dict:
     return result
 
 
-async def handle_n8n_webhook(request: web.Request):
+async def handle_n8n_webhook(request: web.Request) -> dict:
     """Webhook from n8n for DevOps tasks"""
     try:
         payload = await request.json()
@@ -98,7 +98,7 @@ async def handle_n8n_webhook(request: web.Request):
         return web.json_response({"error": str(e)}, status=500)
 
 
-async def handle_task_created(payload: dict):
+async def handle_task_created(payload: dict) -> None:
     """Слушаем задачи от Степана по шине сообщений"""
     data = payload.get("data", {})
     # Регистр приводим, как у остальных ботов: диспетчер может прислать
@@ -131,13 +131,13 @@ async def handle_task_created(payload: dict):
     )
 
 
-async def handle_roll_call(payload: dict):
+async def handle_roll_call(payload: dict) -> None:
     from shared.roll_call import handle_roll_call as _shared_roll_call
 
     await _shared_roll_call("devops_bot", payload)
 
 
-async def main():
+async def main() -> None:
     logger.info("Starting DevOps Bot Microservice...")
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)

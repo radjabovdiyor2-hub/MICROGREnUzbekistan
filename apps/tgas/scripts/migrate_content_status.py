@@ -25,7 +25,7 @@ STATE_FILE = (
 )
 
 
-async def migrate():
+async def migrate() -> None:
     if not STATE_FILE.exists():
         logger.info("content_status.json не найден — мигрировать нечего")
         return

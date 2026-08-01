@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronRight, ClipboardList, Clock, Folder, Package, Settings } from 'lucide-react';
 
 interface OrderItem {
@@ -30,26 +31,18 @@ interface Order {
 import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
 
 export function AdminOrders() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ALL');
   const [selected, setSelected] = useState<Order | null>(null);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
+  const { data: orders = [], isLoading: loading, refetch: fetchOrders } = useQuery<Order[]>({
+    queryKey: ['admin-orders', activeTab],
+    queryFn: async () => {
       const url = activeTab === 'ALL' ? '/api/orders' : `/api/orders?status=${activeTab}`;
       const res = await fetch(url);
       const data = await res.json();
-      setOrders(data.orders || []);
-    } catch (err) {
-      console.error('Orders fetch error:', err);
-    } finally {
-      setLoading(false);
+      return data.orders || [];
     }
-  };
-
-  useEffect(() => { fetchOrders(); }, [activeTab]);
+  });
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
   const fmtDate = (d: string) => {

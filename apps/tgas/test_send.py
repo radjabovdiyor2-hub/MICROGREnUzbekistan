@@ -2,7 +2,7 @@ import asyncio
 from aiogram import Bot
 from shared.config import settings
 
-async def test():
+async def test() -> None:
     bot = Bot(token=settings.content_bot_token)
     try:
         await bot.send_message(-5095038892, 'Test from Content bot')

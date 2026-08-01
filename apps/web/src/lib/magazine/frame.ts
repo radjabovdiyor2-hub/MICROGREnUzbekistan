@@ -9,7 +9,7 @@
 // а раскладку можно проверить тестом.
 // ════════════════════════════════════════════════════════════
 
-import { token, alpha, solid } from '@/lib/canvasTokens';
+import { token} from '@/lib/canvasTokens';
 
 export const FRAME_W = 1080;
 export const FRAME_H = 1920;
@@ -41,8 +41,6 @@ export interface FrameLayout {
   logo: Rect;
 }
 
-const DEFAULT_ACCENT = token('brand-primary');
-const DEFAULT_GOLD = token('editorial-gold');
 
 /**
  * Обрезка «по большей стороне» (object-fit: cover): кадр телефона почти

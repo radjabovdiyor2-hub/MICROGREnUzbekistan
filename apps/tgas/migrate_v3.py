@@ -86,7 +86,7 @@ STEPS = [
 ]
 
 
-async def run_migration():
+async def run_migration() -> None:
     for label, sql in STEPS:
         async with get_session_ctx() as session:
             try:

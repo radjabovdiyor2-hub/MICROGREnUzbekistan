@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, ClipboardList, Plus } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -25,11 +26,9 @@ import { DEPT_LABELS, PRIORITY_COLOR } from './adminTasksConfig';
 
 export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
+  const queryClient = useQueryClient();
 
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [departments, setDepartments] = useState<string[]>([]);
   const [filter, setFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ type: 'ok' | 'warn' | 'error'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
 
@@ -39,23 +38,26 @@ export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const [deadline, setDeadline] = useState('');
   const [description, setDescription] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['admin-tasks', filter],
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (filter !== 'all') params.set('department', filter);
       const res = await fetch(`/api/admin/tasks?${params}`, { credentials: 'same-origin' });
-      const data = await res.json();
-      if (data.status === 'ok') {
-        setTasks(data.tasks);
-        setDepartments(data.departments);
+      const d = await res.json();
+      if (d.status === 'ok') {
+        return { tasks: d.tasks as Task[], departments: d.departments as string[] };
       }
-    } finally {
-      setLoading(false);
+      throw new Error('Failed to load tasks');
     }
-  }, [filter]);
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const tasks = data?.tasks || [];
+  const departments = data?.departments || [];
+
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['admin-tasks'] });
+  };
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -2,7 +2,8 @@
 
 import { AdminDebtForm } from './AdminDebtForm';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle, ArrowLeft, ArrowRight, Banknote, Plus,
 } from 'lucide-react';
@@ -31,9 +32,6 @@ interface Summary {
 import { AdminDebtList } from './AdminDebtList';
 
 export function AdminDebts() {
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [summary, setSummary] = useState<Summary>({ theyOweUs: 0, weOwe: 0, overdue: 0, totalCount: 0 });
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'WHO_OWES_US' | 'WE_OWE'>('WHO_OWES_US');
   const [statusFilter, setStatusFilter] = useState('unpaid');
   const [showAdd, setShowAdd] = useState(false);
@@ -41,18 +39,20 @@ export function AdminDebts() {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [newDebt, setNewDebt] = useState({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '' });
 
-  const fetchDebts = async () => {
-    setLoading(true);
-    try {
+  const { data, isLoading: loading, refetch: fetchDebts } = useQuery({
+    queryKey: ['admin-debts', activeTab, statusFilter],
+    queryFn: async () => {
       const res = await fetch(`/api/inventory/debts?type=${activeTab}&status=${statusFilter}`);
       const data = await res.json();
-      setDebts(data.debts || []);
-      setSummary(data.summary || { theyOweUs: 0, weOwe: 0, overdue: 0, totalCount: 0 });
-    } catch (err) { console.error('Debts fetch error:', err); }
-    finally { setLoading(false); }
-  };
+      return {
+        debts: data.debts || [],
+        summary: data.summary || { theyOweUs: 0, weOwe: 0, overdue: 0, totalCount: 0 }
+      };
+    }
+  });
 
-  useEffect(() => { fetchDebts(); }, [activeTab, statusFilter]);
+  const debts = data?.debts || [];
+  const summary = data?.summary || { theyOweUs: 0, weOwe: 0, overdue: 0, totalCount: 0 };
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' });

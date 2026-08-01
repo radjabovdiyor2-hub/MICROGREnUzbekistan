@@ -1,3 +1,4 @@
+import typing
 """
 🤖 СТЕПАН — Мозг личного AI-помощника
 =======================================
@@ -105,7 +106,7 @@ def is_admin(user_id: int) -> bool:
 
 
 @router.message(Command("start"))
-async def cmd_start(message: Message):
+async def cmd_start(message: Message) -> None:
     if not is_admin(message.from_user.id):
         await message.answer("⛔ Степан работает только с руководителем.")
         return
@@ -160,7 +161,7 @@ async def cmd_start(message: Message):
 
 
 @router.callback_query(F.data == "st:report_daily")
-async def report_daily(cb: CallbackQuery):
+async def report_daily(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     await cb.answer("📊 Формирую отчёт...")
@@ -218,7 +219,7 @@ async def report_daily(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "st:tasks")
-async def show_tasks(cb: CallbackQuery):
+async def show_tasks(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     await cb.answer("📋 Загружаю...")
@@ -258,7 +259,7 @@ async def show_tasks(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "st:finance")
-async def show_finance(cb: CallbackQuery):
+async def show_finance(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     await cb.answer("💰 Загружаю...")
@@ -304,7 +305,7 @@ async def show_finance(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "st:orders")
-async def show_orders(cb: CallbackQuery):
+async def show_orders(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     await cb.answer("🛒 Загружаю...")
@@ -349,7 +350,7 @@ async def show_orders(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "st:employees")
-async def show_employees(cb: CallbackQuery):
+async def show_employees(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     await cb.answer("👥 Загружаю...")
@@ -383,7 +384,7 @@ async def show_employees(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "st:analytics")
-async def show_analytics(cb: CallbackQuery):
+async def show_analytics(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     await cb.answer("📈 Анализирую...")
@@ -439,7 +440,7 @@ async def show_analytics(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "st:system")
-async def system_status(cb: CallbackQuery):
+async def system_status(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     await cb.answer("⚡ Проверяю...")
@@ -476,7 +477,7 @@ async def system_status(cb: CallbackQuery):
 
 
 @router.callback_query(F.data == "st:menu")
-async def back_to_menu(cb: CallbackQuery):
+async def back_to_menu(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
 
@@ -526,7 +527,7 @@ async def back_to_menu(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("stp:done:"))
-async def mark_done(cb: CallbackQuery):
+async def mark_done(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     task_id = int(cb.data.split(":")[2])
@@ -553,7 +554,7 @@ async def mark_done(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("stp:cancel:"))
-async def cancel_task(cb: CallbackQuery):
+async def cancel_task(cb: CallbackQuery) -> dict:
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
     task_id = int(cb.data.split(":")[2])
@@ -699,7 +700,7 @@ def _pub_caption(p: dict) -> str:
     return f"{head}\n\n{body}" if body else head
 
 
-async def _answer_safe(message: Message, text_: str, photo=None):
+async def _answer_safe(message: Message, text_: str, photo=None) -> None:
     """Отправка с HTML; если разметка битая — повтор без неё."""
     import re as _re
 
@@ -716,7 +717,7 @@ async def _answer_safe(message: Message, text_: str, photo=None):
             await message.answer(plain)
 
 
-def _ig_local(ts: str):
+def _ig_local(ts: str) -> dict:
     """Instagram отдаёт время в UTC — переводим в местное (+5), иначе 07:16 выглядит как 02:16."""
     from datetime import datetime
     from shared.content_archive import TZ
@@ -908,7 +909,7 @@ def _last_plan_from_history(history: list) -> tuple:
 
 async def _remember(
     state: FSMContext, user_text: str, assistant_text: str, intent: str = None
-):
+) -> None:
     """
     Записать обмен в общую память владельца и в FSM.
 
@@ -943,7 +944,7 @@ async def _remember(
 
 
 @router.message(F.voice)
-async def handle_voice(message: Message, state: FSMContext = None):
+async def handle_voice(message: Message, state: FSMContext = None) -> None:
     if not is_admin(message.from_user.id):
         return
 
@@ -972,7 +973,7 @@ async def handle_voice(message: Message, state: FSMContext = None):
 
 
 @router.message(F.text)
-async def brain(message: Message, state: FSMContext = None):
+async def brain(message: Message, state: FSMContext = None) -> None:
     """Степан обрабатывает текстовые сообщения."""
     # Если это группа, реагируем только на упоминание Степана (оркестратор уже отфильтровал)
     if message.chat.type in ("group", "supergroup"):
@@ -990,7 +991,7 @@ async def brain(message: Message, state: FSMContext = None):
     await _process_brain(message, user_text, state)
 
 
-async def _process_brain(message: Message, user_text: str, state: FSMContext = None):
+async def _process_brain(message: Message, user_text: str, state: FSMContext = None) -> None:
     # Реакция 👀 "Взял в работу"
     await set_reaction(message, "👀")
     await simulate_typing(message, 2)
@@ -1210,7 +1211,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         return
 
     # Функция для отправки ответа (текст + опционально голос)
-    async def send_response(text_resp: str):
+    async def send_response(text_resp: str) -> None:
         if not text_resp:
             return
         # Защита: если модель вернула JSON-обёртку ({"type":"chat","response":"..."})
@@ -1219,7 +1220,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         if stripped.startswith("{") and stripped.endswith("}"):
             try:
                 obj = json.loads(stripped)
-                if isinstance(obj, dict):
+                if isinstance(obj):
                     text_resp = (
                         obj.get("response")
                         or obj.get("answer")
@@ -1366,9 +1367,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 elif result.get("status") == "ok":
                     # Форматируем результат для модели и отправляем в чат
                     res_data = result.get("result")
-                    if isinstance(res_data, dict) and res_data.get("message"):
+                    if isinstance(res_data) and res_data.get("message"):
                         await message.answer(str(res_data["message"]))
-                    elif isinstance(res_data, dict) and res_data.get("ok") is not None:
+                    elif isinstance(res_data) and res_data.get("ok") is not None:
                         # WriteTool.execute() вернул {ok, message}
                         msg = res_data.get("message", "Готово")
                         await message.answer(
@@ -1656,7 +1657,7 @@ async def _add_product(message: Message, args: dict) -> str:
     return f"Товар не добавлен: {result.get('message', 'нет данных')}"
 
 
-async def _handle_task(message: Message, data: dict):
+async def _handle_task(message: Message, data: dict) -> None:
     """Создаём задачу и распределяем по отделам."""
     dept = data.get("department", "pm").lower()
     title = data.get("title", "Новая задача")
@@ -2182,7 +2183,7 @@ async def _generate_report(kind: str) -> str:
 # Поэтому в кнопку кладём короткий ключ, а сам токен держим здесь. Словарь
 # живёт в памяти процесса: перезапуск бота обнуляет неподтверждённые
 # карточки, и это правильно — подпись всё равно протухает через 15 минут.
-_PENDING: dict[str, dict] = {}
+_PENDING: dict[str] = {}
 
 
 async def _offer_write_action(message: Message, proposal: dict) -> None:
@@ -2220,7 +2221,7 @@ async def _offer_write_action(message: Message, proposal: dict) -> None:
 
 
 @router.callback_query(F.data.startswith("stx:"))
-async def _confirm_write_action(cb: CallbackQuery):
+async def _confirm_write_action(cb: CallbackQuery) -> None:
     """Владелец нажал «Выполнить» — отправляем подписанный токен витрине."""
     if not is_admin(cb.from_user.id):
         await cb.answer("Недоступно", show_alert=True)
@@ -2246,7 +2247,7 @@ async def _confirm_write_action(cb: CallbackQuery):
 
 
 @router.callback_query(F.data.startswith("stxn:"))
-async def _reject_write_action(cb: CallbackQuery):
+async def _reject_write_action(cb: CallbackQuery) -> None:
     """Владелец отказался. Ничего не выполняем, предложение выбрасываем."""
     if not is_admin(cb.from_user.id):
         await cb.answer("Недоступно", show_alert=True)

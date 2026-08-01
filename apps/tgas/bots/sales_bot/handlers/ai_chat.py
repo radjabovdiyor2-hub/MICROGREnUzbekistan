@@ -13,7 +13,7 @@ ai = AIEngine()
 
 
 @router.callback_query(F.data == "menu:ai_chat")
-async def start_ai_chat(cb: CallbackQuery, state: FSMContext):
+async def start_ai_chat(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await cb.message.edit_text(
@@ -26,7 +26,7 @@ async def start_ai_chat(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == "menu:orders")
-async def show_orders(cb: CallbackQuery, state: FSMContext):
+async def show_orders(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     from sqlalchemy import text as sqt
@@ -67,7 +67,7 @@ async def show_orders(cb: CallbackQuery, state: FSMContext):
 
 
 @router.message(F.text, F.chat.type == "private")
-async def ai_fallback(message: Message, state: FSMContext):
+async def ai_fallback(message: Message, state: FSMContext) -> None:
     await simulate_typing(message, delay=2)
     from shared.prompts import TEAM_CONTEXT
     from shared.feedback_loop import feedback_loop
@@ -92,7 +92,7 @@ async def ai_fallback(message: Message, state: FSMContext):
 
 
 @router.message(F.photo, F.chat.type == "private")
-async def ai_vision_recipe(message: Message, state: FSMContext):
+async def ai_vision_recipe(message: Message, state: FSMContext) -> None:
     """Smart Fridge Recipe feature: analyzes photo and suggests a recipe with microgreens."""
     import base64
     from io import BytesIO

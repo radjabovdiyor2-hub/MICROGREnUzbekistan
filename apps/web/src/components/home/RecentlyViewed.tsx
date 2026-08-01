@@ -14,7 +14,11 @@ export function RecentlyViewed() {
   const [items, setItems] = useState<ViewedProduct[]>([]);
 
   useEffect(() => {
-    setItems(getViewed().slice(0, 4));
+    let mounted = true;
+    Promise.resolve().then(() => {
+      if (mounted) setItems(getViewed().slice(0, 4));
+    });
+    return () => { mounted = false; };
   }, []);
 
   if (items.length === 0) return null;

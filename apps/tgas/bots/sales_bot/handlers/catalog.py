@@ -26,7 +26,7 @@ CATEGORY_MAP = {
 
 
 @router.callback_query(F.data == "menu:catalog")
-async def show_categories(cb: CallbackQuery, state: FSMContext):
+async def show_categories(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     title = "🛒 Выберите категорию:" if lang == "ru" else "🛒 Kategoriyani tanlang:"
@@ -35,7 +35,7 @@ async def show_categories(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith("cat:"))
-async def show_products(cb: CallbackQuery, state: FSMContext):
+async def show_products(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     category = CATEGORY_MAP.get(cb.data, "microgreens")
@@ -96,7 +96,7 @@ async def show_products(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data.startswith("add:"))
-async def add_to_cart(cb: CallbackQuery, state: FSMContext):
+async def add_to_cart(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     cart = data.get("cart", {})
@@ -136,7 +136,7 @@ async def add_to_cart(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == "menu:cart")
-async def show_cart(cb: CallbackQuery, state: FSMContext):
+async def show_cart(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     cart = data.get("cart", {})
@@ -169,7 +169,7 @@ async def show_cart(cb: CallbackQuery, state: FSMContext):
 
 
 @router.callback_query(F.data == "cart:clear")
-async def clear_cart(cb: CallbackQuery, state: FSMContext):
+async def clear_cart(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.update_data(cart={})

@@ -10,7 +10,7 @@ router = Router()
 
 
 @router.callback_query(F.data.startswith("pay:"))
-async def process_payment(cb: CallbackQuery, bot: Bot):
+async def process_payment(cb: CallbackQuery, bot: Bot) -> None:
     order_id = cb.data.split(":")[1]
 
     # Получаем заказ из БД
@@ -69,12 +69,12 @@ async def process_payment(cb: CallbackQuery, bot: Bot):
 
 
 @router.pre_checkout_query()
-async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery, bot: Bot):
+async def process_pre_checkout_query(pre_checkout_query: PreCheckoutQuery, bot: Bot) -> None:
     await bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
 
 
 @router.message(F.successful_payment)
-async def process_successful_payment(message: Message):
+async def process_successful_payment(message: Message) -> None:
     payment_info = message.successful_payment
     payload = payment_info.invoice_payload
 

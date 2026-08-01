@@ -2,7 +2,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
 
-def cnt_menu_kb():
+def cnt_menu_kb() -> dict:
     b = InlineKeyboardBuilder()
     b.row(
         InlineKeyboardButton(text="📸 Instagram пост", callback_data="cnt:insta"),
@@ -19,7 +19,7 @@ def cnt_menu_kb():
     return b.as_markup()
 
 
-def back_kb():
+def back_kb() -> dict:
     b = InlineKeyboardBuilder()
     b.button(text="⬅️ Назад", callback_data="cnt:menu")
     return b.as_markup()

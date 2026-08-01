@@ -1,38 +1,41 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { AdminRecipeEditor, type Recipe } from './AdminRecipeEditor';
 
 export function AdminRecipes() {
-  const [list, setList] = useState<Recipe[]>([]);
-  const [products, setProducts] = useState<{ id: string; nameRu: string }[]>([]);
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setList(await adminJsonArray<Recipe>('/api/admin/magazine/recipes'));
+  const { data: list = [], isLoading: loading } = useQuery<Recipe[]>({
+    queryKey: ['magazine-recipes'],
+    queryFn: async () => {
+      return await adminJsonArray<Recipe>('/api/admin/magazine/recipes');
+    }
+  });
+
+  const { data: products = [] } = useQuery<{ id: string; nameRu: string }[]>({
+    queryKey: ['products-list'],
+    queryFn: async () => {
       try {
         const res = await fetch('/api/products?all=true&limit=300');
         const data = await res.json().catch(() => null);
         const items: unknown[] = Array.isArray(data?.items) ? data.items : [];
-        setProducts(items.map((x) => {
+        return items.map((x) => {
           const p = x as { id: string; nameRu?: string; slug?: string };
           return { id: p.id, nameRu: p.nameRu || p.slug || p.id };
-        }));
-      } catch {
-        /* без товаров редактор работает */
-      }
-    } finally {
-      setLoading(false);
+        });
+      } catch { return []; }
     }
-  }, []);
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['magazine-recipes'] });
+  };
 
   const openEditor = async (id: string | null) => {
     setNote('');

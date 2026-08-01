@@ -4,7 +4,7 @@ from shared.event_bus import EventBus
 
 depts = ["content", "sales", "pm", "marketing", "finance", "analytics", "support"]
 
-async def main():
+async def main() -> None:
     eb = EventBus()
     await eb.connect()
     

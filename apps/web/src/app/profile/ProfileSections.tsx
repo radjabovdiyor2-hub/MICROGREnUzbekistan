@@ -91,16 +91,18 @@ export function UserOrders() {
 
   useEffect(() => {
     if (!dbUser?.id) {
-      setLoading(false);
+      Promise.resolve().then(() => setLoading(false));
       return;
     }
-    fetch(`/api/orders?userId=${encodeURIComponent(dbUser.id)}&limit=10`)
-      .then(r => r.json())
-      .then(d => {
-        setOrders(d.orders || []);
-      })
-      .catch(e => console.error(e))
-      .finally(() => setLoading(false));
+    Promise.resolve().then(() => {
+      fetch(`/api/orders?userId=${encodeURIComponent(dbUser.id)}&limit=10`)
+        .then(r => r.json())
+        .then(d => {
+          setOrders(d.orders || []);
+        })
+        .catch(e => console.error(e))
+        .finally(() => setLoading(false));
+    });
   }, [dbUser?.id]);
 
   if (!dbUser?.id) return null;

@@ -4,37 +4,25 @@ import { AdminLearningsHeader } from './AdminLearningsHeader';
 
 import type { BotLearningItem } from './adminLearningsTypes';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Brain, RefreshCw, Search, CheckCircle2, AlertCircle, Bot, Activity } from 'lucide-react';
 import { clientErrorMessage } from '@/lib/safeError';
 
 import { BOT_EMOJIS } from './adminLearningsConfig';
 
 export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
-  const [learnings, setLearnings] = useState<BotLearningItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selectedBot, setSelectedBot] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const fetchLearnings = async () => {
-    setLoading(true);
-    setError(null);
-    try {
+  const { data: learnings = [], isLoading: loading, error, refetch: fetchLearnings } = useQuery<BotLearningItem[], Error>({
+    queryKey: ['admin-learnings'],
+    queryFn: async () => {
       const res = await fetch('/api/admin/learnings');
       if (!res.ok) throw new Error('Failed to fetch learnings');
       const data = await res.json();
-      setLearnings(data.learnings || []);
-    } catch (err: unknown) {
-      setError(clientErrorMessage(err, 'Ошибка загрузки вычислений'));
-    } finally {
-      setLoading(false);
+      return data.learnings || [];
     }
-  };
-
-  useEffect(() => {
-    fetchLearnings();
-  }, []);
+  });
 
   const filteredLearnings = learnings.filter((item) => {
     const matchesBot = selectedBot === 'all' || item.bot === selectedBot;
@@ -105,7 +93,7 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
       ) : error ? (
         <div className="p-4 bg-rose-900/30 border border-rose-500/30 text-rose-300 rounded-xl flex items-center gap-3">
           <AlertCircle size={20} />
-          <span>{error}</span>
+          <span>{error.message}</span>
         </div>
       ) : filteredLearnings.length === 0 ? (
         <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">

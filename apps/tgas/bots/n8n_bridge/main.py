@@ -97,7 +97,7 @@ async def handle_assistant(params: dict) -> dict:
     return await _call_n8n(query, session_id)
 
 
-async def _periodic_cleanup():
+async def _periodic_cleanup() -> None:
     while True:
         await asyncio.sleep(3600)
         try:
@@ -106,7 +106,7 @@ async def _periodic_cleanup():
             pass
 
 
-async def main():
+async def main() -> None:
     logger.info("n8n_bridge запускается. Webhook: %s", N8N_WEBHOOK_URL)
 
     # Слушаем Bot Bus как бот "n8n_bridge" — тот же паттерн, что content_bot.

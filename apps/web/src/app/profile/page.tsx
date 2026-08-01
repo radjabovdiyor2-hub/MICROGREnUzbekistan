@@ -6,7 +6,7 @@ import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { TelegramLoginButton } from '@/components/auth/TelegramLoginButton';
 import {
-  ArrowLeft, CheckCircle, ChevronRight, Instagram, MessageCircle, Moon, Phone, Settings, Star, Sun, User,
+  CheckCircle, Instagram, MessageCircle, Star, User,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 

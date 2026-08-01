@@ -3,6 +3,7 @@
 import type { InventoryProduct, Summary } from './adminInventoryTypes';
 
 import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle, Banknote, BarChart, Clock, CreditCard, Search,
 } from 'lucide-react';
@@ -10,31 +11,29 @@ import {
 import { STATUS_CONFIG } from './adminInventoryConfig';
 
 export function AdminInventory() {
-  const [products, setProducts] = useState<InventoryProduct[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  const fetchInventory = async () => {
-    setLoading(true);
-    try {
-      let url = '/api/inventory?';
-      if (filter !== 'all') url += `filter=${filter}&`;
-      if (search) url += `search=${encodeURIComponent(search)}&`;
-      const res = await fetch(url);
-      const data = await res.json();
-      setProducts(data.products || []);
-      setSummary(data.summary || null);
-    } catch (err) { console.error('Inventory fetch error:', err); }
-    finally { setLoading(false); }
-  };
-
-  useEffect(() => { fetchInventory(); }, [filter]);
   useEffect(() => {
-    const timer = setTimeout(() => fetchInventory(), 400);
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['admin-inventory', filter, debouncedSearch],
+    queryFn: async () => {
+      let url = '/api/inventory?';
+      if (filter !== 'all') url += `filter=${filter}&`;
+      if (debouncedSearch) url += `search=${encodeURIComponent(debouncedSearch)}&`;
+      const res = await fetch(url);
+      const data = await res.json();
+      return { products: data.products || [], summary: data.summary || null };
+    }
+  });
+
+  const products: InventoryProduct[] = data?.products || [];
+  const summary: Summary | null = data?.summary || null;
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 

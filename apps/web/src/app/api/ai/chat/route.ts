@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { getRecipeForDay } from '@/lib/nutrition/recipes';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 import { callGemini, fallbackResponse } from '@/lib/ai/geminiClient';

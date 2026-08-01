@@ -5,14 +5,14 @@ import pytest
 # Добавляем путь для корректного импорта из корня apps/tgas
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-def test_settings_load():
+def test_settings_load() -> None:
     """Проверка загрузки настроек из .env."""
     from shared.config import settings
     assert settings.company_name == "Microgreen Uzbekistan"
     assert settings.redis_url is not None
     assert hasattr(settings, "openai_api_key")
 
-def test_shared_imports():
+def test_shared_imports() -> None:
     """Проверка импортируемости общих библиотек."""
     import shared.brand as brand
     import shared.content_plan as content_plan
@@ -22,14 +22,14 @@ def test_shared_imports():
     assert brand.BRAND["name"] == "Microgreen Uzbekistan"
     assert len(content_plan.CONTENT_PILLARS) > 0
 
-def test_event_bus_handlers():
+def test_event_bus_handlers() -> None:
     """Проверка работы регистрации обработчиков в шине событий."""
     from shared.event_bus import EventBus
     eb = EventBus()
     
     # Регистрация
     dummy_called = False
-    async def dummy_handler(payload):
+    async def dummy_handler(payload: dict) -> None:
         nonlocal dummy_called
         dummy_called = True
         
@@ -39,7 +39,7 @@ def test_event_bus_handlers():
     assert "TEST_EVENT" in eb._handlers
     assert eb._handlers["TEST_EVENT"][0] == dummy_handler
 
-def test_bot_imports():
+def test_bot_imports() -> None:
     """Динамический импорт всех ботов экосистемы для проверки синтаксиса и NameError."""
     bots_to_test = [
         "stepan_bot",

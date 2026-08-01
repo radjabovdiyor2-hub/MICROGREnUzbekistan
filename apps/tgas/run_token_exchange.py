@@ -33,7 +33,7 @@ logging.basicConfig(
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-async def main():
+async def main() -> None:
     from shared.token_refresh import full_token_exchange, debug_token
     from shared.config import settings
 

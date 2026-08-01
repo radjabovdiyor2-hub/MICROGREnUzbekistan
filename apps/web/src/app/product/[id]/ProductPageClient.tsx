@@ -65,20 +65,22 @@ export function ProductPageClient({ id }: { id: string }) {
         setLoading(false);
       }
     }
-    fetchProduct();
+    Promise.resolve().then(() => fetchProduct());
   }, [id]);
 
   useEffect(() => {
     if (!product) return;
-    setRelatedLoading(true);
-    fetch(`/api/products?category=${product.category.slug}&limit=5`)
-      .then((r) => r.json())
-      .then((data) => {
-        const items: RelatedProduct[] = (data.items || []).filter((p: RelatedProduct) => p.id !== id).slice(0, 4);
-        setRelated(items);
-      })
-      .catch(() => setRelated([]))
-      .finally(() => setRelatedLoading(false));
+    Promise.resolve().then(() => {
+      setRelatedLoading(true);
+      fetch(`/api/products?category=${product.category.slug}&limit=5`)
+        .then((r) => r.json())
+        .then((data) => {
+          const items: RelatedProduct[] = (data.items || []).filter((p: RelatedProduct) => p.id !== id).slice(0, 4);
+          setRelated(items);
+        })
+        .catch(() => setRelated([]))
+        .finally(() => setRelatedLoading(false));
+    });
   }, [product, id]);
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');

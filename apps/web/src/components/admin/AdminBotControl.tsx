@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw, Sparkles, CheckCircle2, AlertTriangle, Zap } from 'lucide-react';
+import { RefreshCw, Zap } from 'lucide-react';
 
 import {
   BOT_ACTIONS, describeResult, type BotActionConfig, type ResultStatus,

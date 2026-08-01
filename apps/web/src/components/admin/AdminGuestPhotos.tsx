@@ -20,33 +20,23 @@ import { btn, btnPrimary } from './adminGuestPhotosStyles';
 // не попал во второй выпуск.
 // ══════════════════════════════════════════════════════════════════════
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 
 
 import { TABS, type Photo, type Status } from './adminGuestPhotosConfig';
 
 export function AdminGuestPhotos() {
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>('pending');
-  const [all, setAll] = useState<Photo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
-  // Тянем весь список одним запросом и делим по статусам на клиенте.
-  // Отдельный запрос на каждую вкладку ради счётчиков давал пять обращений
-  // и два эффекта вместо одного. API отдаёт до 120 последних кадров —
-  // для очереди отбора этого хватает, счётчики упираются в тот же предел.
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      setAll(await adminJsonArray('/api/admin/magazine/guest-photos'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+  const { data: all = [], isLoading: loading } = useQuery<Photo[]>({
+    queryKey: ['admin-guest-photos'],
+    queryFn: () => adminJsonArray('/api/admin/magazine/guest-photos'),
+  });
 
   const counts = TABS.reduce((acc, t) => {
     acc[t.id] = all.filter((p) => p.status === t.id).length;
@@ -64,7 +54,9 @@ export function AdminGuestPhotos() {
       });
       if (!res.ok) { setNote('Не удалось изменить статус'); return; }
       // Правим локально: кадр сам уйдёт на другую вкладку, перезапрос не нужен
-      setAll((prev) => prev.map((p) => (p.id === id ? { ...p, status: next } : p)));
+      queryClient.setQueryData(['admin-guest-photos'], (prev: Photo[] | undefined) => 
+        prev ? prev.map((p) => (p.id === id ? { ...p, status: next } : p)) : []
+      );
     } finally {
       setBusyId(null);
     }
@@ -77,7 +69,9 @@ export function AdminGuestPhotos() {
     try {
       const res = await adminFetch(`/api/admin/magazine/guest-photos?id=${id}`, { method: 'DELETE' });
       if (!res.ok) { setNote('Не удалось удалить'); return; }
-      setAll((prev) => prev.filter((p) => p.id !== id));
+      queryClient.setQueryData(['admin-guest-photos'], (prev: Photo[] | undefined) => 
+        prev ? prev.filter((p) => p.id !== id) : []
+      );
     } finally {
       setBusyId(null);
     }

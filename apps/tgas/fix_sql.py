@@ -1,3 +1,4 @@
+import typing
 import re
 
 with open(
@@ -9,7 +10,7 @@ with open(
 
 
 # Replace session.execute("...") with session.execute(text("..."))
-def repl(m):
+def repl(m: typing.dict) -> dict:
     return m.group(1) + "text(" + m.group(2) + ")" + m.group(3)
 
 

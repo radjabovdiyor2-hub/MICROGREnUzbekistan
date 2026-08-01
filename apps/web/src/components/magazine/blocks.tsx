@@ -1,9 +1,8 @@
 import React from 'react';
 import type {
-  ChefWordBlock, RestaurantOfWeekBlock,
   TrendAnalyticsBlock, RecipeBlock,
   FamilyConversionBlock,
-  RestaurantBrand, Audience, L10n,
+  RestaurantBrand,
 } from '@/lib/magazine/types';
 import {
   UI, t, tri, inline,

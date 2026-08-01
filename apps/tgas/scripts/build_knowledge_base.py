@@ -14,7 +14,7 @@ from shared.database import get_session_ctx
 engine = AIEngine()
 
 
-async def setup_vector_table():
+async def setup_vector_table() -> None:
     async with get_session_ctx() as session:
         # Расширение pgvector. Prisma не управляет расширениями — включаем вручную.
         # Образ pgvector/pgvector:pg16 расширение содержит, нужно лишь включить.
@@ -33,7 +33,7 @@ async def setup_vector_table():
         print("Таблица knowledge_base и индекс созданы.")
 
 
-async def build_knowledge_base():
+async def build_knowledge_base() -> None:
     kb_path = os.path.join(
         os.path.dirname(__file__), "..", "bots", "support_bot", "knowledge"
     )
@@ -88,7 +88,7 @@ async def build_knowledge_base():
     print("База знаний успешно построена и векторизована!")
 
 
-async def main():
+async def main() -> None:
     await setup_vector_table()
     await build_knowledge_base()
 

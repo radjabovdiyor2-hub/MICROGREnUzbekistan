@@ -8,6 +8,7 @@ import { FavoritesProvider } from '@/components/providers/FavoritesProvider';
 import { LangProvider } from '@/components/providers/LangProvider';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { AppShell } from '@/components/layout/AppShell';
+import { ReactQueryProvider } from '@/components/providers/ReactQueryProvider';
 import { PwaRegister } from '@/components/providers/PwaRegister';
 import { ReferralCapture } from '@/components/providers/ReferralCapture';
 import { TelegramInit } from '@/components/providers/TelegramInit';
@@ -139,9 +140,11 @@ export default async function RootLayout({
               <CartProvider>
                 <FavoritesProvider>
                   <AuthProvider>
-                    <AppShell>
-                      {children}
-                    </AppShell>
+                    <ReactQueryProvider>
+                      <AppShell>
+                        {children}
+                      </AppShell>
+                    </ReactQueryProvider>
                     <PwaRegister />
                     <ReferralCapture />
                     <TelegramInit />

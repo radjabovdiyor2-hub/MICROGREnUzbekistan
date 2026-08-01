@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Plus, Trash } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -30,11 +31,8 @@ import { AdminFinanceSummary } from './AdminFinanceSummary';
 export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [byCategory, setByCategory] = useState<Array<{ type: string; category: string; total: number }>>([]);
+  const queryClient = useQueryClient();
   const [days, setDays] = useState(30);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
 
@@ -44,24 +42,21 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['admin-finance', days],
+    queryFn: async () => {
       const res = await fetch(`/api/admin/finance?days=${days}`, { credentials: 'same-origin' });
       const data = await res.json();
-      if (data.status === 'ok') {
-        setEntries(data.entries);
-        setSummary(data.summary);
-        setByCategory(data.byCategory);
-      } else setError(data.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
-    } catch {
-      setError(t('Ошибка сети', 'Tarmoq xatosi'));
-    } finally {
-      setLoading(false);
+      if (data.status === 'ok') return data;
+      throw new Error(data.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
     }
-  }, [days, lang]);
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const entries: Entry[] = data?.entries || [];
+  const summary: Summary | null = data?.summary || null;
+  const byCategory: { type: string; category: string; total: number }[] = data?.byCategory || [];
+
+  const load = async () => queryClient.invalidateQueries({ queryKey: ['admin-finance'] });
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault();

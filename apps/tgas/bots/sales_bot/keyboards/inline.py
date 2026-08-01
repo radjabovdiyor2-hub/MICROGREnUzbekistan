@@ -14,7 +14,7 @@ def language_kb() -> InlineKeyboardMarkup:
 
 
 # ── Главное меню ──
-def main_menu_kb(lang="ru") -> InlineKeyboardMarkup:
+def main_menu_kb(lang: str="ru") -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     if lang == "uz":
         b.row(
@@ -52,7 +52,7 @@ def main_menu_kb(lang="ru") -> InlineKeyboardMarkup:
 
 
 # ── Категории товаров ──
-def categories_kb(lang="ru") -> InlineKeyboardMarkup:
+def categories_kb(lang: str="ru") -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     cats = [
         ("🌱 Микрозелень", "🌱 Mikrogreens", "cat:microgreens"),
@@ -77,7 +77,7 @@ def categories_kb(lang="ru") -> InlineKeyboardMarkup:
 
 
 # ── Навигация: назад в меню ──
-def back_menu_kb(lang="ru") -> InlineKeyboardMarkup:
+def back_menu_kb(lang: str="ru") -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     b.button(
         text="⬅️ Orqaga" if lang == "uz" else "⬅️ Назад", callback_data="nav:main_menu"
@@ -86,7 +86,7 @@ def back_menu_kb(lang="ru") -> InlineKeyboardMarkup:
 
 
 # ── Корзина подтверждение ──
-def cart_confirm_kb(lang="ru") -> InlineKeyboardMarkup:
+def cart_confirm_kb(lang: str="ru") -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     if lang == "uz":
         b.button(text="✅ Buyurtma berish", callback_data="cart:checkout")
@@ -100,7 +100,7 @@ def cart_confirm_kb(lang="ru") -> InlineKeyboardMarkup:
     return b.as_markup()
 
 
-def confirm_order_kb(lang="ru") -> InlineKeyboardMarkup:
+def confirm_order_kb(lang: str="ru") -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     b.button(
         text="✅ Подтвердить" if lang == "ru" else "✅ Tasdiqlash",

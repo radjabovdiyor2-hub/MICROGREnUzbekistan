@@ -262,3 +262,35 @@ erDiagram
         boolean isActive
     }
 ```
+
+## 6. Внутренняя архитектура Telegram-бота (apps/bot)
+
+Telegram-бот построен по принципу строгой модульности (лимит 200 строк на файл).
+
+```mermaid
+graph TD
+    subgraph apps_bot["apps/bot (Telegram Storefront)"]
+        main["main.py<br/>Точка входа"]
+        
+        subgraph handlers["Handlers"]
+            admin["admin/<br/>Управление, рассылки"]
+            agronomist["agronomist/<br/>AI-ассистент, диагностика"]
+            shop["shop/<br/>Каталог, корзина, оформление"]
+            unified["unified/<br/>Меню, профиль, бонусы"]
+        end
+        
+        subgraph services["Services"]
+            ai["ai_service/<br/>Интеграция с AIEngine (LLM)"]
+            eco["ecosystem/<br/>Мост к apps/web/api (Mixins)"]
+            crosspost["crosspost/<br/>Публикация (TG, Inst)"]
+            core_srv["cart_storage.py<br/>trigger_service.py"]
+        end
+        
+        main --> handlers
+        handlers --> services
+        services --> eco
+    end
+    
+    eco -.->|"HTTP /api/*"| apps_web["apps/web"]
+    ai -.->|"AIEngine"| tgas["apps/tgas/shared/ai_engine"]
+```

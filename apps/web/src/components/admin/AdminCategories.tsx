@@ -1,7 +1,8 @@
 'use client';
 
 import { AdminCategoryForm } from './AdminCategoryForm';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Layers, Plus, Trash } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -23,9 +24,8 @@ interface Category {
 
 export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
+  const queryClient = useQueryClient();
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [warning, setWarning] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -35,21 +35,19 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const [nameUz, setNameUz] = useState('');
   const [icon, setIcon] = useState('');
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: categories = [], isLoading: loading } = useQuery<Category[]>({
+    queryKey: ['admin-categories'],
+    queryFn: async () => {
       const res = await fetch('/api/admin/categories', { credentials: 'same-origin' });
       const data = await res.json();
-      if (data.status === 'ok') setCategories(data.categories);
-      else setError(data.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
-    } catch {
-      setError(t('Ошибка сети', 'Tarmoq xatosi'));
-    } finally {
-      setLoading(false);
+      if (data.status === 'ok') return data.categories;
+      throw new Error(data.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
     }
-  }, [lang]);
+  });
 
-  useEffect(() => { load(); }, [load]);
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
+  };
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();

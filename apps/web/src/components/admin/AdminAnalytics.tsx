@@ -4,7 +4,7 @@ import { HealthScoreWidget, ABCXYZWidget } from './AdminAnalyticsWidgets';
 
 import { useState, useEffect } from 'react';
 import {
-  AlertTriangle, BarChart, ClipboardList, Clock, CreditCard, Download, Package,
+  Clock,
 } from 'lucide-react';
 
 interface MonthData { month: string; orders: number; revenue: number; posRevenue: number; posSales: number; }
