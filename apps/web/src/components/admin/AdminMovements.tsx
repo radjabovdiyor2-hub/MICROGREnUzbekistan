@@ -1,15 +1,9 @@
 'use client';
 
-import { AdminMovementSummary } from './AdminMovementSummary';
-
-import { AdminMovementForm } from './AdminMovementForm';
-
 import { useState, useEffect } from 'react';
-import {
-  ArrowLeft, ArrowRight, BarChart, ClipboardList, Clock, Download, Folder, Package, Plus, Settings, ShoppingCart, Trash,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, BarChart, ClipboardList, Package, Settings, Trash } from 'lucide-react';
 
-interface Movement {
+export interface Movement {
   id: string;
   type: string;
   quantity: number;
@@ -24,7 +18,7 @@ interface Movement {
 
 export interface Product { id: string; nameUz: string; stock: number; price: number; }
 
-interface Sale {
+export interface Sale {
   number: string;
   items: { quantity: number; product: { nameUz: string; price: number } }[];
   total: number;
@@ -39,6 +33,9 @@ export const TYPE_CONFIG: Record<string, { label: string; color: string; icon: R
   RETURN: { label: 'Qaytarish', color: 'var(--cat-2)', icon: <Package size={14} /> },
   WRITE_OFF: { label: 'Hisobdan chiqarish', color: 'var(--warning)', icon: <Trash size={14} /> },
 };
+
+import { AdminSalesTab } from './AdminSalesTab';
+import { AdminMovementsTab } from './AdminMovementsTab';
 
 export function AdminMovements() {
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -191,197 +188,23 @@ export function AdminMovements() {
 
       {/* ============ MOVEMENTS TAB ============ */}
       {tab === 'movements' && (
-        <>
-      <AdminMovementSummary
-        total={total}
-        todayIn={todayIn}
-        todayOut={todayOut}
-        todayCost={todayCost}
-        fmt={fmt}
-      />
-          {/* Controls */}
-          <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
-            <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-              style={{ padding: 'var(--space-2) var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>
-              <option value="">Barchasi</option>
-              {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
-                <option key={key} value={key}>{cfg.label}</option>
-              ))}
-            </select>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => handleExport('movements')} className="btn btn-outline btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <Download size={12} /> CSV
-            </button>
-            <button onClick={handleClearAll} className="btn btn-ghost btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--error)', fontSize: 'var(--text-xs)' }}>
-              <Trash size={12} /> Tozalash
-            </button>
-            <button onClick={() => setShowAdd(!showAdd)} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Plus size={14} /> Qo&apos;shish
-            </button>
-          </div>
-
-      <AdminMovementForm
-        showAdd={showAdd}
-        setShowAdd={setShowAdd}
-        form={form}
-        setForm={setForm}
-        products={products}
-        setProducts={setProducts}
-        prodSearch={prodSearch}
-        setProdSearch={setProdSearch}
-        handleSubmit={handleSubmit}
-        inputStyle={inputStyle}
-      />
-          {/* Movements List */}
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
-            </div>
-          ) : movements.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <Folder size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
-              <p>Harakatlar topilmadi</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {movements.map(m => {
-                const cfg = TYPE_CONFIG[m.type] || TYPE_CONFIG.OUT;
-                const totalValue = m.costPrice ? Math.abs(m.quantity) * m.costPrice : Math.abs(m.quantity) * m.product.price;
-                return (
-                  <div key={m.id} className="card" style={{ padding: 'var(--space-3)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: `${cfg.color}15`, color: cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {cfg.icon}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{m.product.nameUz}</span>
-                        <span style={{ padding: '1px 6px', borderRadius: 'var(--radius-full)', background: `${cfg.color}15`, color: cfg.color, fontSize: '10px', fontWeight: 700 }}>{cfg.label}</span>
-                      </div>
-                      {/* Detail line 1: reason + who */}
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 2 }}>
-                        {m.reason && <span>{m.reason}</span>}
-                        {m.performedBy && <span> · {m.performedBy}</span>}
-                        {m.supplier && <span> · {m.supplier.name}</span>}
-                      </div>
-                      {/* Detail line 2: time + value + stock after */}
-                      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 1, display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                        <span>{fmtDate(m.createdAt)}</span>
-                        <span>· Qiymati: {fmt(totalValue)} so&apos;m</span>
-                        <span>· Omborda: {m.product.stock} dona</span>
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-base)', color: m.quantity > 0 ? 'var(--success)' : 'var(--error)' }}>
-                        {m.quantity > 0 ? '+' : ''}{m.quantity}
-                      </span>
-                      {m.costPrice && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{fmt(m.costPrice)} so&apos;m/d</div>}
-                      <button onClick={() => handleDelete(m.id)} disabled={deleting === m.id}
-                        style={{
-                          marginTop: 4, background: 'none', border: 'none', color: 'var(--text-muted)',
-                          cursor: 'pointer', padding: 2, opacity: deleting === m.id ? 0.3 : 0.5,
-                          transition: 'opacity 0.2s',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                        onMouseLeave={e => (e.currentTarget.style.opacity = '0.5')}
-                        title="O'chirish">
-                        <Trash size={13} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+        <AdminMovementsTab
+          movements={movements} loading={loading} typeFilter={typeFilter} setTypeFilter={setTypeFilter}
+          showAdd={showAdd} setShowAdd={setShowAdd} total={total} deleting={deleting}
+          form={form} setForm={setForm} products={products} setProducts={setProducts}
+          prodSearch={prodSearch} setProdSearch={setProdSearch}
+          todayIn={todayIn} todayOut={todayOut} todayCost={todayCost}
+          fmt={fmt} fmtDate={fmtDate} inputStyle={inputStyle}
+          onSubmit={handleSubmit} onDelete={handleDelete}
+          onClearAll={handleClearAll} onExport={handleExport} />
       )}
 
       {/* ============ SALES HISTORY TAB ============ */}
       {tab === 'sales' && (
-        <>
-          {/* Date picker + summary */}
-          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', marginBottom: 'var(--space-3)', flexWrap: 'wrap' }}>
-            <input type="date" value={salesDate} onChange={e => setSalesDate(e.target.value)}
-              style={{ ...inputStyle, width: 'auto' }} />
-            <button onClick={() => setSalesDate(new Date().toISOString().slice(0, 10))} className="btn btn-ghost btn-sm" style={{ fontSize: 'var(--text-xs)' }}>
-              Bugun
-            </button>
-            <button onClick={() => {
-              const d = new Date(salesDate);
-              d.setDate(d.getDate() - 1);
-              setSalesDate(d.toISOString().slice(0, 10));
-            }} className="btn btn-ghost btn-sm" style={{ fontSize: 'var(--text-xs)' }}>
-              ← Kecha
-            </button>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => handleExport('sales')} className="btn btn-outline btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <Download size={12} /> 30 kun CSV
-            </button>
-          </div>
-
-          {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sotishlar</div>
-              <div style={{ fontWeight: 800, fontSize: 'var(--text-lg)', color: 'var(--brand-primary)' }}>{salesSummary.totalSales}</div>
-            </div>
-            <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tovarlar</div>
-              <div style={{ fontWeight: 800, fontSize: 'var(--text-lg)' }}>{salesSummary.totalItems}</div>
-            </div>
-            <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tushum</div>
-              <div style={{ fontWeight: 800, fontSize: 'var(--text-sm)', color: 'var(--success)' }}>{fmt(salesSummary.totalRevenue)}</div>
-            </div>
-          </div>
-
-          {/* Sales list */}
-          {salesLoading ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
-            </div>
-          ) : sales.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-              <ShoppingCart size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
-              <p>Bu kunda sotishlar yo&apos;q</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-              {sales.map((sale, idx) => (
-                <div key={sale.number} className="card" style={{ padding: 'var(--space-3)' }}>
-                  {/* Sale header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                      <span style={{ width: 28, height: 28, borderRadius: 'var(--radius-md)', background: 'var(--success-bg)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px' }}>
-                        {idx + 1}
-                      </span>
-                      <div>
-                        <div style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'monospace' }}>{sale.number}</div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                          {new Date(sale.time).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })} · {sale.itemCount} ta tovar
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ fontWeight: 800, color: 'var(--success)', fontSize: 'var(--text-sm)' }}>
-                      {fmt(sale.total)} so&apos;m
-                    </div>
-                  </div>
-                  {/* Sale items */}
-                  <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-2)' }}>
-                    {sale.items.map((item, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', padding: '2px 0', color: 'var(--text-secondary)' }}>
-                        <span>{Math.abs(item.quantity)}× {item.product.nameUz}</span>
-                        <span style={{ fontWeight: 600 }}>{fmt(Math.abs(item.quantity) * item.product.price)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
+        <AdminSalesTab
+          sales={sales} salesDate={salesDate} setSalesDate={setSalesDate}
+          salesLoading={salesLoading} salesSummary={salesSummary}
+          fmt={fmt} inputStyle={inputStyle} onExport={handleExport} />
       )}
     </div>
   );
