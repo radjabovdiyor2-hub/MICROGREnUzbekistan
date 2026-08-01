@@ -1,18 +1,10 @@
 'use client';
 
+import type { BotLearningItem } from './adminLearningsTypes';
+
 import { useState, useEffect } from 'react';
 import { Brain, RefreshCw, Search, CheckCircle2, AlertCircle, Bot, Activity } from 'lucide-react';
 import { clientErrorMessage } from '@/lib/safeError';
-
-interface BotLearningItem {
-  id: number;
-  bot: string;
-  metric: string;
-  observation: string;
-  inference: string;
-  adjustment: unknown; // Json из Prisma: показывается через JSON.stringify, структура плавающая
-  appliedAt: string;
-}
 
 import { BOT_EMOJIS } from './adminLearningsConfig';
 

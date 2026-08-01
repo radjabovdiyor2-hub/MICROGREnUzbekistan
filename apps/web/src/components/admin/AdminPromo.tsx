@@ -1,5 +1,7 @@
 'use client';
 
+import type { Promo } from './adminPromoTypes';
+
 import { AdminPromoForm } from './AdminPromoForm';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Percent, Plus, Tag, ToggleLeft, ToggleRight } from 'lucide-react';
@@ -11,13 +13,6 @@ import { AlertTriangle, Percent, Plus, Tag, ToggleLeft, ToggleRight } from 'luci
 // интерфейса не существовало: создать код можно было только запросом в
 // базу. Любая акция упиралась в разработчика.
 // ══════════════════════════════════════════════════════════════════════
-
-interface Promo {
-  id: string; code: string; discountType: 'percent' | 'fixed'; value: number;
-  minSubtotal: number; maxUses: number | null; usedCount: number;
-  isActive: boolean; expiresAt: string | null; createdAt: string;
-  exhausted: boolean; expired: boolean;
-}
 
 const money = (n: number) => `${n.toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
 

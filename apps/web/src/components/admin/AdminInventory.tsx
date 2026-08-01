@@ -1,40 +1,11 @@
 'use client';
 
+import type { InventoryProduct, Summary } from './adminInventoryTypes';
+
 import { useState, useEffect } from 'react';
 import {
   AlertTriangle, Banknote, BarChart, Clock, CreditCard, Search,
 } from 'lucide-react';
-
-interface InventoryProduct {
-  id: string;
-  nameUz: string;
-  nameRu: string;
-  price: number;
-  stock: number;
-  avgDailySales: number;
-  avgMonthlySales: number;
-  daysOfSupply: number;
-  status: string;
-  reorderPoint: number;
-  stockValue: number;
-  totalSold90d: number;
-  category?: { nameUz: string };
-}
-
-interface Summary {
-  totalProducts: number;
-  totalStockValue: number;
-  criticalCount: number;
-  lowCount: number;
-  excessCount: number;
-  normalCount: number;
-  todayRevenue: number;
-  todayOnlineRevenue: number;
-  todayPOSRevenue: number;
-  todayOrderCount: number;
-  debtsOwedToUs: number;
-  debtsWeOwe: number;
-}
 
 import { STATUS_CONFIG } from './adminInventoryConfig';
 

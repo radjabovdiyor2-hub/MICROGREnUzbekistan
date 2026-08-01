@@ -1,5 +1,7 @@
 'use client';
 
+import { HeaderSearch } from './HeaderSearch';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -7,9 +9,7 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useCity } from '@/components/providers/CityProvider';
-import {
-  Search, ShoppingCart, User, Moon, Sun, Mic, ArrowDown,
-} from 'lucide-react';
+import { ShoppingCart, User, Moon, Sun, ArrowDown } from 'lucide-react';
 import { LogoIcon } from '@/components/ui/Logo';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -101,37 +101,14 @@ export function Header() {
           <ArrowDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
         </div>
 
-        {/* Search Bar */}
-        <form onSubmit={handleSearch} className="search-bar" id="search-bar">
-          <span className="search-bar__icon"><Search size={18} /></span>
-          <input
-            type="text"
-            className="search-bar__input"
-            placeholder={t('search.placeholder')}
-            value={searchVal}
-            onChange={(e) => setSearchVal(e.target.value)}
-            id="search-input"
-          />
-          
-          {/* Voice Search Button — Framer Motion replaces dangerouslySetInnerHTML */}
-          <motion.button 
-            type="button" 
-            onClick={startVoiceSearch}
-            animate={isListening ? { scale: [1, 1.2, 1] } : { scale: 1 }}
-            transition={isListening
-              ? { repeat: Infinity, duration: 1.5, ease: 'easeInOut' }
-              : { duration: 0.2 }}
-            style={{ 
-              background: 'none', border: 'none', cursor: 'pointer', 
-              color: isListening ? 'var(--error)' : 'var(--text-muted)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              padding: '0 8px',
-            }}
-          >
-            <Mic size={18} />
-          </motion.button>
-        </form>
-
+      <HeaderSearch
+          searchVal={searchVal}
+          setSearchVal={setSearchVal}
+          handleSearch={handleSearch}
+          isListening={isListening}
+          startVoiceSearch={startVoiceSearch}
+          t={t}
+        />
         {/* Desktop Navigation Links */}
         <nav className="header__nav" id="desktop-nav">
           <Link href="/catalog" className="header__nav-link">{t('nav.catalog')}</Link>
