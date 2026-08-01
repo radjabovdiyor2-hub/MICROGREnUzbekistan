@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Field, Category } from './AdminSettings';
+import type { Field, Category } from './settingsTypes';
 
 export function useAdminSettings(lang: 'ru' | 'uz') {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);

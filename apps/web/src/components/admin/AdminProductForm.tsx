@@ -1,18 +1,12 @@
 'use client';
 
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
-import type { ProductForm } from './AdminProducts';
+import type { ProductForm, Category } from './productTypes';
 import { ArrowLeft, CheckCircle, Clock, Plus, XCircle } from 'lucide-react';
 
 // Форма создания и правки товара. Вынесена из AdminProducts: она рендерится
 // ВМЕСТО списка (`if (showForm) return ...`), то есть это отдельный экран,
 // а не часть списка.
-
-interface Category {
-  id: string;
-  nameUz: string;
-  nameRu: string;
-}
 
 interface Props {
   form: ProductForm;

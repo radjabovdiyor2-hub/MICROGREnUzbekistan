@@ -8,7 +8,7 @@ import { MicrogreensCanvas, seedFromString } from '@/components/ui/MicrogreensCa
 import { formatPrice } from '@repo/shared';
 import { useLang } from '@/components/providers/LangProvider';
 import type { useCart } from '@/components/providers/CartProvider';
-import type { Product } from './ProductCard';
+import type { Product } from './productTypes';
 
 const ArViewer = dynamic(() => import('@/components/ui/ArViewer').then(m => m.ArViewer), { ssr: false });
 

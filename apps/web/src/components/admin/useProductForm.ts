@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { EMPTY_FORM, type Product } from './AdminProducts';
+import { EMPTY_FORM, type Product } from './productTypes';
 
 // Форма товара: открытие, заполнение из карточки, сохранение, удаление.
 // Вынесено из AdminProducts: файл перерос 200 строк.

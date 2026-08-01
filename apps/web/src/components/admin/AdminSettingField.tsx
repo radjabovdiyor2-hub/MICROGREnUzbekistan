@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import type { Field } from './AdminSettings';
+import type { Field } from './settingsTypes';
 
 export function AdminSettingField({
   f,

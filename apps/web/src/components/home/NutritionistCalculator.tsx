@@ -3,7 +3,7 @@
 import { CheckCircle, Leaf, Lightbulb, Plus, X, Zap } from 'lucide-react';
 import {
   DvBar, inputStyle, type NutrientDetail, type NutrientResult,
-} from './NutritionistPanel';
+} from './nutritionistTypes';
 
 // Калькулятор порции: выбор культур, граммовка и разбор по нутриентам.
 // Вынесен из NutritionistPanel — это вся содержательная часть блока,

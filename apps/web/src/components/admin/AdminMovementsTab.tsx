@@ -4,7 +4,7 @@ import { Clock, Download, Folder, Plus, Trash } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { AdminMovementSummary } from './AdminMovementSummary';
 import { AdminMovementForm } from './AdminMovementForm';
-import { TYPE_CONFIG, type Movement, type Product } from './AdminMovements';
+import { TYPE_CONFIG, type Movement, type Product } from './movementTypes';
 
 // Вкладка «Движения» склада. Вынесено из AdminMovements: файл перерос
 // 200 строк, а две его вкладки друг о друге ничего не знают.

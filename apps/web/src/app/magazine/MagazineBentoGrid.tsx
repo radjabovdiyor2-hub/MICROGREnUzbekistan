@@ -2,14 +2,8 @@ import React from 'react';
 import { MagazineSectionsGrid } from './MagazineSectionsGrid';
 import { MagazineHeroCard } from './MagazineHeroCard';
 
-export interface PublishedIssue {
-  slug: string;
-  weekNumber: number;
-  restaurantName: string;
-  restaurantCity?: string | null;
-  brandPrimary?: string | null;
-  title: string;
-}
+import { type PublishedIssue } from './magazineAppTypes';
+export type { PublishedIssue };
 
 export function MagazineBentoGrid({
   latest,

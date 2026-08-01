@@ -1,6 +1,6 @@
 'use client';
 
-import { qrBtn, type MagazineDish, type MagazineRestaurant } from './AdminMagazine';
+import { qrBtn, type MagazineDish, type MagazineRestaurant } from './magazineTypes';
 
 // Список блюд с загруженными видео: переименование, QR, замена и удаление.
 // Вынесен из AdminMagazine — вторая половина экрана после блока загрузки.

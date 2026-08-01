@@ -1,7 +1,7 @@
 'use client';
 
 import { Clock } from 'lucide-react';
-import { typeConfig, type Notification } from './AdminNotifications';
+import { typeConfig, type Notification } from './notificationTypes';
 
 // Выпадающий список уведомлений админки.
 

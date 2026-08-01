@@ -4,14 +4,8 @@ import React from 'react';
 import { CheckCircle, Copy, FileText, MessageCircle, Plus } from 'lucide-react';
 import { AdminPOSReceiptCard } from './AdminPOSReceiptCard';
 
-export interface SaleResultData {
-  saleNumber: string;
-  total: number;
-  isReturn?: boolean;
-  items?: { product: { nameUz: string }; quantity: number; customPrice: number }[];
-  payMethod?: string;
-  date?: string;
-}
+import { type SaleResultData } from './posReceiptTypes';
+export type { SaleResultData };
 
 interface Props {
   saleResult: SaleResultData;

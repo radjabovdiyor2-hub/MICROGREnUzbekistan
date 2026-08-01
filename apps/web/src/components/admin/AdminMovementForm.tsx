@@ -2,7 +2,7 @@
 
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { Plus } from 'lucide-react';
-import { TYPE_CONFIG, type Product } from './AdminMovements';
+import { TYPE_CONFIG, type Product } from './movementTypes';
 
 // Форма движения товара: приход, расход, списание. Показывается по showAdd.
 

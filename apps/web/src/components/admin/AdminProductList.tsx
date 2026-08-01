@@ -3,7 +3,7 @@
 import {
   Camera, CheckCircle, Clock, Edit, Plus, Trash, XCircle,
 } from 'lucide-react';
-import type { Product } from './AdminProducts';
+import type { Product } from './productTypes';
 
 // Список товаров админки: строка товара, остаток, действия и подгрузка.
 // Вынесен из AdminProducts — форма товара уже отдельно, здесь вторая

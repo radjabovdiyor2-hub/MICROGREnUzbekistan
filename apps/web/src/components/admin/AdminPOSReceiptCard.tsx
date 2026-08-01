@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Banknote, CheckCircle, Clock, CreditCard, RefreshCw } from 'lucide-react';
-import type { SaleResultData } from './AdminPOSReceipt';
+import type { SaleResultData } from './posReceiptTypes';
 
 export function AdminPOSReceiptCard({
   saleResult,

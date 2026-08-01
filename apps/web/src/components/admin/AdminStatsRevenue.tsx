@@ -3,7 +3,7 @@
 import {
   Banknote, BarChart, ClipboardList, Clock, RefreshCw, ShoppingCart, Truck,
 } from 'lucide-react';
-import type { StatsData } from './AdminStats';
+import type { StatsData } from './statsTypes';
 
 // Разбивка сегодняшней выручки и статусы заказов. Вынесено из AdminStats:
 // блок читает только уже посчитанные суммы.

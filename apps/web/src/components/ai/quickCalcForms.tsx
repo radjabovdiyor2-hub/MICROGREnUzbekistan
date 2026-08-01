@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CheckCircle, Heart, Share2, Sparkles, Zap } from 'lucide-react';
-import { CROP_DATA, inputStyle, type CalcResult } from './QuickCalc';
+import { CROP_DATA, inputStyle, type CalcResult } from './quickCalcData';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const spring = { type: 'spring' as const, damping: 24, stiffness: 280 };

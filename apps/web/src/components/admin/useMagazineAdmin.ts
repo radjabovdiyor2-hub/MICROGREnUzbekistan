@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { useMagazineVideo } from './useMagazineVideo';
-import type { MagazineRestaurant, MagazineDish } from './AdminMagazine';
+import type { MagazineRestaurant, MagazineDish } from './magazineTypes';
 
 // ══════════════════════════════════════════════════════════════════════
 // Состояние и операции админки журнала: выпуск, блюда, видео, QR.

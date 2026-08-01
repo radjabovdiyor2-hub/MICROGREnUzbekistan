@@ -8,21 +8,8 @@ import { useState, useEffect } from 'react';
 import { Users, Search, RefreshCw, AlertCircle } from 'lucide-react';
 import { clientErrorMessage } from '@/lib/safeError';
 
-export interface CustomerItem {
-  id: number;
-  name: string;
-  phone: string;
-  telegramUsername: string | null;
-  customerType: string;
-  companyName: string | null;
-  city: string;
-  status: string;
-  totalSpent: number;
-  bonusBalance: number;
-  ordersCount: number;
-  notes: string;
-  createdAt: string;
-}
+import { type CustomerItem } from './customerTypes';
+export type { CustomerItem };
 
 export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
   const [customers, setCustomers] = useState<CustomerItem[]>([]);

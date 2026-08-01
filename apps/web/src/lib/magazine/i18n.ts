@@ -8,13 +8,11 @@
 // продолжает работать без изменений.
 // ════════════════════════════════════════════════════════════
 
-export type Lang = 'uz' | 'ru';
+import type { Lang, L10n } from './types';
+export type { Lang, L10n };
 
 /** Порядок = порядок показа на полосе: сначала узбекский, затем русский. */
 export const LANGS: Lang[] = ['uz', 'ru'];
-
-/** Локализуемый текст: либо просто строка (= русский), либо словарь по языкам. */
-export type L10n = string | Partial<Record<Lang, string>>;
 
 /** Достать текст на нужном языке с фолбэком: запрошенный → uz → ru → первый доступный. */
 export function t(v: L10n | undefined | null, lang: Lang = 'uz'): string {

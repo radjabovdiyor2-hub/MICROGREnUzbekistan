@@ -5,8 +5,8 @@
 //  · origin   — схема 50/50 (shared = общий выпуск, personal = ресторан)
 // ════════════════════════════════════════════════════════════
 
-import type { L10n } from './i18n';
-export type { L10n };
+export type Lang = 'uz' | 'ru';
+export type L10n = string | Partial<Record<Lang, string>>;
 
 export type Audience = 'all' | 'men' | 'women' | 'family';
 export type Origin = 'shared' | 'personal';

@@ -10,35 +10,9 @@ import { uploadImage } from './productImages';
 import { useProductForm } from './useProductForm';
 import { AdminProductFilters } from './AdminProductFilters';
 
-export interface Product {
-  id: string;
-  nameUz: string;
-  nameRu: string;
-  price: number;
-  oldPrice: number | null;
-  costPrice: number | null;
-  stock: number;
-  isActive: boolean;
-  isFeatured: boolean;
-  isOnSale: boolean;
-  images: string[];
-  category?: { nameUz: string; nameRu: string; id: string };
-}
-
-interface Category {
-  id: string;
-  nameUz: string;
-  nameRu: string;
-  children?: Category[];
-}
-
-export const EMPTY_FORM = {
-  nameUz: '', nameRu: '', slug: '', price: '', oldPrice: '', costPrice: '',
-  categoryId: '', stock: '', sku: '', brand: '',
-  descriptionUz: '', isFeatured: false, isOnSale: false,
-};
-
-export type ProductForm = typeof EMPTY_FORM;
+import { type Product, type Category, EMPTY_FORM, type ProductForm } from './productTypes';
+export type { Product, Category, ProductForm };
+export { EMPTY_FORM };
 
 const ADMIN_PAGE_SIZE = 50;
 

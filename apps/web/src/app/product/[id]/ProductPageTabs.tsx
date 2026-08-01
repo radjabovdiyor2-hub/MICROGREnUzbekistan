@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ClipboardList, FileText, Flame, Leaf, MessageSquare, Sparkles, Truck } from 'lucide-react';
-import type { Product } from './ProductPageClient';
+import type { Product } from './productDetailTypes';
 import { ProductSpecsTab } from './ProductSpecsTab';
 import { ProductDeliveryTab } from './ProductDeliveryTab';
 

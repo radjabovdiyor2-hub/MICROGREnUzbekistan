@@ -1,7 +1,7 @@
 'use client';
 
 import { Edit3, Gift, Phone, RefreshCw, Users } from 'lucide-react';
-import type { CustomerItem } from './AdminCustomers';
+import type { CustomerItem } from './customerTypes';
 
 // Таблица клиентов: контакты, тип, суммы, бонусы.
 

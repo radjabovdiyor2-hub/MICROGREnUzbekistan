@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { CheckCircle } from 'lucide-react';
-import type { Product } from './ProductPageClient';
+import type { Product } from './productDetailTypes';
 
 export function ProductSpecsTab({
   product,

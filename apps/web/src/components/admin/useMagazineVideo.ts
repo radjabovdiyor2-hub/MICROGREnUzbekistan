@@ -3,7 +3,7 @@
 import { adminFetch } from '@/lib/adminClient';
 import { captureLastFrame } from '@/lib/magazine/videoPoster';
 import { clientErrorMessage } from '@/lib/safeError';
-import type { MagazineRestaurant } from './AdminMagazine';
+import type { MagazineRestaurant } from './magazineTypes';
 
 // ══════════════════════════════════════════════════════════════════════
 // Видео блюда: быстрое добавление и замена ролика у существующего.

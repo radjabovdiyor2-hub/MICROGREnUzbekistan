@@ -6,7 +6,7 @@ import {
   XCircle, Zap,
 } from 'lucide-react';
 import { StarRow } from './productPageParts';
-import type { Product } from './ProductPageClient';
+import type { Product } from './productDetailTypes';
 import { useLang } from '@/components/providers/LangProvider';
 import { CONTACT, DELIVERY } from '@/lib/site';
 

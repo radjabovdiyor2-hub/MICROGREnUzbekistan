@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { PublishedIssue } from './MagazineBentoGrid';
+import type { PublishedIssue } from './magazineAppTypes';
 
 export function MagazineHeroCard({ latest }: { latest: PublishedIssue }) {
   return (

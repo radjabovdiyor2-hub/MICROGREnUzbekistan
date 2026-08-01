@@ -2,7 +2,7 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import { X } from 'lucide-react';
-import type { CustomerItem } from './AdminCustomers';
+import type { CustomerItem } from './customerTypes';
 
 // Модалка правки клиента: статус, бонусы, заметки.
 

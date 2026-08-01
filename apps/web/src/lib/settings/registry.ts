@@ -1,11 +1,10 @@
+import { SETTINGS, type SettingKey } from './settingsData';
 import {
-  SETTINGS,
   SETTING_CATEGORIES,
   CATEGORY_LABELS,
   type SettingCategory,
   type SettingType,
   type SettingDef,
-  type SettingKey,
 } from './settingsDefinitions';
 
 export {

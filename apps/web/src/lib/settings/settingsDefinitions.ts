@@ -40,5 +40,3 @@ export const CATEGORY_LABELS: Record<SettingCategory, { ru: string; uz: string }
   ai: { ru: 'ИИ и бюджет', uz: 'AI va byudjet' },
   magazine: { ru: 'Журнал и печать', uz: 'Jurnal' },
 };
-
-export { SETTINGS, type SettingKey } from './settingsData';

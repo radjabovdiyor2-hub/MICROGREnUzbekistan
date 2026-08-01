@@ -13,19 +13,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const spring = { type: 'spring' as const, damping: 20, stiffness: 300 };
 
-export interface Product {
-  id: string;
-  nameUz: string;
-  nameRu: string;
-  slug: string;
-  price: number;
-  oldPrice?: number | null;
-  images: string[];
-  rating: number;
-  reviewCount: number;
-  isOnSale?: boolean;
-  category?: { nameUz: string; slug: string };
-}
+import { type Product } from './productTypes';
+export type { Product };
 
 export function ProductCard({ product }: { product: Product }) {
   const discount = product.oldPrice ? getDiscountPercent(product.price, product.oldPrice) : 0;

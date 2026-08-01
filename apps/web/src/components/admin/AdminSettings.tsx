@@ -5,21 +5,8 @@ import { AlertTriangle, CheckCircle, Clock, RotateCcw, Save, Search } from 'luci
 import { AdminSettingField } from './AdminSettingField';
 import { useAdminSettings } from './useAdminSettings';
 
-export interface Field {
-  key: string;
-  category: string;
-  type: 'number' | 'money' | 'string' | 'text' | 'boolean' | 'list';
-  labelRu: string;
-  labelUz: string;
-  hintRu: string | null;
-  min: number | null;
-  max: number | null;
-  default: unknown;
-  value: unknown;
-  modified: boolean;
-}
-
-export interface Category { id: string; ru: string; uz: string }
+import { type Field, type Category } from './settingsTypes';
+export type { Field, Category };
 
 export function AdminSettings({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const {

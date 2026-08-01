@@ -2,7 +2,7 @@
 
 import { Clock, Download, ShoppingCart } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import type { Sale } from './AdminMovements';
+import type { Sale } from './movementTypes';
 
 // Вкладка «История продаж» кассы. Вынесено из AdminMovements: файл перерос
 // 200 строк, а две его вкладки друг о друге ничего не знают.

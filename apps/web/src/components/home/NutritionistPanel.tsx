@@ -8,37 +8,9 @@ import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
 
 interface CropInfo { key: string; nameUz: string; nameRu: string; }
-export interface NutrientDetail { nameUz: string; nameRu: string; grams: number; antioxidantMultiplier: number; benefits?: Array<{ uz: string; ru: string }>; }
-export interface NutrientResult {
-  total: Record<string, number>;
-  details: NutrientDetail[];
-  dailyValuePercent: Record<string, number>;
-}
-
-export const inputStyle: React.CSSProperties = {
-  padding: '10px 14px', borderRadius: 12, border: '1.5px solid var(--border)',
-  background: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: 13,
-  outline: 'none', width: '100%', transition: 'border-color 0.2s',
-};
-
-export function DvBar({ label, percent, color }: { label: string; percent: number; color: string }) {
-  const capped = Math.min(percent, 100);
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-      <span style={{ width: 50, fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>{label}</span>
-      <div style={{ flex: 1, height: 8, borderRadius: 4, background: 'var(--bg-secondary)', overflow: 'hidden' }}>
-        <div style={{
-          width: `${capped}%`, height: '100%', borderRadius: 4,
-          background: `linear-gradient(90deg, ${color}, ${color}CC)`,
-          transition: 'width 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-        }} />
-      </div>
-      <span style={{ width: 40, textAlign: 'right', fontWeight: 700, color: percent >= 80 ? 'var(--success)' : 'var(--text-primary)' }}>
-        {percent}%
-      </span>
-    </div>
-  );
-}
+import { type NutrientDetail, type NutrientResult, inputStyle, DvBar } from './nutritionistTypes';
+export type { NutrientDetail, NutrientResult };
+export { inputStyle, DvBar };
 
 export function NutritionistPanel() {
   const { t, lang } = useLang();
