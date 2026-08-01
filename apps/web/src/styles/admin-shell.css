@@ -1,0 +1,140 @@
+/* ════════════════════════════════════════════
+   Раскладка админки: колонки, сайдбар, адаптив.
+   Вынесено из AdminShell.tsx — 133 строки CSS жили внутри JSX как
+   <style>{`…`}</style>, из-за чего компонент не влезал в 200 строк, а
+   правила не попадали ни в каскадные слои, ни в проверку линтером.
+   ════════════════════════════════════════════ */
+
+.admin-layout {
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+.admin-sidebar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.admin-main {
+  flex: 1;
+  padding: var(--space-4);
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Header */
+.admin-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: var(--space-3); gap: var(--space-2);
+}
+.admin-header h1 {
+  font-family: var(--font-display); font-weight: var(--font-extrabold);
+  font-size: var(--text-lg); display: flex; align-items: center; gap: 8px;
+  white-space: nowrap; color: var(--text-primary);
+}
+.admin-header-actions {
+  display: flex; gap: var(--space-2); align-items: center; flex-shrink: 0;
+}
+
+/* Tabs: horizontal scroll on tablet, grid on mobile */
+.admin-tabs {
+  display: flex; gap: var(--space-1);
+  overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.admin-tabs::-webkit-scrollbar { display: none; }
+.admin-tab {
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  padding: 8px 12px; border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: var(--font-medium);
+  transition: all var(--transition-fast); cursor: pointer;
+  border: 1px solid transparent; background: transparent; color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.admin-tab.active {
+  background: var(--brand-primary-light); color: var(--brand-primary);
+  border-color: rgba(var(--brand-primary-rgb), 0.2);
+}
+.admin-tab:not(.active):hover { background: var(--bg-tertiary); color: var(--text-primary); }
+
+/* Desktop Layout (Sidebar) */
+@media (min-width: 1024px) {
+  .admin-layout {
+    flex-direction: row;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .admin-sidebar {
+    width: 260px;
+    height: 100vh;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
+    padding: var(--space-6) var(--space-4);
+    overflow-y: auto;
+  }
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: var(--space-8);
+  }
+  .admin-header-actions {
+    margin-top: var(--space-4);
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .admin-tabs {
+    flex-direction: column;
+    overflow: visible;
+  }
+  .admin-tab {
+    padding: 10px 14px;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .admin-main {
+    overflow-y: auto;
+    padding: var(--space-8);
+  }
+}
+
+/* Mobile Layout */
+@media (max-width: 768px) {
+  .admin-header { margin-bottom: var(--space-1); }
+  .admin-header h1 { font-size: var(--text-base); }
+  .admin-sidebar { padding: var(--space-2) var(--space-3); }
+  .admin-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-top: var(--space-2);
+    overflow: visible;
+  }
+  .admin-tab {
+    flex-direction: column !important;
+    justify-content: center;
+    align-items: center;
+    padding: 8px 4px !important;
+    gap: 3px !important;
+    font-size: 10px !important;
+    border-radius: 10px !important;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .admin-tab svg { width: 16px; height: 16px; margin: 0; flex-shrink: 0; }
+  .admin-tab.active {
+    background: var(--brand-primary); color: white; border-color: var(--brand-primary);
+    box-shadow: 0 2px 8px rgba(var(--brand-primary-rgb), 0.3);
+  }
+  .admin-tab.active svg { color: white; }
+  .admin-main { padding: var(--space-2); overflow-x: hidden; max-width: 100vw; }
+}
