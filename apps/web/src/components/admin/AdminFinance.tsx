@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, Plus, Trash, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { AlertTriangle, Plus, Trash } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
 // Доходы, расходы и P&L.
@@ -23,6 +23,9 @@ interface Entry {
 interface Summary { income: number; expense: number; profit: number; margin: number }
 
 const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
+
+import { AdminFinanceForm } from './AdminFinanceForm';
+import { AdminFinanceSummary } from './AdminFinanceSummary';
 
 export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
@@ -116,104 +119,14 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         </div>
       )}
 
-      {summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
-          {[
-            { label: t('Доход', 'Daromad'), value: summary.income, color: 'var(--success)', icon: <TrendingUp size={18} /> },
-            { label: t('Расход', 'Xarajat'), value: summary.expense, color: 'var(--error)', icon: <TrendingDown size={18} /> },
-            {
-              label: t('Прибыль', 'Foyda'), value: summary.profit,
-              color: summary.profit >= 0 ? 'var(--brand-primary)' : 'var(--error)',
-              icon: <Wallet size={18} />, extra: `${summary.margin}%`,
-            },
-          ].map(card => (
-            <div key={card.label} className="card" style={{ padding: 'var(--space-4)', borderRadius: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: card.color, marginBottom: 6 }}>
-                {card.icon}
-                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                  {card.label}
-                </span>
-              </div>
-              <div style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: card.color }}>
-                {money(card.value)}
-              </div>
-              {card.extra && (
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  {t('маржа', 'marja')}: {card.extra}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {summary && <AdminFinanceSummary summary={summary} byCategory={byCategory} t={t} />}
 
       {showForm && (
-        <form onSubmit={add} className="card" style={{ padding: 'var(--space-5)', borderRadius: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Тип', 'Tur')}
-              </label>
-              <select value={type} onChange={e => setType(e.target.value as 'income' | 'expense')} style={inputStyle}>
-                <option value="expense">{t('Расход', 'Xarajat')}</option>
-                <option value="income">{t('Доход', 'Daromad')}</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Сумма', 'Summa')}
-              </label>
-              <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)}
-                style={inputStyle} required />
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Статья', 'Modda')}
-              </label>
-              <input value={category} onChange={e => setCategory(e.target.value)}
-                placeholder={t('семена, аренда, зарплата…', 'urug\', ijara…')} style={inputStyle} required />
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Дата операции', 'Amaliyot sanasi')}
-              </label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Комментарий', 'Izoh')}
-              </label>
-              <input value={description} onChange={e => setDescription(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }}>
-            {t('Добавить', "Qo'shish")}
-          </button>
-        </form>
-      )}
-
-      {byCategory.length > 0 && (
-        <div className="card" style={{ padding: 'var(--space-4)', borderRadius: 14 }}>
-          <h4 style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 'var(--space-3)' }}>
-            {t('По статьям', 'Moddalar bo\'yicha')}
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {byCategory.slice(0, 12).map(c => (
-              <div key={`${c.type}:${c.category}`}
-                style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  {c.category}
-                  <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>
-                    {c.type === 'income' ? t('доход', 'daromad') : t('расход', 'xarajat')}
-                  </span>
-                </span>
-                <b style={{ color: c.type === 'income' ? 'var(--success)' : 'var(--error)' }}>
-                  {money(c.total)}
-                </b>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AdminFinanceForm
+          add={add} type={type} setType={setType} amount={amount} setAmount={setAmount}
+          category={category} setCategory={setCategory} date={date} setDate={setDate}
+          description={description} setDescription={setDescription} t={t} inputStyle={inputStyle}
+        />
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>

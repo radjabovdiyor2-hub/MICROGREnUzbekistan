@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  ArrowLeft, Banknote, BarChart, Clock, DollarSign, Percent, TrendingDown, TrendingUp,
+  ArrowLeft, Banknote, BarChart, Clock, DollarSign, Percent, TrendingUp,
 } from 'lucide-react';
 
 interface RevenueData {
@@ -22,6 +22,9 @@ interface RevenueData {
   topProfitable: { name: string; revenue: number; cost: number; profit: number; margin: number; sold: number }[];
   topLoss: { name: string; revenue: number; cost: number; profit: number; margin: number; sold: number }[];
 }
+
+import { AdminRevenueDailyChart } from './AdminRevenueDailyChart';
+import { AdminRevenueTopProducts } from './AdminRevenueTopProducts';
 
 export function AdminRevenue() {
   const [data, setData] = useState<RevenueData | null>(null);
@@ -154,96 +157,8 @@ export function AdminRevenue() {
         </div>
       </div>
 
-      {/* Daily chart */}
-      {data.dailyData && data.dailyData.length > 0 && (
-        <div className="card" style={{ padding: 'var(--space-4)' }}>
-          <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-            <TrendingUp size={16} /> Ежедневная выручка
-          </h4>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 140 }}>
-            {data.dailyData.map((d, i) => {
-              const hPct = (d.revenue / maxDaily) * 100;
-              const profitPct = d.revenue > 0 ? (d.profit / d.revenue) * 100 : 0;
-              return (
-                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', fontWeight: 700 }}>
-                    {d.revenue > 0 ? `${(d.revenue / 1000).toFixed(0)}K` : '-'}
-                  </div>
-                  <div style={{
-                    width: '100%', maxWidth: 36, height: `${Math.max(hPct, 4)}%`,
-                    borderRadius: '4px 4px 0 0', overflow: 'hidden', display: 'flex', flexDirection: 'column',
-                  }}>
-                    <div style={{ flex: Math.max(profitPct, 0), background: 'var(--success)', minHeight: d.revenue > 0 ? 2 : 0 }} />
-                    <div style={{ flex: Math.max(100 - profitPct, 0), background: 'var(--error)', opacity: 0.6, minHeight: d.revenue > 0 ? 2 : 0 }} />
-                  </div>
-                  <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-                    {new Date(d.date).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit' }).slice(0, 5)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center', marginTop: 'var(--space-3)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--success)' }} /> Прибыль
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--error)', opacity: 0.6 }} /> Себестоимость
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Top profitable & loss products */}
-      <div className="rev-grid-2">
-        <div className="card" style={{ padding: 'var(--space-4)' }}>
-          <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)' }}>
-            <TrendingUp size={14} /> Самые прибыльные товары
-          </h4>
-          {(!data.topProfitable || data.topProfitable.length === 0) ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center', padding: 'var(--space-4)' }}>
-              Требуются продажи с указанной себестоимостью
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-              {data.topProfitable.map((p, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ width: 20, fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.sold} шт · {p.margin.toFixed(0)}% маржа</div>
-                  </div>
-                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: 'var(--success)', minWidth: 55, textAlign: 'right' }}>+{fmt(p.profit)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="card" style={{ padding: 'var(--space-4)' }}>
-          <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--error)' }}>
-            <TrendingDown size={14} /> Наименее прибыльные
-          </h4>
-          {(!data.topLoss || data.topLoss.length === 0) ? (
-            <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center', padding: 'var(--space-4)' }}>
-               Нет данных
-            </p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
-              {data.topLoss.map((p, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-                  <span style={{ width: 20, fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'right' }}>{i + 1}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{p.sold} шт · {p.margin.toFixed(0)}% маржа</div>
-                  </div>
-                  <span style={{ fontSize: 'var(--text-xs)', fontWeight: 800, color: p.profit < 0 ? 'var(--error)' : 'var(--warning)', minWidth: 55, textAlign: 'right' }}>{fmt(p.profit)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <AdminRevenueDailyChart dailyData={data.dailyData} maxDaily={maxDaily} />
+      <AdminRevenueTopProducts topProfitable={data.topProfitable} topLoss={data.topLoss} fmt={fmt} />
     </div>
   );
 }
