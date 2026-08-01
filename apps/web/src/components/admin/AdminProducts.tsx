@@ -1,10 +1,12 @@
 'use client';
 
+import { AdminProductMetrics } from './AdminProductMetrics';
+
 import { AdminProductList } from './AdminProductList';
 
 import { useState, useEffect } from 'react';
 import { AdminProductForm } from './AdminProductForm';
-import { AlertTriangle, CheckCircle, Plus, Search, Tag } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 
 export interface Product {
   id: string;
@@ -348,38 +350,14 @@ export function AdminProducts() {
   // ========== PRODUCT LIST ==========
   return (
     <div>
-      {/* Lang toggle + Metrics */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-2)' }}>
-        <button onClick={() => setLang(l => l === 'ru' ? 'uz' : 'ru')}
-          style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s' }}>
-          {lang === 'ru' ? '🇷🇺 RU' : '🇺🇿 UZ'}
-        </button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-        <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <Tag size={16} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Всего', 'Jami')}</div>
-            <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{counts.total}</div>
-          </div>
-        </div>
-        <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <CheckCircle size={16} style={{ color: 'var(--success)', flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Активных', 'Aktiv')}</div>
-            <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{activeCount}</div>
-          </div>
-        </div>
-        <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <AlertTriangle size={16} style={{ color: 'var(--warning)', flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Мало', 'Kam')}</div>
-            <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{lowStock}</div>
-          </div>
-        </div>
-      </div>
-
+      <AdminProductMetrics
+        counts={counts}
+        activeCount={activeCount}
+        lowStock={lowStock}
+        lang={lang}
+        setLang={setLang}
+        t={t}
+      />
       {/* Category Filter — top-level only, no duplicates */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: 'var(--space-2)', overflowX: 'auto', paddingBottom: 4 }}>
         <button onClick={() => setCategoryFilter('')}

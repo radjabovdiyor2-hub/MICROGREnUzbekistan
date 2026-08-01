@@ -1,5 +1,7 @@
 'use client';
 
+import { AdminMovementSummary } from './AdminMovementSummary';
+
 import { AdminMovementForm } from './AdminMovementForm';
 
 import { useState, useEffect } from 'react';
@@ -191,26 +193,13 @@ export function AdminMovements() {
       {/* ============ MOVEMENTS TAB ============ */}
       {tab === 'movements' && (
         <>
-          {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-            <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Jami</div>
-              <div style={{ fontWeight: 700, color: 'var(--brand-primary)' }}>{total}</div>
-            </div>
-            <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Bugun kirim</div>
-              <div style={{ fontWeight: 700, color: 'var(--success)' }}>+{todayIn}</div>
-            </div>
-            <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Bugun chiqim</div>
-              <div style={{ fontWeight: 700, color: 'var(--error)' }}>-{todayOut}</div>
-            </div>
-            <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Kirim qiymati</div>
-              <div style={{ fontWeight: 700, fontSize: 'var(--text-xs)' }}>{todayCost > 0 ? fmt(todayCost) : '-'}</div>
-            </div>
-          </div>
-
+      <AdminMovementSummary
+        total={total}
+        todayIn={todayIn}
+        todayOut={todayOut}
+        todayCost={todayCost}
+        fmt={fmt}
+      />
           {/* Controls */}
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
             <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
