@@ -1,7 +1,7 @@
 'use client';
 
 import { ProductMain } from './ProductMain';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,9 +12,10 @@ import { trackViewed } from '@/lib/recentlyViewed';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { ProductCard } from '@/components/shop/ProductCard';
-import { CATEGORY_ICONS, getOrCreateGuestId, SkeletonProductCard } from './productPageParts';
-import { ProductReviews, type Review } from './ProductReviews';
+import { CATEGORY_ICONS, SkeletonProductCard } from './productPageParts';
+import { ProductReviews } from './ProductReviews';
 import { ProductPageTabs } from './ProductPageTabs';
+import { useProductReviews } from './useProductReviews';
 
 export interface Product {
   id: string;
@@ -59,13 +60,16 @@ export function ProductPageClient({ id }: { id: string }) {
   const cart = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
 
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsLoaded, setReviewsLoaded] = useState(false);
-  const [ratingForm, setRatingForm] = useState({ name: '', stars: 0, comment: '' });
-  const [submitState, setSubmitState] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle');
-  const [submitError, setSubmitError] = useState('');
-  const reviewsAnchorRef = useRef<HTMLDivElement>(null);
+  const {
+    reviews, reviewsLoading, ratingForm, setRatingForm, submitState, submitError,
+    reviewsAnchorRef, handleRatingClick, handleSubmitReview,
+  } = useProductReviews({
+    productId: id,
+    activeTab,
+    setActiveTab,
+    t,
+    onReviewAdded: () => setProduct((p) => (p ? { ...p, reviewCount: p.reviewCount + 1 } : p)),
+  });
 
   const [related, setRelated] = useState<RelatedProduct[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
@@ -96,16 +100,6 @@ export function ProductPageClient({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    if (activeTab !== 'reviews' || reviewsLoaded) return;
-    setReviewsLoading(true);
-    fetch(`/api/reviews?productId=${id}`)
-      .then((r) => r.json())
-      .then((data) => { setReviews(data.reviews || []); setReviewsLoaded(true); })
-      .catch(() => setReviews([]))
-      .finally(() => setReviewsLoading(false));
-  }, [activeTab, id, reviewsLoaded]);
-
-  useEffect(() => {
     if (!product) return;
     setRelatedLoading(true);
     fetch(`/api/products?category=${product.category.slug}&limit=5`)
@@ -117,51 +111,6 @@ export function ProductPageClient({ id }: { id: string }) {
       .catch(() => setRelated([]))
       .finally(() => setRelatedLoading(false));
   }, [product, id]);
-
-  const handleRatingClick = useCallback(() => {
-    setActiveTab('reviews');
-    setTimeout(() => { reviewsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 50);
-  }, []);
-
-  const handleSubmitReview = async () => {
-    if (!product) return;
-    if (ratingForm.stars === 0) { setSubmitError(t('Reyting tanlang', 'Выберите оценку')); return; }
-    if (!ratingForm.name.trim()) { setSubmitError(t('Ismingizni kiriting', 'Введите ваше имя')); return; }
-    setSubmitError('');
-    setSubmitState('submitting');
-    const optimisticReview: Review = {
-      id: `opt-${Date.now()}`,
-      rating: ratingForm.stars,
-      comment: ratingForm.comment.trim() || null,
-      createdAt: new Date().toISOString(),
-      user: { firstName: ratingForm.name.trim(), avatarUrl: null },
-      _optimistic: true,
-    };
-    setReviews((prev) => [optimisticReview, ...prev]);
-    try {
-      const guestId = getOrCreateGuestId();
-      const res = await fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          guestId, guestName: ratingForm.name.trim(),
-          productId: product.id, rating: ratingForm.stars,
-          comment: ratingForm.comment.trim() || null,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setReviews((prev) => prev.map((r) => r.id === optimisticReview.id ? { ...optimisticReview, id: data.review.id, _optimistic: false } : r));
-        setSubmitState('done');
-        setRatingForm({ name: '', stars: 0, comment: '' });
-        setProduct((p) => p ? { ...p, reviewCount: p.reviewCount + 1 } : p);
-      } else { throw new Error(data.error); }
-    } catch {
-      setReviews((prev) => prev.filter((r) => r.id !== optimisticReview.id));
-      setSubmitState('error');
-      setSubmitError(t("Xatolik yuz berdi. Qayta urinib ko'ring.", 'Произошла ошибка. Попробуйте ещё раз.'));
-    }
-  };
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 

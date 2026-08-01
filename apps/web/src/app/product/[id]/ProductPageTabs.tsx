@@ -1,10 +1,10 @@
 'use client';
 
 import React from 'react';
-import {
-  CheckCircle, ClipboardList, FileText, Flame, Leaf, MapPin, MessageSquare, Phone, Sparkles, Truck,
-} from 'lucide-react';
+import { ClipboardList, FileText, Flame, Leaf, MessageSquare, Sparkles, Truck } from 'lucide-react';
 import type { Product } from './ProductPageClient';
+import { ProductSpecsTab } from './ProductSpecsTab';
+import { ProductDeliveryTab } from './ProductDeliveryTab';
 
 export function ProductPageTabs({
   activeTab,
@@ -138,97 +138,8 @@ export function ProductPageTabs({
         </div>
       )}
 
-      {activeTab === 'specs' && (
-        <div className="card" style={{ padding: 'var(--space-6)' }}>
-          {(() => {
-            const mergedSpecs: Record<string, string> =
-              product.specs && Object.keys(product.specs).length > 0
-                ? product.specs
-                : product.category?.slug === 'microgreens'
-                ? {
-                    [t("O'sish vaqti", 'Срок выращивания')]: t('7-10 kun', '7-10 дней'),
-                    [t('Vitaminlar', 'Витамины')]: 'A, B, C, E, K, Sulforaphane',
-                    [t('Minerallar', 'Минералы')]: t('Temir, Magniy, Kaltsiy, Rux', 'Железо, Магний, Кальций, Цинк'),
-                    [t("Ta'm", 'Вкус')]: t('Yangi va sersuv', 'Свежий и сочный'),
-                    [t('Foydali xususiyati', 'Полезные свойства')]: t(
-                      'Immunitet va hazm qilish',
-                      'Иммунитет и детоксикация',
-                    ),
-                    [t('Saqlash harorati', 'Температура хранения')]: '2°C — 5°C',
-                    [t('Yaroqlilik muddati', 'Срок годности')]: t('7 kun', '7 дней'),
-                  }
-                : product.category?.slug === 'seeds'
-                ? {
-                    [t('Unuvchanligi', 'Всхожесть')]: '98%',
-                    [t('Tozaligi', 'Чистота')]: '99.5%',
-                    [t('Vazni', 'Вес')]: t('50g — 200g paket', '50г — 200г пачка'),
-                    [t('Saqlash muddati', 'Срок годности')]: t('24 oy', '24 месяца'),
-                  }
-                : {
-                    [t('Kafolat', 'Гарантия')]: t('Sifat kafolati 100%', 'Гарантия качества 100%'),
-                    [t('Ishlab chiqaruvchi', 'Производитель')]: 'Microgreen Uzbekistan',
-                    [t('Yetkazib berish', 'Доставка')]: t("Bugunning o'zida", 'В день заказа'),
-                  };
-
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                {Object.entries(mergedSpecs).map(([key, val]) => (
-                  <div
-                    key={key}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: 'var(--space-3) 0',
-                      borderBottom: '1px solid var(--border)',
-                      fontSize: 'var(--text-sm)',
-                    }}
-                  >
-                    <span
-                      style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}
-                    >
-                      <CheckCircle size={15} style={{ color: 'var(--success)' }} /> {key}
-                    </span>
-                    <span style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>
-                      {val}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
-        </div>
-      )}
-
-      {activeTab === 'delivery' && (
-        <div className="card" style={{ padding: 'var(--space-6)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            {[
-              {
-                icon: <Truck size={24} />,
-                title: t('Yetkazib berish', 'Доставка'),
-                sub: t(
-                  "30-90 daqiqada · 25 000 so'm (500K dan bepul)",
-                  'За 30-90 минут · 25 000 сум (от 500К бесплатно)',
-                ),
-              },
-              {
-                icon: <MapPin size={24} />,
-                title: t("O'zingiz olib ketish", 'Самовывоз'),
-                sub: t('Ray senter, Hokimiyat yonida', 'Райцентр, возле Хокимията'),
-              },
-              { icon: <Phone size={24} />, title: t('Maslahat', 'Консультация'), sub: '+998 94 999 95 99' },
-            ].map((d, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                <span style={{ color: 'var(--brand-primary)', flexShrink: 0 }}>{d.icon}</span>
-                <div>
-                  <div style={{ fontWeight: 'var(--font-semibold)' }}>{d.title}</div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{d.sub}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {activeTab === 'specs' && <ProductSpecsTab product={product} t={t} />}
+      {activeTab === 'delivery' && <ProductDeliveryTab t={t} />}
     </>
   );
 }
