@@ -28,7 +28,7 @@ export function AiBanner() {
       <div className="container">
         {/* Main AI Banner */}
         <div style={{
-          background: 'linear-gradient(135deg, var(--cat-1) 0%, var(--cat-9) 30%, var(--cat-9) 60%, #C084FC 100%)',
+          background: 'linear-gradient(135deg, var(--cat-1) 0%, var(--cat-9) 30%, var(--cat-9) 60%, var(--accent-violet) 100%)',
           backgroundSize: '300% 300%',
           animation: 'ai-gradient 10s ease infinite',
           borderRadius: '24px',
@@ -36,22 +36,22 @@ export function AiBanner() {
           color: 'white',
           position: 'relative',
           overflow: 'hidden',
-          boxShadow: '0 12px 40px rgba(99, 102, 241, 0.3)',
+          boxShadow: '0 12px 40px color-mix(in srgb, var(--cat-1) 30%, transparent)',
         }}>
           {/* Decorative circles */}
-          <div style={{ position: 'absolute', top: -70, right: -50, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', animation: 'float-orb 10s ease-in-out infinite' }} />
-          <div style={{ position: 'absolute', bottom: -50, left: -40, width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', animation: 'float-orb 8s ease-in-out infinite reverse' }} />
-          <div style={{ position: 'absolute', top: '35%', right: '12%', width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', animation: 'float-up-down 6s ease-in-out infinite' }} />
+          <div style={{ position: 'absolute', top: -70, right: -50, width: 200, height: 200, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.06)', animation: 'float-orb 10s ease-in-out infinite' }} />
+          <div style={{ position: 'absolute', bottom: -50, left: -40, width: 150, height: 150, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.04)', animation: 'float-orb 8s ease-in-out infinite reverse' }} />
+          <div style={{ position: 'absolute', top: '35%', right: '12%', width: 80, height: 80, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.03)', animation: 'float-up-down 6s ease-in-out infinite' }} />
 
           <div style={{ position: 'relative', zIndex: 1 }}>
             {/* Badge */}
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius-full)',
+              background: 'rgba(var(--overlay-light-rgb), 0.15)', borderRadius: 'var(--radius-full)',
               padding: '6px 16px', fontSize: '11px', fontWeight: 700,
               marginBottom: 'var(--space-4)', backdropFilter: 'blur(12px)',
               letterSpacing: '1px', textTransform: 'uppercase',
-              border: '1px solid rgba(255,255,255,0.15)',
+              border: '1px solid rgba(var(--overlay-light-rgb), 0.15)',
             }}>
               <Sparkles size={13} /> AI Agronom
             </div>
@@ -63,7 +63,7 @@ export function AiBanner() {
               fontWeight: 800,
               marginBottom: 'var(--space-2)',
               lineHeight: 1.1, letterSpacing: '-0.5px',
-              textShadow: '0 2px 12px rgba(0,0,0,0.15)',
+              textShadow: '0 2px 12px rgba(var(--overlay-dark-rgb), 0.15)',
             }}>
               {t('ai.title')}
             </h2>
@@ -92,11 +92,11 @@ export function AiBanner() {
                   padding: '13px 26px',
                   fontWeight: 700, fontSize: '14px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '10px',
-                  boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
+                  boxShadow: '0 6px 20px rgba(var(--overlay-dark-rgb), 0.15)',
                   transition: 'all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 }}
-                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(0,0,0,0.2)'; }}
-                onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)'; }}
+                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.03)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(var(--overlay-dark-rgb), 0.2)'; }}
+                onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(var(--overlay-dark-rgb), 0.15)'; }}
               >
                 <Sparkles size={16} /> {t('ai.try')}
               </button>
@@ -105,8 +105,8 @@ export function AiBanner() {
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
-                  background: 'rgba(255,255,255,0.12)', color: 'white',
-                  border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(var(--overlay-light-rgb), 0.12)', color: 'white',
+                  border: '1px solid rgba(var(--overlay-light-rgb), 0.2)',
                   padding: '13px 26px',
                   fontWeight: 600, fontSize: '14px', cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: '10px',
@@ -121,7 +121,7 @@ export function AiBanner() {
             {/* Stats */}
             <div style={{
               display: 'flex', gap: 'var(--space-6)', flexWrap: 'wrap',
-              borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 'var(--space-4)',
+              borderTop: '1px solid rgba(var(--overlay-light-rgb), 0.1)', paddingTop: 'var(--space-4)',
             }}>
               {[
                 { val: '6+', label: t('ai.stats.skills') },
@@ -132,7 +132,7 @@ export function AiBanner() {
                 <div key={i} style={{ textAlign: 'center' }}>
                   <div style={{
                     fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: '20px',
-                    textShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                    textShadow: '0 1px 4px rgba(var(--overlay-dark-rgb), 0.1)',
                   }}>
                     {s.val || s.icon}
                   </div>
@@ -196,20 +196,20 @@ export function AiBanner() {
           borderRadius: '20px',
           padding: '28px 32px',
           color: 'white', position: 'relative', overflow: 'hidden',
-          boxShadow: '0 8px 28px rgba(5, 150, 105, 0.25)',
+          boxShadow: '0 8px 28px rgba(var(--brand-primary-hover-rgb), 0.25)',
         }}>
           <div style={{
             position: 'absolute', top: -30, right: -30,
             width: 100, height: 100, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.06)',
+            background: 'rgba(var(--overlay-light-rgb), 0.06)',
             animation: 'float-up-down 6s ease-in-out infinite',
           }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', position: 'relative', zIndex: 1 }}>
             <div style={{
               flexShrink: 0, width: 52, height: 52, borderRadius: '16px',
-              background: 'rgba(255,255,255,0.15)', display: 'flex',
+              background: 'rgba(var(--overlay-light-rgb), 0.15)', display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(8px)', border: '1px solid rgba(var(--overlay-light-rgb), 0.1)',
             }}>
               <Gift size={24} />
             </div>
@@ -217,7 +217,7 @@ export function AiBanner() {
               <div style={{
                 fontFamily: 'var(--font-display)', fontWeight: 800,
                 fontSize: 'var(--text-lg)', marginBottom: 3,
-                textShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                textShadow: '0 1px 4px rgba(var(--overlay-dark-rgb), 0.1)',
               }}>
                 {t('ref.title')}
               </div>
@@ -230,10 +230,10 @@ export function AiBanner() {
             href="/profile"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              marginTop: 'var(--space-4)', background: 'rgba(255,255,255,0.18)',
+              marginTop: 'var(--space-4)', background: 'rgba(var(--overlay-light-rgb), 0.18)',
               padding: '10px 20px',
               color: 'white', textDecoration: 'none', fontSize: '13px', fontWeight: 700,
-              border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)',
+              border: '1px solid rgba(var(--overlay-light-rgb), 0.2)', backdropFilter: 'blur(4px)',
               transition: 'all 0.2s',
               position: 'relative', zIndex: 1,
             }}

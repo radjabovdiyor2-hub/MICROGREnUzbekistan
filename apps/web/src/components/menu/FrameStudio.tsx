@@ -137,7 +137,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
   }, [consent, dishCode, fileName, guestName, slug]);
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 9999, fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgb(var(--overlay-dark-rgb))', zIndex: 9999, fontFamily: "'Inter', sans-serif" }}>
       <canvas ref={canvasRef} width={FRAME_W} height={FRAME_H} style={{ display: 'none' }} />
 
       {/* ── Видоискатель ── */}
@@ -151,7 +151,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
           />
           <div style={{
             position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 20px 32px',
-            background: 'linear-gradient(180deg, rgba(0,0,0,0.7), transparent)',
+            background: 'linear-gradient(180deg, rgba(var(--overlay-dark-rgb), 0.7), transparent)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div style={{ color: 'var(--text-inverse)' }}>
@@ -162,7 +162,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
               href={`/m/${slug}/d/${dishCode}`}
               style={{
                 padding: '8px 16px', borderRadius: 20, color: 'var(--text-inverse)', fontSize: 13, fontWeight: 600,
-                background: 'rgba(255,255,255,0.15)', textDecoration: 'none',
+                background: 'rgba(var(--overlay-light-rgb), 0.15)', textDecoration: 'none',
               }}
             >Закрыть</Link>
           </div>
@@ -182,10 +182,10 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
           ) : (
             <div style={{
               position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 20px 40px',
-              background: 'linear-gradient(0deg, rgba(0,0,0,0.75), transparent)',
+              background: 'linear-gradient(0deg, rgba(var(--overlay-dark-rgb), 0.75), transparent)',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
             }}>
-              <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 13, textAlign: 'center' }}>
+              <p style={{ color: 'rgba(var(--overlay-light-rgb), 0.65)', fontSize: 13, textAlign: 'center' }}>
                 Наведите на блюдо и нажмите — рамка добавится сама
               </p>
               <button
@@ -193,7 +193,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
                 aria-label="Снять кадр"
                 style={{
                   width: 78, height: 78, borderRadius: '50%',
-                  border: `4px solid ${accent}`, background: '#fff', cursor: 'pointer',
+                  border: `4px solid ${accent}`, background: 'rgb(var(--overlay-light-rgb))', cursor: 'pointer',
                 }}
               />
             </div>
@@ -213,13 +213,13 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
             <button onClick={share} style={btn(accent)}>📤 Сохранить / поделиться</button>
 
             <div style={{
-              padding: 16, borderRadius: 16, background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              padding: 16, borderRadius: 16, background: 'rgba(var(--overlay-light-rgb), 0.06)',
+              border: '1px solid rgba(var(--overlay-light-rgb), 0.1)',
             }}>
               <div style={{ color: 'var(--text-inverse)', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
                 Хотите в следующий номер?
               </div>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+              <p style={{ color: 'rgba(var(--overlay-light-rgb), 0.6)', fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
                 Лучшие кадры недели печатаем в журнале FRESH WEEKLY с именем автора.
               </p>
               <input
@@ -229,13 +229,13 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
                 maxLength={40}
                 style={{
                   width: '100%', padding: '12px 14px', borderRadius: 12, marginBottom: 10,
-                  background: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.15)',
+                  background: 'rgba(var(--overlay-dark-rgb), 0.35)', border: '1px solid rgba(var(--overlay-light-rgb), 0.15)',
                   color: 'var(--text-inverse)', fontSize: 14, fontFamily: 'inherit',
                 }}
               />
               <label style={{
                 display: 'flex', gap: 10, alignItems: 'flex-start',
-                color: 'rgba(255,255,255,0.7)', fontSize: 12, lineHeight: 1.5, cursor: 'pointer',
+                color: 'rgba(var(--overlay-light-rgb), 0.7)', fontSize: 12, lineHeight: 1.5, cursor: 'pointer',
               }}>
                 <input
                   type="checkbox"
@@ -248,7 +248,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
               <button
                 onClick={submit}
                 disabled={!consent || sending}
-                style={{ ...btn(consent ? accent : 'rgba(255,255,255,0.12)'), marginTop: 12, opacity: consent ? 1 : 0.6 }}
+                style={{ ...btn(consent ? accent : 'rgba(var(--overlay-light-rgb), 0.12)'), marginTop: 12, opacity: consent ? 1 : 0.6 }}
               >
                 {sending ? 'Отправляем...' : '✨ Отправить в журнал'}
               </button>
@@ -270,7 +270,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
         }}>
           <div style={{ fontSize: 56 }}>✨</div>
           <h2 style={{ color: 'var(--text-inverse)', fontSize: 22, fontWeight: 800 }}>Кадр отправлен</h2>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 14, lineHeight: 1.6, maxWidth: 320 }}>
+          <p style={{ color: 'rgba(var(--overlay-light-rgb), 0.65)', fontSize: 14, lineHeight: 1.6, maxWidth: 320 }}>
             Он участвует в отборе в следующий номер. Загляните в журнал через неделю —
             вдруг там вы.
           </p>
@@ -283,7 +283,7 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
   );
 }
 
-function btn(background: string, color = '#fff'): React.CSSProperties {
+function btn(background: string, color = 'rgb(var(--overlay-light-rgb))'): React.CSSProperties {
   return {
     display: 'block', width: '100%', padding: '15px 20px', borderRadius: 16,
     background, color, fontFamily: 'inherit', fontSize: 15, fontWeight: 700,

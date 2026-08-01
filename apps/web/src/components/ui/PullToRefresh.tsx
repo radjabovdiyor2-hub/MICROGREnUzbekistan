@@ -110,7 +110,7 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
         <div style={{
           width: 40, height: 40, borderRadius: '50%',
           background: 'var(--bg-card)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          boxShadow: '0 4px 12px rgba(var(--overlay-dark-rgb), 0.1)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'var(--brand-primary)',
           transform: `rotate(${pullY * 2}deg)`,

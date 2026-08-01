@@ -35,7 +35,7 @@ export function AdminCommandPalette({ paletteOpen, setPaletteOpen, paletteQuery,
   <div
     onClick={() => setPaletteOpen(false)}
     style={{
-      position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)',
+      position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(var(--overlay-dark-rgb), 0.5)',
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
       paddingTop: '12vh', backdropFilter: 'blur(2px)',
     }}>
@@ -44,7 +44,7 @@ export function AdminCommandPalette({ paletteOpen, setPaletteOpen, paletteQuery,
       style={{
         width: 'min(560px, 92vw)', background: 'var(--bg-primary)',
         border: '1px solid var(--border)', borderRadius: 16,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.35)', overflow: 'hidden',
+        boxShadow: '0 20px 60px rgba(var(--overlay-dark-rgb), 0.35)', overflow: 'hidden',
       }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
         <Search size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />

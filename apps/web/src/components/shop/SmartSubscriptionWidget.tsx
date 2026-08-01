@@ -19,7 +19,7 @@ export function SmartSubscriptionWidget() {
       padding: 'var(--space-4)', 
       marginTop: 'var(--space-4)', 
       border: active ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
-      background: active ? 'rgba(16, 185, 129, 0.05)' : 'var(--card)',
+      background: active ? 'rgba(var(--brand-primary-rgb), 0.05)' : 'var(--card)',
       transition: 'all 0.3s ease',
       cursor: 'pointer',
       position: 'relative',

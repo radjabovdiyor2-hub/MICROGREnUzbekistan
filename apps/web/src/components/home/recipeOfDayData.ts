@@ -2,10 +2,10 @@
 // чистые данные без состояния.
 
 export const CATEGORY_ICONS: Record<string, { label: string; colorFrom: string; colorTo: string }> = {
-  breakfast: { label: 'B', colorFrom: 'var(--warning)', colorTo: '#F97316' },
+  breakfast: { label: 'B', colorFrom: 'var(--warning)', colorTo: 'var(--accent-orange)' },
   salad: { label: 'S', colorFrom: 'var(--brand-primary)', colorTo: 'var(--brand-primary-hover)' },
   smoothie: { label: 'D', colorFrom: 'var(--cat-2)', colorTo: 'var(--cat-1)' },
-  snack: { label: 'N', colorFrom: 'var(--cat-3)', colorTo: '#F43F5E' },
+  snack: { label: 'N', colorFrom: 'var(--cat-3)', colorTo: 'var(--accent-rose)' },
   main: { label: 'M', colorFrom: 'var(--info)', colorTo: 'var(--info)' },
 };
 

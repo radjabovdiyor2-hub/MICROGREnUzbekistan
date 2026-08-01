@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useAuth } from '@/components/providers/AuthProvider';
+import { token } from '@/lib/canvasTokens';
 
 // Foundation for running the storefront as a Telegram Mini App.
 // When opened inside Telegram, `window.Telegram.WebApp` is injected by the
@@ -22,8 +23,8 @@ export function TelegramInit() {
       wa.expand?.();
       // Литеральный цвет намеренно: setHeaderColor уходит в нативный клиент
       // Telegram, CSS-переменные там не существуют. Держать в паре с --brand-primary.
-      wa.setHeaderColor?.('#10B981');
-      wa.setBackgroundColor?.('#ffffff');
+      wa.setHeaderColor?.(token('brand-primary'));
+      wa.setBackgroundColor?.(token('bg-primary'));
     } catch {
       /* older Telegram clients — ignore */
     }

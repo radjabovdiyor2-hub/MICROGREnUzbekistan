@@ -37,7 +37,7 @@ export function StoriesViewer({
     onClick={next}
     style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: 'rgba(0,0,0,0.95)', display: 'flex',
+      background: 'rgba(var(--overlay-dark-rgb), 0.95)', display: 'flex',
       alignItems: 'center', justifyContent: 'center',
       backdropFilter: 'blur(10px)'
     }}
@@ -50,11 +50,11 @@ export function StoriesViewer({
       {stories.map((_, i) => (
         <div key={i} style={{
           flex: 1, height: '3px', borderRadius: '2px',
-          background: 'rgba(255,255,255,0.3)', overflow: 'hidden'
+          background: 'rgba(var(--overlay-light-rgb), 0.3)', overflow: 'hidden'
         }}>
           <div style={{
             height: '100%',
-            background: '#fff',
+            background: 'rgb(var(--overlay-light-rgb))',
             width: i < idx ? '100%' : i === idx ? `${progress}%` : '0%',
             transition: i === idx && cur.mediaType !== 'VIDEO' ? 'width 50ms linear' : 'none'
           }} />
@@ -67,7 +67,7 @@ export function StoriesViewer({
       onClick={(e) => { e.stopPropagation(); close(); }}
       style={{
         position: 'absolute', top: '32px', right: '16px', zIndex: 3,
-        background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%',
+        background: 'rgba(var(--overlay-light-rgb), 0.1)', border: 'none', borderRadius: '50%',
         width: '40px', height: '40px', color: 'var(--text-inverse)', cursor: 'pointer',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         backdropFilter: 'blur(10px)'
@@ -88,7 +88,7 @@ export function StoriesViewer({
         width: '100%', maxWidth: '420px', height: '100%', maxHeight: '850px',
         position: 'relative', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+        boxShadow: '0 20px 60px rgba(var(--overlay-dark-rgb), 0.5)',
         borderRadius: '16px'
       }}
     >
@@ -124,9 +124,9 @@ export function StoriesViewer({
           onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)',
-            padding: '12px 24px', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)',
+            padding: '12px 24px', background: 'rgba(var(--overlay-light-rgb), 0.2)', backdropFilter: 'blur(10px)',
             color: 'var(--text-inverse)', borderRadius: '30px', textDecoration: 'none',
-            fontSize: '14px', fontWeight: 600, border: '1px solid rgba(255,255,255,0.4)',
+            fontSize: '14px', fontWeight: 600, border: '1px solid rgba(var(--overlay-light-rgb), 0.4)',
             display: 'flex', alignItems: 'center', gap: '8px'
           }}
         >

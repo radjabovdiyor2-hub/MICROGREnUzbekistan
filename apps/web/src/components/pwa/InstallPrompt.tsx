@@ -66,7 +66,7 @@ export function InstallPrompt() {
       background: 'var(--bg-card)',
       borderRadius: 'var(--radius-xl)',
       padding: 'var(--space-4)',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+      boxShadow: '0 10px 40px rgba(var(--overlay-dark-rgb), 0.15)',
       border: '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',

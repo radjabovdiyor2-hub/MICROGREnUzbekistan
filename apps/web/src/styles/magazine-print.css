@@ -16,7 +16,10 @@
   --accent: #2d5a27;
   --accent-light: #e8f0e6;
   --accent-bright: #3a7a32;
-  --gold: #c9a84c;
+  /* Значение по умолчанию берём из токена: то же золото используют страницы
+     сайта вокруг журнала, а ресторан переопределяет --gold поверх. */
+  --gold: var(--editorial-gold);
+  --gold-light: var(--editorial-gold-light);
   --gold-soft: #f7f2e4;
   --caption: #666;
   --rule: #e0ddd8;

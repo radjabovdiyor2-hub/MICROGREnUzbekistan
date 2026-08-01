@@ -9,6 +9,8 @@
 // а раскладку можно проверить тестом.
 // ════════════════════════════════════════════════════════════
 
+import { token, alpha, solid } from '@/lib/canvasTokens';
+
 export const FRAME_W = 1080;
 export const FRAME_H = 1920;
 
@@ -39,8 +41,8 @@ export interface FrameLayout {
   logo: Rect;
 }
 
-const DEFAULT_ACCENT = '#10B981';
-const DEFAULT_GOLD = '#C9A84C';
+const DEFAULT_ACCENT = token('brand-primary');
+const DEFAULT_GOLD = token('editorial-gold');
 
 /**
  * Обрезка «по большей стороне» (object-fit: cover): кадр телефона почти
@@ -126,15 +128,15 @@ export function drawFrame(
 
   // Затемнения сверху и снизу, чтобы текст читался на любом фоне
   const top = ctx.createLinearGradient(0, 0, 0, layout.header.h);
-  top.addColorStop(0, 'rgba(0,0,0,0.65)');
-  top.addColorStop(1, 'rgba(0,0,0,0)');
+  top.addColorStop(0, alpha('overlay-dark-rgb', 0.65));
+  top.addColorStop(1, alpha('overlay-dark-rgb', 0));
   ctx.fillStyle = top;
   ctx.fillRect(0, 0, FRAME_W, layout.header.h);
 
   const bottom = ctx.createLinearGradient(0, layout.footer.y, 0, FRAME_H);
-  bottom.addColorStop(0, 'rgba(0,0,0,0)');
-  bottom.addColorStop(0.45, 'rgba(0,0,0,0.72)');
-  bottom.addColorStop(1, 'rgba(0,0,0,0.92)');
+  bottom.addColorStop(0, alpha('overlay-dark-rgb', 0));
+  bottom.addColorStop(0.45, alpha('overlay-dark-rgb', 0.72));
+  bottom.addColorStop(1, alpha('overlay-dark-rgb', 0.92));
   ctx.fillStyle = bottom;
   ctx.fillRect(0, layout.footer.y, FRAME_W, layout.footer.h);
 
@@ -148,7 +150,7 @@ export function drawFrame(
     ctx.restore();
     textX = layout.logo.x + layout.logo.w + 24;
   }
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = solid('overlay-light-rgb');
   ctx.textBaseline = 'middle';
   ctx.font = '700 44px Inter, system-ui, sans-serif';
   ctx.fillText(brand.name, textX, layout.logo.y + 46);
@@ -164,14 +166,14 @@ export function drawFrame(
   let y = FRAME_H - 400;
 
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = solid('overlay-light-rgb');
   const nameSize = fitText(ctx, content.dishName, FRAME_W - padX * 2, 84, "'Playfair Display', Georgia, serif");
   ctx.font = `900 ${nameSize}px 'Playfair Display', Georgia, serif`;
   ctx.fillText(content.dishName, padX, y);
 
   if (content.dishNameUz) {
     y += 52;
-    ctx.fillStyle = 'rgba(255,255,255,0.62)';
+    ctx.fillStyle = alpha('overlay-light-rgb', 0.62);
     ctx.font = '400 36px Inter, system-ui, sans-serif';
     ctx.fillText(content.dishNameUz, padX, y);
   }
@@ -187,7 +189,7 @@ export function drawFrame(
   // а не разовая скидка на месте.
   if (brand.promoCode) {
     const chip: Rect = { x: padX, y: FRAME_H - 200, w: FRAME_W - padX * 2, h: 96 };
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillStyle = alpha('overlay-light-rgb', 0.12);
     roundedRect(ctx, chip, 24);
     ctx.fill();
     ctx.strokeStyle = accent;
@@ -195,7 +197,7 @@ export function drawFrame(
     roundedRect(ctx, chip, 24);
     ctx.stroke();
 
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = solid('overlay-light-rgb');
     ctx.font = '700 36px Inter, system-ui, sans-serif';
     ctx.textBaseline = 'middle';
     const discount = brand.promoDiscount ? `−${brand.promoDiscount}% ` : '';
@@ -204,7 +206,7 @@ export function drawFrame(
   }
 
   // ── Подпись издания ──
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillStyle = alpha('overlay-light-rgb', 0.55);
   ctx.font = '600 28px Inter, system-ui, sans-serif';
   ctx.fillText('FRESH WEEKLY · Живое меню', padX, FRAME_H - 56);
 

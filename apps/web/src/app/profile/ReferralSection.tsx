@@ -98,8 +98,8 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
         borderRadius: 'var(--radius-xl)', padding: 'var(--space-5)',
         color: 'white', position: 'relative', overflow: 'hidden',
       }}>
-        <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+        <div style={{ position: 'absolute', top: -20, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.1)' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 80, height: 80, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.08)' }} />
 
         <div style={{ fontSize: 'var(--text-xs)', opacity: 0.8, marginBottom: 4 }}>
           {t('Bonus balansi', 'Бонусный баланс')}
@@ -108,10 +108,10 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
           {fmt(bonusPoints)} <span style={{ fontSize: '14px', fontWeight: 400, opacity: 0.8 }}>so&apos;m</span>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
-          <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ background: 'rgba(var(--overlay-light-rgb), 0.15)', borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Users size={12} /> {referralData?.referralCount || 0} {t('taklif', 'приглашений')}
           </div>
-          <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ background: 'rgba(var(--overlay-light-rgb), 0.15)', borderRadius: 'var(--radius-md)', padding: '6px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <Percent size={12} /> 3% {t("har xariddan", "с каждой покупки")}
           </div>
         </div>

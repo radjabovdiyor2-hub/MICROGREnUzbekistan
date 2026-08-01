@@ -23,8 +23,8 @@ export default async function MagazinePage() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--bg-primary, #0B0B14)',
-      color: 'var(--text-primary, #fff)',
+      background: 'var(--bg-primary)',
+      color: 'var(--text-primary, rgb(var(--overlay-light-rgb)))',
       fontFamily: "'Inter', sans-serif",
     }}>
       {/* ═══════ HERO SECTION ═══════ */}
@@ -69,7 +69,7 @@ export default async function MagazinePage() {
             padding: '16px 32px', borderRadius: '30px',
             background: 'var(--brand-primary)', color: 'var(--text-inverse)',
             fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-            boxShadow: '0 8px 24px rgba(16,185,129,0.4)',
+            boxShadow: '0 8px 24px rgba(var(--brand-primary-rgb), 0.4)',
           }}>
             📖 Смотреть выпуски
           </a>
@@ -126,8 +126,8 @@ export default async function MagazinePage() {
                 textDecoration: 'none',
                 borderRadius: '24px', overflow: 'hidden',
                 background: latest.brandPrimary
-                  ? `linear-gradient(135deg, ${latest.brandPrimary}, #0a2a0a)`
-                  : 'linear-gradient(135deg, #1a3a1a, #0a2a0a)',
+                  ? `linear-gradient(135deg, ${latest.brandPrimary}, var(--editorial-cover-green-deep))`
+                  : 'linear-gradient(135deg, var(--editorial-cover-green), var(--editorial-cover-green-deep))',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 position: 'relative',
                 minHeight: '400px',
@@ -136,7 +136,7 @@ export default async function MagazinePage() {
               }}>
                 <div style={{
                   position: 'absolute', top: '24px', left: '24px',
-                  padding: '8px 16px', background: 'rgba(255,255,255,0.1)',
+                  padding: '8px 16px', background: 'rgba(var(--overlay-light-rgb), 0.1)',
                   backdropFilter: 'blur(12px)', borderRadius: '20px',
                   fontSize: '12px', fontWeight: 700, color: 'var(--text-inverse)',
                   letterSpacing: '2px', textTransform: 'uppercase'
@@ -179,7 +179,7 @@ export default async function MagazinePage() {
 
               {/* Bento 3: живое меню */}
               <div style={{
-                background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(0,0,0,0))',
+                background: 'linear-gradient(135deg, rgba(var(--brand-primary-rgb), 0.1), rgba(var(--overlay-dark-rgb), 0))',
                 borderRadius: '24px', padding: '32px', border: '1px solid var(--border)',
                 position: 'relative', overflow: 'hidden',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
@@ -227,8 +227,8 @@ export default async function MagazinePage() {
                 <div style={{
                   height: '160px',
                   background: issue.brandPrimary
-                    ? `linear-gradient(135deg, ${issue.brandPrimary}, #1a202c)`
-                    : 'linear-gradient(135deg, #2d3748, #1a202c)',
+                    ? `linear-gradient(135deg, ${issue.brandPrimary}, var(--editorial-cover-slate-deep))`
+                    : 'linear-gradient(135deg, var(--editorial-cover-slate), var(--editorial-cover-slate-deep))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px'
                 }}>
                   📖
@@ -275,8 +275,8 @@ export default async function MagazinePage() {
                 <div style={{
                   height: '140px',
                   background: mag.brandPrimary
-                    ? `linear-gradient(135deg, ${mag.brandPrimary}, #1a202c)`
-                    : 'linear-gradient(135deg, #2d5a27, #0a2a0a)',
+                    ? `linear-gradient(135deg, ${mag.brandPrimary}, var(--editorial-cover-slate-deep))`
+                    : 'linear-gradient(135deg, var(--editorial-cover-green-mid), var(--editorial-cover-green-deep))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
                   {mag.logo
@@ -288,8 +288,8 @@ export default async function MagazinePage() {
                     {mag.restaurantName}
                   </h3>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    {mag.htmlUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(16,185,129,0.15)', color: 'var(--brand-primary)' }}>HTML</span>}
-                    {mag.pdfUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59,130,246,0.15)', color: 'var(--info)' }}>PDF</span>}
+                    {mag.htmlUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(var(--brand-primary-rgb), 0.15)', color: 'var(--brand-primary)' }}>HTML</span>}
+                    {mag.pdfUrl && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'color-mix(in srgb, var(--info) 15%, transparent)', color: 'var(--info)' }}>PDF</span>}
                   </div>
                 </div>
               </a>
@@ -304,8 +304,8 @@ export default async function MagazinePage() {
         textAlign: 'center',
       }}>
         <div style={{
-          background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(74,222,128,0.05))',
-          border: '1px solid rgba(16,185,129,0.2)',
+          background: 'linear-gradient(135deg, rgba(var(--brand-primary-rgb), 0.1), rgba(var(--brand-primary-rgb), 0.05))',
+          border: '1px solid rgba(var(--brand-primary-rgb), 0.2)',
           borderRadius: '24px', padding: '40px 32px',
         }}>
           <h3 style={{
@@ -328,9 +328,9 @@ export default async function MagazinePage() {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
               padding: '16px 32px', borderRadius: '30px',
-              background: '#229ED9', color: 'var(--text-inverse)',
+              background: 'var(--social-telegram-bright)', color: 'var(--text-inverse)',
               fontWeight: 700, fontSize: '15px', textDecoration: 'none',
-              boxShadow: '0 8px 24px rgba(34,158,217,0.3)',
+              boxShadow: '0 8px 24px color-mix(in srgb, var(--social-telegram-bright) 30%, transparent)',
             }}
           >
             📲 Заказать в Telegram

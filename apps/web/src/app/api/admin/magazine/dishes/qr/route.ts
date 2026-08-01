@@ -66,6 +66,9 @@ function buildSheet(slug: string, cells: { code: number; name: string; svg: stri
       </g>`;
   }).join('');
 
+  // Цвета ниже — литералами намеренно: SVG собирается строкой на сервере и
+  // скачивается отдельным файлом для печати, то есть живёт вне документа и
+  // каскада CSS, где var() резолвить некому.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="${width}" height="${height}" fill="#ffffff"/>
   <text x="${GAP}" y="${GAP - 6}" font-family="Inter, sans-serif" font-size="14" fill="#888">FRESH WEEKLY · ${slug} · QR меню</text>

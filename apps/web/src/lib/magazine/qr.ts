@@ -31,6 +31,9 @@ export function recipeUrl(slug: string): string {
 }
 
 // URL картинки QR-кода для данных (экранное превью, margin:0)
+// Чистые чёрный и белый ниже — требование считывания, а не оформление:
+// сканеру нужен максимальный контраст модулей, поэтому токен темы тут не
+// применяется ни на экране, ни в печати.
 export async function buildQrUrl(data: string, size = 300): Promise<string> {
   return await QRCode.toDataURL(data, {
     width: size,

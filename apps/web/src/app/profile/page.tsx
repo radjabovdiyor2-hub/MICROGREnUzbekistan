@@ -103,13 +103,13 @@ export default function ProfilePage() {
                 flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
                 background: authTab === 'simple' ? 'var(--bg-card)' : 'transparent',
                 color: authTab === 'simple' ? 'var(--text-primary)' : 'var(--text-muted)',
-                boxShadow: authTab === 'simple' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s',
+                boxShadow: authTab === 'simple' ? '0 1px 3px rgba(var(--overlay-dark-rgb), 0.1)' : 'none', transition: 'all 0.2s',
               }}>{t('Telefon orqali', 'По телефону')}</button>
               <button onClick={() => setAuthTab('telegram')} style={{
                 flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
                 background: authTab === 'telegram' ? 'var(--bg-card)' : 'transparent',
                 color: authTab === 'telegram' ? 'var(--text-primary)' : 'var(--text-muted)',
-                boxShadow: authTab === 'telegram' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', transition: 'all 0.2s',
+                boxShadow: authTab === 'telegram' ? '0 1px 3px rgba(var(--overlay-dark-rgb), 0.1)' : 'none', transition: 'all 0.2s',
               }}>Telegram</button>
             </div>
 

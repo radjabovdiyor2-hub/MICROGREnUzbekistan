@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { token, alpha } from '@/lib/canvasTokens';
 
 export const runtime = 'edge';
 export const alt = 'Microgreen Uzbekistan';
@@ -13,7 +14,7 @@ export default async function Image() {
     (
       <div
         style={{
-          background: 'linear-gradient(to bottom right, #064e3b, #065f46)',
+          background: `linear-gradient(to bottom right, ${token('og-bg-deep')}, ${token('og-bg')})`,
           width: '100%',
           height: '100%',
           display: 'flex',
@@ -29,10 +30,10 @@ export default async function Image() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(255, 255, 255, 0.1)',
+            background: alpha('overlay-light-rgb', 0.1),
             padding: '40px 60px',
             borderRadius: '40px',
-            border: '2px solid rgba(255, 255, 255, 0.2)',
+            border: `2px solid ${alpha('overlay-light-rgb', 0.2)}`,
           }}
         >
           <svg
@@ -40,7 +41,7 @@ export default async function Image() {
             height="120"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#4ade80"
+            stroke={token('og-leaf')}
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -59,7 +60,7 @@ export default async function Image() {
               style={{
                 fontSize: '84px',
                 fontWeight: 'bold',
-                color: '#ffffff',
+                color: token('text-inverse'),
                 margin: 0,
                 lineHeight: 1.1,
               }}
@@ -69,7 +70,7 @@ export default async function Image() {
             <h2
               style={{
                 fontSize: '48px',
-                color: '#4ade80',
+                color: token('og-leaf'),
                 margin: '10px 0 0 0',
                 fontWeight: 'normal',
                 letterSpacing: '4px',
@@ -84,7 +85,7 @@ export default async function Image() {
         <p
           style={{
             fontSize: '36px',
-            color: 'rgba(255, 255, 255, 0.8)',
+            color: alpha('overlay-light-rgb', 0.8),
             marginTop: '60px',
             textAlign: 'center',
             maxWidth: '900px',

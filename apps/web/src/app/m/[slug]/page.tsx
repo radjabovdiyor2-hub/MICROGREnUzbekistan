@@ -36,7 +36,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
   }, {});
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0B0B14)', padding: '90px 16px 60px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '90px 16px 60px' }}>
       <MenuTracker slug={slug} />
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
 
@@ -88,8 +88,8 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
                       padding: 12, borderRadius: 16, textDecoration: 'none',
-                      background: 'var(--bg-elevated, rgba(255,255,255,0.03))',
-                      border: '1px solid var(--border, rgba(255,255,255,0.06))',
+                      background: 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
+                      border: '1px solid var(--border, rgba(var(--overlay-light-rgb), 0.06))',
                     }}
                   >
                     {d.photo && (
@@ -100,7 +100,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
                         {d.nameRu}
                       </div>
                       {d.nameUz && (
-                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'var(--text-muted, #999)' }}>{d.nameUz}</div>
+                        <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'var(--text-muted, var(--text-muted))' }}>{d.nameUz}</div>
                       )}
                       {formatPrice(d.price) && (
                         <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, fontWeight: 700, color: accent, marginTop: 2 }}>
@@ -108,7 +108,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
                         </div>
                       )}
                     </div>
-                    <span style={{ color: 'var(--text-muted, #999)', fontSize: 18 }}>›</span>
+                    <span style={{ color: 'var(--text-muted, var(--text-muted))', fontSize: 18 }}>›</span>
                   </Link>
                 ))}
               </div>
@@ -136,7 +136,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
                   {p.guestName && (
                     <figcaption style={{
                       fontFamily: "'Inter', sans-serif", fontSize: 11,
-                      color: 'var(--text-muted, #999)', marginTop: 4, textAlign: 'center',
+                      color: 'var(--text-muted, var(--text-muted))', marginTop: 4, textAlign: 'center',
                     }}>{p.guestName}</figcaption>
                   )}
                 </figure>

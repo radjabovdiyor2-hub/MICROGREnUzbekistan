@@ -167,6 +167,8 @@ export const viewport: Viewport = {
   themeColor: [
     // Литералы намеренно: themeColor уходит в манифест PWA и в мета-тег,
     // который читает системный браузер — CSS-переменных там нет.
+    // Цвет системной панели браузера. Next отдаёт его в <meta name="theme-color">,
+    // где var() не работает — значение обязано быть литералом.
     { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },
     { media: '(prefers-color-scheme: dark)', color: '#0B0B14' },
   ],

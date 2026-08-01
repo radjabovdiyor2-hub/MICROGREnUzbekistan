@@ -241,7 +241,7 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
               alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
               maxWidth: '85%', padding: '10px 14px', borderRadius: 14,
               background: m.role === 'user' ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-              color: m.role === 'user' ? '#fff' : 'var(--text-primary)',
+              color: m.role === 'user' ? 'rgb(var(--overlay-light-rgb))' : 'var(--text-primary)',
               fontSize: 'var(--text-sm)', lineHeight: 1.55, whiteSpace: 'pre-wrap',
             }}>
               {m.content}

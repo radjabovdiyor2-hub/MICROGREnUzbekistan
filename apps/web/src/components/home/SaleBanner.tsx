@@ -13,7 +13,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const TimerBlock = ({ value, label, accent }: { value: string; label: string; accent?: boolean }) => (
   <div style={{
     textAlign: 'center', minWidth: '52px',
-    background: 'rgba(255,255,255,0.08)', borderRadius: '10px',
+    background: 'rgba(var(--overlay-light-rgb), 0.08)', borderRadius: '10px',
     padding: '8px 10px', backdropFilter: 'blur(4px)',
   }}>
     <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800, color: accent ? 'var(--brand-accent)' : 'var(--text-inverse)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden' }}>
@@ -67,26 +67,26 @@ export function SaleBanner() {
           display: 'flex', flexWrap: 'wrap',
           alignItems: 'center', justifyContent: 'space-between',
           gap: '20px', position: 'relative', overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(5, 150, 105, 0.25)',
+          boxShadow: '0 8px 32px rgba(var(--brand-primary-hover-rgb), 0.25)',
         }}>
           {/* Decorative elements */}
           <div style={{
             position: 'absolute', top: '-40%', right: '-10%',
             width: '250px', height: '250px', borderRadius: '50%',
-            background: 'rgba(255,255,255,0.08)',
+            background: 'rgba(var(--overlay-light-rgb), 0.08)',
             animation: 'float-circle 8s ease-in-out infinite',
           }} />
           <div style={{
             position: 'absolute', bottom: '-30%', left: '20%',
             width: '120px', height: '120px', borderRadius: '50%',
-            background: 'rgba(255,255,255,0.05)',
+            background: 'rgba(var(--overlay-light-rgb), 0.05)',
           }} />
 
           {/* Content */}
           <div style={{ flex: 1, minWidth: '240px', position: 'relative', zIndex: 1 }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              background: 'rgba(0,0,0,0.15)', borderRadius: 'var(--radius-full)',
+              background: 'rgba(var(--overlay-dark-rgb), 0.15)', borderRadius: 'var(--radius-full)',
               padding: '5px 14px', fontSize: '0.7rem', fontWeight: 700,
               color: 'white', textTransform: 'uppercase', letterSpacing: '1px',
               marginBottom: '12px', backdropFilter: 'blur(4px)',
@@ -97,12 +97,12 @@ export function SaleBanner() {
               fontSize: 'clamp(1.5rem, 4vw, 2.2rem)', fontWeight: 800,
               color: 'white', fontFamily: 'var(--font-display)',
               lineHeight: 1.1, letterSpacing: '-0.3px',
-              textShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              textShadow: '0 2px 8px rgba(var(--overlay-dark-rgb), 0.15)',
             }}>
               {t('Yangi hosil yetib keldi!', 'Прибыл свежий урожай!')}
             </div>
             <div style={{
-              fontSize: '1rem', marginTop: '6px', color: 'rgba(255,255,255,0.9)',
+              fontSize: '1rem', marginTop: '6px', color: 'rgba(var(--overlay-light-rgb), 0.9)',
               fontWeight: 500,
             }}>
               {t('Birinchi buyurtmangizga', 'На первый заказ')} <strong>20%</strong> {t('chegirma', 'скидка')}
@@ -112,9 +112,9 @@ export function SaleBanner() {
           {/* Timer */}
           <div style={{
             display: 'flex', gap: '6px', alignItems: 'center',
-            background: 'rgba(0,0,0,0.25)', padding: '14px 18px',
+            background: 'rgba(var(--overlay-dark-rgb), 0.25)', padding: '14px 18px',
             borderRadius: '16px', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid rgba(var(--overlay-light-rgb), 0.1)',
             position: 'relative', zIndex: 1,
           }}>
             <TimerBlock value={pad(timeLeft.hours)} label={t("Soat", "Час")} />

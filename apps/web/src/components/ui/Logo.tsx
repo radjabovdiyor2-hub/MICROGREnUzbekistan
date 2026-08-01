@@ -51,7 +51,7 @@ export function LogoIcon({ size = 36, className }: { size?: number; className?: 
       {/* Right leaf vein */}
       <path
         d="M24.5 21.5 C26 19 29 15 32 13"
-        stroke="rgba(255,255,255,0.4)"
+        stroke="rgba(var(--overlay-light-rgb), 0.4)"
         strokeWidth="0.8"
         strokeLinecap="round"
         fill="none"
@@ -64,7 +64,7 @@ export function LogoIcon({ size = 36, className }: { size?: number; className?: 
       {/* Left leaf vein */}
       <path
         d="M23.5 25 C22 23 20 20.5 17.5 18.5"
-        stroke="rgba(255,255,255,0.35)"
+        stroke="rgba(var(--overlay-light-rgb), 0.35)"
         strokeWidth="0.7"
         strokeLinecap="round"
         fill="none"

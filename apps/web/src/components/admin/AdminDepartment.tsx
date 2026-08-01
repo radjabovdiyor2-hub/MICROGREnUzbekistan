@@ -245,7 +245,7 @@ function StatCard({ label, value, icon, color }: { label: string; value: number;
       padding: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
       borderLeft: `3px solid ${color}`, transition: 'transform 0.15s, box-shadow 0.15s',
     }}
-      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'; }}
+      onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(var(--overlay-dark-rgb), 0.1)'; }}
       onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
       <div style={{ color, opacity: 0.8 }}>{icon}</div>
       <div>

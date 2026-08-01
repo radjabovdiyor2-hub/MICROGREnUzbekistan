@@ -56,7 +56,7 @@ export default async function StatsPage({ params }: { params: Promise<{ slug: st
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0B0B14)', padding: '90px 16px 60px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '90px 16px 60px' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
         <h1 style={{
           fontFamily: "'Playfair Display', serif", fontSize: 'clamp(26px, 6vw, 38px)',
@@ -73,8 +73,8 @@ export default async function StatsPage({ params }: { params: Promise<{ slug: st
           {tiles.map((t) => (
             <div key={t.label} style={{
               padding: 18, borderRadius: 18,
-              background: 'var(--bg-elevated, rgba(255,255,255,0.03))',
-              border: '1px solid var(--border, rgba(255,255,255,0.06))',
+              background: 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
+              border: '1px solid var(--border, rgba(var(--overlay-light-rgb), 0.06))',
             }}>
               <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 30, fontWeight: 800, color: accent }}>
                 {t.value}
@@ -88,7 +88,7 @@ export default async function StatsPage({ params }: { params: Promise<{ slug: st
 
         <div style={{
           marginTop: 16, padding: 16, borderRadius: 16,
-          background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border, rgba(255,255,255,0.06))',
+          background: 'rgba(var(--overlay-light-rgb), 0.03)', border: '1px solid var(--border, rgba(var(--overlay-light-rgb), 0.06))',
           fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6,
         }}>
           Кадров ждут модерации: <strong style={{ color: 'var(--text-primary)' }}>{photos('pending')}</strong>,
@@ -100,7 +100,7 @@ export default async function StatsPage({ params }: { params: Promise<{ slug: st
             <h2 style={{
               fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 700,
               textTransform: 'uppercase', letterSpacing: 1.2,
-              color: 'var(--text-muted, #999)', marginBottom: 12,
+              color: 'var(--text-muted, var(--text-muted))', marginBottom: 12,
             }}>Топ блюд по сканам</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {dishViews.map((row) => {
@@ -109,7 +109,7 @@ export default async function StatsPage({ params }: { params: Promise<{ slug: st
                   <div key={row.dishId} style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '12px 16px', borderRadius: 14,
-                    background: 'var(--bg-elevated, rgba(255,255,255,0.03))',
+                    background: 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
                     fontFamily: "'Inter', sans-serif", fontSize: 14,
                   }}>
                     <span style={{ color: 'var(--text-primary)' }}>{dish?.nameRu ?? 'Удалённое блюдо'}</span>

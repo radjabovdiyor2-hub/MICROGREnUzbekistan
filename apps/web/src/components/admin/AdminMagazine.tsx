@@ -358,10 +358,10 @@ export function AdminMagazine() {
       />
       {/* Модальное окно предпросмотра видео */}
       {previewVideoUrl && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setPreviewVideoUrl(null)}>
-          <div style={{ position: 'relative', maxWidth: 400, width: '100%', background: '#000', borderRadius: 16, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(var(--overlay-dark-rgb), 0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }} onClick={() => setPreviewVideoUrl(null)}>
+          <div style={{ position: 'relative', maxWidth: 400, width: '100%', background: 'rgb(var(--overlay-dark-rgb))', borderRadius: 16, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
             <video src={previewVideoUrl} controls autoPlay playsInline style={{ width: '100%', maxHeight: '75vh', display: 'block' }} />
-            <button onClick={() => setPreviewVideoUrl(null)} style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.6)', color: 'var(--text-inverse)', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 18, cursor: 'pointer' }}>✕</button>
+            <button onClick={() => setPreviewVideoUrl(null)} style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(var(--overlay-dark-rgb), 0.6)', color: 'var(--text-inverse)', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 18, cursor: 'pointer' }}>✕</button>
           </div>
         </div>
       )}

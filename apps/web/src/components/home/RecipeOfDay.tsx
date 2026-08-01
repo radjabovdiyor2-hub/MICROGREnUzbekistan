@@ -73,7 +73,7 @@ export function RecipeOfDay() {
         <div style={{
           background: 'var(--bg-card)', borderRadius: 20,
           border: '1.5px solid var(--border)', overflow: 'hidden',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+          boxShadow: '0 4px 20px rgba(var(--overlay-dark-rgb), 0.06)',
           transition: 'all 0.3s ease',
         }}>
           {/* Gradient header */}
@@ -81,7 +81,7 @@ export function RecipeOfDay() {
             background: `linear-gradient(135deg, ${cat.colorFrom}, ${cat.colorTo})`,
             padding: '20px 24px', color: 'white', position: 'relative', overflow: 'hidden',
           }}>
-            <div style={{ position: 'absolute', top: -30, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+            <div style={{ position: 'absolute', top: -30, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.08)' }} />
             {/* salad leaves grow along the header bottom — recipes are salads */}
             <MicrogreensCanvas count={26} variant="salad" staticAfterGrow style={{
               position: 'absolute', left: 0, right: 0, bottom: -2, width: '100%', height: '70%',

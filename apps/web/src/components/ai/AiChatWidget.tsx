@@ -202,7 +202,7 @@ export function AiChatWidget() {
         onClick={() => { setIsOpen(true); triggerHaptic('light'); }}
         aria-label="Open AI chat"
         id="ai-chat-fab"
-        whileHover={{ scale: 1.1, boxShadow: '0 8px 24px rgba(99,102,241,0.5)' }}
+        whileHover={{ scale: 1.1, boxShadow: '0 8px 24px color-mix(in srgb, var(--cat-1) 50%, transparent)' }}
         whileTap={{ scale: 0.9 }}
         transition={spring}
         style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + var(--space-4))', right: 'var(--space-4)' }}
@@ -234,7 +234,7 @@ export function AiChatWidget() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.18)',
+            width: 34, height: 34, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.18)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             backdropFilter: 'blur(8px)',
           }}>
@@ -249,15 +249,15 @@ export function AiChatWidget() {
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           <button onClick={() => setMode(mode === 'tools' ? 'chat' : 'tools')} title="Asboblar"
-            style={{ background: mode === 'tools' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+            style={{ background: mode === 'tools' ? 'rgba(var(--overlay-light-rgb), 0.3)' : 'rgba(var(--overlay-light-rgb), 0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
             <Calculator size={15} />
           </button>
           <button onClick={clearChat} title="Tozalash"
-            style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+            style={{ background: 'rgba(var(--overlay-light-rgb), 0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
             <Trash size={14} />
           </button>
           <button onClick={() => setIsOpen(false)} id="ai-chat-close" title="Yopish"
-            style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
+            style={{ background: 'rgba(var(--overlay-light-rgb), 0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
             <X size={16} />
           </button>
         </div>
@@ -283,7 +283,7 @@ export function AiChatWidget() {
                 width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                 background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2))',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(99,102,241,0.2)',
+                boxShadow: '0 2px 8px color-mix(in srgb, var(--cat-1) 20%, transparent)',
               }}>
                 <Sparkles size={13} color="white" />
               </div>

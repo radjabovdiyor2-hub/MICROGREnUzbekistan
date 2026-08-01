@@ -52,7 +52,7 @@ export function ArViewer({ modelUrl = 'https://modelviewer.dev/shared-assets/mod
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'rgba(0,0,0,0.9)',
+      background: 'rgba(var(--overlay-dark-rgb), 0.9)',
       zIndex: 9999,
       display: 'flex',
       flexDirection: 'column'
@@ -76,13 +76,13 @@ export function ArViewer({ modelUrl = 'https://modelviewer.dev/shared-assets/mod
           auto-rotate
           ar
           ar-modes="webxr scene-viewer quick-look"
-          style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+          style={{ width: '100%', height: '100%', backgroundColor: 'rgb(var(--overlay-dark-rgb))' }}
         >
           {/* @ts-expect-error - closing web component */}
         </model-viewer>
       </div>
       
-      <div style={{ padding: '20px', textAlign: 'center', color: '#999', fontSize: '14px' }}>
+      <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
         Нажмите на кнопку AR в правом нижнем углу (на телефоне), чтобы поставить модель в вашей комнате.
       </div>
     </div>

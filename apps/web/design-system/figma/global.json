@@ -230,5 +230,119 @@
       "value": "16px",
       "type": "dimension"
     }
+  },
+  "social": {
+    "telegram": {
+      "value": "#0088CC",
+      "type": "color"
+    },
+    "telegram-bright": {
+      "value": "#229ED9",
+      "type": "color"
+    },
+    "instagram": {
+      "value": "#E1306C",
+      "type": "color"
+    },
+    "instagram-deep": {
+      "value": "#C13584",
+      "type": "color"
+    },
+    "instagram-purple": {
+      "value": "#833AB4",
+      "type": "color"
+    },
+    "telegram-hover": {
+      "value": "#0099E6",
+      "type": "color"
+    },
+    "instagram-amber": {
+      "value": "#F77737",
+      "type": "color"
+    },
+    "instagram-ring": {
+      "value": "linear-gradient(45deg, #F09433 0%, #E6683C 25%, #DC2743 50%, #CC2366 75%, #BC1888 100%)",
+      "type": "other"
+    }
+  },
+  "editorial": {
+    "gold": {
+      "value": "#C9A84C",
+      "type": "color"
+    },
+    "gold-light": {
+      "value": "#E8D48C",
+      "type": "color"
+    },
+    "cover-green-deep": {
+      "value": "#0A2A0A",
+      "type": "color"
+    },
+    "cover-green": {
+      "value": "#1A3A1A",
+      "type": "color"
+    },
+    "cover-green-mid": {
+      "value": "#2D5A27",
+      "type": "color"
+    },
+    "cover-slate-deep": {
+      "value": "#1A202C",
+      "type": "color"
+    },
+    "cover-slate": {
+      "value": "#2D3748",
+      "type": "color"
+    }
+  },
+  "accent": {
+    "violet": {
+      "value": "#C084FC",
+      "type": "color"
+    },
+    "orange": {
+      "value": "#F97316",
+      "type": "color"
+    },
+    "rose": {
+      "value": "#F43F5E",
+      "type": "color"
+    },
+    "cyan": {
+      "value": "#06B6D4",
+      "type": "color"
+    },
+    "gold-deep": {
+      "value": "#D99400",
+      "type": "color"
+    }
+  },
+  "og": {
+    "bg-deep": {
+      "value": "#064E3B",
+      "type": "color"
+    },
+    "bg": {
+      "value": "#065F46",
+      "type": "color"
+    },
+    "leaf": {
+      "value": "#4ADE80",
+      "type": "color"
+    }
+  },
+  "surface-vibrancy": {
+    "value": "rgba(30, 30, 30, 0.65)",
+    "type": "color"
+  },
+  "overlay": {
+    "light-rgb": {
+      "value": "255, 255, 255",
+      "type": "color"
+    },
+    "dark-rgb": {
+      "value": "0, 0, 0",
+      "type": "color"
+    }
   }
 }

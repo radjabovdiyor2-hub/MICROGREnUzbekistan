@@ -110,7 +110,7 @@ export function StoriesBar() {
               >
                 <div style={{
                   width: '80px', height: '80px', borderRadius: '50%', padding: '3px',
-                  background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+                  background: 'var(--social-instagram-ring)',
                 }}>
                   <div style={{
                     width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden',

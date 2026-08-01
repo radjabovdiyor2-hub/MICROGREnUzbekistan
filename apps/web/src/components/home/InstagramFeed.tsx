@@ -275,7 +275,7 @@ export function InstagramFeed() {
                 {/* Hover overlay with caption */}
                 <div className="insta-overlay" style={{
                   position: 'absolute', inset: 0,
-                  background: 'rgba(0,0,0,0.55)',
+                  background: 'rgba(var(--overlay-dark-rgb), 0.55)',
                   opacity: 0,
                   transition: 'opacity 0.25s ease',
                   display: 'flex', flexDirection: 'column',
@@ -302,7 +302,7 @@ export function InstagramFeed() {
                 {post.mediaType === 'VIDEO' && (
                   <div style={{
                     position: 'absolute', top: 8, right: 8,
-                    background: 'rgba(0,0,0,0.5)', borderRadius: '4px',
+                    background: 'rgba(var(--overlay-dark-rgb), 0.5)', borderRadius: '4px',
                     padding: '2px 6px', color: 'white', fontSize: '10px',
                     display: 'flex', alignItems: 'center', gap: '3px',
                   }}>
@@ -314,7 +314,7 @@ export function InstagramFeed() {
                 {post.mediaType === 'CAROUSEL_ALBUM' && (
                   <div style={{
                     position: 'absolute', top: 8, right: 8,
-                    background: 'rgba(0,0,0,0.5)', borderRadius: '4px',
+                    background: 'rgba(var(--overlay-dark-rgb), 0.5)', borderRadius: '4px',
                     padding: '2px 6px', color: 'white', fontSize: '10px',
                   }}>
                     <Sparkles size={10} />
@@ -333,9 +333,9 @@ export function InstagramFeed() {
                         position: 'absolute', bottom: 6, left: 6, right: 6, zIndex: 3,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                         padding: '6px 8px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                        background: inCart ? 'rgba(var(--brand-primary-rgb),0.95)' : 'rgba(255,255,255,0.95)',
-                        color: inCart ? '#fff' : '#111', fontSize: 11, fontWeight: 700,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                        background: inCart ? 'rgba(var(--brand-primary-rgb),0.95)' : 'rgba(var(--overlay-light-rgb), 0.95)',
+                        color: inCart ? 'rgb(var(--overlay-light-rgb))' : 'var(--text-primary)', fontSize: 11, fontWeight: 700,
+                        boxShadow: '0 2px 8px rgba(var(--overlay-dark-rgb), 0.25)',
                       }}
                     >
                       <ShoppingCart size={12} />
@@ -369,16 +369,16 @@ export function InstagramFeed() {
         {/* CTA Bar */}
         <div style={{
           marginTop: 'var(--space-4)', padding: 'var(--space-4)',
-          background: 'linear-gradient(135deg, #833AB420, #C1358420, #E1306C10)',
+          background: 'linear-gradient(135deg, color-mix(in srgb, var(--social-instagram-purple) 12%, transparent), color-mix(in srgb, var(--social-instagram-deep) 12%, transparent), color-mix(in srgb, var(--social-instagram) 6%, transparent))',
           borderRadius: 'var(--radius-xl)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: 'var(--space-3)',
-          border: '1px solid rgba(193, 53, 132, 0.15)',
+          border: '1px solid color-mix(in srgb, var(--social-instagram-deep) 15%, transparent)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               width: 44, height: 44, borderRadius: 'var(--radius-full)',
-              background: 'linear-gradient(135deg, #833AB4, #E1306C, #F77737)',
+              background: 'linear-gradient(135deg, var(--social-instagram-purple), var(--social-instagram), var(--social-instagram-amber))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white',
             }}>
@@ -401,10 +401,10 @@ export function InstagramFeed() {
             whileTap={{ scale: 0.95 }}
             style={{
               padding: '10px 24px', border: 'none',
-              background: 'linear-gradient(135deg, #833AB4, #E1306C)',
+              background: 'linear-gradient(135deg, var(--social-instagram-purple), var(--social-instagram))',
               color: 'white', fontWeight: 700, fontSize: 'var(--text-sm)',
               textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px',
-              boxShadow: '0 4px 16px rgba(225, 48, 108, 0.3)',
+              boxShadow: '0 4px 16px color-mix(in srgb, var(--social-instagram) 30%, transparent)',
             }}
           >
             <Instagram size={16} />

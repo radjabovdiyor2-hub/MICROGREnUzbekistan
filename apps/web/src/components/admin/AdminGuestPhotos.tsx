@@ -122,7 +122,7 @@ export function AdminGuestPhotos() {
               fontWeight: status === t.id ? 700 : 500,
               border: `1px solid ${status === t.id ? 'var(--brand-primary)' : 'var(--border-color)'}`,
               background: status === t.id ? 'var(--brand-primary)' : 'transparent',
-              color: status === t.id ? '#fff' : 'var(--text-primary)',
+              color: status === t.id ? 'rgb(var(--overlay-light-rgb))' : 'var(--text-primary)',
             }}
           >
             {t.label} <span style={{ opacity: 0.7 }}>{counts[t.id]}</span>
@@ -157,7 +157,7 @@ export function AdminGuestPhotos() {
                 <img
                   src={p.imageUrl}
                   alt={p.guestName || 'кадр гостя'}
-                  style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block', background: '#000' }}
+                  style={{ width: '100%', aspectRatio: '3 / 4', objectFit: 'cover', display: 'block', background: 'rgb(var(--overlay-dark-rgb))' }}
                 />
               </a>
               <figcaption style={{ padding: '10px 12px' }}>

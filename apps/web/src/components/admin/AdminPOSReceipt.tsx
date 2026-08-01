@@ -53,7 +53,7 @@ export function AdminPOSReceipt({
         @keyframes checkPop { 0% { transform: scale(0); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        .receipt-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.12) !important; }
+        .receipt-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(var(--overlay-dark-rgb), 0.12) !important; }
         .receipt-btn:active { transform: translateY(0); }
         .receipt-zigzag { position: relative; }
         .receipt-zigzag::after {
@@ -91,14 +91,14 @@ export function AdminPOSReceipt({
           position: 'relative', overflow: 'hidden',
         }}>
           {/* Decorative circles */}
-          <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-          <div style={{ position: 'absolute', bottom: -10, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
+          <div style={{ position: 'absolute', top: -20, right: -20, width: 80, height: 80, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.1)' }} />
+          <div style={{ position: 'absolute', bottom: -10, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.08)' }} />
 
           <div style={{
-            width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
+            width: 64, height: 64, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.2)',
             backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center',
             margin: '0 auto 12px', animation: 'checkPop 0.6s cubic-bezier(.4,0,.2,1) 0.2s both',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+            boxShadow: '0 8px 32px rgba(var(--overlay-dark-rgb), 0.15)',
           }}>
             {isReturn ? <RefreshCw size={32} /> : <CheckCircle size={32} />}
           </div>
@@ -186,8 +186,8 @@ export function AdminPOSReceipt({
             padding: '16px', borderRadius: '14px', marginTop: '8px',
             background: isReturn
               ? 'var(--warning-bg)'
-              : 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.12))',
-            border: isReturn ? '1.5px solid var(--warning)' : '1.5px solid rgba(16,185,129,0.2)',
+              : 'linear-gradient(135deg, rgba(var(--brand-primary-rgb), 0.08), rgba(var(--brand-primary-hover-rgb), 0.12))',
+            border: isReturn ? '1.5px solid var(--warning)' : '1.5px solid rgba(var(--brand-primary-rgb), 0.2)',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
           }}>
             <div>
@@ -233,7 +233,7 @@ export function AdminPOSReceipt({
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
               padding: '14px', borderRadius: '14px', cursor: 'pointer', fontWeight: 700, fontSize: '14px',
               border: '1.5px solid var(--border)', background: 'var(--bg-primary)', color: 'var(--text-primary)',
-              transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(var(--overlay-dark-rgb), 0.04)',
             }}>
             <FileText size={18} /> Печать
           </button>
@@ -244,7 +244,7 @@ export function AdminPOSReceipt({
               border: `1.5px solid ${copied ? 'var(--success)' : 'var(--border)'}`,
               background: copied ? 'var(--success-bg)' : 'var(--bg-primary)',
               color: copied ? 'var(--success)' : 'var(--text-primary)',
-              transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+              transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(var(--overlay-dark-rgb), 0.04)',
               opacity: isCapturing ? 0.7 : 1,
             }}>
             {copied ? <><CheckCircle size={18} /> Скопирован</> : isCapturing ? 'Копируем...' : <><Copy size={18} /> Копировать</>}

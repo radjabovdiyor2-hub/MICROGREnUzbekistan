@@ -55,7 +55,7 @@ export function AdminSidebar({ activeTab, setActiveTab, isOwner, sellerName, lan
         <Home size={14} /> {t('Сайт', 'Sayt')}
       </Link>
       <button onClick={handleLogout} className="btn btn-ghost btn-sm"
-        style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(239, 68, 68, 0.1)' }}>
+        style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(var(--error-rgb), 0.1)' }}>
         <LogOut size={14} /> {t('Выйти', 'Chiqish')}
       </button>
     </div>

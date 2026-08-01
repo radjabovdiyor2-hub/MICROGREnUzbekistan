@@ -25,11 +25,11 @@ export default async function MagazineReaderPage({ params }: { params: Promise<{
   const barBtn: React.CSSProperties = {
     fontFamily: "'Inter', sans-serif", fontSize: '14px', fontWeight: 600,
     color: 'var(--text-inverse)', textDecoration: 'none', padding: '8px 16px',
-    borderRadius: '30px', border: '1px solid rgba(255,255,255,0.25)',
+    borderRadius: '30px', border: '1px solid rgba(var(--overlay-light-rgb), 0.25)',
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#222', padding: '24px 0 60px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '24px 0 60px' }}>
       <div style={{
         maxWidth: '148mm', margin: '0 auto 16px', padding: '0 8px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
@@ -41,8 +41,8 @@ export default async function MagazineReaderPage({ params }: { params: Promise<{
       {issue.status !== 'published' && (
         <div style={{
           maxWidth: '148mm', margin: '0 auto 16px', padding: '8px 12px',
-          background: 'rgba(201,168,76,0.15)', border: '1px solid #c9a84c', borderRadius: '8px',
-          color: '#e8d48c', fontFamily: "'Inter', sans-serif", fontSize: '13px', textAlign: 'center',
+          background: 'color-mix(in srgb, var(--editorial-gold) 15%, transparent)', border: '1px solid var(--editorial-gold)', borderRadius: '8px',
+          color: 'var(--editorial-gold-light)', fontFamily: "'Inter', sans-serif", fontSize: '13px', textAlign: 'center',
         }}>
           Черновик · статус «{issue.status}» — виден только по прямой ссылке
         </div>

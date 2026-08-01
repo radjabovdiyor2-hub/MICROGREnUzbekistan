@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { token } from '@/lib/canvasTokens';
 
 // Signature "Grow" motif: a generative field of microgreens.
 // - grows on load (seed -> sprout, staggered left->right)
@@ -67,7 +68,7 @@ export function MicrogreensCanvas({
       if (dt) return dt.includes('dark');
       return typeof matchMedia !== 'undefined' && matchMedia('(prefers-color-scheme: dark)').matches;
     };
-    let leafL = 42, stemL = 30, goldC = '#D99400';
+    let leafL = 42, stemL = 30, goldC = token('accent-gold-deep');
     const palette = () => {
       const dark = isDark();
       leafL = dark ? 58 : 42;

@@ -10,14 +10,14 @@ import { DishVideo } from '@/components/menu/DishVideo';
 export const dynamic = 'force-dynamic';
 
 export const viewport: Viewport = {
-  themeColor: '#000000',
+  themeColor: 'rgb(var(--overlay-dark-rgb))',
 };
 
 // Apple-style constants
 const FONT = "-apple-system, 'SF Pro Text', 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif";
 const DISPLAY_FONT = "-apple-system, 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif";
-const VIBRANCY = 'rgba(30, 30, 30, 0.65)';
-const VIBRANCY_BORDER = 'rgba(255, 255, 255, 0.18)';
+const VIBRANCY = 'var(--surface-vibrancy)';
+const VIBRANCY_BORDER = 'rgba(var(--overlay-light-rgb), 0.18)';
 const BLUR = 'saturate(180%) blur(20px)';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string; code: string }> }): Promise<Metadata> {
@@ -49,7 +49,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
     <div style={{
       width: '100vw',
       height: '100dvh',
-      background: '#000',
+      background: 'rgb(var(--overlay-dark-rgb))',
       position: 'relative',
       overflow: 'hidden',
     }}>
@@ -90,7 +90,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
           border: `0.5px solid ${VIBRANCY_BORDER}`,
         }}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style={{ marginRight: 1 }}>
-            <path d="M12.5 15L7.5 10L12.5 5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M12.5 15L7.5 10L12.5 5" stroke="rgb(var(--overlay-light-rgb))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           {restaurant.name}
         </Link>
@@ -103,7 +103,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
         left: 0,
         right: 0,
         zIndex: 20,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.85) 30%, rgba(0,0,0,0.65) 50%, rgba(0,0,0,0.35) 65%, rgba(0,0,0,0.12) 80%, transparent 100%)',
+        background: 'linear-gradient(to top, rgba(var(--overlay-dark-rgb), 0.92) 0%, rgba(var(--overlay-dark-rgb), 0.85) 30%, rgba(var(--overlay-dark-rgb), 0.65) 50%, rgba(var(--overlay-dark-rgb), 0.35) 65%, rgba(var(--overlay-dark-rgb), 0.12) 80%, transparent 100%)',
         paddingTop: 100,
         paddingBottom: `calc(env(safe-area-inset-bottom, 16px) + 16px)`,
         paddingLeft: 20,
@@ -126,7 +126,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
             fontFamily: FONT,
             fontSize: 15,
             fontWeight: 400,
-            color: 'rgba(255,255,255,0.55)',
+            color: 'rgba(var(--overlay-light-rgb), 0.55)',
             marginTop: 2,
             letterSpacing: -0.24,
           }}>{dish.nameUz}</div>
@@ -151,7 +151,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
             fontSize: 15,
             lineHeight: 1.4,
             fontWeight: 400,
-            color: 'rgba(255,255,255,0.7)',
+            color: 'rgba(var(--overlay-light-rgb), 0.7)',
             marginTop: 8,
             letterSpacing: -0.24,
             display: '-webkit-box',
@@ -164,7 +164,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               <span style={{
                 display: 'block',
                 fontSize: 13,
-                color: 'rgba(255,255,255,0.45)',
+                color: 'rgba(var(--overlay-light-rgb), 0.45)',
                 marginTop: 2,
                 letterSpacing: -0.08,
               }}>
@@ -195,9 +195,9 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
           }}
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <rect x="2.5" y="4" width="15" height="12" rx="2" stroke="#fff" strokeWidth="1.5"/>
-            <circle cx="10" cy="10" r="3" stroke="#fff" strokeWidth="1.5"/>
-            <circle cx="14" cy="6.5" r="1" fill="#fff"/>
+            <rect x="2.5" y="4" width="15" height="12" rx="2" stroke="rgb(var(--overlay-light-rgb))" strokeWidth="1.5"/>
+            <circle cx="10" cy="10" r="3" stroke="rgb(var(--overlay-light-rgb))" strokeWidth="1.5"/>
+            <circle cx="14" cy="6.5" r="1" fill="rgb(var(--overlay-light-rgb))"/>
           </svg>
           Снять кадр
         </Link>
@@ -232,7 +232,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
                 fontFamily: FONT,
                 fontSize: 11,
                 fontWeight: 500,
-                color: 'rgba(255,255,255,0.45)',
+                color: 'rgba(var(--overlay-light-rgb), 0.45)',
                 textTransform: 'uppercase',
                 letterSpacing: 0.56,
               }}>С чем берут</div>
@@ -245,7 +245,7 @@ export default async function DishPage({ params }: { params: Promise<{ slug: str
               }}>{pair.nameRu}</div>
             </div>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
-              <path d="M6 3L11 8L6 13" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M6 3L11 8L6 13" stroke="rgb(var(--overlay-light-rgb))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </Link>
         )}

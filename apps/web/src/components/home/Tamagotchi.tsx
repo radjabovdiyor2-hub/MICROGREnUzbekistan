@@ -56,7 +56,7 @@ export function Tamagotchi() {
       boxShadow: '0 4px 20px rgba(var(--brand-primary-rgb), 0.1)'
     }}>
       <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-        <Sparkles size={18} style={{ display: 'inline', color: '#10B981', marginRight: '5px' }} />
+        <Sparkles size={18} style={{ display: 'inline', color: 'var(--brand-primary)', marginRight: '5px' }} />
         Ваш эко-питомец
       </h3>
       
@@ -88,7 +88,7 @@ export function Tamagotchi() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           style={{
             height: '100%',
-            background: 'linear-gradient(90deg, #10B981, #34D399)',
+            background: 'linear-gradient(90deg, var(--brand-primary), var(--brand-primary))',
             borderRadius: '10px',
           }}
         />
@@ -101,7 +101,7 @@ export function Tamagotchi() {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={spring}
-            style={{ textAlign: 'center', color: '#10B981', fontWeight: 'bold' }}
+            style={{ textAlign: 'center', color: 'var(--brand-primary)', fontWeight: 'bold' }}
           >
             🎉 Выращено! Промокод: <b>ECO-WOW-26</b> (-10%)
           </motion.div>
@@ -113,7 +113,7 @@ export function Tamagotchi() {
             whileTap={{ scale: 0.95 }}
             transition={spring}
             style={{
-              background: '#10B981',
+              background: 'var(--brand-primary)',
               color: 'white',
               border: 'none',
               padding: '10px 20px',

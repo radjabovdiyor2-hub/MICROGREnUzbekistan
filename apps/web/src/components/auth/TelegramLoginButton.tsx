@@ -88,7 +88,7 @@ export function TelegramLoginButton({
       <motion.button
         onClick={handleFallbackLogin}
         className="ripple"
-        whileHover={{ scale: 1.02, boxShadow: '0 6px 20px rgba(0, 136, 204, 0.4)' }}
+        whileHover={{ scale: 1.02, boxShadow: '0 6px 20px color-mix(in srgb, var(--social-telegram) 40%, transparent)' }}
         whileTap={{ scale: 0.98 }}
         style={{
           width: '100%',
@@ -98,14 +98,14 @@ export function TelegramLoginButton({
           gap: '10px',
           maxWidth: '320px',
           padding: '12px 24px',
-          background: 'linear-gradient(135deg, #0088cc, #0099e6)',
+          background: 'linear-gradient(135deg, var(--social-telegram), var(--social-telegram-hover))',
           color: 'white',
           border: 'none',
           borderRadius: `${cornerRadius}px`,
           fontSize: '15px',
           fontWeight: 700,
           cursor: 'pointer',
-          boxShadow: '0 4px 14px rgba(0, 136, 204, 0.3)',
+          boxShadow: '0 4px 14px color-mix(in srgb, var(--social-telegram) 30%, transparent)',
         }}
         id="telegram-login-fallback"
       >

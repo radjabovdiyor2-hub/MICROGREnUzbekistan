@@ -35,17 +35,17 @@ export function CoverPage({ b, brand, weekLabel }: { b: CoverBlock; brand: Resta
   const titleParts = tri(b.title);
   const accentParts = tri(b.accentTitle);
   return (
-    <div className="mag-page" style={{ background: '#000', color: '#fff' }}>
+    <div className="mag-page" style={{ background: 'rgb(var(--overlay-dark-rgb))', color: 'rgb(var(--overlay-light-rgb))' }}>
       {b.background && (
         <div style={{ position: 'absolute', inset: 0 }}>
           <img src={b.background} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }} />
         </div>
       )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(0,0,0,0.5) 0%,rgba(0,0,0,0.1) 35%,rgba(0,0,0,0.05) 55%,rgba(0,0,0,0.7) 85%,rgba(0,0,0,0.85) 100%)' }} />
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,rgba(var(--overlay-dark-rgb), 0.5) 0%,rgba(var(--overlay-dark-rgb), 0.1) 35%,rgba(var(--overlay-dark-rgb), 0.05) 55%,rgba(var(--overlay-dark-rgb), 0.7) 85%,rgba(var(--overlay-dark-rgb), 0.85) 100%)' }} />
       <div style={{ position: 'relative', zIndex: 1, minHeight: '210mm', display: 'flex', flexDirection: 'column' }}>
         {/* Со-брендирование: издатель × ресторан */}
         <div style={{ padding: '5mm 10mm 0', textAlign: 'center' }}>
-          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '6pt', fontWeight: 700, letterSpacing: '2.5px', textTransform: 'uppercase', color: '#e8d48c' }}>
+          <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '6pt', fontWeight: 700, letterSpacing: '2.5px', textTransform: 'uppercase', color: 'var(--editorial-gold-light)' }}>
             Microgreen Uzbekistan
             <span style={{ opacity: 0.55, margin: '0 2.5mm' }}>&amp;</span>
             {brand.name}
@@ -54,23 +54,23 @@ export function CoverPage({ b, brand, weekLabel }: { b: CoverBlock; brand: Resta
         <div style={{ padding: '3mm 10mm 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '36pt', fontWeight: 900, lineHeight: 0.9 }}>FRESH</div>
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', fontWeight: 700, letterSpacing: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '2mm' }}>WEEKLY</div>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', fontWeight: 700, letterSpacing: '10px', color: 'rgba(var(--overlay-light-rgb), 0.5)', marginTop: '2mm' }}>WEEKLY</div>
           </div>
-          <div style={{ textAlign: 'right', fontFamily: "'Inter', sans-serif", fontSize: '7pt', color: 'rgba(255,255,255,0.6)', lineHeight: 1.8 }}>
-            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '10pt', fontWeight: 900, color: 'rgba(255,255,255,0.9)' }}>{weekLabel}</span><br />
+          <div style={{ textAlign: 'right', fontFamily: "'Inter', sans-serif", fontSize: '7pt', color: 'rgba(var(--overlay-light-rgb), 0.6)', lineHeight: 1.8 }}>
+            <span style={{ fontFamily: "'Playfair Display', serif", fontSize: '10pt', fontWeight: 900, color: 'rgba(var(--overlay-light-rgb), 0.9)' }}>{weekLabel}</span><br />
             UZ · RU
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '0 10mm 18mm' }}>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: '26pt', fontWeight: 900, lineHeight: 1.1, maxWidth: '92%' }}>
-            <span style={{ color: '#e8d48c' }}>{titleParts[0]?.text}</span>
+            <span style={{ color: 'var(--editorial-gold-light)' }}>{titleParts[0]?.text}</span>
             {accentParts[0] && <><br />{accentParts[0].text}</>}
           </div>
           {/* Заголовок на втором языке */}
           {(titleParts.length > 1 || accentParts.length > 1) && (
-            <div style={{ marginTop: '3mm', borderLeft: '1.5px solid rgba(232,212,140,0.5)', paddingLeft: '3mm' }}>
+            <div style={{ marginTop: '3mm', borderLeft: '1.5px solid color-mix(in srgb, var(--editorial-gold-light) 50%, transparent)', paddingLeft: '3mm' }}>
               {titleParts.slice(1).map((p, i) => (
-                <div key={p.lang} style={{ fontFamily: "'Playfair Display', serif", fontSize: '11pt', fontWeight: 700, color: 'rgba(255,255,255,0.72)', lineHeight: 1.25 }}>
+                <div key={p.lang} style={{ fontFamily: "'Playfair Display', serif", fontSize: '11pt', fontWeight: 700, color: 'rgba(var(--overlay-light-rgb), 0.72)', lineHeight: 1.25 }}>
                   {p.text} {accentParts[i + 1]?.text ?? ''}
                 </div>
               ))}
@@ -79,21 +79,21 @@ export function CoverPage({ b, brand, weekLabel }: { b: CoverBlock; brand: Resta
           {b.subtitle && (
             <div style={{ marginTop: '4mm', maxWidth: '86%' }}>
               {tri(b.subtitle).map((p) => (
-                <div key={p.lang} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: p.lang === PRIMARY ? '10.5pt' : '8pt', color: p.lang === PRIMARY ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.55)', fontStyle: 'italic', lineHeight: 1.4 }}>{p.text}</div>
+                <div key={p.lang} style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: p.lang === PRIMARY ? '10.5pt' : '8pt', color: p.lang === PRIMARY ? 'rgba(var(--overlay-light-rgb), 0.8)' : 'rgba(var(--overlay-light-rgb), 0.55)', fontStyle: 'italic', lineHeight: 1.4 }}>{p.text}</div>
               ))}
             </div>
           )}
           {b.tags && b.tags.length > 0 && (
             <div style={{ display: 'flex', gap: '3mm', marginTop: '5mm', flexWrap: 'wrap' }}>
               {b.tags.map((tag, i) => (
-                <span key={i} className="mag-kicker" style={{ color: 'rgba(255,255,255,0.5)' }}>{t(tag as L10n, PRIMARY)}</span>
+                <span key={i} className="mag-kicker" style={{ color: 'rgba(var(--overlay-light-rgb), 0.5)' }}>{t(tag as L10n, PRIMARY)}</span>
               ))}
             </div>
           )}
         </div>
-        <div style={{ background: 'rgba(0,0,0,0.5)', padding: '3.5mm 10mm', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '6.5pt', color: 'rgba(255,255,255,0.5)' }}>
+        <div style={{ background: 'rgba(var(--overlay-dark-rgb), 0.5)', padding: '3.5mm 10mm', display: 'flex', justifyContent: 'space-between', fontFamily: "'Inter', sans-serif", fontSize: '6.5pt', color: 'rgba(var(--overlay-light-rgb), 0.5)' }}>
           <span>© Microgreen Uzbekistan &amp; {brand.name}</span>
-          <span style={{ color: '#e8d48c', fontWeight: 600 }}>freshweekly.uz</span>
+          <span style={{ color: 'var(--editorial-gold-light)', fontWeight: 600 }}>freshweekly.uz</span>
         </div>
       </div>
     </div>
@@ -271,7 +271,7 @@ export function TrendAnalyticsPage({ b, n }: { b: TrendAnalyticsBlock; n: number
             <div style={{ flex: 1 }}>
               {it.trendQuery && (
                 <div style={{ marginBottom: '2mm' }}>
-                  <div className="mag-kicker" style={{ color: '#7c3aed', marginBottom: '1mm', fontSize: '6.5pt' }}>{ui('googleTrend')}</div>
+                  <div className="mag-kicker" style={{ color: 'var(--cat-9)', marginBottom: '1mm', fontSize: '6.5pt' }}>{ui('googleTrend')}</div>
                   <div style={{ ...BODY, fontSize: '9pt', fontStyle: 'italic', color: 'var(--ink)' }}>«{t(it.trendQuery, PRIMARY)}»</div>
                 </div>
               )}
@@ -304,7 +304,7 @@ export function RecipePage({ b, n }: { b: RecipeBlock; n: number }) {
         {b.chefVersion && (
           <div className="mag-card-dark" style={{ flex: 1 }}>
             <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '6.5pt' }}>{ui('chefVersion')}</div>
-            <div style={{ ...BODY, fontSize: '8pt', color: 'rgba(255,255,255,0.85)' }}>{t(b.chefVersion, PRIMARY)}</div>
+            <div style={{ ...BODY, fontSize: '8pt', color: 'rgba(var(--overlay-light-rgb), 0.85)' }}>{t(b.chefVersion, PRIMARY)}</div>
           </div>
         )}
         {b.homeVersion && (
@@ -344,18 +344,18 @@ export function FamilyConversionPage({ b, brand, qrDataUrl, n }: {
       <Figure src={b.farmImage} caption={b.caption} height="40mm" />
       {b.farmStory && <Tri v={b.farmStory} style={{ ...BODY, fontSize: '9pt', marginBottom: '3.5mm' }} />}
       <div className="mag-card-dark" style={{ display: 'flex', gap: '4mm', alignItems: 'center' }}>
-        <div style={{ width: '28mm', height: '28mm', background: '#fff', borderRadius: '2mm', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
+        <div style={{ width: '28mm', height: '28mm', background: 'rgb(var(--overlay-light-rgb))', borderRadius: '2mm', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' }}>
           {qrDataUrl
             ? <img src={qrDataUrl} alt="QR" style={{ width: '100%', height: '100%' }} />
-            : <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', color: '#999', textAlign: 'center' }}>QR</span>}
+            : <span style={{ fontFamily: "'Inter', sans-serif", fontSize: '7pt', color: 'var(--text-muted)', textAlign: 'center' }}>QR</span>}
         </div>
         <div style={{ flex: 1 }}>
           <div className="mag-kicker" style={{ color: 'var(--gold)', marginBottom: '1.5mm', fontSize: '6.5pt' }}>
             {UI.uz.discountFrom} −{discount}% · {UI.ru.discountFrom} −{discount}%
           </div>
-          {b.promoText && <Tri v={b.promoText} style={{ ...BODY, fontSize: '8.5pt', color: 'rgba(255,255,255,0.85)' }} />}
+          {b.promoText && <Tri v={b.promoText} style={{ ...BODY, fontSize: '8.5pt', color: 'rgba(var(--overlay-light-rgb), 0.85)' }} />}
           {brand.promoCode && (
-            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10pt', fontWeight: 800, color: '#e8d48c', marginTop: '2mm', letterSpacing: '1px' }}>
+            <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '10pt', fontWeight: 800, color: 'var(--editorial-gold-light)', marginTop: '2mm', letterSpacing: '1px' }}>
               {UI.uz.promoCode}: {brand.promoCode}
             </div>
           )}

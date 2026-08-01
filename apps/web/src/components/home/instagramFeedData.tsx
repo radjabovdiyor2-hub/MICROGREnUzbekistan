@@ -13,7 +13,7 @@ export const GROW_STAGES = [
     titleRu: 'Посадка семян',
     descUz: 'Sifatli substratga urug\'lar ekiladi va nam muhit yaratiladi',
     descRu: 'Семена высаживаются в качественный субстрат и создаётся влажная среда',
-    color: '#8B5CF6',
+    color: 'var(--cat-2)',
     icon: 'seed',
   },
   {
@@ -85,4 +85,4 @@ export function StageIcon({ type, size = 24 }: { type: string; size?: number }) 
 }
 
 // Color palette for fallback posts without images
-export const FALLBACK_COLORS = ['var(--brand-primary)', 'var(--info)', '#8B5CF6', 'var(--warning)', '#EC4899', '#06B6D4'];
+export const FALLBACK_COLORS = ['var(--brand-primary)', 'var(--info)', 'var(--cat-2)', 'var(--warning)', 'var(--cat-3)', 'var(--accent-cyan)'];

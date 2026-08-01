@@ -45,7 +45,7 @@ export function AiNutritionistBanner() {
             background: 'rgba(var(--brand-primary-rgb), 0.2)', color: 'var(--brand-primary)', 
             padding: '6px 12px', borderRadius: 'var(--radius-full)', 
             fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)',
-            width: 'fit-content', border: '1px solid rgba(52, 211, 153, 0.3)'
+            width: 'fit-content', border: '1px solid rgba(var(--brand-primary-rgb), 0.3)'
           }}>
             <Scan size={14} /> NEW: AI Nutritionist
           </div>

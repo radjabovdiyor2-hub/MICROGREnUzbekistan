@@ -12,8 +12,8 @@ interface Props {
 
 // Apple-style constants
 const FONT = "-apple-system, 'SF Pro Text', 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif";
-const VIBRANCY = 'rgba(30, 30, 30, 0.65)';
-const VIBRANCY_BORDER = 'rgba(255, 255, 255, 0.18)';
+const VIBRANCY = 'var(--surface-vibrancy)';
+const VIBRANCY_BORDER = 'rgba(var(--overlay-light-rgb), 0.18)';
 const BLUR = 'saturate(180%) blur(20px)';
 
 // SF Symbol-style SVG icons
@@ -75,7 +75,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
         width: '100vw',
         height: '100dvh',
         zIndex: 0,
-        background: '#000',
+        background: 'rgb(var(--overlay-dark-rgb))',
         overflow: 'hidden',
         animation: 'reels-fade-in 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) both',
       }}>
@@ -110,14 +110,14 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
             left: 0,
             right: 0,
             height: 3,
-            background: 'rgba(255, 255, 255, 0.2)',
+            background: 'rgba(var(--overlay-light-rgb), 0.2)',
             zIndex: 25,
           }}
         >
           <div style={{
             height: '100%',
             width: `${progress}%`,
-            background: 'rgba(255, 255, 255, 0.85)',
+            background: 'rgba(var(--overlay-light-rgb), 0.85)',
             borderRadius: '0 1.5px 1.5px 0',
             transition: 'width 0.25s linear',
           }} />
@@ -193,7 +193,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
         width: '100vw',
         height: '100dvh',
         zIndex: 0,
-        background: '#000',
+        background: 'rgb(var(--overlay-dark-rgb))',
         overflow: 'hidden',
         animation: 'reels-fade-in 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) both',
       }}>
@@ -235,7 +235,7 @@ export function DishVideo({ videoUrl, videoPoster, photo, alt, fullScreen = fals
             borderRadius: 16,
             display: 'block',
             cursor: 'pointer',
-            background: 'var(--bg-elevated, rgba(255,255,255,0.03))',
+            background: 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
           }}
         />
         <button

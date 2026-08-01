@@ -79,7 +79,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
   ].filter(Boolean).join(' · ');
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0B0B14)', padding: '90px 16px 60px' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '90px 16px 60px' }}>
       {ld.map((data, i) => (
         <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(data) }} />
       ))}
@@ -87,7 +87,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
 
         {/* Крошки: заодно вход в хаб рецептов из каждой карточки */}
-        <nav aria-label="breadcrumb" style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, #999)', marginBottom: 14 }}>
+        <nav aria-label="breadcrumb" style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, var(--text-muted))', marginBottom: 14 }}>
           <Link href="/" style={{ color: 'inherit' }}>Главная</Link>
           {' / '}
           <Link href="/recipe" style={{ color: 'inherit' }}>Рецепты</Link>
@@ -106,7 +106,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
           fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1,
         }}>{recipe.titleRu}</h1>
         {recipe.titleUz && (
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 15, color: 'var(--text-muted, #999)', marginTop: 4 }}>
+          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 15, color: 'var(--text-muted, var(--text-muted))', marginTop: 4 }}>
             {recipe.titleUz}
           </div>
         )}
@@ -134,8 +134,8 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
               const rowStyle = {
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 12px', borderRadius: 14,
-                background: ing.product ? `${ACCENT}0f` : 'var(--bg-elevated, rgba(255,255,255,0.03))',
-                border: `1px solid ${ing.product ? `${ACCENT}33` : 'var(--border, rgba(255,255,255,0.06))'}`,
+                background: ing.product ? `${ACCENT}0f` : 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
+                border: `1px solid ${ing.product ? `${ACCENT}33` : 'var(--border, rgba(var(--overlay-light-rgb), 0.06))'}`,
                 color: 'inherit', textDecoration: 'none',
               };
               const inner = (
@@ -149,7 +149,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
                       {ing.product && <span style={{ marginLeft: 6, fontSize: 12, color: ACCENT }}>· в магазине</span>}
                     </div>
                     {ing.amount && (
-                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, #999)' }}>{ing.amount}</div>
+                      <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, var(--text-muted))' }}>{ing.amount}</div>
                     )}
                   </div>
                   {ing.product && formatPrice(ing.product.price) && (

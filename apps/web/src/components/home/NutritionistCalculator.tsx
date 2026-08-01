@@ -36,7 +36,7 @@ export function NutritionistCalculator({
   <div style={{
     background: 'var(--bg-card)', borderRadius: 20,
     border: '1.5px solid var(--border)', overflow: 'hidden',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+    boxShadow: '0 4px 20px rgba(var(--overlay-dark-rgb), 0.06)',
   }}>
     {/* Input section */}
     <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>

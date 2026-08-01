@@ -23,7 +23,7 @@ export function MotionCard({
   return (
     <motion.div
       className={className}
-      whileHover={{ y: -6, boxShadow: '0 18px 44px -14px rgba(0,0,0,0.2)' }}
+      whileHover={{ y: -6, boxShadow: '0 18px 44px -14px rgba(var(--overlay-dark-rgb), 0.2)' }}
       whileTap={{ scale: 0.97 }}
       transition={springs.snappy}
       {...props}

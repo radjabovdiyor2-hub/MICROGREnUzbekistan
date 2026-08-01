@@ -24,6 +24,10 @@
       "value": "16, 185, 129",
       "type": "other"
     },
+    "primary-hover-rgb": {
+      "value": "5, 150, 105",
+      "type": "other"
+    },
     "accent": {
       "value": "#FFB800",
       "type": "color"

@@ -22,7 +22,7 @@ export function renderMarkdown(text: string) {
       if (part.startsWith('**') && part.endsWith('**'))
         return <strong key={j}>{part.slice(2, -2)}</strong>;
       if (part.startsWith('`') && part.endsWith('`'))
-        return <code key={j} style={{ background: 'rgba(0,0,0,0.08)', padding: '1px 5px', borderRadius: 4, fontSize: '0.9em' }}>{part.slice(1, -1)}</code>;
+        return <code key={j} style={{ background: 'rgba(var(--overlay-dark-rgb), 0.08)', padding: '1px 5px', borderRadius: 4, fontSize: '0.9em' }}>{part.slice(1, -1)}</code>;
       return part;
     });
     return <span key={i}>{parts}{i < lines.length - 1 && <br />}</span>;
@@ -37,7 +37,7 @@ export function TypingIndicator() {
         width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
         background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2))',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: '0 2px 8px rgba(99,102,241,0.25)',
+        boxShadow: '0 2px 8px color-mix(in srgb, var(--cat-1) 25%, transparent)',
       }}>
         <Sparkles size={14} color="white" />
       </div>

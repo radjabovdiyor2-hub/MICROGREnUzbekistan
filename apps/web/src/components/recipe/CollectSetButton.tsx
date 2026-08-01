@@ -34,8 +34,8 @@ export function CollectSetButton({ products, slug, accent }: {
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           width: '100%', padding: '16px 20px', borderRadius: 16, border: 'none',
-          background: added ? 'var(--bg-elevated, rgba(255,255,255,0.06))' : accent,
-          color: added ? 'var(--text-primary)' : '#fff',
+          background: added ? 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.06))' : accent,
+          color: added ? 'var(--text-primary)' : 'rgb(var(--overlay-light-rgb))',
           fontFamily: "'Inter', sans-serif", fontSize: 16, fontWeight: 700,
           cursor: 'pointer',
         }}

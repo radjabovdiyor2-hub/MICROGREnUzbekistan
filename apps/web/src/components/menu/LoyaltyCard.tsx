@@ -35,7 +35,7 @@ export function LoyaltyCard({ slug, accent }: { slug: string; accent: string }) 
   return (
     <section style={{
       marginTop: 28, padding: 20, borderRadius: 20,
-      background: 'var(--bg-elevated, rgba(255,255,255,0.03))',
+      background: 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
       border: `1px solid ${accent}33`,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
@@ -57,8 +57,8 @@ export function LoyaltyCard({ slug, accent }: { slug: string; accent: string }) 
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16,
               background: filled ? accent : 'transparent',
-              border: `2px solid ${filled ? accent : 'rgba(255,255,255,0.15)'}`,
-              color: filled ? '#fff' : 'var(--text-muted, #999)',
+              border: `2px solid ${filled ? accent : 'rgba(var(--overlay-light-rgb), 0.15)'}`,
+              color: filled ? 'rgb(var(--overlay-light-rgb))' : 'var(--text-muted, var(--text-muted))',
             }}>
               {filled ? '📸' : i + 1}
             </div>
@@ -88,7 +88,7 @@ export function LoyaltyCard({ slug, accent }: { slug: string; accent: string }) 
           >В магазин микрозелени →</Link>
         </div>
       ) : (
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, #999)', marginTop: 12, lineHeight: 1.5 }}>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, var(--text-muted))', marginTop: 12, lineHeight: 1.5 }}>
           Снимайте кадр блюда в каждый визит — один штамп в день.
           Соберите {card.goal} и получите −{card.rewardPercent}% на домашнюю микрозелень.
         </p>
