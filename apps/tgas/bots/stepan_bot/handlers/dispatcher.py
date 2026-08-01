@@ -3,6 +3,7 @@
 Принимает произвольный текст задачи, анализирует через AI,
 определяет отдел и ответственного, создаёт задачу и контролирует выполнение.
 """
+
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -15,13 +16,13 @@ from shared.utils import simulate_typing
 import json
 import logging
 
+from shared.prompts import TEAM_CONTEXT
+
 router = Router()
 ai = AIEngine()
 logger = logging.getLogger(__name__)
 
 # ─── AI классификация задачи ────────────────────────────────
-
-from shared.prompts import TEAM_CONTEXT
 
 CLASSIFIER_PROMPT = f"""{TEAM_CONTEXT}
 Ты — Операционный Директор (COO) и главный диспетчер задач.
@@ -72,15 +73,24 @@ VERIFY_PROMPT = """Ты — Операционный Директор в Microgr
 
 # ─── Клавиатуры ─────────────────────────────────────────────
 
+
 def task_actions_kb(task_id: int):
     b = InlineKeyboardBuilder()
     b.row(
-        InlineKeyboardButton(text="✅ Выполнено", callback_data=f"dispatch:done:{task_id}"),
-        InlineKeyboardButton(text="📝 Отчёт", callback_data=f"dispatch:report:{task_id}")
+        InlineKeyboardButton(
+            text="✅ Выполнено", callback_data=f"dispatch:done:{task_id}"
+        ),
+        InlineKeyboardButton(
+            text="📝 Отчёт", callback_data=f"dispatch:report:{task_id}"
+        ),
     )
     b.row(
-        InlineKeyboardButton(text="📊 Статус", callback_data=f"dispatch:status:{task_id}"),
-        InlineKeyboardButton(text="❌ Отменить", callback_data=f"dispatch:cancel:{task_id}")
+        InlineKeyboardButton(
+            text="📊 Статус", callback_data=f"dispatch:status:{task_id}"
+        ),
+        InlineKeyboardButton(
+            text="❌ Отменить", callback_data=f"dispatch:cancel:{task_id}"
+        ),
     )
     return b.as_markup()
 
@@ -88,22 +98,36 @@ def task_actions_kb(task_id: int):
 def verify_kb(task_id: int):
     b = InlineKeyboardBuilder()
     b.row(
-        InlineKeyboardButton(text="✅ Принять", callback_data=f"dispatch:approve:{task_id}"),
-        InlineKeyboardButton(text="🔄 На доработку", callback_data=f"dispatch:revise:{task_id}")
+        InlineKeyboardButton(
+            text="✅ Принять", callback_data=f"dispatch:approve:{task_id}"
+        ),
+        InlineKeyboardButton(
+            text="🔄 На доработку", callback_data=f"dispatch:revise:{task_id}"
+        ),
     )
     return b.as_markup()
 
 
 DEPT_EMOJI = {
-    "production": "🌱", "sales": "🛒", "marketing": "📢",
-    "finance": "💰", "hr": "👥", "support": "🎧",
-    "content": "✍️", "logistics": "🚚"
+    "production": "🌱",
+    "sales": "🛒",
+    "marketing": "📢",
+    "finance": "💰",
+    "hr": "👥",
+    "support": "🎧",
+    "content": "✍️",
+    "logistics": "🚚",
 }
 
 DEPT_NAME = {
-    "production": "Производство", "sales": "Продажи", "marketing": "Маркетинг",
-    "finance": "Финансы", "hr": "HR", "support": "Поддержка",
-    "content": "Контент", "logistics": "Логистика"
+    "production": "Производство",
+    "sales": "Продажи",
+    "marketing": "Маркетинг",
+    "finance": "Финансы",
+    "hr": "HR",
+    "support": "Поддержка",
+    "content": "Контент",
+    "logistics": "Логистика",
 }
 
 
@@ -112,13 +136,15 @@ DEPT_NAME = {
 
 # ─── Отчёт о выполнении ────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("dispatch:report:"))
 async def request_report(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
     await cb.message.answer(
         f"📝 <b>Задача #{task_id}</b>\n\n"
         f"Напишите отчёт о выполнении. AI проверит результат.\n\n"
-        f"<i>Начните сообщение с: отчёт {task_id}</i>")
+        f"<i>Начните сообщение с: отчёт {task_id}</i>"
+    )
     await cb.answer()
 
 
@@ -134,10 +160,13 @@ async def process_report(msg: Message):
 
     # Находим последнюю незакрытую задачу
     async with get_session_ctx() as session:
-        result = await session.execute(text(
-            "SELECT id, title, department, description FROM tasks "
-            "WHERE status IN ('todo', 'in_progress') "
-            "ORDER BY priority = 'urgent' DESC, created_at DESC LIMIT 1"))
+        result = await session.execute(
+            text(
+                "SELECT id, title, department, description FROM tasks "
+                "WHERE status IN ('todo', 'in_progress') "
+                "ORDER BY priority = 'urgent' DESC, created_at DESC LIMIT 1"
+            )
+        )
         task = result.fetchone()
 
     if not task:
@@ -149,7 +178,8 @@ async def process_report(msg: Message):
     # Парсим описание задачи
     try:
         desc = json.loads(task.description) if task.description else {}
-    except:
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning("Failed to parse task description JSON: %s", exc)
         desc = {}
 
     steps = desc.get("steps", [])
@@ -161,14 +191,14 @@ async def process_report(msg: Message):
         department=task.department,
         steps=", ".join(steps),
         verification=verification,
-        report=report_text
+        report=report_text,
     )
 
     try:
         response = await ai.chat_completion(
             "Ты контролёр качества. Оцени выполнение задачи строго но справедливо.",
             verify_prompt,
-            effort="high"
+            effort="high",
         )
         response = response.strip()
         if response.startswith("```"):
@@ -176,22 +206,36 @@ async def process_report(msg: Message):
             if response.startswith("json"):
                 response = response[4:]
         result_data = json.loads(response)
-    except:
-        result_data = {"status": "needs_revision", "score": 5, "feedback": "Не удалось автоматически проверить.", "missing": []}
+    except Exception as exc:
+        logger.warning("Failed to verify task report via AI: %s", exc)
+        result_data = {
+            "status": "needs_revision",
+            "score": 5,
+            "feedback": "Не удалось автоматически проверить.",
+            "missing": [],
+        }
 
     status = result_data.get("status", "needs_revision")
     score = result_data.get("score", 5)
     feedback = result_data.get("feedback", "")
     missing = result_data.get("missing", [])
 
-    status_emoji = {"approved": "✅", "rejected": "❌", "needs_revision": "🔄"}.get(status, "❓")
-    status_text = {"approved": "ОДОБРЕНО", "rejected": "ОТКЛОНЕНО", "needs_revision": "НА ДОРАБОТКУ"}.get(status, status)
+    status_emoji = {"approved": "✅", "rejected": "❌", "needs_revision": "🔄"}.get(
+        status, "❓"
+    )
+    status_text = {
+        "approved": "ОДОБРЕНО",
+        "rejected": "ОТКЛОНЕНО",
+        "needs_revision": "НА ДОРАБОТКУ",
+    }.get(status, status)
 
     score_bar = "█" * score + "░" * (10 - score)
 
     missing_text = ""
     if missing:
-        missing_text = "\n\n⚠️ <b>Недоработки:</b>\n" + "\n".join(f"  • {m}" for m in missing)
+        missing_text = "\n\n⚠️ <b>Недоработки:</b>\n" + "\n".join(
+            f"  • {m}" for m in missing
+        )
 
     response_msg = (
         f"{status_emoji} <b>Проверка задачи #{task.id}</b>\n"
@@ -206,11 +250,14 @@ async def process_report(msg: Message):
     if status == "approved":
         # Задача выполнена!
         async with get_session_ctx() as session:
-            await session.execute(text(
-                "UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task.id})
-        await event_bus.publish(Events.TASK_COMPLETED, {
-            "task_id": task.id, "title": task.title, "score": score
-        }, source_bot="stepan_bot")
+            await session.execute(
+                text("UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task.id}
+            )
+        await event_bus.publish(
+            Events.TASK_COMPLETED,
+            {"task_id": task.id, "title": task.title, "score": score},
+            source_bot="stepan_bot",
+        )
         await msg.answer(response_msg)
     else:
         await msg.answer(response_msg, reply_markup=verify_kb(task.id))
@@ -218,17 +265,20 @@ async def process_report(msg: Message):
 
 # ─── Кнопки управления ─────────────────────────────────────
 
+
 @router.callback_query(F.data.startswith("dispatch:done:"))
 async def mark_done(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
-        await session.execute(text(
-            "UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task_id})
-    await event_bus.publish(Events.TASK_COMPLETED, {
-        "task_id": task_id
-    }, source_bot="stepan_bot")
+        await session.execute(
+            text("UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task_id}
+        )
+    await event_bus.publish(
+        Events.TASK_COMPLETED, {"task_id": task_id}, source_bot="stepan_bot"
+    )
     await cb.message.edit_text(
-        cb.message.text + "\n\n✅ <b>ВЫПОЛНЕНО</b>", reply_markup=None)
+        cb.message.text + "\n\n✅ <b>ВЫПОЛНЕНО</b>", reply_markup=None
+    )
     await cb.answer("✅ Задача закрыта!")
 
 
@@ -236,12 +286,15 @@ async def mark_done(cb: CallbackQuery):
 async def check_status(cb: CallbackQuery):
     """Показать все активные задачи."""
     async with get_session_ctx() as session:
-        result = await session.execute(text(
-            "SELECT id, title, department, status, priority, deadline "
-            "FROM tasks WHERE status IN ('todo', 'in_progress') "
-            "ORDER BY CASE priority "
-            "WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 "
-            "WHEN 'medium' THEN 2 ELSE 3 END, created_at DESC LIMIT 10"))
+        result = await session.execute(
+            text(
+                "SELECT id, title, department, status, priority, deadline "
+                "FROM tasks WHERE status IN ('todo', 'in_progress') "
+                "ORDER BY CASE priority "
+                "WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 "
+                "WHEN 'medium' THEN 2 ELSE 3 END, created_at DESC LIMIT 10"
+            )
+        )
         tasks = result.fetchall()
 
     if not tasks:
@@ -252,7 +305,9 @@ async def check_status(cb: CallbackQuery):
     lines = ["📊 <b>Активные задачи</b>\n━━━━━━━━━━━━━━━━━━━━━\n"]
     for t in tasks:
         emoji = DEPT_EMOJI.get(t.department, "📋")
-        p_emoji = {"urgent": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(t.priority, "⚪")
+        p_emoji = {"urgent": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(
+            t.priority, "⚪"
+        )
         s_emoji = {"todo": "⬜", "in_progress": "🔷"}.get(t.status, "⬜")
         dl = f" (до {t.deadline})" if t.deadline else ""
         lines.append(f"{s_emoji} #{t.id} {p_emoji} {emoji} {t.title}{dl}")
@@ -265,10 +320,13 @@ async def check_status(cb: CallbackQuery):
 async def cancel_task(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
-        await session.execute(text(
-            "UPDATE tasks SET status = 'cancelled' WHERE id = :id"), {"id": task_id})
+        await session.execute(
+            text("UPDATE tasks SET status = 'cancelled' WHERE id = :id"),
+            {"id": task_id},
+        )
     await cb.message.edit_text(
-        cb.message.text + "\n\n❌ <b>ОТМЕНЕНО</b>", reply_markup=None)
+        cb.message.text + "\n\n❌ <b>ОТМЕНЕНО</b>", reply_markup=None
+    )
     await cb.answer("❌ Задача отменена")
 
 
@@ -276,10 +334,12 @@ async def cancel_task(cb: CallbackQuery):
 async def approve_task(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
-        await session.execute(text(
-            "UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task_id})
+        await session.execute(
+            text("UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task_id}
+        )
     await cb.message.edit_text(
-        cb.message.text + "\n\n✅ <b>ПРИНЯТО</b>", reply_markup=None)
+        cb.message.text + "\n\n✅ <b>ПРИНЯТО</b>", reply_markup=None
+    )
     await cb.answer("✅ Задача принята!")
 
 
@@ -287,8 +347,11 @@ async def approve_task(cb: CallbackQuery):
 async def revise_task(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
     async with get_session_ctx() as session:
-        await session.execute(text(
-            "UPDATE tasks SET status = 'in_progress' WHERE id = :id"), {"id": task_id})
+        await session.execute(
+            text("UPDATE tasks SET status = 'in_progress' WHERE id = :id"),
+            {"id": task_id},
+        )
     await cb.message.edit_text(
-        cb.message.text + "\n\n🔄 <b>НА ДОРАБОТКУ</b>", reply_markup=None)
+        cb.message.text + "\n\n🔄 <b>НА ДОРАБОТКУ</b>", reply_markup=None
+    )
     await cb.answer("🔄 Отправлено на доработку")

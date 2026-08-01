@@ -1,4 +1,5 @@
 """Sales Bot — /start, /help, язык, контакты, навигация."""
+
 import logging
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
@@ -26,76 +27,106 @@ WELCOME_UZ = (
     "Harakatni tanlang:"
 )
 
+
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     await simulate_typing(message, delay=1.0)
-    
+
     # Save customer to DB
     async with get_session_ctx() as session:
         row = await session.execute(
             text("SELECT id, language FROM customers WHERE telegram_id = :tid"),
-            {"tid": message.from_user.id}
+            {"tid": message.from_user.id},
         )
         customer = row.fetchone()
-        
+
         if customer:
             lang = customer.language or "ru"
             name = message.from_user.first_name or "друг"
             greeting = get_greeting(lang)
-            text_msg = f"{greeting}, {name}! 👋\n\nРады видеть вас снова!" if lang == "ru" else f"{greeting}, {name}! 👋\n\nSizni yana ko'rganimizdan xursandmiz!"
+            text_msg = (
+                f"{greeting}, {name}! 👋\n\nРады видеть вас снова!"
+                if lang == "ru"
+                else f"{greeting}, {name}! 👋\n\nSizni yana ko'rganimizdan xursandmiz!"
+            )
         else:
             lang = "ru"
-            full_name = " ".join(filter(None, [message.from_user.first_name, message.from_user.last_name])) or "Friend"
+            full_name = (
+                " ".join(
+                    filter(
+                        None,
+                        [message.from_user.first_name, message.from_user.last_name],
+                    )
+                )
+                or "Friend"
+            )
             await session.execute(
-                text("INSERT INTO customers (name, telegram_id, telegram_username, status, language, created_at, updated_at) "
-                     "VALUES (:name, :tid, :uname, 'lead', 'ru', NOW(), NOW()) ON CONFLICT (telegram_id) DO NOTHING"),
-                {"name": full_name, "tid": message.from_user.id, "uname": message.from_user.username}
+                text(
+                    "INSERT INTO customers (name, telegram_id, telegram_username, status, language, created_at, updated_at) "
+                    "VALUES (:name, :tid, :uname, 'lead', 'ru', NOW(), NOW()) ON CONFLICT (telegram_id) DO NOTHING"
+                ),
+                {
+                    "name": full_name,
+                    "tid": message.from_user.id,
+                    "uname": message.from_user.username,
+                },
             )
             text_msg = WELCOME_RU
-    
+
     await state.update_data(lang=lang, cart={})
     await message.answer(text_msg, reply_markup=main_menu_kb(lang))
+
 
 @router.message(Command("help"))
 async def cmd_help(message: Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "ru")
     help_text = (
-        "📖 <b>Доступные команды:</b>\n\n"
-        "/start — Главное меню\n"
-        "/help — Помощь\n"
-        "/contacts — Контакты\n"
-        "/language — Сменить язык"
-    ) if lang == "ru" else (
-        "📖 <b>Mavjud buyruqlar:</b>\n\n"
-        "/start — Asosiy menyu\n"
-        "/help — Yordam\n"
-        "/contacts — Kontaktlar\n"
-        "/language — Tilni o'zgartirish"
+        (
+            "📖 <b>Доступные команды:</b>\n\n"
+            "/start — Главное меню\n"
+            "/help — Помощь\n"
+            "/contacts — Контакты\n"
+            "/language — Сменить язык"
+        )
+        if lang == "ru"
+        else (
+            "📖 <b>Mavjud buyruqlar:</b>\n\n"
+            "/start — Asosiy menyu\n"
+            "/help — Yordam\n"
+            "/contacts — Kontaktlar\n"
+            "/language — Tilni o'zgartirish"
+        )
     )
     await message.answer(help_text, reply_markup=main_menu_kb(lang))
+
 
 @router.message(Command("contacts"))
 async def cmd_contacts(message: Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "ru")
     contacts = (
-        f"📞 <b>Наши контакты:</b>\n\n"
-        f"📱 Телефон: {settings.company_phone}\n"
-        f"📍 Адрес: г. Самарканд\n"
-        f"⏰ Работаем: Пн-Сб, 8:00-20:00\n"
-        f"🚚 Бесплатная доставка от {format_price(settings.free_delivery_threshold)}\n"
-        f"🌐 microgreenuzbekistan.com"
-    ) if lang == "ru" else (
-        f"📞 <b>Bizning kontaktlar:</b>\n\n"
-        f"📱 Telefon: {settings.company_phone}\n"
-        f"📍 Manzil: Samarqand sh.\n"
-        f"⏰ Ish vaqti: Du-Sha, 8:00-20:00\n"
-        f"🚚 {format_price(settings.free_delivery_threshold)} dan bepul yetkazib berish\n"
-        f"🌐 microgreenuzbekistan.com"
+        (
+            f"📞 <b>Наши контакты:</b>\n\n"
+            f"📱 Телефон: {settings.company_phone}\n"
+            f"📍 Адрес: г. Самарканд\n"
+            f"⏰ Работаем: Пн-Сб, 8:00-20:00\n"
+            f"🚚 Бесплатная доставка от {format_price(settings.free_delivery_threshold)}\n"
+            f"🌐 microgreenuzbekistan.com"
+        )
+        if lang == "ru"
+        else (
+            f"📞 <b>Bizning kontaktlar:</b>\n\n"
+            f"📱 Telefon: {settings.company_phone}\n"
+            f"📍 Manzil: Samarqand sh.\n"
+            f"⏰ Ish vaqti: Du-Sha, 8:00-20:00\n"
+            f"🚚 {format_price(settings.free_delivery_threshold)} dan bepul yetkazib berish\n"
+            f"🌐 microgreenuzbekistan.com"
+        )
     )
     await message.answer(contacts, reply_markup=main_menu_kb(lang))
+
 
 @router.callback_query(F.data == "menu:contacts")
 async def on_contacts(cb: CallbackQuery, state: FSMContext):
@@ -103,13 +134,18 @@ async def on_contacts(cb: CallbackQuery, state: FSMContext):
     lang = data.get("lang", "ru")
     await cb.message.edit_text(
         f"📞 Телефон: {settings.company_phone}\n📍 Самарканд\n🌐 microgreenuzbekistan.com",
-        reply_markup=main_menu_kb(lang))
+        reply_markup=main_menu_kb(lang),
+    )
     await cb.answer()
+
 
 @router.callback_query(F.data == "menu:language")
 async def on_language(cb: CallbackQuery):
-    await cb.message.edit_text("🌐 Выберите язык / Tilni tanlang:", reply_markup=language_kb())
+    await cb.message.edit_text(
+        "🌐 Выберите язык / Tilni tanlang:", reply_markup=language_kb()
+    )
     await cb.answer()
+
 
 @router.callback_query(F.data.startswith("lang:"))
 async def on_lang_set(cb: CallbackQuery, state: FSMContext):
@@ -118,10 +154,16 @@ async def on_lang_set(cb: CallbackQuery, state: FSMContext):
     async with get_session_ctx() as session:
         await session.execute(
             text("UPDATE customers SET language = :lang WHERE telegram_id = :tid"),
-            {"lang": lang, "tid": cb.from_user.id})
-    msg = "✅ Язык изменён на русский!" if lang == "ru" else "✅ Til o'zbekchaga o'zgartirildi!"
+            {"lang": lang, "tid": cb.from_user.id},
+        )
+    msg = (
+        "✅ Язык изменён на русский!"
+        if lang == "ru"
+        else "✅ Til o'zbekchaga o'zgartirildi!"
+    )
     await cb.message.edit_text(msg, reply_markup=main_menu_kb(lang))
     await cb.answer()
+
 
 @router.callback_query(F.data == "nav:main_menu")
 async def on_main_menu(cb: CallbackQuery, state: FSMContext):

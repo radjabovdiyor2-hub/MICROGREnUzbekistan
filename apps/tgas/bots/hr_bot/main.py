@@ -1,4 +1,5 @@
 """HR Bot — main.py с EventBus интеграцией"""
+
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
@@ -26,14 +27,20 @@ async def payroll_reminder():
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
-        bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+        bot = Bot(
+            token=settings.hr_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
         admin_id = settings.admin_telegram_ids[0]
         try:
             async with get_session_ctx() as session:
-                result = await session.execute(text(
-                    "SELECT COUNT(*) AS cnt, COALESCE(SUM(salary), 0) AS total "
-                    "FROM employees WHERE status = 'active'"
-                ))
+                result = await session.execute(
+                    text(
+                        "SELECT COUNT(*) AS cnt, COALESCE(SUM(salary), 0) AS total "
+                        "FROM employees WHERE status = 'active'"
+                    )
+                )
                 row = result.fetchone()
             count = row[0] if row else 0
             total = row[1] if row else 0
@@ -44,7 +51,9 @@ async def payroll_reminder():
                 f"Фонд: {'{:,.0f}'.format(total)} сум",
                 parse_mode="HTML",
             )
-            logger.info("payroll_reminder: %d сотрудников, фонд %s", count, f"{total:,.0f}")
+            logger.info(
+                "payroll_reminder: %d сотрудников, фонд %s", count, f"{total:,.0f}"
+            )
         finally:
             await bot.session.close()
     except Exception as e:
@@ -56,13 +65,17 @@ async def employee_report():
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
-        bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+        bot = Bot(
+            token=settings.hr_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
         admin_id = settings.admin_telegram_ids[0]
         try:
             async with get_session_ctx() as session:
-                result = await session.execute(text(
-                    "SELECT status, COUNT(*) FROM employees GROUP BY status"
-                ))
+                result = await session.execute(
+                    text("SELECT status, COUNT(*) FROM employees GROUP BY status")
+                )
                 rows = result.fetchall()
             status_map = {r[0]: r[1] for r in rows}
             active = status_map.get("active", 0)
@@ -78,15 +91,26 @@ async def employee_report():
                 f"\nВсего: {total}",
                 parse_mode="HTML",
             )
-            logger.info("employee_report: active=%d inactive=%d on_leave=%d", active, inactive, on_leave)
+            logger.info(
+                "employee_report: active=%d inactive=%d on_leave=%d",
+                active,
+                inactive,
+                on_leave,
+            )
             # Замыкаем петлю: HR (замер загрузки/штата -> вывод -> адаптация нагрузки)
             try:
                 from shared.feedback_loop import feedback_loop
+
                 await feedback_loop.evaluate_and_adapt(
                     bot="hr_bot",
                     metric="task_completion_rate",
-                    current_data={"active": active, "inactive": inactive, "on_leave": on_leave, "total": total},
-                    benchmark_data={"target_active_ratio": 0.85}
+                    current_data={
+                        "active": active,
+                        "inactive": inactive,
+                        "on_leave": on_leave,
+                        "total": total,
+                    },
+                    benchmark_data={"target_active_ratio": 0.85},
                 )
             except Exception as fe:
                 logger.warning(f"HR feedback loop error: {fe}")
@@ -101,18 +125,24 @@ async def new_applications_check():
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
-        bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+        bot = Bot(
+            token=settings.hr_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
         admin_id = settings.admin_telegram_ids[0]
         try:
             async with get_session_ctx() as session:
-                result = await session.execute(text(
-                    "SELECT i.id, i.interaction_type, i.summary, c.name "
-                    "FROM interactions i "
-                    "LEFT JOIN customers c ON c.id = i.customer_id "
-                    "WHERE i.interaction_type IN ('b2b_lead', 'inquiry') "
-                    "AND i.created_at > NOW() - INTERVAL '24 hours' "
-                    "ORDER BY i.created_at DESC"
-                ))
+                result = await session.execute(
+                    text(
+                        "SELECT i.id, i.interaction_type, i.summary, c.name "
+                        "FROM interactions i "
+                        "LEFT JOIN customers c ON c.id = i.customer_id "
+                        "WHERE i.interaction_type IN ('b2b_lead', 'inquiry') "
+                        "AND i.created_at > NOW() - INTERVAL '24 hours' "
+                        "ORDER BY i.created_at DESC"
+                    )
+                )
                 rows = result.fetchall()
             if rows:
                 lines = [f"📨 <b>Необработанные обращения (24ч):</b> {len(rows)}\n"]
@@ -136,7 +166,10 @@ async def new_applications_check():
 async def training_reminder():
     """Понедельник — напоминание об обучении."""
     try:
-        bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        bot = Bot(
+            token=settings.hr_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
         admin_id = settings.admin_telegram_ids[0]
         try:
             await bot.send_message(
@@ -152,40 +185,56 @@ async def training_reminder():
         logger.exception("training_reminder error: %s", e)
 
 
-scheduler.add_cron(name="payroll_reminder", func=payroll_reminder, hour=10, minute=0, day_of_month=25)
+scheduler.add_cron(
+    name="payroll_reminder", func=payroll_reminder, hour=10, minute=0, day_of_month=25
+)
 # ── Регистрация задач HR-мониторинга ────────────────────────────────────
 scheduler.add_cron(name="employee_report", func=employee_report, hour=10, minute=0)
-scheduler.add_interval(name="new_applications_check", func=new_applications_check, seconds=12 * 3600)
-scheduler.add_cron(name="training_reminder", func=training_reminder, hour=10, minute=0, day_of_week=0)
+scheduler.add_interval(
+    name="new_applications_check", func=new_applications_check, seconds=12 * 3600
+)
+scheduler.add_cron(
+    name="training_reminder", func=training_reminder, hour=10, minute=0, day_of_week=0
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # BOT BUS HANDLERS — задачи от Степана
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def bus_get_employees(params: dict) -> dict:
     """Список и количество сотрудников."""
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
+
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                "SELECT status, COUNT(*) FROM employees GROUP BY status"
-            ))
+            res = await session.execute(
+                text("SELECT status, COUNT(*) FROM employees GROUP BY status")
+            )
             status_map = {r[0]: r[1] for r in res.fetchall()}
-            res = await session.execute(text(
-                "SELECT id, name, role, status, salary FROM employees ORDER BY name"
-            ))
+            res = await session.execute(
+                text(
+                    "SELECT id, name, role, status, salary FROM employees ORDER BY name"
+                )
+            )
             rows = res.fetchall()
         employees = [
-            {"id": r[0], "name": r[1], "role": r[2], "status": r[3], "salary": float(r[4] or 0)}
+            {
+                "id": r[0],
+                "name": r[1],
+                "role": r[2],
+                "status": r[3],
+                "salary": float(r[4] or 0),
+            }
             for r in rows
         ]
         total = sum(status_map.values())
         return {
             "status": "ok",
             "message": f"Сотрудников: {total} (активных: {status_map.get('active', 0)})",
-            "data": {"total": total, "by_status": status_map, "employees": employees}
+            "data": {"total": total, "by_status": status_map, "employees": employees},
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -201,10 +250,14 @@ async def handle_task_created(payload: dict):
         return
     task_id = data.get("task_id")
 
-    bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(
+        token=settings.hr_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     try:
         from bots.hr_bot.handlers.start import ai
         from shared.prompts import TEAM_CONTEXT
+
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Директор по персоналу (HR Director). Фокусируйся на мотивации, KPI, удержании талантов (Employee Retention) и развитии корпоративной культуры. Давай структурные ответы и планы развития."
         user_prompt = f"Руководитель поставил задачу для HR-отдела:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
         logging.info("HR_BOT Generating AI answer...")
@@ -212,7 +265,13 @@ async def handle_task_created(payload: dict):
 
         logging.info(f"HR_BOT sending message to {chat_id}")
         from shared.task_ui import get_task_keyboard
-        await bot.send_message(chat_id, f"✅ <b>HR-отдел — принял в работу:</b>\n\n{answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
+
+        await bot.send_message(
+            chat_id,
+            f"✅ <b>HR-отдел — принял в работу:</b>\n\n{answer}",
+            parse_mode="HTML",
+            reply_markup=get_task_keyboard(task_id),
+        )
         logging.info("HR_BOT successfully sent message.")
 
     except Exception as e:
@@ -223,25 +282,35 @@ async def handle_task_created(payload: dict):
 
 async def handle_roll_call(payload: dict):
     from shared.roll_call import handle_roll_call as _shared_roll_call
+
     await _shared_roll_call("hr_bot", payload)
 
 
 async def main():
     if not settings.hr_bot_token:
-        logger.error(f"FATAL: HR_BOT_TOKEN is missing!")
+        logger.error("FATAL: HR_BOT_TOKEN is missing!")
         import sys
+
         sys.exit(1)
 
     await init_db()
-    bot = Bot(token=settings.hr_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(
+        token=settings.hr_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
     from shared.task_ui import task_ui_router
+
     dp.include_router(task_ui_router)
     for r in all_routers:
         dp.include_router(r)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_hr, wake_words=["отдел кадр", "кадры", "hr", "персонал", "сотрудники"])
+    group_router = create_group_router(
+        bot_info.username,
+        ai_hr,
+        wake_words=["отдел кадр", "кадры", "hr", "персонал", "сотрудники"],
+    )
     dp.include_router(group_router)
 
     # HR подключается к шине
@@ -256,9 +325,15 @@ async def main():
 
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
-    asyncio.create_task(bus_listen("hr_bot", {
-        "get_employees": bus_get_employees,
-    }))
+
+    asyncio.create_task(
+        bus_listen(
+            "hr_bot",
+            {
+                "get_employees": bus_get_employees,
+            },
+        )
+    )
 
     logger.info("Starting HR Bot...")
     try:
@@ -268,6 +343,7 @@ async def main():
         await scheduler.stop()
         await event_bus.stop()
         await bot.session.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

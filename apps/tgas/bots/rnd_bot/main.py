@@ -10,14 +10,19 @@ from shared.prompts import TEAM_CONTEXT
 # Полный системный промпт: командный контекст (чтобы бот знал о других
 # отделах и умел маршрутизировать) + роль + фирменный голос бренда.
 # До этого здесь был однострочник вида RND_SYSTEM_PROMPT.
-RND_SYSTEM_PROMPT = TEAM_CONTEXT + """
+RND_SYSTEM_PROMPT = (
+    TEAM_CONTEXT
+    + """
 Ты — аналитик R&D сити-фермы Microgreen Uzbekistan.
 Занимаешься новыми культурами, субстратами и режимами: урожайность, сроки, себестоимость.
 Предлагай гипотезы с оценкой риска и понятным способом проверки на одной партии.
 Не выдумывай цифр: если данных нет — скажи, каких именно не хватает.
 """
+)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] RND_BOT: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] RND_BOT: %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 ai = AIEngine()
@@ -30,14 +35,18 @@ scheduler = BotScheduler("rnd_bot")
 async def generate_instagram_rnd_report() -> str:
     """R&D-анализ на основе РЕАЛЬНОЙ статистики Instagram + каталога."""
     from shared.instagram_analytics import get_instagram_stats
+
     stats = await get_instagram_stats(top_limit=5)
 
     products = []
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
+
         async with get_session_ctx() as s:
-            res = await s.execute(text("SELECT name_ru FROM products WHERE is_active=true LIMIT 15"))
+            res = await s.execute(
+                text("SELECT name_ru FROM products WHERE is_active=true LIMIT 15")
+            )
             products = [r[0] for r in res.fetchall() if r[0]]
     except Exception as e:
         logger.warning(f"products fetch error: {e}")
@@ -62,11 +71,15 @@ async def generate_instagram_rnd_report() -> str:
     except Exception as e:
         logger.error(f"AI error: {e}")
         from shared.health import record_bot_error
+
         await record_bot_error("rnd_bot", str(e))
         report = "Не удалось сгенерировать R&D-отчёт из-за ошибки ИИ."
 
     if not stats.get("configured"):
-        report = "⚠️ Instagram Graph API сейчас недоступен — рекомендации без свежих цифр.\n\n" + report
+        report = (
+            "⚠️ Instagram Graph API сейчас недоступен — рекомендации без свежих цифр.\n\n"
+            + report
+        )
     return report
 
 
@@ -75,31 +88,39 @@ async def weekly_instagram_rnd():
     try:
         report = await generate_instagram_rnd_report()
         text_msg = f"🧬 <b>R&D: тренды Instagram и что посадить</b>\n\n{report}"
-        await event_bus.publish("new_message", {"bot": "R&D — тренды Instagram", "text": text_msg}, "rnd_bot")
+        await event_bus.publish(
+            "new_message",
+            {"bot": "R&D — тренды Instagram", "text": text_msg},
+            "rnd_bot",
+        )
         logger.info("weekly_instagram_rnd: отчёт отправлен руководителю")
     except Exception as e:
         logger.error(f"weekly_instagram_rnd error: {e}", exc_info=True)
         from shared.health import record_bot_error
+
         await record_bot_error("rnd_bot", str(e))
+
 
 async def handle_n8n_webhook(request: web.Request):
     """Webhook from n8n for R&D tasks"""
     try:
         payload = await request.json()
         action = payload.get("action")
-        
+
         if action == "weekly_trend_report":
             logger.info("R&D Bot: Generating weekly Instagram trend report (real data)")
             await weekly_instagram_rnd()
             return web.json_response({"status": "success"})
-            
+
         return web.json_response({"status": "ignored"})
-        
+
     except Exception as e:
         logger.error(f"Error handling webhook: {e}")
         from shared.health import record_bot_error
+
         await record_bot_error("rnd_bot", str(e))
         return web.json_response({"error": str(e)}, status=500)
+
 
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
@@ -108,22 +129,25 @@ async def handle_task_created(payload: dict):
     # "QA"/"DevOps", и строгое сравнение молча теряло такую задачу.
     if str(data.get("department", "")).lower() != "rnd":
         return
-        
+
     logger.info(f"R&D Bot received task via event_bus: {payload}")
     task_id = data.get("task_id", "rnd_task")
-    chat_id = data.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
+    chat_id = data.get(
+        "chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0
+    )
     description = data.get("description", "")
-    
+
     from shared.feedback_loop import feedback_loop
+
     active_learning = await feedback_loop.get_active_behavior("rnd_bot", "recipe_yield")
     qa_context = active_learning.get("inference", "")
-    
+
     prompt_text = (
         f"Ты аналитик отдела исследований и разработки (R&D) сити-фермы. Твоя задача:\n{description}\n\n"
         f"Контекст обратной связи от QA контроля качества: {qa_context or 'Стандарты в норме'}\n\n"
         "Проанализируй рынок, мировые тренды в HoReCa, предложи новые идеи сортов микрозелени или съедобных цветов. Дай структурированный ответ."
     )
-    
+
     try:
         report = await ai.chat_completion(
             system_prompt=RND_SYSTEM_PROMPT,
@@ -133,19 +157,26 @@ async def handle_task_created(payload: dict):
     except Exception as e:
         logger.error(f"AI error: {e}")
         from shared.health import record_bot_error
+
         await record_bot_error("rnd_bot", str(e))
         report = "Не удалось сгенерировать отчет R&D из-за ошибки ИИ."
-        
+
     # Send result back via Event Bus to Stepan
-    await event_bus.publish("TASK_COMPLETED", {
-        "task_id": task_id,
-        "completed_by": "rnd",
-        "chat_id": chat_id,
-        "text": f"🧬 <b>Отчет Отдела R&D (Анализ рынка и трендов):</b>\n\n{report}"
-    }, "rnd_bot")
+    await event_bus.publish(
+        "TASK_COMPLETED",
+        {
+            "task_id": task_id,
+            "completed_by": "rnd",
+            "chat_id": chat_id,
+            "text": f"🧬 <b>Отчет Отдела R&D (Анализ рынка и трендов):</b>\n\n{report}",
+        },
+        "rnd_bot",
+    )
+
 
 async def handle_roll_call(payload: dict):
     from shared.roll_call import handle_roll_call as _shared_roll_call
+
     await _shared_roll_call("rnd_bot", payload)
 
 
@@ -154,16 +185,21 @@ async def main():
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
     event_bus.on("ROLL_CALL", handle_roll_call)
-    
+
     app = web.Application()
-    app.router.add_post('/n8n-webhook', handle_n8n_webhook)
+    app.router.add_post("/n8n-webhook", handle_n8n_webhook)
     await event_bus.start_listening(8091, app)
 
     # Еженедельные R&D-рекомендации по трендам Instagram (Пн 10:00)
-    scheduler.add_cron(name="weekly_instagram_rnd", func=weekly_instagram_rnd,
-                       hour=10, minute=0, day_of_week=0)
+    scheduler.add_cron(
+        name="weekly_instagram_rnd",
+        func=weekly_instagram_rnd,
+        hour=10,
+        minute=0,
+        day_of_week=0,
+    )
     await scheduler.start()
-    
+
     from shared.bot_bus import start_listener
     from shared.event_bus import BotBusActions
 
@@ -190,18 +226,25 @@ async def main():
         report = await generate_instagram_rnd_report()
         return {"status": "ok", "message": report}
 
-    asyncio.create_task(start_listener("rnd_bot", {
-        BotBusActions.GENERATE_MAGAZINE_FACTS: bus_generate_magazine_facts,
-        "weekly_trend_report": bus_weekly_trend_report,
-    }))
+    asyncio.create_task(
+        start_listener(
+            "rnd_bot",
+            {
+                BotBusActions.GENERATE_MAGAZINE_FACTS: bus_generate_magazine_facts,
+                "weekly_trend_report": bus_weekly_trend_report,
+            },
+        )
+    )
 
     from shared.health import start_heartbeat
+
     asyncio.create_task(start_heartbeat("rnd_bot"))
 
     logger.info("R&D Bot running on port 8091 (weekly Instagram trends: Mon 10:00)")
 
     while True:
         await asyncio.sleep(3600)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

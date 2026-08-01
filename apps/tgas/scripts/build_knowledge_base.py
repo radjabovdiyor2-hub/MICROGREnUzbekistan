@@ -13,6 +13,7 @@ from shared.database import get_session_ctx
 # из-за чего сборка базы знаний не попадала в учёт расхода токенов.
 engine = AIEngine()
 
+
 async def setup_vector_table():
     async with get_session_ctx() as session:
         # Расширение pgvector. Prisma не управляет расширениями — включаем вручную.
@@ -21,16 +22,21 @@ async def setup_vector_table():
         # Таблица knowledge_base управляется Prisma (schema.prisma).
         # CREATE TABLE IF NOT EXISTS больше не нужен.
         # Создаем индекс для векторного поиска
-        await session.execute(text("""
+        await session.execute(
+            text("""
             CREATE INDEX IF NOT EXISTS kb_embedding_idx 
             ON knowledge_base 
             USING ivfflat (embedding vector_cosine_ops) 
             WITH (lists = 100);
-        """))
+        """)
+        )
         print("Таблица knowledge_base и индекс созданы.")
 
+
 async def build_knowledge_base():
-    kb_path = os.path.join(os.path.dirname(__file__), "..", "bots", "support_bot", "knowledge")
+    kb_path = os.path.join(
+        os.path.dirname(__file__), "..", "bots", "support_bot", "knowledge"
+    )
     if not os.path.exists(kb_path):
         print("Папка knowledge не найдена!")
         return
@@ -71,15 +77,21 @@ async def build_knowledge_base():
                         INSERT INTO knowledge_base (title, content, embedding)
                         VALUES (:title, :content, CAST(:embedding AS vector))
                     """),
-                    {"title": title, "content": text_content, "embedding": str(embedding)}
+                    {
+                        "title": title,
+                        "content": text_content,
+                        "embedding": str(embedding),
+                    },
                 )
             print(f"Добавлен чанк: {title}")
 
     print("База знаний успешно построена и векторизована!")
 
+
 async def main():
     await setup_vector_table()
     await build_knowledge_base()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

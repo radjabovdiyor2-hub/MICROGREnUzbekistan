@@ -10,6 +10,7 @@
 Таблица (см. database/init.sql):
     ai_usage(id, bot, provider, model, input_tokens, output_tokens, cost_usd, created_at)
 """
+
 from __future__ import annotations
 
 import logging
@@ -70,29 +71,55 @@ async def build_cost_report() -> dict:
 
     try:
         async with get_session_ctx() as session:
-            row = (await session.execute(text(
-                "SELECT COALESCE(SUM(cost_usd),0), COALESCE(SUM(input_tokens+output_tokens),0), COUNT(*) "
-                "FROM ai_usage WHERE created_at::date = CURRENT_DATE"
-            ))).first()
+            row = (
+                await session.execute(
+                    text(
+                        "SELECT COALESCE(SUM(cost_usd),0), COALESCE(SUM(input_tokens+output_tokens),0), COUNT(*) "
+                        "FROM ai_usage WHERE created_at::date = CURRENT_DATE"
+                    )
+                )
+            ).first()
             if row:
-                today_cost, today_tokens, today_calls = float(row[0]), int(row[1]), int(row[2])
+                today_cost, today_tokens, today_calls = (
+                    float(row[0]),
+                    int(row[1]),
+                    int(row[2]),
+                )
 
-            mrow = (await session.execute(text(
-                "SELECT COALESCE(SUM(cost_usd),0) FROM ai_usage "
-                "WHERE date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE)"
-            ))).first()
+            mrow = (
+                await session.execute(
+                    text(
+                        "SELECT COALESCE(SUM(cost_usd),0) FROM ai_usage "
+                        "WHERE date_trunc('month', created_at) = date_trunc('month', CURRENT_DATE)"
+                    )
+                )
+            ).first()
             if mrow:
                 month_cost = float(mrow[0])
 
-            by_bot = [(str(r[0]), float(r[1])) for r in (await session.execute(text(
-                "SELECT bot, SUM(cost_usd) c FROM ai_usage WHERE created_at::date = CURRENT_DATE "
-                "GROUP BY bot ORDER BY c DESC LIMIT 8"
-            ))).all()]
+            by_bot = [
+                (str(r[0]), float(r[1]))
+                for r in (
+                    await session.execute(
+                        text(
+                            "SELECT bot, SUM(cost_usd) c FROM ai_usage WHERE created_at::date = CURRENT_DATE "
+                            "GROUP BY bot ORDER BY c DESC LIMIT 8"
+                        )
+                    )
+                ).all()
+            ]
 
-            by_model = [(str(r[0]), float(r[1]), int(r[2])) for r in (await session.execute(text(
-                "SELECT model, SUM(cost_usd) c, SUM(input_tokens+output_tokens) t FROM ai_usage "
-                "WHERE created_at::date = CURRENT_DATE GROUP BY model ORDER BY c DESC LIMIT 6"
-            ))).all()]
+            by_model = [
+                (str(r[0]), float(r[1]), int(r[2]))
+                for r in (
+                    await session.execute(
+                        text(
+                            "SELECT model, SUM(cost_usd) c, SUM(input_tokens+output_tokens) t FROM ai_usage "
+                            "WHERE created_at::date = CURRENT_DATE GROUP BY model ORDER BY c DESC LIMIT 6"
+                        )
+                    )
+                ).all()
+            ]
             configured = True
     except Exception as e:  # noqa: BLE001
         logger.warning("build_cost_report: БД недоступна: %s", e)
@@ -117,11 +144,17 @@ async def build_cost_report() -> dict:
         lines.append("\n🧠 По моделям (сегодня):")
         lines += [f"  • {m} — ${c:.4f} ({t:,} tok)" for m, c, t in by_model]
     if over_daily:
-        lines.append(f"\n🚨 <b>Превышен ДНЕВНОЙ бюджет</b> (${today_cost:.2f} &gt; ${daily_budget:.2f})")
+        lines.append(
+            f"\n🚨 <b>Превышен ДНЕВНОЙ бюджет</b> (${today_cost:.2f} &gt; ${daily_budget:.2f})"
+        )
     if over_monthly:
-        lines.append(f"\n🚨 <b>Превышен МЕСЯЧНЫЙ бюджет</b> (${month_cost:.2f} &gt; ${monthly_budget:.2f})")
+        lines.append(
+            f"\n🚨 <b>Превышен МЕСЯЧНЫЙ бюджет</b> (${month_cost:.2f} &gt; ${monthly_budget:.2f})"
+        )
     if not configured:
-        lines.append("\n⚠️ Данные недоступны (таблица ai_usage не создана / БД не отвечает).")
+        lines.append(
+            "\n⚠️ Данные недоступны (таблица ai_usage не создана / БД не отвечает)."
+        )
 
     return {
         "today_cost": round(today_cost, 6),

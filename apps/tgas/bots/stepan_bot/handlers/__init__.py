@@ -12,5 +12,13 @@ from .team_meeting import meeting_router
 # product_card_router тоже РАНЬШЕ assistant_router: пока идёт мастер карточки
 # товара, его шаги (название, цена, фото) не должны уходить в общий «мозг».
 # assistant_router LAST — он ловит все текстовые сообщения
-all_routers = [dispatcher_router, production_router, product_card_router, sale_ui_router,
-               standup_router, tasks_router, meeting_router, assistant_router]
+all_routers = [
+    dispatcher_router,
+    production_router,
+    product_card_router,
+    sale_ui_router,
+    standup_router,
+    tasks_router,
+    meeting_router,
+    assistant_router,
+]

@@ -28,20 +28,27 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-UZ_TZ = timezone(timedelta(hours=5))  # Узбекистан (UTC+5) — для датирования новостей и слота
+UZ_TZ = timezone(
+    timedelta(hours=5)
+)  # Узбекистан (UTC+5) — для датирования новостей и слота
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Базовые источники (перенесены из content_bot/main.py, расширены)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def fetch_weather_samarkand() -> str:
     """Текущая погода в Самарканде через Open-Meteo (без ключа)."""
     try:
-        url = ("https://api.open-meteo.com/v1/forecast"
-               "?latitude=39.627&longitude=66.974&current_weather=true")
+        url = (
+            "https://api.open-meteo.com/v1/forecast"
+            "?latitude=39.627&longitude=66.974&current_weather=true"
+        )
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=8)) as response:
+            async with session.get(
+                url, timeout=aiohttp.ClientTimeout(total=8)
+            ) as response:
                 if response.status == 200:
                     data = await response.json()
                     temp = data["current_weather"]["temperature"]
@@ -71,15 +78,19 @@ def _parse_rss_items(xml: str) -> list[tuple[str, datetime | None]]:
     if not blocks:
         blocks = re.findall(r"<entry[ >].*?</entry>", xml, re.S | re.I)
     for b in blocks:
-        tm = re.search(r"<title>\s*(?:<!\[CDATA\[(.*?)\]\]>|(.*?))\s*</title>", b, re.S | re.I)
+        tm = re.search(
+            r"<title>\s*(?:<!\[CDATA\[(.*?)\]\]>|(.*?))\s*</title>", b, re.S | re.I
+        )
         if not tm:
             continue
         title = (tm.group(1) or tm.group(2) or "").strip()
         if not title:
             continue
-        dm = (re.search(r"<pubDate>(.*?)</pubDate>", b, re.S | re.I)
-              or re.search(r"<updated>(.*?)</updated>", b, re.S | re.I)
-              or re.search(r"<dc:date>(.*?)</dc:date>", b, re.S | re.I))
+        dm = (
+            re.search(r"<pubDate>(.*?)</pubDate>", b, re.S | re.I)
+            or re.search(r"<updated>(.*?)</updated>", b, re.S | re.I)
+            or re.search(r"<dc:date>(.*?)</dc:date>", b, re.S | re.I)
+        )
         dt = None
         if dm:
             raw = dm.group(1).strip()
@@ -142,7 +153,11 @@ async def fetch_news_digest(per_feed: int = 12) -> dict:
 def format_news_windows(digest: dict) -> str:
     """Человекочитаемый блок окон новостей (сегодня/вчера/ранее) для промпта ИИ."""
     parts = []
-    for key, label in (("today", "СЕГОДНЯ"), ("yesterday", "ВЧЕРА"), ("week", "РАНЕЕ (за неделю)")):
+    for key, label in (
+        ("today", "СЕГОДНЯ"),
+        ("yesterday", "ВЧЕРА"),
+        ("week", "РАНЕЕ (за неделю)"),
+    ):
         rows = digest.get(key) or []
         if rows:
             parts.append(f"{label}:\n" + "\n".join(f"• {t}" for t in rows))
@@ -152,7 +167,11 @@ def format_news_windows(digest: dict) -> str:
 async def fetch_local_news(per_feed: int = 5, total: int = 12) -> str:
     """Плоский дайджест заголовков (обратная совместимость). Поверх fetch_news_digest."""
     digest = await fetch_news_digest()
-    flat = (digest.get("today") or []) + (digest.get("yesterday") or []) + (digest.get("week") or [])
+    flat = (
+        (digest.get("today") or [])
+        + (digest.get("yesterday") or [])
+        + (digest.get("week") or [])
+    )
     if not flat:
         return "• Новости временно недоступны"
     return "\n".join(f"• {h}" for h in flat[:total])
@@ -193,8 +212,20 @@ async def fetch_google_trends(geo: str = "UZ", limit: int = 8) -> list[str]:
 # Сезон и праздники Узбекистана (из даты, без внешних вызовов)
 # ═══════════════════════════════════════════════════════════════════════════
 
-_SEASON = {12: "зима", 1: "зима", 2: "зима", 3: "весна", 4: "весна", 5: "весна",
-           6: "лето", 7: "лето", 8: "лето", 9: "осень", 10: "осень", 11: "осень"}
+_SEASON = {
+    12: "зима",
+    1: "зима",
+    2: "зима",
+    3: "весна",
+    4: "весна",
+    5: "весна",
+    6: "лето",
+    7: "лето",
+    8: "лето",
+    9: "осень",
+    10: "осень",
+    11: "осень",
+}
 
 # Приблизительные даты Рамазана/Хайита (лунный календарь) — обновлять по годам.
 _RAMADAN = {
@@ -249,12 +280,14 @@ def get_uz_season_occasion(d: date | None = None) -> dict:
 # Агрегатор повестки + тема дня
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 async def fetch_uzbek_trends() -> str:
     """
     Сводка повестки для мемов/контента: новости + погода + AI-анализ трендов.
     Совместимо с прежним вызовом из bus_generate_meme (возвращает строку).
     """
     from shared.ai_engine import AIEngine
+
     ai = AIEngine()
     news = await fetch_local_news()
     weather = await fetch_weather_samarkand()
@@ -305,13 +338,13 @@ async def get_daily_context(force: bool = False) -> dict:
         "date": datetime.now(UZ_TZ).date().isoformat(),
         "slot": slot,
         "weather": weather,
-        "news": digest,                 # сырые корзины today/yesterday/week
-        "news_windows": windows,        # человекочитаемый блок для промпта
-        "news_digest": windows,         # совместимость (раньше — плоская строка)
+        "news": digest,  # сырые корзины today/yesterday/week
+        "news_windows": windows,  # человекочитаемый блок для промпта
+        "news_digest": windows,  # совместимость (раньше — плоская строка)
         "google_trends": gtr,
         "season": so["season"],
         "occasion": so["occasion"],
-        "summary": "",                  # отдельной AI-сводки больше нет
+        "summary": "",  # отдельной AI-сводки больше нет
     }
     _DAY_CACHE[key] = ctx
     return ctx
@@ -339,7 +372,9 @@ def _has_agenda(ctx: dict) -> bool:
     news = ctx.get("news_digest") or ""
     if "недоступны" in news:
         news = ""
-    return bool(ctx.get("summary") or ctx.get("occasion") or news or ctx.get("google_trends"))
+    return bool(
+        ctx.get("summary") or ctx.get("occasion") or news or ctx.get("google_trends")
+    )
 
 
 async def build_topical_angle(kind: str, ctx: dict, fallback: str = "") -> str:
@@ -360,14 +395,22 @@ async def build_topical_angle(kind: str, ctx: dict, fallback: str = "") -> str:
     try:
         from shared.ai_engine import AIEngine
         from shared.brand import CONTENT_POLICY
+
         ai = AIEngine()
         slot = ctx.get("slot") or ""
-        slot_hint = ("утро — бодрый тон" if slot == "am"
-                     else "вечер — уют/ужин" if slot == "pm" else "")
+        slot_hint = (
+            "утро — бодрый тон"
+            if slot == "am"
+            else "вечер — уют/ужин"
+            if slot == "pm"
+            else ""
+        )
         windows = ctx.get("news_windows") or ctx.get("news_digest") or "—"
         angle = await ai.chat_completion(
             "Ты контент-стратег Microgreen Uzbekistan." + CONTENT_POLICY,
-            f"Актуальная повестка Узбекистана" + (f" ({slot_hint})" if slot_hint else "") + ":\n"
+            "Актуальная повестка Узбекистана"
+            + (f" ({slot_hint})" if slot_hint else "")
+            + ":\n"
             f"Сезон: {ctx.get('season')}. Повод: {ctx.get('occasion') or '—'}. "
             f"Погода: {ctx.get('weather')}.\n"
             f"Новости по периодам:\n{windows}\n"
@@ -378,10 +421,10 @@ async def build_topical_angle(kind: str, ctx: dict, fallback: str = "") -> str:
             f"сформулируй ОДНУ короткую тему — {kind_hint}, — которая НАТИВНО связывает выбранное "
             f"с микрозеленью. СТРОГО: только микрозелень/здоровье/еда; игнорируй "
             f"политику/крипту/транспорт; не выдумывай фактов. Ответь ОДНОЙ фразой-темой на "
-            f"русском (это инструкция для генератора поста, а не сам пост), 1 предложение без кавычек."
+            f"русском (это инструкция для генератора поста, а не сам пост), 1 предложение без кавычек.",
         )
         angle = (angle or "").strip().strip('"').strip()
-        if _is_ai_fallback(angle):   # AI недоступен — берём прежнюю тему из списка
+        if _is_ai_fallback(angle):  # AI недоступен — берём прежнюю тему из списка
             return fallback
         return angle or fallback
     except Exception as e:  # noqa: BLE001

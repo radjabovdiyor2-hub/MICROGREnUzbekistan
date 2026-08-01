@@ -29,6 +29,7 @@
 существование таблиц: сопоставить колонку с нужной таблицей без схемы алиасов
 нельзя, а гадать хуже, чем молчать.
 """
+
 from __future__ import annotations
 
 import ast
@@ -41,8 +42,8 @@ try:
 except (AttributeError, OSError):
     pass
 
-ROOT = Path(__file__).resolve().parent.parent          # apps/tgas
-REPO = ROOT.parent.parent                              # корень репозитория
+ROOT = Path(__file__).resolve().parent.parent  # apps/tgas
+REPO = ROOT.parent.parent  # корень репозитория
 
 problems: list[str] = []
 notes: list[str] = []
@@ -52,7 +53,9 @@ notes: list[str] = []
 def load_init_sql() -> dict[str, set[str]]:
     sql = (ROOT / "database" / "init.sql").read_text(encoding="utf-8")
     tables: dict[str, set[str]] = {}
-    for m in re.finditer(r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\);", sql, re.S):
+    for m in re.finditer(
+        r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\);", sql, re.S
+    ):
         name, body = m.group(1), m.group(2)
         cols = set()
         for line in body.splitlines():
@@ -118,28 +121,116 @@ def collect_sql() -> list[tuple[str, int, str]]:
             arg = node.args[0]
             # ast сам склеивает соседние литералы — то, ради чего он здесь
             if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                found.append((path.relative_to(ROOT).as_posix(), node.lineno, arg.value))
+                found.append(
+                    (path.relative_to(ROOT).as_posix(), node.lineno, arg.value)
+                )
     return found
 
 
 SQL_WORDS = {
-    "select", "from", "where", "and", "or", "not", "in", "is", "null", "as", "on",
-    "join", "left", "right", "inner", "outer", "full", "group", "by", "order",
-    "having", "limit", "offset", "insert", "into", "values", "update", "set",
-    "delete", "create", "table", "if", "exists", "primary", "key", "foreign",
-    "references", "default", "distinct", "case", "when", "then", "else", "end",
-    "asc", "desc", "union", "all", "with", "returning", "conflict", "do",
-    "nothing", "cast", "interval", "true", "false", "between", "like", "ilike",
-    "text", "integer", "serial", "boolean", "timestamp", "date", "numeric",
-    "jsonb", "json", "varchar", "decimal", "at", "time", "zone", "constraint",
-    "unique", "check", "using", "temp", "any", "some", "over", "partition",
-    "nulls", "first", "last", "add", "column", "alter", "drop", "index",
+    "select",
+    "from",
+    "where",
+    "and",
+    "or",
+    "not",
+    "in",
+    "is",
+    "null",
+    "as",
+    "on",
+    "join",
+    "left",
+    "right",
+    "inner",
+    "outer",
+    "full",
+    "group",
+    "by",
+    "order",
+    "having",
+    "limit",
+    "offset",
+    "insert",
+    "into",
+    "values",
+    "update",
+    "set",
+    "delete",
+    "create",
+    "table",
+    "if",
+    "exists",
+    "primary",
+    "key",
+    "foreign",
+    "references",
+    "default",
+    "distinct",
+    "case",
+    "when",
+    "then",
+    "else",
+    "end",
+    "asc",
+    "desc",
+    "union",
+    "all",
+    "with",
+    "returning",
+    "conflict",
+    "do",
+    "nothing",
+    "cast",
+    "interval",
+    "true",
+    "false",
+    "between",
+    "like",
+    "ilike",
+    "text",
+    "integer",
+    "serial",
+    "boolean",
+    "timestamp",
+    "date",
+    "numeric",
+    "jsonb",
+    "json",
+    "varchar",
+    "decimal",
+    "at",
+    "time",
+    "zone",
+    "constraint",
+    "unique",
+    "check",
+    "using",
+    "temp",
+    "any",
+    "some",
+    "over",
+    "partition",
+    "nulls",
+    "first",
+    "last",
+    "add",
+    "column",
+    "alter",
+    "drop",
+    "index",
 }
 
 # Значения без скобок, которые выглядят как идентификатор, но им не являются.
 SQL_CONSTANTS = {
-    "current_date", "current_timestamp", "current_time", "current_user",
-    "localtime", "localtimestamp", "session_user", "now",
+    "current_date",
+    "current_timestamp",
+    "current_time",
+    "current_user",
+    "localtime",
+    "localtimestamp",
+    "session_user",
+    "now",
 }
 
 # Колонку ищем только там, где она однозначна: операнд сравнения либо
@@ -155,9 +246,9 @@ AGGREGATE_RE = re.compile(
 
 def columns_used(sql: str) -> set[str]:
     """Колонки, использованные однозначно: в сравнении или в агрегате."""
-    s = re.sub(r"'[^']*'", " ", sql)                 # строковые литералы
-    s = re.sub(r":\w+", " ", s)                      # параметры :name
-    s = re.sub(r"--[^\n]*", " ", s)                  # комментарии
+    s = re.sub(r"'[^']*'", " ", sql)  # строковые литералы
+    s = re.sub(r":\w+", " ", s)  # параметры :name
+    s = re.sub(r"--[^\n]*", " ", s)  # комментарии
     out: set[str] = set()
     for rx in (COMPARISON_RE, AGGREGATE_RE):
         for m in rx.finditer(s):
@@ -186,7 +277,7 @@ def tables_used(sql: str) -> set[str]:
         if paren and kw in ("FROM", "JOIN"):
             continue
         if name in SQL_WORDS or name in SQL_CONSTANTS:
-            continue                  # «DO UPDATE SET», «INSERT INTO ... SELECT»
+            continue  # «DO UPDATE SET», «INSERT INTO ... SELECT»
         out.add(name)
     return out
 
@@ -229,14 +320,14 @@ def main() -> int:
     for rel, line, sql in statements:
         tables = tables_used(sql)
         if len(tables) != 1:
-            continue                      # с JOIN не гадаем
+            continue  # с JOIN не гадаем
         # Подзапрос приносит свои псевдонимы (AVG(daily_sum) от SELECT ... AS
         # daily_sum), и по одной схеме их не отличить от колонок. Пропускаем.
         if len(re.findall(r"(?i)\bSELECT\b", sql)) > 1:
             continue
         tbl = next(iter(tables))
         if tbl not in init_tables:
-            continue                      # чужая схема — не наше дело
+            continue  # чужая схема — не наше дело
         known = init_tables[tbl]
         if not known:
             continue

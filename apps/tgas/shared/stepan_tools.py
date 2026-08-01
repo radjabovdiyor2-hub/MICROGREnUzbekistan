@@ -62,7 +62,10 @@ async def load_registry(runtime: str = "tg") -> list[dict[str, Any]]:
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.get(url, headers=_headers()) as resp:
                 if resp.status != 200:
-                    logger.error("Реестр инструментов недоступен: витрина ответила %s", resp.status)
+                    logger.error(
+                        "Реестр инструментов недоступен: витрина ответила %s",
+                        resp.status,
+                    )
                     return _filter_for_runtime(_cache, runtime)
                 data = await resp.json()
     except Exception as exc:
@@ -80,7 +83,9 @@ async def load_registry(runtime: str = "tg") -> list[dict[str, Any]]:
     return _filter_for_runtime(_cache, runtime)
 
 
-def _filter_for_runtime(tools: list[dict[str, Any]], runtime: str) -> list[dict[str, Any]]:
+def _filter_for_runtime(
+    tools: list[dict[str, Any]], runtime: str
+) -> list[dict[str, Any]]:
     """Отфильтровать инструменты по рантайму и вернуть в формате OpenAI.
 
     Изменяющие инструменты модели отдаются, но сами по себе не выполняются:
@@ -94,18 +99,24 @@ def _filter_for_runtime(tools: list[dict[str, Any]], runtime: str) -> list[dict[
         runtimes = t.get("runtimes") or []
         if runtime not in runtimes:
             continue
-        result.append({
-            "type": "function",
-            "function": {
-                "name": t["name"],
-                "description": t.get("description", ""),
-                "parameters": t.get("parameters", {"type": "object", "properties": {}}),
-            },
-        })
+        result.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t.get("description", ""),
+                    "parameters": t.get(
+                        "parameters", {"type": "object", "properties": {}}
+                    ),
+                },
+            }
+        )
     return result
 
 
-async def execute_remote(tool_name: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
+async def execute_remote(
+    tool_name: str, params: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
     """Исполнить инструмент удалённо через витрину.
 
     Для инструментов, реализованных на стороне витрины (Prisma-запросы).
@@ -124,7 +135,9 @@ async def execute_remote(tool_name: str, params: Optional[dict[str, Any]] = None
                 data = await resp.json()
                 if resp.status != 200:
                     error = data.get("error", f"витрина ответила {resp.status}")
-                    logger.error("Инструмент %s не исполнен удалённо: %s", tool_name, error)
+                    logger.error(
+                        "Инструмент %s не исполнен удалённо: %s", tool_name, error
+                    )
                     return {"status": "error", "error": error}
                 return data
     except Exception as exc:
@@ -143,16 +156,18 @@ def is_native(tool_name: str) -> bool:
 
 # Инструменты с нативной реализацией на Python-стороне.
 # Остальные исполняются удалённо через execute_remote().
-_NATIVE_TOOLS = frozenset({
-    "create_task",
-    "roll_call",
-    "get_report",
-    "query_db",
-    "show_published_post",
-    "get_content_status",
-    "register_sale",
-    "add_product",
-})
+_NATIVE_TOOLS = frozenset(
+    {
+        "create_task",
+        "roll_call",
+        "get_report",
+        "query_db",
+        "show_published_post",
+        "get_content_status",
+        "register_sale",
+        "add_product",
+    }
+)
 
 
 async def confirm_remote(token: str) -> dict[str, Any]:
@@ -167,10 +182,15 @@ async def confirm_remote(token: str) -> dict[str, Any]:
     try:
         timeout = aiohttp.ClientTimeout(total=120)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post(url, headers=_headers(), json={"token": token}) as resp:
+            async with session.post(
+                url, headers=_headers(), json={"token": token}
+            ) as resp:
                 data = await resp.json()
                 if resp.status != 200:
-                    return {"ok": False, "error": data.get("error", f"витрина ответила {resp.status}")}
+                    return {
+                        "ok": False,
+                        "error": data.get("error", f"витрина ответила {resp.status}"),
+                    }
                 return {"ok": True, "message": data.get("message") or "Выполнено"}
     except Exception as exc:
         logger.error("Подтверждение не удалось: %s", exc)

@@ -29,6 +29,7 @@ def _get_app_credentials():
     """Возвращает (app_id, app_secret) из settings, или (None, None)."""
     try:
         from shared.config import settings
+
         app_id = getattr(settings, "facebook_app_id", "") or ""
         app_secret = getattr(settings, "facebook_app_secret", "") or ""
         if not app_id or not app_secret:
@@ -47,6 +48,7 @@ def _save_to_env(key: str, value: str) -> bool:
     """Сохраняет ключ=значение в .env через dotenv.set_key()."""
     try:
         from dotenv import set_key
+
         set_key(ENV_PATH, key, value)
         logger.info(f"✅ .env обновлён: {key} = {value[:25]}...")
         return True
@@ -137,10 +139,7 @@ async def exchange_for_long_lived_token(short_token: str) -> str:
                     return new_token
                 else:
                     error = data.get("error", {})
-                    logger.error(
-                        f"Ошибка обмена токена: "
-                        f"{error.get('message', data)}"
-                    )
+                    logger.error(f"Ошибка обмена токена: {error.get('message', data)}")
                     return ""
     except Exception as e:
         logger.error(f"Ошибка при обмене токена: {e}", exc_info=True)
@@ -183,8 +182,7 @@ async def get_page_token(long_lived_user_token: str, page_id: str) -> str:
                 else:
                     error = data.get("error", {})
                     logger.error(
-                        f"Ошибка получения Page-токена: "
-                        f"{error.get('message', data)}"
+                        f"Ошибка получения Page-токена: {error.get('message', data)}"
                     )
                     return ""
     except Exception as e:
@@ -233,13 +231,10 @@ async def full_token_exchange(current_token: str = None) -> dict:
             result["page_token"] = page_token
         else:
             logger.warning(
-                "⚠️ Не удалось получить Page-токен. "
-                "Будет использован user-токен."
+                "⚠️ Не удалось получить Page-токен. Будет использован user-токен."
             )
     else:
-        logger.warning(
-            "⚠️ FACEBOOK_PAGE_ID не указан, пропуск получения Page-токена."
-        )
+        logger.warning("⚠️ FACEBOOK_PAGE_ID не указан, пропуск получения Page-токена.")
 
     # Шаг 3: Определить финальный токен (page-токен приоритетнее)
     final_token = result["page_token"] or long_user_token
@@ -256,8 +251,7 @@ async def full_token_exchange(current_token: str = None) -> dict:
         os.environ["INSTAGRAM_TOKEN_UPDATED_AT"] = now_iso
 
         logger.info(
-            f"✅ Полный цикл обмена завершён. "
-            f"Токен сохранён в .env ({ENV_PATH})"
+            f"✅ Полный цикл обмена завершён. Токен сохранён в .env ({ENV_PATH})"
         )
         result["success"] = True
     else:
@@ -297,19 +291,13 @@ async def auto_refresh_token():
             logger.info(f"📅 Возраст токена: {age_days} дней")
 
             if age_days >= 50:
-                logger.info(
-                    f"Токен старше 50 дней ({age_days}д). Обновляем..."
-                )
+                logger.info(f"Токен старше 50 дней ({age_days}д). Обновляем...")
                 should_refresh = True
             else:
-                logger.info(
-                    f"Токен ещё свежий ({age_days}д). Обновление не требуется."
-                )
+                logger.info(f"Токен ещё свежий ({age_days}д). Обновление не требуется.")
                 return
         except (ValueError, TypeError) as e:
-            logger.warning(
-                f"Не удалось распарсить INSTAGRAM_TOKEN_UPDATED_AT: {e}"
-            )
+            logger.warning(f"Не удалось распарсить INSTAGRAM_TOKEN_UPDATED_AT: {e}")
             should_refresh = True
     else:
         # Нет информации о дате — пробуем debug_token для проверки
@@ -324,8 +312,7 @@ async def auto_refresh_token():
                 f"Сохраняем дату и пропускаем обновление."
             )
             _save_to_env(
-                "INSTAGRAM_TOKEN_UPDATED_AT",
-                datetime.now(timezone.utc).isoformat()
+                "INSTAGRAM_TOKEN_UPDATED_AT", datetime.now(timezone.utc).isoformat()
             )
             return
         should_refresh = True

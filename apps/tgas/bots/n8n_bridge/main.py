@@ -67,6 +67,7 @@ async def _call_n8n(query: str, session_id: str) -> dict:
 # Каждый handler принимает params (dict) и возвращает result (dict).
 # Формат result совпадает с остальными ботами: Степан читает result["message"].
 
+
 async def handle_email(params: dict) -> dict:
     query = params.get("description") or params.get("topic") or params.get("title", "")
     session_id = str(params.get("chat_id", "default"))
@@ -109,14 +110,18 @@ async def main():
     logger.info("n8n_bridge запускается. Webhook: %s", N8N_WEBHOOK_URL)
 
     # Слушаем Bot Bus как бот "n8n_bridge" — тот же паттерн, что content_bot.
-    listener = start_listener("n8n_bridge", {
-        "email": handle_email,
-        "calendar": handle_calendar,
-        "contacts": handle_contacts,
-        "assistant": handle_assistant,
-    })
+    listener = start_listener(
+        "n8n_bridge",
+        {
+            "email": handle_email,
+            "calendar": handle_calendar,
+            "contacts": handle_contacts,
+            "assistant": handle_assistant,
+        },
+    )
 
     from shared.health import start_heartbeat
+
     await asyncio.gather(listener, _periodic_cleanup(), start_heartbeat("n8n_bridge"))
 
 

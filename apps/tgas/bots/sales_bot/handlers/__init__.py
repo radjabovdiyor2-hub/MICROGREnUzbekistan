@@ -11,5 +11,5 @@ all_routers = [
     order_router,
     b2b_router,
     ai_chat_router,
-    payments_router
+    payments_router,
 ]

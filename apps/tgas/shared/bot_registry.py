@@ -14,6 +14,7 @@ start_all.ps1 и start_all.bat. Списки расходились молча, 
 Порт — это порт aiohttp-слушателя event_bus (`/event`). У n8n_bridge его нет:
 он только читает файловую очередь bot_bus и наружу ничего не слушает.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

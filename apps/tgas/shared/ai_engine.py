@@ -16,7 +16,7 @@ Microgreen Uzbekistan — AI-движок офиса.
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Optional
 
 from mg_ai.engine import (  # noqa: F401  — публичная поверхность сохранена
     AIEngine as _BaseAIEngine,
@@ -98,18 +98,26 @@ FALLBACK_RESPONSES = {
 }
 
 
-def _persist_usage(bot_name: str, model: str, input_tokens: int, output_tokens: int, cost_usd: float) -> None:
+def _persist_usage(
+    bot_name: str, model: str, input_tokens: int, output_tokens: int, cost_usd: float
+) -> None:
     """Best-effort: планирует запись расхода токенов в БД (таблица ai_usage).
     Не блокирует и не роняет генерацию — если нет event loop или БД недоступна, тихо пропускаем."""
     try:
         import asyncio
+
         loop = asyncio.get_running_loop()
     except RuntimeError:
         return  # вызвано вне event loop — пропускаем персист
     try:
         from shared.ai_usage import record_ai_usage
+
         provider = "gemini" if str(model).startswith("gemini") else "openai"
-        loop.create_task(record_ai_usage(bot_name, provider, model, input_tokens, output_tokens, cost_usd))
+        loop.create_task(
+            record_ai_usage(
+                bot_name, provider, model, input_tokens, output_tokens, cost_usd
+            )
+        )
     except Exception as e:  # noqa: BLE001
         logger.debug("persist usage skip: %s", e)
 

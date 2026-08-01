@@ -7,6 +7,7 @@
 
 С единой базой обе таблицы рядом — синк через SQL, без HTTP API.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,10 +27,12 @@ async def sync_catalog_from_storefront() -> dict:
     synced = 0
     async with get_session_ctx() as session:
         # Берём активные товары из витрины (Prisma products)
-        res = await session.execute(text(
-            "SELECT id, name_uz, name_ru, price, stock, category_id, is_active "
-            "FROM products WHERE is_active = TRUE"
-        ))
+        res = await session.execute(
+            text(
+                "SELECT id, name_uz, name_ru, price, stock, category_id, is_active "
+                "FROM products WHERE is_active = TRUE"
+            )
+        )
         web_products = res.fetchall()
 
         for p in web_products:
@@ -50,30 +53,45 @@ async def sync_catalog_from_storefront() -> dict:
                 if cat:
                     category = cat
 
-            existing = (await session.execute(
-                text("SELECT id FROM crm_products WHERE storefront_id = :sid"),
-                {"sid": sid},
-            )).scalar()
+            existing = (
+                await session.execute(
+                    text("SELECT id FROM crm_products WHERE storefront_id = :sid"),
+                    {"sid": sid},
+                )
+            ).scalar()
 
             if existing:
-                await session.execute(text(
-                    "UPDATE crm_products SET name_uz = :name_uz, name_ru = :name_ru, "
-                    "price = :price, stock_qty = :stock, category = :category, is_active = TRUE "
-                    "WHERE id = :id"
-                ), {
-                    "name_uz": name_uz, "name_ru": name_ru,
-                    "price": price, "stock": stock,
-                    "category": category, "id": existing,
-                })
+                await session.execute(
+                    text(
+                        "UPDATE crm_products SET name_uz = :name_uz, name_ru = :name_ru, "
+                        "price = :price, stock_qty = :stock, category = :category, is_active = TRUE "
+                        "WHERE id = :id"
+                    ),
+                    {
+                        "name_uz": name_uz,
+                        "name_ru": name_ru,
+                        "price": price,
+                        "stock": stock,
+                        "category": category,
+                        "id": existing,
+                    },
+                )
             else:
-                await session.execute(text(
-                    "INSERT INTO crm_products (name_uz, name_ru, category, price, unit, stock_qty, "
-                    "is_active, storefront_id) VALUES (:name_uz, :name_ru, :category, :price, "
-                    "'piece', :stock, TRUE, :sid)"
-                ), {
-                    "name_uz": name_uz, "name_ru": name_ru,
-                    "category": category, "price": price, "stock": stock, "sid": sid,
-                })
+                await session.execute(
+                    text(
+                        "INSERT INTO crm_products (name_uz, name_ru, category, price, unit, stock_qty, "
+                        "is_active, storefront_id) VALUES (:name_uz, :name_ru, :category, :price, "
+                        "'piece', :stock, TRUE, :sid)"
+                    ),
+                    {
+                        "name_uz": name_uz,
+                        "name_ru": name_ru,
+                        "category": category,
+                        "price": price,
+                        "stock": stock,
+                        "sid": sid,
+                    },
+                )
             synced += 1
 
     logger.info("Catalog sync: витрина → CRM, товаров обработано: %s", synced)

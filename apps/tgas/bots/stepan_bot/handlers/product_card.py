@@ -37,7 +37,13 @@ CATEGORIES = [
     ("equipment", "⚙️ Оборудование"),
     ("sets", "🎁 Наборы"),
 ]
-UNITS = [("piece", "шт"), ("kg", "кг"), ("g", "г"), ("pack", "упаковка"), ("set", "набор")]
+UNITS = [
+    ("piece", "шт"),
+    ("kg", "кг"),
+    ("g", "г"),
+    ("pack", "упаковка"),
+    ("set", "набор"),
+]
 
 
 class ProductCard(StatesGroup):
@@ -58,10 +64,14 @@ async def start_product_card(
     sale_index: Optional[int] = None,
 ):
     """Запустить мастер. name/price могут прийти из незакрытой продажи."""
-    await state.set_data({
-        "name": name, "price": price,
-        "sale_token": sale_token, "sale_index": sale_index,
-    })
+    await state.set_data(
+        {
+            "name": name,
+            "price": price,
+            "sale_token": sale_token,
+            "sale_index": sale_index,
+        }
+    )
     await message.answer(
         "🆕 <b>Заводим карточку товара</b>\n\n"
         "От вас — название, цена и фото. Описание напишет контент-отдел, "
@@ -74,8 +84,10 @@ async def start_product_card(
         return
     if price is None:
         await state.set_state(ProductCard.price)
-        await message.answer(f"1/4. Товар: <b>{name}</b>\n2/4. Цена за единицу (в сумах)?",
-                             parse_mode="HTML")
+        await message.answer(
+            f"1/4. Товар: <b>{name}</b>\n2/4. Цена за единицу (в сумах)?",
+            parse_mode="HTML",
+        )
         return
     await _ask_category(message, state)
 
@@ -124,7 +136,9 @@ async def _ask_category(message: Message, state: FSMContext):
 async def on_name(message: Message, state: FSMContext):
     name = (message.text or "").strip()
     if len(name) < 2:
-        await message.answer("Название слишком короткое. Напишите, как называется товар.")
+        await message.answer(
+            "Название слишком короткое. Напишите, как называется товар."
+        )
         return
     await state.update_data(name=name)
     data = await state.get_data()
@@ -163,7 +177,8 @@ async def on_unit(callback: CallbackQuery, state: FSMContext):
     await state.set_state(ProductCard.photo)
     await callback.message.answer(
         "4/4. Пришлите <b>фото товара</b> — оно пойдёт на карточку в магазине.",
-        parse_mode="HTML", reply_markup=_photo_kb(),
+        parse_mode="HTML",
+        reply_markup=_photo_kb(),
     )
     await callback.answer()
 
@@ -197,9 +212,16 @@ async def _request_description(data: dict) -> dict:
     from shared.bot_bus import send_task, get_result
 
     try:
-        task_id = await send_task("stepan_bot", "content_bot", "product_description", {
-            "name": data.get("name"), "price": data.get("price"), "category": data.get("category"),
-        })
+        task_id = await send_task(
+            "stepan_bot",
+            "content_bot",
+            "product_description",
+            {
+                "name": data.get("name"),
+                "price": data.get("price"),
+                "category": data.get("category"),
+            },
+        )
         bus_result = await get_result(task_id, timeout=90)
     except Exception as e:
         logger.error(f"Описание товара: сбой шины: {e}", exc_info=True)
@@ -216,7 +238,9 @@ async def _build_preview(message: Message, state: FSMContext):
 
     data = await state.get_data()
     description = await _request_description(data)
-    await state.update_data(desc_ru=description.get("ru", ""), desc_uz=description.get("uz", ""))
+    await state.update_data(
+        desc_ru=description.get("ru", ""), desc_uz=description.get("uz", "")
+    )
 
     data = await state.get_data()
     category_title = dict(CATEGORIES).get(data.get("category"), data.get("category"))
@@ -232,7 +256,10 @@ async def _build_preview(message: Message, state: FSMContext):
     if data.get("desc_ru"):
         card += ["", f"📝 {data['desc_ru']}"]
     else:
-        card += ["", "⚠️ Описание не получено (контент-отдел не ответил) — заведу без него."]
+        card += [
+            "",
+            "⚠️ Описание не получено (контент-отдел не ответил) — заведу без него.",
+        ]
     if not data.get("image_url"):
         card += ["", "🚫 Без фото."]
 
@@ -243,13 +270,16 @@ async def _build_preview(message: Message, state: FSMContext):
         try:
             from shared.catalog_ops import STOREFRONT_API_URL
             import aiohttp
+
             base = STOREFRONT_API_URL.rstrip("/").removesuffix("/api")
             async with aiohttp.ClientSession() as http:
                 async with http.get(f"{base}{data['image_url']}") as resp:
                     photo_bytes = await resp.read()
             await message.answer_photo(
                 BufferedInputFile(photo_bytes, filename="product.jpg"),
-                caption=text, parse_mode="HTML", reply_markup=_confirm_kb(),
+                caption=text,
+                parse_mode="HTML",
+                reply_markup=_confirm_kb(),
             )
             return
         except Exception as e:
@@ -276,15 +306,20 @@ async def on_publish(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("🛒 Отдел продаж заводит товар в магазин и CRM…")
 
     try:
-        task_id = await send_task("stepan_bot", "sales_bot", "add_product", {
-            "name": data.get("name"),
-            "price": data.get("price"),
-            "unit": data.get("unit"),
-            "category": data.get("category"),
-            "description_ru": data.get("desc_ru"),
-            "description_uz": data.get("desc_uz"),
-            "image_url": data.get("image_url"),
-        })
+        task_id = await send_task(
+            "stepan_bot",
+            "sales_bot",
+            "add_product",
+            {
+                "name": data.get("name"),
+                "price": data.get("price"),
+                "unit": data.get("unit"),
+                "category": data.get("category"),
+                "description_ru": data.get("desc_ru"),
+                "description_uz": data.get("desc_uz"),
+                "image_url": data.get("image_url"),
+            },
+        )
         bus_result = await get_result(task_id, timeout=90)
     except Exception as e:
         logger.error(f"Публикация товара: сбой шины: {e}", exc_info=True)
@@ -311,8 +346,12 @@ async def on_publish(callback: CallbackQuery, state: FSMContext):
         return
 
     from bots.stepan_bot.handlers.sale_ui import (
-        load_pending, drop_pending, run_sale, answer_sale_result,
+        load_pending,
+        drop_pending,
+        run_sale,
+        answer_sale_result,
     )
+
     pending = await load_pending(sale_token)
     if not pending:
         await callback.message.answer(
@@ -320,7 +359,9 @@ async def on_publish(callback: CallbackQuery, state: FSMContext):
         )
         return
 
-    pending["items"][int(sale_index)]["product_id"] = (result.get("data") or {}).get("product_id")
+    pending["items"][int(sale_index)]["product_id"] = (result.get("data") or {}).get(
+        "product_id"
+    )
     sale_result = await run_sale(pending)
     await drop_pending(sale_token)
     await answer_sale_result(callback.message, sale_result)
@@ -333,5 +374,7 @@ async def on_cancel(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_reply_markup(reply_markup=None)
     except Exception:
         pass
-    await callback.message.answer("✖️ Заведение товара отменено. В магазин и CRM ничего не ушло.")
+    await callback.message.answer(
+        "✖️ Заведение товара отменено. В магазин и CRM ничего не ушло."
+    )
     await callback.answer()

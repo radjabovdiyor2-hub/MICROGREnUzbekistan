@@ -5,7 +5,9 @@ from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] DEVOPS_BOT: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] DEVOPS_BOT: %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Каталог бэкапов и его создание живут в shared/backup.py — единственном
@@ -31,6 +33,7 @@ async def run_backup() -> dict:
     # Замыкаем петлю: DevOps (замер надёжности бекапов -> вывод -> адаптация).
     try:
         from shared.feedback_loop import feedback_loop
+
         await feedback_loop.evaluate_and_adapt(
             bot="devops_bot",
             metric="system_reliability",
@@ -68,21 +71,32 @@ async def handle_n8n_webhook(request: web.Request):
             result = await run_backup()
 
             # Send result back via Event Bus to Stepan
-            await event_bus.publish("TASK_COMPLETED", {
-                "task_id": "devops_daily_backup",
-                "completed_by": "devops_bot",
-                "chat_id": settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0,
-                "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{result['message']}"
-            }, "devops_bot")
+            await event_bus.publish(
+                "TASK_COMPLETED",
+                {
+                    "task_id": "devops_daily_backup",
+                    "completed_by": "devops_bot",
+                    "chat_id": settings.admin_telegram_ids[0]
+                    if settings.admin_telegram_ids
+                    else 0,
+                    "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{result['message']}",
+                },
+                "devops_bot",
+            )
 
-            return web.json_response({"status": "success" if result["ok"] else "degraded",
-                                      "file": result["file"]})
+            return web.json_response(
+                {
+                    "status": "success" if result["ok"] else "degraded",
+                    "file": result["file"],
+                }
+            )
 
         return web.json_response({"status": "ignored"})
 
     except Exception as e:
         logger.error(f"Error handling webhook: {e}")
         return web.json_response({"error": str(e)}, status=500)
+
 
 async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
@@ -91,27 +105,35 @@ async def handle_task_created(payload: dict):
     # "QA"/"DevOps", и строгое сравнение молча теряло такую задачу.
     if str(data.get("department", "")).lower() != "devops":
         return
-        
+
     logger.info(f"DevOps Bot received task via event_bus: {payload}")
     task_id = data.get("task_id", "devops_task")
-    chat_id = data.get("chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0)
+    chat_id = data.get(
+        "chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0
+    )
     description = data.get("description", "").lower()
-    
+
     if "backup" in description or "бэкап" in description or "бекап" in description:
         status_msg = (await run_backup())["message"]
     else:
         status_msg = "ℹ️ Неизвестная команда. Поддерживается только: 'сделай бекап'."
-        
+
     # Send result back via Event Bus to Stepan
-    await event_bus.publish("TASK_COMPLETED", {
-        "task_id": task_id,
-        "completed_by": "devops",
-        "chat_id": chat_id,
-        "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{status_msg}"
-    }, "devops_bot")
+    await event_bus.publish(
+        "TASK_COMPLETED",
+        {
+            "task_id": task_id,
+            "completed_by": "devops",
+            "chat_id": chat_id,
+            "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{status_msg}",
+        },
+        "devops_bot",
+    )
+
 
 async def handle_roll_call(payload: dict):
     from shared.roll_call import handle_roll_call as _shared_roll_call
+
     await _shared_roll_call("devops_bot", payload)
 
 
@@ -120,27 +142,35 @@ async def main():
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
     event_bus.on("ROLL_CALL", handle_roll_call)
-    
+
     app = web.Application()
-    app.router.add_post('/n8n-webhook', handle_n8n_webhook)
+    app.router.add_post("/n8n-webhook", handle_n8n_webhook)
     await event_bus.start_listening(8092, app)
-    
+
     # ── Bot Bus: задачи от Стёпана и из веб-админки ──
     # Словарь обработчиков был пустым: любая адресная задача (в том числе
     # «Бекап БД» из админки) отклонялась как «неизвестное действие» и
     # после трёх попыток уходила в failed.
     from shared.bot_bus import start_listener as bus_listen
-    asyncio.create_task(bus_listen("devops_bot", {
-        "daily_backup": bus_daily_backup,
-    }))
+
+    asyncio.create_task(
+        bus_listen(
+            "devops_bot",
+            {
+                "daily_backup": bus_daily_backup,
+            },
+        )
+    )
 
     from shared.health import start_heartbeat
+
     asyncio.create_task(start_heartbeat("devops_bot"))
 
     logger.info("DevOps Bot running on port 8092")
-    
+
     while True:
         await asyncio.sleep(3600)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

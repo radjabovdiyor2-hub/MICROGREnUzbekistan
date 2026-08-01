@@ -23,6 +23,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Create bot and dispatcher
 dp = Dispatcher()
@@ -41,7 +42,7 @@ dp.include_router(group_router)        # Group FAQ & AI (last — catches remain
 
 async def main():
     if not TOKEN:
-        print("❌ Error: BOT_TOKEN not set in .env")
+        logger.error("❌ Error: BOT_TOKEN not set in .env")
         return
     
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -55,13 +56,13 @@ async def main():
                 web_app=WebAppInfo(url=webapp_url)
             )
         )
-        print(f"✅ Menu button set to: {webapp_url}")
+        logger.info("✅ Menu button set to: %s", webapp_url)
     except Exception as e:
-        print(f"⚠️ Failed to set menu button: {e}")
+        logger.warning("⚠️ Failed to set menu button: %s", e)
     
-    print("🌱 AgroTech Ecosystem Bot starting...")
-    print(f"📱 WebApp URL: {os.getenv('WEB_APP_URL', 'Not set')}")
-    print(f"🔗 API URL: {os.getenv('WEB_API_URL', 'https://microgreenuzbekistan.com/api')}")
+    logger.info("🌱 AgroTech Ecosystem Bot starting...")
+    logger.info("📱 WebApp URL: %s", os.getenv('WEB_APP_URL', 'Not set'))
+    logger.info("🔗 API URL: %s", os.getenv('WEB_API_URL', 'https://microgreenuzbekistan.com/api'))
     
     # Graceful shutdown: close httpx client
     from services.ecosystem_bridge import bridge
@@ -84,7 +85,7 @@ async def main():
                 await _bot_instance.session.close()
         except Exception:
             pass
-        print("🔌 Ecosystem bridge closed")
+        logger.info("🔌 Ecosystem bridge closed")
     dp.shutdown.register(on_shutdown)
     
     await dp.start_polling(bot)

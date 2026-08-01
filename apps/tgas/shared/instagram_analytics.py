@@ -18,20 +18,22 @@ GRAPH_BASE_URL = f"https://graph.facebook.com/{API_VERSION}"
 async def get_profile_stats() -> dict:
     """
     Получает основную статистику Instagram-профиля.
-    
+
     Uses: GET /{ig_account_id}?fields=followers_count,media_count,follows_count
-    
+
     Returns:
         dict с ключами: followers_count, media_count, follows_count
         При ошибке возвращает пустой dict.
     """
     ig_account_id = getattr(settings, "instagram_account_id", "")
     access_token = getattr(settings, "instagram_access_token", "")
-    
+
     if not ig_account_id or not access_token:
-        logger.warning("Instagram Graph API не настроен. Невозможно получить статистику.")
+        logger.warning(
+            "Instagram Graph API не настроен. Невозможно получить статистику."
+        )
         return {}
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             url = f"{GRAPH_BASE_URL}/{ig_account_id}"
@@ -41,7 +43,7 @@ async def get_profile_stats() -> dict:
             }
             async with session.get(url, params=params) as resp:
                 data = await resp.json()
-                
+
                 if "error" in data:
                     error = data["error"]
                     logger.error(
@@ -49,7 +51,7 @@ async def get_profile_stats() -> dict:
                         f"{error.get('message', data)}"
                     )
                     return {}
-                
+
                 stats = {
                     "followers_count": data.get("followers_count", 0),
                     "media_count": data.get("media_count", 0),
@@ -91,7 +93,9 @@ async def get_media_insights(media_id: str, media_type: str = "") -> dict:
             async with session.get(url, params=params) as resp:
                 data = await resp.json()
                 if "error" in data:
-                    logger.debug(f"insights /{media_id}: {data['error'].get('message', '')}")
+                    logger.debug(
+                        f"insights /{media_id}: {data['error'].get('message', '')}"
+                    )
                     return {}
                 out = {}
                 for item in data.get("data", []):
@@ -121,11 +125,11 @@ async def get_recent_media_stats(limit: int = 10, with_insights: bool = False) -
     """
     ig_account_id = getattr(settings, "instagram_account_id", "")
     access_token = getattr(settings, "instagram_access_token", "")
-    
+
     if not ig_account_id or not access_token:
         logger.warning("Instagram Graph API не настроен. Невозможно получить медиа.")
         return []
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             url = f"{GRAPH_BASE_URL}/{ig_account_id}/media"
@@ -136,16 +140,16 @@ async def get_recent_media_stats(limit: int = 10, with_insights: bool = False) -
             }
             async with session.get(url, params=params) as resp:
                 data = await resp.json()
-                
+
                 if "error" in data:
                     error = data["error"]
                     logger.error(
                         f"Ошибка получения медиа: {error.get('message', data)}"
                     )
                     return []
-                
+
                 media_list = data.get("data", [])
-                
+
                 # Добавляем engagement / score к каждому посту
                 result = []
                 for media in media_list:
@@ -155,7 +159,9 @@ async def get_recent_media_stats(limit: int = 10, with_insights: bool = False) -
 
                     row = {
                         "id": media.get("id", ""),
-                        "caption": media.get("caption", "")[:200] if media.get("caption") else "",
+                        "caption": media.get("caption", "")[:200]
+                        if media.get("caption")
+                        else "",
                         "timestamp": media.get("timestamp", ""),
                         "like_count": likes,
                         "comments_count": comments,
@@ -172,8 +178,10 @@ async def get_recent_media_stats(limit: int = 10, with_insights: bool = False) -
                         row["score"] = engagement + 2 * row["saved"] + 3 * row["shares"]
                     result.append(row)
 
-                logger.info(f"📊 Получено {len(result)} публикаций из Instagram"
-                            f"{' (+insights)' if with_insights else ''}.")
+                logger.info(
+                    f"📊 Получено {len(result)} публикаций из Instagram"
+                    f"{' (+insights)' if with_insights else ''}."
+                )
                 return result
     except Exception as e:
         logger.error(f"Ошибка при получении медиа: {e}", exc_info=True)
@@ -265,12 +273,12 @@ async def get_recent_stories(limit: int = 10) -> list:
 async def get_top_posts(limit: int = 5) -> list:
     """
     Возвращает топ-посты по уровню вовлечённости (engagement).
-    
+
     Engagement = like_count + comments_count
-    
+
     Args:
         limit: Количество топ-постов для возврата (по умолчанию 5)
-        
+
     Returns:
         Список словарей с данными топ-постов, отсортированных по engagement (desc)
     """
@@ -284,7 +292,9 @@ async def get_top_posts(limit: int = 5) -> list:
         return []
 
     # Сортируем по взвешенному score (лайки+комменты + сохранения×2 + репосты×3)
-    sorted_media = sorted(all_media, key=lambda x: x.get("score", x["engagement"]), reverse=True)
+    sorted_media = sorted(
+        all_media, key=lambda x: x.get("score", x["engagement"]), reverse=True
+    )
     top = sorted_media[:limit]
 
     if top:
@@ -321,7 +331,9 @@ async def get_instagram_stats(top_limit: int = 5) -> dict:
         tot_reach = sum(p.get("reach", 0) for p in top_posts)
         tot_saved = sum(p.get("saved", 0) for p in top_posts)
         tot_shares = sum(p.get("shares", 0) for p in top_posts)
-        lines.append(f"👁 Охват (топ): {tot_reach} · 🔖 Сохранения: {tot_saved} · 🔁 Репосты: {tot_shares}")
+        lines.append(
+            f"👁 Охват (топ): {tot_reach} · 🔖 Сохранения: {tot_saved} · 🔁 Репосты: {tot_shares}"
+        )
         lines.append("🏆 Топ-посты по распространению (score):")
         for i, p in enumerate(top_posts, 1):
             cap = (p.get("caption") or "").replace("\n", " ")[:50]
@@ -345,9 +357,11 @@ def _reach_verdict(avg_reach_pct: float) -> str:
     if avg_reach_pct <= 0:
         return "⚪️ нет данных охвата"
     if avg_reach_pct < 10:
-        return ("🔴 аудитория холодная/накрученная — охват <10% почти всегда значит, "
-                "что подписчики в основном неактивны. Контент это не чинит: чистить ботов "
-                "и растить живых (Reels, коллаборации, локальный контент).")
+        return (
+            "🔴 аудитория холодная/накрученная — охват <10% почти всегда значит, "
+            "что подписчики в основном неактивны. Контент это не чинит: чистить ботов "
+            "и растить живых (Reels, коллаборации, локальный контент)."
+        )
     if avg_reach_pct < 25:
         return "🟡 средне — есть куда расти. Усиливай хук, сохранения/репосты, Reels."
     if avg_reach_pct < 50:
@@ -380,7 +394,9 @@ async def build_reach_report(post_limit: int = 8, story_limit: int = 8) -> dict:
 
     post_reaches = [p.get("reach", 0) for p in posts if p.get("reach", 0)]
     avg_post_reach = round(sum(post_reaches) / len(post_reaches)) if post_reaches else 0
-    avg_story_reach = round(sum(story_reaches) / len(story_reaches)) if story_reaches else 0
+    avg_story_reach = (
+        round(sum(story_reaches) / len(story_reaches)) if story_reaches else 0
+    )
     avg_post_pct = _pct(avg_post_reach)
     avg_story_pct = _pct(avg_story_reach)
     tot_saved = sum(p.get("saved", 0) for p in posts)
@@ -401,7 +417,9 @@ async def build_reach_report(post_limit: int = 8, story_limit: int = 8) -> dict:
 
     # Топ-3 поста периода по распространению (сохранения/репосты весят больше)
     if posts:
-        top = sorted(posts, key=lambda x: x.get("score", x.get("engagement", 0)), reverse=True)[:3]
+        top = sorted(
+            posts, key=lambda x: x.get("score", x.get("engagement", 0)), reverse=True
+        )[:3]
         lines.append("\n🏆 Лучшее за период:")
         for i, p in enumerate(top, 1):
             cap = (p.get("caption") or "").replace("\n", " ")[:45]
@@ -431,50 +449,71 @@ async def sync_publication_metrics() -> None:
         from sqlalchemy import text as sqt
 
         async with get_session_ctx() as session:
-            res = await session.execute(sqt(
-                "SELECT id, media_id, date, slot FROM content_publications "
-                "WHERE media_id IS NOT NULL AND reach IS NULL"
-            ))
+            res = await session.execute(
+                sqt(
+                    "SELECT id, media_id, date, slot FROM content_publications "
+                    "WHERE media_id IS NOT NULL AND reach IS NULL"
+                )
+            )
             rows = res.fetchall()
             if not rows:
                 return
 
             updated = 0
             for row in rows:
-                pub_id, media_id, day, slot = row[0], row[1], row[2], row[3]
+                pub_id, media_id, _day, _slot = row[0], row[1], row[2], row[3]
                 insights = await get_media_insights(media_id)
                 if insights and "error" not in insights:
-                    await session.execute(sqt(
-                        "UPDATE content_publications SET "
-                        "reach = :reach, likes = :likes, comments = :comments "
-                        "WHERE id = :pid"
-                    ), {
-                        "reach": insights.get("reach", 0),
-                        "likes": insights.get("engagement", 0),
-                        "comments": insights.get("saved", 0),
-                        "pid": pub_id,
-                    })
+                    await session.execute(
+                        sqt(
+                            "UPDATE content_publications SET "
+                            "reach = :reach, likes = :likes, comments = :comments "
+                            "WHERE id = :pid"
+                        ),
+                        {
+                            "reach": insights.get("reach", 0),
+                            "likes": insights.get("engagement", 0),
+                            "comments": insights.get("saved", 0),
+                            "pid": pub_id,
+                        },
+                    )
                     updated += 1
 
             if updated:
-                logging.info(f"sync_publication_metrics: обновлены показатели по {updated} публикациям")
+                logging.info(
+                    f"sync_publication_metrics: обновлены показатели по {updated} публикациям"
+                )
                 # Замыкаем петлю: Измерение -> Вывод -> Изменение поведения
                 try:
                     from shared.feedback_loop import feedback_loop
-                    metrics_res = await session.execute(sqt(
-                        "SELECT slot, AVG(reach) as avg_reach, AVG(likes) as avg_likes "
-                        "FROM content_publications WHERE reach IS NOT NULL "
-                        "GROUP BY slot"
-                    ))
-                    slot_stats = {r[0]: {"avg_reach": float(r[1] or 0), "avg_likes": float(r[2] or 0)} for r in metrics_res.fetchall()}
-                    
+
+                    metrics_res = await session.execute(
+                        sqt(
+                            "SELECT slot, AVG(reach) as avg_reach, AVG(likes) as avg_likes "
+                            "FROM content_publications WHERE reach IS NOT NULL "
+                            "GROUP BY slot"
+                        )
+                    )
+                    slot_stats = {
+                        r[0]: {
+                            "avg_reach": float(r[1] or 0),
+                            "avg_likes": float(r[2] or 0),
+                        }
+                        for r in metrics_res.fetchall()
+                    }
+
                     await feedback_loop.evaluate_and_adapt(
                         bot="content_bot",
                         metric="engagement_rate",
                         current_data=slot_stats,
-                        benchmark_data={"target_reach_per_post": 500, "target_engagement_rate": 0.05}
+                        benchmark_data={
+                            "target_reach_per_post": 500,
+                            "target_engagement_rate": 0.05,
+                        },
                     )
                 except Exception as fe:
-                    logging.warning(f"Feedback loop trigger warning in content_bot: {fe}")
+                    logging.warning(
+                        f"Feedback loop trigger warning in content_bot: {fe}"
+                    )
     except Exception as e:
         logger.error(f"sync_publication_metrics error: {e}", exc_info=True)

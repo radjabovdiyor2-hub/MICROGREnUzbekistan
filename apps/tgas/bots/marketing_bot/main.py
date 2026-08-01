@@ -1,4 +1,5 @@
 """Marketing Bot — main.py с EventBus интеграцией"""
+
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
@@ -13,7 +14,6 @@ from shared.group_orchestrator import create_group_router
 from bots.marketing_bot.handlers.campaigns import ai_mkt
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
-from shared.ai_engine import AIEngine
 from sqlalchemy import text
 
 logging.basicConfig(level=logging.INFO)
@@ -38,6 +38,7 @@ _B2B_OFFER_ROLE = """
 def _b2b_offer_prompt() -> str:
     """Собирается лениво: TEAM_CONTEXT уже включает фирменный голос бренда."""
     from shared.prompts import TEAM_CONTEXT
+
     return TEAM_CONTEXT + _B2B_OFFER_ROLE
 
 
@@ -45,23 +46,23 @@ B2B_OFFER_SYSTEM_PROMPT = _b2b_offer_prompt()
 
 
 async def _get_bot():
-    return Bot(token=settings.marketing_bot_token,
-               default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    return Bot(
+        token=settings.marketing_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
 
 
 # Функции периодических рассылок и отчетов отключены для минимизации спама
+
 
 async def bus_send_broadcast(params: dict) -> dict:
     """Реальная рассылка по базе клиентов Telegram."""
     target = params.get("target", "all").lower()
     message_text = params.get("message", "")
-    
+
     if not message_text:
         return {"status": "error", "message": "Текст рассылки пуст."}
 
-    from shared.database import get_session_ctx
-    from sqlalchemy import text
-    
     try:
         async with get_session_ctx() as session:
             query = "SELECT telegram_id FROM customers WHERE telegram_id IS NOT NULL AND COALESCE(status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
@@ -71,7 +72,7 @@ async def bus_send_broadcast(params: dict) -> dict:
                 query += " AND customer_type = 'b2c'"
             elif target == "vip":
                 query += " AND status = 'vip'"
-                
+
             res = await session.execute(text(query))
             user_ids = [row[0] for row in res.fetchall()]
     except Exception as e:
@@ -79,12 +80,15 @@ async def bus_send_broadcast(params: dict) -> dict:
         return {"status": "error", "message": "Ошибка БД при выборке аудитории"}
 
     if not user_ids:
-        return {"status": "error", "message": f"Не найдено клиентов для таргета: {target}"}
+        return {
+            "status": "error",
+            "message": f"Не найдено клиентов для таргета: {target}",
+        }
 
     bot = await _get_bot()
     success_count = 0
     fail_count = 0
-    
+
     # Логирование размера аудитории перед отправкой
     logging.warning("BROADCAST: %d получателей, target=%s", len(user_ids), target)
 
@@ -97,8 +101,10 @@ async def bus_send_broadcast(params: dict) -> dict:
                 success_count += 1
             except Exception:
                 fail_count += 1
-            await asyncio.sleep(0.05)  # Защита от спам-лимитов Telegram (не более 30 в сек)
-        
+            await asyncio.sleep(
+                0.05
+            )  # Защита от спам-лимитов Telegram (не более 30 в сек)
+
         # Отчет админу по завершении
         admin_id = settings.admin_telegram_ids[0]
         report = (
@@ -111,11 +117,16 @@ async def bus_send_broadcast(params: dict) -> dict:
             await bot.send_message(admin_id, report, parse_mode="HTML")
             # Замыкаем петлю: Маркетинг (замер конверсии/ошибок -> вывод -> изменение таргетинга)
             from shared.feedback_loop import feedback_loop
+
             await feedback_loop.evaluate_and_adapt(
                 bot="marketing_bot",
                 metric="broadcast_conversion",
-                current_data={"target": target, "success_count": success_count, "fail_count": fail_count},
-                benchmark_data={"min_success_rate": 0.90}
+                current_data={
+                    "target": target,
+                    "success_count": success_count,
+                    "fail_count": fail_count,
+                },
+                benchmark_data={"min_success_rate": 0.90},
             )
         except Exception as fe:
             logging.warning(f"Marketing feedback loop error: {fe}")
@@ -126,8 +137,9 @@ async def bus_send_broadcast(params: dict) -> dict:
     return {
         "status": "ok",
         "message": f"Запущена рассылка на {len(user_ids)} человек (Таргет: {target}).",
-        "data": {"target": target, "count": len(user_ids)}
+        "data": {"target": target, "count": len(user_ids)},
     }
+
 
 async def handle_task_created(payload: dict):
     data = payload.get("data", {})
@@ -137,27 +149,39 @@ async def handle_task_created(payload: dict):
     task_id = data.get("task_id")
     if not chat_id:
         return
-    
-    bot = Bot(token=settings.marketing_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    bot = Bot(
+        token=settings.marketing_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     try:
         from shared.ai_engine import AIEngine
+
         ai = AIEngine()
         from shared.prompts import TEAM_CONTEXT
+
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Директор по Маркетингу (CMO) и Marketing Bot. Твой фокус: CAC, LTV, Churn Rate, омниканальные стратегии. Предлагай нестандартные маркетинговые ходы для B2B и B2C, анализируй сегменты аудитории."
         user_prompt = f"Руководитель поручил задачу по маркетингу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
         logging.info("MARKETING BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350, effort="medium")
+        answer = await ai.chat_completion(
+            sys_prompt, user_prompt, max_tokens=350, effort="medium"
+        )
 
         logging.info(f"MARKETING BOT sending message to {chat_id}")
         from shared.task_ui import get_task_keyboard
-        await bot.send_message(chat_id, f"✅ <b>Отдел маркетинга — принял в работу:</b>\n\n{answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
+
+        await bot.send_message(
+            chat_id,
+            f"✅ <b>Отдел маркетинга — принял в работу:</b>\n\n{answer}",
+            parse_mode="HTML",
+            reply_markup=get_task_keyboard(task_id),
+        )
         logging.info("MARKETING BOT successfully sent message.")
-            
+
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
     finally:
         await bot.session.close()
-
 
 
 # Как писать КП в зависимости от того, ПОЧЕМУ отдел продаж выбрал этот ресторан
@@ -195,13 +219,17 @@ async def _fetch_b2b_targets(limit: int) -> list:
     from shared.bot_bus import send_task, get_result
 
     try:
-        tid = await send_task("marketing_bot", "sales_bot", "get_b2b_targets", {"limit": limit})
+        tid = await send_task(
+            "marketing_bot", "sales_bot", "get_b2b_targets", {"limit": limit}
+        )
         res = await get_result(tid, timeout=60)
         if res and res.get("status") == "done":
             result = res.get("result") or {}
             targets = (result.get("data") or {}).get("targets") or []
             if targets:
-                logging.info("b2b_outreach: отдел продаж отобрал %d ресторанов", len(targets))
+                logging.info(
+                    "b2b_outreach: отдел продаж отобрал %d ресторанов", len(targets)
+                )
                 return targets
             logging.info("b2b_outreach: отдел продаж не нашёл ресторанов на сегодня")
             return []
@@ -209,22 +237,32 @@ async def _fetch_b2b_targets(limit: int) -> list:
         logging.warning(f"b2b_outreach: отдел продаж не ответил ({e}) — беру лидов сам")
 
     # Запасной вариант: свежие лиды, которым ещё не писали
-    from shared.database import get_session_ctx
-    from sqlalchemy import text
     async with get_session_ctx() as session:
-        res = await session.execute(text(
-            "SELECT id, name, company_name, email, phone, review_summary, address "
-            "FROM customers "
-            "WHERE customer_type = 'b2b' AND status = 'lead' "
-            "AND NOT EXISTS (SELECT 1 FROM interactions i "
-            "                WHERE i.customer_id = customers.id AND i.interaction_type = 'b2b_offer_sent') "
-            "ORDER BY review_score DESC NULLS LAST, created_at ASC "
-            "LIMIT :lim"
-        ), {"lim": limit})
+        res = await session.execute(
+            text(
+                "SELECT id, name, company_name, email, phone, review_summary, address "
+                "FROM customers "
+                "WHERE customer_type = 'b2b' AND status = 'lead' "
+                "AND NOT EXISTS (SELECT 1 FROM interactions i "
+                "                WHERE i.customer_id = customers.id AND i.interaction_type = 'b2b_offer_sent') "
+                "ORDER BY review_score DESC NULLS LAST, created_at ASC "
+                "LIMIT :lim"
+            ),
+            {"lim": limit},
+        )
         return [
-            {"id": r[0], "name": r[1], "company_name": r[2], "email": r[3], "phone": r[4],
-             "review_summary": r[5], "address": r[6], "segment": "new_lead",
-             "reason": "новый ресторан", "touches": 0}
+            {
+                "id": r[0],
+                "name": r[1],
+                "company_name": r[2],
+                "email": r[3],
+                "phone": r[4],
+                "review_summary": r[5],
+                "address": r[6],
+                "segment": "new_lead",
+                "reason": "новый ресторан",
+                "touches": 0,
+            }
             for r in res.fetchall()
         ]
 
@@ -242,18 +280,19 @@ async def b2b_outreach():
         from shared.database import get_session_ctx
         from sqlalchemy import text
         from shared.ai_engine import AIEngine
-        from shared.pdf_generator import generate_commercial_offer_pdf
         from aiogram import Bot
         from aiogram.client.default import DefaultBotProperties
         from aiogram.enums import ParseMode
         from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-        import json
-        import os
 
         limit = settings.b2b_daily_limit
-        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
         if not admin_id:
-            logging.warning("b2b_outreach: admin_telegram_ids не задан, некому отправлять на одобрение.")
+            logging.warning(
+                "b2b_outreach: admin_telegram_ids не задан, некому отправлять на одобрение."
+            )
             return
 
         leads = await _fetch_b2b_targets(limit)
@@ -263,23 +302,34 @@ async def b2b_outreach():
 
         ai = AIEngine()
         async with get_session_ctx() as session:
-            res_prices = await session.execute(text("SELECT name_ru, price FROM products WHERE is_active = true LIMIT 5"))
-            products = [{"name": r[0], "price": f"{r[1]} сум"} for r in res_prices.fetchall()]
+            res_prices = await session.execute(
+                text(
+                    "SELECT name_ru, price FROM products WHERE is_active = true LIMIT 5"
+                )
+            )
+            [{"name": r[0], "price": f"{r[1]} сум"} for r in res_prices.fetchall()]
 
         # Сводка по сегментам — чтобы владелец видел, кого и почему сегодня берём
         by_seg = {}
         for t in leads:
-            by_seg[t.get("segment", "new_lead")] = by_seg.get(t.get("segment", "new_lead"), 0) + 1
+            by_seg[t.get("segment", "new_lead")] = (
+                by_seg.get(t.get("segment", "new_lead"), 0) + 1
+            )
         breakdown = "\n".join(
             f"   {_SEGMENT_LABEL.get(s, s)}: {n}" for s, n in by_seg.items()
         )
 
-        bot = Bot(token=settings.marketing_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+        bot = Bot(
+            token=settings.marketing_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
         try:
-            await bot.send_message(admin_id,
+            await bot.send_message(
+                admin_id,
                 f"📣 <b>КП на сегодня: {len(leads)} ресторан(ов)</b>\n"
                 f"<i>Список отобрал отдел «Заказы»:</i>\n{breakdown}\n\n"
-                f"Ниже — карточки с КП. Нажмите ✅ для отправки или ❌ для пропуска.")
+                f"Ниже — карточки с КП. Нажмите ✅ для отправки или ❌ для пропуска.",
+            )
 
             for lead in leads:
                 cid = lead["id"]
@@ -292,7 +342,11 @@ async def b2b_outreach():
 
                 chef_name = lead.get("name") or "Шеф-повар"
                 comp_name = lead.get("company_name") or "Ресторан"
-                review_hint = f"\nИзвестное о заведении: {review_summary}." if review_summary else ""
+                review_hint = (
+                    f"\nИзвестное о заведении: {review_summary}."
+                    if review_summary
+                    else ""
+                )
 
                 # Генерация КП — заход зависит от того, ПОЧЕМУ продажи выбрали ресторан
                 brief = _SEGMENT_BRIEF.get(segment, _SEGMENT_BRIEF["new_lead"])
@@ -303,8 +357,7 @@ async def b2b_outreach():
                     f"2-3 абзаца, тёплый деловой тон, без markdown."
                 )
                 ai_text = await ai.chat_completion(
-                    system_prompt=B2B_OFFER_SYSTEM_PROMPT,
-                    user_message=prompt
+                    system_prompt=B2B_OFFER_SYSTEM_PROMPT, user_message=prompt
                 )
 
                 # Карточка ресторана для владельца
@@ -326,33 +379,47 @@ async def b2b_outreach():
                 cb_data_approve = f"b2b_approve:{cid}:{channel}"
                 cb_data_reject = f"b2b_reject:{cid}"
 
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [
-                        InlineKeyboardButton(text="✅ Одобрить отправку", callback_data=cb_data_approve),
-                        InlineKeyboardButton(text="❌ Отклонить", callback_data=cb_data_reject),
+                kb = InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            InlineKeyboardButton(
+                                text="✅ Одобрить отправку",
+                                callback_data=cb_data_approve,
+                            ),
+                            InlineKeyboardButton(
+                                text="❌ Отклонить", callback_data=cb_data_reject
+                            ),
+                        ]
                     ]
-                ])
+                )
 
                 await bot.send_message(admin_id, card, reply_markup=kb)
 
                 # Сохраняем КП текст в БД (pending), чтобы потом при одобрении не генерировать заново
                 async with get_session_ctx() as session:
-                    await session.execute(text(
-                        "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
-                        "VALUES (:cid, :ch, 'b2b_offer_pending', 'marketing_bot', :txt, NOW())"
-                    ), {"cid": cid, "ch": channel, "txt": ai_text})
+                    await session.execute(
+                        text(
+                            "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
+                            "VALUES (:cid, :ch, 'b2b_offer_pending', 'marketing_bot', :txt, NOW())"
+                        ),
+                        {"cid": cid, "ch": channel, "txt": ai_text},
+                    )
                     await session.commit()
 
                 # Не спамим — пауза между карточками
                 await asyncio.sleep(1)
 
-            await bot.send_message(admin_id,
+            await bot.send_message(
+                admin_id,
                 "⏳ <b>Все карточки отправлены.</b>\n"
-                "Нажимайте ✅ или ❌ под каждой. Бот отправит КП только после вашего одобрения.")
+                "Нажимайте ✅ или ❌ под каждой. Бот отправит КП только после вашего одобрения.",
+            )
         finally:
             await bot.session.close()
 
-        logging.info("b2b_outreach: %d карточек отправлено админу на одобрение", len(leads))
+        logging.info(
+            "b2b_outreach: %d карточек отправлено админу на одобрение", len(leads)
+        )
 
     except Exception as e:
         logging.error(f"b2b_outreach error: {e}", exc_info=True)
@@ -360,8 +427,6 @@ async def b2b_outreach():
 
 async def handle_b2b_approval(callback_query):
     """Обработчик кнопок Одобрить/Отклонить B2B-рассылку."""
-    from shared.database import get_session_ctx
-    from sqlalchemy import text
     from shared.pdf_generator import generate_commercial_offer_pdf
     from shared.email_sender import send_b2b_offer_email
     from shared.event_bus import event_bus
@@ -375,14 +440,17 @@ async def handle_b2b_approval(callback_query):
     if action == "b2b_reject":
         # Помечаем что отклонено
         async with get_session_ctx() as session:
-            await session.execute(text(
-                "UPDATE interactions SET interaction_type = 'b2b_offer_rejected' "
-                "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
-            ), {"cid": cid})
+            await session.execute(
+                text(
+                    "UPDATE interactions SET interaction_type = 'b2b_offer_rejected' "
+                    "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
+                ),
+                {"cid": cid},
+            )
             await session.commit()
         await callback_query.message.edit_text(
             callback_query.message.text + "\n\n❌ <b>Отклонено администратором</b>",
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
         await callback_query.answer("Отклонено ❌")
         return
@@ -392,12 +460,15 @@ async def handle_b2b_approval(callback_query):
 
     async with get_session_ctx() as session:
         # Получаем данные клиента и сохранённый текст КП
-        res = await session.execute(text(
-            "SELECT c.id, c.name, c.company_name, c.email, c.phone, c.address, i.summary "
-            "FROM customers c "
-            "JOIN interactions i ON i.customer_id = c.id AND i.interaction_type = 'b2b_offer_pending' "
-            "WHERE c.id = :cid LIMIT 1"
-        ), {"cid": cid})
+        res = await session.execute(
+            text(
+                "SELECT c.id, c.name, c.company_name, c.email, c.phone, c.address, i.summary "
+                "FROM customers c "
+                "JOIN interactions i ON i.customer_id = c.id AND i.interaction_type = 'b2b_offer_pending' "
+                "WHERE c.id = :cid LIMIT 1"
+            ),
+            {"cid": cid},
+        )
         row = res.fetchone()
         if not row:
             await callback_query.answer("Лид не найден или уже обработан")
@@ -408,15 +479,21 @@ async def handle_b2b_approval(callback_query):
         comp_name = company or "Ресторан"
 
         # Получаем продукты для PDF
-        res_prices = await session.execute(text("SELECT name_ru, price FROM products WHERE is_active = true LIMIT 5"))
-        products = [{"name": r[0], "price": f"{r[1]} сум"} for r in res_prices.fetchall()]
+        res_prices = await session.execute(
+            text("SELECT name_ru, price FROM products WHERE is_active = true LIMIT 5")
+        )
+        products = [
+            {"name": r[0], "price": f"{r[1]} сум"} for r in res_prices.fetchall()
+        ]
 
         success = False
 
         if channel == "email" and email:
             # Генерируем PDF и отправляем на почту
             pdf_path = generate_commercial_offer_pdf(
-                client_name=comp_name, ai_text=ai_text, prices=products,
+                client_name=comp_name,
+                ai_text=ai_text,
+                prices=products,
                 output_filename=f"КП_Microgreen_{cid}.pdf",
             )
             subject = f"Свежая микрозелень для {comp_name} от Microgreen Uzbekistan"
@@ -432,53 +509,78 @@ async def handle_b2b_approval(callback_query):
                 pass
 
             if success:
-                await session.execute(text(
-                    "UPDATE interactions SET interaction_type = 'b2b_offer_sent', channel = 'email' "
-                    "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
-                ), {"cid": cid})
+                await session.execute(
+                    text(
+                        "UPDATE interactions SET interaction_type = 'b2b_offer_sent', channel = 'email' "
+                        "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
+                    ),
+                    {"cid": cid},
+                )
                 await session.commit()
-                await event_bus.publish("b2b_outreach_completed",
-                    {"company": comp_name, "channel": "email", "status": "success"}, "marketing_bot")
+                await event_bus.publish(
+                    "b2b_outreach_completed",
+                    {"company": comp_name, "channel": "email", "status": "success"},
+                    "marketing_bot",
+                )
 
         elif channel == "phone" and phone:
             # Создаём задачу на обзвон
-            review_hint = ""
             title = f"Обзвонить ресторан: {comp_name}"
             desc = (
                 f"Холодный B2B-контакт. Ресторан: {comp_name}. Тел: {phone}. "
                 f"Адрес: {address or '—'}. "
                 f"Цель: предложить свежую микрозелень/салаты, договориться о пробной поставке."
             )
-            res_t = await session.execute(text(
-                "INSERT INTO tasks (title, description, department, status, priority, created_at) "
-                "VALUES (:t, :d, 'sales', 'todo', 'high', NOW()) RETURNING id"
-            ), {"t": title, "d": desc})
+            res_t = await session.execute(
+                text(
+                    "INSERT INTO tasks (title, description, department, status, priority, created_at) "
+                    "VALUES (:t, :d, 'sales', 'todo', 'high', NOW()) RETURNING id"
+                ),
+                {"t": title, "d": desc},
+            )
             task_id = res_t.scalar()
-            await session.execute(text(
-                "UPDATE interactions SET interaction_type = 'b2b_offer_sent', channel = 'phone_task', "
-                "summary = :s WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
-            ), {"cid": cid, "s": f"Создана задача обзвона #{task_id}"})
+            await session.execute(
+                text(
+                    "UPDATE interactions SET interaction_type = 'b2b_offer_sent', channel = 'phone_task', "
+                    "summary = :s WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
+                ),
+                {"cid": cid, "s": f"Создана задача обзвона #{task_id}"},
+            )
             await session.commit()
             success = True
 
-            admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+            admin_id = (
+                settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+            )
             if admin_id:
-                await event_bus.publish("TASK_CREATED", {
-                    "task_id": task_id, "title": title, "description": desc,
-                    "department": "sales", "chat_id": admin_id, "priority": "high",
-                }, "marketing_bot")
+                await event_bus.publish(
+                    "TASK_CREATED",
+                    {
+                        "task_id": task_id,
+                        "title": title,
+                        "description": desc,
+                        "department": "sales",
+                        "chat_id": admin_id,
+                        "priority": "high",
+                    },
+                    "marketing_bot",
+                )
 
     if success:
-        status_text = "📧 КП отправлено на email!" if channel == "email" else "📞 Задача на обзвон создана!"
+        status_text = (
+            "📧 КП отправлено на email!"
+            if channel == "email"
+            else "📞 Задача на обзвон создана!"
+        )
         await callback_query.message.edit_text(
             callback_query.message.text + f"\n\n✅ <b>ОДОБРЕНО</b> — {status_text}",
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
         await callback_query.answer("Отправлено ✅")
     else:
         await callback_query.message.edit_text(
             callback_query.message.text + "\n\n⚠️ <b>Ошибка при отправке</b>",
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
         await callback_query.answer("Ошибка ⚠️")
 
@@ -487,9 +589,13 @@ async def collect_leads_nightly():
     """Ночной сбор новых ресторанов из всех источников (Google, Yandex, 2ГИС)."""
     try:
         from shared.lead_gen import collect_and_import_all
+
         result = await collect_and_import_all()
-        logging.info("collect_leads_nightly: +%d новых лидов, %d дублей",
-                     result["inserted"], result["skipped"])
+        logging.info(
+            "collect_leads_nightly: +%d новых лидов, %d дублей",
+            result["inserted"],
+            result["skipped"],
+        )
     except Exception as e:
         logging.error(f"collect_leads_nightly error: {e}", exc_info=True)
 
@@ -500,9 +606,11 @@ async def bus_b2b_outreach(params: dict) -> dict:
     try:
         await b2b_outreach()
         limit = settings.b2b_daily_limit
-        return {"status": "ok",
-                "message": f"Подготовлены КП для B2B-лидов (до {limit} шт.) — "
-                           f"ждут вашего одобрения"}
+        return {
+            "status": "ok",
+            "message": f"Подготовлены КП для B2B-лидов (до {limit} шт.) — "
+            f"ждут вашего одобрения",
+        }
     except Exception as e:
         logging.error(f"bus_b2b_outreach error: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
@@ -520,23 +628,29 @@ async def bus_trigger_lead_audit(params: dict) -> dict:
         from shared.database import get_session_ctx
 
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                "SELECT LOWER(COALESCE(status, 'unknown')) AS st, COUNT(*) "
-                "FROM customers WHERE customer_type = 'b2b' GROUP BY st"
-            ))
+            res = await session.execute(
+                text(
+                    "SELECT LOWER(COALESCE(status, 'unknown')) AS st, COUNT(*) "
+                    "FROM customers WHERE customer_type = 'b2b' GROUP BY st"
+                )
+            )
             by_status = {row[0]: row[1] for row in res.fetchall()}
 
-            res = await session.execute(text(
-                "SELECT COUNT(*) FROM customers "
-                "WHERE customer_type = 'b2b' AND created_at >= NOW() - INTERVAL '7 days'"
-            ))
+            res = await session.execute(
+                text(
+                    "SELECT COUNT(*) FROM customers "
+                    "WHERE customer_type = 'b2b' AND created_at >= NOW() - INTERVAL '7 days'"
+                )
+            )
             fresh_week = res.scalar() or 0
 
-            res = await session.execute(text(
-                "SELECT COUNT(DISTINCT customer_id) FROM interactions "
-                "WHERE interaction_type = 'b2b_offer_sent' "
-                "AND created_at >= NOW() - INTERVAL '7 days'"
-            ))
+            res = await session.execute(
+                text(
+                    "SELECT COUNT(DISTINCT customer_id) FROM interactions "
+                    "WHERE interaction_type = 'b2b_offer_sent' "
+                    "AND created_at >= NOW() - INTERVAL '7 days'"
+                )
+            )
             contacted_week = res.scalar() or 0
 
         total = sum(by_status.values())
@@ -554,7 +668,9 @@ async def bus_trigger_lead_audit(params: dict) -> dict:
         ]
         summary = "\n".join(lines)
 
-        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
         if admin_id:
             # В этом модуле нет глобального объекта бота — экземпляр создаётся
             # на вызов и закрывается, иначе сессия aiohttp течёт.
@@ -567,16 +683,24 @@ async def bus_trigger_lead_audit(params: dict) -> dict:
         # Замыкаем петлю: результат аудита -> вывод -> правка поведения рассылок.
         try:
             from shared.feedback_loop import feedback_loop
+
             await feedback_loop.record_measurement(
-                bot="marketing_bot", metric="lead_conversion",
-                value=conversion, target=20.0,
+                bot="marketing_bot",
+                metric="lead_conversion",
+                value=conversion,
+                target=20.0,
                 context={"total": total, "leads": leads, "fresh_week": fresh_week},
             )
         except Exception as fe:
             logging.warning(f"lead audit feedback error: {fe}")
 
-        return {"status": "ok", "message": summary, "conversion_pct": conversion,
-                "total": total, "fresh_week": fresh_week}
+        return {
+            "status": "ok",
+            "message": summary,
+            "conversion_pct": conversion,
+            "total": total,
+            "fresh_week": fresh_week,
+        }
     except Exception as e:
         logging.error(f"bus_trigger_lead_audit error: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
@@ -586,32 +710,40 @@ async def bus_collect_leads(params: dict) -> dict:
     """Собрать новых B2B-лидов (рестораны) из внешних источников."""
     try:
         from shared.lead_gen import collect_and_import_all
+
         limit = params.get("limit")
         result = await collect_and_import_all(limit=int(limit) if limit else None)
-        return {"status": "ok",
-                "message": f"Собрано лидов: +{result['inserted']} новых, "
-                           f"{result['skipped']} дублей пропущено"}
+        return {
+            "status": "ok",
+            "message": f"Собрано лидов: +{result['inserted']} новых, "
+            f"{result['skipped']} дублей пропущено",
+        }
     except Exception as e:
         logging.error(f"bus_collect_leads error: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 
-
 async def handle_roll_call(payload: dict):
     from shared.roll_call import handle_roll_call as _shared_roll_call
+
     await _shared_roll_call("marketing_bot", payload)
 
 
 async def main():
     if not settings.marketing_bot_token:
-        logger.error(f"FATAL: MARKETING_BOT_TOKEN is missing!")
+        logger.error("FATAL: MARKETING_BOT_TOKEN is missing!")
         import sys
+
         sys.exit(1)
 
     await init_db()
-    bot = Bot(token=settings.marketing_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(
+        token=settings.marketing_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
     from shared.task_ui import task_ui_router
+
     dp.include_router(task_ui_router)
     for r in all_routers:
         dp.include_router(r)
@@ -619,18 +751,24 @@ async def main():
     # ── Обработчик отписки (Opt-Out) ──
     from aiogram import Router, F
     from aiogram.types import Message
+
     unsubscribe_router = Router()
 
-    @unsubscribe_router.message(F.text & F.text.lower().in_(["стоп", "stop", "отписаться", "unsubscribe"]))
+    @unsubscribe_router.message(
+        F.text & F.text.lower().in_(["стоп", "stop", "отписаться", "unsubscribe"])
+    )
     async def process_unsubscribe(message: Message):
         try:
             from shared.database import get_session_ctx
             from sqlalchemy import text
+
             tid = message.from_user.id
             async with get_session_ctx() as session:
                 await session.execute(
-                    text("UPDATE customers SET status = 'unsubscribed' WHERE telegram_id = :tid"),
-                    {"tid": tid}
+                    text(
+                        "UPDATE customers SET status = 'unsubscribed' WHERE telegram_id = :tid"
+                    ),
+                    {"tid": tid},
                 )
                 await session.commit()
             await message.reply("Вы отписаны от рассылок.")
@@ -642,16 +780,23 @@ async def main():
     # ── Обработчик кнопок одобрения/отклонения B2B-рассылки ──
     from aiogram import Router, F
     from aiogram.types import CallbackQuery
+
     b2b_router = Router()
 
-    @b2b_router.callback_query(F.data.startswith("b2b_approve:") | F.data.startswith("b2b_reject:"))
+    @b2b_router.callback_query(
+        F.data.startswith("b2b_approve:") | F.data.startswith("b2b_reject:")
+    )
     async def _b2b_cb(cq: CallbackQuery):
         await handle_b2b_approval(cq)
 
     dp.include_router(b2b_router)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_mkt, wake_words=["отдел маркетинг", "маркетинг", "marketing", "реклама"])
+    group_router = create_group_router(
+        bot_info.username,
+        ai_mkt,
+        wake_words=["отдел маркетинг", "маркетинг", "marketing", "реклама"],
+    )
     dp.include_router(group_router)
 
     await event_bus.connect()
@@ -661,12 +806,16 @@ async def main():
         try:
             channel_id = getattr(settings, "telegram_channel_id", None)
             if not channel_id:
-                logging.warning("Telegram channel ID is not set. Cannot auto-post magazine.")
+                logging.warning(
+                    "Telegram channel ID is not set. Cannot auto-post magazine."
+                )
                 return
 
             issue_id = payload.get("issue_id", "?")
             title = payload.get("title", "Новый выпуск")
-            url = payload.get("url", f"https://microgreenuzbekistan.com/magazine/{issue_id}")
+            url = payload.get(
+                "url", f"https://microgreenuzbekistan.com/magazine/{issue_id}"
+            )
             cover = payload.get("cover", "")
 
             post_text = (
@@ -677,11 +826,20 @@ async def main():
             )
 
             if cover and cover.startswith("http"):
-                await bot.send_photo(chat_id=channel_id, photo=cover, caption=post_text, parse_mode="HTML")
+                await bot.send_photo(
+                    chat_id=channel_id,
+                    photo=cover,
+                    caption=post_text,
+                    parse_mode="HTML",
+                )
             else:
-                await bot.send_message(chat_id=channel_id, text=post_text, parse_mode="HTML")
-                
-            logging.info(f"Successfully auto-posted magazine #{issue_id} to {channel_id}")
+                await bot.send_message(
+                    chat_id=channel_id, text=post_text, parse_mode="HTML"
+                )
+
+            logging.info(
+                f"Successfully auto-posted magazine #{issue_id} to {channel_id}"
+            )
         except Exception as e:
             logging.error(f"Error auto-posting magazine: {e}")
 
@@ -695,7 +853,9 @@ async def main():
 
     # Запуск планировщика и heartbeat
     # Ночью собираем новых лидов (2ГИС)
-    scheduler.add_cron(name="collect_leads_nightly", func=collect_leads_nightly, hour=3, minute=0)
+    scheduler.add_cron(
+        name="collect_leads_nightly", func=collect_leads_nightly, hour=3, minute=0
+    )
     # B2B outreach: подготавливает КП и отправляет карточку на одобрение в 10:00
     scheduler.add_cron(name="b2b_outreach", func=b2b_outreach, hour=10, minute=0)
     await scheduler.start()
@@ -703,23 +863,30 @@ async def main():
 
     async def followups_worker(bot: Bot):
         """Фоновый воркер для проверки таблицы followups и рассылки уведомлений."""
-        from shared.database import get_session_ctx
-        from sqlalchemy import text
         while True:
             try:
                 async with get_session_ctx() as session:
-                    res = await session.execute(text(
-                        "SELECT f.id, c.telegram_id, f.message FROM followups f "
-                        "JOIN customers c ON f.customer_id = c.id "
-                        "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() AND c.telegram_id IS NOT NULL "
-                        "AND COALESCE(c.status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
-                    ))
+                    res = await session.execute(
+                        text(
+                            "SELECT f.id, c.telegram_id, f.message FROM followups f "
+                            "JOIN customers c ON f.customer_id = c.id "
+                            "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() AND c.telegram_id IS NOT NULL "
+                            "AND COALESCE(c.status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
+                        )
+                    )
                     rows = res.fetchall()
                     for row in rows:
                         fid, tid, msg = row
                         try:
-                            await bot.send_message(tid, f"🔔 <b>Напоминание от Microgreen Uzbekistan:</b>\n\n{msg}", parse_mode="HTML")
-                            await session.execute(text("UPDATE followups SET status='sent' WHERE id=:id"), {"id": fid})
+                            await bot.send_message(
+                                tid,
+                                f"🔔 <b>Напоминание от Microgreen Uzbekistan:</b>\n\n{msg}",
+                                parse_mode="HTML",
+                            )
+                            await session.execute(
+                                text("UPDATE followups SET status='sent' WHERE id=:id"),
+                                {"id": fid},
+                            )
                             logging.info(f"Sent followup {fid} to {tid}")
                         except Exception as e:
                             logging.error(f"Failed to send followup {fid}: {e}")
@@ -734,14 +901,20 @@ async def main():
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
-    asyncio.create_task(bus_listen("marketing_bot", {
-        "send_broadcast": bus_send_broadcast,
-        "b2b_outreach": bus_b2b_outreach,
-        "collect_leads": bus_collect_leads,
-        # Кнопка «Аудит лидов» в веб-админке.
-        "trigger_lead_audit": bus_trigger_lead_audit,
-        BotBusActions.PICK_RESTAURANT: _pick_restaurant,
-    }))
+
+    asyncio.create_task(
+        bus_listen(
+            "marketing_bot",
+            {
+                "send_broadcast": bus_send_broadcast,
+                "b2b_outreach": bus_b2b_outreach,
+                "collect_leads": bus_collect_leads,
+                # Кнопка «Аудит лидов» в веб-админке.
+                "trigger_lead_audit": bus_trigger_lead_audit,
+                BotBusActions.PICK_RESTAURANT: _pick_restaurant,
+            },
+        )
+    )
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)
@@ -751,18 +924,22 @@ async def main():
         await event_bus.stop()
         await bot.session.close()
 
+
 async def _pick_restaurant(params: dict) -> str:
     """Выбор 'Ресторана недели' для журнала."""
     try:
         from sqlalchemy import text
         from shared.database import get_session_ctx
+
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                "SELECT name, review_score, review_summary "
-                "FROM customers "
-                "WHERE customer_type = 'b2b' AND review_score >= 4.5 "
-                "ORDER BY random() LIMIT 1"
-            ))
+            res = await session.execute(
+                text(
+                    "SELECT name, review_score, review_summary "
+                    "FROM customers "
+                    "WHERE customer_type = 'b2b' AND review_score >= 4.5 "
+                    "ORDER BY random() LIMIT 1"
+                )
+            )
             row = res.fetchone()
 
         if not row:
@@ -774,6 +951,6 @@ async def _pick_restaurant(params: dict) -> str:
         logging.error(f"Error picking restaurant: {e}")
         return "Ошибка выбора ресторана"
 
+
 if __name__ == "__main__":
     asyncio.run(main())
-

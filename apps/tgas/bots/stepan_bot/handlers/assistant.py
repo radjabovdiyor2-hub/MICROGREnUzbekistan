@@ -16,8 +16,11 @@ from datetime import datetime, date
 
 from aiogram import Router, F
 from aiogram.types import (
-    Message, CallbackQuery,
-    InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
+    Message,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    WebAppInfo,
 )
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -28,6 +31,7 @@ from sqlalchemy import text
 from shared.ai_engine import AIEngine
 from shared.utils import format_price, simulate_typing
 from shared.event_bus import event_bus
+from shared.group_orchestrator import set_reaction
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -99,32 +103,44 @@ def is_admin(user_id: int) -> bool:
 # /start
 # ═══════════════════════════════════════════════════════
 
+
 @router.message(Command("start"))
 async def cmd_start(message: Message):
     if not is_admin(message.from_user.id):
         await message.answer("⛔ Степан работает только с руководителем.")
         return
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🏢 Открыть офис (Web)", web_app=WebAppInfo(url="https://microgreenuzbekistan.com")),
-        ],
-        [
-            InlineKeyboardButton(text="📊 Отчёт за день", callback_data="st:report_daily"),
-            InlineKeyboardButton(text="📋 Все задачи", callback_data="st:tasks"),
-        ],
-        [
-            InlineKeyboardButton(text="💰 Финансы", callback_data="st:finance"),
-            InlineKeyboardButton(text="🛒 Заказы", callback_data="st:orders"),
-        ],
-        [
-            InlineKeyboardButton(text="👥 Сотрудники", callback_data="st:employees"),
-            InlineKeyboardButton(text="📈 Аналитика", callback_data="st:analytics"),
-        ],
-        [
-            InlineKeyboardButton(text="⚡ Статус системы", callback_data="st:system"),
-        ],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🏢 Открыть офис (Web)",
+                    web_app=WebAppInfo(url="https://microgreenuzbekistan.com"),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📊 Отчёт за день", callback_data="st:report_daily"
+                ),
+                InlineKeyboardButton(text="📋 Все задачи", callback_data="st:tasks"),
+            ],
+            [
+                InlineKeyboardButton(text="💰 Финансы", callback_data="st:finance"),
+                InlineKeyboardButton(text="🛒 Заказы", callback_data="st:orders"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="👥 Сотрудники", callback_data="st:employees"
+                ),
+                InlineKeyboardButton(text="📈 Аналитика", callback_data="st:analytics"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⚡ Статус системы", callback_data="st:system"
+                ),
+            ],
+        ]
+    )
 
     await message.answer(
         "🤖 <b>Степан к вашим услугам!</b>\n\n"
@@ -142,6 +158,7 @@ async def cmd_start(message: Message):
 # Быстрые кнопки
 # ═══════════════════════════════════════════════════════
 
+
 @router.callback_query(F.data == "st:report_daily")
 async def report_daily(cb: CallbackQuery):
     if not is_admin(cb.from_user.id):
@@ -151,15 +168,19 @@ async def report_daily(cb: CallbackQuery):
     async with get_session_ctx() as session:
         # Заказы за сегодня
         res = await session.execute(
-            text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE DATE(created_at) = CURRENT_DATE")
+            text(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE DATE(created_at) = CURRENT_DATE"
+            )
         )
         orders_count, orders_sum = res.fetchone()
 
         # Финансы за сегодня
         res = await session.execute(
-            text("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-            "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-            "FROM finances WHERE date = CURRENT_DATE")
+            text(
+                "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
+                "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
+                "FROM finances WHERE date = CURRENT_DATE"
+            )
         )
         income, expense = res.fetchone()
 
@@ -179,7 +200,7 @@ async def report_daily(cb: CallbackQuery):
     in_progress = task_stats.get("in_progress", 0)
     done = task_stats.get("done", 0)
 
-    text = (
+    report_text = (
         f"📊 <b>Отчёт за {date.today().strftime('%d.%m.%Y')}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
         f"🛒 <b>Заказы:</b> {orders_count} шт. на {format_price(orders_sum)}\n"
@@ -193,7 +214,7 @@ async def report_daily(cb: CallbackQuery):
         f"   ✅ Выполнено: {done}\n"
     )
 
-    await cb.message.edit_text(text)
+    await cb.message.edit_text(report_text)
 
 
 @router.callback_query(F.data == "st:tasks")
@@ -204,10 +225,12 @@ async def show_tasks(cb: CallbackQuery):
 
     async with get_session_ctx() as session:
         res = await session.execute(
-            text("SELECT id, title, department, status, priority, deadline "
-            "FROM tasks WHERE status != 'cancelled' ORDER BY "
-            "CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 "
-            "WHEN 'medium' THEN 2 ELSE 3 END, created_at DESC LIMIT 15")
+            text(
+                "SELECT id, title, department, status, priority, deadline "
+                "FROM tasks WHERE status != 'cancelled' ORDER BY "
+                "CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 "
+                "WHEN 'medium' THEN 2 ELSE 3 END, created_at DESC LIMIT 15"
+            )
         )
         tasks = res.fetchall()
 
@@ -226,9 +249,11 @@ async def show_tasks(cb: CallbackQuery):
         dept_str = f" [{dept}]" if dept else ""
         lines.append(f"{si}{pi} <b>#{tid}</b>{dept_str} {title[:50]}{dl}")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
+        ]
+    )
     await cb.message.edit_text("\n".join(lines), reply_markup=kb)
 
 
@@ -240,23 +265,27 @@ async def show_finance(cb: CallbackQuery):
 
     async with get_session_ctx() as session:
         res = await session.execute(
-            text("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-            "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-            "FROM finances WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE) "
-            "AND EXTRACT(YEAR FROM date) = EXTRACT(YEAR FROM CURRENT_DATE)")
+            text(
+                "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
+                "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
+                "FROM finances WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE) "
+                "AND EXTRACT(YEAR FROM date) = EXTRACT(YEAR FROM CURRENT_DATE)"
+            )
         )
         income, expense = res.fetchone()
 
         # Неоплаченные заказы
         res = await session.execute(
-            text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status = 'pending'")
+            text(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status = 'pending'"
+            )
         )
         debt_count, debt_sum = res.fetchone()
 
     profit = income - expense
     margin = (profit / income * 100) if income > 0 else 0
 
-    text = (
+    fin_text = (
         f"💰 <b>Финансы — {date.today().strftime('%B %Y')}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📈 Доходы: {format_price(income)}\n"
@@ -266,10 +295,12 @@ async def show_finance(cb: CallbackQuery):
         f"💳 Дебиторка: {debt_count} заказов на {format_price(debt_sum)}\n"
     )
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
-    ])
-    await cb.message.edit_text(text, reply_markup=kb)
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
+        ]
+    )
+    await cb.message.edit_text(fin_text, reply_markup=kb)
 
 
 @router.callback_query(F.data == "st:orders")
@@ -280,9 +311,11 @@ async def show_orders(cb: CallbackQuery):
 
     async with get_session_ctx() as session:
         res = await session.execute(
-            text("SELECT o.id, o.order_number, o.total_amount, o.status, o.payment_status, "
-            "c.name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id "
-            "ORDER BY o.created_at DESC LIMIT 10")
+            text(
+                "SELECT o.id, o.order_number, o.total_amount, o.status, o.payment_status, "
+                "c.name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id "
+                "ORDER BY o.created_at DESC LIMIT 10"
+            )
         )
         orders = res.fetchall()
 
@@ -290,8 +323,13 @@ async def show_orders(cb: CallbackQuery):
         return await cb.message.edit_text("🛒 Заказов пока нет.")
 
     status_icons = {
-        "new": "🆕", "confirmed": "✅", "preparing": "🔧",
-        "ready": "📦", "delivering": "🚚", "delivered": "✅", "cancelled": "❌"
+        "new": "🆕",
+        "confirmed": "✅",
+        "preparing": "🔧",
+        "ready": "📦",
+        "delivering": "🚚",
+        "delivered": "✅",
+        "cancelled": "❌",
     }
 
     lines = ["🛒 <b>Последние заказы</b>\n━━━━━━━━━━━━━━━━━━━━\n"]
@@ -302,9 +340,11 @@ async def show_orders(cb: CallbackQuery):
         cust = name or "—"
         lines.append(f"{si} <b>{num}</b> | {format_price(total)} | {pay_icon} | {cust}")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
+        ]
+    )
     await cb.message.edit_text("\n".join(lines), reply_markup=kb)
 
 
@@ -334,9 +374,11 @@ async def show_employees(cb: CallbackQuery):
 
     lines.append(f"\n💰 Итого ФОТ: {format_price(total_salary)}/мес")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
+        ]
+    )
     await cb.message.edit_text("\n".join(lines), reply_markup=kb)
 
 
@@ -349,11 +391,13 @@ async def show_analytics(cb: CallbackQuery):
     async with get_session_ctx() as session:
         # Продажи по категориям (этот месяц)
         res = await session.execute(
-            text("SELECT p.category, COUNT(oi.id), SUM(oi.total_price) "
-            "FROM order_items oi JOIN products p ON oi.product_id = p.id "
-            "JOIN orders o ON oi.order_id = o.id "
-            "WHERE EXTRACT(MONTH FROM o.created_at) = EXTRACT(MONTH FROM CURRENT_DATE) "
-            "GROUP BY p.category ORDER BY SUM(oi.total_price) DESC")
+            text(
+                "SELECT p.category, COUNT(oi.id), SUM(oi.total_price) "
+                "FROM order_items oi JOIN products p ON oi.product_id = p.id "
+                "JOIN orders o ON oi.order_id = o.id "
+                "WHERE EXTRACT(MONTH FROM o.created_at) = EXTRACT(MONTH FROM CURRENT_DATE) "
+                "GROUP BY p.category ORDER BY SUM(oi.total_price) DESC"
+            )
         )
         cats = res.fetchall()
 
@@ -361,12 +405,16 @@ async def show_analytics(cb: CallbackQuery):
         res = await session.execute(text("SELECT COUNT(*) FROM customers"))
         total_customers = res.scalar()
 
-        res = await session.execute(text("SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b'"))
+        res = await session.execute(
+            text("SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b'")
+        )
         b2b = res.scalar()
 
         res = await session.execute(
-            text("SELECT COUNT(*), COALESCE(AVG(total_amount),0) FROM orders "
-            "WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)")
+            text(
+                "SELECT COUNT(*), COALESCE(AVG(total_amount),0) FROM orders "
+                "WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)"
+            )
         )
         order_count, avg_check = res.fetchone()
 
@@ -382,9 +430,11 @@ async def show_analytics(cb: CallbackQuery):
         for cat, cnt, total in cats:
             lines.append(f"  • {cat}: {cnt} шт. — {format_price(total or 0)}")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
+        ]
+    )
     await cb.message.edit_text("\n".join(lines), reply_markup=kb)
 
 
@@ -417,9 +467,11 @@ async def system_status(cb: CallbackQuery):
 
     lines.append(f"\n🕐 Проверено: {datetime.now().strftime('%H:%M:%S')}")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
+        ]
+    )
     await cb.message.edit_text("\n".join(lines), reply_markup=kb)
 
 
@@ -428,26 +480,37 @@ async def back_to_menu(cb: CallbackQuery):
     if not is_admin(cb.from_user.id):
         return await cb.answer("⛔")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🏢 Открыть офис (Web)", web_app=WebAppInfo(url="https://microgreenuzbekistan.com")),
-        ],
-        [
-            InlineKeyboardButton(text="📊 Отчёт за день", callback_data="st:report_daily"),
-            InlineKeyboardButton(text="📋 Все задачи", callback_data="st:tasks"),
-        ],
-        [
-            InlineKeyboardButton(text="💰 Финансы", callback_data="st:finance"),
-            InlineKeyboardButton(text="🛒 Заказы", callback_data="st:orders"),
-        ],
-        [
-            InlineKeyboardButton(text="👥 Сотрудники", callback_data="st:employees"),
-            InlineKeyboardButton(text="📈 Аналитика", callback_data="st:analytics"),
-        ],
-        [
-            InlineKeyboardButton(text="⚡ Статус системы", callback_data="st:system"),
-        ],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🏢 Открыть офис (Web)",
+                    web_app=WebAppInfo(url="https://microgreenuzbekistan.com"),
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📊 Отчёт за день", callback_data="st:report_daily"
+                ),
+                InlineKeyboardButton(text="📋 Все задачи", callback_data="st:tasks"),
+            ],
+            [
+                InlineKeyboardButton(text="💰 Финансы", callback_data="st:finance"),
+                InlineKeyboardButton(text="🛒 Заказы", callback_data="st:orders"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="👥 Сотрудники", callback_data="st:employees"
+                ),
+                InlineKeyboardButton(text="📈 Аналитика", callback_data="st:analytics"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⚡ Статус системы", callback_data="st:system"
+                ),
+            ],
+        ]
+    )
 
     await cb.message.edit_text(
         "🤖 <b>Степан — Главное меню</b>\n\n"
@@ -460,6 +523,7 @@ async def back_to_menu(cb: CallbackQuery):
 # ═══════════════════════════════════════════════════════
 # Кнопки управления задачами из диспетчера
 # ═══════════════════════════════════════════════════════
+
 
 @router.callback_query(F.data.startswith("stp:done:"))
 async def mark_done(cb: CallbackQuery):
@@ -479,9 +543,13 @@ async def mark_done(cb: CallbackQuery):
     )
 
     # Публикуем событие
-    await event_bus.publish("TASK_COMPLETED", {
-        "task_id": task_id, "completed_by": "admin",
-    })
+    await event_bus.publish(
+        "TASK_COMPLETED",
+        {
+            "task_id": task_id,
+            "completed_by": "admin",
+        },
+    )
 
 
 @router.callback_query(F.data.startswith("stp:cancel:"))
@@ -492,7 +560,8 @@ async def cancel_task(cb: CallbackQuery):
 
     async with get_session_ctx() as session:
         await session.execute(
-            text("UPDATE tasks SET status = 'cancelled' WHERE id = :id"), {"id": task_id}
+            text("UPDATE tasks SET status = 'cancelled' WHERE id = :id"),
+            {"id": task_id},
         )
         await session.commit()
 
@@ -506,8 +575,6 @@ async def cancel_task(cb: CallbackQuery):
 # 🧠 ГЛАВНЫЙ МОЗГ — обработка ЛЮБОГО текста
 # ═══════════════════════════════════════════════════════
 
-from shared.group_orchestrator import set_reaction
-
 
 # ═══════════════════════════════════════════════════════
 # 📸 КОНТЕНТ: показать РЕАЛЬНУЮ публикацию / статус
@@ -515,25 +582,74 @@ from shared.group_orchestrator import set_reaction
 
 # Просят ПОКАЗАТЬ сам контент (прислать пост), а не рассказать о нём
 SHOW_WORDS = [
-    "покажи", "покаж", "показать", "показывай", "скинь", "скинешь", "кинь",
-    "пришли", "прислать", "присылай", "отправь", "дай глянуть", "дай посмотреть",
-    "глянуть", "посмотреть", "увидеть", "хочу видеть", "хочу посмотреть",
-    "давай сюда", "где он", "где она", "где пост",
+    "покажи",
+    "покаж",
+    "показать",
+    "показывай",
+    "скинь",
+    "скинешь",
+    "кинь",
+    "пришли",
+    "прислать",
+    "присылай",
+    "отправь",
+    "дай глянуть",
+    "дай посмотреть",
+    "глянуть",
+    "посмотреть",
+    "увидеть",
+    "хочу видеть",
+    "хочу посмотреть",
+    "давай сюда",
+    "где он",
+    "где она",
+    "где пост",
 ]
 # О каком контенте речь
 CONTENT_WORDS = [
-    "пост", "посты", "поста", "сторис", "stories", "story", "публикац",
-    "контент", "рецепт", "инстаграм", "instagram", "ленту", "ленте", "мем",
+    "пост",
+    "посты",
+    "поста",
+    "сторис",
+    "stories",
+    "story",
+    "публикац",
+    "контент",
+    "рецепт",
+    "инстаграм",
+    "instagram",
+    "ленту",
+    "ленте",
+    "мем",
 ]
 # Вопрос о статусе/расписании (рассказать, а не показать)
 STATUS_WORDS = [
-    "когда", "во сколько", "опубликова", "статус", "вышел", "вышла", "вышло",
-    "готов", "уже", "выложил", "расписан", "график",
+    "когда",
+    "во сколько",
+    "опубликова",
+    "статус",
+    "вышел",
+    "вышла",
+    "вышло",
+    "готов",
+    "уже",
+    "выложил",
+    "расписан",
+    "график",
 ]
 # Поручение СОЗДАТЬ новый контент (это задача, а не вопрос)
 CREATE_WORDS = [
-    "сделай", "создай", "напиши", "подготов", "запусти", "опубликуй",
-    "сгенерир", "придумай", "нужен пост", "нужна сторис", "новый пост",
+    "сделай",
+    "создай",
+    "напиши",
+    "подготов",
+    "запусти",
+    "опубликуй",
+    "сгенерир",
+    "придумай",
+    "нужен пост",
+    "нужна сторис",
+    "новый пост",
 ]
 
 
@@ -586,6 +702,7 @@ def _pub_caption(p: dict) -> str:
 async def _answer_safe(message: Message, text_: str, photo=None):
     """Отправка с HTML; если разметка битая — повтор без неё."""
     import re as _re
+
     plain = _re.sub(r"</?[^>]+>", "", text_)
     try:
         if photo is not None:
@@ -603,6 +720,7 @@ def _ig_local(ts: str):
     """Instagram отдаёт время в UTC — переводим в местное (+5), иначе 07:16 выглядит как 02:16."""
     from datetime import datetime
     from shared.content_archive import TZ
+
     try:
         return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S%z").astimezone(TZ)
     except Exception:
@@ -620,6 +738,7 @@ async def _show_from_instagram(message: Message, day: str = "today") -> bool:
 
     try:
         from shared.instagram_analytics import get_recent_stories, get_recent_media
+
         items = list(await get_recent_stories(limit=10))
         items += list(await get_recent_media(limit=5))
     except Exception as e:
@@ -661,7 +780,9 @@ async def _show_from_instagram(message: Message, day: str = "today") -> bool:
         kind = "Сторис" if it.get("source") == "story" else "Пост в ленте"
         dt = it.get("_dt")
         when = dt.strftime("%d.%m %H:%M") if dt else ""
-        cap = f"📸 <b>{kind}</b>" + (f" — {when} (Instagram)" if when else " (Instagram)")
+        cap = f"📸 <b>{kind}</b>" + (
+            f" — {when} (Instagram)" if when else " (Instagram)"
+        )
         body = (it.get("caption") or "").strip()
         if body:
             cap += f"\n\n{body}"
@@ -704,7 +825,9 @@ async def _show_publications(message: Message, day: str = "today") -> bool:
     try:
         from shared.bot_bus import send_task, get_result
 
-        tid = await send_task("stepan_bot", "content_bot", "get_last_post", {"day": day})
+        tid = await send_task(
+            "stepan_bot", "content_bot", "get_last_post", {"day": day}
+        )
         res = await get_result(tid, timeout=30)
         if res and res.get("status") == "done":
             result = res.get("result") or {}
@@ -748,6 +871,7 @@ async def _content_status(message: Message) -> bool:
     """Статус публикаций — спрашиваем у контент-бота, не выдумываем."""
     try:
         from shared.bot_bus import send_task, get_result
+
         tid = await send_task("stepan_bot", "content_bot", "get_status", {})
         res = await get_result(tid, timeout=30)
         if res and res.get("status") == "done":
@@ -782,7 +906,9 @@ def _last_plan_from_history(history: list) -> tuple:
     return "", ""
 
 
-async def _remember(state: FSMContext, user_text: str, assistant_text: str, intent: str = None):
+async def _remember(
+    state: FSMContext, user_text: str, assistant_text: str, intent: str = None
+):
     """
     Записать обмен в общую память владельца и в FSM.
 
@@ -796,6 +922,7 @@ async def _remember(state: FSMContext, user_text: str, assistant_text: str, inte
     """
     try:
         from shared import assistant_memory
+
         await assistant_memory.append("user", user_text)
         await assistant_memory.append("assistant", assistant_text)
     except Exception as e:
@@ -828,6 +955,7 @@ async def handle_voice(message: Message, state: FSMContext = None):
 
     # Transcribe
     import os
+
     try:
         user_text = await ai.transcribe_audio(file_path)
         if user_text:
@@ -835,10 +963,13 @@ async def handle_voice(message: Message, state: FSMContext = None):
             # state пробрасываем — иначе голосовые теряют контекст разговора
             await _process_brain(message, user_text, state)
         else:
-            await message.answer("😔 Извините, не удалось расшифровать голосовое сообщение.")
+            await message.answer(
+                "😔 Извините, не удалось расшифровать голосовое сообщение."
+            )
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
+
 
 @router.message(F.text)
 async def brain(message: Message, state: FSMContext = None):
@@ -847,7 +978,7 @@ async def brain(message: Message, state: FSMContext = None):
     if message.chat.type in ("group", "supergroup"):
         if not message.text:
             return
-            
+
     if not is_admin(message.from_user.id):
         # Разрешаем отвечать другим ботам, если мы сделаем EventBus обёртку, но пока игнорим чужих
         return
@@ -855,8 +986,9 @@ async def brain(message: Message, state: FSMContext = None):
     user_text = message.text.strip()
     if not user_text:
         return
-        
+
     await _process_brain(message, user_text, state)
+
 
 async def _process_brain(message: Message, user_text: str, state: FSMContext = None):
     # Реакция 👀 "Взял в работу"
@@ -881,6 +1013,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     history = state_data.get("history", [])
     try:
         from shared import assistant_memory
+
         shared_history = await assistant_memory.load_context()
         if shared_history:
             history = shared_history
@@ -897,8 +1030,10 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         ok = await _show_publications(message, day)
         await set_reaction(message, "👍" if ok else "🤷‍♂️")
         await _remember(
-            state, user_text,
-            "[Показал руководителю опубликованный контент]" if ok
+            state,
+            user_text,
+            "[Показал руководителю опубликованный контент]"
+            if ok
             else "[Показывать нечего — публикаций ещё не было]",
             intent="show",
         )
@@ -907,8 +1042,12 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     if intent == "status":
         if await _content_status(message):
             await set_reaction(message, "👍")
-            await _remember(state, user_text, "[Отдал статус публикаций на сегодня]",
-                            intent="status")
+            await _remember(
+                state,
+                user_text,
+                "[Отдал статус публикаций на сегодня]",
+                intent="status",
+            )
             return
         # контент-бот не ответил — уходим в обычную обработку ниже
 
@@ -916,10 +1055,14 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     # После совещания это НЕ должно перезапускать анализ: если есть готовое
     # решение — запускаем его план в работу, а не создаём новые задачи-анализы.
     from bots.stepan_bot.handlers.team_meeting import (
-        is_meeting_request, run_team_meeting,
-        is_execution_command, handle_execution_command,
-        is_status_request, run_plan_status,
+        is_meeting_request,
+        run_team_meeting,
+        is_execution_command,
+        handle_execution_command,
+        is_status_request,
+        run_plan_status,
     )
+
     if is_execution_command(low):
         try:
             # Передаём план, который Степан только что предложил в чате, — это то,
@@ -927,12 +1070,15 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             # старого сохранённого решения (иначе воскресает вчерашний план).
             prev_q, prev_plan = _last_plan_from_history(history)
             if await handle_execution_command(
-                message.bot, message.chat.id,
-                fresh_plan=prev_plan, fresh_question=prev_q,
+                message.bot,
+                message.chat.id,
+                fresh_plan=prev_plan,
+                fresh_question=prev_q,
             ):
                 await set_reaction(message, "👍")
-                await _remember(state, user_text, "[Запустил план в работу]",
-                                intent="execute")
+                await _remember(
+                    state, user_text, "[Запустил план в работу]", intent="execute"
+                )
                 return
 
             # Плана нет — честно спрашиваем. НЕ проваливаемся в общий AI:
@@ -943,7 +1089,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 "и я соберу отделы на совещание."
             )
             await set_reaction(message, "🤷‍♂️")
-            await _remember(state, user_text, "[Плана для запуска нет — попросил уточнение]")
+            await _remember(
+                state, user_text, "[Плана для запуска нет — попросил уточнение]"
+            )
             return
         except Exception as e:
             logger.error(f"Ошибка запуска плана: {e}", exc_info=True)
@@ -956,8 +1104,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         try:
             await run_plan_status(message.bot, message.chat.id)
             await set_reaction(message, "👍")
-            await _remember(state, user_text, "[Отдал статус принятого плана]",
-                            intent="plan_status")
+            await _remember(
+                state, user_text, "[Отдал статус принятого плана]", intent="plan_status"
+            )
             return
         except Exception as e:
             logger.error(f"Ошибка статуса плана: {e}", exc_info=True)
@@ -966,22 +1115,41 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     # Простой health-check отделов — НЕ совещание. Проверяем ДО is_meeting_request,
     # потому что «все отделы отозвутся» содержит «все отделы» и попадает в MEETING_TRIGGERS.
     _ROLL_CALL_TRIGGERS = [
-        "отозв", "перекличк", "кто на связи", "все на связи",
-        "на связи ли", "отчитайтесь", "отчитайся", "кто работает",
-        "все работают", "все ли работают", "все ли на связи",
-        "проверка связи", "чекин", "check in", "roll call",
+        "отозв",
+        "перекличк",
+        "кто на связи",
+        "все на связи",
+        "на связи ли",
+        "отчитайтесь",
+        "отчитайся",
+        "кто работает",
+        "все работают",
+        "все ли работают",
+        "все ли на связи",
+        "проверка связи",
+        "чекин",
+        "check in",
+        "roll call",
     ]
     if any(t in low for t in _ROLL_CALL_TRIGGERS):
         try:
             from shared.event_bus import event_bus
-            await event_bus.publish("ROLL_CALL", {
-                "chat_id": message.chat.id,
-                "message": user_text,
-            }, source_bot="stepan_bot")
-            await message.answer("📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений.")
+
+            await event_bus.publish(
+                "ROLL_CALL",
+                {
+                    "chat_id": message.chat.id,
+                    "message": user_text,
+                },
+                source_bot="stepan_bot",
+            )
+            await message.answer(
+                "📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений."
+            )
             await set_reaction(message, "👍")
-            await _remember(state, user_text, "[Запустил перекличку отделов]",
-                            intent="roll_call")
+            await _remember(
+                state, user_text, "[Запустил перекличку отделов]", intent="roll_call"
+            )
         except Exception as e:
             logger.error(f"Ошибка переклички: {e}", exc_info=True)
             await message.answer("😔 Не удалось запустить перекличку.")
@@ -995,27 +1163,33 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         try:
             await run_team_meeting(message.bot, message.chat.id, user_text)
             await set_reaction(message, "👍")
-            await _remember(state, user_text, "[Провёл совещание отделов по вопросу]",
-                            intent="meeting")
+            await _remember(
+                state,
+                user_text,
+                "[Провёл совещание отделов по вопросу]",
+                intent="meeting",
+            )
         except Exception as e:
             logger.error(f"Ошибка совещания отделов: {e}", exc_info=True)
-            await message.answer("😔 Не удалось провести совещание отделов. Попробуйте ещё раз.")
+            await message.answer(
+                "😔 Не удалось провести совещание отделов. Попробуйте ещё раз."
+            )
             await set_reaction(message, "🤷‍♂️")
         return
-
 
     # ── Формируем промпт с контекстом из БД ──
     db_context = await _get_db_context()
 
     from shared.prompts import TEAM_CONTEXT
+
     prompt = f"{TEAM_CONTEXT}\n\n{STEPAN_PERSONA}"
     prompt += f"\n\n📊 ТЕКУЩИЕ ДАННЫЕ ИЗ БАЗЫ:\n{db_context}"
-    
 
     # история уже получена в начале _process_brain (state_data)
 
     # ── Инструменты из единого реестра (tools.ts → HTTP → кеш) ──
     from shared.stepan_tools import load_registry
+
     tools = await load_registry("tg")
 
     try:
@@ -1023,19 +1197,22 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             system_prompt=prompt,
             user_message=user_text,
             tools=tools,
-            conversation_history=history
+            conversation_history=history,
         )
     except Exception as e:
         # Раньше здесь было глухое «не смог обработать» — по нему невозможно понять,
         # кончилась ли квота OpenAI, протух ли ключ или отвалилась сеть. Называем причину.
         logger.error(f"AI error: {type(e).__name__}: {e}", exc_info=True)
-        await message.answer(f"😔 Не смог обработать: {_ai_error_reason(e)}", parse_mode="HTML")
+        await message.answer(
+            f"😔 Не смог обработать: {_ai_error_reason(e)}", parse_mode="HTML"
+        )
         await set_reaction(message, "🤷‍♂️")
         return
 
     # Функция для отправки ответа (текст + опционально голос)
     async def send_response(text_resp: str):
-        if not text_resp: return
+        if not text_resp:
+            return
         # Защита: если модель вернула JSON-обёртку ({"type":"chat","response":"..."})
         # вместо чистого текста — вытащим человекочитаемую часть.
         stripped = text_resp.strip()
@@ -1043,22 +1220,30 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             try:
                 obj = json.loads(stripped)
                 if isinstance(obj, dict):
-                    text_resp = (obj.get("response") or obj.get("answer")
-                                 or obj.get("text") or obj.get("message") or text_resp)
+                    text_resp = (
+                        obj.get("response")
+                        or obj.get("answer")
+                        or obj.get("text")
+                        or obj.get("message")
+                        or text_resp
+                    )
             except Exception:
                 pass
         # Длинные ответы — в разворачиваемую цитату (короткие как есть)
         from shared.utils import collapsible
+
         try:
             await message.answer(collapsible(text_resp), parse_mode="HTML")
         except Exception:
             import re as _re
+
             await message.answer(_re.sub(r"</?[^>]+>", "", text_resp))
         await set_reaction(message, "👍")
         if message.voice:
             try:
                 import os
                 from aiogram.types import FSInputFile
+
                 voice_path = await ai.generate_speech(text_resp)
                 if voice_path and os.path.exists(voice_path):
                     voice_file = FSInputFile(voice_path)
@@ -1071,7 +1256,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     if response_msg.tool_calls:
         tool_results_text = []
         intent_after = None
-        sale_handled = False  # одно сообщение = одна продажа, сколько бы вызовов ни выдала модель
+        sale_handled = (
+            False  # одно сообщение = одна продажа, сколько бы вызовов ни выдала модель
+        )
 
         # Сообщение о СОСТОЯВШЕЙСЯ продаже — это факт, а не поручение. «Продали 10 гороха,
         # доставил Амир» модель норовила превратить ещё и в задачу отделу «организовать
@@ -1079,9 +1266,13 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         # задачи по ней не создаём.
         calls = list(response_msg.tool_calls)
         if any(c.function.name == "register_sale" for c in calls):
-            dropped = [c.function.name for c in calls if c.function.name == "create_task"]
+            dropped = [
+                c.function.name for c in calls if c.function.name == "create_task"
+            ]
             if dropped:
-                logger.info("Степан: продажа уже состоялась — не создаю задачу %s", dropped)
+                logger.info(
+                    "Степан: продажа уже состоялась — не создаю задачу %s", dropped
+                )
             calls = [c for c in calls if c.function.name != "create_task"]
 
         for tool_call in calls:
@@ -1091,7 +1282,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             if name == "create_task":
                 # Activate the previously dead _handle_task orchestrator
                 await _handle_task(message, args)
-                tool_results_text.append(f"Задача передана в отдел {args.get('department', 'pm')}.")
+                tool_results_text.append(
+                    f"Задача передана в отдел {args.get('department', 'pm')}."
+                )
 
             elif name == "register_sale":
                 # Продажу регистрирует ОТДЕЛ ПРОДАЖ (bot_bus), а не Степан своими руками:
@@ -1099,7 +1292,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 # Модель иногда дробит одну продажу на вызов per-позицию — это дало бы
                 # три заказа и три ответа в чат вместо одного. Берём только первый вызов.
                 if sale_handled:
-                    logger.warning("Степан: повторный register_sale в одном сообщении — игнорирую")
+                    logger.warning(
+                        "Степан: повторный register_sale в одном сообщении — игнорирую"
+                    )
                     continue
                 sale_handled = True
                 result_text = await _register_sale(message, args, user_text)
@@ -1115,9 +1310,18 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
 
             elif name == "roll_call":
                 from shared.event_bus import event_bus
-                await event_bus.publish("ROLL_CALL", {"chat_id": message.chat.id, "message": args.get("message", "Перекличка!")})
+
+                await event_bus.publish(
+                    "ROLL_CALL",
+                    {
+                        "chat_id": message.chat.id,
+                        "message": args.get("message", "Перекличка!"),
+                    },
+                )
                 tool_results_text.append("Перекличка запущена.")
-                await send_response("📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений.")
+                await send_response(
+                    "📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений."
+                )
 
             elif name == "get_report":
                 report = await _generate_report(args.get("report_kind", "daily"))
@@ -1134,7 +1338,8 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 ok = await _show_publications(message, args.get("day", "today"))
                 tool_results_text.append(
                     "Опубликованный контент показан руководителю."
-                    if ok else "Показывать нечего — публикаций ещё не было."
+                    if ok
+                    else "Показывать нечего — публикаций ещё не было."
                 )
                 intent_after = "show"
 
@@ -1148,6 +1353,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 # Так работают все web-инструменты: get_inventory_status, find_product,
                 # get_ai_spend, set_setting, change_product_price и т.д.
                 from shared.stepan_tools import execute_remote
+
                 result = await execute_remote(name, args)
 
                 if result.get("status") == "confirm":
@@ -1165,7 +1371,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     elif isinstance(res_data, dict) and res_data.get("ok") is not None:
                         # WriteTool.execute() вернул {ok, message}
                         msg = res_data.get("message", "Готово")
-                        await message.answer(f"{'✅' if res_data['ok'] else '❌'} {msg}")
+                        await message.answer(
+                            f"{'✅' if res_data['ok'] else '❌'} {msg}"
+                        )
                     tool_results_text.append(f"Инструмент {name} выполнен.")
                 else:
                     error = result.get("error", "неизвестная ошибка")
@@ -1175,8 +1383,14 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         # Update history with tool execution result
         if state:
             history.append({"role": "user", "content": user_text})
-            history.append({"role": "assistant", "content": f"[TOOLS CALLED: {', '.join(tool_results_text)}] {response_msg.content or ''}"})
-            if len(history) > 10: history = history[-10:]
+            history.append(
+                {
+                    "role": "assistant",
+                    "content": f"[TOOLS CALLED: {', '.join(tool_results_text)}] {response_msg.content or ''}",
+                }
+            )
+            if len(history) > 10:
+                history = history[-10:]
             await state.update_data(history=history, last_intent=intent_after)
 
         # Показ поста и отчёт о продаже уже сами себя объяснили — не даём модели
@@ -1186,13 +1400,14 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
 
         await set_reaction(message, "👍")
         return
-        
+
     # If no tools called, just send the text
     response_text = response_msg.content or ""
     if state:
         history.append({"role": "user", "content": user_text})
         history.append({"role": "assistant", "content": response_text})
-        if len(history) > 10: history = history[-10:]
+        if len(history) > 10:
+            history = history[-10:]
         await state.update_data(history=history)
 
     await send_response(response_text)
@@ -1201,6 +1416,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
 # ═══════════════════════════════════════════════════════
 # Внутренние функции
 # ═══════════════════════════════════════════════════════
+
 
 async def _get_db_context() -> str:
     """Собираем ПОЛНЫЙ контекст из БД для AI — ВСЕ отделы и источники."""
@@ -1211,16 +1427,20 @@ async def _get_db_context() -> str:
             # ═══ ЗАКАЗЫ ═══
             # Все заказы сегодня (включая Instagram)
             res = await session.execute(
-                text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
-                "WHERE DATE(created_at) = CURRENT_DATE")
+                text(
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                    "WHERE DATE(created_at) = CURRENT_DATE"
+                )
             )
             cnt, total = res.fetchone()
             lines.append(f"📦 Заказы сегодня: {cnt} на {format_price(total)}")
 
             # Заказы из Instagram
             res = await session.execute(
-                text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
-                "WHERE DATE(created_at) = CURRENT_DATE AND order_number LIKE 'IG-%'")
+                text(
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                    "WHERE DATE(created_at) = CURRENT_DATE AND order_number LIKE 'IG-%'"
+                )
             )
             ig_cnt, ig_total = res.fetchone()
             if ig_cnt > 0:
@@ -1228,11 +1448,15 @@ async def _get_db_context() -> str:
 
             # Все заказы за неделю
             res = await session.execute(
-                text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
-                "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'")
+                text(
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                    "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                )
             )
             week_cnt, week_total = res.fetchone()
-            lines.append(f"📦 Заказы за неделю: {week_cnt} на {format_price(week_total)}")
+            lines.append(
+                f"📦 Заказы за неделю: {week_cnt} на {format_price(week_total)}"
+            )
 
             # Новые/необработанные заказы
             res = await session.execute(
@@ -1244,9 +1468,11 @@ async def _get_db_context() -> str:
 
             # ═══ ЗАДАЧИ ПО ОТДЕЛАМ ═══
             res = await session.execute(
-                text("SELECT department, COUNT(*) FROM tasks "
-                "WHERE status IN ('todo','in_progress') "
-                "GROUP BY department ORDER BY COUNT(*) DESC")
+                text(
+                    "SELECT department, COUNT(*) FROM tasks "
+                    "WHERE status IN ('todo','in_progress') "
+                    "GROUP BY department ORDER BY COUNT(*) DESC"
+                )
             )
             dept_tasks = res.fetchall()
             active_total = sum(r[1] for r in dept_tasks)
@@ -1256,9 +1482,11 @@ async def _get_db_context() -> str:
 
             # Задачи связанные с Instagram
             res = await session.execute(
-                text("SELECT COUNT(*) FROM tasks "
-                "WHERE status IN ('todo','in_progress') "
-                "AND (title LIKE '%IG%' OR title LIKE '%Instagram%' OR description LIKE '%Instagram%')")
+                text(
+                    "SELECT COUNT(*) FROM tasks "
+                    "WHERE status IN ('todo','in_progress') "
+                    "AND (title LIKE '%IG%' OR title LIKE '%Instagram%' OR description LIKE '%Instagram%')"
+                )
             )
             ig_tasks = res.scalar()
             if ig_tasks > 0:
@@ -1266,9 +1494,11 @@ async def _get_db_context() -> str:
 
             # ═══ ФИНАНСЫ ═══
             res = await session.execute(
-                text("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-                "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-                "FROM finances WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE)")
+                text(
+                    "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
+                    "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
+                    "FROM finances WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE)"
+                )
             )
             inc, exp = res.fetchone()
             lines.append(f"\n💰 Доходы за месяц: {format_price(inc)}")
@@ -1278,7 +1508,9 @@ async def _get_db_context() -> str:
             res = await session.execute(text("SELECT COUNT(*) FROM customers"))
             cust = res.scalar()
             res = await session.execute(
-                text("SELECT COUNT(*) FROM customers WHERE notes LIKE '%instagram%' OR notes LIKE '%Instagram%'")
+                text(
+                    "SELECT COUNT(*) FROM customers WHERE notes LIKE '%instagram%' OR notes LIKE '%Instagram%'"
+                )
             )
             ig_cust = res.scalar() or 0
             lines.append(f"\n👥 Всего клиентов: {cust} (из Instagram: {ig_cust})")
@@ -1286,29 +1518,35 @@ async def _get_db_context() -> str:
             # ═══ ПОСЛЕДНИЕ СОБЫТИЯ ═══
             # Последние 5 задач
             res = await session.execute(
-                text("SELECT title, department, status, created_at FROM tasks "
-                "ORDER BY created_at DESC LIMIT 5")
+                text(
+                    "SELECT title, department, status, created_at FROM tasks "
+                    "ORDER BY created_at DESC LIMIT 5"
+                )
             )
             recent = res.fetchall()
             if recent:
                 lines.append("\n📌 Последние задачи:")
                 for t in recent:
-                    created = t[3].strftime('%d.%m %H:%M') if t[3] else ''
+                    created = t[3].strftime("%d.%m %H:%M") if t[3] else ""
                     lines.append(f"  - [{t[1] or '?'}] {t[0][:60]} ({t[2]}) {created}")
 
             # Последние заказы (все за сегодня + последние 5)
             res = await session.execute(
-                text("SELECT order_number, total_amount, status, notes, created_at FROM orders "
-                "WHERE DATE(created_at) = CURRENT_DATE "
-                "ORDER BY created_at DESC LIMIT 10")
+                text(
+                    "SELECT order_number, total_amount, status, notes, created_at FROM orders "
+                    "WHERE DATE(created_at) = CURRENT_DATE "
+                    "ORDER BY created_at DESC LIMIT 10"
+                )
             )
             recent_orders = res.fetchall()
             if recent_orders:
                 lines.append("\n🛒 Заказы сегодня (детали):")
                 for o in recent_orders:
-                    created = o[4].strftime('%H:%M') if o[4] else ''
-                    notes = (o[3] or '')[:120]
-                    lines.append(f"  - {o[0]}: {format_price(o[1])} ({o[2]}) [{created}] {notes}")
+                    created = o[4].strftime("%H:%M") if o[4] else ""
+                    notes = (o[3] or "")[:120]
+                    lines.append(
+                        f"  - {o[0]}: {format_price(o[1])} ({o[2]}) [{created}] {notes}"
+                    )
 
             return "\n".join(lines)
     except Exception as e:
@@ -1322,10 +1560,14 @@ def _ai_error_reason(exc: Exception) -> str:
     text_l = str(exc).lower()
 
     if "insufficient_quota" in text_l or "exceeded your current quota" in text_l:
-        return ("на счёте OpenAI закончились деньги (insufficient_quota). "
-                "Пополните баланс — до этого я думать не могу.")
+        return (
+            "на счёте OpenAI закончились деньги (insufficient_quota). "
+            "Пополните баланс — до этого я думать не могу."
+        )
     if name == "RateLimitError" or "rate limit" in text_l or "429" in text_l:
-        return "OpenAI ограничил частоту запросов (rate limit). Попробуйте через минуту."
+        return (
+            "OpenAI ограничил частоту запросов (rate limit). Попробуйте через минуту."
+        )
     if name == "AuthenticationError" or "invalid_api_key" in text_l or "401" in text_l:
         return "ключ OpenAI недействителен — проверьте OPENAI_API_KEY на сервере."
     if "timeout" in text_l or name in ("APITimeoutError", "APIConnectionError"):
@@ -1357,7 +1599,9 @@ async def _register_sale(message: Message, args: dict, user_text: str) -> str:
         bus_result = await get_result(task_id, timeout=60)
     except Exception as e:
         logger.error(f"Регистрация продажи: сбой шины: {e}", exc_info=True)
-        await message.answer("😔 Отдел продаж недоступен — продажа НЕ зарегистрирована. Повторите позже.")
+        await message.answer(
+            "😔 Отдел продаж недоступен — продажа НЕ зарегистрирована. Повторите позже."
+        )
         return "Продажа не зарегистрирована: шина недоступна."
 
     if not bus_result or bus_result.get("status") == "error":
@@ -1404,8 +1648,11 @@ async def _add_product(message: Message, args: dict) -> str:
     await message.answer(result.get("message", "Не понял результат добавления товара."))
 
     if result.get("status") == "ok":
-        return (f"Товар «{name}» добавлен в каталог"
-                + (" и в магазин." if result.get("data", {}).get("in_storefront") else " (только CRM)."))
+        return f"Товар «{name}» добавлен в каталог" + (
+            " и в магазин."
+            if result.get("data", {}).get("in_storefront")
+            else " (только CRM)."
+        )
     return f"Товар не добавлен: {result.get('message', 'нет данных')}"
 
 
@@ -1421,7 +1668,20 @@ async def _handle_task(message: Message, data: dict):
 
     # ── Принудительное перенаправление (Safety routing) ──
     combined_text = f"{title.lower()} {description.lower()} {dept.lower()}"
-    if any(word in combined_text for word in ["опрос", "poll", "викторин", "мем", "сторис", "stories", "пост", "публикац", "контент"]):
+    if any(
+        word in combined_text
+        for word in [
+            "опрос",
+            "poll",
+            "викторин",
+            "мем",
+            "сторис",
+            "stories",
+            "пост",
+            "публикац",
+            "контент",
+        ]
+    ):
         dept = "content"
         assignee = "Content Bot"
 
@@ -1430,9 +1690,20 @@ async def _handle_task(message: Message, data: dict):
     # production/logistics принимает PM (COO). Всё неизвестное (в т.ч. "assistant")
     # тоже отдаём PM, иначе задача создастся в БД, но исполнителя не будет.
     LISTENED_DEPTS = {
-        "sales", "marketing", "support", "hr", "finance", "pm", "analytics",
-        "content", "operations", "production", "logistics",
-        "qa", "rnd", "devops"
+        "sales",
+        "marketing",
+        "support",
+        "hr",
+        "finance",
+        "pm",
+        "analytics",
+        "content",
+        "operations",
+        "production",
+        "logistics",
+        "qa",
+        "rnd",
+        "devops",
     }
     if dept not in LISTENED_DEPTS:
         dept = "pm"
@@ -1440,57 +1711,62 @@ async def _handle_task(message: Message, data: dict):
     # ── Делегирование через Bot Bus для контент-задач ──
     if dept == "content":
         content_actions = {
-            "story": "publish_story", "сторис": "publish_story",
-            "stories": "publish_story", "сториз": "publish_story",
-            "post": "publish_post", "пост": "publish_post",
-            "публикуй": "publish_story", "опубликуй": "publish_story",
-            "meme": "generate_meme", "мем": "generate_meme",
+            "story": "publish_story",
+            "сторис": "publish_story",
+            "stories": "publish_story",
+            "сториз": "publish_story",
+            "post": "publish_post",
+            "пост": "publish_post",
+            "публикуй": "publish_story",
+            "опубликуй": "publish_story",
+            "meme": "generate_meme",
+            "мем": "generate_meme",
         }
-        
+
         action = None
         combined = f"{title.lower()} {description.lower()}"
-        
+
         for keyword, act in content_actions.items():
             if keyword in combined:
                 action = act
                 break
-        
+
         if action:
             from shared.bot_bus import send_task, get_result
-            
+
             await message.answer(
                 f"📸 <b>Передаю в отдел контента!</b>\n\n"
                 f"✍️ Действие: {action}\n"
                 f"📝 Тема: {title}\n\n"
                 f"⏳ Ожидайте, Content Bot генерирует и публикует...",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
-            
+
             bus_task_id = await send_task(
                 from_bot="stepan_bot",
                 to_bot="content_bot",
                 action=action,
-                params={"topic": description or title}
+                params={"topic": description or title},
             )
-            
+
             result = await get_result(bus_task_id, timeout=120)
-            
+
             if result and result.get("status") == "done":
                 res_data = result.get("result", {})
                 await message.answer(
                     f"✅ <b>Content Bot выполнил задачу!</b>\n\n"
                     f"📋 {res_data.get('message', 'Готово')}",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
             elif result and result.get("status") == "error":
                 await message.answer(
                     f"❌ <b>Ошибка:</b> {result.get('error', 'Неизвестная ошибка')}",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
             else:
                 await message.answer(
                     "⏰ Content Bot ещё работает. Результат появится в чате.",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
             return
 
@@ -1502,7 +1778,7 @@ async def _handle_task(message: Message, data: dict):
             f"📧 <b>Передаю личному ассистенту!</b>\n\n"
             f"📝 Задача: {title}\n\n"
             f"⏳ Ожидайте, n8n обрабатывает (почта / календарь / контакты)...",
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
 
         bus_task_id = await send_task(
@@ -1514,7 +1790,7 @@ async def _handle_task(message: Message, data: dict):
                 "title": title,
                 "description": description or title,
                 "chat_id": message.chat.id,
-            }
+            },
         )
 
         result = await get_result(bus_task_id, timeout=120)
@@ -1522,57 +1798,78 @@ async def _handle_task(message: Message, data: dict):
         if result and result.get("status") == "done":
             res_data = result.get("result", {})
             await message.answer(
-                f"✅ <b>Готово!</b>\n\n"
-                f"📋 {res_data.get('message', 'Выполнено')}",
-                parse_mode="HTML"
+                f"✅ <b>Готово!</b>\n\n📋 {res_data.get('message', 'Выполнено')}",
+                parse_mode="HTML",
             )
         elif result and result.get("status") == "error":
             await message.answer(
                 f"❌ <b>Ошибка:</b> {result.get('error', 'Неизвестная ошибка')}",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
         else:
             await message.answer(
                 "⏰ Ассистент ещё обрабатывает. Результат появится в чате.",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
         return
 
     # ── Делегирование через Bot Bus для других отделов ──
     elif dept in ("sales", "finance", "hr", "analytics", "marketing", "support", "pm"):
         dept_to_bot = {
-            "sales": "sales_bot", "finance": "finance_bot", "hr": "hr_bot",
-            "analytics": "analytics_bot", "marketing": "marketing_bot",
-            "support": "support_bot", "pm": "stepan_bot"
+            "sales": "sales_bot",
+            "finance": "finance_bot",
+            "hr": "hr_bot",
+            "analytics": "analytics_bot",
+            "marketing": "marketing_bot",
+            "support": "support_bot",
+            "pm": "stepan_bot",
         }
         dept_actions = {
             "sales": {
-                "заказ": "get_orders", "заказы": "get_orders", "orders": "get_orders",
-                "клиент": "get_clients", "clients": "get_clients",
+                "заказ": "get_orders",
+                "заказы": "get_orders",
+                "orders": "get_orders",
+                "клиент": "get_clients",
+                "clients": "get_clients",
             },
             "finance": {
-                "баланс": "get_balance", "p&l": "get_balance", "пнл": "get_balance",
-                "расход": "add_expense", "expense": "add_expense",
+                "баланс": "get_balance",
+                "p&l": "get_balance",
+                "пнл": "get_balance",
+                "расход": "add_expense",
+                "expense": "add_expense",
             },
             "hr": {
-                "сотрудник": "get_employees", "employees": "get_employees",
-                "команд": "get_employees", "штат": "get_employees",
+                "сотрудник": "get_employees",
+                "employees": "get_employees",
+                "команд": "get_employees",
+                "штат": "get_employees",
             },
             "analytics": {
-                "отчёт": "get_report", "отчет": "get_report", "report": "get_report",
-                "kpi": "get_report", "instagram": "get_instagram_stats", "инстаграм": "get_instagram_stats",
+                "отчёт": "get_report",
+                "отчет": "get_report",
+                "report": "get_report",
+                "kpi": "get_report",
+                "instagram": "get_instagram_stats",
+                "инстаграм": "get_instagram_stats",
             },
             "marketing": {
-                "рассылк": "send_broadcast", "broadcast": "send_broadcast",
+                "рассылк": "send_broadcast",
+                "broadcast": "send_broadcast",
                 "кампани": "send_broadcast",
             },
             "support": {
-                "жалоб": "handle_complaint", "complaint": "handle_complaint",
-                "dm": "check_instagram_dm", "директ": "check_instagram_dm",
+                "жалоб": "handle_complaint",
+                "complaint": "handle_complaint",
+                "dm": "check_instagram_dm",
+                "директ": "check_instagram_dm",
             },
             "pm": {  # pm = Степан (задачи/производство)
-                "задач": "get_tasks", "tasks": "get_tasks",
-                "дедлайн": "get_deadlines", "deadline": "get_deadlines", "срок": "get_deadlines",
+                "задач": "get_tasks",
+                "tasks": "get_tasks",
+                "дедлайн": "get_deadlines",
+                "deadline": "get_deadlines",
+                "срок": "get_deadlines",
             },
         }
 
@@ -1593,9 +1890,13 @@ async def _handle_task(message: Message, data: dict):
             from shared.bot_bus import send_task, get_result
 
             dept_icons = {
-                "sales": "🛒", "finance": "💰", "hr": "👥",
-                "analytics": "📊", "marketing": "📢",
-                "support": "🎧", "pm": "🤖",  # pm = Степан
+                "sales": "🛒",
+                "finance": "💰",
+                "hr": "👥",
+                "analytics": "📊",
+                "marketing": "📢",
+                "support": "🎧",
+                "pm": "🤖",  # pm = Степан
             }
             icon = dept_icons.get(dept, "📌")
 
@@ -1604,14 +1905,18 @@ async def _handle_task(message: Message, data: dict):
                 f"⚡ Действие: {action}\n"
                 f"📝 Тема: {title}\n\n"
                 f"⏳ Ожидайте, {bot_name} обрабатывает...",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
 
             bus_task_id = await send_task(
                 from_bot="stepan_bot",
                 to_bot=bot_name,
                 action=action,
-                params={"topic": description or title, "title": title, "description": description}
+                params={
+                    "topic": description or title,
+                    "title": title,
+                    "description": description,
+                },
             )
 
             result = await get_result(bus_task_id, timeout=120)
@@ -1621,72 +1926,104 @@ async def _handle_task(message: Message, data: dict):
                 await message.answer(
                     f"✅ <b>{bot_name} выполнил задачу!</b>\n\n"
                     f"📋 {res_data.get('message', 'Готово')}",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
             elif result and result.get("status") == "error":
                 await message.answer(
                     f"❌ <b>Ошибка:</b> {result.get('error', 'Неизвестная ошибка')}",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
             else:
                 await message.answer(
                     f"⏰ {bot_name} ещё работает. Результат появится в чате.",
-                    parse_mode="HTML"
+                    parse_mode="HTML",
                 )
             return
 
     # Сохраняем в БД
     try:
         from datetime import datetime
+
         parsed_deadline = None
-        if deadline and isinstance(deadline, str) and deadline.lower() not in ("null", "none"):
+        if (
+            deadline
+            and isinstance(deadline, str)
+            and deadline.lower() not in ("null", "none")
+        ):
             try:
                 parsed_deadline = datetime.strptime(deadline, "%Y-%m-%d").date()
             except ValueError:
                 pass
-                
+
         async with get_session_ctx() as session:
             res = await session.execute(
-                text("INSERT INTO tasks (title, assignee, department, status, priority, deadline, description) "
-                "VALUES (:p1, :p2, :p3, 'todo', :p4, :p5, :p6) RETURNING id"),
-                {"p1": title, "p2": assignee, "p3": dept, "p4": priority, "p5": parsed_deadline, "p6": description}
+                text(
+                    "INSERT INTO tasks (title, assignee, department, status, priority, deadline, description) "
+                    "VALUES (:p1, :p2, :p3, 'todo', :p4, :p5, :p6) RETURNING id"
+                ),
+                {
+                    "p1": title,
+                    "p2": assignee,
+                    "p3": dept,
+                    "p4": priority,
+                    "p5": parsed_deadline,
+                    "p6": description,
+                },
             )
             task_id = res.scalar()
             await session.commit()
     except Exception as e:
         logger.error(f"Task creation error: {e}")
-        safe_e = str(e).replace('<', '&lt;').replace('>', '&gt;')
-        await message.answer(f"❌ Ошибка при создании задачи: {safe_e}", parse_mode="HTML")
+        safe_e = str(e).replace("<", "&lt;").replace(">", "&gt;")
+        await message.answer(
+            f"❌ Ошибка при создании задачи: {safe_e}", parse_mode="HTML"
+        )
         return
 
     # Публикуем событие
     try:
-        await event_bus.publish("TASK_CREATED", {
-            "task_id": task_id,
-            "title": title,
-            "department": dept,
-            "priority": priority,
-            "assignee": assignee,
-            "description": description,
-            "chat_id": message.chat.id
-        })
+        await event_bus.publish(
+            "TASK_CREATED",
+            {
+                "task_id": task_id,
+                "title": title,
+                "department": dept,
+                "priority": priority,
+                "assignee": assignee,
+                "description": description,
+                "chat_id": message.chat.id,
+            },
+        )
     except Exception:
         pass
 
     dept_icons = {
-        "sales": "🛒", "marketing": "📢", "support": "🎧",
-        "hr": "👥", "finance": "💰", "pm": "🤖",  # pm = Степан
-        "analytics": "📊", "content": "✍️",
-        "qa": "🔬", "rnd": "🧬", "devops": "🛠",
+        "sales": "🛒",
+        "marketing": "📢",
+        "support": "🎧",
+        "hr": "👥",
+        "finance": "💰",
+        "pm": "🤖",  # pm = Степан
+        "analytics": "📊",
+        "content": "✍️",
+        "qa": "🔬",
+        "rnd": "🧬",
+        "devops": "🛠",
     }
     pri_icons = {"urgent": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="✅ Выполнено", callback_data=f"stp:done:{task_id}"),
-            InlineKeyboardButton(text="❌ Отменить", callback_data=f"stp:cancel:{task_id}"),
-        ],
-    ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Выполнено", callback_data=f"stp:done:{task_id}"
+                ),
+                InlineKeyboardButton(
+                    text="❌ Отменить", callback_data=f"stp:cancel:{task_id}"
+                ),
+            ],
+        ]
+    )
 
     await message.answer(
         f"✅ <b>Задача #{task_id} создана!</b>\n\n"
@@ -1715,8 +2052,10 @@ async def _query_db(query_type: str) -> str:
         async with get_session_ctx() as session:
             if query_type == "sales_summary":
                 res = await session.execute(
-                    text("SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) "
-                    "FROM orders WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)")
+                    text(
+                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) "
+                        "FROM orders WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)"
+                    )
                 )
                 cnt, total, avg = res.fetchone()
                 return f"🛒 Заказов: {cnt} | Сумма: {format_price(total)} | Средний: {format_price(avg)}"
@@ -1726,22 +2065,28 @@ async def _query_db(query_type: str) -> str:
                     text("SELECT status, COUNT(*) FROM tasks GROUP BY status")
                 )
                 stats = dict(res.fetchall())
-                return (f"📋 Задачи: ⬜ {stats.get('todo',0)} | 🔄 {stats.get('in_progress',0)} | "
-                        f"✅ {stats.get('done',0)} | ❌ {stats.get('cancelled',0)}")
+                return (
+                    f"📋 Задачи: ⬜ {stats.get('todo', 0)} | 🔄 {stats.get('in_progress', 0)} | "
+                    f"✅ {stats.get('done', 0)} | ❌ {stats.get('cancelled', 0)}"
+                )
 
             elif query_type == "finance_report":
                 res = await session.execute(
-                    text("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-                    "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-                    "FROM finances WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE)")
+                    text(
+                        "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
+                        "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
+                        "FROM finances WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE)"
+                    )
                 )
                 inc, exp = res.fetchone()
-                return f"💰 Доходы: {format_price(inc)} | 💸 Расходы: {format_price(exp)} | Прибыль: {format_price(inc-exp)}"
+                return f"💰 Доходы: {format_price(inc)} | 💸 Расходы: {format_price(exp)} | Прибыль: {format_price(inc - exp)}"
 
             elif query_type == "orders_today":
                 res = await session.execute(
-                    text("SELECT order_number, total_amount, status FROM orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE ORDER BY created_at DESC")
+                    text(
+                        "SELECT order_number, total_amount, status FROM orders "
+                        "WHERE DATE(created_at) = CURRENT_DATE ORDER BY created_at DESC"
+                    )
                 )
                 orders = res.fetchall()
                 if not orders:
@@ -1753,9 +2098,11 @@ async def _query_db(query_type: str) -> str:
 
             elif query_type == "customers_count":
                 res = await session.execute(
-                    text("SELECT COUNT(*), "
-                    "SUM(CASE WHEN customer_type='b2b' THEN 1 ELSE 0 END), "
-                    "SUM(CASE WHEN status='vip' THEN 1 ELSE 0 END) FROM customers")
+                    text(
+                        "SELECT COUNT(*), "
+                        "SUM(CASE WHEN customer_type='b2b' THEN 1 ELSE 0 END), "
+                        "SUM(CASE WHEN status='vip' THEN 1 ELSE 0 END) FROM customers"
+                    )
                 )
                 total, b2b, vip = res.fetchone()
                 return f"👥 Клиентов: {total} | B2B: {b2b or 0} | VIP: {vip or 0}"
@@ -1786,20 +2133,26 @@ async def _generate_report(kind: str) -> str:
 
             # Заказы
             res = await session.execute(
-                text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
-                "WHERE DATE(created_at) = CURRENT_DATE")
+                text(
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                    "WHERE DATE(created_at) = CURRENT_DATE"
+                )
             )
             cnt, total = res.fetchone()
             lines.append(f"🛒 Заказы сегодня: {cnt} на {format_price(total)}")
 
             # Финансы
             res = await session.execute(
-                text("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-                "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-                "FROM finances WHERE date = CURRENT_DATE")
+                text(
+                    "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
+                    "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
+                    "FROM finances WHERE date = CURRENT_DATE"
+                )
             )
             inc, exp = res.fetchone()
-            lines.append(f"💰 Доходы: {format_price(inc)} | 💸 Расходы: {format_price(exp)}")
+            lines.append(
+                f"💰 Доходы: {format_price(inc)} | 💸 Расходы: {format_price(exp)}"
+            )
 
             # Задачи
             res = await session.execute(
@@ -1807,12 +2160,14 @@ async def _generate_report(kind: str) -> str:
             )
             stats = dict(res.fetchall())
             lines.append(
-                f"📋 Задачи: ⬜{stats.get('todo',0)} 🔄{stats.get('in_progress',0)} ✅{stats.get('done',0)}"
+                f"📋 Задачи: ⬜{stats.get('todo', 0)} 🔄{stats.get('in_progress', 0)} ✅{stats.get('done', 0)}"
             )
 
             # Новые клиенты
             res = await session.execute(
-                text("SELECT COUNT(*) FROM customers WHERE DATE(created_at) = CURRENT_DATE")
+                text(
+                    "SELECT COUNT(*) FROM customers WHERE DATE(created_at) = CURRENT_DATE"
+                )
             )
             new_c = res.scalar()
             lines.append(f"👤 Новых клиентов: {new_c}")
@@ -1837,7 +2192,9 @@ async def _offer_write_action(message: Message, proposal: dict) -> None:
 
     token = proposal.get("token")
     if not token:
-        await message.answer("⚠️ Действие не подготовлено: витрина не прислала подтверждение.")
+        await message.answer(
+            "⚠️ Действие не подготовлено: витрина не прислала подтверждение."
+        )
         return
 
     key = uuid.uuid4().hex[:12]
@@ -1851,10 +2208,14 @@ async def _offer_write_action(message: Message, proposal: dict) -> None:
         lines.append("\n⚠️ Действие затрагивает клиентов или публичный аккаунт.")
     lines.append("\nВ базе пока ничего не изменилось.")
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✅ Выполнить", callback_data=f"stx:{key}"),
-        InlineKeyboardButton(text="✖️ Отклонить", callback_data=f"stxn:{key}"),
-    ]])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Выполнить", callback_data=f"stx:{key}"),
+                InlineKeyboardButton(text="✖️ Отклонить", callback_data=f"stxn:{key}"),
+            ]
+        ]
+    )
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
 
 
@@ -1873,6 +2234,7 @@ async def _confirm_write_action(cb: CallbackQuery):
 
     await cb.answer("Выполняю…")
     from shared.stepan_tools import confirm_remote
+
     res = await confirm_remote(proposal["token"])
 
     mark = "✅" if res.get("ok") else "❌"

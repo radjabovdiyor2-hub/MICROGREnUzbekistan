@@ -5,19 +5,31 @@ import sys
 bots = [
     "bots.stepan_bot.main",
     "bots.sales_bot.main",
-
     "bots.finance_bot.main",
     "bots.marketing_bot.main",
     "bots.analytics_bot.main",
     "bots.support_bot.main",
     "bots.hr_bot.main",
-    "bots.content_bot.main"
+    "bots.content_bot.main",
 ]
 
 procs = []
 
 # Start web office
-procs.append(subprocess.Popen([sys.executable, "-m", "uvicorn", "web_office.main:app", "--host", "0.0.0.0", "--port", "8050"]))
+procs.append(
+    subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "web_office.main:app",
+            "--host",
+            "0.0.0.0",
+            "--port",
+            "8050",
+        ]
+    )
+)
 
 # Start all bots
 for bot in bots:

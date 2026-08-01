@@ -88,7 +88,9 @@ async def append(role: str, content: str, tool_calls: Optional[Any] = None) -> b
         async with aiohttp.ClientSession(timeout=timeout) as session:
             async with session.post(url, headers=_headers(), json=payload) as resp:
                 if resp.status != 200:
-                    logger.error("Реплика не сохранена: витрина ответила %s", resp.status)
+                    logger.error(
+                        "Реплика не сохранена: витрина ответила %s", resp.status
+                    )
                     return False
                 return True
     except Exception as exc:

@@ -4,11 +4,13 @@ Fetches site configuration from the API for use in bot messages
 """
 
 import httpx
+import logging
 import os
 import time
 from typing import Optional
 from dataclasses import dataclass
 
+logger = logging.getLogger(__name__)
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 
 
@@ -83,7 +85,7 @@ async def fetch_site_config() -> SiteConfig:
             return config
             
     except Exception as e:
-        print(f"[ConfigService] Failed to fetch config: {e}")
+        logger.error("[ConfigService] Failed to fetch config: %s", e)
         # Return defaults
         return get_default_config()
 

@@ -1,7 +1,6 @@
 import os
-import glob
 
-bots = ['qa_bot', 'rnd_bot', 'devops_bot']
+bots = ["qa_bot", "rnd_bot", "devops_bot"]
 for bot in bots:
     p = os.path.join("apps/tgas/bots", bot, "main.py")
     if os.path.exists(p):

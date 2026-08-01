@@ -6,11 +6,16 @@ from shared.database import get_session_ctx
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 async def run_migration():
     async with get_session_ctx() as session:
         # Add bonus_balance to customers
         try:
-            await session.execute(text("ALTER TABLE customers ADD COLUMN bonus_balance DECIMAL(15, 2) DEFAULT 0;"))
+            await session.execute(
+                text(
+                    "ALTER TABLE customers ADD COLUMN bonus_balance DECIMAL(15, 2) DEFAULT 0;"
+                )
+            )
             logger.info("Added bonus_balance to customers")
         except Exception as e:
             logger.warning(f"bonus_balance might already exist: {e}")
@@ -35,7 +40,7 @@ async def run_migration():
             """
             await session.execute(text(inventory_sql))
             logger.info("Created inventory table")
-            
+
             # Create trigger function if it doesn't exist (it should from init.sql, but just in case)
             trigger_func_sql = """
             CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -47,8 +52,10 @@ async def run_migration():
             $$ LANGUAGE plpgsql;
             """
             await session.execute(text(trigger_func_sql))
-            
-            trigger_drop_sql = "DROP TRIGGER IF EXISTS trg_inventory_updated_at ON inventory;"
+
+            trigger_drop_sql = (
+                "DROP TRIGGER IF EXISTS trg_inventory_updated_at ON inventory;"
+            )
             await session.execute(text(trigger_drop_sql))
 
             trigger_create_sql = """
@@ -59,11 +66,11 @@ async def run_migration():
             """
             await session.execute(text(trigger_create_sql))
             logger.info("Created inventory trigger")
-            
+
         except Exception as e:
             logger.error(f"Failed to create inventory table: {e}")
             await session.rollback()
-            
+
         # Seed inventory with some basic items for Microgreen Uzbekistan
         try:
             check_sql = "SELECT count(*) FROM inventory"
@@ -82,6 +89,7 @@ async def run_migration():
         except Exception as e:
             logger.error(f"Failed to seed inventory: {e}")
             await session.rollback()
+
 
 if __name__ == "__main__":
     asyncio.run(run_migration())

@@ -17,6 +17,7 @@
    Postgres на каждый чих незачем. TTL 60 секунд — правка в админке доезжает
    до ботов за минуту без перезапуска контейнеров.
 """
+
 from __future__ import annotations
 
 import json
@@ -71,7 +72,9 @@ async def _load_settings() -> dict[str, Any]:
         _settings_at = now
     except Exception as exc:
         # Таблицы может не быть — это нормально до первого prisma db push.
-        logger.debug("settings_store: настройки не прочитаны (%s), работаем на дефолтах", exc)
+        logger.debug(
+            "settings_store: настройки не прочитаны (%s), работаем на дефолтах", exc
+        )
         _settings_at = now  # не долбим базу в цикле
         _settings_cache = data
     return data
@@ -92,7 +95,9 @@ async def get_float(key: str, default: float) -> float:
     try:
         return float(value)
     except (TypeError, ValueError):
-        logger.warning("settings_store: %s=%r не число, беру дефолт %s", key, value, default)
+        logger.warning(
+            "settings_store: %s=%r не число, беру дефолт %s", key, value, default
+        )
         return default
 
 
@@ -118,7 +123,9 @@ async def get_prompt(bot: str, key: str, default: str) -> str:
         cache: dict[tuple[str, str], str] = {}
         try:
             async with get_session_ctx() as session:
-                res = await session.execute(text("SELECT bot, key, text FROM bot_prompts"))
+                res = await session.execute(
+                    text("SELECT bot, key, text FROM bot_prompts")
+                )
                 for row_bot, row_key, row_text in res.fetchall():
                     cache[(row_bot, row_key)] = row_text
             _prompt_cache = cache
@@ -146,7 +153,9 @@ async def get_benchmarks(bot: str, metric: str, default: dict) -> dict:
             raise ValueError("ожидался объект")
         return {**default, **override}
     except (json.JSONDecodeError, ValueError) as exc:
-        logger.warning("settings_store: bench.%s у %s не разобран (%s)", metric, bot, exc)
+        logger.warning(
+            "settings_store: bench.%s у %s не разобран (%s)", metric, bot, exc
+        )
         return default
 
 
@@ -211,10 +220,14 @@ async def register_job(bot: str, name: str, kind: str, **fields: Any) -> None:
                 },
             )
     except Exception as exc:
-        logger.debug("settings_store: задача %s/%s не зарегистрирована (%s)", bot, name, exc)
+        logger.debug(
+            "settings_store: задача %s/%s не зарегистрирована (%s)", bot, name, exc
+        )
 
 
-async def record_job_run(bot: str, name: str, status: str, error: Optional[str] = None) -> None:
+async def record_job_run(
+    bot: str, name: str, status: str, error: Optional[str] = None
+) -> None:
     """Отметить факт выполнения задачи — админка показывает это владельцу."""
     try:
         async with get_session_ctx() as session:
@@ -223,8 +236,14 @@ async def record_job_run(bot: str, name: str, status: str, error: Optional[str] 
                     "UPDATE bot_jobs SET last_run_at = NOW(), last_status = :status, "
                     "last_error = :error WHERE bot = :bot AND name = :name"
                 ),
-                {"bot": bot, "name": name, "status": status,
-                 "error": (error or "")[:1000] or None},
+                {
+                    "bot": bot,
+                    "name": name,
+                    "status": status,
+                    "error": (error or "")[:1000] or None,
+                },
             )
     except Exception as exc:
-        logger.debug("settings_store: факт запуска %s/%s не записан (%s)", bot, name, exc)
+        logger.debug(
+            "settings_store: факт запуска %s/%s не записан (%s)", bot, name, exc
+        )

@@ -5,6 +5,7 @@
 Стёпан раз в 15 минут вызывает check_all_bots() и алертит, если бот молчит > 5 минут.
 Ошибки бота пишутся через record_bot_error и видны в отчёте и на /health (web_office).
 """
+
 import asyncio
 import logging
 import time
@@ -14,8 +15,8 @@ from shared.bot_registry import ALL_BOTS  # noqa: F401  (реэкспорт дл
 logger = logging.getLogger(__name__)
 
 HEARTBEAT_KEY_PREFIX = "bot:heartbeat:"
-HEARTBEAT_INTERVAL = 30       # секунд между пульсами
-HEARTBEAT_TTL = 300            # 5 минут — если нет обновления, бот считается мёртвым
+HEARTBEAT_INTERVAL = 30  # секунд между пульсами
+HEARTBEAT_TTL = 300  # 5 минут — если нет обновления, бот считается мёртвым
 
 # Состав команды теперь один на всех — shared/bot_registry.py. Здесь список
 # только реэкспортируется: `from shared.health import ALL_BOTS` продолжает
@@ -25,6 +26,7 @@ HEARTBEAT_TTL = 300            # 5 минут — если нет обновле
 async def _get_redis():
     """Получить подключение к Redis."""
     import redis.asyncio as aioredis
+
     return aioredis.from_url(settings.redis_url, decode_responses=True)
 
 
@@ -43,13 +45,17 @@ async def start_heartbeat(bot_name: str):
                 # ломает hset навсегда: WRONGTYPE, бот молча остаётся «НЕ ЗАПУЩЕН»
                 # до ручной чистки Redis. Такой ключ сносим и пишем заново.
                 if "WRONGTYPE" in str(e).upper():
-                    logger.warning("[%s] Ключ пульса устаревшего типа — пересоздаю", bot_name)
+                    logger.warning(
+                        "[%s] Ключ пульса устаревшего типа — пересоздаю", bot_name
+                    )
                     try:
                         await r.delete(key)
                         await r.hset(key, "ts", str(int(time.time())))
                         await r.expire(key, HEARTBEAT_TTL)
                     except Exception as e2:
-                        logger.warning("[%s] Heartbeat ошибка после пересоздания: %s", bot_name, e2)
+                        logger.warning(
+                            "[%s] Heartbeat ошибка после пересоздания: %s", bot_name, e2
+                        )
                 else:
                     logger.warning("[%s] Heartbeat ошибка: %s", bot_name, e)
             await asyncio.sleep(HEARTBEAT_INTERVAL)
@@ -62,10 +68,13 @@ async def record_bot_error(bot_name: str, error: str) -> None:
     try:
         r = await _get_redis()
         key = f"{HEARTBEAT_KEY_PREFIX}{bot_name}"
-        await r.hset(key, mapping={
-            "last_error": str(error)[:300],
-            "last_error_ts": str(int(time.time())),
-        })
+        await r.hset(
+            key,
+            mapping={
+                "last_error": str(error)[:300],
+                "last_error_ts": str(int(time.time())),
+            },
+        )
         await r.hincrby(key, "errors", 1)
         await r.expire(key, HEARTBEAT_TTL)
         await r.aclose()
@@ -90,8 +99,12 @@ async def check_all_bots() -> dict[str, dict]:
                 data = await r.hgetall(key)
             except Exception as e:
                 logger.warning("Пульс %s не прочитан (%s) — считаю недоступным", bot, e)
-                result[bot] = {"alive": False, "last_seen_ago": -1, "errors": 0,
-                               "last_error": f"ключ пульса нечитаем: {e}"}
+                result[bot] = {
+                    "alive": False,
+                    "last_seen_ago": -1,
+                    "errors": 0,
+                    "last_error": f"ключ пульса нечитаем: {e}",
+                }
                 continue
 
             if data and data.get("ts"):
@@ -103,7 +116,12 @@ async def check_all_bots() -> dict[str, dict]:
                     "last_error": data.get("last_error", ""),
                 }
             else:
-                result[bot] = {"alive": False, "last_seen_ago": -1, "errors": 0, "last_error": ""}
+                result[bot] = {
+                    "alive": False,
+                    "last_seen_ago": -1,
+                    "errors": 0,
+                    "last_error": "",
+                }
         await r.aclose()
     except Exception as e:
         logger.error("Health check ошибка: %s", e)
@@ -119,7 +137,9 @@ def format_health_report(statuses: dict[str, dict]) -> str:
         if info["alive"]:
             alive_count += 1
             extra = f" · ⚠️{info['errors']} ошиб." if info.get("errors") else ""
-            lines.append(f"  🟢 {name} — онлайн ({info['last_seen_ago']}с назад){extra}")
+            lines.append(
+                f"  🟢 {name} — онлайн ({info['last_seen_ago']}с назад){extra}"
+            )
         else:
             if info["last_seen_ago"] < 0:
                 lines.append(f"  🔴 {name} — НЕ ЗАПУЩЕН")
@@ -127,12 +147,16 @@ def format_health_report(statuses: dict[str, dict]) -> str:
                 mins = info["last_seen_ago"] // 60
                 lines.append(f"  🔴 {name} — ОФФЛАЙН ({mins} мин)")
 
-    lines.append(f"\n{'✅' if alive_count == len(statuses) else '⚠️'} "
-                 f"{alive_count}/{len(statuses)} ботов онлайн")
+    lines.append(
+        f"\n{'✅' if alive_count == len(statuses) else '⚠️'} "
+        f"{alive_count}/{len(statuses)} ботов онлайн"
+    )
 
     errored = [(b, i) for b, i in statuses.items() if i.get("last_error")]
     if errored:
         b, i = errored[0]
-        lines.append(f"\n🧯 Последняя ошибка ({b.replace('_bot', '')}): "
-                     f"<code>{i['last_error'][:120]}</code>")
+        lines.append(
+            f"\n🧯 Последняя ошибка ({b.replace('_bot', '')}): "
+            f"<code>{i['last_error'][:120]}</code>"
+        )
     return "\n".join(lines)

@@ -23,18 +23,42 @@ logger = logging.getLogger(__name__)
 API_VERSION = "v21.0"
 GRAPH_BASE_URL = f"https://graph.facebook.com/{API_VERSION}"
 
-OUR_HANDLE = "microgreenuzbekistan"       # наш аккаунт — на свои комменты не отвечаем
-REPLY_WINDOW_HOURS = 48                    # отвечаем только на свежие комментарии
-MAX_REPLIES_PER_RUN = 8                    # предохранитель от флуда
+OUR_HANDLE = "microgreenuzbekistan"  # наш аккаунт — на свои комменты не отвечаем
+REPLY_WINDOW_HOURS = 48  # отвечаем только на свежие комментарии
+MAX_REPLIES_PER_RUN = 8  # предохранитель от флуда
 
 ai = AIEngine()
 
 # Ключевые слова «интереса/вопроса» — только на них публично отвечаем
 _INQUIRY_WORDS = [
-    "цена", "цен", "стои", "сколько", "почём", "почем", "narx", "qancha",
-    "достав", "yetkaz", "заказ", "buyurtma", "купить", "sotib", "заказать",
-    "наличи", "есть в", " бор", "boru", "available", "how much", "price",
-    "адрес", "manzil", "номер", "telefon", "телефон", "склад",
+    "цена",
+    "цен",
+    "стои",
+    "сколько",
+    "почём",
+    "почем",
+    "narx",
+    "qancha",
+    "достав",
+    "yetkaz",
+    "заказ",
+    "buyurtma",
+    "купить",
+    "sotib",
+    "заказать",
+    "наличи",
+    "есть в",
+    " бор",
+    "boru",
+    "available",
+    "how much",
+    "price",
+    "адрес",
+    "manzil",
+    "номер",
+    "telefon",
+    "телефон",
+    "склад",
 ]
 
 REPLY_SYSTEM = (
@@ -63,8 +87,12 @@ async def _already_seen(comment_id: str) -> bool:
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
+
         async with get_session_ctx() as s:
-            r = await s.execute(text("SELECT 1 FROM ig_comment_seen WHERE comment_id = :c"), {"c": comment_id})
+            r = await s.execute(
+                text("SELECT 1 FROM ig_comment_seen WHERE comment_id = :c"),
+                {"c": comment_id},
+            )
             return r.fetchone() is not None
     except Exception:
         return False
@@ -74,10 +102,14 @@ async def _mark_seen(comment_id: str):
     try:
         from shared.database import get_session_ctx
         from sqlalchemy import text
+
         async with get_session_ctx() as s:
-            await s.execute(text(
-                "INSERT INTO ig_comment_seen (comment_id) VALUES (:c) ON CONFLICT DO NOTHING"
-            ), {"c": comment_id})
+            await s.execute(
+                text(
+                    "INSERT INTO ig_comment_seen (comment_id) VALUES (:c) ON CONFLICT DO NOTHING"
+                ),
+                {"c": comment_id},
+            )
             await s.commit()
     except Exception as e:
         logger.warning(f"mark_seen error: {e}")
@@ -99,23 +131,33 @@ async def get_recent_comments(media_limit: int = 8, per_media: int = 30) -> list
             async with session.get(url, params=params) as resp:
                 data = await resp.json()
                 if "error" in data:
-                    logger.error(f"IG comments media error: {data['error'].get('message')}")
+                    logger.error(
+                        f"IG comments media error: {data['error'].get('message')}"
+                    )
                     return []
                 media_ids = [m["id"] for m in data.get("data", [])]
 
             for mid in media_ids:
                 curl = f"{GRAPH_BASE_URL}/{mid}/comments"
-                cparams = {"fields": "id,text,username,timestamp", "limit": str(per_media), "access_token": token}
+                cparams = {
+                    "fields": "id,text,username,timestamp",
+                    "limit": str(per_media),
+                    "access_token": token,
+                }
                 async with session.get(curl, params=cparams) as cresp:
                     cdata = await cresp.json()
                     if "error" in cdata:
                         continue
                     for c in cdata.get("data", []):
-                        out.append({
-                            "id": c.get("id"), "text": c.get("text", ""),
-                            "username": c.get("username", ""), "timestamp": c.get("timestamp", ""),
-                            "media_id": mid,
-                        })
+                        out.append(
+                            {
+                                "id": c.get("id"),
+                                "text": c.get("text", ""),
+                                "username": c.get("username", ""),
+                                "timestamp": c.get("timestamp", ""),
+                                "media_id": mid,
+                            }
+                        )
     except Exception as e:
         logger.error(f"IG comments fetch error: {e}", exc_info=True)
     return out
@@ -128,7 +170,9 @@ async def reply_to_comment(comment_id: str, message: str) -> bool:
     try:
         async with aiohttp.ClientSession() as session:
             url = f"{GRAPH_BASE_URL}/{comment_id}/replies"
-            async with session.post(url, data={"message": message, "access_token": token}) as resp:
+            async with session.post(
+                url, data={"message": message, "access_token": token}
+            ) as resp:
                 data = await resp.json()
                 if "error" in data:
                     logger.error(f"IG reply error: {data['error'].get('message')}")
@@ -142,8 +186,15 @@ async def reply_to_comment(comment_id: str, message: str) -> bool:
 
 async def _gen_reply(comment_text: str) -> str:
     try:
-        return (await ai.chat_completion(REPLY_SYSTEM, f"Комментарий клиента: {comment_text}",
-                                         temperature=0.6, max_tokens=120, effort="medium")).strip()
+        return (
+            await ai.chat_completion(
+                REPLY_SYSTEM,
+                f"Комментарий клиента: {comment_text}",
+                temperature=0.6,
+                max_tokens=120,
+                effort="medium",
+            )
+        ).strip()
     except Exception as e:
         logger.warning(f"IG reply gen error: {e}")
         return "Спасибо за интерес! Напишите нам в Директ или на +998 94 999 95 99 — всё расскажем 🌱"
@@ -152,9 +203,16 @@ async def _gen_reply(comment_text: str) -> str:
 async def _notify_owner(username: str, comment: str, reply: str):
     try:
         from shared.event_bus import event_bus
-        txt = (f"💬 <b>Instagram-комментарий</b> от @{username}:\n«{comment[:200]}»\n\n"
-               f"🤖 Ответили: «{reply[:200]}»")
-        await event_bus.publish("new_message", {"bot": "Instagram — комментарии", "text": txt}, "support_bot")
+
+        txt = (
+            f"💬 <b>Instagram-комментарий</b> от @{username}:\n«{comment[:200]}»\n\n"
+            f"🤖 Ответили: «{reply[:200]}»"
+        )
+        await event_bus.publish(
+            "new_message",
+            {"bot": "Instagram — комментарии", "text": txt},
+            "support_bot",
+        )
     except Exception as e:
         logger.warning(f"IG comment notify error: {e}")
 

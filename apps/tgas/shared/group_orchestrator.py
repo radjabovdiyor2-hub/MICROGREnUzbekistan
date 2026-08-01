@@ -4,6 +4,7 @@ from aiogram.types import Message, ReactionTypeEmoji
 
 logger = logging.getLogger(__name__)
 
+
 async def set_reaction(message: Message, emoji: str):
     """Установить реакцию на сообщение."""
     try:
@@ -11,7 +12,10 @@ async def set_reaction(message: Message, emoji: str):
     except Exception as e:
         logger.warning(f"Не удалось поставить реакцию {emoji}: {e}")
 
-def create_group_router(bot_username: str, handle_mention_func, wake_words=None) -> Router:
+
+def create_group_router(
+    bot_username: str, handle_mention_func, wake_words=None
+) -> Router:
     """
     Создаёт роутер для работы в групповом чате.
     bot_username: Имя бота без @ (например, stepan_bot)
@@ -21,17 +25,18 @@ def create_group_router(bot_username: str, handle_mention_func, wake_words=None)
                 на одно сообщение по общим словам).
     """
     router = Router()
-    
+
     @router.message(
         F.chat.type.in_({"group", "supergroup"}),
-        (F.text.icontains(f"@{bot_username}")) |
-        (F.reply_to_message.from_user.username == bot_username)
+        (F.text.icontains(f"@{bot_username}"))
+        | (F.reply_to_message.from_user.username == bot_username),
     )
     async def group_mention_handler(message: Message, **kwargs):
         await set_reaction(message, "👀")
-        
+
         try:
             import inspect
+
             sig = inspect.signature(handle_mention_func)
             passed_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
             await handle_mention_func(message, **passed_kwargs)
@@ -41,4 +46,3 @@ def create_group_router(bot_username: str, handle_mention_func, wake_words=None)
             await set_reaction(message, "👎")
 
     return router
-

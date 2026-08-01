@@ -20,31 +20,25 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import text
 
 from shared.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Базовый класс для ORM-моделей (если понадобятся) ─────────────────────
-class Base(DeclarativeBase):
-    """Базовый класс для всех ORM-моделей проекта."""
-    pass
-
 
 # ── Асинхронный движок PostgreSQL ────────────────────────────────────────
 engine: AsyncEngine = create_async_engine(
     settings.database_url,
-    echo=False,                  # True для отладки SQL-запросов
-    pool_size=20,                # Размер пула соединений
-    max_overflow=10,             # Дополнительные соединения сверх пула
-    pool_pre_ping=True,          # Проверка соединений перед использованием
-    pool_recycle=3600,           # Переподключение каждый час
+    echo=False,  # True для отладки SQL-запросов
+    pool_size=20,  # Размер пула соединений
+    max_overflow=10,  # Дополнительные соединения сверх пула
+    pool_pre_ping=True,  # Проверка соединений перед использованием
+    pool_recycle=3600,  # Переподключение каждый час
     connect_args={
         "server_settings": {
             "application_name": "microgreen_uz",
-            "jit": "off",       # Отключаем JIT для коротких запросов
+            "jit": "off",  # Отключаем JIT для коротких запросов
         }
     },
 )
@@ -53,8 +47,8 @@ engine: AsyncEngine = create_async_engine(
 AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False,      # Не инвалидировать объекты после коммита
-    autoflush=False,             # Явный контроль над flush
+    expire_on_commit=False,  # Не инвалидировать объекты после коммита
+    autoflush=False,  # Явный контроль над flush
 )
 
 
@@ -102,15 +96,14 @@ async def get_session_ctx() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     """
-    Инициализация базы данных.
+    Инициализация соединения с базой данных.
 
-    Создаёт все таблицы, определённые через ORM-модели (Base.metadata).
-    Основная схема управляется Prisma (prisma db push).
+    Основная схема управляется через Prisma (prisma db push).
     """
-    logger.info("Инициализация базы данных...")
+    logger.info("Инициализация соединения с базой данных...")
     try:
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(text("SELECT 1"))
         logger.info("База данных инициализирована успешно.")
     except Exception as e:
         logger.error(f"Ошибка инициализации БД: {e}")

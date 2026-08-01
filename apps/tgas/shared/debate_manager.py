@@ -7,6 +7,7 @@ from typing import List, Dict
 REDIS_URL = os.getenv("REDIS_URL", "redis://mg_redis:6379/0")
 redis_client = redis.from_url(REDIS_URL, decode_responses=True)
 
+
 class DebateManager:
     @staticmethod
     async def get_history(chat_id: int) -> List[Dict[str, str]]:
@@ -25,7 +26,7 @@ class DebateManager:
     async def clear_history(chat_id: int):
         key = f"debate:history:{chat_id}"
         await redis_client.delete(key)
-        
+
     @staticmethod
     async def get_active_debate(chat_id: int) -> dict:
         key = f"debate:active:{chat_id}"
@@ -37,11 +38,9 @@ class DebateManager:
     @staticmethod
     async def set_active_debate(chat_id: int, topic: str, participants: list):
         key = f"debate:active:{chat_id}"
-        data = json.dumps({
-            "topic": topic,
-            "participants": participants,
-            "turn_index": 0
-        })
+        data = json.dumps(
+            {"topic": topic, "participants": participants, "turn_index": 0}
+        )
         await redis_client.set(key, data, ex=3600)
         await DebateManager.clear_history(chat_id)
 
@@ -50,5 +49,6 @@ class DebateManager:
         key = f"debate:active:{chat_id}"
         await redis_client.delete(key)
         await DebateManager.clear_history(chat_id)
-        
+
+
 debate_manager = DebateManager()

@@ -16,13 +16,15 @@ from pathlib import Path
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import (
-    Message, CallbackQuery, FSInputFile,
-    InlineKeyboardMarkup, InlineKeyboardButton,
+    Message,
+    CallbackQuery,
+    FSInputFile,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
 )
 
 from shared.config import settings
 from shared.ai_engine import AIEngine
-from shared.prompts import TEAM_CONTEXT
 from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY
 
 logger = logging.getLogger(__name__)
@@ -35,7 +37,9 @@ _STORE_DIR = Path(__file__).resolve().parents[3] / "bus_tasks"
 
 
 def _is_admin(message: Message) -> bool:
-    return bool(message.from_user) and message.from_user.id in settings.admin_telegram_ids
+    return (
+        bool(message.from_user) and message.from_user.id in settings.admin_telegram_ids
+    )
 
 
 def _extract_topic(text: str) -> str:
@@ -45,15 +49,28 @@ def _extract_topic(text: str) -> str:
     if m:
         return m.group(1).strip(" .!?")
     # убираем командные слова, остальное — тема
-    t = re.sub(r"(?i)\b(сделай|сделать|напиши|запили|опубликуй|сгенерируй|пост|в инстаграм[е]?|instagram|сторис|story)\b", "", t)
+    t = re.sub(
+        r"(?i)\b(сделай|сделать|напиши|запили|опубликуй|сгенерируй|пост|в инстаграм[е]?|instagram|сторис|story)\b",
+        "",
+        t,
+    )
     return t.strip(" .!?:") or "микрозелень"
 
 
 def _kb(token: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="✅ Опубликовать в Instagram", callback_data=f"autopost:pub:{token}"),
-        InlineKeyboardButton(text="❌ Отмена", callback_data=f"autopost:cancel:{token}"),
-    ]])
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Опубликовать в Instagram",
+                    callback_data=f"autopost:pub:{token}",
+                ),
+                InlineKeyboardButton(
+                    text="❌ Отмена", callback_data=f"autopost:cancel:{token}"
+                ),
+            ]
+        ]
+    )
 
 
 async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"):
@@ -64,10 +81,12 @@ async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"
         caption = await ai.chat_completion(
             "Ты главный SMM-редактор бренда Microgreen Uzbekistan. Пиши сильный, "
             "ценный пост для ленты Instagram с пользой и чётким призывом к действию."
-            + BRAND_TEXT_STYLE + CONTENT_POLICY,
+            + BRAND_TEXT_STYLE
+            + CONTENT_POLICY,
             f"Создай пост для Instagram на тему: «{topic}». 3–6 абзацев, живо, с эмодзи, "
             f"в конце — призыв к действию и контакты. Пиши на русском (или узбекском, если тема того требует).",
-            temperature=0.8, max_tokens=700,
+            temperature=0.8,
+            max_tokens=700,
         )
     except Exception as e:
         logger.error(f"autopost caption error: {e}")
@@ -97,7 +116,12 @@ async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"
         logger.warning(f"autopost image error: {e}")
 
     token = uuid.uuid4().hex[:8]
-    PENDING_POSTS[token] = {"caption": caption, "image": image_path, "kind": kind, "topic": topic}
+    PENDING_POSTS[token] = {
+        "caption": caption,
+        "image": image_path,
+        "kind": kind,
+        "topic": topic,
+    }
     if len(PENDING_POSTS) > 40:
         for old in list(PENDING_POSTS.keys())[:-40]:
             PENDING_POSTS.pop(old, None)
@@ -107,11 +131,15 @@ async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"
     try:
         if image_path and os.path.isfile(image_path):
             await message.answer_photo(
-                FSInputFile(image_path), caption=preview_head + body,
-                reply_markup=_kb(token), parse_mode="HTML",
+                FSInputFile(image_path),
+                caption=preview_head + body,
+                reply_markup=_kb(token),
+                parse_mode="HTML",
             )
         else:
-            await message.answer(preview_head + body, reply_markup=_kb(token), parse_mode="HTML")
+            await message.answer(
+                preview_head + body, reply_markup=_kb(token), parse_mode="HTML"
+            )
     except Exception:
         await message.answer(preview_head + body, reply_markup=_kb(token))
 
@@ -122,13 +150,18 @@ async def cmd_post(message: Message, command=None):
         return
     args = (getattr(command, "args", None) or "").strip()
     if not args:
-        await message.answer("📝 Формат: <code>/post тема поста</code>\nНапример: <code>/post польза витграсса</code>", parse_mode="HTML")
+        await message.answer(
+            "📝 Формат: <code>/post тема поста</code>\nНапример: <code>/post польза витграсса</code>",
+            parse_mode="HTML",
+        )
         return
     await _generate_and_preview(message, args, kind="feed")
 
 
 # Естественный язык: «сделай пост про …», «опубликуй пост о …»
-@router.message(F.text.regexp(r"(?i)(сдела|напиши|запили|опубликуй|сгенерир).{0,20}пост"))
+@router.message(
+    F.text.regexp(r"(?i)(сдела|напиши|запили|опубликуй|сгенерир).{0,20}пост")
+)
 async def nl_post(message: Message):
     if not _is_admin(message):
         return
@@ -154,21 +187,29 @@ async def approve_publish(cb: CallbackQuery):
     await cb.message.answer("⏳ Публикую в Instagram…")
 
     from shared.instagram import post_to_instagram
+
     ok = False
     try:
         if post.get("image"):
-            ok = await post_to_instagram(post["image"], post["caption"], post_type=post.get("kind", "feed"))
+            ok = await post_to_instagram(
+                post["image"], post["caption"], post_type=post.get("kind", "feed")
+            )
         else:
-            await cb.message.answer("⚠️ Нет картинки для публикации — публикация в Instagram отменена.")
+            await cb.message.answer(
+                "⚠️ Нет картинки для публикации — публикация в Instagram отменена."
+            )
     except Exception as e:
         logger.error(f"autopost publish error: {e}", exc_info=True)
 
     if ok:
-        await cb.message.answer("✅ <b>Опубликовано в Instagram!</b>", parse_mode="HTML")
+        await cb.message.answer(
+            "✅ <b>Опубликовано в Instagram!</b>", parse_mode="HTML"
+        )
     else:
         await cb.message.answer(
             "⚠️ Не удалось опубликовать в Instagram (проверьте токен/доступ Graph API). "
-            "Текст и картинка выше — можно опубликовать вручную.", parse_mode="HTML",
+            "Текст и картинка выше — можно опубликовать вручную.",
+            parse_mode="HTML",
         )
     # чистим временный файл
     img = post.get("image")

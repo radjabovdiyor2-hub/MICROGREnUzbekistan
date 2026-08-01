@@ -12,6 +12,7 @@
         await scheduler.start()
         await dp.start_polling(bot)
 """
+
 import asyncio
 import logging
 from datetime import datetime, timedelta, timezone
@@ -37,7 +38,9 @@ class _Job:
             logger.info("[%s] ✅ Задача '%s' выполнена", self.bot_name, self.name)
             await self._report("ok")
         except Exception as exc:
-            logger.exception("[%s] ❌ Задача '%s' упала: %s", self.bot_name, self.name, exc)
+            logger.exception(
+                "[%s] ❌ Задача '%s' упала: %s", self.bot_name, self.name, exc
+            )
             await self._report("error", str(exc))
 
     async def _report(self, status: str, error: str | None = None):
@@ -47,6 +50,7 @@ class _Job:
         """
         try:
             from shared.settings_store import record_job_run
+
             await record_job_run(self.bot_name, self.name, status, error)
         except Exception:
             pass
@@ -62,7 +66,7 @@ class _CronJob(_Job):
         bot_name: str,
         hour: int,
         minute: int = 0,
-        day_of_week: Optional[int] = None,   # 0=Mon ... 6=Sun
+        day_of_week: Optional[int] = None,  # 0=Mon ... 6=Sun
         day_of_month: Optional[int] = None,  # 1-31
     ):
         super().__init__(name, func, bot_name)
@@ -72,7 +76,9 @@ class _CronJob(_Job):
         self.day_of_month = day_of_month
 
     def _next_target(self, now: datetime) -> datetime:
-        target = now.replace(hour=self.hour, minute=self.minute, second=0, microsecond=0)
+        target = now.replace(
+            hour=self.hour, minute=self.minute, second=0, microsecond=0
+        )
         if now >= target:
             target += timedelta(days=1)
 
@@ -98,6 +104,7 @@ class _CronJob(_Job):
         """
         try:
             from shared.settings_store import get_job_overrides
+
             cfg = (await get_job_overrides(self.bot_name)).get(self.name)
         except Exception:
             return False
@@ -105,8 +112,12 @@ class _CronJob(_Job):
             return False
 
         changed = False
-        for attr, col in (("hour", "hour"), ("minute", "minute"),
-                          ("day_of_week", "day_of_week"), ("day_of_month", "day_of_month")):
+        for attr, col in (
+            ("hour", "hour"),
+            ("minute", "minute"),
+            ("day_of_week", "day_of_week"),
+            ("day_of_month", "day_of_month"),
+        ):
             value = cfg.get(col)
             if value is not None and getattr(self, attr, None) != value:
                 setattr(self, attr, value)
@@ -122,7 +133,9 @@ class _CronJob(_Job):
             target = self._next_target(now)
             logger.info(
                 "[%s] ⏰ '%s' следующий запуск через %.0f мин (%s)",
-                self.bot_name, self.name, (target - now).total_seconds() / 60,
+                self.bot_name,
+                self.name,
+                (target - now).total_seconds() / 60,
                 target.strftime("%d.%m %H:%M"),
             )
 
@@ -137,7 +150,8 @@ class _CronJob(_Job):
                 if await self._refresh():
                     logger.info(
                         "[%s] ⚙️ '%s': расписание изменено в админке, пересчитываю",
-                        self.bot_name, self.name,
+                        self.bot_name,
+                        self.name,
                     )
                     rescheduled = True
                     break
@@ -148,7 +162,11 @@ class _CronJob(_Job):
             if getattr(self, "enabled", True):
                 await self._run_safe()
             else:
-                logger.info("[%s] ⏸ '%s' выключена в админке — пропуск", self.bot_name, self.name)
+                logger.info(
+                    "[%s] ⏸ '%s' выключена в админке — пропуск",
+                    self.bot_name,
+                    self.name,
+                )
 
             # Small delay to avoid double-fire
             await asyncio.sleep(60)
@@ -250,14 +268,18 @@ class BotScheduler:
                 continue
 
             if cfg.get("enabled") is False:
-                logger.info("[%s] ⏸ Задача '%s' выключена в админке", self.bot_name, job.name)
+                logger.info(
+                    "[%s] ⏸ Задача '%s' выключена в админке", self.bot_name, job.name
+                )
                 continue
 
             # Перекрываем только заданные поля: NULL в БД означает
             # «оставить как в коде», а не «сбросить в None».
             for attr, col in (
-                ("hour", "hour"), ("minute", "minute"),
-                ("day_of_week", "day_of_week"), ("day_of_month", "day_of_month"),
+                ("hour", "hour"),
+                ("minute", "minute"),
+                ("day_of_week", "day_of_week"),
+                ("day_of_month", "day_of_month"),
                 ("seconds", "seconds"),
             ):
                 value = cfg.get(col)
@@ -265,7 +287,11 @@ class BotScheduler:
                     if getattr(job, attr) != value:
                         logger.info(
                             "[%s] ⚙️ '%s': %s %s → %s (из админки)",
-                            self.bot_name, job.name, attr, getattr(job, attr), value,
+                            self.bot_name,
+                            job.name,
+                            attr,
+                            getattr(job, attr),
+                            value,
                         )
                     setattr(job, attr, value)
 
@@ -277,7 +303,9 @@ class BotScheduler:
         jobs = await self._apply_overrides()
         logger.info(
             "[%s] 🚀 Планировщик: запуск %d задач (из %d зарегистрированных)",
-            self.bot_name, len(jobs), len(self._jobs),
+            self.bot_name,
+            len(jobs),
+            len(self._jobs),
         )
         for job in jobs:
             task = asyncio.create_task(job.loop(), name=f"{self.bot_name}:{job.name}")
@@ -292,6 +320,7 @@ class BotScheduler:
         await self.stop()
         try:
             from shared.settings_store import invalidate
+
             invalidate()
         except Exception:
             pass

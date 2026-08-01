@@ -4,6 +4,7 @@ Shared Cross-Bot Notifications — Уведомления между ботам�
 Содержит функции-обработчики событий, которые вызываются EventBus.
 Каждый бот регистрирует нужные обработчики при старте.
 """
+
 import logging
 from aiogram import Bot
 from sqlalchemy import text
@@ -46,7 +47,9 @@ async def alert_admins(bot: Bot, text_msg: str, parse_mode: str | None = "HTML")
     """
     admin_ids = settings.admin_telegram_ids or []
     if not admin_ids:
-        logger.error("ALERT не доставлен: ADMIN_TELEGRAM_IDS пуст. Текст: %s", text_msg[:200])
+        logger.error(
+            "ALERT не доставлен: ADMIN_TELEGRAM_IDS пуст. Текст: %s", text_msg[:200]
+        )
         return 0
 
     delivered = 0
@@ -59,12 +62,17 @@ async def alert_admins(bot: Bot, text_msg: str, parse_mode: str | None = "HTML")
             logger.error("Не удалось доставить алерт админу %s: %s", admin_id, e)
 
     if delivered == 0:
-        logger.error("ALERT не дошёл ни до кого из %d админов: %s", len(admin_ids), text_msg[:200])
+        logger.error(
+            "ALERT не дошёл ни до кого из %d админов: %s",
+            len(admin_ids),
+            text_msg[:200],
+        )
 
     return delivered
 
 
 # ─── Степан (Менеджер) обработчики событий ─────────────────
+
 
 async def pm_on_order_created(bot: Bot, payload: dict):
     """Новый заказ → создать задачу на производство."""
@@ -74,23 +82,33 @@ async def pm_on_order_created(bot: Bot, payload: dict):
     items = data.get("items_summary", "")
 
     async with get_session_ctx() as session:
-        res = await session.execute(text(
-            "INSERT INTO tasks (title, assignee, department, status, priority, description, created_at) "
-            "VALUES (:t, 'Производство', 'production', 'todo', 'high', :d, NOW()) RETURNING id"),
-            {"t": f"🛒 Заказ {order_number} — подготовить",
-             "d": f"Заказ {order_number} на сумму {format_price(total)}.\n{items}"})
+        res = await session.execute(
+            text(
+                "INSERT INTO tasks (title, assignee, department, status, priority, description, created_at) "
+                "VALUES (:t, 'Производство', 'production', 'todo', 'high', :d, NOW()) RETURNING id"
+            ),
+            {
+                "t": f"🛒 Заказ {order_number} — подготовить",
+                "d": f"Заказ {order_number} на сумму {format_price(total)}.\n{items}",
+            },
+        )
         task_id = res.scalar()
         await session.commit()
     logger.info(f"PM: задача создана для заказа {order_number}")
-    
+
     from shared.event_bus import event_bus
-    await event_bus.publish("TASK_CREATED", {
-        "task_id": task_id,
-        "title": f"🛒 Заказ {order_number} — подготовить",
-        "department": "production",
-        "description": f"Заказ {order_number} на сумму {format_price(total)}.\n{items}",
-        "chat_id": _admin_chat_id(),
-    }, "stepan_bot")
+
+    await event_bus.publish(
+        "TASK_CREATED",
+        {
+            "task_id": task_id,
+            "title": f"🛒 Заказ {order_number} — подготовить",
+            "department": "production",
+            "description": f"Заказ {order_number} на сумму {format_price(total)}.\n{items}",
+            "chat_id": _admin_chat_id(),
+        },
+        "stepan_bot",
+    )
 
 
 async def pm_on_complaint(bot: Bot, payload: dict):
@@ -100,23 +118,30 @@ async def pm_on_complaint(bot: Bot, payload: dict):
     customer = data.get("customer_name", "Клиент")
 
     async with get_session_ctx() as session:
-        res = await session.execute(text(
-            "INSERT INTO tasks (title, assignee, department, status, priority, description, created_at) "
-            "VALUES (:t, 'Менеджер', 'support', 'todo', 'urgent', :d, NOW()) RETURNING id"),
-            {"t": f"🚨 Жалоба от {customer}",
-             "d": summary})
+        res = await session.execute(
+            text(
+                "INSERT INTO tasks (title, assignee, department, status, priority, description, created_at) "
+                "VALUES (:t, 'Менеджер', 'support', 'todo', 'urgent', :d, NOW()) RETURNING id"
+            ),
+            {"t": f"🚨 Жалоба от {customer}", "d": summary},
+        )
         task_id = res.scalar()
         await session.commit()
     logger.info(f"PM: срочная задача для жалобы от {customer}")
-    
+
     from shared.event_bus import event_bus
-    await event_bus.publish("TASK_CREATED", {
-        "task_id": task_id,
-        "title": f"🚨 Жалоба от {customer}",
-        "department": "support",
-        "description": summary,
-        "chat_id": _admin_chat_id(),
-    }, "stepan_bot")
+
+    await event_bus.publish(
+        "TASK_CREATED",
+        {
+            "task_id": task_id,
+            "title": f"🚨 Жалоба от {customer}",
+            "department": "support",
+            "description": summary,
+            "chat_id": _admin_chat_id(),
+        },
+        "stepan_bot",
+    )
 
 
 async def pm_on_hr_application(bot: Bot, payload: dict):
@@ -126,26 +151,37 @@ async def pm_on_hr_application(bot: Bot, payload: dict):
     position = data.get("position", "")
 
     async with get_session_ctx() as session:
-        res = await session.execute(text(
-            "INSERT INTO tasks (title, assignee, department, status, priority, description, created_at) "
-            "VALUES (:t, 'HR', 'hr', 'todo', 'medium', :d, NOW()) RETURNING id"),
-            {"t": f"👤 Кандидат: {name} — {position}",
-             "d": f"Рассмотреть заявку от {name} на позицию {position}."})
+        res = await session.execute(
+            text(
+                "INSERT INTO tasks (title, assignee, department, status, priority, description, created_at) "
+                "VALUES (:t, 'HR', 'hr', 'todo', 'medium', :d, NOW()) RETURNING id"
+            ),
+            {
+                "t": f"👤 Кандидат: {name} — {position}",
+                "d": f"Рассмотреть заявку от {name} на позицию {position}.",
+            },
+        )
         task_id = res.scalar()
         await session.commit()
     logger.info(f"PM: задача HR для {name}")
 
     from shared.event_bus import event_bus
-    await event_bus.publish("TASK_CREATED", {
-        "task_id": task_id,
-        "title": f"👤 Кандидат: {name} — {position}",
-        "department": "hr",
-        "description": f"Рассмотреть заявку от {name} на позицию {position}.",
-        "chat_id": _admin_chat_id(),
-    }, "stepan_bot")
+
+    await event_bus.publish(
+        "TASK_CREATED",
+        {
+            "task_id": task_id,
+            "title": f"👤 Кандидат: {name} — {position}",
+            "department": "hr",
+            "description": f"Рассмотреть заявку от {name} на позицию {position}.",
+            "chat_id": _admin_chat_id(),
+        },
+        "stepan_bot",
+    )
 
 
 # ─── Finance Bot обработчики ───────────────────────────────
+
 
 async def finance_on_order_created(bot: Bot, payload: dict):
     """Новый заказ → записать ожидаемый доход."""
@@ -155,14 +191,18 @@ async def finance_on_order_created(bot: Bot, payload: dict):
     order_id = data.get("order_id")
 
     async with get_session_ctx() as session:
-        await session.execute(text(
-            "INSERT INTO finances (type, amount, category, description, related_order_id, date, created_at) "
-            "VALUES ('income', :a, 'sales', :d, :oid, CURRENT_DATE, NOW())"),
-            {"a": total, "d": f"Заказ {order_number}", "oid": order_id})
+        await session.execute(
+            text(
+                "INSERT INTO finances (type, amount, category, description, related_order_id, date, created_at) "
+                "VALUES ('income', :a, 'sales', :d, :oid, CURRENT_DATE, NOW())"
+            ),
+            {"a": total, "d": f"Заказ {order_number}", "oid": order_id},
+        )
     logger.info(f"Finance: доход {total} от заказа {order_number}")
 
 
 # ─── Analytics Bot обработчики ─────────────────────────────
+
 
 async def analytics_on_order_created(bot: Bot, payload: dict):
     """Логируем взаимодействие для аналитики."""
@@ -170,10 +210,13 @@ async def analytics_on_order_created(bot: Bot, payload: dict):
     customer_id = data.get("customer_id")
     if customer_id:
         async with get_session_ctx() as session:
-            await session.execute(text(
-                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
-                "VALUES (:cid, 'telegram', 'order', 'sales_bot', :s, NOW())"),
-                {"cid": customer_id, "s": f"Заказ {data.get('order_number', 'N/A')}"})
+            await session.execute(
+                text(
+                    "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
+                    "VALUES (:cid, 'telegram', 'order', 'sales_bot', :s, NOW())"
+                ),
+                {"cid": customer_id, "s": f"Заказ {data.get('order_number', 'N/A')}"},
+            )
     logger.info("Analytics: взаимодействие записано")
 
 
@@ -201,5 +244,3 @@ def register_analytics_handlers(event_bus, bot: Bot):
 
     event_bus.on(Events.ORDER_CREATED, lambda p: analytics_on_order_created(bot, p))
     logger.info("Analytics Bot: подписан на events (order)")
-
-

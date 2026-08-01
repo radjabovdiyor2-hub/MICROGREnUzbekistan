@@ -1,11 +1,12 @@
+# ruff: noqa: E402
 """scripts/check_ai.py — проверка корректности работы и настроек AI-движка.
 
 Запуск: python scripts/check_ai.py (из apps/tgas)
 """
+
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -49,7 +50,9 @@ def check_token_costs():
             f"❌ Модель '{active_model}' из settings.openai_model отсутствует в TOKEN_COSTS (shared/ai_engine.py)."
         )
     else:
-        notes.append(f"  ✓ Активная модель '{active_model}' присутствует в TOKEN_COSTS.")
+        notes.append(
+            f"  ✓ Активная модель '{active_model}' присутствует в TOKEN_COSTS."
+        )
 
 
 def check_reasoning_safety_reserve():
@@ -67,7 +70,9 @@ def check_reasoning_safety_reserve():
                 f"  ✓ Расчёт безопасного резерва токенов для {ai._openai_model}: запрошено {requested_tokens} → выделено {effective}."
             )
     else:
-        notes.append(f"  ✓ Модель {ai._openai_model} является классической (резерв не требуется).")
+        notes.append(
+            f"  ✓ Модель {ai._openai_model} является классической (резерв не требуется)."
+        )
 
 
 async def check_empty_response_guard():
@@ -90,7 +95,9 @@ def check_callsite_reasoning_efforts():
             content = py_file.read_text(encoding="utf-8", errors="ignore")
             calls_count += content.count("chat_completion(")
 
-    notes.append(f"  ✓ Проверено {checked_files} файлов ({calls_count} вызовов chat_completion) — параметры reasoning effort валидны.")
+    notes.append(
+        f"  ✓ Проверено {checked_files} файлов ({calls_count} вызовов chat_completion) — параметры reasoning effort валидны."
+    )
 
 
 async def main():

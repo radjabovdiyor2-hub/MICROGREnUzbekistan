@@ -26,30 +26,36 @@ async def create_backup() -> str:
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_file = BACKUP_DIR / f"tgas_backup_{timestamp}.sql"
-    
+
     # Формируем URL для pg_dump
     db_url = settings.sync_database_url
-    
+
     # Извлекаем компоненты из URL
     # postgresql://user:pass@host:port/dbname
     try:
         from urllib.parse import urlparse
+
         parsed = urlparse(db_url)
-        
+
         env = os.environ.copy()
         env["PGPASSWORD"] = parsed.password or ""
-        
+
         cmd = [
             "pg_dump",
-            "-h", parsed.hostname or "localhost",
-            "-p", str(parsed.port or 5432),
-            "-U", parsed.username or "postgres",
-            "-d", parsed.path.lstrip("/"),
-            "-f", str(backup_file),
+            "-h",
+            parsed.hostname or "localhost",
+            "-p",
+            str(parsed.port or 5432),
+            "-U",
+            parsed.username or "postgres",
+            "-d",
+            parsed.path.lstrip("/"),
+            "-f",
+            str(backup_file),
             "--no-owner",
             "--no-acl",
         ]
-        
+
         process = await asyncio.create_subprocess_exec(
             *cmd,
             env=env,
@@ -57,20 +63,20 @@ async def create_backup() -> str:
             stderr=asyncio.subprocess.PIPE,
         )
         stdout, stderr = await process.communicate()
-        
+
         if process.returncode == 0:
             size_mb = backup_file.stat().st_size / (1024 * 1024)
             logger.info(f"Бэкап создан: {backup_file.name} ({size_mb:.1f} MB)")
-            
+
             # Очистка старых бэкапов
             await cleanup_old_backups()
-            
+
             return str(backup_file)
         else:
             error_msg = stderr.decode("utf-8", errors="replace")
             logger.error(f"pg_dump ошибка: {error_msg}")
             return None
-            
+
     except Exception as e:
         logger.error(f"Ошибка создания бэкапа: {e}", exc_info=True)
         return None
@@ -78,8 +84,10 @@ async def create_backup() -> str:
 
 async def cleanup_old_backups():
     """Удаляет старые бэкапы, оставляя последние MAX_BACKUPS."""
-    backups = sorted(BACKUP_DIR.glob("tgas_backup_*.sql"), key=lambda f: f.stat().st_mtime)
-    
+    backups = sorted(
+        BACKUP_DIR.glob("tgas_backup_*.sql"), key=lambda f: f.stat().st_mtime
+    )
+
     while len(backups) > MAX_BACKUPS:
         old = backups.pop(0)
         old.unlink()
@@ -91,11 +99,15 @@ async def list_backups() -> list:
     backups = []
     for f in sorted(BACKUP_DIR.glob("tgas_backup_*.sql"), reverse=True):
         size_mb = f.stat().st_size / (1024 * 1024)
-        backups.append({
-            "name": f.name,
-            "size_mb": round(size_mb, 1),
-            "created": datetime.fromtimestamp(f.stat().st_mtime).strftime("%d.%m.%Y %H:%M"),
-        })
+        backups.append(
+            {
+                "name": f.name,
+                "size_mb": round(size_mb, 1),
+                "created": datetime.fromtimestamp(f.stat().st_mtime).strftime(
+                    "%d.%m.%Y %H:%M"
+                ),
+            }
+        )
     return backups
 
 
@@ -116,7 +128,10 @@ async def verify_backup(backup_file: str) -> bool:
         with open(path, "r", encoding="utf-8", errors="replace") as fh:
             tail = fh.readlines()[-20:]
         if not any("PostgreSQL database dump complete" in line for line in tail):
-            logger.error("Бэкап не содержит маркера завершения — вероятно, обрезан: %s", backup_file)
+            logger.error(
+                "Бэкап не содержит маркера завершения — вероятно, обрезан: %s",
+                backup_file,
+            )
             return False
 
         return True
@@ -201,7 +216,10 @@ async def run_backup_cycle() -> dict:
     path = await create_backup()
     if not path:
         return {
-            "ok": False, "file": None, "size": 0, "offsite": False,
+            "ok": False,
+            "file": None,
+            "size": 0,
+            "offsite": False,
             "message": "🚨 Бэкап БД НЕ создан. Проверьте место на диске и доступность PostgreSQL.",
         }
 
@@ -210,7 +228,10 @@ async def run_backup_cycle() -> dict:
 
     if not await verify_backup(path):
         return {
-            "ok": False, "file": name, "size": size, "offsite": False,
+            "ok": False,
+            "file": name,
+            "size": size,
+            "offsite": False,
             "message": f"🚨 Бэкап повреждён: {name}. Вероятно, кончилось место.",
         }
 
@@ -219,12 +240,18 @@ async def run_backup_cycle() -> dict:
 
     if not offsite and os.getenv("BACKUP_REMOTE_TARGET", "").strip():
         return {
-            "ok": True, "file": name, "size": size, "offsite": False,
+            "ok": True,
+            "file": name,
+            "size": size,
+            "offsite": False,
             "message": f"⚠️ Бэкап создан, но не уехал наружу: {name}. Копия только на этом сервере.",
         }
 
     return {
-        "ok": True, "file": name, "size": size, "offsite": offsite,
+        "ok": True,
+        "file": name,
+        "size": size,
+        "offsite": offsite,
         "message": f"✅ Бэкап готов: {name} ({size // 1024} КБ)",
     }
 
@@ -245,6 +272,7 @@ async def daily_backup_task(bot=None):
         if bot is not None:
             try:
                 from shared.notifications import alert_admins
+
                 await alert_admins(bot, f"<b>Бэкап БД</b>\n\n{result['message']}")
             except Exception as e:
                 logger.error("Не удалось разослать алерт о бэкапе: %s", e)
@@ -252,11 +280,18 @@ async def daily_backup_task(bot=None):
         # Второй канал — админка. Владелец может не смотреть в Telegram, а
         # неудачный бэкап обнаруживается ровно тогда, когда он уже нужен.
         try:
-            from shared.owner_alerts import raise_alert, SEVERITY_CRITICAL, SEVERITY_WARNING
+            from shared.owner_alerts import (
+                raise_alert,
+                SEVERITY_CRITICAL,
+                SEVERITY_WARNING,
+            )
+
             await raise_alert(
                 kind="backup_failed",
                 severity=SEVERITY_CRITICAL if not result["ok"] else SEVERITY_WARNING,
-                title="Бэкап базы не удался" if not result["ok"] else "Бэкап не уехал наружу",
+                title="Бэкап базы не удался"
+                if not result["ok"]
+                else "Бэкап не уехал наружу",
                 message=result["message"],
                 source="devops_bot",
                 # Факт плюс решение: кнопка запускает тот же бэкап через пульт.

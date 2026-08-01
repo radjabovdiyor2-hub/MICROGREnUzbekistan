@@ -49,9 +49,15 @@ async def main():
     page_id = getattr(settings, "facebook_page_id", "")
 
     print(f"  FACEBOOK_APP_ID:     {app_id or '❌ НЕ УСТАНОВЛЕН'}")
-    print(f"  FACEBOOK_APP_SECRET: {'✅ установлен' if app_secret else '❌ НЕ УСТАНОВЛЕН'}")
+    print(
+        f"  FACEBOOK_APP_SECRET: {'✅ установлен' if app_secret else '❌ НЕ УСТАНОВЛЕН'}"
+    )
     print(f"  FACEBOOK_PAGE_ID:    {page_id or '❌ НЕ УСТАНОВЛЕН'}")
-    print(f"  Current token:       {current_token[:30]}..." if current_token else "  Current token:       ❌ НЕ УСТАНОВЛЕН")
+    print(
+        f"  Current token:       {current_token[:30]}..."
+        if current_token
+        else "  Current token:       ❌ НЕ УСТАНОВЛЕН"
+    )
     print()
 
     if not app_id or not app_secret:

@@ -27,8 +27,8 @@ LOGO_PATH = BRAND_DIR / "logo.png"
 BRAND = {
     "name": "Microgreen Uzbekistan",
     "website": "microgreenuzbekistan.com",
-    "primary": "#10B981",       # изумрудно-зелёный
-    "accent": "#FFB800",        # тёплый золотой акцент
+    "primary": "#10B981",  # изумрудно-зелёный
+    "accent": "#FFB800",  # тёплый золотой акцент
     "primary_light": "#D1FAE5",
     "fonts": "Inter, Outfit",
     "tagline": "Надёжность + Доступность",
@@ -122,10 +122,11 @@ def brand_image_prompt(prompt: str) -> str:
 def _load_font(size: int):
     """Возвращает TTF-шрифт с поддержкой кириллицы (DejaVu в контейнере, Arial на Windows)."""
     from PIL import ImageFont
+
     candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",  # Docker (fonts-dejavu-core)
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "C:/Windows/Fonts/arialbd.ttf",                          # Windows (тест на хосте)
+        "C:/Windows/Fonts/arialbd.ttf",  # Windows (тест на хосте)
         "C:/Windows/Fonts/arial.ttf",
     ]
     for path in candidates:
@@ -157,10 +158,12 @@ def _clean_text(s: str) -> str:
     if not s:
         return ""
     import re
+
     s = re.sub(
-        "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U00002B00-\U00002BFF"
-        "\U0001F1E6-\U0001F1FF️‍❤⁉‼ьъыэЬЪЫЭ]",  # + кириллические артефакты транслитерации
-        "", s,
+        "[\U0001f000-\U0001faff\U00002600-\U000027bf\U00002b00-\U00002bff"
+        "\U0001f1e6-\U0001f1ff️‍❤⁉‼ьъыэЬЪЫЭ]",  # + кириллические артефакты транслитерации
+        "",
+        s,
     )
     return s.strip().strip('"').strip()
 
@@ -207,10 +210,10 @@ def render_story_text(
         base = Image.open(image_path).convert("RGBA")
         W, H = base.size
 
-        green = (16, 185, 129, 255)       # #10B981
-        green_dark = (5, 102, 74, 255)    # тёмно-зелёный для заголовка
-        gold = (255, 184, 0, 255)         # #FFB800 — акцент/промо
-        ink = (28, 40, 36, 255)           # тёплый почти-чёрный для текста
+        green = (16, 185, 129, 255)  # #10B981
+        green_dark = (5, 102, 74, 255)  # тёмно-зелёный для заголовка
+        gold = (255, 184, 0, 255)  # #FFB800 — акцент/промо
+        ink = (28, 40, 36, 255)  # тёплый почти-чёрный для текста
         white = (255, 255, 255, 255)
         btn = gold if accent else green
         margin = int(W * 0.07)
@@ -229,12 +232,14 @@ def render_story_text(
                 pd.line([(0, yy), (W, yy)], fill=(255, 255, 255, a))
         elif centered:
             for yy in range(int(H * 0.28), int(H * 0.74)):
-                pd.line([(0, yy), (W, yy)], fill=(10, 30, 22, 150))  # мягкая тёмная вуаль
+                pd.line(
+                    [(0, yy), (W, yy)], fill=(10, 30, 22, 150)
+                )  # мягкая тёмная вуаль
         else:  # bottom / poll
             top = int(H * (0.46 if has_points else 0.58))
             for yy in range(top, H):
                 t = (yy - top) / max(1, (H - top))
-                a = min(int(150 + 95 * t), 246)   # плавный вход в чистый белый
+                a = min(int(150 + 95 * t), 246)  # плавный вход в чистый белый
                 pd.line([(0, yy), (W, yy)], fill=(255, 255, 255, a))
         base = Image.alpha_composite(base, panel)
         draw = ImageDraw.Draw(base)
@@ -249,7 +254,8 @@ def render_story_text(
                 by0 = int(H * 0.05) if layout == "top" else int(H * 0.06)
                 draw.rounded_rectangle(
                     [margin, by0, margin + tw + pad * 2, by0 + f_b.size + pad],
-                    radius=int(f_b.size * 0.55), fill=btn,
+                    radius=int(f_b.size * 0.55),
+                    fill=btn,
                 )
                 draw.text((margin + pad, by0 + pad * 0.35), bt, font=f_b, fill=white)
 
@@ -271,8 +277,12 @@ def render_story_text(
         if headline:
             hsize = 0.066 if has_points else (0.086 if centered else 0.078)
             f_head = _load_font(int(W * hsize))
-            y = _block(y, _wrap(draw, _clean_text(headline), f_head, W - 2 * margin),
-                       f_head, white if centered else green_dark)
+            y = _block(
+                y,
+                _wrap(draw, _clean_text(headline), f_head, W - 2 * margin),
+                f_head,
+                white if centered else green_dark,
+            )
             y += int(H * 0.014)
 
         # Список КОНКРЕТНЫХ пунктов (лайфхак/факт/рецепт) — реальная суть на картинке.
@@ -280,12 +290,16 @@ def render_story_text(
         if has_points:
             if section:
                 f_sec = _load_font(int(W * 0.032))
-                draw.text((margin, y), _clean_text(section).upper(), font=f_sec, fill=gold)
+                draw.text(
+                    (margin, y), _clean_text(section).upper(), font=f_sec, fill=gold
+                )
                 y += int(f_sec.size * 1.7)
             f_pt = _load_font(int(W * 0.041))
             for pt in [p for p in points if str(p).strip()][:3]:
                 for j, line in enumerate(
-                    _wrap(draw, _clean_text(str(pt)), f_pt, W - 2 * margin - int(W * 0.02))
+                    _wrap(
+                        draw, _clean_text(str(pt)), f_pt, W - 2 * margin - int(W * 0.02)
+                    )
                 ):
                     prefix = "•  " if j == 0 else "     "
                     draw.text((margin, y), prefix + line, font=f_pt, fill=ink)
@@ -296,8 +310,12 @@ def render_story_text(
         # Одиночная фраза пользы (когда нет списка; не для poll)
         elif subtitle and layout != "poll":
             f_sub = _load_font(int(W * (0.05 if centered else 0.043)))
-            y = _block(y, _wrap(draw, _clean_text(subtitle), f_sub, W - 2 * margin),
-                       f_sub, white if centered else ink)
+            y = _block(
+                y,
+                _wrap(draw, _clean_text(subtitle), f_sub, W - 2 * margin),
+                f_sub,
+                white if centered else ink,
+            )
             y += int(H * 0.016)
 
         # Два варианта выбора для «this or that»
@@ -310,7 +328,8 @@ def render_story_text(
                     continue
                 draw.rounded_rectangle(
                     [margin, y, W - margin, y + f_o.size + pad],
-                    radius=int(f_o.size * 0.5), fill=(green if i == 0 else gold),
+                    radius=int(f_o.size * 0.5),
+                    fill=(green if i == 0 else gold),
                 )
                 draw.text((margin + pad, y + pad * 0.3), ot, font=f_o, fill=white)
                 y += f_o.size + pad + int(H * 0.012)
@@ -326,7 +345,8 @@ def render_story_text(
             bx = int((W - (tw + pad * 2)) / 2) if centered else margin
             draw.rounded_rectangle(
                 [bx, by, bx + tw + pad * 2, by + f_cta.size + pad],
-                radius=int(f_cta.size * 0.6), fill=btn,
+                radius=int(f_cta.size * 0.6),
+                fill=btn,
             )
             draw.text((bx + pad, by + pad * 0.35), cta_t, font=f_cta, fill=white)
             y = by + f_cta.size + pad + int(H * 0.010)
@@ -337,14 +357,22 @@ def render_story_text(
             nt = _clean_text(note)
             if nt:
                 x = ((W - draw.textlength(nt, font=f_n)) / 2) if centered else margin
-                draw.text((x, min(y, H - int(f_n.size * 2.4))), nt, font=f_n,
-                          fill=white if centered else green_dark)
+                draw.text(
+                    (x, min(y, H - int(f_n.size * 2.4))),
+                    nt,
+                    font=f_n,
+                    fill=white if centered else green_dark,
+                )
 
         # @упоминание — всегда внизу
         if mention:
             f_m = _load_font(int(W * 0.028))
-            draw.text((margin, H - int(f_m.size * 2.2)), _clean_text(mention),
-                      font=f_m, fill=white if centered else green)
+            draw.text(
+                (margin, H - int(f_m.size * 2.2)),
+                _clean_text(mention),
+                font=f_m,
+                fill=white if centered else green,
+            )
 
         base.convert("RGB").save(out_path, "JPEG", quality=92)
         return True
@@ -405,7 +433,9 @@ def render_recipe_card(
         draw.text((m, y), "TARKIBI", font=f_head, fill=gold)
         y += int(f_head.size * 1.7)
         for ing in ingredients[:5]:
-            for j, line in enumerate(_wrap(draw, _clean_text(ing), f_line, max_w - int(W * 0.02))):
+            for j, line in enumerate(
+                _wrap(draw, _clean_text(ing), f_line, max_w - int(W * 0.02))
+            ):
                 prefix = "•  " if j == 0 else "    "
                 draw.text((m, y), prefix + line, font=f_line, fill=ink)
                 y += int(f_line.size * 1.34)
@@ -418,12 +448,15 @@ def render_recipe_card(
         cy = min(y + int(H * 0.012), H - int(f_cta.size) - pad * 2 - int(H * 0.05))
         draw.rounded_rectangle(
             [m, cy, m + tw + pad * 2, cy + f_cta.size + pad],
-            radius=int(f_cta.size * 0.6), fill=green,
+            radius=int(f_cta.size * 0.6),
+            fill=green,
         )
         draw.text((m + pad, cy + pad * 0.35), cta_t, font=f_cta, fill=white)
 
         f_m = _load_font(int(W * 0.027))
-        draw.text((m, H - int(f_m.size * 1.9)), _clean_text(mention), font=f_m, fill=green)
+        draw.text(
+            (m, H - int(f_m.size * 1.9)), _clean_text(mention), font=f_m, fill=green
+        )
 
         base.convert("RGB").save(out_path, "JPEG", quality=92)
         return True
@@ -432,7 +465,9 @@ def render_recipe_card(
         return False
 
 
-def render_meme_caption(image_path: str, out_path: str, text: str, top: bool = True) -> bool:
+def render_meme_caption(
+    image_path: str, out_path: str, text: str, top: bool = True
+) -> bool:
     """
     Классическая мем-подпись: крупный жирный белый текст с чёрной обводкой,
     по центру сверху (или снизу). Читаемо — в отличие от текста, который рисует DALL-E.

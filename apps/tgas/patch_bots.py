@@ -38,28 +38,28 @@ async def handle_task_created(payload: dict):
     finally:
         await bot.session.close()
 """
-    
+
     main_py_path = f"bots/{dept}_bot/main.py"
     if not os.path.exists(main_py_path):
         print(f"Not found: {main_py_path}")
         continue
-    
-    with open(main_py_path, 'r', encoding='utf-8') as f:
+
+    with open(main_py_path, "r", encoding="utf-8") as f:
         content = f.read()
-    
+
     if "handle_task_created" in content:
         print(f"Skipping {dept}, already patched.")
         continue
-    
+
     content = content.replace("async def main():", handler_code + "\nasync def main():")
-    
+
     patch = """    await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
     await event_bus.start_listening()"""
-    
+
     content = content.replace("await event_bus.connect()", patch)
-    
-    with open(main_py_path, 'w', encoding='utf-8') as f:
+
+    with open(main_py_path, "w", encoding="utf-8") as f:
         f.write(content)
-    
+
     print(f"Patched {dept}")

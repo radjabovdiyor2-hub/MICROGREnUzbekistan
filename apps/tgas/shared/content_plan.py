@@ -24,70 +24,103 @@ from typing import Optional
 # контент → узбекский (выше охват и вовлечение), B2B/премиум → русский.
 CONTENT_PILLARS: list[dict] = [
     {
-        "key": "health", "emoji": "🌱", "name": "Здоровое питание", "lang": "mix",
+        "key": "health",
+        "emoji": "🌱",
+        "name": "Здоровое питание",
+        "lang": "mix",
         "angle": "Полезный совет о питании, иммунитете или энергии для всей семьи. "
-                 "Конкретный факт (витамины, антиоксиданты), практичный и применимый. "
-                 "Микрозелень упомяни органично как один из способов, не как единственный.",
+        "Конкретный факт (витамины, антиоксиданты), практичный и применимый. "
+        "Микрозелень упомяни органично как один из способов, не как единственный.",
         "tags": "#здоровье #питание #витамины #ЗОЖ",
     },
     {
-        "key": "recipe", "emoji": "🍽", "name": "Кулинарные идеи", "lang": "mix",
+        "key": "recipe",
+        "emoji": "🍽",
+        "name": "Кулинарные идеи",
+        "lang": "mix",
         "angle": "Простой аппетитный рецепт или идея подачи — акцент на БЛЮДЕ и вкусе, "
-                 "а не на ингредиенте. Свежая зелень — один из компонентов, не главный герой поста.",
+        "а не на ингредиенте. Свежая зелень — один из компонентов, не главный герой поста.",
         "tags": "#рецепт #вкусно #кулинария #еда",
     },
     {
-        "key": "horeca", "emoji": "👨‍🍳", "name": "Мир ресторанов", "lang": "ru",
+        "key": "horeca",
+        "emoji": "👨‍🍳",
+        "name": "Мир ресторанов",
+        "lang": "ru",
         "angle": "Экспертный контент для шефов и рестораторов: тренды подачи, food cost, "
-                 "сервис, культура гостеприимства. Свежие ингредиенты — часть решения, не весь пост.",
+        "сервис, культура гостеприимства. Свежие ингредиенты — часть решения, не весь пост.",
         "tags": "#HoReCa #ресторан #шефповар #B2B",
     },
     {
-        "key": "farm", "emoji": "🏡", "name": "Как это устроено", "lang": "uz",
+        "key": "farm",
+        "emoji": "🏡",
+        "name": "Как это устроено",
+        "lang": "uz",
         "angle": "Закулисье: как устроена сити-ферма, технологии выращивания, путь от семени "
-                 "до тарелки. Покажи процесс и людей — создай доверие через прозрачность.",
+        "до тарелки. Покажи процесс и людей — создай доверие через прозрачность.",
         "tags": "#ситиферма #технологии #свежесть #Самарканд",
     },
     {
-        "key": "product", "emoji": "📦", "name": "Продукт в фокусе", "lang": "mix",
+        "key": "product",
+        "emoji": "📦",
+        "name": "Продукт в фокусе",
+        "lang": "mix",
         "angle": "Расскажи об одном конкретном продукте или наборе: чем хорош, кому подойдёт, "
-                 "как заказать. Это единственная рубрика, где продукт — главный герой.",
+        "как заказать. Это единственная рубрика, где продукт — главный герой.",
         "tags": "#продукт #свежесть #заказ",
     },
     {
-        "key": "trust", "emoji": "💬", "name": "Истории и люди", "lang": "ru",
+        "key": "trust",
+        "emoji": "💬",
+        "name": "Истории и люди",
+        "lang": "ru",
         "angle": "Человеческая история: клиент, шеф, фермер, партнёр. Тёплый тон, "
-                 "реальные ситуации, без выдуманных отзывов. Бренд — фон, не фокус.",
+        "реальные ситуации, без выдуманных отзывов. Бренд — фон, не фокус.",
         "tags": "#история #люди #доверие #качество",
     },
     {
-        "key": "promo", "emoji": "🎉", "name": "Акция и промо", "lang": "uz",
+        "key": "promo",
+        "emoji": "🎉",
+        "name": "Акция и промо",
+        "lang": "uz",
         "angle": "Ограниченное предложение или промокод (скидка/подарок к заказу). "
-                 "Чёткий призыв к действию и дедлайн. Не чаще, чем задано ротацией.",
+        "Чёткий призыв к действию и дедлайн. Не чаще, чем задано ротацией.",
         "tags": "#акция #скидка #промокод #выгодно",
     },
     {
-        "key": "trend", "emoji": "📈", "name": "Тренды и сезон", "lang": "uz",
+        "key": "trend",
+        "emoji": "📈",
+        "name": "Тренды и сезон",
+        "lang": "uz",
         "angle": "Ситуативный контент: погода, сезон, праздник, мировой ЗОЖ-тренд. "
-                 "Главное — актуальность и польза, бренд привяжи нативно в конце.",
+        "Главное — актуальность и польза, бренд привяжи нативно в конце.",
         "tags": "#тренд #сезон #ЗОЖ #Узбекистан",
     },
     {
-        "key": "news", "emoji": "📰", "name": "Повестка недели", "lang": "uz",
+        "key": "news",
+        "emoji": "📰",
+        "name": "Повестка недели",
+        "lang": "uz",
         "angle": "Интересная новость или событие недели (еда, экология, культура, спорт). "
-                 "Сначала ценность для читателя, потом лёгкий мостик к здоровому образу жизни.",
+        "Сначала ценность для читателя, потом лёгкий мостик к здоровому образу жизни.",
         "tags": "#новости #события #Узбекистан",
     },
     {
-        "key": "health_trend", "emoji": "💊", "name": "Красота и энергия", "lang": "mix",
+        "key": "health_trend",
+        "emoji": "💊",
+        "name": "Красота и энергия",
+        "lang": "mix",
         "angle": "Совет о красоте, энергии или самочувствии (сон, вода, движение, питание). "
-                 "Без медицинских обещаний. Зелень — один из инструментов, не панацея.",
+        "Без медицинских обещаний. Зелень — один из инструментов, не панацея.",
         "tags": "#красота #энергия #витамины #selfcare",
     },
     {
-        "key": "home_lifehack", "emoji": "💡", "name": "Лайфхаки быта", "lang": "uz",
+        "key": "home_lifehack",
+        "emoji": "💡",
+        "name": "Лайфхаки быта",
+        "lang": "uz",
         "angle": "Практичный бытовой или кухонный лайфхак (хранение, экономия, уборка, готовка). "
-                 "Полезно само по себе — бренд не обязателен в каждом посте.",
+        "Полезно само по себе — бренд не обязателен в каждом посте.",
         "tags": "#лайфхак #кухня #дом #полезно",
     },
 ]
@@ -103,12 +136,14 @@ IMAGE_STYLES = [
     "moody dark, dramatic side light",
     "vibrant colorful flat-lay top-down",
     "soft pastel morning",
-    "fine-dining plating, shallow DOF"
+    "fine-dining plating, shallow DOF",
 ]
+
 
 def get_daily_image_style(d: Optional[date] = None) -> str:
     d = d or date.today()
     return _pick(IMAGE_STYLES, d.timetuple().tm_yday * 5)
+
 
 # Приоритетные пиллары для еженедельного grid-поста (авторитет + конверсия).
 GRID_PILLAR_KEYS = ["horeca", "recipe", "product", "farm", "health", "trust"]
@@ -172,23 +207,54 @@ def build_brief(pillar: dict, slot: str = "", d: Optional[date] = None) -> str:
 # 12), поэтому комбинации почти не повторяются много месяцев подряд.
 
 WORLD_CUISINES = [
-    "итальянская", "японская", "мексиканская", "тайская", "французская",
-    "индийская", "корейская", "греческая (средиземноморская)", "турецкая",
-    "вьетнамская", "грузинская", "испанская", "марокканская", "ливанская",
-    "перуанская", "узбекская", "китайская (сычуань)", "скандинавская",
+    "итальянская",
+    "японская",
+    "мексиканская",
+    "тайская",
+    "французская",
+    "индийская",
+    "корейская",
+    "греческая (средиземноморская)",
+    "турецкая",
+    "вьетнамская",
+    "грузинская",
+    "испанская",
+    "марокканская",
+    "ливанская",
+    "перуанская",
+    "узбекская",
+    "китайская (сычуань)",
+    "скандинавская",
 ]
 
 DISH_FORMATS = [
-    "свежий салат", "тёплый салат (warm salad)", "боул (grain/buddha bowl)",
-    "брускетта или тосты", "обёртка/ролл (wrap)", "крем-суп с топпингом из микрозелени",
-    "мезе/ассорти закусок", "сэндвич или бургер", "паста или лапша",
-    "фриттата/омлет на завтрак", "севиче или тартар", "гарнир к рыбе/мясу",
+    "свежий салат",
+    "тёплый салат (warm salad)",
+    "боул (grain/buddha bowl)",
+    "брускетта или тосты",
+    "обёртка/ролл (wrap)",
+    "крем-суп с топпингом из микрозелени",
+    "мезе/ассорти закусок",
+    "сэндвич или бургер",
+    "паста или лапша",
+    "фриттата/омлет на завтрак",
+    "севиче или тартар",
+    "гарнир к рыбе/мясу",
 ]
 
 HERO_GREENS = [
-    "рукола", "микрозелень гороха", "микрозелень подсолнечника", "микрозелень редиса",
-    "микро-базилик", "кресс-салат", "мангольд беби-лиф", "шпинат беби-лиф",
-    "витграсс (в дрессинге/смузи)", "съедобные цветы", "салатный микс", "микро-кинза",
+    "рукола",
+    "микрозелень гороха",
+    "микрозелень подсолнечника",
+    "микрозелень редиса",
+    "микро-базилик",
+    "кресс-салат",
+    "мангольд беби-лиф",
+    "шпинат беби-лиф",
+    "витграсс (в дрессинге/смузи)",
+    "съедобные цветы",
+    "салатный микс",
+    "микро-кинза",
 ]
 
 # Темы утреннего факта/пользы — широкие, любопытные, «сохраняемые». Про еду, кухню,
@@ -256,7 +322,7 @@ def get_daily_tip_theme(d: Optional[date] = None) -> str:
 def build_recipe_brief(d: Optional[date] = None) -> dict:
     """Бриф уникального рецепта дня: кухня мира + формат + «герой»-зелень + язык."""
     d = d or date.today()
-    doy = d.timetuple().tm_yday
+    d.timetuple().tm_yday
     return {
         "cuisine": get_daily_cuisine(d),
         "format": get_daily_dish_format(d),
@@ -293,67 +359,106 @@ def build_recipe_brief(d: Optional[date] = None) -> dict:
 
 MORNING_FORMATS: list[dict] = [
     {
-        "key": "fact", "ru": "Факт дня «А вы знали?»", "badge": "BILARMIDINGIZ?",
-        "layout": "top", "kind": "info", "section": "FOYDASI",
+        "key": "fact",
+        "ru": "Факт дня «А вы знали?»",
+        "badge": "BILARMIDINGIZ?",
+        "layout": "top",
+        "kind": "info",
+        "section": "FOYDASI",
         "angle": "Раскрой ОДИН неожиданный факт по теме «{fact}». Заголовок — сам факт. "
-                 "Пункты (points) — 2-3 КОНКРЕТНЫХ следствия/пользы. Не выдумывай цифр.",
+        "Пункты (points) — 2-3 КОНКРЕТНЫХ следствия/пользы. Не выдумывай цифр.",
         "photo": "appetizing fresh-food or breakfast flat-lay in soft morning backlight, vibrant "
-                 "natural colors, soft bokeh, a touch of fresh greens as a subtle accent",
-        "cta": "Batafsil", "trigger": "do'stingizga yuboring (share)", "note": "Do'stga yuboring",
+        "natural colors, soft bokeh, a touch of fresh greens as a subtle accent",
+        "cta": "Batafsil",
+        "trigger": "do'stingizga yuboring (share)",
+        "note": "Do'stga yuboring",
     },
     {
-        "key": "question", "ru": "Вопрос аудитории", "badge": "SAVOL",
-        "layout": "center", "kind": "engage",
+        "key": "question",
+        "ru": "Вопрос аудитории",
+        "badge": "SAVOL",
+        "layout": "center",
+        "kind": "engage",
         "angle": "Задай аудитории тёплый вопрос про их утро/питание/привычки, "
-                 "чтобы захотелось ответить в директ. Один короткий вопрос.",
+        "чтобы захотелось ответить в директ. Один короткий вопрос.",
         "photo": "cozy morning scene at a home table, hands holding a warm bowl or a cup of tea, "
-                 "warm lifestyle, natural window light",
-        "cta": "Javob yozing", "trigger": "javobingizni izohda yozing", "note": "Javob yozing",
+        "warm lifestyle, natural window light",
+        "cta": "Javob yozing",
+        "trigger": "javobingizni izohda yozing",
+        "note": "Javob yozing",
     },
     {
-        "key": "this_or_that", "ru": "Выбор «Qaysi biri?»", "badge": "TANLANG",
-        "layout": "poll", "kind": "engage",
+        "key": "this_or_that",
+        "ru": "Выбор «Qaysi biri?»",
+        "badge": "TANLANG",
+        "layout": "poll",
+        "kind": "engage",
         "angle": "Предложи выбор из ДВУХ вариантов (вкус/блюдо/привычка), чтобы подписчик выбрал. "
-                 "Сформулируй интригующе, оба варианта — про нашу зелень/еду.",
+        "Сформулируй интригующе, оба варианта — про нашу зелень/еду.",
         "photo": "two different appetizing dishes or drinks side by side on a clean light table, "
-                 "top-down split composition, bright daylight",
-        "cta": "Tanlang", "trigger": "qaysi birini tanlaysiz? belgilang", "note": "Qaysi biri?",
+        "top-down split composition, bright daylight",
+        "cta": "Tanlang",
+        "trigger": "qaysi birini tanlaysiz? belgilang",
+        "note": "Qaysi biri?",
     },
     {
-        "key": "tip", "ru": "Лайфхак дня", "badge": "LIFEHACK",
-        "layout": "bottom", "kind": "info", "section": "MASLAHAT",
+        "key": "tip",
+        "ru": "Лайфхак дня",
+        "badge": "LIFEHACK",
+        "layout": "bottom",
+        "kind": "info",
+        "section": "MASLAHAT",
         "angle": "Разверни КОНКРЕТНЫЙ лайфхак по теме «{tip}». Заголовок — суть выгоды. "
-                 "Пункты (points) — 2-3 конкретных шага КАК именно это сделать (способ, срок, °C).",
+        "Пункты (points) — 2-3 конкретных шага КАК именно это сделать (способ, срок, °C).",
         "photo": "hands preparing and cutting fresh food on a wooden board in a bright modern home "
-                 "kitchen, action shot, shallow depth of field",
-        "cta": "Saqlang", "trigger": "saqlab qo'ying (bookmark)", "note": "Saqlab qo'ying",
+        "kitchen, action shot, shallow depth of field",
+        "cta": "Saqlang",
+        "trigger": "saqlab qo'ying (bookmark)",
+        "note": "Saqlab qo'ying",
     },
     {
-        "key": "mini_recipe", "ru": "Мини-рецепт за 15 сек", "badge": "15 SONIYA",
-        "layout": "bottom", "kind": "info", "section": "TARKIBI",
+        "key": "mini_recipe",
+        "ru": "Мини-рецепт за 15 сек",
+        "badge": "15 SONIYA",
+        "layout": "bottom",
+        "kind": "info",
+        "section": "TARKIBI",
         "angle": "Простое блюдо на 3 ингредиента с микрозеленью — «за 15 секунд». Заголовок — "
-                 "название блюда. Пункты (points) — 3 ингредиента ИЛИ 3 коротких шага.",
+        "название блюда. Пункты (points) — 3 ингредиента ИЛИ 3 коротких шага.",
         "photo": "appetizing finished home-plated dish, beautifully served and garnished, "
-                 "close-up, warm inviting light",
-        "cta": "Retsept", "trigger": "retseptni saqlab qo'ying", "note": "Retseptni saqlang",
+        "close-up, warm inviting light",
+        "cta": "Retsept",
+        "trigger": "retseptni saqlab qo'ying",
+        "note": "Retseptni saqlang",
     },
     {
-        "key": "quote", "ru": "Мотивация утра", "badge": "BUGUN",
-        "layout": "center", "kind": "engage",
+        "key": "quote",
+        "ru": "Мотивация утра",
+        "badge": "BUGUN",
+        "layout": "center",
+        "kind": "engage",
         "angle": "Короткая тёплая мысль/мотивация о свежести, здоровье и заботе о себе с утра. "
-                 "Без клише, живо и по-человечески.",
+        "Без клише, живо и по-человечески.",
         "photo": "minimalist aesthetic still life — a cup of coffee or tea and a little fresh food on a "
-                 "neutral background, soft moody morning light, lots of negative space",
-        "cta": "Batafsil", "trigger": "rozimisiz? 💚 belgilang", "note": "Rozimisiz?",
+        "neutral background, soft moody morning light, lots of negative space",
+        "cta": "Batafsil",
+        "trigger": "rozimisiz? 💚 belgilang",
+        "note": "Rozimisiz?",
     },
     {
-        "key": "promo", "ru": "Утреннее промо", "badge": "AKSIYA",
-        "layout": "bottom", "kind": "info", "section": "SHARTLAR",
+        "key": "promo",
+        "ru": "Утреннее промо",
+        "badge": "AKSIYA",
+        "layout": "bottom",
+        "kind": "info",
+        "section": "SHARTLAR",
         "angle": "Утреннее спецпредложение. Заголовок — суть выгоды. Пункты (points) — "
-                 "3 конкретных условия: «10% chegirma», «BODRLIK kodi», «Faqat 24 soat».",
+        "3 конкретных условия: «10% chegirma», «BODRLIK kodi», «Faqat 24 soat».",
         "photo": "premium product hero shot of a fresh-food / greens gift box, "
-                 "studio light, warm golden accents",
-        "cta": "Buyurtma berish", "trigger": "bugun 10% chegirma — buyurtma bering", "note": "Bugun -10%",
+        "studio light, warm golden accents",
+        "cta": "Buyurtma berish",
+        "trigger": "bugun 10% chegirma — buyurtma bering",
+        "note": "Bugun -10%",
     },
 ]
 

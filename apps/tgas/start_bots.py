@@ -5,13 +5,12 @@ import sys
 bots = [
     "bots.stepan_bot.main",
     "bots.sales_bot.main",
-
     "bots.finance_bot.main",
     "bots.marketing_bot.main",
     "bots.analytics_bot.main",
     "bots.support_bot.main",
     "bots.hr_bot.main",
-    "bots.content_bot.main"
+    "bots.content_bot.main",
 ]
 
 print("Starting all bots...")

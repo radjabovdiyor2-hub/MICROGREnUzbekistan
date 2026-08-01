@@ -19,14 +19,20 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from shared.lead_gen import collect_from_2gis, parse_manual_csv, import_leads  # noqa: E402
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [collect] %(levelname)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [collect] %(levelname)s: %(message)s"
+)
 
 
 async def main():
     parser = argparse.ArgumentParser(description="Сбор ресторанов в лид-базу")
     parser.add_argument("--source", choices=["2gis", "manual"], required=True)
-    parser.add_argument("--limit", type=int, default=50, help="Макс. заведений (для 2gis)")
-    parser.add_argument("--query", default="рестораны", help="Поисковый запрос (для 2gis)")
+    parser.add_argument(
+        "--limit", type=int, default=50, help="Макс. заведений (для 2gis)"
+    )
+    parser.add_argument(
+        "--query", default="рестораны", help="Поисковый запрос (для 2gis)"
+    )
     parser.add_argument("--file", help="Путь к CSV (для manual)")
     args = parser.parse_args()
 
@@ -42,7 +48,9 @@ async def main():
         return
 
     result = await import_leads(leads)
-    print(f"✅ Готово: +{result['inserted']} новых лидов, {result['skipped']} пропущено (дубли).")
+    print(
+        f"✅ Готово: +{result['inserted']} новых лидов, {result['skipped']} пропущено (дубли)."
+    )
 
 
 if __name__ == "__main__":

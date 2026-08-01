@@ -50,7 +50,9 @@ def make_reel(
     """
     ff = _ffmpeg_bin()
     if not ff:
-        logger.warning("make_reel: ffmpeg не найден (нет в PATH и FFMPEG_BIN). Reel не собран.")
+        logger.warning(
+            "make_reel: ffmpeg не найден (нет в PATH и FFMPEG_BIN). Reel не собран."
+        )
         return None
     if not (image_path and os.path.isfile(image_path)):
         logger.warning("make_reel: нет исходного кадра %s", image_path)
@@ -71,22 +73,47 @@ def make_reel(
     if audio_path and os.path.isfile(audio_path):
         cmd += ["-i", audio_path]
     else:
-        cmd += ["-f", "lavfi", "-t", str(duration),
-                "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]
+        cmd += [
+            "-f",
+            "lavfi",
+            "-t",
+            str(duration),
+            "-i",
+            "anullsrc=channel_layout=stereo:sample_rate=44100",
+        ]
     cmd += [
-        "-filter_complex", vf,
-        "-map", "[v]", "-map", "1:a",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-r", str(fps),
-        "-c:a", "aac", "-b:a", "128k",
-        "-t", str(duration), "-shortest", "-movflags", "+faststart",
+        "-filter_complex",
+        vf,
+        "-map",
+        "[v]",
+        "-map",
+        "1:a",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-r",
+        str(fps),
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-t",
+        str(duration),
+        "-shortest",
+        "-movflags",
+        "+faststart",
         out_path,
     ]
 
     try:
         proc = subprocess.run(cmd, capture_output=True, timeout=180)
         if proc.returncode != 0:
-            logger.error("make_reel: ffmpeg rc=%s: %s",
-                         proc.returncode, proc.stderr.decode("utf-8", "ignore")[-600:])
+            logger.error(
+                "make_reel: ffmpeg rc=%s: %s",
+                proc.returncode,
+                proc.stderr.decode("utf-8", "ignore")[-600:],
+            )
             return None
         if os.path.isfile(out_path) and os.path.getsize(out_path) > 0:
             logger.info("make_reel: собран %s (%.1fs)", out_path, duration)

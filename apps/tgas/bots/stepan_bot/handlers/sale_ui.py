@@ -28,8 +28,8 @@ from shared.utils import format_price
 logger = logging.getLogger(__name__)
 sale_ui_router = Router()
 
-PENDING_TTL = 3600   # час на то, чтобы ответить на уточнение
-ASKED_TTL = 900      # 15 минут: столько же не переспрашиваем про ту же продажу
+PENDING_TTL = 3600  # час на то, чтобы ответить на уточнение
+ASKED_TTL = 900  # 15 минут: столько же не переспрашиваем про ту же продажу
 
 
 def _redis() -> redis.Redis:
@@ -40,7 +40,9 @@ async def save_pending(payload: Dict[str, Any]) -> str:
     token = uuid.uuid4().hex[:10]
     client = _redis()
     try:
-        await client.set(f"sale:{token}", json.dumps(payload, ensure_ascii=False), ex=PENDING_TTL)
+        await client.set(
+            f"sale:{token}", json.dumps(payload, ensure_ascii=False), ex=PENDING_TTL
+        )
     finally:
         await client.aclose()
     return token
@@ -67,7 +69,7 @@ def _short(name: str) -> str:
     """«Микрозелень рукколы» → «Рукколы»: в кнопке важна суть, а не общий префикс."""
     for prefix in ("Микрозелень ", "Бейби ", "Салат "):
         if name.startswith(prefix):
-            rest = name[len(prefix):]
+            rest = name[len(prefix) :]
             return rest[:1].upper() + rest[1:]
     return name
 
@@ -79,7 +81,9 @@ def _price_short(price: float) -> str:
     return f"{price:g}"
 
 
-def _product_button(builder: InlineKeyboardBuilder, token: str, index: int, product: Dict[str, Any]):
+def _product_button(
+    builder: InlineKeyboardBuilder, token: str, index: int, product: Dict[str, Any]
+):
     builder.button(
         text=f"{_short(product['name'])} · {_price_short(product['price'])}",
         callback_data=f"sale:pick:{token}:{index}:{product['id']}",
@@ -102,8 +106,10 @@ def build_clarify_keyboard(token: str, data: Dict[str, Any]):
             _product_button(builder, token, first["index"], candidate)
         builder.adjust(2)  # две колонки — список не растягивается на экран
         builder.row(
-            InlineKeyboardButton(text="📂 Весь каталог",
-                                 callback_data=f"sale:cats:{token}:{first['index']}"),
+            InlineKeyboardButton(
+                text="📂 Весь каталог",
+                callback_data=f"sale:cats:{token}:{first['index']}",
+            ),
             InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}"),
         )
         return builder.as_markup()
@@ -117,8 +123,10 @@ def build_clarify_keyboard(token: str, data: Dict[str, Any]):
                 text=f"➕ Завести «{first['name']}» — {format_price(first['unit_price'])}",
                 callback_data=f"sale:add:{token}:{first['index']}",
             )
-        builder.button(text="📂 Выбрать из каталога",
-                       callback_data=f"sale:cats:{token}:{first['index']}")
+        builder.button(
+            text="📂 Выбрать из каталога",
+            callback_data=f"sale:cats:{token}:{first['index']}",
+        )
         builder.button(text="✖️ Отмена", callback_data=f"sale:cancel:{token}")
         builder.adjust(1)
         return builder.as_markup()
@@ -137,7 +145,9 @@ async def build_categories_keyboard(token: str, index: int):
             callback_data=f"sale:cat:{token}:{index}:{cat['slug']}:0",
         )
     builder.adjust(2)
-    builder.row(InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}"))
+    builder.row(
+        InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}")
+    )
     return builder.as_markup()
 
 
@@ -153,18 +163,31 @@ async def build_products_keyboard(token: str, index: int, category: str, page: i
 
     nav = []
     if page > 0:
-        nav.append(InlineKeyboardButton(
-            text="◀️", callback_data=f"sale:cat:{token}:{index}:{category}:{page - 1}"))
-    nav.append(InlineKeyboardButton(
-        text=f"{page + 1}/{data['pages']}", callback_data="sale:noop"))
+        nav.append(
+            InlineKeyboardButton(
+                text="◀️",
+                callback_data=f"sale:cat:{token}:{index}:{category}:{page - 1}",
+            )
+        )
+    nav.append(
+        InlineKeyboardButton(
+            text=f"{page + 1}/{data['pages']}", callback_data="sale:noop"
+        )
+    )
     if page + 1 < data["pages"]:
-        nav.append(InlineKeyboardButton(
-            text="▶️", callback_data=f"sale:cat:{token}:{index}:{category}:{page + 1}"))
+        nav.append(
+            InlineKeyboardButton(
+                text="▶️",
+                callback_data=f"sale:cat:{token}:{index}:{category}:{page + 1}",
+            )
+        )
     if len(nav) > 1:
         builder.row(*nav)
 
     builder.row(
-        InlineKeyboardButton(text="📂 Категории", callback_data=f"sale:cats:{token}:{index}"),
+        InlineKeyboardButton(
+            text="📂 Категории", callback_data=f"sale:cats:{token}:{index}"
+        ),
         InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}"),
     )
     return builder.as_markup(), data
@@ -179,18 +202,27 @@ async def run_sale(pending: Dict[str, Any]) -> Dict[str, Any]:
     task_id = await send_task("stepan_bot", "sales_bot", "register_sale", params)
     bus_result = await get_result(task_id, timeout=60)
     if not bus_result or bus_result.get("status") == "error":
-        return {"status": "error",
-                "message": (bus_result or {}).get("error", "отдел не ответил за 60 секунд")}
-    return bus_result.get("result") or {"status": "error", "message": "пустой ответ отдела"}
+        return {
+            "status": "error",
+            "message": (bus_result or {}).get("error", "отдел не ответил за 60 секунд"),
+        }
+    return bus_result.get("result") or {
+        "status": "error",
+        "message": "пустой ответ отдела",
+    }
 
 
 def _sale_signature(pending: Dict[str, Any]) -> str:
     """Отпечаток продажи: клиент + позиции. Одинаковый — значит тот же вопрос."""
     # product_id входит в отпечаток: после выбора кнопкой продажа уже другая,
     # и следующий вопрос («а какой редис?») пройдёт, а не будет считаться дублем.
-    items = [(i.get("product"), i.get("product_id"), i.get("quantity"), i.get("unit_price"))
-             for i in pending.get("items", [])]
-    raw = json.dumps([pending.get("customer_name"), items], ensure_ascii=False, sort_keys=True)
+    items = [
+        (i.get("product"), i.get("product_id"), i.get("quantity"), i.get("unit_price"))
+        for i in pending.get("items", [])
+    ]
+    raw = json.dumps(
+        [pending.get("customer_name"), items], ensure_ascii=False, sort_keys=True
+    )
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
 
@@ -205,7 +237,9 @@ async def _already_asked(signature: str) -> bool:
     client = _redis()
     try:
         # SET NX: ключ ставится только если его не было — атомарно, без гонок.
-        created = await client.set(f"sale:asked:{signature}", "1", ex=ASKED_TTL, nx=True)
+        created = await client.set(
+            f"sale:asked:{signature}", "1", ex=ASKED_TTL, nx=True
+        )
     finally:
         await client.aclose()
     return not created
@@ -243,8 +277,10 @@ async def answer_sale_result(message: Message, result: Dict[str, Any]) -> str:
         )
         return "Отдел продаж уточняет позицию — продажа пока не записана."
 
-    await message.answer(f"❓ <b>Отдел продаж:</b> {result.get('message', 'Не хватает данных.')}",
-                         parse_mode="HTML")
+    await message.answer(
+        f"❓ <b>Отдел продаж:</b> {result.get('message', 'Не хватает данных.')}",
+        parse_mode="HTML",
+    )
     return "Отдел продаж запросил уточнение — продажа пока не записана."
 
 
@@ -255,7 +291,9 @@ async def on_pick_product(callback: CallbackQuery):
         _, _, token, index, product_id = callback.data.split(":")
         pending = await load_pending(token)
         if not pending:
-            await callback.answer("Этот вопрос уже неактуален (прошёл час).", show_alert=True)
+            await callback.answer(
+                "Этот вопрос уже неактуален (прошёл час).", show_alert=True
+            )
             return
 
         pending["items"][int(index)]["product_id"] = int(product_id)
@@ -283,7 +321,9 @@ async def on_add_product(callback: CallbackQuery, state: FSMContext):
         _, _, token, index = callback.data.split(":")
         pending = await load_pending(token)
         if not pending:
-            await callback.answer("Этот вопрос уже неактуален (прошёл час).", show_alert=True)
+            await callback.answer(
+                "Этот вопрос уже неактуален (прошёл час).", show_alert=True
+            )
             return
 
         item = pending["items"][int(index)]
@@ -291,10 +331,14 @@ async def on_add_product(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_reply_markup(reply_markup=None)
 
         from bots.stepan_bot.handlers.product_card import start_product_card
+
         await start_product_card(
-            callback.message, state,
-            name=item.get("product"), price=item.get("unit_price"),
-            sale_token=token, sale_index=int(index),
+            callback.message,
+            state,
+            name=item.get("product"),
+            price=item.get("unit_price"),
+            sale_token=token,
+            sale_index=int(index),
         )
     except Exception as e:
         logger.error(f"sale:add — {e}", exc_info=True)
@@ -307,7 +351,9 @@ async def on_categories(callback: CallbackQuery):
     try:
         _, _, token, index = callback.data.split(":")
         if not await load_pending(token):
-            await callback.answer("Этот вопрос уже неактуален (прошёл час).", show_alert=True)
+            await callback.answer(
+                "Этот вопрос уже неактуален (прошёл час).", show_alert=True
+            )
             return
         await callback.message.edit_text(
             "📂 <b>Каталог</b> — выберите категорию:",
@@ -326,11 +372,16 @@ async def on_category_page(callback: CallbackQuery):
     try:
         _, _, token, index, category, page = callback.data.split(":")
         if not await load_pending(token):
-            await callback.answer("Этот вопрос уже неактуален (прошёл час).", show_alert=True)
+            await callback.answer(
+                "Этот вопрос уже неактуален (прошёл час).", show_alert=True
+            )
             return
 
-        keyboard, data = await build_products_keyboard(token, int(index), category, int(page))
+        keyboard, data = await build_products_keyboard(
+            token, int(index), category, int(page)
+        )
         from shared.catalog_ops import CATEGORY_TITLES
+
         title = CATEGORY_TITLES.get(category, category)
         await callback.message.edit_text(
             f"{title} — {data['total']} товаров. Выберите, что продали:",

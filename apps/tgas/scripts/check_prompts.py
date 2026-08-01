@@ -28,6 +28,7 @@
 прайс в промпте совпадает с таблицей products (известное расхождение — см.
 CLAUDE.md). Это проверяется руками.
 """
+
 from __future__ import annotations
 
 import re
@@ -58,12 +59,18 @@ PLACEHOLDERS = {
 
 for path in sorted(ROOT.glob("**/*.py")):
     rel = path.relative_to(ROOT).as_posix()
-    if "__pycache__" in rel or rel.startswith("venv/") or rel.startswith("scripts/check_"):
+    if (
+        "__pycache__" in rel
+        or rel.startswith("venv/")
+        or rel.startswith("scripts/check_")
+    ):
         continue
     # utils.py — валидатор телефонов, примеры форматов в докстринге законны
     if rel == "shared/utils.py":
         continue
-    for num, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+    for num, line in enumerate(
+        path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+    ):
         code = line.split("#", 1)[0]
         for bad, what in PLACEHOLDERS.items():
             if bad in code:
@@ -73,22 +80,32 @@ if not problems:
     notes.append("  ok  заглушек в коде нет")
 
 # ── 2. TEAM_CONTEXT знает про всех ботов ────────────────────────────────
-from shared.health import ALL_BOTS            # noqa: E402
-from shared.prompts import TEAM_CONTEXT       # noqa: E402
+from shared.health import ALL_BOTS  # noqa: E402
+from shared.prompts import TEAM_CONTEXT  # noqa: E402
 
 # n8n_bridge упомянут как служебный мост; сверяем по «человеческому» имени
 ALIASES = {
-    "stepan_bot": ["Степан"], "sales_bot": ["Sales"], "hr_bot": ["HR"],
-    "finance_bot": ["Finance"], "marketing_bot": ["Marketing"],
-    "support_bot": ["Support"], "analytics_bot": ["Analytics"],
-    "content_bot": ["Content"], "qa_bot": ["QA"], "rnd_bot": ["R&D"],
-    "devops_bot": ["DevOps"], "franchise_bot": ["Franchise"],
+    "stepan_bot": ["Степан"],
+    "sales_bot": ["Sales"],
+    "hr_bot": ["HR"],
+    "finance_bot": ["Finance"],
+    "marketing_bot": ["Marketing"],
+    "support_bot": ["Support"],
+    "analytics_bot": ["Analytics"],
+    "content_bot": ["Content"],
+    "qa_bot": ["QA"],
+    "rnd_bot": ["R&D"],
+    "devops_bot": ["DevOps"],
+    "franchise_bot": ["Franchise"],
     "n8n_bridge": ["n8n"],
 }
-missing = [b for b in ALL_BOTS if not any(a in TEAM_CONTEXT for a in ALIASES.get(b, [b]))]
+missing = [
+    b for b in ALL_BOTS if not any(a in TEAM_CONTEXT for a in ALIASES.get(b, [b]))
+]
 if missing:
     problems.append(
-        "shared/prompts.py: TEAM_CONTEXT не упоминает " + ", ".join(missing)
+        "shared/prompts.py: TEAM_CONTEXT не упоминает "
+        + ", ".join(missing)
         + " — остальные боты не знают об их существовании и не могут маршрутизировать"
     )
 else:
@@ -126,7 +143,9 @@ for path in sorted((ROOT / "bots").rglob("*.py")):
     if "__pycache__" in path.as_posix():
         continue
     rel = path.relative_to(ROOT).as_posix()
-    for num, line in enumerate(path.read_text(encoding="utf-8", errors="replace").splitlines(), 1):
+    for num, line in enumerate(
+        path.read_text(encoding="utf-8", errors="replace").splitlines(), 1
+    ):
         m = re.search(r'system_prompt\s*=\s*(["\'])(.*?)\1', line)
         # Промпты «ответь только JSON» — законное исключение: TEAM_CONTEXT с
         # указаниями по тону и формату провоцирует модель добавить прозу вокруг

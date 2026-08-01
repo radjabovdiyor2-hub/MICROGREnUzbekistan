@@ -55,9 +55,7 @@ def main():
     # Получить App ID
     app_id = args.app_id
     if not app_id:
-        app_id = input(
-            f"Введите FACEBOOK_APP_ID [{current_id or 'пусто'}]: "
-        ).strip()
+        app_id = input(f"Введите FACEBOOK_APP_ID [{current_id or 'пусто'}]: ").strip()
         if not app_id:
             app_id = current_id
 

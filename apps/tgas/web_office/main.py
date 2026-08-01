@@ -6,6 +6,7 @@ FastAPI Web Dashboard Backend
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -13,7 +14,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -40,7 +41,13 @@ INGEST_SECRET = os.getenv("INGEST_SECRET", "")
 _ALLOWED_PAYMENT = {"cash", "card", "click", "payme", "transfer"}
 # Статусы заказа, разрешённые CHECK-констрейнтом orders.status.
 _ALLOWED_ORDER_STATUS = {
-    "new", "confirmed", "preparing", "ready", "delivering", "delivered", "cancelled",
+    "new",
+    "confirmed",
+    "preparing",
+    "ready",
+    "delivering",
+    "delivered",
+    "cancelled",
 }
 # Куда синкать статус заказов витрины обратно (web /api/orders/status).
 STOREFRONT_STATUS_URL = os.getenv("STOREFRONT_STATUS_URL", "")
@@ -153,9 +160,7 @@ async def dashboard(request: Request):
             ]
 
             # ── Task Stats ───────────────────────────────────
-            result = await session.execute(
-                text("SELECT COUNT(*) FROM tasks")
-            )
+            result = await session.execute(text("SELECT COUNT(*) FROM tasks"))
             stats["total_tasks"] = _safe_int(result.scalar())
 
             result = await session.execute(
@@ -178,9 +183,7 @@ async def dashboard(request: Request):
             stats["overdue_tasks"] = _safe_int(result.scalar())
 
             # ── Orders ───────────────────────────────────────
-            result = await session.execute(
-                text("SELECT COUNT(*) FROM orders")
-            )
+            result = await session.execute(text("SELECT COUNT(*) FROM orders"))
             stats["total_orders"] = _safe_int(result.scalar())
 
             result = await session.execute(
@@ -211,15 +214,11 @@ async def dashboard(request: Request):
             ]
 
             # ── Customers ────────────────────────────────────
-            result = await session.execute(
-                text("SELECT COUNT(*) FROM customers")
-            )
+            result = await session.execute(text("SELECT COUNT(*) FROM customers"))
             stats["total_customers"] = _safe_int(result.scalar())
 
             # ── Employees ────────────────────────────────────
-            result = await session.execute(
-                text("SELECT COUNT(*) FROM employees")
-            )
+            result = await session.execute(text("SELECT COUNT(*) FROM employees"))
             stats["total_employees"] = _safe_int(result.scalar())
 
             # ── Finances ─────────────────────────────────────
@@ -263,7 +262,7 @@ async def dashboard(request: Request):
                     "orders_count": _safe_int(row[8]),
                     "city": row[9] or "—",
                     "created_at": _safe_str(row[10]),
-                    "bonus_balance": _safe_float(row[11]) if len(row) > 11 else 0.0
+                    "bonus_balance": _safe_float(row[11]) if len(row) > 11 else 0.0,
                 }
                 for row in rows
             ]
@@ -282,7 +281,7 @@ async def dashboard(request: Request):
                         "category": row[1],
                         "quantity": _safe_float(row[2]),
                         "unit": row[3],
-                        "min_stock": _safe_float(row[4])
+                        "min_stock": _safe_float(row[4]),
                     }
                     for row in result.fetchall()
                 ]
@@ -378,6 +377,7 @@ async def create_task(
         # Публикуем в EventBus для автовыполнения ботом
         try:
             from shared.event_bus import event_bus
+
             await event_bus.publish(
                 "TASK_CREATED",
                 {
@@ -387,7 +387,7 @@ async def create_task(
                     "department": department,
                     "priority": priority,
                 },
-                "web_office"
+                "web_office",
             )
         except Exception as e:
             logger.warning(f"EventBus publish failed: {e}")
@@ -400,10 +400,8 @@ async def create_task(
 
 
 # ── API: Meta Webhooks (Instagram & Facebook) ──────────────────
-import os
-from fastapi import Query
-
 META_VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN", "microgreen_secure_token_2026")
+
 
 @app.get("/webhooks/meta")
 async def verify_meta_webhook(
@@ -417,43 +415,44 @@ async def verify_meta_webhook(
         return int(hub_challenge)
     return JSONResponse({"error": "Forbidden"}, status_code=403)
 
+
 @app.post("/webhooks/meta")
 async def handle_meta_webhook(request: Request):
     """Handle incoming messages from Instagram/Facebook."""
     try:
         data = await request.json()
         logger.info(f"Received Meta Webhook: {data}")
-        
+
         if data.get("object") in ["instagram", "page"]:
             for entry in data.get("entry", []):
                 for messaging_event in entry.get("messaging", []):
                     sender_id = messaging_event["sender"]["id"]
                     message_data = messaging_event.get("message")
-                    
+
                     if message_data and "text" in message_data:
                         text_content = message_data["text"]
                         logger.info(f"New IG message from {sender_id}: {text_content}")
-                        
+
                         # Публикуем событие для Marketing Bot / Support Bot
                         try:
                             from shared.event_bus import event_bus
+
                             await event_bus.publish(
                                 "IG_MESSAGE_RECEIVED",
                                 {
                                     "sender_id": sender_id,
                                     "text": text_content,
-                                    "source": data.get("object")
+                                    "source": data.get("object"),
                                 },
-                                "web_office"
+                                "web_office",
                             )
                         except Exception as e:
                             logger.error(f"Failed to publish IG message: {e}")
-                            
+
         return JSONResponse({"status": "ok"}, status_code=200)
     except Exception as exc:
         logger.exception("Failed to process Meta webhook: %s", exc)
         return JSONResponse({"status": "error"}, status_code=500)
-
 
 
 # ── B2B Funnel Dashboard ─────────────────────────────────────
@@ -465,31 +464,71 @@ async def b2b_funnel(request: Request):
     by_source: list = []
     try:
         async with get_session_ctx() as session:
-            total_b2b = _safe_int((await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b'"))).scalar())
-            new_today = _safe_int((await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
-                "AND DATE(created_at) = CURRENT_DATE"))).scalar())
-            contacted = _safe_int((await session.execute(text(
-                "SELECT COUNT(DISTINCT customer_id) FROM interactions "
-                "WHERE interaction_type = 'b2b_offer_sent'"))).scalar())
-            converted = _safe_int((await session.execute(text(
-                "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
-                "AND status IN ('active','vip')"))).scalar())
-            by_channel = (await session.execute(text(
-                "SELECT COALESCE(channel,'—'), COUNT(DISTINCT customer_id) FROM interactions "
-                "WHERE interaction_type = 'b2b_offer_sent' GROUP BY channel"))).fetchall()
-            by_source = (await session.execute(text(
-                "SELECT COALESCE(source,'не указан'), COUNT(*) FROM customers "
-                "WHERE customer_type = 'b2b' GROUP BY source ORDER BY COUNT(*) DESC"))).fetchall()
+            total_b2b = _safe_int(
+                (
+                    await session.execute(
+                        text(
+                            "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b'"
+                        )
+                    )
+                ).scalar()
+            )
+            new_today = _safe_int(
+                (
+                    await session.execute(
+                        text(
+                            "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
+                            "AND DATE(created_at) = CURRENT_DATE"
+                        )
+                    )
+                ).scalar()
+            )
+            contacted = _safe_int(
+                (
+                    await session.execute(
+                        text(
+                            "SELECT COUNT(DISTINCT customer_id) FROM interactions "
+                            "WHERE interaction_type = 'b2b_offer_sent'"
+                        )
+                    )
+                ).scalar()
+            )
+            converted = _safe_int(
+                (
+                    await session.execute(
+                        text(
+                            "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
+                            "AND status IN ('active','vip')"
+                        )
+                    )
+                ).scalar()
+            )
+            by_channel = (
+                await session.execute(
+                    text(
+                        "SELECT COALESCE(channel,'—'), COUNT(DISTINCT customer_id) FROM interactions "
+                        "WHERE interaction_type = 'b2b_offer_sent' GROUP BY channel"
+                    )
+                )
+            ).fetchall()
+            by_source = (
+                await session.execute(
+                    text(
+                        "SELECT COALESCE(source,'не указан'), COUNT(*) FROM customers "
+                        "WHERE customer_type = 'b2b' GROUP BY source ORDER BY COUNT(*) DESC"
+                    )
+                )
+            ).fetchall()
     except Exception as exc:
         logger.exception("funnel error: %s", exc)
 
     conv = (converted / contacted * 100) if contacted else 0
     ch_names = {"email": "📧 Email", "phone_task": "📞 Обзвон"}
+
     def bar(part, whole):
         pct = int((part / whole * 100)) if whole else 0
         return pct
+
     stages = [
         ("📥 Собрано лидов", total_b2b, total_b2b),
         ("📨 Отправлено КП/задач", contacted, total_b2b),
@@ -497,10 +536,16 @@ async def b2b_funnel(request: Request):
     ]
     stage_html = "".join(
         f'<div class="stage"><div class="lbl">{name}<span>{val}</span></div>'
-        f'<div class="track"><div class="fill" style="width:{max(bar(val,whole),2)}%"></div></div></div>'
-        for name, val, whole in stages)
-    ch_html = "".join(f'<li>{ch_names.get(c,c)}: <b>{n}</b></li>' for c, n in by_channel) or '<li>—</li>'
-    src_html = "".join(f'<li>{s}: <b>{n}</b></li>' for s, n in by_source) or '<li>—</li>'
+        f'<div class="track"><div class="fill" style="width:{max(bar(val, whole), 2)}%"></div></div></div>'
+        for name, val, whole in stages
+    )
+    ch_html = (
+        "".join(f"<li>{ch_names.get(c, c)}: <b>{n}</b></li>" for c, n in by_channel)
+        or "<li>—</li>"
+    )
+    src_html = (
+        "".join(f"<li>{s}: <b>{n}</b></li>" for s, n in by_source) or "<li>—</li>"
+    )
     html = f"""
 <!doctype html><html lang=ru><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1">
@@ -592,33 +637,49 @@ async def ingest_order(request: Request):
     try:
         async with get_session_ctx() as session:
             # Идемпотентность: заказ с этим номером витрины уже перенесён?
-            dup = (await session.execute(
-                text("SELECT id FROM orders WHERE notes LIKE :m LIMIT 1"),
-                {"m": marker + "%"},
-            )).scalar()
+            dup = (
+                await session.execute(
+                    text("SELECT id FROM orders WHERE notes LIKE :m LIMIT 1"),
+                    {"m": marker + "%"},
+                )
+            ).scalar()
             if dup:
                 return JSONResponse({"status": "duplicate", "order_id": dup})
 
             # Upsert клиента: по telegram_id, затем по телефону, иначе создаём.
             customer_id = None
             if tid:
-                customer_id = (await session.execute(
-                    text("SELECT id FROM customers WHERE telegram_id = :tid"), {"tid": tid},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text("SELECT id FROM customers WHERE telegram_id = :tid"),
+                        {"tid": tid},
+                    )
+                ).scalar()
             if not customer_id and phone:
-                customer_id = (await session.execute(
-                    text("SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"),
-                    {"phone": phone},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"
+                        ),
+                        {"phone": phone},
+                    )
+                ).scalar()
             if not customer_id:
-                customer_id = (await session.execute(
-                    text(
-                        "INSERT INTO customers (name, phone, telegram_id, bonus_balance, source, "
-                        "status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, 'webapp', "
-                        "'active', 'b2c', 'Samarqand') RETURNING id"
-                    ),
-                    {"name": name, "phone": phone, "tid": tid, "bonus": bonus_balance},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "INSERT INTO customers (name, phone, telegram_id, bonus_balance, source, "
+                            "status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, 'webapp', "
+                            "'active', 'b2c', 'Samarqand') RETURNING id"
+                        ),
+                        {
+                            "name": name,
+                            "phone": phone,
+                            "tid": tid,
+                            "bonus": bonus_balance,
+                        },
+                    )
+                ).scalar()
             else:
                 # Дополняем недостающие контакты; баланс бонусов зеркалим из витрины.
                 await session.execute(
@@ -628,48 +689,83 @@ async def ingest_order(request: Request):
                         "name = COALESCE(NULLIF(name, ''), :name), "
                         "bonus_balance = :bonus WHERE id = :cid"
                     ),
-                    {"tid": tid, "phone": phone, "name": name, "bonus": bonus_balance, "cid": customer_id},
+                    {
+                        "tid": tid,
+                        "phone": phone,
+                        "name": name,
+                        "bonus": bonus_balance,
+                        "cid": customer_id,
+                    },
                 )
 
             # Заказ. order_number = NULL → триггер выдаст MG-XXXXXX.
-            new = (await session.execute(
-                text(
-                    "INSERT INTO orders (customer_id, total_amount, delivery_fee, discount_amount, "
-                    "status, payment_status, payment_method, delivery_address, notes, created_at, "
-                    "updated_at) VALUES (:cid, :total, :delivery, :discount, 'new', 'pending', "
-                    ":pmethod, :addr, :notes, NOW(), NOW()) RETURNING id, order_number"
-                ),
-                {"cid": customer_id, "total": total, "delivery": delivery_fee,
-                 "discount": discount, "pmethod": pay_method, "addr": address, "notes": notes},
-            )).fetchone()
+            new = (
+                await session.execute(
+                    text(
+                        "INSERT INTO orders (customer_id, total_amount, delivery_fee, discount_amount, "
+                        "status, payment_status, payment_method, delivery_address, notes, created_at, "
+                        "updated_at) VALUES (:cid, :total, :delivery, :discount, 'new', 'pending', "
+                        ":pmethod, :addr, :notes, NOW(), NOW()) RETURNING id, order_number"
+                    ),
+                    {
+                        "cid": customer_id,
+                        "total": total,
+                        "delivery": delivery_fee,
+                        "discount": discount,
+                        "pmethod": pay_method,
+                        "addr": address,
+                        "notes": notes,
+                    },
+                )
+            ).fetchone()
             order_id, order_number = new[0], new[1]
 
             # Позиции заказа: матчим товар витрины к офисному по storefront_id
             # (каталог синкается shared.catalog_sync). Ненайденные строки просто
             # пропускаем — детализация всё равно есть в notes/items_summary.
-            for line in (body.get("items") or []):
+            for line in body.get("items") or []:
                 sid = str(line.get("storefront_id") or "").strip()
                 qty = _safe_float(line.get("quantity")) or 1
                 price = _safe_float(line.get("price"))
                 if not sid:
                     continue
-                prod = (await session.execute(
-                    text("SELECT id, unit FROM products WHERE storefront_id = :sid"), {"sid": sid},
-                )).fetchone()
+                prod = (
+                    await session.execute(
+                        text(
+                            "SELECT id, unit FROM products WHERE storefront_id = :sid"
+                        ),
+                        {"sid": sid},
+                    )
+                ).fetchone()
                 if not prod:
                     # Создаем заглушку, которую потом обновит catalog_sync
-                    pname = str(line.get("name") or line.get("nameRu") or "Неизвестный товар").strip()
-                    pid = (await session.execute(
-                        text("INSERT INTO products (name_uz, name_ru, category, price, unit, stock_qty, is_active, storefront_id) "
-                             "VALUES (:n, :n, 'sets', :price, 'piece', 0, TRUE, :sid) RETURNING id"),
-                        {"n": pname, "price": price, "sid": sid}
-                    )).scalar()
+                    pname = str(
+                        line.get("name") or line.get("nameRu") or "Неизвестный товар"
+                    ).strip()
+                    pid = (
+                        await session.execute(
+                            text(
+                                "INSERT INTO products (name_uz, name_ru, category, price, unit, stock_qty, is_active, storefront_id) "
+                                "VALUES (:n, :n, 'sets', :price, 'piece', 0, TRUE, :sid) RETURNING id"
+                            ),
+                            {"n": pname, "price": price, "sid": sid},
+                        )
+                    ).scalar()
                     prod = (pid, "piece")
-                await session.execute(text(
-                    "INSERT INTO order_items (order_id, product_id, quantity, unit, unit_price, "
-                    "total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
-                ), {"oid": order_id, "pid": prod[0], "qty": qty, "unit": prod[1] or "piece",
-                    "price": price, "total": price * qty})
+                await session.execute(
+                    text(
+                        "INSERT INTO order_items (order_id, product_id, quantity, unit, unit_price, "
+                        "total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
+                    ),
+                    {
+                        "oid": order_id,
+                        "pid": prod[0],
+                        "qty": qty,
+                        "unit": prod[1] or "piece",
+                        "price": price,
+                        "total": price * qty,
+                    },
+                )
 
             # Статистика клиента + журнал взаимодействия (как это делает sales_bot).
             await session.execute(
@@ -686,9 +782,12 @@ async def ingest_order(request: Request):
                     "INSERT INTO interactions (customer_id, order_id, channel, interaction_type, "
                     "bot_name, summary) VALUES (:cid, :oid, 'webapp', 'order', 'web_office', :summary)"
                 ),
-                {"cid": customer_id, "oid": order_id,
-                 "summary": f"Заказ {order_number} (витрина {ext_number}) на "
-                            f"{format_price(total)}: {items_summary[:150]}"},
+                {
+                    "cid": customer_id,
+                    "oid": order_id,
+                    "summary": f"Заказ {order_number} (витрина {ext_number}) на "
+                    f"{format_price(total)}: {items_summary[:150]}",
+                },
             )
     except Exception as exc:
         logger.exception("Ingest: не удалось перенести заказ %s: %s", ext_number, exc)
@@ -712,9 +811,13 @@ async def ingest_order(request: Request):
     )
     logger.info(
         "Ingest: заказ витрины %s → CRM #%s (%s), ORDER_CREATED разослан",
-        ext_number, order_id, order_number,
+        ext_number,
+        order_id,
+        order_number,
     )
-    return JSONResponse({"status": "ok", "order_id": order_id, "order_number": order_number})
+    return JSONResponse(
+        {"status": "ok", "order_id": order_id, "order_number": order_number}
+    )
 
 
 @app.post("/ingest/order-status")
@@ -750,16 +853,20 @@ async def ingest_order_status(request: Request):
     marker = f"[webapp:{ext_number}]"
     try:
         async with get_session_ctx() as session:
-            row = (await session.execute(
-                text(
-                    "UPDATE orders SET status = COALESCE(:status, status), "
-                    "payment_status = COALESCE(:pstatus, payment_status), updated_at = NOW() "
-                    "WHERE notes LIKE :m RETURNING id, order_number, status"
-                ),
-                {"status": status, "pstatus": payment_status, "m": marker + "%"},
-            )).fetchone()
+            row = (
+                await session.execute(
+                    text(
+                        "UPDATE orders SET status = COALESCE(:status, status), "
+                        "payment_status = COALESCE(:pstatus, payment_status), updated_at = NOW() "
+                        "WHERE notes LIKE :m RETURNING id, order_number, status"
+                    ),
+                    {"status": status, "pstatus": payment_status, "m": marker + "%"},
+                )
+            ).fetchone()
     except Exception as exc:
-        logger.exception("Ingest-status: не удалось обновить заказ %s: %s", ext_number, exc)
+        logger.exception(
+            "Ingest-status: не удалось обновить заказ %s: %s", ext_number, exc
+        )
         return JSONResponse({"error": "update failed"}, status_code=500)
 
     if not row:
@@ -780,8 +887,12 @@ async def ingest_order_status(request: Request):
         },
         source_bot="web_office",
     )
-    logger.info("Ingest-status: заказ %s (%s) → %s", order_number, ext_number, new_status)
-    return JSONResponse({"status": "ok", "order_id": order_id, "order_number": order_number})
+    logger.info(
+        "Ingest-status: заказ %s (%s) → %s", order_number, ext_number, new_status
+    )
+    return JSONResponse(
+        {"status": "ok", "order_id": order_id, "order_number": order_number}
+    )
 
 
 @app.post("/orders/{order_id}/status")
@@ -803,15 +914,19 @@ async def change_order_status(order_id: int, request: Request):
 
     try:
         async with get_session_ctx() as session:
-            row = (await session.execute(
-                text(
-                    "UPDATE orders SET status = :s, updated_at = NOW() "
-                    "WHERE id = :id RETURNING order_number, notes"
-                ),
-                {"s": status, "id": order_id},
-            )).fetchone()
+            row = (
+                await session.execute(
+                    text(
+                        "UPDATE orders SET status = :s, updated_at = NOW() "
+                        "WHERE id = :id RETURNING order_number, notes"
+                    ),
+                    {"s": status, "id": order_id},
+                )
+            ).fetchone()
     except Exception as exc:
-        logger.exception("Order-status: не удалось обновить заказ #%s: %s", order_id, exc)
+        logger.exception(
+            "Order-status: не удалось обновить заказ #%s: %s", order_id, exc
+        )
         return JSONResponse({"error": "update failed"}, status_code=500)
 
     if not row:
@@ -820,7 +935,12 @@ async def change_order_status(order_id: int, request: Request):
 
     await event_bus.publish(
         Events.ORDER_STATUS_CHANGED,
-        {"order_id": order_id, "order_number": order_number, "status": status, "source": "office"},
+        {
+            "order_id": order_id,
+            "order_number": order_number,
+            "status": status,
+            "source": "office",
+        },
         source_bot="web_office",
     )
 
@@ -831,15 +951,21 @@ async def change_order_status(order_id: int, request: Request):
         try:
             async with get_session_ctx() as session:
                 await session.execute(
-                    text("INSERT INTO storefront_outbox (order_number, status) VALUES (:num, :stat)"),
-                    {"num": ext_number, "stat": status}
+                    text(
+                        "INSERT INTO storefront_outbox (order_number, status) VALUES (:num, :stat)"
+                    ),
+                    {"num": ext_number, "stat": status},
                 )
                 await session.commit()
         except Exception as exc:
-            logger.warning("Order-status: не удалось сохранить в outbox (%s): %s", ext_number, exc)
+            logger.warning(
+                "Order-status: не удалось сохранить в outbox (%s): %s", ext_number, exc
+            )
 
     logger.info("Order-status: заказ #%s (%s) → %s", order_id, order_number, status)
-    return JSONResponse({"status": "ok", "order_number": order_number, "new_status": status})
+    return JSONResponse(
+        {"status": "ok", "order_number": order_number, "new_status": status}
+    )
 
 
 @app.post("/ingest/customer")
@@ -873,24 +999,39 @@ async def ingest_customer(request: Request):
         async with get_session_ctx() as session:
             customer_id = None
             if tid:
-                customer_id = (await session.execute(
-                    text("SELECT id FROM customers WHERE telegram_id = :tid"), {"tid": tid},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text("SELECT id FROM customers WHERE telegram_id = :tid"),
+                        {"tid": tid},
+                    )
+                ).scalar()
             if not customer_id and phone:
-                customer_id = (await session.execute(
-                    text("SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"),
-                    {"phone": phone},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"
+                        ),
+                        {"phone": phone},
+                    )
+                ).scalar()
             is_new = customer_id is None
             if is_new:
-                customer_id = (await session.execute(
-                    text(
-                        "INSERT INTO customers (name, phone, telegram_id, bonus_balance, language, "
-                        "source, status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, "
-                        ":lang, 'webapp', 'lead', 'b2c', 'Samarqand') RETURNING id"
-                    ),
-                    {"name": name, "phone": phone, "tid": tid, "bonus": bonus, "lang": language},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "INSERT INTO customers (name, phone, telegram_id, bonus_balance, language, "
+                            "source, status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, "
+                            ":lang, 'webapp', 'lead', 'b2c', 'Samarqand') RETURNING id"
+                        ),
+                        {
+                            "name": name,
+                            "phone": phone,
+                            "tid": tid,
+                            "bonus": bonus,
+                            "lang": language,
+                        },
+                    )
+                ).scalar()
             else:
                 await session.execute(
                     text(
@@ -898,7 +1039,13 @@ async def ingest_customer(request: Request):
                         "phone = COALESCE(phone, :phone), name = COALESCE(NULLIF(name, ''), :name), "
                         "bonus_balance = :bonus WHERE id = :cid"
                     ),
-                    {"tid": tid, "phone": phone, "name": name, "bonus": bonus, "cid": customer_id},
+                    {
+                        "tid": tid,
+                        "phone": phone,
+                        "name": name,
+                        "bonus": bonus,
+                        "cid": customer_id,
+                    },
                 )
     except Exception as exc:
         logger.exception("Ingest-customer: ошибка (%s): %s", phone or tid, exc)
@@ -907,11 +1054,18 @@ async def ingest_customer(request: Request):
     if is_new:
         await event_bus.publish(
             Events.CUSTOMER_REGISTERED,
-            {"customer_id": customer_id, "telegram_id": tid, "name": name,
-             "phone": phone, "source": "webapp"},
+            {
+                "customer_id": customer_id,
+                "telegram_id": tid,
+                "name": name,
+                "phone": phone,
+                "source": "webapp",
+            },
             source_bot="web_office",
         )
-    logger.info("Ingest-customer: %s клиент #%s", "новый" if is_new else "обновлён", customer_id)
+    logger.info(
+        "Ingest-customer: %s клиент #%s", "новый" if is_new else "обновлён", customer_id
+    )
     return JSONResponse({"status": "ok", "customer_id": customer_id, "is_new": is_new})
 
 
@@ -922,16 +1076,23 @@ def _check_ingest_secret(request: Request) -> bool:
 async def _find_customer(session, tid, phone):
     """Найти клиента по telegram_id, затем по телефону (best-effort)."""
     if tid:
-        cid = (await session.execute(
-            text("SELECT id FROM customers WHERE telegram_id = :tid"), {"tid": tid},
-        )).scalar()
+        cid = (
+            await session.execute(
+                text("SELECT id FROM customers WHERE telegram_id = :tid"),
+                {"tid": tid},
+            )
+        ).scalar()
         if cid:
             return cid
     if phone:
-        return (await session.execute(
-            text("SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"),
-            {"phone": phone},
-        )).scalar()
+        return (
+            await session.execute(
+                text(
+                    "SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"
+                ),
+                {"phone": phone},
+            )
+        ).scalar()
     return None
 
 
@@ -959,17 +1120,25 @@ async def ingest_support(request: Request):
     try:
         async with get_session_ctx() as session:
             customer_id = await _find_customer(session, tid, phone)
-            await session.execute(text(
-                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
-                "VALUES (:cid, 'website', 'complaint', 'web_office', :s)"
-            ), {"cid": customer_id, "s": f"Обращение от {name}: {message[:400]}"})
+            await session.execute(
+                text(
+                    "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                    "VALUES (:cid, 'website', 'complaint', 'web_office', :s)"
+                ),
+                {"cid": customer_id, "s": f"Обращение от {name}: {message[:400]}"},
+            )
     except Exception as exc:
         logger.exception("Ingest-support: ошибка: %s", exc)
         return JSONResponse({"error": "ingest failed"}, status_code=500)
 
     await event_bus.publish(
         Events.COMPLAINT_RECEIVED,
-        {"customer_name": name, "phone": phone, "summary": message, "source": "website"},
+        {
+            "customer_name": name,
+            "phone": phone,
+            "summary": message,
+            "source": "website",
+        },
         source_bot="web_office",
     )
     logger.info("Ingest-support: обращение с сайта от %s", name)
@@ -997,23 +1166,44 @@ async def ingest_lead(request: Request):
         async with get_session_ctx() as session:
             customer_id = await _find_customer(session, None, phone)
             if not customer_id:
-                customer_id = (await session.execute(text(
-                    "INSERT INTO customers (name, company_name, phone, customer_type, status, "
-                    "source, city) VALUES (:name, :company, :phone, 'b2b', 'lead', 'website', "
-                    "'Samarqand') RETURNING id"
-                ), {"name": contact or company or "B2B-лид", "company": company, "phone": phone})).scalar()
-            await session.execute(text(
-                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
-                "VALUES (:cid, 'website', 'b2b_lead', 'web_office', :s)"
-            ), {"cid": customer_id, "s": f"B2B-заявка: {company or contact}. {message[:300]}"})
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "INSERT INTO customers (name, company_name, phone, customer_type, status, "
+                            "source, city) VALUES (:name, :company, :phone, 'b2b', 'lead', 'website', "
+                            "'Samarqand') RETURNING id"
+                        ),
+                        {
+                            "name": contact or company or "B2B-лид",
+                            "company": company,
+                            "phone": phone,
+                        },
+                    )
+                ).scalar()
+            await session.execute(
+                text(
+                    "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                    "VALUES (:cid, 'website', 'b2b_lead', 'web_office', :s)"
+                ),
+                {
+                    "cid": customer_id,
+                    "s": f"B2B-заявка: {company or contact}. {message[:300]}",
+                },
+            )
     except Exception as exc:
         logger.exception("Ingest-lead: ошибка: %s", exc)
         return JSONResponse({"error": "ingest failed"}, status_code=500)
 
     await event_bus.publish(
         Events.B2B_LEAD_CREATED,
-        {"customer_id": customer_id, "company_name": company, "contact_name": contact,
-         "phone": phone, "summary": message, "source": "website"},
+        {
+            "customer_id": customer_id,
+            "company_name": company,
+            "contact_name": contact,
+            "phone": phone,
+            "summary": message,
+            "source": "website",
+        },
         source_bot="web_office",
     )
     logger.info("Ingest-lead: B2B-заявка с сайта (%s)", company or contact)
@@ -1046,18 +1236,29 @@ async def ingest_feedback(request: Request):
     try:
         async with get_session_ctx() as session:
             customer_id = await _find_customer(session, tid, None)
-            await session.execute(text(
-                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
-                "VALUES (:cid, 'website', 'feedback', 'web_office', :s)"
-            ), {"cid": customer_id, "s": f"Отзыв {rating}★ на «{product}»: {comment[:300]}"})
+            await session.execute(
+                text(
+                    "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                    "VALUES (:cid, 'website', 'feedback', 'web_office', :s)"
+                ),
+                {
+                    "cid": customer_id,
+                    "s": f"Отзыв {rating}★ на «{product}»: {comment[:300]}",
+                },
+            )
     except Exception as exc:
         logger.exception("Ingest-feedback: ошибка: %s", exc)
         return JSONResponse({"error": "ingest failed"}, status_code=500)
 
     await event_bus.publish(
         Events.FEEDBACK_RECEIVED,
-        {"customer_name": name, "product": product, "rating": rating,
-         "comment": comment, "source": "website"},
+        {
+            "customer_name": name,
+            "product": product,
+            "rating": rating,
+            "comment": comment,
+            "source": "website",
+        },
         source_bot="web_office",
     )
     logger.info("Ingest-feedback: отзыв %s★ на %s", rating, product)
@@ -1070,10 +1271,12 @@ async def get_learnings():
     """Возвращает активные выводы и адаптации петель обратной связи всех ботов."""
     try:
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                "SELECT id, bot, metric, observation, inference, adjustment, applied_at "
-                "FROM bot_learnings WHERE is_active = TRUE ORDER BY applied_at DESC"
-            ))
+            res = await session.execute(
+                text(
+                    "SELECT id, bot, metric, observation, inference, adjustment, applied_at "
+                    "FROM bot_learnings WHERE is_active = TRUE ORDER BY applied_at DESC"
+                )
+            )
             rows = res.fetchall()
             learnings = [
                 {
@@ -1082,7 +1285,9 @@ async def get_learnings():
                     "metric": row[2],
                     "observation": row[3],
                     "inference": row[4],
-                    "adjustment": json.loads(row[5]) if isinstance(row[5], str) else row[5],
+                    "adjustment": json.loads(row[5])
+                    if isinstance(row[5], str)
+                    else row[5],
                     "applied_at": _safe_str(row[6]),
                 }
                 for row in rows
@@ -1170,6 +1375,7 @@ async def sync_catalog(request: Request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     try:
         from shared.catalog_sync import sync_catalog_from_storefront
+
         result = await sync_catalog_from_storefront()
         return JSONResponse({"status": "ok", **result})
     except Exception as exc:
@@ -1210,32 +1416,36 @@ async def departments_summary():
                 rows = result.fetchall()
                 stats = {row[0]: row[1] for row in rows}
                 total = sum(stats.values())
-                departments.append({
-                    "id": dept_id,
-                    "name": meta["name"],
-                    "bot": meta["bot"],
-                    "icon": meta["icon"],
-                    "status": "online",
-                    "tasks_total": total,
-                    "tasks_done": stats.get("done", 0),
-                    "tasks_in_progress": stats.get("in_progress", 0),
-                    "tasks_todo": stats.get("todo", 0),
-                })
+                departments.append(
+                    {
+                        "id": dept_id,
+                        "name": meta["name"],
+                        "bot": meta["bot"],
+                        "icon": meta["icon"],
+                        "status": "online",
+                        "tasks_total": total,
+                        "tasks_done": stats.get("done", 0),
+                        "tasks_in_progress": stats.get("in_progress", 0),
+                        "tasks_todo": stats.get("todo", 0),
+                    }
+                )
     except Exception as exc:
         logger.warning("departments_summary error: %s", exc)
         # Fallback: return meta without stats
         for dept_id, meta in DEPARTMENT_META.items():
-            departments.append({
-                "id": dept_id,
-                "name": meta["name"],
-                "bot": meta["bot"],
-                "icon": meta["icon"],
-                "status": "unknown",
-                "tasks_total": 0,
-                "tasks_done": 0,
-                "tasks_in_progress": 0,
-                "tasks_todo": 0,
-            })
+            departments.append(
+                {
+                    "id": dept_id,
+                    "name": meta["name"],
+                    "bot": meta["bot"],
+                    "icon": meta["icon"],
+                    "status": "unknown",
+                    "tasks_total": 0,
+                    "tasks_done": 0,
+                    "tasks_in_progress": 0,
+                    "tasks_todo": 0,
+                }
+            )
     return JSONResponse({"success": True, "departments": departments})
 
 
@@ -1263,15 +1473,17 @@ async def department_detail(dept_id: str):
             )
             rows = result.fetchall()
             for row in rows:
-                tasks_list.append({
-                    "id": row[0],
-                    "title": row[1] or "—",
-                    "assignee": row[2] or "—",
-                    "status": row[3] or "todo",
-                    "priority": row[4] or "medium",
-                    "deadline": _safe_str(row[5]),
-                    "created_at": _safe_str(row[6]),
-                })
+                tasks_list.append(
+                    {
+                        "id": row[0],
+                        "title": row[1] or "—",
+                        "assignee": row[2] or "—",
+                        "status": row[3] or "todo",
+                        "priority": row[4] or "medium",
+                        "deadline": _safe_str(row[5]),
+                        "created_at": _safe_str(row[6]),
+                    }
+                )
 
             # Stats
             result = await session.execute(
@@ -1283,9 +1495,7 @@ async def department_detail(dept_id: str):
             )
             for row in result.fetchall():
                 stats[row[0]] = row[1]
-            stats["total"] = sum(
-                v for k, v in stats.items() if k != "overdue"
-            )
+            stats["total"] = sum(v for k, v in stats.items() if k != "overdue")
 
             # Overdue
             result = await session.execute(
@@ -1300,36 +1510,42 @@ async def department_detail(dept_id: str):
     except Exception as exc:
         logger.warning("department_detail(%s) error: %s", dept_id, exc)
 
-    return JSONResponse({
-        "success": True,
-        "department": {
-            "id": dept_id,
-            **meta,
-            "stats": stats,
-            "tasks": tasks_list,
-        },
-    })
+    return JSONResponse(
+        {
+            "success": True,
+            "department": {
+                "id": dept_id,
+                **meta,
+                "stats": stats,
+                "tasks": tasks_list,
+            },
+        }
+    )
 
 
 async def _outbox_processor_loop() -> None:
     """Фоновая отправка статусов из outbox на витрину (каждые 10 секунд)."""
     await asyncio.sleep(5)
     import aiohttp
-    
+
     while True:
         try:
             if not STOREFRONT_STATUS_URL:
                 await asyncio.sleep(10)
                 continue
-                
+
             headers = {"Content-Type": "application/json"}
             if INGEST_SECRET:
                 headers["X-Ingest-Secret"] = INGEST_SECRET
 
             async with get_session_ctx() as session:
-                rows = (await session.execute(
-                    text("SELECT id, order_number, status FROM storefront_outbox ORDER BY id ASC LIMIT 50")
-                )).fetchall()
+                rows = (
+                    await session.execute(
+                        text(
+                            "SELECT id, order_number, status FROM storefront_outbox ORDER BY id ASC LIMIT 50"
+                        )
+                    )
+                ).fetchall()
 
                 if rows:
                     async with aiohttp.ClientSession() as s:
@@ -1345,13 +1561,19 @@ async def _outbox_processor_loop() -> None:
                                 # Если успешно отправлено, удаляем из outbox
                                 if resp.status < 500:
                                     await session.execute(
-                                        text("DELETE FROM storefront_outbox WHERE id = :id"),
-                                        {"id": outbox_id}
+                                        text(
+                                            "DELETE FROM storefront_outbox WHERE id = :id"
+                                        ),
+                                        {"id": outbox_id},
                                     )
                                     await session.commit()
                             except Exception as exc:
-                                logger.warning("Outbox: синк на витрину не удался (%s): %s", ext_number, exc)
-                                break # Stop processing and retry later
+                                logger.warning(
+                                    "Outbox: синк на витрину не удался (%s): %s",
+                                    ext_number,
+                                    exc,
+                                )
+                                break  # Stop processing and retry later
         except Exception as exc:
             logger.warning("Outbox loop error: %s", exc)
         await asyncio.sleep(10)
@@ -1360,6 +1582,7 @@ async def _outbox_processor_loop() -> None:
 async def _catalog_sync_loop() -> None:
     """Фоновая периодическая синхронизация каталога (раз в 30 минут)."""
     from shared.catalog_sync import sync_catalog_from_storefront
+
     await asyncio.sleep(20)  # дать витрине подняться
     while True:
         try:
@@ -1375,29 +1598,31 @@ async def _start_catalog_sync() -> None:
     # уже развёрнутой БД), затем запускаем периодический синк в фоне.
     try:
         from shared.catalog_sync import ensure_schema
+
         await ensure_schema()
-        
+
         # storefront_outbox инициализируется в init.sql, поэтому дублирование не требуется
-            
+
     except Exception as exc:
         logger.warning("Schema ensure failed at startup: %s", exc)
     asyncio.create_task(_catalog_sync_loop())
     asyncio.create_task(_outbox_processor_loop())
 
+
 @app.get("/api/bots/kanban")
 async def bots_kanban():
     """Сбор задач из локальной файловой очереди bot_bus для Kanban доски."""
     import json
-    
+
     bus_tasks_dir = Path("bus_tasks")
     columns = ["pending", "processing", "completed"]
     tasks = []
-    
+
     for col in columns:
         col_dir = bus_tasks_dir / col
         if not col_dir.exists():
             continue
-            
+
         for file in col_dir.glob("*.json"):
             try:
                 with open(file, "r", encoding="utf-8") as f:
@@ -1407,21 +1632,25 @@ async def bots_kanban():
                     tasks.append(task_data)
             except Exception as e:
                 logger.error(f"Error reading task {file}: {e}")
-                
+
     return JSONResponse({"tasks": tasks})
+
 
 @app.get("/api/health/bots")
 async def api_health_bots():
     """JSON-статус всех ботов (heartbeat) — надзор за работой ботов не только в Telegram."""
     from shared.health import check_all_bots
+
     statuses = await check_all_bots()
     alive = sum(1 for i in statuses.values() if i.get("alive"))
-    return JSONResponse({
-        "bots": statuses,
-        "alive": alive,
-        "total": len(statuses),
-        "all_ok": alive == len(statuses) and len(statuses) > 0,
-    })
+    return JSONResponse(
+        {
+            "bots": statuses,
+            "alive": alive,
+            "total": len(statuses),
+            "all_ok": alive == len(statuses) and len(statuses) > 0,
+        }
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1467,7 +1696,9 @@ async def admin_bot_action(request: Request):
     не ошибку: задача осталась в очереди и доработает сама.
     """
     if not _check_ingest_secret(request):
-        return JSONResponse({"status": "error", "error": "unauthorized"}, status_code=401)
+        return JSONResponse(
+            {"status": "error", "error": "unauthorized"}, status_code=401
+        )
 
     try:
         body = await request.json()
@@ -1479,7 +1710,9 @@ async def admin_bot_action(request: Request):
     params = body.get("params") or {}
 
     if not action:
-        return JSONResponse({"status": "error", "error": "action required"}, status_code=400)
+        return JSONResponse(
+            {"status": "error", "error": "action required"}, status_code=400
+        )
 
     target = ADMIN_BOT_ACTIONS.get(action)
     if not target:
@@ -1489,45 +1722,58 @@ async def admin_bot_action(request: Request):
         )
     # Бот из запроса — подсказка UI; исполнителя выбирает белый список.
     if bot and bot != target and bot != "web_office":
-        logger.warning("bot-action: %s просили у %s, отправляю профильному %s", action, bot, target)
+        logger.warning(
+            "bot-action: %s просили у %s, отправляю профильному %s", action, bot, target
+        )
 
     from shared import bot_bus
 
     try:
         task_id = await bot_bus.send_task(
-            from_bot="web_admin", to_bot=target, action=action, params=params,
+            from_bot="web_admin",
+            to_bot=target,
+            action=action,
+            params=params,
         )
     except Exception as exc:
         logger.exception("bot-action: не удалось поставить задачу %s", action)
         return JSONResponse(
-            {"status": "error", "error": f"очередь недоступна: {exc}"}, status_code=503,
+            {"status": "error", "error": f"очередь недоступна: {exc}"},
+            status_code=503,
         )
 
     result = await bot_bus.get_result(task_id, timeout=90)
 
     if result is None:
-        return JSONResponse({
-            "status": "pending",
-            "task_id": task_id,
-            "bot": target,
-            "message": f"Задача поставлена, но {target} не ответил за 90 с. "
-                       f"Проверьте, запущен ли бот.",
-        })
+        return JSONResponse(
+            {
+                "status": "pending",
+                "task_id": task_id,
+                "bot": target,
+                "message": f"Задача поставлена, но {target} не ответил за 90 с. "
+                f"Проверьте, запущен ли бот.",
+            }
+        )
 
     if result.get("status") == "error":
-        return JSONResponse({
-            "status": "error",
+        return JSONResponse(
+            {
+                "status": "error",
+                "task_id": task_id,
+                "bot": target,
+                "error": result.get("error") or "бот вернул ошибку",
+            },
+            status_code=502,
+        )
+
+    return JSONResponse(
+        {
+            "status": "ok",
             "task_id": task_id,
             "bot": target,
-            "error": result.get("error") or "бот вернул ошибку",
-        }, status_code=502)
-
-    return JSONResponse({
-        "status": "ok",
-        "task_id": task_id,
-        "bot": target,
-        "result": result.get("result"),
-    })
+            "result": result.get("result"),
+        }
+    )
 
 
 @app.get("/api/admin/bots")
@@ -1540,27 +1786,31 @@ async def admin_bots():
     bots = []
     for info in BOTS:
         st = statuses.get(info.name, {})
-        bots.append({
-            "name": info.name,
-            "title": info.title,
-            "container": info.container,
-            "port": info.port,
-            "department": info.department,
-            "telegram": info.telegram,
-            "alive": bool(st.get("alive")),
-            "last_seen_ago": st.get("last_seen_ago", -1),
-            "errors": st.get("errors", 0),
-            "last_error": st.get("last_error", ""),
-        })
+        bots.append(
+            {
+                "name": info.name,
+                "title": info.title,
+                "container": info.container,
+                "port": info.port,
+                "department": info.department,
+                "telegram": info.telegram,
+                "alive": bool(st.get("alive")),
+                "last_seen_ago": st.get("last_seen_ago", -1),
+                "errors": st.get("errors", 0),
+                "last_error": st.get("last_error", ""),
+            }
+        )
 
     alive = sum(1 for b in bots if b["alive"])
-    return JSONResponse({
-        "status": "ok",
-        "bots": bots,
-        "alive": alive,
-        "total": len(bots),
-        "actions": sorted(ADMIN_BOT_ACTIONS.keys()),
-    })
+    return JSONResponse(
+        {
+            "status": "ok",
+            "bots": bots,
+            "alive": alive,
+            "total": len(bots),
+            "actions": sorted(ADMIN_BOT_ACTIONS.keys()),
+        }
+    )
 
 
 @app.get("/api/admin/bot-jobs")
@@ -1568,19 +1818,30 @@ async def admin_bot_jobs():
     """Расписания всех задач: что, когда и чем закончилось в прошлый раз."""
     try:
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                "SELECT bot, name, kind, hour, minute, day_of_week, day_of_month, "
-                "seconds, enabled, last_run_at, last_status, last_error "
-                "FROM bot_jobs ORDER BY bot, name"
-            ))
-            jobs = [{
-                "bot": r[0], "name": r[1], "kind": r[2],
-                "hour": r[3], "minute": r[4],
-                "dayOfWeek": r[5], "dayOfMonth": r[6], "seconds": r[7],
-                "enabled": r[8],
-                "lastRunAt": r[9].isoformat() if r[9] else None,
-                "lastStatus": r[10], "lastError": r[11],
-            } for r in res.fetchall()]
+            res = await session.execute(
+                text(
+                    "SELECT bot, name, kind, hour, minute, day_of_week, day_of_month, "
+                    "seconds, enabled, last_run_at, last_status, last_error "
+                    "FROM bot_jobs ORDER BY bot, name"
+                )
+            )
+            jobs = [
+                {
+                    "bot": r[0],
+                    "name": r[1],
+                    "kind": r[2],
+                    "hour": r[3],
+                    "minute": r[4],
+                    "dayOfWeek": r[5],
+                    "dayOfMonth": r[6],
+                    "seconds": r[7],
+                    "enabled": r[8],
+                    "lastRunAt": r[9].isoformat() if r[9] else None,
+                    "lastStatus": r[10],
+                    "lastError": r[11],
+                }
+                for r in res.fetchall()
+            ]
         return JSONResponse({"status": "ok", "jobs": jobs})
     except Exception as exc:
         # Таблицы может не быть до первого prisma db push.
@@ -1600,7 +1861,9 @@ async def admin_bot_jobs():
 async def admin_bot_jobs_update(request: Request):
     """Изменить расписание задачи и разбудить её бота, чтобы применил сразу."""
     if not _check_ingest_secret(request):
-        return JSONResponse({"status": "error", "error": "unauthorized"}, status_code=401)
+        return JSONResponse(
+            {"status": "error", "error": "unauthorized"}, status_code=401
+        )
 
     try:
         body = await request.json()
@@ -1610,22 +1873,30 @@ async def admin_bot_jobs_update(request: Request):
     bot = str(body.get("bot") or "").strip()
     name = str(body.get("name") or "").strip()
     if not bot or not name:
-        return JSONResponse({"status": "error", "error": "bot и name обязательны"}, status_code=400)
+        return JSONResponse(
+            {"status": "error", "error": "bot и name обязательны"}, status_code=400
+        )
 
     fields, values = [], {"bot": bot, "name": name}
     for key, col, lo, hi in (
-        ("hour", "hour", 0, 23), ("minute", "minute", 0, 59),
-        ("dayOfWeek", "day_of_week", 0, 6), ("dayOfMonth", "day_of_month", 1, 31),
+        ("hour", "hour", 0, 23),
+        ("minute", "minute", 0, 59),
+        ("dayOfWeek", "day_of_week", 0, 6),
+        ("dayOfMonth", "day_of_month", 1, 31),
         ("seconds", "seconds", 10, 86400),
     ):
         if key in body and body[key] is not None:
             try:
                 num = int(body[key])
             except (TypeError, ValueError):
-                return JSONResponse({"status": "error", "error": f"{key}: ожидается число"}, status_code=400)
+                return JSONResponse(
+                    {"status": "error", "error": f"{key}: ожидается число"},
+                    status_code=400,
+                )
             if not lo <= num <= hi:
                 return JSONResponse(
-                    {"status": "error", "error": f"{key}: допустимо {lo}..{hi}"}, status_code=400,
+                    {"status": "error", "error": f"{key}: допустимо {lo}..{hi}"},
+                    status_code=400,
                 )
             fields.append(f"{col} = :{col}")
             values[col] = num
@@ -1635,18 +1906,25 @@ async def admin_bot_jobs_update(request: Request):
         values["enabled"] = bool(body["enabled"])
 
     if not fields:
-        return JSONResponse({"status": "error", "error": "нечего менять"}, status_code=400)
+        return JSONResponse(
+            {"status": "error", "error": "нечего менять"}, status_code=400
+        )
 
     try:
         async with get_session_ctx() as session:
             res = await session.execute(
-                text(f"UPDATE bot_jobs SET {', '.join(fields)}, updated_at = NOW() "
-                     "WHERE bot = :bot AND name = :name"),
+                text(
+                    f"UPDATE bot_jobs SET {', '.join(fields)}, updated_at = NOW() "
+                    "WHERE bot = :bot AND name = :name"
+                ),
                 values,
             )
         if res.rowcount == 0:
             return JSONResponse(
-                {"status": "error", "error": "задача не найдена — бот ещё не регистрировал её"},
+                {
+                    "status": "error",
+                    "error": "задача не найдена — бот ещё не регистрировал её",
+                },
                 status_code=404,
             )
     except Exception as exc:
@@ -1655,7 +1933,9 @@ async def admin_bot_jobs_update(request: Request):
 
     # Боты сбрасывают кэш настроек и перечитывают расписания без рестарта.
     try:
-        await event_bus.publish("config_updated", {"bot": bot, "job": name}, "web_admin")
+        await event_bus.publish(
+            "config_updated", {"bot": bot, "job": name}, "web_admin"
+        )
     except Exception as exc:
         logger.warning("bot-jobs: событие config_updated не ушло: %s", exc)
 
@@ -1674,7 +1954,9 @@ async def admin_dispatch_task(request: Request):
     ровно та поломка, что была с department='operations'.
     """
     if not _check_ingest_secret(request):
-        return JSONResponse({"status": "error", "error": "unauthorized"}, status_code=401)
+        return JSONResponse(
+            {"status": "error", "error": "unauthorized"}, status_code=401
+        )
 
     try:
         body = await request.json()
@@ -1683,7 +1965,9 @@ async def admin_dispatch_task(request: Request):
 
     department = str(body.get("department") or "").strip().lower()
     if not department:
-        return JSONResponse({"status": "error", "error": "department required"}, status_code=400)
+        return JSONResponse(
+            {"status": "error", "error": "department required"}, status_code=400
+        )
 
     try:
         await event_bus.publish(
@@ -1714,7 +1998,9 @@ async def admin_config_updated(request: Request):
     кэше на минуту. Этот сигнал убирает задержку, когда она мешает.
     """
     if not _check_ingest_secret(request):
-        return JSONResponse({"status": "error", "error": "unauthorized"}, status_code=401)
+        return JSONResponse(
+            {"status": "error", "error": "unauthorized"}, status_code=401
+        )
     try:
         await event_bus.publish("config_updated", {"source": "web_admin"}, "web_admin")
         return JSONResponse({"status": "ok"})
@@ -1732,6 +2018,7 @@ async def admin_config_updated(request: Request):
 async def health_bots_view():
     """Простая авто-обновляемая HTML-страница статуса ботов."""
     from shared.health import check_all_bots, format_health_report
+
     statuses = await check_all_bots()
     body = format_health_report(statuses).replace("\n", "<br>")
     return HTMLResponse(
@@ -1747,6 +2034,7 @@ async def health_bots_view():
 async def ai_office_dashboard(request: Request):
     """Страница визуального Kanban-дашборда ИИ Офиса."""
     return templates.TemplateResponse("ai_office.html", {"request": request})
+
 
 @app.get("/api/magazine/brief")
 async def get_magazine_brief():

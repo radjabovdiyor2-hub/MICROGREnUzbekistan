@@ -99,16 +99,22 @@ async def _find_products(session, query: Optional[str]) -> List[Dict[str, Any]]:
             if not word_patterns:
                 continue
             key = f"w{idx}"
-            conditions.append(f"(name_ru ILIKE ANY(:{key}) OR name_uz ILIKE ANY(:{key}))")
+            conditions.append(
+                f"(name_ru ILIKE ANY(:{key}) OR name_uz ILIKE ANY(:{key}))"
+            )
             params[key] = word_patterns
         if conditions:
             stmt = text(
                 "SELECT id, name_ru, price, unit FROM products "
-                "WHERE is_active = true AND " + " AND ".join(conditions) +
-                " ORDER BY sort_order, id LIMIT 10"
-            ).bindparams(*[
-                bindparam(key, value=value, type_=ARRAY(String)) for key, value in params.items()
-            ])
+                "WHERE is_active = true AND "
+                + " AND ".join(conditions)
+                + " ORDER BY sort_order, id LIMIT 10"
+            ).bindparams(
+                *[
+                    bindparam(key, value=value, type_=ARRAY(String))
+                    for key, value in params.items()
+                ]
+            )
             rows = (await session.execute(stmt)).fetchall()
 
     if not rows:
@@ -132,8 +138,7 @@ async def _find_products(session, query: Optional[str]) -> List[Dict[str, Any]]:
             rows = []
 
     return [
-        {"id": r[0], "name": r[1], "price": float(r[2]), "unit": r[3]}
-        for r in rows
+        {"id": r[0], "name": r[1], "price": float(r[2]), "unit": r[3]} for r in rows
     ]
 
 
@@ -141,31 +146,37 @@ def _normalize_items(params: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Приводим вход к списку позиций: items[] либо одиночные product/quantity."""
     raw = params.get("items")
     if not raw:
-        raw = [{
-            "product": params.get("product"),
-            "quantity": params.get("quantity"),
-            "unit_price": params.get("unit_price"),
-        }]
+        raw = [
+            {
+                "product": params.get("product"),
+                "quantity": params.get("quantity"),
+                "unit_price": params.get("unit_price"),
+            }
+        ]
     items = []
     for entry in raw:
         if not isinstance(entry, dict):
             continue
-        items.append({
-            # product_id проставляется, когда руководитель выбрал позицию кнопкой —
-            # тогда искать по названию уже не нужно.
-            "product_id": entry.get("product_id"),
-            "product": str(entry.get("product") or "").strip() or None,
-            "quantity": _to_float(entry.get("quantity")) or 1.0,
-            "unit_price": _to_float(entry.get("unit_price")),
-        })
+        items.append(
+            {
+                # product_id проставляется, когда руководитель выбрал позицию кнопкой —
+                # тогда искать по названию уже не нужно.
+                "product_id": entry.get("product_id"),
+                "product": str(entry.get("product") or "").strip() or None,
+                "quantity": _to_float(entry.get("quantity")) or 1.0,
+                "unit_price": _to_float(entry.get("unit_price")),
+            }
+        )
     return items
 
 
 async def _product_by_id(session, product_id: int) -> Optional[Dict[str, Any]]:
-    row = (await session.execute(
-        text("SELECT id, name_ru, price, unit FROM products WHERE id = :pid"),
-        {"pid": int(product_id)},
-    )).fetchone()
+    row = (
+        await session.execute(
+            text("SELECT id, name_ru, price, unit FROM products WHERE id = :pid"),
+            {"pid": int(product_id)},
+        )
+    ).fetchone()
     if not row:
         return None
     return {"id": row[0], "name": row[1], "price": float(row[2]), "unit": row[3]}
@@ -191,12 +202,20 @@ async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]
         if not product:
             name = item["product"]
             if not name:
-                missing.append({"index": index, "name": None, "quantity": item["quantity"],
-                                "unit_price": item["unit_price"]})
+                missing.append(
+                    {
+                        "index": index,
+                        "name": None,
+                        "quantity": item["quantity"],
+                        "unit_price": item["unit_price"],
+                    }
+                )
                 continue
 
             matches = await _find_products(session, name)
-            exact = [m for m in matches if m["name"].strip().lower() == name.strip().lower()]
+            exact = [
+                m for m in matches if m["name"].strip().lower() == name.strip().lower()
+            ]
 
             if exact:
                 product = exact[0]
@@ -206,26 +225,38 @@ async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]
                 ambiguous.append({"index": index, "query": name, "candidates": matches})
                 continue
             else:
-                missing.append({"index": index, "name": name, "quantity": item["quantity"],
-                                "unit_price": item["unit_price"]})
+                missing.append(
+                    {
+                        "index": index,
+                        "name": name,
+                        "quantity": item["quantity"],
+                        "unit_price": item["unit_price"],
+                    }
+                )
                 continue
 
-        unit_price = item["unit_price"] if item["unit_price"] is not None else product["price"]
-        resolved.append({
-            "product_id": product["id"],
-            "name": product["name"],
-            "unit": product["unit"] or "piece",
-            "quantity": item["quantity"],
-            "unit_price": unit_price,
-            "total_price": unit_price * item["quantity"],
-        })
+        unit_price = (
+            item["unit_price"] if item["unit_price"] is not None else product["price"]
+        )
+        resolved.append(
+            {
+                "product_id": product["id"],
+                "name": product["name"],
+                "unit": product["unit"] or "piece",
+                "quantity": item["quantity"],
+                "unit_price": unit_price,
+                "total_price": unit_price * item["quantity"],
+            }
+        )
 
     if ambiguous or missing:
         return {"ambiguous": ambiguous, "missing": missing}
     return {"resolved": resolved}
 
 
-def _clarify_message(ambiguous: List[Dict[str, Any]], missing: List[Dict[str, Any]]) -> str:
+def _clarify_message(
+    ambiguous: List[Dict[str, Any]], missing: List[Dict[str, Any]]
+) -> str:
     """Короткий вопрос. Список вариантов уходит в кнопки, а не в текст."""
     parts = []
     for amb in ambiguous:
@@ -277,10 +308,23 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     phone = normalize_phone(params.get("phone"))
-    customer_type = "b2b" if str(params.get("customer_type") or "").lower() == "b2b" else "b2c"
-    payment_status = "pending" if str(params.get("payment_status") or "").lower() == "pending" else "paid"
+    customer_type = (
+        "b2b" if str(params.get("customer_type") or "").lower() == "b2b" else "b2c"
+    )
+    payment_status = (
+        "pending"
+        if str(params.get("payment_status") or "").lower() == "pending"
+        else "paid"
+    )
     order_status = str(params.get("status") or "delivered").lower()
-    if order_status not in ("new", "confirmed", "preparing", "ready", "delivering", "delivered"):
+    if order_status not in (
+        "new",
+        "confirmed",
+        "preparing",
+        "ready",
+        "delivering",
+        "delivered",
+    ):
         order_status = "delivered"
     notes = str(params.get("notes") or "").strip()
     registered_by = str(params.get("registered_by") or "sales_bot")
@@ -295,7 +339,9 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                 # и после ответа руководителя вызовет register_sale снова.
                 return {
                     "status": "clarify",
-                    "message": _clarify_message(outcome["ambiguous"], outcome["missing"]),
+                    "message": _clarify_message(
+                        outcome["ambiguous"], outcome["missing"]
+                    ),
                     "data": {
                         "ambiguous": outcome["ambiguous"],
                         "missing": outcome["missing"],
@@ -317,78 +363,107 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
             # ── 2. Клиент: ищем по телефону, затем по названию, иначе заводим ──
             customer_id = None
             if phone:
-                customer_id = (await session.execute(
-                    text("SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"),
-                    {"p": phone},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"
+                        ),
+                        {"p": phone},
+                    )
+                ).scalar()
             if not customer_id:
-                customer_id = (await session.execute(
-                    text("SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n "
-                         "ORDER BY id LIMIT 1"),
-                    {"n": customer_name},
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n "
+                            "ORDER BY id LIMIT 1"
+                        ),
+                        {"n": customer_name},
+                    )
+                ).scalar()
 
             customer_created = False
             if customer_id:
                 await session.execute(
-                    text("UPDATE customers SET phone = COALESCE(phone, :p), "
-                         "name = COALESCE(NULLIF(name, ''), :n) WHERE id = :cid"),
+                    text(
+                        "UPDATE customers SET phone = COALESCE(phone, :p), "
+                        "name = COALESCE(NULLIF(name, ''), :n) WHERE id = :cid"
+                    ),
                     {"p": phone, "n": customer_name, "cid": customer_id},
                 )
             else:
-                customer_id = (await session.execute(
-                    text(
-                        "INSERT INTO customers (name, company_name, phone, customer_type, "
-                        "company_type, status, source, notes) "
-                        "VALUES (:n, :company, :p, :ctype, :company_type, 'active', 'manual', :notes) "
-                        "RETURNING id"
-                    ),
-                    {
-                        "n": customer_name,
-                        "company": customer_name if customer_type == "b2b" else None,
-                        "p": phone,
-                        "ctype": customer_type,
-                        "company_type": "restaurant" if customer_type == "b2b" else None,
-                        "notes": f"Заведён при регистрации продажи ({registered_by})",
-                    },
-                )).scalar()
+                customer_id = (
+                    await session.execute(
+                        text(
+                            "INSERT INTO customers (name, company_name, phone, customer_type, "
+                            "company_type, status, source, notes) "
+                            "VALUES (:n, :company, :p, :ctype, :company_type, 'active', 'manual', :notes) "
+                            "RETURNING id"
+                        ),
+                        {
+                            "n": customer_name,
+                            "company": customer_name
+                            if customer_type == "b2b"
+                            else None,
+                            "p": phone,
+                            "ctype": customer_type,
+                            "company_type": "restaurant"
+                            if customer_type == "b2b"
+                            else None,
+                            "notes": f"Заведён при регистрации продажи ({registered_by})",
+                        },
+                    )
+                ).scalar()
                 customer_created = True
 
             # ── 3. Защита от дубля: та же продажа, тому же клиенту, только что ──
-            dup = (await session.execute(
-                text(
-                    "SELECT id, order_number FROM orders "
-                    "WHERE customer_id = :cid AND total_amount = :total "
-                    "AND created_at > NOW() - (:mins || ' minutes')::interval "
-                    "ORDER BY id DESC LIMIT 1"
-                ),
-                {"cid": customer_id, "total": total_amount, "mins": str(DEDUPE_WINDOW_MINUTES)},
-            )).fetchone()
+            dup = (
+                await session.execute(
+                    text(
+                        "SELECT id, order_number FROM orders "
+                        "WHERE customer_id = :cid AND total_amount = :total "
+                        "AND created_at > NOW() - (:mins || ' minutes')::interval "
+                        "ORDER BY id DESC LIMIT 1"
+                    ),
+                    {
+                        "cid": customer_id,
+                        "total": total_amount,
+                        "mins": str(DEDUPE_WINDOW_MINUTES),
+                    },
+                )
+            ).fetchone()
             if dup:
                 return {
                     "status": "duplicate",
-                    "message": (f"Эта продажа уже зарегистрирована — заказ {dup[1]} "
-                                f"({customer_name}, {format_price(total_amount)}). "
-                                f"Повторно не записываю."),
+                    "message": (
+                        f"Эта продажа уже зарегистрирована — заказ {dup[1]} "
+                        f"({customer_name}, {format_price(total_amount)}). "
+                        f"Повторно не записываю."
+                    ),
                     "data": {"order_id": dup[0], "order_number": dup[1]},
                 }
 
             # ── 4. Заказ (order_number выдаст триггер) + позиции ──
-            row = (await session.execute(
-                text(
-                    "INSERT INTO orders (customer_id, total_amount, status, payment_status, "
-                    "notes, created_at, updated_at) "
-                    "VALUES (:cid, :total, :status, :pay, :notes, NOW(), NOW()) "
-                    "RETURNING id, order_number"
-                ),
-                {
-                    "cid": customer_id,
-                    "total": total_amount,
-                    "status": order_status,
-                    "pay": payment_status,
-                    "notes": (notes or f"Продажа зарегистрирована вручную ({registered_by})")[:500],
-                },
-            )).fetchone()
+            row = (
+                await session.execute(
+                    text(
+                        "INSERT INTO orders (customer_id, total_amount, status, payment_status, "
+                        "notes, created_at, updated_at) "
+                        "VALUES (:cid, :total, :status, :pay, :notes, NOW(), NOW()) "
+                        "RETURNING id, order_number"
+                    ),
+                    {
+                        "cid": customer_id,
+                        "total": total_amount,
+                        "status": order_status,
+                        "pay": payment_status,
+                        "notes": (
+                            notes
+                            or f"Продажа зарегистрирована вручную ({registered_by})"
+                        )[:500],
+                    },
+                )
+            ).fetchone()
             order_id, order_number = row[0], row[1]
 
             for line in lines:
@@ -397,8 +472,14 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                         "INSERT INTO order_items (order_id, product_id, quantity, unit, "
                         "unit_price, total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
                     ),
-                    {"oid": order_id, "pid": line["product_id"], "qty": line["quantity"],
-                     "unit": line["unit"], "price": line["unit_price"], "total": line["total_price"]},
+                    {
+                        "oid": order_id,
+                        "pid": line["product_id"],
+                        "qty": line["quantity"],
+                        "unit": line["unit"],
+                        "price": line["unit_price"],
+                        "total": line["total_price"],
+                    },
                 )
 
             # ── 5. Статистика клиента + журнал взаимодействия ──
@@ -411,15 +492,21 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                 ),
                 {"amount": total_amount, "cid": customer_id},
             )
-            items_summary = "; ".join(f"{l['name']} × {l['quantity']:g}" for l in lines)
+            items_summary = "; ".join(
+                f"{item['name']} × {item['quantity']:g}" for item in lines
+            )
             await session.execute(
                 text(
                     "INSERT INTO interactions (customer_id, order_id, channel, interaction_type, "
                     "bot_name, summary, resolved) "
                     "VALUES (:cid, :oid, 'telegram', 'order', :bot, :summary, true)"
                 ),
-                {"cid": customer_id, "oid": order_id, "bot": registered_by,
-                 "summary": f"Продажа {order_number}: {items_summary} на {format_price(total_amount)}"},
+                {
+                    "cid": customer_id,
+                    "oid": order_id,
+                    "bot": registered_by,
+                    "summary": f"Продажа {order_number}: {items_summary} на {format_price(total_amount)}",
+                },
             )
             await session.commit()
 
@@ -441,8 +528,12 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         registered_by,
     )
 
-    logger.info("SALES_OPS: продажа %s зарегистрирована (клиент #%s, %s)",
-                order_number, customer_id, total_amount)
+    logger.info(
+        "SALES_OPS: продажа %s зарегистрирована (клиент #%s, %s)",
+        order_number,
+        customer_id,
+        total_amount,
+    )
 
     return {
         "status": "ok",
@@ -485,7 +576,10 @@ def format_sale_report(result: Dict[str, Any]) -> str:
         )
     lines.append("")
     lines.append(f"💰 Итого: <b>{format_price(d['total_amount'])}</b>")
-    lines.append("💳 Оплата: " + ("получена" if d.get("payment_status") == "paid" else "ожидается"))
+    lines.append(
+        "💳 Оплата: "
+        + ("получена" if d.get("payment_status") == "paid" else "ожидается")
+    )
     lines.append("")
     lines.append("Финансы учли доход, аналитика — метрику, PM видит заказ.")
     return "\n".join(lines)

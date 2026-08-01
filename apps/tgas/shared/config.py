@@ -65,6 +65,16 @@ class Settings(BaseSettings):
         description="URL подключения к PostgreSQL через asyncpg",
     )
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def ensure_asyncpg_scheme(cls, v):
+        if isinstance(v, str):
+            if v.startswith("postgresql://"):
+                return v.replace("postgresql://", "postgresql+asyncpg://", 1)
+            if v.startswith("postgres://"):
+                return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        return v
+
     # ── Redis ──────────────────────────────────────────────────────────
     redis_url: str = Field(
         default="redis://localhost:6379/0",
@@ -149,7 +159,7 @@ class Settings(BaseSettings):
         default=500_000,
         description="Порог бесплатной доставки в UZS",
     )
-    
+
     # ── Платежные системы ──────────────────────────────────────────────
     # click_merchant_id / payme_merchant_id удалены вместе с генерацией ссылок
     # на онлайн-оплату в sales_bot. У них стояли defaults «12345» и
@@ -223,7 +233,7 @@ class Settings(BaseSettings):
 
     # ── Совещание отделов (multi-agent «круглый стол») ────────────────
     meeting_rounds: int = Field(
-        default=1,   # 1 раунд — экономия AI-вызовов (было 2 с дебатами)
+        default=1,  # 1 раунд — экономия AI-вызовов (было 2 с дебатами)
         description="Сколько раундов обсуждения на совещании (1 — только позиции, 2+ — с дебатами)",
     )
     meeting_min_participants: int = Field(
@@ -231,7 +241,7 @@ class Settings(BaseSettings):
         description="Минимум отделов на совещании",
     )
     meeting_max_participants: int = Field(
-        default=3,   # 3 вместо 5 — совещание дешевле по AI-вызовам
+        default=3,  # 3 вместо 5 — совещание дешевле по AI-вызовам
         description="Максимум отделов на совещании",
     )
     meeting_departments: str = Field(

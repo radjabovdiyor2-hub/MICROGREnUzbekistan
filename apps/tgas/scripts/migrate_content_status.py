@@ -20,7 +20,9 @@ from sqlalchemy import text
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
-STATE_FILE = Path(__file__).resolve().parent.parent / "bus_tasks" / "content_status.json"
+STATE_FILE = (
+    Path(__file__).resolve().parent.parent / "bus_tasks" / "content_status.json"
+)
 
 
 async def migrate():
@@ -47,7 +49,8 @@ async def migrate():
                         "ON CONFLICT (date, slot) DO NOTHING"
                     ),
                     {
-                        "d": day, "s": slot,
+                        "d": day,
+                        "s": slot,
                         "at": rec.get("at"),
                         "ig": bool(rec.get("ig")),
                         "mid": rec.get("media_id"),
@@ -61,7 +64,9 @@ async def migrate():
                 )
                 count += 1
 
-    logger.info(f"✅ Перенесено {count} записей из content_status.json → content_publications")
+    logger.info(
+        f"✅ Перенесено {count} записей из content_status.json → content_publications"
+    )
     # Переименовываем файл, чтобы не мигрировать повторно
     backup = STATE_FILE.with_suffix(".json.migrated")
     STATE_FILE.rename(backup)

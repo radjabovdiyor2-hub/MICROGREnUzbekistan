@@ -31,15 +31,17 @@ for d in (TASKS_DIR, PENDING_DIR, PROCESSING_DIR, TMP_DIR, FAILED_DIR, COMPLETED
     d.mkdir(parents=True, exist_ok=True)
 
 
-
 def _pending_path(task_id: str) -> Path:
     return PENDING_DIR / f"{task_id}.json"
+
 
 def _processing_path(task_id: str) -> Path:
     return PROCESSING_DIR / f"{task_id}.json"
 
+
 def _failed_path(task_id: str) -> Path:
     return FAILED_DIR / f"{task_id}.json"
+
 
 def _completed_path(task_id: str) -> Path:
     return COMPLETED_DIR / f"{task_id}.json"
@@ -67,10 +69,10 @@ async def send_task(
         "completed_at": None,
         "attempts": 0,
     }
-    
+
     tmp_path = TMP_DIR / f"{task_id}_{uuid.uuid4().hex[:6]}.json"
     pending_path = _pending_path(task_id)
-    
+
     try:
         # Atomic write
         with open(tmp_path, "w", encoding="utf-8") as f:
@@ -79,7 +81,9 @@ async def send_task(
             os.fsync(f.fileno())
         # Atomic publish
         os.replace(tmp_path, pending_path)
-        logger.info(f"[BUS] Задача {task_id} отправлена: {from_bot} → {to_bot} | {action}")
+        logger.info(
+            f"[BUS] Задача {task_id} отправлена: {from_bot} → {to_bot} | {action}"
+        )
         return task_id
     except Exception as e:
         if tmp_path.exists():
@@ -94,8 +98,9 @@ async def send_task(
 async def get_pending_tasks(bot_name: str) -> List[Dict]:
     """Получить все ожидающие задачи для указанного бота."""
     import time
+
     now = time.time()
-    
+
     # 1. Восстановление зависших задач (stale processing)
     try:
         for f in PROCESSING_DIR.glob("*.json"):
@@ -104,7 +109,9 @@ async def get_pending_tasks(bot_name: str) -> List[Dict]:
                     task = json.loads(f.read_text(encoding="utf-8"))
                     if task.get("to_bot") == bot_name:
                         os.replace(f, _pending_path(task["task_id"]))
-                        logger.warning(f"[BUS] Восстановлена зависшая задача {task['task_id']}")
+                        logger.warning(
+                            f"[BUS] Восстановлена зависшая задача {task['task_id']}"
+                        )
             except OSError:
                 pass
     except Exception as e:
@@ -129,7 +136,7 @@ async def claim_task(task_id: str) -> bool:
     """Пометить задачу как 'в работе' (атомарный claim)."""
     pending_path = _pending_path(task_id)
     processing_path = _processing_path(task_id)
-    
+
     try:
         # Atomic rename: only one consumer will succeed
         os.replace(pending_path, processing_path)
@@ -150,18 +157,18 @@ async def complete_task(task_id: str, result: Any = None, error: str = None):
     processing_path = _processing_path(task_id)
     if not processing_path.exists():
         return
-    
+
     try:
         task = json.loads(processing_path.read_text(encoding="utf-8"))
         task["completed_at"] = datetime.now().isoformat()
-        
+
         if error:
             attempts = task.get("attempts", 0) + 1
             task["attempts"] = attempts
             task["error"] = error
-            
+
             tmp_path = TMP_DIR / f"{task_id}_retry_{uuid.uuid4().hex[:6]}.json"
-            
+
             if attempts < 3:
                 task["status"] = "pending"
                 with open(tmp_path, "w", encoding="utf-8") as f:
@@ -169,7 +176,9 @@ async def complete_task(task_id: str, result: Any = None, error: str = None):
                     f.flush()
                     os.fsync(f.fileno())
                 os.replace(tmp_path, _pending_path(task_id))
-                logger.info(f"[BUS] Задача {task_id} возвращена в pending (попытка {attempts}/3)")
+                logger.info(
+                    f"[BUS] Задача {task_id} возвращена в pending (попытка {attempts}/3)"
+                )
             else:
                 task["status"] = "error"
                 with open(tmp_path, "w", encoding="utf-8") as f:
@@ -177,8 +186,10 @@ async def complete_task(task_id: str, result: Any = None, error: str = None):
                     f.flush()
                     os.fsync(f.fileno())
                 os.replace(tmp_path, _failed_path(task_id))
-                logger.error(f"[BUS] Задача {task_id} перемещена в failed (превышен лимит)")
-                
+                logger.error(
+                    f"[BUS] Задача {task_id} перемещена в failed (превышен лимит)"
+                )
+
             try:
                 processing_path.unlink()
             except OSError:
@@ -187,20 +198,20 @@ async def complete_task(task_id: str, result: Any = None, error: str = None):
             task["status"] = "done"
             task["result"] = result
             task["error"] = None
-            
+
             tmp_path = TMP_DIR / f"{task_id}_done_{uuid.uuid4().hex[:6]}.json"
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(task, f, ensure_ascii=False, indent=2)
                 f.flush()
                 os.fsync(f.fileno())
-                
+
             os.replace(tmp_path, _completed_path(task_id))
             try:
                 processing_path.unlink()
             except OSError:
                 pass
             logger.info(f"[BUS] Задача {task_id} завершена: OK")
-            
+
     except Exception as e:
         logger.error(f"[BUS] Ошибка завершения задачи: {e}")
 
@@ -210,11 +221,8 @@ async def get_result(task_id: str, timeout: int = 120) -> Optional[Dict]:
     Ожидать результат задачи с таймаутом.
     Возвращает dict с результатом или None при таймауте.
     """
-    paths_to_check = [
-        _completed_path(task_id),
-        _failed_path(task_id)
-    ]
-    
+    paths_to_check = [_completed_path(task_id), _failed_path(task_id)]
+
     for _ in range(timeout // 2):
         for path in paths_to_check:
             if path.exists():
@@ -229,7 +237,7 @@ async def get_result(task_id: str, timeout: int = 120) -> Optional[Dict]:
                 except (json.JSONDecodeError, OSError):
                     pass
         await asyncio.sleep(2)
-    
+
     logger.warning(f"[BUS] Таймаут ожидания задачи {task_id}")
     return None
 
@@ -241,7 +249,7 @@ async def start_listener(
 ):
     """Фоновый слушатель задач для бота."""
     logger.info(f"[BUS] Слушатель запущен для {bot_name}")
-    
+
     while True:
         try:
             tasks = await get_pending_tasks(bot_name)
@@ -249,7 +257,7 @@ async def start_listener(
                 task_id = task["task_id"]
                 action = task["action"]
                 params = task.get("params", {})
-                
+
                 claimed = await claim_task(task_id)
                 if not claimed:
                     continue
@@ -258,29 +266,35 @@ async def start_listener(
                     # claim уже сделан — complete_task найдёт файл в processing
                     # и через 3 попытки переместит его в failed (иначе задача
                     # навсегда зависла бы в pending и перечитывалась каждый цикл)
-                    await complete_task(task_id, error=f"Неизвестное действие: {action}")
+                    await complete_task(
+                        task_id, error=f"Неизвестное действие: {action}"
+                    )
                     continue
-                
+
                 logger.info(f"[BUS] {bot_name} выполняет: {action} (task: {task_id})")
-                
+
                 try:
                     result = await handlers[action](params)
                     await complete_task(task_id, result=result)
                 except Exception as e:
-                    logger.error(f"[BUS] Ошибка выполнения {action}: {e}", exc_info=True)
+                    logger.error(
+                        f"[BUS] Ошибка выполнения {action}: {e}", exc_info=True
+                    )
                     await complete_task(task_id, error=str(e))
-                    
+
         except Exception as e:
             logger.error(f"[BUS] Ошибка слушателя: {e}")
-        
+
         await asyncio.sleep(poll_interval)
 
 
 # ── Очистка старых задач (>24 часов) ──────────────────────────────────────
 
+
 async def cleanup_old_tasks(max_age_hours: int = 24):
     """Удаляет старые задачи из всех папок."""
     import time
+
     now = time.time()
     count = 0
     for d in (PENDING_DIR, PROCESSING_DIR, FAILED_DIR, COMPLETED_DIR, TMP_DIR):

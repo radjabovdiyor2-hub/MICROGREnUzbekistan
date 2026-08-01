@@ -28,6 +28,7 @@
 Чего скрипт НЕ проверяет: что бот реально жив. Это делает мониторинг
 Стёпана (bot_health_check) и /health в web_office.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,8 +41,8 @@ try:
 except (AttributeError, OSError):
     pass
 
-ROOT = Path(__file__).resolve().parent.parent          # apps/tgas
-REPO = ROOT.parent.parent                              # корень репозитория
+ROOT = Path(__file__).resolve().parent.parent  # apps/tgas
+REPO = ROOT.parent.parent  # корень репозитория
 
 # ── единственный источник правды ────────────────────────────────────────
 sys.path.insert(0, str(ROOT))
@@ -92,7 +93,7 @@ for bot in sorted(EXPECTED):
             f"— бот будет работать, но мониторинг покажет «НЕ ЗАПУЩЕН»"
         )
     else:
-        problems.append(f"bots/{bot}/main.py: нет вызова start_heartbeat(\"{bot}\")")
+        problems.append(f'bots/{bot}/main.py: нет вызова start_heartbeat("{bot}")')
 if hb_found == EXPECTED:
     notes.append(f"  ok  вызов start_heartbeat — {len(hb_found)}")
 
@@ -104,12 +105,19 @@ if hb_found == EXPECTED:
 registry = read(ROOT / "shared" / "bot_registry.py") or ""
 registry_ports = {
     m.group(1) if m.group(1).endswith("_bot") else f"{m.group(1)}_bot"
-    for m in re.finditer(r'BotInfo\(\s*"([a-z0-9_]+)",\s*"mg_[a-z0-9_]+",\s*\d+', registry)
+    for m in re.finditer(
+        r'BotInfo\(\s*"([a-z0-9_]+)",\s*"mg_[a-z0-9_]+",\s*\d+', registry
+    )
 }
-compare("shared/bot_registry.py карта портов", registry_ports,
-        expected=EXPECTED - NO_EVENT_PORT)
+compare(
+    "shared/bot_registry.py карта портов",
+    registry_ports,
+    expected=EXPECTED - NO_EVENT_PORT,
+)
 
-if "from shared.bot_registry import EVENT_ENDPOINTS" not in (read(ROOT / "shared" / "event_bus.py") or ""):
+if "from shared.bot_registry import EVENT_ENDPOINTS" not in (
+    read(ROOT / "shared" / "event_bus.py") or ""
+):
     problems.append(
         "shared/event_bus.py: карта портов задана вручную вместо импорта "
         "EVENT_ENDPOINTS из shared/bot_registry.py — источники снова разъедутся"
@@ -126,6 +134,7 @@ for label, path in (
         continue
     compare(label, set(re.findall(r"python -m bots\.([a-z0-9_]+)\.main", text)))
 
+
 # ── 4. windows-лаунчеры ─────────────────────────────────────────────────
 # Лаунчеры перечисляют ботов двумя способами: строкой `bots.<имя>.main`
 # (старый копипаст) или списком имён с циклом (нынешний вид). Понимаем оба:
@@ -133,7 +142,8 @@ for label, path in (
 # реестр, потом ищем имена из ALL_BOTS как отдельные слова.
 def launcher_bots(text: str, comment: str) -> set[str]:
     body = "\n".join(
-        line for line in text.splitlines()
+        line
+        for line in text.splitlines()
         if not line.strip().lower().startswith(comment)
     )
     return {bot for bot in EXPECTED if re.search(rf"\b{re.escape(bot)}\b", body)}

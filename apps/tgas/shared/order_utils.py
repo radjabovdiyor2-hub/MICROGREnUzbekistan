@@ -21,12 +21,14 @@ async def generate_order_number() -> str:
         # Advisory lock гарантирует, что только один процесс
         # читает MAX и вставляет в одно время. Lock ID = 0xMG = 777.
         await session.execute(sa_text("SELECT pg_advisory_xact_lock(777)"))
-        res = await session.execute(sa_text(
-            "SELECT COALESCE("
-            "  MAX(CAST(SUBSTRING(order_number FROM 4) AS INTEGER)),"
-            "  0"
-            ") + 1 FROM orders"
-        ))
+        res = await session.execute(
+            sa_text(
+                "SELECT COALESCE("
+                "  MAX(CAST(SUBSTRING(order_number FROM 4) AS INTEGER)),"
+                "  0"
+                ") + 1 FROM orders"
+            )
+        )
         next_num = res.scalar() or 1
         order_number = f"MG-{str(next_num).zfill(6)}"
         # Lock освобождается при commit/rollback транзакции (xact lock).

@@ -34,7 +34,11 @@ async def handle_roll_call(bot_name: str, payload: dict) -> None:
     if not chat_id:
         return
 
-    token = getattr(settings, f"{bot_name}_token", None) or settings.stepan_bot_token or settings.sales_bot_token
+    token = (
+        getattr(settings, f"{bot_name}_token", None)
+        or settings.stepan_bot_token
+        or settings.sales_bot_token
+    )
     if not token:
         logger.error("ROLL_CALL: токен для %s и фоллбэк не найдены", bot_name)
         return

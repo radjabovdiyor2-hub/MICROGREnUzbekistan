@@ -1,30 +1,48 @@
-"""Content Bot — main.py с EventBus интеграцией"""
 import asyncio
 import logging
 import os
+from datetime import date, datetime, timedelta, timezone
+
 from aiogram import Bot, Dispatcher, Router
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
+from aiogram.filters import Command
+from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.types import Message
+
+from bots.content_bot.handlers import all_routers
+from shared.ai_engine import AIEngine
+from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY
+from shared.prompts import TEAM_CONTEXT
+from shared.config import settings
+from shared.content_archive import (
+    get_last_publications_async as get_last_publications,
+    get_publications_async as get_publications,
+    mark_published as _mark_published,
+    status_message_async as _content_status_message,
+    tz_now as _tz_now,
+)
+from shared.content_plan import (
+    build_brief,
+    build_recipe_brief,
+    get_daily_fact_theme,
+    get_daily_morning_format,
+    get_weekly_grid_pillar,
+)
+from shared.database import get_session_ctx, init_db
+from shared.event_bus import event_bus
+from shared.group_orchestrator import create_group_router
+from shared.health import start_heartbeat
+from shared.scheduler import BotScheduler
+from shared.trends import (
+    build_topical_angle,
+    fetch_uzbek_trends,
+    fetch_weather_samarkand,
+    get_daily_context,
+)
+from shared.utils import simulate_typing
 
 logger = logging.getLogger(__name__)
-from aiogram.filters import Command
-from aiogram.client.default import DefaultBotProperties
-from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.enums import ParseMode
-from shared.config import settings
-from shared.database import init_db, get_session_ctx
-from shared.event_bus import event_bus
-from bots.content_bot.handlers import all_routers
-from shared.group_orchestrator import create_group_router
-from shared.ai_engine import AIEngine
-from shared.utils import simulate_typing
-from aiogram.types import Message
-from shared.scheduler import BotScheduler
-from shared.health import start_heartbeat
-from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY
-from shared.content_plan import (
-    get_daily_pillar, get_weekly_grid_pillar, build_brief,
-    get_daily_fact_theme, build_recipe_brief, get_daily_morning_format,
-)
-
 logging.basicConfig(level=logging.INFO)
 
 # ── Глобальные ссылки для задач ──────────────────────────────────────────
@@ -41,21 +59,14 @@ scheduler = BotScheduler("content_bot")
 # ── Журнал публикаций (общий volume bus_tasks — виден и Степану через bot_bus) ──
 # Пишем не только факт «опубликовано в 07:16», но и САМ контент (картинка + текст):
 # иначе показать руководителю реальный пост нечем — temp_story.jpg перезатирается
-# следующей же публикацией.
-from shared.content_archive import (
-    mark_published as _mark_published,
-    status_message_async as _content_status_message,
-    get_publications_async as get_publications,
-    get_last_publications_async as get_last_publications,
-    tz_now as _tz_now,
-)
-
-
 async def ai_fallback(msg: Message):
     ai = AIEngine()
     await simulate_typing(msg, delay=2)
-    from shared.prompts import TEAM_CONTEXT
-    r = await ai.chat_completion(f"{TEAM_CONTEXT}\n\nТы контент-менеджер Microgreen Uzbekistan. Помогай пользователю.", msg.text)
+
+    r = await ai.chat_completion(
+        f"{TEAM_CONTEXT}\n\nТы контент-менеджер Microgreen Uzbekistan. Помогай пользователю.",
+        msg.text,
+    )
     await msg.answer(r)
 
 
@@ -66,7 +77,13 @@ async def _post_to_channel(image_path, caption) -> bool:
             return False
         if image_path:
             from aiogram.types import FSInputFile
-            await _bot.send_photo(channel_id, FSInputFile(image_path), caption=caption[:1024], parse_mode="HTML")
+
+            await _bot.send_photo(
+                channel_id,
+                FSInputFile(image_path),
+                caption=caption[:1024],
+                parse_mode="HTML",
+            )
         else:
             await _bot.send_message(channel_id, caption[:4000], parse_mode="HTML")
         return True
@@ -74,20 +91,32 @@ async def _post_to_channel(image_path, caption) -> bool:
         logging.error(f"_post_to_channel error: {e}")
         return False
 
+
 # ═══════════════════════════════════════════════════════════════════════════
 # ФОНОВЫЕ ЗАДАЧИ
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def daily_content_ideas():
     """Ежедневно в 8:00: 3 идеи контента от AI."""
     try:
         from datetime import datetime, timedelta, timezone
+
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
         month_name = {
-            1: "январь", 2: "февраль", 3: "март", 4: "апрель",
-            5: "май", 6: "июнь", 7: "июль", 8: "август",
-            9: "сентябрь", 10: "октябрь", 11: "ноябрь", 12: "декабрь",
+            1: "январь",
+            2: "февраль",
+            3: "март",
+            4: "апрель",
+            5: "май",
+            6: "июнь",
+            7: "июль",
+            8: "август",
+            9: "сентябрь",
+            10: "октябрь",
+            11: "ноябрь",
+            12: "декабрь",
         }[now.month]
 
         admin_id = settings.admin_telegram_ids[0]
@@ -103,7 +132,7 @@ async def daily_content_ideas():
         ideas = await ai.chat_completion(
             "Ты креативный контент-менеджер для бизнеса микрозелени в Узбекистане. "
             "Пиши на русском языке.",
-            prompt
+            prompt,
         )
 
         report = (
@@ -123,20 +152,23 @@ async def product_description_audit():
     """Понедельник 11:00: проверка продуктов без описания."""
     try:
         from sqlalchemy import text
+
         admin_id = settings.admin_telegram_ids[0]
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                "SELECT id, name_ru FROM products "
-                "WHERE description_ru IS NULL OR description_ru = '' "
-                "ORDER BY id"
-            ))
+            res = await session.execute(
+                text(
+                    "SELECT id, name_ru FROM products "
+                    "WHERE description_ru IS NULL OR description_ru = '' "
+                    "ORDER BY id"
+                )
+            )
             products = res.fetchall()
 
         if not products:
             await _bot.send_message(
                 admin_id,
                 "✅ <b>Аудит описаний:</b> Все продукты имеют описание!",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
             return
 
@@ -166,35 +198,39 @@ async def auto_publish_to_channel():
             return
 
         ai = AIEngine()
-        from shared.content_plan import get_daily_pillar, build_brief
+        from shared.content_plan import get_daily_pillar
+
         pillar = get_daily_pillar()
-        
+
         prompt = (
             f"Напиши пост для нашего официального Telegram-канала.\n"
             f"Тематика: {pillar['name']}. Угол подачи: {pillar['angle']}.\n"
             f"Пиши живо, интересно, добавь релевантные эмодзи. "
             f"В конце добавь наши контакты: @microgreen_uz и хэштеги {pillar['tags']}."
         )
-        
+
         post_text = await ai.chat_completion(
             "Ты SMM-менеджер Microgreen Uzbekistan. Пиши красиво и профессионально.",
             prompt,
-            temperature=0.8
+            temperature=0.8,
         )
-        
+
         image_prompt = (
             f"Фотография для Telegram канала про микрозелень. "
             f"Тема: {pillar['name']}. Стиль: свежий, экологичный, аппетитный, зеленые и золотые тона."
         )
         image_url = await ai.generate_image(image_prompt)
-        
+
         if image_url:
             from aiogram.types import URLInputFile
+
             photo = URLInputFile(image_url)
-            await _bot.send_photo(channel_id, photo=photo, caption=post_text, parse_mode="HTML")
+            await _bot.send_photo(
+                channel_id, photo=photo, caption=post_text, parse_mode="HTML"
+            )
         else:
             await _bot.send_message(channel_id, post_text, parse_mode="HTML")
-            
+
         logging.info("auto_publish_to_channel: пост успешно отправлен в канал.")
     except Exception as e:
         logging.error(f"auto_publish_to_channel error: {e}", exc_info=True)
@@ -204,6 +240,7 @@ async def weekly_content_plan():
     """Воскресенье 20:00: полный контент-план на неделю от AI."""
     try:
         from datetime import datetime, timedelta, timezone
+
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
         # Следующий понедельник
@@ -214,13 +251,18 @@ async def weekly_content_plan():
 
         # Получаем список продуктов для контекста
         from sqlalchemy import text
+
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                "SELECT name_ru FROM products WHERE is_active = true LIMIT 10"
-            ))
+            res = await session.execute(
+                text("SELECT name_ru FROM products WHERE is_active = true LIMIT 10")
+            )
             products = [row[0] for row in res.fetchall()]
 
-        products_str = ", ".join(products) if products else "микрозелень (руккола, подсолнечник, горох, редис)"
+        products_str = (
+            ", ".join(products)
+            if products
+            else "микрозелень (руккола, подсолнечник, горох, редис)"
+        )
 
         ai = AIEngine()
         prompt = (
@@ -237,7 +279,7 @@ async def weekly_content_plan():
         plan = await ai.chat_completion(
             "Ты профессиональный SMM-менеджер для бизнеса микрозелени. "
             "Создавай структурированные контент-планы на русском языке.",
-            prompt
+            prompt,
         )
 
         report = (
@@ -250,27 +292,17 @@ async def weekly_content_plan():
         )
         # Telegram limit
         if len(report) > 4000:
-            await _bot.send_message(admin_id, report[:4000] + "\n\n<i>...продолжение↓</i>", parse_mode="HTML")
+            await _bot.send_message(
+                admin_id,
+                report[:4000] + "\n\n<i>...продолжение↓</i>",
+                parse_mode="HTML",
+            )
             await _bot.send_message(admin_id, report[4000:], parse_mode="HTML")
         else:
             await _bot.send_message(admin_id, report, parse_mode="HTML")
     except Exception as e:
         logging.error(f"weekly_content_plan error: {e}", exc_info=True)
 
-
-import aiohttp
-from datetime import datetime, timedelta, timezone
-
-# Источники повестки вынесены в shared/trends.py (их использует и bus_generate_meme).
-# get_daily_context — кэшированный на день контекст (новости/тренды/сезон/погода),
-# build_topical_angle — тема поста из этой повестки в рамках CONTENT_POLICY.
-from shared.trends import (
-    fetch_weather_samarkand, fetch_local_news, fetch_uzbek_trends,
-    get_daily_context, build_topical_angle,
-)
-
-
-from datetime import date
 
 async def morning_post(d: date | None = None):
     """Ежедневно утром: утренний сторис. Каждый день — ДРУГОЙ формат (факт / вопрос /
@@ -280,7 +312,7 @@ async def morning_post(d: date | None = None):
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
         target_date = d or now.date()
-        day_name = target_date.strftime('%A')
+        day_name = target_date.strftime("%A")
         weather = await fetch_weather_samarkand()
 
         admin_id = settings.admin_telegram_ids[0]
@@ -289,26 +321,33 @@ async def morning_post(d: date | None = None):
         # Формат дня определяет угол подачи, фото, макет, CTA и триггер вовлечения
         fmt = get_daily_morning_format(target_date)
         from shared.content_plan import get_daily_tip_theme
-        fact_theme = get_daily_fact_theme(target_date)   # fallback-семя из списка
-        tip_theme = get_daily_tip_theme(target_date)     # fallback-семя из списка
+
+        fact_theme = get_daily_fact_theme(target_date)  # fallback-семя из списка
+        tip_theme = get_daily_tip_theme(target_date)  # fallback-семя из списка
         from shared.content_plan import get_daily_pillar
+
         pillar = get_daily_pillar(target_date)
-        
+
         # Тема дня из актуальной повестки (новости/тренды/сезон/погода), с fallback на списки
         if pillar["key"] in ("news", "health_trend") or fmt["key"] in ("tip", "fact"):
             ctx = await get_daily_context()
             if pillar["key"] in ("news", "health_trend"):
-                fact_theme = await build_topical_angle(pillar["key"], ctx, fallback=fact_theme)
+                fact_theme = await build_topical_angle(
+                    pillar["key"], ctx, fallback=fact_theme
+                )
                 tip_theme = fact_theme
             elif fmt["key"] == "tip":
                 tip_theme = await build_topical_angle("tip", ctx, fallback=tip_theme)
             else:
                 fact_theme = await build_topical_angle("fact", ctx, fallback=fact_theme)
-                
+
         angle = fmt["angle"].replace("{fact}", fact_theme).replace("{tip}", tip_theme)
-        is_info = fmt.get("kind") == "info"          # info → список пунктов на картинке
-        promo_hint = "" if (fmt["key"] == "promo" or is_info) else \
-            "С вероятностью 25% органично добавь промокод BODRLIK (скидка 10%, 24 соат).\n"
+        is_info = fmt.get("kind") == "info"  # info → список пунктов на картинке
+        promo_hint = (
+            ""
+            if (fmt["key"] == "promo" or is_info)
+            else "С вероятностью 25% органично добавь промокод BODRLIK (скидка 10%, 24 соат).\n"
+        )
 
         prompt = (
             f"Создай короткий утренний сторис для Instagram (Microgreen Uzbekistan).\n"
@@ -327,16 +366,21 @@ async def morning_post(d: date | None = None):
         )
         post_text = await ai.chat_completion(
             "Sen Microgreen Uzbekistan brendining SMM-menejeri va oshpaz-ekspertisan. "
-            "Yorqin, foydali, emoji bilan yoz." + BRAND_TEXT_STYLE + CONTENT_POLICY + "\n\n" + build_brief(pillar, "утренний сторис", d=target_date),
+            "Yorqin, foydali, emoji bilan yoz."
+            + BRAND_TEXT_STYLE
+            + CONTENT_POLICY
+            + "\n\n"
+            + build_brief(pillar, "утренний сторис", d=target_date),
             prompt,
             temperature=0.9,
         )
 
         async def _gen_headline() -> str:
             return await ai.chat_completion(
-                "Sen kreativ kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz, so'zlarni buzma." + CONTENT_POLICY,
+                "Sen kreativ kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz, so'zlarni buzma."
+                + CONTENT_POLICY,
                 f"Shu post uchun qisqa, jozibali SARLAVHA (hook) o'ylab top — FAQAT Uzbek Latin, ko'pi bilan 5 so'z, "
-                f"emoji va tinish belgilarisiz. Faqat sarlavhani yoz:\n{post_text[:500]}"
+                f"emoji va tinish belgilarisiz. Faqat sarlavhani yoz:\n{post_text[:500]}",
             )
 
         headline = ""
@@ -348,6 +392,7 @@ async def morning_post(d: date | None = None):
             # Инфо-формат: заголовок + 2-3 КОНКРЕТНЫХ пункта (одним JSON-вызовом).
             # Ключевое против «расплывчатости» — жёсткий запрет общих фраз.
             import json
+
             raw = await ai.chat_completion(
                 "Sen Microgreen Uzbekistan SMM-menejeri va oshpaz-ekspertisan. "
                 "Faqat VALID JSON qaytar, markdownsiz." + CONTENT_POLICY,
@@ -362,32 +407,39 @@ async def morning_post(d: date | None = None):
                 temperature=0.7,
             )
             try:
-                data = json.loads(raw.strip().strip('`').replace('json\n', '', 1))
+                data = json.loads(raw.strip().strip("`").replace("json\n", "", 1))
             except Exception:
                 data = {}
             headline = str(data.get("headline") or "").strip()
-            points = [str(x).strip() for x in (data.get("points") or []) if str(x).strip()][:3]
+            points = [
+                str(x).strip() for x in (data.get("points") or []) if str(x).strip()
+            ][:3]
             if not headline:
                 headline = await _gen_headline()
             if not points:
-                points = None   # деградация: без списка (render покажет только заголовок)
+                points = (
+                    None  # деградация: без списка (render покажет только заголовок)
+                )
         elif fmt["key"] == "this_or_that":
             headline = await _gen_headline()
             raw_opts = await ai.chat_completion(
                 "Sen kopirayter. Uzbek Latin, grammatik to'g'ri." + CONTENT_POLICY,
                 f"Ikkita QISQA tanlov variantini taklif qil, har biri 1-3 so'z, ular orasiga '|' qo'y, "
-                f"emoji va tinish belgilarisiz. FAQAT ikkita variant:\n{post_text[:300]}"
+                f"emoji va tinish belgilarisiz. FAQAT ikkita variant:\n{post_text[:300]}",
             )
-            parts = [p.strip() for p in raw_opts.replace("\n", "|").split("|") if p.strip()]
+            parts = [
+                p.strip() for p in raw_opts.replace("\n", "|").split("|") if p.strip()
+            ]
             options = parts[:2] if len(parts) >= 2 else ["1-variant", "2-variant"]
         else:
             # Вовлекающие форматы (вопрос/цитата) — заголовок + одна фраза пользы
             headline = await _gen_headline()
             benefit = await ai.chat_completion(
-                "Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz." + CONTENT_POLICY,
+                "Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz."
+                + CONTENT_POLICY,
                 f"Bitta ANIQ foyda/qiziqarli iborani yoz — Uzbek Latin, ko'pi bilan 6 so'z, "
                 f"emoji va tinish belgilarisiz. MUHIM: bu sarlavhadan FARQ qilsin. Sarlavha: «{headline[:60]}». "
-                f"Faqat iborani yoz:\n{post_text[:400]}"
+                f"Faqat iborani yoz:\n{post_text[:400]}",
             )
 
         # Фото — арт-направление меняется по формату дня (не всегда флэтлей)
@@ -400,46 +452,74 @@ async def morning_post(d: date | None = None):
 
         import os
         from uuid import uuid4
+
         if image_url and os.path.isfile(image_url):
             from shared.brand import render_story_text, BRAND
+
             story_img = f"story_{uuid4().hex[:8]}.jpg"
             ok = render_story_text(
-                image_url, story_img,
-                headline=headline or "", subtitle=benefit or "", hashtags="",
-                mention=BRAND["instagram"], cta=fmt["cta"],
-                badge=fmt["badge"], layout=fmt["layout"], options=options,
-                note=fmt["note"], accent=(fmt["key"] == "promo"),
-                points=points, section=fmt.get("section", ""),
+                image_url,
+                story_img,
+                headline=headline or "",
+                subtitle=benefit or "",
+                hashtags="",
+                mention=BRAND["instagram"],
+                cta=fmt["cta"],
+                badge=fmt["badge"],
+                layout=fmt["layout"],
+                options=options,
+                note=fmt["note"],
+                accent=(fmt["key"] == "promo"),
+                points=points,
+                section=fmt.get("section", ""),
             )
             final_img = story_img if ok else image_url
             from aiogram.types import FSInputFile
-            await _bot.send_photo(admin_id, photo=FSInputFile(final_img),
-                                  caption=f"☀️ <b>{fmt['ru']}</b>", parse_mode="HTML")
+
+            await _bot.send_photo(
+                admin_id,
+                photo=FSInputFile(final_img),
+                caption=f"☀️ <b>{fmt['ru']}</b>",
+                parse_mode="HTML",
+            )
             from shared.instagram import post_to_instagram
+
             success = await post_to_instagram(final_img, "", post_type="story")
             channel_caption = f"<b>{headline}</b>\n\n{post_text}\n\n{fmt['cta']}\nmicrogreenuzbekistan.com"
             await _post_to_channel(final_img, channel_caption)
             if success:
-                await _mark_published("morning", image=final_img, caption=post_text, title=headline)
-                await _bot.send_message(admin_id, "✅ <i>Опубликовано в Instagram Stories</i>", parse_mode="HTML")
+                await _mark_published(
+                    "morning", image=final_img, caption=post_text, title=headline
+                )
+                await _bot.send_message(
+                    admin_id,
+                    "✅ <i>Опубликовано в Instagram Stories</i>",
+                    parse_mode="HTML",
+                )
         else:
             channel_caption = f"<b>{headline}</b>\n\n{post_text}\n\n{fmt['cta']}\nmicrogreenuzbekistan.com"
             await _post_to_channel(None, channel_caption)
-            await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать изображение утреннего сторис.", parse_mode="HTML")
+            await _bot.send_message(
+                admin_id,
+                "⚠️ Не удалось сгенерировать изображение утреннего сторис.",
+                parse_mode="HTML",
+            )
 
     except Exception as e:
         logging.error(f"morning_post error: {e}", exc_info=True)
 
-_last_morning_date = None   # защита от двойного утреннего поста в одну и ту же минуту
+
+_last_morning_date = None  # защита от двойного утреннего поста в одну и ту же минуту
 
 
 async def morning_post_dynamic_check():
     """Ежеминутная проверка: если наступило идеальное время для утреннего поста, запускаем его."""
     global _last_morning_date
     from datetime import datetime, timezone, timedelta
+
     now = datetime.now(timezone(timedelta(hours=5)))
     month = now.month
-    
+
     # Абсолютная автоматизация: статистика Instagram + рассвет/закат
     # Лето (апрель - сентябрь): светает рано, люди просыпаются раньше -> 07:15
     # Зима (октябрь - март): светает поздно, люди спят дольше -> 08:15
@@ -449,7 +529,7 @@ async def morning_post_dynamic_check():
     else:
         target_hour = 8
         target_minute = 15
-        
+
     if now.hour == target_hour and now.minute == target_minute:
         # Идемпотентность: не постить повторно, если уже постили сегодня (джиттер планировщика)
         if _last_morning_date == now.date():
@@ -464,31 +544,39 @@ async def evening_post(d: date | None = None):
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
         target_date = d or now.date()
-        day_of_year = target_date.timetuple().tm_yday
-        day_name = target_date.strftime('%A')
+        target_date.timetuple().tm_yday
+        target_date.strftime("%A")
         weather = await fetch_weather_samarkand()
 
         admin_id = settings.admin_telegram_ids[0]
         ai = AIEngine()
-        
+
         import os
         import json
+
         # Разнообразие: каждый день другая кухня мира + формат блюда + «герой»-зелень
         brief = build_recipe_brief(target_date)
         lang_uz = brief["lang"] == "uz"
-        lang_name = "узбекском языке (латиница, O'zbek tili)" if lang_uz else "русском языке"
+        lang_name = (
+            "узбекском языке (латиница, O'zbek tili)" if lang_uz else "русском языке"
+        )
         # Сезон/повод дня — чистая математика по дате (без AI-вызова), чтобы блюдо попадало
         # в момент (жара, Рамазан, школа…)
         from shared.trends import get_uz_season_occasion
+
         _so = get_uz_season_occasion(target_date)
         occasion = _so.get("occasion") or ""
         season = _so.get("season") or ""
-        occ_hint = (f"Сезон/повод: {season}{(', ' + occasion) if occasion else ''} — "
-                    f"учти при выборе блюда (лёгкость/сытность, праздничность).\n")
+        occ_hint = (
+            f"Сезон/повод: {season}{(', ' + occasion) if occasion else ''} — "
+            f"учти при выборе блюда (лёгкость/сытность, праздничность).\n"
+        )
 
         raw = await ai.chat_completion(
             "Ты шеф-повар мирового уровня в Microgreen Uzbekistan и знаешь кухни всех стран. "
-            "Верни ТОЛЬКО валидный JSON, без markdown." + BRAND_TEXT_STYLE + CONTENT_POLICY,
+            "Верни ТОЛЬКО валидный JSON, без markdown."
+            + BRAND_TEXT_STYLE
+            + CONTENT_POLICY,
             f"Придумай блюдо на ужин с национальным колоритом, НЕ похожее на вчерашние.\n"
             f"Кухня дня: {brief['cuisine']}.\n"
             f"Формат блюда: {brief['format']}.\n"
@@ -505,10 +593,12 @@ async def evening_post(d: date | None = None):
             temperature=0.6,
         )
         try:
-            data = json.loads(raw.strip().strip('`').replace('json\n', '', 1))
+            data = json.loads(raw.strip().strip("`").replace("json\n", "", 1))
         except Exception:
             data = {}
-        title = data.get("title") or ("Kechki retsept" if lang_uz else "Вечерний рецепт")
+        title = data.get("title") or (
+            "Kechki retsept" if lang_uz else "Вечерний рецепт"
+        )
         ingredients = [str(x) for x in (data.get("ingredients") or [])]
         steps = [str(x) for x in (data.get("steps") or [])]
         secret = data.get("secret") or ""
@@ -516,7 +606,10 @@ async def evening_post(d: date | None = None):
         # Фото ДОЛЖНО соответствовать рецепту → промпт строим детерминированно из блюда и ингредиентов
         # (без второго вызова AI, чтобы фото не «уплывало» от рецепта). Текст впечатаем сами (в бренде).
         from shared.content_plan import get_daily_image_style
-        ing_for_photo = ", ".join(ingredients[:5]) if ingredients else "fresh microgreens"
+
+        ing_for_photo = (
+            ", ".join(ingredients[:5]) if ingredients else "fresh microgreens"
+        )
         image_prompt = (
             f"Photorealistic vertical 9:16 professional food photograph for Instagram story, "
             f"authentic {brief['cuisine']} cuisine plating and styling, warm evening light, "
@@ -536,66 +629,95 @@ async def evening_post(d: date | None = None):
             + (f"\n🔑 <i>Sirimiz:</i> {secret}\n" if secret else "")
             + "\n📞 +998 94 999 95 99 · Buyurtma berish\n#MicrogreenUzbekistan"
         )
-        
+
         channel_caption = f"{caption}\n\nmicrogreenuzbekistan.com"
 
         if image_url and os.path.isfile(image_url):
             from shared.brand import render_recipe_card
             from uuid import uuid4
+
             story_img = f"recipe_{uuid4().hex[:8]}.jpg"
             # На картинке — только название + ингредиенты + CTA (шаги в подпись)
-            ok = render_recipe_card(image_url, story_img, title, ingredients, cta="Buyurtma berish")
+            ok = render_recipe_card(
+                image_url, story_img, title, ingredients, cta="Buyurtma berish"
+            )
             final_img = story_img if ok else image_url
-            
+
             from aiogram.types import FSInputFile
-            await _bot.send_photo(admin_id, photo=FSInputFile(final_img), caption=caption[:1024], parse_mode="HTML")
+
+            await _bot.send_photo(
+                admin_id,
+                photo=FSInputFile(final_img),
+                caption=caption[:1024],
+                parse_mode="HTML",
+            )
             from shared.instagram import post_to_instagram
+
             success = await post_to_instagram(final_img, "", post_type="story")
             await _post_to_channel(final_img, channel_caption)
             if success:
-                await _mark_published("recipe", image=final_img, caption=caption, title=title)
-                await _bot.send_message(admin_id, "✅ <i>Рецепт опубликован в Instagram Stories</i>", parse_mode="HTML")
+                await _mark_published(
+                    "recipe", image=final_img, caption=caption, title=title
+                )
+                await _bot.send_message(
+                    admin_id,
+                    "✅ <i>Рецепт опубликован в Instagram Stories</i>",
+                    parse_mode="HTML",
+                )
         else:
             await _post_to_channel(None, channel_caption)
-            await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать фото рецепта.", parse_mode="HTML")
+            await _bot.send_message(
+                admin_id, "⚠️ Не удалось сгенерировать фото рецепта.", parse_mode="HTML"
+            )
 
     except Exception as e:
         logging.error(f"evening_post error: {e}", exc_info=True)
+
 
 # ── Регистрация задач ────────────────────────────────────────────────────
 async def weekly_grid_post(d: date | None = None):
     """Раз в неделю (Сб 12:00): курируемый ФЛАГМАНСКИЙ пост в СЕТКУ (feed) с полной подписью."""
     try:
         import os
+
         tz = timezone(timedelta(hours=5))
         now = datetime.now(tz)
         target_date = d or now.date()
         admin_id = settings.admin_telegram_ids[0]
         ai = AIEngine()
         pillar = get_weekly_grid_pillar(target_date)
-        brief = build_brief(pillar, "еженедельный флагманский пост в ленту", d=target_date)
+        brief = build_brief(
+            pillar, "еженедельный флагманский пост в ленту", d=target_date
+        )
 
         # Язык поста — строго RU или UZ по рубрике/ситуации (никогда не английский)
         from shared.content_plan import pick_language, LANG_INSTRUCTION
+
         lang = pick_language(pillar, d=target_date)
         lang_name = LANG_INSTRUCTION[lang]
 
         post_text = await ai.chat_completion(
             "Ты главный SMM-редактор бренда Microgreen Uzbekistan. Пиши сильный, ценный пост "
-            "для ленты Instagram — с пользой/историей и чётким призывом к действию." + BRAND_TEXT_STYLE + CONTENT_POLICY + "\n\n" + brief,
+            "для ленты Instagram — с пользой/историей и чётким призывом к действию."
+            + BRAND_TEXT_STYLE
+            + CONTENT_POLICY
+            + "\n\n"
+            + brief,
             f"Создай еженедельный флагманский пост в ленту по рубрике «{pillar['name']}». "
             f"⚠️ ЯЗЫК: пиши ПОЛНОСТЬЮ на {lang_name} языке. Категорически НЕ на английском. "
-            f"4-7 абзацев, живо, с эмодзи, в конце — призыв к действию и контакты."
+            f"4-7 абзацев, живо, с эмодзи, в конце — призыв к действию и контакты.",
         )
         # Подпись для ленты: срезаем AI-хэштеги (модель их коверкала) и ставим фиксированный
         # брендовый набор детерминированно — только в ленте подпись реально индексируется.
         import re as _re
         from shared.brand import BRAND_HASHTAGS
+
         body = _re.sub(r"#\S+", "", post_text).rstrip()
         feed_caption = f"{body}\n\n{BRAND_HASHTAGS}"
 
         # Чистое премиальное фото под тему (текст — в подписи поста, не на картинке)
         from shared.content_plan import get_daily_image_style
+
         image_prompt = (
             f"Photorealistic premium square 1:1 Instagram feed photo for a microgreens brand. "
             f"Fresh microgreens, salads and beautiful plating, natural soft light, clean aesthetic composition, "
@@ -603,22 +725,41 @@ async def weekly_grid_post(d: date | None = None):
             f"Photography style: {get_daily_image_style(target_date)}. "
             f"CRITICAL: absolutely NO text, NO letters, NO words on the image."
         )
-        image_url = await ai.generate_image(image_prompt, size="1024x1024")  # 1:1 — безопасно для ленты
+        image_url = await ai.generate_image(
+            image_prompt, size="1024x1024"
+        )  # 1:1 — безопасно для ленты
 
         if image_url and os.path.isfile(image_url):
             from aiogram.types import FSInputFile
+
             # В ленту подпись идёт отдельно (feed поддерживает caption) — показываем её как подпись к фото,
             # чтобы можно было проверить текст и язык. Отдельного текстового сообщения после фото нет.
-            await _bot.send_photo(admin_id, photo=FSInputFile(image_url), caption=feed_caption[:1024], parse_mode="HTML")
+            await _bot.send_photo(
+                admin_id,
+                photo=FSInputFile(image_url),
+                caption=feed_caption[:1024],
+                parse_mode="HTML",
+            )
             from shared.instagram import post_to_instagram
-            ok = await post_to_instagram(image_url, feed_caption, post_type='feed')
+
+            ok = await post_to_instagram(image_url, feed_caption, post_type="feed")
             await _post_to_channel(image_url, feed_caption)
             if ok:
-                await _mark_published("grid", image=image_url, caption=post_text, title=pillar["name"])
-                await _bot.send_message(admin_id, "✅ <i>Пост недели опубликован в ленту Instagram</i>", parse_mode="HTML")
+                await _mark_published(
+                    "grid", image=image_url, caption=post_text, title=pillar["name"]
+                )
+                await _bot.send_message(
+                    admin_id,
+                    "✅ <i>Пост недели опубликован в ленту Instagram</i>",
+                    parse_mode="HTML",
+                )
         else:
             await _post_to_channel(None, feed_caption)
-            await _bot.send_message(admin_id, "⚠️ Не удалось сгенерировать фото поста недели.", parse_mode="HTML")
+            await _bot.send_message(
+                admin_id,
+                "⚠️ Не удалось сгенерировать фото поста недели.",
+                parse_mode="HTML",
+            )
     except Exception as e:
         logging.error(f"weekly_grid_post error: {e}", exc_info=True)
 
@@ -632,6 +773,7 @@ async def daily_site_recipe():
     try:
         import os
         import aiohttp
+
         api = os.getenv("STOREFRONT_API_URL", "http://web:3000/api").rstrip("/")
         async with aiohttp.ClientSession() as s:
             async with s.get(
@@ -645,7 +787,9 @@ async def daily_site_recipe():
         caption = (data.get("captionRu") or "").strip()
         if not caption:
             return
-        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
         if admin_id and _bot:
             await _bot.send_message(
                 admin_id,
@@ -666,9 +810,12 @@ REEL_INFO_FORMATS = ["tip", "fact", "mini_recipe"]
 async def reel_post():
     """Reel из info-контента: лайфхак/факт/рецепт — пункты на кадре + плавный zoom."""
     try:
-        import os, json
+        import os
+        import json
         from shared.content_plan import (
-            MORNING_FORMATS, get_daily_tip_theme, get_daily_fact_theme,
+            MORNING_FORMATS,
+            get_daily_tip_theme,
+            get_daily_fact_theme,
         )
         from shared.video_utils import make_reel, ffmpeg_available
         from shared.brand import render_story_text, BRAND, BRAND_HASHTAGS
@@ -680,27 +827,43 @@ async def reel_post():
         ai = AIEngine()
 
         if not ffmpeg_available():
-            await _bot.send_message(admin_id, "⚠️ Reel не собран: ffmpeg недоступен в окружении.", parse_mode="HTML")
+            await _bot.send_message(
+                admin_id,
+                "⚠️ Reel не собран: ffmpeg недоступен в окружении.",
+                parse_mode="HTML",
+            )
             return
 
         # Динамический выбор формата на основе показателей зашедшего контента (петля обратной связи)
         from shared.content_archive import get_format_performance_weights_async
         import random
+
         weights = await get_format_performance_weights_async(REEL_INFO_FORMATS)
-        key = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
+        key = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[
+            0
+        ]
         fmt = next(f for f in MORNING_FORMATS if f["key"] == key)
         # Тема из актуальной повестки — только для нужного плейсхолдера (не оба)
         ctx = await get_daily_context()
         angle = fmt["angle"]
         if "{fact}" in angle:
-            angle = angle.replace("{fact}", await build_topical_angle(
-                "fact", ctx, fallback=get_daily_fact_theme(now.date())))
+            angle = angle.replace(
+                "{fact}",
+                await build_topical_angle(
+                    "fact", ctx, fallback=get_daily_fact_theme(now.date())
+                ),
+            )
         if "{tip}" in angle:
-            angle = angle.replace("{tip}", await build_topical_angle(
-                "tip", ctx, fallback=get_daily_tip_theme(now.date())))
+            angle = angle.replace(
+                "{tip}",
+                await build_topical_angle(
+                    "tip", ctx, fallback=get_daily_tip_theme(now.date())
+                ),
+            )
 
         raw = await ai.chat_completion(
-            "Sen Microgreen Uzbekistan SMM-menejeri. Faqat VALID JSON qaytar." + CONTENT_POLICY,
+            "Sen Microgreen Uzbekistan SMM-menejeri. Faqat VALID JSON qaytar."
+            + CONTENT_POLICY,
             f"Vazifa: {angle}\n"
             f'JSON: {{"headline":"...","points":["...","...","..."]}}\n'
             f"headline ≤5 so'z; points — 2-3 ANIQ nuqta (harorat/muddat/usul), har biri ≤7 so'z. "
@@ -708,11 +871,13 @@ async def reel_post():
             temperature=0.7,
         )
         try:
-            data = json.loads(raw.strip().strip('`').replace('json\n', '', 1))
+            data = json.loads(raw.strip().strip("`").replace("json\n", "", 1))
         except Exception:
             data = {}
         headline = str(data.get("headline") or "").strip() or "Mikrozelen foydasi"
-        points = [str(x).strip() for x in (data.get("points") or []) if str(x).strip()][:3]
+        points = [str(x).strip() for x in (data.get("points") or []) if str(x).strip()][
+            :3
+        ]
 
         image_prompt = (
             f"Photorealistic vertical 9:16 photo for Instagram reel. {fmt['photo']}. "
@@ -721,35 +886,58 @@ async def reel_post():
         )
         image_url = await ai.generate_image(image_prompt, size="1024x1792")
         if not (image_url and os.path.isfile(image_url)):
-            await _bot.send_message(admin_id, "⚠️ Reel: не удалось сгенерировать фон.", parse_mode="HTML")
+            await _bot.send_message(
+                admin_id, "⚠️ Reel: не удалось сгенерировать фон.", parse_mode="HTML"
+            )
             return
 
         frame = f"reel_{uuid4().hex[:8]}.jpg"
         render_story_text(
-            image_url, frame,
-            headline=headline, mention=BRAND["instagram"], cta=fmt["cta"],
-            badge=fmt["badge"], layout=fmt["layout"], note=fmt["note"],
-            points=points or None, section=fmt.get("section", ""),
+            image_url,
+            frame,
+            headline=headline,
+            mention=BRAND["instagram"],
+            cta=fmt["cta"],
+            badge=fmt["badge"],
+            layout=fmt["layout"],
+            note=fmt["note"],
+            points=points or None,
+            section=fmt.get("section", ""),
         )
         reel = make_reel(frame, out_path=f"reel_{uuid4().hex[:8]}.mp4", duration=8.0)
         if not reel:
-            await _bot.send_message(admin_id, "⚠️ Reel: сборка видео не удалась (ffmpeg).", parse_mode="HTML")
+            await _bot.send_message(
+                admin_id, "⚠️ Reel: сборка видео не удалась (ffmpeg).", parse_mode="HTML"
+            )
             return
 
         pts_txt = "\n".join(f"• {p}" for p in points) if points else ""
-        caption = (f"{headline}\n\n{pts_txt}\n\n"
-                   f"📞 {BRAND['phone']} · Buyurtma berish\n\n{BRAND_HASHTAGS}").strip()
+        caption = (
+            f"{headline}\n\n{pts_txt}\n\n"
+            f"📞 {BRAND['phone']} · Buyurtma berish\n\n{BRAND_HASHTAGS}"
+        ).strip()
 
         from aiogram.types import FSInputFile
-        await _bot.send_video(admin_id, video=FSInputFile(reel),
-                              caption=f"🎬 <b>Reel: {fmt['ru']}</b>", parse_mode="HTML")
+
+        await _bot.send_video(
+            admin_id,
+            video=FSInputFile(reel),
+            caption=f"🎬 <b>Reel: {fmt['ru']}</b>",
+            parse_mode="HTML",
+        )
         from shared.instagram import post_reel
+
         media_id = await post_reel(reel, caption, share_to_feed=True)
         if media_id:
-            await _mark_published("reel", image=frame, caption=caption, title=headline, media_id=media_id)
-            await _bot.send_message(admin_id, "✅ <i>Reel опубликован в Instagram</i>", parse_mode="HTML")
+            await _mark_published(
+                "reel", image=frame, caption=caption, title=headline, media_id=media_id
+            )
+            await _bot.send_message(
+                admin_id, "✅ <i>Reel опубликован в Instagram</i>", parse_mode="HTML"
+            )
     except Exception as e:
         logging.error(f"reel_post error: {e}", exc_info=True)
+
 
 async def publish_restaurant_of_week():
     """Публикация рубрики 'Ресторан недели' и запуск события MAGAZINE_PUBLISHED."""
@@ -757,6 +945,7 @@ async def publish_restaurant_of_week():
         from shared.database import get_session_ctx
         from sqlalchemy import text
         from shared.event_bus import event_bus
+
         admin_id = settings.admin_telegram_ids[0]
 
         # Рестораны берём из базы витрины: там их заводит админка журнала.
@@ -764,14 +953,16 @@ async def publish_restaurant_of_week():
         # схемой, и обычная сессия попадала в него — рубрика уходила в
         # Instagram по старым сид-записям, а партнёров из админки не видела.
         async with get_session_ctx() as session:
-            res = await session.execute(text(
-                # LOWER — не украшение: в базе лежит tier='PREMIUM', а сравнение
-                # строк в Postgres регистрозависимое, поэтому 'premium' не
-                # находил ничего и рубрика не выходила ни разу. Та же история,
-                # что с department без .lower() (см. CLAUDE.md).
-                "SELECT name, city, cuisine, dishes, microgreens FROM restaurants "
-                "WHERE LOWER(tier) = 'premium' ORDER BY RANDOM() LIMIT 1"
-            ))
+            res = await session.execute(
+                text(
+                    # LOWER — не украшение: в базе лежит tier='PREMIUM', а сравнение
+                    # строк в Postgres регистрозависимое, поэтому 'premium' не
+                    # находил ничего и рубрика не выходила ни разу. Та же история,
+                    # что с department без .lower() (см. CLAUDE.md).
+                    "SELECT name, city, cuisine, dishes, microgreens FROM restaurants "
+                    "WHERE LOWER(tier) = 'premium' ORDER BY RANDOM() LIMIT 1"
+                )
+            )
             row = res.fetchone()
 
         if not row:
@@ -785,8 +976,12 @@ async def publish_restaurant_of_week():
         name, city, cuisine, dishes, microgreens = row
         cuisine_str = ", ".join(cuisine) if isinstance(cuisine, list) else str(cuisine)
         dishes_str = ", ".join(dishes) if isinstance(dishes, list) else str(dishes)
-        mg_str = ", ".join(microgreens) if isinstance(microgreens, list) else str(microgreens)
-        
+        mg_str = (
+            ", ".join(microgreens)
+            if isinstance(microgreens, list)
+            else str(microgreens)
+        )
+
         post_text = (
             f"🍽 <b>Ресторан недели: {name} ({city.title()})</b>\n\n"
             f"Кухня: {cuisine_str}\n"
@@ -795,56 +990,75 @@ async def publish_restaurant_of_week():
             f"<i>Читайте полный обзор в новом выпуске FRESH WEEKLY:</i>\n"
             f"👉 microgreenuzbekistan.com/magazine\n"
         )
-        
+
         if _bot:
-            await _bot.send_message(admin_id, f"📰 <b>Опубликовано в канал:</b>\n\n{post_text}", parse_mode="HTML")
-            
+            await _bot.send_message(
+                admin_id,
+                f"📰 <b>Опубликовано в канал:</b>\n\n{post_text}",
+                parse_mode="HTML",
+            )
+
         # Уведомляем Sales Bot, что вышел журнал с упоминанием ресторана!
-        await event_bus.publish("MAGAZINE_PUBLISHED", {
-            "rubric": "restaurant_of_week",
-            "restaurant_name": name,
-            "city": city,
-            "microgreens_recommended": mg_str
-        }, "content_bot")
-        
+        await event_bus.publish(
+            "MAGAZINE_PUBLISHED",
+            {
+                "rubric": "restaurant_of_week",
+                "restaurant_name": name,
+                "city": city,
+                "microgreens_recommended": mg_str,
+            },
+            "content_bot",
+        )
+
     except Exception as e:
         logging.error(f"publish_restaurant_of_week error: {e}", exc_info=True)
-
 
 
 async def check_and_refresh_token_job():
     """Еженедельная задача по проверке и обновлению токена Instagram."""
     try:
         from shared.token_refresh import auto_check_and_refresh_token
+
         # Воркер пытается обновить токен при возрасте более 50 дней
         await auto_check_and_refresh_token()
     except Exception as e:
         logger.error(f"Ошибка при автоматическом обновлении токена Instagram: {e}")
-        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
         if admin_id and _bot:
             await _bot.send_message(
                 admin_id,
                 f"⚠️ <b>Критическая ошибка:</b> Не удалось автоматически обновить Instagram Access Token.\n"
                 f"Детали ошибки: <code>{e}</code>\n"
                 f"Потребуется ручной перезапуск обмена токенов.",
-                parse_mode="HTML"
+                parse_mode="HTML",
             )
+
 
 async def weekly_reach_report():
     """Еженедельный отчёт по ОХВАТУ админу в Telegram: reach% по постам/сторис + вердикт
     о здоровье аудитории. Данные уже собирает shared.instagram_analytics — здесь сводка.
     Главный индикатор: охват <10% базы ≈ подписчики неактивны/накручены (контентом не лечится)."""
     try:
-        from shared.instagram_analytics import build_reach_report, sync_publication_metrics
-        admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        from shared.instagram_analytics import (
+            build_reach_report,
+            sync_publication_metrics,
+        )
+
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
         if not (admin_id and _bot):
             return
         await sync_publication_metrics()
         rep = await build_reach_report()
         if not rep.get("configured"):
             await _bot.send_message(
-                admin_id, "📊 Reach-отчёт: Instagram Graph API не настроен (нет токена/доступа).",
-                parse_mode="HTML")
+                admin_id,
+                "📊 Reach-отчёт: Instagram Graph API не настроен (нет токена/доступа).",
+                parse_mode="HTML",
+            )
             return
         await _bot.send_message(admin_id, rep["summary"], parse_mode="HTML")
     except Exception as e:
@@ -853,36 +1067,56 @@ async def weekly_reach_report():
 
 # daily_site_recipe, daily_content_ideas, product_description_audit, weekly_content_plan —
 # отключены: спам в личку админу, не несёт ценности.
-scheduler.add_cron(name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5)
-scheduler.add_interval(seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check)
+scheduler.add_cron(
+    name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5
+)
+scheduler.add_interval(
+    seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check
+)
 scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
-scheduler.add_cron(name="instagram_token_refresh", func=check_and_refresh_token_job, hour=10, minute=0, day_of_week=0)
+scheduler.add_cron(
+    name="instagram_token_refresh",
+    func=check_and_refresh_token_job,
+    hour=10,
+    minute=0,
+    day_of_week=0,
+)
 # Еженедельный отчёт по охвату (пн 10:00): смотрим reach% и здоровье аудитории.
-scheduler.add_cron(name="weekly_reach_report", func=weekly_reach_report, hour=10, minute=0, day_of_week=0)
+scheduler.add_cron(
+    name="weekly_reach_report",
+    func=weekly_reach_report,
+    hour=10,
+    minute=0,
+    day_of_week=0,
+)
+
 
 async def daily_magazine_rubric():
     """Ежедневная нарезка журнала в Telegram-канал."""
     try:
         from shared.event_bus import event_bus
+
         admin_id = settings.admin_telegram_ids[0]
-        
+
         post_text = (
-            f"📰 <b>Рубрика дня из FRESH WEEKLY</b>\n\n"
-            f"✨ Факт дня: Пибимпаб с микрозеленью — это не только вкусно, но и полезно для пищеварения!\n"
-            f"Добавьте ростки дайкона для пикантности.\n\n"
-            f"👉 Читайте полную статью: <a href='https://microgreenuzbekistan.com/magazine/2'>FRESH WEEKLY #2</a>"
+            "📰 <b>Рубрика дня из FRESH WEEKLY</b>\n\n"
+            "✨ Факт дня: Пибимпаб с микрозеленью — это не только вкусно, но и полезно для пищеварения!\n"
+            "Добавьте ростки дайкона для пикантности.\n\n"
+            "👉 Читайте полную статью: <a href='https://microgreenuzbekistan.com/magazine/2'>FRESH WEEKLY #2</a>"
         )
-        
+
         if _bot:
             await _bot.send_message(admin_id, post_text, parse_mode="HTML")
-            
-        await event_bus.publish("MAGAZINE_PUBLISHED", {
-            "rubric": "daily_highlight",
-            "issue_id": 2
-        }, "content_bot")
-        
+
+        await event_bus.publish(
+            "MAGAZINE_PUBLISHED",
+            {"rubric": "daily_highlight", "issue_id": 2},
+            "content_bot",
+        )
+
     except Exception as e:
         logging.error(f"daily_magazine_rubric error: {e}", exc_info=True)
+
 
 # daily_magazine_rubric отключён: слал в ЛИЧКУ админу захардкоженный факт (всегда выпуск №2),
 # не реальная публикация в канал → мусорный повтор. Функция оставлена, но не в расписании.
@@ -892,12 +1126,19 @@ async def daily_magazine_rubric():
 # scheduler.add_cron(name="reel_post_wed", func=reel_post, hour=19, minute=0, day_of_week=2)
 # scheduler.add_cron(name="reel_post_fri", func=reel_post, hour=19, minute=0, day_of_week=4)
 # Рубрики журнала
-scheduler.add_cron(name="publish_restaurant_of_week", func=publish_restaurant_of_week, hour=11, minute=0, day_of_week=0)
+scheduler.add_cron(
+    name="publish_restaurant_of_week",
+    func=publish_restaurant_of_week,
+    hour=11,
+    minute=0,
+    day_of_week=0,
+)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # BOT BUS HANDLERS — задачи от Степана
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def bus_sync_publication_metrics(params: dict) -> dict:
     """Подтянуть лайки/охваты из Instagram Graph API по требованию из админки.
@@ -924,48 +1165,55 @@ async def bus_publish_story(params: dict) -> dict:
     topic = params.get("topic", "микрозелень")
     admin_id = settings.admin_telegram_ids[0]
     ai = AIEngine()
-    
+
     # Генерируем текст поста
     post_text = await ai.chat_completion(
         "Ты SMM-менеджер Microgreen Uzbekistan." + BRAND_TEXT_STYLE + CONTENT_POLICY,
         f"Напиши короткий, цепляющий текст для Instagram Stories на тему: {topic}. "
-        "Максимум 3-4 предложения, добавь эмодзи. На русском языке."
+        "Максимум 3-4 предложения, добавь эмодзи. На русском языке.",
     )
-    
+
     # Генерируем короткий заголовок для картинки
     headline = await ai.chat_completion(
         "Ты копирайтер.",
-        f"Придумай ОДИН короткий, броский заголовок (максимум 2-4 слова) на ТОМ ЖЕ ЯЗЫКЕ, что и тема (узбекский или русский). Пиши ТОЛЬКО сам заголовок без кавычек:\nТема: {topic}"
+        f"Придумай ОДИН короткий, броский заголовок (максимум 2-4 слова) на ТОМ ЖЕ ЯЗЫКЕ, что и тема (узбекский или русский). Пиши ТОЛЬКО сам заголовок без кавычек:\nТема: {topic}",
     )
-    
+
     # Строгий шаблон DALL-E промпта без вызова AI
     image_prompt = (
         f"A beautiful vertical (9:16) Instagram Stories image. Topic: {topic}. "
         f"Style: modern, vibrant, appetizing, professional food photography. "
-        f"The image MUST contain the bold typography text \"{headline}\" placed elegantly. "
-        f"DO NOT TRANSLATE THE TEXT. USE THE EXACT CYRILLIC/LATIN CHARACTERS: \"{headline}\". "
+        f'The image MUST contain the bold typography text "{headline}" placed elegantly. '
+        f'DO NOT TRANSLATE THE TEXT. USE THE EXACT CYRILLIC/LATIN CHARACTERS: "{headline}". '
         f"Absolutely no other text or English words on the image."
     )
-    
+
     image_url = await ai.generate_image(image_prompt, size="1024x1792")
-    
+
     if image_url:
         # Отправляем в Telegram
         from aiogram.types import FSInputFile
+
         photo_file = FSInputFile(image_url) if os.path.isfile(image_url) else image_url
         await _bot.send_photo(
-            admin_id, photo=photo_file,
+            admin_id,
+            photo=photo_file,
             caption=f"📸 <b>Сторис по запросу:</b> {topic}\n\n{post_text}",
-            parse_mode="HTML"
+            parse_mode="HTML",
         )
-        
+
         # Публикуем в Instagram
         from shared.instagram import post_story_with_text
+
         public_url = getattr(ai, "_last_image_url", image_url) or image_url
         success = await post_story_with_text(public_url, headline, post_text)
-        status = "опубликован в Instagram Stories" if success else "отправлен только в Telegram"
+        status = (
+            "опубликован в Instagram Stories"
+            if success
+            else "отправлен только в Telegram"
+        )
         return {"status": "ok", "message": f"Сторис '{topic}' — {status}"}
-    
+
     return {"status": "error", "message": "Не удалось сгенерировать изображение"}
 
 
@@ -974,38 +1222,45 @@ async def bus_generate_meme(params: dict) -> dict:
     topic = params.get("topic", "микрозелень")
     admin_id = settings.admin_telegram_ids[0]
     ai = AIEngine()
-    
+
     context = await fetch_uzbek_trends()
-    
+
     meme_idea = await ai.chat_completion(
         "Ты топовый мемолог Узбекистана. Аудитория: молодёжь 18-35, женщины, ЗОЖники.",
         f"Тема: {topic}\n\nАКТУАЛЬНЫЙ КОНТЕКСТ:\n{context}\n\n"
         f"Создай вирусный мем связанный с темой '{topic}' и актуальными трендами. "
-        f"Юмор для узбекской аудитории. На русском. Опиши сцену и пунчлайн."
+        f"Юмор для узбекской аудитории. На русском. Опиши сцену и пунчлайн.",
     )
-    
+
     headline = await ai.chat_completion(
         "Ты редактор мемов.",
-        f"Выдели ОДНУ смешную фразу (до 5 слов) на РУССКОМ. Без кавычек:\n{meme_idea}"
+        f"Выдели ОДНУ смешную фразу (до 5 слов) на РУССКОМ. Без кавычек:\n{meme_idea}",
     )
-    
+
     image_prompt = await ai.chat_completion(
         "Ты создатель мемов.",
         f"Промпт на английском для DALL-E 3 (funny meme, vertical for Instagram Stories). "
-        f"Вписать текст: \"{headline}\" (bold white text, black outline, meme font). Ситуация: {meme_idea[:300]}"
+        f'Вписать текст: "{headline}" (bold white text, black outline, meme font). Ситуация: {meme_idea[:300]}',
     )
     image_url = await ai.generate_image(image_prompt, size="1024x1792")
-    
+
     if image_url:
         from aiogram.types import FSInputFile
+
         photo_file = FSInputFile(image_url) if os.path.isfile(image_url) else image_url
-        await _bot.send_photo(admin_id, photo=photo_file, caption=f"😂 <b>Мем по запросу:</b> {topic}\n\n{meme_idea}", parse_mode="HTML")
-        
+        await _bot.send_photo(
+            admin_id,
+            photo=photo_file,
+            caption=f"😂 <b>Мем по запросу:</b> {topic}\n\n{meme_idea}",
+            parse_mode="HTML",
+        )
+
         from shared.instagram import post_story_with_text
+
         success = await post_story_with_text(image_url, headline, meme_idea)
         status = "опубликован в Instagram Stories" if success else "только в Telegram"
         return {"status": "ok", "message": f"Мем '{topic}' — {status}"}
-    
+
     return {"status": "error", "message": "Не удалось сгенерировать мем"}
 
 
@@ -1044,13 +1299,24 @@ async def bus_product_description(params: dict) -> dict:
     user_prompt = f"Товар: {name}\nКатегория: {category}\nЦена: {price} сум"
 
     try:
-        raw = await ai.chat_completion(sys_prompt, user_prompt, temperature=0.7, max_tokens=400)
-        cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        raw = await ai.chat_completion(
+            sys_prompt, user_prompt, temperature=0.7, max_tokens=400
+        )
+        cleaned = (
+            raw.strip()
+            .removeprefix("```json")
+            .removeprefix("```")
+            .removesuffix("```")
+            .strip()
+        )
         data = json.loads(cleaned)
         return {
             "status": "ok",
             "message": "Описание готово.",
-            "data": {"ru": str(data.get("ru", "")).strip(), "uz": str(data.get("uz", "")).strip()},
+            "data": {
+                "ru": str(data.get("ru", "")).strip(),
+                "uz": str(data.get("uz", "")).strip(),
+            },
         }
     except Exception as e:
         logging.error(f"CONTENT_BOT: описание товара не получилось: {e}", exc_info=True)
@@ -1101,12 +1367,17 @@ async def bus_get_last_post(params: dict) -> dict:
     else:
         msg = f"Публикаций за {target or 'последние дни'}: {len(posts)}"
 
-    return {"status": "ok", "message": msg, "data": {"posts": posts, "fell_back": fell_back}}
+    return {
+        "status": "ok",
+        "message": msg,
+        "data": {"posts": posts, "fell_back": fell_back},
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # EVENTBUS HANDLER
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 async def handle_task_created(payload: dict):
     data = payload.get("data", {})
@@ -1116,20 +1387,34 @@ async def handle_task_created(payload: dict):
     task_id = data.get("task_id")
     if not chat_id:
         return
-    
-    bot = Bot(token=settings.content_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
+    bot = Bot(
+        token=settings.content_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     try:
         from shared.ai_engine import AIEngine
+
         ai = AIEngine()
-        
-        title = str(data.get('title', '')).lower()
-        desc = str(data.get('description', '')).lower()
+
+        title = str(data.get("title", "")).lower()
+        desc = str(data.get("description", "")).lower()
         combined = f"{title} {desc}"
 
         # ── Инквайри-гард: это ВОПРОС о статусе/расписании, а НЕ задача на публикацию ──
         # (иначе «уточнить статус публикации рецепта» приводил к реальной генерации и постингу)
-        inquiry_words = ["уточни", "уточнение", "статус", "status", "во сколько",
-                         "расписан", "график", "опубликова ли", "когда опублик", "проверь публикац"]
+        inquiry_words = [
+            "уточни",
+            "уточнение",
+            "статус",
+            "status",
+            "во сколько",
+            "расписан",
+            "график",
+            "опубликова ли",
+            "когда опублик",
+            "проверь публикац",
+        ]
         if any(w in combined for w in inquiry_words):
             schedule = (
                 "🗓 <b>Расписание публикаций контента</b>\n"
@@ -1142,25 +1427,49 @@ async def handle_task_created(payload: dict):
             return
 
         # Определяем форматы по ключевым словам
-        is_story = any(word in title or word in desc for word in ["сторис", "stories", "инстаграм", "instagram", "выложи", "опубликуй", "мем", "рецепт", "опрос", "poll", "викторина", "отзыв"])
-        is_poll = any(word in title or word in desc for word in ["опрос", "poll", "викторина", "голосование"])
-        needs_photo = is_story or any(word in title or word in desc for word in ["фото", "картинк", "изображен", "image", "picture"])
-        
+        is_story = any(
+            word in title or word in desc
+            for word in [
+                "сторис",
+                "stories",
+                "инстаграм",
+                "instagram",
+                "выложи",
+                "опубликуй",
+                "мем",
+                "рецепт",
+                "опрос",
+                "poll",
+                "викторина",
+                "отзыв",
+            ]
+        )
+        is_poll = any(
+            word in title or word in desc
+            for word in ["опрос", "poll", "викторина", "голосование"]
+        )
+        needs_photo = is_story or any(
+            word in title or word in desc
+            for word in ["фото", "картинк", "изображен", "image", "picture"]
+        )
+
         from shared.prompts import TEAM_CONTEXT
+
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Главный Редактор (Chief Editor) и Brand Manager. Твоя задача — создавать премиальный контент (Tone of Voice: профессиональный, экологичный, ЗОЖ).{CONTENT_POLICY}"
         user_prompt = f"Руководитель поручил задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nРазработай готовый контент (текст поста, мема, рецепта или отзыва)."
-        
+
         if is_poll:
-            user_prompt += "\nВНИМАНИЕ: Так как запрошен ОПРОС, верни В КОНЦЕ текста валидный JSON блок (внутри ```json ```) формата: {\"question\": \"...\", \"options\": [\"вариант1\", \"вариант2\"]}"
-            
+            user_prompt += '\nВНИМАНИЕ: Так как запрошен ОПРОС, верни В КОНЦЕ текста валидный JSON блок (внутри ```json ```) формата: {"question": "...", "options": ["вариант1", "вариант2"]}'
+
         logging.info("CONTENT_BOT Generating AI answer...")
         answer = await ai.chat_completion(sys_prompt, user_prompt)
-        
+
         # Парсим JSON опроса если он есть
         poll_data = None
         clean_answer = answer
         if is_poll and "```json" in answer:
             import json
+
             try:
                 parts = answer.split("```json")
                 clean_answer = parts[0].strip()
@@ -1168,57 +1477,90 @@ async def handle_task_created(payload: dict):
                 poll_data = json.loads(json_str)
             except Exception as e:
                 logging.error(f"Error parsing poll JSON: {e}")
-        
+
         image_url = None
         if needs_photo:
             logging.info("CONTENT_BOT Generating DALL-E image...")
             headline = await ai.chat_completion(
                 "Ты крутой копирайтер.",
-                f"Придумай ОДИН короткий, броский заголовок (максимум 2-4 слова) на ТОМ ЖЕ ЯЗЫКЕ, что и текст (узбекский или русский). Пиши ТОЛЬКО сам заголовок без кавычек:\n{clean_answer[:500]}"
+                f"Придумай ОДИН короткий, броский заголовок (максимум 2-4 слова) на ТОМ ЖЕ ЯЗЫКЕ, что и текст (узбекский или русский). Пиши ТОЛЬКО сам заголовок без кавычек:\n{clean_answer[:500]}",
             )
             # Избавляемся от второго вызова ИИ для промпта, формируем его по строгому шаблону
             dalle_prompt = (
                 f"A vibrant, highly detailed vertical (9:16) Instagram Stories image. "
                 f"Scene context: {clean_answer[:200]}. "
-                f"The image MUST contain the bold typography text \"{headline}\" placed elegantly. "
-                f"DO NOT TRANSLATE THE TEXT. USE THE EXACT CYRILLIC/LATIN CHARACTERS: \"{headline}\". "
+                f'The image MUST contain the bold typography text "{headline}" placed elegantly. '
+                f'DO NOT TRANSLATE THE TEXT. USE THE EXACT CYRILLIC/LATIN CHARACTERS: "{headline}". '
                 f"Absolutely no other text or English words on the image."
             )
             image_url = await ai.generate_image(dalle_prompt, size="1024x1792")
-        
+
         logging.info(f"CONTENT_BOT sending message to {chat_id}")
-        
+
         # 1. Отправляем фото/текст в Telegram
         if image_url:
             from aiogram.types import FSInputFile
+
             media = FSInputFile(image_url) if os.path.isfile(image_url) else image_url
-            await bot.send_photo(chat_id, photo=media, caption=f"📝 <b>Контент готов:</b>\n\n{clean_answer[:900]}", parse_mode="HTML")
+            await bot.send_photo(
+                chat_id,
+                photo=media,
+                caption=f"📝 <b>Контент готов:</b>\n\n{clean_answer[:900]}",
+                parse_mode="HTML",
+            )
             if len(clean_answer) > 900:
-                await bot.send_message(chat_id, f"...продолжение:\n\n{clean_answer[900:]}", parse_mode="HTML")
+                await bot.send_message(
+                    chat_id,
+                    f"...продолжение:\n\n{clean_answer[900:]}",
+                    parse_mode="HTML",
+                )
         else:
             from shared.task_ui import get_task_keyboard
-            await bot.send_message(chat_id, f"📝 <b>Контент готов:</b>\n\n{clean_answer}", parse_mode="HTML", reply_markup=get_task_keyboard(task_id))
-            
+
+            await bot.send_message(
+                chat_id,
+                f"📝 <b>Контент готов:</b>\n\n{clean_answer}",
+                parse_mode="HTML",
+                reply_markup=get_task_keyboard(task_id),
+            )
+
         # 2. Отправляем опрос в Telegram
-        if poll_data and isinstance(poll_data, dict) and "question" in poll_data and "options" in poll_data:
-            await bot.send_poll(chat_id, question=poll_data["question"], options=poll_data["options"])
-            
+        if (
+            poll_data
+            and isinstance(poll_data, dict)
+            and "question" in poll_data
+            and "options" in poll_data
+        ):
+            await bot.send_poll(
+                chat_id, question=poll_data["question"], options=poll_data["options"]
+            )
+
         # 3. Публикуем в Instagram Stories
         if is_story and image_url:
             from shared.instagram import post_story_with_text
+
             public_url = getattr(ai, "_last_image_url", image_url) or image_url
             success = await post_story_with_text(public_url, headline, clean_answer)
             if success:
-                await bot.send_message(chat_id, "✅ <i>Контент успешно опубликован в Instagram Stories!</i>", parse_mode="HTML")
+                await bot.send_message(
+                    chat_id,
+                    "✅ <i>Контент успешно опубликован в Instagram Stories!</i>",
+                    parse_mode="HTML",
+                )
             else:
-                await bot.send_message(chat_id, "⚠️ <i>Не удалось опубликовать в Instagram. Ошибка интеграции.</i>", parse_mode="HTML")
+                await bot.send_message(
+                    chat_id,
+                    "⚠️ <i>Не удалось опубликовать в Instagram. Ошибка интеграции.</i>",
+                    parse_mode="HTML",
+                )
 
         logging.info("CONTENT_BOT successfully handled task.")
-            
+
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
     finally:
         await bot.session.close()
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ТЕСТОВЫЕ КОМАНДЫ (только Telegram, без публикации в Instagram)
@@ -1227,7 +1569,9 @@ test_router = Router()
 
 
 def _is_admin(message: Message) -> bool:
-    return bool(message.from_user) and message.from_user.id in settings.admin_telegram_ids
+    return (
+        bool(message.from_user) and message.from_user.id in settings.admin_telegram_ids
+    )
 
 
 @test_router.message(Command("testday"))
@@ -1238,9 +1582,10 @@ async def cmd_test_day(message: Message):
     from shared.instagram import set_dry_run
     import random
     from datetime import date, timedelta
+
     random_days = random.randint(0, 365)
     test_date = date.today() + timedelta(days=random_days)
-    
+
     await message.answer(
         f"🧪 <b>Тестовый прогон на день со случайным смещением ({test_date.strftime('%d.%m.%Y')})</b>\n"
         "Всё уйдёт <b>только в Telegram</b>, в Instagram НЕ публикуется.\n"
@@ -1254,7 +1599,9 @@ async def cmd_test_day(message: Message):
         await evening_post(d=test_date)
         await message.answer("⏳ ③ Пост недели в ленту…")
         await weekly_grid_post(d=test_date)
-        await message.answer("✅ Готово. Всё отправлено только в Telegram (Instagram не тронут).")
+        await message.answer(
+            "✅ Готово. Всё отправлено только в Telegram (Instagram не тронут)."
+        )
     finally:
         set_dry_run(False)
 
@@ -1267,13 +1614,17 @@ async def cmd_test_story(message: Message):
     from shared.instagram import set_dry_run
     import random
     from datetime import date, timedelta
+
     random_days = random.randint(0, 365)
     test_date = date.today() + timedelta(days=random_days)
-    
+
     from shared.content_plan import get_daily_morning_format
+
     fmt = get_daily_morning_format(test_date)
-    
-    await message.answer(f"🧪 Тест сторис со случайным смещением ({test_date.strftime('%d.%m.%Y')}, формат: {fmt['ru']})…")
+
+    await message.answer(
+        f"🧪 Тест сторис со случайным смещением ({test_date.strftime('%d.%m.%Y')}, формат: {fmt['ru']})…"
+    )
     set_dry_run(True)
     try:
         await morning_post(d=test_date)
@@ -1290,12 +1641,14 @@ async def cmd_test_evening(message: Message):
     from shared.instagram import set_dry_run
     import random
     from datetime import date, timedelta
+
     random_days = random.randint(0, 365)
     test_date = date.today() + timedelta(days=random_days)
-    
+
     from shared.content_plan import build_recipe_brief
+
     brief = build_recipe_brief(test_date)
-    
+
     await message.answer(
         f"🧪 Тест вечернего сторис-рецепта со случайным смещением ({test_date.strftime('%d.%m.%Y')})\n"
         f"Кухня: {brief['cuisine']}, Формат: {brief['format']}, Зелень: {brief['hero']}…"
@@ -1316,13 +1669,17 @@ async def cmd_test_grid(message: Message):
     from shared.instagram import set_dry_run
     import random
     from datetime import date, timedelta
+
     random_days = random.randint(0, 365)
     test_date = date.today() + timedelta(days=random_days)
-    
+
     from shared.content_plan import get_weekly_grid_pillar
+
     pillar = get_weekly_grid_pillar(test_date)
-    
-    await message.answer(f"🧪 Тест поста недели со случайным смещением ({test_date.strftime('%d.%m.%Y')}, рубрика: {pillar['name']})…")
+
+    await message.answer(
+        f"🧪 Тест поста недели со случайным смещением ({test_date.strftime('%d.%m.%Y')}, рубрика: {pillar['name']})…"
+    )
     set_dry_run(True)
     try:
         await weekly_grid_post(d=test_date)
@@ -1338,8 +1695,11 @@ async def cmd_test_reel(message: Message):
         return
     from shared.instagram import set_dry_run
     from shared.video_utils import ffmpeg_available
+
     if not ffmpeg_available():
-        await message.answer("⚠️ ffmpeg недоступен — Reel собрать нельзя (нужен ffmpeg в образе).")
+        await message.answer(
+            "⚠️ ffmpeg недоступен — Reel собрать нельзя (нужен ffmpeg в образе)."
+        )
         return
     await message.answer("🧪 Собираю Reel (видео уйдёт только в Telegram)…")
     set_dry_run(True)
@@ -1350,32 +1710,43 @@ async def cmd_test_reel(message: Message):
         set_dry_run(False)
 
 
-
 async def handle_roll_call(payload: dict):
     from shared.roll_call import handle_roll_call as _shared_roll_call
+
     await _shared_roll_call("content_bot", payload)
 
 
 async def main():
     if not settings.content_bot_token:
-        logger.error(f"FATAL: CONTENT_BOT_TOKEN is missing!")
+        logger.error("FATAL: CONTENT_BOT_TOKEN is missing!")
         import sys
+
         sys.exit(1)
 
     global _bot
     await init_db()
-    bot = Bot(token=settings.content_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    bot = Bot(
+        token=settings.content_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
     _bot = bot
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
     from shared.task_ui import task_ui_router
+
     dp.include_router(task_ui_router)
-    
-    dp.include_router(test_router)  # тестовые команды — первыми, чтобы не перехватил catch-all
+
+    dp.include_router(
+        test_router
+    )  # тестовые команды — первыми, чтобы не перехватил catch-all
     for r in all_routers:
         dp.include_router(r)
 
     bot_info = await bot.me()
-    group_router = create_group_router(bot_info.username, ai_fallback, wake_words=["отдел контент", "контент", "content", "посты", "сторис"])
+    group_router = create_group_router(
+        bot_info.username,
+        ai_fallback,
+        wake_words=["отдел контент", "контент", "content", "посты", "сторис"],
+    )
     dp.include_router(group_router)
 
     await event_bus.connect()
@@ -1386,17 +1757,23 @@ async def main():
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
-    asyncio.create_task(bus_listen("content_bot", {
-        "publish_story": bus_publish_story,
-        "publish_post": bus_publish_story,  # same handler, posts to Stories
-        "generate_meme": bus_generate_meme,
-        "get_status": bus_get_status,
-        "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
-        # Кнопка «Синк метрик Instagram» в веб-админке.
-        "sync_publication_metrics": bus_sync_publication_metrics,
-        "product_description": bus_product_description,  # текст карточки нового товара
-        BotBusActions.DRAFT_MAGAZINE: _draft_magazine,
-    }))
+
+    asyncio.create_task(
+        bus_listen(
+            "content_bot",
+            {
+                "publish_story": bus_publish_story,
+                "publish_post": bus_publish_story,  # same handler, posts to Stories
+                "generate_meme": bus_generate_meme,
+                "get_status": bus_get_status,
+                "get_last_post": bus_get_last_post,  # отдать САМ пост (картинка + текст)
+                # Кнопка «Синк метрик Instagram» в веб-админке.
+                "sync_publication_metrics": bus_sync_publication_metrics,
+                "product_description": bus_product_description,  # текст карточки нового товара
+                BotBusActions.DRAFT_MAGAZINE: _draft_magazine,
+            },
+        )
+    )
 
     # ── Запуск планировщика и heartbeat ──
     await scheduler.start()
@@ -1415,12 +1792,13 @@ async def _draft_magazine(params: dict) -> dict:
     """Генерация текстового и визуального контента выпуска журнала."""
     try:
         from shared.ai_engine import AIEngine
+
         ai = AIEngine()
-        
+
         facts = params.get("facts", "Нет фактов")
         products = params.get("products", "Нет продуктов")
         restaurant = params.get("restaurant", "Нет ресторана")
-        
+
         prompt = (
             "Сформируй контент для нового выпуска журнала FRESH WEEKLY.\n"
             f"Факты и рецепт от агронома: {facts}\n"
@@ -1431,11 +1809,11 @@ async def _draft_magazine(params: dict) -> dict:
             "- 'content': Массив статей (объектов { 'title': '...', 'text': '...' }). Напиши 3 статьи на основе переданных данных.\n"
             "- 'highlights': Массив из 2-3 коротких фраз (буллеты)\n"
         )
-        
+
         # Получаем JSON от AI
         import json
         import re
-        
+
         # Здесь НЕ подмешиваем TEAM_CONTEXT намеренно: ответ разбирается как JSON
         # (ниже regex по {...}), а командный контекст с указаниями по тону и
         # формату провоцирует модель добавить прозу вокруг структуры.
@@ -1447,20 +1825,21 @@ async def _draft_magazine(params: dict) -> dict:
             ),
             user_message=prompt,
         )
-        
+
         # Парсинг JSON из ответа
-        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        json_match = re.search(r"\{.*\}", response, re.DOTALL)
         if json_match:
             issue_data = json.loads(json_match.group(0))
         else:
             issue_data = {
                 "title": "Fresh Weekly: Новый выпуск",
                 "content": [{"title": "Обзор", "text": response}],
-                "highlights": ["Свежие новости фермы"]
+                "highlights": ["Свежие новости фермы"],
             }
-            
+
         # Генерация обложки
         from shared.brand import BRAND_IMAGE_STYLE
+
         image_prompt = f"Magazine cover layout, modern minimalist design, fresh microgreens, vibrant, high quality, highly detailed, {BRAND_IMAGE_STYLE}"
         try:
             image_url = await ai.generate_image(image_prompt)
@@ -1468,15 +1847,13 @@ async def _draft_magazine(params: dict) -> dict:
         except Exception as e:
             logger.error(f"Failed to generate cover: {e}")
             issue_data["cover_image_url"] = ""
-            
+
         return issue_data
-        
+
     except Exception as e:
         logger.error(f"Error drafting magazine: {e}")
         return {"error": str(e)}
 
+
 if __name__ == "__main__":
     asyncio.run(main())
-
-
-

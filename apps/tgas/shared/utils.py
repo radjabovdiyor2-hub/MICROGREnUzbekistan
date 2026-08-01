@@ -100,9 +100,10 @@ async def simulate_typing(
     if delay is not None:
         seconds = delay
     try:
-        if hasattr(bot_or_message, 'answer'):
+        if hasattr(bot_or_message, "answer"):
             # This is a Message object
             from aiogram.enums import ChatAction
+
             await bot_or_message.answer_chat_action(ChatAction.TYPING)
         else:
             await bot_or_message.send_chat_action(chat_id=chat_id, action="typing")
@@ -134,10 +135,10 @@ def get_greeting(language: str = "ru") -> str:
 
     greetings = {
         "ru": {
-            "night": "🌙 Доброй ночи",       # 00:00 - 05:59
-            "morning": "☀️ Доброе утро",      # 06:00 - 11:59
-            "afternoon": "🌤 Добрый день",     # 12:00 - 17:59
-            "evening": "🌆 Добрый вечер",      # 18:00 - 23:59
+            "night": "🌙 Доброй ночи",  # 00:00 - 05:59
+            "morning": "☀️ Доброе утро",  # 06:00 - 11:59
+            "afternoon": "🌤 Добрый день",  # 12:00 - 17:59
+            "evening": "🌆 Добрый вечер",  # 18:00 - 23:59
         },
         "uz": {
             "night": "🌙 Xayrli tun",
@@ -213,6 +214,7 @@ def collapsible(text: str, threshold: int = 550, header: str = "") -> str:
     Требует parse_mode="HTML". Тело экранируется, чтобы вёрстка не ломалась.
     """
     import html as _html
+
     if not text:
         return text
     t = text.strip()

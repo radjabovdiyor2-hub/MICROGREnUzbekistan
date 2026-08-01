@@ -27,7 +27,12 @@ import uuid
 from aiogram import Bot, Router, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    Message,
+    CallbackQuery,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+)
 from sqlalchemy import text
 
 from shared.config import settings
@@ -65,11 +70,14 @@ async def save_decision(chat_id: int, decision: dict):
     await _ensure_state_table()
     try:
         async with get_session_ctx() as s:
-            await s.execute(text(
-                "INSERT INTO meeting_state (chat_id, payload, updated_at) "
-                "VALUES (:cid, CAST(:pl AS JSONB), NOW()) "
-                "ON CONFLICT (chat_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()"
-            ), {"cid": chat_id, "pl": json.dumps(decision, ensure_ascii=False)})
+            await s.execute(
+                text(
+                    "INSERT INTO meeting_state (chat_id, payload, updated_at) "
+                    "VALUES (:cid, CAST(:pl AS JSONB), NOW()) "
+                    "ON CONFLICT (chat_id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()"
+                ),
+                {"cid": chat_id, "pl": json.dumps(decision, ensure_ascii=False)},
+            )
             await s.commit()
     except Exception as e:
         logger.warning(f"save_decision: {e}")
@@ -81,7 +89,10 @@ async def load_decision(chat_id: int):
     await _ensure_state_table()
     try:
         async with get_session_ctx() as s:
-            res = await s.execute(text("SELECT payload FROM meeting_state WHERE chat_id = :cid"), {"cid": chat_id})
+            res = await s.execute(
+                text("SELECT payload FROM meeting_state WHERE chat_id = :cid"),
+                {"cid": chat_id},
+            )
             row = res.fetchone()
         if row and row[0]:
             payload = row[0] if isinstance(row[0], dict) else json.loads(row[0])
@@ -96,15 +107,25 @@ async def clear_decision(chat_id: int):
     LAST_DECISION.pop(chat_id, None)
     try:
         async with get_session_ctx() as s:
-            await s.execute(text("DELETE FROM meeting_state WHERE chat_id = :cid"), {"cid": chat_id})
+            await s.execute(
+                text("DELETE FROM meeting_state WHERE chat_id = :cid"), {"cid": chat_id}
+            )
             await s.commit()
     except Exception as e:
         logger.warning(f"clear_decision: {e}")
 
 
 # Запрос статуса плана: «статус / что по плану / прогресс»
-_STATUS_TRIGGERS = ["статус план", "что по план", "прогресс", "как дела с план",
-                    "статус задач", "что с планом", "статус по план", "как план"]
+_STATUS_TRIGGERS = [
+    "статус план",
+    "что по план",
+    "прогресс",
+    "как дела с план",
+    "статус задач",
+    "что с планом",
+    "статус по план",
+    "как план",
+]
 
 
 def is_status_request(low_text: str) -> bool:
@@ -119,47 +140,79 @@ def is_status_request(low_text: str) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 DEPARTMENTS = {
     "sales": {
-        "name": "Отдел продаж", "emoji": "🛒", "token": "sales_bot_token",
-        "role": ("Ты — Коммерческий директор Microgreen Uzbekistan. Твоя зона: продажи, "
-                 "конверсия лидов, воронка, работа с возражениями, B2B/B2C, дожим сделок, "
-                 "средний чек, повторные продажи, складской учёт готовой продукции."),
+        "name": "Отдел продаж",
+        "emoji": "🛒",
+        "token": "sales_bot_token",
+        "role": (
+            "Ты — Коммерческий директор Microgreen Uzbekistan. Твоя зона: продажи, "
+            "конверсия лидов, воронка, работа с возражениями, B2B/B2C, дожим сделок, "
+            "средний чек, повторные продажи, складской учёт готовой продукции."
+        ),
     },
     "marketing": {
-        "name": "Отдел маркетинга", "emoji": "📢", "token": "marketing_bot_token",
-        "role": ("Ты — Директор по маркетингу (CMO). Твоя зона: трафик и лидогенерация, "
-                 "рекламные каналы, LTV/CAC, окупаемость кампаний, возврат ушедших клиентов, "
-                 "позиционирование, акции."),
+        "name": "Отдел маркетинга",
+        "emoji": "📢",
+        "token": "marketing_bot_token",
+        "role": (
+            "Ты — Директор по маркетингу (CMO). Твоя зона: трафик и лидогенерация, "
+            "рекламные каналы, LTV/CAC, окупаемость кампаний, возврат ушедших клиентов, "
+            "позиционирование, акции."
+        ),
     },
     "finance": {
-        "name": "Финансовый отдел", "emoji": "💰", "token": "finance_bot_token",
-        "role": ("Ты — Финансовый директор (CFO). Твоя зона: P&L, cash flow, маржа, "
-                 "себестоимость, дебиторка, бюджет, окупаемость маркетинга (ROI/CAC), "
-                 "кассовые разрывы, приоритизация расходов."),
+        "name": "Финансовый отдел",
+        "emoji": "💰",
+        "token": "finance_bot_token",
+        "role": (
+            "Ты — Финансовый директор (CFO). Твоя зона: P&L, cash flow, маржа, "
+            "себестоимость, дебиторка, бюджет, окупаемость маркетинга (ROI/CAC), "
+            "кассовые разрывы, приоритизация расходов."
+        ),
     },
     "analytics": {
-        "name": "Отдел аналитики", "emoji": "📊", "token": "analytics_bot_token",
-        "role": ("Ты — Data Scientist. Твоя зона: воронка продаж, когортный анализ, тренды, "
-                 "гипотезы, поиск скрытых инсайтов в данных, метрики и их интерпретация."),
+        "name": "Отдел аналитики",
+        "emoji": "📊",
+        "token": "analytics_bot_token",
+        "role": (
+            "Ты — Data Scientist. Твоя зона: воронка продаж, когортный анализ, тренды, "
+            "гипотезы, поиск скрытых инсайтов в данных, метрики и их интерпретация."
+        ),
     },
     "support": {
-        "name": "Отдел поддержки", "emoji": "🎧", "token": "support_bot_token",
-        "role": ("Ты — Руководитель клиентского сервиса. Твоя зона: жалобы и возражения, "
-                 "удержание, причины оттока, NPS, лояльность, обратная связь клиентов."),
+        "name": "Отдел поддержки",
+        "emoji": "🎧",
+        "token": "support_bot_token",
+        "role": (
+            "Ты — Руководитель клиентского сервиса. Твоя зона: жалобы и возражения, "
+            "удержание, причины оттока, NPS, лояльность, обратная связь клиентов."
+        ),
     },
     "hr": {
-        "name": "Отдел кадров (HR)", "emoji": "👥", "token": "hr_bot_token",
-        "role": ("Ты — HR-директор. Твоя зона: достаточно ли людей под задачу, мотивация и "
-                 "KPI сотрудников, найм, нагрузка команды, компетенции."),
+        "name": "Отдел кадров (HR)",
+        "emoji": "👥",
+        "token": "hr_bot_token",
+        "role": (
+            "Ты — HR-директор. Твоя зона: достаточно ли людей под задачу, мотивация и "
+            "KPI сотрудников, найм, нагрузка команды, компетенции."
+        ),
     },
     "content": {
-        "name": "Отдел контента", "emoji": "✍️", "token": "content_bot_token",
-        "role": ("Ты — Главный редактор / бренд-менеджер. Твоя зона: SMM, tone of voice, "
-                 "органический охват и вовлечённость, экспертный контент о микрозелени."),
+        "name": "Отдел контента",
+        "emoji": "✍️",
+        "token": "content_bot_token",
+        "role": (
+            "Ты — Главный редактор / бренд-менеджер. Твоя зона: SMM, tone of voice, "
+            "органический охват и вовлечённость, экспертный контент о микрозелени."
+        ),
     },
     "pm": {
-        "name": "Степан (Менеджер)", "emoji": "🤖", "token": "stepan_bot_token",
-        "role": ("Ты — Степан, Генеральный Управляющий и Операционный директор (COO). Твоя зона: производственные циклы сити-фермы, "
-                 "урожайность, себестоимость выращивания, свежесть и скоропорт, логистика, дедлайны."),
+        "name": "Степан (Менеджер)",
+        "emoji": "🤖",
+        "token": "stepan_bot_token",
+        "role": (
+            "Ты — Степан, Генеральный Управляющий и Операционный директор (COO). Твоя зона: производственные циклы сити-фермы, "
+            "урожайность, себестоимость выращивания, свежесть и скоропорт, логистика, дедлайны."
+        ),
     },
 }
 
@@ -167,18 +220,50 @@ DEFAULT_PARTICIPANTS = ["sales", "marketing", "analytics", "finance"]
 
 # Слова-триггеры: вопрос требует совещания (кросс-функциональный разбор / решение).
 MEETING_TRIGGERS = [
-    "совещан", "обсуд", "между собой", "все отделы", "всех отдел", "командой",
-    "дай решение", "дайте решение", "дай нам решение", "дайте нам решение",
-    "как выйти", "проанализир", "проведите анализ", "проведи анализ",
-    "почему нет прода", "почему нету прода", "почему мало прода", "почему упал",
-    "почему падают", "почему падает", "что делать", "что нам делать",
-    "выявите", "найдите причин", "разбери", "устройте", "соберите",
-    "план действий", "выработайте",
+    "совещан",
+    "обсуд",
+    "между собой",
+    "все отделы",
+    "всех отдел",
+    "командой",
+    "дай решение",
+    "дайте решение",
+    "дай нам решение",
+    "дайте нам решение",
+    "как выйти",
+    "проанализир",
+    "проведите анализ",
+    "проведи анализ",
+    "почему нет прода",
+    "почему нету прода",
+    "почему мало прода",
+    "почему упал",
+    "почему падают",
+    "почему падает",
+    "что делать",
+    "что нам делать",
+    "выявите",
+    "найдите причин",
+    "разбери",
+    "устройте",
+    "соберите",
+    "план действий",
+    "выработайте",
 ]
 
 
 # Бизнес-темы: «почему <тема>?» — тоже повод собрать совещание.
-_WHY_TOPICS = ["прода", "продаж", "клиент", "заказ", "выручк", "доход", "прибыл", "конверс", "трафик"]
+_WHY_TOPICS = [
+    "прода",
+    "продаж",
+    "клиент",
+    "заказ",
+    "выручк",
+    "доход",
+    "прибыл",
+    "конверс",
+    "трафик",
+]
 
 
 def is_meeting_request(low_text: str) -> bool:
@@ -197,12 +282,35 @@ _EXEC_TRIGGERS = [
     # ⚠️ Проверка идёт по ПОДСТРОКЕ, поэтому нужны корни, а не только точные формы:
     # «выполни» ⊄ «выполняй» — из-за этого «Выполняй» раньше не распознавалось вовсе
     # и уходило в общий AI, который выдумывал задачу (вплоть до реальной публикации).
-    "делайте", "делай", "сделайте", "выполня", "выполни", "выполните",
-    "исполняй", "исполни", "запускай", "запускайте", "запусти",
-    "приступай", "приступайте", "действуй", "действуйте",
-    "в работу", "начинай", "начни", "поехали", "погнали", "утверждаю",
-    "одобряю план", "одобряю", "принято", "работаем", "го делаем",
-    "давайте делать", "давай делать", "делаем",
+    "делайте",
+    "делай",
+    "сделайте",
+    "выполня",
+    "выполни",
+    "выполните",
+    "исполняй",
+    "исполни",
+    "запускай",
+    "запускайте",
+    "запусти",
+    "приступай",
+    "приступайте",
+    "действуй",
+    "действуйте",
+    "в работу",
+    "начинай",
+    "начни",
+    "поехали",
+    "погнали",
+    "утверждаю",
+    "одобряю план",
+    "одобряю",
+    "принято",
+    "работаем",
+    "го делаем",
+    "давайте делать",
+    "давай делать",
+    "делаем",
 ]
 
 
@@ -259,7 +367,9 @@ async def _route_additional(question: str, transcript: str, current: list) -> li
     )
     user = f"Вопрос: {question}\n\nСтенограмма совещания:\n{transcript}"
     try:
-        raw = (await ai.chat_completion(system, user, temperature=0.2, max_tokens=80)).strip()
+        raw = (
+            await ai.chat_completion(system, user, temperature=0.2, max_tokens=80)
+        ).strip()
         m = re.search(r"\[.*\]", raw, re.DOTALL)
         if not m:
             return []
@@ -292,15 +402,23 @@ async def _collect_data() -> str:
 
         # ── Заказы ──
         try:
-            r = await q("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE DATE(created_at)=CURRENT_DATE")
+            r = await q(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE DATE(created_at)=CURRENT_DATE"
+            )
             c, s = r.fetchone()
             lines.append(f"📦 Заказы сегодня: {c} на {format_price(s)}")
-            r = await q("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'")
+            r = await q(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+            )
             c, s = r.fetchone()
             lines.append(f"📦 Заказы за неделю: {c} на {format_price(s)}")
-            r = await q("SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) FROM orders WHERE EXTRACT(MONTH FROM created_at)=EXTRACT(MONTH FROM CURRENT_DATE)")
+            r = await q(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) FROM orders WHERE EXTRACT(MONTH FROM created_at)=EXTRACT(MONTH FROM CURRENT_DATE)"
+            )
             c, s, a = r.fetchone()
-            lines.append(f"📦 Заказы за месяц: {c} на {format_price(s)}, средний чек {format_price(a)}")
+            lines.append(
+                f"📦 Заказы за месяц: {c} на {format_price(s)}, средний чек {format_price(a)}"
+            )
             r = await q("SELECT COUNT(*) FROM orders WHERE status='new'")
             lines.append(f"⚠️ Необработанных заказов (new): {r.scalar() or 0}")
         except Exception as e:
@@ -308,54 +426,76 @@ async def _collect_data() -> str:
 
         # ── Тренд неделя к неделе ──
         try:
-            r = await q("SELECT COUNT(*) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'")
+            r = await q(
+                "SELECT COUNT(*) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+            )
             this_w = r.scalar() or 0
-            r = await q("SELECT COUNT(*) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' AND created_at < CURRENT_DATE - INTERVAL '7 days'")
+            r = await q(
+                "SELECT COUNT(*) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' AND created_at < CURRENT_DATE - INTERVAL '7 days'"
+            )
             prev_w = r.scalar() or 0
             trend = "→ без изменений"
             if this_w > prev_w:
                 trend = "↑ рост"
             elif this_w < prev_w:
                 trend = "↓ падение"
-            lines.append(f"📈 Динамика заказов: эта неделя {this_w} vs прошлая {prev_w} ({trend})")
+            lines.append(
+                f"📈 Динамика заказов: эта неделя {this_w} vs прошлая {prev_w} ({trend})"
+            )
         except Exception as e:
             logger.warning(f"meeting data (trend): {e}")
 
         # ── Клиенты / лиды ──
         try:
-            r = await q("SELECT COUNT(*), "
-                        "SUM(CASE WHEN customer_type='b2b' THEN 1 ELSE 0 END), "
-                        "SUM(CASE WHEN status='lead' THEN 1 ELSE 0 END) FROM customers")
+            r = await q(
+                "SELECT COUNT(*), "
+                "SUM(CASE WHEN customer_type='b2b' THEN 1 ELSE 0 END), "
+                "SUM(CASE WHEN status='lead' THEN 1 ELSE 0 END) FROM customers"
+            )
             total, b2b, leads = r.fetchone()
-            r = await q("SELECT COUNT(*) FROM customers WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'")
+            r = await q(
+                "SELECT COUNT(*) FROM customers WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+            )
             new_c = r.scalar() or 0
-            lines.append(f"👥 Клиентов всего: {total} (B2B: {b2b or 0}, лидов: {leads or 0}, новых за неделю: {new_c})")
+            lines.append(
+                f"👥 Клиентов всего: {total} (B2B: {b2b or 0}, лидов: {leads or 0}, новых за неделю: {new_c})"
+            )
         except Exception as e:
             logger.warning(f"meeting data (customers): {e}")
 
         # ── Финансы ──
         try:
-            r = await q("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-                        "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-                        "FROM finances WHERE EXTRACT(MONTH FROM date)=EXTRACT(MONTH FROM CURRENT_DATE)")
+            r = await q(
+                "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
+                "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
+                "FROM finances WHERE EXTRACT(MONTH FROM date)=EXTRACT(MONTH FROM CURRENT_DATE)"
+            )
             inc, exp = r.fetchone()
             profit = (inc or 0) - (exp or 0)
             margin = (profit / inc * 100) if inc else 0
-            lines.append(f"💰 Финансы за месяц: доход {format_price(inc)}, расход {format_price(exp)}, "
-                         f"прибыль {format_price(profit)} (маржа {margin:.0f}%)")
-            r = await q("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='pending'")
+            lines.append(
+                f"💰 Финансы за месяц: доход {format_price(inc)}, расход {format_price(exp)}, "
+                f"прибыль {format_price(profit)} (маржа {margin:.0f}%)"
+            )
+            r = await q(
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='pending'"
+            )
             dc, ds = r.fetchone()
-            lines.append(f"💳 Дебиторка (неоплачено): {dc} заказов на {format_price(ds)}")
+            lines.append(
+                f"💳 Дебиторка (неоплачено): {dc} заказов на {format_price(ds)}"
+            )
         except Exception as e:
             logger.warning(f"meeting data (finance): {e}")
 
         # ── Топ категорий за месяц ──
         try:
-            r = await q("SELECT p.category, COUNT(oi.id), COALESCE(SUM(oi.total_price),0) "
-                        "FROM order_items oi JOIN products p ON oi.product_id=p.id "
-                        "JOIN orders o ON oi.order_id=o.id "
-                        "WHERE EXTRACT(MONTH FROM o.created_at)=EXTRACT(MONTH FROM CURRENT_DATE) "
-                        "GROUP BY p.category ORDER BY SUM(oi.total_price) DESC LIMIT 3")
+            r = await q(
+                "SELECT p.category, COUNT(oi.id), COALESCE(SUM(oi.total_price),0) "
+                "FROM order_items oi JOIN products p ON oi.product_id=p.id "
+                "JOIN orders o ON oi.order_id=o.id "
+                "WHERE EXTRACT(MONTH FROM o.created_at)=EXTRACT(MONTH FROM CURRENT_DATE) "
+                "GROUP BY p.category ORDER BY SUM(oi.total_price) DESC LIMIT 3"
+            )
             cats = r.fetchall()
             if cats:
                 cat_str = "; ".join(f"{c[0]}: {format_price(c[2] or 0)}" for c in cats)
@@ -365,7 +505,9 @@ async def _collect_data() -> str:
 
         # ── Маркетинговая активность ──
         try:
-            r = await q("SELECT COUNT(*) FROM interactions WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'")
+            r = await q(
+                "SELECT COUNT(*) FROM interactions WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+            )
             inter = r.scalar() or 0
             lines.append(f"📣 Касаний с клиентами за неделю (interactions): {inter}")
         except Exception as e:
@@ -373,10 +515,14 @@ async def _collect_data() -> str:
 
         # ── Активные выводы петель обучения (bot_learnings) ──
         try:
-            r = await q("SELECT bot, metric, observation, inference FROM bot_learnings WHERE is_active = TRUE ORDER BY applied_at DESC LIMIT 5")
+            r = await q(
+                "SELECT bot, metric, observation, inference FROM bot_learnings WHERE is_active = TRUE ORDER BY applied_at DESC LIMIT 5"
+            )
             learn_rows = r.fetchall()
             if learn_rows:
-                lines.append("\n🧠 <b>Активные выводы петель обучения отделов (Feedback Loops):</b>")
+                lines.append(
+                    "\n🧠 <b>Активные выводы петель обучения отделов (Feedback Loops):</b>"
+                )
                 for lr in learn_rows:
                     lines.append(f"  • [{lr[0]} / {lr[1]}]: {lr[2]} → <i>{lr[3]}</i>")
         except Exception as e:
@@ -384,8 +530,10 @@ async def _collect_data() -> str:
 
         # ── Активные задачи по отделам ──
         try:
-            r = await q("SELECT department, COUNT(*) FROM tasks WHERE status IN ('todo','in_progress') "
-                        "GROUP BY department ORDER BY COUNT(*) DESC")
+            r = await q(
+                "SELECT department, COUNT(*) FROM tasks WHERE status IN ('todo','in_progress') "
+                "GROUP BY department ORDER BY COUNT(*) DESC"
+            )
             rows = r.fetchall()
             if rows:
                 t_str = ", ".join(f"{row[0] or 'общие'}: {row[1]}" for row in rows)
@@ -408,7 +556,7 @@ async def _route_departments(question: str, data: str) -> list:
         f"{TEAM_CONTEXT}\n\nТы — Генеральный управляющий. По вопросу руководителя реши, "
         f"каким отделам поручить разбор. Доступные ключи отделов: {keys}. "
         f"Выбирай только реально релевантные ({min_p}–{max_p} отделов), самый профильный первым. "
-        "Верни ТОЛЬКО JSON-массив ключей, например: [\"sales\",\"marketing\",\"analytics\"]."
+        'Верни ТОЛЬКО JSON-массив ключей, например: ["sales","marketing","analytics"].'
     )
     user = f"Вопрос руководителя: {question}\n\nКраткие данные компании:\n{data}"
     try:
@@ -435,7 +583,9 @@ async def _route_departments(question: str, data: str) -> list:
 # ─────────────────────────────────────────────────────────────────────────────
 # Реплика одного отдела
 # ─────────────────────────────────────────────────────────────────────────────
-async def _agent_statement(dept_key: str, question: str, data: str, transcript: str, round_no: int) -> str:
+async def _agent_statement(
+    dept_key: str, question: str, data: str, transcript: str, round_no: int
+) -> str:
     dept = DEPARTMENTS[dept_key]
     system = (
         f"{TEAM_CONTEXT}\n\n{dept['role']}\n\n"
@@ -460,7 +610,9 @@ async def _agent_statement(dept_key: str, question: str, data: str, transcript: 
             "(3) предложи свою часть ЕДИНОГО решения. 2–4 предложения."
         )
     try:
-        return (await ai.chat_completion(system, user, temperature=0.7, max_tokens=320)).strip()
+        return (
+            await ai.chat_completion(system, user, temperature=0.7, max_tokens=320)
+        ).strip()
     except Exception as e:
         logger.warning(f"agent {dept_key} statement error: {e}")
         return "(нет связи с отделом)"
@@ -469,7 +621,9 @@ async def _agent_statement(dept_key: str, question: str, data: str, transcript: 
 # ─────────────────────────────────────────────────────────────────────────────
 # Финальный синтез от Менеджера
 # ─────────────────────────────────────────────────────────────────────────────
-async def _manager_synthesis(question: str, transcript: str, force_decision: bool = False) -> tuple:
+async def _manager_synthesis(
+    question: str, transcript: str, force_decision: bool = False
+) -> tuple:
     """Возвращает (needs_owner: bool, text: str)."""
     system = (
         f"{TEAM_CONTEXT}\n\nТы — Степан, Генеральный управляющий Microgreen Uzbekistan. "
@@ -490,7 +644,7 @@ async def _manager_synthesis(question: str, transcript: str, force_decision: boo
             "(начни блок с '❓ Нужно ваше участие:') и кратко поясни, почему без этого нельзя."
         )
     user = (
-        f"Вопрос руководителя: \"{question}\"\n\n"
+        f'Вопрос руководителя: "{question}"\n\n'
         f"Полная стенограмма совещания директоров:\n{transcript}\n\n"
         f"{owner_rule}\n\n"
         "Когда даёшь решение (DECISION), используй формат:\n"
@@ -500,10 +654,15 @@ async def _manager_synthesis(question: str, transcript: str, force_decision: boo
         "Пиши уверенно и по делу, без markdown-заголовков решёткой, без JSON."
     )
     try:
-        raw = (await ai.chat_completion(system, user, temperature=0.5, max_tokens=700)).strip()
+        raw = (
+            await ai.chat_completion(system, user, temperature=0.5, max_tokens=700)
+        ).strip()
     except Exception as e:
         logger.warning(f"manager synthesis error: {e}")
-        return False, "Не удалось свести совещание в решение. Попробуйте переформулировать вопрос."
+        return (
+            False,
+            "Не удалось свести совещание в решение. Попробуйте переформулировать вопрос.",
+        )
 
     needs_owner = False
     # снимаем маркер с первой строки
@@ -511,7 +670,10 @@ async def _manager_synthesis(question: str, transcript: str, force_decision: boo
     marker = first.strip().upper().strip(":*")
     if marker.startswith("NEEDS_OWNER"):
         needs_owner = True
-        raw = rest.strip() or "❓ Нужно ваше участие: уточните детали, чтобы команда завершила решение."
+        raw = (
+            rest.strip()
+            or "❓ Нужно ваше участие: уточните детали, чтобы команда завершила решение."
+        )
     elif marker.startswith("DECISION"):
         raw = rest.strip() or raw
     return (needs_owner and not force_decision), raw
@@ -532,7 +694,9 @@ async def _agent_vote(dept_key: str, question: str, proposal: str) -> tuple:
     )
     user = f"Вопрос: {question}\n\nПредложенное решение:\n{proposal}\n\nТвой голос?"
     try:
-        raw = (await ai.chat_completion(system, user, temperature=0.4, max_tokens=120)).strip()
+        raw = (
+            await ai.chat_completion(system, user, temperature=0.4, max_tokens=120)
+        ).strip()
     except Exception:
         raw = "ВОЗДЕРЖУСЬ — нет данных для оценки."
     up = raw.upper()
@@ -543,7 +707,11 @@ async def _agent_vote(dept_key: str, question: str, proposal: str) -> tuple:
     elif up.startswith("ЗА"):
         v = "ЗА"
     else:
-        v = "ПРОТИВ" if "ПРОТИВ" in up[:12] else ("ВОЗДЕРЖ" if "ВОЗДЕРЖ" in up[:12] else "ЗА")
+        v = (
+            "ПРОТИВ"
+            if "ПРОТИВ" in up[:12]
+            else ("ВОЗДЕРЖ" if "ВОЗДЕРЖ" in up[:12] else "ЗА")
+        )
     parts = raw.split(maxsplit=1)
     reason = parts[1].strip(" -—:") if len(parts) > 1 else raw
     return v, reason
@@ -567,7 +735,9 @@ async def _safe_send(bot: Bot, chat_id: int, msg: str):
 # ─────────────────────────────────────────────────────────────────────────────
 # Главная функция — провести совещание
 # ─────────────────────────────────────────────────────────────────────────────
-async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, participants: list = None):
+async def run_team_meeting(
+    manager_bot: Bot, chat_id: int, question: str, participants: list = None
+):
     """
     manager_bot — экземпляр бота Степана (Менеджера).
     chat_id — чат (группа), где идёт совещание.
@@ -589,22 +759,31 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
         if not token:
             continue
         try:
-            dept_bots[k] = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+            dept_bots[k] = Bot(
+                token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+            )
         except Exception as e:
             logger.warning(f"meeting: не удалось поднять бота {k}: {e}")
 
     if not dept_bots:
-        await _safe_send(manager_bot, chat_id, "😔 Не удалось собрать отделы на совещание (нет доступных ботов).")
+        await _safe_send(
+            manager_bot,
+            chat_id,
+            "😔 Не удалось собрать отделы на совещание (нет доступных ботов).",
+        )
         return
 
     try:
-        participants = ", ".join(f"{DEPARTMENTS[k]['emoji']} {DEPARTMENTS[k]['name']}" for k in dept_bots)
+        participants = ", ".join(
+            f"{DEPARTMENTS[k]['emoji']} {DEPARTMENTS[k]['name']}" for k in dept_bots
+        )
         await _safe_send(
-            manager_bot, chat_id,
+            manager_bot,
+            chat_id,
             f"🧠 <b>Совещание отделов</b>\n"
             f"❓ Вопрос: {html.escape(question)}\n\n"
             f"👥 Участники: {participants}\n"
-            f"<i>Обсуждаем, разбираем аргументы друг друга и приходим к общему решению…</i>"
+            f"<i>Обсуждаем, разбираем аргументы друг друга и приходим к общему решению…</i>",
         )
 
         # Публикация реплики отдела: пробуем от имени самого бота-отдела,
@@ -615,12 +794,21 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
             b = dept_bots.get(dept_key)
             if b is not None:
                 try:
-                    await b.send_message(chat_id, f"{dept['emoji']} {html.escape(stmt)}", parse_mode="HTML")
+                    await b.send_message(
+                        chat_id,
+                        f"{dept['emoji']} {html.escape(stmt)}",
+                        parse_mode="HTML",
+                    )
                     return
                 except Exception as e:
-                    logger.info(f"meeting: отдел {dept_key} не смог написать сам ({e}); озвучит Менеджер")
-            await _safe_send(manager_bot, chat_id,
-                             f"{dept['emoji']} <b>{html.escape(dept['name'])}:</b>\n{html.escape(stmt)}")
+                    logger.info(
+                        f"meeting: отдел {dept_key} не смог написать сам ({e}); озвучит Менеджер"
+                    )
+            await _safe_send(
+                manager_bot,
+                chat_id,
+                f"{dept['emoji']} <b>{html.escape(dept['name'])}:</b>\n{html.escape(stmt)}",
+            )
 
         transcript = []
         rounds = _cfg_rounds()
@@ -633,18 +821,25 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
             await asyncio.sleep(1.5)
 
         # ── Динамический созыв: если затронуты обязанности других отделов — зовём их ──
-        extra = await _route_additional(question, "\n".join(transcript), list(dept_bots.keys()))
+        extra = await _route_additional(
+            question, "\n".join(transcript), list(dept_bots.keys())
+        )
         for k in extra:
             token = getattr(settings, DEPARTMENTS[k]["token"], None)
             if not token or k in dept_bots:
                 continue
             try:
-                dept_bots[k] = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+                dept_bots[k] = Bot(
+                    token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+                )
             except Exception:
                 continue
-            await _safe_send(manager_bot, chat_id,
-                             f"➕ Степан приглашает в дискуссию: {DEPARTMENTS[k]['emoji']} "
-                             f"<b>{html.escape(DEPARTMENTS[k]['name'])}</b> — затронуты их обязанности.")
+            await _safe_send(
+                manager_bot,
+                chat_id,
+                f"➕ Степан приглашает в дискуссию: {DEPARTMENTS[k]['emoji']} "
+                f"<b>{html.escape(DEPARTMENTS[k]['name'])}</b> — затронуты их обязанности.",
+            )
             stmt = await _agent_statement(k, question, data, "\n".join(transcript), 1)
             transcript.append(f"{DEPARTMENTS[k]['name']}: {stmt}")
             await speak(k, stmt)
@@ -654,10 +849,15 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
         for r in range(2, rounds + 1):
             if len(dept_bots) < 2:
                 break
-            await _safe_send(manager_bot, chat_id,
-                             f"💬 <b>Раунд обсуждения {r - 1}</b> — отделы разбирают аргументы друг друга…")
+            await _safe_send(
+                manager_bot,
+                chat_id,
+                f"💬 <b>Раунд обсуждения {r - 1}</b> — отделы разбирают аргументы друг друга…",
+            )
             for k in list(dept_bots):
-                stmt = await _agent_statement(k, question, data, "\n".join(transcript), 2)
+                stmt = await _agent_statement(
+                    k, question, data, "\n".join(transcript), 2
+                )
                 transcript.append(f"{DEPARTMENTS[k]['name']} (дебаты): {stmt}")
                 await speak(k, stmt)
                 await asyncio.sleep(1.5)
@@ -668,9 +868,17 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
         proposal = ""
         vote_info = {}
         for attempt in range(1, max_vote_rounds + 1):
-            _, proposal = await _manager_synthesis(question, "\n".join(transcript), force_decision=True)
-            label = "Предложение на голосование" if attempt == 1 else f"Новое предложение (попытка {attempt})"
-            await _safe_send(manager_bot, chat_id, f"🗳 <b>{label}:</b>\n\n{collapsible(proposal)}")
+            _, proposal = await _manager_synthesis(
+                question, "\n".join(transcript), force_decision=True
+            )
+            label = (
+                "Предложение на голосование"
+                if attempt == 1
+                else f"Новое предложение (попытка {attempt})"
+            )
+            await _safe_send(
+                manager_bot, chat_id, f"🗳 <b>{label}:</b>\n\n{collapsible(proposal)}"
+            )
             await asyncio.sleep(1.0)
 
             vfor = vagainst = vabstain = 0
@@ -692,15 +900,24 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
 
             if vfor > vagainst:
                 adopted = True
-                await _safe_send(manager_bot, chat_id, f"✅ <b>Решение ПРИНЯТО голосованием</b>\n{tally}")
+                await _safe_send(
+                    manager_bot,
+                    chat_id,
+                    f"✅ <b>Решение ПРИНЯТО голосованием</b>\n{tally}",
+                )
                 break
 
             # Большинства нет → новая дискуссия и новое предложение
             if attempt < max_vote_rounds:
-                await _safe_send(manager_bot, chat_id,
-                                 f"{tally}\n🔁 <b>Большинства нет — новая дискуссия</b>, дорабатываем решение…")
+                await _safe_send(
+                    manager_bot,
+                    chat_id,
+                    f"{tally}\n🔁 <b>Большинства нет — новая дискуссия</b>, дорабатываем решение…",
+                )
                 for k in list(dept_bots):
-                    stmt = await _agent_statement(k, question, data, "\n".join(transcript), 2)
+                    stmt = await _agent_statement(
+                        k, question, data, "\n".join(transcript), 2
+                    )
                     transcript.append(f"{DEPARTMENTS[k]['name']} (доработка): {stmt}")
                     await speak(k, stmt)
                     await asyncio.sleep(1.3)
@@ -708,16 +925,27 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
                 await _safe_send(manager_bot, chat_id, tally)
 
         # ── Сохранение решения и финал ──
-        await save_decision(chat_id, {"question": question, "plan": proposal,
-                                      "executed": False, "vote": vote_info})
+        await save_decision(
+            chat_id,
+            {
+                "question": question,
+                "plan": proposal,
+                "executed": False,
+                "vote": vote_info,
+            },
+        )
         if adopted:
-            await _safe_send(manager_bot, chat_id,
-                             "<i>Напишите «делайте» — и отделы автономно исполнят план.</i>")
+            await _safe_send(
+                manager_bot,
+                chat_id,
+                "<i>Напишите «делайте» — и отделы автономно исполнят план.</i>",
+            )
         else:
             await _safe_send(
-                manager_bot, chat_id,
+                manager_bot,
+                chat_id,
                 f"⚖️ <b>За {max_vote_rounds} раунда(ов) решение не набрало большинства.</b>\n"
-                f"Нужно ваше слово: «делайте» — принять последнее предложение, или задайте направление."
+                f"Нужно ваше слово: «делайте» — принять последнее предложение, или задайте направление.",
             )
 
     finally:
@@ -731,33 +959,59 @@ async def run_team_meeting(manager_bot: Bot, chat_id: int, question: str, partic
 # ─────────────────────────────────────────────────────────────────────────────
 # Завершение совещания: готовое решение ИЛИ запрос участия владельца (с кнопкой)
 # ─────────────────────────────────────────────────────────────────────────────
-async def _finish_meeting(manager_bot: Bot, chat_id: int, question: str,
-                          transcript: str, needs_owner: bool, final: str):
+async def _finish_meeting(
+    manager_bot: Bot,
+    chat_id: int,
+    question: str,
+    transcript: str,
+    needs_owner: bool,
+    final: str,
+):
     if not needs_owner:
-        await save_decision(chat_id, {"question": question, "plan": final, "executed": False})
-        await _safe_send(manager_bot, chat_id, f"🤖 <b>Итог совещания — решение от Менеджера:</b>\n\n{final}")
-        await _safe_send(manager_bot, chat_id,
-                         "<i>Напишите «делайте» — и я запущу план в работу.</i>")
+        await save_decision(
+            chat_id, {"question": question, "plan": final, "executed": False}
+        )
+        await _safe_send(
+            manager_bot,
+            chat_id,
+            f"🤖 <b>Итог совещания — решение от Менеджера:</b>\n\n{final}",
+        )
+        await _safe_send(
+            manager_bot,
+            chat_id,
+            "<i>Напишите «делайте» — и я запущу план в работу.</i>",
+        )
         return
 
     token = uuid.uuid4().hex[:8]
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="🤝 Доверяю, решайте сами", callback_data=f"meet:decide:{token}")
-    ]])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🤝 Доверяю, решайте сами",
+                    callback_data=f"meet:decide:{token}",
+                )
+            ]
+        ]
+    )
     body = (
         f"🙋 <b>Команде нужно ваше участие</b>\n\n{final}\n\n"
         f"<i>Ответьте реплаем на это сообщение — команда учтёт ваш ответ и завершит решение. "
         f"Либо нажмите кнопку, чтобы команда решила сама.</i>"
     )
     try:
-        sent = await manager_bot.send_message(chat_id, body, parse_mode="HTML", reply_markup=kb)
+        sent = await manager_bot.send_message(
+            chat_id, body, parse_mode="HTML", reply_markup=kb
+        )
     except Exception:
         plain = re.sub(r"</?[^>]+>", "", body)
         sent = await manager_bot.send_message(chat_id, plain, reply_markup=kb)
 
     PENDING[token] = {
-        "question": question, "transcript": transcript,
-        "msg_id": sent.message_id, "chat_id": chat_id,
+        "question": question,
+        "transcript": transcript,
+        "msg_id": sent.message_id,
+        "chat_id": chat_id,
     }
     # Защита от разрастания памяти: держим только последние 30 ожиданий.
     if len(PENDING) > 30:
@@ -788,10 +1042,20 @@ async def _on_decide_yourself(cb: CallbackQuery):
         await cb.answer("Совещание уже завершено")
         return
     await cb.answer("Принял — команда решает сама…")
-    _, final = await _manager_synthesis(ctx["question"], ctx["transcript"], force_decision=True)
-    await save_decision(ctx["chat_id"], {"question": ctx["question"], "plan": final, "executed": False})
-    await _safe_send(cb.bot, ctx["chat_id"], f"🤖 <b>Решение команды (без участия владельца):</b>\n\n{final}")
-    await _safe_send(cb.bot, ctx["chat_id"], "<i>Напишите «делайте» — и я запущу план в работу.</i>")
+    _, final = await _manager_synthesis(
+        ctx["question"], ctx["transcript"], force_decision=True
+    )
+    await save_decision(
+        ctx["chat_id"], {"question": ctx["question"], "plan": final, "executed": False}
+    )
+    await _safe_send(
+        cb.bot,
+        ctx["chat_id"],
+        f"🤖 <b>Решение команды (без участия владельца):</b>\n\n{final}",
+    )
+    await _safe_send(
+        cb.bot, ctx["chat_id"], "<i>Напишите «делайте» — и я запущу план в работу.</i>"
+    )
 
 
 # ── Ответ владельца реплаем на запрос участия ──
@@ -812,12 +1076,26 @@ async def _on_owner_reply(message: Message):
         return
     PENDING.pop(tok, None)
     owner_answer = (message.text or "").strip()
-    augmented = ctx["transcript"] + f"\n\n[Ответ владельца на уточнение]: {owner_answer}"
-    await _safe_send(message.bot, ctx["chat_id"], "✅ Принял ваш ответ, команда завершает решение…")
+    augmented = (
+        ctx["transcript"] + f"\n\n[Ответ владельца на уточнение]: {owner_answer}"
+    )
+    await _safe_send(
+        message.bot, ctx["chat_id"], "✅ Принял ваш ответ, команда завершает решение…"
+    )
     _, final = await _manager_synthesis(ctx["question"], augmented, force_decision=True)
-    await save_decision(ctx["chat_id"], {"question": ctx["question"], "plan": final, "executed": False})
-    await _safe_send(message.bot, ctx["chat_id"], f"🤖 <b>Итог с учётом вашего ответа:</b>\n\n{final}")
-    await _safe_send(message.bot, ctx["chat_id"], "<i>Напишите «делайте» — и я запущу план в работу.</i>")
+    await save_decision(
+        ctx["chat_id"], {"question": ctx["question"], "plan": final, "executed": False}
+    )
+    await _safe_send(
+        message.bot,
+        ctx["chat_id"],
+        f"🤖 <b>Итог с учётом вашего ответа:</b>\n\n{final}",
+    )
+    await _safe_send(
+        message.bot,
+        ctx["chat_id"],
+        "<i>Напишите «делайте» — и я запущу план в работу.</i>",
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -828,6 +1106,7 @@ def _parse_deadline(deadline_text: str):
     if not deadline_text:
         return None
     from datetime import date, timedelta
+
     t = deadline_text.lower()
     m = re.search(r"(\d+)", t)
     n = int(m.group(1)) if m else 1
@@ -871,7 +1150,9 @@ async def _parse_plan_tasks(plan: str) -> list:
         '"params":{...},"deadline":"срок как в тексте или пусто"}]'
     )
     try:
-        raw = (await ai.chat_completion(system, plan, temperature=0.2, max_tokens=900)).strip()
+        raw = (
+            await ai.chat_completion(system, plan, temperature=0.2, max_tokens=900)
+        ).strip()
         m = re.search(r"\[.*\]", raw, re.DOTALL)
         if not m:
             return []
@@ -887,10 +1168,15 @@ async def _parse_plan_tasks(plan: str) -> list:
                 # модель предложила несуществующее действие — не выдумываем исполнение
                 cap = "human_task"
             params = it.get("params") if isinstance(it.get("params"), dict) else {}
-            result.append({
-                "dept": dept, "action": action, "capability": cap, "params": params,
-                "deadline": str(it.get("deadline", "")).strip(),
-            })
+            result.append(
+                {
+                    "dept": dept,
+                    "action": action,
+                    "capability": cap,
+                    "params": params,
+                    "deadline": str(it.get("deadline", "")).strip(),
+                }
+            )
         return result
     except Exception as e:
         logger.warning(f"parse plan tasks error: {e}")
@@ -911,12 +1197,16 @@ def _plan_preview(tasks: list) -> str:
         cap = CAPABILITIES.get(t.get("capability") or "")
         what = cap.title if cap else "передать человеку"
         mark = "⚠️" if (cap and cap.outward) else "•"
-        lines.append(f"{mark} {d['emoji']} <b>{d['name']}</b> — {html.escape(t['action'])}\n"
-                     f"      └ {what}")
+        lines.append(
+            f"{mark} {d['emoji']} <b>{d['name']}</b> — {html.escape(t['action'])}\n"
+            f"      └ {what}"
+        )
     return "\n".join(lines)
 
 
-async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: list = None):
+async def run_execution(
+    manager_bot: Bot, chat_id: int, decision: dict, tasks: list = None
+):
     """
     Запускает план в работу — ПО-НАСТОЯЩЕМУ.
 
@@ -935,9 +1225,12 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
     if not tasks:
         decision["executed"] = True
         await save_decision(chat_id, decision)
-        await _safe_send(manager_bot, chat_id,
-                         "🤔 В плане нет пунктов, которые я могу выполнить. "
-                         "Сформулируйте конкретнее — что именно сделать?")
+        await _safe_send(
+            manager_bot,
+            chat_id,
+            "🤔 В плане нет пунктов, которые я могу выполнить. "
+            "Сформулируйте конкретнее — что именно сделать?",
+        )
         return
 
     # 1. Создаём задачи в БД (аудит). Без TASK_CREATED — отделы не должны
@@ -948,16 +1241,19 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
             for t in tasks:
                 dl = _parse_deadline(t.get("deadline"))
                 try:
-                    res = await session.execute(text(
-                        "INSERT INTO tasks (title, assignee, department, status, priority, deadline, description) "
-                        "VALUES (:ti, :asg, :dep, 'in_progress', 'high', :dl, :ds) RETURNING id"
-                    ), {
-                        "ti": t["action"][:100],
-                        "asg": DEPARTMENTS[t["dept"]]["name"],
-                        "dep": t["dept"],
-                        "dl": dl,
-                        "ds": f"Из плана. Вопрос руководителя: {question}",
-                    })
+                    res = await session.execute(
+                        text(
+                            "INSERT INTO tasks (title, assignee, department, status, priority, deadline, description) "
+                            "VALUES (:ti, :asg, :dep, 'in_progress', 'high', :dl, :ds) RETURNING id"
+                        ),
+                        {
+                            "ti": t["action"][:100],
+                            "asg": DEPARTMENTS[t["dept"]]["name"],
+                            "dep": t["dept"],
+                            "dl": dl,
+                            "ds": f"Из плана. Вопрос руководителя: {question}",
+                        },
+                    )
                     t["task_id"] = res.scalar()
                     created.append(t)
                 except Exception as e:
@@ -976,24 +1272,40 @@ async def run_execution(manager_bot: Bot, chat_id: int, decision: dict, tasks: l
     outward = [t for t in created if is_outward(t.get("capability"))]
     if outward and getattr(settings, "execution_require_confirm", True):
         token = uuid.uuid4().hex[:8]
-        PENDING_EXEC[token] = {"chat_id": chat_id, "decision": decision, "tasks": created}
+        PENDING_EXEC[token] = {
+            "chat_id": chat_id,
+            "decision": decision,
+            "tasks": created,
+        }
         if len(PENDING_EXEC) > 20:
             for old in list(PENDING_EXEC.keys())[:-20]:
                 PENDING_EXEC.pop(old, None)
 
-        kb = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(text="🚀 Выполнять", callback_data=f"exec:go:{token}"),
-            InlineKeyboardButton(text="❌ Отмена", callback_data=f"exec:no:{token}"),
-        ]])
+        kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🚀 Выполнять", callback_data=f"exec:go:{token}"
+                    ),
+                    InlineKeyboardButton(
+                        text="❌ Отмена", callback_data=f"exec:no:{token}"
+                    ),
+                ]
+            ]
+        )
         body = (
             f"🚀 <b>Готов выполнить план:</b>\n\n{_plan_preview(created)}\n\n"
             f"⚠️ Пункты со значком уйдут <b>реальным клиентам</b> / в аккаунт. "
             f"Подтвердите запуск."
         )
         try:
-            await manager_bot.send_message(chat_id, body, parse_mode="HTML", reply_markup=kb)
+            await manager_bot.send_message(
+                chat_id, body, parse_mode="HTML", reply_markup=kb
+            )
         except Exception:
-            await manager_bot.send_message(chat_id, re.sub(r"</?[^>]+>", "", body), reply_markup=kb)
+            await manager_bot.send_message(
+                chat_id, re.sub(r"</?[^>]+>", "", body), reply_markup=kb
+            )
         return
 
     await _perform(manager_bot, chat_id, created)
@@ -1011,7 +1323,9 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
         tok = getattr(settings, DEPARTMENTS[k]["token"], None)
         if tok:
             try:
-                dept_bots[k] = Bot(token=tok, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+                dept_bots[k] = Bot(
+                    token=tok, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+                )
             except Exception:
                 pass
 
@@ -1040,9 +1354,12 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
                 except Exception:
                     pass
             if not sent:
-                await _safe_send(manager_bot, chat_id,
-                                 f"{DEPARTMENTS[k]['emoji']} {icon} "
-                                 f"<b>{DEPARTMENTS[k]['name']}:</b> {html.escape(res.summary)}")
+                await _safe_send(
+                    manager_bot,
+                    chat_id,
+                    f"{DEPARTMENTS[k]['emoji']} {icon} "
+                    f"<b>{DEPARTMENTS[k]['name']}:</b> {html.escape(res.summary)}",
+                )
 
             # Задачу закрываем ТОЛЬКО если действие реально отработало.
             # human_task — это эскалация, работа ещё впереди: не закрываем.
@@ -1052,8 +1369,10 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
                 if tid:
                     try:
                         async with get_session_ctx() as s:
-                            await s.execute(text("UPDATE tasks SET status='done' WHERE id=:id"),
-                                            {"id": tid})
+                            await s.execute(
+                                text("UPDATE tasks SET status='done' WHERE id=:id"),
+                                {"id": tid},
+                            )
                             await s.commit()
                     except Exception as e:
                         logger.warning(f"exec: не закрыл задачу {tid}: {e}")
@@ -1075,9 +1394,12 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
         parts.append(f"🙋 передано людям: {to_human}")
     if failed:
         parts.append(f"⚠️ не удалось: {failed}")
-    await _safe_send(manager_bot, chat_id,
-                     f"🤖 <b>Итог:</b> {' · '.join(parts)} (из {len(tasks)})\n"
-                     f"<i>Напишите «статус» — покажу, что осталось.</i>")
+    await _safe_send(
+        manager_bot,
+        chat_id,
+        f"🤖 <b>Итог:</b> {' · '.join(parts)} (из {len(tasks)})\n"
+        f"<i>Напишите «статус» — покажу, что осталось.</i>",
+    )
 
 
 @meeting_router.callback_query(F.data.startswith("exec:"))
@@ -1101,7 +1423,9 @@ async def _on_exec_confirm(cb: CallbackQuery):
         await cb.answer("Отменено")
         # план отменён — снимаем «исполнен», чтобы не мешал следующему
         await clear_decision(ctx["chat_id"])
-        await _safe_send(cb.bot, ctx["chat_id"], "❌ Выполнение отменено. Ничего не отправлено.")
+        await _safe_send(
+            cb.bot, ctx["chat_id"], "❌ Выполнение отменено. Ничего не отправлено."
+        )
         return
 
     await cb.answer("Запускаю…")
@@ -1111,12 +1435,14 @@ async def _on_exec_confirm(cb: CallbackQuery):
 def plan_fingerprint(text: str) -> str:
     """Отпечаток плана — чтобы отличать «тот же самый план» от нового."""
     import hashlib
+
     norm = re.sub(r"\s+", " ", (text or "").strip()).lower()
     return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:12]
 
 
-async def handle_execution_command(manager_bot: Bot, chat_id: int,
-                                   fresh_plan: str = "", fresh_question: str = "") -> bool:
+async def handle_execution_command(
+    manager_bot: Bot, chat_id: int, fresh_plan: str = "", fresh_question: str = ""
+) -> bool:
     """
     «Делайте / выполняй» — запустить план в работу.
 
@@ -1134,7 +1460,9 @@ async def handle_execution_command(manager_bot: Bot, chat_id: int,
     tok = next((t for t, c in PENDING.items() if c.get("chat_id") == chat_id), None)
     if tok:
         ctx = PENDING.pop(tok)
-        _, final = await _manager_synthesis(ctx["question"], ctx["transcript"], force_decision=True)
+        _, final = await _manager_synthesis(
+            ctx["question"], ctx["transcript"], force_decision=True
+        )
         decision = {"question": ctx["question"], "plan": final, "executed": False}
         await _safe_send(manager_bot, chat_id, f"🤖 <b>Решение команды:</b>\n\n{final}")
         await run_execution(manager_bot, chat_id, decision)
@@ -1156,10 +1484,18 @@ async def handle_execution_command(manager_bot: Bot, chat_id: int,
             return True
         tasks = await _parse_plan_tasks(fresh_plan)
         if tasks:
-            await run_execution(manager_bot, chat_id, {
-                "question": fresh_question, "plan": fresh_plan,
-                "executed": False, "source": "chat", "fp": fp,
-            }, tasks=tasks)
+            await run_execution(
+                manager_bot,
+                chat_id,
+                {
+                    "question": fresh_question,
+                    "plan": fresh_plan,
+                    "executed": False,
+                    "source": "chat",
+                    "fp": fp,
+                },
+                tasks=tasks,
+            )
             return True
 
     # 4) Свежего плана нет, но есть запущенный ранее — показываем его статус.
@@ -1197,7 +1533,9 @@ async def _exec_status(dept_key: str, task: dict) -> tuple:
     if task_id:
         try:
             async with get_session_ctx() as s:
-                res = await s.execute(text("SELECT status FROM tasks WHERE id = :id"), {"id": task_id})
+                res = await s.execute(
+                    text("SELECT status FROM tasks WHERE id = :id"), {"id": task_id}
+                )
                 row = res.fetchone()
                 status = row[0] if row else None
         except Exception as e:
@@ -1216,9 +1554,11 @@ async def _exec_status(dept_key: str, task: dict) -> tuple:
         "Без markdown, без списков."
     )
     try:
-        txt = (await ai.chat_completion(
-            system, f"Задача: {action}", temperature=0.5, max_tokens=90
-        )).strip()
+        txt = (
+            await ai.chat_completion(
+                system, f"Задача: {action}", temperature=0.5, max_tokens=90
+            )
+        ).strip()
     except Exception:
         txt = f"В работе: {action}"
     return txt, False
@@ -1227,16 +1567,23 @@ async def _exec_status(dept_key: str, task: dict) -> tuple:
 async def run_plan_status(manager_bot: Bot, chat_id: int):
     decision = await load_decision(chat_id)
     if not decision or not decision.get("executed"):
-        await _safe_send(manager_bot, chat_id,
-                         "📋 Активного плана пока нет. Задайте вопрос — соберём совещание.")
+        await _safe_send(
+            manager_bot,
+            chat_id,
+            "📋 Активного плана пока нет. Задайте вопрос — соберём совещание.",
+        )
         return
 
     tasks = decision.get("tasks", [])
     if not tasks:
-        await _safe_send(manager_bot, chat_id, "📋 План запущен, но задачи не зафиксированы.")
+        await _safe_send(
+            manager_bot, chat_id, "📋 План запущен, но задачи не зафиксированы."
+        )
         return
 
-    await _safe_send(manager_bot, chat_id, "📊 <b>Статус плана</b> — собираю отчёты отделов…")
+    await _safe_send(
+        manager_bot, chat_id, "📊 <b>Статус плана</b> — собираю отчёты отделов…"
+    )
 
     dept_keys = list(dict.fromkeys(t["dept"] for t in tasks))
     dept_bots = {}
@@ -1244,7 +1591,9 @@ async def run_plan_status(manager_bot: Bot, chat_id: int):
         tok = getattr(settings, DEPARTMENTS[k]["token"], None)
         if tok:
             try:
-                dept_bots[k] = Bot(token=tok, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+                dept_bots[k] = Bot(
+                    token=tok, default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+                )
             except Exception:
                 pass
 
@@ -1268,8 +1617,11 @@ async def run_plan_status(manager_bot: Bot, chat_id: int):
                 except Exception:
                     pass
             if not sent:
-                await _safe_send(manager_bot, chat_id,
-                                 f"{DEPARTMENTS[k]['emoji']} {mark} <b>{DEPARTMENTS[k]['name']}:</b> {html.escape(report)}")
+                await _safe_send(
+                    manager_bot,
+                    chat_id,
+                    f"{DEPARTMENTS[k]['emoji']} {mark} <b>{DEPARTMENTS[k]['name']}:</b> {html.escape(report)}",
+                )
             await asyncio.sleep(1.0)
     finally:
         for b in dept_bots.values():
@@ -1282,8 +1634,10 @@ async def run_plan_status(manager_bot: Bot, chat_id: int):
     summary = f"🤖 <b>Итог по плану:</b> закрыто {done_count} из {total}."
     if done_count < total:
         # Честно: отделы — чат-боты, сами задачу не закрывают. Закрывает человек.
-        summary += ("\n<i>Остальные — в работе. Задача закрывается кнопкой "
-                    "«✅ Выполнено» в её карточке, когда работа реально сделана.</i>")
+        summary += (
+            "\n<i>Остальные — в работе. Задача закрывается кнопкой "
+            "«✅ Выполнено» в её карточке, когда работа реально сделана.</i>"
+        )
     await _safe_send(manager_bot, chat_id, summary)
     if done_count >= total:
         await clear_decision(chat_id)
@@ -1313,18 +1667,42 @@ async def _collect_kpi_drops():
 
     try:
         async with get_session_ctx() as s:
-            r1 = (await s.execute(text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
-                                       "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"))).fetchone()
-            r2 = (await s.execute(text("SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
-                                       "WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' "
-                                       "AND created_at < CURRENT_DATE - INTERVAL '7 days'"))).fetchone()
+            r1 = (
+                await s.execute(
+                    text(
+                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                        "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                    )
+                )
+            ).fetchone()
+            r2 = (
+                await s.execute(
+                    text(
+                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                        "WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' "
+                        "AND created_at < CURRENT_DATE - INTERVAL '7 days'"
+                    )
+                )
+            ).fetchone()
             check("Заказы/нед", int(r1[0] or 0), int(r2[0] or 0))
             check("Выручка/нед", int(float(r1[1] or 0)), int(float(r2[1] or 0)))
-            c1 = (await s.execute(text("SELECT COUNT(*) FROM customers "
-                                       "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"))).scalar() or 0
-            c2 = (await s.execute(text("SELECT COUNT(*) FROM customers "
-                                       "WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' "
-                                       "AND created_at < CURRENT_DATE - INTERVAL '7 days'"))).scalar() or 0
+            c1 = (
+                await s.execute(
+                    text(
+                        "SELECT COUNT(*) FROM customers "
+                        "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                    )
+                )
+            ).scalar() or 0
+            c2 = (
+                await s.execute(
+                    text(
+                        "SELECT COUNT(*) FROM customers "
+                        "WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' "
+                        "AND created_at < CURRENT_DATE - INTERVAL '7 days'"
+                    )
+                )
+            ).scalar() or 0
             check("Новые клиенты/нед", int(c1), int(c2))
     except Exception as e:
         logger.warning(f"kpi db error: {e}")
@@ -1333,6 +1711,7 @@ async def _collect_kpi_drops():
     try:
         from shared.instagram_analytics import get_recent_media_stats
         from datetime import datetime, timezone
+
         media = await get_recent_media_stats(limit=40)
         now = datetime.now(timezone.utc)
 
@@ -1377,11 +1756,17 @@ async def run_kpi_watchdog(manager_bot: Bot, chat_id: int) -> bool:
         return False
 
     problem = "; ".join(drops)
-    depts_names = ", ".join(DEPARTMENTS[k]["name"] for k in resp_depts if k in DEPARTMENTS) or "профильные отделы"
-    await _safe_send(manager_bot, chat_id,
-                     f"📉 <b>KPI-алерт</b>: {html.escape(problem)}\n"
-                     f"🧑‍💼 Ответственные: {html.escape(depts_names)}\n"
-                     f"<i>Степан созывает их на совещание…</i>")
+    depts_names = (
+        ", ".join(DEPARTMENTS[k]["name"] for k in resp_depts if k in DEPARTMENTS)
+        or "профильные отделы"
+    )
+    await _safe_send(
+        manager_bot,
+        chat_id,
+        f"📉 <b>KPI-алерт</b>: {html.escape(problem)}\n"
+        f"🧑‍💼 Ответственные: {html.escape(depts_names)}\n"
+        f"<i>Степан созывает их на совещание…</i>",
+    )
     question = (
         f"KPI-алерт: за последнюю неделю просели показатели — {problem}.\n\n"
         f"Динамика:\n{details}\n\n"
@@ -1389,12 +1774,16 @@ async def run_kpi_watchdog(manager_bot: Bot, chat_id: int) -> bool:
         "АКТУАЛЬНЫЕ МИРОВЫЕ ТРЕНДЫ (HoReCa, ЗОЖ, соцсети). Дайте конкретный план, как вернуть и "
         "УДЕРЖИВАТЬ высокие показатели — что менять в контенте, маркетинге и продажах."
     )
-    await run_team_meeting(manager_bot, chat_id, question, participants=resp_depts or None)
+    await run_team_meeting(
+        manager_bot, chat_id, question, participants=resp_depts or None
+    )
 
     # Авто-исполнение плана (если включено в настройках)
     if getattr(settings, "kpi_watchdog_autoexecute", False):
         dec = await load_decision(chat_id)
         if dec and not dec.get("executed"):
-            await _safe_send(manager_bot, chat_id, "⚙️ Авто-режим: запускаю план в работу…")
+            await _safe_send(
+                manager_bot, chat_id, "⚙️ Авто-режим: запускаю план в работу…"
+            )
             await run_execution(manager_bot, chat_id, dec)
     return True

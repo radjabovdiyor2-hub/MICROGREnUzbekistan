@@ -20,6 +20,7 @@ def set_dry_run(value: bool) -> None:
 
 def _is_dry_run() -> bool:
     import os
+
     return _DRY_RUN or bool(os.getenv("SMM_DRY_RUN"))
 
 
@@ -29,10 +30,10 @@ async def _upload_image_to_facebook(local_path: str) -> Optional[str]:
     """
     page_id = getattr(settings, "facebook_page_id", None)
     user_access_token = getattr(settings, "instagram_access_token", None)
-    
+
     if not page_id or not user_access_token:
         return None
-    
+
     try:
         async with aiohttp.ClientSession() as session:
             # Шаг 1: Обмениваем User Token на Page Token для обхода ошибки (#200)
@@ -43,30 +44,38 @@ async def _upload_image_to_facebook(local_path: str) -> Optional[str]:
                     page_data = await page_resp.json()
                     if "access_token" in page_data:
                         page_token = page_data["access_token"]
-                        logger.info("Успешно получен Page Access Token для загрузки фото.")
+                        logger.info(
+                            "Успешно получен Page Access Token для загрузки фото."
+                        )
             except Exception as e:
-                logger.warning(f"Не удалось получить Page Access Token, используем User Token: {e}")
+                logger.warning(
+                    f"Не удалось получить Page Access Token, используем User Token: {e}"
+                )
 
             url = f"https://graph.facebook.com/v18.0/{page_id}/photos"
-            
+
             with open(local_path, "rb") as f:
                 data = aiohttp.FormData()
-                data.add_field("source", f, filename="photo.jpg", content_type="image/jpeg")
+                data.add_field(
+                    "source", f, filename="photo.jpg", content_type="image/jpeg"
+                )
                 data.add_field("access_token", page_token)
                 data.add_field("published", "false")
-                
+
                 async with session.post(url, data=data) as resp:
                     result = await resp.json()
                     if "id" in result:
                         photo_id = result["id"]
                         async with session.get(
                             f"https://graph.facebook.com/v18.0/{photo_id}",
-                            params={"fields": "images", "access_token": page_token}
+                            params={"fields": "images", "access_token": page_token},
                         ) as r2:
                             photo_data = await r2.json()
                             if "images" in photo_data and len(photo_data["images"]) > 0:
                                 public_url = photo_data["images"][0]["source"]
-                                logger.info(f"Фото загружено на Facebook, URL: {public_url[:80]}...")
+                                logger.info(
+                                    f"Фото загружено на Facebook, URL: {public_url[:80]}..."
+                                )
                                 return public_url
                     logger.error(f"Facebook photo upload failed: {result}")
                     return None
@@ -75,23 +84,29 @@ async def _upload_image_to_facebook(local_path: str) -> Optional[str]:
         return None
 
 
-async def post_to_instagram(image_url: str, caption: str, post_type: str = 'story') -> bool:
+async def post_to_instagram(
+    image_url: str, caption: str, post_type: str = "story"
+) -> bool:
     """
     Публикация фото в Instagram через Facebook Graph API.
-    
+
     post_type:
         'story' — публикация в Stories (media_type='STORIES')
         'feed'  — публикация в ленту (без media_type, с caption)
     """
     if _is_dry_run():
-        logger.info(f"🧪 DRY-RUN: публикация в Instagram пропущена (post_type={post_type}).")
+        logger.info(
+            f"🧪 DRY-RUN: публикация в Instagram пропущена (post_type={post_type})."
+        )
         return False
 
     ig_account_id = getattr(settings, "instagram_account_id", None)
     access_token = getattr(settings, "instagram_access_token", None)
 
     if not ig_account_id or not access_token:
-        logger.warning("Instagram Graph API не настроен. Пропущена реальная публикация.")
+        logger.warning(
+            "Instagram Graph API не настроен. Пропущена реальная публикация."
+        )
         return False
 
     # Если передан локальный файл — загружаем на Facebook
@@ -110,17 +125,17 @@ async def post_to_instagram(image_url: str, caption: str, post_type: str = 'stor
         async with aiohttp.ClientSession() as session:
             # Шаг 1: Создание медиа-контейнера
             create_url = f"{base_url}/media"
-            if post_type == 'feed':
+            if post_type == "feed":
                 payload = {
                     "image_url": image_url,
                     "caption": caption,
-                    "access_token": access_token
+                    "access_token": access_token,
                 }
             else:
                 payload = {
                     "image_url": image_url,
                     "media_type": "STORIES",
-                    "access_token": access_token
+                    "access_token": access_token,
                 }
             async with session.post(create_url, data=payload) as resp:
                 data = await resp.json()
@@ -135,12 +150,14 @@ async def post_to_instagram(image_url: str, caption: str, post_type: str = 'stor
                 await asyncio.sleep(5)
                 async with session.get(
                     f"https://graph.facebook.com/{api_version}/{creation_id}",
-                    params={"fields": "status_code", "access_token": access_token}
+                    params={"fields": "status_code", "access_token": access_token},
                 ) as resp:
                     status_data = await resp.json()
                     status = status_data.get("status_code")
-                    logger.info(f"Статус контейнера: {status} (попытка {attempt+1}/12)")
-                    
+                    logger.info(
+                        f"Статус контейнера: {status} (попытка {attempt + 1}/12)"
+                    )
+
                     if status == "FINISHED":
                         break
                     elif status == "ERROR":
@@ -152,18 +169,17 @@ async def post_to_instagram(image_url: str, caption: str, post_type: str = 'stor
 
             # Шаг 3: Публикация
             publish_url = f"{base_url}/media_publish"
-            publish_payload = {
-                "creation_id": creation_id,
-                "access_token": access_token
-            }
+            publish_payload = {"creation_id": creation_id, "access_token": access_token}
             async with session.post(publish_url, data=publish_payload) as resp:
                 publish_data = await resp.json()
                 if "id" not in publish_data:
                     logger.error(f"Ошибка публикации: {publish_data}")
                     return None
-                
-                logger.info(f"✅ Опубликовано в Instagram! Post ID: {publish_data['id']}")
-                return str(publish_data['id'])
+
+                logger.info(
+                    f"✅ Опубликовано в Instagram! Post ID: {publish_data['id']}"
+                )
+                return str(publish_data["id"])
 
     except Exception as e:
         logger.error(f"Сбой при постинге в Instagram: {e}", exc_info=True)
@@ -182,7 +198,9 @@ async def _upload_video_to_hosting(local_path: str) -> Optional[str]:
             video_data = f.read()
         async with aiohttp.ClientSession() as session:
             form = aiohttp.FormData()
-            form.add_field("file", video_data, filename="reel.mp4", content_type="video/mp4")
+            form.add_field(
+                "file", video_data, filename="reel.mp4", content_type="video/mp4"
+            )
             async with session.post("https://0x0.st", data=form) as resp:
                 if resp.status == 200:
                     url = (await resp.text()).strip()
@@ -194,7 +212,9 @@ async def _upload_video_to_hosting(local_path: str) -> Optional[str]:
     return None
 
 
-async def post_reel(video_path: str, caption: str = "", share_to_feed: bool = True) -> Optional[str]:
+async def post_reel(
+    video_path: str, caption: str = "", share_to_feed: bool = True
+) -> Optional[str]:
     """
     Публикует Reel (видео) в Instagram через Graph API (media_type=REELS).
 
@@ -210,7 +230,9 @@ async def post_reel(video_path: str, caption: str = "", share_to_feed: bool = Tr
     access_token = getattr(settings, "instagram_access_token", None)
 
     if not ig_account_id or not access_token:
-        logger.warning("Instagram Graph API не настроен. Пропущена реальная публикация Reel.")
+        logger.warning(
+            "Instagram Graph API не настроен. Пропущена реальная публикация Reel."
+        )
         return None
 
     public_url = await _upload_video_to_hosting(video_path)
@@ -248,7 +270,7 @@ async def post_reel(video_path: str, caption: str = "", share_to_feed: bool = Tr
                 ) as resp:
                     st = await resp.json()
                     status = st.get("status_code")
-                    logger.info(f"Статус Reel-контейнера: {status} ({attempt+1}/18)")
+                    logger.info(f"Статус Reel-контейнера: {status} ({attempt + 1}/18)")
                     if status == "FINISHED":
                         break
                     if status == "ERROR":
@@ -293,7 +315,8 @@ async def post_story_with_text(
         tags = " ".join(re.findall(r"#\w+", caption or "")) or BRAND["hashtag"]
         out = "temp_story.jpg"
         ok = render_story_text(
-            image_path, out,
+            image_path,
+            out,
             headline=headline or "",
             hashtags=tags,
             mention=BRAND["instagram"],
@@ -329,11 +352,13 @@ async def send_ig_message(recipient_id: str, text: str) -> bool:
     """
     page_id = getattr(settings, "facebook_page_id", None)
     user_access_token = getattr(settings, "instagram_access_token", None)
-    
+
     if not page_id or not user_access_token:
-        logger.error("Missing facebook_page_id or instagram_access_token for IG messages.")
+        logger.error(
+            "Missing facebook_page_id or instagram_access_token for IG messages."
+        )
         return False
-        
+
     try:
         async with aiohttp.ClientSession() as session:
             # Пытаемся получить Page Access Token (если передан User Token)
@@ -346,14 +371,11 @@ async def send_ig_message(recipient_id: str, text: str) -> bool:
                         page_token = page_data["access_token"]
             except Exception:
                 pass
-                
+
             url = f"https://graph.facebook.com/v18.0/{page_id}/messages"
-            payload = {
-                "recipient": {"id": recipient_id},
-                "message": {"text": text}
-            }
+            payload = {"recipient": {"id": recipient_id}, "message": {"text": text}}
             params = {"access_token": page_token}
-            
+
             async with session.post(url, params=params, json=payload) as resp:
                 result = await resp.json()
                 if "message_id" in result or "recipient_id" in result:

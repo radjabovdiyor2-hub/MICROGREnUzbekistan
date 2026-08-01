@@ -57,7 +57,7 @@ PRODUCT_CATALOG = f"""
    - Всё включено: семена, субстрат, лоток, инструкция
 
 ДОСТАВКА: Бесплатно от 500,000 сум по Самарканду
-ТЕЛЕФОН: {BRAND['phone']}
+ТЕЛЕФОН: {BRAND["phone"]}
 САЙТ: microgreenuzbekistan.com
 """.strip()
 
@@ -87,7 +87,7 @@ STORY_TEXT_SYSTEM_PROMPT = f"""Ты — креативный маркетоло�
 - Пиши на русском языке
 - Обязательно укажи цену или выгоду
 - Добавь призыв к действию (закажи, напиши, переходи)
-- Упомяни телефон {BRAND['phone']} или "напишите в Direct"
+- Упомяни телефон {BRAND["phone"]} или "напишите в Direct"
 - Не используй хештеги (это Story, не пост)
 - Стиль: дружелюбный, живой, не рекламный
 - Каждый текст должен быть уникальным
@@ -129,19 +129,15 @@ async def _generate_promo_image(ai: AIEngine) -> Optional[str]:
         "beautiful microgreens arrangement on a wooden cutting board, "
         "professional food photography, vibrant green colors, "
         "soft natural light, restaurant quality presentation",
-
         "fresh organic microgreens growing in a modern hydroponic tray, "
         "bright studio lighting, clean white background, "
         "vivid green sprouts, commercial food photography",
-
         "colorful edible flowers and microgreens salad bowl, "
         "top-down view, restaurant plating, fresh and appetizing, "
         "professional food styling, soft bokeh background",
-
         "home growing kit for microgreens on a kitchen counter, "
         "cozy lifestyle photography, morning sunlight, "
         "modern kitchen, healthy living concept",
-
         "assortment of microgreens: arugula, basil, sunflower, pea shoots, "
         "neatly arranged in eco containers, farmers market aesthetic, "
         "natural daylight, sharp focus on greens",
@@ -186,6 +182,7 @@ async def _upload_image_to_hosting(image_path: str) -> Optional[str]:
     # что и обычные посты. Возвращает публичный URL. imgbb/0x0.st — только фолбэк.
     try:
         from shared.instagram import _upload_image_to_facebook
+
         fb_url = await _upload_image_to_facebook(str(file_path))
         if fb_url:
             logger.info("Изображение загружено через Facebook: %s", fb_url[:80])
@@ -235,9 +232,7 @@ async def _upload_image_to_hosting(image_path: str) -> Optional[str]:
                     logger.info("Изображение загружено на 0x0.st: %s", url)
                     return url
                 else:
-                    logger.error(
-                        "0x0.st upload error: status=%d", resp.status
-                    )
+                    logger.error("0x0.st upload error: status=%d", resp.status)
 
     except Exception as e:
         logger.error("Ошибка загрузки изображения на хостинг: %s", e, exc_info=True)
@@ -488,9 +483,7 @@ async def post_promotional_story() -> bool:
                 return False
 
     except Exception as e:
-        logger.error(
-            "Unexpected error posting Instagram Story: %s", e, exc_info=True
-        )
+        logger.error("Unexpected error posting Instagram Story: %s", e, exc_info=True)
         return False
 
     finally:

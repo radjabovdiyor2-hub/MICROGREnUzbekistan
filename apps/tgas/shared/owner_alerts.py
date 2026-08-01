@@ -77,7 +77,8 @@ async def raise_alert(
                 if resp.status != 200:
                     logger.error(
                         "Сигнал «%s» не доставлен в админку: витрина ответила %s",
-                        kind, resp.status,
+                        kind,
+                        resp.status,
                     )
                     return False
                 return True

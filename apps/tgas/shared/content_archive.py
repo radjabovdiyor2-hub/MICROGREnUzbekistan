@@ -67,11 +67,14 @@ def expected_slots(now: Optional[datetime] = None) -> list:
 
 # ── Чтение / запись через PostgreSQL ─────────────────────────────────────
 
+
 async def _load_day(session, day: str) -> dict:
     """Загрузить все публикации за день из БД."""
     res = await session.execute(
-        text("SELECT slot, published_at, ig_posted, media_id, file_path, caption, title, "
-             "reach, likes, comments FROM content_publications WHERE date = :d"),
+        text(
+            "SELECT slot, published_at, ig_posted, media_id, file_path, caption, title, "
+            "reach, likes, comments FROM content_publications WHERE date = :d"
+        ),
         {"d": day},
     )
     entries = {}
@@ -102,7 +105,9 @@ def load_state() -> dict:
         state = {}
         async with get_session_ctx() as session:
             res = await session.execute(
-                text("SELECT DISTINCT date FROM content_publications ORDER BY date DESC LIMIT :n"),
+                text(
+                    "SELECT DISTINCT date FROM content_publications ORDER BY date DESC LIMIT :n"
+                ),
                 {"n": RETENTION_DAYS + 1},
             )
             days = [row[0] for row in res.fetchall()]
@@ -120,6 +125,7 @@ def load_state() -> dict:
     if loop and loop.is_running():
         # Внутри уже работающего event loop — создаём задачу
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(asyncio.run, _load()).result(timeout=10)
     else:
@@ -154,11 +160,16 @@ def _save_state(state: dict) -> None:
                             "comments = COALESCE(EXCLUDED.comments, content_publications.comments)"
                         ),
                         {
-                            "d": day, "s": slot_name,
-                            "at": rec.get("at"), "ig": bool(rec.get("ig")),
-                            "mid": rec.get("media_id"), "fp": rec.get("file"),
-                            "cap": rec.get("caption"), "ttl": rec.get("title"),
-                            "reach": rec.get("reach"), "likes": rec.get("likes"),
+                            "d": day,
+                            "s": slot_name,
+                            "at": rec.get("at"),
+                            "ig": bool(rec.get("ig")),
+                            "mid": rec.get("media_id"),
+                            "fp": rec.get("file"),
+                            "cap": rec.get("caption"),
+                            "ttl": rec.get("title"),
+                            "reach": rec.get("reach"),
+                            "likes": rec.get("likes"),
                             "comments": rec.get("comments"),
                         },
                     )
@@ -170,6 +181,7 @@ def _save_state(state: dict) -> None:
 
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             pool.submit(asyncio.run, _save()).result(timeout=10)
     else:
@@ -251,11 +263,14 @@ async def mark_published(
                     "title = COALESCE(EXCLUDED.title, content_publications.title)"
                 ),
                 {
-                    "d": day, "s": slot,
-                    "at": now.strftime("%H:%M"), "ig": bool(ig_ok),
+                    "d": day,
+                    "s": slot,
+                    "at": now.strftime("%H:%M"),
+                    "ig": bool(ig_ok),
                     "mid": str(media_id) if media_id else None,
                     "fp": archived,
-                    "cap": caption, "ttl": title,
+                    "cap": caption,
+                    "ttl": title,
                 },
             )
 
@@ -271,11 +286,17 @@ async def get_format_performance_weights_async(formats: list[str]) -> dict[str, 
     try:
         async with get_session_ctx() as session:
             res = await session.execute(
-                text("SELECT slot, title, reach FROM content_publications WHERE reach IS NOT NULL"),
+                text(
+                    "SELECT slot, title, reach FROM content_publications WHERE reach IS NOT NULL"
+                ),
             )
             scores: dict[str, list[float]] = {fmt: [] for fmt in formats}
             for row in res.fetchall():
-                slot_name, row_title, reach = row[0], (row[1] or "").lower(), row[2] or 0
+                slot_name, row_title, reach = (
+                    row[0],
+                    (row[1] or "").lower(),
+                    row[2] or 0,
+                )
                 score = reach
                 for fmt in formats:
                     if fmt in slot_name or fmt in row_title:
@@ -294,19 +315,24 @@ async def get_format_performance_weights_async(formats: list[str]) -> dict[str, 
 def get_format_performance_weights(formats: list[str]) -> dict[str, float]:
     """Синхронная обёртка для обратной совместимости."""
     import asyncio
+
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, get_format_performance_weights_async(formats)).result(timeout=10)
+            return pool.submit(
+                asyncio.run, get_format_performance_weights_async(formats)
+            ).result(timeout=10)
     else:
         return asyncio.run(get_format_performance_weights_async(formats))
 
 
 # ── Чтение для Степана ───────────────────────────────────────────────────
+
 
 def _enrich(slot: str, rec: dict, day: str) -> dict:
     """Дополняет сырую запись именем слота и АБСОЛЮТНЫМ путём к картинке."""
@@ -333,24 +359,24 @@ async def get_publications_async(day: Optional[str] = None) -> list:
     day = day or tz_now().strftime("%Y-%m-%d")
     async with get_session_ctx() as session:
         entries = await _load_day(session, day)
-    return [
-        _enrich(slot, entries[slot], day)
-        for slot in SLOTS
-        if slot in entries
-    ]
+    return [_enrich(slot, entries[slot], day) for slot in SLOTS if slot in entries]
 
 
 def get_publications(day: Optional[str] = None) -> list:
     """Синхронная обёртка для обратной совместимости."""
     import asyncio
+
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, get_publications_async(day)).result(timeout=10)
+            return pool.submit(asyncio.run, get_publications_async(day)).result(
+                timeout=10
+            )
     else:
         return asyncio.run(get_publications_async(day))
 
@@ -360,7 +386,9 @@ async def get_last_publications_async(limit: int = 3) -> list:
     out = []
     async with get_session_ctx() as session:
         res = await session.execute(
-            text("SELECT DISTINCT date FROM content_publications ORDER BY date DESC LIMIT :n"),
+            text(
+                "SELECT DISTINCT date FROM content_publications ORDER BY date DESC LIMIT :n"
+            ),
             {"n": RETENTION_DAYS + 1},
         )
         days = [row[0] for row in res.fetchall()]
@@ -377,14 +405,18 @@ async def get_last_publications_async(limit: int = 3) -> list:
 def get_last_publications(limit: int = 3) -> list:
     """Синхронная обёртка для обратной совместимости."""
     import asyncio
+
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, get_last_publications_async(limit)).result(timeout=10)
+            return pool.submit(asyncio.run, get_last_publications_async(limit)).result(
+                timeout=10
+            )
     else:
         return asyncio.run(get_last_publications_async(limit))
 
@@ -404,7 +436,9 @@ async def status_message_async(now: Optional[datetime] = None) -> str:
             where = "в Instagram" if rec.get("ig") else "только в Telegram"
             lines.append(f"✅ {name}: опубликован в {rec['at']} ({where})")
         else:
-            lines.append(f"⏳ {name}: ещё не опубликован — по плану в {plan_time(slot, now)}")
+            lines.append(
+                f"⏳ {name}: ещё не опубликован — по плану в {plan_time(slot, now)}"
+            )
 
     return (
         f"🗓 <b>Статус публикаций на сегодня ({now.strftime('%d.%m')})</b>\n"
@@ -415,13 +449,17 @@ async def status_message_async(now: Optional[datetime] = None) -> str:
 def status_message(now: Optional[datetime] = None) -> str:
     """Синхронная обёртка для обратной совместимости."""
     import asyncio
+
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
     if loop and loop.is_running():
         import concurrent.futures
+
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(asyncio.run, status_message_async(now)).result(timeout=10)
+            return pool.submit(asyncio.run, status_message_async(now)).result(
+                timeout=10
+            )
     else:
         return asyncio.run(status_message_async(now))

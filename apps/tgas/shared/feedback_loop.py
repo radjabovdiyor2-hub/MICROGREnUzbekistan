@@ -3,6 +3,7 @@ Feedback Loop Engine — Замкнутые петли автономного о
 =============================================================================
 Петля: Действие → Замер результата → Вывод (LLM Reasoning) → Изменение поведения
 """
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,10 @@ class FeedbackLoopEngine:
         """
         logger.info(
             "[%s] Measurement recorded: metric=%s, value=%s, target=%s",
-            bot, metric, value, target
+            bot,
+            metric,
+            value,
+            target,
         )
         try:
             async with get_session_ctx() as session:
@@ -52,7 +56,9 @@ class FeedbackLoopEngine:
                         "metric": metric,
                         "value": float(value),
                         "target": float(target) if target is not None else None,
-                        "ctx": json.dumps(context, ensure_ascii=False) if context else None,
+                        "ctx": json.dumps(context, ensure_ascii=False)
+                        if context
+                        else None,
                     },
                 )
         except Exception as exc:
@@ -92,8 +98,12 @@ class FeedbackLoopEngine:
         # Промпт рассуждения, бенчмарки и температура правятся из админки:
         # раньше они были вписаны сюда и в каждое место вызова, поэтому
         # подстроить цель под сезон можно было только правкой Python.
-        system_prompt = await settings_store.get_prompt(bot, "feedback.system", default_prompt)
-        benchmarks = await settings_store.get_benchmarks(bot, metric, benchmark_data or {})
+        system_prompt = await settings_store.get_prompt(
+            bot, "feedback.system", default_prompt
+        )
+        benchmarks = await settings_store.get_benchmarks(
+            bot, metric, benchmark_data or {}
+        )
         temperature = await settings_store.get_float("ai.feedbackTemperature", 0.3)
 
         user_message = (
@@ -147,8 +157,7 @@ class FeedbackLoopEngine:
                 )
 
             logger.info(
-                "[%s] Feedback loop completed for %s: %s",
-                bot, metric, observation
+                "[%s] Feedback loop completed for %s: %s", bot, metric, observation
             )
             return {
                 "bot": bot,
@@ -159,7 +168,9 @@ class FeedbackLoopEngine:
             }
 
         except Exception as e:
-            logger.error("[%s] Feedback loop failed for %s: %s", bot, metric, e, exc_info=True)
+            logger.error(
+                "[%s] Feedback loop failed for %s: %s", bot, metric, e, exc_info=True
+            )
             return {
                 "bot": bot,
                 "metric": metric,
