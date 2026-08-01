@@ -21,25 +21,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 
-type Status = 'pending' | 'approved' | 'printed' | 'rejected';
 
-const TABS: { id: Status; label: string; hint: string }[] = [
-  { id: 'pending', label: 'На проверке', hint: 'прислали гости, ещё не смотрели' },
-  { id: 'approved', label: 'Отобранные', hint: 'пойдут в номер — их и выгружаем' },
-  { id: 'printed', label: 'Напечатанные', hint: 'уже вышли в номере' },
-  { id: 'rejected', label: 'Отклонённые', hint: 'в печать не идут' },
-];
-
-interface Photo {
-  id: string;
-  imageUrl: string;
-  guestName: string | null;
-  guestHandle: string | null;
-  status: Status;
-  createdAt: string;
-  dish?: { nameRu: string } | null;
-  restaurant?: { name: string } | null;
-}
+import { TABS, type Photo, type Status } from './adminGuestPhotosConfig';
 
 export function AdminGuestPhotos() {
   const [status, setStatus] = useState<Status>('pending');

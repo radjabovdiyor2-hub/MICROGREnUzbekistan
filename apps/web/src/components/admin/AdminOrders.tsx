@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  ArrowLeft, CheckCircle, ChevronRight, ClipboardList, Clock, Folder, Package, PartyPopper, Settings, Truck, XCircle,
-} from 'lucide-react';
+import { ArrowLeft, ChevronRight, ClipboardList, Clock, Folder, Package, Settings } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -29,16 +27,7 @@ interface Order {
   items: OrderItem[];
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  PENDING: { label: 'Kutilmoqda', color: 'var(--warning)', icon: <Clock size={14} /> },
-  CONFIRMED: { label: 'Tasdiqlandi', color: 'var(--info)', icon: <CheckCircle size={14} /> },
-  PREPARING: { label: 'Tayyorlanmoqda', color: 'var(--cat-2)', icon: <Package size={14} /> },
-  DELIVERING: { label: 'Yetkazilmoqda', color: 'var(--cat-5)', icon: <Truck size={14} /> },
-  DELIVERED: { label: 'Yetkazildi', color: 'var(--success)', icon: <PartyPopper size={14} /> },
-  CANCELLED: { label: 'Bekor qilindi', color: 'var(--error)', icon: <XCircle size={14} /> },
-};
-
-const STATUS_TABS = ['ALL', 'PENDING', 'CONFIRMED', 'PREPARING', 'DELIVERING', 'DELIVERED', 'CANCELLED'];
+import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
 
 export function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
