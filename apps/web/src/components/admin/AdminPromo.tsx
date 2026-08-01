@@ -1,5 +1,6 @@
 'use client';
 
+import { AdminPromoForm } from './AdminPromoForm';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Percent, Plus, Tag, ToggleLeft, ToggleRight } from 'lucide-react';
 
@@ -121,63 +122,24 @@ export function AdminPromo({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       )}
 
       {showForm && (
-        <form onSubmit={create} className="card" style={{ padding: 'var(--space-5)', borderRadius: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 'var(--space-3)' }}>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Код', 'Kod')}
-              </label>
-              <input value={code} onChange={e => setCode(e.target.value.toUpperCase())}
-                placeholder="SUMMER25" style={inputStyle} required />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Тип скидки', 'Chegirma turi')}
-              </label>
-              <select value={discountType} onChange={e => setDiscountType(e.target.value as 'percent' | 'fixed')}
-                style={inputStyle}>
-                <option value="percent">{t('Процент (%)', 'Foiz (%)')}</option>
-                <option value="fixed">{t('Фиксированная (сум)', 'Belgilangan (so\'m)')}</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {discountType === 'percent' ? t('Скидка, %', 'Chegirma, %') : t('Скидка, сум', 'Chegirma, so\'m')}
-              </label>
-              <input type="number" min={1} max={discountType === 'percent' ? 100 : undefined}
-                value={value} onChange={e => setValue(Number(e.target.value))} style={inputStyle} required />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Мин. сумма заказа', 'Min. buyurtma summasi')}
-              </label>
-              <input type="number" min={0} value={minSubtotal}
-                onChange={e => setMinSubtotal(Number(e.target.value))} style={inputStyle} />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Лимит применений', 'Qo\'llash limiti')}
-              </label>
-              <input type="number" min={1} value={maxUses} onChange={e => setMaxUses(e.target.value)}
-                placeholder={t('без лимита', 'limitsiz')} style={inputStyle} />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Действует до', 'Amal qiladi')}
-              </label>
-              <input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
-
-          <button type="submit" disabled={saving} className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }}>
-            {saving ? t('Создание…', 'Yaratilmoqda…') : t('Создать', 'Yaratish')}
-          </button>
-        </form>
+        <AdminPromoForm
+          code={code}
+          setCode={setCode}
+          discountType={discountType}
+          setDiscountType={setDiscountType}
+          value={value}
+          setValue={setValue}
+          minSubtotal={minSubtotal}
+          setMinSubtotal={setMinSubtotal}
+          maxUses={maxUses}
+          setMaxUses={setMaxUses}
+          expiresAt={expiresAt}
+          setExpiresAt={setExpiresAt}
+          saving={saving}
+          create={create}
+          t={t}
+          inputStyle={inputStyle}
+        />
       )}
 
       {loading ? (

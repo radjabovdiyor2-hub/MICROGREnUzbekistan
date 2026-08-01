@@ -1,5 +1,6 @@
 'use client';
 
+import { AdminCategoryForm } from './AdminCategoryForm';
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Layers, Plus, Trash } from 'lucide-react';
 
@@ -123,38 +124,19 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       )}
 
       {showForm && (
-        <form onSubmit={create} className="card" style={{ padding: 'var(--space-5)', borderRadius: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Слаг (в адресе)', 'Slug (manzilda)')}
-              </label>
-              <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase())}
-                placeholder="microgreens" style={inputStyle} required />
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Название (RU)', 'Nomi (RU)')}
-              </label>
-              <input value={nameRu} onChange={e => setNameRu(e.target.value)} style={inputStyle} required />
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Название (UZ)', 'Nomi (UZ)')}
-              </label>
-              <input value={nameUz} onChange={e => setNameUz(e.target.value)} style={inputStyle} required />
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Иконка (эмодзи)', 'Ikonka (emoji)')}
-              </label>
-              <input value={icon} onChange={e => setIcon(e.target.value)} placeholder="🌱" style={inputStyle} />
-            </div>
-          </div>
-          <button type="submit" className="btn btn-primary" style={{ marginTop: 'var(--space-4)' }}>
-            {t('Создать', 'Yaratish')}
-          </button>
-        </form>
+        <AdminCategoryForm
+          nameUz={nameUz}
+          setNameUz={setNameUz}
+          nameRu={nameRu}
+          setNameRu={setNameRu}
+          slug={slug}
+          setSlug={setSlug}
+          icon={icon}
+          setIcon={setIcon}
+          create={create}
+          t={t}
+          inputStyle={inputStyle}
+        />
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
