@@ -1,41 +1,18 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  Calculator, Camera, CheckCircle, Copy, Leaf, Mic, MicOff, Phone, Send, Share2, Sparkles, Trash, X,
-} from 'lucide-react';
 import { useCart } from '@/components/providers/CartProvider';
 import { QuickCalcPanel } from './QuickCalc';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { triggerHaptic } from '@/utils/haptic';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AiChatFab } from './AiChatFab';
+import { AiChatHeader } from './AiChatHeader';
+import { AiChatMessages } from './AiChatMessages';
+import { AiChatInput } from './AiChatInput';
+import { type Message, type ChatMode, type QuickActionId } from './aiChatConfig';
+import { copyToClipboard, shareMessageText, startSpeechRecognition } from './aiChatActions';
 
-const spring = { type: 'spring' as const, damping: 25, stiffness: 300 };
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  imageUrl?: string;
-  timestamp: number;
-}
-
-type ChatMode = 'chat' | 'tools';
-
-import { SUGGESTIONS, TypingIndicator, renderMarkdown } from './aiChatParts';
-
-type QuickActionId = 'photo' | 'care' | 'calc' | 'call';
-
-// Быстрые действия. Раньше массив собирался внутри компонента вместе с
-// обработчиками, которые дёргали ref, — и ссылка на ref попадала в структуру,
-// создаваемую во время рендера. Теперь здесь только данные; что делает
-// кнопка, решает runQuickAction уже в момент клика.
-const QUICK_ACTIONS: { id: QuickActionId; icon: React.ReactNode; label: string; color: string }[] = [
-  { id: 'photo', icon: <Camera size={18} />, label: 'Foto tahlil', color: 'var(--cat-2)' },
-  { id: 'care', icon: <Leaf size={18} />, label: 'Parvarish', color: 'var(--brand-primary)' },
-  { id: 'calc', icon: <Calculator size={18} />, label: 'Kalkulyator', color: 'var(--info)' },
-  { id: 'call', icon: <Phone size={18} />, label: "Qo'ng'iroq", color: 'var(--brand-primary)' },
-];
 
 export function AiChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -108,33 +85,21 @@ export function AiChatWidget() {
   }, []);
 
   const copyMessage = useCallback(async (msg: Message) => {
-    const text = `Microgreen Agro:\n\n${msg.content}\n\nBuyurtma: +998 94 999 95 99\nMicrogreen.uz`;
-    try { await navigator.clipboard.writeText(text); } catch {
-      const ta = document.createElement('textarea'); ta.value = text;
-      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    }
+    await copyToClipboard(msg);
     setCopiedId(msg.id);
     setTimeout(() => setCopiedId(null), 2000);
   }, []);
 
-  const shareMessage = useCallback(async (msg: Message) => {
-    const text = `Microgreen Agro:\n\n${msg.content}\n\nBuyurtma: +998 94 999 95 99\nMicrogreen.uz`;
-    if (navigator.share) {
-      try { await navigator.share({ text, title: 'Microgreen Agro' }); } catch { /* cancelled */ }
-    } else { copyMessage(msg); }
-  }, [copyMessage]);
+  const shareMessage = useCallback((msg: Message) => shareMessageText(msg), []);
 
   const toggleListening = () => {
     if (isListening) { setIsListening(false); return; }
-    // Типы Web Speech API объявлены в src/types/telegram.d.ts, глушилка не нужна.
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert("Brauzeringiz ovozni qo'llab-quvvatlamaydi"); return; }
-    const r = new SR(); r.lang = 'uz-UZ'; r.interimResults = false;
-    r.onstart = () => setIsListening(true);
-    r.onresult = (e: SpeechRecognitionEvent) => { setInput(p => p ? `${p} ${e.results[0][0].transcript}` : e.results[0][0].transcript); setIsListening(false); };
-    r.onerror = () => setIsListening(false);
-    r.onend = () => setIsListening(false);
-    r.start();
+    const started = startSpeechRecognition(
+      () => setIsListening(true),
+      (text) => setInput(p => p ? `${p} ${text}` : text),
+      () => setIsListening(false),
+    );
+    if (!started) alert("Brauzeringiz ovozni qo'llab-quvvatlamaydi");
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,25 +159,7 @@ export function AiChatWidget() {
     }
   };
 
-  // FAB
-  if (!isOpen) {
-    return (
-      <motion.button
-        className="ai-chat-fab"
-        onClick={() => { setIsOpen(true); triggerHaptic('light'); }}
-        aria-label="Open AI chat"
-        id="ai-chat-fab"
-        whileHover={{ scale: 1.1, boxShadow: '0 8px 24px color-mix(in srgb, var(--cat-1) 50%, transparent)' }}
-        whileTap={{ scale: 0.9 }}
-        transition={spring}
-        style={{ position: 'fixed', bottom: 'calc(var(--bottom-nav-height) + var(--space-4))', right: 'var(--space-4)' }}
-      >
-        <Sparkles size={24} />
-      </motion.button>
-    );
-  }
-
-
+  if (!isOpen) return <AiChatFab onOpen={() => setIsOpen(true)} />;
 
   return (
     <AnimatePresence>
@@ -226,235 +173,24 @@ export function AiChatWidget() {
         style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
       >
       {/* Header */}
-      <div style={{
-        padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        background: 'linear-gradient(135deg, var(--cat-1) 0%, var(--cat-9) 50%, var(--cat-9) 100%)',
-        backgroundSize: '200% 200%', animation: 'ai-gradient 8s ease infinite',
-        color: 'white', flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.18)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(8px)',
-          }}>
-            <Sparkles size={18} />
-          </div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14, letterSpacing: '-0.2px' }}>Microgreen Agro</div>
-            <div style={{ fontSize: 10, opacity: 0.75, fontWeight: 500 }}>
-              {isLoading ? 'Yozyapti...' : 'AI Maslahatchi • Online'}
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={() => setMode(mode === 'tools' ? 'chat' : 'tools')} title="Asboblar"
-            style={{ background: mode === 'tools' ? 'rgba(var(--overlay-light-rgb), 0.3)' : 'rgba(var(--overlay-light-rgb), 0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-            <Calculator size={15} />
-          </button>
-          <button onClick={clearChat} title="Tozalash"
-            style={{ background: 'rgba(var(--overlay-light-rgb), 0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-            <Trash size={14} />
-          </button>
-          <button onClick={() => setIsOpen(false)} id="ai-chat-close" title="Yopish"
-            style={{ background: 'rgba(var(--overlay-light-rgb), 0.12)', border: 'none', borderRadius: 10, width: 32, height: 32, color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }}>
-            <X size={16} />
-          </button>
-        </div>
-      </div>
+      <AiChatHeader mode={mode} setMode={setMode} isLoading={isLoading}
+        onClear={clearChat} onClose={() => setIsOpen(false)} />
 
       {/* Professional Calculator Panel */}
       {mode === 'tools' && <QuickCalcPanel onSendToChat={sendFromCalc} />}
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <AnimatePresence initial={false}>
-          {messages.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 12, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: 'spring', damping: 22, stiffness: 280 }}
-              style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: 8, alignItems: 'flex-end' }}
-            >
-            {/* Avatar */}
-            {msg.role === 'assistant' && (
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 2px 8px color-mix(in srgb, var(--cat-1) 20%, transparent)',
-              }}>
-                <Sparkles size={13} color="white" />
-              </div>
-            )}
+      <AiChatMessages
+        messages={messages} isLoading={isLoading} streamText={streamText}
+        copiedId={copiedId} messagesEndRef={messagesEndRef}
+        onCopy={copyMessage} onShare={shareMessage}
+        onQuickAction={runQuickAction} onSuggestion={setInput} />
 
-            <div style={{ maxWidth: '80%' }}>
-              <div style={{
-                padding: '10px 14px',
-                background: msg.role === 'user' ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-                color: msg.role === 'user' ? 'white' : 'var(--text-primary)',
-                borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                fontSize: 'var(--text-sm)', lineHeight: 1.55,
-                boxShadow: msg.role === 'user' ? '0 2px 8px rgba(var(--brand-primary-rgb), 0.2)' : 'none',
-              }}>
-                {msg.imageUrl && <img src={msg.imageUrl} alt="Upload" style={{ width: '100%', borderRadius: 8, marginBottom: 8, maxHeight: 180, objectFit: 'cover' }} />}
-                <div style={{ whiteSpace: 'pre-wrap' }}>{renderMarkdown(msg.content)}</div>
-              </div>
-              {/* Actions for AI messages */}
-              {msg.role === 'assistant' && msg.id !== '1' && (
-                <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
-                  <button onClick={() => copyMessage(msg)} title="Nusxa"
-                    style={{ background: 'none', border: 'none', color: copiedId === msg.id ? 'var(--success)' : 'var(--text-muted)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6, transition: 'all 0.15s' }}>
-                    {copiedId === msg.id ? <><CheckCircle size={11} /> Nusxalandi</> : <><Copy size={11} /> Nusxa</>}
-                  </button>
-                  <button onClick={() => shareMessage(msg)} title="Ulashish"
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 6 }}>
-                    <Share2 size={11} /> Ulashish
-                  </button>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        ))}
-        </AnimatePresence>
-
-        {/* Streaming text */}
-        {streamText && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, var(--cat-1), var(--cat-2))',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Sparkles size={13} color="white" />
-            </div>
-            <div style={{
-              maxWidth: '80%', padding: '10px 14px',
-              background: 'var(--bg-secondary)', borderRadius: '16px 16px 16px 4px',
-              fontSize: 'var(--text-sm)', lineHeight: 1.55,
-            }}>
-              <div style={{ whiteSpace: 'pre-wrap' }}>{renderMarkdown(streamText)}</div>
-              <span style={{ display: 'inline-block', width: 2, height: 14, background: 'var(--brand-primary)', animation: 'pulse 0.8s infinite', verticalAlign: 'text-bottom', marginLeft: 2 }} />
-            </div>
-          </div>
-        )}
-
-        {/* Typing indicator */}
-        {isLoading && <TypingIndicator />}
-
-        <div ref={messagesEndRef} />
-
-        {/* Quick Actions + Suggestions */}
-        {messages.length <= 1 && !isLoading && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
-            {/* Quick Actions Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-              {QUICK_ACTIONS.map((qa) => (
-                <button key={qa.id} onClick={() => runQuickAction(qa.id)}
-                  style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                    padding: '12px 4px', borderRadius: 12, cursor: 'pointer',
-                    background: `${qa.color}10`, border: `1.5px solid ${qa.color}25`,
-                    color: qa.color, fontSize: 10, fontWeight: 700,
-                    transition: 'all 0.2s',
-                  }}>
-                  {qa.icon}
-                  <span>{qa.label}</span>
-                </button>
-              ))}
-            </div>
-            {/* Suggestion chips */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {SUGGESTIONS.map((s) => (
-              <button key={s.text} onClick={() => setInput(s.text)}
-                style={{
-                  padding: '7px 12px', fontSize: 11, fontWeight: 600,
-                  background: 'var(--bg-card)', color: 'var(--text-primary)',
-                  border: '1.5px solid var(--border)', borderRadius: 20,
-                  cursor: 'pointer', transition: 'all 0.2s',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}
-                onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--brand-primary)'; e.currentTarget.style.background = 'var(--brand-primary-light)'; }}
-                onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--bg-card)'; }}>
-                <span>{s.icon}</span> {s.text}
-              </button>
-            ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Image preview */}
-      {imagePreview && (
-        <div style={{
-          padding: '8px 14px', borderTop: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-secondary)',
-        }}>
-          <div style={{ width: 52, height: 52, borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0 }}>
-            <img src={imagePreview.url} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          </div>
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1 }}>Rasm tayyor</span>
-          <button onClick={removeImage} style={{ background: 'none', border: 'none', color: 'var(--error)', cursor: 'pointer', padding: 4, display: 'flex' }}>
-            <X size={18} />
-          </button>
-        </div>
-      )}
-
-      {/* Input bar */}
-      <div style={{
-        padding: '10px 12px', borderTop: '1px solid var(--border)',
-        display: 'flex', gap: 6, alignItems: 'center', background: 'var(--bg-card)', flexShrink: 0,
-      }}>
-        <button onClick={() => fileInputRef.current?.click()} title="Rasm yuklash"
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', padding: 6, borderRadius: 8, transition: 'all 0.15s', flexShrink: 0 }}>
-          <Camera size={20} />
-        </button>
-        <input type="file" accept="image/*" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder={isListening ? "Tinglayapman..." : "Savolingizni yozing..."}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendMessage()}
-          id="ai-chat-input"
-          style={{
-            flex: 1, minWidth: 0, padding: '10px 14px',
-            border: '1.5px solid var(--border)', borderRadius: 20,
-            background: 'var(--bg-secondary)', outline: 'none',
-            color: 'var(--text-primary)', fontSize: 'var(--text-sm)',
-            transition: 'border-color 0.15s',
-          }}
-          onFocus={e => e.target.style.borderColor = 'var(--brand-primary)'}
-          onBlur={e => e.target.style.borderColor = 'var(--border)'}
-        />
-
-        <button onClick={toggleListening} title="Ovoz orqali"
-          style={{
-            background: isListening ? 'var(--error)' : 'none', border: 'none',
-            color: isListening ? 'white' : 'var(--text-muted)', cursor: 'pointer',
-            display: 'flex', padding: 6, borderRadius: isListening ? '50%' : 8,
-            transition: 'all 0.2s', flexShrink: 0,
-            animation: isListening ? 'pulse 1s infinite' : 'none',
-            width: isListening ? 34 : 'auto', height: isListening ? 34 : 'auto',
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-          {isListening ? <MicOff size={16} /> : <Mic size={20} />}
-        </button>
-
-        <button className="btn btn-primary btn-sm" onClick={sendMessage}
-          disabled={isLoading || (!input.trim() && !imagePreview)} id="ai-chat-send"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: '0 14px', height: 36, borderRadius: 18, flexShrink: 0,
-            opacity: (isLoading || (!input.trim() && !imagePreview)) ? 0.5 : 1,
-            transition: 'all 0.15s',
-          }}>
-          <Send size={16} />
-        </button>
-      </div>
+      <AiChatInput
+        input={input} setInput={setInput} isLoading={isLoading} isListening={isListening}
+        imagePreview={imagePreview} inputRef={inputRef} fileInputRef={fileInputRef}
+        onFileChange={handleFileChange} onRemoveImage={removeImage}
+        onToggleListening={toggleListening} onSend={sendMessage} />
     </motion.div>
     </AnimatePresence>
   );
