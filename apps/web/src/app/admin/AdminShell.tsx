@@ -1,5 +1,9 @@
 'use client';
 
+import { AdminSidebar } from './AdminSidebar';
+
+import { AdminCommandPalette } from './AdminCommandPalette';
+
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AdminStats } from '@/components/admin/AdminStats';
@@ -34,7 +38,7 @@ import { AdminTasks } from '@/components/admin/AdminTasks';
 import { AdminCategories } from '@/components/admin/AdminCategories';
 import { Command, Home, LogOut, Search, Settings, Tag } from 'lucide-react';
 
-import { TAB_GROUPS, ALL_TABS, SELLER_TABS } from './adminTabs';
+import { ALL_TABS } from './adminTabs';
 import { AdminAuthScreens, type AuthMode } from './AdminAuthScreens';
 
 interface AdminShellProps {
@@ -347,73 +351,18 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
         }
       `}</style>
 
-      {/* Sidebar / Topbar */}
-      <aside className="admin-sidebar">
-        <div className="admin-header">
-          <h1>
-            {isOwner ? <><Settings size={24} color="var(--brand-primary)" /> Microgreen Admin</> : <><Tag size={24} color="var(--success)" /> {sellerName}</>}
-          </h1>
-          <div className="admin-header-actions">
-            {!isOwner && (
-              <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)' }}>
-                {t('Продавец', 'Sotuvchi')}
-              </span>
-            )}
-            {isOwner && <AdminNotifications />}
-            {isOwner && (
-              // Кнопка Face ID убрана: вход по WebAuthn отключён на сервере
-              // (прежняя реализация не проверяла подпись), поэтому привязка
-              // ключа ничего не давала. Вместо неё — палитра команд.
-              <button onClick={() => { setPaletteOpen(true); setPaletteQuery(''); }}
-                title={t('Поиск по разделам (Ctrl+K)', "Bo'limlar bo'yicha qidiruv (Ctrl+K)")}
-                style={{ padding: '4px 8px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Command size={14} /> K
-              </button>
-            )}
-            <button onClick={toggleLang}
-              style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-              {lang === 'ru' ? '🇷🇺' : '🇺🇿'}
-            </button>
-            <Link href="/" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
-              <Home size={14} /> {t('Сайт', 'Sayt')}
-            </Link>
-            <button onClick={handleLogout} className="btn btn-ghost btn-sm"
-              style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(239, 68, 68, 0.1)' }}>
-              <LogOut size={14} /> {t('Выйти', 'Chiqish')}
-            </button>
-          </div>
-        </div>
-
-        <nav className="admin-tabs-container" style={{ padding: '0 var(--space-4)', overflowY: 'auto', flex: 1 }}>
-          {isOwner ? (
-            TAB_GROUPS.map((group, idx) => (
-              <div key={idx} style={{ marginBottom: 'var(--space-4)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingLeft: '8px' }}>
-                  {group.title[lang]}
-                </div>
-                <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {group.tabs.map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                      className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
-                      {tab.icon} {tab[lang]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {SELLER_TABS.map(tab => (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
-                  {tab.icon} {tab[lang]}
-                </button>
-              ))}
-            </div>
-          )}
-        </nav>
-      </aside>
-
+      <AdminSidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isOwner={isOwner}
+        sellerName={sellerName}
+        lang={lang}
+        toggleLang={toggleLang}
+        handleLogout={handleLogout}
+        setPaletteOpen={setPaletteOpen}
+        setPaletteQuery={setPaletteQuery}
+        t={t}
+      />
       {/* Main Content */}
       <main className="admin-main">
         {activeTab === 'pos' && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} />}
@@ -465,65 +414,17 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
         {activeTab === 'settings' && isOwner && <AdminSettings lang={lang} />}
       </main>
 
-      {/* Палитра команд */}
-      {paletteOpen && isOwner && (
-        <div
-          onClick={() => setPaletteOpen(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)',
-            display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-            paddingTop: '12vh', backdropFilter: 'blur(2px)',
-          }}>
-          <div
-            onClick={e => e.stopPropagation()}
-            style={{
-              width: 'min(560px, 92vw)', background: 'var(--bg-primary)',
-              border: '1px solid var(--border)', borderRadius: 16,
-              boxShadow: '0 20px 60px rgba(0,0,0,0.35)', overflow: 'hidden',
-            }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-              <Search size={18} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              <input
-                autoFocus
-                value={paletteQuery}
-                onChange={e => setPaletteQuery(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && paletteResults[0]) openTab(paletteResults[0].id);
-                }}
-                placeholder={t('Куда перейти?', 'Qayerga o\'tish?')}
-                style={{
-                  flex: 1, border: 'none', outline: 'none', background: 'transparent',
-                  color: 'var(--text-primary)', fontSize: 'var(--text-base)',
-                }}
-              />
-            </div>
-
-            <div style={{ maxHeight: '50vh', overflowY: 'auto', padding: 6 }}>
-              {paletteResults.map((tab, i) => (
-                <button
-                  key={tab.id}
-                  onClick={() => openTab(tab.id)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                    background: i === 0 ? 'var(--bg-secondary)' : 'transparent',
-                    color: 'var(--text-primary)', textAlign: 'left', fontSize: 'var(--text-sm)',
-                  }}>
-                  <span style={{ color: 'var(--brand-primary)', display: 'flex' }}>{tab.icon}</span>
-                  <span style={{ flex: 1 }}>{tab[lang]}</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{tab.group[lang]}</span>
-                </button>
-              ))}
-
-              {!paletteResults.length && (
-                <div style={{ padding: 'var(--space-5)', textAlign: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-                  {t('Ничего не найдено', 'Hech narsa topilmadi')}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <AdminCommandPalette
+        paletteOpen={paletteOpen}
+        setPaletteOpen={setPaletteOpen}
+        paletteQuery={paletteQuery}
+        setPaletteQuery={setPaletteQuery}
+        paletteResults={paletteResults}
+        openTab={openTab}
+        isOwner={isOwner}
+        lang={lang}
+        t={t}
+      />
     </div>
   );
 }
