@@ -13,6 +13,7 @@ import { ReferralCapture } from '@/components/providers/ReferralCapture';
 import { TelegramInit } from '@/components/providers/TelegramInit';
 import { Analytics } from '@/components/providers/Analytics';
 import { CityProvider } from '@/components/providers/CityProvider';
+import { SEO_KEYWORDS } from '@/lib/seo/keywordsData';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -24,77 +25,7 @@ export const metadata: Metadata = {
     template: "%s | Microgreen Uzbekistan",
   },
   description: "Купить свежую микрозелень, семена, лотки, фитолампы и наборы для выращивания с доставкой по Самарканду и Узбекистану. Поставки для ресторанов (HoReCa) и здорового питания (ЗОЖ, ПП). 100% Эко качество.",
-  keywords: [
-    // ═══════════ UZBEK — Primary keywords ═══════════
-    "mikroko'katlar", "mikrozelen", "salatlar", "gullar", "urug'lar",
-    "zelen", "ko'kat", "sabzavotlar", "mevalar",
-    // Растения по названию
-    "rukkola", "bazilik", "shpinat", "brokkoli", "redis",
-    "no'xat mikroko'kat", "kungaboqar mikroko'kat", "lavlagi",
-    "karam", "petrushka", "ukrop", "kashnich", "mint", "yalpiz",
-    "beda", "arpa ko'kati", "bug'doy ko'kati", "qulupnay",
-    // ЗОЖ / Здоровье
-    "sog'lom hayot", "sog'lom ovqatlanish", "ZOJ", "PP", "superfud",
-    "ozish", "vazn yo'qotish", "dieta", "detoks", "vitaminlar",
-    "immunitet", "antioksidantlar", "organik oziq-ovqat",
-    "kaloriya kam", "oqsilga boy", "tolaga boy ovqat",
-    "nutritsiolog", "sog'lom taomnoma", "fitnes ovqat",
-    // Ресторан / Кафе / HoReCa
-    "restoran uchun zelen", "kafe uchun mikroko'kat",
-    "restoran ta'minoti", "HoReCa ta'minot", "ulgurji zelen",
-    "mehmonxona uchun salatlar", "banket bezash", "taom bezash",
-    "oshxona uchun zelen", "shef-povarga", "garnir uchun",
-    // Декор
-    "taom dekor", "restoran dekor", "ovqat bezash",
-    "tarelka bezash", "gullar dekor",
-    // Гидропоника / Аэропоника / Фермерство
-    "gidroponika", "aeroponika", "vertikal fermerchilik",
-    "urban fermerchilik", "substrat", "o'g'itlar",
-    "uy sharoitida yetishtirish", "mini ferma",
-    "LED lampalar", "grow box", "fitolampalar",
-    // ═══════════ UZBEK — All Regions & Cities ═══════════
-    "Samarqand yetkazib berish", "Toshkent yetkazib berish", "Buxoro", "Namangan",
-    "Andijon", "Farg'ona", "Qo'qon", "Marg'ilon", "Qarshi", "Shahrisabz", "Termiz",
-    "Navoiy", "Urganch", "Xiva", "Nukus", "Jizzax", "Guliston", "Angren", "Chirchiq", "Olmaliq",
-    "Toshkent viloyati", "Samarqand viloyati", "Buxoro viloyati", "Namangan viloyati",
-    "Andijon viloyati", "Farg'ona viloyati", "Qashqadaryo viloyati", "Surxondaryo viloyati",
-    "Navoiy viloyati", "Xorazm viloyati", "Jizzax viloyati", "Sirdaryo viloyati", "Qoraqalpog'iston",
-
-    // ═══════════ RUSSIAN — Все Регионы, Города и Салаты ═══════════
-    // Салаты и Зелень
-    "салат бацио", "салат романо", "салат латук", "руккола свежая", "пак-чой",
-    "салат айсберг", "щавель", "амарант", "бораго", "редис санго", "мизуна", "татсой",
-    "лолло россо", "лолло бионда", "фриллис", "оаклиф", "батавия",
-    // Микрозелень
-    "микрозелень Узбекистан", "микрозелень Ташкент", "микрозелень Самарканд",
-    "микрозелень Бухара", "микрозелень Наманган", "микрозелень Андижан",
-    "микрозелень Фергана", "микрозелень Карши", "микрозелень Термез",
-    "микрозелень Навои", "микрозелень Ургенч", "микрозелень Нукус",
-    "микрозелень Джизак", "микрозелень Гулистан", "микрозелень Коканд",
-    "микрозелень купить", "микрозелень доставка", "микрозелень оптом",
-    "микрозелень для ресторанов", "микрозелень для кафе",
-    "банкет зелень", "кейтеринг зелень",
-    // Декор
-    "декор блюд", "украшение тарелки", "декор ресторана",
-    "цветы для декора", "цветы Самарканд", "съедобные цветы",
-    // Гидропоника / Аэропоника
-    "гидропоника", "аэропоника", "вертикальная ферма",
-    "городское фермерство", "семена микрозелени",
-    "субстрат для микрозелени", "удобрения",
-    "выращивание дома", "мини ферма", "фитолампа",
-    // Готовка / Кухня
-    "рецепты с микрозеленью", "готовка", "кулинария",
-    "здоровые рецепты", "ПП рецепты", "салат рецепт",
-    "органическая еда", "экологичные продукты",
-    "фермерские продукты", "без ГМО",
-
-    // ═══════════ ENGLISH — International SEO ═══════════
-    "microgreens Uzbekistan", "microgreens Samarkand",
-    "organic food Uzbekistan", "healthy food delivery",
-    "restaurant greens supply", "B2B microgreens",
-    "hydroponics Uzbekistan", "aeroponics", "vertical farming",
-    "superfood", "detox greens", "healthy eating",
-  ],
+  keywords: SEO_KEYWORDS,
   manifest: '/manifest.json',
   alternates: {
     canonical: DOMAIN,

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { drawFrame, FRAME_W, FRAME_H, type FrameBrand, type FrameContent } from '@/lib/magazine/frame';
+import { FrameStudioCamera } from './FrameStudioCamera';
+import { FrameStudioPreview } from './FrameStudioPreview';
 import { trackEvent, getSessionId } from '@/lib/magazine/track';
 
 /* ─────────────────────────────────────────────
@@ -142,124 +144,19 @@ export function FrameStudio({ slug, dishCode, brand, content }: Props) {
 
       {/* ── Видоискатель ── */}
       {stage === 'camera' && (
-        <>
-          <video
-            ref={videoRef}
-            playsInline
-            muted
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, padding: '16px 20px 32px',
-            background: 'linear-gradient(180deg, rgba(var(--overlay-dark-rgb), 0.7), transparent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          }}>
-            <div style={{ color: 'var(--text-inverse)' }}>
-              <div style={{ fontSize: 15, fontWeight: 700 }}>{content.dishName}</div>
-              <div style={{ fontSize: 12, opacity: 0.6 }}>{brand.name}</div>
-            </div>
-            <Link
-              href={`/m/${slug}/d/${dishCode}`}
-              style={{
-                padding: '8px 16px', borderRadius: 20, color: 'var(--text-inverse)', fontSize: 13, fontWeight: 600,
-                background: 'rgba(var(--overlay-light-rgb), 0.15)', textDecoration: 'none',
-              }}
-            >Закрыть</Link>
-          </div>
-
-          {error ? (
-            <div style={{
-              position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center',
-              color: 'var(--text-inverse)', gap: 16,
-            }}>
-              <div style={{ fontSize: 40 }}>📷</div>
-              <p style={{ fontSize: 15, lineHeight: 1.6, opacity: 0.8 }}>{error}</p>
-              <Link href={`/m/${slug}`} style={{ color: accent, fontWeight: 700, textDecoration: 'none' }}>
-                ← Вернуться в меню
-              </Link>
-            </div>
-          ) : (
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 20px 40px',
-              background: 'linear-gradient(0deg, rgba(var(--overlay-dark-rgb), 0.75), transparent)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
-            }}>
-              <p style={{ color: 'rgba(var(--overlay-light-rgb), 0.65)', fontSize: 13, textAlign: 'center' }}>
-                Наведите на блюдо и нажмите — рамка добавится сама
-              </p>
-              <button
-                onClick={capture}
-                aria-label="Снять кадр"
-                style={{
-                  width: 78, height: 78, borderRadius: '50%',
-                  border: `4px solid ${accent}`, background: 'rgb(var(--overlay-light-rgb))', cursor: 'pointer',
-                }}
-              />
-            </div>
-          )}
-        </>
+        <FrameStudioCamera
+          videoRef={videoRef} content={content} brand={brand} slug={slug}
+          dishCode={dishCode} error={error} accent={accent} capture={capture}
+        />
       )}
 
       {/* ── Готовый кадр ── */}
       {stage === 'preview' && shotUrl && (
-        <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', padding: '20px 16px 40px' }}>
-          <img
-            src={shotUrl}
-            alt="Ваш кадр"
-            style={{ width: '100%', maxWidth: 380, margin: '0 auto', display: 'block', borderRadius: 16 }}
-          />
-          <div style={{ maxWidth: 380, margin: '18px auto 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button onClick={share} style={btn(accent)}>📤 Сохранить / поделиться</button>
-
-            <div style={{
-              padding: 16, borderRadius: 16, background: 'rgba(var(--overlay-light-rgb), 0.06)',
-              border: '1px solid rgba(var(--overlay-light-rgb), 0.1)',
-            }}>
-              <div style={{ color: 'var(--text-inverse)', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-                Хотите в следующий номер?
-              </div>
-              <p style={{ color: 'rgba(var(--overlay-light-rgb), 0.6)', fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-                Лучшие кадры недели печатаем в журнале FRESH WEEKLY с именем автора.
-              </p>
-              <input
-                value={guestName}
-                onChange={(e) => setGuestName(e.target.value)}
-                placeholder="Как вас подписать"
-                maxLength={40}
-                style={{
-                  width: '100%', padding: '12px 14px', borderRadius: 12, marginBottom: 10,
-                  background: 'rgba(var(--overlay-dark-rgb), 0.35)', border: '1px solid rgba(var(--overlay-light-rgb), 0.15)',
-                  color: 'var(--text-inverse)', fontSize: 14, fontFamily: 'inherit',
-                }}
-              />
-              <label style={{
-                display: 'flex', gap: 10, alignItems: 'flex-start',
-                color: 'rgba(var(--overlay-light-rgb), 0.7)', fontSize: 12, lineHeight: 1.5, cursor: 'pointer',
-              }}>
-                <input
-                  type="checkbox"
-                  checked={consent}
-                  onChange={(e) => setConsent(e.target.checked)}
-                  style={{ marginTop: 2, flexShrink: 0 }}
-                />
-                Согласен на публикацию кадра в журнале и на странице ресторана
-              </label>
-              <button
-                onClick={submit}
-                disabled={!consent || sending}
-                style={{ ...btn(consent ? accent : 'rgba(var(--overlay-light-rgb), 0.12)'), marginTop: 12, opacity: consent ? 1 : 0.6 }}
-              >
-                {sending ? 'Отправляем...' : '✨ Отправить в журнал'}
-              </button>
-            </div>
-
-            <button onClick={() => window.location.reload()} style={btn('transparent', accent)}>
-              🔄 Снять заново
-            </button>
-            {error && <p style={{ color: 'var(--error)', fontSize: 13, textAlign: 'center' }}>{error}</p>}
-          </div>
-        </div>
+        <FrameStudioPreview
+          shotUrl={shotUrl} accent={accent} guestName={guestName} setGuestName={setGuestName}
+          consent={consent} setConsent={setConsent} sending={sending} error={error}
+          share={share} submit={submit} btnStyle={btn}
+        />
       )}
 
       {/* ── Отправлено ── */}

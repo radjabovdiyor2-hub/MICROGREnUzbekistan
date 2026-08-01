@@ -13,14 +13,7 @@ import { token } from '@/lib/canvasTokens';
 // variant 'salad'       = floating lobed lettuce leaves
 // variant 'mixed'       = sprouts + salad leaves + seeds (default for hero)
 
-function mulberry32(a: number) {
-  return function () {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+import { mulberry32, drawMicroLeaf, drawSaladLeaf, drawSeedDot } from './canvasDrawUtils';
 
 interface Sprout { x: number; h: number; delay: number; ph: number; amp: number; hue: number; gold: boolean; leaf: number; kind: 'sprout' | 'salad' | 'seed'; }
 
@@ -123,46 +116,6 @@ export function MicrogreensCanvas({
       growTarget = clamp01((1 - r.top / window.innerHeight) * 1.1);
     };
 
-    const drawMicroLeaf = (x: number, y: number, dir: number, ls: number, hue: number) => {
-      ctx.save(); ctx.translate(x, y); ctx.rotate(dir);
-      ctx.beginPath(); ctx.ellipse(0, -ls * 0.65, ls * 0.5, ls, 0, 0, 6.283);
-      ctx.fillStyle = `hsl(${hue} 58% ${leafL}%)`; ctx.fill();
-      ctx.restore();
-    };
-
-    // Lobed salad leaf grown from base
-    const drawSaladLeaf = (topX: number, topY: number, ls: number, hue: number) => {
-      const r = ls * 1.1;
-      ctx.save();
-      ctx.translate(topX, topY);
-      ctx.fillStyle = `hsl(${hue} 62% ${leafL + 4}%)`;
-      ctx.strokeStyle = `hsl(${hue} 45% ${leafL - 6}%)`;
-      ctx.lineWidth = 0.9;
-      // main oval body
-      ctx.beginPath(); ctx.ellipse(0, 0, r * 0.55, r, 0, 0, 6.283); ctx.fill(); ctx.stroke();
-      // lobes around perimeter
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.arc(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.82, r * 0.2, 0, 6.283);
-        ctx.fillStyle = `hsl(${hue + 8} 58% ${leafL + 10}%)`;
-        ctx.fill();
-      }
-      // mid-rib
-      ctx.strokeStyle = `hsl(${hue} 40% ${leafL - 8}%)`;
-      ctx.lineWidth = 0.8;
-      ctx.beginPath(); ctx.moveTo(0, r * 0.9); ctx.bezierCurveTo(0, r * 0.3, 0, -r * 0.3, 0, -r * 0.9); ctx.stroke();
-      ctx.restore();
-    };
-
-    // Tiny seed dot
-    const drawSeedDot = (topX: number, topY: number, ls: number, hue: number) => {
-      ctx.beginPath();
-      ctx.ellipse(topX, topY, ls * 0.32, ls * 0.55, 0.3, 0, 6.283);
-      ctx.fillStyle = `hsl(${hue + 18} 48% ${leafL + 8}%)`;
-      ctx.fill();
-    };
-
     const tick = (now: number) => {
       const t = (now - t0) / 1000;
       growCur += (growTarget - growCur) * 0.07;
@@ -182,8 +135,8 @@ export function MicrogreensCanvas({
           ctx.moveTo(s.x, baseY);
           ctx.quadraticCurveTo((s.x + topX) / 2, baseY - s.h * g * 0.5, topX, topY);
           ctx.lineWidth = 1.5; ctx.strokeStyle = `hsl(${s.hue} 46% ${stemL}%)`; ctx.stroke();
-          drawMicroLeaf(topX, topY, -0.55, ls, s.hue);
-          drawMicroLeaf(topX, topY, 0.55, ls, s.hue);
+          drawMicroLeaf(ctx, topX, topY, -0.55, ls, s.hue, leafL);
+          drawMicroLeaf(ctx, topX, topY, 0.55, ls, s.hue, leafL);
           if (s.gold) { ctx.beginPath(); ctx.arc(topX, topY - ls * 0.7, 2.1 * g, 0, 6.283); ctx.fillStyle = goldC; ctx.fill(); }
         } else if (s.kind === 'salad') {
           // thin stem for salad
@@ -191,14 +144,14 @@ export function MicrogreensCanvas({
           ctx.moveTo(s.x, baseY);
           ctx.quadraticCurveTo((s.x + topX) / 2, baseY - s.h * g * 0.5, topX, topY);
           ctx.lineWidth = 1.1; ctx.strokeStyle = `hsl(${s.hue} 40% ${stemL + 4}%)`; ctx.stroke();
-          drawSaladLeaf(topX, topY, ls, s.hue);
+          drawSaladLeaf(ctx, topX, topY, ls, s.hue, leafL);
         } else {
           // seed: just a short curved stem + dot
           ctx.beginPath();
           ctx.moveTo(s.x, baseY);
           ctx.quadraticCurveTo((s.x + topX) / 2, baseY - s.h * g * 0.5, topX, topY);
           ctx.lineWidth = 1.0; ctx.strokeStyle = `hsl(${s.hue} 38% ${stemL + 6}%)`; ctx.stroke();
-          drawSeedDot(topX, topY, ls, s.hue);
+          drawSeedDot(ctx, topX, topY, ls, s.hue, leafL);
         }
       }
       // once grown and not interactive, stop to save CPU (many cards on a page)
