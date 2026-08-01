@@ -1,31 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  AlertTriangle, ArrowRight, Brain, CheckCircle2, Loader2, Mic, Send, ShieldAlert, X,
-} from 'lucide-react';
-
-// ══════════════════════════════════════════════════════════════════════
-// Стёпан внутри админки.
-//
-// Тот же Стёпан, что в Telegram: одна база, одна шина задач. Разница
-// только в интерфейсе — здесь он видит те же данные и может предлагать
-// действия.
-//
-// Ключевое правило интерфейса: действие, меняющее данные, НИКОГДА не
-// выполняется само. Стёпан показывает карточку «было → стало», и пока
-// владелец не нажмёт «Выполнить», в базе ничего не меняется.
-// ══════════════════════════════════════════════════════════════════════
-
-interface Proposal {
-  tool: string;
-  args: Record<string, unknown>;
-  summary: string;
-  before?: string;
-  after?: string;
-  risky?: boolean;
-  token: string;
-}
+import { AlertTriangle, Loader2, Mic, Send } from 'lucide-react';
+import { AdminStepanHeader, STEPAN_SUGGESTIONS } from './AdminStepanHeader';
+import { AdminStepanProposal, type Proposal } from './AdminStepanProposal';
 
 interface Msg {
   role: 'user' | 'assistant';
@@ -34,14 +12,6 @@ interface Msg {
   /** Результат подтверждения по индексу предложения. */
   done?: Record<number, { ok: boolean; text: string }>;
 }
-
-const SUGGESTIONS = [
-  'Как дела с продажами сегодня?',
-  'Что заканчивается на складе?',
-  'Все ли боты живы?',
-  'Покажи прибыль за месяц',
-  'Сколько потратили на ИИ?',
-];
 
 export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
@@ -72,9 +42,6 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, busy]);
 
-  // История приезжает с сервера, а не живёт в состоянии компонента: раньше
-  // перезагрузка вкладки стирала весь разговор, а начатое в Telegram здесь
-  // вообще не было видно.
   useEffect(() => {
     const loadHistory = async () => {
       try {
@@ -91,8 +58,7 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           );
         }
       } catch {
-        // Молчим: пустой разговор — рабочее состояние, а о недоступности
-        // памяти Стёпан скажет сам при первом же ответе (memoryWarning).
+        // Молчим: пустой разговор — рабочее состояние.
       }
     };
     loadHistory();
@@ -113,8 +79,6 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        // Отправляем только роль и текст: предложения и результаты —
-        // состояние интерфейса, модели они не нужны.
         body: JSON.stringify({
           messages: next.map(m => ({ role: m.role, content: m.content })),
         }),
@@ -133,8 +97,6 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         done: {},
       }]);
 
-      // Ответ без памяти внешне неотличим от ответа с памятью — поэтому
-      // говорим об этом прямо, а не оставляем владельца гадать.
       if (data.memoryWarning) setError(data.memoryWarning);
     } catch {
       setError(t('Ошибка сети', 'Tarmoq xatosi'));
@@ -196,37 +158,12 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', height: '100%' }}>
-      <div className="card" style={{
-        padding: 'var(--space-5)', borderRadius: '18px',
-        borderTop: '3px solid var(--brand-primary)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 14, flexShrink: 0,
-            background: 'var(--brand-primary-light)', color: 'var(--brand-primary)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Brain size={22} />
-          </div>
-          <div>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>
-              {t('Стёпан — операционный директор', 'Stepan — operatsion direktor')}
-            </h3>
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-              {t(
-                'Видит заказы, склад, финансы и ботов. Действия выполняет только после вашего подтверждения.',
-                'Buyurtma, ombor, moliya va botlarni ko\'radi. Amallarni faqat tasdiqlaganingizdan keyin bajaradi.',
-              )}
-            </p>
-          </div>
-        </div>
-      </div>
+      <AdminStepanHeader lang={lang} />
 
-      {/* Лента диалога */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', minHeight: 200 }}>
         {messages.length === 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {SUGGESTIONS.map(s => (
+            {STEPAN_SUGGESTIONS.map(s => (
               <button key={s} onClick={() => send(s)} className="btn btn-outline btn-sm"
                 style={{ borderRadius: 999, fontSize: 'var(--text-xs)' }}>
                 {s}
@@ -247,59 +184,16 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
               {m.content}
             </div>
 
-            {m.proposals?.map((p, pi) => {
-              const result = m.done?.[pi];
-              return (
-                <div key={pi} className="card" style={{
-                  padding: 'var(--space-4)', borderRadius: 14, maxWidth: '85%',
-                  borderLeft: `3px solid ${p.risky ? 'var(--warning)' : 'var(--brand-primary)'}`,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    {p.risky
-                      ? <ShieldAlert size={16} style={{ color: 'var(--warning)' }} />
-                      : <CheckCircle2 size={16} style={{ color: 'var(--brand-primary)' }} />}
-                    <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>{p.summary}</span>
-                  </div>
-
-                  {(p.before || p.after) && (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-                      padding: '8px 10px', borderRadius: 10, background: 'var(--bg-secondary)',
-                      fontSize: 'var(--text-sm)', marginBottom: 10,
-                    }}>
-                      {p.before && <span style={{ textDecoration: 'line-through', color: 'var(--text-muted)' }}>{p.before}</span>}
-                      {p.before && p.after && <ArrowRight size={14} style={{ color: 'var(--text-muted)' }} />}
-                      {p.after && <span style={{ fontWeight: 700, color: 'var(--brand-primary)' }}>{p.after}</span>}
-                    </div>
-                  )}
-
-                  {p.risky && !result && (
-                    <p style={{ fontSize: '11px', color: 'var(--warning)', marginBottom: 8 }}>
-                      {t('Это увидят клиенты сразу после подтверждения.',
-                         'Bu mijozlarga darhol ko\'rinadi.')}
-                    </p>
-                  )}
-
-                  {result ? (
-                    <div style={{
-                      display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-sm)',
-                      fontWeight: 600, color: result.ok ? 'var(--success)' : 'var(--text-muted)',
-                    }}>
-                      {result.ok ? <CheckCircle2 size={15} /> : <X size={15} />} {result.text}
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => confirm(i, pi, p)} className="btn btn-primary btn-sm">
-                        {t('Выполнить', 'Bajarish')}
-                      </button>
-                      <button onClick={() => reject(i, pi)} className="btn btn-ghost btn-sm">
-                        {t('Отклонить', 'Rad etish')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {m.proposals?.map((p, pi) => (
+              <AdminStepanProposal
+                key={pi}
+                proposal={p}
+                result={m.done?.[pi]}
+                onConfirm={() => confirm(i, pi, p)}
+                onReject={() => reject(i, pi)}
+                lang={lang}
+              />
+            ))}
           </div>
         ))}
 
@@ -323,7 +217,6 @@ export function AdminStepan({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Ввод */}
       <form
         onSubmit={e => { e.preventDefault(); send(input); }}
         style={{ display: 'flex', gap: 8, position: 'sticky', bottom: 0, background: 'var(--bg-primary)', paddingTop: 8 }}

@@ -1,40 +1,8 @@
 'use client';
 
-// ══════════════════════════════════════════════════════════════════════
-// Рецепты: то, куда ведёт QR с полосы журнала.
-//
-// Экрана не было, хотя API рецептов существует давно
-// (api/admin/magazine/recipes: GET/POST/PATCH/DELETE со шагами,
-// ингредиентами, heroImage и isActive, плюс recipes/qr для кода).
-// Последствие было прямым: рецепты в базе создавались только запросом
-// в API руками, поэтому таблица оставалась пустой — и QR с полосы 5
-// напечатанного номера №1 вёл на 404.
-//
-// Ингредиент можно связать с товаром магазина: тогда на публичной
-// странице работает кнопка «собрать набор» — ингредиенты уходят
-// в корзину. Связывать имеет смысл только продаваемое (микрозелень),
-// томаты и масло оставляйте без товара.
-// ══════════════════════════════════════════════════════════════════════
-
 import { useState, useEffect, useCallback } from 'react';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
-
-interface Step { textRu: string; textUz?: string | null; timerSeconds?: number | null }
-interface Ingredient { nameRu: string; nameUz?: string | null; amount?: string | null; productId?: string | null }
-interface Recipe {
-  id: string;
-  slug: string;
-  titleRu: string;
-  titleUz: string | null;
-  descriptionRu: string | null;
-  heroImage: string | null;
-  cookMinutes: number | null;
-  servings: number | null;
-  isActive: boolean;
-  steps?: Step[];
-  ingredients?: Ingredient[];
-  _count?: { steps: number; ingredients: number };
-}
+import { AdminRecipeEditor, type Recipe } from './AdminRecipeEditor';
 
 export function AdminRecipes() {
   const [list, setList] = useState<Recipe[]>([]);
@@ -48,9 +16,6 @@ export function AdminRecipes() {
     setLoading(true);
     try {
       setList(await adminJsonArray<Recipe>('/api/admin/magazine/recipes'));
-      // Товары нужны, чтобы связать продаваемый ингредиент с корзиной.
-      // Эндпоинт отдаёт { items, pagination }, а не массив — adminJsonArray
-      // здесь не подходит, он вернул бы пустой список и селект был бы пуст.
       try {
         const res = await fetch('/api/products?all=true&limit=300');
         const data = await res.json().catch(() => null);
@@ -60,7 +25,7 @@ export function AdminRecipes() {
           return { id: p.id, nameRu: p.nameRu || p.slug || p.id };
         }));
       } catch {
-        /* без товаров редактор работает, просто нельзя связать ингредиент */
+        /* без товаров редактор работает */
       }
     } finally {
       setLoading(false);
@@ -119,7 +84,6 @@ export function AdminRecipes() {
     await load();
   };
 
-  // Фото рецепта — тем же путём, что видео блюд в разделе «Журнал»
   const uploadHero = async (file: File) => {
     setBusy(true);
     try {
@@ -145,76 +109,28 @@ export function AdminRecipes() {
 
   const upd = (patch: Partial<Recipe>) => setEditing((p) => (p ? { ...p, ...patch } : p));
 
-  // ── редактор ──
+  const btn: React.CSSProperties = {
+    padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-color)',
+    background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600,
+    color: 'var(--text-primary)', whiteSpace: 'nowrap',
+  };
+  const btnPrimary: React.CSSProperties = { border: '1px solid var(--brand-primary)', background: 'var(--brand-primary)', color: 'var(--text-inverse)' };
+
   if (editing) {
     return (
-      <div style={{ padding: 'var(--space-6)', maxWidth: 780 }}>
-        <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)' }}>
-          {editing.id ? 'Правка рецепта' : 'Новый рецепт'}
-        </h2>
-        {note && <div style={warnBox}>{note}</div>}
-
-        <Field label="Название (рус)"><input style={inp} value={editing.titleRu} onChange={(e) => upd({ titleRu: e.target.value })} /></Field>
-        <Field label="Название (узб)"><input style={inp} value={editing.titleUz || ''} onChange={(e) => upd({ titleUz: e.target.value })} /></Field>
-        <Field label="Адрес страницы (slug)" hint="на него ведёт QR — менять у напечатанного рецепта нельзя">
-          <input style={inp} value={editing.slug} onChange={(e) => upd({ slug: e.target.value })} placeholder="samarqand-salati" />
-        </Field>
-        <Field label="Описание"><textarea style={{ ...inp, minHeight: 70 }} value={editing.descriptionRu || ''} onChange={(e) => upd({ descriptionRu: e.target.value })} /></Field>
-
-        <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-          <Field label="Минут"><input style={inp} type="number" value={editing.cookMinutes ?? ''} onChange={(e) => upd({ cookMinutes: e.target.value ? Number(e.target.value) : null })} /></Field>
-          <Field label="Порций"><input style={inp} type="number" value={editing.servings ?? ''} onChange={(e) => upd({ servings: e.target.value ? Number(e.target.value) : null })} /></Field>
-        </div>
-
-        <Field label="Фото">
-          {editing.heroImage && <img src={editing.heroImage} alt="" style={{ width: 180, borderRadius: 8, display: 'block', marginBottom: 8 }} />}
-          <input type="file" accept="image/*" onChange={(e) => e.target.files?.[0] && uploadHero(e.target.files[0])} />
-        </Field>
-
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: 'var(--space-4) 0' }}>
-          <input type="checkbox" checked={editing.isActive} onChange={(e) => upd({ isActive: e.target.checked })} />
-          Опубликован
-        </label>
-
-        <h3 style={h3}>Ингредиенты</h3>
-        {(editing.ingredients || []).map((ing, i) => (
-          <div key={i} style={row}>
-            <input style={{ ...inp, flex: 2 }} placeholder="Название (рус)" value={ing.nameRu}
-                   onChange={(e) => upd({ ingredients: editing.ingredients!.map((x, j) => j === i ? { ...x, nameRu: e.target.value } : x) })} />
-            <input style={{ ...inp, flex: 1 }} placeholder="200 г" value={ing.amount || ''}
-                   onChange={(e) => upd({ ingredients: editing.ingredients!.map((x, j) => j === i ? { ...x, amount: e.target.value } : x) })} />
-            <select style={{ ...inp, flex: 2 }} value={ing.productId || ''}
-                    onChange={(e) => upd({ ingredients: editing.ingredients!.map((x, j) => j === i ? { ...x, productId: e.target.value || null } : x) })}>
-              <option value="">— не продаётся —</option>
-              {products.map((p) => <option key={p.id} value={p.id}>{p.nameRu}</option>)}
-            </select>
-            <button style={btn} onClick={() => upd({ ingredients: editing.ingredients!.filter((_, j) => j !== i) })}>✕</button>
-          </div>
-        ))}
-        <button style={btn} onClick={() => upd({ ingredients: [...(editing.ingredients || []), { nameRu: '', amount: '', productId: null }] })}>+ ингредиент</button>
-
-        <h3 style={h3}>Шаги</h3>
-        {(editing.steps || []).map((s, i) => (
-          <div key={i} style={{ ...row, alignItems: 'flex-start' }}>
-            <span style={{ paddingTop: 10, minWidth: 18, fontWeight: 700 }}>{i + 1}</span>
-            <textarea style={{ ...inp, flex: 3, minHeight: 54 }} placeholder="Что делать" value={s.textRu}
-                      onChange={(e) => upd({ steps: editing.steps!.map((x, j) => j === i ? { ...x, textRu: e.target.value } : x) })} />
-            <input style={{ ...inp, flex: 1 }} type="number" placeholder="таймер, сек" value={s.timerSeconds ?? ''}
-                   onChange={(e) => upd({ steps: editing.steps!.map((x, j) => j === i ? { ...x, timerSeconds: e.target.value ? Number(e.target.value) : null } : x) })} />
-            <button style={btn} onClick={() => upd({ steps: editing.steps!.filter((_, j) => j !== i) })}>✕</button>
-          </div>
-        ))}
-        <button style={btn} onClick={() => upd({ steps: [...(editing.steps || []), { textRu: '', timerSeconds: null }] })}>+ шаг</button>
-
-        <div style={{ display: 'flex', gap: 'var(--space-3)', marginTop: 'var(--space-6)' }}>
-          <button style={{ ...btn, ...btnPrimary }} disabled={busy} onClick={save}>{busy ? 'Сохраняю…' : 'Сохранить'}</button>
-          <button style={btn} onClick={() => { setEditing(null); setNote(''); }}>Отмена</button>
-        </div>
-      </div>
+      <AdminRecipeEditor
+        editing={editing}
+        products={products}
+        busy={busy}
+        note={note}
+        onUpdate={upd}
+        onSave={save}
+        onCancel={() => { setEditing(null); setNote(''); }}
+        onUploadHero={uploadHero}
+      />
     );
   }
 
-  // ── список ──
   return (
     <div style={{ padding: 'var(--space-6)', maxWidth: 900 }}>
       <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>🥗 Рецепты</h2>
@@ -223,7 +139,11 @@ export function AdminRecipes() {
         код на бумаге не переделать. Ингредиент, связанный с товаром, попадает в кнопку «собрать набор».
       </p>
 
-      {note && <div style={warnBox}>{note}</div>}
+      {note && (
+        <div style={{ marginBottom: 'var(--space-4)', padding: '10px 14px', borderRadius: 8, background: 'var(--bg-secondary)', fontSize: 'var(--text-sm)' }}>
+          {note}
+        </div>
+      )}
       <button style={{ ...btn, ...btnPrimary, marginBottom: 'var(--space-4)' }} onClick={() => openEditor(null)}>+ Новый рецепт</button>
 
       {loading ? (
@@ -246,7 +166,7 @@ export function AdminRecipes() {
                   {r.titleRu} {!r.isActive && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>· черновик</span>}
                 </div>
                 <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
-                  /recipe/{r.slug} · шагов {r._count?.steps ?? 0} · ингредиентов {r._count?.ingredients ?? 0}
+                  /recipe/{r.slug} · шагов {r._count?.steps ?? 0} · ингредиент {r._count?.ingredients ?? 0}
                   {r.cookMinutes ? ` · ${r.cookMinutes} мин` : ''}
                 </div>
               </div>
@@ -261,31 +181,3 @@ export function AdminRecipes() {
     </div>
   );
 }
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div style={{ marginBottom: 'var(--space-3)', flex: 1 }}>
-      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 4 }}>{label}</div>
-      {hint && <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', marginBottom: 4 }}>{hint}</div>}
-      {children}
-    </div>
-  );
-}
-
-const inp: React.CSSProperties = {
-  width: '100%', padding: '8px 10px', borderRadius: 8,
-  border: '1px solid var(--border-color)', background: 'transparent',
-  color: 'var(--text-primary)', fontSize: 'var(--text-sm)', fontFamily: 'inherit',
-};
-const btn: React.CSSProperties = {
-  padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-color)',
-  background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600,
-  color: 'var(--text-primary)', whiteSpace: 'nowrap',
-};
-const btnPrimary: React.CSSProperties = { border: '1px solid var(--brand-primary)', background: 'var(--brand-primary)', color: 'var(--text-inverse)' };
-const h3: React.CSSProperties = { fontSize: 'var(--text-base)', fontWeight: 700, margin: 'var(--space-5) 0 var(--space-2)' };
-const row: React.CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 };
-const warnBox: React.CSSProperties = {
-  marginBottom: 'var(--space-4)', padding: '10px 14px', borderRadius: 8,
-  background: 'var(--bg-secondary)', fontSize: 'var(--text-sm)',
-};
