@@ -1,13 +1,11 @@
 'use client';
 
 import type { Dispatch, SetStateAction } from 'react';
-import { motion } from 'framer-motion';
 import {
   AlertTriangle, ArrowLeft, Banknote, CheckCircle, Clock, CreditCard, FileText,
   MapPin, PartyPopper, Phone, Smartphone, Sparkles, Truck, User, XCircle,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
-import { DELIVERY } from '@/lib/site';
 import type { useCart } from '@/components/providers/CartProvider';
 
 // Форма оформления заказа — второй шаг. Рендерится вместо корзины и экрана

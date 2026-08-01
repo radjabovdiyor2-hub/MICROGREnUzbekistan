@@ -5,7 +5,6 @@ import { ReferralRules } from './ReferralRules';
 
 import { useState, useEffect } from 'react';
 import { CheckCircle, ChevronRight, Percent, Share2, Users, XCircle } from 'lucide-react';
-import { useLang } from '@/components/providers/LangProvider';
 
 // Реферальный блок личного кабинета: код приглашения, ввод чужого кода,
 // правила начисления. Вынесен из profile/page.tsx.

@@ -3,8 +3,6 @@
 import { StoriesViewer, type Story } from './StoriesViewer';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Search } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { motion } from 'framer-motion';
 

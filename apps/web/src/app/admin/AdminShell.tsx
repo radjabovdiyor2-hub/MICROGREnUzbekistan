@@ -5,7 +5,6 @@ import { AdminSidebar } from './AdminSidebar';
 import { AdminCommandPalette } from './AdminCommandPalette';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { AdminStats } from '@/components/admin/AdminStats';
 import { AdminOrders } from '@/components/admin/AdminOrders';
 import { AdminProducts } from '@/components/admin/AdminProducts';
@@ -17,7 +16,6 @@ import { AdminSuppliers } from '@/components/admin/AdminSuppliers';
 import { AdminEmployees } from '@/components/admin/AdminEmployees';
 import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
 import { AdminForecast } from '@/components/admin/AdminForecast';
-import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { AdminSettings } from '@/components/admin/AdminSettings';
 import { AdminRevenue } from '@/components/admin/AdminRevenue';
 import { AdminGrowing } from '@/components/admin/AdminGrowing';
@@ -36,7 +34,6 @@ import { AdminAudit } from '@/components/admin/AdminAudit';
 import { AdminAiSpend } from '@/components/admin/AdminAiSpend';
 import { AdminTasks } from '@/components/admin/AdminTasks';
 import { AdminCategories } from '@/components/admin/AdminCategories';
-import { Command, Home, LogOut, Search, Settings, Tag } from 'lucide-react';
 
 import { ALL_TABS } from './adminTabs';
 import { AdminAuthScreens, type AuthMode } from './AdminAuthScreens';

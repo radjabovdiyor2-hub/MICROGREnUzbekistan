@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { DollarSign, Droplet, Leaf, Sun } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
-import { motion, AnimatePresence } from 'framer-motion';
 
 const spring = { type: 'spring' as const, damping: 24, stiffness: 280 };
 

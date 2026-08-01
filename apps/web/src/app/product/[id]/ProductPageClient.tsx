@@ -3,7 +3,6 @@
 import { ProductMain } from './ProductMain';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,7 +12,6 @@ import { useCart } from '@/components/providers/CartProvider';
 import { trackViewed } from '@/lib/recentlyViewed';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
-import { CONTACT, DELIVERY } from '@/lib/site';
 import { ProductCard } from '@/components/shop/ProductCard';
 
 export interface Product {

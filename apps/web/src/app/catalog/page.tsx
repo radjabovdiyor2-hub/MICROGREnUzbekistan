@@ -1,15 +1,6 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { ProductCard } from '@/components/shop/ProductCard';
-import {
-  AlertTriangle, Clock, Droplet, Leaf, Package, Plug, Plus, RefreshCw, Search, Sparkles,
-} from 'lucide-react';
-import { useLang } from '@/components/providers/LangProvider';
-import { motion } from 'framer-motion';
-import { ScrollReveal } from '@/components/ui/ScrollReveal';
-import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 
 import { CatalogContent } from './CatalogContent';
 

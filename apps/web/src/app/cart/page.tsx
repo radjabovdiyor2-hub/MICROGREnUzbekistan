@@ -2,11 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { CheckCircle, CreditCard, Folder, Home, MapPin, PartyPopper, Phone, User } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { LottieAnimation } from '@/components/ui/LottieAnimation';
-import emptyStateData from '@/assets/lottie/empty-state.json';
 
 const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 import { useCart } from '@/components/providers/CartProvider';
@@ -14,7 +10,6 @@ import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useCity } from '@/components/providers/CityProvider';
 import dynamic from 'next/dynamic';
-import { DELIVERY, freeDeliveryRemaining } from '@/lib/site';
 import { type CartProduct } from '@/components/providers/CartProvider';
 import { trackPurchase } from '@/lib/analytics';
 

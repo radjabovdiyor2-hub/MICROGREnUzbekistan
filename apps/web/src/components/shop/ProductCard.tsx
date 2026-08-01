@@ -3,14 +3,12 @@
 import { ProductCardBody } from './ProductCardBody';
 
 import { getDiscountPercent } from '@repo/shared';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Flame, Heart } from 'lucide-react';
 import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
-import { MicrogreensCanvas, seedFromString } from '@/components/ui/MicrogreensCanvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import dynamic from 'next/dynamic';
 
