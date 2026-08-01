@@ -146,21 +146,10 @@ export function AdminProducts() {
   if (showForm) {
     return (
       <AdminProductForm
-        form={form}
-        setForm={setForm}
-        editingId={editingId}
-        formError={formError}
-        saving={saving}
-        uploading={uploading}
-        images={images}
-        allCategories={allCategories}
-        lang={lang}
-        t={t}
-        inputStyle={inputStyle}
-        handleNameChange={handleNameChange}
-        handleSubmit={handleSubmit}
-        uploadImage={uploadImageFile}
-        removeImage={removeImage}
+        form={form} setForm={setForm} editingId={editingId} formError={formError}
+        saving={saving} uploading={uploading} images={images} allCategories={allCategories}
+        lang={lang} t={t} inputStyle={inputStyle} handleNameChange={handleNameChange}
+        handleSubmit={handleSubmit} uploadImage={uploadImageFile} removeImage={removeImage}
         setShowForm={setShowForm}
       />
     );

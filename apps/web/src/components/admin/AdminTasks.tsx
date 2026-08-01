@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ClipboardList, Plus, Send } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardList, Plus } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
 // Задачи отделам.
@@ -20,6 +20,7 @@ interface Task {
   description: string | null; createdAt: string;
 }
 
+import { AdminTaskForm } from './AdminTaskForm';
 import { DEPT_LABELS, PRIORITY_COLOR } from './adminTasksConfig';
 
 export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
@@ -128,53 +129,12 @@ export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       )}
 
       {showForm && (
-        <form onSubmit={create} className="card" style={{ padding: 'var(--space-5)', borderRadius: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 'var(--space-3)' }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Что нужно сделать', 'Nima qilish kerak')}
-              </label>
-              <input value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} required />
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Отдел', "Bo'lim")}
-              </label>
-              <select value={department} onChange={e => setDepartment(e.target.value)} style={inputStyle}>
-                {departments.map(d => <option key={d} value={d}>{DEPT_LABELS[d] ?? d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Приоритет', 'Muhimlik')}
-              </label>
-              <select value={priority} onChange={e => setPriority(e.target.value)} style={inputStyle}>
-                <option value="low">{t('Низкий', 'Past')}</option>
-                <option value="medium">{t('Средний', "O'rta")}</option>
-                <option value="high">{t('Высокий', 'Yuqori')}</option>
-                <option value="urgent">{t('Срочно', 'Shoshilinch')}</option>
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Срок', 'Muddat')}
-              </label>
-              <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} style={inputStyle} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {t('Детали', 'Tafsilotlar')}
-              </label>
-              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3}
-                style={{ ...inputStyle, resize: 'vertical' }} />
-            </div>
-          </div>
-
-          <button type="submit" className="btn btn-primary"
-            style={{ marginTop: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Send size={15} /> {t('Отправить боту отдела', "Bo'lim botiga yuborish")}
-          </button>
-        </form>
+        <AdminTaskForm
+          create={create} title={title} setTitle={setTitle} department={department}
+          setDepartment={setDepartment} priority={priority} setPriority={setPriority}
+          deadline={deadline} setDeadline={setDeadline} description={description}
+          setDescription={setDescription} departments={departments} t={t} inputStyle={inputStyle}
+        />
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
