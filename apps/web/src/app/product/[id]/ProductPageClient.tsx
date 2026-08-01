@@ -4,18 +4,16 @@ import { ProductMain } from './ProductMain';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  ArrowLeft, ChevronRight, Clock, Folder, Home, Package, ShoppingCart,
-} from 'lucide-react';
+import { ArrowLeft, ChevronRight, Clock, Folder, Home, Package } from 'lucide-react';
 import { useCart } from '@/components/providers/CartProvider';
 import { trackViewed } from '@/lib/recentlyViewed';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
-import { ProductCard } from '@/components/shop/ProductCard';
-import { CATEGORY_ICONS, SkeletonProductCard } from './productPageParts';
+import { CATEGORY_ICONS } from './productPageParts';
 import { ProductReviews } from './ProductReviews';
 import { ProductPageTabs } from './ProductPageTabs';
 import { useProductReviews } from './useProductReviews';
+import { ProductCrossSell, type RelatedProduct } from './ProductCrossSell';
 
 export interface Product {
   id: string;
@@ -33,20 +31,6 @@ export interface Product {
   rating: number;
   reviewCount: number;
   category: { id: string; nameUz: string; nameRu: string; slug: string };
-}
-
-interface RelatedProduct {
-  id: string;
-  nameUz: string;
-  nameRu: string;
-  slug: string;
-  price: number;
-  oldPrice?: number | null;
-  images: string[];
-  rating: number;
-  reviewCount: number;
-  isOnSale?: boolean;
-  category?: { nameUz: string; nameRu?: string; slug: string };
 }
 
 export function ProductPageClient({ id }: { id: string }) {
@@ -204,20 +188,7 @@ export function ProductPageClient({ id }: { id: string }) {
         </div>
       </div>
 
-      {(relatedLoading || related.length > 0) && (
-        <div className="container" style={{ position: 'relative', zIndex: 1, marginTop: 'var(--space-10)', paddingBottom: 'var(--space-8)' }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <ShoppingCart size={22} style={{ color: 'var(--brand-primary)' }} />
-            {t("Bu bilan birga olishadi", "С этим часто берут")}
-          </h2>
-          <div className="product-grid">
-            {relatedLoading
-              ? [1, 2, 3, 4].map((i) => <SkeletonProductCard key={i} />)
-              : related.map((p) => <ProductCard key={p.id} product={p} />)
-            }
-          </div>
-        </div>
-      )}
+      <ProductCrossSell related={related} relatedLoading={relatedLoading} t={t} />
     </div>
   );
 }
