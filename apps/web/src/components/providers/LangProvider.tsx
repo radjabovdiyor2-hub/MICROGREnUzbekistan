@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useCallback } from 'react';
+import { usePersistentState } from '@/lib/persistentState';
 
 export type Lang = 'uz' | 'ru';
 
@@ -146,20 +147,15 @@ export function useLang() {
   return useContext(LangContext);
 }
 
+// Чужая строка в хранилище не должна стать языком: всё, кроме 'ru',
+// читается как 'uz'. Эту проверку раньше делал эффект гидрации.
+const langCodec = {
+  parse: (raw: string): Lang => (raw === 'ru' ? 'ru' : 'uz'),
+  serialize: (value: Lang) => value,
+};
+
 export function LangProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('uz');
-
-  useEffect(() => {
-    const stored = localStorage.getItem('Microgreen-lang') as Lang | null;
-    if (stored && (stored === 'uz' || stored === 'ru')) {
-      setLangState(stored);
-    }
-  }, []);
-
-  const setLang = useCallback((l: Lang) => {
-    setLangState(l);
-    localStorage.setItem('Microgreen-lang', l);
-  }, []);
+  const [lang, setLang] = usePersistentState<Lang>('Microgreen-lang', 'uz', langCodec);
 
   const toggleLang = useCallback(() => {
     setLang(lang === 'uz' ? 'ru' : 'uz');

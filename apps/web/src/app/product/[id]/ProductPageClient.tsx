@@ -239,7 +239,6 @@ export function ProductPageClient({ id }: { id: string }) {
         quantity={quantity}
         setQuantity={setQuantity}
         added={added}
-        reviews={reviews}
         fmt={fmt}
         handleAddToCart={handleAddToCart}
         handleBuyNow={handleBuyNow}

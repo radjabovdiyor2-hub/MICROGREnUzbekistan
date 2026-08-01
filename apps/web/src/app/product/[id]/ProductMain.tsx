@@ -6,7 +6,6 @@ import {
   XCircle, Zap,
 } from 'lucide-react';
 import { StarRow } from './productPageParts';
-import type { Review } from './ProductReviews';
 import type { Product } from './ProductPageClient';
 import { useLang } from '@/components/providers/LangProvider';
 import { CONTACT, DELIVERY } from '@/lib/site';
@@ -24,7 +23,6 @@ interface Props {
   quantity: number;
   setQuantity: (n: number) => void;
   added: boolean;
-  reviews: Review[];
   fmt: (n: number) => string;
   handleAddToCart: () => void;
   handleBuyNow: () => void;
@@ -32,7 +30,7 @@ interface Props {
   handleRatingClick: () => void;
 }
 
-export function ProductMain({ product, catIcon, discount, fav, quantity, setQuantity, added, reviews, fmt, handleAddToCart, handleBuyNow, handleToggleFav, handleRatingClick }: Props) {
+export function ProductMain({ product, catIcon, discount, fav, quantity, setQuantity, added, fmt, handleAddToCart, handleBuyNow, handleToggleFav, handleRatingClick }: Props) {
   const { t } = useLang();
 
   return (

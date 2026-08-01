@@ -4,8 +4,6 @@ import { useState } from 'react';
 import { DollarSign, Droplet, Leaf, Sun } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 
-const spring = { type: 'spring' as const, damping: 24, stiffness: 280 };
-
 export interface CalcResult {
   title: string;
   items: { label: string; value: string }[];

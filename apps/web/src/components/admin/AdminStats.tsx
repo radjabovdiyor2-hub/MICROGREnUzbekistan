@@ -1,10 +1,11 @@
 'use client';
 
 import { AdminStatsRevenue } from './AdminStatsRevenue';
+import { AdminGrowSummary } from './AdminGrowSummary';
 
 import { useState, useEffect } from 'react';
 import {
-  AlertTriangle, Banknote, CheckCircle, Leaf, Moon, RefreshCw, ShoppingCart, Sun, TrendingUp,
+  Banknote, RefreshCw, ShoppingCart, TrendingUp,
 } from 'lucide-react';
 
 export interface StatsData {
@@ -145,48 +146,7 @@ export function AdminStats() {
         stats={stats}
         fmt={fmt}
       />
-      {/* Growing summary */}
-      {(() => {
-        try {
-          const growData = JSON.parse(localStorage.getItem('mg_grow_batches') || '[]');
-          const now = new Date().toISOString().slice(0, 10);
-          let darkCount = 0, lightCount = 0, readyCount = 0, expiredCount = 0, expiredLoss = 0;
-          for (const batch of growData) {
-            if (batch.status === 'harvested') continue;
-            const elapsed = Math.floor((new Date(now).getTime() - new Date(batch.seedDate).getTime()) / 86400000);
-            const darkEnd = batch.darkDays;
-            const lightEnd = darkEnd + batch.lightDays;
-            const shelfEnd = lightEnd + batch.shelfDays;
-            if (elapsed < darkEnd) darkCount++;
-            else if (elapsed < lightEnd) lightCount++;
-            else if (elapsed < shelfEnd) readyCount++;
-            else { expiredCount++; expiredLoss += (batch.costPrice || 0) * (batch.harvestQty || batch.trays); }
-          }
-          const total = darkCount + lightCount + readyCount + expiredCount;
-          if (total === 0) return null;
-          return (
-            <div className="card" style={{ padding: 'var(--space-4)' }}>
-              <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-                <Leaf size={16} /> Посадки ({total} активных)
-              </h3>
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {darkCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'color-mix(in srgb, var(--cat-1) 12%, transparent)', color: 'var(--cat-1)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Moon size={12} /> Темно: {darkCount}
-                </span>}
-                {lightCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Sun size={12} /> На свету: {lightCount}
-                </span>}
-                {readyCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CheckCircle size={12} /> Готовы: {readyCount}
-                </span>}
-                {expiredCount > 0 && <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--error-bg)', color: 'var(--error)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <AlertTriangle size={12} /> Просрочено: {expiredCount} (убыток {fmt(expiredLoss)} сум)
-                </span>}
-              </div>
-            </div>
-          );
-        } catch { return null; }
-      })()}
+      <AdminGrowSummary fmt={fmt} />
     </div>
   );
 }

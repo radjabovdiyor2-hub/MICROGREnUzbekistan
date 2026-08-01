@@ -154,7 +154,6 @@ export function AdminMovements() {
   };
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
-  const fmtTime = (d: string) => new Date(d).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   const fmtDate = (d: string) => new Date(d).toLocaleString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
   const inputStyle = {

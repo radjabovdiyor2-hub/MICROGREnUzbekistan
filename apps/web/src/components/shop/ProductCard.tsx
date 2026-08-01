@@ -10,9 +10,6 @@ import { useCart } from '@/components/providers/CartProvider';
 import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { motion, AnimatePresence } from 'framer-motion';
-import dynamic from 'next/dynamic';
-
-const ArViewer = dynamic(() => import('@/components/ui/ArViewer').then(m => m.ArViewer), { ssr: false });
 
 const spring = { type: 'spring' as const, damping: 20, stiffness: 300 };
 
@@ -37,7 +34,7 @@ export function ProductCard({ product }: { product: Product }) {
   const { toggleFavorite, isFavorite } = useFavorites();
   const fav = isFavorite(product.id);
   const inCartQty = cart.items.find(i => i.product.id === product.id)?.quantity ?? 0;
-  const { lang, t } = useLang();
+  const { lang } = useLang();
   const productName = lang === 'ru' && product.nameRu ? product.nameRu : product.nameUz;
   const [added, setAdded] = useState(false);
 

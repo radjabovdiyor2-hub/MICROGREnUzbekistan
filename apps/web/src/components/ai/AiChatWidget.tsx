@@ -24,6 +24,19 @@ type ChatMode = 'chat' | 'tools';
 
 import { SUGGESTIONS, TypingIndicator, renderMarkdown } from './aiChatParts';
 
+type QuickActionId = 'photo' | 'care' | 'calc' | 'call';
+
+// Быстрые действия. Раньше массив собирался внутри компонента вместе с
+// обработчиками, которые дёргали ref, — и ссылка на ref попадала в структуру,
+// создаваемую во время рендера. Теперь здесь только данные; что делает
+// кнопка, решает runQuickAction уже в момент клика.
+const QUICK_ACTIONS: { id: QuickActionId; icon: React.ReactNode; label: string; color: string }[] = [
+  { id: 'photo', icon: <Camera size={18} />, label: 'Foto tahlil', color: 'var(--cat-2)' },
+  { id: 'care', icon: <Leaf size={18} />, label: 'Parvarish', color: 'var(--brand-primary)' },
+  { id: 'calc', icon: <Calculator size={18} />, label: 'Kalkulyator', color: 'var(--info)' },
+  { id: 'call', icon: <Phone size={18} />, label: "Qo'ng'iroq", color: 'var(--brand-primary)' },
+];
+
 export function AiChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<ChatMode>('chat');
@@ -42,17 +55,27 @@ export function AiChatWidget() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [streamText, setStreamText] = useState('');
 
-  // Quick actions for craftsmen
-  const QUICK_ACTIONS = [
-    { icon: <Camera size={18} />, label: 'Foto tahlil', color: 'var(--cat-2)', action: () => fileInputRef.current?.click() },
-    { icon: <Leaf size={18} />, label: 'Parvarish', color: 'var(--brand-primary)', action: () => { setInput('Mikroko\'katlarni qanday to\'g\'ri sug\'orish kerak?'); setTimeout(() => document.getElementById("ai-chat-send")?.click(), 50); } },
-    { icon: <Calculator size={18} />, label: 'Kalkulyator', color: 'var(--info)', action: () => setMode('tools') },
-    { icon: <Phone size={18} />, label: 'Qo\'ng\'iroq', color: 'var(--brand-primary)', action: () => window.open('tel:+998949999599') },
-  ];
-
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const runQuickAction = (id: QuickActionId) => {
+    switch (id) {
+      case 'photo':
+        fileInputRef.current?.click();
+        break;
+      case 'care':
+        setInput("Mikroko'katlarni qanday to'g'ri sug'orish kerak?");
+        setTimeout(() => document.getElementById('ai-chat-send')?.click(), 50);
+        break;
+      case 'calc':
+        setMode('tools');
+        break;
+      case 'call':
+        window.open('tel:+998949999599');
+        break;
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -327,8 +350,8 @@ export function AiChatWidget() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
             {/* Quick Actions Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-              {QUICK_ACTIONS.map((qa, i) => (
-                <button key={i} onClick={qa.action}
+              {QUICK_ACTIONS.map((qa) => (
+                <button key={qa.id} onClick={() => runQuickAction(qa.id)}
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                     padding: '12px 4px', borderRadius: 12, cursor: 'pointer',

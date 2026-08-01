@@ -1,19 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { CheckCircle, CreditCard, Folder, Home, MapPin, PartyPopper, Phone, User } from 'lucide-react';
 
-const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useCity } from '@/components/providers/CityProvider';
-import dynamic from 'next/dynamic';
-import { type CartProduct } from '@/components/providers/CartProvider';
 import { trackPurchase } from '@/lib/analytics';
-
-const SmartSubscriptionWidget = dynamic(() => import('@/components/shop/SmartSubscriptionWidget').then(m => m.SmartSubscriptionWidget), { ssr: false });
 
 type Step = 'cart' | 'checkout' | 'success';
 
@@ -32,24 +27,24 @@ export default function CartPage() {
   const { dbUser } = useAuth();
   const [useBonus, setUseBonus] = useState(false);
 
-  // Recommendations strip
-  const [recos, setRecos] = useState<RecoProduct[]>([]);
+  // Recommendations strip. The fetch runs once; excluding what's already in the cart is
+  // derived from state instead of done inside the effect, so the effect has no cart
+  // dependency to suppress — and an item added to the cart leaves the strip at once.
+  const [featured, setFeatured] = useState<RecoProduct[]>([]);
   const [recosLoading, setRecosLoading] = useState(true);
 
   useEffect(() => {
-    setRecosLoading(true);
     fetch('/api/products?featured=true&limit=8')
       .then((r) => r.json())
-      .then((data) => {
-        const cartIds = new Set(cart.items.map((i) => i.product.id));
-        const filtered = (data.items || []).filter((p: RecoProduct) => !cartIds.has(p.id)).slice(0, 4);
-        setRecos(filtered);
-      })
-      .catch(() => setRecos([]))
+      .then((data) => setFeatured(data.items || []))
+      .catch(() => setFeatured([]))
       .finally(() => setRecosLoading(false));
-  // We intentionally run once on mount; cart changes are reflected via the cartIds filter on re-render
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const recos = useMemo(() => {
+    const cartIds = new Set(cart.items.map((i) => i.product.id));
+    return featured.filter((p) => !cartIds.has(p.id)).slice(0, 4);
+  }, [featured, cart.items]);
 
   // Checkout form
   const [form, setForm] = useState({
@@ -154,7 +149,7 @@ export default function CartPage() {
       } else {
         setApiError(data.error || t("Xatolik yuz berdi", "Произошла ошибка"));
       }
-    } catch (err) {
+    } catch {
       setApiError(t("Ulanishda xatolik yuz berdi. Iltimos, qayta urinib ko'ring.", "Ошибка соединения. Пожалуйста, попробуйте еще раз."));
     } finally {
       setIsSubmitting(false);

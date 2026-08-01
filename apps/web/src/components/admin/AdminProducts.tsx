@@ -4,7 +4,7 @@ import { AdminProductMetrics } from './AdminProductMetrics';
 
 import { AdminProductList } from './AdminProductList';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminProductForm } from './AdminProductForm';
 import { Plus, Search } from 'lucide-react';
 
@@ -60,7 +60,7 @@ export function AdminProducts() {
   const [totalPages, setTotalPages] = useState(1);
   const [counts, setCounts] = useState({ total: 0, active: 0 });
 
-  const fetchProducts = async (pageNum = 1, append = false) => {
+  const fetchProducts = useCallback(async (pageNum = 1, append = false) => {
     if (pageNum === 1) setLoading(true);
     else setLoadingMore(true);
     try {
@@ -86,17 +86,17 @@ export function AdminProducts() {
       setLoading(false);
       setLoadingMore(false);
     }
-  };
+  }, [searchQuery, categoryFilter]);
 
-  const fetchCounts = async () => {
+  const fetchCounts = useCallback(async () => {
     try {
       const res = await fetch('/api/products?count=true');
       const data = await res.json();
       setCounts({ total: data.total || 0, active: data.active || 0 });
     } catch { /* ignore */ }
-  };
+  }, []);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const res = await fetch('/api/categories');
       const data = await res.json();
@@ -104,17 +104,17 @@ export function AdminProducts() {
     } catch (err) {
       console.error('Categories fetch error:', err);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchProducts(1); fetchCategories(); fetchCounts(); }, []);
+  // Справочники не зависят от фильтров — грузим один раз.
+  useEffect(() => { fetchCategories(); fetchCounts(); }, [fetchCategories, fetchCounts]);
 
+  // Товары — с дебаунсом, и на первом рендере, и при смене фильтров.
+  // Раньше первый запрос уходил дважды: сразу на маунте и ещё раз по таймеру.
   useEffect(() => {
     const timer = setTimeout(() => fetchProducts(1), 300);
     return () => clearTimeout(timer);
-    // Дебаунс поиска: перезапуск нужен только при смене фильтров.
-    // fetchProducts не мемоизирована и в зависимостях сбрасывала бы таймер.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, categoryFilter]);
+  }, [fetchProducts]);
 
   const toggleActive = async (product: Product) => {
     try {

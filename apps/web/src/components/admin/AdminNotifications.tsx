@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   AlertTriangle, Bot, Clock, Leaf, Package, ShoppingCart,
 } from 'lucide-react';
+import { fetchBatches, getBatchStatus } from './growingData';
 
 export const typeConfig: Record<string, { icon: React.ReactNode; color: string }> = {
   sale: { icon: <ShoppingCart size={14} />, color: 'var(--success)' },
@@ -65,7 +66,6 @@ function saveNotifications(notifs: Notification[]) {
 export function AdminNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
-  const [lastCheck, setLastCheck] = useState<string>('');
 
   // Load from storage on mount
   useEffect(() => {
@@ -119,19 +119,17 @@ export function AdminNotifications() {
         }
       }
 
-      // Check growing batches from localStorage
+      // Партии посадок. Раньше читались из localStorage по ключу
+      // mg_grow_batches — после переезда в таблицу grow_batches там пусто,
+      // и напоминание «партии готовы» перестало приходить вовсе.
+      // Фазу считает getBatchStatus, общая с вкладкой «Посадки».
       try {
-        const growData = JSON.parse(localStorage.getItem('mg_grow_batches') || '[]');
-        const now = new Date().toISOString().slice(0, 10);
         let readyCount = 0;
         let expiredCount = 0;
-        for (const batch of growData) {
-          if (batch.status === 'harvested') continue;
-          const elapsed = Math.floor((new Date(now).getTime() - new Date(batch.seedDate).getTime()) / 86400000);
-          const lightEnd = batch.darkDays + batch.lightDays;
-          const shelfEnd = lightEnd + batch.shelfDays;
-          if (elapsed >= shelfEnd) expiredCount++;
-          else if (elapsed >= lightEnd) readyCount++;
+        for (const batch of await fetchBatches()) {
+          const { status } = getBatchStatus(batch);
+          if (status === 'expired') expiredCount++;
+          else if (status === 'ready') readyCount++;
         }
         if (readyCount > 0 || expiredCount > 0) {
           const growId = `grow_${today}`;

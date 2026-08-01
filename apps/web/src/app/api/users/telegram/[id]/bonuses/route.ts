@@ -16,7 +16,7 @@ export async function GET(
     
     if (!user) return NextResponse.json({ error: 'not found' }, { status: 404 });
     return NextResponse.json({ bonuses: user.bonusPoints });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'invalid id' }, { status: 400 });
   }
 }

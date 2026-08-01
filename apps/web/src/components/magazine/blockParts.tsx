@@ -3,12 +3,10 @@
 
 import React from 'react';
 import type { L10n } from '@/lib/magazine/types';
-import { tri, inline, type Lang, type UIKey } from '@/lib/magazine/i18n';
+import { tri, inline, type UIKey } from '@/lib/magazine/i18n';
 
 /** Подпись интерфейса на двух языках в одну строку. */
 export function ui(key: UIKey) { return inline(key); }
-
-const PRIMARY: Lang = 'uz';
 
 export function Tri({ v, style, secondaryScale = 0.78, className }: {
   v: L10n | undefined | null;

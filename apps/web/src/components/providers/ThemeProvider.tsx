@@ -1,8 +1,27 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useCallback, useSyncExternalStore, ReactNode } from 'react';
+import { usePersistentState, STRING_CODEC, type Codec } from '@/lib/persistentState';
 
 type Theme = 'light' | 'dark';
+
+const THEME_KEY = 'Microgreen-theme';
+
+// Пустая строка — «пользователь не выбирал», тогда тему диктует система.
+type StoredTheme = Theme | '';
+
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+
+function subscribeToSystemTheme(listener: () => void): () => void {
+  const mediaQuery = window.matchMedia(DARK_QUERY);
+  mediaQuery.addEventListener('change', listener);
+  return () => mediaQuery.removeEventListener('change', listener);
+}
+
+const getSystemTheme = (): Theme => (window.matchMedia(DARK_QUERY).matches ? 'dark' : 'light');
+
+// На сервере медиа-запроса нет; светлая тема совпадает с разметкой SSR.
+const getServerTheme = (): Theme => 'light';
 
 interface ThemeContextType {
   theme: Theme;
@@ -16,57 +35,36 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export const useTheme = () => useContext(ThemeContext);
 
-function getSystemTheme(): Theme {
-  if (typeof window === 'undefined') return 'light';
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
-
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Always start with 'light' to match SSR. The inline <script> in layout.tsx
-  // handles the initial data-theme attribute before React hydrates.
-  const [theme, setTheme] = useState<Theme>('light');
-  const [mounted, setMounted] = useState(false);
+  // Оба источника читаются как внешние хранилища. Раньше их сводил эффект,
+  // который звал setState на маунте: до его выполнения React успевал
+  // показать светлую тему, а атрибут data-theme уже стоял тёмный.
+  // Атрибут до гидрации выставляет встроенный <script> в layout.tsx.
+  const [storedTheme, setStoredTheme] = usePersistentState<StoredTheme>(
+    THEME_KEY, '', STRING_CODEC as Codec<StoredTheme>,
+  );
+  const systemTheme = useSyncExternalStore(subscribeToSystemTheme, getSystemTheme, getServerTheme);
 
-  // Apply theme to DOM
+  // Выбор пользователя главнее системного: смена темы в ОС переключает сайт
+  // только пока в хранилище пусто.
+  const theme: Theme = storedTheme || systemTheme;
+
   const applyTheme = useCallback((t: Theme) => {
     document.documentElement.setAttribute('data-theme', t);
   }, []);
 
-  useEffect(() => {
-    // Read the actual theme from localStorage or system preference
-    const stored = localStorage.getItem('Microgreen-theme') as Theme | null;
-    const actualTheme = stored || getSystemTheme();
-    setTheme(actualTheme);
-    applyTheme(actualTheme);
-    setMounted(true);
-
-    // Listen for OS-level theme changes (when user hasn't manually chosen)
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleSystemChange = (e: MediaQueryListEvent) => {
-      const s = localStorage.getItem('Microgreen-theme');
-      // Only auto-switch if user hasn't manually set a preference
-      if (!s) {
-        const sysTheme = e.matches ? 'dark' : 'light';
-        setTheme(sysTheme);
-        applyTheme(sysTheme);
-      }
-    };
-
-    mediaQuery.addEventListener('change', handleSystemChange);
-    return () => mediaQuery.removeEventListener('change', handleSystemChange);
-  }, [applyTheme]);
+  useEffect(() => { applyTheme(theme); }, [applyTheme, theme]);
 
   const toggleTheme = (e?: React.MouseEvent) => {
-    const next = theme === 'light' ? 'dark' : 'light';
-    
+    const next: Theme = theme === 'light' ? 'dark' : 'light';
+
     // Fallback for browsers that don't support View Transitions API
     if (!document.startViewTransition) {
-      setTheme(next);
-      localStorage.setItem('Microgreen-theme', next);
+      setStoredTheme(next);
       applyTheme(next);
       return;
     }
-    
+
     let x = window.innerWidth / 2;
     let y = window.innerHeight / 2;
     
@@ -82,8 +80,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     );
     
     const transition = document.startViewTransition(() => {
-      setTheme(next);
-      localStorage.setItem('Microgreen-theme', next);
+      setStoredTheme(next);
       applyTheme(next);
     });
     
@@ -103,11 +100,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  // Prevent flash of unstyled content
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
+  // Гейт «пока не смонтировано — рендерим без провайдера» здесь больше не
+  // нужен: тема известна на первом же клиентском рендере, а сервер и клиент
+  // сходятся на светлой. Раньше гейт заодно ронял всё поддерево в момент
+  // маунта, потому что менял состав дерева.
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}

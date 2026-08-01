@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const { phone, message } = await request.json();
     console.log(`[SMS] Queued to ${phone}: ${message}`);
     return NextResponse.json({ queued: true });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'invalid payload' }, { status: 400 });
   }
 }

@@ -3,7 +3,7 @@ import { prisma } from '@repo/database';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const leads = await prisma.magazineSubscriber.findMany({
       where: { type: 'print' },

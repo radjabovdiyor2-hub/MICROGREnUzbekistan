@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext } from 'react';
+import { usePersistentState, STRING_CODEC, type Codec } from '@/lib/persistentState';
 
 type City = 'tashkent' | 'samarkand' | 'bukhara' | 'fergana';
 
@@ -13,19 +14,7 @@ interface CityContextType {
 const CityContext = createContext<CityContextType | undefined>(undefined);
 
 export function CityProvider({ children }: { children: React.ReactNode }) {
-  const [city, setCityState] = useState<City>('tashkent');
-
-  useEffect(() => {
-    const saved = localStorage.getItem('mg_city');
-    if (saved) {
-      setCityState(saved as City);
-    }
-  }, []);
-
-  const setCity = (newCity: City) => {
-    setCityState(newCity);
-    localStorage.setItem('mg_city', newCity);
-  };
+  const [city, setCity] = usePersistentState<City>('mg_city', 'tashkent', STRING_CODEC as Codec<City>);
 
   const getCityName = (c: City) => {
     switch (c) {

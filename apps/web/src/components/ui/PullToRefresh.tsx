@@ -9,6 +9,8 @@ interface PullToRefreshProps {
   onRefresh?: () => Promise<void>;
 }
 
+const PULL_THRESHOLD = 80;
+
 export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
   const [pullY, setPullY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -16,12 +18,16 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
   const pullYRef = useRef(0);
   const isRefreshingRef = useRef(false);
   const onRefreshRef = useRef(onRefresh);
-  const PULL_THRESHOLD = 80;
 
-  // Keep refs in sync with state (avoids stale closures)
-  pullYRef.current = pullY;
-  isRefreshingRef.current = isRefreshing;
-  onRefreshRef.current = onRefresh;
+  // Зеркала состояния для обработчиков касаний: они регистрируются один раз,
+  // и без этого читали бы значения того рендера, в котором были созданы.
+  // Синхронизация идёт после коммита, а не в теле рендера: запись в ref во
+  // время рендера ломает конкурентный рендеринг React.
+  useEffect(() => {
+    pullYRef.current = pullY;
+    isRefreshingRef.current = isRefreshing;
+    onRefreshRef.current = onRefresh;
+  });
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (window.scrollY <= 0) {
@@ -45,7 +51,7 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
         triggerHaptic('medium');
       }
     }
-  }, [PULL_THRESHOLD]);
+  }, []);
 
   const handleTouchEnd = useCallback(async () => {
     if (startY.current === null) return;
@@ -68,7 +74,7 @@ export function PullToRefresh({ children, onRefresh }: PullToRefreshProps) {
       setPullY(0);
     }
     startY.current = null;
-  }, [PULL_THRESHOLD]);
+  }, []);
 
   // Register event listeners only ONCE (stable callbacks via refs)
   useEffect(() => {

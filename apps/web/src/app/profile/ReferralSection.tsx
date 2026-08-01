@@ -3,7 +3,7 @@
 import type { ReferralData } from './referralTypes';
 import { ReferralRules } from './ReferralRules';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, ChevronRight, Percent, Share2, Users, XCircle } from 'lucide-react';
 
 // Реферальный блок личного кабинета: код приглашения, ввод чужого кода,
@@ -24,11 +24,12 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
   const [applying, setApplying] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [referralData, setReferralData] = useState<ReferralData | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
-  // Load referral data
-  const loadData = async () => {
-    if (!userId || loaded) return;
+  // Загрузка привязана к userId: мемоизация даёт ровно один запрос на
+  // пользователя. Раньше от повторов страховал флаг loaded, но он же стоял в
+  // зависимостях эффекта, и честный список зависимостей приходилось глушить.
+  const loadData = useCallback(async () => {
+    if (!userId) return;
     try {
       const res = await fetch(`/api/referral?userId=${userId}`);
       if (res.ok) {
@@ -36,16 +37,9 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
         setReferralData(data);
       }
     } catch { /* ignore */ }
-    setLoaded(true);
-  };
+  }, [userId]);
 
-  // Load on first render (properly via useEffect)
-  useEffect(() => {
-    loadData();
-    // loadData пересоздаётся каждый рендер и сама завязана на loaded —
-    // в зависимостях она даёт бесконечный цикл. Условие входа внутри неё.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, loaded]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const shortCode = referralData?.referralCode || (referralCode ? `AGRO-${referralCode.slice(-6).toUpperCase()}` : '...');
   const shareUrl = `https://microgreenuzbekistan.com/?ref=${referralCode || ''}`;
@@ -84,7 +78,9 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
       if (res.ok) {
         setApplyStatus({ ok: true, msg: data.message });
         setInputCode('');
-        setLoaded(false); // reload data
+        // Начисленный бонус виден только после перечитывания: раньше это
+        // делалось сбросом флага loaded, теперь запрос вызывается напрямую.
+        await loadData();
       } else {
         setApplyStatus({ ok: false, msg: data.error });
       }

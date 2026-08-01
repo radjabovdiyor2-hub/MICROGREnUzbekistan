@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useCallback, ReactNode } from 'react';
+import { usePersistentState } from '@/lib/persistentState';
 
 // ==========================================
 // Favorites Store — localStorage-backed
@@ -29,35 +30,22 @@ interface FavoritesContextType {
 
 const FavoritesContext = createContext<FavoritesContextType | null>(null);
 const FAV_KEY = 'Microgreen_favorites';
+// Стабильная ссылка: см. требование usePersistentState к fallback.
+const EMPTY_FAVORITES: FavoriteProduct[] = [];
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const [favorites, setFavorites] = useState<FavoriteProduct[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(FAV_KEY);
-      if (saved) setFavorites(JSON.parse(saved));
-    } catch (e) {
-      console.error('Favorites load error:', e);
-    }
-    setLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (loaded) localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
-  }, [favorites, loaded]);
+  const [favorites, setFavorites] = usePersistentState<FavoriteProduct[]>(FAV_KEY, EMPTY_FAVORITES);
 
   const addFavorite = useCallback((product: FavoriteProduct) => {
     setFavorites(prev => {
       if (prev.find(f => f.id === product.id)) return prev;
       return [...prev, product];
     });
-  }, []);
+  }, [setFavorites]);
 
   const removeFavorite = useCallback((productId: string) => {
     setFavorites(prev => prev.filter(f => f.id !== productId));
-  }, []);
+  }, [setFavorites]);
 
   const toggleFavorite = useCallback((product: FavoriteProduct) => {
     setFavorites(prev => {
@@ -66,7 +54,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, product];
     });
-  }, []);
+  }, [setFavorites]);
 
   const isFavorite = useCallback((productId: string) => {
     return favorites.some(f => f.id === productId);

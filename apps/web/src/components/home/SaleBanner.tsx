@@ -5,6 +5,38 @@ import { Leaf } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
+// Разряд таймера. Объявлен на уровне модуля, а не внутри SaleBanner:
+// вложенное объявление пересоздавало тип компонента на каждом тике, из-за
+// чего React размонтировал разряд целиком и анимация смены цифры не шла.
+const TimerBlock = ({ value, label, accent }: { value: string; label: string; accent?: boolean }) => (
+  <div style={{
+    textAlign: 'center', minWidth: '52px',
+    background: 'rgba(255,255,255,0.08)', borderRadius: '10px',
+    padding: '8px 10px', backdropFilter: 'blur(4px)',
+  }}>
+    <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800, color: accent ? 'var(--brand-accent)' : 'var(--text-inverse)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden' }}>
+      <AnimatePresence mode="popLayout">
+        <motion.span
+          key={value}
+          initial={{ y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -12, opacity: 0 }}
+          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+          style={{ display: 'inline-block' }}
+        >
+          {value}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+    <div style={{
+      fontSize: '0.65rem', opacity: 0.65, textTransform: 'uppercase',
+      fontWeight: 600, marginTop: '4px', letterSpacing: '0.5px',
+    }}>{label}</div>
+  </div>
+);
+
 export function SaleBanner() {
   const { t } = useLang();
   const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 45, seconds: 12 });
@@ -22,35 +54,6 @@ export function SaleBanner() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-
-  const TimerBlock = ({ value, label, accent }: { value: string; label: string; accent?: boolean }) => (
-    <div style={{
-      textAlign: 'center', minWidth: '52px',
-      background: 'rgba(255,255,255,0.08)', borderRadius: '10px',
-      padding: '8px 10px', backdropFilter: 'blur(4px)',
-    }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 800, color: accent ? 'var(--brand-accent)' : 'var(--text-inverse)', lineHeight: 1, fontVariantNumeric: 'tabular-nums', overflow: 'hidden' }}>
-        <AnimatePresence mode="popLayout">
-          <motion.span
-            key={value}
-            initial={{ y: 12, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -12, opacity: 0 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-            style={{ display: 'inline-block' }}
-          >
-            {value}
-          </motion.span>
-        </AnimatePresence>
-      </div>
-      <div style={{
-        fontSize: '0.65rem', opacity: 0.65, textTransform: 'uppercase',
-        fontWeight: 600, marginTop: '4px', letterSpacing: '0.5px',
-      }}>{label}</div>
-    </div>
-  );
 
   return (
     <section className="section" id="sale-section">

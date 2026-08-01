@@ -24,7 +24,7 @@ export const SORT_OPTIONS = [
   { value: 'newest', labelUz: "Eng yangi", labelRu: "Новинки" },
 ];
 
-interface Product {
+export interface Product {
   id: string;
   nameUz: string;
   nameRu: string;
@@ -38,7 +38,7 @@ interface Product {
   category?: { nameUz: string; slug: string };
 }
 
-interface Pagination {
+export interface Pagination {
   page: number;
   limit: number;
   total: number;
