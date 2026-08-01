@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getRecipeForDay } from '../../ai/nutrition/route';
+import { getRecipeForDay } from '@/lib/nutrition/recipes';
 
 // ==========================================
 // Shared "recipe of the day" for the content pipeline. The website generates the

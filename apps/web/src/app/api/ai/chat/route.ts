@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { getRecipeForDay } from '../nutrition/route';
+import { getRecipeForDay } from '@/lib/nutrition/recipes';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
