@@ -93,9 +93,9 @@ async def execute_bot_task(
             max_tokens=1000
         )
         
-        # Парсим JSON
+        # Парсим JSON (strict=False позволяет неэкранированные переносы строк внутри строковых значений)
         raw_json = raw_response.strip().strip("`").replace("json\n", "", 1)
-        data = json.loads(raw_json)
+        data = json.loads(raw_json, strict=False)
         
         action = data.get("action")
         reply_text = data.get("reply_text", "Задача выполнена.")
