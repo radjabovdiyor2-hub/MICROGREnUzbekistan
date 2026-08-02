@@ -55,7 +55,7 @@ services:
     networks:
     - mg_net
   web_office:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_web_office
     restart: unless-stopped
     command: python -m uvicorn web_office.main:app --host 0.0.0.0 --port 8050
@@ -85,7 +85,7 @@ services:
     networks:
     - mg_net
   stepan:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_stepan
     restart: unless-stopped
     command: python -m bots.stepan_bot.main
@@ -107,7 +107,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   sales:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_sales
     restart: unless-stopped
     command: python -m bots.sales_bot.main
@@ -129,7 +129,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   hr:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_hr
     restart: unless-stopped
     command: python -m bots.hr_bot.main
@@ -151,7 +151,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   finance:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_finance
     restart: unless-stopped
     command: python -m bots.finance_bot.main
@@ -173,7 +173,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   marketing:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_marketing
     restart: unless-stopped
     command: python -m bots.marketing_bot.main
@@ -195,7 +195,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   support:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_support
     restart: unless-stopped
     command: python -m bots.support_bot.main
@@ -217,7 +217,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   analytics:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_analytics
     restart: unless-stopped
     command: python -m bots.analytics_bot.main
@@ -239,7 +239,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   content:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_content
     restart: unless-stopped
     command: python -m bots.content_bot.main
@@ -261,7 +261,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   qa:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_qa
     restart: unless-stopped
     command: python -m bots.qa_bot.main
@@ -283,7 +283,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   rnd:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_rnd
     restart: unless-stopped
     command: python -m bots.rnd_bot.main
@@ -305,7 +305,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   devops:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_devops
     restart: unless-stopped
     command: python -m bots.devops_bot.main
@@ -328,7 +328,7 @@ services:
     networks:
     - mg_net
   n8n_bridge:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_n8n_bridge
     restart: unless-stopped
     command: python -m bots.n8n_bridge.main
@@ -354,7 +354,7 @@ services:
     networks:
     - mg_net
   franchise:
-    build: .
+    build:\n      context: ../..\n      dockerfile: apps/tgas/Dockerfile
     container_name: mg_franchise
     restart: unless-stopped
     command: python -m bots.franchise_bot.main
