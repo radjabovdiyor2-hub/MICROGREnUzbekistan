@@ -160,7 +160,7 @@ model Order {
   userId        String        @map("user_id")
   user          User          @relation(fields: [userId], references: [id])
   status        OrderStatus   @default(PENDING)
-  total         Int
+  total         Int           @map("total_amount")
   subtotal      Int
   deliveryFee   Int           @default(0) @map("delivery_fee")
   discount      Int           @default(0)
