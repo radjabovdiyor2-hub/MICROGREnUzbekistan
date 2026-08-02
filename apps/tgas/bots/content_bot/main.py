@@ -1,18 +1,7 @@
 import asyncio
 import logging
 
-async def get_dynamic_content_policy() -> str:
-    from shared.brand import CONTENT_POLICY
-    from shared.feedback_loop import feedback_loop
-    try:
-        active = await feedback_loop.get_active_behavior("content_bot", "weekly_reach")
-        directives = [str(v) for v in active.values() if isinstance(v, str)]
-        if directives:
-            directive_text = " ".join(directives)
-            return (await get_dynamic_content_policy()) + f"\n\n[ДИРЕКТИВА ИИ-АНАЛИТИКА: {directive_text}]\n"
-    except Exception:
-        pass
-    return (await get_dynamic_content_policy())
+
 
 import os
 from datetime import date, datetime, timedelta, timezone
@@ -25,8 +14,10 @@ from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import Message
 
 from bots.content_bot.handlers import all_routers
+
+
 from shared.ai_engine import AIEngine
-from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY
+from shared.brand import BRAND_TEXT_STYLE
 from shared.prompts import TEAM_CONTEXT
 from shared.config import settings
 from shared.content_archive import (
@@ -57,6 +48,19 @@ from shared.trends import (
 from shared.utils import simulate_typing
 
 logger = logging.getLogger(__name__)
+
+
+async def get_dynamic_content_policy() -> str:
+    from shared.feedback_loop import feedback_loop
+    try:
+        active = await feedback_loop.get_active_behavior("content_bot", "weekly_reach")
+        directives = [str(v) for v in active.values() if isinstance(v, str)]
+        if directives:
+            directive_text = " ".join(directives)
+            return f"\n\n[ДИРЕКТИВА ИИ-АНАЛИТИКА: {directive_text}]\n"
+    except Exception:
+        pass
+    return ""
 logging.basicConfig(level=logging.INFO)
 
 # ── Глобальные ссылки для задач ──────────────────────────────────────────

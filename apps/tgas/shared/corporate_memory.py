@@ -1,4 +1,3 @@
-import json
 import logging
 from sqlalchemy import text
 from shared.database import get_session_ctx
@@ -47,7 +46,7 @@ class CorporateMemory:
                 # Чем меньше расстояние, тем ближе вектора
                 # 1 - (embedding <=> query) = cosine similarity
                 res = await session.execute(
-                    text(f"""
+                    text("""
                         SELECT chunk, source, 1 - (embedding <=> :v::vector) as similarity 
                         FROM knowledge_base 
                         WHERE 1 - (embedding <=> :v::vector) > :t

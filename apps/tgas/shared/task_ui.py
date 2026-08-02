@@ -54,7 +54,6 @@ async def on_task_done(callback: CallbackQuery):
 
 # --- HITL (Human In The Loop) ---
 
-import json
 
 async def send_hitl_approval_request(workflow_name: str, step_name: str, context: dict):
     """Отправляет запрос администратору на подтверждение критического шага."""

@@ -1,6 +1,5 @@
 import logging
-import asyncio
-from typing import Dict, Any, Callable
+from typing import Dict, Any
 from shared.event_bus import event_bus
 from shared.task_ui import send_hitl_approval_request
 

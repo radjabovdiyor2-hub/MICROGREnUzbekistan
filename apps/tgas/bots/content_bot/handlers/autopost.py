@@ -26,7 +26,7 @@ from aiogram.types import (
 from shared.config import settings
 from shared.ai_engine import AIEngine
 from bots.content_bot.main import get_dynamic_content_policy
-from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY
+from shared.brand import BRAND_TEXT_STYLE
 
 logger = logging.getLogger(__name__)
 router = Router()
