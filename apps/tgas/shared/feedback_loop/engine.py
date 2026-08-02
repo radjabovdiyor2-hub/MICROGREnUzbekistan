@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import dict, Dict, Optional
+from typing import Dict, Optional
 
 from sqlalchemy import text
 

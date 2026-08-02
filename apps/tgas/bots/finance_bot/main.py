@@ -16,9 +16,6 @@ from bots.finance_bot.handlers.start import ai_fin
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 from bots.finance_bot.handlers.tasks import register_finance_tasks
 from bots.finance_bot.handlers.bus_handlers import (
     bus_get_balance,
@@ -26,6 +23,9 @@ from bots.finance_bot.handlers.bus_handlers import (
     handle_task_created,
     handle_payment_received,
 )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ── Scheduler ────────────────────────────────────────────────────────────
 scheduler = BotScheduler("finance_bot")

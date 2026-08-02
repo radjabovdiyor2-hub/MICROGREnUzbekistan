@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata, Viewport } from 'next';
 import { loadRestaurantBySlug, loadDishByCode, loadMenu } from '@/lib/magazine/restaurantMenu';
-import { formatPrice } from '@/lib/magazine/menu';
 import { MenuTracker } from '@/components/menu/MenuTracker';
 import { DishVideo } from '@/components/menu/DishVideo';
 import { DishOverlayCard } from './DishOverlayCard';

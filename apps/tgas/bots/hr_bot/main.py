@@ -14,12 +14,11 @@ from shared.group_orchestrator import create_group_router
 from bots.hr_bot.handlers.start import ai_hr
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
+from bots.hr_bot.handlers.scheduled import register_hr_scheduled_tasks
+from bots.hr_bot.handlers.bus_handlers import bus_get_employees, handle_task_created
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-from bots.hr_bot.handlers.scheduled import register_hr_scheduled_tasks
-from bots.hr_bot.handlers.bus_handlers import bus_get_employees, handle_task_created
 
 # ── Scheduler ────────────────────────────────────────────────────────────
 scheduler = BotScheduler("hr_bot")

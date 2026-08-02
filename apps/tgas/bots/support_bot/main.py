@@ -1,4 +1,3 @@
-from fastapi import Request
 """Support Bot — main.py с EventBus интеграцией"""
 
 import asyncio
@@ -7,18 +6,16 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from fastapi import Request
+
 from shared.config import settings
-from shared.database import init_db, get_session_ctx
+from shared.database import init_db
 from shared.event_bus import event_bus
 from bots.support_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
 from bots.support_bot.handlers.faq import ai_chat
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
-from sqlalchemy import text
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 from bots.support_bot.handlers.tasks import (
     register_support_tasks,
@@ -27,13 +24,15 @@ from bots.support_bot.handlers.tasks import (
     delivery_status_report,
     faq_analysis,
     auto_poll_instagram_dms,
-    auto_poll_instagram_comments,
 )
 from bots.support_bot.handlers.bus_handlers import (
     bus_handle_complaint,
     bus_check_instagram_dm,
     handle_task_created,
 )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ── Планировщик ──────────────────────────────────────────────────────────
 scheduler = BotScheduler("support_bot")

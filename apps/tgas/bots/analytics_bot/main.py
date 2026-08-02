@@ -1,4 +1,3 @@
-import typing
 """Analytics Bot — main.py с EventBus интеграцией"""
 
 import asyncio
@@ -8,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
 from shared.config import settings
-from shared.database import init_db, get_session_ctx
+from shared.database import init_db
 from shared.event_bus import event_bus
 from shared.notifications import register_analytics_handlers
 from bots.analytics_bot.handlers import all_routers
@@ -16,14 +15,6 @@ from shared.group_orchestrator import create_group_router
 from bots.analytics_bot.handlers.ai_analytics import ai_chat
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# ── Глобальные ссылки для задач ──────────────────────────────────────────
-_bot: Bot = None
-scheduler = BotScheduler("analytics_bot")
-
 
 from bots.analytics_bot.handlers.tasks import register_analytics_tasks
 from bots.analytics_bot.handlers.bus_handlers import (
@@ -33,6 +24,13 @@ from bots.analytics_bot.handlers.bus_handlers import (
     handle_task_created,
     get_top_products as _get_top_products,
 )
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ── Глобальные ссылки для задач ──────────────────────────────────────────
+_bot: Bot = None
+scheduler = BotScheduler("analytics_bot")
 
 register_analytics_tasks(scheduler)
 

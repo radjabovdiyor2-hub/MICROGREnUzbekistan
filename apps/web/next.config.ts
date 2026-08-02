@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   // webpack: Turbopack fails to resolve absolute-path aliases and the prod
   // build dies with "Module not found" (tsconfig `paths` covers type-checking).
   transpilePackages: ['@repo/shared', '@repo/database'],
-  serverExternalPackages: ["@prisma/client", "bcrypt"],
+  serverExternalPackages: ["@prisma/client", "bcrypt", "ioredis"],
   // ignoreBuildErrors УБРАН: он пропускал ошибки типов в прод, хотя в форме
   // Due Diligence strict mode заявлен как средство их отлова (§4.3, §6.2).
   // На текущем коде `tsc --noEmit` проходит без ошибок, так что флаг только

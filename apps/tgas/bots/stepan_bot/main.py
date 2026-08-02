@@ -14,10 +14,10 @@ from aiogram.fsm.storage.redis import RedisStorage
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT))
 
-from shared.config import settings
-from shared.event_bus import event_bus
-from shared.health import start_heartbeat
-from shared.scheduler import BotScheduler
+from shared.config import settings  # noqa: E402
+from shared.event_bus import event_bus  # noqa: E402
+from shared.health import start_heartbeat  # noqa: E402
+from shared.scheduler import BotScheduler  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,

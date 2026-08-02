@@ -31,7 +31,7 @@ export async function getUploadsDir(): Promise<string> {
   //    он молча создавал apps/web/apps/web/.next/... — загрузки уезжали туда
   //    и не отдавались по /uploads/. Существование каталога и есть признак
   //    standalone-режима, поэтому проверяем, а не создаём.
-  const standaloneDir = path.resolve(process.cwd(), 'apps/web/.next/standalone/apps/web/public/uploads');
+  const standaloneDir = path.resolve(/*turbopackIgnore: true*/ process.cwd(), 'apps/web/.next/standalone/apps/web/public/uploads');
   try {
     const s = await stat(standaloneDir);
     if (s.isDirectory()) return standaloneDir;
@@ -40,7 +40,7 @@ export async function getUploadsDir(): Promise<string> {
   }
 
   // 3. Fallback: local development — use public/uploads relative to this file's context
-  const localDir = path.join(process.cwd(), 'public', 'uploads');
+  const localDir = path.join(/*turbopackIgnore: true*/ process.cwd(), 'public', 'uploads');
   await mkdir(localDir, { recursive: true });
   return localDir;
 }

@@ -9,7 +9,6 @@ from sqlalchemy import text
 from pathlib import Path
 
 from shared.database import get_session_ctx
-from shared.trends import fetch_google_trends
 from shared.health import check_all_bots, format_health_report
 
 logger = logging.getLogger(__name__)

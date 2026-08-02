@@ -5,7 +5,6 @@ from datetime import date, datetime, timedelta, timezone
 from aiogram import Bot
 from shared.ai_engine import AIEngine
 from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY, BRAND, BRAND_HASHTAGS
-from shared.prompts import TEAM_CONTEXT
 from shared.config import settings
 from shared.content_archive import (
     mark_published as _mark_published,
@@ -26,7 +25,6 @@ from shared.content_plan import (
 from shared.database import get_session_ctx
 from shared.trends import (
     build_topical_angle,
-    fetch_uzbek_trends,
     fetch_weather_samarkand,
     get_daily_context,
     get_uz_season_occasion,

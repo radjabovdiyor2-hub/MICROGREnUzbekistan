@@ -9,8 +9,6 @@
 // а раскладку можно проверить тестом.
 // ════════════════════════════════════════════════════════════
 
-import { token} from '@/lib/canvasTokens';
-
 export const FRAME_W = 1080;
 export const FRAME_H = 1920;
 
@@ -74,27 +72,6 @@ export function instagramHandle(raw?: string | null): string | null {
   return h ? `@${h}` : null;
 }
 
-type Ctx = CanvasRenderingContext2D;
 
-function roundedRect(ctx: Ctx, r: Rect, radius: number) {
-  ctx.beginPath();
-  ctx.moveTo(r.x + radius, r.y);
-  ctx.arcTo(r.x + r.w, r.y, r.x + r.w, r.y + r.h, radius);
-  ctx.arcTo(r.x + r.w, r.y + r.h, r.x, r.y + r.h, radius);
-  ctx.arcTo(r.x, r.y + r.h, r.x, r.y, radius);
-  ctx.arcTo(r.x, r.y, r.x + r.w, r.y, radius);
-  ctx.closePath();
-}
-
-/** Ужимает строку до нужной ширины, чтобы длинное название не уехало за край. */
-function fitText(ctx: Ctx, text: string, maxWidth: number, startSize: number, font: string): number {
-  let size = startSize;
-  ctx.font = `${size}px ${font}`;
-  while (ctx.measureText(text).width > maxWidth && size > 28) {
-    size -= 4;
-    ctx.font = `${size}px ${font}`;
-  }
-  return size;
-}
 
 export { drawFrame } from './frameDrawer';

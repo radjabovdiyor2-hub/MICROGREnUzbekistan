@@ -7,7 +7,6 @@ import type { BotLearningItem } from './adminLearningsTypes';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Brain, RefreshCw, Search, CheckCircle2, AlertCircle, Bot, Activity } from 'lucide-react';
-import { clientErrorMessage } from '@/lib/safeError';
 
 import { BOT_EMOJIS } from './adminLearningsConfig';
 

@@ -4,7 +4,6 @@ from typing import Dict
 from shared.ai_engine import AIEngine
 from shared.instagram_dm.state import (
     _processed_message_ids,
-    _is_processing,
     IG_SALES_SYSTEM_PROMPT,
     _get_conversation_history,
     _add_to_history,

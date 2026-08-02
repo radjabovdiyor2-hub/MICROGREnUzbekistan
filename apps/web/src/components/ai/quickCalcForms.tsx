@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Zap } from 'lucide-react';
 import { CROP_DATA, inputStyle, type CalcResult } from './quickCalcData';
 
 

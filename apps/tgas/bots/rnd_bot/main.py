@@ -5,7 +5,6 @@ from shared.config import settings
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.ai_engine import AIEngine
-from shared.prompts import TEAM_CONTEXT
 
 from bots.rnd_bot.handlers.instagram_trends import (
     weekly_instagram_rnd,

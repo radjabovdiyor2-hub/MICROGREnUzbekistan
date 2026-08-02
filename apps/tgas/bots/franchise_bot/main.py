@@ -2,11 +2,7 @@ import asyncio
 import logging
 from aiohttp import web
 from shared.event_bus import event_bus
-from shared.ai_engine import AIEngine
-from shared.database import get_session_ctx
-from sqlalchemy import text
 from shared.scheduler import BotScheduler
-from shared.prompts import TEAM_CONTEXT
 
 from bots.franchise_bot.handlers.daily_journal import register_scheduler_tasks, generate_daily_franchise_journals
 

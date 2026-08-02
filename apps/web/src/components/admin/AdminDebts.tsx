@@ -22,12 +22,7 @@ interface Debt {
   supplier?: { name: string; phone: string | null } | null;
 }
 
-interface Summary {
-  theyOweUs: number;
-  weOwe: number;
-  overdue: number;
-  totalCount: number;
-}
+
 
 import { AdminDebtList } from './AdminDebtList';
 

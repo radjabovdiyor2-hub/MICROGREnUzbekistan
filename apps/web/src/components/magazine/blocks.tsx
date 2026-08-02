@@ -5,10 +5,10 @@ import type {
   RestaurantBrand,
 } from '@/lib/magazine/types';
 import {
-  UI, t, tri, inline,
+  UI, t, inline,
   type Lang, type UIKey,
 } from '@/lib/magazine/i18n';
-import { Tri, PageNum, Figure } from './blockParts';
+import { Tri, Figure } from './blockParts';
 
 export { CoverPage } from './CoverPage';
 export { TocPage } from './TocPage';
@@ -19,7 +19,6 @@ function ui(key: UIKey) { return inline(key); }
 
 const H1: React.CSSProperties = { fontFamily: "'Playfair Display', serif", fontWeight: 900, color: 'var(--ink)', lineHeight: 1.1 };
 const BODY: React.CSSProperties = { fontFamily: "'Cormorant Garamond', serif", color: 'var(--ink)', lineHeight: 1.6 };
-const contentPad: React.CSSProperties = { padding: '4mm var(--margin-page) 8mm' };
 
 export { SectionPage, ChefWordPage, RestaurantOfWeekPage } from './ChefAndRestPages';
 import { SectionPage } from './ChefAndRestPages';
