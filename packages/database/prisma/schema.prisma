@@ -92,12 +92,12 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  orders    Order[]
-  cart      CartItem[]
-  favorites Favorite[]
-  reviews   Review[]
-  addresses Address[]
-  aiChats   AiChat[]
+  orders                Order[]
+  cart                  CartItem[]
+  favorites             Favorite[]
+  reviews               Review[]
+  addresses             Address[]
+  aiChats               AiChat[]
   greenBoxSubscriptions GreenBoxSubscription[]
 
   @@map("users")
@@ -176,7 +176,8 @@ model Order {
 
   isSubscription Boolean @default(false) @map("is_subscription")
 
-  items OrderItem[]
+  items        OrderItem[]
+  DeliveryStop DeliveryStop[]
 
   // Composite indexes for the hot list queries (newest-first pagination):
   // admin list by status, a customer's own orders, and lookup by phone.
@@ -282,19 +283,43 @@ model Promotion {
 // ==========================================
 
 model Employee {
-  id         String  @id @default(cuid())
+  id         String    @id @default(cuid())
   name       String
-  pin        String  @unique // 4-digit PIN for POS login
+  pin        String    @unique // 4-digit PIN for POS login
   phone      String?
-  telegramId BigInt? @unique @map("telegram_id")
+  telegramId BigInt?   @unique @map("telegram_id")
   department String? // e.g. marketing, content, hr, etc.
-  isActive   Boolean @default(true) @map("is_active")
-  role       String  @default("seller") // seller | manager
+  isActive   Boolean   @default(true) @map("is_active")
+  role       String    @default("seller") // seller | manager
+  birthDate  DateTime? @map("birth_date") @db.Date
+  baseSalary Int?      @map("base_salary") // UZS
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  shifts         Shift[]
+  DeliveryRoute  DeliveryRoute[]
+  QualityControl QualityControl[]
+
   @@map("employees")
+}
+
+model Shift {
+  id         String    @id @default(cuid())
+  employeeId String    @map("employee_id")
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime  @db.Date
+  startTime  DateTime? @map("start_time")
+  endTime    DateTime? @map("end_time")
+  type       String    @default("work") // work | sick | vacation
+  note       String?   @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([employeeId])
+  @@index([date])
+  @@map("shifts")
 }
 
 // ==========================================
@@ -1203,8 +1228,10 @@ model GrowBatch {
   productId   String?   @map("product_id")
   productName String?   @map("product_name") @db.VarChar(255)
 
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at")
+  QualityControl QualityControl[]
+  Experiment     Experiment[]
 
   @@index([status])
   @@index([seedDate])
@@ -1320,30 +1347,30 @@ enum SubscriptionInterval {
 }
 
 model GreenBoxSubscription {
-  id        String             @id @default(cuid())
-  userId    String             @map("user_id")
-  user      User               @relation(fields: [userId], references: [id])
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id])
 
-  status    SubscriptionStatus @default(ACTIVE)
-  interval  SubscriptionInterval @default(WEEKLY)
+  status   SubscriptionStatus   @default(ACTIVE)
+  interval SubscriptionInterval @default(WEEKLY)
 
   /// День недели доставки: 0=Пн, 1=Вт, …, 6=Вс
-  deliveryDay Int              @default(1) @map("delivery_day")
+  deliveryDay Int    @default(1) @map("delivery_day")
   address     String
   phone       String
-  city        String           @default("tashkent")
+  city        String @default("tashkent")
 
   /// Дата следующей автоматической доставки
-  nextDelivery DateTime        @map("next_delivery") @db.Date
+  nextDelivery DateTime @map("next_delivery") @db.Date
 
   /// Сумма по подписке (пересчитывается при изменении состава)
-  total        Int             @default(0)
+  total Int @default(0)
 
-  note      String?            @db.Text
+  note String? @db.Text
 
-  createdAt DateTime           @default(now()) @map("created_at")
-  updatedAt DateTime           @updatedAt @map("updated_at")
-  pausedAt  DateTime?          @map("paused_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  pausedAt  DateTime? @map("paused_at")
 
   items GreenBoxItem[]
 
@@ -1364,3 +1391,63 @@ model GreenBoxItem {
   @@map("green_box_items")
 }
 
+// --- PHASE 4: PRODUCTION & LOGISTICS ---
+
+model DeliveryRoute {
+  id        String         @id @default(cuid())
+  driverId  String?        @map("driver_id")
+  driver    Employee?      @relation(fields: [driverId], references: [id])
+  date      DateTime       @db.Date
+  status    String         @default("pending") @db.VarChar(20)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  stops     DeliveryStop[]
+
+  @@map("delivery_routes")
+}
+
+model DeliveryStop {
+  id         String        @id @default(cuid())
+  routeId    String        @map("route_id")
+  route      DeliveryRoute @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  orderId    String?       @map("order_id")
+  order      Order?        @relation(fields: [orderId], references: [id])
+  address    String        @db.Text
+  phone      String?       @db.VarChar(20)
+  status     String        @default("pending") @db.VarChar(20)
+  orderIndex Int           @default(0) @map("order_index")
+  note       String?       @db.Text
+
+  @@index([routeId])
+  @@map("delivery_stops")
+}
+
+model QualityControl {
+  id          String    @id @default(cuid())
+  batchId     String    @map("batch_id")
+  batch       GrowBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  inspectorId String?   @map("inspector_id")
+  inspector   Employee? @relation(fields: [inspectorId], references: [id])
+  status      String    @default("passed") @db.VarChar(20) // passed, defect, discarded
+  defectType  String?   @map("defect_type") @db.VarChar(50)
+  notes       String?   @db.Text
+  photoUrl    String?   @map("photo_url") @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([batchId])
+  @@map("quality_controls")
+}
+
+model Experiment {
+  id         String     @id @default(cuid())
+  batchId    String?    @map("batch_id")
+  batch      GrowBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  title      String     @db.VarChar(200)
+  hypothesis String?    @db.Text
+  result     String?    @db.Text
+  status     String     @default("ongoing") @db.VarChar(20) // ongoing, success, failed
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  @@map("experiments")
+}

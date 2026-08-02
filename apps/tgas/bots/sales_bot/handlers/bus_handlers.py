@@ -11,6 +11,46 @@ logger = logging.getLogger(__name__)
 
 PAYMENT_METHODS_HINT = "💳 Оплата: наличные, карта или банковский перевод"
 
+async def handle_send_payment_invoice(payload: dict) -> None:
+    data = payload.get("data", {})
+    chat_id = data.get("chat_id")
+    order_id = data.get("order_id")
+    order_number = data.get("order_number", str(order_id))
+    amount = data.get("amount")
+
+    if not chat_id or not order_id or not amount:
+        logger.error(f"handle_send_payment_invoice: Missing fields: {data}")
+        return
+
+    try:
+        bot = Bot(
+            token=settings.sales_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+        from aiogram.types import LabeledPrice
+        prices = [LabeledPrice(label=f"Заказ {order_number}", amount=int(amount * 100))]
+        provider_token = getattr(settings, "payment_provider_token", "TEST_TOKEN")
+
+        await bot.send_invoice(
+            chat_id=chat_id,
+            title=f"Оплата подписки",
+            description="Оплата заказа по подписке «Зеленая Коробка» 🌱",
+            payload=f"mg_order_{order_id}",
+            provider_token=provider_token,
+            currency="UZS",
+            prices=prices,
+            start_parameter="mg-subscription-payment",
+            need_name=False,
+            need_phone_number=False,
+            need_email=False,
+            need_shipping_address=False,
+        )
+        logger.info(f"Sent payment invoice to {chat_id} for order {order_id}")
+    except Exception as e:
+        logger.error(f"Failed to send payment invoice to {chat_id}: {e}")
+    finally:
+        await bot.session.close()
+
 async def handle_payment_received(payload: dict) -> None:
     data = payload.get("data", {})
     order_number = data.get("order_number")

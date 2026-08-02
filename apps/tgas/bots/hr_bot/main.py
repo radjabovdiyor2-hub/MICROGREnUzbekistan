@@ -15,7 +15,8 @@ from bots.hr_bot.handlers.start import ai_hr
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 from bots.hr_bot.handlers.scheduled import register_hr_scheduled_tasks
-from bots.hr_bot.handlers.bus_handlers import bus_get_employees, handle_task_created
+from bots.hr_bot.handlers.bus_handlers import bus_get_employees, handle_task_created, bus_employee_kpi
+from bots.hr_bot.handlers.onboarding import handle_employee_created
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ async def main() -> None:
     # HR подключается к шине
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
+    event_bus.on("EMPLOYEE_CREATED", handle_employee_created)
     event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8084)  # mg_hr — порт из карты доставки event_bus
 
@@ -70,12 +72,15 @@ async def main() -> None:
 
     # ── Bot Bus: слушаем задачи от Степана ──
     from shared.bot_bus import start_listener as bus_listen
+    from bots.hr_bot.handlers.bus_handlers import bus_send_route
 
     asyncio.create_task(
         bus_listen(
             "hr_bot",
             {
                 "get_employees": bus_get_employees,
+                "employee_kpi": bus_employee_kpi,
+                "send_route": bus_send_route,
             },
         )
     )

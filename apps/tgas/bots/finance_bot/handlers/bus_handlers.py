@@ -46,6 +46,20 @@ async def bus_add_expense(params: dict) -> dict:
         description = params.get("description", "")
         if not amount:
             return {"status": "error", "message": "Не указана сумма (amount)"}
+            
+        if category == "other" and description:
+            try:
+                from shared.ai_engine import AIEngine
+                ai = AIEngine()
+                sys_prompt = "Ты — классификатор расходов. Доступные категории: salary, raw_materials, logistics, marketing, rent, equipment, other. Верни ТОЛЬКО ОДНО слово из списка категорий, которое лучше всего подходит под описание расхода."
+                predicted = await ai.chat_completion(sys_prompt, f"Описание расхода: {description}", max_tokens=10)
+                predicted = predicted.strip().lower()
+                valid_cats = ["salary", "raw_materials", "logistics", "marketing", "rent", "equipment", "other"]
+                if predicted in valid_cats:
+                    category = predicted
+            except Exception as ai_e:
+                logger.warning(f"Failed to auto-classify expense: {ai_e}")
+
         async with get_session_ctx() as session:
             await session.execute(
                 text(
@@ -55,8 +69,122 @@ async def bus_add_expense(params: dict) -> dict:
                 {"cat": category, "amt": float(amount), "desc": description},
             )
             await session.commit()
-        return {"status": "ok", "message": f"Расход {amount} сум ({category}) записан"}
+        return {"status": "ok", "message": f"Расход {amount} сум (Категория: {category}) записан"}
     except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+async def bus_cashflow_forecast(params: dict) -> dict:
+    """Cash-flow прогноз на 30 дней на основе последних 90 дней (orders + finances)."""
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        from shared.ai_engine import AIEngine
+        import json
+
+        async with get_session_ctx() as session:
+            # Income from orders
+            orders_res = await session.execute(
+                text(
+                    "SELECT DATE(created_at) as date, SUM(total) as income "
+                    "FROM orders WHERE created_at >= NOW() - INTERVAL '90 days' "
+                    "GROUP BY DATE(created_at) ORDER BY date"
+                )
+            )
+            orders_data = {str(row[0]): float(row[1]) for row in orders_res.fetchall()}
+
+            # Expenses from finances
+            finances_res = await session.execute(
+                text(
+                    "SELECT date, SUM(amount) as expense "
+                    "FROM finances WHERE type = 'expense' AND date >= CURRENT_DATE - INTERVAL '90 days' "
+                    "GROUP BY date ORDER BY date"
+                )
+            )
+            finances_data = {str(row[0]): float(row[1]) for row in finances_res.fetchall()}
+
+        # Prepare for AI
+        historical_data = {
+            "daily_income_last_90d": orders_data,
+            "daily_expense_last_90d": finances_data,
+        }
+
+        ai = AIEngine()
+        sys_prompt = "Ты — CFO (Финансовый Директор). Твоя задача — проанализировать 90-дневную историю cash flow (доходы и расходы) сити-фермы и выдать прогноз на следующие 30 дней. Учти тренды, выходные дни и сезонность, если она заметна. Напиши 4-5 предложений с главными инсайтами, плюс конкретные цифры ожидаемого дохода и расхода на месяц вперёд."
+        user_prompt = f"Данные за последние 90 дней в формате JSON (дата: сумма):\n{json.dumps(historical_data, ensure_ascii=False)}\nСделай прогноз Cash Flow на следующие 30 дней."
+        
+        forecast = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=400)
+        
+        return {
+            "status": "ok",
+            "message": forecast,
+            "data": historical_data
+        }
+    except Exception as e:
+        logger.error(f"bus_cashflow_forecast error: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+async def bus_calculate_payroll(params: dict) -> dict:
+    """Расчёт зарплаты всем сотрудникам (фикс + бонус за KPI) и запись в расходы."""
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        import datetime
+        import calendar
+
+        month = params.get("month")
+        if not month:
+            # default to previous month
+            today = datetime.date.today()
+            first = today.replace(day=1)
+            last_month = first - datetime.timedelta(days=1)
+            month = last_month.strftime("%Y-%m")
+
+        y, m = map(int, month.split("-"))
+        _, last_day = calendar.monthrange(y, m)
+        start_date = datetime.date(y, m, 1)
+        end_date = datetime.date(y, m, last_day)
+
+        total_payroll = 0
+        details = []
+
+        async with get_session_ctx() as session:
+            # get all active employees
+            res = await session.execute(text("SELECT id, name, base_salary, role FROM employees WHERE is_active=true"))
+            employees = res.fetchall()
+
+            for emp in employees:
+                eid = emp.id
+                name = emp.name
+                base = float(emp.base_salary or 0)
+                role = emp.role
+
+                # Calculate shifts
+                res = await session.execute(
+                    text("SELECT sum(EXTRACT(EPOCH FROM (end_time - start_time))/3600) FROM shifts WHERE employee_id = :eid AND type='work' AND date >= :s AND date <= :e"),
+                    {"eid": eid, "s": start_date, "e": end_date}
+                )
+                hours = float(res.scalar() or 0)
+
+                # Bonus calculation (example: 10,000 UZS per hour worked)
+                bonus = hours * 10000 
+                salary = base + bonus
+
+                if salary > 0:
+                    total_payroll += salary
+                    details.append(f"{name}: {salary:,.0f} UZS (База: {base:,.0f}, Бонус: {bonus:,.0f} за {hours:.1f} ч.)")
+                    
+                    # Record expense
+                    await session.execute(
+                        text("INSERT INTO finances (type, category, amount, description, date, created_at) VALUES ('expense', 'salary', :amt, :desc, CURRENT_DATE, NOW())"),
+                        {"amt": salary, "desc": f"Зарплата {month} - {name}"}
+                    )
+            
+            await session.commit()
+
+        message = f"Начислена зарплата за {month}: {total_payroll:,.0f} UZS\n\n" + "\n".join(details)
+        return {"status": "ok", "message": message, "data": {"total": total_payroll, "details": details}}
+    except Exception as e:
+        logger.error(f"Payroll error: {e}", exc_info=True)
         return {"status": "error", "message": str(e)}
 
 async def handle_task_created(payload: dict) -> None:

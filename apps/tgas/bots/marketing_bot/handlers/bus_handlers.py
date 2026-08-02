@@ -303,3 +303,27 @@ async def handle_magazine_published(payload: dict) -> None:
         )
     except Exception as e:
         logger.error(f"Error auto-posting magazine: {e}")
+
+async def handle_subscription_upsell(payload: dict) -> None:
+    """Отправляет промо-сообщение подписчику при формировании заказа."""
+    data = payload.get("data", {})
+    chat_id = data.get("chat_id")
+    order_id = data.get("order_id")
+
+    if not chat_id:
+        return
+
+    bot = await _get_bot()
+    try:
+        upsell_text = (
+            "🌱 <b>Ваша Зеленая Коробка почти готова!</b>\n\n"
+            "Кстати, хотите добавить свежую руколу к вашему заказу? "
+            "Только сегодня для подписчиков действует <b>скидка 15%</b>!\n\n"
+            "Просто ответьте «ДА», и мы добавим её к заказу."
+        )
+        await bot.send_message(chat_id, upsell_text, parse_mode="HTML")
+        logger.info(f"Sent subscription upsell to {chat_id} (order {order_id})")
+    except Exception as e:
+        logger.error(f"Error sending subscription upsell to {chat_id}: {e}")
+    finally:
+        await bot.session.close()

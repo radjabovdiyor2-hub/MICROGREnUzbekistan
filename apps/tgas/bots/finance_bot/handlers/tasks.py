@@ -293,10 +293,32 @@ async def ai_cost_report() -> None:
     except Exception as e:
         logger.exception("ai_cost_report error: %s", e)
 
+async def auto_calculate_payroll() -> None:
+    """Автоматический расчёт зарплаты 1-го числа каждого месяца."""
+    try:
+        from bots.finance_bot.handlers.bus_handlers import bus_calculate_payroll
+        bot = await _get_bot()
+        admin_id = settings.admin_telegram_ids[0]
+
+        res = await bus_calculate_payroll({"month": None})
+        if res.get("status") == "ok":
+            msg = f"💸 <b>Авто-расчёт зарплаты:</b>\n\n{res['message']}"
+        else:
+            msg = f"❌ Ошибка авто-расчёта зарплаты: {res.get('message')}"
+
+        try:
+            await bot.send_message(admin_id, msg, parse_mode="HTML")
+            logger.info("auto_calculate_payroll finished.")
+        finally:
+            await bot.session.close()
+    except Exception as e:
+        logger.exception("auto_calculate_payroll error: %s", e)
+
 def register_finance_tasks(scheduler: BotScheduler) -> None:
     scheduler.add_cron(name="daily_finance_report", func=daily_finance_report, hour=18, minute=0)
     scheduler.add_interval(name="overdue_payments", func=overdue_payments, seconds=8 * 3600)
     scheduler.add_interval(name="large_expense_check", func=large_expense_check, seconds=4 * 3600)
     scheduler.add_cron(name="monthly_pnl", func=monthly_pnl, hour=9, minute=0, day_of_month=1)
+    scheduler.add_cron(name="auto_calculate_payroll", func=auto_calculate_payroll, hour=8, minute=0, day_of_month=1)
     scheduler.add_cron(name="salary_reminder", func=salary_reminder, hour=9, minute=0, day_of_month=28)
     scheduler.add_cron(name="ai_cost_report", func=ai_cost_report, hour=23, minute=30)

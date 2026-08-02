@@ -56,6 +56,8 @@ export async function GET(request: NextRequest) {
 
   const profit = income - expense;
 
+  const breakdown = sp.get('breakdown');
+
   return NextResponse.json({
     status: 'ok',
     period: { days, from: from.toISOString().slice(0, 10) },
@@ -66,6 +68,7 @@ export async function GET(request: NextRequest) {
       margin: income > 0 ? Math.round((profit / income) * 1000) / 10 : 0,
     },
     byCategory: Object.values(byCategory).sort((a, b) => b.total - a.total),
+    byProduct: breakdown === 'product' ? await getProductBreakdown(from) : undefined,
     entries: rows.map(r => ({
       id: r.id,
       type: r.type,
@@ -75,6 +78,43 @@ export async function GET(request: NextRequest) {
       date: r.date.toISOString().slice(0, 10),
     })),
   });
+}
+
+async function getProductBreakdown(from: Date) {
+  const orderItems = await prisma.orderItem.findMany({
+    where: {
+      order: {
+        createdAt: { gte: from },
+        status: { not: 'CANCELLED' }
+      }
+    },
+    include: { product: true }
+  });
+
+  const byProduct: Record<string, { nameUz: string; nameRu: string; quantity: number; revenue: number; cogs: number; profit: number }> = {};
+
+  for (const item of orderItems) {
+    if (!item.product) continue;
+    const pid = item.productId;
+    if (!byProduct[pid]) {
+      byProduct[pid] = {
+        nameUz: item.product.nameUz,
+        nameRu: item.product.nameRu,
+        quantity: 0,
+        revenue: 0,
+        cogs: 0,
+        profit: 0
+      };
+    }
+    const rev = item.price * item.quantity;
+    const cogs = (item.product.costPrice || 0) * item.quantity;
+    byProduct[pid].quantity += item.quantity;
+    byProduct[pid].revenue += rev;
+    byProduct[pid].cogs += cogs;
+    byProduct[pid].profit += (rev - cogs);
+  }
+
+  return Object.values(byProduct).sort((a, b) => b.profit - a.profit);
 }
 
 export async function POST(request: NextRequest) {

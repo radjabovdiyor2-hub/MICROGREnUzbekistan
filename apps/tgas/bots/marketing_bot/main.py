@@ -25,6 +25,7 @@ from bots.marketing_bot.handlers.bus_handlers import (
     get_pick_restaurant,
     handle_task_created,
     handle_magazine_published,
+    handle_subscription_upsell,
 )
 from bots.marketing_bot.handlers.b2b import b2b_router
 from bots.marketing_bot.handlers.unsubscribe import unsubscribe_router
@@ -74,6 +75,7 @@ async def main() -> None:
 
     event_bus.on("TASK_CREATED", handle_task_created)
     event_bus.on("MAGAZINE_PUBLISHED", handle_magazine_published)
+    event_bus.on("SUBSCRIPTION_UPSELL", handle_subscription_upsell)
     event_bus.on("ROLL_CALL", handle_roll_call)
     await event_bus.start_listening(8086)
 

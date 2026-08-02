@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       order: {
+        id: order.id,
         orderNumber: order.orderNumber,
         total: order.total,
         status: order.status,

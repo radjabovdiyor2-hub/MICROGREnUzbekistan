@@ -1,92 +1,80 @@
+"""Franchise Bot — main.py"""
+
 import asyncio
 import logging
-from aiohttp import web
+from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
+from aiogram.fsm.storage.redis import RedisStorage
+from aiogram.enums import ParseMode
+from shared.config import settings
+from shared.database import init_db
 from shared.event_bus import event_bus
-from shared.scheduler import BotScheduler
+from shared.health import start_heartbeat
 
-from bots.franchise_bot.handlers.daily_journal import register_scheduler_tasks, generate_daily_franchise_journals
-
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] FRANCHISE_BOT: %(message)s"
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-scheduler = BotScheduler("franchise_bot")
-register_scheduler_tasks(scheduler)
-
-
-async def handle_n8n_webhook(request: web.Request) -> dict:
-    """Webhook для приема внешних команд или событий Event Bus"""
-    try:
-        payload = await request.json()
-        event = payload.get("event")
-
-        # Если нужно, Franchise Bot может реагировать на события в реальном времени
-        if event == "order_created":
-            payload.get("data", {})
-            # Здесь можно было бы сразу писать лог в журнал, но мы решили делать сборный digest.
-            pass
-
-        return web.json_response({"status": "success"})
-    except Exception as e:
-        logger.error(f"Webhook error: {e}")
-        return web.json_response({"error": str(e)}, status=500)
-
 
 async def handle_roll_call(payload: dict) -> None:
     from shared.roll_call import handle_roll_call as _shared_roll_call
-
     await _shared_roll_call("franchise_bot", payload)
 
+async def handle_task_created(payload: dict) -> None:
+    # Handle task creation if assigned to 'franchise'
+    task = payload.get("task", {})
+    if task.get("department") == "franchise":
+        logger.info(f"Franchise task created: {task}")
+        # Will handle logic here or in separate handler
 
-async def start_server() -> dict:
-    app = web.Application()
-    app.router.add_post("/n8n-webhook", handle_n8n_webhook)
-    app.router.add_get("/health", lambda r: web.Response(text="OK"))
+async def main() -> None:
+    if not getattr(settings, "franchise_bot_token", None):
+        # We will use a dummy token if not set or just skip if we want it to run without telegram for now
+        logger.warning("FRANCHISE_BOT_TOKEN is missing! Running without TG Polling.")
+        bot = None
+        dp = None
+    else:
+        bot = Bot(
+            token=settings.franchise_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+        dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
 
-    # Подключаем Event Bus: start_listening добавляет роут /event для
-    # приёма событий Redis Pub/Sub fallback и запускает aiohttp-сервер.
-    # Раньше бот поднимал web.TCPSite вручную, и /event обрабатывал
-    # handle_n8n_webhook — Redis Pub/Sub события до бота не доходили.
+    await init_db()
+
+    # Franchise connects to bus
     await event_bus.connect()
+    event_bus.on("TASK_CREATED", handle_task_created)
     event_bus.on("ROLL_CALL", handle_roll_call)
+    await event_bus.start_listening(8093)  # franchise port
 
-    # await обязателен: start() — корутина. Без него планировщик не
-    # запускался вообще (корутина создавалась и тут же выбрасывалась),
-    # и единственная задача бота — суточные сводки по городам в 23:55 —
-    # не отрабатывала ни разу.
-    await scheduler.start()
+    # Heartbeat
+    asyncio.create_task(start_heartbeat("franchise_bot"))
 
-    # Bot bus: ручная пересборка сводок из админки.
+    # Bot Bus
     from shared.bot_bus import start_listener as bus_listen
-
-    async def bus_generate_journals(params: dict) -> dict:
-        await generate_daily_franchise_journals()
-        return {"message": "Сводки по городам пересобраны"}
-
+    from bots.franchise_bot.handlers.bus_handlers import bus_analyze_franchise
+    
     asyncio.create_task(
         bus_listen(
             "franchise_bot",
             {
-                "generate_franchise_journals": bus_generate_journals,
+                "analyze_franchise": bus_analyze_franchise,
             },
         )
     )
 
-    from shared.health import start_heartbeat
-
-    asyncio.create_task(start_heartbeat("franchise_bot"))
-
-    logger.info("Franchise Bot (worker) starting on port 8093")
-    await event_bus.start_listening(8093, app)
-
-    # Бесконечный цикл
-    while True:
-        await asyncio.sleep(3600)
-
+    logger.info("Starting Franchise Bot...")
+    try:
+        if bot and dp:
+            await bot.delete_webhook(drop_pending_updates=True)
+            await dp.start_polling(bot)
+        else:
+            # Just keep alive if no telegram bot token
+            while True:
+                await asyncio.sleep(3600)
+    finally:
+        await event_bus.stop()
+        if bot:
+            await bot.session.close()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(start_server())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Franchise Bot stopped.")
+    asyncio.run(main())

@@ -34,6 +34,8 @@ ADMIN_BOT_ACTIONS: dict[str, str] = {
     "publish_post": "content_bot",
     "publish_story": "content_bot",
     "draft_magazine": "content_bot",
+    "analyze_experiment": "rnd_bot",
+    "analyze_franchise": "franchise_bot",
 }
 
 @router.post("/admin/sync-catalog")

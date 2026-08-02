@@ -6,7 +6,7 @@ import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { TelegramLoginButton } from '@/components/auth/TelegramLoginButton';
 import {
-  CheckCircle, Instagram, MessageCircle, Star, User,
+  Instagram, MessageCircle, Star, User,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -60,52 +60,62 @@ export default function ProfilePage() {
                 </div>
               )}
               <div style={{ flex: 1 }}>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)' }}>
-                  {user.first_name} {user.last_name || ''}
+                <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {user.first_name} {user.last_name}
+                  {dbUser?.role === 'ADMIN' && (
+                    <span style={{ fontSize: 10, background: 'var(--brand-primary)', color: 'white', padding: '2px 6px', borderRadius: 12, fontWeight: 800 }}>ADMIN</span>
+                  )}
                 </h2>
-                {user.username && <p style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>@{user.username}</p>}
-                {memberSince && <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', marginTop: 4 }}>{t("A'zo bo'lgan", 'Участник с')}: {memberSince}</p>}
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)', marginTop: 'var(--space-4)', textAlign: 'center' }}>
-              <div style={{ padding: 'var(--space-3)', background: 'var(--brand-primary-light)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-primary)' }}>{dbUser?.bonusPoints || 0}</div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Ball', 'Баллы')}</div>
-              </div>
-              <div style={{ padding: 'var(--space-3)', background: 'var(--brand-accent-light)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--brand-accent)' }}><Star fill="currentColor" strokeWidth={1} size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{dbUser?.role === 'ADMIN' ? 'Admin' : t('Mijoz', 'Клиент')}</div>
-              </div>
-              <div style={{ padding: 'var(--space-3)', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', color: 'var(--success)' }}><CheckCircle size={18} style={{ verticalAlign: 'text-bottom' }} /></div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('Faol', 'Активен')}</div>
-              </div>
-            </div>
-            <ReferralSection userId={dbUser?.id} referralCode={dbUser?.referralCode} bonusPoints={dbUser?.bonusPoints || 0} lang={lang} t={t} />
-          </>
-        ) : (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-              <div style={{
-                width: 72, height: 72, borderRadius: 'var(--radius-full)',
-                background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-accent))',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white',
-              }}><User size={32} /></div>
-              <div>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-xl)' }}>{t('Xush kelibsiz', 'Добро пожаловать')}</h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{t("Ro'yxatdan o'ting yoki Telegram orqali kiring", 'Зарегистрируйтесь или войдите через Telegram')}</p>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  {dbUser?.phone || '@' + user.username}
+                </div>
               </div>
             </div>
 
-            {/* Auth tabs */}
-            <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-3)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 3 }}>
+            <div style={{ display: 'flex', gap: 'var(--space-4)', marginTop: 'var(--space-5)', paddingTop: 'var(--space-5)', borderTop: '1px solid rgba(var(--brand-primary-rgb), 0.15)' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 2 }}>{t("Bonuslar", "Бонусы")}</div>
+                <div style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-extrabold)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Star size={16} fill="currentColor" /> {dbUser?.bonusPoints || 0}
+                </div>
+              </div>
+              <div style={{ flex: 1, borderLeft: '1px solid rgba(var(--brand-primary-rgb), 0.15)', paddingLeft: 'var(--space-4)' }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 2 }}>{t("Ro'yxatdan o'tgan", "В системе с")}</div>
+                <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {memberSince || '...'}
+                </div>
+              </div>
+            </div>
+
+            {/* Referral Section inline inside Profile card */}
+            <div style={{ marginTop: 'var(--space-6)' }}>
+              <ReferralSection userId={dbUser?.id} referralCode={dbUser?.referralCode} bonusPoints={dbUser?.bonusPoints || 0} lang={lang} t={t} />
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ textAlign: 'center', marginBottom: 'var(--space-5)' }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: 'var(--radius-full)', background: 'var(--bg-tertiary)',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', marginBottom: 'var(--space-3)'
+              }}>
+                <User size={32} />
+              </div>
+              <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', marginBottom: 4 }}>
+                {t('Xush kelibsiz', 'Добро пожаловать')}
+              </h2>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                {t('Kirish yoki ro\'yxatdan o\'tish', 'Войдите или зарегистрируйтесь')}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-tertiary)', padding: '4px', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
               <button onClick={() => setAuthTab('simple')} style={{
                 flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
                 background: authTab === 'simple' ? 'var(--bg-card)' : 'transparent',
                 color: authTab === 'simple' ? 'var(--text-primary)' : 'var(--text-muted)',
                 boxShadow: authTab === 'simple' ? '0 1px 3px rgba(var(--overlay-dark-rgb), 0.1)' : 'none', transition: 'all 0.2s',
-              }}>{t('Telefon orqali', 'По телефону')}</button>
+              }}>{t("Tezkor", "Быстро")}</button>
               <button onClick={() => setAuthTab('telegram')} style={{
                 flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
                 background: authTab === 'telegram' ? 'var(--bg-card)' : 'transparent',
@@ -127,6 +137,8 @@ export default function ProfilePage() {
           </>
         )}
       </motion.div>
+
+      {/* Subscriptions */}
 
       {/* Orders */}
       {isLoggedIn && <UserOrders />}

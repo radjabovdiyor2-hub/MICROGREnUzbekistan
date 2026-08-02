@@ -20,9 +20,12 @@ from bots.finance_bot.handlers.tasks import register_finance_tasks
 from bots.finance_bot.handlers.bus_handlers import (
     bus_get_balance,
     bus_add_expense,
+    bus_cashflow_forecast,
     handle_task_created,
     handle_payment_received,
+    bus_calculate_payroll,
 )
+from bots.finance_bot.handlers.invoice import bus_generate_invoice
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,6 +88,9 @@ async def main() -> None:
             {
                 "get_balance": bus_get_balance,
                 "add_expense": bus_add_expense,
+                "cashflow_forecast": bus_cashflow_forecast,
+                "generate_invoice": bus_generate_invoice,
+                "calculate_payroll": bus_calculate_payroll,
             },
         )
     )

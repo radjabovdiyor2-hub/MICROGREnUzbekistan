@@ -74,6 +74,30 @@ async def analyze_tray_photo(image_url: str, batch_id: str | None = None) -> dic
     except Exception as fe:
         logger.warning(f"QA -> R&D feedback loop error: {fe}")
 
+    # Сохраняем в БД, если есть batch_id
+    if batch_id:
+        try:
+            import uuid
+            from shared.database import get_session_ctx
+            from sqlalchemy import text
+            async with get_session_ctx() as session:
+                await session.execute(
+                    text(
+                        "INSERT INTO quality_controls (id, batch_id, status, notes, photo_url, created_at) "
+                        "VALUES (:id, :batch_id, :status, :notes, :photo_url, NOW())"
+                    ),
+                    {
+                        "id": str(uuid.uuid4()),
+                        "batch_id": batch_id,
+                        "status": "defect" if is_defect else "passed",
+                        "notes": analysis,
+                        "photo_url": image_url
+                    }
+                )
+                await session.commit()
+        except Exception as dbe:
+            logger.error(f"Error saving QualityControl: {dbe}")
+
     try:
         await event_bus.publish(
             "TASK_COMPLETED",

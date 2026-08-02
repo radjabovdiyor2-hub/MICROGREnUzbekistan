@@ -27,6 +27,7 @@ export default function CartPage() {
   const { dbUser } = useAuth();
   const [useBonus, setUseBonus] = useState(false);
   const [isSubscription, setIsSubscription] = useState(false);
+  const [subscriptionConfig, setSubscriptionConfig] = useState<{ interval: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY'; deliveryDay: number }>({ interval: 'WEEKLY', deliveryDay: 1 });
 
   // Recommendations strip. The fetch runs once; excluding what's already in the cart is
   // derived from state instead of done inside the effect, so the effect has no cart
@@ -126,6 +127,8 @@ export default function CartPage() {
           bonusToUse: bonusApplied,
           promoCode: promo?.code,
           isSubscription,
+          subscriptionInterval: isSubscription ? subscriptionConfig.interval : undefined,
+          subscriptionDeliveryDay: isSubscription ? subscriptionConfig.deliveryDay : undefined,
         }),
       });
 
@@ -160,6 +163,8 @@ export default function CartPage() {
         setStep={setStep}
         isSubscription={isSubscription}
         setIsSubscription={setIsSubscription}
+        subscriptionConfig={subscriptionConfig}
+        setSubscriptionConfig={setSubscriptionConfig}
       />
     );
   }

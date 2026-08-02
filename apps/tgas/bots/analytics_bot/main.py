@@ -21,6 +21,8 @@ from bots.analytics_bot.handlers.bus_handlers import (
     bus_daily_kpi_snapshot,
     bus_get_report,
     bus_get_instagram_stats,
+    bus_cohort_analysis,
+    bus_rfm_segmentation,
     handle_task_created,
     get_top_products as _get_top_products,
 )
@@ -100,6 +102,8 @@ async def main() -> None:
             {
                 "get_report": bus_get_report,
                 "get_instagram_stats": bus_get_instagram_stats,
+                "cohort_analysis": bus_cohort_analysis,
+                "rfm_segmentation": bus_rfm_segmentation,
                 BotBusActions.GET_TOP_PRODUCTS: _get_top_products,
                 # Кнопка «Снимок KPI» в веб-админке: тот же расчёт, что и в 20:00,
                 # но по требованию владельца.

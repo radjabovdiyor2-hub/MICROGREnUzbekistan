@@ -42,6 +42,56 @@ async def bus_get_employees(params: dict) -> dict:
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+async def bus_employee_kpi(params: dict) -> dict:
+    """Расчёт KPI сотрудника."""
+    employee_id = params.get("employee_id")
+    month = params.get("month") # YYYY-MM
+    if not employee_id or not month:
+        return {"status": "error", "message": "Missing employee_id or month"}
+
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        import datetime
+        import calendar
+        
+        y, m = map(int, month.split("-"))
+        _, last_day = calendar.monthrange(y, m)
+        start_date = datetime.date(y, m, 1)
+        end_date = datetime.date(y, m, last_day)
+
+        async with get_session_ctx() as session:
+            # Check employee
+            res = await session.execute(text("SELECT id FROM employees WHERE id = :eid"), {"eid": employee_id})
+            if not res.scalar():
+                return {"status": "error", "message": "Employee not found"}
+
+            # Calculate shifts
+            res = await session.execute(
+                text("SELECT count(id), sum(EXTRACT(EPOCH FROM (end_time - start_time))/3600) FROM shifts WHERE employee_id = :eid AND type='work' AND date >= :s AND date <= :e"),
+                {"eid": employee_id, "s": start_date, "e": end_date}
+            )
+            shift_count, hours = res.fetchone()
+            
+            # Orders count (dummy mapping to crm_orders or stock_movements)
+            res = await session.execute(
+                text("SELECT count(*) FROM stock_movements WHERE performed_by = (SELECT name FROM employees WHERE id = :eid) AND type='OUT' AND created_at >= :s AND created_at < :e_next"),
+                {"eid": employee_id, "s": start_date, "e_next": end_date + datetime.timedelta(days=1)}
+            )
+            orders_count = res.scalar() or 0
+
+            return {
+                "status": "ok",
+                "message": "KPI Calculated",
+                "data": {
+                    "shifts": int(shift_count or 0),
+                    "hours": float(hours or 0),
+                    "orders_processed": int(orders_count)
+                }
+            }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 async def handle_task_created(payload: dict) -> None:
     logger.info(f"HR BOT RECEIVED TASK: {payload}")
     data = payload.get("data", {})
@@ -80,3 +130,48 @@ async def handle_task_created(payload: dict) -> None:
         logger.error(f"Error handling HR task: {repr(e)}", exc_info=True)
     finally:
         await bot.session.close()
+
+async def bus_send_route(params: dict) -> dict:
+    """Отправка маршрутного листа курьеру (доставка)."""
+    driver_id = params.get("driver_id")
+    route_text = params.get("route_text", "")
+    
+    if not driver_id or not route_text:
+        return {"status": "error", "message": "Missing driver_id or route_text"}
+        
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        
+        async with get_session_ctx() as session:
+            res = await session.execute(
+                text("SELECT telegram_id, name FROM employees WHERE id = :eid"), 
+                {"eid": driver_id}
+            )
+            row = res.fetchone()
+            
+        if not row or not row[0]:
+            return {"status": "error", "message": "Driver telegram_id not found"}
+            
+        telegram_id = row[0]
+        name = row[1]
+        
+        bot = Bot(
+            token=settings.hr_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+        
+        try:
+            await bot.send_message(
+                telegram_id,
+                f"🚚 <b>Маршрутный лист для {name}</b>\n\n{route_text}\n\n"
+                f"<i>Пожалуйста, будьте внимательны на дорогах.</i>",
+                parse_mode="HTML"
+            )
+            return {"status": "ok", "message": "Route sent successfully"}
+        finally:
+            await bot.session.close()
+            
+    except Exception as e:
+        logger.error(f"bus_send_route error: {e}")
+        return {"status": "error", "message": str(e)}

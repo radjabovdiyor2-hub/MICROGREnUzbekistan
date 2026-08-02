@@ -146,12 +146,49 @@ async def main() -> dict:
         report = await generate_instagram_rnd_report()
         return {"status": "ok", "message": report}
 
+    async def bus_analyze_experiment(params: dict) -> dict:
+        """R&D-анализ проведенного эксперимента (из админки)."""
+        experiment_id = params.get("experiment_id")
+        title = params.get("title", "")
+        hypothesis = params.get("hypothesis", "")
+        result_text = params.get("result", "")
+        
+        prompt = (
+            f"Оцени результаты R&D эксперимента:\n"
+            f"Тема: {title}\n"
+            f"Гипотеза: {hypothesis}\n"
+            f"Результат: {result_text}\n\n"
+            "Сделай вывод: успешна ли гипотеза, стоит ли внедрять в основное производство?"
+        )
+        try:
+            analysis = await ai.chat_completion(
+                system_prompt=RND_SYSTEM_PROMPT,
+                user_message=prompt,
+                effort="high",
+            )
+            # update experiment in db
+            if experiment_id:
+                from shared.database import get_session_ctx
+                from sqlalchemy import text
+                async with get_session_ctx() as session:
+                    await session.execute(
+                        text("UPDATE experiments SET result = :res, status = 'success' WHERE id = :eid"),
+                        {"res": f"{result_text}\n\n[AI Анализ]: {analysis}", "eid": experiment_id}
+                    )
+                    await session.commit()
+            
+            return {"status": "ok", "message": analysis}
+        except Exception as e:
+            logger.error(f"bus_analyze_experiment error: {e}")
+            return {"status": "error", "message": str(e)}
+
     asyncio.create_task(
         start_listener(
             "rnd_bot",
             {
                 BotBusActions.GENERATE_MAGAZINE_FACTS: bus_generate_magazine_facts,
                 "weekly_trend_report": bus_weekly_trend_report,
+                "analyze_experiment": bus_analyze_experiment,
             },
         )
     )

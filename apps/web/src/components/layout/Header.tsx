@@ -79,7 +79,7 @@ export function Header() {
         <div style={{ marginLeft: 16, position: 'relative' }}>
           <select 
             value={city} 
-            onChange={(e) => setCity(e.target.value as 'tashkent' | 'samarkand')}
+            onChange={(e) => setCity(e.target.value as 'tashkent' | 'samarkand' | 'bukhara' | 'fergana')}
             style={{
               appearance: 'none',
               background: 'var(--bg-card)',

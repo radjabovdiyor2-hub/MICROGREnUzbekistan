@@ -164,6 +164,48 @@ async def training_reminder() -> None:
     except Exception as e:
         logger.exception("training_reminder error: %s", e)
 
+async def check_birthdays() -> None:
+    """Ежедневно в 9:00: проверить birthDate у Employee → поздравление в общий чат."""
+    try:
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+        bot = Bot(
+            token=settings.hr_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+        group_chat_id = settings.main_group_id
+        
+        if not group_chat_id:
+            logger.warning("No main_group_id configured for birthday alerts.")
+            return
+
+        try:
+            async with get_session_ctx() as session:
+                res = await session.execute(
+                    text(
+                        "SELECT name, role FROM employees "
+                        "WHERE EXTRACT(MONTH FROM birth_date) = EXTRACT(MONTH FROM CURRENT_DATE) "
+                        "AND EXTRACT(DAY FROM birth_date) = EXTRACT(DAY FROM CURRENT_DATE)"
+                    )
+                )
+                birthdays = res.fetchall()
+
+            for bd in birthdays:
+                name, role = bd
+                await bot.send_message(
+                    group_chat_id,
+                    f"🎉 <b>С Днём Рождения!</b> 🎉\n\n"
+                    f"Сегодня день рождения отмечает наш {role} — <b>{name}</b>!\n"
+                    f"Желаем успехов, здоровья и больших побед! 🎂🥂",
+                    parse_mode="HTML"
+                )
+                logger.info(f"check_birthdays: Sent birthday greeting for {name}")
+
+        finally:
+            await bot.session.close()
+    except Exception as e:
+        logger.exception("check_birthdays error: %s", e)
+
 def register_hr_scheduled_tasks(scheduler: BotScheduler) -> None:
     scheduler.add_cron(
         name="payroll_reminder", func=payroll_reminder, hour=10, minute=0, day_of_month=25
@@ -174,4 +216,7 @@ def register_hr_scheduled_tasks(scheduler: BotScheduler) -> None:
     )
     scheduler.add_cron(
         name="training_reminder", func=training_reminder, hour=10, minute=0, day_of_week=0
+    )
+    scheduler.add_cron(
+        name="check_birthdays", func=check_birthdays, hour=9, minute=0
     )

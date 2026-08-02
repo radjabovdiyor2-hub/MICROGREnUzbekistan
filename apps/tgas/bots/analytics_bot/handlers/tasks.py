@@ -477,6 +477,62 @@ async def b2b_funnel_report() -> None:
         await bot.session.close()
 
 
+async def predictive_churn() -> None:
+    """Ежедневно в 12:00: поиск клиентов, которые не заказывали 14 дней (churn_risk)."""
+    try:
+        bot = await _get_bot()
+        admin_id = settings.admin_telegram_ids[0]
+        from shared.event_bus import event_bus
+        
+        async with get_session_ctx() as session:
+            # Найти пользователей, чей последний заказ был ровно 14 дней назад
+            res = await session.execute(
+                text(
+                    """
+                    WITH last_orders AS (
+                        SELECT user_id, MAX(created_at) as last_order_date 
+                        FROM orders 
+                        WHERE status NOT IN ('CANCELLED', 'REFUNDED')
+                        GROUP BY user_id
+                    )
+                    SELECT u.id, u.first_name, u.telegram_id, DATE(lo.last_order_date) 
+                    FROM last_orders lo
+                    JOIN users u ON lo.user_id = u.id
+                    WHERE DATE(lo.last_order_date) = CURRENT_DATE - INTERVAL '14 days'
+                    """
+                )
+            )
+            at_risk_users = res.fetchall()
+            
+        if not at_risk_users:
+            await bot.session.close()
+            return
+
+        report_lines = ["⚠️ <b>Риск оттока (Churn Risk)</b>\n━━━━━━━━━━━━━━━━━━━━━━\nКлиенты, чей последний заказ был 14 дней назад:\n"]
+        for uid, name, tid, last_date in at_risk_users:
+            report_lines.append(f"• {name or 'Клиент'} (ID: {uid})")
+            
+            # Также можно послать событие в маркетинговый бот для авто-скидки
+            if tid:
+                try:
+                    await event_bus.publish(
+                        "CHURN_RISK_DETECTED",
+                        {"user_id": uid, "chat_id": tid, "name": name},
+                        "marketing_bot"
+                    )
+                except Exception as bus_e:
+                    logger.warning(f"Failed to publish CHURN_RISK_DETECTED: {bus_e}")
+
+        report_lines.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+        report_lines.append("<i>Событие CHURN_RISK_DETECTED отправлено в отдел маркетинга.</i>")
+        
+        await bot.send_message(admin_id, "\n".join(report_lines), parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"predictive_churn error: {e}", exc_info=True)
+    finally:
+        await bot.session.close()
+
+
 def register_analytics_tasks(scheduler: BotScheduler) -> None:
     scheduler.add_cron(name="daily_kpi_snapshot", func=daily_kpi_snapshot, hour=20, minute=0)
     scheduler.add_cron(name="b2b_funnel_report", func=b2b_funnel_report, hour=16, minute=0)
@@ -484,3 +540,4 @@ def register_analytics_tasks(scheduler: BotScheduler) -> None:
     scheduler.add_interval(name="sales_anomaly", func=sales_anomaly, seconds=6 * 3600)
     scheduler.add_cron(name="monthly_executive", func=monthly_executive, hour=10, minute=0, day_of_month=1)
     scheduler.add_cron(name="conversion_funnel", func=conversion_funnel, hour=15, minute=0)
+    scheduler.add_cron(name="predictive_churn", func=predictive_churn, hour=12, minute=0)

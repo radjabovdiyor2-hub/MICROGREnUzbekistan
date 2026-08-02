@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Activity, BarChart, Brain, Camera, ClipboardList, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet,
+  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, User, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -19,6 +19,13 @@ export const TAB_GROUPS = [
     ]
   },
   {
+    title: { ru: 'Команда', uz: 'Jamoa' },
+    tabs: [
+      { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <Users size={16} /> },
+      { id: 'shifts', ru: 'График Смен', uz: 'Smena jadvali', icon: <Clock size={16} /> },
+    ]
+  },
+  {
     title: { ru: 'Управление', uz: 'Boshqaruv' },
     tabs: [
       { id: 'customers', ru: 'Клиенты', uz: 'Mijozlar', icon: <Users size={16} /> },
@@ -31,7 +38,6 @@ export const TAB_GROUPS = [
       { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Truck size={16} /> },
       { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <CreditCard size={16} /> },
       { id: 'finance', ru: 'Финансы', uz: 'Moliya', icon: <Wallet size={16} /> },
-      { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <User size={16} /> },
     ]
   },
   {
@@ -73,6 +79,15 @@ export const TAB_GROUPS = [
       { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <TrendingUp size={16} /> },
       { id: 'audit', ru: 'Журнал действий', uz: 'Amallar jurnali', icon: <History size={16} /> },
       { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Lock size={16} /> },
+    ]
+  },
+  {
+    title: { ru: 'Производство и Сеть', uz: 'Ishlab chiqarish va Tarmoq' },
+    tabs: [
+      { id: 'deliveries', ru: 'Логистика', uz: 'Logistika', icon: <Truck size={16} /> },
+      { id: 'qa', ru: 'Контроль Качества', uz: 'Sifat nazorati', icon: <Eye size={16} /> },
+      { id: 'experiments', ru: 'R&D Эксперименты', uz: 'R&D Tajribalar', icon: <Lightbulb size={16} /> },
+      { id: 'franchise', ru: 'Франшиза', uz: 'Franshiza', icon: <Network size={16} /> },
     ]
   }
 ];

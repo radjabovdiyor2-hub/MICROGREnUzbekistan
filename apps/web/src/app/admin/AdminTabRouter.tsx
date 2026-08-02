@@ -9,6 +9,7 @@ import { AdminDebts } from '@/components/admin/AdminDebts';
 import { AdminMovements } from '@/components/admin/AdminMovements';
 import { AdminSuppliers } from '@/components/admin/AdminSuppliers';
 import { AdminEmployees } from '@/components/admin/AdminEmployees';
+import { AdminShifts } from '@/components/admin/AdminShifts';
 import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
 import { AdminForecast } from '@/components/admin/AdminForecast';
 import { AdminSettings } from '@/components/admin/AdminSettings';
@@ -29,6 +30,10 @@ import { AdminAudit } from '@/components/admin/AdminAudit';
 import { AdminAiSpend } from '@/components/admin/AdminAiSpend';
 import { AdminTasks } from '@/components/admin/AdminTasks';
 import { AdminCategories } from '@/components/admin/AdminCategories';
+import { AdminDeliveries } from '@/components/admin/AdminDeliveries';
+import { AdminQA } from '@/components/admin/AdminQA';
+import { AdminExperiments } from '@/components/admin/AdminExperiments';
+import { AdminFranchise } from '@/components/admin/AdminFranchise';
 
 // Маршрутизация вкладок админки: какая вкладка — такой экран.
 // Вынесено из AdminShell: файл перерос 200 строк, и почти половину его
@@ -59,6 +64,7 @@ export function AdminTabRouter({ activeTab, isOwner, sellerName, lang, t }: {
     {activeTab === 'promo' && isOwner && <AdminPromo lang={lang} />}
     {activeTab === 'finance' && isOwner && <AdminFinance lang={lang} />}
     {activeTab === 'employees' && isOwner && <AdminEmployees />}
+    {activeTab === 'shifts' && isOwner && <AdminShifts />}
 
     {/* ИИ-офис */}
     {activeTab === 'bot_control' && isOwner && <AdminBotControl lang={lang} />}
@@ -90,6 +96,12 @@ export function AdminTabRouter({ activeTab, isOwner, sellerName, lang, t }: {
     {activeTab === 'forecast' && isOwner && <AdminForecast />}
     {activeTab === 'audit' && isOwner && <AdminAudit lang={lang} />}
     {activeTab === 'settings' && isOwner && <AdminSettings lang={lang} />}
+    
+    {/* Производство и Сеть */}
+    {activeTab === 'deliveries' && isOwner && <AdminDeliveries />}
+    {activeTab === 'qa' && isOwner && <AdminQA />}
+    {activeTab === 'experiments' && isOwner && <AdminExperiments />}
+    {activeTab === 'franchise' && isOwner && <AdminFranchise />}
   </main>
   );
 }

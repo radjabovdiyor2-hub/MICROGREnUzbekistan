@@ -646,8 +646,9 @@ async def process_green_box_subscriptions(bot: Bot) -> None:
             # Подписки с доставкой завтра
             result = await session.execute(
                 sa_text(
-                    "SELECT s.id, s.user_id, s.address, s.phone, s.city, s.interval, s.delivery_day "
+                    "SELECT s.id, s.user_id, s.address, s.phone, s.city, s.interval, s.delivery_day, u.telegram_id "
                     "FROM green_box_subscriptions s "
+                    "LEFT JOIN users u ON u.id = s.user_id "
                     "WHERE s.status = 'ACTIVE' AND s.next_delivery = :tomorrow"
                 ),
                 {"tomorrow": tomorrow},
@@ -659,7 +660,7 @@ async def process_green_box_subscriptions(bot: Bot) -> None:
                 return
 
             for sub in subs:
-                sub_id, user_id, address, phone, city, interval, delivery_day = sub
+                sub_id, user_id, address, phone, city, interval, delivery_day, telegram_id = sub
 
                 # Получаем состав подписки
                 items_result = await session.execute(
@@ -703,6 +704,28 @@ async def process_green_box_subscriptions(bot: Bot) -> None:
                             data = await resp.json()
                             if data.get("success"):
                                 created_count += 1
+                                order_id = data["order"]["id"]
+                                order_total = data["order"]["total"]
+                                order_number = data["order"]["orderNumber"]
+                                if telegram_id:
+                                    await event_bus.publish(
+                                        "SEND_PAYMENT_INVOICE",
+                                        {
+                                            "chat_id": telegram_id,
+                                            "order_id": order_id,
+                                            "order_number": order_number,
+                                            "amount": order_total
+                                        },
+                                        "sales_bot"
+                                    )
+                                    await event_bus.publish(
+                                        "SUBSCRIPTION_UPSELL",
+                                        {
+                                            "chat_id": telegram_id,
+                                            "order_id": order_id
+                                        },
+                                        "marketing_bot"
+                                    )
                             else:
                                 errors.append(f"sub={sub_id}: {data.get('error', 'unknown')}")
                 except Exception as req_err:

@@ -35,6 +35,8 @@ export interface RecoProduct {
   category?: { nameUz: string; slug: string };
 }
 
+import type { SubscriptionConfig } from '@/components/shop/SmartSubscriptionWidget';
+
 interface Props {
   cart: ReturnType<typeof useCart>;
   recos: RecoProduct[];
@@ -43,9 +45,11 @@ interface Props {
   setStep: (s: 'cart' | 'checkout' | 'success') => void;
   isSubscription: boolean;
   setIsSubscription: (v: boolean) => void;
+  subscriptionConfig: SubscriptionConfig;
+  setSubscriptionConfig: (cfg: SubscriptionConfig) => void;
 }
 
-export function CartView({ cart, recos, recosLoading, fmt, setStep, isSubscription, setIsSubscription }: Props) {
+export function CartView({ cart, recos, recosLoading, fmt, setStep, isSubscription, setIsSubscription, subscriptionConfig, setSubscriptionConfig }: Props) {
   const { t } = useLang();
 
   return (
@@ -86,7 +90,7 @@ export function CartView({ cart, recos, recosLoading, fmt, setStep, isSubscripti
 
           {/* Order Summary Section */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <SmartSubscriptionWidget active={isSubscription} onToggle={() => setIsSubscription(!isSubscription)} />
+            <SmartSubscriptionWidget active={isSubscription} onToggle={() => setIsSubscription(!isSubscription)} config={subscriptionConfig} onConfigChange={setSubscriptionConfig} />
             <div className="card" style={{ padding: 'var(--space-6)', position: 'sticky', top: 'calc(var(--header-height) + var(--space-4))' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-lg)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ClipboardList size={20} /> {t("Buyurtma", "Заказ")}

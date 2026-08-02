@@ -19,6 +19,7 @@ from shared.health import start_heartbeat
 from bots.sales_bot.handlers.bus_handlers import (
     handle_payment_received,
     handle_magazine_published,
+    handle_send_payment_invoice,
     bus_get_orders,
     bus_get_b2b_targets,
     bus_get_clients,
@@ -76,6 +77,7 @@ async def main() -> None:
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)
     event_bus.on("PAYMENT_RECEIVED", handle_payment_received)
+    event_bus.on("SEND_PAYMENT_INVOICE", handle_send_payment_invoice)
     event_bus.on("ROLL_CALL", handle_roll_call)
     event_bus.on("MAGAZINE_PUBLISHED", handle_magazine_published)
     await event_bus.start_listening(8082)

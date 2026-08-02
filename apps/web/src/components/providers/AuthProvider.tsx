@@ -28,7 +28,7 @@ type AppUser = TelegramUser | SimpleUser;
 
 interface AuthState {
   user: AppUser | null;
-  dbUser: { id: string; bonusPoints: number; role: string; createdAt: string; referralCode?: string } | null;
+  dbUser: { id: string; bonusPoints: number; role: string; createdAt: string; referralCode?: string; phone?: string } | null;
   isLoading: boolean;
   login: (tgUser: TelegramUser) => Promise<boolean>;
   simpleLogin: (name: string, phone: string) => Promise<boolean>;
