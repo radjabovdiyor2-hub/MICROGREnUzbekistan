@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { prisma } from '@repo/database';
 
+const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
+
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
@@ -13,38 +15,74 @@ export async function GET(request: NextRequest) {
   if (employeeId) where.employeeId = employeeId;
   
   if (month) {
+    if (!/^\d{4}-\d{2}$/.test(month)) {
+      return NextResponse.json({ error: 'Invalid month format, expected YYYY-MM' }, { status: 400 });
+    }
     const from = new Date(`${month}-01T00:00:00Z`);
+    if (!isValidDate(from)) {
+      return NextResponse.json({ error: 'Invalid date resulting from month' }, { status: 400 });
+    }
     const to = new Date(from);
     to.setMonth(to.getMonth() + 1);
     where.date = { gte: from, lt: to };
   }
 
-  const shifts = await prisma.shift.findMany({
-    where,
-    orderBy: { date: 'desc' },
-    include: { employee: { select: { name: true, department: true } } }
-  });
+  try {
+    const shifts = await prisma.shift.findMany({
+      where,
+      orderBy: { date: 'desc' },
+      include: { employee: { select: { name: true, department: true } } }
+    });
 
-  return NextResponse.json({ shifts });
+    return NextResponse.json({ shifts });
+  } catch (error) {
+    console.error('Error fetching shifts:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
     const { employeeId, date, startTime, endTime, type, note } = body;
 
     if (!employeeId || !date) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const shiftDate = new Date(date);
+    if (!isValidDate(shiftDate)) {
+      return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+    }
+
+    const parsedStartTime = startTime ? new Date(startTime) : null;
+    if (parsedStartTime !== null && !isValidDate(parsedStartTime)) {
+      return NextResponse.json({ error: 'Invalid startTime format' }, { status: 400 });
+    }
+
+    const parsedEndTime = endTime ? new Date(endTime) : null;
+    if (parsedEndTime !== null && !isValidDate(parsedEndTime)) {
+      return NextResponse.json({ error: 'Invalid endTime format' }, { status: 400 });
+    }
+
+    if (parsedStartTime && parsedEndTime && parsedStartTime >= parsedEndTime) {
+      return NextResponse.json({ error: 'startTime must be before endTime' }, { status: 400 });
+    }
+
     const shift = await prisma.shift.create({
       data: {
         employeeId,
-        date: new Date(date),
-        startTime: startTime ? new Date(startTime) : null,
-        endTime: endTime ? new Date(endTime) : null,
+        date: shiftDate,
+        startTime: parsedStartTime,
+        endTime: parsedEndTime,
         type: type || 'work',
         note,
       },
@@ -61,20 +99,54 @@ export async function PUT(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
   try {
-    const body = await request.json();
-    const { id, ...data } = body;
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const { id, employeeId, date, startTime, endTime, type, note } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
     }
 
-    if (data.date) data.date = new Date(data.date);
-    if (data.startTime) data.startTime = new Date(data.startTime);
-    if (data.endTime) data.endTime = new Date(data.endTime);
+    const updateData: Record<string, any> = {};
+
+    if (employeeId !== undefined) updateData.employeeId = employeeId;
+    if (type !== undefined) updateData.type = type;
+    if (note !== undefined) updateData.note = note;
+
+    if (date !== undefined) {
+      const shiftDate = new Date(date);
+      if (!isValidDate(shiftDate)) return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+      updateData.date = shiftDate;
+    }
+
+    if (startTime !== undefined) {
+      if (startTime === null) {
+        updateData.startTime = null;
+      } else {
+        const parsedStart = new Date(startTime);
+        if (!isValidDate(parsedStart)) return NextResponse.json({ error: 'Invalid startTime format' }, { status: 400 });
+        updateData.startTime = parsedStart;
+      }
+    }
+
+    if (endTime !== undefined) {
+      if (endTime === null) {
+        updateData.endTime = null;
+      } else {
+        const parsedEnd = new Date(endTime);
+        if (!isValidDate(parsedEnd)) return NextResponse.json({ error: 'Invalid endTime format' }, { status: 400 });
+        updateData.endTime = parsedEnd;
+      }
+    }
 
     const shift = await prisma.shift.update({
       where: { id },
-      data,
+      data: updateData,
     });
 
     return NextResponse.json({ success: true, shift });

@@ -34,22 +34,22 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
   });
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
       <AdminLearningsHeader
         lang={lang}
         loading={loading}
         fetchLearnings={fetchLearnings}
       />
       {/* Filter Toolbar */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-900/60 p-4 border border-slate-800 rounded-xl">
-        <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+      <div className="card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', padding: 'var(--space-4)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', flex: 1, minWidth: '300px' }}>
           <button
             onClick={() => setSelectedBot('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-              selectedBot === 'all'
-                ? 'bg-emerald-500 text-white shadow'
-                : 'bg-slate-800 text-slate-400 hover:text-white'
-            }`}
+            style={{
+              padding: '6px 12px', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-medium)', whiteSpace: 'nowrap', transition: 'all 0.2s', border: 'none', cursor: 'pointer',
+              background: selectedBot === 'all' ? 'var(--brand-primary)' : 'var(--bg-secondary)',
+              color: selectedBot === 'all' ? '#fff' : 'var(--text-primary)',
+            }}
           >
             {lang === 'ru' ? 'Все боты' : 'Barchasi'} ({learnings.length})
           </button>
@@ -59,11 +59,11 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
               <button
                 key={botKey}
                 onClick={() => setSelectedBot(botKey)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                  selectedBot === botKey
-                    ? 'bg-emerald-500 text-white shadow'
-                    : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
+                style={{
+                  padding: '6px 12px', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-medium)', whiteSpace: 'nowrap', transition: 'all 0.2s', border: 'none', cursor: 'pointer',
+                  background: selectedBot === botKey ? 'var(--brand-primary)' : 'var(--bg-secondary)',
+                  color: selectedBot === botKey ? '#fff' : 'var(--text-primary)',
+                }}
               >
                 {BOT_EMOJIS[botKey]} ({count})
               </button>
@@ -71,95 +71,98 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
           })}
         </div>
 
-        <div className="relative w-full md:w-64">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+        <div style={{ position: 'relative', width: '100%', maxWidth: '256px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={lang === 'ru' ? 'Поиск вычислений...' : 'Qidiruv...'}
-            className="w-full pl-9 pr-4 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+            style={{
+              width: '100%', padding: '6px 16px 6px 36px', background: 'var(--bg-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-sm)', color: 'var(--text-primary)', outline: 'none'
+            }}
           />
         </div>
       </div>
 
       {/* Main Grid */}
       {loading ? (
-        <div className="flex items-center justify-center p-12 text-slate-400 gap-3">
-          <RefreshCw size={20} className="animate-spin text-emerald-400" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', color: 'var(--text-muted)', gap: '12px' }}>
+          <RefreshCw size={20} className="animate-spin" style={{ color: 'var(--brand-primary)' }} />
           <span>{lang === 'ru' ? 'Загрузка активных петель обучения...' : 'Ma\'lumotlar yuklanmoqda...'}</span>
         </div>
       ) : error ? (
-        <div className="p-4 bg-rose-900/30 border border-rose-500/30 text-rose-300 rounded-xl flex items-center gap-3">
+        <div style={{ padding: '16px', background: 'var(--error-bg)', border: '1px solid var(--error)', color: 'var(--error)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: '12px' }}>
           <AlertCircle size={20} />
           <span>{error.message}</span>
         </div>
       ) : filteredLearnings.length === 0 ? (
-        <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
-          <Bot size={40} className="mx-auto text-slate-600 mb-3" />
-          <h3 className="text-lg font-semibold text-slate-300">
+        <div className="card" style={{ padding: '48px', textAlign: 'center', borderStyle: 'dashed' }}>
+          <Bot size={40} style={{ margin: '0 auto 12px auto', color: 'var(--text-muted)' }} />
+          <h3 style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)', marginBottom: '4px' }}>
             {lang === 'ru' ? 'Петли обучения пока не зафиксированы' : 'O\'rganish ma\'lumotlari topilmadi'}
           </h3>
-          <p className="text-slate-500 text-sm mt-1">
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
             {lang === 'ru'
               ? 'Боты автоматически записывают замеры и выводы во время выполнения регулярных задач.'
               : 'Botlar o\'z vazifalarini bajarish jarayonida xulosalarni avtomatik saqlaydi.'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-6)' }}>
           {filteredLearnings.map((item) => (
             <div
               key={item.id}
-              className="bg-slate-900/70 border border-slate-800 hover:border-slate-700 rounded-2xl p-5 shadow-lg transition-all flex flex-col justify-between"
+              className="card"
+              style={{ minWidth: 0, padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
             >
               <div>
-                <div className="flex items-center justify-between gap-2 border-b border-slate-800/80 pb-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base font-bold text-white">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>
                       {BOT_EMOJIS[item.bot] || item.bot}
                     </span>
                   </div>
-                  <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono rounded-lg">
+                  <span style={{ padding: '4px 10px', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', border: '1px solid rgba(var(--brand-primary-rgb), 0.2)', fontSize: '11px', fontFamily: 'monospace', borderRadius: 'var(--radius-md)' }}>
                     {item.metric}
                   </span>
                 </div>
 
-                <div className="space-y-4">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
-                    <div className="flex items-center gap-1.5 text-slate-400 text-xs font-semibold uppercase tracking-wider mb-1">
-                      <Activity size={14} className="text-blue-400" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--info)', fontSize: '11px', fontWeight: 'var(--font-semibold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                      <Activity size={14} />
                       <span>{lang === 'ru' ? 'Измерение (Observation)' : 'O\'lchov (Observation)'}</span>
                     </div>
-                    <p className="text-slate-200 text-sm bg-slate-950/60 p-3 rounded-xl border border-slate-800/50">
+                    <p style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)', background: 'var(--bg-secondary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', margin: 0 }}>
                       {item.observation}
                     </p>
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-1.5 text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--warning)', fontSize: '11px', fontWeight: 'var(--font-semibold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                       <Brain size={14} />
                       <span>{lang === 'ru' ? 'Вывод ИИ (LLM Inference)' : 'AI Xulosasi (Inference)'}</span>
                     </div>
-                    <p className="text-amber-200/90 text-sm bg-amber-950/20 p-3 rounded-xl border border-amber-500/20 leading-relaxed">
+                    <p style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)', background: 'var(--bg-secondary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', margin: 0, lineHeight: 1.5 }}>
                       {item.inference}
                     </p>
                   </div>
 
                   <div>
-                    <div className="flex items-center gap-1.5 text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-1">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontSize: '11px', fontWeight: 'var(--font-semibold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                       <CheckCircle2 size={14} />
                       <span>{lang === 'ru' ? 'Адаптированные параметры (Behavior Adjustments)' : 'Moslashtirilgan parametrlar'}</span>
                     </div>
-                    <pre className="text-emerald-300 text-xs font-mono bg-slate-950 p-3 rounded-xl border border-slate-800 overflow-x-auto">
+                    <pre style={{ color: 'var(--success)', fontSize: '11px', fontFamily: 'monospace', background: 'var(--bg-primary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflowX: 'auto', margin: 0 }}>
                       {JSON.stringify(item.adjustment, null, 2)}
                     </pre>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-800/60 text-right">
-                <span className="text-xs text-slate-500">
+              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)', textAlign: 'right' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                   {lang === 'ru' ? 'Применено: ' : 'Qo\'llandi: '}
                   {new Date(item.appliedAt).toLocaleString()}
                 </span>
