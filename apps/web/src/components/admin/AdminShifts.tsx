@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Calendar, Clock, User, FileText, Plus, Edit, Trash } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -56,7 +56,7 @@ export function AdminShifts() {
     try {
       const method = editId ? 'PUT' : 'POST';
       
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         employeeId: form.employeeId,
         date: form.date,
         type: form.type,
@@ -95,7 +95,7 @@ export function AdminShifts() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
+    if (!confirm("O&apos;chirishni tasdiqlaysizmi?")) return;
     await fetch(`/api/admin/shifts?id=${id}`, { method: 'DELETE' });
     fetch_();
   };
@@ -139,7 +139,7 @@ export function AdminShifts() {
         <button 
           onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm({ employeeId: '', date: new Date().toISOString().split('T')[0], startTime: '', endTime: '', type: 'work', note: '' }); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-          <Plus size={16} /> Smena qo'shish
+          <Plus size={16} /> Smena qo&apos;shish
         </button>
       </div>
 
@@ -203,7 +203,7 @@ export function AdminShifts() {
               >
                 <option value="work">Ish</option>
                 <option value="sick">Kasallik varaqasi (Bolnichniy)</option>
-                <option value="vacation">Ta'til (Otpusk)</option>
+                <option value="vacation">Ta&apos;til (Otpusk)</option>
               </select>
             </div>
             
@@ -244,7 +244,7 @@ export function AdminShifts() {
                     <User size={16} /> {shift.employee?.name || shift.employeeId}
                   </h3>
                   <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                    Bo'lim: {shift.employee?.department || "Noma'lum"}
+                    Bo&apos;lim: {shift.employee?.department || "Noma'lum"}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>

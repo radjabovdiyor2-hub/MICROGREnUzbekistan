@@ -1,7 +1,6 @@
 import { prisma } from '@repo/database';
 
 export async function SalesDirectiveBanner() {
-  try {
     const behavior = await prisma.botLearning.findFirst({
       where: {
         bot: 'sales_bot',
@@ -15,7 +14,7 @@ export async function SalesDirectiveBanner() {
 
     if (!behavior || !behavior.adjustment) return null;
 
-    const adj = behavior.adjustment as Record<string, any>;
+    const adj = behavior.adjustment as Record<string, unknown>;
     const directives = Object.values(adj).filter(v => typeof v === 'string').join(' ');
 
     if (!directives) return null;
@@ -34,8 +33,5 @@ export async function SalesDirectiveBanner() {
         ✨ Рекомендация отдела продаж: {directives}
       </div>
     );
-  } catch (error) {
-    console.error('Failed to render SalesDirectiveBanner:', error);
-    return null;
-  }
+
 }

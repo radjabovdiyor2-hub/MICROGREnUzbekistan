@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     }
 
     // Extract the textual directives from the JSON adjustment
-    const adj = behavior.adjustment as Record<string, any>;
+    const adj = behavior.adjustment as Record<string, unknown>;
     const directives = Object.values(adj).filter(v => typeof v === 'string').join(' ');
 
     return NextResponse.json({ directive: directives || null });
