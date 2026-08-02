@@ -2,7 +2,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
 
-def hr_menu_kb() -> dict:
+def hr_menu_kb():
     b = InlineKeyboardBuilder()
     b.row(
         InlineKeyboardButton(text="📋 Вакансии", callback_data="hr:vacancies"),
@@ -19,13 +19,13 @@ def hr_menu_kb() -> dict:
     return b.as_markup()
 
 
-def back_kb() -> dict:
+def back_kb():
     b = InlineKeyboardBuilder()
     b.button(text="⬅️ Назад", callback_data="hr:menu")
     return b.as_markup()
 
 
-def leave_type_kb() -> dict:
+def leave_type_kb():
     b = InlineKeyboardBuilder()
     b.button(text="🏖 Отпуск", callback_data="leave:annual")
     b.button(text="🤒 Больничный", callback_data="leave:sick")

@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
-def pm_menu_kb(lang: str="ru") -> dict:
+def pm_menu_kb(lang="ru"):
     b = InlineKeyboardBuilder()
     if lang == "uz":
         b.row(
@@ -53,13 +53,13 @@ def pm_menu_kb(lang: str="ru") -> dict:
     return b.as_markup()
 
 
-def back_kb(lang: str="ru") -> dict:
+def back_kb(lang="ru"):
     b = InlineKeyboardBuilder()
     b.button(text="⬅️ Назад" if lang == "ru" else "⬅️ Orqaga", callback_data="pm:menu")
     return b.as_markup()
 
 
-def priority_kb() -> dict:
+def priority_kb():
     b = InlineKeyboardBuilder()
     b.button(text="🔴 Срочно", callback_data="pm:pri:urgent")
     b.button(text="🟡 Высокий", callback_data="pm:pri:high")
@@ -69,7 +69,7 @@ def priority_kb() -> dict:
     return b.as_markup()
 
 
-def confirm_kb(lang: str="ru") -> dict:
+def confirm_kb(lang="ru"):
     b = InlineKeyboardBuilder()
     b.button(text="✅ Да" if lang == "ru" else "✅ Ha", callback_data="pm:yes")
     b.button(text="❌ Нет" if lang == "ru" else "❌ Yo'q", callback_data="pm:no")
@@ -77,7 +77,7 @@ def confirm_kb(lang: str="ru") -> dict:
     return b.as_markup()
 
 
-def lang_kb() -> dict:
+def lang_kb():
     b = InlineKeyboardBuilder()
     b.button(text="🇷🇺 Русский", callback_data="pm:setlang:ru")
     b.button(text="🇺🇿 O'zbekcha", callback_data="pm:setlang:uz")

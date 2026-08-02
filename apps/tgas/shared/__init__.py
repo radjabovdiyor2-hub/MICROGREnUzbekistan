@@ -8,6 +8,7 @@ Microgreen Uzbekistan — Общая библиотека (shared)
 - utils: вспомогательные функции
 """
 
+from typing import Any
 
 from shared.config import settings
 from shared.database import get_async_session, init_db, AsyncSessionLocal
@@ -20,7 +21,7 @@ from shared.utils import (
 )
 
 
-def __getattr__(name: str) -> dict:
+def __getattr__(name: str) -> Any:
     """Ленивая выдача AIEngine (PEP 562).
 
     Раньше AIEngine импортировался здесь же, наверху. После выделения движка

@@ -15,7 +15,7 @@ from bots.stepan_bot.main import daily_report
 import bots.stepan_bot.main
 
 
-async def run_report() -> None:
+async def run_report():
     bot = Bot(
         token=settings.stepan_bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),

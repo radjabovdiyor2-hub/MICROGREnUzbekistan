@@ -18,7 +18,7 @@ STOREFRONT_API_URL + x-bot-secret.
 import logging
 import os
 import time
-from typing import dict, Optional
+from typing import Any, Optional
 
 import aiohttp
 
@@ -31,7 +31,7 @@ TIMEOUT_SECONDS = 10
 CACHE_TTL_SECONDS = 600  # 10 минут
 
 # Кеш определений: обновляется при успешном запросе.
-_cache: list[dict[str]] = []
+_cache: list[dict[str, Any]] = []
 _cache_ts: float = 0.0
 
 
@@ -42,7 +42,7 @@ def _headers() -> dict[str, str]:
     }
 
 
-async def load_registry(runtime: str = "tg") -> list[dict[str]]:
+async def load_registry(runtime: str = "tg") -> list[dict[str, Any]]:
     """Получить определения инструментов, доступных в указанном рантайме.
 
     Возвращает список в формате OpenAI function-calling:
@@ -84,8 +84,8 @@ async def load_registry(runtime: str = "tg") -> list[dict[str]]:
 
 
 def _filter_for_runtime(
-    tools: list[dict[str]], runtime: str
-) -> list[dict[str]]:
+    tools: list[dict[str, Any]], runtime: str
+) -> list[dict[str, Any]]:
     """Отфильтровать инструменты по рантайму и вернуть в формате OpenAI.
 
     Изменяющие инструменты модели отдаются, но сами по себе не выполняются:
@@ -115,8 +115,8 @@ def _filter_for_runtime(
 
 
 async def execute_remote(
-    tool_name: str, params: Optional[dict[str]] = None
-) -> dict[str]:
+    tool_name: str, params: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
     """Исполнить инструмент удалённо через витрину.
 
     Для инструментов, реализованных на стороне витрины (Prisma-запросы).
@@ -170,7 +170,7 @@ _NATIVE_TOOLS = frozenset(
 )
 
 
-async def confirm_remote(token: str) -> dict[str]:
+async def confirm_remote(token: str) -> dict[str, Any]:
     """Подтвердить ранее предложенное действие.
 
     Отправляет подписанный токен в /admin/stepan/execute — тот же роут, что

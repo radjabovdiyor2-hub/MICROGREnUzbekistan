@@ -23,14 +23,14 @@ HEARTBEAT_TTL = 300  # 5 минут — если нет обновления, б
 # работать, но править его надо в реестре.
 
 
-async def _get_redis() -> dict:
+async def _get_redis():
     """Получить подключение к Redis."""
     import redis.asyncio as aioredis
 
     return aioredis.from_url(settings.redis_url, decode_responses=True)
 
 
-async def start_heartbeat(bot_name: str) -> None:
+async def start_heartbeat(bot_name: str):
     """Запустить фоновый heartbeat для бота. Вызывать как asyncio.create_task."""
     try:
         r = await _get_redis()
@@ -82,7 +82,7 @@ async def record_bot_error(bot_name: str, error: str) -> None:
         logger.debug("record_bot_error skip: %s", e)
 
 
-async def check_all_bots() -> dict[str]:
+async def check_all_bots() -> dict[str, dict]:
     """Статус всех ботов: {bot: {alive, last_seen_ago, errors, last_error}}."""
     result = {}
     try:
@@ -128,7 +128,7 @@ async def check_all_bots() -> dict[str]:
     return result
 
 
-def format_health_report(statuses: dict[str]) -> str:
+def format_health_report(statuses: dict[str, dict]) -> str:
     """Форматировать отчёт о здоровье ботов (+ счётчик ошибок и последняя ошибка)."""
     lines = ["🏥 <b>Статус ботов:</b>\n"]
     alive_count = 0

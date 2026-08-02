@@ -9,7 +9,7 @@ with open(
 
 
 # Replace session.execute("...") with session.execute(text("..."))
-def repl(m: re.Match) -> str:
+def repl(m):
     return m.group(1) + "text(" + m.group(2) + ")" + m.group(3)
 
 

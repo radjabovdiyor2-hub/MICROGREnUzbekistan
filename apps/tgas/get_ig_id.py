@@ -11,7 +11,7 @@ if not USER_TOKEN:
     )
 
 
-async def main() -> None:
+async def main():
     async with aiohttp.ClientSession() as s:
         async with s.get(
             f"https://graph.facebook.com/v18.0/{PAGE_ID}",

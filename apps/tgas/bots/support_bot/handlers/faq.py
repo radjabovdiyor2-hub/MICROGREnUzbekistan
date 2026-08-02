@@ -28,7 +28,7 @@ FAQ = [
 
 
 @router.callback_query(F.data == "sup:faq")
-async def faq(cb: CallbackQuery) -> None:
+async def faq(cb: CallbackQuery):
     lines = ["❓ <b>FAQ</b>\n━━━━━━━━━━━━━━━━━━"]
     for q, a in FAQ:
         lines.append(f"\n<b>Q: {q}</b>\nA: {a}")
@@ -37,7 +37,7 @@ async def faq(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "sup:order")
-async def order_status(cb: CallbackQuery) -> None:
+async def order_status(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -69,7 +69,7 @@ async def order_status(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "sup:recipes")
-async def recipes(cb: CallbackQuery) -> None:
+async def recipes(cb: CallbackQuery):
     await cb.message.edit_text(
         "🍽 <b>Рецепты с микрозеленью</b>\n━━━━━━━━━━━━━━━━━━\n\n"
         "🥗 <b>Салат с руколой</b>\nРукола, помидоры черри, моцарелла, оливковое масло.\n\n"
@@ -81,14 +81,14 @@ async def recipes(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "sup:complaint")
-async def complaint(cb: CallbackQuery, state: FSMContext) -> None:
+async def complaint(cb: CallbackQuery, state: FSMContext):
     await state.set_state(ComplaintStates.entering_text)
     await cb.message.edit_text("📝 Опишите вашу проблему:")
     await cb.answer()
 
 
 @router.message(ComplaintStates.entering_text)
-async def complaint_text(msg: Message, state: FSMContext) -> None:
+async def complaint_text(msg: Message, state: FSMContext):
     async with get_session_ctx() as session:
         await session.execute(
             text(
@@ -122,7 +122,7 @@ async def complaint_text(msg: Message, state: FSMContext) -> None:
 _embeddings_engine = None
 
 
-def _get_embeddings_engine() -> dict:
+def _get_embeddings_engine():
     global _embeddings_engine
     if _embeddings_engine is None and settings.openai_api_key:
         from shared.ai_engine import AIEngine
@@ -190,7 +190,7 @@ async def search_knowledge(query: str, limit: int = 2) -> str:
 
 
 @router.callback_query(F.data == "sup:ai")
-async def start_ai(cb: CallbackQuery) -> None:
+async def start_ai(cb: CallbackQuery):
     # Не обещаем поиск по базе знаний: она может быть не собрана, и тогда
     # обещание оказывается ложным — проверить это заранее нечем.
     await cb.message.edit_text(
@@ -200,7 +200,7 @@ async def start_ai(cb: CallbackQuery) -> None:
 
 
 @router.message(F.text, F.chat.type == "private")
-async def ai_chat(msg: Message) -> None:
+async def ai_chat(msg: Message):
     await simulate_typing(msg, delay=2)
     from shared.prompts import TEAM_CONTEXT
 

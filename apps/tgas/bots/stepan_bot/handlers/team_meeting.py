@@ -58,14 +58,14 @@ _STATE_TABLE_READY = False
 
 
 # ── Персист решений в БД (переживает рестарт/деплой Менеджера) ──────────────
-async def _ensure_state_table() -> None:
+async def _ensure_state_table():
     # Таблица meeting_state управляется Prisma (schema.prisma).
     # CREATE TABLE IF NOT EXISTS больше не нужен.
     global _STATE_TABLE_READY
     _STATE_TABLE_READY = True
 
 
-async def save_decision(chat_id: int, decision: dict) -> None:
+async def save_decision(chat_id: int, decision: dict):
     LAST_DECISION[chat_id] = decision
     await _ensure_state_table()
     try:
@@ -83,7 +83,7 @@ async def save_decision(chat_id: int, decision: dict) -> None:
         logger.warning(f"save_decision: {e}")
 
 
-async def load_decision(chat_id: int) -> dict:
+async def load_decision(chat_id: int):
     if chat_id in LAST_DECISION:
         return LAST_DECISION[chat_id]
     await _ensure_state_table()
@@ -95,7 +95,7 @@ async def load_decision(chat_id: int) -> dict:
             )
             row = res.fetchone()
         if row and row[0]:
-            payload = row[0] if isinstance(row[0]) else json.loads(row[0])
+            payload = row[0] if isinstance(row[0], dict) else json.loads(row[0])
             LAST_DECISION[chat_id] = payload
             return payload
     except Exception as e:
@@ -103,7 +103,7 @@ async def load_decision(chat_id: int) -> dict:
     return None
 
 
-async def clear_decision(chat_id: int) -> None:
+async def clear_decision(chat_id: int):
     LAST_DECISION.pop(chat_id, None)
     try:
         async with get_session_ctx() as s:
@@ -396,7 +396,7 @@ async def _collect_data() -> str:
     lines = []
     async with get_session_ctx() as session:
 
-        async def q(sql, params=None) -> dict:
+        async def q(sql, params=None):
             res = await session.execute(text(sql), params or {})
             return res
 
@@ -720,7 +720,7 @@ async def _agent_vote(dept_key: str, question: str, proposal: str) -> tuple:
 # ─────────────────────────────────────────────────────────────────────────────
 # Отправка с fallback (если HTML не парсится — шлём как обычный текст)
 # ─────────────────────────────────────────────────────────────────────────────
-async def _safe_send(bot: Bot, chat_id: int, msg: str) -> None:
+async def _safe_send(bot: Bot, chat_id: int, msg: str):
     try:
         await bot.send_message(chat_id, msg, parse_mode="HTML")
         return
@@ -737,7 +737,7 @@ async def _safe_send(bot: Bot, chat_id: int, msg: str) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 async def run_team_meeting(
     manager_bot: Bot, chat_id: int, question: str, participants: list = None
-) -> None:
+):
     """
     manager_bot — экземпляр бота Степана (Менеджера).
     chat_id — чат (группа), где идёт совещание.
@@ -789,7 +789,7 @@ async def run_team_meeting(
         # Публикация реплики отдела: пробуем от имени самого бота-отдела,
         # а если он не может писать в этот чат (не участник / приватка) —
         # Менеджер озвучивает реплику с подписью отдела.
-        async def speak(dept_key: str, stmt: str) -> None:
+        async def speak(dept_key: str, stmt: str):
             dept = DEPARTMENTS[dept_key]
             b = dept_bots.get(dept_key)
             if b is not None:
@@ -966,7 +966,7 @@ async def _finish_meeting(
     transcript: str,
     needs_owner: bool,
     final: str,
-) -> None:
+):
     if not needs_owner:
         await save_decision(
             chat_id, {"question": question, "plan": final, "executed": False}
@@ -1019,7 +1019,7 @@ async def _finish_meeting(
             PENDING.pop(old, None)
 
 
-def _pending_by_msg(msg_id: int) -> dict:
+def _pending_by_msg(msg_id: int):
     for tok, ctx in PENDING.items():
         if ctx.get("msg_id") == msg_id:
             return tok, ctx
@@ -1028,7 +1028,7 @@ def _pending_by_msg(msg_id: int) -> dict:
 
 # ── Кнопка «Доверяю, решайте сами» ──
 @meeting_router.callback_query(F.data.startswith("meet:decide:"))
-async def _on_decide_yourself(cb: CallbackQuery) -> None:
+async def _on_decide_yourself(cb: CallbackQuery):
     if not _is_admin(cb.from_user.id):
         await cb.answer("⛔ Только для руководителя")
         return
@@ -1068,7 +1068,7 @@ async def _pending_reply_filter(message: Message) -> bool:
 
 
 @meeting_router.message(F.reply_to_message, _pending_reply_filter)
-async def _on_owner_reply(message: Message) -> None:
+async def _on_owner_reply(message: Message):
     if not _is_admin(message.from_user.id):
         return
     tok, ctx = _pending_by_msg(message.reply_to_message.message_id)
@@ -1101,7 +1101,7 @@ async def _on_owner_reply(message: Message) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 # ИСПОЛНЕНИЕ ПЛАНА — «делайте» запускает принятое решение в работу
 # ─────────────────────────────────────────────────────────────────────────────
-def _parse_deadline(deadline_text: str) -> dict:
+def _parse_deadline(deadline_text: str):
     """Грубый разбор срока в дату: 'N недел' / 'N дн' / 'N месяц'. Иначе None."""
     if not deadline_text:
         return None
@@ -1167,7 +1167,7 @@ async def _parse_plan_tasks(plan: str) -> list:
             if cap not in CAPABILITIES:
                 # модель предложила несуществующее действие — не выдумываем исполнение
                 cap = "human_task"
-            params = it.get("params") if isinstance(it.get("params")) else {}
+            params = it.get("params") if isinstance(it.get("params"), dict) else {}
             result.append(
                 {
                     "dept": dept,
@@ -1206,7 +1206,7 @@ def _plan_preview(tasks: list) -> str:
 
 async def run_execution(
     manager_bot: Bot, chat_id: int, decision: dict, tasks: list = None
-) -> None:
+):
     """
     Запускает план в работу — ПО-НАСТОЯЩЕМУ.
 
@@ -1311,7 +1311,7 @@ async def run_execution(
     await _perform(manager_bot, chat_id, created)
 
 
-async def _perform(manager_bot: Bot, chat_id: int, tasks: list) -> None:
+async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
     """Выполняет возможности и отчитывается ФАКТАМИ, а не сочинением."""
     from shared.capabilities import run_capability
 
@@ -1403,7 +1403,7 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list) -> None:
 
 
 @meeting_router.callback_query(F.data.startswith("exec:"))
-async def _on_exec_confirm(cb: CallbackQuery) -> None:
+async def _on_exec_confirm(cb: CallbackQuery):
     """Подтверждение действий, которые уйдут наружу (клиентам / в аккаунт)."""
     if not _is_admin(cb.from_user.id):
         await cb.answer("⛔ Только для руководителя")
@@ -1564,7 +1564,7 @@ async def _exec_status(dept_key: str, task: dict) -> tuple:
     return txt, False
 
 
-async def run_plan_status(manager_bot: Bot, chat_id: int) -> None:
+async def run_plan_status(manager_bot: Bot, chat_id: int):
     decision = await load_decision(chat_id)
     if not decision or not decision.get("executed"):
         await _safe_send(
@@ -1654,12 +1654,12 @@ def _kpi_drop_ratio() -> float:
         return 0.2
 
 
-async def _collect_kpi_drops() -> dict:
+async def _collect_kpi_drops():
     """Сравнивает ключевые KPI неделя-к-неделе. Возвращает (drops: list[str], details: str)."""
     thr = _kpi_drop_ratio()
     drops, details = [], []
 
-    def check(name: str, cur: float, prev: float, unit: str = "") -> None:
+    def check(name, cur, prev, unit=""):
         details.append(f"• {name}: {cur}{unit} (неделю назад {prev}{unit})")
         if prev and prev > 0 and cur < prev * (1 - thr):
             pct = round((1 - cur / prev) * 100)
@@ -1715,7 +1715,7 @@ async def _collect_kpi_drops() -> dict:
         media = await get_recent_media_stats(limit=40)
         now = datetime.now(timezone.utc)
 
-        def avg_eng(lo: float, hi: float) -> dict:
+        def avg_eng(lo, hi):
             vals = []
             for m in media:
                 ts = (m.get("timestamp") or "").replace("Z", "+00:00")

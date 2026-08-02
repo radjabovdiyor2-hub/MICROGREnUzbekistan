@@ -134,7 +134,7 @@ class AIEngine(_BaseAIEngine):
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         default_system_prompt: Optional[str] = None,
-    ) -> None:
+    ):
         super().__init__(
             openai_key=api_key or settings.openai_api_key,
             gemini_key=settings.gemini_api_key,

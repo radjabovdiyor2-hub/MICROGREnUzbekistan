@@ -5,7 +5,7 @@ from shared.ai_engine import AIEngine
 logging.basicConfig(level=logging.INFO)
 
 
-async def mock_test() -> None:
+async def mock_test():
     ai = AIEngine()
     mock_data = {
         "orders_by_status": [

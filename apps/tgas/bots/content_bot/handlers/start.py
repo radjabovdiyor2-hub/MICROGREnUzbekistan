@@ -14,7 +14,7 @@ ai = AIEngine()
 
 
 @router.message(CommandStart())
-async def cmd_start(msg: Message, state: FSMContext) -> None:
+async def cmd_start(msg: Message, state: FSMContext):
     await state.clear()
     await msg.answer(
         "✍️ <b>Content Bot</b>\n\nAI-генерация постов, описаний и рецептов.",
@@ -23,14 +23,14 @@ async def cmd_start(msg: Message, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "cnt:menu")
-async def menu(cb: CallbackQuery, state: FSMContext) -> None:
+async def menu(cb: CallbackQuery, state: FSMContext):
     await state.clear()
     await cb.message.edit_text("✍️ Контент:", reply_markup=cnt_menu_kb())
     await cb.answer()
 
 
 @router.callback_query(F.data == "cnt:insta")
-async def insta(cb: CallbackQuery, state: FSMContext) -> None:
+async def insta(cb: CallbackQuery, state: FSMContext):
     await state.update_data(content_type="insta")
     await state.set_state(ContentStates.entering_topic)
     await cb.message.edit_text(
@@ -41,7 +41,7 @@ async def insta(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "cnt:tg")
-async def tg(cb: CallbackQuery, state: FSMContext) -> None:
+async def tg(cb: CallbackQuery, state: FSMContext):
     await state.update_data(content_type="tg")
     await state.set_state(ContentStates.entering_topic)
     await cb.message.edit_text(
@@ -51,7 +51,7 @@ async def tg(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "cnt:desc")
-async def desc(cb: CallbackQuery, state: FSMContext) -> None:
+async def desc(cb: CallbackQuery, state: FSMContext):
     await state.update_data(content_type="desc")
     await state.set_state(ContentStates.entering_topic)
     await cb.message.edit_text(
@@ -61,7 +61,7 @@ async def desc(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "cnt:recipe")
-async def recipe(cb: CallbackQuery, state: FSMContext) -> None:
+async def recipe(cb: CallbackQuery, state: FSMContext):
     await state.update_data(content_type="recipe")
     await state.set_state(ContentStates.entering_topic)
     await cb.message.edit_text(
@@ -72,7 +72,7 @@ async def recipe(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "cnt:plan")
-async def plan(cb: CallbackQuery, state: FSMContext) -> None:
+async def plan(cb: CallbackQuery, state: FSMContext):
     await state.update_data(content_type="plan")
     await state.set_state(ContentStates.entering_topic)
     await cb.message.edit_text(
@@ -82,7 +82,7 @@ async def plan(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "cnt:ai")
-async def start_ai(cb: CallbackQuery, state: FSMContext) -> None:
+async def start_ai(cb: CallbackQuery, state: FSMContext):
     await state.update_data(content_type="ai")
     await state.set_state(ContentStates.entering_topic)
     await cb.message.edit_text(
@@ -92,7 +92,7 @@ async def start_ai(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.message(ContentStates.entering_topic, F.text)
-async def generate_content(msg: Message, state: FSMContext) -> None:
+async def generate_content(msg: Message, state: FSMContext):
     data = await state.get_data()
     content_type = data.get("content_type")
     topic = msg.text

@@ -4,7 +4,7 @@ from shared.event_bus import event_bus
 
 logging.basicConfig(level=logging.INFO)
 
-async def run_test() -> None:
+async def run_test():
     await event_bus.connect()
     
     mock_data = {

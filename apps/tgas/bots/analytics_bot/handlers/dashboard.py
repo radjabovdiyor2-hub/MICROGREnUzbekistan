@@ -11,7 +11,7 @@ router = Router()
 
 
 @router.callback_query(F.data == "an:dashboard")
-async def dashboard(cb: CallbackQuery) -> None:
+async def dashboard(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -32,7 +32,7 @@ async def dashboard(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "an:top")
-async def top_products(cb: CallbackQuery) -> None:
+async def top_products(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -55,7 +55,7 @@ async def top_products(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "an:customers")
-async def customers(cb: CallbackQuery) -> None:
+async def customers(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -81,7 +81,7 @@ async def customers(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "an:abc")
-async def abc_analysis(cb: CallbackQuery) -> None:
+async def abc_analysis(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(

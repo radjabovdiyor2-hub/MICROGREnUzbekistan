@@ -2,7 +2,7 @@ import asyncio
 import aiohttp
 from shared.config import settings
 
-async def test() -> None:
+async def test():
     async with aiohttp.ClientSession() as session:
         # Step 1: Get Page Access Token
         url_page = f"https://graph.facebook.com/v18.0/{settings.facebook_page_id}?fields=access_token&access_token={settings.instagram_access_token}"

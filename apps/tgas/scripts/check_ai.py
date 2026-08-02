@@ -42,7 +42,7 @@ problems: list[str] = []
 notes: list[str] = []
 
 
-def check_token_costs() -> None:
+def check_token_costs():
     """Проверка присутствия текущей модели в TOKEN_COSTS."""
     active_model = settings.openai_model
     if active_model not in TOKEN_COSTS:
@@ -55,7 +55,7 @@ def check_token_costs() -> None:
         )
 
 
-def check_reasoning_safety_reserve() -> None:
+def check_reasoning_safety_reserve():
     """Проверка выделения безопасности токенов для рассуждающих моделей."""
     ai = AIEngine()
     requested_tokens = 350
@@ -75,7 +75,7 @@ def check_reasoning_safety_reserve() -> None:
         )
 
 
-async def check_empty_response_guard() -> None:
+async def check_empty_response_guard():
     """Проверка перехвата пустого ответа движком."""
     ai = AIEngine()
     fallback_text = ai._get_fallback("ru")
@@ -85,7 +85,7 @@ async def check_empty_response_guard() -> None:
         notes.append("  ✓ Fallback-заглушка определена корректно.")
 
 
-def check_callsite_reasoning_efforts() -> None:
+def check_callsite_reasoning_efforts():
     """Проверка распределения уровня рассуждения (effort) по вызовам chat_completion."""
     checked_files = 0
     calls_count = 0
@@ -100,7 +100,7 @@ def check_callsite_reasoning_efforts() -> None:
     )
 
 
-async def main() -> None:
+async def main():
     print("🔍 Проверка конфигурации и логики AI-движка (scripts/check_ai.py)...")
     check_token_costs()
     check_reasoning_safety_reserve()

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def handle_debate_turn(
     payload: dict, bot_token: str, bot_name: str, bot_role_prompt: str
-) -> None:
+):
     data = payload.get("data", {})
     assignee = data.get("assignee", "")
 

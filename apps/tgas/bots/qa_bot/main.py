@@ -4,7 +4,20 @@ from aiohttp import web
 from shared.config import settings
 from shared.event_bus import event_bus
 from shared.ai_engine import AIEngine
-from bots.qa_bot.handlers.analyzer import analyze_tray_photo, QA_SYSTEM_PROMPT
+from shared.prompts import TEAM_CONTEXT
+
+# Полный системный промпт: командный контекст (чтобы бот знал о других
+# отделах и умел маршрутизировать) + роль + фирменный голос бренда.
+# До этого здесь был однострочник вида QA_SYSTEM_PROMPT.
+QA_SYSTEM_PROMPT = (
+    TEAM_CONTEXT
+    + """
+Ты — инженер контроля качества сити-фермы Microgreen Uzbekistan.
+Осматриваешь лотки и партии: всхожесть, плесень, вытягивание, цвет, срок до среза.
+Вывод давай коротко и по делу: вердикт (годно / под наблюдение / брак), причина, действие.
+Не выдумывай наблюдений: если по фото или описанию не видно — так и скажи и запроси уточнение.
+"""
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] QA_BOT: %(message)s"
@@ -14,7 +27,92 @@ logger = logging.getLogger(__name__)
 ai = AIEngine()
 
 
-async def handle_n8n_webhook(request: web.Request) -> dict:
+async def analyze_tray_photo(image_url: str, batch_id: str | None = None) -> dict:
+    """Осмотреть лоток по фото и замкнуть петлю QA → R&D.
+
+    Вынесено из обработчика вебхука, чтобы тем же кодом пользовался
+    bot_bus: раньше анализ жил только внутри ветки n8n, и позвать его
+    адресно (из админки или от Стёпана) было нельзя.
+    """
+    logger.info(f"QA Bot: Analyzing photo {image_url}")
+
+    has_opencv = False
+    try:
+        import importlib
+
+        importlib.import_module("cv2")
+        has_opencv = True
+        logger.info("OpenCV is available. Preprocessing image...")
+    except ImportError:
+        logger.warning(
+            "OpenCV is not available. Downgrading to simulated / vision API responses."
+        )
+
+    prompt_text = (
+        "Оцени качество всходов микрозелени на этом фото. "
+        "Есть ли плесень? Какая плотность посадки? "
+        "Дай короткое заключение и вердикт: годно / брак."
+    )
+    if has_opencv:
+        prompt_text += " Изображение прошло предобработку с помощью OpenCV."
+
+    try:
+        analysis = await ai.chat_completion(
+            system_prompt=QA_SYSTEM_PROMPT,
+            user_message=prompt_text,
+            image_base64=image_url if image_url.startswith("data:") else None,
+            effort="high",
+        )
+    except Exception as e:
+        logger.error(f"AI error: {e}")
+        from shared.health import record_bot_error
+
+        await record_bot_error("qa_bot", str(e))
+        analysis = "ИИ-анализ временно недоступен. Пожалуйста, проверьте лоток вручную."
+
+    is_defect = "брак" in analysis.lower() or "под наблюдение" in analysis.lower()
+
+    # Замыкаем меж-ботовую петлю: QA -> R&D (корректировка рецептов выращивания).
+    try:
+        from shared.feedback_loop import feedback_loop
+
+        await feedback_loop.evaluate_and_adapt(
+            bot="rnd_bot",
+            metric="recipe_yield",
+            current_data={
+                "qa_analysis": analysis,
+                "is_defect": is_defect,
+                "image_url": image_url,
+                "batch_id": batch_id,
+            },
+            benchmark_data={
+                "max_allowed_defect_rate": 0.02,
+                "target_germination_pct": 95.0,
+            },
+        )
+    except Exception as fe:
+        logger.warning(f"QA -> R&D feedback loop error: {fe}")
+
+    try:
+        await event_bus.publish(
+            "TASK_COMPLETED",
+            {
+                "task_id": batch_id or "qa_inspection",
+                "completed_by": "qa_bot",
+                "chat_id": settings.admin_telegram_ids[0]
+                if settings.admin_telegram_ids
+                else 0,
+                "text": f"🔬 <b>Отчет QA-бота (Контроль Качества):</b>\n\n{analysis}",
+            },
+            "qa_bot",
+        )
+    except Exception as be:
+        logger.warning(f"QA: событие TASK_COMPLETED не ушло: {be}")
+
+    return {"analysis": analysis, "is_defect": is_defect, "batch_id": batch_id}
+
+
+async def handle_n8n_webhook(request: web.Request):
     """Webhook from n8n for QA tasks"""
     try:
         payload = await request.json()
@@ -42,7 +140,7 @@ async def handle_n8n_webhook(request: web.Request) -> dict:
         return web.json_response({"error": str(e)}, status=500)
 
 
-async def handle_task_created(payload: dict) -> None:
+async def handle_task_created(payload: dict):
     """Слушаем задачи от Степана по шине сообщений"""
     data = payload.get("data", {})
     # Регистр приводим, как у остальных ботов: диспетчер может прислать
@@ -88,13 +186,13 @@ async def handle_task_created(payload: dict) -> None:
     )
 
 
-async def handle_roll_call(payload: dict) -> None:
+async def handle_roll_call(payload: dict):
     from shared.roll_call import handle_roll_call as _shared_roll_call
 
     await _shared_roll_call("qa_bot", payload)
 
 
-async def main() -> dict:
+async def main():
     logger.info("Starting QA Bot Microservice...")
     await event_bus.connect()
     event_bus.on("TASK_CREATED", handle_task_created)

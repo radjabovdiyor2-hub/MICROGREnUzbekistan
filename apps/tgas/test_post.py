@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 import bots.content_bot.main as cb
 
-async def main() -> None:
+async def main():
     cb._bot = Bot(token=settings.content_bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     
     print("Testing evening recipe post...")

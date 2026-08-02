@@ -11,7 +11,7 @@ ai = AIEngine()
 
 
 @router.callback_query(F.data == "an:forecast")
-async def forecast(cb: CallbackQuery) -> None:
+async def forecast(cb: CallbackQuery):
     await simulate_typing(cb.message, delay=2)
     resp = await ai.chat_completion(
         "Ты бизнес-аналитик Microgreen Uzbekistan. Составь краткий прогноз на следующий месяц с учетом сезонности Узбекистана.",
@@ -24,7 +24,7 @@ async def forecast(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "an:ai")
-async def start_ai(cb: CallbackQuery) -> None:
+async def start_ai(cb: CallbackQuery):
     await cb.message.edit_text(
         "🤖 Задайте вопрос по аналитике:", reply_markup=back_kb()
     )
@@ -32,7 +32,7 @@ async def start_ai(cb: CallbackQuery) -> None:
 
 
 @router.message(F.text, F.chat.type == "private")
-async def ai_chat(msg: Message) -> None:
+async def ai_chat(msg: Message):
     await simulate_typing(msg, delay=2)
     resp = await ai.chat_completion(
         "Ты бизнес-аналитик Microgreen Uzbekistan. Отвечай с цифрами и рекомендациями.",

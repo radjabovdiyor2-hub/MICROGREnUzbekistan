@@ -2,7 +2,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 
 
-def fin_menu_kb() -> dict:
+def fin_menu_kb():
     b = InlineKeyboardBuilder()
     b.row(
         InlineKeyboardButton(text="💸 Расход", callback_data="fin:expense"),
@@ -20,13 +20,13 @@ def fin_menu_kb() -> dict:
     return b.as_markup()
 
 
-def back_kb() -> dict:
+def back_kb():
     b = InlineKeyboardBuilder()
     b.button(text="⬅️ Назад", callback_data="fin:menu")
     return b.as_markup()
 
 
-def expense_categories_kb() -> dict:
+def expense_categories_kb():
     b = InlineKeyboardBuilder()
     cats = ["salary", "rent", "marketing", "supplies", "taxes", "other"]
     for c in cats:
@@ -36,7 +36,7 @@ def expense_categories_kb() -> dict:
     return b.as_markup()
 
 
-def income_categories_kb() -> dict:
+def income_categories_kb():
     b = InlineKeyboardBuilder()
     cats = ["sales", "investment", "other"]
     for c in cats:

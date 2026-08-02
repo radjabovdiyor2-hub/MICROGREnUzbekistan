@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 task_ui_router = Router()
 
 
-def get_task_keyboard(task_id: int) -> dict:
+def get_task_keyboard(task_id: int):
     """Генерирует клавиатуру с кнопкой 'Выполнено'."""
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Выполнено", callback_data=f"task_done:{task_id}")
@@ -15,7 +15,7 @@ def get_task_keyboard(task_id: int) -> dict:
 
 
 @task_ui_router.callback_query(F.data.startswith("task_done:"))
-async def on_task_done(callback: CallbackQuery) -> None:
+async def on_task_done(callback: CallbackQuery):
     try:
         task_id = callback.data.split(":")[1]
 

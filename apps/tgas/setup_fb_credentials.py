@@ -17,7 +17,7 @@ from pathlib import Path
 ENV_PATH = str(Path(__file__).resolve().parent / ".env")
 
 
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser(
         description="Установить Facebook App ID и App Secret в .env"
     )

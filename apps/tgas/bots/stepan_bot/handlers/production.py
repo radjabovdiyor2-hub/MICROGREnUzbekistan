@@ -10,7 +10,7 @@ router = Router()
 
 
 @router.callback_query(F.data == "pm:production")
-async def production(cb: CallbackQuery) -> None:
+async def production(cb: CallbackQuery):
     await cb.message.edit_text(
         "🌱 <b>План производства</b>\n━━━━━━━━━━━━━━━━━━\n"
         "📋 <b>Посев:</b>\n• Руккола — 5 лотков\n• Базилик — 3 лотка\n\n"
@@ -22,7 +22,7 @@ async def production(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "pm:logistics")
-async def logistics(cb: CallbackQuery) -> None:
+async def logistics(cb: CallbackQuery):
     async with get_session_ctx() as session:
         res = await session.execute(
             text(
@@ -46,7 +46,7 @@ async def logistics(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "pm:inventory")
-async def inventory(cb: CallbackQuery) -> None:
+async def inventory(cb: CallbackQuery):
     async with get_session_ctx() as session:
         res = await session.execute(
             text(
@@ -63,7 +63,7 @@ async def inventory(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "pm:overview")
-async def overview(cb: CallbackQuery) -> None:
+async def overview(cb: CallbackQuery):
     async with get_session_ctx() as session:
         tasks_r = await session.execute(
             text(

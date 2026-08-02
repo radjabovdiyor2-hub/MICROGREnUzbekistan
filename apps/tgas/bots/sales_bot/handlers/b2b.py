@@ -13,7 +13,7 @@ router = Router()
 
 
 @router.callback_query(F.data == "menu:b2b")
-async def start_b2b(cb: CallbackQuery, state: FSMContext) -> None:
+async def start_b2b(cb: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "ru")
     text_msg = (
@@ -37,7 +37,7 @@ async def start_b2b(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.message(B2BStates.entering_company)
-async def process_company(message: Message, state: FSMContext) -> None:
+async def process_company(message: Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.update_data(company=message.text)
@@ -50,7 +50,7 @@ async def process_company(message: Message, state: FSMContext) -> None:
 
 
 @router.message(B2BStates.entering_volume)
-async def process_volume(message: Message, state: FSMContext) -> None:
+async def process_volume(message: Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.update_data(volume=message.text)
@@ -61,7 +61,7 @@ async def process_volume(message: Message, state: FSMContext) -> None:
 
 
 @router.message(B2BStates.entering_contact)
-async def process_contact(message: Message, state: FSMContext) -> None:
+async def process_contact(message: Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "ru")
     await state.update_data(contact=message.text)

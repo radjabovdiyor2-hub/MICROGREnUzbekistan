@@ -73,7 +73,7 @@ def _kb(token: str) -> InlineKeyboardMarkup:
     )
 
 
-async def _generate_and_preview(message: Message, topic: str, kind: str = "feed") -> None:
+async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"):
     await message.answer(f"🎨 Генерирую пост про «{topic}»… это займёт ~30–60 сек.")
 
     # 1. Текст поста (бренд-стиль)
@@ -145,7 +145,7 @@ async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"
 
 
 @router.message(Command("post"))
-async def cmd_post(message: Message, command=None) -> None:
+async def cmd_post(message: Message, command=None):
     if not _is_admin(message):
         return
     args = (getattr(command, "args", None) or "").strip()
@@ -162,7 +162,7 @@ async def cmd_post(message: Message, command=None) -> None:
 @router.message(
     F.text.regexp(r"(?i)(сдела|напиши|запили|опубликуй|сгенерир).{0,20}пост")
 )
-async def nl_post(message: Message) -> None:
+async def nl_post(message: Message):
     if not _is_admin(message):
         return
     topic = _extract_topic(message.text)
@@ -170,7 +170,7 @@ async def nl_post(message: Message) -> None:
 
 
 @router.callback_query(F.data.startswith("autopost:pub:"))
-async def approve_publish(cb: CallbackQuery) -> None:
+async def approve_publish(cb: CallbackQuery):
     if not _is_admin(cb.message) and cb.from_user.id not in settings.admin_telegram_ids:
         await cb.answer("⛔ Только для руководителя")
         return
@@ -221,7 +221,7 @@ async def approve_publish(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data.startswith("autopost:cancel:"))
-async def cancel_post(cb: CallbackQuery) -> None:
+async def cancel_post(cb: CallbackQuery):
     token = cb.data.split(":")[-1]
     post = PENDING_POSTS.pop(token, None)
     try:

@@ -32,7 +32,7 @@ REQUIRED_SCOPES = [
 ]
 
 
-async def main() -> None:
+async def main():
     if len(sys.argv) < 2:
         print("Usage: python setup_ig_bot.py <USER_TOKEN>")
         print("Get token from Graph API Explorer with these permissions:")

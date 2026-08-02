@@ -16,14 +16,14 @@ class DebateManager:
         return [json.loads(item) for item in items]
 
     @staticmethod
-    async def add_message(chat_id: int, sender: str, message: str) -> None:
+    async def add_message(chat_id: int, sender: str, message: str):
         key = f"debate:history:{chat_id}"
         data = json.dumps({"sender": sender, "message": message})
         await redis_client.rpush(key, data)
         await redis_client.expire(key, 3600)  # Expire after 1 hour
 
     @staticmethod
-    async def clear_history(chat_id: int) -> None:
+    async def clear_history(chat_id: int):
         key = f"debate:history:{chat_id}"
         await redis_client.delete(key)
 
@@ -36,7 +36,7 @@ class DebateManager:
         return None
 
     @staticmethod
-    async def set_active_debate(chat_id: int, topic: str, participants: list) -> None:
+    async def set_active_debate(chat_id: int, topic: str, participants: list):
         key = f"debate:active:{chat_id}"
         data = json.dumps(
             {"topic": topic, "participants": participants, "turn_index": 0}
@@ -45,7 +45,7 @@ class DebateManager:
         await DebateManager.clear_history(chat_id)
 
     @staticmethod
-    async def end_debate(chat_id: int) -> None:
+    async def end_debate(chat_id: int):
         key = f"debate:active:{chat_id}"
         await redis_client.delete(key)
         await DebateManager.clear_history(chat_id)

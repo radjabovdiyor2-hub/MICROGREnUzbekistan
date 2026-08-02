@@ -21,7 +21,7 @@
 
 import logging
 import os
-from typing import dict, Optional
+from typing import Any, Optional
 
 import aiohttp
 
@@ -69,13 +69,13 @@ async def load_context(limit: int = 20) -> list[dict[str, str]]:
     ]
 
 
-async def append(role: str, content: str, tool_calls: Optional[dict] = None) -> bool:
+async def append(role: str, content: str, tool_calls: Optional[Any] = None) -> bool:
     """Дописать реплику в общую нить. Возвращает True, если записалось."""
     if not content:
         return False
 
     url = f"{STOREFRONT_URL}{MEMORY_PATH}"
-    payload: dict[str] = {
+    payload: dict[str, Any] = {
         "role": role,
         "content": content[:8000],
         "channel": "telegram",

@@ -22,7 +22,7 @@ ai = AIEngine()
 
 
 @router.callback_query(F.data == "mkt:campaign")
-async def create_campaign(cb: CallbackQuery, state: FSMContext) -> None:
+async def create_campaign(cb: CallbackQuery, state: FSMContext):
     await state.set_state(CampaignStates.choosing_segment)
     await cb.message.edit_text(
         "📢 <b>Создание рассылки</b>\n\nВыберите сегмент:", reply_markup=segments_kb()
@@ -31,7 +31,7 @@ async def create_campaign(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(CampaignStates.choosing_segment, F.data.startswith("mkt:seg:"))
-async def pick_segment(cb: CallbackQuery, state: FSMContext) -> None:
+async def pick_segment(cb: CallbackQuery, state: FSMContext):
     seg = cb.data.split(":")[-1]
     await state.update_data(segment=seg)
     await state.set_state(CampaignStates.entering_message)
@@ -40,7 +40,7 @@ async def pick_segment(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.message(CampaignStates.entering_message)
-async def campaign_text(msg: Message, state: FSMContext) -> None:
+async def campaign_text(msg: Message, state: FSMContext):
     d = await state.get_data()
     await state.update_data(text=msg.text)
     await state.set_state(CampaignStates.confirming)
@@ -51,7 +51,7 @@ async def campaign_text(msg: Message, state: FSMContext) -> None:
 
 
 @router.callback_query(CampaignStates.confirming, F.data == "mkt:send_yes")
-async def send_campaign(cb: CallbackQuery, state: FSMContext) -> None:
+async def send_campaign(cb: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     segment = data.get("segment")
     message_text = data.get("text")
@@ -91,14 +91,14 @@ async def send_campaign(cb: CallbackQuery, state: FSMContext) -> None:
 
 
 @router.callback_query(F.data == "mkt:send_no")
-async def cancel_campaign(cb: CallbackQuery, state: FSMContext) -> None:
+async def cancel_campaign(cb: CallbackQuery, state: FSMContext):
     await state.clear()
     await cb.message.edit_text("❌ Рассылка отменена.", reply_markup=mkt_menu_kb())
     await cb.answer()
 
 
 @router.callback_query(F.data == "mkt:segments")
-async def show_segments(cb: CallbackQuery) -> None:
+async def show_segments(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -123,7 +123,7 @@ async def show_segments(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "mkt:promo")
-async def show_promo(cb: CallbackQuery) -> None:
+async def show_promo(cb: CallbackQuery):
     await cb.message.edit_text(
         "🏷️ <b>Пример акции:</b>\n━━━━━━━━━━━━━━━━━━\n"
         "🌱 Руккола микрозелень\n\n💰 Было: 55 000 сум\n"
@@ -136,7 +136,7 @@ async def show_promo(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "mkt:analytics")
-async def mkt_analytics(cb: CallbackQuery) -> None:
+async def mkt_analytics(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
@@ -154,7 +154,7 @@ async def mkt_analytics(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "mkt:competitors")
-async def competitors(cb: CallbackQuery) -> None:
+async def competitors(cb: CallbackQuery):
     await simulate_typing(cb.message, delay=2)
     from shared.prompts import TEAM_CONTEXT
 
@@ -169,7 +169,7 @@ async def competitors(cb: CallbackQuery) -> None:
 
 
 @router.callback_query(F.data == "mkt:ideas")
-async def promo_ideas(cb: CallbackQuery) -> None:
+async def promo_ideas(cb: CallbackQuery):
     await simulate_typing(cb.message, delay=2)
     from shared.prompts import TEAM_CONTEXT
 
@@ -182,7 +182,7 @@ async def promo_ideas(cb: CallbackQuery) -> None:
 
 
 @router.message(F.text, F.chat.type == "private")
-async def ai_mkt(msg: Message) -> None:
+async def ai_mkt(msg: Message):
     await simulate_typing(msg, delay=2)
     from shared.prompts import TEAM_CONTEXT
 

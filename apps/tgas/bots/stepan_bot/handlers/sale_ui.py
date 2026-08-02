@@ -14,7 +14,7 @@ import hashlib
 import json
 import logging
 import uuid
-from typing import dict, Dict, Optional
+from typing import Any, Dict, Optional
 
 import redis.asyncio as redis
 from aiogram import F, Router
@@ -36,7 +36,7 @@ def _redis() -> redis.Redis:
     return redis.from_url(settings.redis_url, decode_responses=True)
 
 
-async def save_pending(payload: Dict[str]) -> str:
+async def save_pending(payload: Dict[str, Any]) -> str:
     token = uuid.uuid4().hex[:10]
     client = _redis()
     try:
@@ -48,7 +48,7 @@ async def save_pending(payload: Dict[str]) -> str:
     return token
 
 
-async def load_pending(token: str) -> Optional[Dict[str]]:
+async def load_pending(token: str) -> Optional[Dict[str, Any]]:
     client = _redis()
     try:
         raw = await client.get(f"sale:{token}")
@@ -82,15 +82,15 @@ def _price_short(price: float) -> str:
 
 
 def _product_button(
-    builder: InlineKeyboardBuilder, token: str, index: int, product: Dict[str]
-) -> None:
+    builder: InlineKeyboardBuilder, token: str, index: int, product: Dict[str, Any]
+):
     builder.button(
         text=f"{_short(product['name'])} · {_price_short(product['price'])}",
         callback_data=f"sale:pick:{token}:{index}:{product['id']}",
     )
 
 
-def build_clarify_keyboard(token: str, data: Dict[str]) -> dict:
+def build_clarify_keyboard(token: str, data: Dict[str, Any]):
     """
     Кнопки на ПЕРВЫЙ незакрытый вопрос: подходящие товары + вход во весь магазин.
     Остальные вопросы зададим следующим шагом — по одному, чтобы не путать.
@@ -134,7 +134,7 @@ def build_clarify_keyboard(token: str, data: Dict[str]) -> dict:
     return None
 
 
-async def build_categories_keyboard(token: str, index: int) -> dict:
+async def build_categories_keyboard(token: str, index: int):
     """Экран «Весь каталог»: категории с количеством товаров."""
     from shared.catalog_ops import list_categories
 
@@ -151,7 +151,7 @@ async def build_categories_keyboard(token: str, index: int) -> dict:
     return builder.as_markup()
 
 
-async def build_products_keyboard(token: str, index: int, category: str, page: int) -> dict:
+async def build_products_keyboard(token: str, index: int, category: str, page: int):
     """Экран категории: товары постранично + листалка."""
     from shared.catalog_ops import list_products
 
@@ -193,7 +193,7 @@ async def build_products_keyboard(token: str, index: int, category: str, page: i
     return builder.as_markup(), data
 
 
-async def run_sale(pending: Dict[str]) -> Dict[str]:
+async def run_sale(pending: Dict[str, Any]) -> Dict[str, Any]:
     """Продажу регистрирует отдел продаж (bot_bus) — здесь только вызов."""
     from shared.bot_bus import send_task, get_result
 
@@ -212,7 +212,7 @@ async def run_sale(pending: Dict[str]) -> Dict[str]:
     }
 
 
-def _sale_signature(pending: Dict[str]) -> str:
+def _sale_signature(pending: Dict[str, Any]) -> str:
     """Отпечаток продажи: клиент + позиции. Одинаковый — значит тот же вопрос."""
     # product_id входит в отпечаток: после выбора кнопкой продажа уже другая,
     # и следующий вопрос («а какой редис?») пройдёт, а не будет считаться дублем.
@@ -245,7 +245,7 @@ async def _already_asked(signature: str) -> bool:
     return not created
 
 
-async def answer_sale_result(message: Message, result: Dict[str]) -> str:
+async def answer_sale_result(message: Message, result: Dict[str, Any]) -> str:
     """
     Показать результат продажи: факты, вопрос с кнопками или честную ошибку.
     Возвращает короткую строку для истории диалога Степана.
@@ -285,7 +285,7 @@ async def answer_sale_result(message: Message, result: Dict[str]) -> str:
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:pick:"))
-async def on_pick_product(callback: CallbackQuery) -> None:
+async def on_pick_product(callback: CallbackQuery):
     """Руководитель выбрал позицию каталога — дозаписываем продажу."""
     try:
         _, _, token, index, product_id = callback.data.split(":")
@@ -309,7 +309,7 @@ async def on_pick_product(callback: CallbackQuery) -> None:
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:add:"))
-async def on_add_product(callback: CallbackQuery, state: FSMContext) -> None:
+async def on_add_product(callback: CallbackQuery, state: FSMContext):
     """
     Одобрено заведение товара → открываем мастер карточки.
 
@@ -346,7 +346,7 @@ async def on_add_product(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:cats:"))
-async def on_categories(callback: CallbackQuery) -> None:
+async def on_categories(callback: CallbackQuery):
     """«Весь каталог» — показываем категории прямо в том же сообщении."""
     try:
         _, _, token, index = callback.data.split(":")
@@ -367,7 +367,7 @@ async def on_categories(callback: CallbackQuery) -> None:
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:cat:"))
-async def on_category_page(callback: CallbackQuery) -> None:
+async def on_category_page(callback: CallbackQuery):
     """Товары категории с листалкой — правим то же сообщение, чат не засоряем."""
     try:
         _, _, token, index, category, page = callback.data.split(":")
@@ -394,13 +394,13 @@ async def on_category_page(callback: CallbackQuery) -> None:
 
 
 @sale_ui_router.callback_query(F.data == "sale:noop")
-async def on_noop(callback: CallbackQuery) -> None:
+async def on_noop(callback: CallbackQuery):
     """Кнопка-счётчик страниц («2/3») — просто номер, нажимать нечего."""
     await callback.answer()
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:cancel:"))
-async def on_cancel(callback: CallbackQuery) -> None:
+async def on_cancel(callback: CallbackQuery):
     try:
         token = callback.data.split(":")[2]
         await drop_pending(token)
