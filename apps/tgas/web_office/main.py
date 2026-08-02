@@ -1607,6 +1607,12 @@ async def _start_catalog_sync() -> None:
         logger.warning("Schema ensure failed at startup: %s", exc)
     asyncio.create_task(_catalog_sync_loop())
     asyncio.create_task(_outbox_processor_loop())
+    
+    try:
+        from shared.workflow_manager import workflow_manager
+        await workflow_manager.start()
+    except Exception as exc:
+        logger.warning("WorkflowManager start failed: %s", exc)
 
 
 @app.get("/api/bots/kanban")

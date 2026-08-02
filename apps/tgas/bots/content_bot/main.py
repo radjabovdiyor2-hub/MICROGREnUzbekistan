@@ -1,5 +1,19 @@
 import asyncio
 import logging
+
+async def get_dynamic_content_policy() -> str:
+    from shared.brand import CONTENT_POLICY
+    from shared.feedback_loop import feedback_loop
+    try:
+        active = await feedback_loop.get_active_behavior("content_bot", "weekly_reach")
+        directives = [str(v) for v in active.values() if isinstance(v, str)]
+        if directives:
+            directive_text = " ".join(directives)
+            return (await get_dynamic_content_policy()) + f"\n\n[ДИРЕКТИВА ИИ-АНАЛИТИКА: {directive_text}]\n"
+    except Exception:
+        pass
+    return (await get_dynamic_content_policy())
+
 import os
 from datetime import date, datetime, timedelta, timezone
 
@@ -368,7 +382,7 @@ async def morning_post(d: date | None = None):
             "Sen Microgreen Uzbekistan brendining SMM-menejeri va oshpaz-ekspertisan. "
             "Yorqin, foydali, emoji bilan yoz."
             + BRAND_TEXT_STYLE
-            + CONTENT_POLICY
+            + (await get_dynamic_content_policy())
             + "\n\n"
             + build_brief(pillar, "утренний сторис", d=target_date),
             prompt,
@@ -378,7 +392,7 @@ async def morning_post(d: date | None = None):
         async def _gen_headline() -> str:
             return await ai.chat_completion(
                 "Sen kreativ kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz, so'zlarni buzma."
-                + CONTENT_POLICY,
+                + (await get_dynamic_content_policy()),
                 f"Shu post uchun qisqa, jozibali SARLAVHA (hook) o'ylab top — FAQAT Uzbek Latin, ko'pi bilan 5 so'z, "
                 f"emoji va tinish belgilarisiz. Faqat sarlavhani yoz:\n{post_text[:500]}",
             )
@@ -395,7 +409,7 @@ async def morning_post(d: date | None = None):
 
             raw = await ai.chat_completion(
                 "Sen Microgreen Uzbekistan SMM-menejeri va oshpaz-ekspertisan. "
-                "Faqat VALID JSON qaytar, markdownsiz." + CONTENT_POLICY,
+                "Faqat VALID JSON qaytar, markdownsiz." + (await get_dynamic_content_policy()),
                 f"Vazifa: {angle}\n"
                 f'JSON format: {{"headline": "...", "points": ["...","...","..."]}}\n'
                 f"Talablar: headline — jozibali hook, ko'pi bilan 5 so'z. "
@@ -423,7 +437,7 @@ async def morning_post(d: date | None = None):
         elif fmt["key"] == "this_or_that":
             headline = await _gen_headline()
             raw_opts = await ai.chat_completion(
-                "Sen kopirayter. Uzbek Latin, grammatik to'g'ri." + CONTENT_POLICY,
+                "Sen kopirayter. Uzbek Latin, grammatik to'g'ri." + (await get_dynamic_content_policy()),
                 f"Ikkita QISQA tanlov variantini taklif qil, har biri 1-3 so'z, ular orasiga '|' qo'y, "
                 f"emoji va tinish belgilarisiz. FAQAT ikkita variant:\n{post_text[:300]}",
             )
@@ -436,7 +450,7 @@ async def morning_post(d: date | None = None):
             headline = await _gen_headline()
             benefit = await ai.chat_completion(
                 "Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz."
-                + CONTENT_POLICY,
+                + (await get_dynamic_content_policy()),
                 f"Bitta ANIQ foyda/qiziqarli iborani yoz — Uzbek Latin, ko'pi bilan 6 so'z, "
                 f"emoji va tinish belgilarisiz. MUHIM: bu sarlavhadan FARQ qilsin. Sarlavha: «{headline[:60]}». "
                 f"Faqat iborani yoz:\n{post_text[:400]}",
@@ -576,7 +590,7 @@ async def evening_post(d: date | None = None):
             "Ты шеф-повар мирового уровня в Microgreen Uzbekistan и знаешь кухни всех стран. "
             "Верни ТОЛЬКО валидный JSON, без markdown."
             + BRAND_TEXT_STYLE
-            + CONTENT_POLICY,
+            + (await get_dynamic_content_policy()),
             f"Придумай блюдо на ужин с национальным колоритом, НЕ похожее на вчерашние.\n"
             f"Кухня дня: {brief['cuisine']}.\n"
             f"Формат блюда: {brief['format']}.\n"
@@ -700,7 +714,7 @@ async def weekly_grid_post(d: date | None = None):
             "Ты главный SMM-редактор бренда Microgreen Uzbekistan. Пиши сильный, ценный пост "
             "для ленты Instagram — с пользой/историей и чётким призывом к действию."
             + BRAND_TEXT_STYLE
-            + CONTENT_POLICY
+            + (await get_dynamic_content_policy())
             + "\n\n"
             + brief,
             f"Создай еженедельный флагманский пост в ленту по рубрике «{pillar['name']}». "
@@ -863,7 +877,7 @@ async def reel_post():
 
         raw = await ai.chat_completion(
             "Sen Microgreen Uzbekistan SMM-menejeri. Faqat VALID JSON qaytar."
-            + CONTENT_POLICY,
+            + (await get_dynamic_content_policy()),
             f"Vazifa: {angle}\n"
             f'JSON: {{"headline":"...","points":["...","...","..."]}}\n'
             f"headline ≤5 so'z; points — 2-3 ANIQ nuqta (harorat/muddat/usul), har biri ≤7 so'z. "
@@ -1168,7 +1182,7 @@ async def bus_publish_story(params: dict) -> dict:
 
     # Генерируем текст поста
     post_text = await ai.chat_completion(
-        "Ты SMM-менеджер Microgreen Uzbekistan." + BRAND_TEXT_STYLE + CONTENT_POLICY,
+        "Ты SMM-менеджер Microgreen Uzbekistan." + BRAND_TEXT_STYLE + (await get_dynamic_content_policy()),
         f"Напиши короткий, цепляющий текст для Instagram Stories на тему: {topic}. "
         "Максимум 3-4 предложения, добавь эмодзи. На русском языке.",
     )
@@ -1455,7 +1469,7 @@ async def handle_task_created(payload: dict):
 
         from shared.prompts import TEAM_CONTEXT
 
-        sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Главный Редактор (Chief Editor) и Brand Manager. Твоя задача — создавать премиальный контент (Tone of Voice: профессиональный, экологичный, ЗОЖ).{CONTENT_POLICY}"
+        sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Главный Редактор (Chief Editor) и Brand Manager. Твоя задача — создавать премиальный контент (Tone of Voice: профессиональный, экологичный, ЗОЖ).{(await get_dynamic_content_policy())}"
         user_prompt = f"Руководитель поручил задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nРазработай готовый контент (текст поста, мема, рецепта или отзыва)."
 
         if is_poll:

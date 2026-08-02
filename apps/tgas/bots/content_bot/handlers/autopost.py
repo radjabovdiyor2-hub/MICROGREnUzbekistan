@@ -25,6 +25,7 @@ from aiogram.types import (
 
 from shared.config import settings
 from shared.ai_engine import AIEngine
+from bots.content_bot.main import get_dynamic_content_policy
 from shared.brand import BRAND_TEXT_STYLE, CONTENT_POLICY
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"
             "Ты главный SMM-редактор бренда Microgreen Uzbekistan. Пиши сильный, "
             "ценный пост для ленты Instagram с пользой и чётким призывом к действию."
             + BRAND_TEXT_STYLE
-            + CONTENT_POLICY,
+            + (await get_dynamic_content_policy()),
             f"Создай пост для Instagram на тему: «{topic}». 3–6 абзацев, живо, с эмодзи, "
             f"в конце — призыв к действию и контакты. Пиши на русском (или узбекском, если тема того требует).",
             temperature=0.8,

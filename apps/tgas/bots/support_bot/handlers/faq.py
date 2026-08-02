@@ -1,6 +1,8 @@
 """Support Bot — FAQ, Orders, Recipes, Complaints, AI"""
 
 import logging
+from bots.support_bot.main import get_dynamic_support_policy
+
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
@@ -223,5 +225,5 @@ async def ai_chat(msg: Message):
 
     system_prompt = f"{TEAM_CONTEXT}\n\n{role} {task}{kb_context}"
 
-    resp = await ai.chat_completion(system_prompt, msg.text, effort="medium")
+    resp = await ai.chat_completion(await get_dynamic_support_policy(system_prompt), msg.text, effort="medium")
     await msg.answer(resp)

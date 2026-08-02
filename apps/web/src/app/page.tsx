@@ -4,6 +4,7 @@ import { CategoriesSection } from '@/components/home/CategoriesSection';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { SproutDivider } from '@/components/ui/SproutDivider';
+import { SalesDirectiveBanner } from '@/components/home/SalesDirectiveBanner';
 
 // Lazy-load below-fold sections — reduces initial JS bundle
 const RecipeOfDay = dynamic(() => import('@/components/home/RecipeOfDay').then(m => ({ default: m.RecipeOfDay })));
@@ -18,6 +19,7 @@ const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ d
 export default function HomePage() {
   return (
     <main>
+      <SalesDirectiveBanner />
       {/* Hero — первое впечатление + CTA "Каталог" */}
       <HeroSection />
 

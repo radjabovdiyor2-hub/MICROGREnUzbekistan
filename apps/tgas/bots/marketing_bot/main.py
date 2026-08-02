@@ -2,6 +2,18 @@
 
 import asyncio
 import logging
+
+async def get_dynamic_marketing_policy(base_sys: str) -> str:
+    try:
+        from shared.feedback_loop import feedback_loop
+        active = await feedback_loop.get_active_behavior("marketing_bot", "broadcast_conversion")
+        directives = [str(v) for v in active.values() if isinstance(v, str)]
+        if directives:
+            return base_sys + "\n\n[ДИРЕКТИВА АНАЛИТИКА: " + " ".join(directives) + "]"
+    except Exception:
+        pass
+    return base_sys
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage

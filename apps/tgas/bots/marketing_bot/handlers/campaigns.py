@@ -1,6 +1,8 @@
 """Marketing Bot — Campaigns, Segments, Promos, Competitors, Analytics"""
 
 import logging
+from bots.marketing_bot.main import get_dynamic_marketing_policy
+
 import asyncio
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message

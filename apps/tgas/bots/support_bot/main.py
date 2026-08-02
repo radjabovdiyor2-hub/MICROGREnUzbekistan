@@ -2,6 +2,18 @@
 
 import asyncio
 import logging
+
+async def get_dynamic_support_policy(base_sys: str) -> str:
+    try:
+        from shared.feedback_loop import feedback_loop
+        active = await feedback_loop.get_active_behavior("support_bot", "ticket_sla")
+        directives = [str(v) for v in active.values() if isinstance(v, str)]
+        if directives:
+            return base_sys + "\n\n[ДИРЕКТИВА ИИ-ПОДДЕРЖКИ: " + " ".join(directives) + "]"
+    except Exception:
+        pass
+    return base_sys
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
@@ -321,7 +333,7 @@ async def handle_task_created(payload: dict):
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Руководитель отдела клиентского сервиса (Head of Customer Success). Твоя главная задача — повышать CSAT (удовлетворенность) и NPS. При решении конфликтов используй эмпатию и предлагай системные решения, чтобы жалоба не повторилась."
         user_prompt = f"Руководитель поставил задачу по клиентскому сервису:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
         logging.info("SUPPORT BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
+        answer = await ai.chat_completion(await get_dynamic_support_policy(sys_prompt), user_prompt, max_tokens=350)
 
         logging.info(f"SUPPORT BOT sending message to {chat_id}")
         from shared.task_ui import get_task_keyboard

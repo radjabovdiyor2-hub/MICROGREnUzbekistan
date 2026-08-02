@@ -186,6 +186,35 @@ async def weekly_trends():
             "📊 <i>Analytics Bot — недельный тренд</i>"
         )
         await _bot.send_message(admin_id, report, parse_mode="HTML")
+
+        # Запускаем автономную оценку охватов для Контент-бота
+        try:
+            from shared.feedback_loop import feedback_loop
+            async with get_session_ctx() as session:
+                res_reach = await session.execute(
+                    text("SELECT COALESCE(SUM(reach), 0) FROM content_publications WHERE date >= to_char(CURRENT_DATE - INTERVAL '7 days', 'YYYY-MM-DD')")
+                )
+                weekly_reach = res_reach.scalar() or 0
+            
+            await feedback_loop.evaluate_and_adapt(
+                bot="content_bot",
+                metric="weekly_reach",
+                current_data={"weekly_reach": int(weekly_reach)},
+                benchmark_data={"target_weekly_reach": 5000},
+            )
+
+            # Запускаем автономную оценку конверсии лидов для Sales Bot
+            conv_rate = (this_week_orders / this_week_customers * 100) if this_week_customers > 0 else 0
+            await feedback_loop.evaluate_and_adapt(
+                bot="sales_bot",
+                metric="conversion",
+                current_data={"orders": this_week_orders, "leads": this_week_customers, "conversion_rate_pct": conv_rate},
+                benchmark_data={"target_conversion_rate": 30.0},
+            )
+
+        except Exception as fe:
+            logging.warning(f"Feedback loop trigger error in analytics_bot: {fe}")
+
     except Exception as e:
         logging.error(f"weekly_trends error: {e}", exc_info=True)
 
