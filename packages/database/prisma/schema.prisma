@@ -172,6 +172,8 @@ model Order {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  isSubscription Boolean @default(false) @map("is_subscription")
+
   items OrderItem[]
 
   // Composite indexes for the hot list queries (newest-first pagination):

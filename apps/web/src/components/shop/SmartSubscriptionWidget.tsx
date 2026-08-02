@@ -1,17 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { CalendarClock, CheckCircle, Zap } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { triggerHaptic } from '@/utils/haptic';
 
-export function SmartSubscriptionWidget() {
+export function SmartSubscriptionWidget({ active, onToggle }: { active: boolean, onToggle: () => void }) {
   useLang();
-  const [active, setActive] = useState(false);
 
   const toggleSub = () => {
     triggerHaptic('heavy');
-    setActive(!active);
+    onToggle();
   };
 
   return (

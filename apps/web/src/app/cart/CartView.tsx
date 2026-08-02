@@ -41,9 +41,11 @@ interface Props {
   recosLoading: boolean;
   fmt: (n: number) => string;
   setStep: (s: 'cart' | 'checkout' | 'success') => void;
+  isSubscription: boolean;
+  setIsSubscription: (v: boolean) => void;
 }
 
-export function CartView({ cart, recos, recosLoading, fmt, setStep }: Props) {
+export function CartView({ cart, recos, recosLoading, fmt, setStep, isSubscription, setIsSubscription }: Props) {
   const { t } = useLang();
 
   return (
@@ -84,7 +86,7 @@ export function CartView({ cart, recos, recosLoading, fmt, setStep }: Props) {
 
           {/* Order Summary Section */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <SmartSubscriptionWidget />
+            <SmartSubscriptionWidget active={isSubscription} onToggle={() => setIsSubscription(!isSubscription)} />
             <div className="card" style={{ padding: 'var(--space-6)', position: 'sticky', top: 'calc(var(--header-height) + var(--space-4))' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-lg)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ClipboardList size={20} /> {t("Buyurtma", "Заказ")}

@@ -138,6 +138,7 @@ export async function createOrder(body: OrderBody): Promise<CreateOrderResult> {
         phone: customer!.phone,
         note: customer!.note || null,
         paymentMethod: paymentMethod || 'cash',
+        isSubscription: body.isSubscription || false,
         paymentStatus: 'PENDING',
         items: {
           create: items!.map((item: OrderItemInput) => ({

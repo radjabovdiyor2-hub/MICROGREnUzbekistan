@@ -26,6 +26,7 @@ export default function CartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { dbUser } = useAuth();
   const [useBonus, setUseBonus] = useState(false);
+  const [isSubscription, setIsSubscription] = useState(false);
 
   // Recommendations strip. The fetch runs once; excluding what's already in the cart is
   // derived from state instead of done inside the effect, so the effect has no cart
@@ -124,6 +125,7 @@ export default function CartPage() {
           userId: dbUser?.id,
           bonusToUse: bonusApplied,
           promoCode: promo?.code,
+          isSubscription,
         }),
       });
 
@@ -156,6 +158,8 @@ export default function CartPage() {
         recosLoading={recosLoading}
         fmt={fmt}
         setStep={setStep}
+        isSubscription={isSubscription}
+        setIsSubscription={setIsSubscription}
       />
     );
   }
