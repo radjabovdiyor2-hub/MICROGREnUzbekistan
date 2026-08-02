@@ -23,17 +23,21 @@ export function AdminShifts() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    fetch('/api/admin/shifts')
-      .then(res => res.json())
-      .then(data => {
-        if (!active) return;
-        if (data.shifts) setShifts(data.shifts);
-        setLoading(false);
-      })
-      .catch(() => {
+    
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/admin/shifts');
+        const data = await res.json();
+        if (active && data.shifts) setShifts(data.shifts);
+      } catch (err) {
+        // ignore
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    };
+    
+    fetchData();
       
     return () => { active = false; };
   }, []);

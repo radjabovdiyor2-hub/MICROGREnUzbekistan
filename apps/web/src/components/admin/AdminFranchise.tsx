@@ -23,17 +23,20 @@ export function AdminFranchise() {
     let url = '/api/admin/franchise';
     if (cityFilter) url += `?city=${cityFilter}`;
     
-    setLoading(true);
-    fetch(url)
-      .then(res => res.json())
-      .then(data => {
-        if (!active) return;
-        if (Array.isArray(data)) setEntries(data);
-        setLoading(false);
-      })
-      .catch(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        if (active && Array.isArray(data)) setEntries(data);
+      } catch (err) {
+        // ignore
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    };
+    
+    fetchData();
       
     return () => { active = false; };
   }, [cityFilter]);
