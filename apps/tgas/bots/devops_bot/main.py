@@ -115,20 +115,32 @@ async def handle_task_created(payload: dict):
 
     if "backup" in description or "бэкап" in description or "бекап" in description:
         status_msg = (await run_backup())["message"]
+        # Send result back via Event Bus to Stepan
+        await event_bus.publish(
+            "TASK_COMPLETED",
+            {
+                "task_id": task_id,
+                "completed_by": "devops",
+                "chat_id": chat_id,
+                "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{status_msg}",
+            },
+            "devops_bot",
+        )
     else:
-        status_msg = "ℹ️ Неизвестная команда. Поддерживается только: 'сделай бекап'."
-
-    # Send result back via Event Bus to Stepan
-    await event_bus.publish(
-        "TASK_COMPLETED",
-        {
-            "task_id": task_id,
-            "completed_by": "devops",
-            "chat_id": chat_id,
-            "text": f"🛠 <b>Отчет DevOps-бота (Системный администратор):</b>\n\n{status_msg}",
-        },
-        "devops_bot",
-    )
+        from shared.task_executor import execute_bot_task
+        from shared.prompts import TEAM_CONTEXT
+        
+        sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Системный администратор и DevOps-инженер (DevOps Bot). Отвечай четко, структурно. Предлагай системные решения."
+        
+        logger.info("DevOps Bot passing task to TaskExecutor...")
+        await execute_bot_task(
+            bot=None,
+            bot_name="devops_bot",
+            department="devops",
+            task_data=data,
+            team_context=sys_prompt
+        )
+        logger.info("DevOps Bot successfully handled task.")
 
 
 async def handle_roll_call(payload: dict):

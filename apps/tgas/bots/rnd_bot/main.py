@@ -148,30 +148,17 @@ async def handle_task_created(payload: dict):
         "Проанализируй рынок, мировые тренды в HoReCa, предложи новые идеи сортов микрозелени или съедобных цветов. Дай структурированный ответ."
     )
 
-    try:
-        report = await ai.chat_completion(
-            system_prompt=RND_SYSTEM_PROMPT,
-            user_message=prompt_text,
-            effort="high",
-        )
-    except Exception as e:
-        logger.error(f"AI error: {e}")
-        from shared.health import record_bot_error
-
-        await record_bot_error("rnd_bot", str(e))
-        report = "Не удалось сгенерировать отчет R&D из-за ошибки ИИ."
-
-    # Send result back via Event Bus to Stepan
-    await event_bus.publish(
-        "TASK_COMPLETED",
-        {
-            "task_id": task_id,
-            "completed_by": "rnd",
-            "chat_id": chat_id,
-            "text": f"🧬 <b>Отчет Отдела R&D (Анализ рынка и трендов):</b>\n\n{report}",
-        },
-        "rnd_bot",
+    from shared.task_executor import execute_bot_task
+    
+    logger.info("RND_BOT passing task to TaskExecutor...")
+    await execute_bot_task(
+        bot=None,
+        bot_name="rnd_bot",
+        department="rnd",
+        task_data=data,
+        team_context=RND_SYSTEM_PROMPT
     )
+    logger.info("RND_BOT successfully handled task.")
 
 
 async def handle_roll_call(payload: dict):

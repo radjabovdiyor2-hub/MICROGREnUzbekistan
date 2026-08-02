@@ -160,30 +160,17 @@ async def handle_task_created(payload: dict):
         "Сделай профессиональный анализ проблемы, укажи возможные причины, дай короткое заключение и вердикт."
     )
 
-    try:
-        analysis = await ai.chat_completion(
-            system_prompt=QA_SYSTEM_PROMPT,
-            user_message=prompt_text,
-            effort="high",
-        )
-    except Exception as e:
-        logger.error(f"AI error: {e}")
-        from shared.health import record_bot_error
-
-        await record_bot_error("qa_bot", str(e))
-        analysis = "ИИ-анализ временно недоступен. Возникла ошибка."
-
-    # Send result back to Степан via Event Bus
-    await event_bus.publish(
-        "TASK_COMPLETED",
-        {
-            "task_id": task_id,
-            "completed_by": "qa",
-            "chat_id": chat_id,
-            "text": f"🔬 <b>Отчет Отдела Контроля Качества (QA):</b>\n\n{analysis}",
-        },
-        "qa_bot",
+    from shared.task_executor import execute_bot_task
+    
+    logger.info("QA Bot passing task to TaskExecutor...")
+    await execute_bot_task(
+        bot=None,
+        bot_name="qa_bot",
+        department="qa",
+        task_data=data,
+        team_context=QA_SYSTEM_PROMPT
     )
+    logger.info("QA Bot successfully handled task.")
 
 
 async def handle_roll_call(payload: dict):

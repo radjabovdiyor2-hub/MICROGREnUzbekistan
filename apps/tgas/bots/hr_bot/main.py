@@ -255,24 +255,20 @@ async def handle_task_created(payload: dict):
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     try:
-        from bots.hr_bot.handlers.start import ai
+        from shared.task_executor import execute_bot_task
         from shared.prompts import TEAM_CONTEXT
 
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Директор по персоналу (HR Director). Фокусируйся на мотивации, KPI, удержании талантов (Employee Retention) и развитии корпоративной культуры. Давай структурные ответы и планы развития."
-        user_prompt = f"Руководитель поставил задачу для HR-отдела:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
-        logging.info("HR_BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=350)
-
-        logging.info(f"HR_BOT sending message to {chat_id}")
-        from shared.task_ui import get_task_keyboard
-
-        await bot.send_message(
-            chat_id,
-            f"✅ <b>HR-отдел — принял в работу:</b>\n\n{answer}",
-            parse_mode="HTML",
-            reply_markup=get_task_keyboard(task_id),
+        
+        logging.info("HR_BOT passing task to TaskExecutor...")
+        await execute_bot_task(
+            bot=bot,
+            bot_name="hr_bot",
+            department="hr",
+            task_data=data,
+            team_context=sys_prompt
         )
-        logging.info("HR_BOT successfully sent message.")
+        logging.info("HR_BOT successfully handled task.")
 
     except Exception as e:
         logging.error(f"Error handling HR task: {repr(e)}", exc_info=True)

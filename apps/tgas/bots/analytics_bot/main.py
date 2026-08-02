@@ -623,28 +623,20 @@ async def handle_task_created(payload: dict):
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     try:
-        from shared.ai_engine import AIEngine
-
-        ai = AIEngine()
+        from shared.task_executor import execute_bot_task
         from shared.prompts import TEAM_CONTEXT
 
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Data Scientist и Руководитель аналитики (Chief Data Officer). Мысли категориями когортного анализа, статистических аномалий и data-driven гипотез. Находи инсайты там, где другие видят просто цифры."
-        user_prompt = f"Руководитель поручил аналитическую задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
-        logging.info("ANALYTICS_BOT Generating AI answer...")
-        answer = await ai.chat_completion(
-            sys_prompt, user_prompt, max_tokens=350, effort="high"
+        
+        logging.info("ANALYTICS_BOT passing task to TaskExecutor...")
+        await execute_bot_task(
+            bot=bot,
+            bot_name="analytics_bot",
+            department="analytics",
+            task_data=data,
+            team_context=sys_prompt
         )
-
-        logging.info(f"ANALYTICS_BOT sending message to {chat_id}")
-        from shared.task_ui import get_task_keyboard
-
-        await bot.send_message(
-            chat_id,
-            f"✅ <b>Отдел аналитики — принял в работу:</b>\n\n{answer}",
-            parse_mode="HTML",
-            reply_markup=get_task_keyboard(task_id),
-        )
-        logging.info("ANALYTICS_BOT successfully sent message.")
+        logging.info("ANALYTICS_BOT successfully handled task.")
 
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)

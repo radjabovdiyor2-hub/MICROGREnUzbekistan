@@ -325,26 +325,21 @@ async def handle_task_created(payload: dict):
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     try:
-        from shared.ai_engine import AIEngine
-
-        ai = AIEngine()
+        from shared.task_executor import execute_bot_task
         from shared.prompts import TEAM_CONTEXT
 
         sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Руководитель отдела клиентского сервиса (Head of Customer Success). Твоя главная задача — повышать CSAT (удовлетворенность) и NPS. При решении конфликтов используй эмпатию и предлагай системные решения, чтобы жалоба не повторилась."
-        user_prompt = f"Руководитель поставил задачу по клиентскому сервису:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
-        logging.info("SUPPORT BOT Generating AI answer...")
-        answer = await ai.chat_completion(await get_dynamic_support_policy(sys_prompt), user_prompt, max_tokens=350)
-
-        logging.info(f"SUPPORT BOT sending message to {chat_id}")
-        from shared.task_ui import get_task_keyboard
-
-        await bot.send_message(
-            chat_id,
-            f"✅ <b>Отдел поддержки — принял в работу:</b>\n\n{answer}",
-            parse_mode="HTML",
-            reply_markup=get_task_keyboard(task_id),
+        
+        logging.info("SUPPORT BOT passing task to TaskExecutor...")
+        await execute_bot_task(
+            bot=bot,
+            bot_name="support_bot",
+            department="support",
+            task_data=data,
+            team_context=sys_prompt,
+            policy=await get_dynamic_support_policy("")
         )
-        logging.info("SUPPORT BOT successfully sent message.")
+        logging.info("SUPPORT BOT successfully handled task.")
 
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
