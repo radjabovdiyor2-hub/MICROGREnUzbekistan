@@ -10,7 +10,7 @@ class AppConfig(BaseModel):
 
     @field_validator("admin_telegram_ids", mode="before")
     @classmethod
-    def parse_admin_ids(cls: typing.dict, v: str) -> dict:
+    def parse_admin_ids(cls: typing.Any, v: str) -> typing.Any:
         if isinstance(v, str):
             if not v.strip():
                 return []
@@ -25,7 +25,7 @@ class AppConfig(BaseModel):
 
     @field_validator("free_delivery_threshold", mode="before")
     @classmethod
-    def parse_free_delivery_threshold(cls: typing.dict, v: str) -> dict:
+    def parse_free_delivery_threshold(cls: typing.Any, v: str) -> typing.Any:
         if isinstance(v, str):
             v = v.strip()
             if not v:

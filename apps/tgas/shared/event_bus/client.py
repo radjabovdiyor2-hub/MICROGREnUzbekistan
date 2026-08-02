@@ -90,7 +90,7 @@ class EventBus:
             logger.error(f"EventBus webhook error: {e}")
             return web.json_response({"error": str(e)}, status=500)
 
-    async def _run_handler(self: typing.dict, handler: typing.dict, payload: dict) -> None:
+    async def _run_handler(self, handler: typing.Callable, payload: dict) -> None:
         try:
             await handler(payload)
         except Exception as e:

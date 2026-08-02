@@ -10,7 +10,7 @@ with open(
 
 
 # Replace session.execute("...") with session.execute(text("..."))
-def repl(m: typing.dict) -> dict:
+def repl(m: re.Match) -> str:
     return m.group(1) + "text(" + m.group(2) + ")" + m.group(3)
 
 
