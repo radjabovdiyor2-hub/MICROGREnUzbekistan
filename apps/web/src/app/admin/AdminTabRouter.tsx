@@ -34,6 +34,7 @@ import { AdminDeliveries } from '@/components/admin/AdminDeliveries';
 import { AdminQA } from '@/components/admin/AdminQA';
 import { AdminExperiments } from '@/components/admin/AdminExperiments';
 import { AdminFranchise } from '@/components/admin/AdminFranchise';
+import { AdminWorkflowStudio } from '@/components/admin/AdminWorkflowStudio';
 
 // Маршрутизация вкладок админки: какая вкладка — такой экран.
 // Вынесено из AdminShell: файл перерос 200 строк, и почти половину его
@@ -67,6 +68,7 @@ export function AdminTabRouter({ activeTab, isOwner, sellerName, lang, t }: {
     {activeTab === 'shifts' && isOwner && <AdminShifts />}
 
     {/* ИИ-офис */}
+    {activeTab === 'workflow_studio' && isOwner && <AdminWorkflowStudio />}
     {activeTab === 'bot_control' && isOwner && <AdminBotControl lang={lang} />}
     {activeTab === 'bot_health' && isOwner && <AdminBotHealth lang={lang} />}
     {activeTab === 'tasks' && isOwner && <AdminTasks lang={lang} />}

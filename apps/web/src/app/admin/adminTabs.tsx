@@ -43,6 +43,7 @@ export const TAB_GROUPS = [
   {
     title: { ru: 'ИИ-офис', uz: 'AI ofis' },
     tabs: [
+      { id: 'workflow_studio', ru: 'Процессы (DAG)', uz: 'Jarayonlar (DAG)', icon: <Network size={16} /> },
       { id: 'bot_control', ru: 'Пульт ИИ', uz: 'AI Pult', icon: <Play size={16} /> },
       { id: 'bot_health', ru: 'Здоровье ботов', uz: 'Botlar holati', icon: <Activity size={16} /> },
       { id: 'tasks', ru: 'Задачи отделам', uz: 'Vazifalar', icon: <ClipboardList size={16} /> },

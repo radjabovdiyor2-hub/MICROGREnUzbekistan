@@ -2047,3 +2047,9 @@ async def get_magazine_brief():
     """Возвращает Google Trends для брифинга журнала."""
     trends = await fetch_google_trends(geo="UZ", limit=10)
     return JSONResponse({"google_trends": trends})
+
+
+@app.get("/api/workflow/state")
+async def get_workflow_state():
+    from shared.workflow_manager import workflow_manager
+    return {"success": True, "workflows": workflow_manager.workflows}

@@ -283,6 +283,7 @@ model Promotion {
 // ==========================================
 
 model Employee {
+  city        String    @default("tashkent")
   id         String    @id @default(cuid())
   name       String
   pin        String    @unique // 4-digit PIN for POS login
@@ -1003,6 +1004,7 @@ model AiUsage {
 }
 
 model Inventory {
+  city        String    @default("tashkent")
   id          Int       @id @default(autoincrement())
   itemName    String    @map("item_name") @db.VarChar(255)
   category    String    @db.VarChar(50)
@@ -1208,6 +1210,7 @@ model BotMeasurement {
 /// партии в localStorage браузера: смена устройства или очистка кэша
 /// стирала весь производственный план, и с телефона его не было видно.
 model GrowBatch {
+  city        String    @default("tashkent")
   id       String @id @default(cuid())
   cropType String @map("crop_type") @db.VarChar(50)
   trays    Int    @default(1)
@@ -1394,6 +1397,7 @@ model GreenBoxItem {
 // --- PHASE 4: PRODUCTION & LOGISTICS ---
 
 model DeliveryRoute {
+  city        String    @default("tashkent")
   id        String         @id @default(cuid())
   driverId  String?        @map("driver_id")
   driver    Employee?      @relation(fields: [driverId], references: [id])
