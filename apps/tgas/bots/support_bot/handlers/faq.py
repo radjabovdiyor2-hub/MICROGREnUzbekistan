@@ -1,8 +1,6 @@
 """Support Bot — FAQ, Orders, Recipes, Complaints, AI"""
 
 import logging
-from bots.support_bot.main import get_dynamic_support_policy
-
 
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
@@ -204,6 +202,7 @@ async def start_ai(cb: CallbackQuery):
 @router.message(F.text, F.chat.type == "private")
 async def ai_chat(msg: Message):
     await simulate_typing(msg, delay=2)
+    from bots.support_bot.main import get_dynamic_support_policy
     from shared.prompts import TEAM_CONTEXT
 
     kb_context = await search_knowledge(msg.text)

@@ -25,7 +25,6 @@ from aiogram.types import (
 
 from shared.config import settings
 from shared.ai_engine import AIEngine
-from bots.content_bot.main import get_dynamic_content_policy
 from shared.brand import BRAND_TEXT_STYLE
 
 logger = logging.getLogger(__name__)
@@ -75,6 +74,7 @@ def _kb(token: str) -> InlineKeyboardMarkup:
 
 
 async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"):
+    from bots.content_bot.main import get_dynamic_content_policy
     await message.answer(f"🎨 Генерирую пост про «{topic}»… это займёт ~30–60 сек.")
 
     # 1. Текст поста (бренд-стиль)
