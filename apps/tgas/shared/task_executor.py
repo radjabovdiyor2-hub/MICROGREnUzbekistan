@@ -4,7 +4,6 @@ from aiogram import Bot
 from sqlalchemy import text
 from shared.database import get_session_ctx
 from shared.ai_engine import AIEngine
-from shared.config import settings
 from shared.event_bus import event_bus
 from shared.task_ui import get_task_keyboard
 

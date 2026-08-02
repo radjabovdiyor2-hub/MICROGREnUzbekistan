@@ -149,16 +149,12 @@ async def handle_task_created(payload: dict):
         return
 
     logger.info(f"QA Bot received task via event_bus: {payload}")
-    task_id = data.get("task_id", "qa_task")
-    chat_id = data.get(
+    data.get("task_id", "qa_task")
+    data.get(
         "chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0
     )
-    description = data.get("description", "")
+    data.get("description", "")
 
-    prompt_text = (
-        f"Ты инженер по контролю качества (QA) на сити-ферме микрозелени. Твоя задача:\n{description}\n\n"
-        "Сделай профессиональный анализ проблемы, укажи возможные причины, дай короткое заключение и вердикт."
-    )
 
     from shared.task_executor import execute_bot_task
     

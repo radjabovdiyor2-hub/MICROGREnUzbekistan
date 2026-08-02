@@ -248,7 +248,7 @@ async def handle_task_created(payload: dict):
     chat_id = data.get("chat_id")
     if not chat_id:
         return
-    task_id = data.get("task_id")
+    data.get("task_id")
 
     bot = Bot(
         token=settings.hr_bot_token,

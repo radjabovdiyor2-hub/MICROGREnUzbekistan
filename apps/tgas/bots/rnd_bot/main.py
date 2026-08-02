@@ -131,22 +131,17 @@ async def handle_task_created(payload: dict):
         return
 
     logger.info(f"R&D Bot received task via event_bus: {payload}")
-    task_id = data.get("task_id", "rnd_task")
-    chat_id = data.get(
+    data.get("task_id", "rnd_task")
+    data.get(
         "chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0
     )
-    description = data.get("description", "")
+    data.get("description", "")
 
     from shared.feedback_loop import feedback_loop
 
     active_learning = await feedback_loop.get_active_behavior("rnd_bot", "recipe_yield")
-    qa_context = active_learning.get("inference", "")
+    active_learning.get("inference", "")
 
-    prompt_text = (
-        f"Ты аналитик отдела исследований и разработки (R&D) сити-фермы. Твоя задача:\n{description}\n\n"
-        f"Контекст обратной связи от QA контроля качества: {qa_context or 'Стандарты в норме'}\n\n"
-        "Проанализируй рынок, мировые тренды в HoReCa, предложи новые идеи сортов микрозелени или съедобных цветов. Дай структурированный ответ."
-    )
 
     from shared.task_executor import execute_bot_task
     

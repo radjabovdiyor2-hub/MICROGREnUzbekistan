@@ -159,7 +159,7 @@ async def handle_task_created(payload: dict):
     if str(data.get("department", "")).lower() != "marketing":
         return
     chat_id = data.get("chat_id")
-    task_id = data.get("task_id")
+    data.get("task_id")
     if not chat_id:
         return
 
