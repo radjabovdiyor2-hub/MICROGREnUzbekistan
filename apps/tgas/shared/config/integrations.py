@@ -1,4 +1,3 @@
-import typing
 from pydantic import Field, BaseModel, field_validator
 
 class DatabaseConfig(BaseModel):
