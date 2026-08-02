@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 async def handle_employee_created(payload: dict) -> None:
     """Онбординг нового сотрудника при добавлении в систему (по EMPLOYEE_CREATED)."""
     data = payload.get("data", {})
-    employee_id = data.get("id")
     telegram_id = data.get("telegram_id")
     name = data.get("name", "Коллега")
 
@@ -41,11 +40,11 @@ async def handle_employee_created(payload: dict) -> None:
         # Инструкции
         await bot.send_message(
             telegram_id,
-            f"📚 <b>Полезная информация:</b>\n\n"
-            f"• Мы используем современное оборудование, всегда следи за чистотой на рабочем месте.\n"
-            f"• График работы обсуждается с руководителем.\n"
-            f"• Если есть вопросы к руководителю, можешь писать напрямую в рабочие чаты.\n\n"
-            f"Удачной работы!"
+            "📚 <b>Полезная информация:</b>\n\n"
+            "• Мы используем современное оборудование, всегда следи за чистотой на рабочем месте.\n"
+            "• График работы обсуждается с руководителем.\n"
+            "• Если есть вопросы к руководителю, можешь писать напрямую в рабочие чаты.\n\n"
+            "Удачной работы!"
         )
     except Exception as e:
         logger.error(f"Onboarding error for {telegram_id}: {e}", exc_info=True)

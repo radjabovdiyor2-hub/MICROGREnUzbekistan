@@ -33,7 +33,7 @@ async def handle_send_payment_invoice(payload: dict) -> None:
 
         await bot.send_invoice(
             chat_id=chat_id,
-            title=f"Оплата подписки",
+            title="Оплата подписки",
             description="Оплата заказа по подписке «Зеленая Коробка» 🌱",
             payload=f"mg_order_{order_id}",
             provider_token=provider_token,

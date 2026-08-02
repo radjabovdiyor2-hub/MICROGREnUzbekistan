@@ -156,7 +156,6 @@ async def bus_calculate_payroll(params: dict) -> dict:
                 eid = emp.id
                 name = emp.name
                 base = float(emp.base_salary or 0)
-                role = emp.role
 
                 # Calculate shifts
                 res = await session.execute(

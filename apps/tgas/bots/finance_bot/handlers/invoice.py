@@ -1,5 +1,4 @@
 import logging
-import os
 from aiogram import Bot
 from aiogram.types import FSInputFile
 from aiogram.client.default import DefaultBotProperties
