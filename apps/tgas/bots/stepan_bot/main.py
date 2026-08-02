@@ -99,7 +99,7 @@ async def main() -> None:
         auto_task_creation, bot_health_check, bot_health_summary,
         daily_backup, token_refresh, kpi_watchdog_job,
         cron_magazine_prepare, cron_magazine_finalize, cron_magazine_print_run,
-        daily_report
+        daily_report, process_green_box_subscriptions
     )
     
     scheduler.add_interval(name="check_deadlines", func=lambda: check_deadlines(bot), seconds=3600)
@@ -123,6 +123,9 @@ async def main() -> None:
     scheduler.add_cron(name="magazine_cron_prepare", func=cron_magazine_prepare, day_of_week=2, hour=9, minute=0)
     scheduler.add_cron(name="magazine_cron_finalize", func=cron_magazine_finalize, day_of_week=3, hour=12, minute=0)
     scheduler.add_cron(name="magazine_cron_print_run", func=lambda: cron_magazine_print_run(bot), day_of_week=4, hour=8, minute=0)
+
+    # Подписки «Зелёная Коробка»: каждый день в 8:00 создаёт заказы на завтра
+    scheduler.add_cron(name="green_box_subscriptions", func=lambda: process_green_box_subscriptions(bot), hour=8, minute=0)
 
     # 4. BotBus listener
     from shared.bot_bus import start_listener as bus_listen

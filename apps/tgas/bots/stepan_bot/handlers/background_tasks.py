@@ -622,3 +622,123 @@ async def cron_magazine_print_run(bot: Bot) -> None:
 
     except Exception as e:
         logger.error(f"Cron Print-Run error: {e}")
+
+
+async def process_green_box_subscriptions(bot: Bot) -> None:
+    """Ежедневно в 8:00 — создаёт заказы из подписок, у которых nextDelivery = завтра.
+
+    Логика:
+    1. Найти все ACTIVE подписки, где next_delivery = завтра.
+    2. Для каждой создать Order через POST /api/orders (тот же путь, что и корзина).
+    3. Сдвинуть next_delivery на следующий интервал.
+    4. Отправить уведомление владельцу бизнеса.
+    """
+    import aiohttp
+    from datetime import date, timedelta
+
+    admin_id = settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+    tomorrow = date.today() + timedelta(days=1)
+    created_count = 0
+    errors: list[str] = []
+
+    try:
+        async with get_session_ctx() as session:
+            # Подписки с доставкой завтра
+            result = await session.execute(
+                sa_text(
+                    "SELECT s.id, s.user_id, s.address, s.phone, s.city, s.interval, s.delivery_day "
+                    "FROM green_box_subscriptions s "
+                    "WHERE s.status = 'ACTIVE' AND s.next_delivery = :tomorrow"
+                ),
+                {"tomorrow": tomorrow},
+            )
+            subs = result.fetchall()
+
+            if not subs:
+                logger.info("GreenBox: нет подписок на завтра")
+                return
+
+            for sub in subs:
+                sub_id, user_id, address, phone, city, interval, delivery_day = sub
+
+                # Получаем состав подписки
+                items_result = await session.execute(
+                    sa_text(
+                        "SELECT gi.product_id, gi.quantity, p.price "
+                        "FROM green_box_items gi "
+                        "JOIN products p ON p.id = gi.product_id "
+                        "WHERE gi.subscription_id = :sub_id"
+                    ),
+                    {"sub_id": sub_id},
+                )
+                items = items_result.fetchall()
+                if not items:
+                    continue
+
+                # Создаём заказ через внутренний API
+                storefront_url = settings.storefront_url or "http://localhost:3005"
+                order_payload = {
+                    "userId": user_id,
+                    "customer": {
+                        "firstName": "Подписка GreenBox",
+                        "phone": phone,
+                        "address": address,
+                    },
+                    "city": city,
+                    "items": [
+                        {"productId": pid, "price": price, "quantity": qty}
+                        for pid, qty, price in items
+                    ],
+                    "paymentMethod": "cash",
+                    "isSubscription": True,
+                }
+
+                try:
+                    async with aiohttp.ClientSession() as http:
+                        async with http.post(
+                            f"{storefront_url}/api/orders",
+                            json=order_payload,
+                            timeout=aiohttp.ClientTimeout(total=30),
+                        ) as resp:
+                            data = await resp.json()
+                            if data.get("success"):
+                                created_count += 1
+                            else:
+                                errors.append(f"sub={sub_id}: {data.get('error', 'unknown')}")
+                except Exception as req_err:
+                    errors.append(f"sub={sub_id}: {req_err}")
+
+                # Сдвигаем next_delivery на следующий период
+                interval_days = {"MONTHLY": 28, "BIWEEKLY": 14, "WEEKLY": 7}.get(interval, 7)
+                next_date = tomorrow + timedelta(days=interval_days)
+                await session.execute(
+                    sa_text(
+                        "UPDATE green_box_subscriptions "
+                        "SET next_delivery = :next_date, updated_at = NOW() "
+                        "WHERE id = :sub_id"
+                    ),
+                    {"next_date": next_date, "sub_id": sub_id},
+                )
+
+            await session.commit()
+
+        # Уведомление
+        if admin_id and (created_count > 0 or errors):
+            msg = f"📦 <b>GreenBox подписки:</b>\n✅ Создано заказов: {created_count}"
+            if errors:
+                msg += f"\n❌ Ошибок: {len(errors)}\n" + "\n".join(errors[:5])
+            try:
+                await bot.send_message(admin_id, msg)
+            except Exception:
+                pass
+
+        logger.info(f"GreenBox: создано {created_count} заказов, ошибок {len(errors)}")
+
+    except Exception as e:
+        logger.error(f"GreenBox cron error: {e}")
+        if admin_id:
+            try:
+                await bot.send_message(admin_id, f"❌ GreenBox cron ошибка: {e}")
+            except Exception:
+                pass
+

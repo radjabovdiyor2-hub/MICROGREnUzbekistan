@@ -65,6 +65,7 @@ model Product {
   reviews           Review[]
   stockMovements    StockMovement[]
   recipeIngredients RecipeIngredient[]
+  greenBoxItems     GreenBoxItem[]
 
   @@index([categoryId])
   @@index([categoryId, isActive])
@@ -97,6 +98,7 @@ model User {
   reviews   Review[]
   addresses Address[]
   aiChats   AiChat[]
+  greenBoxSubscriptions GreenBoxSubscription[]
 
   @@map("users")
 }
@@ -1300,3 +1302,65 @@ model OwnerAlert {
   @@index([kind])
   @@map("owner_alerts")
 }
+
+// ==========================================
+// Подписка «Зелёная Коробка» — еженедельная/двухнедельная доставка
+// ==========================================
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+}
+
+enum SubscriptionInterval {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+model GreenBoxSubscription {
+  id        String             @id @default(cuid())
+  userId    String             @map("user_id")
+  user      User               @relation(fields: [userId], references: [id])
+
+  status    SubscriptionStatus @default(ACTIVE)
+  interval  SubscriptionInterval @default(WEEKLY)
+
+  /// День недели доставки: 0=Пн, 1=Вт, …, 6=Вс
+  deliveryDay Int              @default(1) @map("delivery_day")
+  address     String
+  phone       String
+  city        String           @default("tashkent")
+
+  /// Дата следующей автоматической доставки
+  nextDelivery DateTime        @map("next_delivery") @db.Date
+
+  /// Сумма по подписке (пересчитывается при изменении состава)
+  total        Int             @default(0)
+
+  note      String?            @db.Text
+
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+  pausedAt  DateTime?          @map("paused_at")
+
+  items GreenBoxItem[]
+
+  @@index([userId])
+  @@index([status, nextDelivery])
+  @@map("green_box_subscriptions")
+}
+
+model GreenBoxItem {
+  id             String               @id @default(cuid())
+  subscriptionId String               @map("subscription_id")
+  subscription   GreenBoxSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  productId      String               @map("product_id")
+  product        Product              @relation(fields: [productId], references: [id])
+  quantity       Int                  @default(1)
+
+  @@unique([subscriptionId, productId])
+  @@map("green_box_items")
+}
+
