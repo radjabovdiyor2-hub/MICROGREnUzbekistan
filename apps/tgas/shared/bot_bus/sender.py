@@ -4,6 +4,7 @@ import uuid
 import logging
 from datetime import datetime
 from typing import Dict
+import typing
 
 from shared.bot_bus.core import TMP_DIR, _pending_path
 
@@ -14,7 +15,7 @@ async def send_task(
     from_bot: str,
     to_bot: str,
     action: str,
-    params: Dict[str] = None,
+    params: Dict[str, typing.Any] = None,
 ) -> str:
     task_id = str(uuid.uuid4())[:8]
     task = {
