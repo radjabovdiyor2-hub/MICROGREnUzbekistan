@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { prisma } from '@repo/database';
 
-const isValidDate = (d: any) => d instanceof Date && !isNaN(d.getTime());
+const isValidDate = (d: unknown) => d instanceof Date && !isNaN(d.getTime());
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     let body;
     try {
       body = await request.json();
-    } catch (e) {
+    } catch (_e) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
@@ -102,7 +102,7 @@ export async function PUT(request: NextRequest) {
     let body;
     try {
       body = await request.json();
-    } catch (e) {
+    } catch (_e) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
@@ -112,7 +112,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
     }
 
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
 
     if (employeeId !== undefined) updateData.employeeId = employeeId;
     if (type !== undefined) updateData.type = type;

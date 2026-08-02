@@ -29,7 +29,7 @@ export function AdminFranchise() {
         const res = await fetch(url);
         const data = await res.json();
         if (active && Array.isArray(data)) setEntries(data);
-      } catch (err) {
+      } catch (_err) {
         // ignore
       } finally {
         if (active) setLoading(false);
