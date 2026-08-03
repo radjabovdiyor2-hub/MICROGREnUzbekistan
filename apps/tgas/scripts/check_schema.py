@@ -309,28 +309,76 @@ SQL_CONSTANTS = {
 
 # Колонку ищем только там, где она однозначна: операнд сравнения либо
 # аргумент агрегата. Так проверка не гадает и не шумит на подзапросах.
+#
+# `[a-z0-9_.]` — с ТОЧКОЙ. Без неё `SUM(oi.total_price)` и `o.status = 'new'` не
+# матчились вовсе, то есть КАЖДАЯ колонка с алиасом в проекте оставалась
+# непроверенной. Именно так мимо сторожа прошло `SUM(oi.subtotal)` по таблице,
+# где такой колонки нет, — при том, что весь смысл этого скрипта в ловле ровно
+# таких расхождений.
 COMPARISON_RE = re.compile(
-    r"\b([a-z_][a-z0-9_]*)\s*(?:=|<>|!=|<=|>=|<|>|\bIN\b|\bIS\b|\bLIKE\b|\bILIKE\b|\bBETWEEN\b)",
+    r"\b([a-z_][a-z0-9_.]*)\s*(?:=|<>|!=|<=|>=|<|>|\bIN\b|\bIS\b|\bLIKE\b|\bILIKE\b|\bBETWEEN\b)",
     re.I,
 )
 AGGREGATE_RE = re.compile(
-    r"\b(?:SUM|COUNT|AVG|MIN|MAX)\s*\(\s*(?:DISTINCT\s+)?([a-z_][a-z0-9_]*)\s*\)", re.I
+    r"\b(?:SUM|COUNT|AVG|MIN|MAX)\s*\(\s*(?:DISTINCT\s+)?([a-z_][a-z0-9_.]*)\s*\)", re.I
+)
+
+# `FROM crm_orders o`, `JOIN customers c ON …` — алиас идёт сразу за именем
+# таблицы. Ключевые слова (ON, WHERE, GROUP…) алиасом быть не могут.
+ALIAS_RE = re.compile(
+    r"(?i)\b(?:FROM|JOIN)\s+([a-z_][a-z0-9_]*)\s+(?:AS\s+)?([a-z_][a-z0-9_]*)\b"
 )
 
 
+def alias_map(sql: str) -> dict[str, str]:
+    """{алиас: таблица} из FROM/JOIN. Без алиаса таблица сама себе ключ."""
+    out: dict[str, str] = {}
+    for table, alias in ALIAS_RE.findall(sql):
+        if alias.lower() in SQL_WORDS or table.lower() in SQL_WORDS:
+            continue
+        out[alias.lower()] = table.lower()
+    return out
+
+
 def columns_used(sql: str) -> set[str]:
-    """Колонки, использованные однозначно: в сравнении или в агрегате."""
-    s = re.sub(r"'[^']*'", " ", sql)  # строковые литералы
-    s = re.sub(r":\w+", " ", s)  # параметры :name
-    s = re.sub(r"--[^\n]*", " ", s)  # комментарии
+    """Неквалифицированные колонки: в сравнении или в агрегате."""
+    s = _strip(sql)
     out: set[str] = set()
     for rx in (COMPARISON_RE, AGGREGATE_RE):
         for m in rx.finditer(s):
             w = m.group(1).lower()
-            if w in SQL_WORDS or w in SQL_CONSTANTS:
+            if "." in w or w in SQL_WORDS or w in SQL_CONSTANTS:
                 continue
             out.add(w)
     return out
+
+
+def qualified_columns(sql: str) -> set[tuple[str, str]]:
+    """{(таблица, колонка)} для `алиас.колонка` — разбор однозначен даже с JOIN.
+
+    Это снимает главное ограничение скрипта: раньше запросы больше чем с одной
+    таблицей пропускались целиком, а весь офисный SQL — это JOIN'ы CRM-зеркала.
+    """
+    s = _strip(sql)
+    aliases = alias_map(s)
+    out: set[tuple[str, str]] = set()
+    for rx in (COMPARISON_RE, AGGREGATE_RE):
+        for m in rx.finditer(s):
+            token = m.group(1).lower()
+            if "." not in token:
+                continue
+            alias, _, column = token.partition(".")
+            table = aliases.get(alias)
+            if not table or column in SQL_WORDS or column in SQL_CONSTANTS:
+                continue
+            out.add((table, column))
+    return out
+
+
+def _strip(sql: str) -> str:
+    s = re.sub(r"'[^']*'", " ", sql)  # строковые литералы
+    s = re.sub(r":\w+", " ", s)  # параметры :name
+    return re.sub(r"--[^\n]*", " ", s)  # комментарии
 
 
 # Колонки, перечисленные в INSERT INTO t (a, b, c) — разбор однозначен,
@@ -417,6 +465,19 @@ def main() -> int:
             problems.append(
                 f"{rel}:{line} — INSERT в «{tbl}»: колонки «{col}» нет. "
                 f"Есть: {', '.join(sorted(known[tbl]))}"
+            )
+
+    # ── колонки с алиасом: `o.status`, `SUM(oi.total_price)` ─────────────
+    # Работает и в запросах с JOIN — алиас однозначно указывает на таблицу.
+    for rel, line, sql in statements:
+        for table, column in sorted(qualified_columns(sql)):
+            if table not in known or not known[table]:
+                continue
+            if column in known[table]:
+                continue
+            problems.append(
+                f"{rel}:{line} — в «{table}» нет колонки «{column}». "
+                f"Есть: {', '.join(sorted(known[table]))}"
             )
 
     # ── колонки существуют (только однотабличные запросы) ────────────────

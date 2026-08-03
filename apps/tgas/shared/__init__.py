@@ -14,7 +14,6 @@ from shared.config import settings
 from shared.database import get_async_session, init_db, AsyncSessionLocal
 from shared.utils import (
     format_price,
-    generate_order_number,
     simulate_typing,
     get_greeting,
     escape_md,
@@ -53,7 +52,6 @@ __all__ = [
     "AIEngine",
     # Утилиты
     "format_price",
-    "generate_order_number",
     "simulate_typing",
     "get_greeting",
     "escape_md",

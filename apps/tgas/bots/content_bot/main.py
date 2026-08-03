@@ -19,6 +19,7 @@ from bots.content_bot.handlers import all_routers
 from shared.ai_engine import AIEngine
 from shared.brand import BRAND_TEXT_STYLE
 from shared.prompts import TEAM_CONTEXT
+from shared import catalog_repo
 from shared.config import settings
 from shared.content_archive import (
     get_last_publications_async as get_last_publications,
@@ -34,7 +35,7 @@ from shared.content_plan import (
     get_daily_morning_format,
     get_weekly_grid_pillar,
 )
-from shared.database import get_session_ctx, init_db
+from shared.database import init_db
 from shared.event_bus import event_bus
 from shared.group_orchestrator import create_group_router
 from shared.health import start_heartbeat
@@ -169,18 +170,15 @@ async def daily_content_ideas():
 async def product_description_audit():
     """Понедельник 11:00: проверка продуктов без описания."""
     try:
-        from sqlalchemy import text
 
         admin_id = settings.admin_telegram_ids[0]
-        async with get_session_ctx() as session:
-            res = await session.execute(
-                text(
-                    "SELECT id, name_ru FROM products "
-                    "WHERE description_ru IS NULL OR description_ru = '' "
-                    "ORDER BY id"
-                )
-            )
-            products = res.fetchall()
+        # Каталог читаем через единую дверь: свой SQL к товарам разошёлся бы
+        # со схемой витрины ровно так, как это уже случалось.
+        products = [
+            (item["id"], item["name_ru"] or item["name"])
+            for item in await catalog_repo.list_active()
+            if not (item["description_ru"] or "").strip()
+        ]
 
         if not products:
             await _bot.send_message(
@@ -268,13 +266,10 @@ async def weekly_content_plan():
         admin_id = settings.admin_telegram_ids[0]
 
         # Получаем список продуктов для контекста
-        from sqlalchemy import text
 
-        async with get_session_ctx() as session:
-            res = await session.execute(
-                text("SELECT name_ru FROM products WHERE is_active = true LIMIT 10")
-            )
-            products = [row[0] for row in res.fetchall()]
+        products = [
+            item["name"] for item in (await catalog_repo.list_active())[:10]
+        ]
 
         products_str = (
             ", ".join(products)

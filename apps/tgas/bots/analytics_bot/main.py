@@ -301,7 +301,11 @@ async def monthly_executive():
             # Топ продукты
             res = await session.execute(
                 text(
-                    "SELECT p.name_ru, SUM(oi.quantity) AS qty, SUM(oi.subtotal) AS total "
+                    # Сумма строки — total_price. Колонки subtotal у позиций
+                    # заказа нет и не было: запрос падал с UndefinedColumn,
+                    # ошибка уходила в except, и месячный отчёт руководителю
+                    # молча приходил без топа товаров.
+                    "SELECT p.name_ru, SUM(oi.quantity) AS qty, SUM(oi.total_price) AS total "
                     "FROM crm_order_items oi "
                     "JOIN crm_products p ON oi.product_id = p.id "
                     "JOIN crm_orders o ON oi.order_id = o.id "

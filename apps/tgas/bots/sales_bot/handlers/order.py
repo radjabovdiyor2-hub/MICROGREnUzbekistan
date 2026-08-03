@@ -147,7 +147,6 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
         await cb.answer()
         return
 
-    order_id = created["order"].get("id")
     order_number = created["order"].get("orderNumber") or "—"
 
     await state.update_data(cart={})
@@ -174,10 +173,27 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
     except Exception:
         pass  # Не ломаем заказ из-за CRM
 
+    # Кнопки «Оплатить онлайн» здесь нет и быть не должно.
+    #
+    # Онлайн-оплаты в системе не существует: способы — наличные, карта, перевод
+    # (то же правило, по которому из бота убрали ссылки Click/Payme с
+    # merchant ID-заглушками). Кнопка вела в handlers/payments.py, который берёт
+    # `settings.payment_provider_token` — такой настройки в shared/config.py нет
+    # вовсе, и подставлялся литерал "TEST_TOKEN", то есть счёт не выставлялся
+    # никогда. После переезда заказов на витрину она вдобавок стала падать:
+    # в callback уходит cuid витрины, а payments.py делает int() и ищет по
+    # crm_orders.id. Обещать клиенту оплату, которой нет, — хуже, чем её не
+    # предлагать.
+    payment_hint = (
+        "💳 Оплата при получении: наличные, карта или перевод."
+        if lang == "ru"
+        else "💳 To'lov qabul qilishda: naqd, karta yoki o'tkazma."
+    )
     success = (
         (
             f"🎉 <b>Заказ #{order_number} оформлен!</b>\n\n"
             f"💰 Сумма: {format_price(total + delivery)}\n"
+            f"{payment_hint}\n"
             f"📞 Мы скоро свяжемся с вами для подтверждения.\n"
             f"Телефон: {settings.company_phone}"
         )
@@ -185,24 +201,13 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
         else (
             f"🎉 <b>#{order_number} buyurtma qabul qilindi!</b>\n\n"
             f"💰 Summa: {format_price(total + delivery)}\n"
+            f"{payment_hint}\n"
             f"📞 Tez orada siz bilan bog'lanamiz.\n"
             f"Telefon: {settings.company_phone}"
         )
     )
 
-    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-    btn_pay = "💳 Оплатить онлайн" if lang == "ru" else "💳 Onlayn to'lov"
-    btn_menu = "🏠 Главное меню" if lang == "ru" else "🏠 Asosiy menyu"
-
-    pay_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=btn_pay, callback_data=f"pay:{order_id}")],
-            [InlineKeyboardButton(text=btn_menu, callback_data="menu:main")],
-        ]
-    )
-
-    await cb.message.edit_text(success, reply_markup=pay_kb)
+    await cb.message.edit_text(success, reply_markup=main_menu_kb(lang))
     await cb.answer()
 
 

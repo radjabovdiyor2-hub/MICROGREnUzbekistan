@@ -45,7 +45,8 @@ cd apps/web && npm run tokens:build   # пересборка дизайн-ток
 
 ```bash
 cd apps/tgas
-python -m pytest tests/ -q       # реестр инструментов, исполнитель задач
+python -m ruff check --select F .  # мёртвые и неопределённые имена
+python -m pytest tests/ -q       # инструменты, исполнитель, цепь продажи, зеркало CRM
 python scripts/check_schema.py   # сырой SQL против schema.prisma
 python scripts/check_tools.py    # инструменты отделов и делегирование
 python scripts/check_bot_roster.py

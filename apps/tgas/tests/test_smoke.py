@@ -13,12 +13,17 @@ def test_settings_load():
     assert hasattr(settings, "openai_api_key")
 
 def test_shared_imports():
-    """Проверка импортируемости общих библиотек."""
+    """Проверка импортируемости общих библиотек.
+
+    Для trends и event_bus сам импорт и есть проверка — они тянут за собой
+    тяжёлые зависимости, и ошибка вылезла бы именно здесь. Отсюда noqa:
+    «неиспользуемый» импорт тут осмысленный.
+    """
     import shared.brand as brand
     import shared.content_plan as content_plan
-    import shared.trends as trends
-    import shared.event_bus as event_bus
-    
+    import shared.trends  # noqa: F401 — проверяем сам факт импорта
+    import shared.event_bus  # noqa: F401 — то же самое
+
     assert brand.BRAND["name"] == "Microgreen Uzbekistan"
     assert len(content_plan.CONTENT_PILLARS) > 0
 

@@ -1456,7 +1456,27 @@ async def _run_approved_plan(payload: dict, cb: CallbackQuery) -> str:
     return f"План запущен: {len(tasks)} пунктов."
 
 
+async def _drop_rejected_plan(payload: dict, cb: CallbackQuery) -> str:
+    """Владелец отказался запускать план — снимаем его с «исполнен».
+
+    Иначе решение остаётся в meeting_state со статусом executed и мешает
+    следующему плану для этого чата: прежний обработчик отказа делал
+    clear_decision, а при переходе на общий механизм подтверждения это
+    потерялось.
+    """
+    chat_id = payload.get("chat_id")
+    if not chat_id:
+        return ""
+    try:
+        await clear_decision(chat_id)
+    except Exception as exc:
+        logger.warning("meeting: не смог снять отклонённый план: %s", exc)
+        return ""
+    return "Решение снято — можно предлагать новый план."
+
+
 approvals.register_handler("meeting_plan", _run_approved_plan)
+approvals.register_reject_handler("meeting_plan", _drop_rejected_plan)
 
 
 def plan_fingerprint(text: str) -> str:
@@ -1660,7 +1680,10 @@ async def run_plan_status(manager_bot: Bot, chat_id: int):
     total = len(tasks)
     summary = f"🤖 <b>Итог по плану:</b> закрыто {done_count} из {total}."
     if done_count < total:
-        # Честно: отделы — чат-боты, сами задачу не закрывают. Закрывает человек.
+        # Отдел закрывает задачу сам ТОЛЬКО когда реально вызвал инструмент
+        # (см. shared/task_executor.py). Всё, на что он ответил текстом, и всё,
+        # что ждёт подтверждения владельца, остаётся в работе и закрывается
+        # человеком.
         summary += (
             "\n<i>Остальные — в работе. Задача закрывается кнопкой "
             "«✅ Выполнено» в её карточке, когда работа реально сделана.</i>"

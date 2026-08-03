@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from aiohttp import web
+from shared import catalog_repo
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.ai_engine import AIEngine
@@ -39,14 +40,10 @@ async def generate_instagram_rnd_report() -> str:
 
     products = []
     try:
-        from shared.database import get_session_ctx
-        from sqlalchemy import text
 
-        async with get_session_ctx() as s:
-            res = await s.execute(
-                text("SELECT name_ru FROM products WHERE is_active=true LIMIT 15")
-            )
-            products = [r[0] for r in res.fetchall() if r[0]]
+        products = [
+            item["name"] for item in (await catalog_repo.list_active())[:15]
+        ]
     except Exception as e:
         logger.warning(f"products fetch error: {e}")
 

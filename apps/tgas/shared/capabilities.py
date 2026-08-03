@@ -490,16 +490,18 @@ CAPABILITIES = {
 }
 
 
-def catalog_for_ai() -> str:
-    """Каталог возможностей — чтобы AI выбирал реальное действие, а не фантазию."""
-    return "\n".join(
-        f"- {c.key} ({c.dept}): {c.description}" for c in CAPABILITIES.values()
-    )
-
-
-def is_outward(key: str) -> bool:
-    cap = CAPABILITIES.get(key)
-    return bool(cap and cap.outward)
+# catalog_for_ai() и is_outward() удалены — вызывающих не осталось.
+#
+# Обе обслуживали планировщик совещаний: он выбирал действие из текстового
+# списка этих десяти возможностей, а по `outward` решал, спрашивать ли
+# подтверждение. Теперь планировщик работает с полным реестром инструментов:
+# `tool_registry.catalog_text()` даёт тот же список, но со схемами аргументов,
+# а признак «спросить владельца» берётся из `Tool.risky`. Держать вторую пару
+# функций с той же семантикой — значит однажды разойтись: у большинства
+# инструментов capability-двойника попросту нет.
+#
+# Сами возможности (CAPABILITIES / run_capability) живы и остаются реализацией:
+# инструменты отделов — тонкие обёртки над ними.
 
 
 async def run_capability(key: str, params: dict) -> Result:

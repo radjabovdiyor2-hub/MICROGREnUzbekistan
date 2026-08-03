@@ -55,10 +55,20 @@ TTL_SECONDS = 15 * 60
 Handler = Callable[[Dict[str, Any], CallbackQuery], Awaitable[str]]
 _HANDLERS: Dict[str, Handler] = {}
 
+#: Тип заявки → что прибрать после «Отклонить». Нужен не всем: у отказа обычно
+#: нет работы. Но, например, отклонённый план совещания надо снять с «исполнен»,
+#: иначе он залипает в meeting_state и мешает следующему.
+_REJECT_HANDLERS: Dict[str, Handler] = {}
+
 
 def register_handler(kind: str, handler: Handler) -> None:
     """Зарегистрировать обработчик типа заявки (вызывать при старте бота)."""
     _HANDLERS[kind] = handler
+
+
+def register_reject_handler(kind: str, handler: Handler) -> None:
+    """Что сделать, если владелец нажал «Отклонить» (необязательно)."""
+    _REJECT_HANDLERS[kind] = handler
 
 
 async def _redis():
@@ -70,6 +80,20 @@ async def _redis():
 def _owner_chat_id() -> Optional[int]:
     ids = getattr(settings, "admin_telegram_ids", None) or []
     return ids[0] if ids else None
+
+
+def is_owner(user_id: Optional[int]) -> bool:
+    """Кнопку подтверждения нажимает ТОЛЬКО владелец.
+
+    Проверка здесь, а не у вызывающих: карточка уходит в чат задачи, а отделы
+    работают и в групповых чатах — без неё любой участник группы мог одобрить
+    регистрацию продажи, рассылку по всей клиентской базе, смену статуса
+    заказа, списание со склада или бэкап. Оба механизма, которые этот модуль
+    заменил, такую проверку имели (`is_admin` в assistant.py, `_is_admin` в
+    team_meeting.py), и при объединении она потерялась.
+    """
+    ids = getattr(settings, "admin_telegram_ids", None) or []
+    return bool(user_id) and user_id in ids
 
 
 async def request(
@@ -199,6 +223,10 @@ _HANDLERS["tool"] = _run_tool
 
 @approvals_router.callback_query(F.data.startswith("approve:"))
 async def on_approve(callback: CallbackQuery):
+    if not is_owner(callback.from_user.id if callback.from_user else None):
+        await callback.answer("⛔ Только для руководителя", show_alert=True)
+        return
+
     token = callback.data.split(":", 1)[1]
     request_data = await _take(token)
     if not request_data:
@@ -226,12 +254,31 @@ async def on_approve(callback: CallbackQuery):
 
 @approvals_router.callback_query(F.data.startswith("reject:"))
 async def on_reject(callback: CallbackQuery):
+    # Отказ тоже только для владельца: иначе посторонний мог бы «отклонить»
+    # заявку и тем самым отменить решение руководителя.
+    if not is_owner(callback.from_user.id if callback.from_user else None):
+        await callback.answer("⛔ Только для руководителя", show_alert=True)
+        return
+
     token = callback.data.split(":", 1)[1]
-    if not await _take(token):
+    request_data = await _take(token)
+    if not request_data:
         await callback.answer("Заявка истекла или уже обработана", show_alert=True)
         return
+
     await callback.answer("Отклонено")
-    await _finish(callback, "❌ <b>Отклонено.</b> Ничего не изменилось.")
+    handler = _REJECT_HANDLERS.get(request_data.get("kind", ""))
+    tail = "❌ <b>Отклонено.</b> Ничего не изменилось."
+    if handler is not None:
+        try:
+            note = await handler(request_data.get("payload") or {}, callback)
+            if note:
+                tail += f"\n{note}"
+        except Exception as exc:
+            logger.exception(
+                "APPROVALS: обработчик отказа %s упал: %s", request_data.get("kind"), exc
+            )
+    await _finish(callback, tail)
 
 
 async def _finish(callback: CallbackQuery, tail: str) -> None:

@@ -1,4 +1,25 @@
-"""Sales Bot — Telegram Payments."""
+"""Sales Bot — Telegram Payments. ⚠️ ПУТЬ НЕ ПОДКЛЮЧЁН И НЕ РАБОТАЛ.
+
+Онлайн-оплаты в системе нет: способы — наличные, карта, банковский перевод.
+Это записанное решение проекта (см. правило о промптах в apps/tgas/CLAUDE.md и
+комментарий в bots/sales_bot/main.py, где по той же причине убрали ссылки
+Click/Payme с merchant ID-заглушками).
+
+Почему модуль всё же лежит здесь, а не удалён: он содержит рабочий каркас
+Telegram Payments (invoice → pre-checkout → successful_payment), и когда оплату
+будут подключать по-настоящему, начинать разумно отсюда. Но перед этим надо:
+
+1. Завести `payment_provider_token` в shared/config.py — сейчас такой настройки
+   НЕТ, и `process_payment` подставляет литерал "TEST_TOKEN", то есть счёт не
+   выставляется никогда.
+2. Решить, по какому идентификатору искать заказ. `pay:{id}` носил id офисной
+   таблицы, но заказами теперь владеет витрина, и её ключ — cuid-строка.
+   Запросы ниже (`WHERE id = :oid` по `crm_orders` с `int()`) на нём падают.
+3. Вернуть кнопку в handlers/order.py — сейчас её там намеренно нет.
+
+Роутер остаётся подключённым: без кнопки колбэк `pay:` недостижим, а
+`successful_payment` сработает только если счёт кто-то выставит.
+"""
 
 from aiogram import Router, F, Bot
 from aiogram.types import Message, PreCheckoutQuery, LabeledPrice, CallbackQuery

@@ -47,16 +47,30 @@ notes: list[str] = []
 
 
 def check_department_coverage() -> None:
-    """У каждого отдела с ботом должны быть инструменты."""
-    counts = tool_registry.departments_with_tools()
+    """У каждого отдела с ботом должен быть СВОЙ инструмент, а не только общие.
+
+    Считать просто «есть хоть что-то» бессмысленно: `common.py` регистрирует
+    семь инструментов на все отделы сразу, поэтому такая проверка не могла бы
+    упасть никогда — даже если у отдела отобрать всё своё. Проверяем то, ради
+    чего сторож и заведён: умеет ли отдел делать СВОЮ работу.
+    """
+    common_names = {t.name for t in tool_registry.tools_for("hr")} & {
+        t.name for t in tool_registry.tools_for("qa")
+    }
     for bot in bot_registry.BOTS:
         dept = bot.department
         if not dept or dept == "pm":
             continue  # pm видит все; franchise/n8n задач не принимают
-        if not counts.get(dept):
+        own = [
+            t.name
+            for t in tool_registry.tools_for(dept)
+            if t.name not in common_names
+        ]
+        if not own:
             problems.append(
-                f"у отдела «{dept}» ({bot.name}) нет ни одного инструмента — "
-                f"бот сможет только сгенерировать текст"
+                f"у отдела «{dept}» ({bot.name}) нет ни одного собственного "
+                f"инструмента — только общие, то есть свою работу он делать "
+                f"не умеет и сможет лишь сгенерировать текст"
             )
 
 

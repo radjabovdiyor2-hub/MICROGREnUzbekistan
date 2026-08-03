@@ -6,7 +6,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
-from shared import storefront_orders
+from shared import catalog_repo, storefront_orders
+from shared.utils import format_price
 from shared.config import settings
 from shared.database import init_db
 from shared.event_bus import event_bus
@@ -516,15 +517,10 @@ async def handle_task_created(payload: dict):
             from shared.database import get_session_ctx
             from sqlalchemy import text
 
-            async with get_session_ctx() as session:
-                res = await session.execute(
-                    text(
-                        "SELECT name_ru, price FROM products WHERE is_active=true LIMIT 5"
-                    )
-                )
-                products = [
-                    {"name": r[0], "price": f"{r[1]} сум"} for r in res.fetchall()
-                ]
+            products = [
+                {"name": item["name"], "price": format_price(item["price"])}
+                for item in (await catalog_repo.list_active())[:5]
+            ]
 
             from shared.pdf_generator import generate_commercial_offer_pdf
             from aiogram.types import FSInputFile
@@ -841,11 +837,17 @@ async def bus_process_ig_order(params: dict) -> dict:
             except Exception:
                 pass
 
-        # Если суммы нет, ищем цену в БД
+        # Товар ищем ВСЕГДА, когда он назван, — не только ради цены.
+        #
+        # Раньше поиск шёл лишь при неизвестной сумме (`if amount is None`), и
+        # если сумма пришла параметром, `storefront_id` оставался пустым. Заказ
+        # тогда не мог уйти на витрину вовсе: она принимает позицию только по
+        # cuid товара. Каждый такой IG-заказ молча падал в локальный черновик.
+        # Цену из каталога при этом не навязываем: назвали сумму — считаем по ней.
         db_id = None
         storefront_id = None
         price = None
-        if amount is None and product:
+        if product:
             try:
                 async with get_session_ctx() as session:
                     res = await session.execute(
@@ -858,8 +860,14 @@ async def bus_process_ig_order(params: dict) -> dict:
                     if row:
                         db_id = row[0]
                         storefront_id = row[1]
-                        price = float(row[2])
-                        amount = int(price * quantity)
+                        catalog_price = float(row[2])
+                        if amount is None:
+                            price = catalog_price
+                            amount = int(price * quantity)
+                        else:
+                            # Сумму назвал менеджер — цену позиции выводим из неё,
+                            # иначе итог заказа разойдётся с тем, что он сказал.
+                            price = amount / quantity if quantity else catalog_price
             except Exception as e:
                 logger.error(
                     f"Error fetching product price in bus_process_ig_order: {e}"

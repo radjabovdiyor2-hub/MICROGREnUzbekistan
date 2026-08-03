@@ -7,6 +7,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from shared import catalog_repo
+from shared.utils import format_price
 from shared.config import settings
 from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
@@ -307,13 +309,8 @@ async def b2b_outreach():
             return
 
         ai = AIEngine()
-        async with get_session_ctx() as session:
-            res_prices = await session.execute(
-                text(
-                    "SELECT name_ru, price FROM products WHERE is_active = true LIMIT 5"
-                )
-            )
-            [{"name": r[0], "price": f"{r[1]} сум"} for r in res_prices.fetchall()]
+        # Выборка цен отсюда убрана: её результат никуда не присваивался и не
+        # использовался — запрос ходил в базу впустую на каждую рассылку.
 
         # Сводка по сегментам — чтобы владелец видел, кого и почему сегодня берём
         by_seg = {}
@@ -484,12 +481,10 @@ async def handle_b2b_approval(callback_query):
         chef_name = name or "Шеф-повар"
         comp_name = company or "Ресторан"
 
-        # Получаем продукты для PDF
-        res_prices = await session.execute(
-            text("SELECT name_ru, price FROM products WHERE is_active = true LIMIT 5")
-        )
+        # Продукты для PDF — из каталога-мастера, а не своим SQL.
         products = [
-            {"name": r[0], "price": f"{r[1]} сум"} for r in res_prices.fetchall()
+            {"name": item["name"], "price": format_price(item["price"])}
+            for item in (await catalog_repo.list_active())[:5]
         ]
 
         success = False
