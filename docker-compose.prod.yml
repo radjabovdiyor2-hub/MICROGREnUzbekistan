@@ -8,7 +8,19 @@
 #    - init.sql is retired; tables managed by Prisma db push
 #    - CRM tables use crm_* prefix where names conflict with web tables
 #
-#  Bring up:   docker compose -f docker-compose.prod.yml up -d --build
+#  Образы собираются в CI (job build-images) и лежат в GHCR. Сервер их только
+#  скачивает — `--build` на нём больше не запускается: именно неограниченная
+#  сборка витрины (npm install + next build, 1,5–2,5 ГБ) съедала память
+#  4-гигабайтной машины и приводила к OOM.
+#
+#  Bring up:   docker compose -f docker-compose.prod.yml pull
+#              docker compose -f docker-compose.prod.yml up -d
+#
+#  ⚠️ Пакеты в GHCR приватные, поэтому на сервере нужен разовый логин
+#  (PAT со скоупом read:packages, сохраняется в ~/.docker/config.json):
+#      echo <PAT> | docker login ghcr.io -u <github-user> --password-stdin
+#  Без него `pull` вернёт denied, и деплой встанет. Токен вводить только на
+#  сервере: через CI он бы попал в лог Actions, там включён `set -x`.
 # ============================================================================
 
 # --- shared config for every internal tgas bot -----------------------------
@@ -29,8 +41,16 @@ x-tgas-bot: &tgas-bot
     context: .
     dockerfile: apps/tgas/Dockerfile
   restart: unless-stopped
-  # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
-  mem_limit: 128m
+  # ПОТОЛОК, А НЕ БРОНЬ. При превышении cgroup убивает процесс ВНУТРИ контейнера,
+  # поэтому лимит ниже реального потребления превращает «работает» в
+  # «перезапускается по кругу». Отсюда 192m, а не 128m: образ несёт
+  # aiogram + aiohttp + sqlalchemy + asyncpg + openai + httpx + Pillow + fastapi,
+  # и одни только импорты дают ~90–130 МБ RSS до всякой работы.
+  # Сумма потолков по стеку превышает 4 ГБ машины — это нормально, потолки не
+  # резервируются, фактическое потребление в разы ниже. Авария была не из-за
+  # суммы, а из-за `docker build` на сервере: сборку он не ограничивает вовсе.
+  # Уточнить по факту: docker stats --no-stream (после суток работы).
+  mem_limit: 192m
   env_file: ./apps/tgas/.env
   environment:
     ENVIRONMENT: production
@@ -66,8 +86,12 @@ services:
     image: pgvector/pgvector:pg16
     container_name: mg_postgres
     restart: unless-stopped
-    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
-    mem_limit: 256m
+    # Ниже 512m не опускать. У pgvector/pg16 дефолтный shared_buffers — 128 МБ,
+    # сверху ~20 подключений (14 ботов + web + web_office + разовый db-push),
+    # каждый backend это 5–10 МБ плюс work_mem. 256m перекрывается на обычной
+    # нагрузке, а cgroup-OOM бьёт не по машине, а внутрь cgroup — то есть по
+    # самому Postgres, роняя все backend'ы разом.
+    mem_limit: 512m
     # No host port mapping — all services connect via mg_net Docker network.
     # Publishing 5432 caused "address already in use" on container recreation.
     environment:
@@ -114,8 +138,10 @@ services:
     image: redis:7-alpine
     container_name: mg_redis
     restart: unless-stopped
-    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
-    mem_limit: 150m
+    # 128 МБ данных (--maxmemory ниже) + сам процесс, буферы клиентов и запас на
+    # fork при RDB-снимке. Впритык к maxmemory ставить нельзя — форк удваивает
+    # резидентную память на время сохранения.
+    mem_limit: 192m
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
@@ -179,7 +205,9 @@ services:
       dockerfile: apps/web/Dockerfile
     container_name: mg_web
     restart: unless-stopped
-    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
+    # Здесь крутится ТОЛЬКО рантайм Next.js (standalone) — сборка уехала в CI,
+    # поэтому пиковых 1,5–2,5 ГБ от `npm run build` на сервере больше нет.
+    # Уточнить по факту: docker stats --no-stream.
     mem_limit: 512m
     # Published only on loopback — the server's existing system nginx proxies
     # microgreenuzbekistan.com -> 127.0.0.1:3002 (порты 3000/3001 заняты другими
@@ -237,8 +265,9 @@ services:
       dockerfile: apps/bot/Dockerfile
     container_name: mg_storefront_bot
     restart: unless-stopped
-    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
-    mem_limit: 128m
+    # Тот же расчёт, что у ботов офиса: aiogram + Gemini-клиент + httpx дают
+    # ~90–120 МБ только на импортах. Уточнить: docker stats --no-stream.
+    mem_limit: 192m
     env_file: .env
     environment:
       ENVIRONMENT: production
@@ -311,6 +340,11 @@ services:
     <<: *tgas-bot
     container_name: mg_content
     command: python -m bots.content_bot.main
+    # Единственный бот с потолком выше общего: shared/trends.py в
+    # get_trending_queries лениво импортирует pytrends, а тот тянет pandas —
+    # +60–80 МБ на время суточного сбора трендов. С общими 192m контейнер
+    # умирал бы ровно раз в сутки, в момент сбора повестки.
+    mem_limit: 256m
 
   qa:
     <<: *tgas-bot

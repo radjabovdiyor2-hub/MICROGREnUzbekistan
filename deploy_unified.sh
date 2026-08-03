@@ -61,9 +61,16 @@ fi
 
 docker stop mg_postgres 2>/dev/null || true
 
-# 4. Pull + Build
+# 4. Обновление кода и образов
 echo "📥 Обновляю код..."
 git pull
+
+# Образы тянем сразу, до всякой работы с базой. Пакеты в GHCR приватные, и без
+# разового `docker login ghcr.io` на сервере pull вернёт denied; под set -e это
+# обрывает скрипт. Пусть обрывает здесь, а не после unify_databases.sql —
+# иначе база остаётся мигрированной, а стек не поднятым.
+echo "📥 Скачиваю образы из GHCR..."
+docker compose -f docker-compose.prod.yml pull
 
 # 5. Сначала ТОЛЬКО база — переименование должно пройти ДО `prisma db push`.
 #
@@ -90,8 +97,8 @@ docker cp packages/database/prisma/migrations/unify_databases.sql mg_postgres:/t
 docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/unify_databases.sql
 
 # 6a. Теперь остальной стек: db-push накатит схему уже на переименованные таблицы
-echo "🏗️  Пересобираю и запускаю остальное..."
-docker compose -f docker-compose.prod.yml pull
+# Без --build: образы собраны в CI и скачаны шагом 4.
+echo "🏗️  Запускаю остальное..."
 docker compose -f docker-compose.prod.yml up -d
 
 # 7. Если была microgreen_db — перенести данные после prisma db push

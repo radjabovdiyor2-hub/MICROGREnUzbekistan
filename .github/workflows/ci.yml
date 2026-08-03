@@ -182,6 +182,13 @@ jobs:
             cd /opt/microgreen
             git fetch origin
             git reset --hard origin/main
+            # Скачиваем образы ПЕРВЫМ делом — до того, как что-либо тронуто.
+            # Пакеты в GHCR приватные: если разовый `docker login ghcr.io` на
+            # сервере не сделан (или PAT протух), pull вернёт denied. Под set -e
+            # это обрывает скрипт, и место обрыва решает многое — стоя после
+            # unify_databases.sql, pull ронял бы деплой уже ПОСЛЕ переименования
+            # таблиц, оставляя стек лежать на полпути с мигрированной базой.
+            docker compose -f docker-compose.prod.yml pull
             # Remove stale one-shot containers first. db-push/db-seed use fixed
             # names, so a leftover from a previous/aborted run makes compose fail
             # with "container name already in use" on recreate. Two separate
@@ -206,9 +213,6 @@ jobs:
               docker cp "$MIGRATION_SQL" mg_postgres:/tmp/unify_databases.sql
               docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/unify_databases.sql
             fi
-            # Fetch latest images from GHCR
-            docker compose -f docker-compose.prod.yml pull
-            
             # Run db-push: --no-deps prevents compose from recreating the
             # already-running postgres (which races on port 5432).
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-push 2>&1 || {
