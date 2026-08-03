@@ -91,7 +91,8 @@ docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/unify_databases.sq
 
 # 6a. Теперь остальной стек: db-push накатит схему уже на переименованные таблицы
 echo "🏗️  Пересобираю и запускаю остальное..."
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
 
 # 7. Если была microgreen_db — перенести данные после prisma db push
 if [ -f "backups/microgreen_db_${TIMESTAMP}.sql" ]; then

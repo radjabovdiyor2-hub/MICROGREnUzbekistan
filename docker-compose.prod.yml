@@ -21,7 +21,7 @@ x-tgas-bot: &tgas-bot
   # у всех сразу, и деплой не укладывался в отведённые ему 28 минут (прогон
   # #318 упал именно по таймауту). Теперь сборка одна, остальные тринадцать
   # сервисов переиспользуют готовый образ.
-  image: mg_tgas:latest
+  image: ghcr.io/radjabovdiyor2-hub/mg-tgas:latest
   build:
     # Контекст — корень репозитория, чтобы образы офиса видели общий пакет
     # packages/mg_ai. Следствие: применяется корневой .dockerignore, а
@@ -29,7 +29,8 @@ x-tgas-bot: &tgas-bot
     context: .
     dockerfile: apps/tgas/Dockerfile
   restart: unless-stopped
-  mem_limit: 320m
+  # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
+  mem_limit: 128m
   env_file: ./apps/tgas/.env
   environment:
     ENVIRONMENT: production
@@ -65,7 +66,8 @@ services:
     image: pgvector/pgvector:pg16
     container_name: mg_postgres
     restart: unless-stopped
-    mem_limit: 512m
+    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
+    mem_limit: 256m
     # No host port mapping — all services connect via mg_net Docker network.
     # Publishing 5432 caused "address already in use" on container recreation.
     environment:
@@ -112,7 +114,8 @@ services:
     image: redis:7-alpine
     container_name: mg_redis
     restart: unless-stopped
-    mem_limit: 192m
+    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
+    mem_limit: 150m
     command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
@@ -127,7 +130,7 @@ services:
   # One-shot: push the Prisma schema into the unified database, then exit.
   db-push:
     # Тот же builder-образ, что и у db-seed: собираем его один раз, а не дважды.
-    image: mg_web_builder:latest
+    image: ghcr.io/radjabovdiyor2-hub/mg-web-builder:latest
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -151,7 +154,7 @@ services:
   # seed-if-empty runs the full seed only when product count is 0, so it never
   # overwrites admin-edited prices/stock on an already-populated shop.
   db-seed:
-    image: mg_web_builder:latest
+    image: ghcr.io/radjabovdiyor2-hub/mg-web-builder:latest
     build:
       context: .
       dockerfile: apps/web/Dockerfile
@@ -170,12 +173,14 @@ services:
 
   # ========================= WEBSITE ======================================
   web:
+    image: ghcr.io/radjabovdiyor2-hub/mg-web:latest
     build:
       context: .
       dockerfile: apps/web/Dockerfile
     container_name: mg_web
     restart: unless-stopped
-    mem_limit: 768m
+    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
+    mem_limit: 512m
     # Published only on loopback — the server's existing system nginx proxies
     # microgreenuzbekistan.com -> 127.0.0.1:3002 (порты 3000/3001 заняты другими
     # проектами на этом сервере, поэтому наш сайт на 3002; не трогает 80/443).
@@ -226,12 +231,14 @@ services:
 
   # Customer-facing storefront bot (aiogram + Gemini) — the only client bot.
   bot:
+    image: ghcr.io/radjabovdiyor2-hub/mg-bot:latest
     build:
       context: .
       dockerfile: apps/bot/Dockerfile
     container_name: mg_storefront_bot
     restart: unless-stopped
-    mem_limit: 256m
+    # Ориентировочный лимит. Сверить на живом сервере: docker stats --no-stream
+    mem_limit: 128m
     env_file: .env
     environment:
       ENVIRONMENT: production
