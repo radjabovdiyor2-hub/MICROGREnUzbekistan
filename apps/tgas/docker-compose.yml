@@ -14,6 +14,10 @@
 #  Схему базы этот стек НЕ создаёт: сервиса db-push здесь нет. Накатите её
 #  из корня репозитория — `npm run db:push`.
 #  Полный стек вместе с витриной — docker-compose.prod.yml.
+#
+#  Все 14 сервисов офиса делят ОДИН образ (image: mg_tgas_dev:latest) — они
+#  различаются только `command:`. Без явного image compose собирал бы один и
+#  тот же Dockerfile по разу на каждый сервис: четырнадцать сборок вместо одной.
 # ============================================================================
 services:
   postgres:
@@ -78,6 +82,7 @@ services:
     networks:
     - mg_net
   web_office:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_web_office
     restart: unless-stopped
@@ -108,6 +113,7 @@ services:
     networks:
     - mg_net
   stepan:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_stepan
     restart: unless-stopped
@@ -130,6 +136,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   sales:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_sales
     restart: unless-stopped
@@ -152,6 +159,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   hr:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_hr
     restart: unless-stopped
@@ -174,6 +182,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   finance:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_finance
     restart: unless-stopped
@@ -196,6 +205,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   marketing:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_marketing
     restart: unless-stopped
@@ -218,6 +228,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   support:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_support
     restart: unless-stopped
@@ -240,6 +251,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   analytics:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_analytics
     restart: unless-stopped
@@ -262,6 +274,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   content:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_content
     restart: unless-stopped
@@ -284,6 +297,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   qa:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_qa
     restart: unless-stopped
@@ -306,6 +320,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   rnd:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_rnd
     restart: unless-stopped
@@ -328,6 +343,7 @@ services:
     volumes:
     - bus_tasks:/app/bus_tasks
   devops:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_devops
     restart: unless-stopped
@@ -351,6 +367,7 @@ services:
     networks:
     - mg_net
   n8n_bridge:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_n8n_bridge
     restart: unless-stopped
@@ -377,6 +394,7 @@ services:
     networks:
     - mg_net
   franchise:
+    image: mg_tgas_dev:latest
     build: .
     container_name: mg_franchise
     restart: unless-stopped
