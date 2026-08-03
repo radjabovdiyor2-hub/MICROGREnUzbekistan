@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from aiohttp import web
-from shared.config import settings
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.ai_engine import AIEngine

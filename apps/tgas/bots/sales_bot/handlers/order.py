@@ -147,8 +147,8 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
         await cb.answer()
         return
 
+    order_id = created["order"].get("id")
     order_number = created["order"].get("orderNumber") or "—"
-    items_summary = ", ".join(f"{i['name']} x{i['qty']}" for i in cart.values())
 
     await state.update_data(cart={})
     await state.set_state(None)

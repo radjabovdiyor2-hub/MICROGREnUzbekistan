@@ -414,9 +414,6 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         # ── 4. Заказ создаёт витрина ──
         # Один вызов даёт номер, списание остатка, уведомления и зеркало в CRM
         # через /ingest/order. Заказ виден и на сайте, и в Telegram.
-        items_summary = "; ".join(
-            f"{item['name']} × {item['quantity']:g}" for item in lines
-        )
         created = await storefront_orders.create_order(
             customer_name=customer_name,
             phone=phone or "",
