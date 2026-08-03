@@ -108,7 +108,7 @@ async def shifts(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
-                "SELECT name, role, status FROM employees WHERE status='active' LIMIT 10"
+                "SELECT name, role, status FROM crm_employees WHERE status='active' LIMIT 10"
             )
         )
         emps = r.fetchall()

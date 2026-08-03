@@ -37,29 +37,23 @@ logger = logging.getLogger(__name__)
 GRAPH_BASE_URL = "https://graph.facebook.com/v19.0"
 
 # ── Каталог продукции (контекст для AI) ──────────────────────────────────
-PRODUCT_CATALOG = f"""
-ПРОДУКЦИЯ Microgreen Uzbekistan:
+# Раньше здесь лежал каталог с ценами строкой. Он разошёлся с базой (цены
+# менялись в админке, а промпт нет) и вдобавок предлагал «стартовый набор для
+# выращивания дома» — ровно то, что фирменный промпт продаж запрещает. Теперь
+# каталог берётся из базы: shared/catalog_repo — единственный источник цен.
+async def _product_catalog() -> str:
+    from shared import catalog_repo
+    from shared.utils import format_price
 
-1. Микрозелень (руккола, базилик, горох, подсолнечник):
-   - Цена: 40,000-65,000 сум за 100г
-   - Свежая, выращена на гидропонике в Самарканде
-
-2. Салатные миксы (руккола, витаминный, микс):
-   - Цена: 65,000-85,000 сум за 200г
-   - Идеально для ресторанов и дома
-
-3. Съедобные цветы (микс, настурция, бораго):
-   - Цена: 70,000-90,000 сум за 30г
-   - Украшение блюд и десертов
-
-4. Стартовый набор для выращивания дома:
-   - Цена: 250,000 сум
-   - Всё включено: семена, субстрат, лоток, инструкция
-
-ДОСТАВКА: Бесплатно от 500,000 сум по Самарканду
-ТЕЛЕФОН: {BRAND["phone"]}
-САЙТ: microgreenuzbekistan.com
-""".strip()
+    catalog = await catalog_repo.price_list()
+    threshold = format_price(float(settings.free_delivery_threshold))
+    return (
+        "ПРОДУКЦИЯ Microgreen Uzbekistan (актуальный каталог):\n"
+        f"{catalog}\n\n"
+        f"ДОСТАВКА: бесплатно от {threshold} по Самарканду\n"
+        f"ТЕЛЕФОН: {BRAND['phone']}\n"
+        "САЙТ: microgreenuzbekistan.com"
+    )
 
 # ── Промо-темы для разнообразия ──────────────────────────────────────────
 PROMO_THEMES = [
@@ -104,7 +98,7 @@ async def _generate_promo_text(ai: AIEngine) -> str:
     theme = random.choice(PROMO_THEMES)
     user_prompt = (
         f"Напиши промо-текст для Instagram Story на тему: '{theme}'.\n\n"
-        f"Каталог продукции:\n{PRODUCT_CATALOG}\n\n"
+        f"Каталог продукции:\n{await _product_catalog()}\n\n"
         f"Помни: текст должен быть очень коротким (2-4 строки) и цепляющим."
     )
 

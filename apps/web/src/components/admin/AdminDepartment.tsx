@@ -27,13 +27,12 @@ interface DeptData {
 interface Props {
   departmentId: string;
   departmentName: string;
-  botName: string;
   lang: 'ru' | 'uz';
 }
 
 import { AdminDepartmentTable, type Task } from './AdminDepartmentTable';
 
-export function AdminDepartment({ departmentId, departmentName, botName, lang }: Props) {
+export function AdminDepartment({ departmentId, departmentName, lang }: Props) {
   const [data, setData] = useState<DeptData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -93,6 +92,9 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
 
   const stats = data?.stats || { total: 0, done: 0, in_progress: 0, todo: 0, overdue: 0 };
   const tasks = data?.tasks || [];
+  // Пусто — у отдела нет Telegram-интерфейса (QA, R&D, DevOps), и ссылку
+  // рисовать нельзя.
+  const botUsername = data?.bot || '';
   const filteredTasks = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
   const completionRate = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
 
@@ -109,16 +111,26 @@ export function AdminDepartment({ departmentId, departmentName, botName, lang }:
             {/* Раньше здесь всегда горело зелёное «● Online» — при том, что
                 данных о состоянии бота в этом ответе нет вовсе. Настоящее
                 здоровье ботов живёт в /api/admin/bots (пульс из Redis) и
-                показано в разделе «Здоровье ботов». */}
-            Telegram: <strong>@{botName}</strong>
+                показано в разделе «Здоровье ботов».
+
+                Юзернейм приходит из реестра ботов ИИ-офиса, а не вписан здесь:
+                прежние захардкоженные имена разошлись с реальностью, а для
+                QA/R&D/DevOps подставлялся бот руководителя — ссылка обещала
+                чат отдела, которого не существует. */}
+            {botUsername
+              ? <>Telegram: <strong>@{botUsername}</strong></>
+              : t('Без Telegram-интерфейса — задачи ставит Стёпан',
+                  "Telegram interfeysi yo'q — vazifalarni Stepan qo'yadi")}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <a href={`https://t.me/${botName}`} target="_blank" rel="noopener noreferrer"
-            className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Send size={14} /> {t('Открыть бот', "Botni ochish")}
-          </a>
-        </div>
+        {botUsername && (
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener noreferrer"
+              className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Send size={14} /> {t('Открыть бот', "Botni ochish")}
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Stats Cards */}

@@ -75,18 +75,21 @@ export function AdminTabRouter({ activeTab, isOwner, sellerName, lang, t }: {
     {activeTab === 'learnings' && isOwner && <AdminLearnings lang={lang} />}
     {activeTab === 'ai_spend' && isOwner && <AdminAiSpend lang={lang} />}
 
-    {/* Отделы. Юзернеймы ботов раньше были перепутаны: контент вёл на
-        MG_Finance1_bot, а финансы — на MG_Content1_bot. Служебные
-        QA/R&D/DevOps Telegram-интерфейса не имеют, их ведёт Стёпан. */}
-    {activeTab === 'dept_sales' && isOwner && <AdminDepartment departmentId="sales" departmentName={t('Продажи', 'Sotuvlar')} botName="MicrogreenSales_bot" lang={lang} />}
-    {activeTab === 'dept_marketing' && isOwner && <AdminDepartment departmentId="marketing" departmentName={t('Маркетинг', 'Marketing')} botName="MG_Marketing_bot" lang={lang} />}
-    {activeTab === 'dept_content' && isOwner && <AdminDepartment departmentId="content" departmentName={t('Контент', 'Kontent')} botName="MG_Content1_bot" lang={lang} />}
-    {activeTab === 'dept_hr' && isOwner && <AdminDepartment departmentId="hr" departmentName={t('Кадры (HR)', 'Kadrlar (HR)')} botName="MG_HR1_bot" lang={lang} />}
-    {activeTab === 'dept_finance' && isOwner && <AdminDepartment departmentId="finance" departmentName={t('Финансы', 'Moliya')} botName="MG_Finance1_bot" lang={lang} />}
-    {activeTab === 'dept_devops' && isOwner && <AdminDepartment departmentId="devops" departmentName={t('DevOps / IT', 'DevOps / IT')} botName="MG_PM1_bot" lang={lang} />}
-    {activeTab === 'dept_qa' && isOwner && <AdminDepartment departmentId="qa" departmentName={t('QA / Тесты', 'QA / Testlar')} botName="MG_PM1_bot" lang={lang} />}
-    {activeTab === 'dept_rnd' && isOwner && <AdminDepartment departmentId="rnd" departmentName={t('R&D', 'R&D')} botName="MG_PM1_bot" lang={lang} />}
-    {activeTab === 'dept_support' && isOwner && <AdminDepartment departmentId="support" departmentName={t('Поддержка', "Qo'llab-quvvatlash")} botName="MicrogreenSupport_bot" lang={lang} />}
+    {/* Отделы. Юзернейм бота больше не вписан здесь: он приходит из реестра
+        ИИ-офиса вместе с данными отдела. Прежние захардкоженные имена
+        разошлись с реальностью (контент вёл на MG_Finance1_bot, финансы — на
+        MG_Content1_bot), а QA/R&D/DevOps указывали на бота руководителя,
+        обещая чат отдела, которого не существует. */}
+    {activeTab === 'dept_sales' && isOwner && <AdminDepartment departmentId="sales" departmentName={t('Продажи', 'Sotuvlar')} lang={lang} />}
+    {activeTab === 'dept_marketing' && isOwner && <AdminDepartment departmentId="marketing" departmentName={t('Маркетинг', 'Marketing')} lang={lang} />}
+    {activeTab === 'dept_content' && isOwner && <AdminDepartment departmentId="content" departmentName={t('Контент', 'Kontent')} lang={lang} />}
+    {activeTab === 'dept_hr' && isOwner && <AdminDepartment departmentId="hr" departmentName={t('Кадры (HR)', 'Kadrlar (HR)')} lang={lang} />}
+    {activeTab === 'dept_finance' && isOwner && <AdminDepartment departmentId="finance" departmentName={t('Финансы', 'Moliya')} lang={lang} />}
+    {activeTab === 'dept_analytics' && isOwner && <AdminDepartment departmentId="analytics" departmentName={t('Аналитика', 'Analitika')} lang={lang} />}
+    {activeTab === 'dept_devops' && isOwner && <AdminDepartment departmentId="devops" departmentName={t('DevOps / IT', 'DevOps / IT')} lang={lang} />}
+    {activeTab === 'dept_qa' && isOwner && <AdminDepartment departmentId="qa" departmentName={t('QA / Качество', 'QA / Sifat')} lang={lang} />}
+    {activeTab === 'dept_rnd' && isOwner && <AdminDepartment departmentId="rnd" departmentName={t('R&D', 'R&D')} lang={lang} />}
+    {activeTab === 'dept_support' && isOwner && <AdminDepartment departmentId="support" departmentName={t('Поддержка', "Qo'llab-quvvatlash")} lang={lang} />}
 
     {/* Контент и журнал */}
     {activeTab === 'magazine' && isOwner && <AdminMagazine />}

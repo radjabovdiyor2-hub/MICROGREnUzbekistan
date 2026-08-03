@@ -17,7 +17,9 @@ Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 
 ## Жёсткие запреты
 
-- **Нет прямых импортов между модулями.** `apps/web` ↔ `apps/bot` ↔ `apps/tgas` общаются только через HTTP API или Event Bus. `apps/web` — единственный владелец каталога, `apps/tgas` — CRM/задач.
+- **Нет прямых импортов между модулями.** `apps/web` ↔ `apps/bot` ↔ `apps/tgas` общаются только через HTTP API или Event Bus. `apps/web` — единственный владелец каталога **и заказов**, `apps/tgas` — CRM/задач.
+- **Заказ создаёт только витрина.** `POST /api/orders` — единственная дверь; из офиса она открывается через `apps/tgas/shared/storefront_orders.py`. Мимо неё заказ не появится ни на сайте, ни в остатках. Каталог офис читает через `apps/tgas/shared/catalog_repo.py`.
+- **База одна, но таблицы двух семейств.** Витрина: `products`, `orders`, `order_items`, `users`. CRM офиса: `crm_products`, `crm_orders`, `crm_order_items`, `crm_employees`, `customers`, `tasks`, `finances`. Путать их — та самая ошибка, из-за которой продажа не регистрировалась.
 - **Нет ручного SQL DDL.** Только `npx prisma db push` / `npx prisma generate` из `packages/database`.
 - **Нет захардкоженных цветов.** Только CSS-переменные (`--brand-primary`, `--bg-primary`, `--text-primary`). Цепочка: `design-system/tokens/tokens.json` → `npm run tokens:build` → `globals.css`.
 - **Нет прямых AI-клиентов в Python.** Движок один — `packages/mg_ai`; приложения ходят в него через свою обёртку: офис через `apps/tgas/shared/ai_engine.py`, витринный бот через `apps/bot/services/ai_service.py`. Обёртка подставляет ключи и учёт расхода, поэтому `AsyncOpenAI`/Gemini напрямую создавать нельзя — расход уйдёт мимо `ai_usage`.
@@ -39,9 +41,21 @@ cd apps/web && npm run test           # Vitest
 cd apps/web && npm run tokens:build   # пересборка дизайн-токенов
 ```
 
-`apps/tgas`: автотестов и линтера нет — проверка запуском бота против dev-`.env`, подробности в [apps/tgas/CLAUDE.md](apps/tgas/CLAUDE.md).
+`apps/tgas`: автотестов и линтера нет, но есть четыре статические сверки — прогонять все:
 
-Верификация до заявления «готово»: `npm run lint` + `npm run build` для TS, `python -m py_compile` для Python.
+```bash
+cd apps/tgas
+python -m pytest tests/ -q       # реестр инструментов, исполнитель задач
+python scripts/check_schema.py   # сырой SQL против schema.prisma
+python scripts/check_tools.py    # инструменты отделов и делегирование
+python scripts/check_bot_roster.py
+python scripts/check_prompts.py
+```
+
+Подробности — в [apps/tgas/CLAUDE.md](apps/tgas/CLAUDE.md).
+
+Верификация до заявления «готово»: `npm run lint` + `npm run build` для TS, `python -m py_compile`
+плюс тесты и четыре сверки выше для Python.
 
 ## Языки
 

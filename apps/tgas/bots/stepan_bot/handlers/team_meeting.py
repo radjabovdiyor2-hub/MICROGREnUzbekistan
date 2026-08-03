@@ -35,6 +35,8 @@ from aiogram.types import (
 )
 from sqlalchemy import text
 
+from shared import approvals
+from shared import tools as tool_registry
 from shared.config import settings
 from shared.database import get_session_ctx
 from shared.ai_engine import AIEngine
@@ -212,6 +214,41 @@ DEPARTMENTS = {
         "role": (
             "Ты — Степан, Генеральный Управляющий и Операционный директор (COO). Твоя зона: производственные циклы сити-фермы, "
             "урожайность, себестоимость выращивания, свежесть и скоропорт, логистика, дедлайны."
+        ),
+    },
+    # У QA, R&D и DevOps нет Telegram-интерфейса (bot_registry: telegram=False) —
+    # своего «голоса» в чате у них быть не может. Но их экспертиза на совещании
+    # нужна: качество урожая, опыты с культурами и работоспособность сервисов
+    # влияют на любое операционное решение. Поэтому они говорят через бота
+    # руководителя. Заводить им отдельные токены ради реплики в чате не нужно.
+    "qa": {
+        "name": "Контроль качества",
+        "emoji": "🧪",
+        "token": "stepan_bot_token",
+        "role": (
+            "Ты — инженер контроля качества. Твоя зона: всхожесть, плесень, "
+            "вытягивание, стабильность партий, причины брака и его цена, "
+            "соблюдение технологии выращивания."
+        ),
+    },
+    "rnd": {
+        "name": "R&D",
+        "emoji": "🔬",
+        "token": "stepan_bot_token",
+        "role": (
+            "Ты — аналитик R&D. Твоя зона: новые культуры и субстраты, "
+            "урожайность и длительность цикла, эксперименты и их окупаемость, "
+            "расширение ассортимента."
+        ),
+    },
+    "devops": {
+        "name": "DevOps / IT",
+        "emoji": "⚙️",
+        "token": "stepan_bot_token",
+        "role": (
+            "Ты — системный администратор и DevOps-инженер. Твоя зона: "
+            "доступность сайта и ботов, бэкапы, стоимость инфраструктуры, "
+            "технические риски и то, что упадёт при росте нагрузки."
         ),
     },
 }
@@ -403,23 +440,23 @@ async def _collect_data() -> str:
         # ── Заказы ──
         try:
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE DATE(created_at)=CURRENT_DATE"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE DATE(created_at)=CURRENT_DATE"
             )
             c, s = r.fetchone()
             lines.append(f"📦 Заказы сегодня: {c} на {format_price(s)}")
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
             )
             c, s = r.fetchone()
             lines.append(f"📦 Заказы за неделю: {c} на {format_price(s)}")
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) FROM orders WHERE EXTRACT(MONTH FROM created_at)=EXTRACT(MONTH FROM CURRENT_DATE)"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) FROM crm_orders WHERE EXTRACT(MONTH FROM created_at)=EXTRACT(MONTH FROM CURRENT_DATE)"
             )
             c, s, a = r.fetchone()
             lines.append(
                 f"📦 Заказы за месяц: {c} на {format_price(s)}, средний чек {format_price(a)}"
             )
-            r = await q("SELECT COUNT(*) FROM orders WHERE status='new'")
+            r = await q("SELECT COUNT(*) FROM crm_orders WHERE status='new'")
             lines.append(f"⚠️ Необработанных заказов (new): {r.scalar() or 0}")
         except Exception as e:
             logger.warning(f"meeting data (orders): {e}")
@@ -427,11 +464,11 @@ async def _collect_data() -> str:
         # ── Тренд неделя к неделе ──
         try:
             r = await q(
-                "SELECT COUNT(*) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                "SELECT COUNT(*) FROM crm_orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
             )
             this_w = r.scalar() or 0
             r = await q(
-                "SELECT COUNT(*) FROM orders WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' AND created_at < CURRENT_DATE - INTERVAL '7 days'"
+                "SELECT COUNT(*) FROM crm_orders WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' AND created_at < CURRENT_DATE - INTERVAL '7 days'"
             )
             prev_w = r.scalar() or 0
             trend = "→ без изменений"
@@ -478,7 +515,7 @@ async def _collect_data() -> str:
                 f"прибыль {format_price(profit)} (маржа {margin:.0f}%)"
             )
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status='pending'"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE payment_status='pending'"
             )
             dc, ds = r.fetchone()
             lines.append(
@@ -491,8 +528,8 @@ async def _collect_data() -> str:
         try:
             r = await q(
                 "SELECT p.category, COUNT(oi.id), COALESCE(SUM(oi.total_price),0) "
-                "FROM order_items oi JOIN products p ON oi.product_id=p.id "
-                "JOIN orders o ON oi.order_id=o.id "
+                "FROM crm_order_items oi JOIN crm_products p ON oi.product_id=p.id "
+                "JOIN crm_orders o ON oi.order_id=o.id "
                 "WHERE EXTRACT(MONTH FROM o.created_at)=EXTRACT(MONTH FROM CURRENT_DATE) "
                 "GROUP BY p.category ORDER BY SUM(oi.total_price) DESC LIMIT 3"
             )
@@ -1121,32 +1158,34 @@ def _parse_deadline(deadline_text: str):
 
 async def _parse_plan_tasks(plan: str) -> list:
     """
-    Разбирает план на задачи: отдел + РЕАЛЬНОЕ действие из реестра возможностей.
+    Разбирает план на задачи: отдел + РЕАЛЬНЫЙ инструмент из реестра офиса.
 
-    Раньше здесь выбирался только отдел, а «исполнение» сводилось к строке в БД
-    и сочинённому отчёту. Теперь каждый пункт привязывается к тому, что бот
-    ДЕЙСТВИТЕЛЬНО может сделать (написать клиентам, разослать, опубликовать,
-    собрать лидов), а недоступное честно уходит человеку через human_task.
+    Раньше каталог для планировщика брался из `capabilities` — десять действий
+    текстом, без схем аргументов. Всё, чего в этих десяти не было, сводилось к
+    `human_task`, поэтому шаг «собрать прайс для ресторана» физически не мог
+    стать ничем, кроме поручения человеку, хотя инструмент для этого есть.
+    Теперь каталог — весь реестр инструментов, с перечнем параметров.
     """
-    from shared.capabilities import CAPABILITIES, catalog_for_ai
-
     keys = ", ".join(DEPARTMENTS.keys())
     system = (
         "Разбери план действий на конкретные задачи. Для каждой выбери отдел И "
-        "РЕАЛЬНОЕ действие из каталога возможностей — то, что бот действительно умеет.\n\n"
+        "РЕАЛЬНЫЙ инструмент из каталога — то, что бот действительно умеет.\n\n"
         f"Ключи отделов: {keys}\n\n"
-        f"КАТАЛОГ ВОЗМОЖНОСТЕЙ:\n{catalog_for_ai()}\n\n"
+        f"КАТАЛОГ ИНСТРУМЕНТОВ (звёздочка — обязательный параметр,\n"
+        f"⚠️ — требует подтверждения владельца):\n{tool_registry.catalog_text()}\n\n"
         "⚠️ ПРАВИЛА:\n"
         "- «обзвонить / связаться / дожать / вернуть / уведомить клиентов» → notify_customers. "
         "Бот не звонит, но напишет в Telegram, затем на email, а тех, до кого не достучаться, "
         "передаст человеку. Это НЕ повод отказываться от пункта.\n"
+        "- Нужны цены или ассортимент — get_price_list или build_price_list_post. "
+        "Цены по памяти называть запрещено.\n"
         "- Если действие боту недоступно (встреча, переговоры, производство, закупка, найм) → "
-        "human_task. НЕ выдумывай возможность, которой нет в каталоге.\n"
-        "- В params клади то, что нужно действию: segment, message, target, topic, limit.\n"
+        "human_task. НЕ выдумывай инструмент, которого нет в каталоге.\n"
+        "- В params клади именно те параметры, что перечислены у инструмента.\n"
         "- Для сообщений клиентам ОБЯЗАТЕЛЬНО напиши готовый текст в params.message — "
         "живой, вежливый, на русском, от лица Microgreen Uzbekistan, 1-3 предложения.\n\n"
         "Верни ТОЛЬКО JSON-массив:\n"
-        '[{"dept":"<ключ>","action":"что сделать","capability":"<ключ из каталога>",'
+        '[{"dept":"<ключ>","action":"что сделать","capability":"<имя инструмента>",'
         '"params":{...},"deadline":"срок как в тексте или пусто"}]'
     )
     try:
@@ -1164,7 +1203,7 @@ async def _parse_plan_tasks(plan: str) -> list:
             if not action or dept not in DEPARTMENTS:
                 continue
             cap = str(it.get("capability", "")).strip()
-            if cap not in CAPABILITIES:
+            if tool_registry.by_name(cap) is None:
                 # модель предложила несуществующее действие — не выдумываем исполнение
                 cap = "human_task"
             params = it.get("params") if isinstance(it.get("params"), dict) else {}
@@ -1183,23 +1222,25 @@ async def _parse_plan_tasks(plan: str) -> list:
         return []
 
 
-# Планы, ждущие подтверждения на действия НАРУЖУ: token -> {chat_id, decision, tasks}
-PENDING_EXEC: dict = {}
+# Планы, ждущие подтверждения, лежат в общем хранилище заявок
+# (shared/approvals, Redis). Раньше здесь был словарь в памяти процесса —
+# третий по счёту механизм подтверждения в Telegram, и перезапуск бота
+# терял неподтверждённый план молча.
 
 
 def _plan_preview(tasks: list) -> str:
     """Что именно будет сделано — до того, как это уйдёт клиентам."""
-    from shared.capabilities import CAPABILITIES
-
     lines = []
     for t in tasks:
         d = DEPARTMENTS[t["dept"]]
-        cap = CAPABILITIES.get(t.get("capability") or "")
-        what = cap.title if cap else "передать человеку"
-        mark = "⚠️" if (cap and cap.outward) else "•"
+        tool = tool_registry.by_name(t.get("capability") or "")
+        # Карточка показывает не название инструмента, а что именно произойдёт
+        # с этими аргументами: владелец подтверждает действие, а не имя функции.
+        what = tool.summary(t.get("params") or {}) if tool else "передать человеку"
+        mark = "⚠️" if (tool and tool.risky) else "•"
         lines.append(
             f"{mark} {d['emoji']} <b>{d['name']}</b> — {html.escape(t['action'])}\n"
-            f"      └ {what}"
+            f"      └ {html.escape(what)}"
         )
     return "\n".join(lines)
 
@@ -1210,12 +1251,18 @@ async def run_execution(
     """
     Запускает план в работу — ПО-НАСТОЯЩЕМУ.
 
-    Каждый пункт привязан к реальной возможности (написать клиентам, разослать,
-    опубликовать, собрать лидов). Действия НАРУЖУ (сообщения клиентам, публикация)
-    сначала показываются владельцу и уходят только после подтверждения — правило,
-    уже принятое в проекте для B2B-рассылки.
+    Каждый пункт привязан к реальному инструменту отдела. Рискованные действия
+    (сообщения клиентам, публикация, деньги, цены) сначала показываются
+    владельцу и уходят только после подтверждения — правило, уже принятое в
+    проекте для B2B-рассылки.
     """
-    from shared.capabilities import is_outward
+
+    def is_outward(name: str) -> bool:
+        """Требует ли шаг подтверждения. Признак берём у инструмента (`risky`),
+        а не у отдельного реестра возможностей: у половины инструментов
+        capability-двойника просто нет."""
+        tool = tool_registry.by_name(name or "")
+        return bool(tool and tool.risky)
 
     question = decision.get("question", "")
     plan = decision.get("plan", "")
@@ -1268,53 +1315,40 @@ async def run_execution(
     decision.setdefault("fp", plan_fingerprint(plan))
     await save_decision(chat_id, decision)
 
-    # 2. Если есть действия НАРУЖУ — спрашиваем разрешение ОДНОЙ кнопкой.
+    # 2. Если есть рискованные пункты — спрашиваем разрешение ОДНОЙ кнопкой.
+    # Заявка уходит в общее хранилище подтверждений (Redis): раньше план ждал
+    # в словаре процесса, и перезапуск бота между показом карточки и нажатием
+    # «Выполнять» терял его молча.
     outward = [t for t in created if is_outward(t.get("capability"))]
     if outward and getattr(settings, "execution_require_confirm", True):
-        token = uuid.uuid4().hex[:8]
-        PENDING_EXEC[token] = {
-            "chat_id": chat_id,
-            "decision": decision,
-            "tasks": created,
-        }
-        if len(PENDING_EXEC) > 20:
-            for old in list(PENDING_EXEC.keys())[:-20]:
-                PENDING_EXEC.pop(old, None)
-
-        kb = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    InlineKeyboardButton(
-                        text="🚀 Выполнять", callback_data=f"exec:go:{token}"
-                    ),
-                    InlineKeyboardButton(
-                        text="❌ Отмена", callback_data=f"exec:no:{token}"
-                    ),
-                ]
-            ]
+        token = await approvals.request(
+            manager_bot,
+            chat_id,
+            "meeting_plan",
+            {"chat_id": chat_id, "tasks": created},
+            "Запустить план совещания в работу",
+            bot_name="Совещание",
+            details=(
+                f"{_plan_preview(created)}\n\n"
+                f"⚠️ Пункты со значком уйдут <b>реальным клиентам</b> / в аккаунт."
+            ),
         )
-        body = (
-            f"🚀 <b>Готов выполнить план:</b>\n\n{_plan_preview(created)}\n\n"
-            f"⚠️ Пункты со значком уйдут <b>реальным клиентам</b> / в аккаунт. "
-            f"Подтвердите запуск."
+        if token:
+            return
+        # Карточку показать не удалось — выполнять без спроса нельзя.
+        await _safe_send(
+            manager_bot,
+            chat_id,
+            "⚠️ Не смог запросить подтверждение — план НЕ запущен. "
+            "Повторите позже.",
         )
-        try:
-            await manager_bot.send_message(
-                chat_id, body, parse_mode="HTML", reply_markup=kb
-            )
-        except Exception:
-            await manager_bot.send_message(
-                chat_id, re.sub(r"</?[^>]+>", "", body), reply_markup=kb
-            )
         return
 
     await _perform(manager_bot, chat_id, created)
 
 
 async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
-    """Выполняет возможности и отчитывается ФАКТАМИ, а не сочинением."""
-    from shared.capabilities import run_capability
-
+    """Выполняет инструменты и отчитывается ФАКТАМИ, а не сочинением."""
     await _safe_send(manager_bot, chat_id, "⚙️ <b>Выполняю…</b>")
 
     dept_keys = list(dict.fromkeys(t["dept"] for t in tasks))
@@ -1337,12 +1371,17 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
             params = dict(t.get("params") or {})
             params.setdefault("action", t["action"])
             params.setdefault("dept", k)
+            params.setdefault("chat_id", chat_id)
 
-            res = await run_capability(cap_key, params)
+            # Лишние аргументы реестр отбросит по сигнатуре инструмента, поэтому
+            # общий контекст (action/dept/chat_id) можно класть всем подряд.
+            res = tool_registry.normalize_result(
+                await tool_registry.call(cap_key, params)
+            )
 
-            icon = "✅" if res.ok else "⚠️"
-            body = f"{DEPARTMENTS[k]['emoji']} {icon} {html.escape(res.summary)}"
-            for e in res.evidence:
+            icon = "✅" if res["ok"] else "⚠️"
+            body = f"{DEPARTMENTS[k]['emoji']} {icon} {html.escape(res['summary'])}"
+            for e in res["evidence"]:
                 body += f"\n      {html.escape(e)}"
 
             b = dept_bots.get(k)
@@ -1358,13 +1397,13 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
                     manager_bot,
                     chat_id,
                     f"{DEPARTMENTS[k]['emoji']} {icon} "
-                    f"<b>{DEPARTMENTS[k]['name']}:</b> {html.escape(res.summary)}",
+                    f"<b>{DEPARTMENTS[k]['name']}:</b> {html.escape(res['summary'])}",
                 )
 
             # Задачу закрываем ТОЛЬКО если действие реально отработало.
             # human_task — это эскалация, работа ещё впереди: не закрываем.
             tid = t.get("task_id")
-            if res.ok and cap_key != "human_task":
+            if res["ok"] and cap_key != "human_task":
                 done += 1
                 if tid:
                     try:
@@ -1402,34 +1441,22 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
     )
 
 
-@meeting_router.callback_query(F.data.startswith("exec:"))
-async def _on_exec_confirm(cb: CallbackQuery):
-    """Подтверждение действий, которые уйдут наружу (клиентам / в аккаунт)."""
-    if not _is_admin(cb.from_user.id):
-        await cb.answer("⛔ Только для руководителя")
-        return
-    _, verb, token = cb.data.split(":", 2)
-    ctx = PENDING_EXEC.pop(token, None)
-    try:
-        await cb.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+async def _run_approved_plan(payload: dict, cb: CallbackQuery) -> str:
+    """Владелец нажал «Одобрить» под планом совещания — запускаем.
 
-    if not ctx:
-        await cb.answer("Этот план уже неактуален")
-        return
+    Кнопки обслуживает общий approvals_router; здесь остаётся только сама
+    работа. Отдельного обработчика отказа не нужно: заявка одноразовая, и при
+    отказе она просто выбрасывается, ничего не выполнив.
+    """
+    chat_id = payload.get("chat_id")
+    tasks = payload.get("tasks") or []
+    if not chat_id or not tasks:
+        return "План уже неактуален."
+    await _perform(cb.bot, chat_id, tasks)
+    return f"План запущен: {len(tasks)} пунктов."
 
-    if verb == "no":
-        await cb.answer("Отменено")
-        # план отменён — снимаем «исполнен», чтобы не мешал следующему
-        await clear_decision(ctx["chat_id"])
-        await _safe_send(
-            cb.bot, ctx["chat_id"], "❌ Выполнение отменено. Ничего не отправлено."
-        )
-        return
 
-    await cb.answer("Запускаю…")
-    await _perform(cb.bot, ctx["chat_id"], ctx["tasks"])
+approvals.register_handler("meeting_plan", _run_approved_plan)
 
 
 def plan_fingerprint(text: str) -> str:
@@ -1670,7 +1697,7 @@ async def _collect_kpi_drops():
             r1 = (
                 await s.execute(
                     text(
-                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
                         "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
                     )
                 )
@@ -1678,7 +1705,7 @@ async def _collect_kpi_drops():
             r2 = (
                 await s.execute(
                     text(
-                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
                         "WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' "
                         "AND created_at < CURRENT_DATE - INTERVAL '7 days'"
                     )

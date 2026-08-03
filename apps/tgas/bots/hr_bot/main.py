@@ -38,7 +38,7 @@ async def payroll_reminder():
                 result = await session.execute(
                     text(
                         "SELECT COUNT(*) AS cnt, COALESCE(SUM(salary), 0) AS total "
-                        "FROM employees WHERE status = 'active'"
+                        "FROM crm_employees WHERE status = 'active'"
                     )
                 )
                 row = result.fetchone()
@@ -74,7 +74,7 @@ async def employee_report():
         try:
             async with get_session_ctx() as session:
                 result = await session.execute(
-                    text("SELECT status, COUNT(*) FROM employees GROUP BY status")
+                    text("SELECT status, COUNT(*) FROM crm_employees GROUP BY status")
                 )
                 rows = result.fetchall()
             status_map = {r[0]: r[1] for r in rows}
@@ -211,12 +211,12 @@ async def bus_get_employees(params: dict) -> dict:
 
         async with get_session_ctx() as session:
             res = await session.execute(
-                text("SELECT status, COUNT(*) FROM employees GROUP BY status")
+                text("SELECT status, COUNT(*) FROM crm_employees GROUP BY status")
             )
             status_map = {r[0]: r[1] for r in res.fetchall()}
             res = await session.execute(
                 text(
-                    "SELECT id, name, role, status, salary FROM employees ORDER BY name"
+                    "SELECT id, name, role, status, salary FROM crm_employees ORDER BY name"
                 )
             )
             rows = res.fetchall()
@@ -295,9 +295,13 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.approvals import approvals_router
     from shared.task_ui import task_ui_router
 
     dp.include_router(task_ui_router)
+    # Кнопки ✅/❌ под рискованными действиями отдела. Без этого роутера
+    # карточка подтверждения показывается, а нажатие ничего не делает.
+    dp.include_router(approvals_router)
     for r in all_routers:
         dp.include_router(r)
 

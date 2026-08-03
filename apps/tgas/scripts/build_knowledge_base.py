@@ -73,13 +73,17 @@ async def build_knowledge_base():
             # Сохраняем в БД
             async with get_session_ctx() as session:
                 await session.execute(
+                    # Колонки таблицы — chunk/source/embedding (так её создаёт
+                    # Prisma и так её читают faq.py и corporate_memory.py).
+                    # Прежние title/content не существовали, и база знаний
+                    # support-бота не наполнялась вовсе.
                     text("""
-                        INSERT INTO knowledge_base (title, content, embedding)
-                        VALUES (:title, :content, CAST(:embedding AS vector))
+                        INSERT INTO knowledge_base (chunk, source, embedding)
+                        VALUES (:chunk, :source, CAST(:embedding AS vector))
                     """),
                     {
-                        "title": title,
-                        "content": text_content,
+                        "chunk": text_content,
+                        "source": title,
                         "embedding": str(embedding),
                     },
                 )

@@ -12,6 +12,7 @@ import logging
 import aiohttp
 from typing import List, Dict, Optional
 from datetime import datetime, timezone, timedelta
+from shared import storefront_orders
 from shared.config import settings
 from shared.ai_engine import AIEngine
 
@@ -47,7 +48,7 @@ IG_SALES_SYSTEM_PROMPT = (
 
 🏢 О КОМПАНИИ:
 - Microgreen Uzbekistan — производитель микрозелени, салатов и съедобных цветов в Самарканде
-- Доставка по Самарканду, бесплатно от 500 000 сум
+- Доставка по Самарканду, порог бесплатной доставки уточняет менеджер при оформлении
 
 🌱 НАША ПРОДУКЦИЯ:
 - Микрозелень (руккола, базилик, шпинат, брокколи, редис, горох, подсолнечник, кресс-салат, кинза, свёкла)
@@ -294,6 +295,9 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
     order_number = None
     order_id = None
     total_amount = 0
+    # Объявлен на уровне функции, потому что от него зависит рассылка ORDER_CREATED
+    # в самом конце — а внутренний блок мог не дойти до присваивания.
+    storefront_success = False
 
     try:
         # 1. Создаём/находим клиента в БД
@@ -372,7 +376,7 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
                 price_row = (
                     await session.execute(
                         sa_text(
-                            "SELECT id, storefront_id, price FROM products WHERE is_active=true AND name_ru ILIKE :p LIMIT 1"
+                            "SELECT id, storefront_id, price FROM crm_products WHERE is_active=true AND name_ru ILIKE :p LIMIT 1"
                         ),
                         {"p": f"%{product_name}%"},
                     )
@@ -383,54 +387,41 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
                     price = float(price_row[2])
                     total_amount = int(price * quantity)
 
-            # Пытаемся отправить заказ в реальный магазин
-            storefront_success = False
+            # Заказ создаёт витрина — через общий клиент, а не рукописный POST.
+            # Своя копия здесь слала только заголовок x-bot-secret (без Bearer),
+            # передавала timeout числом вместо ClientTimeout и подставляла в
+            # productId целочисленный id CRM, когда у товара не было
+            # storefront_id: витрина отклоняла такой заказ по внешнему ключу, и
+            # путь ВСЕГДА сваливался в локальный черновик.
             real_order_number = None
 
-            if total_amount > 0:
-                import aiohttp
-                import os
-
-                storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
-                bot_secret = os.getenv("BOT_SECRET", "")
-
-                payload = {
-                    "name": from_name,
-                    "phone": norm_phone or phone or "нет телефона",
-                    "address": order.get("address", "") or "Самарканд",
-                    "items": [
+            if total_amount > 0 and storefront_id:
+                created = await storefront_orders.create_order(
+                    customer_name=from_name,
+                    phone=norm_phone or phone or "",
+                    address=order.get("address", "") or "Самарканд",
+                    items=[
                         {
-                            "productId": storefront_id or str(db_id),
+                            "id": storefront_id,
                             "price": int(price),
                             "quantity": int(quantity),
                         }
                     ],
-                    "paymentMethod": "cash",
-                    "telegramId": None,
-                }
-                try:
-                    async with aiohttp.ClientSession() as http_sess:
-                        async with http_sess.post(
-                            f"{storefront_url}/orders",
-                            json=payload,
-                            headers={
-                                "x-bot-secret": bot_secret,
-                                "Content-Type": "application/json",
-                            },
-                            timeout=10,
-                        ) as response:
-                            if response.status in (200, 201):
-                                resp_data = await response.json()
-                                order_data = resp_data.get("order", {})
-                                real_order_number = order_data.get(
-                                    "orderNumber"
-                                ) or order_data.get("order_number")
-                                if real_order_number:
-                                    storefront_success = True
-                except Exception as e:
-                    logger.error(
-                        f"Failed to post order to storefront in instagram_dm: {e}"
+                    note=f"Instagram Direct от {from_name}",
+                )
+                if created["ok"]:
+                    real_order_number = created["order"].get("orderNumber")
+                    storefront_success = bool(real_order_number)
+                else:
+                    logger.warning(
+                        "IG DM: витрина не приняла заказ (%s) — пишу черновик",
+                        created["error"],
                     )
+            elif total_amount > 0:
+                logger.warning(
+                    "IG DM: у товара «%s» нет storefront_id — заказ в магазин не уйдёт",
+                    product_name,
+                )
 
             if storefront_success:
                 order_number = real_order_number
@@ -440,7 +431,7 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
                 try:
                     res_local = await session.execute(
                         sa_text(
-                            "SELECT id FROM orders WHERE order_number = :onum LIMIT 1"
+                            "SELECT id FROM crm_orders WHERE order_number = :onum LIMIT 1"
                         ),
                         {"onum": order_number},
                     )
@@ -472,7 +463,7 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
 
                 res = await session.execute(
                     sa_text(
-                        "INSERT INTO orders (customer_id, order_number, total_amount, status, "
+                        "INSERT INTO crm_orders (customer_id, order_number, total_amount, status, "
                         "payment_status, delivery_address, notes, created_at, updated_at) "
                         "VALUES (:cid, :onum, :total, 'new', 'pending', :addr, :notes, NOW(), NOW()) "
                         "RETURNING id"
@@ -488,6 +479,26 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
                 order_row = res.fetchone()
                 order_id = order_row[0] if order_row else None
                 order_number = order_num
+
+                # Позиция черновика. Без неё заказ был невидим всей аналитике:
+                # и топ товаров, и ABC-анализ, и выручка по позициям считаются
+                # джойном crm_order_items, а строк там не появлялось.
+                if order_id and db_id and price is not None:
+                    await session.execute(
+                        sa_text(
+                            "INSERT INTO crm_order_items (order_id, product_id, quantity, "
+                            "unit, unit_price, total_price) "
+                            "VALUES (:oid, :pid, :qty, :unit, :price, :total)"
+                        ),
+                        {
+                            "oid": order_id,
+                            "pid": db_id,
+                            "qty": quantity,
+                            "unit": "piece",
+                            "price": price,
+                            "total": price * quantity,
+                        },
+                    )
                 await session.commit()
 
                 logger.info(
@@ -496,7 +507,20 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
     except Exception as db_err:
         logger.error(f"Ошибка создания заказа в БД: {db_err}")
 
-    # 3. Публикуем событие для Степана
+    # 3. Событие ORDER_CREATED — ТОЛЬКО для локального черновика.
+    #
+    # Когда заказ ушёл на витрину, событие уже разослало зеркало /ingest/order
+    # (web_office/main.py — «публикуется здесь и только здесь»). Публикация ещё
+    # раз отсюда давала Finance двойной доход, а Analytics — двойную метрику по
+    # каждому заказу из Instagram. Черновик же зеркало не увидит никогда —
+    # про него отделы должны узнать от нас.
+    if storefront_success:
+        logger.info(
+            "ORDER_CREATED по заказу %s не публикуем: его уже разослало зеркало витрины",
+            order_number,
+        )
+        return
+
     try:
         from shared.event_bus import event_bus, Events
 

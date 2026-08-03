@@ -200,13 +200,17 @@ async def seed_products():
         },
     ]
 
+    # Сеем офисное зеркало каталога (crm_products), а не витрину: каталог-мастер
+    # принадлежит витрине и заводится через её API (shared/catalog_ops.add_product).
+    # Раньше здесь стояло `TRUNCATE TABLE products CASCADE` — после объединения
+    # баз это имя означает таблицу магазина, и запуск сид-скрипта снёс бы весь
+    # боевой каталог вместе с заказами по каскаду.
     async with get_session_ctx() as session:
-        # Удаляем старые тестовые товары
-        await session.execute(text("TRUNCATE TABLE products CASCADE"))
+        await session.execute(text("TRUNCATE TABLE crm_products CASCADE"))
 
         for p in products_data:
             query = text("""
-                INSERT INTO products (name_uz, name_ru, category, price, unit, stock_qty)
+                INSERT INTO crm_products (name_uz, name_ru, category, price, unit, stock_qty)
                 VALUES (:name_uz, :name_ru, :category, :price, :unit, :stock_qty)
             """)
             await session.execute(query, p)

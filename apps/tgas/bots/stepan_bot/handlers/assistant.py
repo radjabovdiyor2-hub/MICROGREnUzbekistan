@@ -25,6 +25,8 @@ from aiogram.types import (
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
+from shared import approvals
+from shared import tools as tool_registry
 from shared.config import settings
 from shared.database import get_session_ctx
 from sqlalchemy import text
@@ -169,7 +171,7 @@ async def report_daily(cb: CallbackQuery):
         # Заказы за сегодня
         res = await session.execute(
             text(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE DATE(created_at) = CURRENT_DATE"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE DATE(created_at) = CURRENT_DATE"
             )
         )
         orders_count, orders_sum = res.fetchone()
@@ -277,7 +279,7 @@ async def show_finance(cb: CallbackQuery):
         # Неоплаченные заказы
         res = await session.execute(
             text(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders WHERE payment_status = 'pending'"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE payment_status = 'pending'"
             )
         )
         debt_count, debt_sum = res.fetchone()
@@ -313,7 +315,7 @@ async def show_orders(cb: CallbackQuery):
         res = await session.execute(
             text(
                 "SELECT o.id, o.order_number, o.total_amount, o.status, o.payment_status, "
-                "c.name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id "
+                "c.name FROM crm_orders o LEFT JOIN customers c ON o.customer_id = c.id "
                 "ORDER BY o.created_at DESC LIMIT 10"
             )
         )
@@ -356,7 +358,7 @@ async def show_employees(cb: CallbackQuery):
 
     async with get_session_ctx() as session:
         res = await session.execute(
-            text("SELECT name, role, status, salary FROM employees ORDER BY name")
+            text("SELECT name, role, status, salary FROM crm_employees ORDER BY name")
         )
         employees = res.fetchall()
 
@@ -393,8 +395,8 @@ async def show_analytics(cb: CallbackQuery):
         res = await session.execute(
             text(
                 "SELECT p.category, COUNT(oi.id), SUM(oi.total_price) "
-                "FROM order_items oi JOIN products p ON oi.product_id = p.id "
-                "JOIN orders o ON oi.order_id = o.id "
+                "FROM crm_order_items oi JOIN crm_products p ON oi.product_id = p.id "
+                "JOIN crm_orders o ON oi.order_id = o.id "
                 "WHERE EXTRACT(MONTH FROM o.created_at) = EXTRACT(MONTH FROM CURRENT_DATE) "
                 "GROUP BY p.category ORDER BY SUM(oi.total_price) DESC"
             )
@@ -412,7 +414,7 @@ async def show_analytics(cb: CallbackQuery):
 
         res = await session.execute(
             text(
-                "SELECT COUNT(*), COALESCE(AVG(total_amount),0) FROM orders "
+                "SELECT COUNT(*), COALESCE(AVG(total_amount),0) FROM crm_orders "
                 "WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)"
             )
         )
@@ -1323,16 +1325,6 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     "📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений."
                 )
 
-            elif name == "get_report":
-                report = await _generate_report(args.get("report_kind", "daily"))
-                await message.answer(f"📊 Отчет:\n\n{report}")
-                tool_results_text.append("Отчет отправлен.")
-
-            elif name == "query_db":
-                db_ans = await _query_db(args.get("db_query", ""))
-                await message.answer(f"🔍 Данные из БД:\n\n{db_ans}")
-                tool_results_text.append("Данные отправлены.")
-
             elif name == "show_published_post":
                 # Показываем САМ пост (картинка + текст), а не пересказ расписания
                 ok = await _show_publications(message, args.get("day", "today"))
@@ -1343,15 +1335,27 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 )
                 intent_after = "show"
 
-            elif name == "get_content_status":
-                if await _content_status(message):
-                    tool_results_text.append("Статус публикаций отдан.")
-                    intent_after = "status"
+            elif tool_registry.by_name(name) is not None:
+                # Инструмент офиса — исполняем в процессе. Раньше сюда попадали
+                # только восемь имён из руками поддерживаемого списка, а всё
+                # остальное уходило на витрину, даже если офис умел это сам:
+                # так `get_content_status` и `find_product` отвечали по-разному
+                # в зависимости от того, кто спросил.
+                #
+                # Подтверждения у Стёпана нет намеренно: он разговаривает с
+                # владельцем, и спрашивать разрешения у того, кто только что
+                # отдал распоряжение, — лишний шаг. Карточки остаются для
+                # инструментов витрины (ветка ниже).
+                result = await tool_registry.call(
+                    name, {**args, "chat_id": message.chat.id}
+                )
+                if isinstance(result, dict) and result.get("message"):
+                    await message.answer(str(result["message"]))
+                tool_results_text.append(f"{name}: {json.dumps(result, ensure_ascii=False, default=str)[:600]}")
 
             else:
-                # Инструмент без нативного обработчика — исполняем удалённо через витрину.
-                # Так работают все web-инструменты: get_inventory_status, find_product,
-                # get_ai_spend, set_setting, change_product_price и т.д.
+                # Инструмент витрины — исполняем удалённо: set_setting,
+                # change_product_price, toggle_bot_job, deactivate_learning и др.
                 from shared.stepan_tools import execute_remote
 
                 result = await execute_remote(name, args)
@@ -1428,7 +1432,7 @@ async def _get_db_context() -> str:
             # Все заказы сегодня (включая Instagram)
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
                     "WHERE DATE(created_at) = CURRENT_DATE"
                 )
             )
@@ -1438,7 +1442,7 @@ async def _get_db_context() -> str:
             # Заказы из Instagram
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
                     "WHERE DATE(created_at) = CURRENT_DATE AND order_number LIKE 'IG-%'"
                 )
             )
@@ -1449,7 +1453,7 @@ async def _get_db_context() -> str:
             # Все заказы за неделю
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
                     "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
                 )
             )
@@ -1460,7 +1464,7 @@ async def _get_db_context() -> str:
 
             # Новые/необработанные заказы
             res = await session.execute(
-                text("SELECT COUNT(*) FROM orders WHERE status = 'new'")
+                text("SELECT COUNT(*) FROM crm_orders WHERE status = 'new'")
             )
             new_orders = res.scalar()
             if new_orders > 0:
@@ -1533,7 +1537,7 @@ async def _get_db_context() -> str:
             # Последние заказы (все за сегодня + последние 5)
             res = await session.execute(
                 text(
-                    "SELECT order_number, total_amount, status, notes, created_at FROM orders "
+                    "SELECT order_number, total_amount, status, notes, created_at FROM crm_orders "
                     "WHERE DATE(created_at) = CURRENT_DATE "
                     "ORDER BY created_at DESC LIMIT 10"
                 )
@@ -2046,150 +2050,36 @@ async def _handle_task(message: Message, data: dict):
     # выполненную), добавьте обе колонки в схему и вернитесь к этой мысли.
 
 
-async def _query_db(query_type: str) -> str:
-    """Выполняем запрос к БД по типу."""
-    try:
-        async with get_session_ctx() as session:
-            if query_type == "sales_summary":
-                res = await session.execute(
-                    text(
-                        "SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) "
-                        "FROM orders WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE)"
-                    )
-                )
-                cnt, total, avg = res.fetchone()
-                return f"🛒 Заказов: {cnt} | Сумма: {format_price(total)} | Средний: {format_price(avg)}"
+# _query_db и _generate_report удалены. Оба были рукописными SQL-отчётами по
+# фиксированному списку видов запроса, и оба дублировали инструменты офиса:
+# get_business_summary, get_finance_summary, get_pnl, top_products, get_tasks,
+# build_report. Одноимённые объявления на витрине были заглушками, которые
+# отвечали «используйте get_business_summary», — теперь их нет и там.
 
-            elif query_type == "tasks_status":
-                res = await session.execute(
-                    text("SELECT status, COUNT(*) FROM tasks GROUP BY status")
-                )
-                stats = dict(res.fetchall())
-                return (
-                    f"📋 Задачи: ⬜ {stats.get('todo', 0)} | 🔄 {stats.get('in_progress', 0)} | "
-                    f"✅ {stats.get('done', 0)} | ❌ {stats.get('cancelled', 0)}"
-                )
-
-            elif query_type == "finance_report":
-                res = await session.execute(
-                    text(
-                        "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-                        "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-                        "FROM finances WHERE EXTRACT(MONTH FROM date) = EXTRACT(MONTH FROM CURRENT_DATE)"
-                    )
-                )
-                inc, exp = res.fetchone()
-                return f"💰 Доходы: {format_price(inc)} | 💸 Расходы: {format_price(exp)} | Прибыль: {format_price(inc - exp)}"
-
-            elif query_type == "orders_today":
-                res = await session.execute(
-                    text(
-                        "SELECT order_number, total_amount, status FROM orders "
-                        "WHERE DATE(created_at) = CURRENT_DATE ORDER BY created_at DESC"
-                    )
-                )
-                orders = res.fetchall()
-                if not orders:
-                    return "📦 Сегодня заказов нет."
-                lines = ["📦 Заказы сегодня:"]
-                for o in orders:
-                    lines.append(f"  {o[0]} — {format_price(o[1])} [{o[2]}]")
-                return "\n".join(lines)
-
-            elif query_type == "customers_count":
-                res = await session.execute(
-                    text(
-                        "SELECT COUNT(*), "
-                        "SUM(CASE WHEN customer_type='b2b' THEN 1 ELSE 0 END), "
-                        "SUM(CASE WHEN status='vip' THEN 1 ELSE 0 END) FROM customers"
-                    )
-                )
-                total, b2b, vip = res.fetchone()
-                return f"👥 Клиентов: {total} | B2B: {b2b or 0} | VIP: {vip or 0}"
-
-            elif query_type == "employees":
-                res = await session.execute(
-                    text("SELECT name, role, status FROM employees ORDER BY name")
-                )
-                emps = res.fetchall()
-                if not emps:
-                    return "👥 Сотрудников нет."
-                lines = ["👥 Сотрудники:"]
-                for e in emps:
-                    icon = "🟢" if e[2] == "active" else "🔴"
-                    lines.append(f"  {icon} {e[0]} — {e[1]}")
-                return "\n".join(lines)
-
-        return ""
-    except Exception as e:
-        return f"⚠️ Ошибка запроса: {e}"
+# ── Подтверждение изменяющих действий витрины ────────────────────────────
+# Заявка живёт в общем хранилище (shared/approvals, Redis, 15 минут), а не в
+# словаре процесса: раньше перезапуск бота между показом карточки и нажатием
+# кнопки превращал «Выполнить» в «карточка устарела».
+#
+# Подписанный токен витрины кладётся в payload заявки: в callback_data он не
+# помещается (там 64 байта), да и подпись проверяет всё равно витрина.
 
 
-async def _generate_report(kind: str) -> str:
-    """Генерируем отчёт по типу."""
-    try:
-        async with get_session_ctx() as session:
-            lines = [f"📊 <b>Отчёт: {kind}</b>\n"]
+async def _confirm_storefront_write(payload: dict, cb: CallbackQuery) -> str:
+    """Владелец одобрил — отправляем подписанный токен витрине."""
+    from shared.stepan_tools import confirm_remote
 
-            # Заказы
-            res = await session.execute(
-                text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE"
-                )
-            )
-            cnt, total = res.fetchone()
-            lines.append(f"🛒 Заказы сегодня: {cnt} на {format_price(total)}")
-
-            # Финансы
-            res = await session.execute(
-                text(
-                    "SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0), "
-                    "COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) "
-                    "FROM finances WHERE date = CURRENT_DATE"
-                )
-            )
-            inc, exp = res.fetchone()
-            lines.append(
-                f"💰 Доходы: {format_price(inc)} | 💸 Расходы: {format_price(exp)}"
-            )
-
-            # Задачи
-            res = await session.execute(
-                text("SELECT status, COUNT(*) FROM tasks GROUP BY status")
-            )
-            stats = dict(res.fetchall())
-            lines.append(
-                f"📋 Задачи: ⬜{stats.get('todo', 0)} 🔄{stats.get('in_progress', 0)} ✅{stats.get('done', 0)}"
-            )
-
-            # Новые клиенты
-            res = await session.execute(
-                text(
-                    "SELECT COUNT(*) FROM customers WHERE DATE(created_at) = CURRENT_DATE"
-                )
-            )
-            new_c = res.scalar()
-            lines.append(f"👤 Новых клиентов: {new_c}")
-
-            return "\n".join(lines)
-    except Exception as e:
-        return f"⚠️ Ошибка: {e}"
+    res = await confirm_remote(payload["token"])
+    if res.get("ok"):
+        return res.get("message") or "Выполнено."
+    return f"Не выполнено: {res.get('error', 'витрина отказала')}"
 
 
-# ── Подтверждение изменяющих действий ────────────────────────────────────
-# Токен предложения длиннее 64 байт, а столько вмещает callback_data кнопки.
-# Поэтому в кнопку кладём короткий ключ, а сам токен держим здесь. Словарь
-# живёт в памяти процесса: перезапуск бота обнуляет неподтверждённые
-# карточки, и это правильно — подпись всё равно протухает через 15 минут.
-_PENDING: dict[str, dict] = {}
+approvals.register_handler("storefront_write", _confirm_storefront_write)
 
 
 async def _offer_write_action(message: Message, proposal: dict) -> None:
     """Показать карточку «было → стало» с кнопками подтверждения."""
-    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-    import uuid
-
     token = proposal.get("token")
     if not token:
         await message.answer(
@@ -2197,64 +2087,29 @@ async def _offer_write_action(message: Message, proposal: dict) -> None:
         )
         return
 
-    key = uuid.uuid4().hex[:12]
-    _PENDING[key] = proposal
-
-    lines = [f"<b>{proposal.get('summary') or 'Действие'}</b>"]
+    details = ""
     if proposal.get("before") or proposal.get("after"):
-        lines.append(f"\n<i>было:</i> {proposal.get('before') or '—'}")
-        lines.append(f"<i>станет:</i> {proposal.get('after') or '—'}")
+        details = (
+            f"<i>было:</i> {proposal.get('before') or '—'}\n"
+            f"<i>станет:</i> {proposal.get('after') or '—'}"
+        )
     if proposal.get("risky"):
-        lines.append("\n⚠️ Действие затрагивает клиентов или публичный аккаунт.")
-    lines.append("\nВ базе пока ничего не изменилось.")
+        details += "\n⚠️ Действие затрагивает клиентов или публичный аккаунт."
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="✅ Выполнить", callback_data=f"stx:{key}"),
-                InlineKeyboardButton(text="✖️ Отклонить", callback_data=f"stxn:{key}"),
-            ]
-        ]
+    created = await approvals.request(
+        message.bot,
+        message.chat.id,
+        "storefront_write",
+        {"token": token},
+        proposal.get("summary") or "Действие",
+        bot_name="Стёпан",
+        details=details,
     )
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=kb)
+    if not created:
+        await message.answer(
+            "⚠️ Не смог показать карточку подтверждения — действие НЕ выполнено."
+        )
 
 
-@router.callback_query(F.data.startswith("stx:"))
-async def _confirm_write_action(cb: CallbackQuery):
-    """Владелец нажал «Выполнить» — отправляем подписанный токен витрине."""
-    if not is_admin(cb.from_user.id):
-        await cb.answer("Недоступно", show_alert=True)
-        return
-
-    key = cb.data.split(":", 1)[1]
-    proposal = _PENDING.pop(key, None)
-    if not proposal:
-        await cb.answer("Карточка устарела — попросите заново", show_alert=True)
-        return
-
-    await cb.answer("Выполняю…")
-    from shared.stepan_tools import confirm_remote
-
-    res = await confirm_remote(proposal["token"])
-
-    mark = "✅" if res.get("ok") else "❌"
-    text = res.get("message") if res.get("ok") else res.get("error", "не удалось")
-    try:
-        await cb.message.edit_text(f"{mark} {text}", parse_mode="HTML")
-    except Exception:
-        await cb.message.answer(f"{mark} {text}")
-
-
-@router.callback_query(F.data.startswith("stxn:"))
-async def _reject_write_action(cb: CallbackQuery):
-    """Владелец отказался. Ничего не выполняем, предложение выбрасываем."""
-    if not is_admin(cb.from_user.id):
-        await cb.answer("Недоступно", show_alert=True)
-        return
-
-    _PENDING.pop(cb.data.split(":", 1)[1], None)
-    await cb.answer("Отклонено")
-    try:
-        await cb.message.edit_text("✖️ Отклонено — в базе ничего не изменилось.")
-    except Exception:
-        pass
+# Отдельного обработчика отказа здесь нет: кнопки ✅/❌ обслуживает
+# approvals_router (shared/approvals.py), общий для всех ботов офиса.

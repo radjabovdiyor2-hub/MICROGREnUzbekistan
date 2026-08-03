@@ -748,9 +748,13 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.approvals import approvals_router
     from shared.task_ui import task_ui_router
 
     dp.include_router(task_ui_router)
+    # Кнопки ✅/❌ под рискованными действиями отдела. Без этого роутера
+    # карточка подтверждения показывается, а нажатие ничего не делает.
+    dp.include_router(approvals_router)
     for r in all_routers:
         dp.include_router(r)
 

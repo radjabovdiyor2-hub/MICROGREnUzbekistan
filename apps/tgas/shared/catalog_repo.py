@@ -1,0 +1,279 @@
+"""
+📚 CATALOG REPO — единственная дверь офиса к каталогу
+=====================================================
+Каталог-мастер живёт на витрине: таблица `products` (Prisma, cuid-ключи), рядом
+`categories`. Офисное зеркало `crm_products` нужно только там, где на товар
+ссылаются CRM-строки (`crm_order_items.product_id` — целочисленный FK).
+
+ЗАЧЕМ ЭТОТ МОДУЛЬ СУЩЕСТВУЕТ
+
+`unify_databases.sql` переименовал офисные таблицы (`products → crm_products`),
+отдав имя `products` витрине. Код офиса это переименование не заметил и
+продолжал спрашивать у витринной таблицы офисные колонки:
+
+    SELECT id, name_ru, price, unit FROM products ORDER BY sort_order
+
+У витрины нет ни `unit`, ни `sort_order` — запрос падал с UndefinedColumn,
+ошибка гасилась внешним `except`, и регистрация продажи молча отвечала
+«не смог записать продажу в БД». Прайс-лист по той же причине приходил пустым,
+и модель дописывала цены сама.
+
+Поэтому обращение к каталогу собрано здесь, в одном месте, с колонками витрины.
+Новый запрос к товарам — сюда, не в бота.
+
+СООТВЕТСТВИЕ КОЛОНОК
+
+    витрина (products)         офис (crm_products)
+    id           cuid/text     id            serial
+    name_ru      text          name_ru       varchar
+    name_uz      text          name_uz       varchar
+    price        integer       price         numeric(12,2)
+    stock        integer       stock_qty     numeric(10,2)
+    category_id  cuid → categories.slug      category      varchar
+    —                          unit          varchar
+    —                          storefront_id ← products.id
+
+Единиц измерения у витрины нет: `unit` подтягивается из зеркала по
+`storefront_id`, а без зеркальной строки честно отдаётся `piece`.
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import String, bindparam, text
+
+from sqlalchemy.dialects.postgresql import ARRAY
+
+from shared.database import get_session_ctx
+from shared.text_match import query_variants
+from shared.utils import format_price
+
+logger = logging.getLogger(__name__)
+
+# Порог нечёткого совпадения (pg_trgm). Ниже — уже случайные созвучия.
+FUZZY_THRESHOLD = 0.45
+
+DEFAULT_UNIT = "piece"
+
+# Витрина отдаёт товар одним и тем же набором полей во всех функциях модуля,
+# чтобы вызывающему не приходилось помнить, какая выборка что вернула.
+# Единица измерения берётся подзапросом, а не JOIN'ом: `crm_products.storefront_id`
+# не уникален на уровне схемы, и join размножил бы товар при задвоенном зеркале.
+_FIELDS = (
+    "p.id, p.name_ru, p.name_uz, p.price, p.stock, "
+    "c.slug AS category_slug, p.is_active, "
+    "COALESCE((SELECT m.unit FROM crm_products m "
+    "          WHERE m.storefront_id = p.id LIMIT 1), :default_unit) AS unit, "
+    "p.description_ru, p.description_uz"
+)
+_FROM = "FROM products p LEFT JOIN categories c ON c.id = p.category_id "
+_SELECT = f"SELECT {_FIELDS} {_FROM}"
+
+
+def _row(row) -> Dict[str, Any]:
+    """Строка выборки → словарь товара. Единственное место разбора."""
+    return {
+        "id": row[0],
+        "name": row[1] or row[2] or "Товар",
+        "name_ru": row[1],
+        "name_uz": row[2],
+        "price": float(row[3] or 0),
+        "stock": float(row[4] or 0),
+        "category_slug": row[5],
+        "is_active": bool(row[6]),
+        "unit": row[7] or DEFAULT_UNIT,
+        "description_ru": row[8],
+        "description_uz": row[9],
+    }
+
+
+async def by_id(product_id: str) -> Optional[Dict[str, Any]]:
+    """Товар по cuid витрины. None — если товара нет."""
+    async with get_session_ctx() as session:
+        row = (
+            await session.execute(
+                text(_SELECT + "WHERE p.id = :pid"),
+                {"pid": str(product_id), "default_unit": DEFAULT_UNIT},
+            )
+        ).fetchone()
+    return _row(row) if row else None
+
+
+async def list_active(
+    category_slug: Optional[str] = None, limit: int = 200
+) -> List[Dict[str, Any]]:
+    """Активные товары каталога, при желании — одной категории."""
+    where = "WHERE p.is_active = true"
+    params: Dict[str, Any] = {"limit": limit, "default_unit": DEFAULT_UNIT}
+    if category_slug:
+        where += " AND c.slug = :cat"
+        params["cat"] = category_slug
+
+    async with get_session_ctx() as session:
+        rows = (
+            await session.execute(
+                text(_SELECT + where + " ORDER BY c.slug, p.name_ru LIMIT :limit"),
+                params,
+            )
+        ).fetchall()
+    return [_row(r) for r in rows]
+
+
+async def categories() -> List[Dict[str, Any]]:
+    """Категории каталога с количеством активных товаров — для навигации."""
+    async with get_session_ctx() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT c.slug, c.name_ru, COUNT(p.id) "
+                    "FROM categories c "
+                    "LEFT JOIN products p ON p.category_id = c.id AND p.is_active = true "
+                    "GROUP BY c.slug, c.name_ru, c.\"order\" "
+                    "HAVING COUNT(p.id) > 0 "
+                    "ORDER BY c.\"order\", c.name_ru"
+                )
+            )
+        ).fetchall()
+    return [{"slug": r[0], "title": r[1], "count": r[2]} for r in rows]
+
+
+async def find(query: Optional[str], limit: int = 10) -> List[Dict[str, Any]]:
+    """
+    Поиск товара так, как его мог написать человек: «санго», «sango», «cfyuj»
+    (кириллица в латинской раскладке), «сангоо» с опечаткой.
+
+    Три прохода, каждый следующий — только если предыдущий пуст:
+    1. Подстрока по всем вариантам написания (транслит + исправленная раскладка).
+    2. Все слова запроса по отдельности («санго микрозелень» в любом порядке).
+    3. Нечёткое совпадение через pg_trgm (ловит опечатки).
+    """
+    variants = query_variants(query or "")
+    if not variants:
+        return []
+    patterns = [f"%{v}%" for v in variants]
+
+    async with get_session_ctx() as session:
+        rows = (
+            await session.execute(
+                text(
+                    _SELECT + "WHERE p.is_active = true "
+                    "AND (p.name_ru ILIKE ANY(:pats) OR p.name_uz ILIKE ANY(:pats)) "
+                    "ORDER BY p.name_ru LIMIT :limit"
+                ).bindparams(bindparam("pats", value=patterns, type_=ARRAY(String))),
+                {"limit": limit, "default_unit": DEFAULT_UNIT},
+            )
+        ).fetchall()
+
+        words = [w for w in re.split(r"\s+", str(query).strip()) if len(w) >= 3]
+        if not rows and len(words) > 1:
+            rows = await _search_by_words(session, words, limit)
+
+        if not rows:
+            rows = await _search_fuzzy(session, variants, limit)
+
+    return [_row(r) for r in rows]
+
+
+async def _search_by_words(session, words: List[str], limit: int) -> List[Any]:
+    """Товар, в названии которого есть ВСЕ слова запроса, в любом порядке."""
+    conditions, params = [], {"limit": limit, "default_unit": DEFAULT_UNIT}
+    binds = []
+    for index, word in enumerate(words):
+        word_patterns = [f"%{v}%" for v in query_variants(word)]
+        if not word_patterns:
+            continue
+        key = f"w{index}"
+        conditions.append(f"(p.name_ru ILIKE ANY(:{key}) OR p.name_uz ILIKE ANY(:{key}))")
+        params[key] = word_patterns
+        binds.append(bindparam(key, value=word_patterns, type_=ARRAY(String)))
+    if not conditions:
+        return []
+
+    stmt = text(
+        _SELECT + "WHERE p.is_active = true AND "
+        + " AND ".join(conditions)
+        + " ORDER BY p.name_ru LIMIT :limit"
+    ).bindparams(*binds)
+    return (await session.execute(stmt, params)).fetchall()
+
+
+async def _search_fuzzy(session, variants: List[str], limit: int) -> List[Any]:
+    """
+    Опечатки: word_similarity сравнивает запрос с лучшим куском названия,
+    поэтому «сангоо» находит «Микрозелень Санго». Без расширения pg_trgm
+    запрос падает — тогда честно остаёмся без нечёткого поиска.
+    """
+    try:
+        rows = (
+            await session.execute(
+                text(
+                    f"SELECT {_FIELDS}, "
+                    "(SELECT MAX(GREATEST(word_similarity(v, lower(p.name_ru)), "
+                    "                     word_similarity(v, lower(p.name_uz)))) "
+                    " FROM unnest(:vars) AS v) AS sim "
+                    f"{_FROM}"
+                    "WHERE p.is_active = true "
+                    "ORDER BY sim DESC NULLS LAST LIMIT :limit"
+                ).bindparams(bindparam("vars", value=variants, type_=ARRAY(String))),
+                {"limit": limit, "default_unit": DEFAULT_UNIT},
+            )
+        ).fetchall()
+        # sim идёт сразу за общим набором полей (_row читает 0..9).
+        return [r for r in rows if (r[10] or 0) >= FUZZY_THRESHOLD]
+    except Exception as exc:  # pg_trgm не установлен — остаёмся без fuzzy
+        logger.warning("CATALOG_REPO: нечёткий поиск недоступен (%s)", exc)
+        return []
+
+
+async def resolve(query: Optional[str]) -> Dict[str, Any]:
+    """
+    Сопоставить название с каталогом: точное совпадение → один кандидат → выбор.
+
+    Возвращает {"product": {...}} либо {"candidates": [...]} (нужен выбор),
+    либо {} — товара нет. Единая трактовка для продаж и для инструментов.
+    """
+    name = str(query or "").strip()
+    if not name:
+        return {}
+    matches = await find(name)
+    exact = [m for m in matches if (m["name_ru"] or "").strip().lower() == name.lower()]
+    if exact:
+        return {"product": exact[0]}
+    if len(matches) == 1:
+        return {"product": matches[0]}
+    if matches:
+        return {"candidates": matches}
+    return {}
+
+
+async def price_list(category_slug: Optional[str] = None) -> str:
+    """
+    Прайс-лист текстом — для промптов, постов и коммерческих предложений.
+
+    Это единственный источник цен для ботов: ни один промпт больше не хранит
+    цены строкой. Пустой каталог отдаётся явной фразой, чтобы модель не
+    принялась выдумывать позиции.
+    """
+    items = await list_active(category_slug)
+    if not items:
+        return (
+            "Каталог пуст: активных товаров в базе нет. "
+            "Цены называть нельзя — сначала заведите товары."
+        )
+
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for item in items:
+        grouped.setdefault(item["category_slug"] or "прочее", []).append(item)
+
+    lines: List[str] = []
+    for slug, group in grouped.items():
+        lines.append(f"[{slug}]")
+        for item in group:
+            stock = f", остаток {item['stock']:g}" if item["stock"] else ", нет в наличии"
+            lines.append(
+                f"- {item['name']}: {format_price(item['price'])} / {item['unit']}{stock}"
+            )
+    return "\n".join(lines)

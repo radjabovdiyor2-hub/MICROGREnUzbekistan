@@ -26,7 +26,7 @@ async def logistics(cb: CallbackQuery):
     async with get_session_ctx() as session:
         res = await session.execute(
             text(
-                "SELECT order_number, delivery_address, status FROM orders "
+                "SELECT order_number, delivery_address, status FROM crm_orders "
                 "WHERE status IN ('confirmed','ready','delivering') ORDER BY created_at LIMIT 10"
             )
         )
@@ -50,7 +50,7 @@ async def inventory(cb: CallbackQuery):
     async with get_session_ctx() as session:
         res = await session.execute(
             text(
-                "SELECT name_ru, stock_qty, unit, category FROM products WHERE is_active = true ORDER BY stock_qty ASC LIMIT 15"
+                "SELECT name_ru, stock_qty, unit, category FROM crm_products WHERE is_active = true ORDER BY stock_qty ASC LIMIT 15"
             )
         )
         products = res.fetchall()
@@ -73,7 +73,7 @@ async def overview(cb: CallbackQuery):
         t = tasks_r.fetchone()
         orders_r = await session.execute(
             text(
-                "SELECT COUNT(*) FROM orders WHERE status NOT IN ('delivered','cancelled')"
+                "SELECT COUNT(*) FROM crm_orders WHERE status NOT IN ('delivered','cancelled')"
             )
         )
         active_orders = orders_r.scalar() or 0

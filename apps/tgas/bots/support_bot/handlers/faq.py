@@ -41,7 +41,7 @@ async def order_status(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
-                "SELECT order_number, total_amount, status FROM orders "
+                "SELECT order_number, total_amount, status FROM crm_orders "
                 "WHERE customer_id=(SELECT id FROM customers WHERE telegram_id=:tid) ORDER BY created_at DESC LIMIT 3"
             ),
             {"tid": cb.from_user.id},

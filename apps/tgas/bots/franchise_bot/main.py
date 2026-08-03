@@ -62,7 +62,7 @@ async def generate_daily_franchise_journals():
                 orders_res = await session.execute(
                     text(
                         "SELECT COUNT(o.id) AS cnt, COALESCE(SUM(o.total_amount), 0) AS total_rev "
-                        "FROM orders o "
+                        "FROM crm_orders o "
                         "JOIN customers c ON c.id = o.customer_id "
                         "WHERE LOWER(c.city) = ANY(:names) "
                         # created_at — timestamp без пояса, NOW() — с поясом. Прежнее

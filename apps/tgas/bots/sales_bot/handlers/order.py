@@ -4,8 +4,9 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import text
+from shared import storefront_orders
 from shared.database import get_session_ctx
-from shared.utils import format_price, generate_order_number, simulate_typing
+from shared.utils import format_price, simulate_typing
 from shared.config import settings
 from bots.sales_bot.states import OrderStates
 from bots.sales_bot.keyboards.inline import confirm_order_kb, main_menu_kb
@@ -119,105 +120,56 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
 
     await simulate_typing(cb.message, delay=1.5)
 
-    async with get_session_ctx() as session:
-        # Get last order number
-        res = await session.execute(
-            text("SELECT order_number FROM orders ORDER BY id DESC LIMIT 1")
+    # Заказ создаёт витрина: она владелец заказов и остатков. Свой INSERT здесь
+    # писал в таблицу витрины офисными колонками и падал; даже почини колонки —
+    # покупка из Telegram не появилась бы ни на сайте, ни в остатках.
+    # Витрина же сама зеркалит заказ в CRM и рассылает ORDER_CREATED, поэтому
+    # событие отсюда больше не публикуется: иначе доход посчитали бы дважды.
+    created = await storefront_orders.create_order(
+        customer_name=data.get("customer_name") or cb.from_user.full_name or "Клиент",
+        phone=data.get("phone") or "",
+        address=data.get("address", ""),
+        items=[
+            {"id": pid, "price": int(round(item["price"])), "quantity": item["qty"]}
+            for pid, item in cart.items()
+        ],
+        telegram_id=cb.from_user.id,
+        note=data.get("notes", "") or None,
+    )
+    if not created["ok"]:
+        await cb.message.edit_text(
+            f"⚠️ Не удалось оформить заказ: {created['error']}.\n"
+            f"Позвоните нам: {settings.company_phone}"
+            if lang == "ru"
+            else f"⚠️ Buyurtma rasmiylashtirilmadi: {created['error']}.\n"
+            f"Bizga qo'ng'iroq qiling: {settings.company_phone}"
         )
-        last = res.scalar()
-        order_number = generate_order_number(last)
+        await cb.answer()
+        return
 
-        # Create order
-        res = await session.execute(
-            text(
-                "INSERT INTO orders (customer_id, order_number, total_amount, delivery_fee, status, "
-                "payment_status, delivery_address, notes, created_at, updated_at) "
-                "VALUES ((SELECT id FROM customers WHERE telegram_id = :tid), :onum, :total, :delivery, "
-                "'new', 'pending', :addr, :notes, NOW(), NOW()) RETURNING id"
-            ),
-            {
-                "tid": cb.from_user.id,
-                "onum": order_number,
-                "total": total + delivery,
-                "delivery": delivery,
-                "addr": data.get("address", ""),
-                "notes": data.get("notes", ""),
-            },
-        )
-        order_id = res.scalar()
-
-        for pid, item in cart.items():
-            await session.execute(
-                text(
-                    "INSERT INTO order_items (order_id, product_id, quantity, unit_price, total_price) "
-                    "VALUES (:oid, :pid, :qty, :price, :total)"
-                ),
-                {
-                    "oid": order_id,
-                    "pid": int(pid),
-                    "qty": item["qty"],
-                    "price": item["price"],
-                    "total": item["price"] * item["qty"],
-                },
-            )
+    order_number = created["order"].get("orderNumber") or "—"
+    items_summary = ", ".join(f"{i['name']} x{i['qty']}" for i in cart.values())
 
     await state.update_data(cart={})
     await state.set_state(None)
 
-    # 🔗 EventBus: уведомляем другие боты
-    from shared.event_bus import event_bus, Events
-
-    items_summary = ", ".join(f"{i['name']} x{i['qty']}" for i in cart.values())
-    await event_bus.publish(
-        Events.ORDER_CREATED,
-        {
-            "order_id": order_id,
-            "order_number": order_number,
-            "total_amount": total + delivery,
-            "customer_id": None,
-            "items_summary": items_summary,
-            "telegram_id": cb.from_user.id,
-        },
-        source_bot="sales_bot",
-    )
-
-    # 📝 CRM: логируем взаимодействие + создаём follow-up
+    # 📝 CRM: только follow-up.
+    # Карточку клиента, журнал взаимодействия и статистику заводит зеркало
+    # витрины (/ingest/order) — оно теперь получает и этот заказ. Повтори мы их
+    # здесь, у клиента удвоились бы orders_count и total_spent.
     try:
         async with get_session_ctx() as session:
             await session.execute(
                 text(
-                    "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
-                    "VALUES ((SELECT id FROM customers WHERE telegram_id = :tid), 'telegram', 'order', "
-                    "'sales_bot', :summary)"
-                ),
-                {
-                    "tid": cb.from_user.id,
-                    "summary": f"Заказ {order_number} на {format_price(total + delivery)}: {items_summary[:150]}",
-                },
-            )
-            # Follow-up через 2 дня
-            await session.execute(
-                text(
                     "INSERT INTO followups (customer_id, scheduled_at, message, status) "
-                    "VALUES ((SELECT id FROM customers WHERE telegram_id = :tid), "
-                    "NOW() + INTERVAL '2 days', :msg, 'pending')"
+                    "SELECT id, NOW() + INTERVAL '2 days', :msg, 'pending' "
+                    "FROM customers WHERE telegram_id = :tid"
                 ),
                 {
                     "tid": cb.from_user.id,
                     "msg": f"Здравствуйте! Как вам наша микрозелень из заказа {order_number}? "
                     f"Будем рады вашему отзыву! 🌱",
                 },
-            )
-            # Обновляем статистику клиента
-            await session.execute(
-                text(
-                    "UPDATE customers SET orders_count = orders_count + 1, "
-                    "total_spent = total_spent + :amount, last_order_date = NOW(), "
-                    "status = CASE WHEN orders_count >= 5 THEN 'vip' "
-                    "WHEN orders_count >= 1 THEN 'active' ELSE status END "
-                    "WHERE telegram_id = :tid"
-                ),
-                {"amount": total + delivery, "tid": cb.from_user.id},
             )
     except Exception:
         pass  # Не ломаем заказ из-за CRM

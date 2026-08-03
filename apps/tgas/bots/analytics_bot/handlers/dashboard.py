@@ -16,7 +16,7 @@ async def dashboard(cb: CallbackQuery):
         r = await session.execute(
             text(
                 "SELECT COALESCE(SUM(total_amount),0) as rev, COUNT(*) as cnt "
-                "FROM orders WHERE created_at >= date_trunc('month', CURRENT_DATE)"
+                "FROM crm_orders WHERE created_at >= date_trunc('month', CURRENT_DATE)"
             )
         )
         d = r.fetchone()
@@ -36,8 +36,8 @@ async def top_products(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
-                "SELECT p.name_ru, SUM(oi.total_price) as rev FROM order_items oi "
-                "JOIN products p ON p.id = oi.product_id GROUP BY p.name_ru ORDER BY rev DESC LIMIT 5"
+                "SELECT p.name_ru, SUM(oi.total_price) as rev FROM crm_order_items oi "
+                "JOIN crm_products p ON p.id = oi.product_id GROUP BY p.name_ru ORDER BY rev DESC LIMIT 5"
             )
         )
         products = r.fetchall()
@@ -85,8 +85,8 @@ async def abc_analysis(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
-                "SELECT p.name_ru, SUM(oi.total_price) as rev FROM order_items oi "
-                "JOIN products p ON p.id = oi.product_id GROUP BY p.name_ru ORDER BY rev DESC"
+                "SELECT p.name_ru, SUM(oi.total_price) as rev FROM crm_order_items oi "
+                "JOIN crm_products p ON p.id = oi.product_id GROUP BY p.name_ru ORDER BY rev DESC"
             )
         )
         all_prods = r.fetchall()

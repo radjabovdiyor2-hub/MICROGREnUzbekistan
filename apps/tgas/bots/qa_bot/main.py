@@ -149,12 +149,6 @@ async def handle_task_created(payload: dict):
         return
 
     logger.info(f"QA Bot received task via event_bus: {payload}")
-    data.get("task_id", "qa_task")
-    data.get(
-        "chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0
-    )
-    data.get("description", "")
-
 
     from shared.task_executor import execute_bot_task
     

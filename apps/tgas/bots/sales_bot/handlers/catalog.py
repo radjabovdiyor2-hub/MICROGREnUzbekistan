@@ -4,8 +4,7 @@ import logging
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from aiogram.fsm.context import FSMContext
-from sqlalchemy import text
-from shared.database import get_session_ctx
+from shared import catalog_repo
 from shared.utils import format_price
 from bots.sales_bot.keyboards.inline import categories_kb, main_menu_kb
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -40,15 +39,9 @@ async def show_products(cb: CallbackQuery, state: FSMContext):
     lang = data.get("lang", "ru")
     category = CATEGORY_MAP.get(cb.data, "microgreens")
 
-    async with get_session_ctx() as session:
-        result = await session.execute(
-            text(
-                "SELECT id, name_ru, name_uz, price, unit, description_ru, description_uz "
-                "FROM products WHERE category = :cat AND is_active = true ORDER BY sort_order"
-            ),
-            {"cat": category},
-        )
-        products = result.fetchall()
+    # Каталог-мастер живёт на витрине; читаем его через единую дверь, а не
+    # своим SQL — иначе колонки офисного зеркала снова разойдутся со схемой.
+    products = await catalog_repo.list_active(category)
 
     if not products:
         await cb.message.edit_text(
@@ -63,14 +56,16 @@ async def show_products(cb: CallbackQuery, state: FSMContext):
     lines = []
     b = InlineKeyboardBuilder()
     for p in products[:8]:
-        name = p.name_uz if lang == "uz" else p.name_ru
-        desc = (p.description_uz or "") if lang == "uz" else (p.description_ru or "")
+        name = (p["name_uz"] if lang == "uz" else p["name_ru"]) or p["name"]
+        desc = (
+            (p["description_uz"] or "") if lang == "uz" else (p["description_ru"] or "")
+        )
         short_desc = desc[:60] + "..." if len(desc) > 60 else desc
         lines.append(
-            f"🌱 <b>{name}</b>\n{short_desc}\n💰 {format_price(p.price)} / {p.unit}\n"
+            f"🌱 <b>{name}</b>\n{short_desc}\n💰 {format_price(p['price'])} / {p['unit']}\n"
         )
         btn_text = f"🛒 {name}"
-        b.button(text=btn_text, callback_data=f"add:{p.id}")
+        b.button(text=btn_text, callback_data=f"add:{p['id']}")
 
     b.adjust(1)
     b.row(
@@ -100,34 +95,28 @@ async def add_to_cart(cb: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "ru")
     cart = data.get("cart", {})
-    product_id = cb.data.split(":")[1]
+    # Ключ товара витрины — cuid (строка), а не число: int(...) здесь падал
+    # на каждом нажатии «в корзину» после объединения баз.
+    product_id = cb.data.split(":", 1)[1]
 
-    async with get_session_ctx() as session:
-        result = await session.execute(
-            text(
-                "SELECT id, name_ru, name_uz, price, unit FROM products WHERE id = :pid"
-            ),
-            {"pid": int(product_id)},
-        )
-        product = result.fetchone()
-
+    product = await catalog_repo.by_id(product_id)
     if not product:
         await cb.answer("Товар не найден")
         return
 
-    key = str(product.id)
+    name = (product["name_uz"] if lang == "uz" else product["name_ru"]) or product["name"]
+    key = str(product["id"])
     if key in cart:
         cart[key]["qty"] += 1
     else:
         cart[key] = {
-            "name": product.name_uz if lang == "uz" else product.name_ru,
-            "price": float(product.price),
-            "unit": product.unit,
+            "name": name,
+            "price": product["price"],
+            "unit": product["unit"],
             "qty": 1,
         }
 
     await state.update_data(cart=cart)
-    name = product.name_uz if lang == "uz" else product.name_ru
     await cb.answer(
         f"✅ {name} добавлен в корзину!"
         if lang == "ru"

@@ -59,6 +59,9 @@ export const TAB_GROUPS = [
       { id: 'dept_content', ru: 'Контент', uz: 'Kontent', icon: <FileText size={16} /> },
       { id: 'dept_hr', ru: 'Кадры (HR)', uz: 'Kadrlar (HR)', icon: <Users size={16} /> },
       { id: 'dept_finance', ru: 'Финансы', uz: 'Moliya', icon: <DollarSign size={16} /> },
+      // Отдел аналитики есть в реестре ботов и принимает задачи, а вкладки у
+      // него не было: девять карточек на десять отделов.
+      { id: 'dept_analytics', ru: 'Аналитика', uz: 'Analitika', icon: <BarChart size={16} /> },
       { id: 'dept_devops', ru: 'DevOps / IT', uz: 'DevOps / IT', icon: <Settings size={16} /> },
       { id: 'dept_qa', ru: 'QA / Тесты', uz: 'QA / Testlar', icon: <Eye size={16} /> },
       { id: 'dept_rnd', ru: 'R&D', uz: 'R&D', icon: <Lightbulb size={16} /> },

@@ -134,7 +134,7 @@ async def daily_report():
             # Заказы на сегодня
             res = await session.execute(
                 sa_text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
                     "WHERE DATE(created_at) = CURRENT_DATE"
                 )
             )
@@ -143,7 +143,7 @@ async def daily_report():
             # Заказы за вчера
             res = await session.execute(
                 sa_text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
                     "WHERE DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'"
                 )
             )
@@ -294,7 +294,7 @@ async def evening_summary():
             # Новые заказы сегодня
             res = await session.execute(
                 sa_text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
                     "WHERE DATE(created_at) = CURRENT_DATE"
                 )
             )
@@ -364,7 +364,7 @@ async def weekly_report():
             # Заказы за неделю
             res = await session.execute(
                 sa_text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders "
+                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
                     "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
                 )
             )
@@ -455,7 +455,7 @@ async def auto_task_creation():
             # 1. Продукты с низким запасом (stock_qty < 3)
             res = await session.execute(
                 sa_text(
-                    "SELECT p.id, p.name_ru, p.stock_qty FROM products p "
+                    "SELECT p.id, p.name_ru, p.stock_qty FROM crm_products p "
                     "WHERE p.stock_qty < 3 AND p.is_active = true "
                     "AND NOT EXISTS ("
                     "  SELECT 1 FROM tasks t "
@@ -498,7 +498,7 @@ async def auto_task_creation():
             # 2. Заказы 'new' более 24 часов
             res = await session.execute(
                 sa_text(
-                    "SELECT o.id, o.created_at FROM orders o "
+                    "SELECT o.id, o.created_at FROM crm_orders o "
                     "WHERE o.status = 'new' "
                     "AND o.created_at < NOW() - INTERVAL '24 hours' "
                     "AND NOT EXISTS ("
@@ -944,9 +944,13 @@ async def main():
 
     # -- Импортируем обработчики --
     from bots.stepan_bot.handlers import all_routers
+    from shared.approvals import approvals_router
     from shared.task_ui import task_ui_router
 
     dp.include_router(task_ui_router)
+    # Кнопки ✅/❌ под рискованными действиями отдела. Без этого роутера
+    # карточка подтверждения показывается, а нажатие ничего не делает.
+    dp.include_router(approvals_router)
     for router in all_routers:
         dp.include_router(router)
 
@@ -992,7 +996,8 @@ async def main():
         data = payload.get("data", {})
         source = payload.get("source", "unknown")
 
-        # Заказы из Instagram уже обрабатываются в handle_ig_dm — не дублируем
+        # Заказ, о котором Степан объявил сам, ему же и вернётся по шине —
+        # второй раз показывать его владельцу не нужно.
         if event_type == "order_created" and source in ("stepan_bot", "instagram_bot"):
             logger.info(f"Степан: событие {event_type} от {source} — обработано")
             return
@@ -1093,6 +1098,19 @@ async def main():
             logger.info(f"Степан: событие {event_type} от {source} — записано")
 
     async def handle_pm_task_created(payload: dict):
+        """Задачи отделов без своего бота: pm, operations, production, logistics.
+
+        Сюда же попадает ВСЁ, что не взял ни один отдел, и всё, что прошло два
+        делегирования (CHIEF_FALLBACK в shared/tools/common.py). То есть это
+        конечная точка эскалации — и до сих пор она была единственным
+        обработчиком в офисе, который ничего не умел: один вызов модели без
+        инструментов плюс списание склада по подстроке «посад»/«посев» на
+        одинаковые выдуманные «1 кг семян и 5 субстратов» при любом объёме.
+
+        Теперь здесь общий исполнитель, а Стёпан как руководитель видит
+        инструменты всех отделов, включая write_off_inventory с явными
+        аргументами.
+        """
         data = payload.get("data", {})
         if str(data.get("department", "")).lower() not in (
             "pm",
@@ -1101,54 +1119,29 @@ async def main():
             "logistics",
         ):
             return
-        chat_id = data.get("chat_id")
-        task_id = data.get("task_id")
-        if not chat_id:
-            return
 
         try:
-            from shared.ai_engine import AIEngine
-
-            ai = AIEngine()
             from shared.prompts import TEAM_CONTEXT
+            from shared.task_executor import execute_bot_task
 
-            sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Операционный Директор (COO) и главный Project Manager. Твоя задача: не просто выполнять поручения, а структурно планировать их выполнение по Agile/Lean. Оцени узкие места (bottlenecks), предложи пошаговый Action Plan, укажи риски."
-            user_prompt = f"Руководитель поставил задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\n\nОтветь как ЖИВОЙ сотрудник, а не пиши стену анализа: коротко подтверди, что берёшь задачу в работу, дай суть по делу и первый конкретный шаг. Максимум 4–5 предложений, без длинных списков и без markdown-заголовков."
-            logger.info("Степан (Менеджер) Generating AI answer...")
-            answer = await ai.chat_completion(sys_prompt, user_prompt, max_tokens=380)
-
-            # Интеграция со складом (автоматическое списание при посеве/сборке)
-            title_lower = str(data.get("title", "")).lower()
-            if "посад" in title_lower or "посев" in title_lower:
-                from shared.database import get_session_ctx
-                from sqlalchemy import text
-
-                try:
-                    async with get_session_ctx() as session:
-                        await session.execute(
-                            text(
-                                "UPDATE inventory SET quantity = quantity - 1 WHERE category = 'seeds' AND quantity >= 1"
-                            )
-                        )
-                        await session.execute(
-                            text(
-                                "UPDATE inventory SET quantity = quantity - 5 WHERE category = 'substrate' AND quantity >= 5"
-                            )
-                        )
-                        await session.commit()
-                    answer += "\n\n📦 <b>Складской учёт:</b>\nАвтоматически списано: 1 кг семян, 5 кокосовых субстратов."
-                except Exception as e:
-                    logger.error(f"Error deducting inventory: {e}")
-
-            from shared.task_ui import get_task_keyboard
-
-            await bot.send_message(
-                chat_id,
-                f"✅ <b>Операции (PM) — принял в работу:</b>\n\n{answer}",
-                parse_mode="HTML",
-                reply_markup=get_task_keyboard(task_id),
+            role = (
+                f"{TEAM_CONTEXT}\n\nТы — Операционный Директор (COO) и главный "
+                f"Project Manager. Мысли по Agile/Lean: узкие места, пошаговый "
+                f"план, риски. Отвечай как живой сотрудник — коротко подтверди, "
+                f"что берёшь задачу, дай суть и первый конкретный шаг. "
+                f"Максимум 4-5 предложений, без markdown-заголовков.\n"
+                f"Если задача про посев, сборку или упаковку — спиши расходники "
+                f"инструментом write_off_inventory, назвав позицию и количество. "
+                f"Не знаешь количества — спроси, не выдумывай."
             )
-
+            logger.info("Степан (Менеджер) passing task to TaskExecutor...")
+            await execute_bot_task(
+                bot=bot,
+                bot_name="stepan_bot",
+                department="pm",
+                task_data=data,
+                team_context=role,
+            )
         except Exception as e:
             logger.error(f"Error handling PM task: {repr(e)}", exc_info=True)
 
@@ -1192,136 +1185,16 @@ async def main():
             except Exception as e:
                 logger.error(f"Error marking task {task_id} as done: {e}")
 
-    async def handle_ig_dm(payload: dict):
-        """
-        Цепочка обработки заказа из Instagram DM:
-        1. Instagram бот собирает заказ у клиента
-        2. Публикует IG_DM_RECEIVED → сюда
-        3. Степан анализирует → создаёт задачу для Sales
-        4. Делегирует через Bot Bus в Sales бот
-        5. Уведомляет админа в Telegram
-        """
-        data = payload.get("data", {})
-        text_msg = data.get("text", "")
-        from_name = data.get("from_name", "Unknown")
-        data.get("reply", "")
-        order = data.get("order")  # Данные заказа если он оформлен
+    # handle_ig_dm удалён. Заказ из Instagram Direct целиком оформляет
+    # shared/instagram_dm.py: он заводит клиента, создаёт заказ на витрине и
+    # шлёт ORDER_CREATED только для локального черновика. Этот обработчик делал
+    # то же самое параллельно и публиковал СИНТЕТИЧЕСКИЙ order_created — без
+    # строки в базе и со строкой «120000 UZS» вместо суммы, то есть фантомную
+    # выручку в финансах и аналитике. Издателя события ig_dm_received убрали
+    # ещё раньше (см. комментарий в instagram_dm.py) именно из-за задвоения
+    # заказов, так что обработчик был недостижим — и вернулся бы вместе с
+    # любым новым издателем.
 
-        if not text_msg:
-            return
-
-        admin_id = (
-            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
-        )
-
-        try:
-            if order:
-                # ═══ ЗАКАЗ ОФОРМЛЕН — полная цепочка ═══
-                product = order.get("product", "?")
-                quantity = order.get("quantity", "?")
-                phone = order.get("phone", "?")
-                address = order.get("address", "?")
-                total = order.get("total", "?")
-
-                # 1. Создаём задачу в БД для отдела продаж
-                from shared.database import get_session_ctx
-                from sqlalchemy import text as sa_text
-
-                async with get_session_ctx() as session:
-                    result = await session.execute(
-                        sa_text(
-                            "INSERT INTO tasks (title, description, status, department, priority, deadline, created_at) "
-                            "VALUES (:title, :desc, 'todo', 'sales', 'high', CURRENT_DATE, NOW()) RETURNING id"
-                        ),
-                        {
-                            "title": f"📦 IG заказ от {from_name}: {product}",
-                            "desc": (
-                                f"ЗАКАЗ ИЗ INSTAGRAM DM\n"
-                                f"══════════════════════\n"
-                                f"👤 Клиент: {from_name}\n"
-                                f"📦 Товар: {product}\n"
-                                f"📊 Количество: {quantity}\n"
-                                f"📱 Телефон: {phone}\n"
-                                f"📍 Адрес: {address}\n"
-                                f"💰 Сумма: {total}\n"
-                                f"══════════════════════\n"
-                                f"Источник: Instagram Direct Message"
-                            ),
-                        },
-                    )
-                    task_row = result.fetchone()
-                    task_id = task_row[0] if task_row else None
-                    await session.commit()
-
-                logger.info(
-                    f"Степан: Задача #{task_id} создана для Sales по IG заказу от {from_name}"
-                )
-
-                # 2. Делегируем задачу в Sales бот через Bot Bus
-                try:
-                    from shared.bot_bus import send_task
-
-                    bus_task_id = await send_task(
-                        from_bot="stepan_bot",
-                        to_bot="sales_bot",
-                        action="process_ig_order",
-                        params={
-                            "task_id": task_id,
-                            "customer_name": from_name,
-                            "product": product,
-                            "quantity": quantity,
-                            "phone": phone,
-                            "address": address,
-                            "total": total,
-                            "source": "instagram",
-                        },
-                    )
-                    logger.info(
-                        f"Степан → Sales: делегирована задача {bus_task_id} (IG заказ)"
-                    )
-                except Exception as bus_err:
-                    logger.warning(f"Bot Bus delegation error: {bus_err}")
-
-                # 3. Уведомляем группу «Продажа» о новом заказе
-                sales_group = getattr(settings, "sales_group_id", 0)
-                target_chat = sales_group if sales_group else admin_id
-                if target_chat:
-                    await bot.send_message(
-                        target_chat,
-                        f"📦 <b>ЗАКАЗ #{task_id} из Instagram</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━\n"
-                        f"👤 Клиент: <b>{from_name}</b>\n"
-                        f"🛒 Товар: <b>{product}</b>\n"
-                        f"📊 Количество: <b>{quantity}</b>\n"
-                        f"📱 Телефон: <b>{phone}</b>\n"
-                        f"💰 Сумма: <b>{total}</b>\n"
-                        f"━━━━━━━━━━━━━━━━━━\n"
-                        f"✅ Задача создана → отдел продаж\n"
-                        f"🤖 Клиенту уже ответили в DM",
-                    )
-
-                # 4. Публикуем ORDER_CREATED для PM, Finance, Analytics (без спама в чат)
-                await event_bus.publish(
-                    "order_created",
-                    {
-                        "source": "instagram",
-                        "customer_name": from_name,
-                        "product": product,
-                        "quantity": quantity,
-                        "phone": phone,
-                        "address": address,
-                        "total_amount": total,
-                        "items_summary": f"{product} x {quantity}",
-                        "order_number": f"IG-{task_id or '?'}",
-                        "summary": f"IG заказ от {from_name}: {product} x {quantity} = {total}",
-                    },
-                    "stepan_bot",
-                )
-                logger.info("Степан: ORDER_CREATED → PM, Finance, Analytics")
-
-            # Обычные сообщения (не заказы) — НЕ пересылаем, бот сам ведёт диалог
-        except Exception as e:
-            logger.error(f"Ошибка при обработке IG DM Степаном: {e}", exc_info=True)
 
     # Подписываемся на события
     for event_type in [
@@ -1344,7 +1217,8 @@ async def main():
     from shared.notifications import register_pm_handlers
 
     register_pm_handlers(event_bus, bot)
-    event_bus.on("ig_dm_received", handle_ig_dm)
+    # Подписки на ig_dm_received нет: заказы из Instagram оформляет
+    # shared/instagram_dm.py, второй обработчик заводил их повторно.
 
     # ── Подключение к шинам ──
     # EventBus теперь слушает через встроенный aiohttp сервер ниже

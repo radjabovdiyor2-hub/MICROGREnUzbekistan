@@ -1,10 +1,16 @@
 """
 🛒 CATALOG OPS — добавление товара в каталог «везде»
 =====================================================
-Каталог-мастер живёт на витрине (Prisma, `microgreen_db.products`), офис
-(`microgreen.products`) — зеркало (см. shared/catalog_sync.py). Поэтому новый
-товар заводится СНАЧАЛА на витрине, а офисная строка привязывается к нему через
-`storefront_id` — тогда товар виден и в магазине, и в CRM, и в заказах.
+База одна, но каталог в ней двухслойный: мастер — витринная таблица `products`
+(Prisma, cuid-ключи), зеркало — офисная `crm_products` (см. shared/catalog_sync.py).
+Поэтому новый товар заводится СНАЧАЛА на витрине через её API, а офисная строка
+привязывается к нему через `storefront_id` — тогда товар виден и в магазине, и в
+CRM, и в позициях офисных заказов.
+
+Читать каталог отсюда не надо: чтение живёт в shared/catalog_repo.py, здесь
+только запись. Раньше запись шла в `products` офисными колонками
+(`unit`, `stock_qty`, `storefront_id`) — после переименования таблиц это
+таблица витрины, и добавление товара падало.
 
 Вызывается только по явному одобрению руководителя (Степан спрашивает, прежде
 чем добавлять).
@@ -19,11 +25,10 @@ import uuid
 from typing import Any, Dict, Optional
 
 import aiohttp
-from sqlalchemy import String, bindparam, text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import text
 
+from shared import catalog_repo
 from shared.database import get_session_ctx
-from shared.text_match import query_variants
 from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
@@ -206,54 +211,35 @@ CATEGORY_TITLES = {
 
 async def list_categories() -> list[dict]:
     """Категории каталога с количеством товаров — для навигации по магазину."""
-    async with get_session_ctx() as session:
-        rows = (
-            await session.execute(
-                text(
-                    "SELECT category, COUNT(*) FROM products WHERE is_active = true "
-                    "GROUP BY category ORDER BY COUNT(*) DESC"
-                )
-            )
-        ).fetchall()
     return [
-        {"slug": r[0], "title": CATEGORY_TITLES.get(r[0], r[0]), "count": r[1]}
-        for r in rows
+        {**row, "title": CATEGORY_TITLES.get(row["slug"], row["title"] or row["slug"])}
+        for row in await catalog_repo.categories()
     ]
 
 
 async def list_products(
     category: Optional[str], page: int = 0, per_page: int = 8
 ) -> dict:
-    """Страница товаров каталога (для листалки в чате)."""
-    where = "is_active = true" + (" AND category = :cat" if category else "")
-    params: Dict[str, Any] = {"limit": per_page, "offset": page * per_page}
-    if category:
-        params["cat"] = category
+    """Страница товаров каталога (для листалки в чате).
 
-    async with get_session_ctx() as session:
-        total = (
-            await session.execute(
-                text(f"SELECT COUNT(*) FROM products WHERE {where}"),
-                {k: v for k, v in params.items() if k == "cat"},
-            )
-        ).scalar() or 0
-        rows = (
-            await session.execute(
-                text(
-                    f"SELECT id, name_ru, price, unit FROM products WHERE {where} "
-                    "ORDER BY sort_order, id LIMIT :limit OFFSET :offset"
-                ),
-                params,
-            )
-        ).fetchall()
-
-    pages = max(1, (total + per_page - 1) // per_page)
+    Страницу режем в Python, а не в SQL: каталог микрозелени — десятки позиций,
+    и один запрос к `catalog_repo` дешевле пары запросов с COUNT + OFFSET.
+    """
+    items = await catalog_repo.list_active(category)
+    total = len(items)
+    start = page * per_page
     return {
         "items": [
-            {"id": r[0], "name": r[1], "price": float(r[2]), "unit": r[3]} for r in rows
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "price": item["price"],
+                "unit": item["unit"],
+            }
+            for item in items[start : start + per_page]
         ],
         "page": page,
-        "pages": pages,
+        "pages": max(1, (total + per_page - 1) // per_page),
         "total": total,
     }
 
@@ -301,26 +287,15 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
         stock = 0.0
 
     try:
-        async with get_session_ctx() as session:
-            # Дубликат ищем по всем написаниям: «Sango» не должен завестись
-            # вторым товаром рядом с «Санго».
-            patterns = [f"%{v}%" for v in query_variants(name)] or [f"%{name}%"]
-            existing = (
-                await session.execute(
-                    text(
-                        "SELECT id, name_ru FROM products "
-                        "WHERE name_ru ILIKE ANY(:pats) OR name_uz ILIKE ANY(:pats) LIMIT 1"
-                    ).bindparams(
-                        bindparam("pats", value=patterns, type_=ARRAY(String))
-                    ),
-                )
-            ).fetchone()
-            if existing:
-                return {
-                    "status": "exists",
-                    "message": f"«{existing[1]}» уже есть в каталоге — повторно не добавляю.",
-                    "data": {"product_id": existing[0], "name": existing[1]},
-                }
+        # Дубликат ищем по всем написаниям в каталоге-мастере: «Sango» не должен
+        # завестись вторым товаром рядом с «Санго».
+        existing = await catalog_repo.find(name, limit=1)
+        if existing:
+            return {
+                "status": "exists",
+                "message": f"«{existing[0]['name']}» уже есть в каталоге — повторно не добавляю.",
+                "data": {"product_id": existing[0]["id"], "name": existing[0]["name"]},
+            }
 
         description_ru = str(params.get("description_ru") or "").strip()
         description_uz = str(params.get("description_uz") or "").strip()
@@ -331,10 +306,13 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         async with get_session_ctx() as session:
+            # Зеркало в CRM: на него ссылаются позиции офисных заказов
+            # (crm_order_items.product_id — целочисленный ключ) и из него же
+            # берётся единица измерения, которой у витрины нет.
             product_id = (
                 await session.execute(
                     text(
-                        "INSERT INTO products (name_uz, name_ru, category, price, unit, stock_qty, "
+                        "INSERT INTO crm_products (name_uz, name_ru, category, price, unit, stock_qty, "
                         "is_active, storefront_id, description_ru, description_uz, image_url) "
                         "VALUES (:n, :n, :cat, :price, :unit, :stock, true, :sid, :dru, :duz, :img) "
                         "RETURNING id"

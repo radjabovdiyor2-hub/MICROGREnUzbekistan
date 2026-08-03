@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from shared import storefront_orders
 from shared.config import settings
 from shared.database import init_db
 from shared.event_bus import event_bus
@@ -58,7 +59,7 @@ async def handle_payment_received(payload: dict):
             # Обновляем статус оплаты заказа
             result = await session.execute(
                 text(
-                    "UPDATE orders SET payment_status = 'paid', updated_at = NOW() WHERE order_number = :on RETURNING id"
+                    "UPDATE crm_orders SET payment_status = 'paid', updated_at = NOW() WHERE order_number = :on RETURNING id"
                 ),
                 {"on": order_number},
             )
@@ -156,7 +157,7 @@ async def bus_get_orders(params: dict) -> dict:
             res = await session.execute(
                 text(
                     "SELECT o.id, o.order_number, o.total_amount, o.status, o.payment_status, "
-                    "c.name FROM orders o LEFT JOIN customers c ON o.customer_id = c.id "
+                    "c.name FROM crm_orders o LEFT JOIN customers c ON o.customer_id = c.id "
                     "ORDER BY o.created_at DESC LIMIT :lim"
                 ),
                 {"lim": limit},
@@ -605,7 +606,7 @@ async def handle_task_created(payload: dict):
                 async with get_session_ctx() as session:
                     res = await session.execute(
                         text(
-                            "SELECT id, storefront_id, price FROM products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"
+                            "SELECT id, storefront_id, price FROM crm_products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"
                         ),
                         {"p": f"%{product}%"},
                     )
@@ -662,52 +663,38 @@ async def handle_task_created(payload: dict):
                 storefront_success = False
                 real_order_number = None
 
-                if amount is not None:
-                    import aiohttp
-                    import os
-
-                    storefront_url = os.getenv(
-                        "STOREFRONT_API_URL", "http://web:3000/api"
-                    )
-                    bot_secret = os.getenv("BOT_SECRET", "")
-
-                    payload = {
-                        "name": customer_name,
-                        "phone": phone or "нет телефона",
-                        "address": address or "Самарканд",
-                        "items": [
+                # Заказ создаёт витрина — через общий клиент shared/storefront_orders.
+                # Здесь была рукописная копия POST: без заголовка Authorization,
+                # с timeout числом вместо ClientTimeout и с целочисленным id CRM
+                # в productId, если у товара не было storefront_id — витрина
+                # отклоняла такой заказ по внешнему ключу, и путь всегда уходил
+                # в локальный черновик.
+                if amount is not None and storefront_id:
+                    created = await storefront_orders.create_order(
+                        customer_name=customer_name,
+                        phone=phone or "",
+                        address=address or "Самарканд",
+                        items=[
                             {
-                                "productId": storefront_id or str(db_id),
+                                "id": storefront_id,
                                 "price": int(price),
                                 "quantity": int(quantity),
                             }
                         ],
-                        "paymentMethod": "cash",
-                        "telegramId": None,
-                    }
-                    try:
-                        async with aiohttp.ClientSession() as http_sess:
-                            async with http_sess.post(
-                                f"{storefront_url}/orders",
-                                json=payload,
-                                headers={
-                                    "x-bot-secret": bot_secret,
-                                    "Content-Type": "application/json",
-                                },
-                                timeout=10,
-                            ) as response:
-                                if response.status in (200, 201):
-                                    resp_data = await response.json()
-                                    order_data = resp_data.get("order", {})
-                                    real_order_number = order_data.get(
-                                        "orderNumber"
-                                    ) or order_data.get("order_number")
-                                    if real_order_number:
-                                        storefront_success = True
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to post order to storefront in task_created: {e}"
+                        note=f"Instagram-заказ от {customer_name}",
+                    )
+                    if created["ok"]:
+                        real_order_number = created["order"].get("orderNumber")
+                        storefront_success = bool(real_order_number)
+                    else:
+                        logger.warning(
+                            "task_created: витрина не приняла заказ (%s) — пишу черновик",
+                            created["error"],
                         )
+                elif amount is not None:
+                    logger.warning(
+                        "task_created: у товара нет storefront_id — заказ в магазин не уйдёт"
+                    )
 
                 if storefront_success:
                     # Сообщаем об успехе в чат задачи
@@ -723,19 +710,39 @@ async def handle_task_created(payload: dict):
                     order_number = await generate_order_number()
 
                     if amount is not None:
-                        # Локальный черновик (storefront упал)
-                        await session.execute(
-                            text(
-                                "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
-                                "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW())"
-                            ),
-                            {
-                                "cid": customer_id,
-                                "onum": order_number,
-                                "amount": amount,
-                                "notes": f"[ОШИБКА МАГАЗИНА] {desc}"[:200],
-                            },
-                        )
+                        # Локальный черновик (storefront упал). Пишем вместе с
+                        # позицией: без строки в crm_order_items заказ невидим
+                        # для топа товаров, ABC-анализа и выручки по позициям —
+                        # они считаются джойном именно этой таблицы.
+                        draft_id = (
+                            await session.execute(
+                                text(
+                                    "INSERT INTO crm_orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                                    "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW()) RETURNING id"
+                                ),
+                                {
+                                    "cid": customer_id,
+                                    "onum": order_number,
+                                    "amount": amount,
+                                    "notes": f"[ОШИБКА МАГАЗИНА] {desc}"[:200],
+                                },
+                            )
+                        ).scalar()
+                        if draft_id and db_id and price is not None:
+                            await session.execute(
+                                text(
+                                    "INSERT INTO crm_order_items (order_id, product_id, quantity, "
+                                    "unit, unit_price, total_price) "
+                                    "VALUES (:oid, :pid, :qty, 'piece', :price, :total)"
+                                ),
+                                {
+                                    "oid": draft_id,
+                                    "pid": db_id,
+                                    "qty": quantity,
+                                    "price": price,
+                                    "total": price * quantity,
+                                },
+                            )
                         await session.commit()
 
                         await bot.send_message(
@@ -749,7 +756,7 @@ async def handle_task_created(payload: dict):
                         notes_lead = f"LEAD/manual: {desc}"[:200]
                         await session.execute(
                             text(
-                                "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                                "INSERT INTO crm_orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
                                 "VALUES (:cid, :onum, 0, 'new', 'pending', :notes, NOW(), NOW())"
                             ),
                             {
@@ -843,7 +850,7 @@ async def bus_process_ig_order(params: dict) -> dict:
                 async with get_session_ctx() as session:
                     res = await session.execute(
                         text(
-                            "SELECT id, storefront_id, price FROM products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"
+                            "SELECT id, storefront_id, price FROM crm_products WHERE is_active = true AND name_ru ILIKE :p LIMIT 1"
                         ),
                         {"p": f"%{product}%"},
                     )
@@ -899,50 +906,38 @@ async def bus_process_ig_order(params: dict) -> dict:
             storefront_success = False
             real_order_number = None
 
-            if amount is not None:
-                import aiohttp
-                import os
-
-                storefront_url = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
-                bot_secret = os.getenv("BOT_SECRET", "")
-
-                payload = {
-                    "name": customer_name,
-                    "phone": phone or "нет телефона",
-                    "address": address or "Самарканд",
-                    "items": [
+            # Заказ создаёт витрина — через общий клиент shared/storefront_orders.
+            # Здесь была рукописная копия POST: без заголовка Authorization,
+            # с timeout числом вместо ClientTimeout и с целочисленным id CRM
+            # в productId, если у товара не было storefront_id — витрина
+            # отклоняла такой заказ по внешнему ключу, и путь всегда уходил
+            # в локальный черновик.
+            if amount is not None and storefront_id:
+                created = await storefront_orders.create_order(
+                    customer_name=customer_name,
+                    phone=phone or "",
+                    address=address or "Самарканд",
+                    items=[
                         {
-                            "productId": storefront_id or str(db_id),
+                            "id": storefront_id,
                             "price": int(price),
                             "quantity": int(quantity),
                         }
                     ],
-                    "paymentMethod": "cash",
-                    "telegramId": None,
-                }
-                try:
-                    async with aiohttp.ClientSession() as http_sess:
-                        async with http_sess.post(
-                            f"{storefront_url}/orders",
-                            json=payload,
-                            headers={
-                                "x-bot-secret": bot_secret,
-                                "Content-Type": "application/json",
-                            },
-                            timeout=10,
-                        ) as response:
-                            if response.status in (200, 201):
-                                resp_data = await response.json()
-                                order_data = resp_data.get("order", {})
-                                real_order_number = order_data.get(
-                                    "orderNumber"
-                                ) or order_data.get("order_number")
-                                if real_order_number:
-                                    storefront_success = True
-                except Exception as e:
-                    logger.error(
-                        f"Failed to post order to storefront in bus_process_ig_order: {e}"
+                    note=f"Instagram-заказ от {customer_name}",
+                )
+                if created["ok"]:
+                    real_order_number = created["order"].get("orderNumber")
+                    storefront_success = bool(real_order_number)
+                else:
+                    logger.warning(
+                        "bus_process_ig_order: витрина не приняла заказ (%s) — пишу черновик",
+                        created["error"],
                     )
+            elif amount is not None:
+                logger.warning(
+                    "bus_process_ig_order: у товара нет storefront_id — заказ в магазин не уйдёт"
+                )
 
             notes = (
                 f"IG: {product or '—'} x {quantity}, Phone: {phone}, Address: {address}"
@@ -964,19 +959,37 @@ async def bus_process_ig_order(params: dict) -> dict:
                 order_number = await generate_order_number()
 
                 if amount is not None:
-                    # Локальный черновик (storefront упал)
-                    await session.execute(
-                        text(
-                            "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
-                            "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW())"
-                        ),
-                        {
-                            "cid": customer_id,
-                            "onum": order_number,
-                            "amount": amount,
-                            "notes": f"[ОШИБКА] {notes}"[:200],
-                        },
-                    )
+                    # Локальный черновик (storefront упал) — вместе с позицией,
+                    # иначе заказ не попадёт ни в один отчёт по товарам.
+                    draft_id = (
+                        await session.execute(
+                            text(
+                                "INSERT INTO crm_orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                                "VALUES (:cid, :onum, :amount, 'new', 'pending', :notes, NOW(), NOW()) RETURNING id"
+                            ),
+                            {
+                                "cid": customer_id,
+                                "onum": order_number,
+                                "amount": amount,
+                                "notes": f"[ОШИБКА] {notes}"[:200],
+                            },
+                        )
+                    ).scalar()
+                    if draft_id and db_id and price is not None:
+                        await session.execute(
+                            text(
+                                "INSERT INTO crm_order_items (order_id, product_id, quantity, "
+                                "unit, unit_price, total_price) "
+                                "VALUES (:oid, :pid, :qty, 'piece', :price, :total)"
+                            ),
+                            {
+                                "oid": draft_id,
+                                "pid": db_id,
+                                "qty": quantity,
+                                "price": price,
+                                "total": price * quantity,
+                            },
+                        )
                     await session.commit()
 
                     msg_text = (
@@ -991,7 +1004,7 @@ async def bus_process_ig_order(params: dict) -> dict:
                     notes_lead = f"LEAD/manual: {notes}"
                     await session.execute(
                         text(
-                            "INSERT INTO orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
+                            "INSERT INTO crm_orders (customer_id, order_number, total_amount, status, payment_status, notes, created_at, updated_at) "
                             "VALUES (:cid, :onum, 0, 'new', 'pending', :notes, NOW(), NOW())"
                         ),
                         {
@@ -1099,9 +1112,13 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.approvals import approvals_router
     from shared.task_ui import task_ui_router
 
     dp.include_router(task_ui_router)
+    # Кнопки ✅/❌ под рискованными действиями отдела. Без этого роутера
+    # карточка подтверждения показывается, а нажатие ничего не делает.
+    dp.include_router(approvals_router)
     for r in all_routers:
         dp.include_router(r)
 

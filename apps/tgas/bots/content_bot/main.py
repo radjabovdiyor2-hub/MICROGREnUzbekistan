@@ -1398,12 +1398,21 @@ async def bus_get_last_post(params: dict) -> dict:
 
 
 async def handle_task_created(payload: dict):
+    """Задача отделу контента — через общий исполнитель, как у всех отделов.
+
+    Раньше здесь был собственный обработчик: формат публикации выбирался
+    сопоставлением ключевых слов («сторис», «опрос», «фото»), затем шёл один
+    вызов модели. Каталога он не видел вовсе, поэтому задача «сделай пост с
+    ценами» отвечалась выдуманными цифрами — при том, что инструмент
+    build_price_list_post существует именно для этого. Задача при этом не
+    закрывалась и TASK_COMPLETED не публиковала.
+
+    Всё, что раньше выбиралось ветками `if`, теперь инструменты отдела:
+    get_content_schedule (вопрос о расписании), create_poll, publish_story,
+    build_price_list_post, generate_image.
+    """
     data = payload.get("data", {})
     if str(data.get("department", "")).lower() != "content":
-        return
-    chat_id = data.get("chat_id")
-    task_id = data.get("task_id")
-    if not chat_id:
         return
 
     bot = Bot(
@@ -1411,169 +1420,24 @@ async def handle_task_created(payload: dict):
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     try:
-        from shared.ai_engine import AIEngine
-
-        ai = AIEngine()
-
-        title = str(data.get("title", "")).lower()
-        desc = str(data.get("description", "")).lower()
-        combined = f"{title} {desc}"
-
-        # ── Инквайри-гард: это ВОПРОС о статусе/расписании, а НЕ задача на публикацию ──
-        # (иначе «уточнить статус публикации рецепта» приводил к реальной генерации и постингу)
-        inquiry_words = [
-            "уточни",
-            "уточнение",
-            "статус",
-            "status",
-            "во сколько",
-            "расписан",
-            "график",
-            "опубликова ли",
-            "когда опублик",
-            "проверь публикац",
-        ]
-        if any(w in combined for w in inquiry_words):
-            schedule = (
-                "🗓 <b>Расписание публикаций контента</b>\n"
-                "• Рецепт дня — ежедневно в <b>18:00</b>\n"
-                "• Утренний сторис — <b>07:15</b> (лето) / <b>08:15</b> (зима)\n"
-                "• Пост недели в ленту — <b>суббота, 12:00</b>\n\n"
-                "Всё публикуется <b>автоматически</b> по расписанию — отдельная задача на публикацию не нужна."
-            )
-            await bot.send_message(chat_id, schedule, parse_mode="HTML")
-            return
-
-        # Определяем форматы по ключевым словам
-        is_story = any(
-            word in title or word in desc
-            for word in [
-                "сторис",
-                "stories",
-                "инстаграм",
-                "instagram",
-                "выложи",
-                "опубликуй",
-                "мем",
-                "рецепт",
-                "опрос",
-                "poll",
-                "викторина",
-                "отзыв",
-            ]
-        )
-        is_poll = any(
-            word in title or word in desc
-            for word in ["опрос", "poll", "викторина", "голосование"]
-        )
-        needs_photo = is_story or any(
-            word in title or word in desc
-            for word in ["фото", "картинк", "изображен", "image", "picture"]
-        )
-
         from shared.prompts import TEAM_CONTEXT
+        from shared.task_executor import execute_bot_task
 
-        sys_prompt = f"{TEAM_CONTEXT}\n\nТы — Главный Редактор (Chief Editor) и Brand Manager. Твоя задача — создавать премиальный контент (Tone of Voice: профессиональный, экологичный, ЗОЖ).{(await get_dynamic_content_policy())}"
-        user_prompt = f"Руководитель поручил задачу:\nНазвание: {data.get('title')}\nОписание: {data.get('description')}\nРазработай готовый контент (текст поста, мема, рецепта или отзыва)."
-
-        if is_poll:
-            user_prompt += '\nВНИМАНИЕ: Так как запрошен ОПРОС, верни В КОНЦЕ текста валидный JSON блок (внутри ```json ```) формата: {"question": "...", "options": ["вариант1", "вариант2"]}'
-
-        logging.info("CONTENT_BOT Generating AI answer...")
-        answer = await ai.chat_completion(sys_prompt, user_prompt)
-
-        # Парсим JSON опроса если он есть
-        poll_data = None
-        clean_answer = answer
-        if is_poll and "```json" in answer:
-            import json
-
-            try:
-                parts = answer.split("```json")
-                clean_answer = parts[0].strip()
-                json_str = parts[1].split("```")[0].strip()
-                poll_data = json.loads(json_str)
-            except Exception as e:
-                logging.error(f"Error parsing poll JSON: {e}")
-
-        image_url = None
-        if needs_photo:
-            logging.info("CONTENT_BOT Generating DALL-E image...")
-            headline = await ai.chat_completion(
-                "Ты крутой копирайтер.",
-                f"Придумай ОДИН короткий, броский заголовок (максимум 2-4 слова) на ТОМ ЖЕ ЯЗЫКЕ, что и текст (узбекский или русский). Пиши ТОЛЬКО сам заголовок без кавычек:\n{clean_answer[:500]}",
-            )
-            # Избавляемся от второго вызова ИИ для промпта, формируем его по строгому шаблону
-            dalle_prompt = (
-                f"A vibrant, highly detailed vertical (9:16) Instagram Stories image. "
-                f"Scene context: {clean_answer[:200]}. "
-                f'The image MUST contain the bold typography text "{headline}" placed elegantly. '
-                f'DO NOT TRANSLATE THE TEXT. USE THE EXACT CYRILLIC/LATIN CHARACTERS: "{headline}". '
-                f"Absolutely no other text or English words on the image."
-            )
-            image_url = await ai.generate_image(dalle_prompt, size="1024x1792")
-
-        logging.info(f"CONTENT_BOT sending message to {chat_id}")
-
-        # 1. Отправляем фото/текст в Telegram
-        if image_url:
-            from aiogram.types import FSInputFile
-
-            media = FSInputFile(image_url) if os.path.isfile(image_url) else image_url
-            await bot.send_photo(
-                chat_id,
-                photo=media,
-                caption=f"📝 <b>Контент готов:</b>\n\n{clean_answer[:900]}",
-                parse_mode="HTML",
-            )
-            if len(clean_answer) > 900:
-                await bot.send_message(
-                    chat_id,
-                    f"...продолжение:\n\n{clean_answer[900:]}",
-                    parse_mode="HTML",
-                )
-        else:
-            from shared.task_ui import get_task_keyboard
-
-            await bot.send_message(
-                chat_id,
-                f"📝 <b>Контент готов:</b>\n\n{clean_answer}",
-                parse_mode="HTML",
-                reply_markup=get_task_keyboard(task_id),
-            )
-
-        # 2. Отправляем опрос в Telegram
-        if (
-            poll_data
-            and isinstance(poll_data, dict)
-            and "question" in poll_data
-            and "options" in poll_data
-        ):
-            await bot.send_poll(
-                chat_id, question=poll_data["question"], options=poll_data["options"]
-            )
-
-        # 3. Публикуем в Instagram Stories
-        if is_story and image_url:
-            from shared.instagram import post_story_with_text
-
-            public_url = getattr(ai, "_last_image_url", image_url) or image_url
-            success = await post_story_with_text(public_url, headline, clean_answer)
-            if success:
-                await bot.send_message(
-                    chat_id,
-                    "✅ <i>Контент успешно опубликован в Instagram Stories!</i>",
-                    parse_mode="HTML",
-                )
-            else:
-                await bot.send_message(
-                    chat_id,
-                    "⚠️ <i>Не удалось опубликовать в Instagram. Ошибка интеграции.</i>",
-                    parse_mode="HTML",
-                )
-
+        role = (
+            f"{TEAM_CONTEXT}\n\nТы — Главный Редактор (Chief Editor) и Brand Manager. "
+            f"Твоя задача — создавать премиальный контент "
+            f"(Tone of Voice: профессиональный, экологичный, ЗОЖ)."
+        )
+        logging.info("CONTENT_BOT passing task to TaskExecutor...")
+        await execute_bot_task(
+            bot=bot,
+            bot_name="content_bot",
+            department="content",
+            task_data=data,
+            team_context=role,
+            policy=await get_dynamic_content_policy(),
+        )
         logging.info("CONTENT_BOT successfully handled task.")
-
     except Exception as e:
         logging.error(f"Error handling task: {repr(e)}", exc_info=True)
     finally:
@@ -1749,9 +1613,13 @@ async def main():
     )
     _bot = bot
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.approvals import approvals_router
     from shared.task_ui import task_ui_router
 
     dp.include_router(task_ui_router)
+    # Кнопки ✅/❌ под рискованными действиями отдела. Без этого роутера
+    # карточка подтверждения показывается, а нажатие ничего не делает.
+    dp.include_router(approvals_router)
 
     dp.include_router(
         test_router

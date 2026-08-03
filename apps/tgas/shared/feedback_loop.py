@@ -199,5 +199,57 @@ class FeedbackLoopEngine:
                     return val
             return {}
 
+    async def active_policy(self, bot: str) -> str:
+        """Все активные выводы обучения для бота — текстом для промпта.
+
+        Раньше директивы дотягивались до промпта вручную и только у двух
+        отделов из десяти: `get_dynamic_marketing_policy` и
+        `get_dynamic_support_policy`. Ещё шесть ботов читали
+        `get_active_behavior(...)` и ВЫБРАСЫВАЛИ результат — то есть вкладка
+        «Обучение ИИ» в админке на них не влияла вовсе, хотя выглядела
+        работающей. Теперь строку собирает исполнитель задач, и забыть её
+        нельзя: она приходит каждому отделу автоматически.
+
+        Отказ базы не должен ронять задачу — без директив бот просто работает
+        как обычно.
+        """
+        try:
+            async with get_session_ctx() as session:
+                rows = (
+                    await session.execute(
+                        text(
+                            "SELECT metric, inference, adjustment FROM bot_learnings "
+                            "WHERE bot = :bot AND is_active = TRUE "
+                            "ORDER BY applied_at DESC LIMIT 5"
+                        ),
+                        {"bot": bot},
+                    )
+                ).fetchall()
+        except Exception as exc:
+            logger.warning("[%s] Директивы обучения недоступны: %s", bot, exc)
+            return ""
+
+        directives: list[str] = []
+        for metric, inference, adjustment in rows:
+            if inference:
+                directives.append(f"[{metric}] {inference}")
+            value = adjustment
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except ValueError:
+                    value = None
+            if isinstance(value, dict):
+                directives.extend(
+                    f"[{metric}] {v}" for v in value.values() if isinstance(v, str)
+                )
+
+        if not directives:
+            return ""
+        return (
+            "\n\nДИРЕКТИВЫ ОБУЧЕНИЯ (выводы аналитики по твоей работе — учитывай их):\n"
+            + "\n".join(f"- {d}" for d in directives[:8])
+        )
+
 
 feedback_loop = FeedbackLoopEngine()

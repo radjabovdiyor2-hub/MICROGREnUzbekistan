@@ -28,7 +28,7 @@ CLASSIFIER_PROMPT = f"""{TEAM_CONTEXT}
 Ты — Операционный Директор (COO) и главный диспетчер задач.
 Проанализируй задачу и верни JSON:
 {{
-  "department": "production|sales|marketing|finance|hr|support|content|logistics",
+  "department": "production|sales|marketing|finance|hr|support|content|logistics|analytics|qa|rnd|devops",
   "priority": "urgent|high|medium|low",
   "assignee": "кому назначить (роль)",
   "title": "краткое название задачи (до 100 символов)",
@@ -44,8 +44,12 @@ CLASSIFIER_PROMPT = f"""{TEAM_CONTEXT}
 - finance: бюджет, расходы, доходы, зарплата, налоги
 - hr: сотрудники, найм, обучение, табель, отпуск
 - support: жалобы, возвраты, обслуживание клиентов
-- content: посты, фото, видео, рецепты, описания
+- content: посты, фото, видео, рецепты, описания, прайс-листы
 - logistics: доставка, упаковка, склад, курьеры
+- analytics: отчёты, метрики, воронки, ABC-анализ, тренды продаж
+- qa: качество урожая, проверка партий, плесень, всхожесть, брак
+- rnd: опыты с культурами и субстратами, урожайность, новые сорта
+- devops: серверы, контейнеры, бэкапы, доступность сервисов
 
 Верни ТОЛЬКО JSON, без markdown и пояснений."""
 

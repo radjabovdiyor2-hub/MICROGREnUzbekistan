@@ -17,7 +17,7 @@ async def process_payment(cb: CallbackQuery, bot: Bot):
     async with get_session_ctx() as session:
         res = await session.execute(
             text(
-                "SELECT order_number, total_amount, status FROM orders WHERE id = :oid"
+                "SELECT order_number, total_amount, status FROM crm_orders WHERE id = :oid"
             ),
             {"oid": int(order_id)},
         )
@@ -85,7 +85,7 @@ async def process_successful_payment(message: Message):
         async with get_session_ctx() as session:
             await session.execute(
                 text(
-                    "UPDATE orders SET payment_status = 'paid', payment_method = 'online' WHERE id = :oid"
+                    "UPDATE crm_orders SET payment_status = 'paid', payment_method = 'online' WHERE id = :oid"
                 ),
                 {"oid": order_id},
             )

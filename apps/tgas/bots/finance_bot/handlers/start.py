@@ -185,7 +185,7 @@ async def debts(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
-                "SELECT o.order_number, o.total_amount, c.name FROM orders o "
+                "SELECT o.order_number, o.total_amount, c.name FROM crm_orders o "
                 "JOIN customers c ON c.id = o.customer_id "
                 "WHERE o.payment_status = 'pending' ORDER BY o.created_at LIMIT 10"
             )
@@ -210,7 +210,7 @@ async def salary(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
-                "SELECT name, role, salary FROM employees WHERE status='active' AND salary > 0"
+                "SELECT name, role, salary FROM crm_employees WHERE status='active' AND salary > 0"
             )
         )
         emps = r.fetchall()

@@ -1,3 +1,20 @@
+# ============================================================================
+#  AI-офис для разработки: Postgres + Redis + 13 ботов + web_office.
+#
+#  ⚠️ ВИТРИНЫ В ЭТОМ СТЕКЕ НЕТ. А заказы создаёт именно она
+#  (POST /api/orders — см. apps/tgas/shared/storefront_orders.py), поэтому без
+#  двух вещей регистрация продажи будет честно отвечать «витрина недоступна»:
+#
+#    1. Поднимите витрину отдельно: `npm run dev` в корне репозитория (порт 3005).
+#    2. Пропишите в apps/tgas/.env (см. .env.example):
+#         STOREFRONT_API_URL=http://host.docker.internal:3005/api
+#         BOT_SECRET=<то же значение, что у веба>
+#         INGEST_SECRET=<то же значение, что у веба>
+#
+#  Схему базы этот стек НЕ создаёт: сервиса db-push здесь нет. Накатите её
+#  из корня репозитория — `npm run db:push`.
+#  Полный стек вместе с витриной — docker-compose.prod.yml.
+# ============================================================================
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -21,7 +38,13 @@ services:
       - log_timezone=Asia/Samarkand
     volumes:
     - pg_data:/var/lib/postgresql/data
-    - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+    # database/init.sql СЮДА НЕ МОНТИРУЕТСЯ. Схемой владеет Prisma
+    # (`npm run db:push` из packages/database), а init.sql остался историческим:
+    # он создаёт `products`/`orders`/`order_items`/`employees` в ДОпереименованном
+    # виде, теми колонками, которые теперь принадлежат витрине. На свежем томе
+    # он занимал эти имена офисными таблицами, и дальше расходилось всё:
+    # регистрация продажи, прайс-лист, зеркалирование заказов сайта.
+    # Расхождение ловит `python scripts/check_schema.py`.
     ports:
     # Только localhost — БД недоступна из интернета (боты ходят по сети mg_net).
     - 127.0.0.1:5432:5432

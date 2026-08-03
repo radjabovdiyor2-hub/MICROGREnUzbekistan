@@ -71,7 +71,7 @@ _SEGMENTS = {
     "vip": "status = 'vip'",
     "leads": "status = 'lead'",
     "stale_orders": (
-        "id IN (SELECT customer_id FROM orders "
+        "id IN (SELECT customer_id FROM crm_orders "
         "WHERE status = 'new' AND created_at < NOW() - INTERVAL '24 hours')"
     ),
     "inactive": (

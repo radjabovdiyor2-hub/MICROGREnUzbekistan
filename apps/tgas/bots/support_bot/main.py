@@ -50,7 +50,7 @@ async def csat_survey_check():
         async with get_session_ctx() as session:
             result = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM orders o "
+                    "SELECT COUNT(*) FROM crm_orders o "
                     "WHERE o.status = 'delivered' "
                     "AND o.created_at < NOW() - INTERVAL '24 hours' "
                     "AND NOT EXISTS ("
@@ -120,7 +120,7 @@ async def delivery_status_report():
         async with get_session_ctx() as session:
             result = await session.execute(
                 text(
-                    "SELECT status, COUNT(*) as cnt FROM orders "
+                    "SELECT status, COUNT(*) as cnt FROM crm_orders "
                     "WHERE status IN ('new','confirmed','preparing','ready','delivering','delivered') "
                     "GROUP BY status ORDER BY status"
                 )
@@ -129,7 +129,7 @@ async def delivery_status_report():
             # Проверяем доставки дольше 2ч
             stuck = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM orders "
+                    "SELECT COUNT(*) FROM crm_orders "
                     "WHERE status = 'delivering' "
                     "AND updated_at < NOW() - INTERVAL '2 hours'"
                 )
@@ -366,9 +366,13 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.approvals import approvals_router
     from shared.task_ui import task_ui_router
 
     dp.include_router(task_ui_router)
+    # Кнопки ✅/❌ под рискованными действиями отдела. Без этого роутера
+    # карточка подтверждения показывается, а нажатие ничего не делает.
+    dp.include_router(approvals_router)
     for r in all_routers:
         dp.include_router(r)
 

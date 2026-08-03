@@ -6,8 +6,11 @@ export const orderItemSchema = z.object({
   id: z.string().optional(),
   productId: z.string().optional(),
   title: z.string().optional(),
-  price: z.number().min(0),
-  quantity: z.number().min(1),
+  price: z.number().int().min(0),
+  // Целые: OrderItem.quantity и price в схеме — Int. Дробное значение проходило
+  // Zod и падало уже в Prisma, отдавая клиенту безымянный 500 вместо внятного
+  // отказа. Дробный вес выражается в граммах или в количестве упаковок.
+  quantity: z.number().int().min(1),
 });
 
 export type OrderItemInput = z.infer<typeof orderItemSchema>;

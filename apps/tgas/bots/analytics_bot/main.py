@@ -48,7 +48,7 @@ async def daily_kpi_snapshot():
             # Количество заказов за сегодня
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM orders WHERE DATE(created_at) = CURRENT_DATE"
+                    "SELECT COUNT(*) FROM crm_orders WHERE DATE(created_at) = CURRENT_DATE"
                 )
             )
             order_count = res.scalar() or 0
@@ -127,7 +127,7 @@ async def weekly_trends():
             # Заказы
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM orders "
+                    "SELECT COUNT(*) FROM crm_orders "
                     "WHERE created_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days' "
                     "AND created_at < date_trunc('week', CURRENT_DATE)"
                 )
@@ -136,7 +136,7 @@ async def weekly_trends():
 
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM orders "
+                    "SELECT COUNT(*) FROM crm_orders "
                     "WHERE created_at >= date_trunc('week', CURRENT_DATE)"
                 )
             )
@@ -302,9 +302,9 @@ async def monthly_executive():
             res = await session.execute(
                 text(
                     "SELECT p.name_ru, SUM(oi.quantity) AS qty, SUM(oi.subtotal) AS total "
-                    "FROM order_items oi "
-                    "JOIN products p ON oi.product_id = p.id "
-                    "JOIN orders o ON oi.order_id = o.id "
+                    "FROM crm_order_items oi "
+                    "JOIN crm_products p ON oi.product_id = p.id "
+                    "JOIN crm_orders o ON oi.order_id = o.id "
                     "WHERE o.created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' "
                     "AND o.created_at < date_trunc('month', CURRENT_DATE) "
                     "GROUP BY p.name_ru ORDER BY total DESC LIMIT 5"
@@ -557,7 +557,7 @@ async def bus_get_report(params: dict) -> dict:
             revenue = float(res.scalar() or 0)
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM orders WHERE DATE(created_at) = CURRENT_DATE"
+                    "SELECT COUNT(*) FROM crm_orders WHERE DATE(created_at) = CURRENT_DATE"
                 )
             )
             order_count = res.scalar() or 0
@@ -665,9 +665,13 @@ async def main():
     )
     _bot = bot
     dp = Dispatcher(storage=RedisStorage.from_url(settings.redis_url))
+    from shared.approvals import approvals_router
     from shared.task_ui import task_ui_router
 
     dp.include_router(task_ui_router)
+    # Кнопки ✅/❌ под рискованными действиями отдела. Без этого роутера
+    # карточка подтверждения показывается, а нажатие ничего не делает.
+    dp.include_router(approvals_router)
     for r in all_routers:
         dp.include_router(r)
 
@@ -736,9 +740,9 @@ async def _get_top_products(params: dict) -> str:
             res = await session.execute(
                 text(
                     "SELECT p.name_ru, SUM(oi.quantity) AS qty "
-                    "FROM order_items oi "
-                    "JOIN products p ON oi.product_id = p.id "
-                    "JOIN orders o ON oi.order_id = o.id "
+                    "FROM crm_order_items oi "
+                    "JOIN crm_products p ON oi.product_id = p.id "
+                    "JOIN crm_orders o ON oi.order_id = o.id "
                     "WHERE o.created_at >= CURRENT_DATE - INTERVAL '7 days' "
                     "GROUP BY p.name_ru ORDER BY qty DESC LIMIT 3"
                 )

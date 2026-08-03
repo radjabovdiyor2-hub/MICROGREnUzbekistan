@@ -131,17 +131,10 @@ async def handle_task_created(payload: dict):
         return
 
     logger.info(f"R&D Bot received task via event_bus: {payload}")
-    data.get("task_id", "rnd_task")
-    data.get(
-        "chat_id", settings.admin_telegram_ids[0] if settings.admin_telegram_ids else 0
-    )
-    data.get("description", "")
 
-    from shared.feedback_loop import feedback_loop
-
-    active_learning = await feedback_loop.get_active_behavior("rnd_bot", "recipe_yield")
-    active_learning.get("inference", "")
-
+    # Директивы обучения больше не читаем здесь: их подставляет исполнитель
+    # задач (feedback_loop.active_policy). Раньше строка читалась из базы и
+    # тут же выбрасывалась — обучение на R&D не влияло вовсе.
 
     from shared.task_executor import execute_bot_task
     

@@ -11,17 +11,29 @@
 
   · franchise_bot считал сводку филиалов как
     `SELECT COUNT(id), SUM(total) FROM orders WHERE city = :city`,
-    хотя в `orders` НЕТ ни `city`, ни `total` (город у клиента, сумма —
+    хотя в заказах НЕТ ни `city`, ни `total` (город у клиента, сумма —
     `total_amount`). Запрос падал на каждом городе, единственная задача бота
     не отработала ни разу.
   · `franchise_journals` не создавалась ничем: в `init.sql` её не было, а сам
     init.sql применяется ТОЛЬКО при первой инициализации тома Postgres.
-  · `restaurants` — таблица витрины (Prisma), её нет в схеме ботов вовсе.
-    База при этом одна: все сервисы в docker-compose.prod.yml смотрят в
-    microgreen, поэтому такие таблицы читаются обычной сессией.
+  · `restaurants` — таблица витрины, её не было в схеме ботов вовсе.
 
-Скрипт ловит повторение каждого случая. Инфраструктура не нужна — только чтение
-файлов, как в check_bot_roster.py и check_prompts.py.
+ПОЧЕМУ ИСТОЧНИК ПРАВДЫ — schema.prisma, А НЕ database/init.sql
+
+Раньше колонки сверялись с `database/init.sql`. Из-за этого скрипт пропустил
+самую дорогую поломку проекта. `unify_databases.sql` переименовал офисные
+таблицы (`products → crm_products`, `orders → crm_orders`,
+`order_items → crm_order_items`, `employees → crm_employees`), отдав эти имена
+витрине. В `init.sql` они остались офисными — и `SELECT unit FROM products`
+проходил проверку, хотя в живой базе `products` это таблица витрины и `unit`
+там нет. Регистрация продажи молча отвечала «не смог записать продажу в БД»,
+прайс-лист приходил пустым, зеркалирование заказов сайта в CRM не работало.
+
+Схемой владеет Prisma (`prisma db push`), поэтому правда живёт в
+`packages/database/prisma/schema.prisma`. `database/init.sql` — исторический
+файл: он применяется только при первой инициализации тома и уже разошёлся со
+схемой. Скрипт отдельно предупреждает, если init.sql объявляет таблицу с тем
+же именем, но другим набором колонок, — это ровно та ловушка, что сработала.
 
 ЧЕГО СКРИПТ НЕ ДЕЛАЕТ
 Он не полноценный разборщик SQL. Колонки проверяются только у запросов к одной
@@ -46,57 +58,119 @@ ROOT = Path(__file__).resolve().parent.parent  # apps/tgas
 REPO = ROOT.parent.parent  # корень репозитория
 
 problems: list[str] = []
+warnings: list[str] = []
 notes: list[str] = []
 
 
-# ── 1. Схема ботов из database/init.sql ─────────────────────────────────
-def load_init_sql() -> dict[str, set[str]]:
-    sql = (ROOT / "database" / "init.sql").read_text(encoding="utf-8")
+# ── 1. Схема из schema.prisma — источник правды ─────────────────────────
+PRISMA_SCALARS = {
+    "String",
+    "Int",
+    "BigInt",
+    "Float",
+    "Decimal",
+    "Boolean",
+    "DateTime",
+    "Json",
+    "Bytes",
+    # Типы, которых у Prisma нет, но колонка в базе есть: pgvector-эмбеддинг
+    # объявлен как Unsupported("vector(1536)"). Без него база знаний
+    # support-бота выглядела бы обращением к несуществующей колонке.
+    "Unsupported",
+}
+
+
+def load_prisma_schema() -> dict[str, set[str]]:
+    """{имя таблицы в БД: {колонки}} из schema.prisma.
+
+    Имя таблицы — из `@@map("...")`, иначе имя модели. Имя колонки — из
+    `@map("...")`, иначе имя поля КАК ЕСТЬ: Prisma не превращает camelCase в
+    snake_case сама, поэтому и мы не превращаем.
+
+    Поля-связи (`category Category @relation(...)`, `items OrderItem[]`)
+    колонками не являются — в базе от них остаётся только скалярный ключ,
+    объявленный отдельным полем. Отличаем по типу: скаляр Prisma или enum.
+    """
+    path = REPO / "packages" / "database" / "prisma" / "schema.prisma"
+    if not path.exists():
+        problems.append(f"не найден {path} — сверять не с чем")
+        return {}
+    body = path.read_text(encoding="utf-8")
+
+    enums = set(re.findall(r"^enum\s+(\w+)\s*\{", body, re.M))
+    scalar_types = PRISMA_SCALARS | enums
+
     tables: dict[str, set[str]] = {}
-    for m in re.finditer(
-        r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\);", sql, re.S
-    ):
-        name, body = m.group(1), m.group(2)
-        cols = set()
-        for line in body.splitlines():
+    for match in re.finditer(r"^model\s+(\w+)\s*\{(.*?)^\}", body, re.M | re.S):
+        model, block = match.group(1), match.group(2)
+        mapped = re.search(r'@@map\("(\w+)"\)', block)
+        table = (mapped.group(1) if mapped else model).lower()
+
+        columns: set[str] = set()
+        for line in block.splitlines():
             line = line.strip()
-            if not line or line.startswith("--"):
+            if not line or line.startswith("//") or line.startswith("@@"):
                 continue
-            # пропускаем табличные ограничения: они начинаются с ключевого слова
-            if re.match(r"(?i)(PRIMARY|FOREIGN|UNIQUE|CHECK|CONSTRAINT)\b", line):
+            field = re.match(r"(\w+)\s+(\w+)", line)
+            if not field:
                 continue
-            cm = re.match(r"(\w+)\s+\w", line)
-            if cm:
-                cols.add(cm.group(1).lower())
-        tables[name.lower()] = cols
+            name, ftype = field.group(1), field.group(2)
+            if ftype not in scalar_types or "[]" in line.split("//")[0]:
+                continue  # связь, а не колонка
+            column = re.search(r'@map\("(\w+)"\)', line)
+            columns.add((column.group(1) if column else name).lower())
+        tables[table] = columns
     return tables
 
 
-# ── 2. Таблицы витрины из schema.prisma ─────────────────────────────────
-def load_prisma_tables() -> set[str]:
-    path = REPO / "packages" / "database" / "prisma" / "schema.prisma"
-    if not path.exists():
-        return set()
-    text_ = path.read_text(encoding="utf-8")
-    names: set[str] = set()
-    for m in re.finditer(r"@@map\(\"(\w+)\"\)", text_):
-        names.add(m.group(1).lower())
-    # модели без @@map: Prisma кладёт их в таблицу с именем модели
-    for m in re.finditer(r"^model\s+(\w+)\s*\{", text_, re.M):
-        names.add(m.group(1).lower())
-    return names
+# ── 2. Таблицы, которые код создаёт сам в рантайме ──────────────────────
+CREATE_RE = re.compile(
+    r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\s*\)", re.I | re.S
+)
 
 
-# ── 3. Таблицы, которые код создаёт сам в рантайме ──────────────────────
-def load_runtime_tables() -> set[str]:
-    names: set[str] = set()
+def _parse_columns(body: str) -> set[str]:
+    columns: set[str] = set()
+    for line in body.splitlines():
+        line = line.strip()
+        if not line or line.startswith("--"):
+            continue
+        if re.match(r"(?i)(PRIMARY|FOREIGN|UNIQUE|CHECK|CONSTRAINT)\b", line):
+            continue
+        column = re.match(r"(\w+)\s+\w", line)
+        if column:
+            columns.add(column.group(1).lower())
+    return columns
+
+
+def load_runtime_tables() -> dict[str, set[str]]:
+    """Таблицы, создаваемые прямо в коде (`CREATE TABLE IF NOT EXISTS`).
+
+    Так заведены `meeting_state`, `ig_comment_seen`, `franchise_journals` —
+    init.sql на живой базе их бы не создал.
+    """
+    tables: dict[str, set[str]] = {}
     for path in sorted(ROOT.rglob("*.py")):
         if "__pycache__" in path.as_posix():
             continue
         body = path.read_text(encoding="utf-8", errors="replace")
-        for m in re.finditer(r"CREATE TABLE IF NOT EXISTS\s+(\w+)", body, re.I):
-            names.add(m.group(1).lower())
-    return names
+        for match in CREATE_RE.finditer(body):
+            tables[match.group(1).lower()] = _parse_columns(match.group(2))
+    return tables
+
+
+# ── 3. Исторический init.sql — только для предупреждения о ловушке ──────
+def load_init_sql() -> dict[str, set[str]]:
+    path = ROOT / "database" / "init.sql"
+    if not path.exists():
+        return {}
+    body = path.read_text(encoding="utf-8")
+    tables: dict[str, set[str]] = {}
+    for match in re.finditer(
+        r"CREATE TABLE IF NOT EXISTS\s+(\w+)\s*\((.*?)\n\);", body, re.S
+    ):
+        tables[match.group(1).lower()] = _parse_columns(match.group(2))
+    return tables
 
 
 # ── 4. Все SQL-строки ботов ─────────────────────────────────────────────
@@ -259,6 +333,20 @@ def columns_used(sql: str) -> set[str]:
     return out
 
 
+# Колонки, перечисленные в INSERT INTO t (a, b, c) — разбор однозначен,
+# а именно там жила поломка: вставка офисных колонок в таблицу витрины.
+INSERT_RE = re.compile(r"(?i)INSERT\s+INTO\s+(\w+)\s*\(([^)]*)\)")
+
+
+def insert_columns(sql: str) -> tuple[str, set[str]] | None:
+    m = INSERT_RE.search(sql)
+    if not m:
+        return None
+    raw = [c.strip().lower() for c in m.group(2).split(",")]
+    cols = {c for c in raw if re.fullmatch(r"[a-z_][a-z0-9_]*", c)}
+    return m.group(1).lower(), cols
+
+
 # EXTRACT(MONTH FROM date) — это не «таблица date», поэтому такие FROM убираем.
 EXTRACT_RE = re.compile(r"(?i)\bEXTRACT\s*\([^)]*\)")
 TABLE_RE = re.compile(r"(?i)\b(FROM|JOIN|INTO|UPDATE)\s+([a-z_][a-z0-9_]*)(\()?")
@@ -283,37 +371,52 @@ def tables_used(sql: str) -> set[str]:
 
 
 def main() -> int:
-    init_tables = load_init_sql()
-    prisma_tables = load_prisma_tables()
+    schema = load_prisma_schema()
     runtime_tables = load_runtime_tables()
+    known = {**schema, **runtime_tables}
     statements = collect_sql()
 
-    notes.append(f"  ok  схема ботов: {len(init_tables)} таблиц в database/init.sql")
-    notes.append(f"  ok  витрина: {len(prisma_tables)} таблиц в schema.prisma")
+    notes.append(f"  ok  схема Prisma: {len(schema)} таблиц в schema.prisma")
     notes.append(f"  ok  создаются в рантайме: {len(runtime_tables) or 'нет'}")
     notes.append(f"  ok  разобрано SQL-запросов: {len(statements)}")
+
+    # ── ловушка init.sql: то же имя, другой набор колонок ────────────────
+    for table, columns in load_init_sql().items():
+        if table not in schema or not columns:
+            continue
+        drifted = columns - schema[table]
+        if drifted:
+            warnings.append(
+                f"database/init.sql объявляет «{table}» с колонками "
+                f"{', '.join(sorted(drifted))}, которых нет в schema.prisma. "
+                f"init.sql исторический (применяется только при первой "
+                f"инициализации тома); правда — schema.prisma."
+            )
 
     # ── таблицы существуют ───────────────────────────────────────────────
     for rel, line, sql in statements:
         for tbl in tables_used(sql):
-            if tbl in init_tables or tbl in runtime_tables:
-                continue
-            if tbl in prisma_tables:
-                # Таблица витрины, объявленная в schema.prisma. База одна и та
-                # же (см. DATABASE_URL всех сервисов в docker-compose.prod.yml),
-                # поэтому обычной сессией она читается корректно.
-                #
-                # Раньше здесь была ругань «на проде это ОТДЕЛЬНАЯ база» и
-                # проверка, что запрос открыт особой storefront-сессией. Базы
-                # разъехались только в истории проекта: сессия-«витрина» была
-                # псевдонимом обычной, то есть проверка сравнивала одно и то же
-                # с самим собой и держала в коде память о несуществующем делении.
+            if tbl in known:
                 continue
             problems.append(
-                f"{rel}:{line} — таблица «{tbl}» не определена нигде: ни в "
-                f"database/init.sql, ни через CREATE TABLE IF NOT EXISTS в коде. "
-                f"init.sql применяется только при первой инициализации тома, "
-                f"поэтому на живой базе её не появится."
+                f"{rel}:{line} — таблица «{tbl}» не объявлена ни в "
+                f"schema.prisma, ни через CREATE TABLE IF NOT EXISTS в коде. "
+                f"Схемой владеет Prisma: то, чего нет в schema.prisma, "
+                f"на живой базе не появится."
+            )
+
+    # ── колонки в INSERT INTO t (...) ────────────────────────────────────
+    for rel, line, sql in statements:
+        parsed = insert_columns(sql)
+        if not parsed:
+            continue
+        tbl, cols = parsed
+        if tbl not in known or not known[tbl]:
+            continue
+        for col in sorted(cols - known[tbl]):
+            problems.append(
+                f"{rel}:{line} — INSERT в «{tbl}»: колонки «{col}» нет. "
+                f"Есть: {', '.join(sorted(known[tbl]))}"
             )
 
     # ── колонки существуют (только однотабличные запросы) ────────────────
@@ -326,28 +429,27 @@ def main() -> int:
         if len(re.findall(r"(?i)\bSELECT\b", sql)) > 1:
             continue
         tbl = next(iter(tables))
-        if tbl not in init_tables:
-            continue  # чужая схема — не наше дело
-        known = init_tables[tbl]
-        if not known:
+        if tbl not in known or not known[tbl]:
             continue
-        for col in columns_used(sql) - {tbl}:
-            if col in known:
-                continue
-            # имя другой известной таблицы внутри запроса — не колонка
-            if col in init_tables or col in prisma_tables or col in runtime_tables:
-                continue
+        for col in sorted(columns_used(sql) - {tbl}):
+            if col in known[tbl] or col in known:
+                continue  # имя другой таблицы внутри запроса — не колонка
             problems.append(
                 f"{rel}:{line} — в «{tbl}» нет колонки «{col}». "
-                f"Есть: {', '.join(sorted(known))}"
+                f"Есть: {', '.join(sorted(known[tbl]))}"
             )
 
-    print("Сверка SQL ботов со схемой базы\n")
+    print("Сверка SQL ботов со схемой базы (источник правды — schema.prisma)\n")
     for n in notes:
         print(n)
 
+    if warnings:
+        print("\n⚠ предупреждения:")
+        for w in dict.fromkeys(warnings):
+            print(f"  · {w}")
+
     if problems:
-        print("\n✗ найдено:")
+        print(f"\n✗ найдено ({len(dict.fromkeys(problems))}):")
         for p in dict.fromkeys(problems):
             print(f"  · {p}")
         return 1

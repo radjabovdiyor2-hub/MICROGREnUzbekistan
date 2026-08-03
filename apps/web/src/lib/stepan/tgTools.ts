@@ -59,31 +59,14 @@ export const TG_READ_TOOLS: ReadTool[] = [
     runtimes: ['tg'],
     run: async () => ({ error: 'roll_call работает только в Telegram' }),
   },
-  {
-    name: 'get_report',
-    description: 'Сформировать сводный отчёт (ежедневный, финансовый, по задачам).',
-    params: {
-      report_kind: {
-        type: 'string', description: 'Тип отчёта',
-        enum: ['daily', 'finance', 'sales', 'tasks', 'full'],
-      },
-    },
-    required: ['report_kind'],
-    runtimes: ['tg'],
-    run: async () => ({ error: 'get_report — используйте get_business_summary + get_finance_summary' }),
-  },
-  {
-    name: 'query_db',
-    description: 'Запросить данные из БД (продажи, задачи, финансы, клиенты, сотрудники).',
-    params: {
-      db_query: {
-        type: 'string', description: 'Тип запроса',
-        enum: ['sales_summary', 'tasks_status', 'finance_report', 'orders_today', 'customers_count', 'employees'],
-      },
-    },
-    runtimes: ['tg'],
-    run: async () => ({ error: 'query_db — используйте get_orders, get_tasks, get_finance_summary' }),
-  },
+  // get_report и query_db удалены из реестра.
+  //
+  // Здесь они были заглушками, которые на любой вызов отвечали «используйте
+  // get_business_summary» — то есть занимали имя, ничего не делая. В Telegram
+  // им отвечали рукописные SQL-отчёты по фиксированному списку видов запроса,
+  // дублировавшие get_business_summary, get_finance_summary, get_pnl,
+  // top_products, get_tasks и build_report. Одно имя — один владелец, и раз
+  // владельца у этих двух нет, имён тоже быть не должно.
 ];
 
 export const TG_WRITE_TOOLS: WriteTool[] = [

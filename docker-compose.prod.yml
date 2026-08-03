@@ -82,7 +82,15 @@ services:
       - log_timezone=Asia/Samarkand
     volumes:
       - pg_data:/var/lib/postgresql/data
-      - ./apps/tgas/database/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      # apps/tgas/database/init.sql СЮДА НЕ МОНТИРУЕТСЯ — см. строку 8 заголовка.
+      # Схемой владеет Prisma: её накатывает сервис db-push, и web ждёт его
+      # завершения. init.sql остался историческим: он создаёт products/orders/
+      # order_items/employees в ДОпереименованном виде — теми колонками, что
+      # теперь принадлежат витрине. А docker-entrypoint-initdb.d отрабатывает
+      # при первой инициализации тома, то есть РАНЬШЕ db-push: на чистом томе
+      # он занимал эти имена офисными таблицами, и дальше расходилось всё —
+      # регистрация продажи, прайс-лист, зеркалирование заказов сайта.
+      # Расхождение ловит `python scripts/check_schema.py` в apps/tgas.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mg_user -d microgreen"]
       interval: 10s
@@ -316,9 +324,21 @@ services:
     <<: *tgas-bot
     container_name: mg_n8n_bridge
     command: python -m bots.n8n_bridge.main
+    # ⚠️ `environment:` ЗАМЕНЯЕТ блок из якоря целиком, а не дополняет его:
+    # YAML-слияние не делает глубокого merge. Раньше здесь были только четыре
+    # строки ниже, и сервис молча терял ENVIRONMENT, INGEST_SECRET,
+    # STOREFRONT_API_URL, BOT_SECRET и STOREFRONT_STATUS_URL. Сегодня мост
+    # заказов не создаёт, поэтому это не проявлялось, — но стоило добавить ему
+    # любой вызов витрины, и он получил бы пустой секрет и 401.
+    # Поэтому общий набор повторён явно.
     environment:
+      ENVIRONMENT: production
       DATABASE_URL: postgresql+asyncpg://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
       REDIS_URL: redis://redis:6379/0
+      INGEST_SECRET: ${INGEST_SECRET:-}
+      STOREFRONT_API_URL: http://web:3000/api
+      STOREFRONT_STATUS_URL: http://web:3000/api/orders/status
+      BOT_SECRET: ${BOT_SECRET:-}
       N8N_ASSISTANT_WEBHOOK: http://host.docker.internal:5678/webhook/assistant
       N8N_TIMEOUT: "120"
     extra_hosts:

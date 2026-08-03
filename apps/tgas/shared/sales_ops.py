@@ -2,7 +2,7 @@
 💰 SALES OPS — реальные операции продаж
 ========================================
 Единственное место, где «продажа, о которой сообщил менеджер», превращается в
-факты в БД: клиент → заказ → позиции → журнал → событие ORDER_CREATED.
+факты: клиент → заказ витрины → карточка клиента в CRM → журнал → ORDER_CREATED.
 
 Правила модуля:
 1. НИЧЕГО НЕ ВЫДУМЫВАТЬ. Нет цены, товар неоднозначен, товара нет в каталоге —
@@ -12,18 +12,24 @@
    руководителя. Заказ «на сумму без товара» больше не пишем: такие строки не
    попадают ни в остатки, ни в аналитику по товарам.
 3. Одна продажа = один заказ, даже если позиций несколько («10 гороха и 13 редиса»).
+4. Заказ создаёт ВИТРИНА (shared.storefront_orders), а не наш INSERT. Тогда
+   продажа из Telegram и заказ с сайта — одна и та же строка в одной таблице,
+   с общим номером, списанием остатка и зеркалом в CRM. Витрина недоступна —
+   продажа НЕ регистрируется, и об этом говорится прямо.
+
+Поиск товара живёт в shared.catalog_repo: каталог-мастер витринный, и его
+колонки знает только он.
 """
 
+import hashlib
 import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import String, bindparam, text
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import text
 
+from shared import catalog_repo, storefront_orders
 from shared.database import get_session_ctx
-from shared.event_bus import event_bus, Events
-from shared.text_match import query_variants
 from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
@@ -60,88 +66,6 @@ def _to_float(value: Any) -> Optional[float]:
         return None
 
 
-# Порог нечёткого совпадения (pg_trgm). Ниже — уже случайные созвучия.
-FUZZY_THRESHOLD = 0.45
-
-
-async def _find_products(session, query: Optional[str]) -> List[Dict[str, Any]]:
-    """
-    Ищем товар так, как его мог написать человек: «санго», «sango», «cfyuj»
-    (кириллица в латинской раскладке), «сангоо» с опечаткой.
-
-    Два прохода:
-    1. Подстрока по всем вариантам написания (транслит + исправленная раскладка).
-    2. Если пусто — нечёткий поиск через pg_trgm (ловит опечатки).
-    """
-    variants = query_variants(query or "")
-    if not variants:
-        return []
-
-    patterns = [f"%{v}%" for v in variants]
-    res = await session.execute(
-        text(
-            "SELECT id, name_ru, price, unit FROM products "
-            "WHERE is_active = true "
-            "AND (name_ru ILIKE ANY(:pats) OR name_uz ILIKE ANY(:pats)) "
-            "ORDER BY sort_order, id LIMIT 10"
-        ).bindparams(bindparam("pats", value=patterns, type_=ARRAY(String))),
-    )
-    rows = res.fetchall()
-
-    # Несколько слов («санго микрозелень», порядок любой) — ищем товар, в
-    # названии которого есть ВСЕ слова. Иначе поиск по всей строке не совпадёт,
-    # а нечёткий вернёт всю микрозелень подряд.
-    words = [w for w in re.split(r"\s+", str(query).strip()) if len(w) >= 3]
-    if not rows and len(words) > 1:
-        conditions, params = [], {}
-        for idx, word in enumerate(words):
-            word_patterns = [f"%{v}%" for v in query_variants(word)]
-            if not word_patterns:
-                continue
-            key = f"w{idx}"
-            conditions.append(
-                f"(name_ru ILIKE ANY(:{key}) OR name_uz ILIKE ANY(:{key}))"
-            )
-            params[key] = word_patterns
-        if conditions:
-            stmt = text(
-                "SELECT id, name_ru, price, unit FROM products "
-                "WHERE is_active = true AND "
-                + " AND ".join(conditions)
-                + " ORDER BY sort_order, id LIMIT 10"
-            ).bindparams(
-                *[
-                    bindparam(key, value=value, type_=ARRAY(String))
-                    for key, value in params.items()
-                ]
-            )
-            rows = (await session.execute(stmt)).fetchall()
-
-    if not rows:
-        # Опечатки: word_similarity сравнивает запрос с лучшим куском названия,
-        # поэтому «сангоо» находит «Микрозелень Санго».
-        try:
-            res = await session.execute(
-                text(
-                    "SELECT id, name_ru, price, unit, "
-                    "  (SELECT MAX(GREATEST(word_similarity(v, lower(p.name_ru)), "
-                    "                       word_similarity(v, lower(p.name_uz)))) "
-                    "   FROM unnest(:vars) AS v) AS sim "
-                    "FROM products p "
-                    "WHERE is_active = true "
-                    "ORDER BY sim DESC NULLS LAST LIMIT 5"
-                ).bindparams(bindparam("vars", value=variants, type_=ARRAY(String))),
-            )
-            rows = [r for r in res.fetchall() if (r[4] or 0) >= FUZZY_THRESHOLD]
-        except Exception as exc:  # pg_trgm не установлен — молча остаёмся без fuzzy
-            logger.warning("SALES_OPS: нечёткий поиск недоступен (%s)", exc)
-            rows = []
-
-    return [
-        {"id": r[0], "name": r[1], "price": float(r[2]), "unit": r[3]} for r in rows
-    ]
-
-
 def _normalize_items(params: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Приводим вход к списку позиций: items[] либо одиночные product/quantity."""
     raw = params.get("items")
@@ -170,19 +94,7 @@ def _normalize_items(params: Dict[str, Any]) -> List[Dict[str, Any]]:
     return items
 
 
-async def _product_by_id(session, product_id: int) -> Optional[Dict[str, Any]]:
-    row = (
-        await session.execute(
-            text("SELECT id, name_ru, price, unit FROM products WHERE id = :pid"),
-            {"pid": int(product_id)},
-        )
-    ).fetchone()
-    if not row:
-        return None
-    return {"id": row[0], "name": row[1], "price": float(row[2]), "unit": row[3]}
-
-
-async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+async def _resolve_items(items: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Сопоставляем каждую позицию с каталогом.
 
@@ -197,7 +109,7 @@ async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]
         product: Optional[Dict[str, Any]] = None
 
         if item.get("product_id"):
-            product = await _product_by_id(session, item["product_id"])
+            product = await catalog_repo.by_id(item["product_id"])
 
         if not product:
             name = item["product"]
@@ -212,17 +124,13 @@ async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]
                 )
                 continue
 
-            matches = await _find_products(session, name)
-            exact = [
-                m for m in matches if m["name"].strip().lower() == name.strip().lower()
-            ]
-
-            if exact:
-                product = exact[0]
-            elif len(matches) == 1:
-                product = matches[0]
-            elif len(matches) > 1:
-                ambiguous.append({"index": index, "query": name, "candidates": matches})
+            outcome = await catalog_repo.resolve(name)
+            if outcome.get("product"):
+                product = outcome["product"]
+            elif outcome.get("candidates"):
+                ambiguous.append(
+                    {"index": index, "query": name, "candidates": outcome["candidates"]}
+                )
                 continue
             else:
                 missing.append(
@@ -252,6 +160,104 @@ async def _resolve_items(session, items: List[Dict[str, Any]]) -> Dict[str, Any]
     if ambiguous or missing:
         return {"ambiguous": ambiguous, "missing": missing}
     return {"resolved": resolved}
+
+
+def _sale_fingerprint(customer_name: str, phone: Optional[str], total: float) -> str:
+    """Отпечаток продажи: тот же клиент на ту же сумму — та же продажа."""
+    raw = f"{(phone or customer_name).strip().lower()}|{round(float(total), 2)}"
+    return "sale:dedupe:" + hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
+
+
+async def _redis():
+    import redis.asyncio as aioredis
+
+    from shared.config import settings
+
+    return aioredis.from_url(settings.redis_url, decode_responses=True)
+
+
+async def _seen_recently(fingerprint: str) -> Optional[str]:
+    """Номер заказа, если такая же продажа уже прошла в окне дедупликации.
+
+    Redis недоступен — дедупликации нет, но продажу это не блокирует: лучше
+    редкий дубль, который видно, чем незаписанная продажа.
+    """
+    try:
+        client = await _redis()
+        return await client.get(fingerprint)
+    except Exception as exc:
+        logger.warning("SALES_OPS: дедупликация недоступна (%s)", exc)
+        return None
+
+
+async def _remember_sale(fingerprint: str, order_number: Optional[str]) -> None:
+    try:
+        client = await _redis()
+        await client.set(
+            fingerprint, order_number or "—", ex=DEDUPE_WINDOW_MINUTES * 60
+        )
+    except Exception as exc:
+        logger.warning("SALES_OPS: не смог запомнить продажу для дедупликации (%s)", exc)
+
+
+async def _upsert_customer(
+    customer_name: str,
+    phone: Optional[str],
+    customer_type: str,
+    registered_by: str,
+) -> tuple[Optional[int], bool]:
+    """Найти или завести карточку клиента в CRM. Возвращает (id, создана ли)."""
+    async with get_session_ctx() as session:
+        customer_id = None
+        if phone:
+            customer_id = (
+                await session.execute(
+                    text("SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"),
+                    {"p": phone},
+                )
+            ).scalar()
+        if not customer_id:
+            customer_id = (
+                await session.execute(
+                    text(
+                        "SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n "
+                        "ORDER BY id LIMIT 1"
+                    ),
+                    {"n": customer_name},
+                )
+            ).scalar()
+
+        if customer_id:
+            await session.execute(
+                text(
+                    "UPDATE customers SET phone = COALESCE(phone, :p), "
+                    "name = COALESCE(NULLIF(name, ''), :n) WHERE id = :cid"
+                ),
+                {"p": phone, "n": customer_name, "cid": customer_id},
+            )
+            await session.commit()
+            return customer_id, False
+
+        customer_id = (
+            await session.execute(
+                text(
+                    "INSERT INTO customers (name, company_name, phone, customer_type, "
+                    "company_type, status, source, notes) "
+                    "VALUES (:n, :company, :p, :ctype, :company_type, 'active', 'manual', :notes) "
+                    "RETURNING id"
+                ),
+                {
+                    "n": customer_name,
+                    "company": customer_name if customer_type == "b2b" else None,
+                    "p": phone,
+                    "ctype": customer_type,
+                    "company_type": "restaurant" if customer_type == "b2b" else None,
+                    "notes": f"Заведён при регистрации продажи ({registered_by})",
+                },
+            )
+        ).scalar()
+        await session.commit()
+        return customer_id, True
 
 
 def _clarify_message(
@@ -330,203 +336,134 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
     registered_by = str(params.get("registered_by") or "sales_bot")
 
     try:
-        async with get_session_ctx() as session:
-            # ── 1. Позиции: каждая обязана быть товаром каталога ──
-            items = _normalize_items(params)
-            outcome = await _resolve_items(session, items)
-            if "ambiguous" in outcome:
-                # Отдаём «незакрытую» продажу целиком: Степан покажет кнопки выбора
-                # и после ответа руководителя вызовет register_sale снова.
-                return {
-                    "status": "clarify",
-                    "message": _clarify_message(
-                        outcome["ambiguous"], outcome["missing"]
-                    ),
-                    "data": {
-                        "ambiguous": outcome["ambiguous"],
-                        "missing": outcome["missing"],
-                        "pending": {
-                            "customer_name": customer_name,
-                            "phone": phone,
-                            "customer_type": customer_type,
-                            "payment_status": payment_status,
-                            "status": order_status,
-                            "notes": notes,
-                            "items": items,
-                        },
-                    },
-                }
-
-            lines = outcome["resolved"]
-            total_amount = sum(line["total_price"] for line in lines)
-
-            # ── 2. Клиент: ищем по телефону, затем по названию, иначе заводим ──
-            customer_id = None
-            if phone:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"
-                        ),
-                        {"p": phone},
-                    )
-                ).scalar()
-            if not customer_id:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n "
-                            "ORDER BY id LIMIT 1"
-                        ),
-                        {"n": customer_name},
-                    )
-                ).scalar()
-
-            customer_created = False
-            if customer_id:
-                await session.execute(
-                    text(
-                        "UPDATE customers SET phone = COALESCE(phone, :p), "
-                        "name = COALESCE(NULLIF(name, ''), :n) WHERE id = :cid"
-                    ),
-                    {"p": phone, "n": customer_name, "cid": customer_id},
-                )
-            else:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO customers (name, company_name, phone, customer_type, "
-                            "company_type, status, source, notes) "
-                            "VALUES (:n, :company, :p, :ctype, :company_type, 'active', 'manual', :notes) "
-                            "RETURNING id"
-                        ),
-                        {
-                            "n": customer_name,
-                            "company": customer_name
-                            if customer_type == "b2b"
-                            else None,
-                            "p": phone,
-                            "ctype": customer_type,
-                            "company_type": "restaurant"
-                            if customer_type == "b2b"
-                            else None,
-                            "notes": f"Заведён при регистрации продажи ({registered_by})",
-                        },
-                    )
-                ).scalar()
-                customer_created = True
-
-            # ── 3. Защита от дубля: та же продажа, тому же клиенту, только что ──
-            dup = (
-                await session.execute(
-                    text(
-                        "SELECT id, order_number FROM orders "
-                        "WHERE customer_id = :cid AND total_amount = :total "
-                        "AND created_at > NOW() - (:mins || ' minutes')::interval "
-                        "ORDER BY id DESC LIMIT 1"
-                    ),
-                    {
-                        "cid": customer_id,
-                        "total": total_amount,
-                        "mins": str(DEDUPE_WINDOW_MINUTES),
-                    },
-                )
-            ).fetchone()
-            if dup:
-                return {
-                    "status": "duplicate",
-                    "message": (
-                        f"Эта продажа уже зарегистрирована — заказ {dup[1]} "
-                        f"({customer_name}, {format_price(total_amount)}). "
-                        f"Повторно не записываю."
-                    ),
-                    "data": {"order_id": dup[0], "order_number": dup[1]},
-                }
-
-            # ── 4. Заказ (order_number выдаст триггер) + позиции ──
-            row = (
-                await session.execute(
-                    text(
-                        "INSERT INTO orders (customer_id, total_amount, status, payment_status, "
-                        "notes, created_at, updated_at) "
-                        "VALUES (:cid, :total, :status, :pay, :notes, NOW(), NOW()) "
-                        "RETURNING id, order_number"
-                    ),
-                    {
-                        "cid": customer_id,
-                        "total": total_amount,
+        # ── 1. Позиции: каждая обязана быть товаром каталога ──
+        items = _normalize_items(params)
+        outcome = await _resolve_items(items)
+        if "ambiguous" in outcome:
+            # Отдаём «незакрытую» продажу целиком: Степан покажет кнопки выбора
+            # и после ответа руководителя вызовет register_sale снова.
+            return {
+                "status": "clarify",
+                "message": _clarify_message(outcome["ambiguous"], outcome["missing"]),
+                "data": {
+                    "ambiguous": outcome["ambiguous"],
+                    "missing": outcome["missing"],
+                    "pending": {
+                        "customer_name": customer_name,
+                        "phone": phone,
+                        "customer_type": customer_type,
+                        "payment_status": payment_status,
                         "status": order_status,
-                        "pay": payment_status,
-                        "notes": (
-                            notes
-                            or f"Продажа зарегистрирована вручную ({registered_by})"
-                        )[:500],
+                        "notes": notes,
+                        "items": items,
                     },
-                )
-            ).fetchone()
-            order_id, order_number = row[0], row[1]
-
-            for line in lines:
-                await session.execute(
-                    text(
-                        "INSERT INTO order_items (order_id, product_id, quantity, unit, "
-                        "unit_price, total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
-                    ),
-                    {
-                        "oid": order_id,
-                        "pid": line["product_id"],
-                        "qty": line["quantity"],
-                        "unit": line["unit"],
-                        "price": line["unit_price"],
-                        "total": line["total_price"],
-                    },
-                )
-
-            # ── 5. Статистика клиента + журнал взаимодействия ──
-            await session.execute(
-                text(
-                    "UPDATE customers SET orders_count = orders_count + 1, "
-                    "total_spent = total_spent + :amount, last_order_date = NOW(), "
-                    "status = CASE WHEN orders_count >= 5 THEN 'vip' ELSE 'active' END "
-                    "WHERE id = :cid"
-                ),
-                {"amount": total_amount, "cid": customer_id},
-            )
-            items_summary = "; ".join(
-                f"{item['name']} × {item['quantity']:g}" for item in lines
-            )
-            await session.execute(
-                text(
-                    "INSERT INTO interactions (customer_id, order_id, channel, interaction_type, "
-                    "bot_name, summary, resolved) "
-                    "VALUES (:cid, :oid, 'telegram', 'order', :bot, :summary, true)"
-                ),
-                {
-                    "cid": customer_id,
-                    "oid": order_id,
-                    "bot": registered_by,
-                    "summary": f"Продажа {order_number}: {items_summary} на {format_price(total_amount)}",
                 },
+            }
+
+        lines = outcome["resolved"]
+        total_amount = sum(line["total_price"] for line in lines)
+
+        # Витрина считает позиции в целых единицах (OrderItem.quantity — Int).
+        # Дробное количество молча превратилось бы в отказ витрины с непонятной
+        # ошибкой, поэтому спрашиваем прямо, а не подгоняем цифры за менеджера:
+        # округление количества исказило бы и остаток, и сумму.
+        fractional = [
+            line for line in lines if not float(line["quantity"]).is_integer()
+        ]
+        if fractional:
+            names = ", ".join(
+                f"{line['name']} × {line['quantity']:g} {line['unit']}"
+                for line in fractional
             )
-            await session.commit()
+            return {
+                "status": "clarify",
+                "message": (
+                    f"Дробное количество записать не могу: {names}.\n"
+                    f"Назовите в целых единицах — например, в граммах или в "
+                    f"количестве упаковок."
+                ),
+                "data": {"fractional": fractional},
+            }
+
+        # ── 2. Защита от дубля ──
+        # Раньше дубль искали в таблице заказов. Теперь заказ создаёт витрина, а
+        # зеркало в CRM приходит асинхронно — на момент второго вызова его может
+        # ещё не быть. Поэтому отпечаток продажи держим в Redis: он появляется
+        # сразу и живёт ровно окно дедупликации.
+        fingerprint = _sale_fingerprint(customer_name, phone, total_amount)
+        already = await _seen_recently(fingerprint)
+        if already:
+            return {
+                "status": "duplicate",
+                "message": (
+                    f"Эта продажа уже зарегистрирована — заказ {already} "
+                    f"({customer_name}, {format_price(total_amount)}). "
+                    f"Повторно не записываю."
+                ),
+                "data": {"order_number": already},
+            }
+
+        # ── 3. Карточка клиента в CRM ──
+        # Заводим ДО заказа: зеркало витрины ищет клиента по телефону и, найдя
+        # нашу карточку, дополнит её вместо создания второй, уже как b2c.
+        # Тип клиента и компания известны только здесь.
+        customer_id, customer_created = await _upsert_customer(
+            customer_name, phone, customer_type, registered_by
+        )
+
+        # ── 4. Заказ создаёт витрина ──
+        # Один вызов даёт номер, списание остатка, уведомления и зеркало в CRM
+        # через /ingest/order. Заказ виден и на сайте, и в Telegram.
+        items_summary = "; ".join(
+            f"{item['name']} × {item['quantity']:g}" for item in lines
+        )
+        created = await storefront_orders.create_order(
+            customer_name=customer_name,
+            phone=phone or "",
+            address=str(params.get("address") or "").strip()
+            or "Продажа оформлена AI-офисом",
+            items=[
+                {
+                    "id": line["product_id"],
+                    "price": int(round(line["unit_price"])),
+                    "quantity": int(line["quantity"]),
+                }
+                for line in lines
+            ],
+            note=(notes or f"Продажа зарегистрирована вручную ({registered_by})")[:500],
+        )
+        if not created["ok"]:
+            return {
+                "status": "error",
+                "message": (
+                    f"Продажу НЕ записал: {created['error']}. "
+                    f"Заказы заводит витрина — мимо неё писать нельзя, иначе "
+                    f"продажи не будет ни на сайте, ни в остатках. Повторите позже."
+                ),
+            }
+
+        order = created["order"]
+        order_id, order_number = order.get("id"), order.get("orderNumber")
+        await _remember_sale(fingerprint, order_number)
+
+        # ── 5. Факт продажи: уже отгружено и оплачено ──
+        # Витрина создаёт заказ как PENDING — это верно для покупки на сайте, но
+        # менеджер сообщает об УЖЕ состоявшейся продаже. Статус правим тем же
+        # путём, что и админка: она уведомит клиента и отзеркалит статус в CRM.
+        if order_id and (order_status != "new" or payment_status == "paid"):
+            await storefront_orders.update_status(
+                order_id,
+                status=order_status,
+                payment_status=payment_status,
+            )
 
     except Exception as exc:
         logger.exception("SALES_OPS: не удалось зарегистрировать продажу: %s", exc)
-        return {"status": "error", "message": f"Не смог записать продажу в БД: {exc}"}
+        return {"status": "error", "message": f"Не смог зарегистрировать продажу: {exc}"}
 
-    # ── 6. Событие в шину: Finance учтёт доход, Analytics — метрику, PM — производство ──
-    await event_bus.publish(
-        Events.ORDER_CREATED,
-        {
-            "order_id": order_id,
-            "order_number": order_number,
-            "total_amount": total_amount,
-            "customer_id": customer_id,
-            "items_summary": items_summary,
-            "source": "manual_sale",
-        },
-        registered_by,
-    )
+    # ORDER_CREATED здесь НЕ публикуем: его разошлёт зеркало /ingest/order, когда
+    # витрина передаст ему заказ. Два события подряд означали бы двойной доход
+    # в финансах и удвоенную метрику в аналитике.
 
     logger.info(
         "SALES_OPS: продажа %s зарегистрирована (клиент #%s, %s)",

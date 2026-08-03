@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 
+from shared import bot_registry
 from shared.database import get_session_ctx
 from shared.event_bus import event_bus, Events
 from shared.utils import format_price
@@ -183,11 +184,11 @@ async def dashboard(request: Request):
             stats["overdue_tasks"] = _safe_int(result.scalar())
 
             # ── Orders ───────────────────────────────────────
-            result = await session.execute(text("SELECT COUNT(*) FROM orders"))
+            result = await session.execute(text("SELECT COUNT(*) FROM crm_orders"))
             stats["total_orders"] = _safe_int(result.scalar())
 
             result = await session.execute(
-                text("SELECT COALESCE(SUM(total_amount), 0) FROM orders")
+                text("SELECT COALESCE(SUM(total_amount), 0) FROM crm_orders")
             )
             stats["total_revenue"] = _safe_int(result.scalar())
 
@@ -195,7 +196,7 @@ async def dashboard(request: Request):
                 text(
                     "SELECT o.id, o.order_number, c.name AS customer_name, "
                     "o.total_amount, o.status, o.created_at "
-                    "FROM orders o "
+                    "FROM crm_orders o "
                     "LEFT JOIN customers c ON o.customer_id = c.id "
                     "ORDER BY o.created_at DESC LIMIT 20"
                 )
@@ -218,7 +219,7 @@ async def dashboard(request: Request):
             stats["total_customers"] = _safe_int(result.scalar())
 
             # ── Employees ────────────────────────────────────
-            result = await session.execute(text("SELECT COUNT(*) FROM employees"))
+            result = await session.execute(text("SELECT COUNT(*) FROM crm_employees"))
             stats["total_employees"] = _safe_int(result.scalar())
 
             # ── Finances ─────────────────────────────────────
@@ -580,16 +581,19 @@ a{{color:#58a6ff;text-decoration:none}}</style></head><body><div class=wrap>
 async def ingest_order(request: Request):
     """Приём заказа из витрины (Next.js `/api/orders`) в CRM AI-офиса.
 
-    Витрина и офис живут в РАЗНЫХ базах (`microgreen_db` ↔ `microgreen`), поэтому
-    заказ из приложения сам по себе не виден ни ботам, ни дашборду. Этот эндпоинт —
-    единственный мост: он зеркалит заказ в CRM-таблицы (`customers`/`orders`) и
-    публикует `ORDER_CREATED`, чтобы Степан/PM/Finance/Analytics отработали его так
-    же, как «родной» заказ из sales_bot.
+    База одна, но таблицы разные: заказами владеет витрина (`orders`), а боты и
+    дашборд офиса читают CRM-зеркало (`crm_orders`). Этот эндпоинт — единственный
+    мост между ними: он зеркалит заказ в `customers`/`crm_orders`/`crm_order_items`
+    и публикует `ORDER_CREATED`, чтобы Степан/PM/Finance/Analytics отработали его.
 
-    Номер витрины (`M-...`) кладём в `notes` как `[webapp:<номер>]`, а собственный
-    `order_number` в `microgreen.orders` оставляем NULL — его выдаёт триггер в формате
-    `MG-XXXXXX` (иначе ломается генерация номеров у sales_bot). Тот же маркер даёт
-    идемпотентность: повторный вызов с тем же номером дубль не создаёт.
+    Через него проходит КАЖДЫЙ заказ — и оформленный на сайте, и зарегистрированный
+    менеджером в Telegram: продажу тоже создаёт витрина (shared/storefront_orders).
+    Поэтому ORDER_CREATED публикуется здесь и только здесь, иначе финансы посчитали
+    бы доход дважды.
+
+    Номер витрины (`M-...`) становится номером и в CRM, и он же кладётся в `notes`
+    как маркер `[webapp:<номер>]` — маркер даёт идемпотентность: повторный вызов с
+    тем же номером дубль не создаёт.
     """
     if not INGEST_SECRET:
         if os.getenv("ENVIRONMENT", "development") == "production":
@@ -616,6 +620,7 @@ async def ingest_order(request: Request):
     except (TypeError, ValueError):
         tid = None
     bonus_balance = _safe_float(customer.get("bonus_balance"))
+    web_user_id = str(customer.get("web_user_id") or "").strip() or None
 
     total = _safe_float(body.get("total_amount"))
     delivery_fee = _safe_float(body.get("delivery_fee"))
@@ -639,16 +644,25 @@ async def ingest_order(request: Request):
             # Идемпотентность: заказ с этим номером витрины уже перенесён?
             dup = (
                 await session.execute(
-                    text("SELECT id FROM orders WHERE notes LIKE :m LIMIT 1"),
+                    text("SELECT id FROM crm_orders WHERE notes LIKE :m LIMIT 1"),
                     {"m": marker + "%"},
                 )
             ).scalar()
             if dup:
                 return JSONResponse({"status": "duplicate", "order_id": dup})
 
-            # Upsert клиента: по telegram_id, затем по телефону, иначе создаём.
+            # Upsert клиента: по связке с витриной, затем telegram_id, затем
+            # телефон, иначе создаём. web_user_id — самый надёжный ключ: он
+            # приходит от витрины и не меняется, в отличие от телефона.
             customer_id = None
-            if tid:
+            if web_user_id:
+                customer_id = (
+                    await session.execute(
+                        text("SELECT id FROM customers WHERE web_user_id = :wid"),
+                        {"wid": web_user_id},
+                    )
+                ).scalar()
+            if not customer_id and tid:
                 customer_id = (
                     await session.execute(
                         text("SELECT id FROM customers WHERE telegram_id = :tid"),
@@ -669,46 +683,57 @@ async def ingest_order(request: Request):
                     await session.execute(
                         text(
                             "INSERT INTO customers (name, phone, telegram_id, bonus_balance, source, "
-                            "status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, 'webapp', "
-                            "'active', 'b2c', 'Samarqand') RETURNING id"
+                            "status, customer_type, city, web_user_id) VALUES (:name, :phone, :tid, :bonus, "
+                            "'webapp', 'active', 'b2c', 'Samarqand', :wid) RETURNING id"
                         ),
                         {
                             "name": name,
                             "phone": phone,
                             "tid": tid,
                             "bonus": bonus_balance,
+                            "wid": web_user_id,
                         },
                     )
                 ).scalar()
             else:
                 # Дополняем недостающие контакты; баланс бонусов зеркалим из витрины.
+                # customer_type НЕ трогаем: карточку мог завести отдел продаж как
+                # b2b, и затирать это на 'b2c' из витрины нельзя.
                 await session.execute(
                     text(
                         "UPDATE customers SET telegram_id = COALESCE(telegram_id, :tid), "
                         "phone = COALESCE(phone, :phone), "
                         "name = COALESCE(NULLIF(name, ''), :name), "
+                        "web_user_id = COALESCE(web_user_id, :wid), "
                         "bonus_balance = :bonus WHERE id = :cid"
                     ),
                     {
                         "tid": tid,
                         "phone": phone,
                         "name": name,
+                        "wid": web_user_id,
                         "bonus": bonus_balance,
                         "cid": customer_id,
                     },
                 )
 
-            # Заказ. order_number = NULL → триггер выдаст MG-XXXXXX.
+            # Зеркало заказа в CRM. Номер берём витринный: витрина — владелец
+            # заказов, и один и тот же заказ должен называться одинаково на
+            # сайте, в CRM и в Telegram. Раньше номер выдавал триггер офисной
+            # таблицы; после переименования в crm_orders на свежей базе, где
+            # таблицу создаёт Prisma, триггера нет — номер остался бы пустым.
             new = (
                 await session.execute(
                     text(
-                        "INSERT INTO orders (customer_id, total_amount, delivery_fee, discount_amount, "
-                        "status, payment_status, payment_method, delivery_address, notes, created_at, "
-                        "updated_at) VALUES (:cid, :total, :delivery, :discount, 'new', 'pending', "
+                        "INSERT INTO crm_orders (customer_id, order_number, total_amount, "
+                        "delivery_fee, discount_amount, status, payment_status, payment_method, "
+                        "delivery_address, notes, created_at, updated_at) "
+                        "VALUES (:cid, :onum, :total, :delivery, :discount, 'new', 'pending', "
                         ":pmethod, :addr, :notes, NOW(), NOW()) RETURNING id, order_number"
                     ),
                     {
                         "cid": customer_id,
+                        "onum": ext_number,
                         "total": total,
                         "delivery": delivery_fee,
                         "discount": discount,
@@ -720,9 +745,10 @@ async def ingest_order(request: Request):
             ).fetchone()
             order_id, order_number = new[0], new[1]
 
-            # Позиции заказа: матчим товар витрины к офисному по storefront_id
-            # (каталог синкается shared.catalog_sync). Ненайденные строки просто
-            # пропускаем — детализация всё равно есть в notes/items_summary.
+            # Позиции заказа: матчим товар витрины к офисному зеркалу по
+            # storefront_id (каталог синкается shared.catalog_sync). Ненайденные
+            # строки заводим заглушкой — иначе позиция потерялась бы, а вместе с
+            # ней и аналитика по товару.
             for line in body.get("items") or []:
                 sid = str(line.get("storefront_id") or "").strip()
                 qty = _safe_float(line.get("quantity")) or 1
@@ -732,7 +758,7 @@ async def ingest_order(request: Request):
                 prod = (
                     await session.execute(
                         text(
-                            "SELECT id, unit FROM products WHERE storefront_id = :sid"
+                            "SELECT id, unit FROM crm_products WHERE storefront_id = :sid"
                         ),
                         {"sid": sid},
                     )
@@ -745,7 +771,7 @@ async def ingest_order(request: Request):
                     pid = (
                         await session.execute(
                             text(
-                                "INSERT INTO products (name_uz, name_ru, category, price, unit, stock_qty, is_active, storefront_id) "
+                                "INSERT INTO crm_products (name_uz, name_ru, category, price, unit, stock_qty, is_active, storefront_id) "
                                 "VALUES (:n, :n, 'sets', :price, 'piece', 0, TRUE, :sid) RETURNING id"
                             ),
                             {"n": pname, "price": price, "sid": sid},
@@ -754,7 +780,7 @@ async def ingest_order(request: Request):
                     prod = (pid, "piece")
                 await session.execute(
                     text(
-                        "INSERT INTO order_items (order_id, product_id, quantity, unit, unit_price, "
+                        "INSERT INTO crm_order_items (order_id, product_id, quantity, unit, unit_price, "
                         "total_price) VALUES (:oid, :pid, :qty, :unit, :price, :total)"
                     ),
                     {
@@ -856,7 +882,7 @@ async def ingest_order_status(request: Request):
             row = (
                 await session.execute(
                     text(
-                        "UPDATE orders SET status = COALESCE(:status, status), "
+                        "UPDATE crm_orders SET status = COALESCE(:status, status), "
                         "payment_status = COALESCE(:pstatus, payment_status), updated_at = NOW() "
                         "WHERE notes LIKE :m RETURNING id, order_number, status"
                     ),
@@ -917,7 +943,7 @@ async def change_order_status(order_id: int, request: Request):
             row = (
                 await session.execute(
                     text(
-                        "UPDATE orders SET status = :s, updated_at = NOW() "
+                        "UPDATE crm_orders SET status = :s, updated_at = NOW() "
                         "WHERE id = :id RETURNING order_number, notes"
                     ),
                     {"s": status, "id": order_id},
@@ -1384,17 +1410,32 @@ async def sync_catalog(request: Request):
 
 
 # ── Department API ───────────────────────────────────────────
+# Юзернеймы берутся из реестра ботов — своей копии здесь больше нет.
+# В прежней копии контент и финансы были переставлены местами (карточка
+# «Контент» вела в финансы), а devops/qa/rnd указывали на бота руководителя,
+# обещая чат отдела, которого не существует. Пустая строка честнее ссылки
+# в никуда: админка просто не рисует ссылку.
+DEPARTMENT_ICONS: dict[str, str] = {
+    "marketing": "📢",
+    "content": "✍️",
+    "hr": "👥",
+    "finance": "💰",
+    "devops": "⚙️",
+    "qa": "🔍",
+    "rnd": "💡",
+    "support": "🎧",
+    "sales": "🛒",
+    "analytics": "📊",
+}
+
 DEPARTMENT_META: dict[str, dict[str, str]] = {
-    "marketing": {"name": "Маркетинг", "bot": "MG_Marketing_bot", "icon": "📢"},
-    "content": {"name": "Контент", "bot": "MG_Finance1_bot", "icon": "✍️"},
-    "hr": {"name": "Кадры (HR)", "bot": "MG_HR1_bot", "icon": "👥"},
-    "finance": {"name": "Финансы", "bot": "MG_Content1_bot", "icon": "💰"},
-    "devops": {"name": "DevOps / IT", "bot": "MG_PM1_bot", "icon": "⚙️"},
-    "qa": {"name": "QA / Тесты", "bot": "MG_PM1_bot", "icon": "🔍"},
-    "rnd": {"name": "R&D", "bot": "MG_PM1_bot", "icon": "💡"},
-    "support": {"name": "Поддержка", "bot": "MicrogreenSupport_bot", "icon": "🎧"},
-    "sales": {"name": "Продажи", "bot": "MicrogreenSales_bot", "icon": "🛒"},
-    "analytics": {"name": "Аналитика", "bot": "MG_Analytics_bot", "icon": "📊"},
+    bot.department: {
+        "name": bot.title,
+        "bot": bot.username,
+        "icon": DEPARTMENT_ICONS.get(bot.department, "🤖"),
+    }
+    for bot in bot_registry.BOTS
+    if bot.department and bot.department != "pm"
 }
 
 

@@ -65,10 +65,16 @@ docker stop mg_postgres 2>/dev/null || true
 echo "📥 Обновляю код..."
 git pull
 
-echo "🏗️  Пересобираю и запускаю..."
-docker compose -f docker-compose.prod.yml up -d --build
+# 5. Сначала ТОЛЬКО база — переименование должно пройти ДО `prisma db push`.
+#
+# Раньше здесь поднимался весь стек разом, а миграция шла шагом ниже. Но в
+# стеке есть сервис db-push, и он стартовал первым: prisma db push видел
+# офисные `products`/`orders` (ещё не переименованные), считал их своими и
+# приводил к схеме витрины с --accept-data-loss. Порядок обязан быть таким:
+# postgres → unify_databases.sql → db-push → всё остальное.
+echo "🗄️  Поднимаю PostgreSQL..."
+docker compose -f docker-compose.prod.yml up -d postgres
 
-# 5. Ждём здоровья Postgres
 echo "⏳ Жду PostgreSQL..."
 for i in $(seq 1 30); do
     if docker exec mg_postgres pg_isready -U mg_user -d microgreen > /dev/null 2>&1; then
@@ -78,10 +84,14 @@ for i in $(seq 1 30); do
     sleep 2
 done
 
-# 6. Запустить миграционный SQL (переименование конфликтующих таблиц + views)
+# 6. Переименование конфликтующих таблиц (идемпотентно, безопасно повторно)
 echo "🔧 Запускаю миграцию таблиц..."
 docker cp packages/database/prisma/migrations/unify_databases.sql mg_postgres:/tmp/unify_databases.sql
 docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/unify_databases.sql
+
+# 6a. Теперь остальной стек: db-push накатит схему уже на переименованные таблицы
+echo "🏗️  Пересобираю и запускаю остальное..."
+docker compose -f docker-compose.prod.yml up -d --build
 
 # 7. Если была microgreen_db — перенести данные после prisma db push
 if [ -f "backups/microgreen_db_${TIMESTAMP}.sql" ]; then

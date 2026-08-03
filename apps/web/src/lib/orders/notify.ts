@@ -103,11 +103,14 @@ ${itemsList}
   }
 }
 
-// Bridge the order into the tgas AI-office CRM (a separate `microgreen` DB).
-// The storefront and the AI-office live in different databases, so without this
-// hop Stepan and the department bots never see app orders. The web_office ingest
-// endpoint mirrors the order into the CRM and fires ORDER_CREATED on the internal
-// event bus. Best-effort: a failure here must not fail the customer's checkout.
+// Bridge the order into the tgas AI-office CRM.
+// The database is shared, but the tables are not: the storefront owns `orders`,
+// while the bots and the office dashboard read the CRM mirror (`crm_orders`).
+// Without this hop Stepan and the department bots never see an order. The
+// web_office ingest endpoint mirrors it and fires ORDER_CREATED on the internal
+// event bus — for every order, including sales the AI-office registers itself,
+// which now also go through POST /api/orders.
+// Best-effort: a failure here must not fail the customer's checkout.
 export async function notifyOffice(
   order: {
     orderNumber: string;
@@ -121,11 +124,17 @@ export async function notifyOffice(
     city: string;
     items: { productId: string; quantity: number; price: number; product: { nameUz: string } }[];
   },
-  user: { firstName: string | null; lastName: string | null; telegramId: bigint | null; bonusPoints: number },
+  user: { id: string; firstName: string | null; lastName: string | null; telegramId: bigint | null; bonusPoints: number },
 ) {
   const url = process.env.OFFICE_INGEST_URL; // e.g. http://web_office:8050/ingest/order
   if (!url) {
-    console.warn('AI-office ingest skipped: OFFICE_INGEST_URL not set');
+    // Не просто console.warn: без этой переменной КАЖДЫЙ заказ проходит мимо
+    // CRM — ни Stepan, ни финансы, ни аналитика его не увидят, а сайт при этом
+    // выглядит совершенно здоровым. Ветка отказа ниже уже пишет аудит и
+    // счётчик; ненастроенный мост — не менее серьёзно, и молчать о нём нельзя.
+    console.error('AI-office ingest skipped: OFFICE_INGEST_URL not set');
+    audit({ action: 'order.crm_sync.not_configured', target: order.orderNumber });
+    inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'crm' });
     return;
   }
 
@@ -150,6 +159,10 @@ export async function notifyOffice(
             phone: order.phone,
             telegram_id: user.telegramId ? user.telegramId.toString() : null,
             bonus_balance: user.bonusPoints,
+            // Связка Customer(CRM) ↔ User(витрина). Колонка customers.web_user_id
+            // появилась при объединении баз, но её никто не заполнял: один и тот
+            // же покупатель оставался двумя несвязанными карточками.
+            web_user_id: user.id,
           },
           total_amount: order.total,
           delivery_fee: order.deliveryFee,
