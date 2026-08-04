@@ -105,7 +105,10 @@ export function ABCXYZWidget() {
       <h4 style={{ fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)' }}>
         ABC-XYZ Matritsa
       </h4>
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: 2 }}>
+      {/* Обёртка прокрутки: четыре колонки с суммами не помещаются на телефоне,
+          а .admin-main их бы просто срезал. */}
+      <div style={{ overflowX: 'auto' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: 2, minWidth: 320 }}>
         {/* Header */}
         <div />
         {['X', 'Y', 'Z'].map(x => (
@@ -131,6 +134,7 @@ export function ABCXYZWidget() {
             })}
           </>
         ))}
+      </div>
       </div>
       <div style={{ marginTop: 'var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
         <b>A</b> = yuqori daromad, <b>B</b> = o&apos;rtacha, <b>C</b> = past<br />

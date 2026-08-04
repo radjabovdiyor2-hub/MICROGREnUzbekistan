@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import type { CustomerItem } from './customerTypes';
 
 // Модалка правки клиента: статус, бонусы, заметки.
-
+// Стили — инлайн на токенах, как в остальной админке.
 
 interface Props {
   editingCustomer: CustomerItem | null;
@@ -20,78 +20,107 @@ interface Props {
   handleSaveCustomer: () => void;
 }
 
+// Ровно те значения, которые допускает база (CHECK на customers.status).
+// Раньше здесь предлагались «client» и «blocked» — таких статусов не
+// существует, и сохранение записывало в базу значение, по которому потом
+// никакой фильтр клиента не находил.
+const STATUS_OPTIONS = [
+  { value: 'lead', label: 'Лид' },
+  { value: 'active', label: 'Активный клиент' },
+  { value: 'vip', label: 'VIP' },
+  { value: 'churned', label: 'Ушедший' },
+];
+
+const label: React.CSSProperties = {
+  fontSize: 'var(--text-xs)',
+  color: 'var(--text-muted)',
+  fontWeight: 'var(--font-semibold)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  display: 'block',
+  marginBottom: 4,
+};
+
+const field: React.CSSProperties = {
+  width: '100%',
+  padding: 'var(--space-2)',
+  borderRadius: 'var(--radius-md)',
+  border: '1px solid var(--border)',
+  background: 'var(--bg-secondary)',
+  color: 'var(--text-primary)',
+  fontSize: 'var(--text-sm)',
+};
+
 export function AdminCustomerEdit({ editingCustomer, setEditingCustomer, editStatus, setEditStatus, editBonus, setEditBonus, editNotes, setEditNotes, saving, handleSaveCustomer }: Props) {
+  if (!editingCustomer) return null;
+
   return (
-    <>
-{/* Edit Modal */}
-{editingCustomer && (
-  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md space-y-4 shadow-2xl">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 className="text-lg font-bold text-white">Редактирование Клиента #{editingCustomer.id}</h3>
-        <button onClick={() => setEditingCustomer(null)} className="text-slate-400 hover:text-white">
-          <X size={20} />
-        </button>
-      </div>
+    <div
+      onClick={() => setEditingCustomer(null)}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 'var(--space-4)',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="card"
+        style={{
+          padding: 'var(--space-5)',
+          width: '100%',
+          maxWidth: 460,
+          // Длинная форма на невысоком экране должна прокручиваться внутри
+          // себя, а не уезжать за край окна вместе с кнопкой «Сохранить».
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)', borderBottom: '1px solid var(--border)', paddingBottom: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>
+            Клиент #{editingCustomer.id}
+          </h3>
+          <button onClick={() => setEditingCustomer(null)} className="btn btn-ghost btn-sm" aria-label="Закрыть">
+            <X size={18} />
+          </button>
+        </div>
 
-      <div>
-        <label className="text-xs text-slate-400 font-semibold uppercase">Имя Клиента</label>
-        <div className="text-sm font-bold text-white mt-1">{editingCustomer.name}</div>
-      </div>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <span style={label}>Имя клиента</span>
+          <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)' }}>{editingCustomer.name}</div>
+        </div>
 
-      <div>
-        <label className="text-xs text-slate-400 font-semibold uppercase">Статус Клиента</label>
-        <select
-          value={editStatus}
-          onChange={(e) => setEditStatus(e.target.value)}
-          className="w-full mt-1 p-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none"
-        >
-          <option value="lead">Lead (Лид)</option>
-          <option value="client">Client (Клиент)</option>
-          <option value="vip">VIP Клиент</option>
-          <option value="blocked">Blocked (Заблокирован)</option>
-        </select>
-      </div>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <label style={label} htmlFor="cust-status">Статус</label>
+          <select id="cust-status" value={editStatus} onChange={(e) => setEditStatus(e.target.value)} style={field}>
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
 
-      <div>
-        <label className="text-xs text-slate-400 font-semibold uppercase">Бонусные Баллы (Сум)</label>
-        <input
-          type="number"
-          value={editBonus}
-          onChange={(e) => setEditBonus(Number(e.target.value))}
-          className="w-full mt-1 p-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none"
-        />
-      </div>
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <label style={label} htmlFor="cust-bonus">Бонусные баллы</label>
+          <input id="cust-bonus" type="number" value={editBonus}
+            onChange={(e) => setEditBonus(Number(e.target.value))} style={field} />
+        </div>
 
-      <div>
-        <label className="text-xs text-slate-400 font-semibold uppercase">Заметки Менеджера</label>
-        <textarea
-          value={editNotes}
-          onChange={(e) => setEditNotes(e.target.value)}
-          rows={3}
-          className="w-full mt-1 p-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none"
-          placeholder="Заметки о клиенте..."
-        />
-      </div>
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <label style={label} htmlFor="cust-notes">Заметки менеджера</label>
+          <textarea id="cust-notes" value={editNotes} rows={3}
+            onChange={(e) => setEditNotes(e.target.value)}
+            style={{ ...field, resize: 'vertical' }}
+            placeholder="Заметки о клиенте…" />
+        </div>
 
-      <div className="flex justify-end gap-3 pt-2">
-        <button
-          onClick={() => setEditingCustomer(null)}
-          className="px-4 py-2 bg-slate-800 text-slate-300 text-sm font-medium rounded-xl hover:bg-slate-700"
-        >
-          Отмена
-        </button>
-        <button
-          onClick={handleSaveCustomer}
-          disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-500 disabled:opacity-50"
-        >
-          {saving ? 'Сохранение...' : 'Сохранить'}
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <button onClick={() => setEditingCustomer(null)} className="btn btn-ghost btn-sm">Отмена</button>
+          <button onClick={handleSaveCustomer} disabled={saving} className="btn btn-primary btn-sm">
+            {saving ? 'Сохранение…' : 'Сохранить'}
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-)}
-    </>
   );
 }

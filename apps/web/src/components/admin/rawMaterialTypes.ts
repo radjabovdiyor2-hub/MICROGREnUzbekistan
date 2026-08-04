@@ -10,6 +10,8 @@ export interface RawMaterial {
   cropType: string | null;
   stockValue: number;
   isLow: boolean;
+  /** false — позиция скрыта. Видна только при «показать скрытые». */
+  isActive?: boolean;
   lastPrice: {
     price: number;
     unit: string;

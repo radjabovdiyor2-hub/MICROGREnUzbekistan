@@ -42,7 +42,7 @@ export function AdminInventory() {
       {/* KPI Cards */}
       {summary && (
         <div style={{ marginBottom: 'var(--space-3)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
             {[
               { label: 'Ombor qiymati', value: `${fmt(summary.totalStockValue)}`, icon: <Banknote size={16} />, color: 'var(--brand-primary)' },
               { label: 'Bugungi savdo', value: `${fmt(summary.todayRevenue)}`, icon: <BarChart size={16} />, color: 'var(--success)' },

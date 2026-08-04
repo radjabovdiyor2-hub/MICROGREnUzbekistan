@@ -144,7 +144,7 @@ export function AdminDepartment({ departmentId, departmentName, lang }: Props) {
 
       {/* Progress Bar */}
       <div className="card" style={{ padding: 'var(--space-4)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
           <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', color: 'var(--text-secondary)' }}>
             {t('Прогресс выполнения', 'Bajarilish jarayoni')}
           </span>

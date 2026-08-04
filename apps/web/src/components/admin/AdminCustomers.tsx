@@ -12,6 +12,17 @@ import { clientErrorMessage } from '@/lib/safeError';
 import { type CustomerItem } from './customerTypes';
 export type { CustomerItem };
 
+// Значения соответствуют колонкам базы: lead/active/vip — это `status`,
+// b2b — это `customer_type`. Прежний набор содержал «client», статуса с таким
+// именем не существует вовсе, и кнопка всегда отдавала пустой список.
+const FILTERS = [
+  { value: 'all', label: 'Все' },
+  { value: 'lead', label: 'Лиды' },
+  { value: 'active', label: 'Активные' },
+  { value: 'vip', label: 'VIP' },
+  { value: 'b2b', label: 'B2B' },
+] as const;
+
 export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -71,29 +82,39 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-purple-900/40 border border-blue-500/20 rounded-2xl backdrop-blur-xl">
-        <div>
-          <div className="flex items-center gap-2 text-blue-400 font-semibold mb-1">
-            <Users size={22} />
-            <span>{lang === 'ru' ? 'Управление Клиентами и Бонусами 360°' : 'Mijozlar Boshqaruvi 360°'}</span>
+    <div>
+      {/* Шапка раздела */}
+      <div
+        className="card"
+        style={{
+          padding: 'var(--space-5)',
+          marginBottom: 'var(--space-4)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--space-3)',
+          // Без переноса заголовок и кнопка «Обновить» на телефоне
+          // расталкивают карточку шире экрана.
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand-primary)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', marginBottom: 4 }}>
+            <Users size={18} />
+            <span>{lang === 'ru' ? 'Управление клиентами и бонусами' : 'Mijozlar boshqaruvi'}</span>
           </div>
-          <h2 className="text-2xl font-bold text-white">
-            {lang === 'ru' ? 'База Клиентов, B2B Кабинеты и Лояльность' : 'Mijozlar Bazasi Va Sodiqlik'}
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xl)' }}>
+            {lang === 'ru' ? 'База клиентов, B2B и лояльность' : 'Mijozlar bazasi va sodiqlik'}
           </h2>
-          <p className="text-slate-400 text-sm mt-1">
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
             {lang === 'ru'
-              ? 'Просмотр заказов, корректировка бонусных баллов, изменение статусов лидов и замерок.'
+              ? 'Просмотр заказов, корректировка бонусных баллов, изменение статусов.'
               : 'Buyurtmalar, bonus ballari va mijozlar maqomini boshqarish.'}
           </p>
         </div>
 
-        <button
-          onClick={() => fetchCustomers()}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-all shadow-lg shadow-blue-900/30 disabled:opacity-50 self-start md:self-auto"
-        >
+        <button onClick={() => fetchCustomers()} disabled={loading} className="btn btn-primary btn-sm"
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           <span>{lang === 'ru' ? 'Обновить' : 'Yangilash'}</span>
         </button>
@@ -103,37 +124,46 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
           при отказе API экран просто оставался пустым, и владелец видел
           «клиентов нет» вместо «список не загрузился». */}
       {error && (
-        <div className="p-4 bg-rose-900/30 border border-rose-500/30 text-rose-300 rounded-xl flex items-center gap-3">
-          <AlertCircle size={20} />
-          <span>{error.message}</span>
+        <div className="card" style={{ padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--error)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--error)' }}>
+          <AlertCircle size={18} />
+          <span style={{ fontSize: 'var(--text-sm)' }}>{error.message}</span>
         </div>
       )}
 
-      {/* Toolbar & Filters */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-slate-900/60 p-4 border border-slate-800 rounded-xl">
-        <form onSubmit={handleSearch} className="relative w-full md:w-80">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+      {/* Поиск и фильтры */}
+      <div className="card" style={{ padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+        {/* position: relative обязателен — иконка внутри позиционируется от
+            него. Именно её отсутствие роняло лупу под поле ввода. */}
+        <form onSubmit={handleSearch} style={{ position: 'relative', flex: '1 1 240px', minWidth: 0 }}>
+          <Search size={16} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={lang === 'ru' ? 'Поиск по имени, телефону, username...' : 'Qidiruv...'}
-            className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
+            placeholder={lang === 'ru' ? 'Поиск по имени, телефону, username…' : 'Qidiruv…'}
+            style={{
+              width: '100%',
+              // Левый отступ освобождает место под иконку. Раньше он задавался
+              // Tailwind-утилитой pl-9, которую съедал глобальный сброс.
+              padding: 'var(--space-2) var(--space-3) var(--space-2) 32px',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              fontSize: 'var(--text-sm)',
+            }}
           />
         </form>
 
-        <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto">
-          {['all', 'lead', 'client', 'vip', 'b2b'].map((st) => (
+        <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 2 }}>
+          {FILTERS.map((f) => (
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium uppercase transition-all ${
-                statusFilter === st
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:text-white'
-              }`}
+              key={f.value}
+              onClick={() => setStatusFilter(f.value)}
+              className={`btn btn-sm ${statusFilter === f.value ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ whiteSpace: 'nowrap' }}
             >
-              {st}
+              {f.label}
             </button>
           ))}
         </div>

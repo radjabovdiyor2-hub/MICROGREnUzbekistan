@@ -67,7 +67,7 @@ export function AdminMagazine() {
           transition: 'all 0.2s ease',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
           <h3 style={{ fontWeight: 'var(--font-bold)' }}>🎬 Загрузить видео → получить QR</h3>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Перетащите .mp4 сюда</span>
         </div>

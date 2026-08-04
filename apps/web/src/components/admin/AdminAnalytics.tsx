@@ -81,7 +81,7 @@ export function AdminAnalytics() {
 
         {/* Top Products */}
         <div className="card" style={{ padding: 'var(--space-4)' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-3)' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-1)', overflowX: 'auto', paddingBottom: 2, marginBottom: 'var(--space-3)' }}>
             {([['sales', 'Top sotish'], ['revenue', 'Top tushum'], ['dead', "O'lik tovar"]] as const).map(([key, label]) => (
               <button key={key} onClick={() => setTopView(key)} className={`btn btn-sm ${topView === key ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: 'var(--text-xs)' }}>

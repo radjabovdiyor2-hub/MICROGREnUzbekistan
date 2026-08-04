@@ -6,20 +6,33 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
-    const status = searchParams.get('status') || '';
+    const filter = (searchParams.get('status') || '').toLowerCase();
 
     const where: Prisma.CustomerWhereInput = {};
     if (query) {
+      // Телефон ищем по цифрам: в базе он записан в нескольких форматах
+      // («+998 66 233-45-67», «998662334567», «662334567»), и поиск по строке
+      // как её набрал человек промахивался мимо своего же клиента.
+      const digits = query.replace(/\D/g, '');
       where.OR = [
         { name: { contains: query, mode: 'insensitive' } },
         { phone: { contains: query, mode: 'insensitive' } },
         { telegramUsername: { contains: query, mode: 'insensitive' } },
         { companyName: { contains: query, mode: 'insensitive' } },
+        ...(digits.length >= 4
+          ? [{ phone: { contains: digits.slice(-9) } } as Prisma.CustomerWhereInput]
+          : []),
       ];
     }
 
-    if (status && status !== 'all') {
-      where.status = status;
+    // b2b — это ТИП клиента (customer_type), а не статус. Раньше значение
+    // подставлялось в `where.status` как есть, поэтому кнопка «B2B» всегда
+    // возвращала пустой список: статуса «b2b» в базе не бывает. Та же история
+    // была с «client» — такого статуса нет вовсе (есть lead/active/vip/churned).
+    if (filter === 'b2b' || filter === 'b2c') {
+      where.customerType = filter;
+    } else if (filter && filter !== 'all') {
+      where.status = filter;
     }
 
     const customers = await prisma.customer.findMany({

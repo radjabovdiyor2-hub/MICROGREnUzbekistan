@@ -18,10 +18,17 @@ const dec = (v: Prisma.Decimal | number | null) => (v == null ? 0 : Number(v));
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
-  const kind = new URL(request.url).searchParams.get('kind');
+  const params = new URL(request.url).searchParams;
+  const kind = params.get('kind');
+  // Без этого флажка скрытую позицию нечем вернуть: она исчезает из списка
+  // навсегда, хотя данные целы.
+  const includeInactive = params.get('includeInactive') === '1';
 
   const materials = await prisma.rawMaterial.findMany({
-    where: { isActive: true, ...(kind ? { kind: kind as never } : {}) },
+    where: {
+      ...(includeInactive ? {} : { isActive: true }),
+      ...(kind ? { kind: kind as never } : {}),
+    },
     orderBy: [{ kind: 'asc' }, { name: 'asc' }],
     include: {
       prices: {
@@ -47,6 +54,7 @@ export async function GET(request: NextRequest) {
       // Запас в деньгах — чтобы владелец видел, сколько «заморожено» в сырье.
       stockValue: dec(m.stock) * dec(m.avgCost),
       isLow: dec(m.minStock) > 0 && dec(m.stock) <= dec(m.minStock),
+      isActive: m.isActive,
       lastPrice: m.prices[0]
         ? {
             price: dec(m.prices[0].price),
@@ -124,6 +132,9 @@ export async function POST(request: NextRequest) {
   const name = String(body.name ?? '').trim();
   if (!name) return NextResponse.json({ error: 'Укажите название' }, { status: 400 });
 
+  const cropError = await validateCropType(body.cropType);
+  if (cropError) return cropError;
+
   const material = await prisma.rawMaterial.create({
     data: {
       name,
@@ -154,7 +165,11 @@ export async function PATCH(request: NextRequest) {
   if ('name' in body) data.name = String(body.name).slice(0, 255);
   if ('unit' in body) data.unit = String(body.unit).slice(0, 10);
   if ('minStock' in body) data.minStock = new Prisma.Decimal(Number(body.minStock) || 0);
-  if ('cropType' in body) data.cropType = body.cropType ? String(body.cropType) : null;
+  if ('cropType' in body) {
+    const cropError = await validateCropType(body.cropType);
+    if (cropError) return cropError;
+    data.cropType = body.cropType ? String(body.cropType).trim() : null;
+  }
   if ('isActive' in body) data.isActive = Boolean(body.isActive);
   if ('note' in body) data.note = body.note ? String(body.note).slice(0, 1000) : null;
 
@@ -173,6 +188,76 @@ export async function PATCH(request: NextRequest) {
 
   const material = await prisma.rawMaterial.update({ where: { id: String(body.id) }, data });
   return NextResponse.json({ status: 'ok', material });
+}
+
+/**
+ * DELETE — скрыть позицию сырья.
+ *
+ * Скрытие, а не удаление: у `RawMaterial` каскадные связи на журнал движений
+ * и на прайсы поставщиков. Физическое удаление стёрло бы каждый приход с
+ * реально потраченными деньгами и каждое списание, привязанное к посадке, —
+ * себестоимость тех партий стала бы необъяснимой.
+ *
+ * Исключение — позиция, по которой не было НИ ОДНОГО движения. Это заведённая
+ * по ошибке строка (опечатка в названии или в культуре); стирать в ней нечего,
+ * и держать её в списке скрытых незачем.
+ */
+export async function DELETE(request: NextRequest) {
+  if (!isAuthorized(request)) return unauthorized();
+
+  const id = new URL(request.url).searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Нужен id' }, { status: 400 });
+
+  const material = await prisma.rawMaterial.findUnique({ where: { id } });
+  if (!material) return NextResponse.json({ error: 'Сырьё не найдено' }, { status: 404 });
+
+  const movements = await prisma.rawMaterialMovement.count({ where: { materialId: id } });
+
+  if (movements === 0) {
+    await prisma.rawMaterial.delete({ where: { id } });
+    audit({
+      action: 'raw.delete', actor: 'owner', role: 'ADMIN',
+      ip: request.headers.get('x-forwarded-for') ?? undefined,
+      target: id, meta: { name: material.name, reason: 'без движений' },
+    });
+    return NextResponse.json({ status: 'ok', removed: true });
+  }
+
+  await prisma.rawMaterial.update({ where: { id }, data: { isActive: false } });
+  audit({
+    action: 'raw.hide', actor: 'owner', role: 'ADMIN',
+    ip: request.headers.get('x-forwarded-for') ?? undefined,
+    target: id, meta: { name: material.name, movements },
+  });
+  return NextResponse.json({ status: 'ok', removed: false, movements });
+}
+
+/**
+ * Культура должна существовать в справочнике норм.
+ *
+ * Выпадающего списка в форме мало: в эту же таблицу пишут боты и внешние
+ * вызовы API. Именно так и появилась позиция с культурой «Амарант» вместо
+ * `amaranth` — посадка потом отвечала «семян нет на складе», хотя мешок
+ * лежал в списке строкой выше.
+ */
+async function validateCropType(raw: unknown): Promise<NextResponse | null> {
+  const cropType = raw ? String(raw).trim() : '';
+  if (!cropType) return null;
+
+  const norm = await prisma.cropNorm.findUnique({ where: { cropType } });
+  if (norm) return null;
+
+  const known = await prisma.cropNorm.findMany({
+    where: { isActive: true },
+    select: { cropType: true, nameRu: true },
+    orderBy: { nameRu: 'asc' },
+  });
+  return NextResponse.json({
+    error:
+      `Культуры «${cropType}» нет в справочнике норм. ` +
+      `Выберите из списка: ${known.map((k) => `${k.nameRu} (${k.cropType})`).join(', ') || 'справочник пуст'}`,
+    needs: ['cropNorm'],
+  }, { status: 400 });
 }
 
 async function upsertSupplierPrice(

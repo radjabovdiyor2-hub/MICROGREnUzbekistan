@@ -6,8 +6,14 @@ import { prisma } from '@repo/database';
 // ==========================================
 
 // GET — List all suppliers with stats
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Удаление поставщика мягкое (isActive = false), но список этого не
+  // учитывал — и «удалённый» поставщик возвращался при первом обновлении
+  // страницы. Выглядело как неработающая кнопка, хотя данные были помечены.
+  const includeInactive = new URL(request.url).searchParams.get('includeInactive') === '1';
+
   const suppliers = await prisma.supplier.findMany({
+    where: includeInactive ? {} : { isActive: true },
     include: {
       stockMovements: {
         where: { type: 'IN' },

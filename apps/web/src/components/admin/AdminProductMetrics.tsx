@@ -26,7 +26,7 @@ export function AdminProductMetrics({ counts, activeCount, lowStock, lang, setLa
   </button>
 </div>
 
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
   <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
     <Tag size={16} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
     <div>

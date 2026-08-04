@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
+import { categoriesFor, isKnownCategory } from '@/lib/finance/categories';
 
 // ══════════════════════════════════════════════════════════════════════
 // Доходы, расходы и P&L.
@@ -140,6 +141,16 @@ export async function POST(request: NextRequest) {
   const category = String(body.category ?? '').trim().slice(0, 50);
   if (!category) {
     return NextResponse.json({ error: 'Укажите статью' }, { status: 400 });
+  }
+  // Статья должна быть из общего списка. Выпадающего списка в форме мало:
+  // в ту же таблицу пишет Telegram-бот финансов, и рукописная «аренда»
+  // рядом с ботовым `rent` навсегда раздваивала строку в отчёте.
+  if (!isKnownCategory(type, category)) {
+    return NextResponse.json({
+      error:
+        `Неизвестная статья «${category}». Допустимые: ` +
+        categoriesFor(type).map((c) => `${c.label} (${c.value})`).join(', '),
+    }, { status: 400 });
   }
 
   // Деловую дату можно проставить задним числом — это и есть смысл колонки.

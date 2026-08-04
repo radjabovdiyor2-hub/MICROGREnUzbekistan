@@ -164,7 +164,7 @@ export function AdminGrowingCards({ filtered, enriched, statusColors, statusIcon
     <h4 style={{ fontWeight: 700, fontSize: '13px', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
       <BarChart size={14} /> Статистика посадок
     </h4>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
       {[
         { label: 'В темноте', count: enriched.filter(b => b.info.status === 'dark').length, color: 'var(--cat-1)', icon: <Moon size={14} /> },
         { label: 'На свету', count: enriched.filter(b => b.info.status === 'light').length, color: 'var(--warning)', icon: <Sun size={14} /> },

@@ -16,7 +16,7 @@ export function AdminMovements() {
   const [showAdd, setShowAdd] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [prodSearch, setProdSearch] = useState('');
-  const [form, setForm] = useState({ productId: '', type: 'IN', quantity: '', reason: '', costPrice: '', performedBy: '' });
+  const [form, setForm] = useState({ productId: '', type: 'IN', quantity: '', reason: '', costPrice: '', performedBy: '', supplierId: '' });
   const [tab, setTab] = useState<'movements' | 'sales'>('movements');
   const [salesDate, setSalesDate] = useState(new Date().toISOString().slice(0, 10));
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -68,12 +68,13 @@ export function AdminMovements() {
           ...form,
           quantity: parseInt(form.quantity),
           costPrice: form.costPrice ? parseInt(form.costPrice) : null,
+          supplierId: form.supplierId || null,
         }),
       });
       const data = await res.json();
       if (data.success) {
         setShowAdd(false);
-        setForm({ productId: '', type: 'IN', quantity: '', reason: '', costPrice: '', performedBy: '' });
+        setForm({ productId: '', type: 'IN', quantity: '', reason: '', costPrice: '', performedBy: '', supplierId: '' });
         setProdSearch('');
         fetchMovements();
         if (data.alert) alert(`⚠️ ${data.alert.message}`);
@@ -84,7 +85,10 @@ export function AdminMovements() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Bu harakatni o'chirmoqchimisiz? Ombor soni o'zgarmaydi.")) return;
+    // Текст говорит правду: с тех пор как удаление заменено обратной
+    // проводкой, остаток КАК РАЗ меняется — движение сторнируется, а запись
+    // остаётся в журнале. Прежняя формулировка обещала обратное.
+    if (!confirm("Provesti storno? Harakat jurnalda qoladi, ombor soni tiklanadi.")) return;
     setDeleting(id);
     try {
       const res = await fetch(`/api/inventory/movements?id=${id}`, { method: 'DELETE' });
@@ -98,19 +102,12 @@ export function AdminMovements() {
     finally { setDeleting(null); }
   };
 
-  const handleClearAll = async () => {
-    const msg = "BARCHA harakatlar tarixini o'chirmoqchimisiz?\n\nBu amalni ortga qaytarib bo'lmaydi!\nOmbordagi tovar soni o'zgarmaydi.";
-    if (!confirm(msg)) return;
-    if (!confirm("TASDIQLANG: Rostdan ham BARCHA tarix o'chirilsinmi?")) return;
-    try {
-      const res = await fetch('/api/inventory/movements?clear=all', { method: 'DELETE' });
-      const data = await res.json();
-      if (data.success) {
-        alert(`${data.deleted} ta harakat o'chirildi`);
-        fetchMovements();
-      }
-    } catch (err) { console.error(err); }
-  };
+  // Кнопки «Tozalash» (очистить всю историю) больше нет — и не будет.
+  // Она слала DELETE ?clear=all, который стирал ВЕСЬ журнал движений, не
+  // трогая остатки. Из этого журнала считается выручка кассы, поэтому один
+  // клик обнулял её задним числом за всю историю. Ветку в API убрали, и
+  // кнопка осталась висеть, шля запрос и получая отказ.
+  // Ошибочное движение исправляется сторно — кнопкой в строке.
 
   const handleExport = (type: string) => {
     window.open(`/api/inventory/export?type=${type}`, '_blank');
@@ -162,7 +159,7 @@ export function AdminMovements() {
           todayIn={todayIn} todayOut={todayOut} todayCost={todayCost}
           fmt={fmt} fmtDate={fmtDate} inputStyle={inputStyle}
           onSubmit={handleSubmit} onDelete={handleDelete}
-          onClearAll={handleClearAll} onExport={handleExport} />
+          onExport={handleExport} />
       )}
 
       {/* ============ SALES HISTORY TAB ============ */}

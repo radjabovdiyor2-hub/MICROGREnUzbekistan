@@ -1,5 +1,7 @@
 'use client';
 
+import { categoryLabel } from '@/lib/finance/categories';
+
 import React from 'react';
 import { TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
@@ -55,7 +57,7 @@ export function AdminFinanceSummary({ summary, byCategory, t }: Props) {
               <div key={`${c.type}:${c.category}`}
                 style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  {c.category}
+                  {categoryLabel(c.category)}
                   <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>
                     {c.type === 'income' ? t('доход', 'daromad') : t('расход', 'xarajat')}
                   </span>

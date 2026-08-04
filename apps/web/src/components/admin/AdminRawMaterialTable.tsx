@@ -1,6 +1,6 @@
 'use client';
 
-import { PackagePlus } from 'lucide-react';
+import { PackagePlus, RotateCcw, Trash2 } from 'lucide-react';
 import { KIND_LABELS, type RawMaterial } from './rawMaterialTypes';
 
 // Таблица остатков сырья. Вынесена из AdminRawMaterials, чтобы каждый файл
@@ -10,6 +10,8 @@ interface Props {
   materials: RawMaterial[];
   fmt: (n: number) => string;
   onReceipt: (material: RawMaterial) => void;
+  onDelete: (material: RawMaterial) => void;
+  onRestore: (material: RawMaterial) => void;
 }
 
 const cell: React.CSSProperties = {
@@ -18,7 +20,7 @@ const cell: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function AdminRawMaterialTable({ materials, fmt, onReceipt }: Props) {
+export function AdminRawMaterialTable({ materials, fmt, onReceipt, onDelete, onRestore }: Props) {
   if (materials.length === 0) {
     return (
       <div className="card" style={{ padding: 'var(--space-4)', color: 'var(--text-muted)' }}>
@@ -44,7 +46,7 @@ export function AdminRawMaterialTable({ materials, fmt, onReceipt }: Props) {
         </thead>
         <tbody>
           {materials.map((m) => (
-            <tr key={m.id} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
+            <tr key={m.id} style={{ borderBottom: '1px solid var(--border-secondary)', opacity: m.isActive === false ? 0.5 : 1 }}>
               <td style={{ ...cell, fontWeight: 'var(--font-semibold)' }}>
                 {m.name}
                 {m.cropType && (
@@ -68,9 +70,23 @@ export function AdminRawMaterialTable({ materials, fmt, onReceipt }: Props) {
                   : '—'}
               </td>
               <td style={cell}>
-                <button className="btn btn-sm" onClick={() => onReceipt(m)}>
-                  <PackagePlus size={14} /> Приход
-                </button>
+                <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                  {m.isActive === false ? (
+                    <button className="btn btn-sm btn-ghost" onClick={() => onRestore(m)}>
+                      <RotateCcw size={14} /> Вернуть
+                    </button>
+                  ) : (
+                    <>
+                      <button className="btn btn-sm" onClick={() => onReceipt(m)}>
+                        <PackagePlus size={14} /> Приход
+                      </button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => onDelete(m)}
+                        style={{ color: 'var(--error)' }} aria-label="Скрыть">
+                        <Trash2 size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

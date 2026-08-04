@@ -32,7 +32,7 @@ export function AdminDebts() {
   const [showAdd, setShowAdd] = useState(false);
   const [paymentModal, setPaymentModal] = useState<Debt | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [newDebt, setNewDebt] = useState({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '' });
+  const [newDebt, setNewDebt] = useState({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '' });
 
   const { data, isLoading: loading, refetch: fetchDebts } = useQuery({
     queryKey: ['admin-debts', activeTab, statusFilter],
@@ -60,10 +60,16 @@ export function AdminDebts() {
       await fetch('/api/inventory/debts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newDebt, amount: parseInt(newDebt.amount), type: activeTab }),
+        body: JSON.stringify({
+          ...newDebt,
+          amount: parseInt(newDebt.amount),
+          type: activeTab,
+          // Пустую строку API принял бы за id и не нашёл поставщика.
+          supplierId: newDebt.supplierId || null,
+        }),
       });
       setShowAdd(false);
-      setNewDebt({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '' });
+      setNewDebt({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '' });
       fetchDebts();
     } catch (err) { console.error('Add debt error:', err); }
   };
@@ -85,7 +91,7 @@ export function AdminDebts() {
   return (
     <div>
       {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
         {[
           { label: "Bizga qarzdor", value: `${fmt(summary.theyOweUs)} so'm`, color: 'var(--success)', icon: <ArrowRight size={20} /> },
           { label: "Biz qarzdormiz", value: `${fmt(summary.weOwe)} so'm`, color: 'var(--error)', icon: <ArrowLeft size={20} /> },

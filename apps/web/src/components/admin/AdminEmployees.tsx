@@ -5,22 +5,29 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Edit, Plus, Trash, User,
 } from 'lucide-react';
+import { CITIES, DEPARTMENTS } from './employeeOptions';
 
 interface Employee {
   id: string;
   name: string;
   phone: string | null;
   role: string;
+  department: string | null;
+  city: string | null;
   isActive: boolean;
   todaySalesCount: number;
   todayRevenue: number;
 }
 
+const EMPTY_EMPLOYEE = {
+  name: '', pin: '', phone: '', role: 'seller', department: '', city: 'samarqand',
+};
+
 export function AdminEmployees() {
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', pin: '', phone: '', role: 'seller' });
+  const [form, setForm] = useState(EMPTY_EMPLOYEE);
 
   const { data: employees = [], isLoading: loading } = useQuery<Employee[]>({
     queryKey: ['admin-employees'],
@@ -49,7 +56,7 @@ export function AdminEmployees() {
       if (data.success) {
         setShowAdd(false);
         setEditId(null);
-        setForm({ name: '', pin: '', phone: '', role: 'seller' });
+        setForm(EMPTY_EMPLOYEE);
         fetch_();
       } else {
         alert(data.error || 'Xatolik');
@@ -70,7 +77,7 @@ export function AdminEmployees() {
           <User size={20} /> Xodimlar
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({employees.length})</span>
         </h3>
-        <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm({ name: '', pin: '', phone: '', role: 'seller' }); }}
+        <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm(EMPTY_EMPLOYEE); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Plus size={14} /> Yangi xodim
         </button>
@@ -93,6 +100,17 @@ export function AdminEmployees() {
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>
               <option value="seller">Sotuvchi</option>
               <option value="manager">Menejer</option>
+            </select>
+            {/* Отдел и город: колонки в базе есть, график смен их показывает,
+                а задать их было негде — поэтому они всегда оставались пустыми. */}
+            <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+              style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>
+              <option value="">Bo&apos;lim…</option>
+              {DEPARTMENTS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+            <select value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+              style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>
+              {CITIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
@@ -130,7 +148,7 @@ export function AdminEmployees() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => { setEditId(emp.id); setForm({ name: emp.name, pin: '', phone: emp.phone || '', role: emp.role }); setShowAdd(true); }}
+                  <button onClick={() => { setEditId(emp.id); setForm({ name: emp.name, pin: '', phone: emp.phone || '', role: emp.role, department: emp.department || '', city: emp.city || 'samarqand' }); setShowAdd(true); }}
                     className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0 }}>
                     <Edit size={14} />
                   </button>

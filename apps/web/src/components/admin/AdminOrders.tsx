@@ -73,7 +73,7 @@ export function AdminOrders() {
           <ArrowLeft size={16} /> Orqaga
         </button>
         <div className="card" style={{ padding: 'var(--space-6)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-4)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
             <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }}>#{selected.orderNumber}</h3>
             <span style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', background: `${st.color}15`, color: st.color, fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
               {st.icon} {st.label}

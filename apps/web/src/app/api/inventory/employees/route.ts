@@ -17,22 +17,28 @@ export async function GET() {
   const endOfDay = new Date(today);
   endOfDay.setHours(23, 59, 59, 999);
 
-  // Get today's sales per employee
+  // Продажи сотрудника за сегодня. Признак продажи тот же, что и в общем
+  // реестре выручки (lib/revenue/salesLedger): движение расхода без привязки
+  // к заказу и с зафиксированной ценой продажи.
+  //
+  // Раньше фильтр шёл по префиксу «Do'kon sotish», из-за чего продажи в долг
+  // («Qarzga sotish») сотруднику не засчитывались вовсе, а выручка считалась
+  // по СЕГОДНЯШНЕМУ прайсу вместо цены, по которой продали.
   const todayMovements = await prisma.stockMovement.findMany({
     where: {
       type: 'OUT',
-      reason: { startsWith: "Do'kon sotish" },
+      orderId: null,
+      salePrice: { not: null },
       createdAt: { gte: today, lte: endOfDay },
-    },
-    include: {
-      product: { select: { price: true } },
     },
   });
 
   const result = employees.map(emp => {
     const empSales = todayMovements.filter(m => m.performedBy === emp.name);
     const todaySalesCount = empSales.length;
-    const todayRevenue = empSales.reduce((s, m) => s + Math.abs(m.quantity) * m.product.price, 0);
+    const todayRevenue = empSales.reduce(
+      (s, m) => s + Math.abs(m.quantity) * (m.salePrice ?? 0), 0,
+    );
 
     return { ...emp, pin: undefined, todaySalesCount, todayRevenue };
   });
@@ -44,7 +50,10 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, pin, phone, role } = body;
+    // department и city раньше не читались вовсе: колонки в базе есть,
+    // график смен их показывает, но заполнить их было нечем — у каждого
+    // сотрудника отдел оставался пустым навсегда.
+    const { name, pin, phone, role, department, city } = body;
 
     if (!name || !pin) {
       return NextResponse.json({ error: "Ism va PIN majburiy" }, { status: 400 });
@@ -61,7 +70,13 @@ export async function POST(request: NextRequest) {
     }
 
     const employee = await prisma.employee.create({
-      data: { name, pin, phone: phone || null, role: role || 'seller' },
+      data: {
+        name, pin,
+        phone: phone || null,
+        role: role || 'seller',
+        department: department || null,
+        ...(city ? { city: String(city) } : {}),
+      },
     });
 
     return NextResponse.json({ success: true, employee: { ...employee, pin: undefined } });
@@ -93,7 +108,15 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const employee = await prisma.employee.update({ where: { id }, data });
+    // Белый список полей: раньше тело разворачивалось целиком, и клиент мог
+    // переписать любую колонку — включая isActive и totalSales.
+    const allowed = ['name', 'pin', 'phone', 'role', 'department', 'city', 'isActive'];
+    const patch: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in data) patch[key] = data[key] === '' ? null : data[key];
+    }
+
+    const employee = await prisma.employee.update({ where: { id }, data: patch });
     return NextResponse.json({ success: true, employee: { ...employee, pin: undefined } });
   } catch (error) {
     console.error('Employee update error:', error);

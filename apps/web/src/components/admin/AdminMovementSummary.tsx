@@ -15,7 +15,7 @@ export function AdminMovementSummary({ total, todayIn, todayOut, todayCost, fmt 
   return (
     <>
     {/* Summary cards */}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
       <div className="card" style={{ padding: 'var(--space-2) var(--space-3)', textAlign: 'center' }}>
         <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Jami</div>
         <div style={{ fontWeight: 700, color: 'var(--brand-primary)' }}>{total}</div>

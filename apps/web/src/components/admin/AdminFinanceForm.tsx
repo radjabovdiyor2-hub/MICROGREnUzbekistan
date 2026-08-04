@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { categoriesFor } from '@/lib/finance/categories';
 
 interface Props {
   add: (e: React.FormEvent) => void;
@@ -45,8 +46,16 @@ export function AdminFinanceForm({
           <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>
             {t('Статья', 'Modda')}
           </label>
-          <input value={category} onChange={e => setCategory(e.target.value)}
-            placeholder={t('семена, аренда, зарплата…', 'urug\', ijara…')} style={inputStyle} required />
+          {/* Список, а не свободный ввод: бот финансов пишет фиксированные
+              слаги, и рукописная «аренда» рядом с ботовым `rent` давала две
+              несвязанные строки в одном отчёте по категориям. */}
+          <select value={category} onChange={e => setCategory(e.target.value)}
+            style={inputStyle} required>
+            <option value="">{t('— выберите —', '— tanlang —')}</option>
+            {categoriesFor(type).map(c => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
         </div>
         <div>
           <label style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)' }}>

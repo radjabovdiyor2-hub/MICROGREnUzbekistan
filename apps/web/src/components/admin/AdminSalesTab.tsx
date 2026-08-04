@@ -43,7 +43,7 @@ export function AdminSalesTab({
     </div>
 
     {/* Summary cards */}
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
       <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center' }}>
         <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Sotishlar</div>
         <div style={{ fontWeight: 800, fontSize: 'var(--text-lg)', color: 'var(--brand-primary)' }}>{salesSummary.totalSales}</div>

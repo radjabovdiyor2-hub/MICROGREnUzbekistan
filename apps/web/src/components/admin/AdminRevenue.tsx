@@ -126,7 +126,7 @@ export function AdminRevenue() {
         </div>
 
         {/* Period summary bars */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
           {[
             { label: 'Выручка', value: periodData.revenue, color: 'var(--brand-primary)' },
             { label: 'Себест.', value: periodData.cost, color: 'var(--error)' },

@@ -19,14 +19,56 @@ export function AdminRawMaterials() {
   const [receiptFor, setReceiptFor] = useState<RawMaterial | null>(null);
   const [showNew, setShowNew] = useState(false);
 
+  const [showHidden, setShowHidden] = useState(false);
+
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-raw-materials'],
+    queryKey: ['admin-raw-materials', showHidden],
     queryFn: async () => {
-      const res = await fetch('/api/admin/raw-materials', { credentials: 'same-origin' });
+      const url = showHidden
+        ? '/api/admin/raw-materials?includeInactive=1'
+        : '/api/admin/raw-materials';
+      const res = await fetch(url, { credentials: 'same-origin' });
       const json = await res.json();
       return (json.materials ?? []) as RawMaterial[];
     },
   });
+
+  // Скрытие, а не удаление: у позиции могут быть приходы с реально
+  // потраченными деньгами и списания, привязанные к посадкам. Сервер сам
+  // решает — если движений не было ни одного, строка удаляется физически.
+  const remove = useMutation({
+    mutationFn: async (m: RawMaterial) => {
+      const res = await fetch(`/api/admin/raw-materials?id=${m.id}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Не удалось удалить');
+      return json as { removed: boolean; movements?: number };
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-raw-materials'] }),
+  });
+
+  const restore = useMutation({
+    mutationFn: async (m: RawMaterial) => {
+      const res = await fetch('/api/admin/raw-materials', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id: m.id, isActive: true }),
+      });
+      if (!res.ok) throw new Error('Не удалось вернуть позицию');
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-raw-materials'] }),
+  });
+
+  const handleDelete = (m: RawMaterial) => {
+    const question = m.stock > 0
+      ? `Скрыть «${m.name}»? На складе ещё ${m.stock} ${m.unit}.\nПриходы и себестоимость сохранятся.`
+      : `Скрыть «${m.name}»?\nПриходы и себестоимость сохранятся.`;
+    if (!confirm(question)) return;
+    remove.mutate(m);
+  };
 
   const save = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
@@ -61,7 +103,11 @@ export function AdminRawMaterials() {
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
           В запасе на {fmt(totalValue)} сум
         </span>
-        <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setShowNew(true)}>
+        <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-sm)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
+          Показать скрытые
+        </label>
+        <button className="btn btn-primary" onClick={() => setShowNew(true)}>
           <PackagePlus size={16} /> Завести позицию
         </button>
       </div>
@@ -101,6 +147,8 @@ export function AdminRawMaterials() {
           materials={materials}
           fmt={fmt}
           onReceipt={(m) => { setShowNew(false); setReceiptFor(m); }}
+          onDelete={handleDelete}
+          onRestore={(m) => restore.mutate(m)}
         />
       )}
     </div>

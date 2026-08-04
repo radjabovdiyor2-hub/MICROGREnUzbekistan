@@ -209,6 +209,19 @@ export async function PUT(request: NextRequest) {
 }
 
 // DELETE — Delete product (admin)
+/**
+ * DELETE — снять товар с продажи.
+ *
+ * ⚠️ Здесь было физическое удаление, и это было опасно: `StockMovement.product`
+ * объявлен с `onDelete: Cascade`, поэтому удаление товара стирало ВЕСЬ его
+ * складской журнал — а из этого журнала считается выручка кассы. Один клик
+ * обнулял продажи товара задним числом за всю историю.
+ *
+ * Теперь товар скрывается (`isActive = false`): из каталога и с витрины он
+ * пропадает, история продаж остаётся. Физически удаляется только товар, по
+ * которому вообще ничего не происходило — ни движений, ни заказов; такой
+ * товар это просто ошибочно заведённая карточка.
+ */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -218,8 +231,25 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Product ID required' }, { status: 400 });
     }
 
-    await prisma.product.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const [movements, orderItems] = await Promise.all([
+      prisma.stockMovement.count({ where: { productId: id } }),
+      prisma.orderItem.count({ where: { productId: id } }),
+    ]);
+
+    if (movements === 0 && orderItems === 0) {
+      await prisma.product.delete({ where: { id } });
+      return NextResponse.json({ success: true, removed: true });
+    }
+
+    await prisma.product.update({ where: { id }, data: { isActive: false } });
+    return NextResponse.json({
+      success: true,
+      removed: false,
+      message:
+        `Товар снят с продажи. Полностью удалить нельзя: по нему есть ` +
+        `движения склада (${movements}) и позиции заказов (${orderItems}) — ` +
+        `из них считается выручка.`,
+    });
   } catch (error) {
     console.error('Product delete error:', error);
     return NextResponse.json({ error: 'Xatolik yuz berdi' }, { status: 500 });

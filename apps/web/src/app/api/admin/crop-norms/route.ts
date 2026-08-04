@@ -80,3 +80,36 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ status: 'ok', norm });
 }
+
+/**
+ * DELETE — скрыть культуру из справочника.
+ *
+ * Скрытие, а не удаление: `RawMaterial.cropType` и `GrowBatch.cropType` —
+ * обычные строки, а не внешние ключи. Физическое удаление ничего не сломает
+ * на уровне базы, но осиротит эти ссылки: у старых партий пропадёт норма, по
+ * которой считалась их себестоимость, и объяснить цифру станет нечем.
+ */
+export async function DELETE(request: NextRequest) {
+  if (!isAuthorized(request)) return unauthorized();
+
+  const cropType = new URL(request.url).searchParams.get('cropType');
+  if (!cropType) return NextResponse.json({ error: 'Нужна культура' }, { status: 400 });
+
+  const inUse = await prisma.rawMaterial.count({
+    where: { cropType, isActive: true },
+  });
+  if (inUse > 0) {
+    return NextResponse.json({
+      error:
+        `На складе есть позиции сырья с этой культурой (${inUse}) — ` +
+        `сначала скройте их, иначе посадка перестанет находить семена.`,
+    }, { status: 409 });
+  }
+
+  try {
+    await prisma.cropNorm.update({ where: { cropType }, data: { isActive: false } });
+    return NextResponse.json({ status: 'ok' });
+  } catch {
+    return NextResponse.json({ error: 'Культура не найдена' }, { status: 404 });
+  }
+}

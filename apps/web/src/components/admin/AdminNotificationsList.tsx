@@ -18,7 +18,11 @@ export function AdminNotificationsList({ open, notifications, clearAll, fmtTime 
 
   return (
   <div style={{
-    position: 'absolute', top: '100%', right: 0, width: 320, maxHeight: 400,
+    position: 'absolute', top: '100%', right: 0, maxHeight: 400,
+    // Ширина фиксированная (320px), но панель прижата к правому краю: на
+    // узком экране она уходила левее своего контейнера и упиралась в край
+    // окна. min() ограничивает её шириной вьюпорта с полями.
+    width: 'min(320px, calc(100vw - var(--space-6)))',
     background: 'var(--bg-card)', border: '1px solid var(--border)',
     borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)',
     zIndex: 100, overflow: 'hidden',

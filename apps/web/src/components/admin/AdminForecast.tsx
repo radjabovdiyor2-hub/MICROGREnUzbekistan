@@ -68,7 +68,7 @@ export function AdminForecast() {
   return (
     <div>
       {/* Summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
         <div className="card" style={{ padding: 'var(--space-3)', textAlign: 'center', borderLeft: '3px solid var(--error)' }}>
           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Tezkor</div>
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xl)', color: 'var(--error)' }}>{criticalCount}</div>
@@ -84,7 +84,7 @@ export function AdminForecast() {
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 2, marginBottom: 'var(--space-3)' }}>
         {[
           { id: '', label: 'Barchasi', count: forecast.length },
           { id: 'CRITICAL', label: 'Tezkor', count: criticalCount },

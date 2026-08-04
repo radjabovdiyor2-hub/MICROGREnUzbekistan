@@ -1,19 +1,24 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { Plus } from 'lucide-react';
 import { TYPE_CONFIG, type Product } from './movementTypes';
 
 // Форма движения товара: приход, расход, списание. Показывается по showAdd.
 
-interface MovementDraft {
+export interface MovementDraft {
   productId: string;
   type: string;
   quantity: string;
   reason: string;
   costPrice: string;
   performedBy: string;
+  supplierId: string;
 }
+
+interface Employee { id: string; name: string }
+interface Supplier { id: string; name: string }
 
 
 interface Props {
@@ -30,11 +35,28 @@ interface Props {
 }
 
 export function AdminMovementForm({ showAdd, setShowAdd, form, setForm, products, setProducts, prodSearch, setProdSearch, handleSubmit, inputStyle }: Props) {
+  // Кем проведено и от кого приход — из справочников, а не с клавиатуры.
+  // «Kim tomonidan» было свободным полем, поэтому по движениям нельзя было
+  // собрать отчёт по сотруднику; поставщика форма не спрашивала вовсе, и
+  // каждый приход из админки уходил без него — хотя колонка и API есть.
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+
+  useEffect(() => {
+    fetch('/api/inventory/employees').then(r => r.json())
+      .then(d => setEmployees(d.employees ?? [])).catch(() => {});
+    fetch('/api/inventory/suppliers').then(r => r.json())
+      .then(d => setSuppliers(d.suppliers ?? [])).catch(() => {});
+  }, []);
+
   return (
     <>
     {/* Add Form */}
     {showAdd && (
-      <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--brand-primary)' }}>
+      // overflow: visible снимает обрезание от .card { overflow: hidden }.
+      // Список подсказки товара выпадает ниже поля и упирался в границу
+      // карточки: видна была только первая строка.
+      <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--brand-primary)', overflow: 'visible' }}>
         <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--text-sm)' }}>
           <Plus size={16} /> Yangi harakat
         </h4>
@@ -61,9 +83,18 @@ export function AdminMovementForm({ showAdd, setShowAdd, form, setForm, products
           </select>
           <input type="number" placeholder="Miqdor *" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} style={inputStyle} />
           <input placeholder="Sabab" value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value }))} style={inputStyle} />
-          <input placeholder="Kim tomonidan" value={form.performedBy} onChange={e => setForm(f => ({ ...f, performedBy: e.target.value }))} style={inputStyle} />
+          <select value={form.performedBy} onChange={e => setForm(f => ({ ...f, performedBy: e.target.value }))} style={inputStyle}>
+            <option value="">Kim tomonidan…</option>
+            {employees.map(emp => <option key={emp.id} value={emp.name}>{emp.name}</option>)}
+          </select>
           {form.type === 'IN' && (
-            <input type="number" placeholder="Tan narxi (so'm)" value={form.costPrice} onChange={e => setForm(f => ({ ...f, costPrice: e.target.value }))} style={inputStyle} />
+            <>
+              <select value={form.supplierId} onChange={e => setForm(f => ({ ...f, supplierId: e.target.value }))} style={inputStyle}>
+                <option value="">Yetkazuvchi…</option>
+                {suppliers.map(s2 => <option key={s2.id} value={s2.id}>{s2.name}</option>)}
+              </select>
+              <input type="number" placeholder="Tan narxi (so'm)" value={form.costPrice} onChange={e => setForm(f => ({ ...f, costPrice: e.target.value }))} style={inputStyle} />
+            </>
           )}
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>

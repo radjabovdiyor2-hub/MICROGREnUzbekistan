@@ -3,7 +3,7 @@
 import { Clock, Download, Folder, Plus, Trash } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { AdminMovementSummary } from './AdminMovementSummary';
-import { AdminMovementForm } from './AdminMovementForm';
+import { AdminMovementForm, type MovementDraft } from './AdminMovementForm';
 import { TYPE_CONFIG, type Movement, type Product } from './movementTypes';
 
 // Вкладка «Движения» склада. Вынесено из AdminMovements: файл перерос
@@ -18,7 +18,7 @@ interface Props {
   setShowAdd: (v: boolean) => void;
   total: number;
   deleting: string | null;
-  form: { productId: string; type: string; quantity: string; reason: string; costPrice: string; performedBy: string };
+  form: MovementDraft;
   setForm: React.Dispatch<React.SetStateAction<Props['form']>>;
   products: Product[];
   prodSearch: string;
@@ -32,14 +32,13 @@ interface Props {
   inputStyle: CSSProperties;
   onSubmit: () => void;
   onDelete: (id: string) => void;
-  onClearAll: () => void;
   onExport: (type: string) => void;
 }
 
 export function AdminMovementsTab({
   movements, loading, typeFilter, setTypeFilter, showAdd, setShowAdd, total, deleting,
   form, setForm, products, setProducts, prodSearch, setProdSearch, todayIn, todayOut, todayCost,
-  fmt, fmtDate, inputStyle, onSubmit, onDelete, onClearAll, onExport,
+  fmt, fmtDate, inputStyle, onSubmit, onDelete, onExport,
 }: Props) {
   return (
   <>
@@ -63,10 +62,6 @@ export function AdminMovementsTab({
       <button onClick={() => onExport('movements')} className="btn btn-outline btn-sm"
         style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
         <Download size={12} /> CSV
-      </button>
-      <button onClick={onClearAll} className="btn btn-ghost btn-sm"
-        style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--error)', fontSize: 'var(--text-xs)' }}>
-        <Trash size={12} /> Tozalash
       </button>
       <button onClick={() => setShowAdd(!showAdd)} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
         <Plus size={14} /> Qo&apos;shish

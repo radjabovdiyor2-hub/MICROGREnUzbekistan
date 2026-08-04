@@ -16,6 +16,9 @@ export const TAB_GROUPS = [
       { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <BarChart size={16} /> },
       { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <DollarSign size={16} /> },
       { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Leaf size={16} /> },
+      // Нормы расхода: по ним посадка списывает сырьё и считает себестоимость.
+      // Сидер справочника прямо отсылает владельца сюда, а экрана не было.
+      { id: 'crop_norms', ru: 'Нормы культур', uz: 'Ekin normalari', icon: <Sprout size={16} /> },
     ]
   },
   {

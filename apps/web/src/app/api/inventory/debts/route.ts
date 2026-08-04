@@ -121,7 +121,14 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// DELETE — Delete debt (soft: mark as paid with 0 balance)
+/**
+ * DELETE — закрыть долг.
+ *
+ * Комментарий здесь обещал мягкое закрытие («soft: mark as paid»), а код
+ * делал `prisma.debt.delete` — физическое удаление финансовой записи.
+ * Долг — это история расчётов: кто сколько был должен и когда рассчитался.
+ * Стирать её нельзя, поэтому теперь код делает то, что и было обещано.
+ */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -131,10 +138,18 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Debt ID majburiy' }, { status: 400 });
     }
 
-    await prisma.debt.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const debt = await prisma.debt.findUnique({ where: { id } });
+    if (!debt) {
+      return NextResponse.json({ error: 'Qarz topilmadi' }, { status: 404 });
+    }
+
+    const closed = await prisma.debt.update({
+      where: { id },
+      data: { isPaid: true, paidAmount: debt.amount },
+    });
+    return NextResponse.json({ success: true, debt: closed });
   } catch (error) {
-    console.error('Debt delete error:', error);
+    console.error('Debt close error:', error);
     return NextResponse.json({ error: 'Xatolik yuz berdi' }, { status: 500 });
   }
 }

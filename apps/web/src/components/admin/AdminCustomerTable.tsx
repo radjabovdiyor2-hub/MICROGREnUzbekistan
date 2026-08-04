@@ -4,7 +4,12 @@ import { Edit3, Gift, Phone, RefreshCw, Users } from 'lucide-react';
 import type { CustomerItem } from './customerTypes';
 
 // Таблица клиентов: контакты, тип, суммы, бонусы.
-
+//
+// Стили — инлайн на токенах, как в остальных 113 компонентах админки.
+// Раньше этот файл был одним из трёх на Tailwind, а Tailwind в проекте
+// намеренно уложен в слой НИЖЕ нелоерового legacy-CSS (см. globals.css:9-11).
+// Глобальный сброс `* { margin: 0; padding: 0 }` тоже вне слоёв — и потому
+// съедал каждую утилиту отступа: p-4 на ячейках не работал вовсе.
 
 interface Props {
   customers: CustomerItem[];
@@ -13,87 +18,127 @@ interface Props {
   handleEditClick: (c: CustomerItem) => void;
 }
 
+const cell: React.CSSProperties = {
+  padding: 'var(--space-3)',
+  fontSize: 'var(--text-sm)',
+  verticalAlign: 'top',
+};
+
+const head: React.CSSProperties = {
+  ...cell,
+  color: 'var(--text-muted)',
+  fontSize: 'var(--text-xs)',
+  fontWeight: 'var(--font-semibold)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+  whiteSpace: 'nowrap',
+  textAlign: 'left',
+};
+
+/** Цвет статуса — из токенов. Хардкод цветов запрещён конституцией. */
+function statusColor(status: string): string {
+  if (status === 'vip') return 'var(--warning)';
+  if (status === 'active') return 'var(--success)';
+  if (status === 'churned') return 'var(--error)';
+  return 'var(--text-muted)';
+}
+
 export function AdminCustomerTable({ customers, loading, lang, handleEditClick }: Props) {
+  if (loading) {
+    return (
+      <div className="card" style={{ padding: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)' }}>
+        <RefreshCw size={20} className="animate-spin" />
+        <span>{lang === 'ru' ? 'Загрузка клиентов…' : 'Yuklanmoqda…'}</span>
+      </div>
+    );
+  }
+
+  if (customers.length === 0) {
+    return (
+      <div className="card" style={{ padding: 'var(--space-8)', textAlign: 'center' }}>
+        <Users size={40} style={{ margin: '0 auto var(--space-2)', color: 'var(--text-muted)' }} />
+        <h3 style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-secondary)' }}>
+          {lang === 'ru' ? 'Клиенты не найдены' : 'Mijozlar topilmadi'}
+        </h3>
+      </div>
+    );
+  }
+
   return (
-    <>
-{/* Customer Table */}
-{loading ? (
-  <div className="flex items-center justify-center p-12 text-slate-400 gap-3">
-    <RefreshCw size={20} className="animate-spin text-blue-400" />
-    <span>{lang === 'ru' ? 'Загрузка клиентов...' : 'Yuklanmoqda...'}</span>
-  </div>
-) : customers.length === 0 ? (
-  <div className="p-12 text-center bg-slate-900/40 border border-slate-800 rounded-2xl">
-    <Users size={40} className="mx-auto text-slate-600 mb-3" />
-    <h3 className="text-lg font-semibold text-slate-300">
-      {lang === 'ru' ? 'Клиенты не найдены' : 'Mijozlar topilmadi'}
-    </h3>
-  </div>
-) : (
-  <div className="overflow-x-auto bg-slate-900/60 border border-slate-800 rounded-2xl">
-    <table className="w-full text-left text-sm text-slate-300">
-      <thead className="bg-slate-950 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-800">
-        <tr>
-          <th className="p-4">Клиент</th>
-          <th className="p-4">Телефон / TG</th>
-          <th className="p-4">Тип / Статус</th>
-          <th className="p-4">Заказов</th>
-          <th className="p-4">Потрачено</th>
-          <th className="p-4">Бонусы</th>
-          <th className="p-4 text-right">Действие</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-800/60">
-        {customers.map((c) => (
-          <tr key={c.id} className="hover:bg-slate-800/40 transition-colors">
-            <td className="p-4">
-              <div className="font-semibold text-white">{c.name}</div>
-              {c.companyName && (
-                <div className="text-xs text-blue-400">🏢 {c.companyName}</div>
-              )}
-              <div className="text-xs text-slate-500">{c.city}</div>
-            </td>
-            <td className="p-4">
-              <div className="flex items-center gap-1.5 text-xs text-slate-300">
-                <Phone size={13} className="text-slate-500" />
-                <span>{c.phone}</span>
-              </div>
-              {c.telegramUsername && (
-                <div className="text-xs text-blue-400 mt-0.5">@{c.telegramUsername}</div>
-              )}
-            </td>
-            <td className="p-4">
-              <span className={`px-2 py-0.5 text-xs font-semibold rounded-md ${
-                c.status === 'vip' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' :
-                c.status === 'client' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                'bg-slate-800 text-slate-400'
-              }`}>
-                {c.customerType.toUpperCase()} / {c.status.toUpperCase()}
-              </span>
-            </td>
-            <td className="p-4 font-mono font-medium text-white">{c.ordersCount}</td>
-            <td className="p-4 font-mono text-emerald-400">{c.totalSpent.toLocaleString()} сум</td>
-            <td className="p-4">
-              <span className="flex items-center gap-1 font-mono font-bold text-amber-400">
-                <Gift size={14} />
-                {c.bonusBalance}
-              </span>
-            </td>
-            <td className="p-4 text-right">
-              <button
-                onClick={() => handleEditClick(c)}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-lg transition-all"
-              >
-                <Edit3 size={14} className="inline mr-1" />
-                Правка
-              </button>
-            </td>
+    // overflowX инлайном, а не классом: .card задаёт overflow: hidden вне
+    // слоёв, и класс-утилита его не перебьёт. Без этой обёртки последняя
+    // колонка просто срезалась за правым краем.
+    <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid var(--border)' }}>
+            <th style={head}>Клиент</th>
+            <th style={head}>Телефон / TG</th>
+            <th style={head}>Тип / Статус</th>
+            <th style={head}>Заказов</th>
+            <th style={head}>Потрачено</th>
+            <th style={head}>Бонусы</th>
+            <th style={{ ...head, textAlign: 'right' }}>Действие</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-)}
-    </>
+        </thead>
+        <tbody>
+          {customers.map((c) => (
+            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-secondary, var(--border))' }}>
+              <td style={cell}>
+                <div style={{ fontWeight: 'var(--font-semibold)' }}>{c.name}</div>
+                {c.companyName && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--brand-primary)' }}>
+                    🏢 {c.companyName}
+                  </div>
+                )}
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{c.city}</div>
+              </td>
+              <td style={cell}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                  <Phone size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                  <span>{c.phone}</span>
+                </div>
+                {c.telegramUsername && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--brand-primary)', marginTop: 2 }}>
+                    @{c.telegramUsername}
+                  </div>
+                )}
+              </td>
+              <td style={cell}>
+                <span style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: 'var(--text-xs)',
+                  fontWeight: 'var(--font-semibold)',
+                  whiteSpace: 'nowrap',
+                  color: statusColor(c.status),
+                  background: `color-mix(in srgb, ${statusColor(c.status)} 14%, transparent)`,
+                }}>
+                  {c.customerType.toUpperCase()} / {c.status.toUpperCase()}
+                </span>
+              </td>
+              <td style={{ ...cell, fontWeight: 'var(--font-semibold)' }}>{c.ordersCount}</td>
+              <td style={{ ...cell, color: 'var(--success)', whiteSpace: 'nowrap' }}>
+                {c.totalSpent.toLocaleString('ru-RU')} сум
+              </td>
+              <td style={cell}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'var(--font-bold)', color: 'var(--warning)' }}>
+                  <Gift size={14} />
+                  {c.bonusBalance}
+                </span>
+              </td>
+              <td style={{ ...cell, textAlign: 'right' }}>
+                <button onClick={() => handleEditClick(c)} className="btn btn-sm btn-ghost"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                  <Edit3 size={14} />
+                  Правка
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

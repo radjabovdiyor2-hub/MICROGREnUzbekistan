@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { KIND_LABELS, UNIT_OPTIONS, type RawMaterial } from './rawMaterialTypes';
+import { fetchCropNorms, type CropNorm } from './growingData';
 
 // Форма выполняет две задачи: завести позицию сырья и оприходовать приход.
 // `material` задан → приход по нему; `null` → заведение новой позиции.
@@ -48,11 +49,17 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   const [onCredit, setOnCredit] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
+  const [norms, setNorms] = useState<CropNorm[]>([]);
+
   useEffect(() => {
     fetch('/api/inventory/suppliers', { credentials: 'same-origin' })
       .then((r) => r.json())
       .then((d) => setSuppliers(d.suppliers ?? []))
       .catch(() => {});
+    // Культуры — из справочника норм, а не из головы. Поле было свободным,
+    // и «Амарант» по-русски прошло валидацию, но посадка ищет `amaranth`
+    // точным совпадением и семян не находила.
+    fetchCropNorms().then(setNorms).catch(() => {});
   }, []);
 
   const submitReceipt = () => {
@@ -127,8 +134,22 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
           </div>
           {kind === 'SEED' && (
             <div>
-              <label style={label}>Культура (для списания при посадке)</label>
-              <input style={input} value={cropType} onChange={(e) => setCropType(e.target.value)} placeholder="pea" />
+              <label style={label} htmlFor="raw-crop">Культура (для списания при посадке)</label>
+              <select id="raw-crop" style={input} value={cropType}
+                onChange={(e) => setCropType(e.target.value)}>
+                <option value="">— не указана —</option>
+                {norms.map((n) => (
+                  <option key={n.cropType} value={n.cropType}>
+                    {n.nameRu} ({n.cropType})
+                  </option>
+                ))}
+              </select>
+              {norms.length === 0 && (
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', marginTop: 4 }}>
+                  Справочник культур пуст — заполните его в разделе «Нормы культур»,
+                  иначе посадка не сможет списать эти семена.
+                </div>
+              )}
             </div>
           )}
         </div>
