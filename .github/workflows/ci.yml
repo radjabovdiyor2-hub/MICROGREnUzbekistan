@@ -246,5 +246,16 @@ jobs:
             sudo systemctl reload nginx 2>/dev/null || true
             sudo service nginx reload 2>/dev/null || true
             docker compose -f docker-compose.prod.yml ps
+            # Наши образы помечены постоянным тегом sha-<коммит>, поэтому при
+            # следующем деплое они НЕ становятся dangling и `image prune -f` их
+            # не видит. Один mg-web-builder тянет полный node_modules — выходит
+            # около 4 ГБ за деплой, и через десяток выкаток диск кончится ровно
+            # так же, как кончился от кэша buildkit.
+            # Удаляем только свой неймспейс: на машине живут чужие проекты.
+            # Откат это не ломает — MG_TAG=sha-<старый> дотянет образ из GHCR.
+            docker images --format '{{.Repository}}:{{.Tag}}' \
+              | grep "^ghcr.io/${GHCR_OWNER}/" \
+              | grep -v ":${MG_TAG}$" \
+              | xargs -r -n1 docker rmi 2>/dev/null || true
             docker image prune -f
 

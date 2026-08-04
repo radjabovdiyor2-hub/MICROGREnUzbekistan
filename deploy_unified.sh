@@ -115,7 +115,22 @@ fi
 echo "📄 Мигрирую content_status.json → PostgreSQL..."
 docker exec mg_stepan python scripts/migrate_content_status.py 2>/dev/null || echo "  ℹ️  content_status.json отсутствует или уже мигрирован"
 
-# 9. Проверка
+# 9. Чистка старых образов
+#
+# Наши образы помечены постоянным тегом (sha-<коммит> или latest), поэтому при
+# следующем деплое они НЕ становятся dangling и `docker image prune -f` их не
+# видит. Один mg-web-builder тянет полный node_modules — около 4 ГБ за деплой,
+# и через десяток выкаток диск кончится так же, как кончился от кэша buildkit.
+# Трогаем ТОЛЬКО свой неймспейс: на этой машине живут ещё несколько проектов.
+# Откат не ломается — MG_TAG=sha-<старый> дотянет образ из GHCR заново.
+echo "🧹 Убираю старые образы..."
+docker images --format '{{.Repository}}:{{.Tag}}' \
+  | grep "^ghcr.io/${GHCR_OWNER}/" \
+  | grep -v ":${MG_TAG}$" \
+  | xargs -r -n1 docker rmi 2>/dev/null || true
+docker image prune -f
+
+# 10. Проверка
 echo ""
 echo "✅ Деплой завершён!"
 echo "================================"
