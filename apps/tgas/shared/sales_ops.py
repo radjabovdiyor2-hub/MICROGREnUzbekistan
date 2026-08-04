@@ -205,10 +205,20 @@ async def _upsert_customer(
     phone: Optional[str],
     customer_type: str,
     registered_by: str,
-) -> tuple[Optional[int], bool]:
-    """Найти или завести карточку клиента в CRM. Возвращает (id, создана ли)."""
+) -> tuple[Optional[int], bool, Optional[str]]:
+    """Найти или завести карточку клиента в CRM.
+
+    Возвращает (id, создана ли, известный телефон).
+
+    Телефон возвращается намеренно: витрина требует его обязательно, а менеджер
+    диктует продажу постоянному клиенту без номера — «15 гороха ресторан Жасмин».
+    Раньше найденная карточка отдавала только id, номер из неё выбрасывался, и
+    заказ падал с «Shaxsiy ma'lumotlar to'liq emas» при том, что телефон лежал
+    в строке, которую эта же функция только что прочитала.
+    """
     async with get_session_ctx() as session:
         customer_id = None
+        known_phone = None
         if phone:
             customer_id = (
                 await session.execute(
@@ -217,15 +227,18 @@ async def _upsert_customer(
                 )
             ).scalar()
         if not customer_id:
-            customer_id = (
+            row = (
                 await session.execute(
                     text(
-                        "SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n "
+                        "SELECT id, phone FROM customers "
+                        "WHERE name ILIKE :n OR company_name ILIKE :n "
                         "ORDER BY id LIMIT 1"
                     ),
                     {"n": customer_name},
                 )
-            ).scalar()
+            ).first()
+            if row:
+                customer_id, known_phone = row[0], normalize_phone(row[1])
 
         if customer_id:
             await session.execute(
@@ -236,7 +249,7 @@ async def _upsert_customer(
                 {"p": phone, "n": customer_name, "cid": customer_id},
             )
             await session.commit()
-            return customer_id, False
+            return customer_id, False, phone or known_phone
 
         customer_id = (
             await session.execute(
@@ -257,7 +270,41 @@ async def _upsert_customer(
             )
         ).scalar()
         await session.commit()
-        return customer_id, True
+        return customer_id, True, phone
+
+
+# Витрина отвечает по-узбекски (её язык интерфейса), а сообщение уходит
+# русскоязычному руководителю. Раньше код ошибки подставлялся в текст как есть:
+# «Продажу НЕ записал: Shaxsiy ma'lumotlar to'liq emas» не говорит, какого поля
+# не хватает, и на уточняющий вопрос модель отвечала отказом по приватности —
+# она прочитала «личные данные» как просьбу их выдать, а не как код валидации.
+_STOREFRONT_ERRORS = {
+    "Shaxsiy ma'lumotlar to'liq emas": "витрине не хватило данных клиента (имя, телефон или адрес)",
+    "Savat bo'sh": "в заказе нет ни одной позиции",
+    "Noto'g'ri ma'lumot formati": "витрина не разобрала формат заказа",
+    "Xatolik yuz berdi": "витрина ответила внутренней ошибкой",
+}
+
+
+def _storefront_refusal_message(error: str) -> str:
+    """Объяснить отказ витрины и подсказать, повтор тут поможет или нет.
+
+    Различие существенное: при 400 повтор даёт ровно тот же результат, и совет
+    «повторите позже» отправляет руководителя по кругу — так и вышло с продажей
+    ресторану, где два вызова подряд вернули одинаковый отказ.
+    """
+    reason = _STOREFRONT_ERRORS.get(str(error).strip(), str(error))
+    transient = str(error).startswith("витрина недоступна") or "HTTP 5" in str(error)
+    tail = (
+        "Витрина сейчас недоступна — повторите через несколько минут."
+        if transient
+        else "Повтор с теми же данными даст тот же отказ — нужно исправить данные."
+    )
+    return (
+        f"Продажу НЕ записал: {reason}. "
+        f"Заказы заводит витрина — мимо неё писать нельзя, иначе продажи не "
+        f"будет ни на сайте, ни в остатках. {tail}"
+    )
 
 
 def _clarify_message(
@@ -407,16 +454,46 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         # Заводим ДО заказа: зеркало витрины ищет клиента по телефону и, найдя
         # нашу карточку, дополнит её вместо создания второй, уже как b2c.
         # Тип клиента и компания известны только здесь.
-        customer_id, customer_created = await _upsert_customer(
+        customer_id, customer_created, known_phone = await _upsert_customer(
             customer_name, phone, customer_type, registered_by
         )
+
+        # ── 3a. Телефон обязателен для витрины ──
+        # По нему она связывает заказ с пользователем (`user.upsert where phone`),
+        # поэтому пустой номер = отказ 400. Менеджер диктует продажу постоянному
+        # клиенту без номера, и это нормально: берём его из карточки CRM.
+        # Если нет и там — спрашиваем прямо. Раньше здесь уходил заказ с phone=""
+        # и возвращался узбекский текст витрины, в котором не сказано, чего не
+        # хватает; повторный вызов давал ровно тот же отказ.
+        phone = phone or known_phone
+        if not phone:
+            return {
+                "status": "clarify",
+                "message": (
+                    f"Назовите телефон клиента «{customer_name}» — без него "
+                    f"витрина не примет заказ, она связывает продажу с клиентом "
+                    f"именно по номеру. Спрошу один раз: дальше он останется "
+                    f"в карточке."
+                ),
+                "data": {
+                    "needs": "phone",
+                    "pending": {
+                        "customer_name": customer_name,
+                        "customer_type": customer_type,
+                        "payment_status": payment_status,
+                        "status": order_status,
+                        "notes": notes,
+                        "items": items,
+                    },
+                },
+            }
 
         # ── 4. Заказ создаёт витрина ──
         # Один вызов даёт номер, списание остатка, уведомления и зеркало в CRM
         # через /ingest/order. Заказ виден и на сайте, и в Telegram.
         created = await storefront_orders.create_order(
             customer_name=customer_name,
-            phone=phone or "",
+            phone=phone,
             address=str(params.get("address") or "").strip()
             or "Продажа оформлена AI-офисом",
             items=[
@@ -432,11 +509,7 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         if not created["ok"]:
             return {
                 "status": "error",
-                "message": (
-                    f"Продажу НЕ записал: {created['error']}. "
-                    f"Заказы заводит витрина — мимо неё писать нельзя, иначе "
-                    f"продажи не будет ни на сайте, ни в остатках. Повторите позже."
-                ),
+                "message": _storefront_refusal_message(created["error"]),
             }
 
         order = created["order"]

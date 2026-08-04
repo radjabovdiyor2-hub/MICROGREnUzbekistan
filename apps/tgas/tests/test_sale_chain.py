@@ -44,7 +44,9 @@ def chain(monkeypatch):
 
     async def fake_upsert(name, phone, ctype, by):
         calls["customer"].append({"name": name, "phone": phone, "type": ctype})
-        return 77, True
+        # Третий элемент — телефон, известный CRM. По умолчанию карточка пустая:
+        # тесты, которым нужен номер из CRM, подменяют эту функцию своей.
+        return 77, True, phone
 
     async def fake_create(**kwargs):
         calls["create"].append(kwargs)
@@ -98,7 +100,11 @@ async def test_sale_goes_to_storefront_once(chain):
 async def test_sale_does_not_publish_order_created(chain):
     """ORDER_CREATED шлёт зеркало /ingest/order — иначе доход посчитают дважды."""
     await sales_ops.register_sale(
-        {"customer_name": "Zarra", "items": [{"product": "горох", "quantity": 10}]}
+        {
+            "customer_name": "Zarra",
+            "phone": "+998881552557",
+            "items": [{"product": "горох", "quantity": 10}],
+        }
     )
     assert chain["events"] == [], f"лишние события: {chain['events']}"
 
@@ -109,6 +115,7 @@ async def test_paid_sale_gets_delivered_status(chain):
     await sales_ops.register_sale(
         {
             "customer_name": "Zarra",
+            "phone": "+998881552557",
             "items": [{"product": "горох", "quantity": 10}],
             "payment_status": "paid",
         }
@@ -127,7 +134,11 @@ async def test_storefront_down_means_sale_not_registered(chain, monkeypatch):
     monkeypatch.setattr(sales_ops.storefront_orders, "create_order", failing_create)
 
     result = await sales_ops.register_sale(
-        {"customer_name": "Zarra", "items": [{"product": "горох", "quantity": 10}]}
+        {
+            "customer_name": "Zarra",
+            "phone": "+998881552557",
+            "items": [{"product": "горох", "quantity": 10}],
+        }
     )
 
     assert result["status"] == "error"
@@ -168,3 +179,66 @@ async def test_customer_card_is_created_before_the_order(chain):
     assert chain["customer"] == [
         {"name": "Zarra Resort", "phone": "+998881552557", "type": "b2b"}
     ]
+
+
+@pytest.mark.asyncio
+async def test_phone_is_taken_from_the_customer_card(chain, monkeypatch):
+    """Менеджер диктует продажу постоянному клиенту без номера — берём из CRM.
+
+    «Зарегистрируй продажу 15 гороха ресторан Жасмин» — обычная формулировка, и
+    телефон у такого клиента давно записан. Раньше карточка находилась по имени,
+    но функция возвращала только id: номер выбрасывался, витрина отвечала 400.
+    """
+
+    async def upsert_with_known_phone(name, phone, ctype, by):
+        chain["customer"].append({"name": name, "phone": phone, "type": ctype})
+        return 77, False, phone or "+998901112233"
+
+    monkeypatch.setattr(sales_ops, "_upsert_customer", upsert_with_known_phone)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Ресторан Жасмин",
+            "customer_type": "b2b",
+            "items": [{"product": "горох", "quantity": 15, "unit_price": 15000}],
+        }
+    )
+
+    assert result["status"] == "ok"
+    assert len(chain["create"]) == 1
+    assert chain["create"][0]["phone"] == "+998901112233"
+
+
+@pytest.mark.asyncio
+async def test_sale_without_any_phone_asks_instead_of_failing(chain):
+    """Телефона нет нигде — спрашиваем, а не отправляем витрине заведомый брак.
+
+    Пустой phone витрина отклоняет с «Shaxsiy ma'lumotlar to'liq emas», и раньше
+    этот узбекский код уходил руководителю вместе с советом «повторите позже» —
+    хотя повтор давал ровно тот же отказ.
+    """
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Новый клиент",
+            "customer_type": "b2b",
+            "items": [{"product": "горох", "quantity": 15, "unit_price": 15000}],
+        }
+    )
+
+    assert result["status"] == "clarify"
+    assert result["data"]["needs"] == "phone"
+    assert "телефон" in result["message"].lower()
+    assert chain["create"] == [], "заведомо отклоняемый заказ витрине не шлём"
+
+
+def test_storefront_refusal_is_explained_in_russian():
+    """Код витрины переводится, и повтор советуется только когда он поможет."""
+    deterministic = sales_ops._storefront_refusal_message(
+        "Shaxsiy ma'lumotlar to'liq emas"
+    )
+    assert "данных клиента" in deterministic
+    assert "тот же отказ" in deterministic
+    assert "ma'lumotlar" not in deterministic, "узбекский код не должен утечь в чат"
+
+    transient = sales_ops._storefront_refusal_message("витрина недоступна (timeout)")
+    assert "повторите" in transient.lower()
