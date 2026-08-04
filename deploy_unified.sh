@@ -9,6 +9,9 @@ set -euo pipefail
 echo "🔄 Деплой: единая база данных"
 echo "================================"
 
+export GHCR_OWNER=${GHCR_OWNER:-radjabovdiyor2-hub}
+export MG_TAG=${MG_TAG:-latest}
+
 # 1. Остановить всё
 echo "⏹️  Останавливаю все сервисы..."
 docker compose -f docker-compose.prod.yml down --timeout 30

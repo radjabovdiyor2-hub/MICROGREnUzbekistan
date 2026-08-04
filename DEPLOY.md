@@ -60,4 +60,9 @@ Actions → Deploy to server → Run workflow) заходит на сервер 
 - `SSH_PORT` — необязательно (по умолчанию 22)
 
 Разово на сервере: `git clone`, `git checkout main`, заполнить `.env`-файлы (их нет в git),
-один раз `docker compose -f docker-compose.prod.yml up -d --build`. Дальше — автоматически.
+один раз запустить деплой. Дальше — автоматически.
+
+## 5. Откат (Rollback)
+
+Для отката на старую версию без пересборки образов:
+`MG_TAG=sha-<старый-sha> docker compose -f docker-compose.prod.yml up -d`
