@@ -1,109 +1,223 @@
-import yaml
-import sys
+"""check_compose.py — сторож инвариантов прод-развёртывания.
+
+Ловит регрессии, которые не видны при чтении диффа и всплывают только на
+сервере. Каждое правило здесь стоит за конкретной аварией:
+
+  * сервис с `build:` без `image:` — compose даёт каждому своё имя образа и
+    собирает один Dockerfile четырнадцать раз подряд; деплой не укладывался
+    в отведённые 28 минут и падал по таймауту;
+  * образ не из GHCR — значит, он собирается на сервере, а неограниченная
+    сборка витрины (npm install + next build, 1,5–2,5 ГБ) выедала память
+    4-гигабайтной машины до OOM;
+  * заниженный `mem_limit` — это порог убийства, а не бюджет: ниже реального
+    потребления контейнер уходит в restart-loop;
+  * `pull` после миграции базы — под `set -e` обрыв скачивания оставлял базу
+    мигрированной, а стек неподнятым.
+
+Запуск из корня репозитория: python scripts/check_compose.py
+"""
+
+from __future__ import annotations
+
+import io
 import re
+import sys
 
-def main():
-    has_errors = False
-    
-    def log_error(msg):
-        nonlocal has_errors
-        has_errors = True
-        print(f"ERROR: {msg}", file=sys.stderr)
+import yaml
 
-    def parse_mem(mem_str):
-        if not mem_str:
-            return 0
-        s = str(mem_str).lower().strip()
-        if s.endswith('g') or s.endswith('gb'):
-            val = s.replace('gb', '').replace('g', '')
-            return int(float(val) * 1024)
-        if s.endswith('m') or s.endswith('mb'):
-            val = s.replace('mb', '').replace('m', '')
-            return int(val)
-        return int(s)
+COMPOSE = "docker-compose.prod.yml"
+DEPLOY_FILES = (".github/workflows/ci.yml", "deploy_unified.sh")
 
-    try:
-        with open('docker-compose.prod.yml', encoding='utf-8') as f:
-            compose_data = yaml.safe_load(f)
-    except Exception as e:
-        log_error(f"Failed to parse docker-compose.prod.yml: {e}")
-        sys.exit(1)
+# Больше четырёх уникальных пар (dockerfile, target) быть не должно: tgas,
+# витрина, builder витрины и витринный бот. Пятая — признак того, что сборку
+# снова размножили по сервисам.
+MAX_UNIQUE_BUILDS = 4
 
-    services = compose_data.get('services', {})
-    
-    unique_builds = set()
-    
-    allowed_external_prefixes = ['pgvector', 'redis', 'nginx', 'certbot']
+# Сторонние образы, которые законно тянутся не из нашего GHCR.
+ALLOWED_EXTERNAL = ("pgvector/", "redis:", "nginx:", "certbot/")
 
-    tgas_services = [
-        'web_office', 'stepan', 'sales', 'support', 'hr', 'finance', 'marketing',
-        'analytics', 'content', 'qa', 'rnd', 'devops', 'franchise', 'n8n_bridge'
-    ]
+# Нижние границы порогов памяти. Поднимать можно (и нужно — по факту замера
+# `docker stats`), опускать нельзя: значения взяты по реальному потреблению.
+MIN_MB = {
+    "postgres": 512,  # shared_buffers 128 МБ ещё до первого подключения
+    "redis": 192,  # форк при RDB-снимке удваивает резидентную память
+    "web": 512,  # рантайм Next.js standalone
+    "bot": 192,  # aiogram + Gemini-клиент + httpx на импортах
+}
 
-    for svc_name, svc_conf in services.items():
-        # Rule 1: if build exists, image must exist
-        if 'build' in svc_conf and 'image' not in svc_conf:
-            log_error(f"Service '{svc_name}' has 'build:' but lacks 'image:'.")
-            
-        # Rule 2: collect unique (dockerfile, target)
-        if 'build' in svc_conf:
-            b = svc_conf['build']
-            if isinstance(b, dict):
-                df = b.get('dockerfile', 'Dockerfile')
-                target = b.get('target', None)
-                unique_builds.add((df, target))
-            else:
-                unique_builds.add((None, None))
-                
-        # Rule 3: image must point to ghcr.io or be allowed external
-        if 'image' in svc_conf:
-            img = svc_conf['image']
-            is_ghcr = img.startswith('ghcr.io')
-            is_allowed_ext = any(img.startswith(prefix) for prefix in allowed_external_prefixes)
-            # handle variables like ghcr.io/${GHCR_OWNER:-radjabovdiyor2-hub}...
-            if not is_ghcr and not is_allowed_ext:
-                log_error(f"Service '{svc_name}' has image '{img}' which is neither ghcr.io nor in allowed external list.")
-                
-        # Rule 5: mem_limit check
-        # postgres < 512m
-        if svc_name == 'postgres':
-            ml = svc_conf.get('mem_limit')
-            if not ml or parse_mem(ml) < 512:
-                log_error(f"Service '{svc_name}' mem_limit is less than 512m (found {ml}).")
-                
-        # tgas services < 192m 
-        if svc_name in tgas_services:
-            ml = svc_conf.get('mem_limit')
-            if ml and parse_mem(ml) < 192:
-                log_error(f"Service '{svc_name}' mem_limit is less than 192m (found {ml}).")
-        
-        # actually x-tgas-bot anchor is merged by pyyaml, so ml WILL be present if inherited.
-        if svc_name in tgas_services and 'mem_limit' in svc_conf:
-             ml = svc_conf['mem_limit']
-             if parse_mem(ml) < 192:
-                 log_error(f"Service '{svc_name}' mem_limit is less than 192m (found {ml}).")
+# Сервисы офиса делят один образ, поэтому и порог общий.
+TGAS_SERVICES = frozenset(
+    {
+        "web_office", "stepan", "sales", "support", "hr", "finance",
+        "marketing", "analytics", "content", "qa", "rnd", "devops",
+        "franchise", "n8n_bridge",
+    }
+)
+TGAS_MIN_MB = 192
+# content лениво импортирует pytrends → pandas при суточном сборе трендов:
+# +60–80 МБ сверх общего профиля.
+TGAS_OVERRIDES = {"content": 256}
 
-    if len(unique_builds) > 4:
-        log_error(f"Number of unique builds in docker-compose.prod.yml is {len(unique_builds)} > 4.")
+FORBIDDEN_SUBSTRINGS = ("up -d --build", "compose build")
 
-    # Rule 4: check ci.yml and deploy_unified.sh for forbidden strings
-    forbidden = ['up -d --build', 'compose build']
-    
-    for file_path in ['.github/workflows/ci.yml', 'deploy_unified.sh']:
+# 512m, 1g, 1.5G, 256M, а также размер числом (compose допускает байты).
+_SIZE_RE = re.compile(r"^(\d+(?:\.\d+)?)\s*([kmg]?)b?$", re.IGNORECASE)
+_UNIT_TO_MB = {"": 1 / 1024 / 1024, "k": 1 / 1024, "m": 1.0, "g": 1024.0}
+
+
+class Checker:
+    def __init__(self) -> None:
+        self.errors: list[str] = []
+
+    def fail(self, message: str) -> None:
+        self.errors.append(message)
+
+    def read(self, path: str) -> str | None:
+        """Читает файл строго как utf-8.
+
+        Явная кодировка обязательна: на Windows дефолт — cp1251, и YAML с
+        кириллицей в комментариях не парсится вовсе.
+        """
         try:
-            with open(file_path, encoding='utf-8') as f:
-                content = f.read()
-                for fb in forbidden:
-                    if fb in content:
-                        log_error(f"Forbidden string '{fb}' found in {file_path}.")
-        except Exception as e:
-            log_error(f"Failed to read {file_path}: {e}")
+            return io.open(path, encoding="utf-8").read()
+        except OSError as exc:
+            self.fail(f"не удалось прочитать {path}: {exc}")
+            return None
 
-    if has_errors:
-        sys.exit(1)
-    else:
-        print("All invariant checks passed.")
-        sys.exit(0)
+    def to_mb(self, value: object, where: str) -> float | None:
+        """Переводит значение mem_limit в мегабайты.
 
-if __name__ == '__main__':
-    main()
+        Разбирать надо все формы. Падение с ValueError на легитимном значении
+        сделало бы сторожа непригодным: поднять порог с `512m` до `1g` после
+        замера стало бы нельзя — CI краснел бы трейсбеком.
+        """
+        if value is None:
+            self.fail(f"{where}: mem_limit не задан")
+            return None
+        if isinstance(value, bool):
+            self.fail(f"{where}: mem_limit имеет неожиданный тип bool")
+            return None
+        if isinstance(value, (int, float)):
+            return float(value) / 1024 / 1024
+        match = _SIZE_RE.match(str(value).strip())
+        if not match:
+            self.fail(f"{where}: mem_limit неразбираем ({value!r})")
+            return None
+        return float(match.group(1)) * _UNIT_TO_MB[match.group(2).lower()]
+
+    def check_limit(self, name: str, conf: dict, minimum: int) -> None:
+        where = f"сервис '{name}'"
+        actual = self.to_mb(conf.get("mem_limit"), where)
+        if actual is not None and actual < minimum:
+            self.fail(
+                f"{where}: mem_limit {conf['mem_limit']} ниже минимума "
+                f"{minimum}m — понижать нельзя, это порог убийства"
+            )
+
+    def check_compose(self) -> None:
+        raw = self.read(COMPOSE)
+        if raw is None:
+            return
+        try:
+            data = yaml.safe_load(raw)
+        except yaml.YAMLError as exc:
+            self.fail(f"{COMPOSE} не парсится: {exc}")
+            return
+
+        services = (data or {}).get("services") or {}
+        builds: set[tuple[str, str | None]] = set()
+
+        for name, conf in services.items():
+            if not isinstance(conf, dict):
+                continue
+
+            build = conf.get("build")
+            if build is not None:
+                if "image" not in conf:
+                    self.fail(
+                        f"сервис '{name}': есть 'build:', но нет 'image:' — "
+                        f"compose соберёт этот Dockerfile отдельно"
+                    )
+                if isinstance(build, dict):
+                    builds.add((build.get("dockerfile", "Dockerfile"), build.get("target")))
+                else:
+                    builds.add((str(build), None))
+
+            image = conf.get("image")
+            if image is not None:
+                image = str(image)
+                if not image.startswith("ghcr.io/") and not image.startswith(ALLOWED_EXTERNAL):
+                    self.fail(
+                        f"сервис '{name}': образ '{image}' не из ghcr.io и не в "
+                        f"списке разрешённых сторонних"
+                    )
+
+            if name in MIN_MB:
+                self.check_limit(name, conf, MIN_MB[name])
+            elif name in TGAS_SERVICES:
+                self.check_limit(name, conf, TGAS_OVERRIDES.get(name, TGAS_MIN_MB))
+
+        if len(builds) > MAX_UNIQUE_BUILDS:
+            listed = ", ".join(sorted(f"{df}:{tgt}" for df, tgt in builds))
+            self.fail(
+                f"{COMPOSE}: уникальных сборок {len(builds)} > {MAX_UNIQUE_BUILDS} "
+                f"({listed})"
+            )
+
+    def check_deploy_scripts(self) -> None:
+        for path in DEPLOY_FILES:
+            raw = self.read(path)
+            if raw is None:
+                continue
+            # Комментарии выкидываем: запрет на `--build` описан словами в этих
+            # же файлах, и без очистки сторож краснел бы на предупреждении о
+            # самом запрете. По той же причине порядок ищем по коду, а не по
+            # тексту — про unify_databases.sql там сказано и в комментарии.
+            code = "\n".join(
+                line for line in raw.splitlines() if not line.lstrip().startswith("#")
+            )
+
+            for bad in FORBIDDEN_SUBSTRINGS:
+                if bad in code:
+                    self.fail(
+                        f"{path}: встречается '{bad}' — сборка на сервере "
+                        f"запрещена, образы приходят из GHCR"
+                    )
+
+            pull = code.find("compose -f docker-compose.prod.yml pull")
+            migration = code.find("unify_databases.sql")
+            if pull == -1:
+                self.fail(f"{path}: нет `docker compose pull` — образы не обновятся")
+            elif migration != -1 and pull > migration:
+                self.fail(
+                    f"{path}: `pull` идёт после unify_databases.sql — под set -e "
+                    f"обрыв скачивания оставит базу мигрированной, а стек лежачим"
+                )
+
+    def run(self) -> int:
+        self.check_compose()
+        self.check_deploy_scripts()
+        if self.errors:
+            for message in self.errors:
+                print(f"ERROR: {message}", file=sys.stderr)
+            print(f"\n[FAIL] нарушено правил: {len(self.errors)}", file=sys.stderr)
+            return 1
+        print("[OK] инварианты развёртывания на месте")
+        return 0
+
+
+def _force_utf8() -> None:
+    """Переводит вывод в utf-8.
+
+    В CI stdout и так utf-8, а на Windows он cp1251: русский текст и галочки
+    роняли бы сам сторож с UnicodeEncodeError. Проверка, которую нельзя
+    запустить локально, перестаёт запускаться вовсе.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+if __name__ == "__main__":
+    _force_utf8()
+    sys.exit(Checker().run())
