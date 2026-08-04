@@ -10,7 +10,25 @@ import { fileURLToPath } from 'node:url';
 //   - populated prod -> skipped (never overwrites admin-edited prices/stock,
 //     which seed.ts's upsert `update` branch would otherwise reset)
 // Safe to run on every deploy. Web does NOT depend on this completing.
+function runSeed(file: string) {
+  // Resolve the sibling script from this module's URL so it's independent
+  // of the launch cwd.
+  const seedPath = fileURLToPath(new URL(file, import.meta.url));
+  execSync(`npx tsx "${seedPath}"`, { stdio: 'inherit' });
+}
+
 async function run() {
+  // ── Справочник культур — ВСЕГДА, отдельно от каталога ──
+  //
+  // Проверка «каталог пуст» тут не подходит: на рабочем проде каталог не пуст,
+  // и весь блок ниже пропускается. Нормы культур при этом остались бы пустыми,
+  // а без них посадка отказывает по КАЖДОЙ культуре («не заданы нормы расхода»)
+  // — то есть производственный цикл не заработал бы после выкладки вообще.
+  //
+  // Сам скрипт идемпотентен: уже существующие (и уточнённые владельцем) нормы
+  // он не трогает, поэтому безопасен на каждом деплое.
+  runSeed('./seed-crop-norms.ts');
+
   const prisma = new PrismaClient();
   let count = 0;
   try {
@@ -25,10 +43,7 @@ async function run() {
   }
 
   console.log('🌱 seed-if-empty: catalog is empty — running full seed…');
-  // Run seed.ts (sibling file) to completion as a subprocess. Resolve its
-  // absolute path from this module's URL so it's independent of the launch cwd.
-  const seedPath = fileURLToPath(new URL('./seed.ts', import.meta.url));
-  execSync(`npx tsx "${seedPath}"`, { stdio: 'inherit' });
+  runSeed('./seed.ts');
 }
 
 run().catch((e) => {

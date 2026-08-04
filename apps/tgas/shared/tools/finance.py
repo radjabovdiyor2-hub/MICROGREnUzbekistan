@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy import text
 
 from shared.database import get_session_ctx
+from shared.tools.crm import NOT_A_SALE
 from shared.tools.registry import Tool, register
 from shared.utils import format_price
 
@@ -93,16 +94,38 @@ async def get_finance_summary(days: int = 30) -> Dict[str, Any]:
     }
 
 
-async def get_pnl(month: Optional[int] = None) -> Dict[str, Any]:
-    """P&L за месяц: выручка по заказам, доходы/расходы, маржа."""
+async def get_pnl(
+    month: Optional[int] = None, year: Optional[int] = None
+) -> Dict[str, Any]:
+    """P&L за месяц: доходы, расходы, прибыль, маржа.
+
+    ⚠️ Две ловушки, на которые этот отчёт уже попадался.
+
+    1. **Год обязателен.** Фильтр был только по номеру месяца, поэтому «декабрь»
+       складывал декабри всех лет разом.
+    2. **`orders_amount` — не доход.** Каждый заказ автоматически пишет строку
+       `income`/`sales` в `finances` (`notifications.finance_on_order_created`),
+       то есть `income` УЖЕ включает выручку по заказам. Сложить их — удвоить
+       доход. Поэтому сумма по заказам возвращается как справочная, с явной
+       пометкой, и в прибыль не входит.
+    """
     async with get_session_ctx() as session:
-        params = {"m": int(month) if month else None}
+        params = {
+            "m": int(month) if month else None,
+            "y": int(year) if year else None,
+        }
+        period = (
+            "EXTRACT(MONTH FROM {col}) = "
+            "COALESCE(CAST(:m AS INTEGER), EXTRACT(MONTH FROM CURRENT_DATE)) "
+            "AND EXTRACT(YEAR FROM {col}) = "
+            "COALESCE(CAST(:y AS INTEGER), EXTRACT(YEAR FROM CURRENT_DATE))"
+        )
         orders = (
             await session.execute(
                 text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
-                    "WHERE EXTRACT(MONTH FROM created_at) = "
-                    "COALESCE(CAST(:m AS INTEGER), EXTRACT(MONTH FROM CURRENT_DATE))"
+                    "WHERE " + period.format(col="created_at") + " "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 ),
                 params,
             )
@@ -111,9 +134,7 @@ async def get_pnl(month: Optional[int] = None) -> Dict[str, Any]:
             await session.execute(
                 text(
                     "SELECT type, COALESCE(SUM(amount), 0) FROM finances "
-                    "WHERE EXTRACT(MONTH FROM date) = "
-                    "COALESCE(CAST(:m AS INTEGER), EXTRACT(MONTH FROM CURRENT_DATE)) "
-                    "GROUP BY type"
+                    "WHERE " + period.format(col="date") + " GROUP BY type"
                 ),
                 params,
             )
@@ -126,6 +147,9 @@ async def get_pnl(month: Optional[int] = None) -> Dict[str, Any]:
     return {
         "orders": orders[0] if orders else 0,
         "orders_amount": float(orders[1]) if orders else 0.0,
+        "orders_amount_note": (
+            "справочно: эта выручка уже входит в income — складывать нельзя"
+        ),
         "income": income,
         "expense": expense,
         "profit": profit,
@@ -206,10 +230,17 @@ register(
 register(
     Tool(
         name="get_pnl",
-        description="P&L за месяц: заказы, доходы, расходы, прибыль, маржа.",
+        description=(
+            "P&L за месяц: доходы, расходы, прибыль, маржа. "
+            "Выручка по заказам возвращается справочно — она уже входит в income, "
+            "складывать их нельзя."
+        ),
         run=get_pnl,
         departments=DEPTS,
-        params={"month": {"type": "number", "description": "Номер месяца, по умолчанию текущий"}},
+        params={
+            "month": {"type": "number", "description": "Номер месяца, по умолчанию текущий"},
+            "year": {"type": "number", "description": "Год, по умолчанию текущий"},
+        },
     )
 )
 

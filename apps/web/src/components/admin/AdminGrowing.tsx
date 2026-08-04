@@ -13,6 +13,7 @@ export function AdminGrowing() {
     setHarvestQty, costPriceInput, setCostPriceInput, harvesting, editingId, setEditingId, customDark,
     setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, handleEdit, addBatch,
     harvestBatch, deleteBatch, writeOffBatch, fmt, enriched, alerts, filtered,
+    requirements, estimatedCost, plantError,
   } = useAdminGrowing();
 
   const statusColors: Record<string, string> = { dark: 'var(--cat-1)', light: 'var(--warning)', ready: 'var(--success)', expired: 'var(--error)', harvested: 'var(--text-muted)' };
@@ -91,6 +92,9 @@ export function AdminGrowing() {
         customShelf={customShelf}
         setCustomShelf={setCustomShelf}
         addBatch={addBatch}
+        requirements={requirements}
+        estimatedCost={estimatedCost}
+        plantError={plantError}
         inputStyle={inputStyle}
       />
 

@@ -2,7 +2,7 @@
 
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { CheckCircle, Leaf, Plus } from 'lucide-react';
-import { CROP_DB, type ProductOption } from './growingData';
+import { CROP_DB, type PlantingRequirement, type ProductOption } from './growingData';
 
 // Форма добавления и правки партии: культура, лоток, даты, цикл.
 // Показывается по флагу showForm и от списка партий не зависит.
@@ -35,10 +35,13 @@ interface Props {
   customShelf: number;
   setCustomShelf: Dispatch<SetStateAction<number>>;
   addBatch: () => void;
+  requirements: PlantingRequirement[];
+  estimatedCost: number;
+  plantError: string;
   inputStyle: CSSProperties;
 }
 
-export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingId, products, selectedProductId, setSelectedProductId, cropType, setCropType, trays, setTrays, seedDate, setSeedDate, harvestQty, setHarvestQty, costPriceInput, setCostPriceInput, note, setNote, customDark, setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, addBatch, inputStyle }: Props) {
+export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingId, products, selectedProductId, setSelectedProductId, cropType, setCropType, trays, setTrays, seedDate, setSeedDate, harvestQty, setHarvestQty, costPriceInput, setCostPriceInput, note, setNote, customDark, setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, addBatch, requirements, estimatedCost, plantError, inputStyle }: Props) {
   return (
     <>
 {/* Add batch form */}
@@ -132,6 +135,38 @@ export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingI
         <div style={{ flex: customShelf, background: 'var(--success)', borderRadius: '0 4px 4px 0' }} title={`Хранение: ${customShelf} дн`} />
       </div>
     </div>
+    {/* Что уйдёт со склада. Показываем ДО посадки: раньше сырьё не
+        списывалось вообще, и нехватка семян выяснялась в теплице. */}
+    {!editingId && (requirements.length > 0 || plantError) && (
+      <div style={{ marginBottom: '12px', padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-tertiary)' }}>
+        {plantError ? (
+          <div style={{ color: 'var(--warning)', fontSize: 'var(--text-sm)' }}>⚠️ {plantError}</div>
+        ) : (
+          <>
+            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 6 }}>
+              Спишется со склада сырья
+            </div>
+            {requirements.map((need) => (
+              <div key={need.kind} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                <span>
+                  {need.label}: {need.required.toLocaleString('ru-RU')} {need.material?.unit ?? ''}
+                </span>
+                <span style={{ color: need.enough ? 'var(--text-secondary)' : 'var(--error)' }}>
+                  {need.material
+                    ? `есть ${need.material.stock.toLocaleString('ru-RU')} ${need.material.unit}`
+                    : 'нет на складе'}
+                </span>
+              </div>
+            ))}
+            {estimatedCost > 0 && (
+              <div style={{ marginTop: 6, fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)' }}>
+                Себестоимость партии ≈ {Math.round(estimatedCost).toLocaleString('ru-RU')} сум
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )}
     <div style={{ display: 'flex', gap: '8px' }}>
       {editingId && (
         <button onClick={() => { setEditingId(null); setShowForm(false); }} className="btn"
@@ -140,6 +175,7 @@ export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingI
         </button>
       )}
       <button onClick={addBatch} className="btn btn-primary"
+        disabled={!editingId && requirements.some((n) => !n.enough)}
         style={{ flex: 2, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
         {editingId ? <CheckCircle size={16} /> : <Plus size={16} />} {editingId ? 'Сохранить изменения' : 'Добавить посадку'}
       </button>

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
 from datetime import datetime
 from typing import Optional
 
@@ -235,49 +234,15 @@ def collapsible(text: str, threshold: int = 550, header: str = "") -> str:
     return f"{head}\n<blockquote expandable>{_html.escape(t)}</blockquote>"
 
 
-def is_valid_uz_phone(phone: str) -> bool:
-    """
-    Проверка узбекистанского номера телефона.
-
-    Допустимые форматы:
-    - +998901234567
-    - +998 90 123 45 67
-    - 998901234567
-    - 901234567
-
-    Args:
-        phone: Строка с номером телефона
-
-    Returns:
-        True если номер валиден
-    """
-    # Убираем всё кроме цифр
-    digits = re.sub(r"\D", "", phone)
-
-    # Проверяем формат
-    if len(digits) == 9 and digits[0] in "97":
-        return True  # 901234567
-    if len(digits) == 12 and digits.startswith("998"):
-        return True  # 998901234567
-    return False
-
-
-def normalize_phone(phone: str) -> str:
-    """
-    Нормализация номера телефона в формат +998XXXXXXXXX.
-
-    Args:
-        phone: Номер в любом формате
-
-    Returns:
-        Нормализованный номер или исходная строка при ошибке
-    """
-    digits = re.sub(r"\D", "", phone)
-
-    if len(digits) == 9 and digits[0] in "97":
-        return f"+998{digits}"
-    if len(digits) == 12 and digits.startswith("998"):
-        return f"+{digits}"
-
-    logger.warning(f"Не удалось нормализовать номер: {phone}")
-    return phone
+# ── Телефон ───────────────────────────────────────────────────────────────
+# Живёт в shared/phone.py — там единственный канон +998XXXXXXXXX и правило
+# сравнения по последним девяти цифрам. Здесь были свои копии `normalize_phone`
+# и `is_valid_uz_phone`; их никто не импортировал, но они существовали рядом с
+# тремя другими копиями и приглашали дописать четвёртую.
+#
+# Реэкспорт оставлен, чтобы `from shared.utils import normalize_phone`
+# не ломался, но новый код должен брать их прямо из shared.phone.
+from shared.phone import (  # noqa: E402,F401  (внизу файла — рядом с бывшими копиями)
+    is_valid_uz as is_valid_uz_phone,
+    normalize as normalize_phone,
+)

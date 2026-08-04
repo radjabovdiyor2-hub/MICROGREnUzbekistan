@@ -107,6 +107,7 @@ def _load() -> None:
         analytics,
         common,
         content,
+        crm,
         finance,
         hr,
         marketing,

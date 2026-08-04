@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Banknote, BarChart, ClipboardList, Clock, RefreshCw, ShoppingCart, Truck,
+  Banknote, BarChart, ClipboardList, Clock, Percent, RefreshCw, ShoppingCart, Truck,
 } from 'lucide-react';
 import type { StatsData } from './statsTypes';
 
@@ -23,20 +23,31 @@ export function AdminStatsRevenue({ stats, fmt }: Props) {
   </h3>
   <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
     <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <ShoppingCart size={12} /> POS: {fmt(stats?.todayPOSRevenue || 0)} сум
+      <ShoppingCart size={12} /> POS: {fmt(stats?.todayGoodsPos || 0)} сум
     </span>
     <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--info-bg)', color: 'var(--info)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <Truck size={12} /> Онлайн (товары): {fmt(stats?.todayOnlineRevenue || 0)} сум
+      <Truck size={12} /> Онлайн (товары): {fmt(stats?.todayGoodsOnline || 0)} сум
     </span>
     {(stats?.todayDeliveryFees || 0) > 0 && (
       <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'color-mix(in srgb, var(--cat-2) 12%, transparent)', color: 'var(--cat-2)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
         <Truck size={12} /> Доставка: {fmt(stats?.todayDeliveryFees || 0)} сум
       </span>
     )}
+    {(stats?.todayDiscount || 0) > 0 && (
+      <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--warning-bg)', color: 'var(--warning)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <Percent size={12} /> Скидки: -{fmt(stats?.todayDiscount || 0)} сум
+      </span>
+    )}
     {(stats?.todayReturnCount || 0) > 0 && (
       <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--error-bg)', color: 'var(--error)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <RefreshCw size={12} /> Возвраты: -{fmt(stats?.todayPOSReturns || 0)} сум
+        <RefreshCw size={12} /> Возвраты: -{fmt(stats?.todayReturns || 0)} сум
       </span>
+    )}
+  </div>
+  <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+    Итого: {fmt(stats?.todayTotalRevenue || 0)} сум
+    {(stats?.todayOrders || 0) + (stats?.todayPOSSales || 0) > 0 && (
+      <> · {(stats?.todayOrders || 0) + (stats?.todayPOSSales || 0)} продаж · средний чек {fmt(stats?.todayAverageCheck || 0)} сум</>
     )}
   </div>
 </div>
@@ -53,8 +64,10 @@ export function AdminStatsRevenue({ stats, fmt }: Props) {
     <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'color-mix(in srgb, var(--cat-5) 12%, transparent)', color: 'var(--cat-5)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
       <Truck size={12} /> Доставляется: {stats?.deliveringOrders || 0}
     </span>
+    {/* За 30 дней, а не «всего»: прежнее «всего» считалось по 20 последним
+        заказам, которые успевали закончиться за один активный день. */}
     <span style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', background: 'var(--success-bg)', color: 'var(--success)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <Banknote size={12} /> Всего онлайн: {fmt(stats?.onlineRevenue || 0)} сум
+      <Banknote size={12} /> За 30 дней: {fmt(stats?.monthRevenue || 0)} сум ({stats?.monthOrders || 0} заказов)
     </span>
   </div>
 </div>

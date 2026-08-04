@@ -26,10 +26,8 @@ import logging
 import re
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import text
-
-from shared import catalog_repo, storefront_orders
-from shared.database import get_session_ctx
+from shared import catalog_repo, customer_repo, storefront_orders
+from shared.phone import normalize as normalize_phone
 from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
@@ -38,18 +36,6 @@ logger = logging.getLogger(__name__)
 # Нужен, потому что каждое сообщение в чате проходит через LLM независимо, и
 # «Степан зарегистрируй продажу…» + «мы уже продали» легко порождают два вызова.
 DEDUPE_WINDOW_MINUTES = 15
-
-
-def normalize_phone(raw: Optional[str]) -> Optional[str]:
-    """+998 88 155-25-57 → +998881552557. Возвращает None, если это не телефон."""
-    if not raw:
-        return None
-    digits = re.sub(r"\D", "", str(raw))
-    if len(digits) < 7:
-        return None
-    if len(digits) == 9:  # 881552557 — узбекский номер без кода страны
-        digits = "998" + digits
-    return "+" + digits
 
 
 def _to_float(value: Any) -> Optional[float]:
@@ -205,72 +191,26 @@ async def _upsert_customer(
     phone: Optional[str],
     customer_type: str,
     registered_by: str,
+    customer_id: Optional[int] = None,
+    match_by_name: bool = True,
 ) -> tuple[Optional[int], bool, Optional[str]]:
-    """Найти или завести карточку клиента в CRM.
+    """Завести карточку клиента продажи. Возвращает (id, создана ли, телефон).
 
-    Возвращает (id, создана ли, известный телефон).
-
-    Телефон возвращается намеренно: витрина требует его обязательно, а менеджер
-    диктует продажу постоянному клиенту без номера — «15 гороха ресторан Жасмин».
-    Раньше найденная карточка отдавала только id, номер из неё выбрасывался, и
-    заказ падал с «Shaxsiy ma'lumotlar to'liq emas» при том, что телефон лежал
-    в строке, которую эта же функция только что прочитала.
+    Сам поиск живёт в `shared/customer_repo` — он один на весь офис. Здесь
+    остаётся только то, что знает именно продажа: тип клиента (b2b/b2c),
+    статус «активный» вместо лида и пометка, кто продажу зарегистрировал.
     """
-    async with get_session_ctx() as session:
-        customer_id = None
-        known_phone = None
-        if phone:
-            customer_id = (
-                await session.execute(
-                    text("SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"),
-                    {"p": phone},
-                )
-            ).scalar()
-        if not customer_id:
-            row = (
-                await session.execute(
-                    text(
-                        "SELECT id, phone FROM customers "
-                        "WHERE name ILIKE :n OR company_name ILIKE :n "
-                        "ORDER BY id LIMIT 1"
-                    ),
-                    {"n": customer_name},
-                )
-            ).first()
-            if row:
-                customer_id, known_phone = row[0], normalize_phone(row[1])
-
-        if customer_id:
-            await session.execute(
-                text(
-                    "UPDATE customers SET phone = COALESCE(phone, :p), "
-                    "name = COALESCE(NULLIF(name, ''), :n) WHERE id = :cid"
-                ),
-                {"p": phone, "n": customer_name, "cid": customer_id},
-            )
-            await session.commit()
-            return customer_id, False, phone or known_phone
-
-        customer_id = (
-            await session.execute(
-                text(
-                    "INSERT INTO customers (name, company_name, phone, customer_type, "
-                    "company_type, status, source, notes) "
-                    "VALUES (:n, :company, :p, :ctype, :company_type, 'active', 'manual', :notes) "
-                    "RETURNING id"
-                ),
-                {
-                    "n": customer_name,
-                    "company": customer_name if customer_type == "b2b" else None,
-                    "p": phone,
-                    "ctype": customer_type,
-                    "company_type": "restaurant" if customer_type == "b2b" else None,
-                    "notes": f"Заведён при регистрации продажи ({registered_by})",
-                },
-            )
-        ).scalar()
-        await session.commit()
-        return customer_id, True, phone
+    saved = await customer_repo.upsert(
+        customer_id=customer_id,
+        name=customer_name,
+        raw_phone=phone,
+        customer_type=customer_type,
+        status="active",
+        source="manual",
+        notes=f"Заведён при регистрации продажи ({registered_by})",
+        match_by_name=match_by_name,
+    )
+    return saved["id"], saved["created"], saved["phone"]
 
 
 # Витрина отвечает по-узбекски (её язык интерфейса), а сообщение уходит
@@ -305,6 +245,79 @@ def _storefront_refusal_message(error: str) -> str:
         f"Заказы заводит витрина — мимо неё писать нельзя, иначе продажи не "
         f"будет ни на сайте, ни в остатках. {tail}"
     )
+
+
+async def _known_customer(
+    params: Dict[str, Any],
+    customer_name: str,
+    phone: Optional[str],
+    customer_type: str,
+    payment_status: str,
+    order_status: str,
+    notes: str,
+    items: List[Dict[str, Any]],
+) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """
+    Опознать клиента до создания чего-либо.
+
+    Возвращает (карточка или None, ответ-уточнение или None). Уточнение
+    возникает ровно в одном случае — под запрос подходит несколько карточек.
+    Выбрать первую было бы хуже всего: продажа ушла бы не тому клиенту молча,
+    и заметили бы это только при разборе долгов.
+    """
+    # Руководитель уже выбрал карточку кнопкой — второй раз не ищем: поиск по
+    # тому же имени снова дал бы список, и уточнение зациклилось бы.
+    picked = params.get("customer_id")
+    if picked:
+        try:
+            found = await customer_repo.by_id(int(picked))
+        except (TypeError, ValueError):
+            found = None
+        if found:
+            return found, None
+
+    # «Это новый клиент» — тоже ответ руководителя. Без этого флага поиск снова
+    # нашёл бы те же карточки и задал бы тот же вопрос по кругу.
+    if params.get("force_new_customer"):
+        return None, None
+
+    match = await customer_repo.resolve(customer_name, phone)
+    if "customer" in match:
+        return match["customer"], None
+
+    candidates = match.get("candidates") or []
+    if candidates:
+        return None, {
+            "status": "clarify",
+            "message": (
+                f"Под «{customer_name}» подходит несколько клиентов. "
+                f"Кому продали? Выберите ниже 👇"
+            ),
+            "data": {
+                "needs": "customer",
+                "candidates": [
+                    {
+                        "id": c["id"],
+                        "name": c["name"],
+                        "phone": c["phone_display"],
+                        "customer_type": c["customer_type"],
+                        "orders_count": c["orders_count"],
+                    }
+                    for c in candidates
+                ],
+                "pending": {
+                    "customer_name": customer_name,
+                    "phone": phone,
+                    "customer_type": customer_type,
+                    "payment_status": payment_status,
+                    "status": order_status,
+                    "notes": notes,
+                    "items": items,
+                },
+            },
+        }
+
+    return None, None
 
 
 def _clarify_message(
@@ -450,22 +463,27 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                 "data": {"order_number": already},
             }
 
-        # ── 3. Карточка клиента в CRM ──
-        # Заводим ДО заказа: зеркало витрины ищет клиента по телефону и, найдя
-        # нашу карточку, дополнит её вместо создания второй, уже как b2c.
-        # Тип клиента и компания известны только здесь.
-        customer_id, customer_created, known_phone = await _upsert_customer(
-            customer_name, phone, customer_type, registered_by
+        # ── 3. Клиент: сначала ОПОЗНАТЬ, потом заводить ──
+        # Порядок здесь важнее, чем кажется. Раньше карточка заводилась первой,
+        # а искалась точным совпадением имени: «Ресторан Жасмин» не находил
+        # «Жасмин», и каждая продажа тому же ресторану плодила новую карточку и
+        # заново спрашивала телефон. Теперь поиск идёт через customer_repo —
+        # нечёткий, с транслитерацией и по значащим словам названия.
+        known, ask_which = await _known_customer(
+            params, customer_name, phone, customer_type, payment_status,
+            order_status, notes, items,
         )
+        if ask_which:
+            return ask_which
 
         # ── 3a. Телефон обязателен для витрины ──
         # По нему она связывает заказ с пользователем (`user.upsert where phone`),
         # поэтому пустой номер = отказ 400. Менеджер диктует продажу постоянному
         # клиенту без номера, и это нормально: берём его из карточки CRM.
-        # Если нет и там — спрашиваем прямо. Раньше здесь уходил заказ с phone=""
-        # и возвращался узбекский текст витрины, в котором не сказано, чего не
-        # хватает; повторный вызов давал ровно тот же отказ.
-        phone = phone or known_phone
+        # Спрашиваем ДО создания карточки: отказ на этом шаге раньше оставлял в
+        # базе клиента без телефона, и следующая попытка с чуть иным написанием
+        # имени добавляла к нему второго такого же сироту.
+        phone = phone or (known or {}).get("phone")
         if not phone:
             return {
                 "status": "clarify",
@@ -487,6 +505,19 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                     },
                 },
             }
+
+        # ── 3b. Карточка клиента в CRM ──
+        # Заводим ДО заказа: зеркало витрины ищет клиента по телефону и, найдя
+        # нашу карточку, дополнит её вместо создания второй, уже как b2c.
+        # Тип клиента и компания известны только здесь.
+        customer_id, customer_created, _ = await _upsert_customer(
+            customer_name,
+            phone,
+            customer_type,
+            registered_by,
+            customer_id=(known or {}).get("id"),
+            match_by_name=not params.get("force_new_customer"),
+        )
 
         # ── 4. Заказ создаёт витрина ──
         # Один вызов даёт номер, списание остатка, уведомления и зеркало в CRM

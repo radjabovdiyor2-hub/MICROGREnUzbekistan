@@ -103,6 +103,70 @@ ${itemsList}
   }
 }
 
+/**
+ * Продажа в точке — в CRM офиса.
+ *
+ * Касса не создаёт `orders`: она пишет складские движения и, при продаже в
+ * долг, строку долга. Из-за этого POS был невидим для офиса целиком — ни
+ * Стёпан, ни финансы, ни аналитика отделов о нём не знали, а в P&L выручка
+ * магазина не попадала вовсе.
+ *
+ * Мост тот же, что у онлайн-заказа: `/ingest/order` создаёт `crm_orders` и
+ * публикует ORDER_CREATED, откуда финансы записывают доход. Двойного счёта
+ * не возникает — витринные отчёты считают кассу по складским движениям
+ * (lib/revenue), а офисные по `crm_orders`; пересечения между таблицами нет.
+ *
+ * Best-effort, как и для онлайн-заказа: недоступный офис не должен ломать
+ * продажу за прилавком.
+ */
+export async function notifyOfficePosSale(sale: {
+  saleNumber: string;
+  total: number;
+  paymentMethod: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  items: { productId: string; name: string; quantity: number; price: number }[];
+}) {
+  const url = process.env.OFFICE_INGEST_URL;
+  if (!url) return;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
+      },
+      body: JSON.stringify({
+        order_number: sale.saleNumber,
+        customer: {
+          name: sale.customerName || 'Покупатель в магазине',
+          phone: sale.customerPhone || null,
+        },
+        total_amount: sale.total,
+        delivery_fee: 0,
+        discount_amount: 0,
+        payment_method: sale.paymentMethod,
+        delivery_address: 'Продажа в магазине',
+        items_summary: sale.items.map((i) => `${i.name} x${i.quantity}`).join(', '),
+        items: sale.items.map((i) => ({
+          storefront_id: i.productId,
+          name: i.name,
+          quantity: i.quantity,
+          price: i.price,
+        })),
+        notes: 'Продажа в магазине (POS)',
+      }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) throw new Error(`Office CRM returned status ${response.status}`);
+  } catch (err) {
+    console.error('POS sale not mirrored to office CRM (sale still recorded):', err);
+    audit({ action: 'pos.crm_sync.failed', target: sale.saleNumber });
+    inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'crm' });
+  }
+}
+
 // Bridge the order into the tgas AI-office CRM.
 // The database is shared, but the tables are not: the storefront owns `orders`,
 // while the bots and the office dashboard read the CRM mirror (`crm_orders`).

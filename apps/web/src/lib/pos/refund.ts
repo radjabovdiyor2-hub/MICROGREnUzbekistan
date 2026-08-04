@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'crypto';
-import { prisma, Prisma } from '@repo/database';
+import { prisma } from '@repo/database';
 
 // Возврат товара. Вынесено из api/inventory/pos/route.ts.
 
@@ -40,35 +40,33 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
   const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
   const returnNumber = `R-${dateStr}-${rand}`;
 
-  // Execute return in a transaction
-  const operations: Prisma.PrismaPromise<unknown>[] = [];
-
-  for (const item of items as { productId: string; quantity: number; price: number }[]) {
-    // Create RETURN stock movement (IN type, positive quantity)
-    operations.push(
-      prisma.stockMovement.create({
+  await prisma.$transaction(async (tx) => {
+    for (const item of items as { productId: string; quantity: number; price: number }[]) {
+      await tx.stockMovement.create({
         data: {
           productId: item.productId,
           type: 'IN',
           quantity: Math.abs(item.quantity),
           reason: `Qaytarish (${returnNumber}): ${reason || "Sabab ko'rsatilmagan"}`,
           performedBy: performedBy || 'Egasi',
+          // costPrice не ставим намеренно: возврат не должен попадать в
+          // расчёт себестоимости закупок как «приход по цене».
           costPrice: null,
+          // А вот salePrice ставим — по нему считается сумма возврата.
+          // Без него отчёты пересчитывали возврат по СЕГОДНЯШНЕМУ прайсу,
+          // и после смены цены сумма возврата менялась задним числом.
+          salePrice: item.price,
         },
-      })
-    );
+      });
 
-    // Restore stock
-    const product = productMap.get(item.productId)!;
-    operations.push(
-      prisma.product.update({
+      // Прибавляем, а не пишем абсолютное значение, посчитанное до начала
+      // транзакции: два одновременных возврата иначе затирали друг друга.
+      await tx.product.update({
         where: { id: item.productId },
-        data: { stock: product.stock + item.quantity },
-      })
-    );
-  }
-
-  await prisma.$transaction(operations);
+        data: { stock: { increment: Math.abs(item.quantity) } },
+      });
+    }
+  });
 
   // Send Telegram notification to admin (fire-and-forget)
   const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;

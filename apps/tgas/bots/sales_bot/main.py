@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
-from shared import catalog_repo, storefront_orders
+from shared import catalog_repo, customer_repo, storefront_orders
 from shared.utils import format_price
 from shared.config import settings
 from shared.database import init_db
@@ -618,42 +618,20 @@ async def handle_task_created(payload: dict):
             from sqlalchemy import text
 
             async with get_session_ctx() as session:
-                # Ищем или создаем клиента
-                customer_id = None
-                if phone:
-                    customer_id = (
-                        await session.execute(
-                            text(
-                                "SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"
-                            ),
-                            {"p": phone},
-                        )
-                    ).scalar()
-                if not customer_id and customer_name:
-                    customer_id = (
-                        await session.execute(
-                            text(
-                                "SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n ORDER BY id LIMIT 1"
-                            ),
-                            {"n": customer_name},
-                        )
-                    ).scalar()
-
-                if not customer_id:
-                    # Создаем нового клиента с типом lead
-                    customer_id = (
-                        await session.execute(
-                            text(
-                                "INSERT INTO customers (name, phone, customer_type, status, source, notes, created_at, updated_at) "
-                                "VALUES (:n, :p, 'b2c', 'lead', 'instagram', :notes, NOW(), NOW()) RETURNING id"
-                            ),
-                            {
-                                "n": customer_name,
-                                "p": phone,
-                                "notes": f"Заведен при обработке IG-заказа по задаче #{task_id}",
-                            },
-                        )
-                    ).scalar()
+                # Клиент — через shared/customer_repo: он один на весь офис.
+                # Здесь была своя копия поиска, сравнивавшая имя точным
+                # `ILIKE :n` без процентов, поэтому IG-заказ от постоянного
+                # клиента заводил ему очередную карточку.
+                customer_id = (
+                    await customer_repo.upsert(
+                        session=session,
+                        name=customer_name,
+                        raw_phone=phone,
+                        status="lead",
+                        source="instagram",
+                        notes=f"Заведен при обработке IG-заказа по задаче #{task_id}",
+                    )
+                )["id"]
 
                 # Пытаемся отправить заказ в реальный магазин storefront
                 storefront_success = False
@@ -874,41 +852,17 @@ async def bus_process_ig_order(params: dict) -> dict:
                 )
 
         async with get_session_ctx() as session:
-            # Ищем или создаем клиента
-            customer_id = None
-            if phone:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "SELECT id FROM customers WHERE phone = :p ORDER BY id LIMIT 1"
-                        ),
-                        {"p": phone},
-                    )
-                ).scalar()
-            if not customer_id and customer_name:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "SELECT id FROM customers WHERE name ILIKE :n OR company_name ILIKE :n ORDER BY id LIMIT 1"
-                        ),
-                        {"n": customer_name},
-                    )
-                ).scalar()
-
-            if not customer_id:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO customers (name, phone, customer_type, status, source, notes, created_at, updated_at) "
-                            "VALUES (:n, :p, 'b2c', 'lead', 'instagram', :notes, NOW(), NOW()) RETURNING id"
-                        ),
-                        {
-                            "n": customer_name,
-                            "p": phone,
-                            "notes": "Заведен авто-процессом IG-заказа",
-                        },
-                    )
-                ).scalar()
+            # Тот же общий upsert, что и в ручной обработке IG-заказа выше.
+            customer_id = (
+                await customer_repo.upsert(
+                    session=session,
+                    name=customer_name,
+                    raw_phone=phone,
+                    status="lead",
+                    source="instagram",
+                    notes="Заведен авто-процессом IG-заказа",
+                )
+            )["id"]
 
             # Пытаемся отправить в реальный магазин
             storefront_success = False

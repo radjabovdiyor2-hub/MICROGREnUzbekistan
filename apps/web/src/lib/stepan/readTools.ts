@@ -4,37 +4,38 @@
 import { prisma } from '@repo/database';
 import { getSettings } from '@/lib/settings/store';
 import { officeFetch } from '@/lib/office/client';
+import { loadSalesLedger, startOfLocalDay } from '@/lib/revenue/salesLedger';
+import { summarize } from '@/lib/revenue/summary';
 import { type ReadTool } from './toolTypes';
 
 /** Сводки: бизнес, склад, финансы, боты, обучения, расход на ИИ. */
 export const READ_TOOLS_SUMMARY: ReadTool[] = [
   {
     name: 'get_business_summary',
-    description: 'Сводка за сегодня: онлайн-заказы, продажи в магазине (POS), выручка, новые клиенты.',
+    description: 'Сводка за сегодня: онлайн-заказы, продажи в магазине (POS), выручка, прибыль, новые клиенты.',
     params: {},
     runtimes: ['web', 'tg'],
     run: async () => {
-      const since = new Date();
-      since.setHours(0, 0, 0, 0);
-
-      const [orders, revenueAgg, posAgg, newUsers, pending] = await Promise.all([
-        prisma.order.count({ where: { createdAt: { gte: since } } }),
-        prisma.order.aggregate({
-          where: { createdAt: { gte: since }, status: { not: 'CANCELLED' } },
-          _sum: { total: true },
-        }),
-        prisma.stockMovement.aggregate({
-          where: { createdAt: { gte: since }, type: 'OUT' },
-          _sum: { quantity: true },
-        }),
+      // Сводка идёт из общего реестра продаж (lib/revenue). Раньше здесь было
+      // своё определение, и Стёпан докладывал владельцу цифры, не совпадающие
+      // с админкой: «продажи в магазине (POS)» считались по ВСЕМ движениям OUT
+      // и потому включали онлайн-заказы, а выручка не включала кассу вовсе.
+      const since = startOfLocalDay();
+      const [ledger, newUsers, pending] = await Promise.all([
+        loadSalesLedger(since),
         prisma.user.count({ where: { createdAt: { gte: since } } }),
         prisma.order.count({ where: { status: 'PENDING' } }),
       ]);
+      const today = summarize(ledger, since);
 
       return {
-        ordersToday: orders,
-        revenueToday: Number(revenueAgg._sum.total ?? 0),
-        posUnitsToday: Math.abs(Number(posAgg._sum.quantity ?? 0)),
+        ordersToday: today.orders,
+        revenueToday: today.revenue,
+        posSalesToday: today.posSales,
+        posUnitsToday: ledger.sales
+          .filter((s) => s.channel === 'pos')
+          .reduce((sum, s) => sum + s.quantity, 0),
+        profitToday: today.profit,
         newCustomersToday: newUsers,
         pendingOrders: pending,
       };

@@ -1,26 +1,38 @@
+// ══════════════════════════════════════════════════════════════════════
+// Числа «Сводки». Все до одного приходят из ОДНОГО расчёта
+// (/api/inventory/analytics?section=revenue → lib/revenue).
+//
+// Раньше их собирали четыре разных эндпоинта с разными границами суток и
+// разными фильтрами, и они не могли сойтись в принципе: плитка «Выручка за
+// сегодня» показывала 1 200 000 при разбивке 0 + 600 000 + 50 000.
+// ══════════════════════════════════════════════════════════════════════
+
 export interface StatsData {
-  // Online orders
-  totalOrders: number;
-  todayOrders: number;
-  onlineRevenue: number;
-  todayOnlineRevenue: number;
-  totalDeliveryFees: number;
-  todayDeliveryFees: number;
-  // POS sales
-  todayPOSSales: number;
-  todayPOSRevenue: number;
-  todayPOSReturns: number;
-  todayReturnCount: number;
-  // Combined (from analytics — already adjusted for returns)
+  /** Итог дня: goods + доставка − скидки − возвраты. */
   todayTotalRevenue: number;
+  /** Слагаемые итога — обязаны складываться в todayTotalRevenue. */
+  todayGoodsPos: number;
+  todayGoodsOnline: number;
+  todayDeliveryFees: number;
+  todayDiscount: number;
+  todayReturns: number;
+
   todayCost: number;
   todayProfit: number;
   todayMargin: number;
-  todayReturns: number;
-  // Products
-  totalProducts: number;
-  activeProducts: number;
-  // Order statuses
+
+  todayOrders: number;
+  todayPOSSales: number;
+  todayReturnCount: number;
+  todayUnits: number;
+  todayAverageCheck: number;
+
+  /** За 30 дней — «всего» по 20 последним заказам смысла не имело. */
+  monthRevenue: number;
+  monthOrders: number;
+  monthGoodsOnline: number;
+
   pendingOrders: number;
   deliveringOrders: number;
+  activeProducts: number;
 }

@@ -359,9 +359,14 @@ async def on_publish(callback: CallbackQuery, state: FSMContext):
         )
         return
 
-    pending["items"][int(sale_index)]["product_id"] = (result.get("data") or {}).get(
-        "product_id"
-    )
+    # Продаже нужен ключ ВИТРИНЫ (cuid) — заказ создаёт она. Здесь стоял
+    # `product_id`, а это целочисленный id зеркала `crm_products`: по нему
+    # `catalog_repo.by_id` ничего не находил, и продажа спасалась только тем,
+    # что дальше искала товар по названию.
+    created = result.get("data") or {}
+    pending["items"][int(sale_index)]["product_id"] = created.get(
+        "storefront_id"
+    ) or created.get("product_id")
     sale_result = await run_sale(pending)
     await drop_pending(sale_token)
     await answer_sale_result(callback.message, sale_result)

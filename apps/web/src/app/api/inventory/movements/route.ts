@@ -3,7 +3,15 @@ import { prisma } from '@repo/database';
 
 // ==========================================
 // Stock Movements API — Inventory Operations
+//
+// Журнал движений — источник правды для остатка и для выручки кассы
+// (lib/revenue считает по нему продажи в точке). Поэтому запись сюда идёт
+// только вместе с изменением остатка, в одной транзакции, и только
+// относительными операциями.
 // ==========================================
+
+/** Остатка не хватило — откатывает транзакцию и превращается в 400. */
+class NotEnoughStockError extends Error {}
 
 // GET — List stock movements with filters
 export async function GET(request: NextRequest) {
@@ -64,56 +72,80 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tovar topilmadi" }, { status: 404 });
     }
 
-    // Calculate new stock
-    let stockChange = 0;
-    let newStock = product.stock;
+    // ── Остаток меняем ВНУТРИ транзакции, относительной операцией ──
+    //
+    // Раньше новое значение считалось в JS из чтения, сделанного до
+    // транзакции, и записывалось абсолютом. Два одновременных прихода читали
+    // один остаток и оба писали одно и то же — половина товара пропадала.
+    // Проверка «не уйти в минус» по той же причине не срабатывала при гонке.
+    //
+    // ADJUSTMENT — исключение: это инвентаризация, её смысл именно в том,
+    // чтобы поставить остаток равным пересчитанному вручную.
+    let movement;
+    let newStock: number;
+    try {
+      const result = await prisma.$transaction(async (tx) => {
+        let delta = 0;
+        let after: number;
 
-    switch (type) {
-      case 'IN':
-      case 'RETURN':
-        stockChange = Math.abs(quantity);
-        newStock = product.stock + stockChange;
-        break;
-      case 'OUT':
-      case 'WRITE_OFF':
-        stockChange = -Math.abs(quantity);
-        newStock = product.stock + stockChange;
-        if (newStock < 0) {
-          return NextResponse.json({
-            error: `Omborda yetarli tovar yo'q. Mavjud: ${product.stock}, So'ralgan: ${Math.abs(quantity)}`,
-          }, { status: 400 });
+        if (type === 'ADJUSTMENT') {
+          const target = Math.max(0, Math.floor(Number(quantity)));
+          const current = await tx.product.findUnique({
+            where: { id: productId },
+            select: { stock: true },
+          });
+          delta = target - (current?.stock ?? 0);
+          await tx.product.update({ where: { id: productId }, data: { stock: target } });
+          after = target;
+        } else if (type === 'IN' || type === 'RETURN') {
+          delta = Math.abs(quantity);
+          const updated = await tx.product.update({
+            where: { id: productId },
+            data: { stock: { increment: delta } },
+            select: { stock: true },
+          });
+          after = updated.stock;
+        } else {
+          delta = -Math.abs(quantity);
+          const decremented = await tx.product.updateMany({
+            where: { id: productId, stock: { gte: Math.abs(quantity) } },
+            data: { stock: { decrement: Math.abs(quantity) } },
+          });
+          if (decremented.count === 0) throw new NotEnoughStockError();
+          const fresh = await tx.product.findUnique({
+            where: { id: productId },
+            select: { stock: true },
+          });
+          after = fresh?.stock ?? 0;
         }
-        break;
-      case 'ADJUSTMENT':
-        // quantity = new absolute stock value
-        stockChange = quantity - product.stock;
-        newStock = quantity;
-        break;
-    }
 
-    // Execute in transaction
-    const [movement] = await prisma.$transaction([
-      prisma.stockMovement.create({
-        data: {
-          productId,
-          type: type as 'IN' | 'OUT' | 'ADJUSTMENT' | 'RETURN' | 'WRITE_OFF',
-          quantity: stockChange,
-          reason: reason || null,
-          note: note || null,
-          supplierId: supplierId || null,
-          costPrice: costPrice || null,
-          orderId: orderId || null,
-          performedBy: performedBy || null,
-        },
-        include: {
-          product: { select: { nameUz: true, stock: true } },
-        },
-      }),
-      prisma.product.update({
-        where: { id: productId },
-        data: { stock: newStock },
-      }),
-    ]);
+        const created = await tx.stockMovement.create({
+          data: {
+            productId,
+            type: type as 'IN' | 'OUT' | 'ADJUSTMENT' | 'RETURN' | 'WRITE_OFF',
+            quantity: delta,
+            reason: reason || null,
+            note: note || null,
+            supplierId: supplierId || null,
+            costPrice: costPrice || null,
+            orderId: orderId || null,
+            performedBy: performedBy || null,
+          },
+          include: { product: { select: { nameUz: true, stock: true } } },
+        });
+
+        return { created, after };
+      });
+      movement = result.created;
+      newStock = result.after;
+    } catch (err) {
+      if (err instanceof NotEnoughStockError) {
+        return NextResponse.json({
+          error: `Omborda yetarli tovar yo'q. Mavjud: ${product.stock}, So'ralgan: ${Math.abs(quantity)}`,
+        }, { status: 400 });
+      }
+      throw err;
+    }
 
     // Check if low stock alert needed
     let alert = null;
@@ -149,28 +181,64 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE — Remove movement(s)
+// DELETE — исправление ошибочного движения ОБРАТНОЙ проводкой.
+//
+// ⚠️ Удаления больше нет, и это осознанно.
+//
+// Раньше здесь было два удаления, оба разрушительные:
+//   • `?clear=all` стирал ВЕСЬ журнал движений одним запросом, не трогая
+//     остатки. Вся выручка кассы считается из этого журнала — после такого
+//     вызова она обнулялась задним числом за всю историю. Доступ: уровень
+//     STAFF, то есть любой продавец.
+//   • удаление одиночного движения оставляло остаток изменённым, и склад
+//     переставал сходиться с журналом навсегда.
+//
+// Правильное исправление ошибки — не стереть запись, а провести обратную:
+// журнал остаётся полным, остаток возвращается к верному значению.
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    const clearAll = searchParams.get('clear');
 
-    if (clearAll === 'all') {
-      // Clear all movements (history only — stock unchanged)
-      const result = await prisma.stockMovement.deleteMany({});
-      return NextResponse.json({ success: true, deleted: result.count });
+    if (searchParams.get('clear') === 'all') {
+      return NextResponse.json({
+        error:
+          'Массовое удаление журнала отключено: из него считается выручка. ' +
+          'Ошибочное движение исправляется обратной проводкой.',
+      }, { status: 400 });
     }
 
     if (!id) {
       return NextResponse.json({ error: 'ID kerak' }, { status: 400 });
     }
 
-    // Delete single movement (history only — stock unchanged)
-    await prisma.stockMovement.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    const original = await prisma.stockMovement.findUnique({ where: { id } });
+    if (!original) {
+      return NextResponse.json({ error: 'Harakat topilmadi' }, { status: 404 });
+    }
+
+    const reversal = await prisma.$transaction(async (tx) => {
+      // quantity хранится со знаком: приход положительный, расход
+      // отрицательный. Обратная проводка — тот же модуль с обратным знаком.
+      await tx.product.update({
+        where: { id: original.productId },
+        data: { stock: { increment: -original.quantity } },
+      });
+      return tx.stockMovement.create({
+        data: {
+          productId: original.productId,
+          type: original.quantity > 0 ? 'OUT' : 'IN',
+          quantity: -original.quantity,
+          reason: `Сторно движения ${original.id}`,
+          note: original.reason,
+          performedBy: 'System',
+        },
+      });
+    });
+
+    return NextResponse.json({ success: true, reversal });
   } catch (error) {
-    console.error('Delete movement error:', error);
+    console.error('Reverse movement error:', error);
     return NextResponse.json({ error: 'Xatolik yuz berdi' }, { status: 500 });
   }
 }

@@ -1,8 +1,10 @@
 import { prisma } from '@repo/database';
+import { loadSalesLedger } from '@/lib/revenue/salesLedger';
+import { demandByProduct } from '@/lib/revenue/summary';
 
 // Вынесено из api/inventory/analytics/route.ts: файл перерос 200 строк,
 // а в route.ts Next.js разрешает экспортировать только HTTP-обработчики.
-// Каждая секция считается независимо — роут остался диспетчером.
+// Спрос считается по общему реестру продаж (lib/revenue), а не своим запросом.
 
 /** ABC-XYZ: вклад в выручку против стабильности спроса. */
 export async function loadAbcXyz() {
@@ -23,28 +25,15 @@ export async function loadAbcXyz() {
     allMonthlyData.set(product.id, [0, 0, 0]);
   }
 
+  // Один проход по базе на все три месяца. Раньше здесь складывались позиции
+  // заказов И все движения OUT — онлайн-продажа считалась дважды, и товар
+  // попадал в класс A по удвоенной выручке.
+  const ledger = await loadSalesLedger(monthRanges[0].start, monthRanges[2].end);
   for (let mi = 0; mi < 3; mi++) {
     const { start, end } = monthRanges[mi];
-    const [oSales, pSales] = await Promise.all([
-      prisma.orderItem.groupBy({
-        by: ['productId'],
-        where: { order: { createdAt: { gte: start, lte: end }, status: { not: 'CANCELLED' } } },
-        _sum: { quantity: true },
-      }),
-      prisma.stockMovement.groupBy({
-        by: ['productId'],
-        where: { type: 'OUT', createdAt: { gte: start, lte: end } },
-        _sum: { quantity: true },
-      }),
-    ]);
-
-    for (const s of oSales) {
-      const arr = allMonthlyData.get(s.productId);
-      if (arr) arr[mi] += s._sum.quantity || 0;
-    }
-    for (const s of pSales) {
-      const arr = allMonthlyData.get(s.productId);
-      if (arr) arr[mi] += Math.abs(s._sum.quantity || 0);
+    for (const [productId, stats] of demandByProduct(ledger, start, end)) {
+      const arr = allMonthlyData.get(productId);
+      if (arr) arr[mi] += stats.sold;
     }
   }
 

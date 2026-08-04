@@ -1,8 +1,13 @@
 import { prisma } from '@repo/database';
+import { loadSalesLedger } from '@/lib/revenue/salesLedger';
+import { demandByProduct } from '@/lib/revenue/summary';
 
 // Вынесено из api/inventory/analytics/route.ts: файл перерос 200 строк,
 // а в route.ts Next.js разрешает экспортировать только HTTP-обработчики.
-// Каждая секция считается независимо — роут остался диспетчером.
+//
+// ⚠️ Спрос берётся из lib/revenue. Раньше складывались позиции заказов И все
+// движения OUT, то есть онлайн-продажа считалась дважды — прогноз видел
+// удвоенный спрос и систематически завышал рекомендованную закупку.
 
 /** Прогноз спроса по взвешенному скользящему среднему. */
 export async function loadForecast() {
@@ -12,8 +17,8 @@ export async function loadForecast() {
   });
 
   const now = new Date();
-  
-  // Batch-load all monthly sales data (avoid N+1)
+
+  // Три календарных месяца: позапрошлый, прошлый, текущий.
   const monthRanges = [2, 1, 0].map(i => ({
     start: new Date(now.getFullYear(), now.getMonth() - i, 1),
     end: new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59),
@@ -24,29 +29,13 @@ export async function loadForecast() {
     allMonthlyData.set(product.id, [0, 0, 0]);
   }
 
-  // 6 batch queries instead of N*6
+  // Один проход по базе на все три месяца — периоды режутся в памяти.
+  const ledger = await loadSalesLedger(monthRanges[0].start, monthRanges[2].end);
   for (let mi = 0; mi < 3; mi++) {
     const { start, end } = monthRanges[mi];
-    const [orderSales, posSales] = await Promise.all([
-      prisma.orderItem.groupBy({
-        by: ['productId'],
-        where: { order: { createdAt: { gte: start, lte: end }, status: { not: 'CANCELLED' } } },
-        _sum: { quantity: true },
-      }),
-      prisma.stockMovement.groupBy({
-        by: ['productId'],
-        where: { type: 'OUT', createdAt: { gte: start, lte: end } },
-        _sum: { quantity: true },
-      }),
-    ]);
-
-    for (const s of orderSales) {
-      const arr = allMonthlyData.get(s.productId);
-      if (arr) arr[mi] += s._sum.quantity || 0;
-    }
-    for (const s of posSales) {
-      const arr = allMonthlyData.get(s.productId);
-      if (arr) arr[mi] += Math.abs(s._sum.quantity || 0);
+    for (const [productId, stats] of demandByProduct(ledger, start, end)) {
+      const arr = allMonthlyData.get(productId);
+      if (arr) arr[mi] += stats.sold;
     }
   }
 

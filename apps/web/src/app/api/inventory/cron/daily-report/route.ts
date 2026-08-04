@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { loadSalesLedger } from '@/lib/revenue/salesLedger';
+import { summarize } from '@/lib/revenue/summary';
 
 // ==========================================
 // Daily Telegram Report — Cron Endpoint
@@ -21,70 +23,19 @@ export async function GET() {
     const endOfDay = new Date(today);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Today's online orders
-    const todayOrders = await prisma.order.findMany({
-      where: { createdAt: { gte: today, lte: endOfDay }, status: { not: 'CANCELLED' } },
-      select: { total: true },
-    });
+    // Отчёт считается по общему реестру продаж (lib/revenue) — тому же, что
+    // «Сводка», «Доход» и Стёпан. Раньше это было четвёртое определение
+    // выручки, и себестоимость в нём бралась ТОЛЬКО по кассе, а делилась на
+    // выручку вместе с онлайном — маржа выходила завышенной.
+    const summary = summarize(await loadSalesLedger(today, endOfDay), today, endOfDay);
 
-    // Today's POS sales (include costPrice for profit calc)
-    const todayPOS = await prisma.stockMovement.findMany({
-      where: {
-        type: 'OUT',
-        reason: { startsWith: "Do'kon sotish" },
-        createdAt: { gte: today, lte: endOfDay },
-      },
-      include: { product: { select: { price: true, costPrice: true } } },
-    });
-
-    // Today's returns
-    const todayReturns = await prisma.stockMovement.findMany({
-      where: {
-        type: 'IN',
-        reason: { startsWith: 'Qaytarish' },
-        createdAt: { gte: today, lte: endOfDay },
-      },
-      include: { product: { select: { price: true } } },
-    });
-
-    const onlineRevenue = todayOrders.reduce((s, o) => s + o.total, 0);
-    const posGrossRevenue = todayPOS.reduce((s, m) => s + Math.abs(m.quantity) * (m.salePrice || m.product.price), 0);
-    const returnAmount = todayReturns.reduce((s, m) => s + Math.abs(m.quantity) * (m.salePrice || m.product.price), 0);
-    const posRevenue = posGrossRevenue - returnAmount;
-    const totalRevenue = onlineRevenue + posRevenue;
-
-    // Build cost price map from IN movements + product costPrice
-    const costMap = new Map<string, number>();
-    const inMovements = await prisma.stockMovement.findMany({
-      where: { type: 'IN', costPrice: { not: null } },
-      select: { productId: true, costPrice: true },
-      orderBy: { createdAt: 'desc' },
-    });
-    for (const m of inMovements) {
-      if (!costMap.has(m.productId) && m.costPrice) {
-        costMap.set(m.productId, m.costPrice);
-      }
-    }
-    const productCosts = await prisma.product.findMany({
-      where: { costPrice: { not: null } },
-      select: { id: true, costPrice: true },
-    });
-    for (const p of productCosts) {
-      if (!costMap.has(p.id) && p.costPrice) {
-        costMap.set(p.id, p.costPrice);
-      }
-    }
-
-    // Calculate total cost
-    let totalCost = 0;
-    for (const m of todayPOS) {
-      const qty = Math.abs(m.quantity);
-      const cp = m.costPrice || costMap.get(m.productId) || m.product.costPrice || 0;
-      totalCost += qty * cp;
-    }
-
-    const netProfit = totalRevenue - totalCost;
-    const margin = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
+    const onlineRevenue = summary.goodsOnline + summary.delivery - summary.discount;
+    const posRevenue = summary.goodsPos - summary.returns;
+    const returnAmount = summary.returns;
+    const totalRevenue = summary.revenue;
+    const totalCost = summary.cost;
+    const netProfit = summary.profit;
+    const margin = summary.margin;
 
     // Critical stock items
     const criticalProducts = await prisma.product.findMany({
@@ -117,10 +68,10 @@ export async function GET() {
 
     // Revenue
     message += `💰 <b>Bugungi savdo:</b>\n`;
-    message += `   Online: ${fmt(onlineRevenue)} so'm (${todayOrders.length} ta)\n`;
-    message += `   Do'kon: ${fmt(posRevenue)} so'm (${todayPOS.length} ta)\n`;
+    message += `   Online: ${fmt(onlineRevenue)} so'm (${summary.orders} ta)\n`;
+    message += `   Do'kon: ${fmt(posRevenue)} so'm (${summary.posSales} ta)\n`;
     if (returnAmount > 0) {
-      message += `   Qaytarish: -${fmt(returnAmount)} so'm (${todayReturns.length} ta)\n`;
+      message += `   Qaytarish: -${fmt(returnAmount)} so'm (${summary.returnCount} ta)\n`;
     }
     message += `   <b>Jami: ${fmt(totalRevenue)} so'm</b>\n\n`;
 

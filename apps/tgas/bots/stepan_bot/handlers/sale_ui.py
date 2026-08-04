@@ -97,6 +97,25 @@ def build_clarify_keyboard(token: str, data: Dict[str, Any]):
     """
     builder = InlineKeyboardBuilder()
 
+    # «Жасмин» подходит и ресторану, и частному лицу — выбираем карточку.
+    # Угадать здесь нельзя: продажа уйдёт не тому, и заметят это на сверке долгов.
+    if data.get("needs") == "customer" and data.get("candidates"):
+        for candidate in data["candidates"][:8]:
+            mark = "🏢" if candidate.get("customer_type") == "b2b" else "👤"
+            phone = candidate.get("phone") or "без телефона"
+            builder.button(
+                text=f"{mark} {candidate['name']} · {phone}",
+                callback_data=f"sale:cust:{token}:{candidate['id']}",
+            )
+        builder.adjust(1)  # телефон длинный — в одну колонку
+        builder.row(
+            InlineKeyboardButton(
+                text="➕ Это новый клиент", callback_data=f"sale:cust:{token}:new"
+            ),
+            InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}"),
+        )
+        return builder.as_markup()
+
     ambiguous = data.get("ambiguous") or []
     missing = data.get("missing") or []
 
@@ -220,8 +239,17 @@ def _sale_signature(pending: Dict[str, Any]) -> str:
         (i.get("product"), i.get("product_id"), i.get("quantity"), i.get("unit_price"))
         for i in pending.get("items", [])
     ]
+    # customer_id — тоже часть отпечатка: после выбора карточки кнопкой продажа
+    # уже другая, и следующий вопрос («а какой горох?») должен пройти, а не
+    # утонуть в защите от повторного вопроса.
     raw = json.dumps(
-        [pending.get("customer_name"), items], ensure_ascii=False, sort_keys=True
+        [
+            pending.get("customer_name"),
+            pending.get("customer_id"),
+            items,
+        ],
+        ensure_ascii=False,
+        sort_keys=True,
     )
     return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
@@ -296,7 +324,11 @@ async def on_pick_product(callback: CallbackQuery):
             )
             return
 
-        pending["items"][int(index)]["product_id"] = int(product_id)
+        # Без int(): у витрины id товара — cuid («cmk3…»), а не число.
+        # Приведение падало с ValueError, ошибку глотал внешний except, и
+        # руководитель на каждое нажатие получал «Не смог обработать выбор» —
+        # то есть вся ветка выбора кнопкой не работала вообще.
+        pending["items"][int(index)]["product_id"] = product_id
         await callback.answer("Принято, записываю…")
         await callback.message.edit_reply_markup(reply_markup=None)
 
@@ -306,6 +338,39 @@ async def on_pick_product(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"sale:pick — {e}", exc_info=True)
         await callback.answer("Не смог обработать выбор.", show_alert=True)
+
+
+@sale_ui_router.callback_query(F.data.startswith("sale:cust:"))
+async def on_pick_customer(callback: CallbackQuery):
+    """Руководитель выбрал карточку клиента — дозаписываем продажу.
+
+    `new` значит «это другой клиент, заведи нового»: тогда поиск по имени
+    отключается флагом, иначе register_sale снова нашёл бы тех же кандидатов
+    и задал бы тот же вопрос по кругу.
+    """
+    try:
+        _, _, token, customer_id = callback.data.split(":")
+        pending = await load_pending(token)
+        if not pending:
+            await callback.answer(
+                "Этот вопрос уже неактуален (прошёл час).", show_alert=True
+            )
+            return
+
+        if customer_id == "new":
+            pending["force_new_customer"] = True
+        else:
+            pending["customer_id"] = int(customer_id)
+
+        await callback.answer("Принято, записываю…")
+        await callback.message.edit_reply_markup(reply_markup=None)
+
+        result = await run_sale(pending)
+        await drop_pending(token)
+        await answer_sale_result(callback.message, result)
+    except Exception as e:
+        logger.error(f"sale:cust — {e}", exc_info=True)
+        await callback.answer("Не смог обработать выбор клиента.", show_alert=True)
 
 
 @sale_ui_router.callback_query(F.data.startswith("sale:add:"))

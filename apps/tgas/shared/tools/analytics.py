@@ -4,6 +4,10 @@
 Считаем по CRM-зеркалу (`crm_orders` / `crm_order_items`): через него проходит
 каждый заказ — и с сайта, и зарегистрированный офисом, — и только там позиции
 хранятся с суммой строки (`total_price`).
+
+⚠️ Отменённые заказы исключаются везде. Витрина так делала всегда, офис — нет,
+и один и тот же период показывал разную выручку в зависимости от того, чей
+экран открыть. Фильтр один на модуль — `NOT_A_SALE` из shared/tools/crm.
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ from sqlalchemy import text
 
 from shared import capabilities
 from shared.database import get_session_ctx
+from shared.tools.crm import NOT_A_SALE
 from shared.tools.registry import Tool, from_capability, register
 from shared.utils import format_price
 
@@ -31,6 +36,7 @@ async def top_products(days: int = 30, limit: int = 10) -> Dict[str, Any]:
                     "JOIN crm_products p ON p.id = oi.product_id "
                     "JOIN crm_orders o ON o.id = oi.order_id "
                     "WHERE o.created_at >= CURRENT_DATE - CAST(:days || ' days' AS INTERVAL) "
+                    f"AND LOWER(o.status) NOT IN {NOT_A_SALE} "
                     "GROUP BY p.name_ru ORDER BY SUM(oi.total_price) DESC LIMIT :lim"
                 ),
                 {"days": str(int(days)), "lim": int(limit)},
@@ -82,6 +88,7 @@ async def get_sales_trend(days: int = 14) -> Dict[str, Any]:
                     "SELECT DATE(created_at), COUNT(*), COALESCE(SUM(total_amount), 0) "
                     "FROM crm_orders "
                     "WHERE created_at >= CURRENT_DATE - CAST(:days || ' days' AS INTERVAL) "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE} "
                     "GROUP BY DATE(created_at) ORDER BY DATE(created_at)"
                 ),
                 {"days": str(int(days))},

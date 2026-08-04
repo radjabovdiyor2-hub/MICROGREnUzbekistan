@@ -9,21 +9,34 @@ from typing import Any, Dict, Optional
 from sqlalchemy import text
 
 from shared import capabilities
+from shared import phone as phone_utils
 from shared.database import get_session_ctx
 from shared.tools.registry import Tool, from_capability, register
 from shared.utils import format_price
 
+# Остаётся поддержкой: «что с моим заказом» от клиента — её работа.
+# Остальным отделам заказ и история клиента доступны через общие инструменты
+# `get_order` / `get_customer_orders` (shared/tools/crm.py) — раньше их не
+# существовало, и отдел продаж на вопрос о собственном заказе ответить не мог.
 DEPTS = ["support"]
 
 
 async def get_order_status(
     order_number: Optional[str] = None, phone: Optional[str] = None
 ) -> Dict[str, Any]:
-    """Статус заказа по номеру или по телефону клиента."""
+    """Статус заказа по номеру или по телефону клиента.
+
+    Номер сравнивается и точно, и вхождением: руководитель диктует «заказ
+    8E6E40BF», а не полный `M-20260804-8E6E40BF`. Телефон — по последним девяти
+    цифрам, потому что в базе он записан в нескольких форматах.
+    """
     if not order_number and not phone:
         return {"found": False, "message": "Нужен номер заказа или телефон клиента."}
 
-    where = "o.order_number = :onum" if order_number else "c.phone = :phone"
+    if order_number:
+        where = "(o.order_number = :onum OR o.order_number ILIKE :onum_like)"
+    else:
+        where = f"c.phone IS NOT NULL AND {phone_utils.SQL_PHONE_TAIL} = :tail"
     async with get_session_ctx() as session:
         rows = (
             await session.execute(
@@ -33,7 +46,11 @@ async def get_order_status(
                     "FROM crm_orders o LEFT JOIN customers c ON c.id = o.customer_id "
                     f"WHERE {where} ORDER BY o.id DESC LIMIT 5"
                 ),
-                {"onum": order_number, "phone": phone},
+                {
+                    "onum": (order_number or "").strip().upper(),
+                    "onum_like": f"%{(order_number or '').strip().upper()}%",
+                    "tail": phone_utils.match_tail(phone),
+                },
             )
         ).fetchall()
 

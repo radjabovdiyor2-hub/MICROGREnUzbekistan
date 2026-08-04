@@ -14,6 +14,7 @@
 // ==========================================
 
 import { notifyCustomer } from './notify';
+import { restoreStockForCancelledOrder } from './orders/cancel';
 
 // Storefront status (Prisma OrderStatus) -> customer-facing bilingual message.
 const STATUS_MESSAGE: Record<string, { uz: string; ru: string }> = {
@@ -96,7 +97,13 @@ export async function pushStatusToOffice(params: {
 }
 
 // One call for a storefront-side status change: notify the customer + sync office.
+//
+// Отмена дополнительно возвращает товар на склад. Место выбрано намеренно:
+// сюда сходятся все три пути отмены (админка, PUT /api/orders и обратная
+// синхронизация из офиса), поэтому возврат не может оказаться забытым на
+// одном из них — а именно так он и отсутствовал раньше на всех трёх.
 export async function syncOrderStatus(order: {
+  id?: string;
   orderNumber: string;
   status: string;
   paymentStatus?: string | null;
@@ -111,6 +118,11 @@ export async function syncOrderStatus(order: {
       status: order.status,
       paymentStatus: order.paymentStatus ?? null,
     }),
+    order.status === 'CANCELLED' && order.id
+      ? restoreStockForCancelledOrder(order.id).catch((err) =>
+          console.error('Stock restore on cancel failed:', err),
+        )
+      : Promise.resolve(0),
   ]);
 }
 

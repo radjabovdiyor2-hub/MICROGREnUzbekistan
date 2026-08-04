@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Tag, TrendingUp, Truck, Users, Wallet, Network
+  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -34,6 +34,9 @@ export const TAB_GROUPS = [
       { id: 'categories', ru: 'Категории', uz: 'Kategoriyalar', icon: <Layers size={16} /> },
       { id: 'promo', ru: 'Промокоды', uz: 'Promokodlar', icon: <Percent size={16} /> },
       { id: 'inventory', ru: 'Склад', uz: 'Ombor', icon: <Package size={16} /> },
+      // Сырьё — отдельно от готового товара: оно расходуется граммами и
+      // имеет только себестоимость, а не цену продажи.
+      { id: 'raw_materials', ru: 'Сырьё', uz: 'Xomashyo', icon: <Sprout size={16} /> },
       { id: 'movements', ru: 'Движения', uz: 'Harakatlar', icon: <ClipboardList size={16} /> },
       { id: 'suppliers', ru: 'Поставщики', uz: 'Yetkazuvchilar', icon: <Truck size={16} /> },
       { id: 'debts', ru: 'Долги', uz: 'Qarzlar', icon: <CreditCard size={16} /> },

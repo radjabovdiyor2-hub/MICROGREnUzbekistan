@@ -36,7 +36,64 @@ export interface Batch {
   productId?: string;
   productName?: string;
   harvestQty?: number;
-  costPrice?: number; // себестоимость за единицу
+  costPrice?: number; // себестоимость за единицу урожая (после сбора)
+  // ── Себестоимость партии, посчитанная при посадке из списанного сырья ──
+  // Без этих полей «убыток» просроченной партии всегда выходил нулём:
+  // он считался из costPrice, а тот до сбора не существует.
+  seedCost?: number | null;
+  suppliesCost?: number | null;
+  batchCost?: number;
+  plannedYield?: number | null;
+}
+
+/** Норма культуры из базы (таблица crop_norms). */
+export interface CropNorm {
+  id: string;
+  cropType: string;
+  nameRu: string;
+  seedGramsPerTray: number;
+  substrateGramsPerTray: number | null;
+  packagingPerTray: number | null;
+  yieldPerTray: number | null;
+  darkDays: number;
+  lightDays: number;
+  shelfDays: number;
+}
+
+/** Что уйдёт со склада на посадку — предпросмотр до её создания. */
+export interface PlantingRequirement {
+  kind: string;
+  label: string;
+  required: number;
+  enough: boolean;
+  cost: number | null;
+  material: { id: string; name: string; unit: string; stock: number; avgCost: number } | null;
+}
+
+export async function fetchCropNorms(): Promise<CropNorm[]> {
+  const res = await fetch('/api/admin/crop-norms', { credentials: 'same-origin' });
+  const data = await res.json();
+  return data.status === 'ok' ? (data.norms as CropNorm[]) : [];
+}
+
+/**
+ * Сколько сырья нужно на посадку и хватает ли его.
+ *
+ * Возвращает `null`, если норм для культуры ещё нет: форма должна попросить
+ * их задать, а не молча посадить партию без себестоимости.
+ */
+export async function fetchPlantingRequirements(
+  cropType: string,
+  trays: number,
+): Promise<{ needs: PlantingRequirement[]; estimatedCost: number } | { error: string } | null> {
+  const res = await fetch(
+    `/api/admin/grow-batches?requirements=${encodeURIComponent(cropType)}&trays=${trays}`,
+    { credentials: 'same-origin' },
+  );
+  const data = await res.json();
+  if (res.status === 409) return { error: data.error as string };
+  if (!res.ok || data.status !== 'ok') return null;
+  return { needs: data.needs as PlantingRequirement[], estimatedCost: data.estimatedCost };
 }
 
 export interface ProductOption {

@@ -198,7 +198,75 @@ async def finance_on_order_created(bot: Bot, payload: dict):
             ),
             {"a": total, "d": f"Заказ {order_number}", "oid": order_id},
         )
+        await session.commit()
     logger.info(f"Finance: доход {total} от заказа {order_number}")
+
+
+# Статусы, при которых заказ перестаёт быть доходом.
+CANCELLED_STATUSES = {"cancelled", "canceled", "refunded"}
+
+
+async def finance_on_order_status_changed(bot: Bot, payload: dict):
+    """Отмена заказа → сторнировать записанный по нему доход.
+
+    Доход пишется в момент СОЗДАНИЯ заказа (см. выше) — это верно, пока заказ
+    жив. Но обратной проводки не существовало: отменённый заказ навсегда
+    оставался доходом в `finances`, и P&L завышал прибыль ровно на сумму
+    отмен. Складской остаток при этом возвращает витрина (lib/orders/cancel).
+
+    Сторно — отдельная строка `expense`, а не удаление: журнал операций
+    должен показывать, что было и что отменили, а не переписывать прошлое.
+    Идемпотентность по `related_order_id` + категории: повторное событие
+    (админка, бот и обратная синхронизация ведут к одному заказу) ничего
+    не добавит.
+    """
+    data = payload.get("data", {})
+    status = str(data.get("status") or "").lower()
+    if status not in CANCELLED_STATUSES:
+        return
+
+    order_id = data.get("order_id")
+    order_number = data.get("order_number", "N/A")
+    if not order_id:
+        return
+
+    async with get_session_ctx() as session:
+        already = (
+            await session.execute(
+                text(
+                    "SELECT id FROM finances WHERE related_order_id = :oid "
+                    "AND category = 'sales_cancelled' LIMIT 1"
+                ),
+                {"oid": order_id},
+            )
+        ).scalar()
+        if already:
+            return
+
+        booked = (
+            await session.execute(
+                text(
+                    "SELECT COALESCE(SUM(amount), 0) FROM finances "
+                    "WHERE related_order_id = :oid AND type = 'income'"
+                ),
+                {"oid": order_id},
+            )
+        ).scalar()
+        amount = float(booked or 0)
+        if amount <= 0:
+            return
+
+        await session.execute(
+            text(
+                "INSERT INTO finances (type, amount, category, description, "
+                "related_order_id, date, created_at) "
+                "VALUES ('expense', :a, 'sales_cancelled', :d, :oid, CURRENT_DATE, NOW())"
+            ),
+            {"a": amount, "d": f"Сторно отменённого заказа {order_number}", "oid": order_id},
+        )
+        await session.commit()
+
+    logger.info("Finance: сторнирован доход %s по отменённому заказу %s", amount, order_number)
 
 
 # ─── Analytics Bot обработчики ─────────────────────────────
@@ -235,7 +303,13 @@ def register_finance_handlers(event_bus, bot: Bot):
     from shared.event_bus import Events
 
     event_bus.on(Events.ORDER_CREATED, lambda p: finance_on_order_created(bot, p))
-    logger.info("Finance Bot: подписан на events (order)")
+    # Парная подписка к ORDER_CREATED: без неё отменённый заказ навсегда
+    # оставался доходом, и месячный P&L завышал прибыль на сумму отмен.
+    event_bus.on(
+        Events.ORDER_STATUS_CHANGED,
+        lambda p: finance_on_order_status_changed(bot, p),
+    )
+    logger.info("Finance Bot: подписан на events (order, order_status)")
 
 
 def register_analytics_handlers(event_bus, bot: Bot):

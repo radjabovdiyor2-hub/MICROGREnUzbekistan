@@ -291,10 +291,18 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
         # завестись вторым товаром рядом с «Санго».
         existing = await catalog_repo.find(name, limit=1)
         if existing:
+            # `storefront_id` отдаём и здесь: ключ витрины — то, чем товар
+            # называют заказы. Раньше эта ветка клала cuid в `product_id`, а
+            # успешная — целочисленный id зеркала, и вызывающий не мог знать,
+            # что именно ему вернули.
             return {
                 "status": "exists",
                 "message": f"«{existing[0]['name']}» уже есть в каталоге — повторно не добавляю.",
-                "data": {"product_id": existing[0]["id"], "name": existing[0]["name"]},
+                "data": {
+                    "product_id": existing[0]["id"],
+                    "storefront_id": existing[0]["id"],
+                    "name": existing[0]["name"],
+                },
             }
 
         description_ru = str(params.get("description_ru") or "").strip()

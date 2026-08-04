@@ -142,20 +142,63 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// Поля, которые PUT разрешено менять. Раньше тело запроса разворачивалось
+// целиком (`{ id, ...data }` → `data`), поэтому клиент мог переписать ЛЮБУЮ
+// колонку — включая `rating`, `viewCount` и `stock`.
+const EDITABLE_PRODUCT_FIELDS = new Set([
+  'nameUz', 'nameRu', 'slug', 'descriptionUz', 'descriptionRu',
+  'price', 'oldPrice', 'costPrice', 'images', 'categoryId',
+  'sku', 'brand', 'specs',
+  'isActive', 'isFeatured', 'isOnSale',
+]);
+
 // PUT — Update product (admin)
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, ...data } = body;
+    const { id, ...raw } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Product ID required' }, { status: 400 });
     }
 
-    const product = await prisma.product.update({
-      where: { id },
-      data,
-      include: { category: true },
+    const data: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(raw)) {
+      if (EDITABLE_PRODUCT_FIELDS.has(key)) data[key] = value;
+    }
+
+    // Остаток — не обычное поле карточки. Его правка это инвентаризация:
+    // остаток меняется вместе с записью в журнал, одной транзакцией.
+    // Раньше он переписывался молча, и склад переставал сходиться с журналом
+    // без единого следа, по которому можно было бы объяснить расхождение.
+    const wantsStock = 'stock' in raw && Number.isFinite(Number(raw.stock));
+    const targetStock = wantsStock ? Math.max(0, Math.floor(Number(raw.stock))) : null;
+
+    const product = await prisma.$transaction(async (tx) => {
+      const current = await tx.product.findUnique({
+        where: { id },
+        select: { stock: true },
+      });
+      if (!current) throw new Error('not found');
+
+      if (targetStock !== null && targetStock !== current.stock) {
+        await tx.stockMovement.create({
+          data: {
+            productId: id,
+            type: 'ADJUSTMENT',
+            quantity: targetStock - current.stock,
+            reason: 'Инвентаризация (карточка товара)',
+            performedBy: 'Admin',
+          },
+        });
+        data.stock = targetStock;
+      }
+
+      return tx.product.update({
+        where: { id },
+        data,
+        include: { category: true },
+      });
     });
 
     return NextResponse.json({ success: true, product });

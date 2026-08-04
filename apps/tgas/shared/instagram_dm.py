@@ -12,7 +12,8 @@ import logging
 import aiohttp
 from typing import List, Dict, Optional
 from datetime import datetime, timezone, timedelta
-from shared import storefront_orders
+from shared import customer_repo, storefront_orders
+from shared import phone as phone_utils
 from shared.config import settings
 from shared.ai_engine import AIEngine
 
@@ -305,61 +306,23 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
         from sqlalchemy import text as sa_text
 
         async with get_session_ctx() as session:
-            # Извлечем и нормализуем телефон
             phone = order.get("phone", "")
             import re
 
-            norm_phone = None
-            if phone:
-                digits = re.sub(r"[^\d]", "", str(phone))
-                if digits:
-                    if len(digits) == 9:
-                        norm_phone = f"+998{digits}"
-                    elif len(digits) == 12 and digits.startswith("998"):
-                        norm_phone = f"+{digits}"
-                    else:
-                        norm_phone = (
-                            f"+{digits}"
-                            if not str(phone).startswith("+")
-                            else str(phone)
-                        )
-
-            customer_id = None
-            if norm_phone:
-                res = await session.execute(
-                    sa_text("SELECT id FROM customers WHERE phone = :phone LIMIT 1"),
-                    {"phone": norm_phone},
+            # Клиент — через shared/customer_repo. Здесь был третий в проекте
+            # нормализатор телефона и поиск по имени регистрозависимым `=`:
+            # «жасмин» не находил «Жасмин», и директ заводил ещё одну карточку.
+            norm_phone = phone_utils.normalize(phone)
+            customer_id = (
+                await customer_repo.upsert(
+                    session=session,
+                    name=from_name,
+                    raw_phone=phone,
+                    status="active",
+                    source="instagram",
+                    notes="Instagram DM",
                 )
-                row = res.fetchone()
-                if row:
-                    customer_id = row[0]
-
-            if not customer_id:
-                res = await session.execute(
-                    sa_text("SELECT id FROM customers WHERE name = :name LIMIT 1"),
-                    {"name": from_name},
-                )
-                row = res.fetchone()
-                if row:
-                    customer_id = row[0]
-
-            if customer_id:
-                if norm_phone:
-                    await session.execute(
-                        sa_text(
-                            "UPDATE customers SET phone = COALESCE(phone, :phone) WHERE id = :cid"
-                        ),
-                        {"phone": norm_phone, "cid": customer_id},
-                    )
-            else:
-                res = await session.execute(
-                    sa_text(
-                        "INSERT INTO customers (name, phone, status, notes, source, created_at) "
-                        "VALUES (:name, :phone, 'active', 'Instagram DM', 'instagram', NOW()) RETURNING id"
-                    ),
-                    {"name": from_name, "phone": norm_phone or phone},
-                )
-                customer_id = res.fetchone()[0]
+            )["id"]
 
             # Вычисляем сумму по каталогу
             product_name = order.get("product")

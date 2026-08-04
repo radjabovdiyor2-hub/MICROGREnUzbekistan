@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from shared import sales_ops
+from shared import customer_repo, sales_ops
 
 
 LINE = {
@@ -26,6 +26,32 @@ LINE = {
     "unit_price": 15000,
     "total_price": 150000,
 }
+
+
+def customer_card(**overrides):
+    """Карточка клиента в том виде, в каком её отдаёт customer_repo."""
+    card = {
+        "id": 77,
+        "name": "Ресторан Жасмин",
+        "company_name": "Ресторан Жасмин",
+        "phone": "+998901112233",
+        "phone_display": "+998 90 111-22-33",
+        "telegram_id": None,
+        "telegram_username": None,
+        "customer_type": "b2b",
+        "company_type": "restaurant",
+        "status": "active",
+        "city": "Samarqand",
+        "total_spent": 0.0,
+        "bonus_balance": 0.0,
+        "orders_count": 3,
+        "last_order_date": None,
+        "source": "manual",
+        "web_user_id": None,
+        "notes": None,
+    }
+    card.update(overrides)
+    return card
 
 
 @pytest.fixture
@@ -42,11 +68,18 @@ def chain(monkeypatch):
     async def fake_remember(fingerprint, order_number):
         calls.setdefault("remembered", []).append(order_number)
 
-    async def fake_upsert(name, phone, ctype, by):
-        calls["customer"].append({"name": name, "phone": phone, "type": ctype})
-        # Третий элемент — телефон, известный CRM. По умолчанию карточка пустая:
-        # тесты, которым нужен номер из CRM, подменяют эту функцию своей.
-        return 77, True, phone
+    # По умолчанию клиента в CRM нет — тесты, которым нужна карточка,
+    # подменяют customer_repo.resolve своим ответом.
+    async def fake_customer_resolve(name, phone=None):
+        return {}
+
+    async def fake_upsert(name, phone, ctype, by, customer_id=None, match_by_name=True):
+        calls["customer"].append(
+            {"name": name, "phone": phone, "type": ctype, "id": customer_id}
+        )
+        return customer_id or 77, customer_id is None, phone
+
+    monkeypatch.setattr(customer_repo, "resolve", fake_customer_resolve)
 
     async def fake_create(**kwargs):
         calls["create"].append(kwargs)
@@ -177,7 +210,7 @@ async def test_customer_card_is_created_before_the_order(chain):
         }
     )
     assert chain["customer"] == [
-        {"name": "Zarra Resort", "phone": "+998881552557", "type": "b2b"}
+        {"name": "Zarra Resort", "phone": "+998881552557", "type": "b2b", "id": None}
     ]
 
 
@@ -186,15 +219,13 @@ async def test_phone_is_taken_from_the_customer_card(chain, monkeypatch):
     """Менеджер диктует продажу постоянному клиенту без номера — берём из CRM.
 
     «Зарегистрируй продажу 15 гороха ресторан Жасмин» — обычная формулировка, и
-    телефон у такого клиента давно записан. Раньше карточка находилась по имени,
-    но функция возвращала только id: номер выбрасывался, витрина отвечала 400.
+    телефон у такого клиента давно записан. Спрашивать его второй раз незачем.
     """
 
-    async def upsert_with_known_phone(name, phone, ctype, by):
-        chain["customer"].append({"name": name, "phone": phone, "type": ctype})
-        return 77, False, phone or "+998901112233"
+    async def resolve_known(name, phone=None):
+        return {"customer": customer_card()}
 
-    monkeypatch.setattr(sales_ops, "_upsert_customer", upsert_with_known_phone)
+    monkeypatch.setattr(customer_repo, "resolve", resolve_known)
 
     result = await sales_ops.register_sale(
         {
@@ -207,6 +238,95 @@ async def test_phone_is_taken_from_the_customer_card(chain, monkeypatch):
     assert result["status"] == "ok"
     assert len(chain["create"]) == 1
     assert chain["create"][0]["phone"] == "+998901112233"
+    assert chain["customer"][0]["id"] == 77, "пишем в найденную карточку, не в новую"
+
+
+@pytest.mark.asyncio
+async def test_known_customer_is_not_asked_for_a_phone(chain, monkeypatch):
+    """Клиент найден нечётким поиском — вопроса о телефоне быть не должно.
+
+    Именно здесь ломалось наблюдаемое поведение: «Ресторан Жасмин» не находил
+    карточку «Жасмин», потому что имя сравнивалось точным `ILIKE :n` без
+    процентов. Продажа отвечала «Shaxsiy ma'lumotlar to'liq emas» и заводила
+    вторую карточку тому же ресторану.
+    """
+
+    async def resolve_by_word(name, phone=None):
+        assert "жасмин" in name.lower()
+        return {"customer": customer_card(name="Жасмин")}
+
+    monkeypatch.setattr(customer_repo, "resolve", resolve_by_word)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "ресторан жасмин",
+            "items": [{"product": "горох", "quantity": 43, "unit_price": 15000}],
+        }
+    )
+
+    assert result["status"] == "ok", result.get("message")
+    assert result["data"]["customer_created"] is False
+
+
+@pytest.mark.asyncio
+async def test_several_candidates_ask_instead_of_guessing(chain, monkeypatch):
+    """Под запрос подходит несколько карточек — спрашиваем, а не берём первую.
+
+    Молча выбранный «не тот Жасмин» обнаружился бы только при разборе долгов.
+    """
+
+    async def resolve_ambiguous(name, phone=None):
+        return {
+            "candidates": [
+                customer_card(id=77, name="Жасмин"),
+                customer_card(id=91, name="Ресторан Жасмин"),
+            ]
+        }
+
+    monkeypatch.setattr(customer_repo, "resolve", resolve_ambiguous)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "жасмин",
+            "items": [{"product": "горох", "quantity": 25, "unit_price": 15000}],
+        }
+    )
+
+    assert result["status"] == "clarify"
+    assert result["data"]["needs"] == "customer"
+    assert [c["id"] for c in result["data"]["candidates"]] == [77, 91]
+    assert chain["create"] == [], "до выбора клиента заказ не создаём"
+    assert chain["customer"] == [], "и карточку тоже не заводим"
+
+
+@pytest.mark.asyncio
+async def test_picked_customer_is_not_searched_again(chain, monkeypatch):
+    """После выбора кнопкой ищем не по имени, а по id — иначе выбор потерялся бы.
+
+    Повторный поиск по тому же имени снова вернул бы список кандидатов, и
+    уточнение зациклилось бы на том же вопросе.
+    """
+
+    async def resolve_must_not_run(name, phone=None):
+        raise AssertionError("после выбора карточки поиск по имени не нужен")
+
+    async def by_id(customer_id):
+        assert customer_id == 91
+        return customer_card(id=91, name="Ресторан Жасмин")
+
+    monkeypatch.setattr(customer_repo, "resolve", resolve_must_not_run)
+    monkeypatch.setattr(customer_repo, "by_id", by_id)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "жасмин",
+            "customer_id": 91,
+            "items": [{"product": "горох", "quantity": 25, "unit_price": 15000}],
+        }
+    )
+
+    assert result["status"] == "ok"
+    assert chain["customer"][0]["id"] == 91
 
 
 @pytest.mark.asyncio
@@ -229,6 +349,11 @@ async def test_sale_without_any_phone_asks_instead_of_failing(chain):
     assert result["data"]["needs"] == "phone"
     assert "телефон" in result["message"].lower()
     assert chain["create"] == [], "заведомо отклоняемый заказ витрине не шлём"
+    assert chain["customer"] == [], (
+        "карточку тоже не заводим: раньше отказ на этом шаге оставлял в базе "
+        "клиента без телефона, и следующая попытка с чуть иным написанием "
+        "имени добавляла к нему второго такого же сироту"
+    )
 
 
 def test_storefront_refusal_is_explained_in_russian():

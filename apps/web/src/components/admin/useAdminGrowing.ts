@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { CROP_DB, fetchBatches, getBatchStatus, migrateLegacyBatches, type Batch, type ProductOption } from './growingData';
+import {
+  fetchBatches, fetchPlantingRequirements, getBatchStatus, migrateLegacyBatches,
+  type Batch, type PlantingRequirement, type ProductOption,
+} from './growingData';
 import { harvestBatchApi, writeOffBatchApi } from './growingActions';
 
 export function useAdminGrowing() {
@@ -21,6 +24,11 @@ export function useAdminGrowing() {
   const [customDark, setCustomDark] = useState<number>(3);
   const [customLight, setCustomLight] = useState<number>(4);
   const [customShelf, setCustomShelf] = useState<number>(7);
+  // «Нужно 30 г семян гороха, на складе 1 200 г» — показываем ДО посадки,
+  // чтобы нехватка сырья не выяснялась в момент нажатия кнопки.
+  const [requirements, setRequirements] = useState<PlantingRequirement[]>([]);
+  const [estimatedCost, setEstimatedCost] = useState(0);
+  const [plantError, setPlantError] = useState('');
 
   const reload = useCallback(async () => {
     try {
@@ -54,6 +62,24 @@ export function useAdminGrowing() {
       .catch(() => {});
   }, []);
 
+  // Пересчитываем потребность при смене культуры или числа лотков.
+  useEffect(() => {
+    if (!showForm || editingId) return;
+    let cancelled = false;
+    (async () => {
+      const result = await fetchPlantingRequirements(cropType, trays);
+      if (cancelled) return;
+      if (!result) {
+        setRequirements([]); setEstimatedCost(0); setPlantError('');
+      } else if ('error' in result) {
+        setRequirements([]); setEstimatedCost(0); setPlantError(result.error);
+      } else {
+        setRequirements(result.needs); setEstimatedCost(result.estimatedCost); setPlantError('');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showForm, editingId, cropType, trays]);
+
   const patchBatch = useCallback(async (id: string, patch: Record<string, unknown>) => {
     await fetch('/api/admin/grow-batches', {
       method: 'PATCH',
@@ -82,31 +108,41 @@ export function useAdminGrowing() {
 
   const addBatch = async () => {
     const prod = products.find(p => p.id === selectedProductId);
-    const newBatchData = {
-      cropType, trays, seedDate, note,
-      darkDays: customDark, lightDays: customLight, shelfDays: customShelf,
-      productId: selectedProductId || undefined,
-      productName: prod?.nameUz || undefined,
-      harvestQty,
-      costPrice: costPriceInput || prod?.costPrice || 0,
-    };
 
     if (editingId) {
-      await patchBatch(editingId, { trays, note });
+      // Правка теперь сохраняет и даты, и длительности фаз. Раньше сюда
+      // уходили только `trays` и `note`, и правка сроков молча пропадала.
+      await patchBatch(editingId, {
+        trays, note, seedDate,
+        darkDays: customDark, lightDays: customLight, shelfDays: customShelf,
+        productId: selectedProductId || null,
+        productName: prod?.nameUz || null,
+      });
       setEditingId(null);
     } else {
-      await fetch('/api/admin/grow-batches', {
+      // Длительности фаз и расход сырья сервер берёт из норм культуры
+      // (crop_norms) — они общие для всех посадок и правятся в справочнике.
+      const res = await fetch('/api/admin/grow-batches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify(newBatchData),
+        body: JSON.stringify({
+          cropType, trays, seedDate, note,
+          productId: selectedProductId || undefined,
+          productName: prod?.nameUz || undefined,
+        }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // 409 — «не хватает данных»: нет нормы расхода или нет семян на
+        // складе. Это вопрос владельцу, а не техническая ошибка.
+        setPlantError(data.error || 'Не удалось создать посадку');
+        return;
+      }
       await reload();
     }
     setShowForm(false); setNote(''); setTrays(1); setHarvestQty(1); setCostPriceInput(0);
-    setCustomDark(CROP_DB['radish'].darkDays);
-    setCustomLight(CROP_DB['radish'].lightDays);
-    setCustomShelf(CROP_DB['radish'].shelfDays);
+    setPlantError('');
   };
 
   const harvestBatch = async (id: string) => {
@@ -114,7 +150,7 @@ export function useAdminGrowing() {
     if (!batch) return;
     setHarvesting(id);
     try {
-      await harvestBatchApi(batch, patchBatch);
+      await harvestBatchApi({ ...batch, harvestQty, productId: selectedProductId || batch.productId }, reload, fmt);
     } catch (err) {
       console.error(err);
       alert('Ошибка при добавлении на склад');
@@ -136,7 +172,7 @@ export function useAdminGrowing() {
     if (!batch) return;
     setHarvesting(id);
     try {
-      await writeOffBatchApi(batch, patchBatch, fmt);
+      await writeOffBatchApi(batch, reload, fmt);
     } catch (err) {
       console.error(err);
       alert('Ошибка при списании');
@@ -161,5 +197,6 @@ export function useAdminGrowing() {
     setHarvestQty, costPriceInput, setCostPriceInput, harvesting, editingId, setEditingId, customDark,
     setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, handleEdit, addBatch,
     harvestBatch, deleteBatch, writeOffBatch, fmt, enriched, alerts, filtered,
+    requirements, estimatedCost, plantError,
   };
 }

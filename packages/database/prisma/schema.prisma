@@ -371,8 +371,161 @@ model Supplier {
 
   stockMovements StockMovement[]
   debts          Debt[]
+  prices         SupplierPrice[]
+  materialIntake RawMaterialMovement[]
 
   @@map("suppliers")
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ПРОИЗВОДСТВЕННЫЙ ЦИКЛ: сырьё → посадка → урожай → товар
+//
+// До этих таблиц цикла в базе не было. Поставщик был телефонной книгой без
+// прайсов; семена, субстрат и лотки не учитывались нигде (таблица `inventory`
+// осталась от офиса: её только списывали, пополнить было нечем и из витрины
+// к ней не было доступа); норм расхода не существовало, а `cost_price` партии
+// молча терялся при создании — поэтому «Просрочено N (убыток 0 сум)» на
+// «Сводке» всегда показывал ноль, каким бы ни был убыток.
+// ══════════════════════════════════════════════════════════════════════
+
+enum RawMaterialKind {
+  SEED // Семена — расходуются по норме на лоток
+  SUBSTRATE // Субстрат/грунт
+  TRAY // Лотки
+  PACKAGING // Упаковка
+  OTHER
+}
+
+enum RawMaterialMovementType {
+  IN // Приход от поставщика
+  CONSUME // Расход на посадку
+  WRITE_OFF // Порча, просрочка
+  ADJUSTMENT // Инвентаризация
+}
+
+/// Сырьё и расходники. Отдельно от `products`: товар продаётся штуками и
+/// имеет цену продажи, сырьё расходуется граммами и имеет только себестоимость.
+model RawMaterial {
+  id   String          @id @default(cuid())
+  name String
+  kind RawMaterialKind @default(OTHER)
+
+  /// g | kg | pcs | l — в чём меряем остаток и норму расхода.
+  unit String @default("g") @db.VarChar(10)
+
+  stock Decimal @default(0) @db.Decimal(12, 3)
+
+  /// Средневзвешенная себестоимость единицы. Пересчитывается при каждом
+  /// приходе: (остаток × старая + приход × цена) / (остаток + приход).
+  /// Так цена не скачет вместе с рынком при каждой закупке.
+  avgCost Decimal @default(0) @map("avg_cost") @db.Decimal(12, 2)
+
+  /// Порог предупреждения «скоро закончится».
+  minStock Decimal @default(0) @map("min_stock") @db.Decimal(12, 3)
+
+  /// Для семян — культура из CropNorm. По ней посадка находит, что списывать.
+  cropType String? @map("crop_type") @db.VarChar(50)
+
+  isActive Boolean @default(true) @map("is_active")
+  note     String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  movements RawMaterialMovement[]
+  prices    SupplierPrice[]
+
+  @@index([kind])
+  @@index([cropType])
+  @@index([isActive])
+  @@map("raw_materials")
+}
+
+/// Журнал сырья: приход, расход на посадку, списание, инвентаризация.
+/// Остаток `RawMaterial.stock` меняется только вместе с записью сюда.
+model RawMaterialMovement {
+  id         String                  @id @default(cuid())
+  materialId String                  @map("material_id")
+  material   RawMaterial             @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  type       RawMaterialMovementType
+
+  /// Со знаком: приход положительный, расход отрицательный.
+  quantity Decimal @db.Decimal(12, 3)
+
+  /// Цена закупки за единицу — только у прихода.
+  unitCost  Decimal? @map("unit_cost") @db.Decimal(12, 2)
+  totalCost Decimal? @map("total_cost") @db.Decimal(14, 2)
+
+  supplierId String?    @map("supplier_id")
+  supplier   Supplier?  @relation(fields: [supplierId], references: [id])
+  /// Расход привязан к партии — по нему считается её себестоимость.
+  growBatchId String?   @map("grow_batch_id")
+  growBatch   GrowBatch? @relation(fields: [growBatchId], references: [id])
+
+  reason      String?
+  performedBy String? @map("performed_by")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([materialId])
+  @@index([type])
+  @@index([growBatchId])
+  @@index([createdAt])
+  @@map("raw_material_movements")
+}
+
+/// Прайс поставщика на сырьё. Владелец правит цены под рынок; приход
+/// подставляет актуальную и предлагает обновить, если фактическая другая.
+model SupplierPrice {
+  id         String      @id @default(cuid())
+  supplierId String      @map("supplier_id")
+  supplier   Supplier    @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  materialId String      @map("material_id")
+  material   RawMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  price Decimal @db.Decimal(12, 2)
+  unit  String  @db.VarChar(10)
+
+  validFrom DateTime @default(now()) @map("valid_from")
+  isActive  Boolean  @default(true) @map("is_active")
+  note      String?  @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([supplierId, materialId, validFrom])
+  @@index([materialId, isActive])
+  @@map("supplier_prices")
+}
+
+/// Нормы культуры: сколько сырья уходит на лоток и сколько с него снимают.
+/// Длительности фаз переезжают сюда из CROP_DB (жили в коде фронтенда, и
+/// изменить их без правки кода было нельзя).
+model CropNorm {
+  id       String @id @default(cuid())
+  cropType String @unique @map("crop_type") @db.VarChar(50)
+  nameRu   String @map("name_ru") @db.VarChar(100)
+
+  /// Те самые «5-6 грамм на лоток».
+  seedGramsPerTray Decimal @map("seed_grams_per_tray") @db.Decimal(10, 2)
+
+  substrateGramsPerTray Decimal? @map("substrate_grams_per_tray") @db.Decimal(10, 2)
+  packagingPerTray      Decimal? @map("packaging_per_tray") @db.Decimal(10, 2)
+
+  /// Ожидаемый выход с лотка — по нему считается плановая себестоимость
+  /// единицы и видно отклонение факта от нормы.
+  yieldPerTray Decimal? @map("yield_per_tray") @db.Decimal(10, 2)
+
+  darkDays  Int @default(3) @map("dark_days")
+  lightDays Int @default(6) @map("light_days")
+  shelfDays Int @default(5) @map("shelf_days")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("crop_norms")
 }
 
 model Debt {
@@ -1227,14 +1380,26 @@ model GrowBatch {
 
   harvestDate DateTime? @map("harvest_date") @db.Date
   harvestQty  Float?    @map("harvest_qty")
+  /// Себестоимость ЕДИНИЦЫ урожая = (seedCost + suppliesCost) / harvestQty.
+  /// Считается сервером при сборе; до сбора пусто.
   costPrice   Float?    @map("cost_price")
   productId   String?   @map("product_id")
   productName String?   @map("product_name") @db.VarChar(255)
 
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at")
+  // ── Себестоимость партии ──
+  // Заполняется при посадке, из фактически списанного сырья по его
+  // средневзвешенной цене. Раньше `cost_price` вообще не сохранялся при
+  // создании партии, поэтому «убыток» просроченной партии всегда был нулём.
+  seedCost     Decimal? @map("seed_cost") @db.Decimal(14, 2)
+  suppliesCost Decimal? @map("supplies_cost") @db.Decimal(14, 2)
+  /// Плановый выход по норме культуры — чтобы видеть отклонение факта.
+  plannedYield Decimal? @map("planned_yield") @db.Decimal(10, 2)
+
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @default(now()) @updatedAt @map("updated_at")
   QualityControl QualityControl[]
   Experiment     Experiment[]
+  materialUsage  RawMaterialMovement[]
 
   @@index([status])
   @@index([seedDate])

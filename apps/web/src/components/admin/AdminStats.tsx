@@ -18,51 +18,35 @@ export function AdminStats() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const [ordersRes, productCountsRes, posRes, revenueRes] = await Promise.all([
-          fetch('/api/orders'),
-          fetch('/api/products?count=true'),
-          fetch('/api/inventory/pos'), // Today's POS sales
-          fetch('/api/inventory/analytics?section=revenue'),
-        ]);
-        const ordersData = await ordersRes.json();
-        const productCounts = await productCountsRes.json();
-        const posData = await posRes.json();
-        const revenueData = await revenueRes.json();
-
-        const orders = ordersData.orders || [];
-        const today = new Date().toISOString().slice(0, 10);
-
-        const todayOrders = orders.filter((o: { createdAt: string }) => o.createdAt?.slice(0, 10) === today);
-        const pending = orders.filter((o: { status: string }) => o.status === 'PENDING');
-        const delivering = orders.filter((o: { status: string }) => o.status === 'DELIVERING');
-
-        const todayOnlineRevenue = todayOrders.reduce((s: number, o: { subtotal: number }) => s + (o.subtotal || 0), 0);
-        const todayDeliveryFees = todayOrders.reduce((s: number, o: { deliveryFee: number }) => s + (o.deliveryFee || 0), 0);
-        const todayPOSRevenue = posData.summary?.totalRevenue || 0; // net (after returns)
-        const todayPOSSales = posData.summary?.totalSales || 0;
-        const todayPOSReturns = posData.summary?.totalReturnAmount || 0;
-        const todayReturnCount = posData.summary?.totalReturns || 0;
+        // Один источник на весь экран. Раньше здесь склеивались четыре
+        // эндпоинта: /api/orders (без limit — то есть первые 20 заказов),
+        // /api/products, /api/inventory/pos (сутки по UTC) и аналитика
+        // (сутки по местному времени). Числа на соседних плитках считались
+        // по разным данным за разные сутки и сойтись не могли.
+        const res = await fetch('/api/inventory/analytics?section=revenue');
+        const d = await res.json();
 
         setStats({
-          totalOrders: orders.length,
-          todayOrders: todayOrders.length,
-          onlineRevenue: orders.reduce((s: number, o: { subtotal: number }) => s + (o.subtotal || 0), 0),
-          totalDeliveryFees: orders.reduce((s: number, o: { deliveryFee: number }) => s + (o.deliveryFee || 0), 0),
-          todayDeliveryFees,
-          todayOnlineRevenue: todayOnlineRevenue,
-          todayPOSSales,
-          todayPOSRevenue,
-          todayPOSReturns,
-          todayReturnCount,
-          todayTotalRevenue: revenueData.todayRevenue || 0, // from analytics (already minus returns)
-          todayCost: revenueData.todayCost || 0,
-          todayProfit: revenueData.todayProfit || 0,
-          todayMargin: revenueData.todayMargin || 0,
-          todayReturns: revenueData.todayReturns || 0,
-          totalProducts: productCounts.total || 0,
-          activeProducts: productCounts.active || 0,
-          pendingOrders: pending.length,
-          deliveringOrders: delivering.length,
+          todayTotalRevenue: d.todayRevenue || 0,
+          todayGoodsPos: d.todayGoodsPos || 0,
+          todayGoodsOnline: d.todayGoodsOnline || 0,
+          todayDeliveryFees: d.todayDelivery || 0,
+          todayDiscount: d.todayDiscount || 0,
+          todayReturns: d.todayReturns || 0,
+          todayCost: d.todayCost || 0,
+          todayProfit: d.todayProfit || 0,
+          todayMargin: d.todayMargin || 0,
+          todayOrders: d.todayOrders || 0,
+          todayPOSSales: d.todayPosSales || 0,
+          todayReturnCount: d.todayReturnCount || 0,
+          todayUnits: d.todayUnits || 0,
+          todayAverageCheck: d.todayAverageCheck || 0,
+          monthRevenue: d.monthRevenue || 0,
+          monthOrders: d.monthOrders || 0,
+          monthGoodsOnline: d.monthGoodsOnline || 0,
+          pendingOrders: d.pendingOrders || 0,
+          deliveringOrders: d.deliveringOrders || 0,
+          activeProducts: d.activeProducts || 0,
         });
       } catch (err) {
         console.error('Stats fetch error:', err);

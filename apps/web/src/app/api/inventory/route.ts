@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getNumber } from '@/lib/settings/store';
+import { loadSalesLedger, startOfLocalDay } from '@/lib/revenue/salesLedger';
+import { demandByProduct, summarize } from '@/lib/revenue/summary';
 
 // ==========================================
 // Inventory Dashboard — Main stock overview
@@ -53,34 +55,17 @@ export async function GET(request: NextRequest) {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - demandWindow);
 
-  const recentSales = await prisma.orderItem.findMany({
-    where: {
-      order: { createdAt: { gte: ninetyDaysAgo }, status: { not: 'CANCELLED' } },
-    },
-    select: { productId: true, quantity: true },
-  });
+  // Спрос — из общего реестра продаж (lib/revenue). Раньше здесь складывались
+  // позиции заказов И движения OUT с фильтром `reason: { not: null }`, который
+  // (вопреки комментарию «POS sales») ловил и движения онлайн-заказов. Спрос
+  // выходил вдвое больше реального, а вместе с ним — точка перезаказа,
+  // «дней запаса» и статус CRITICAL/LOW/EXCESS.
+  const ledger = await loadSalesLedger(ninetyDaysAgo);
+  const demand = demandByProduct(ledger, ninetyDaysAgo);
 
-  // Also get POS sales (StockMovement type=OUT with reason starting with "Do'kon")
-  const recentPOS = await prisma.stockMovement.findMany({
-    where: {
-      type: 'OUT',
-      createdAt: { gte: ninetyDaysAgo },
-      reason: { not: null },
-    },
-    select: { productId: true, quantity: true },
-  });
-
-  // Calculate avg daily sales per product
   const salesByProduct = new Map<string, number>();
-
-  for (const sale of recentSales) {
-    const curr = salesByProduct.get(sale.productId) || 0;
-    salesByProduct.set(sale.productId, curr + sale.quantity);
-  }
-
-  for (const mov of recentPOS) {
-    const curr = salesByProduct.get(mov.productId) || 0;
-    salesByProduct.set(mov.productId, curr + Math.abs(mov.quantity));
+  for (const [productId, stats] of demand) {
+    salesByProduct.set(productId, stats.sold);
   }
 
   // Enrich products with analytics
@@ -130,28 +115,14 @@ export async function GET(request: NextRequest) {
   const excessCount = enrichedProducts.filter(p => p.status === 'EXCESS').length;
   const normalCount = enrichedProducts.filter(p => p.status === 'NORMAL').length;
 
-  // Today's revenue (orders + POS)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const endOfDay = new Date(today);
-  endOfDay.setHours(23, 59, 59, 999);
-
-  const todayOrders = await prisma.order.findMany({
-    where: { createdAt: { gte: today, lte: endOfDay }, status: { not: 'CANCELLED' } },
-    select: { total: true },
-  });
-
-  const todayPOS = await prisma.stockMovement.findMany({
-    where: {
-      type: 'OUT',
-      reason: { startsWith: "Do'kon sotish" },
-      createdAt: { gte: today, lte: endOfDay },
-    },
-    include: { product: { select: { price: true } } },
-  });
-
-  const todayOnlineRevenue = todayOrders.reduce((s, o) => s + o.total, 0);
-  const todayPOSRevenue = todayPOS.reduce((s, m) => s + Math.abs(m.quantity) * m.product.price, 0);
+  // Выручка за сегодня — из того же реестра, что и «Сводка» с «Доходом».
+  // Раньше это было третье независимое определение: POS считался по префиксу
+  // «Do'kon sotish» (продажи в долг мимо), по СЕГОДНЯШНЕМУ прайсу вместо цены
+  // продажи, и день резался по другой границе.
+  const today = startOfLocalDay();
+  const todaySummary = summarize(await loadSalesLedger(today), today);
+  const todayOnlineRevenue = todaySummary.goodsOnline + todaySummary.delivery - todaySummary.discount;
+  const todayPOSRevenue = todaySummary.goodsPos;
 
   // Debts summary
   const debtsRaw = await prisma.debt.findMany({
@@ -182,10 +153,10 @@ export async function GET(request: NextRequest) {
       lowCount,
       excessCount,
       normalCount,
-      todayRevenue: todayOnlineRevenue + todayPOSRevenue,
+      todayRevenue: todaySummary.revenue,
       todayOnlineRevenue,
       todayPOSRevenue,
-      todayOrderCount: todayOrders.length,
+      todayOrderCount: todaySummary.orders,
       debtsOwedToUs,
       debtsWeOwe,
     },

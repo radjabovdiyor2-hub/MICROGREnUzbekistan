@@ -15,6 +15,7 @@ import { AdminForecast } from '@/components/admin/AdminForecast';
 import { AdminSettings } from '@/components/admin/AdminSettings';
 import { AdminRevenue } from '@/components/admin/AdminRevenue';
 import { AdminGrowing } from '@/components/admin/AdminGrowing';
+import { AdminRawMaterials } from '@/components/admin/AdminRawMaterials';
 import { AdminMagazine } from '@/components/admin/AdminMagazine';
 import { AdminGuestPhotos } from '@/components/admin/AdminGuestPhotos';
 import { AdminRecipes } from '@/components/admin/AdminRecipes';
@@ -56,6 +57,7 @@ export function AdminTabRouter({ activeTab, isOwner, sellerName, lang, t }: {
     {activeTab === 'growing' && isOwner && <AdminGrowing />}
     {activeTab === 'customers' && isOwner && <AdminCustomers lang={lang} />}
     {activeTab === 'inventory' && isOwner && <AdminInventory />}
+    {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials />}
     {activeTab === 'movements' && isOwner && <AdminMovements />}
     {activeTab === 'orders' && isOwner && <AdminOrders />}
     {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}

@@ -216,13 +216,21 @@ async def human_task(action: str, department: str = "pm", reason: str = "") -> D
 
 
 async def get_business_summary() -> Dict[str, Any]:
-    """Сводка за сегодня: заказы, выручка, задачи, новые клиенты."""
+    """Сводка за сегодня: заказы, выручка, задачи, новые клиенты.
+
+    Отменённые заказы не считаются выручкой — витрина так делала всегда, а офис
+    складывал их вместе с оплаченными, и одна и та же дата давала разные суммы
+    на разных экранах.
+    """
+    from shared.tools.crm import NOT_A_SALE
+
     async with get_session_ctx() as session:
         orders = (
             await session.execute(
                 text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE"
+                    "WHERE DATE(created_at) = CURRENT_DATE "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
         ).fetchone()

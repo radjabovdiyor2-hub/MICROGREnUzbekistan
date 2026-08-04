@@ -35,7 +35,12 @@ function summarize(batches: Batch[]): Summary {
     else if (status === 'ready') counts.ready++;
     else if (status === 'expired') {
       counts.expired++;
-      counts.expiredLoss += (batch.costPrice || 0) * (batch.harvestQty || batch.trays);
+      // Убыток = всё, что вложено в партию (семена + расходники), посчитанное
+      // при посадке. Раньше здесь стояло `costPrice × количество`, но
+      // `costPrice` — себестоимость ЕДИНИЦЫ УРОЖАЯ, и до сбора её нет:
+      // просроченная партия по определению не собрана, поэтому «убыток»
+      // выходил нулём при любых потерях.
+      counts.expiredLoss += batch.batchCost ?? 0;
     }
   }
   return { ...counts, total: counts.dark + counts.light + counts.ready + counts.expired };

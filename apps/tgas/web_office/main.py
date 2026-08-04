@@ -20,7 +20,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import text
 
-from shared import bot_registry
+from shared import bot_registry, customer_repo
+from shared import phone as phone_utils
 from shared.database import get_session_ctx
 from shared.event_bus import event_bus, Events
 from shared.utils import format_price
@@ -651,71 +652,27 @@ async def ingest_order(request: Request):
             if dup:
                 return JSONResponse({"status": "duplicate", "order_id": dup})
 
-            # Upsert клиента: по связке с витриной, затем telegram_id, затем
-            # телефон, иначе создаём. web_user_id — самый надёжный ключ: он
-            # приходит от витрины и не меняется, в отличие от телефона.
-            customer_id = None
-            if web_user_id:
-                customer_id = (
-                    await session.execute(
-                        text("SELECT id FROM customers WHERE web_user_id = :wid"),
-                        {"wid": web_user_id},
-                    )
-                ).scalar()
-            if not customer_id and tid:
-                customer_id = (
-                    await session.execute(
-                        text("SELECT id FROM customers WHERE telegram_id = :tid"),
-                        {"tid": tid},
-                    )
-                ).scalar()
-            if not customer_id and phone:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"
-                        ),
-                        {"phone": phone},
-                    )
-                ).scalar()
-            if not customer_id:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO customers (name, phone, telegram_id, bonus_balance, source, "
-                            "status, customer_type, city, web_user_id) VALUES (:name, :phone, :tid, :bonus, "
-                            "'webapp', 'active', 'b2c', 'Samarqand', :wid) RETURNING id"
-                        ),
-                        {
-                            "name": name,
-                            "phone": phone,
-                            "tid": tid,
-                            "bonus": bonus_balance,
-                            "wid": web_user_id,
-                        },
-                    )
-                ).scalar()
-            else:
-                # Дополняем недостающие контакты; баланс бонусов зеркалим из витрины.
-                # customer_type НЕ трогаем: карточку мог завести отдел продаж как
-                # b2b, и затирать это на 'b2c' из витрины нельзя.
-                await session.execute(
-                    text(
-                        "UPDATE customers SET telegram_id = COALESCE(telegram_id, :tid), "
-                        "phone = COALESCE(phone, :phone), "
-                        "name = COALESCE(NULLIF(name, ''), :name), "
-                        "web_user_id = COALESCE(web_user_id, :wid), "
-                        "bonus_balance = :bonus WHERE id = :cid"
-                    ),
-                    {
-                        "tid": tid,
-                        "phone": phone,
-                        "name": name,
-                        "wid": web_user_id,
-                        "bonus": bonus_balance,
-                        "cid": customer_id,
-                    },
-                )
+            # Upsert клиента: web_user_id → telegram_id → телефон → имя.
+            # Живёт в shared/customer_repo — он один на весь офис, и только
+            # поэтому карточка, заведённая менеджером при регистрации продажи,
+            # здесь находится, а не дублируется. Раньше зеркало искало по
+            # точной строке телефона, промахивалось на любом ином формате
+            # записи и заводило тому же ресторану вторую карточку — уже b2c
+            # и с именем «Клиент из приложения».
+            #
+            # Работаем в ОТКРЫТОЙ транзакции зеркала: карточка и заказ должны
+            # появиться или исчезнуть разом.
+            saved = await customer_repo.upsert(
+                session=session,
+                name=name,
+                raw_phone=phone,
+                telegram_id=tid,
+                web_user_id=web_user_id,
+                bonus_balance=bonus_balance,
+                status="active",
+                source="webapp",
+            )
+            customer_id = saved["id"]
 
             # Зеркало заказа в CRM. Номер берём витринный: витрина — владелец
             # заказов, и один и тот же заказ должен называться одинаково на
@@ -1022,57 +979,21 @@ async def ingest_customer(request: Request):
         return JSONResponse({"error": "telegram_id or phone required"}, status_code=400)
 
     try:
-        async with get_session_ctx() as session:
-            customer_id = None
-            if tid:
-                customer_id = (
-                    await session.execute(
-                        text("SELECT id FROM customers WHERE telegram_id = :tid"),
-                        {"tid": tid},
-                    )
-                ).scalar()
-            if not customer_id and phone:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"
-                        ),
-                        {"phone": phone},
-                    )
-                ).scalar()
-            is_new = customer_id is None
-            if is_new:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO customers (name, phone, telegram_id, bonus_balance, language, "
-                            "source, status, customer_type, city) VALUES (:name, :phone, :tid, :bonus, "
-                            ":lang, 'webapp', 'lead', 'b2c', 'Samarqand') RETURNING id"
-                        ),
-                        {
-                            "name": name,
-                            "phone": phone,
-                            "tid": tid,
-                            "bonus": bonus,
-                            "lang": language,
-                        },
-                    )
-                ).scalar()
-            else:
-                await session.execute(
-                    text(
-                        "UPDATE customers SET telegram_id = COALESCE(telegram_id, :tid), "
-                        "phone = COALESCE(phone, :phone), name = COALESCE(NULLIF(name, ''), :name), "
-                        "bonus_balance = :bonus WHERE id = :cid"
-                    ),
-                    {
-                        "tid": tid,
-                        "phone": phone,
-                        "name": name,
-                        "bonus": bonus,
-                        "cid": customer_id,
-                    },
-                )
+        # Регистрация — не заказ: имя здесь берётся из профиля Telegram и может
+        # не совпадать с тем, как клиента зовёт отдел продаж. Поэтому поиск по
+        # имени выключен: «Jasmina» из профиля не должна прилипнуть к карточке
+        # ресторана «Жасмин». Ключи только однозначные — telegram_id и телефон.
+        saved = await customer_repo.upsert(
+            name=name,
+            raw_phone=phone,
+            telegram_id=tid,
+            bonus_balance=bonus,
+            language=language,
+            status="lead",
+            source="webapp",
+            match_by_name=False,
+        )
+        customer_id, is_new = saved["id"], saved["created"]
     except Exception as exc:
         logger.exception("Ingest-customer: ошибка (%s): %s", phone or tid, exc)
         return JSONResponse({"error": "ingest failed"}, status_code=500)
@@ -1100,7 +1021,12 @@ def _check_ingest_secret(request: Request) -> bool:
 
 
 async def _find_customer(session, tid, phone):
-    """Найти клиента по telegram_id, затем по телефону (best-effort)."""
+    """Найти клиента по telegram_id, затем по телефону (best-effort).
+
+    Телефон сравнивается по последним девяти цифрам (`customer_repo`), а не по
+    строке: в базе одновременно лежат `+998 66 233-45-67`, `998662334567` и
+    `662334567` — один и тот же клиент у трёх разных писателей.
+    """
     if tid:
         cid = (
             await session.execute(
@@ -1110,13 +1036,16 @@ async def _find_customer(session, tid, phone):
         ).scalar()
         if cid:
             return cid
-    if phone:
+    tail = phone_utils.match_tail(phone)
+    if tail:
         return (
             await session.execute(
                 text(
-                    "SELECT id FROM customers WHERE phone = :phone ORDER BY id LIMIT 1"
+                    "SELECT id FROM customers WHERE phone IS NOT NULL "
+                    f"AND {phone_utils.SQL_PHONE_TAIL} = :tail "
+                    "ORDER BY orders_count DESC, id LIMIT 1"
                 ),
-                {"phone": phone},
+                {"tail": tail},
             )
         ).scalar()
     return None
@@ -1190,22 +1119,20 @@ async def ingest_lead(request: Request):
 
     try:
         async with get_session_ctx() as session:
-            customer_id = await _find_customer(session, None, phone)
-            if not customer_id:
-                customer_id = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO customers (name, company_name, phone, customer_type, status, "
-                            "source, city) VALUES (:name, :company, :phone, 'b2b', 'lead', 'website', "
-                            "'Samarqand') RETURNING id"
-                        ),
-                        {
-                            "name": contact or company or "B2B-лид",
-                            "company": company,
-                            "phone": phone,
-                        },
-                    )
-                ).scalar()
+            # Поиск идёт и по названию компании: тот же ресторан мог быть
+            # заведён ночным сбором B2B-лидов из 2ГИС. Раньше искали только по
+            # телефону, и заявка с сайта без номера гарантированно создавала
+            # дубль уже собранного лида.
+            saved = await customer_repo.upsert(
+                session=session,
+                name=contact or company or "B2B-лид",
+                company_name=company,
+                raw_phone=phone,
+                customer_type="b2b",
+                status="lead",
+                source="website",
+            )
+            customer_id = saved["id"]
             await session.execute(
                 text(
                     "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "

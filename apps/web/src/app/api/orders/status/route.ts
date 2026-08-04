@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { prisma, OrderStatus } from '@repo/database';
 import { notifyCustomer } from '@/lib/notify';
 import { customerStatusText } from '@/lib/orderSync';
+import { restoreStockForCancelledOrder } from '@/lib/orders/cancel';
 
 // ==========================================
 // Reverse status sync: AI-office -> storefront.
@@ -82,6 +83,15 @@ export async function POST(request: NextRequest) {
       await notifyCustomer(
         order.user.telegramId,
         customerStatusText(order.orderNumber, order.status, order.user.language),
+      );
+    }
+
+    // Отмена из офиса тоже возвращает товар на склад. Обратно в офис мы
+    // намеренно НЕ ходим (это замкнуло бы петлю синхронизации), поэтому
+    // возврат вызывается здесь напрямую, а не через syncOrderStatus.
+    if (order.status === 'CANCELLED') {
+      await restoreStockForCancelledOrder(order.id).catch((err) =>
+        console.error('Stock restore on office cancel failed:', err),
       );
     }
 

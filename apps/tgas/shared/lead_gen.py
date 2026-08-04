@@ -29,6 +29,7 @@ from typing import Any, Optional
 import aiohttp
 from sqlalchemy import text
 
+from shared import phone as phone_utils
 from shared.config import settings
 from shared.database import get_session_ctx
 
@@ -299,11 +300,13 @@ def parse_manual_csv(path: str) -> list[dict[str, Any]]:
 
 
 def sanitize_phone(phone: str | None) -> str | None:
-    """Оставляет только цифры, берет последние 9 (для сравнения без +998)."""
-    if not phone:
-        return None
-    digits = re.sub(r"\D", "", phone)
-    return digits[-9:] if len(digits) >= 9 else digits
+    """Последние 9 цифр — ключ сравнения номеров.
+
+    Тонкая обёртка над `shared/phone`: определение «тот же номер» в проекте
+    должно быть одно. Раньше здесь жила своя копия, а рядом — ещё три, и они
+    расходились ровно настолько, чтобы дедупликация промахивалась.
+    """
+    return phone_utils.match_tail(phone)
 
 
 def sanitize_name(name: str | None) -> str | None:
@@ -316,21 +319,23 @@ def sanitize_name(name: str | None) -> str | None:
 async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
     """
     Вставляет лидов в customers, пропуская дубликаты.
-    Дедуп по (source, source_ref), затем по phone, затем по company_name+city.
+    Дедуп по (source, source_ref), затем по phone, затем по названию.
     Возвращает {'inserted': N, 'skipped': M}.
+
+    Сверка идёт по ВСЕЙ базе клиентов и по обоим названиям (`name` и
+    `company_name`), а не только по b2b и `company_name`, как раньше: ресторан,
+    заведённый менеджером при продаже, лежит с `customer_type='b2b'`, но
+    названием в `name` — ночной сбор его не видел и заводил рядом второго.
     """
     inserted = skipped = 0
     async with get_session_ctx() as session:
-        # Загрузим существующие нормализованные данные для быстрой in-memory проверки,
-        # чтобы не делать 3 селекта на каждого лида.
+        # In-memory индексы: пачка бывает в сотни лидов, и три селекта на
+        # каждого превратили бы ночную задачу в тысячи запросов.
         res = await session.execute(
-            text(
-                "SELECT id, source, source_ref, phone, company_name FROM customers WHERE customer_type = 'b2b'"
-            )
+            text("SELECT source, source_ref, phone, name, company_name FROM customers")
         )
         existing_rows = res.fetchall()
 
-        # Индексы для быстрой проверки
         seen_refs = {
             (r.source, r.source_ref) for r in existing_rows if r.source and r.source_ref
         }
@@ -338,9 +343,10 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
             sanitize_phone(r.phone) for r in existing_rows if sanitize_phone(r.phone)
         }
         seen_names = {
-            sanitize_name(r.company_name)
+            sanitize_name(value)
             for r in existing_rows
-            if sanitize_name(r.company_name)
+            for value in (r.name, r.company_name)
+            if sanitize_name(value)
         }
 
         for lead in leads:
@@ -385,7 +391,9 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
                 {
                     "name": name,
                     "company": name,
-                    "phone": lead.get("phone"),
+                    # Канон +998XXXXXXXXX. Раньше сюда ложилась сырая строка из
+                    # 2ГИС, и по ней потом промахивался поиск клиента при продаже.
+                    "phone": phone_utils.normalize(lead.get("phone")),
                     "email": lead.get("email"),
                     "address": lead.get("address"),
                     "city": settings.lead_gen_city,
