@@ -10,6 +10,18 @@ def main():
         has_errors = True
         print(f"ERROR: {msg}", file=sys.stderr)
 
+    def parse_mem(mem_str):
+        if not mem_str:
+            return 0
+        s = str(mem_str).lower().strip()
+        if s.endswith('g') or s.endswith('gb'):
+            val = s.replace('gb', '').replace('g', '')
+            return int(float(val) * 1024)
+        if s.endswith('m') or s.endswith('mb'):
+            val = s.replace('mb', '').replace('m', '')
+            return int(val)
+        return int(s)
+
     try:
         with open('docker-compose.prod.yml', encoding='utf-8') as f:
             compose_data = yaml.safe_load(f)
@@ -56,22 +68,19 @@ def main():
         # postgres < 512m
         if svc_name == 'postgres':
             ml = svc_conf.get('mem_limit')
-            if not ml or int(str(ml).lower().replace('m', '')) < 512:
+            if not ml or parse_mem(ml) < 512:
                 log_error(f"Service '{svc_name}' mem_limit is less than 512m (found {ml}).")
                 
         # tgas services < 192m 
         if svc_name in tgas_services:
             ml = svc_conf.get('mem_limit')
-            if not ml:
-                # check anchor or just error if missing
-                pass
-            if ml and int(str(ml).lower().replace('m', '')) < 192:
+            if ml and parse_mem(ml) < 192:
                 log_error(f"Service '{svc_name}' mem_limit is less than 192m (found {ml}).")
         
         # actually x-tgas-bot anchor is merged by pyyaml, so ml WILL be present if inherited.
         if svc_name in tgas_services and 'mem_limit' in svc_conf:
              ml = svc_conf['mem_limit']
-             if int(str(ml).lower().replace('m', '')) < 192:
+             if parse_mem(ml) < 192:
                  log_error(f"Service '{svc_name}' mem_limit is less than 192m (found {ml}).")
 
     if len(unique_builds) > 4:

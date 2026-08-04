@@ -30,8 +30,6 @@ jobs:
       - run: cd apps/web && npm run lint
       - run: cd apps/web && npx tsc --noEmit
       - run: cd apps/web && npx vitest run
-      - name: Run compose invariant watchdog
-        run: python scripts/check_compose.py
 
   # ─────────────────────────── SECURITY ───────────────────────────
   # Форма Due Diligence (§7.5) числила проверку безопасности как ручную.
@@ -85,12 +83,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy
+          pip install ruff mypy pyyaml
           if [ -f apps/tgas/requirements.txt ]; then pip install -r apps/tgas/requirements.txt; fi
       - name: Run Ruff
         run: ruff check apps/tgas
       - name: Run Mypy
         run: mypy apps/tgas --ignore-missing-imports || true
+      - name: Run compose invariant watchdog
+        run: python scripts/check_compose.py
 
   # ─────────────────────────── BUILD IMAGES ───────────────────────────
   build-images:
