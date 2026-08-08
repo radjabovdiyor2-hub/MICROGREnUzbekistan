@@ -17,6 +17,8 @@ interface Props {
   paymentMethod: 'cash' | 'card' | 'debt';
   setPaymentMethod: Dispatch<SetStateAction<'cash' | 'card' | 'debt'>>;
   returnReason: string;
+  returnSaleNumber: string;
+  setReturnSaleNumber: (v: string) => void;
   setReturnReason: (v: string) => void;
   debtInfo: DebtInfo;
   setDebtInfo: Dispatch<SetStateAction<DebtInfo>>;
@@ -36,7 +38,7 @@ interface Props {
 
 export function AdminPOSCart({
   cart, returnMode, processing, paymentMethod, setPaymentMethod,
-  returnReason, setReturnReason, debtInfo, setDebtInfo,
+  returnReason, setReturnReason, returnSaleNumber, setReturnSaleNumber, debtInfo, setDebtInfo,
   editingPriceId, setEditingPriceId, editPriceValue, setEditPriceValue,
   updateQuantity, updatePrice, removeFromCart, processSale, processReturn,
   total, fmt, inputStyle,
@@ -83,6 +85,15 @@ export function AdminPOSCart({
           {returnMode ? (
             /* Return mode: reason + return button */
             <>
+              {/* Номер чека обязателен: по нему сервер проверяет, что
+                  возвращают не больше проданного и не второй раз. Раньше
+                  возврат ничем не ограничивался. */}
+              <div style={{ marginBottom: 'var(--space-3)' }}>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Номер чека продажи:</div>
+                <input type="text" placeholder="S-20260808-A1B2C3D4"
+                  value={returnSaleNumber} onChange={e => setReturnSaleNumber(e.target.value)}
+                  style={{ ...inputStyle, borderColor: 'var(--warning)' }} />
+              </div>
               <div style={{ marginBottom: 'var(--space-4)' }}>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Причина возврата:</div>
                 <input type="text" placeholder="Брак / Неверный товар / Другое..."

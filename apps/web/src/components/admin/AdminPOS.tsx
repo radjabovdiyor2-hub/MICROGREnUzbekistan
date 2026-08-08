@@ -22,6 +22,9 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
   const [loading, setLoading] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
   const [returnReason, setReturnReason] = useState('');
+  // Номер чека, из которого возвращают. Без него сервер отклонит возврат:
+  // по нему проверяется, что возвращают не больше проданного и не повторно.
+  const [returnSaleNumber, setReturnSaleNumber] = useState('');
   const { cart, setCart, addToCart, updatePrice, updateQuantity, removeFromCart, total } =
     usePosCart(returnMode);
 
@@ -84,11 +87,12 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
 
     setProcessing(true);
     try {
-      const data = await submitReturn(cart, returnReason, sellerName || 'Egasi');
+      const data = await submitReturn(cart, returnReason, sellerName || 'Egasi', returnSaleNumber.trim());
       if (data.success) {
         setSaleResult({ saleNumber: data.returnNumber!, total: data.totalRefund!, isReturn: true, items: cart, date: new Date().toLocaleString('ru-RU') });
         setCart([]);
         setReturnReason('');
+        setReturnSaleNumber('');
         fetchProducts();
       } else {
         alert(data.error || 'Xatolik yuz berdi');
@@ -162,6 +166,8 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
           paymentMethod={paymentMethod}
           setPaymentMethod={setPaymentMethod}
           returnReason={returnReason}
+          returnSaleNumber={returnSaleNumber}
+          setReturnSaleNumber={setReturnSaleNumber}
           setReturnReason={setReturnReason}
           debtInfo={debtInfo}
           setDebtInfo={setDebtInfo}

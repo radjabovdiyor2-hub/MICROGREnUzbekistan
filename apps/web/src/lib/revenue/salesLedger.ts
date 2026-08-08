@@ -119,7 +119,15 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
 
   const [orders, posMovements, returnMovements, costMap] = await Promise.all([
     prisma.order.findMany({
-      where: { createdAt: range, status: { not: 'CANCELLED' } },
+      // Возврат — это НЕ статус заказа, а отдельное поле `paymentStatus`.
+      // Фильтр стоял только по CANCELLED, поэтому возвращённый заказ
+      // оставался в выручке полностью: деньги вернули клиенту, а отчёт
+      // продолжал их показывать.
+      where: {
+        createdAt: range,
+        status: { not: 'CANCELLED' },
+        paymentStatus: { not: 'REFUNDED' },
+      },
       include: { items: { include: { product: { select: { nameUz: true } } } } },
       orderBy: { createdAt: 'desc' },
     }),

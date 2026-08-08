@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { KIND_LABELS, UNIT_OPTIONS, type RawMaterial } from './rawMaterialTypes';
+import { BULK_KINDS, KIND_LABELS, UNIT_OPTIONS, type RawMaterial } from './rawMaterialTypes';
 import { fetchCropNorms, type CropNorm } from './growingData';
 
 // Форма выполняет две задачи: завести позицию сырья и оприходовать приход.
@@ -47,6 +47,8 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   );
   const [supplierId, setSupplierId] = useState(material?.lastPrice?.supplierId ?? '');
   const [onCredit, setOnCredit] = useState(false);
+  // Единица ВВОДА прихода. Хранение всегда в граммах; килограммы переводим.
+  const [intakeUnit, setIntakeUnit] = useState<'g' | 'kg'>('kg');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
 
   const [norms, setNorms] = useState<CropNorm[]>([]);
@@ -62,19 +64,26 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
     fetchCropNorms().then(setNorms).catch(() => {});
   }, []);
 
+  // Килограммы → граммы: и количество, и цена. Цена за килограмм делится
+  // на 1000, иначе средневзвешенная себестоимость вырастет в тысячу раз.
+  const factor = material?.unit === 'g' && intakeUnit === 'kg' ? 1000 : 1;
+  const intakeUnitLabel = factor === 1000 ? 'кг' : (material?.unit ?? '');
+  const storedQuantity = Number(quantity) * factor;
+  const storedUnitCost = Number(unitCost) / factor;
+
   const submitReceipt = () => {
     onSubmit({
       action: 'receipt',
       materialId: material!.id,
-      quantity: Number(quantity),
-      unitCost: Number(unitCost),
+      quantity: storedQuantity,
+      unitCost: storedUnitCost,
       supplierId: supplierId || null,
       onCredit,
     });
   };
 
   const submitNew = () => {
-    onSubmit({ name, kind, unit, minStock: Number(minStock) || 0, cropType: cropType || null });
+    onSubmit({ name, kind, unit: BULK_KINDS.includes(kind) ? 'g' : unit, minStock: Number(minStock) || 0, cropType: cropType || null });
   };
 
   const priceChanged =
@@ -89,12 +98,31 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
       {material ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
           <div>
-            <label style={label}>Количество ({material.unit})</label>
-            <input style={input} type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="1000" />
+            <label style={label} htmlFor="raw-qty">Количество</label>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input id="raw-qty" style={input} type="number" value={quantity}
+                onChange={(e) => setQuantity(e.target.value)} placeholder="1" />
+              {/* Мешок покупают килограммами, а норма расхода — в граммах.
+                  Переводим здесь и показываем результат: раньше килограммы
+                  можно было выбрать единицей хранения, и списание уходило
+                  в тысячу раз мимо. */}
+              {material.unit === 'g' ? (
+                <select style={{ ...input, width: 110 }} value={intakeUnit}
+                  onChange={(e) => setIntakeUnit(e.target.value as 'g' | 'kg')}>
+                  <option value="kg">кг</option>
+                  <option value="g">г</option>
+                </select>
+              ) : (
+                <span style={{ alignSelf: 'center', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+                  {material.unit}
+                </span>
+              )}
+            </div>
           </div>
           <div>
-            <label style={label}>Цена за {material.unit}</label>
-            <input style={input} type="number" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} placeholder="70" />
+            <label style={label} htmlFor="raw-cost">Цена за {intakeUnitLabel}</label>
+            <input id="raw-cost" style={input} type="number" value={unitCost}
+              onChange={(e) => setUnitCost(e.target.value)} placeholder="70000" />
           </div>
           <div>
             <label style={label}>Поставщик</label>
@@ -118,15 +146,28 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
           </div>
           <div>
             <label style={label}>Тип</label>
-            <select style={input} value={kind} onChange={(e) => setKind(e.target.value as RawMaterial['kind'])}>
+            <select style={input} value={kind} onChange={(e) => {
+              const next = e.target.value as RawMaterial['kind'];
+              setKind(next);
+              if (BULK_KINDS.includes(next)) setUnit('g');
+            }}>
               {Object.entries(KIND_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
             <label style={label}>Единица</label>
-            <select style={input} value={unit} onChange={(e) => setUnit(e.target.value)}>
-              {UNIT_OPTIONS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
-            </select>
+            {/* У семян и субстрата единица не выбирается: нормы расхода
+                заданы в граммах, и любая другая единица увела бы списание
+                мимо. Килограммы вводятся при приходе — там они переводятся. */}
+            {BULK_KINDS.includes(kind) ? (
+              <div style={{ ...input, color: 'var(--text-muted)' }}>
+                граммы (нормы расхода в граммах)
+              </div>
+            ) : (
+              <select style={input} value={unit} onChange={(e) => setUnit(e.target.value)}>
+                {UNIT_OPTIONS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+              </select>
+            )}
           </div>
           <div>
             <label style={label}>Предупреждать при остатке</label>
@@ -158,11 +199,14 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
       {material && (
         <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
           Сейчас на складе {material.stock} {material.unit} по {Math.round(material.avgCost)} сум.
+          {factor === 1000 && quantity && (
+            <> Придёт {storedQuantity.toLocaleString('ru-RU')} г по {storedUnitCost.toFixed(2)} сум/г.</>
+          )}
           {quantity && unitCost && (
             <> После прихода средняя станет{' '}
               {Math.round(
-                (material.stock * material.avgCost + Number(quantity) * Number(unitCost)) /
-                  (material.stock + Number(quantity) || 1),
+                (material.stock * material.avgCost + storedQuantity * storedUnitCost) /
+                  (material.stock + storedQuantity || 1),
               )}{' '}
               сум — приход усредняется с остатком.
             </>

@@ -20,11 +20,9 @@ export const SETTING_CATEGORIES = [
   'contacts',
   'content',
   'bonus',
-  'loyalty',
   'stock',
   'payment',
   'ai',
-  'magazine',
 ] as const;
 
 export type SettingCategory = (typeof SETTING_CATEGORIES)[number];
@@ -34,9 +32,7 @@ export const CATEGORY_LABELS: Record<SettingCategory, { ru: string; uz: string }
   contacts: { ru: 'Контакты и соцсети', uz: 'Kontaktlar' },
   content: { ru: 'Тексты на сайте', uz: 'Sayt matnlari' },
   bonus: { ru: 'Бонусы и рефералы', uz: 'Bonuslar' },
-  loyalty: { ru: 'Лояльность HoReCa', uz: 'HoReCa sodiqlik' },
   stock: { ru: 'Склад и пороги', uz: 'Ombor' },
   payment: { ru: 'Оплата', uz: "To'lov" },
   ai: { ru: 'ИИ и бюджет', uz: 'AI va byudjet' },
-  magazine: { ru: 'Журнал и печать', uz: 'Jurnal' },
 };

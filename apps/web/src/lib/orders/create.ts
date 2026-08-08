@@ -133,6 +133,11 @@ export async function createOrder(body: OrderBody): Promise<CreateOrderResult> {
         deliveryFee,
         total: subtotal + deliveryFee - bonusApplied - promoApplied,
         discount: bonusApplied + promoApplied,
+        // Раскладка скидки. Без неё отменённый заказ не мог вернуть ни баллы,
+        // ни использование промокода: из общей суммы одно от другого не
+        // отделить, и клиент терял баллы навсегда.
+        bonusUsed: bonusApplied,
+        promoCode: promoApplied > 0 ? promoCode : null,
         city: city || 'tashkent',
         address: customer!.address,
         phone: customer!.phone,

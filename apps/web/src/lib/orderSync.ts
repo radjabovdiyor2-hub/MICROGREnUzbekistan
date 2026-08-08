@@ -79,7 +79,17 @@ export async function pushStatusToOffice(params: {
         },
         body: JSON.stringify({
           order_number: params.orderNumber,
-          status: params.status ? STATUS_TO_OFFICE[params.status] ?? null : null,
+          // Возврат для офиса — это отменённая продажа. Своего значения
+          // `refunded` у него нет: CHECK на `crm_orders.payment_status`
+          // допускает только pending|paid|overdue. Поэтому сообщаем отменой —
+          // иначе офис не сторнирует доход, и возвращённый заказ навсегда
+          // остаётся прибылью в P&L.
+          status:
+            params.paymentStatus === 'REFUNDED'
+              ? 'cancelled'
+              : params.status
+                ? STATUS_TO_OFFICE[params.status] ?? null
+                : null,
           payment_status: params.paymentStatus ? PAYMENT_TO_OFFICE[params.paymentStatus] ?? null : null,
         }),
         signal: AbortSignal.timeout(4000),
@@ -118,9 +128,12 @@ export async function syncOrderStatus(order: {
       status: order.status,
       paymentStatus: order.paymentStatus ?? null,
     }),
-    order.status === 'CANCELLED' && order.id
+    // Возврат обрабатывается как отмена. Раньше `REFUNDED` не имел
+    // обработчика вовсе: деньги возвращали клиенту, а товар оставался
+    // списанным, бонусы — сгоревшими, доход — записанным.
+    (order.status === 'CANCELLED' || order.paymentStatus === 'REFUNDED') && order.id
       ? restoreStockForCancelledOrder(order.id).catch((err) =>
-          console.error('Stock restore on cancel failed:', err),
+          console.error('Stock restore on cancel/refund failed:', err),
         )
       : Promise.resolve(0),
   ]);

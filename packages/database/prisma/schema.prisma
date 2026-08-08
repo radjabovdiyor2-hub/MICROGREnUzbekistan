@@ -164,6 +164,16 @@ model Order {
   subtotal      Int
   deliveryFee   Int           @default(0) @map("delivery_fee")
   discount      Int           @default(0)
+
+  // ── Из чего сложилась скидка ──
+  // `discount` — СУММА бонусов и промокода, и разделить её обратно нельзя.
+  // Из-за этого отменённый заказ не мог вернуть ни баллы клиенту, ни
+  // использование промокода: было неизвестно, сколько чего списали.
+  /// Сколько бонусных баллов списано при оформлении.
+  bonusUsed Int     @default(0) @map("bonus_used")
+  /// Применённый промокод — чтобы при отмене освободить его использование.
+  promoCode String? @map("promo_code")
+
   city          String        @default("tashkent")
   address       String
   phone         String
@@ -510,6 +520,16 @@ model CropNorm {
   seedGramsPerTray Decimal @map("seed_grams_per_tray") @db.Decimal(10, 2)
 
   substrateGramsPerTray Decimal? @map("substrate_grams_per_tray") @db.Decimal(10, 2)
+
+  /// Сколько лотков уходит на один лоток посадки. Лотки одноразовые, поэтому
+  /// по умолчанию 1. Раньше тип «Лотки» существовал в справочнике сырья, но
+  /// посадка его не списывала вовсе — себестоимость партии выходила заниженной
+  /// на стоимость лотков, и заметить это было нельзя.
+  traysPerBatch Decimal @default(1) @map("trays_per_batch") @db.Decimal(10, 2)
+
+  /// Упаковка списывается при СБОРЕ, а не при посадке: упаковывают готовый
+  /// урожай. Норма задана на лоток, расход считается от фактического числа
+  /// собранных лотков.
   packagingPerTray      Decimal? @map("packaging_per_tray") @db.Decimal(10, 2)
 
   /// Ожидаемый выход с лотка — по нему считается плановая себестоимость

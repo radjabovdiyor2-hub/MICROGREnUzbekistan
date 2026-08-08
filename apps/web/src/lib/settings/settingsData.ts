@@ -102,19 +102,12 @@ export const SETTINGS = {
     hintRu: 'Раньше значение показывали клиенту, но НЕ проверяли при заказе', min: 0,
   },
 
-  // ── Лояльность HoReCa ───────────────────────────────────────────────
-  'loyalty.goal': {
-    category: 'loyalty', type: 'number', default: 5,
-    labelRu: 'Штампов до награды', labelUz: 'Mukofotgacha shtamplar', min: 1, max: 50,
-  },
-  'loyalty.rewardPercent': {
-    category: 'loyalty', type: 'number', default: 15,
-    labelRu: 'Размер награды (%)', labelUz: 'Mukofot (%)', min: 0, max: 100,
-  },
-  'loyalty.rewardValidDays': {
-    category: 'loyalty', type: 'number', default: 30,
-    labelRu: 'Срок действия награды (дней)', labelUz: 'Amal qilish muddati (kun)', min: 1,
-  },
+  // ── Лояльность HoReCa — УБРАНО ──────────────────────────────────────
+  // Здесь были loyalty.goal, loyalty.rewardPercent и loyalty.rewardValidDays.
+  // Проверка перебором всех ключей показала: ни один из них не встречался в
+  // коде ни разу за пределами этого файла. Владелец их правил, а поведение
+  // не менялось — настройка, которая врёт, хуже отсутствующей.
+  // Вернуть их следует вместе с реализацией лояльности, а не раньше.
 
   // ── Склад ───────────────────────────────────────────────────────────
   'stock.criticalLevel': {
@@ -167,10 +160,7 @@ export const SETTINGS = {
   },
 
   // ── Журнал ──────────────────────────────────────────────────────────
-  'magazine.printUnitCost': {
-    category: 'magazine', type: 'money', default: 4000,
-    labelRu: 'Себестоимость экземпляра', labelUz: 'Bir nusxa tannarxi', min: 0,
-  },
+  // magazine.printUnitCost убрана по той же причине: её никто не читал.
 } as const satisfies Record<string, SettingDef>;
 
 export type SettingKey = keyof typeof SETTINGS;

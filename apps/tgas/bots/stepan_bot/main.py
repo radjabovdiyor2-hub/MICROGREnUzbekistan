@@ -618,6 +618,57 @@ async def bot_health_summary():
     await bot_health_check(force=True)
 
 
+async def grow_morning():
+    """Утренняя сводка по посадкам: что созрело, что дозреет, что просрочено.
+
+    Напоминаний о посадках не было вообще. Фазу партии умел считать только
+    экран «Посадки» в админке — то есть узнать, что партия готова, можно было,
+    лишь открыв вкладку. При сроке хранения 5–7 дней это значило, что партия
+    молча протухала, а убыток теперь считается по настоящей себестоимости.
+
+    Молчим, когда писать не о чем: ежедневное «посадок нет» приучает
+    пролистывать сообщение не читая.
+    """
+    try:
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
+        if not admin_id:
+            return
+
+        from shared import grow_watch
+
+        state = await grow_watch.scan()
+        text_body = grow_watch.morning_text(state)
+        if text_body:
+            await _bot.send_message(admin_id, text_body, parse_mode="HTML")
+    except Exception as exc:
+        logger.error(f"Ошибка утренней сводки по посадкам: {exc}")
+
+
+async def grow_urgent():
+    """Партии, у которых сегодня последний день продажи.
+
+    Отдельно от утренней сводки и намеренно позже: к обеду видно, продали или
+    нет, и напоминание ещё может что-то изменить.
+    """
+    try:
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
+        if not admin_id:
+            return
+
+        from shared import grow_watch
+
+        state = await grow_watch.scan()
+        text_body = grow_watch.urgent_text(state["urgent"])
+        if text_body:
+            await _bot.send_message(admin_id, text_body, parse_mode="HTML")
+    except Exception as exc:
+        logger.error(f"Ошибка срочного напоминания по посадкам: {exc}")
+
+
 # ── Регистрация задач ────────────────────────────────────────────────────
 # ── Регистрация задач операционного управления ────────────────────────────
 scheduler.add_interval(name="check_deadlines", func=check_deadlines, seconds=3600)
@@ -633,6 +684,10 @@ scheduler.add_interval(
 scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=300)
 # Ежедневная полная сводка в 09:00 (всегда присылается).
 scheduler.add_cron(name="bot_health_summary", func=bot_health_summary, hour=9, minute=0)
+# Посадки: сводка утром, отдельное напоминание по «последнему дню» в обед.
+# 08:30, а не 09:00 — чтобы не слипаться со сводкой о ботах в одну простыню.
+scheduler.add_cron(name="grow_morning", func=grow_morning, hour=8, minute=30)
+scheduler.add_cron(name="grow_urgent", func=grow_urgent, hour=14, minute=0)
 
 
 # Инфраструктура

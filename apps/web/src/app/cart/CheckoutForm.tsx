@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
   AlertTriangle, ArrowLeft, Banknote, CheckCircle, Clock, CreditCard, FileText,
@@ -11,6 +12,11 @@ import { CheckoutSummary } from './CheckoutSummary';
 // Форма оформления заказа — второй шаг. Рендерится вместо корзины и экрана
 // успеха, поэтому вынесена так же, как CartView.
 
+// Полный каталог способов оплаты. Какие из них показывать — решает
+// настройка `payment.methods`: она редактировалась в админке, но оформление
+// её не читало и рисовало весь список. Подсказка настройки при этом обещала,
+// что пустой список «сломает оформление» — то есть настройка выглядела
+// работающей, ничего не делая.
 export const PAYMENT_METHODS = [
   { id: 'cash', labelUz: 'Naqd pul', labelRu: 'Наличные', icon: <Banknote size={18} />, descUz: "Yetkazib berishda to'lang", descRu: "Оплата при доставке" },
   { id: 'click', labelUz: 'Click', labelRu: 'Click', icon: <Smartphone size={18} />, descUz: "Click ilovasi orqali", descRu: "Через приложение Click" },
@@ -54,6 +60,26 @@ interface Props {
 }
 
 export function CheckoutForm(props: Props) {
+  // Список включённых способов оплаты приходит из настроек (/api/config).
+  // Пока он не загрузился — показываем полный каталог: пустой экран оплаты
+  // хуже, чем лишняя кнопка на долю секунды.
+  const [enabledIds, setEnabledIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    fetch('/api/config')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.paymentMethods) && d.paymentMethods.length > 0) {
+          setEnabledIds(d.paymentMethods as string[]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const enabledMethods = enabledIds
+    ? PAYMENT_METHODS.filter((pm) => enabledIds.includes(pm.id))
+    : PAYMENT_METHODS;
+
   const { t } = useLang();
   const {
     cart, form, setForm, errors, apiError, isSubmitting, grandTotal,
@@ -130,7 +156,7 @@ export function CheckoutForm(props: Props) {
             <CreditCard size={18} /> {t("To'lov usuli", "Способ оплаты")}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {PAYMENT_METHODS.map(pm => (
+            {enabledMethods.map(pm => (
               <label key={pm.id} style={{
                 display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
                 padding: 'var(--space-3)', borderRadius: 'var(--radius-md)',

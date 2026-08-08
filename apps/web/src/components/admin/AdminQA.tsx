@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Eye, AlertTriangle, CheckCircle, Image as ImageIcon } from 'lucide-react';
+import { Eye, AlertTriangle, CheckCircle, Image as ImageIcon, Plus } from 'lucide-react';
+import { AdminQAForm } from './AdminQAForm';
 
 interface QualityControl {
   id: string;
@@ -24,15 +25,41 @@ interface QualityControl {
 export function AdminQA() {
   const [qcs, setQcs] = useState<QualityControl[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
+  const reload = () => {
     fetch('/api/admin/qa')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setQcs(data);
       })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(reload, []);
+
+  const create = async (body: Record<string, unknown>) => {
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/qa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Не удалось записать');
+      setShowAdd(false);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) return <div>Загрузка отчетов QA...</div>;
 
@@ -42,7 +69,16 @@ export function AdminQA() {
         <h2 style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Eye size={24} /> Контроль Качества (QA)
         </h2>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(!showAdd)}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+          <Plus size={16} /> Записать проверку
+        </button>
       </div>
+
+      {showAdd && (
+        <AdminQAForm saving={saving} error={error}
+          onCancel={() => setShowAdd(false)} onSubmit={create} />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {qcs.length === 0 ? (

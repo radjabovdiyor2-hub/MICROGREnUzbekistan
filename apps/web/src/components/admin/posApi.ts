@@ -42,11 +42,15 @@ export async function submitReturn(
   cart: CartItem[],
   reason: string,
   performedBy: string,
+  // Номер исходной продажи обязателен: по нему сервер проверяет, что
+  // возвращают не больше проданного и не повторно. Без него возврат
+  // ничем не ограничивался — один запрос дважды прибавлял товар на склад.
+  saleNumber: string,
 ): Promise<PosResponse> {
   const res = await fetch('/api/inventory/pos', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: toPayloadItems(cart), reason, performedBy }),
+    body: JSON.stringify({ items: toPayloadItems(cart), reason, performedBy, saleNumber }),
   });
   return res.json();
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Truck } from 'lucide-react';
+import { Plus, Truck } from 'lucide-react';
+import { AdminDeliveryForm } from './AdminDeliveryForm';
 
 interface DeliveryRoute {
   id: string;
@@ -23,15 +24,41 @@ interface DeliveryStop {
 export function AdminDeliveries() {
   const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
+  const reload = () => {
     fetch('/api/admin/deliveries')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setRoutes(data);
       })
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(reload, []);
+
+  const create = async (body: Record<string, unknown>) => {
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/deliveries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Не удалось создать маршрут');
+      setShowAdd(false);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading) return <div>Загрузка маршрутов...</div>;
 
@@ -41,7 +68,16 @@ export function AdminDeliveries() {
         <h2 style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Truck size={24} /> Логистика и Маршруты
         </h2>
+        <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(!showAdd)}
+          style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+          <Plus size={16} /> Новый маршрут
+        </button>
       </div>
+
+      {showAdd && (
+        <AdminDeliveryForm saving={saving} error={error}
+          onCancel={() => setShowAdd(false)} onSubmit={create} />
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {routes.length === 0 ? (

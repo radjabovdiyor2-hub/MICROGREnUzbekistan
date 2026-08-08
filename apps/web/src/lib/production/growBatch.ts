@@ -87,9 +87,14 @@ export async function plantingRequirements(cropType: string, trays: number) {
   // Расходники — по решению владельца входят в себестоимость наравне с
   // семенами. Норма не задана → статья просто не участвует, а не срывает
   // посадку: субстрат могли ещё не начать учитывать.
+  //
+  // Упаковки здесь НЕТ намеренно: упаковывают готовый урожай, а не посев.
+  // Раньше она списывалась при посадке, и у погибшей партии упаковка
+  // оказывалась потрачена зря — да ещё и входила в её убыток.
+  // Теперь её списывает harvestBatch, по фактическому сбору.
   for (const [kind, perTray, label] of [
     ['SUBSTRATE', dec(norm.substrateGramsPerTray), 'Субстрат'],
-    ['PACKAGING', dec(norm.packagingPerTray), 'Упаковка'],
+    ['TRAY', dec(norm.traysPerBatch), 'Лотки'],
   ] as const) {
     if (perTray <= 0) continue;
     const material = await prisma.rawMaterial.findFirst({
@@ -206,7 +211,39 @@ export async function harvestBatch(input: HarvestInput) {
       throw new AlreadyHarvestedError(batch.harvestQty ?? 0);
     }
 
-    const batchCost = dec(batch.seedCost) + dec(batch.suppliesCost);
+    // Упаковка списывается ЗДЕСЬ, а не при посадке: упаковывают готовый
+    // урожай. У погибшей партии упаковка теперь не тратится вовсе.
+    // Норма задана на лоток, поэтому считаем от числа лотков партии.
+    const norm = await tx.cropNorm.findUnique({ where: { cropType: batch.cropType } });
+    let packagingCost = 0;
+    const packagingNeeded = dec(norm?.packagingPerTray) * batch.trays;
+
+    if (packagingNeeded > 0) {
+      const packaging = await tx.rawMaterial.findFirst({
+        where: { kind: 'PACKAGING', isActive: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (packaging) {
+        // Не хватило упаковки — сбор всё равно проходит: урожай уже снят,
+        // отказ здесь только заставил бы вводить его заново. Себестоимость
+        // окажется занижена, и это видно по нулевой строке упаковки.
+        try {
+          const spent = await consumeMaterial(tx, {
+            materialId: packaging.id,
+            quantity: packagingNeeded,
+            growBatchId: batch.id,
+            reason: `Упаковка урожая — ${batch.trays} лотков`,
+            performedBy: input.performedBy,
+          });
+          packagingCost = spent.cost;
+        } catch (err) {
+          if (!(err instanceof NotEnoughMaterialError)) throw err;
+          console.error('Упаковки не хватило, урожай оприходован без неё:', err.message);
+        }
+      }
+    }
+
+    const batchCost = dec(batch.seedCost) + dec(batch.suppliesCost) + packagingCost;
     const unitCost = unitCostOfHarvest(batchCost, harvestQty);
     const productId = input.productId || batch.productId;
 
@@ -259,6 +296,12 @@ export async function harvestBatch(input: HarvestInput) {
         harvestDate: new Date(),
         status: 'harvested',
         costPrice: unitCost,
+        // Упаковка списана при сборе — дописываем её к расходникам партии,
+        // иначе её стоимость осталась бы только в себестоимости единицы,
+        // а в самой партии потерялась.
+        suppliesCost: new Prisma.Decimal(
+          (dec(batch.suppliesCost) + packagingCost).toFixed(2),
+        ),
         productId: productId || null,
         productName: input.productName || batch.productName,
       },
