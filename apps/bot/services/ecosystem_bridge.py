@@ -1,5 +1,5 @@
 """
-🌱 AGROTECH ECOSYSTEM — BOT ECOSYSTEM BRIDGE
+🌱 MICROGREEN UZBEKISTAN — BOT ECOSYSTEM BRIDGE
 
 Мост между Telegram Bot и Web API.
 Управляет синхронизацией данных и событиями.
@@ -243,5 +243,5 @@ async def notify_order_status(phone: str, order_id: str, status: str):
 
     await bridge._api_call("sms", "POST", {
         "phone": phone,
-        "message": f"🌱 AgroTech: {message}"
+        "message": f"🌱 Microgreen: {message}"
     })

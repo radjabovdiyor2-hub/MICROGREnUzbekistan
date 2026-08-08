@@ -166,7 +166,7 @@ async def show_categories(message: Message):
     ])
     
     await message.answer(
-        "🛒 <b>Магазин AgroTech Ecosystem</b>\nКоснитесь категории:",
+        "🛒 <b>Магазин Microgreen Uzbekistan</b>\nКоснитесь категории:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML"
     )
@@ -382,8 +382,8 @@ async def cb_checkout(callback: CallbackQuery):
             f"👤 {user.full_name}\n"
             f"📱 {contact_info}\n"
             f"📍 Адрес уточним при звонке\n\n"
-            f"🚚 Доставка по Ташкенту — БЕСПЛАТНО\n"
-            f"💳 Оплата при получении",
+            f"🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\n"
+            f"💳 Оплата: наличные, Click, Payme",
             reply_markup=kb,
             parse_mode="HTML"
         )

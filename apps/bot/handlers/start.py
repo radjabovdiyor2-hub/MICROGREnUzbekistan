@@ -54,14 +54,16 @@ async def cmd_start(message: Message):
             InlineKeyboardButton(text="⚡ Do'konni ochish / Открыть магазин", web_app=WebAppInfo(url=WEB_APP_URL)),
         ],
         [
-            InlineKeyboardButton(text="🎮 O'ynash va chegirma olish / Играть", url=f"https://t.me/{config.social.telegram_bot.rstrip('/').split('/')[-1]}/game"),
-        ],
-        [
-            InlineKeyboardButton(text="🤖 AI-Agronom so'rash / Спросить AI", callback_data="agronomist"),
+            InlineKeyboardButton(text="🤖 AI yordamchi / Спросить AI", callback_data="agronomist"),
+            InlineKeyboardButton(text="🍽️ Retseptlar / Рецепты", callback_data="menu:recipes"),
         ],
         [
             InlineKeyboardButton(text="📋 Buyurtmalar / Заказы", callback_data="menu:orders"),
+            InlineKeyboardButton(text="❤️ Sevimlilar / Избранное", callback_data="menu:favorites"),
+        ],
+        [
             InlineKeyboardButton(text="🎁 Bonuslar / Бонусы", callback_data="menu:bonuses"),
+            InlineKeyboardButton(text="🎮 O'ynash / Играть", url=f"https://t.me/{config.social.telegram_bot.rstrip('/').split('/')[-1]}/game"),
         ],
         [
             InlineKeyboardButton(text="📢 Kanal / Канал", url=config.social.telegram_channel),
@@ -70,15 +72,16 @@ async def cmd_start(message: Message):
     ])
     
     await message.answer(
-        f"👨‍🌾 <b>Salom! Men sening shaxsiy AI-Agronomingman {config.hero_title} dan!</b>\n"
-        f"🇷🇺 <b>Привет! Я твой личный AI-Агроном из {config.hero_title}!</b>\n\n"
-        f"Men sizga ajoyib hosil olishda yordam beraman. (Я здесь, чтобы помочь тебе собирать идеальные урожаи)\n\n"
+        f"🌱 <b>Salom! Men {config.hero_title} AI yordamchisiman!</b>\n"
+        f"🇷🇺 <b>Привет! Я AI-помощник {config.hero_title}!</b>\n\n"
+        f"Sizga yangi mikroko'katlar tanlash va buyurtma berishda yordam beraman. "
+        f"(Помогу выбрать свежую микрозелень и оформить заказ)\n\n"
         f"<b>Bizda nima bor (Что у нас есть):</b>\n"
-        "• 🌿 <b>Do'kon / Магазин</b> (320+ mahsulotlar / товаров)\n"
-        "• 🎮 <b>Farm Simulator</b> — o'ynang va haqiqiy chegirmalar oling! / играй и получай реальные скидки!\n"
-        "• 📸 <b>Rasm orqali tahlil / Диагностика по фото</b>\n\n"
+        "• 🌿 <b>Do'kon / Магазин</b> — mikroko'katlar, beybi-list, salatlar\n"
+        "• 🤖 <b>AI yordamchi</b> — tanlash, retseptlar, buyurtma / выбор, рецепты, заказ\n"
+        "• 🎮 <b>Farm Simulator</b> — o'ynang va chegirmalar oling! / играй и получай скидки!\n\n"
         f"🎁 <i>Bepul yetkazib berish / Бесплатная доставка от {config.free_delivery_threshold:,} so'm!</i>\n\n"
-        "👇 <b>Nimadan boshlaymiz? / С чего начнем сегодня?</b>",
+        "👇 <b>Nimadan boshlaymiz? / С чего начнём?</b>",
         reply_markup=keyboard
     )
 
@@ -91,8 +94,13 @@ async def cmd_help(message: Message):
         "📖 <b>Команды бота:</b>\n\n"
         "/start — Главное меню\n"
         "/catalog — Каталог товаров\n"
+        "/search — Поиск товаров\n"
         "/orders — Мои заказы\n"
+        "/ai — Спросить AI-помощника\n"
         "/game — Farm Simulator\n"
+        "/magazine — Журнал FRESH WEEKLY\n"
+        "/delivery — Условия доставки\n"
+        "/contacts — Контакты\n"
         "/help — Помощь\n\n"
         f"📞 Телефон: {config.contact_phone}\n"
         f"📧 Email: {config.contact_email}\n\n"

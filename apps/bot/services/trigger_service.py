@@ -1,5 +1,5 @@
 """
-🌱 AGROTECH ECOSYSTEM — TRIGGER SERVICE
+🌱 MICROGREEN UZBEKISTAN — TRIGGER SERVICE
 
 Background service for automated tasks:
 - Daily tip posting to Telegram channel (10:00 AM Tashkent)
@@ -12,7 +12,7 @@ import logging
 from aiogram import Bot
 from datetime import datetime, timezone, timedelta
 
-from services.channel_service import post_daily_tip, DAILY_TIPS
+from services.channel_service import post_daily_tip, DAILY_CONTENT
 
 logger = logging.getLogger(__name__)
 

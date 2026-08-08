@@ -5,15 +5,15 @@ Centralized category labels, emojis, and other shared constants
 used across all bot handlers.
 """
 
-# Category labels with emoji — used in shop, catalog, agronomist, unified
+# Category labels with emoji — synced with web catalog categories
 CATEGORY_LABELS = {
     "MICROGREENS": "🌱 Микрозелень",
+    "BABY_LEAF": "🥬 Бейби-лист",
+    "SALADS": "🥗 Салаты",
+    "FLOWERS": "🌸 Цветы",
     "SEEDS": "🌾 Семена",
-    "FLOWERS": "🌿 Бейби-лиф",
-    "SUBSTRATES": "🧪 Субстраты",
-    "NUTRIENTS": "💧 Питание",
     "EQUIPMENT": "⚙️ Оборудование",
-    "KITS": "📦 Наборы",
+    "SETS": "📦 Наборы",
 }
 
 # Category tuples (emoji, name) for shop grid view

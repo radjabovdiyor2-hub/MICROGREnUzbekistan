@@ -1,5 +1,5 @@
 """
-🌱 AGROTECH ECOSYSTEM — ADMIN PANEL
+🌱 MICROGREEN UZBEKISTAN — ADMIN PANEL
 
 Админ-панель с полным контролем:
 - Управление заказами
@@ -71,7 +71,7 @@ async def cmd_admin(message: Message):
     now = datetime.now().strftime("%d.%m.%Y %H:%M")
     
     await message.answer(
-        f"🔐 <b>Админ-панель AgroTech Ecosystem</b>\n\n"
+        f"🔐 <b>Админ-панель Microgreen Uzbekistan</b>\n\n"
         f"👤 ID: <code>{message.from_user.id}</code>\n"
         f"🕐 {now}\n\n"
         f"Выберите раздел:",

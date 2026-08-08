@@ -93,14 +93,14 @@ def format_product_caption(product: dict) -> str:
     
     caption = f"""🌱 {product['title']}
 
-{product.get('description', 'Премиум качество для вашей фермы.')}
+{product.get('description', 'Свежая микрозелень премиум качества.')}
 
-💰 {price} UZS
+💰 {price} сум
 
 🛒 Заказать: microgreenuzbekistan.com/shop
 📱 Telegram: @Microgreenuzbekistan_bot
 📢 Канал: @MicrogreenUzbekistan
 
-#микрозелень #microgreens #узбекистан #гидропоника #здоровоепитание #agrotech #ташкент #organic #superfood #зелень #фермер #агротех"""
+#микрозелень #microgreens #узбекистан #здоровоепитание #самарканд #organic #superfood #зелень #ппрецепты #зож"""
     
     return caption

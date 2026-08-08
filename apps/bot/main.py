@@ -14,6 +14,7 @@ from handlers.unified import router as unified_router
 from handlers.group import router as group_router
 from handlers.shop import router as shop_router
 from handlers.admin import router as admin_router
+from handlers.features import router as features_router
 from handlers import magazine, inline
 
 # Load env from script directory (override system env vars)
@@ -35,6 +36,7 @@ dp.include_router(inline.router)       # inline queries
 dp.include_router(start.router)        # /start with WebAppInfo & Farm Simulator links
 dp.include_router(shop_router)         # /shop, /catalog, cart, checkout
 dp.include_router(unified_router)      # /orders, /bonuses, menu callbacks
+dp.include_router(features_router)     # recipes, profile, favorites, reorder, search, reviews
 dp.include_router(orders.router)       # Order display callbacks
 dp.include_router(agronomist.router)   # AI text/photo/voice in private chats
 dp.include_router(group_router)        # Group FAQ & AI (last — catches remaining group msgs)
@@ -60,7 +62,7 @@ async def main():
     except Exception as e:
         logger.warning("⚠️ Failed to set menu button: %s", e)
     
-    logger.info("🌱 AgroTech Ecosystem Bot starting...")
+    logger.info("🌱 Microgreen Uzbekistan Bot starting...")
     logger.info("📱 WebApp URL: %s", os.getenv('WEB_APP_URL', 'Not set'))
     logger.info("🔗 API URL: %s", os.getenv('WEB_API_URL', 'https://microgreenuzbekistan.com/api'))
     

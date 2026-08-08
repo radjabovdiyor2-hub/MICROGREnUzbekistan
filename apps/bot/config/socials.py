@@ -1,6 +1,6 @@
 """
 Centralized Social Media Links Configuration
-AgroTech Ecosystem - Official Socials
+Microgreen Uzbekistan - Official Socials
 """
 
 # Instagram

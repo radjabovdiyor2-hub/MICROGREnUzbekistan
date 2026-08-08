@@ -1,5 +1,5 @@
 """
-🌱 AGROTECH ECOSYSTEM — GROUP HANDLER
+🌱 MICROGREEN UZBEKISTAN — GROUP HANDLER
 
 Handles Telegram Group events:
 - New member welcome
@@ -51,9 +51,9 @@ async def handle_group_photo(message: Message):
     
     if any(word in caption for word in plant_words):
         await message.reply(
-            "📸 Хотите диагностику растения?\n\n"
-            "Отправьте это фото боту @Microgreenuzbekistan_bot\n"
-            "AI-Агроном проанализирует и даст рекомендации! 🌱"
+            "📸 Нужна помощь?\n\n"
+            "Напишите боту @Microgreenuzbekistan_bot\n"
+            "AI-помощник подберёт микрозелень и оформит заказ! 🌱"
         )
 
 
@@ -64,7 +64,7 @@ FAQ_PATTERNS = {
         "keywords": ["цена", "стоимость", "почём", "сколько"]
     },
     r"(доставк|привез|курьер)": {
-        "answer": "🚚 Доставка по Ташкенту: <b>бесплатно от 100,000 UZS</b>\nПо Узбекистану: через Pony Express",
+        "answer": "🚚 Доставка: <b>Самарканд — в день заказа, Ташкент — на следующий день</b>\nОплата: наличные, Click, Payme",
         "keywords": ["доставка", "привезти", "курьер"]
     },
     r"(заказ|купить|оформ)": {
@@ -153,23 +153,23 @@ async def handle_group_message(message: Message):
             # Get AI response (async)
             response = await get_ai_response(
                 message.text,
-                system_context="Ты AI-агроном AgroTech Ecosystem. "
+                system_context="Ты AI-помощник Microgreen Uzbekistan. "
                               "Отвечай кратко и по делу на русском. "
                               "Если вопрос про заказ — направляй на @Microgreenuzbekistan_bot"
             )
             
             if response:
                 await message.reply(
-                    f"🤖 <b>AI-Агроном:</b>\n\n{response}\n\n"
+                    f"🤖 <b>AI-помощник:</b>\n\n{response}\n\n"
                     f"💬 Больше вопросов? @Microgreenuzbekistan_bot"
                 )
         except Exception as e:
             # Fallback if AI fails. Пользователю — честное «недоступен», но и
             # в лог обязательно: иначе отказ ИИ в группе не виден никому, а
             # клиент просто перестаёт получать ответы.
-            logger.error("AI-агроном не ответил в группе: %s", e, exc_info=True)
+            logger.error("AI-помощник не ответил в группе: %s", e, exc_info=True)
             await message.reply(
-                "🤖 AI-агроном временно недоступен.\n"
+                "🤖 AI-помощник временно недоступен.\n"
                 "Напишите напрямую боту: @Microgreenuzbekistan_bot"
             )
 

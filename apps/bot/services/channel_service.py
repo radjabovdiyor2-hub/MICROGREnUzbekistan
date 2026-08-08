@@ -23,15 +23,57 @@ def _get_bot() -> Bot:
         _bot_instance = Bot(token=BOT_TOKEN)
     return _bot_instance
 
-# Daily tips for auto-posting
-DAILY_TIPS = [
-    "💡 Совет дня: Оптимальная температура для микрозелени — 18-24°C. Слишком жарко = вытягивание, слишком холодно = медленный рост.",
-    "💡 Совет дня: Поливайте микрозелень утром, чтобы листья успели высохнуть до вечера и не гнили.",
-    "💡 Совет дня: pH воды для руколы должен быть 5.5-6.5. Используйте pH-метр!",
-    "💡 Совет дня: Не переливайте! Лучше недолить, чем перелить. Корни должны дышать.",
-    "💡 Совет дня: LED-освещение 12-16 часов в день = идеальный урожай за 7-14 дней.",
-    "💡 Совет дня: Редис — самая быстрая микрозелень (5-7 дней). Отлично подходит для новичков!",
-    "💡 Совет дня: Замачивайте крупные семена (подсолнечник, горох) на 8-12 часов перед посевом.",
+# Daily content for auto-posting — продающие посты для покупателей
+DAILY_CONTENT = [
+    {
+        "title": "🥗 Рецепт дня",
+        "body": "Салат с микрозеленью подсолнечника, авокадо и лимонной заправкой — за 10 минут!\n\n"
+                "Подсолнечник — ореховый, сочный вкус. Идеален для салатов и боулов.\n\n"
+                "💰 Лоток микрозелени подсолнечника — 15 000 сум",
+    },
+    {
+        "title": "🌿 Знаете ли вы?",
+        "body": "Микрозелень брокколи содержит в 40 раз больше сульфорафана, чем взрослый брокколи!\n\n"
+                "Добавляйте в смузи, салаты и сэндвичи — вкус мягкий, нежный.\n\n"
+                "💰 Лоток брокколи — 15 000 сум",
+    },
+    {
+        "title": "🍽️ Шеф рекомендует",
+        "body": "Руккола микро — пикантный, горчичный вкус. Идеальна для:\n"
+                "• Пиццы и пасты\n"
+                "• Стейков и бургеров\n"
+                "• Песто и заправок\n\n"
+                "💰 Лоток рукколы — 15 000 сум",
+    },
+    {
+        "title": "🎁 Акция недели",
+        "body": "Закажите 3 лотка — получите скидку 10%!\n\n"
+                "Попробуйте набор «Знакомство»:\n"
+                "🌻 Подсолнечник + 🟢 Горох + 🥦 Брокколи\n\n"
+                "💰 3 лотка за 40 500 сум (вместо 45 000)",
+    },
+    {
+        "title": "🥬 Новинка: Бейби-лист",
+        "body": "Нежные молодые листья — крупнее микрозелени, нежнее салата.\n\n"
+                "В наличии: шпинат, кейл, мангольд, руккола.\n"
+                "Идеально для салатов, гарниров и смузи-боулов.\n\n"
+                "💰 Упаковка 100г — от 25 000 сум",
+    },
+    {
+        "title": "💪 ЗОЖ-совет",
+        "body": "Добавьте микрозелень в утренний смузи — заряд витаминов на весь день!\n\n"
+                "Рецепт: банан + шпинат + микрозелень гороха + мёд + вода.\n"
+                "Готово за 3 минуты!\n\n"
+                "💰 Микрозелень гороха — 15 000 сум/лоток",
+    },
+    {
+        "title": "🚚 Доставка по Самарканду",
+        "body": "Заказали утром — получите в тот же день!\n\n"
+                "📍 Самарканд — в день заказа\n"
+                "📍 Ташкент — на следующий день\n"
+                "💳 Оплата: наличные, Click, Payme\n\n"
+                "Закажите прямо сейчас!",
+    },
 ]
 
 async def post_to_channel(text: str, photo_url: str = None) -> dict:
@@ -76,9 +118,9 @@ async def post_new_product(product: dict) -> dict:
 
 🌱 <b>{product['title']}</b>
 
-{product.get('description', 'Премиум качество для вашей фермы.')}
+{product.get('description', 'Свежая микрозелень премиум качества.')}
 
-💰 <b>{price} UZS</b>
+💰 <b>{price} сум</b>
 
 🛒 Заказать: @Microgreenuzbekistan_bot
 🌐 Сайт: microgreenuzbekistan.com/shop"""
@@ -86,14 +128,17 @@ async def post_new_product(product: dict) -> dict:
     return await post_to_channel(text, product.get('image'))
 
 async def post_daily_tip(day_of_week: int) -> dict:
-    """Posts the daily tip based on day of week (0=Monday)."""
-    tip = DAILY_TIPS[day_of_week % len(DAILY_TIPS)]
+    """Posts daily content based on day of week (0=Monday)."""
+    content = DAILY_CONTENT[day_of_week % len(DAILY_CONTENT)]
     
-    text = f"""🌱 <b>AgroTech Ecosystem</b>
+    text = f"""🌱 <b>Microgreen Uzbekistan</b>
 
-{tip}
+<b>{content['title']}</b>
 
-📚 Больше советов: @Microgreenuzbekistan_bot"""
+{content['body']}
+
+🛒 Заказать: @Microgreenuzbekistan_bot
+🌐 microgreenuzbekistan.com"""
     
     return await post_to_channel(text)
 
@@ -109,14 +154,14 @@ async def send_group_welcome(user_name: str, group_id: str = None) -> dict:
     
     text = f"""👋 Добро пожаловать, <b>{user_name}</b>!
 
-Это сообщество городских фермеров AgroTech Ecosystem 🌱
+🌱 Это сообщество любителей свежей зелени <b>Microgreen Uzbekistan</b>
 
-📌 <b>Правила:</b>
-• Будьте вежливы
-• Делитесь опытом и фото
-• Задавайте вопросы
+📌 <b>Что здесь можно:</b>
+• Задавать вопросы о продукции
+• Делиться рецептами и фото
+• Узнавать о новинках и акциях
 
-🤖 AI-агроном: @Microgreenuzbekistan_bot
+🤖 AI-помощник: @Microgreenuzbekistan_bot
 🛒 Каталог: microgreenuzbekistan.com/shop"""
     
     try:
@@ -132,8 +177,8 @@ async def send_group_welcome(user_name: str, group_id: str = None) -> dict:
 # FAQ auto-responder keywords
 FAQ_RESPONSES = {
     "цена": "💰 Актуальные цены на сайте: microgreenuzbekistan.com/shop\nИли напишите боту: @Microgreenuzbekistan_bot",
-    "доставка": "🚚 Доставка по Ташкенту: бесплатно от 100,000 UZS\nПо Узбекистану: через Pony Express",
+    "доставка": "🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\nОплата: наличные, Click, Payme",
     "заказ": "🛒 Заказать можно:\n• Через бота: @Microgreenuzbekistan_bot\n• На сайте: microgreenuzbekistan.com/shop",
     "семена": "🌱 Семена для микрозелени в каталоге: microgreenuzbekistan.com/shop?category=seeds",
-    "оборудование": "⚙️ LED-лампы, pH-метры, Tower Garden: microgreenuzbekistan.com/shop?category=equipment",
+    "оборудование": "⚙️ LED-лампы, pH-метры, стеллажи: microgreenuzbekistan.com/shop?category=equipment",
 }

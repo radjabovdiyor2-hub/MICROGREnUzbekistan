@@ -1,5 +1,5 @@
 """
-🌱 AGROTECH ECOSYSTEM — UNIFIED BOT HANDLER
+🌱 MICROGREEN UZBEKISTAN — UNIFIED BOT HANDLER
 
 Единый обработчик для всех команд с интеграцией экосистемы.
 Все действия через ecosystem_bridge синхронизируются с веб-платформой.
@@ -26,10 +26,18 @@ def get_main_menu_kb() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="📦 Мои заказы", callback_data="menu:orders"),
-            InlineKeyboardButton(text="🎮 Играть", callback_data="menu:game"),
+            InlineKeyboardButton(text="🔄 Повторить заказ", callback_data="menu:reorder"),
+        ],
+        [
+            InlineKeyboardButton(text="🍽️ Рецепты", callback_data="menu:recipes"),
+            InlineKeyboardButton(text="❤️ Избранное", callback_data="menu:favorites"),
         ],
         [
             InlineKeyboardButton(text="💰 Бонусы", callback_data="menu:bonuses"),
+            InlineKeyboardButton(text="👤 Профиль", callback_data="menu:profile"),
+        ],
+        [
+            InlineKeyboardButton(text="🎮 Играть", callback_data="menu:game"),
             InlineKeyboardButton(text="ℹ️ О нас", callback_data="menu:about"),
         ],
     ])
@@ -40,15 +48,18 @@ def get_catalog_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🌱 Микрозелень", callback_data="catalog:microgreens"),
+            InlineKeyboardButton(text="🥬 Бейби-лист", callback_data="catalog:baby_leaf"),
+        ],
+        [
+            InlineKeyboardButton(text="🥗 Салаты", callback_data="catalog:salads"),
+            InlineKeyboardButton(text="🌸 Цветы", callback_data="catalog:flowers"),
+        ],
+        [
             InlineKeyboardButton(text="🌾 Семена", callback_data="catalog:seeds"),
+            InlineKeyboardButton(text="⚙️ Оборудование", callback_data="catalog:equipment"),
         ],
         [
-            InlineKeyboardButton(text="🧪 Субстраты", callback_data="catalog:substrates"),
-            InlineKeyboardButton(text="⚗️ Удобрения", callback_data="catalog:nutrients"),
-        ],
-        [
-            InlineKeyboardButton(text="🔧 Оборудование", callback_data="catalog:equipment"),
-            InlineKeyboardButton(text="📦 Наборы", callback_data="catalog:kits"),
+            InlineKeyboardButton(text="📦 Наборы", callback_data="catalog:sets"),
         ],
         [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
     ])
@@ -186,7 +197,7 @@ async def cb_pricelist(callback: CallbackQuery):
         text += "\n"
     
     text += f"📊 <b>Всего: {total_count}+ позиций</b>\n"
-    text += "🚚 Доставка по Ташкенту — БЕСПЛАТНО\n\n"
+    text += "🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\n\n"
     text += "👇 Выберите категорию для заказа:"
     
     # Category buttons for detailed view (2 per row)
@@ -351,20 +362,21 @@ async def cb_game(callback: CallbackQuery):
 async def cb_agronomist(callback: CallbackQuery):
     """AI Agronomist intro — triggered from /start menu"""
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📸 Отправить фото растения", callback_data="agronomist:photo_hint")],
-        [InlineKeyboardButton(text="🛒 Подобрать товары", callback_data="agronomist:shop_hint")],
+        [InlineKeyboardButton(text="📸 Отправить фото еды", callback_data="agronomist:photo_hint")],
+        [InlineKeyboardButton(text="🛒 Подобрать микрозелень", callback_data="agronomist:shop_hint")],
         [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")],
     ])
     
     try:
         await callback.message.edit_text(
-            "👨‍🌾 <b>AI-Агроном готов помочь!</b>\n\n"
-            "Просто напишите мне любой вопрос, и я отвечу:\n\n"
-            "🌱 <b>Выращивание</b> — как вырастить микрозелень, подобрать субстрат, настроить свет\n"
-            "📸 <b>Диагностика</b> — отправьте фото растения, я определю проблему\n"
-            "🎤 <b>Голосовые</b> — отправьте голосовое сообщение, я расшифрую и отвечу\n"
-            "🛒 <b>Подбор товаров</b> — опишите задачу, я предложу товары с ценами\n"
-            "🌡️ <b>Погода и советы</b> — подскажу, что сажать в этом сезоне\n\n"
+            "🤖 <b>AI-помощник готов!</b>\n\n"
+            "Просто напишите мне любой вопрос, и я помогу:\n\n"
+            "🥗 <b>Подбор по вкусу</b> — какая микрозелень к какому блюду\n"
+            "🍽️ <b>Рецепты</b> — ПП и ЗОЖ рецепты с микрозеленью\n"
+            "📸 <b>Фото еды</b> — пришлите фото блюда, подскажу чем дополнить\n"
+            "🛒 <b>Заказ</b> — оформлю покупку прямо здесь\n"
+            "🚚 <b>Доставка</b> — расскажу условия и сроки\n"
+            "🎤 <b>Голосовые</b> — отправьте голосовое, я расшифрую и отвечу\n\n"
             "👇 <i>Или выберите действие ниже:</i>",
             reply_markup=kb,
             parse_mode="HTML"
@@ -375,9 +387,9 @@ async def cb_agronomist(callback: CallbackQuery):
         except Exception:
             pass
         await callback.message.answer(
-            "👨‍🌾 <b>AI-Агроном готов помочь!</b>\n\n"
-            "Просто напишите мне любой вопрос!\n"
-            "📸 Отправьте фото — получите диагностику\n"
+            "🤖 <b>AI-помощник готов!</b>\n\n"
+            "Напишите любой вопрос!\n"
+            "📸 Пришлите фото еды — подскажу чем дополнить\n"
             "🎤 Отправьте голосовое — я расшифрую",
             reply_markup=kb,
             parse_mode="HTML"
@@ -389,8 +401,8 @@ async def cb_agronomist(callback: CallbackQuery):
 async def cb_agronomist_photo(callback: CallbackQuery):
     """Hint: how to send a photo for diagnosis"""
     await callback.answer(
-        "📸 Просто отправьте мне фото растения в этот чат!\n"
-        "Я автоматически проведу диагностику.",
+        "📸 Просто отправьте фото вашего блюда в этот чат!\n"
+        "Я подскажу, какая микрозелень его дополнит.",
         show_alert=True
     )
 
@@ -400,13 +412,13 @@ async def cb_agronomist_shop(callback: CallbackQuery):
     """Hint: how to use AI for shopping"""
     try:
         await callback.message.edit_text(
-            "🛒 <b>AI-подбор товаров</b>\n\n"
+            "🛒 <b>Подбор микрозелени</b>\n\n"
             "Напишите мне, что вам нужно, например:\n\n"
-            "• <i>«Хочу начать выращивать микрозелень дома»</i>\n"
-            "• <i>«Какие семена самые быстрые?»</i>\n"
-            "• <i>«Нужна LED лампа для стеллажа»</i>\n"
+            "• <i>«Какая микрозелень самая вкусная?»</i>\n"
+            "• <i>«Что добавить в салат?»</i>\n"
+            "• <i>«Хочу попробовать что-нибудь острое»</i>\n"
             "• <i>«Закажи 2 лотка подсолнечника, тел +998901234567»</i>\n\n"
-            "Я предложу товары с ценами из каталога! 🌱",
+            "Подберу по вкусу и назову цены! 🌱",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🛒 Открыть каталог", callback_data="shop:categories")],
                 [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")],
@@ -454,14 +466,13 @@ async def cb_about(callback: CallbackQuery):
     ])
     
     await callback.message.edit_text(
-        "🌱 <b>AgroTech Ecosystem</b>\n"
-        "Hydroponics • Aeroponics • Vertical Farming 🚀\n\n"
-        "• 🌿 Оборудование и продукция\n"
-        "• 🌱 158+ товаров в каталоге\n"
-        "• 🤖 AI-агроном для диагностики\n"
+        "🌱 <b>Microgreen Uzbekistan</b>\n"
+        "Свежая микрозелень • Бейби-лист • Салаты 🥗\n\n"
+        "• 🌿 Микрозелень, бейби-лист, салаты\n"
+        "• 🤖 AI-помощник для подбора и заказа\n"
         "• 🎮 Farm Simulator — играй и получай бонусы!\n"
-        "• 🚚 Бесплатная доставка от 100K UZS\n\n"
-        "<b>Наша экосистема:</b>",
+        "• 🚚 Доставка: Самарканд + Ташкент\n\n"
+        "<b>Наши ресурсы:</b>",
         reply_markup=kb
     )
     await callback.answer()

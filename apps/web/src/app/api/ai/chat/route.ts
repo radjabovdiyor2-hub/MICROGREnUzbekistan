@@ -2,18 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
-import { callGemini, fallbackResponse } from '@/lib/ai/geminiClient';
+import { callOpenAI, fallbackResponse } from '@/lib/ai/openaiClient';
 import { getWeather, buildStoreContext } from '@/lib/ai/chatHelpers';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // ==========================================
 // POST handler
 // ==========================================
 export async function POST(request: NextRequest) {
   try {
-    // Маршрут открытый и на каждый вызов тратит платные токены Gemini
-    // (а с полем image — ещё и vision). Без лимита это прямой способ
-    // сжечь бюджет: 20 сообщений в минуту с адреса — потолок живого диалога.
+    // Маршрут открытый и на каждый вызов тратит платные токены OpenAI.
+    // 20 сообщений в минуту с адреса — потолок живого диалога.
     const ip = clientIp(request);
     const limit = await consume(`ai:${ip}`, 20, 60 * 1000);
     if (!limit.ok) return tooManyRequests(limit.retryAfter);
@@ -50,17 +49,17 @@ export async function POST(request: NextRequest) {
 
     // Weather fallback shortcut
     if (/ob.havo|погод|weather|beton quy|bugun.*ish/i.test(message || '')) {
-      if (!GEMINI_API_KEY || GEMINI_API_KEY.length <= 10) {
+      if (!OPENAI_API_KEY || OPENAI_API_KEY.length <= 10) {
         return NextResponse.json({ reply: weather || "Ob-havo ma'lumotini yuklab bo'lmadi. Keyinroq urinib ko'ring.", source: 'local', timestamp: new Date().toISOString() });
       }
     }
 
-    if (GEMINI_API_KEY && GEMINI_API_KEY.length > 10) {
+    if (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) {
       try {
         const storeContext = await buildStoreContext();
-        reply = await callGemini(message || 'Bu rasmni tahlil qil', history || [], storeContext, userInfo, image);
+        reply = await callOpenAI(message || 'Bu rasmni tahlil qil', history || [], storeContext, userInfo, image);
       } catch (error) {
-        console.error('Gemini fallback:', error);
+        console.error('OpenAI fallback:', error);
         reply = await fallbackResponse(message || '');
       }
     } else {
@@ -69,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       reply,
-      source: GEMINI_API_KEY ? 'gemini' : 'local',
+      source: OPENAI_API_KEY ? 'openai' : 'local',
       timestamp: new Date().toISOString(),
     });
 

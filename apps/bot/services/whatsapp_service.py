@@ -74,7 +74,7 @@ async def send_catalog_message(to: str, catalog_id: str, products: list) -> dict
             "type": "product_list",
             "header": {
                 "type": "text",
-                "text": "🌱 Каталог AgroTech"
+                "text": "🌱 Каталог Microgreen"
             },
             "body": {
                 "text": "Выберите товары из нашего каталога:"
@@ -108,21 +108,21 @@ async def send_order_confirmation(to: str, order_id: str, total: str) -> dict:
 
 📦 Мы свяжемся с вами для уточнения доставки.
 
-🌱 Спасибо, что выбрали AgroTech Ecosystem!"""
+🌱 Спасибо, что выбрали Microgreen Uzbekistan!"""
     
     return await send_text_message(to, message)
 
 async def send_welcome_message(to: str) -> dict:
     """Sends welcome message with quick actions."""
-    message = """👋 Добро пожаловать в *AgroTech Ecosystem*!
+    message = """👋 Добро пожаловать в *Microgreen Uzbekistan*!
 
-🌱 Мы выращиваем премиальную продукцию и продаём оборудование для гидропоники и аэропоники.
+🌱 Свежая микрозелень, бейби-лист и салаты премиум качества.
 
 Напишите:
 • "Каталог" — посмотреть товары
 • "Цены" — актуальный прайс
 • "Заказ" — оформить покупку
-• "Консультация" — связаться с агрономом
+• "Доставка" — условия доставки
 
 🌐 Сайт: microgreenuzbekistan.com
 📱 Telegram: @Microgreenuzbekistan_bot"""

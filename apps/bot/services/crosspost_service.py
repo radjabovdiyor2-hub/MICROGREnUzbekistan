@@ -1,5 +1,5 @@
 """
-🌱 AGROTECH ECOSYSTEM — CROSS-POST SERVICE
+🌱 MICROGREEN UZBEKISTAN — CROSS-POST SERVICE
 
 Unified content publishing across all platforms:
 - Telegram Channel
@@ -157,9 +157,9 @@ async def post_new_product(title: str, description: str, price: int, image_url: 
     
     post = CrossPost(
         title=f"🆕 {title}",
-        body=f"{description}\n\n💰 <b>{price_fmt} UZS</b>",
+        body=f"{description}\n\n💰 <b>{price_fmt} сум</b>",
         image_url=image_url,
-        hashtags=["микрозелень", "новинка", "microgreens", "organic", "ташкент"],
+        hashtags=["микрозелень", "новинка", "microgreens", "organic", "самарканд"],
         platforms=[Platform.CHANNEL, Platform.INSTAGRAM]
     )
     
@@ -181,8 +181,8 @@ async def post_order_milestone(order_count: int) -> Dict:
     """Celebrate order milestones"""
     post = CrossPost(
         title=f"🎉 {order_count} заказов!",
-        body=f"Спасибо что выбираете AgroTech Ecosystem!\n\n"
-             f"Каждый заказ = +10% бонусов 💎\n"
+        body=f"Спасибо что выбираете Microgreen Uzbekistan!\n\n"
+             f"Каждый заказ = +5% бонусов 💎\n"
              f"Играйте в Farm Simulator для ещё больше бонусов! 🎮",
         platforms=[Platform.CHANNEL, Platform.GROUP]
     )
@@ -194,7 +194,7 @@ async def welcome_to_group(user_name: str, chat_id: str) -> Dict:
     """Welcome new member to group"""
     text = f"""👋 Добро пожаловать, <b>{user_name}</b>!
 
-🌱 Это сообщество городских фермеров <b>AgroTech Ecosystem</b>
+🌱 Это сообщество любителей свежей зелени <b>Microgreen Uzbekistan</b>
 
 📌 <b>Полезные ссылки:</b>
 • 📢 Канал: @MicrogreenUzbekistan
@@ -202,6 +202,6 @@ async def welcome_to_group(user_name: str, chat_id: str) -> Dict:
 • 📸 Instagram: @microgreenuzbekistan
 • 🎮 Игра: t.me/Microgreenuzbekistan_bot/game
 
-❓ Задавайте вопросы — AI-агроном ответит!"""
+❓ Задавайте вопросы — AI-помощник ответит!"""
     
     return await crosspost._send_telegram(chat_id, text)
