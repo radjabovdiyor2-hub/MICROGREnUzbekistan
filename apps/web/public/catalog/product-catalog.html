@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="uz">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mahsulotlar Katalogi — Microgreen Uzbekistan</title>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400;1,700&display=swap"
+    rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    @page {
+      size: A4;
+      margin: 0
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #1D1D1F;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 24px 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale
+    }
+
+    .pg {
+      width: 210mm;
+      height: 297mm;
+      max-height: 297mm;
+      background: #FAFAF6;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+      break-after: page;
+      box-shadow: 0 12px 60px rgba(0, 0, 0, .6)
+    }
+
+    .pg::before {
+      content: '';
+      position: absolute;
+      top: -40mm;
+      right: -30mm;
+      width: 140mm;
+      height: 140mm;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16, 185, 129, .035) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0
+    }
+
+    .pg::after {
+      content: '';
+      position: absolute;
+      bottom: -35mm;
+      left: -25mm;
+      width: 120mm;
+      height: 120mm;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 184, 0, .04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0
+    }
+
+    .pg > * {
+      position: relative;
+      z-index: 1
+    }
+
+    .pg:last-child {
+      page-break-after: auto;
+      break-after: auto
+    }
+
+    @media print {
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      body {
+        background: none;
+        padding: 0;
+        gap: 0
+      }
+
+      .pg {
+        box-shadow: none
+      }
+    }
+
+    :root {
+      --g: #10B981;
+      --gd: #065F46;
+      --gdd: #032419;
+      --gl: #D1FAE5;
+      --gs: #ECFDF5;
+      --gm: #6EE7B7;
+      --a: #FFB800;
+      --al: #FFF8E1;
+      --ad: #92400E;
+      --ink: #1D1D1F;
+      --ink2: #555558;
+      --ink3: #6E6E73;
+      --ink4: #86868B;
+      --bg2: #F5F5F7;
+      --bg3: #FBFBFD;
+      --bd: #E5E5EA;
+      --bds: #C7C7CC;
+      --r: 10px;
+      --rm: 14px;
+      --rl: 18px;
+      --serif: 'Playfair Display', Georgia, serif;
+      --sans: 'Inter', -apple-system, sans-serif
+    }
+
+    .serif {
+      font-family: var(--serif)
+    }
+
+    .pn {
+      position: absolute;
+      bottom: 6mm;
+      font-size: 7pt;
+      color: var(--ink4);
+      font-weight: 500;
+      letter-spacing: .03em
+    }
+
+    .pn-l {
+      left: 14mm
+    }
+
+    .pn-r {
+      right: 14mm
+    }
+
+    .pn-w {
+      color: rgba(255, 255, 255, .3)
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4mm 14mm;
+      border-bottom: 1px solid var(--bd);
+      font-size: 8pt;
+      color: var(--ink3)
+    }
+
+    .topbar .brand {
+      font-weight: 800;
+      color: var(--gd);
+      font-size: 9pt;
+      letter-spacing: -.01em
+    }
+
+    .topbar .brand span {
+      color: var(--g)
+    }
+
+    .accent-line {
+      height: 2mm;
+      background: linear-gradient(90deg, var(--gdd) 0%, var(--g) 50%, var(--a) 100%)
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      font-size: 6pt;
+      font-weight: 700;
+      padding: 1.5px 7px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .4px;
+      gap: 2px
+    }
+
+    .tg {
+      background: rgba(16, 185, 129, .12);
+      color: var(--gd)
+    }
+
+    .ta {
+      background: var(--al);
+      color: var(--ad)
+    }
+
+    .tag-hit {
+      background: linear-gradient(135deg, #FFB800, #FF8C00);
+      color: #fff
+    }
+
+    .tag-chef {
+      background: var(--ink);
+      color: #fff
+    }
+
+    .tag-premium {
+      background: linear-gradient(135deg, #1D1D1F, #3A3A3C);
+      color: var(--a)
+    }
+
+    .tag-detox {
+      background: #3b82f6;
+      color: #fff
+    }
+
+    .tag-decor {
+      background: var(--ink);
+      color: #fff
+    }
+
+    .hr {
+      width: 32px;
+      height: 2px;
+      background: var(--a);
+      border-radius: 1px
+    }
+
+    .hr-c {
+      margin-left: auto;
+      margin-right: auto
+    }
+
+    /* Cover — Premium Split Layout */
+    .cover {
+      display: grid;
+      grid-template-columns: 42% 58%;
+      height: 297mm;
+      position: relative;
+      overflow: hidden
+    }
+
+    .cover-left {
+      background: #fafaf8;
+      display: flex;
+      flex-direction: column;
+      padding: 0 14mm 12mm 18mm;
+      position: relative;
+      overflow: hidden
+    }
+
+    .cover-left::before {
+      content: '';
+      position: absolute;
+      bottom: 35mm;
+      left: -10mm;
+      width: 80mm;
+      height: 80mm;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,185,129,.04) 0%, transparent 70%);
+      pointer-events: none
+    }
+
+    .cover-left::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 10%;
+      height: 80%;
+      width: 1px;
+      background: linear-gradient(to bottom, transparent, var(--bd), transparent)
+    }
+
+    .cover-topline {
+      height: 1.5mm;
+      margin: 0 -14mm 0 -18mm;
+      background: linear-gradient(90deg, var(--gdd) 0%, var(--g) 50%, var(--a) 100%)
+    }
+
+    .cover-brand {
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      padding: 5mm 0 0;
+      margin-bottom: auto
+    }
+
+    .cover-brand-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--gdd), var(--g));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 16pt;
+      font-weight: 900;
+      font-family: var(--serif);
+      line-height: 1;
+      flex-shrink: 0
+    }
+
+    .cover-brand-name {
+      font-size: 9pt;
+      font-weight: 800;
+      color: var(--gd);
+      letter-spacing: -.01em;
+      line-height: 1.15
+    }
+
+    .cover-brand-name span {
+      color: var(--g)
+    }
+
+    .cover-center {
+      margin: auto 0
+    }
+
+    .cover-kicker {
+      font-size: 7pt;
+      font-weight: 700;
+      letter-spacing: .3em;
+      text-transform: uppercase;
+      color: var(--g);
+      margin-bottom: 5mm
+    }
+
+    .cover-title {
+      font-family: var(--serif);
+      font-size: 36pt;
+      font-weight: 900;
+      line-height: .95;
+      letter-spacing: -1.5px;
+      color: var(--gdd);
+      margin-bottom: 4mm
+    }
+
+    .cover-accent {
+      display: block;
+      width: 40px;
+      height: 2.5px;
+      background: var(--a);
+      border-radius: 2px;
+      margin: 4mm 0
+    }
+
+    .cover-sub {
+      font-size: 9.5pt;
+      font-weight: 400;
+      color: var(--ink2);
+      line-height: 1.7;
+      max-width: 95%
+    }
+
+    .cover-stats {
+      display: flex;
+      gap: 5mm;
+      margin-top: 7mm;
+      padding-top: 5mm;
+      border-top: 1px solid var(--bd)
+    }
+
+    .cover-stat {
+      text-align: center
+    }
+
+    .cover-stat strong {
+      display: block;
+      font-family: var(--serif);
+      font-size: 22pt;
+      font-weight: 900;
+      color: var(--gd);
+      line-height: 1
+    }
+
+    .cover-stat span {
+      font-size: 6.5pt;
+      color: var(--ink3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 600
+    }
+
+    .cover-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-top: auto;
+      padding-top: 5mm
+    }
+
+    .cover-badge {
+      background: var(--gd);
+      color: #fff;
+      font-weight: 700;
+      font-size: 6.5pt;
+      padding: 2.5px 12px;
+      border-radius: 100px;
+      letter-spacing: .08em;
+      text-transform: uppercase
+    }
+
+    .cover-info {
+      text-align: right;
+      font-size: 7pt;
+      color: var(--ink3);
+      line-height: 1.7;
+      font-weight: 400
+    }
+
+    .cover-right {
+      position: relative;
+      overflow: hidden
+    }
+
+    .cover-right img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover
+    }
+
+    .cover-right::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 30%;
+      background: linear-gradient(to top, rgba(3, 36, 25, .4), transparent)
+    }
+
+    /* About */
+    .about-cols {
+      column-count: 2;
+      column-gap: 7mm;
+      font-size: 9pt;
+      line-height: 1.75;
+      color: var(--ink);
+      hyphens: auto
+    }
+
+    .about-cols p {
+      margin-bottom: 3mm;
+      text-align: justify
+    }
+
+    .about-cols p:first-child::first-letter {
+      font-family: var(--serif);
+      font-size: 24pt;
+      font-weight: 900;
+      float: left;
+      line-height: 1;
+      margin: 1mm 2mm 0 0;
+      color: var(--gd)
+    }
+
+    .feat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm
+    }
+
+    .feat {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 0;
+      display: flex;
+      gap: 0;
+      align-items: stretch;
+      overflow: hidden
+    }
+
+    .feat-ic {
+      width: 22mm;
+      min-height: 100%;
+      flex-shrink: 0;
+      overflow: hidden
+    }
+
+    .feat-ic img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact
+    }
+
+    .feat-bd {
+      padding: 3mm 4mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center
+    }
+
+    .feat h4 {
+      font-size: 8pt;
+      font-weight: 700;
+      color: var(--gd);
+      margin-bottom: .5mm
+    }
+
+    .feat p {
+      font-size: 7.5pt;
+      color: var(--ink2);
+      line-height: 1.45
+    }
+
+    .about-img {
+      height: 88mm;
+      border-radius: var(--rm);
+      overflow: hidden;
+      border: 1px solid var(--bd);
+      position: relative
+    }
+
+    .about-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover
+    }
+
+    .about-img-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 3mm 4mm;
+      background: linear-gradient(transparent, rgba(0, 0, 0, .55));
+      color: #fff;
+      font-size: 8pt;
+      font-weight: 500
+    }
+
+    /* Products */
+    .cat-hdr {
+      margin-bottom: 2.5mm;
+      padding-bottom: 2mm;
+      border-bottom: 2px solid var(--g);
+      display: flex;
+      align-items: baseline;
+      gap: 3mm
+    }
+
+    .cat-hdr h2 {
+      font-family: var(--serif);
+      font-size: 15pt;
+      font-weight: 900;
+      color: var(--ink);
+      letter-spacing: -.02em
+    }
+
+    .cat-hdr .sub {
+      font-size: 8.5pt;
+      color: var(--ink3);
+      font-weight: 400;
+      font-style: italic
+    }
+
+    .cat-desc {
+      font-size: 8pt;
+      color: var(--ink2);
+      margin-bottom: 3mm;
+      line-height: 1.5;
+      max-width: 90%
+    }
+
+    .pgrid {
+      display: grid;
+      gap: 2.5mm
+    }
+
+    .pg2 {
+      grid-template-columns: repeat(2, 1fr)
+    }
+
+    .pc {
+      background: #fff;
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column
+    }
+
+    .pc-img {
+      aspect-ratio: 5/3;
+      background: linear-gradient(135deg, var(--bg2), var(--bg3));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative
+    }
+
+    .pgrid-compact .pc-img {
+      aspect-ratio: 12/5
+    }
+
+    .pgrid-compact .pc-bd {
+      padding: 1.5mm 2.5mm
+    }
+
+    .pgrid-compact .pc-n {
+      font-size: 8pt
+    }
+
+    .pgrid-compact .pc-d {
+      font-size: 6.5pt;
+      line-height: 1.3
+    }
+
+    .pgrid-compact .pc-nr {
+      margin-bottom: 0
+    }
+
+    .pc-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact
+    }
+
+    .pc-ph {
+      color: var(--ink4);
+      font-size: 7.5pt;
+      font-weight: 500;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px
+    }
+
+    .pc-ph i {
+      width: 22px;
+      height: 22px;
+      border: 1.5px dashed var(--bds);
+      border-radius: 5px;
+      display: block
+    }
+
+    .pc-bd {
+      padding: 2mm 3mm;
+      flex: 1;
+      display: flex;
+      flex-direction: column
+    }
+
+    .pc-n {
+      font-size: 9pt;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.2
+    }
+
+    .pc-nr {
+      font-size: 7pt;
+      color: var(--ink3);
+      margin-bottom: .5mm;
+      font-style: italic
+    }
+
+    .pc-d {
+      font-size: 7pt;
+      color: var(--ink2);
+      line-height: 1.45;
+      flex: 1
+    }
+
+    .pc-t {
+      display: flex;
+      gap: 2mm;
+      margin-top: 2mm;
+      flex-wrap: wrap
+    }
+
+    .pc .tag {
+      font-size: 7pt
+    }
+
+    @media print {
+      .pc-img {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact
+      }
+    }
+
+    /* Info */
+    .igrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm
+    }
+
+    .icard {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 4.5mm 5mm
+    }
+
+    .icard h3 {
+      font-size: 9pt;
+      font-weight: 700;
+      color: var(--gd);
+      margin-bottom: 2.5mm;
+      padding-bottom: 2mm;
+      border-bottom: 1px solid var(--bd);
+      display: flex;
+      align-items: center;
+      gap: 2mm
+    }
+
+    .icard h3 svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0
+    }
+
+    .icard ul {
+      list-style: none
+    }
+
+    .icard li {
+      font-size: 8pt;
+      color: var(--ink);
+      padding: 1.2mm 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 2mm;
+      line-height: 1.5
+    }
+
+    .ck {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: rgba(16, 185, 129, .12);
+      flex-shrink: 0;
+      margin-top: 1px
+    }
+
+    .ck svg {
+      width: 8px;
+      height: 8px;
+      stroke: var(--gd);
+      stroke-width: 2.5;
+      fill: none
+    }
+
+    .horeca {
+      background: linear-gradient(135deg, #021a0d, var(--gdd), #054d32);
+      border-radius: var(--rl);
+      color: #fff;
+      display: flex;
+      align-items: stretch;
+      position: relative;
+      overflow: hidden;
+      min-height: 30mm
+    }
+
+    .horeca::before {
+      content: '';
+      position: absolute;
+      right: -15mm;
+      top: -15mm;
+      width: 60mm;
+      height: 60mm;
+      border-radius: 50%;
+      background: rgba(255, 184, 0, .08)
+    }
+
+    .horeca-img {
+      width: 55mm;
+      flex-shrink: 0;
+      overflow: hidden;
+      position: relative
+    }
+
+    .horeca-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      opacity: .88;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact
+    }
+
+    .horeca-img::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 20mm;
+      background: linear-gradient(to right, transparent, #021a0d)
+    }
+
+    .horeca-bd {
+      padding: 5mm 6mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      z-index: 1
+    }
+
+    .horeca h3 {
+      color: var(--a);
+      font-size: 10pt;
+      font-weight: 700;
+      margin-bottom: 1.5mm
+    }
+
+    .horeca p {
+      font-size: 8.5pt;
+      line-height: 1.6;
+      color: #fff;
+      font-weight: 500
+    }
+
+    .accent-bar {
+      margin-top: 4mm;
+      padding: 3.5mm 5mm;
+      background: var(--al);
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid rgba(255, 184, 0, .15)
+    }
+
+    .accent-bar p {
+      font-size: 8.5pt;
+      color: var(--ad);
+      font-weight: 700
+    }
+
+    .accent-bar .s {
+      font-size: 7.5pt;
+      font-weight: 400;
+      color: #B45309;
+      margin-top: .5mm
+    }
+
+    /* Contacts */
+    .cgrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3mm
+    }
+
+    .cc {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--r);
+      padding: 4mm;
+      text-align: center
+    }
+
+    .cc-l {
+      font-size: 7pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--ink3);
+      margin-bottom: 1.5mm
+    }
+
+    .cc-v {
+      font-size: 10pt;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.45
+    }
+
+    .cc-v a {
+      color: inherit;
+      text-decoration: none
+    }
+
+    .qr-block {
+      text-align: center;
+      padding: 5mm;
+      border: 1.5px solid var(--bd);
+      border-radius: var(--rm)
+    }
+
+    .qr-block img {
+      width: 42mm;
+      height: 42mm;
+      display: block;
+      margin: 0 auto 3mm;
+      border-radius: 4px
+    }
+
+    .qr-block .hint {
+      font-size: 8.5pt;
+      color: var(--ink2)
+    }
+
+    .qr-block .url {
+      font-size: 11pt;
+      font-weight: 800;
+      color: var(--gd);
+      margin-top: 1mm;
+      letter-spacing: -.01em
+    }
+
+    .tg-bar {
+      text-align: center;
+      margin-top: 4mm;
+      padding: 3.5mm;
+      background: var(--bg2);
+      border-radius: 8px;
+      border: 1px solid var(--bd)
+    }
+
+    .tg-bar p {
+      font-size: 9pt;
+      font-weight: 700;
+      color: var(--ink)
+    }
+
+    .tg-bar .s {
+      font-size: 7.5pt;
+      color: var(--ink2);
+      font-weight: 400;
+      margin-top: .5mm
+    }
+
+    .pgf {
+      text-align: center;
+      padding-top: 4mm;
+      border-top: 1px solid var(--bd);
+      margin-top: auto
+    }
+
+    .pgf-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 1.5mm
+    }
+
+    .pgf-logo img {
+      width: 24px;
+      height: 24px;
+      border-radius: 3px;
+      object-fit: contain
+    }
+
+    .pgf-logo span {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: var(--ink)
+    }
+
+    .pgf p {
+      font-size: 7pt;
+      color: var(--ink3)
+    }
+
+    .dot-sep {
+      display: flex;
+      align-items: center;
+      gap: 3mm;
+      margin: 4mm 0
+    }
+
+    .dot-sep::before,
+    .dot-sep::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--bd)
+    }
+
+    .dot-sep span {
+      font-size: 7pt;
+      color: var(--ink4);
+      letter-spacing: 2px
+    }
+
+    .fresh-note {
+      text-align: center;
+      padding: 5mm;
+      background: var(--gs);
+      border-radius: var(--rm);
+      border: 1px solid rgba(16, 185, 129, .12)
+    }
+
+    .fresh-note p {
+      font-size: 9pt;
+      font-weight: 700;
+      color: var(--gd)
+    }
+
+    .fresh-note .s {
+      font-size: 7.5pt;
+      color: var(--ink2);
+      margin-top: 1mm;
+      font-weight: 400
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══════════ PAGE 1 — COVER ══════════ -->
+  <div class="pg">
+    <div class="cover">
+      <div class="cover-left">
+        <div class="cover-topline"></div>
+        <div class="cover-brand">
+          <div class="cover-brand-mark">M</div>
+          <div class="cover-brand-name"><span>M</span>icrogreen<br>Uzbekistan</div>
+        </div>
+        <div class="cover-center">
+          <div class="cover-kicker">Каталог продукции · 2026</div>
+          <div class="cover-title">Свежесть.<br>Каждый день.<br>На вашем столе.</div>
+          <span class="cover-accent"></span>
+          <p class="cover-sub">Микрозелень, бейби-лист и салаты премиум-качества — напрямую с нашей фермы к вам.</p>
+          <div class="cover-stats">
+            <div class="cover-stat"><strong>34</strong><span>Позиций</span></div>
+            <div class="cover-stat"><strong>3</strong><span>Категории</span></div>
+            <div class="cover-stat"><strong>1</strong><span>Источник</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:4mm;margin-top:6mm">
+          <div style="flex:1;text-align:center;padding:3mm 2mm;background:rgba(16,185,129,.06);border-radius:8px;border:1px solid rgba(16,185,129,.1)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--gd)" stroke-width="1.5" width="22" height="22" style="margin-bottom:1.5mm"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <p style="font-size:6.5pt;font-weight:700;color:var(--gd);line-height:1.35">100%<br>натурально</p>
+          </div>
+          <div style="flex:1;text-align:center;padding:3mm 2mm;background:rgba(16,185,129,.06);border-radius:8px;border:1px solid rgba(16,185,129,.1)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--gd)" stroke-width="1.5" width="22" height="22" style="margin-bottom:1.5mm"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <p style="font-size:6.5pt;font-weight:700;color:var(--gd);line-height:1.35">Сбор в день<br>заказа</p>
+          </div>
+          <div style="flex:1;text-align:center;padding:3mm 2mm;background:rgba(16,185,129,.06);border-radius:8px;border:1px solid rgba(16,185,129,.1)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--gd)" stroke-width="1.5" width="22" height="22" style="margin-bottom:1.5mm"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+            <p style="font-size:6.5pt;font-weight:700;color:var(--gd);line-height:1.35">Без пестицидов<br>и химикатов</p>
+          </div>
+        </div>
+        <div class="cover-foot">
+          <span class="cover-badge">Samarqand · 2026</span>
+          <div class="cover-info">microgreenuzbekistan.com<br>+998 94 999 95 99</div>
+        </div>
+      </div>
+      <div class="cover-right">
+        <img src="cover-main.png" alt="Microgreen assortiment">
+      </div>
+      <span class="pn pn-r pn-w" style="color:var(--ink3)">1</span>
+    </div>
+  </div>
+
+  <!-- ══════════ PAGE 2 — ABOUT ══════════ -->
+  <div class="pg">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Каталог 2026</div>
+    </div>
+    <div style="padding:5mm 14mm 6mm">
+      <div style="text-align:center;margin-bottom:6mm">
+        <div class="serif" style="font-size:19pt;font-weight:900;color:var(--ink);letter-spacing:-.02em">О нас</div>
+        <div class="hr hr-c" style="margin:2.5mm auto"></div>
+        <p style="font-size:8.5pt;color:var(--ink2);max-width:80%;margin:0 auto;line-height:1.55">Производитель
+          микрозелени и салатов премиум-качества на современной ферме в Самарканде</p>
+      </div>
+      <div class="about-cols" style="margin-bottom:5mm">
+        <p>С 2024 года мы выращиваем микрозелень и бейби-лист премиум-качества в Узбекистане. Наша ферма оснащена
+          современными гидропонными технологиями, обеспечивающими стабильное качество и свежесть круглый год.</p>
+        <p>Наша продукция выращивается натуральным способом — без искусственных удобрений и пестицидов. Каждая партия
+          проходит контроль качества и собирается в день заказа.</p>
+        <p>Мы работаем с ресторанами, кафе, отелями и семьями, которые ценят здоровое питание. Наша цель — доставить
+          ресторанный уровень свежести каждому клиенту.</p>
+      </div>
+      <div class="feat-grid" style="margin-bottom:5mm">
+        <div class="feat">
+          <div class="feat-ic"><img src="feat_natural.png" alt="100% натурально"></div>
+          <div class="feat-bd">
+            <h4>100% натурально</h4>
+            <p>Без пестицидов — только чистая вода и естественный свет</p>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-ic"><img src="feat_fresh.png" alt="Гарантия свежести"></div>
+          <div class="feat-bd">
+            <h4>Гарантия свежести</h4>
+            <p>Собирается в день заказа и доставляется за 2–4 часа</p>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-ic"><img src="feat_premium.png" alt="Премиум качество"></div>
+          <div class="feat-bd">
+            <h4>Премиум качество</h4>
+            <p>Стандарт HoReCa — ресторанный уровень</p>
+          </div>
+        </div>
+        <div class="feat">
+          <div class="feat-ic"><img src="feat_pack.png" alt="Удобная упаковка"></div>
+          <div class="feat-bd">
+            <h4>Удобная упаковка</h4>
+            <p>Специальная упаковка — сохраняет свежесть</p>
+          </div>
+        </div>
+      </div>
+      <div class="about-img"><img src="farm.png" alt="Ферма Microgreen Uzbekistan">
+        <div class="about-img-overlay">Наша ферма — Самарканд, Узбекистан</div>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">2</span>
+  </div>
+
+  <!-- ══════════ PAGE 3 — MIKROKO'KATLAR 1/3 ══════════ -->
+  <div class="pg">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Микрозелень</div>
+    </div>
+    <div style="padding:4mm 14mm 6mm">
+      <div class="cat-hdr">
+        <h2 class="serif">Микрозелень</h2><span class="sub">Mikroko'katlar</span>
+      </div>
+      <p class="cat-desc">Квинтэссенция вкуса и витаминов в каждом побеге. Выбор лучших шеф-поваров для создания идеальных визуальных и вкусовых акцентов.</p>
+      <div class="pgrid pg2">
+        <div class="pc">
+          <div class="pc-img"><img src="noxat_micro.png" alt="Горох микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Горох</div>
+            <div class="pc-nr">No'xat</div>
+            <div class="pc-d">Сладкие, хрустящие и сочные побеги с ароматом свежего зелёного горошка. Хит для фитнес-боулов и смузи.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-hit">Хит продаж</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="kungaboqar_micro.png" alt="Подсолнечник микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Подсолнечник</div>
+            <div class="pc-nr">Kungaboqar</div>
+            <div class="pc-d">Плотная текстура и выраженный ореховый вкус. Безупречная и питательная основа для любого салата.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-hit">Хит продаж</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="rukkola_micro.png" alt="Руккола микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Руккола</div>
+            <div class="pc-nr">Rukkola</div>
+            <div class="pc-d">Яркий пряно-горчичный акцент. Незаменимая классика для итальянской пасты, сочной пиццы и карпаччо.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-hit">Хит продаж</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="redis_micro.png" alt="Редис Ред Корал микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Редис Ред Корал</div>
+            <div class="pc-nr">Redis Red Coral</div>
+            <div class="pc-d">Эффектные розовые стебли и перечная свежесть. Прекрасно оттеняет вкус рыбных и мясных стейков.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-chef">Выбор шефа</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="brokkoli_micro.png" alt="Брокколи микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Брокколи</div>
+            <div class="pc-nr">Brokkoli</div>
+            <div class="pc-d">Мягкий капустный вкус, мощный концентрат антиоксидантов. Суперфуд №1 для здорового рациона.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-detox">Detox</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="amarant_micro.png" alt="Амарант микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Амарант</div>
+            <div class="pc-nr">Amarant</div>
+            <div class="pc-d">Потрясающий карминовый цвет и нежный землистый вкус. Роскошный визуальный декор для ресторана.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-chef">Выбор шефа</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">3</span>
+  </div>
+
+  <!-- ══════════ PAGE 4 — MIKROKO'KATLAR 2/3 ══════════ -->
+  <div class="pg">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Микрозелень — продолжение</div>
+    </div>
+    <div style="padding:4mm 14mm 6mm">
+      <div class="cat-hdr">
+        <h2 class="serif">Микрозелень</h2><span class="sub">продолжение</span>
+      </div>
+      <div class="pgrid pg2">
+        <div class="pc">
+          <div class="pc-img"><img src="rayhon_micro.png" alt="Базилик микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Базилик</div>
+            <div class="pc-nr">Rayhon</div>
+            <div class="pc-d">Интенсивный средиземноморский аромат. Мгновенно преображает соусы, сыры и томатные блюда.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-premium">Premium</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="kashnich_micro.png" alt="Кориандр микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Кориандр</div>
+            <div class="pc-nr">Kashnich</div>
+            <div class="pc-d">Свежий цитрусово-пряный профиль. Незаменим для шедевров азиатской и фьюжн кухни.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-chef">Выбор шефа</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="kress_micro.png" alt="Кресс-салат микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Кресс-салат</div>
+            <div class="pc-nr">Kress-salat</div>
+            <div class="pc-d">Характерный горчичный холодок и остринка. Отлично раскрывается в крем-супах и сэндвичах.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="gorchitsa_micro.png" alt="Горчица микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Горчица</div>
+            <div class="pc-nr">Gorchitsa</div>
+            <div class="pc-d">Пикантная перечная нота с медовым послевкусием. Классическое дополнение к мясным деликатесам.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="gorchitsa_red.png" alt="Горчица красная микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Горчица красная</div>
+            <div class="pc-nr">Qizil gorchitsa</div>
+            <div class="pc-d">Выразительная острота и эффектный бордовый лист. Пикантный акцент для стейков и бургеров.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-chef">Выбор шефа</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="redis_sango.png" alt="Редис Санго микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Редис Санго</div>
+            <div class="pc-nr">Redis Sango</div>
+            <div class="pc-d">Глубокий пурпурный оттенок и фирменная остринка. Идеальный цветовой контраст на тарелке.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-premium">Premium</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="fresh-note" style="margin-top:3mm">
+        <p>Выращено на гидропонике — без химии и пестицидов</p>
+        <p class="s">Каждая партия проходит контроль качества перед отправкой</p>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">4</span>
+  </div>
+
+  <!-- ══════════ PAGE 5 — MIKROKO'KATLAR 3/3 ══════════ -->
+  <div class="pg">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Микрозелень — завершение</div>
+    </div>
+    <div style="padding:4mm 14mm 6mm">
+      <div class="cat-hdr">
+        <h2 class="serif">Микрозелень</h2><span class="sub">завершение</span>
+      </div>
+      <div class="pgrid pg2">
+        <div class="pc">
+          <div class="pc-img"><img src="pakchoy_green.png" alt="Пак-чой зелёный микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Пак-чой зелёный</div>
+            <div class="pc-nr">Pakchoy yashil</div>
+            <div class="pc-d">Мягкий, сочный вкус молодого бок-чой. Гармоничен в горячих вок-блюдах и свежих миксах.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="pakchoy_red.png" alt="Пак-чой красный микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Пак-чой красный</div>
+            <div class="pc-nr">Pakchoy qizil</div>
+            <div class="pc-d">Изысканный фиолетовый оттенок и азиатские ноты. Премиальный выбор для подачи блюд.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-premium">Premium</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="tatsoy_micro.png" alt="Татсой микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Татсой</div>
+            <div class="pc-nr">Tatsoy</div>
+            <div class="pc-d">Плотные изумрудные листочки. Шелковистая текстура, идеальная для тёплых салатов.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="mizuna_green.png" alt="Мизуна зелёная микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Мизуна зелёная</div>
+            <div class="pc-nr">Mizuna yashil</div>
+            <div class="pc-d">Хрустящая кружевная текстура. Придаёт салатам визуальный объём и лёгкую остринку.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="mizuna_red.png" alt="Мизуна красная микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Мизуна красная</div>
+            <div class="pc-nr">Mizuna qizil</div>
+            <div class="pc-d">Резной пурпурный лист с лёгкой перечной нотой. Высокая эстетика и вкус в одном флаконе.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-decor">Decor</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="mangold_micro.png" alt="Мангольд микрозелень"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Мангольд</div>
+            <div class="pc-nr">Mangold</div>
+            <div class="pc-d">Свекольно-земляной оттенок вкуса и яркие стебли. Штрих для авторской подачи.</div>
+            <div class="pc-t"><span class="tag tg">Tabiiy</span><span class="tag tag-decor">Decor</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="fresh-note" style="margin-top:3mm">
+        <p>Вся микрозелень собирается в день заказа</p>
+        <p class="s">18 видов микрозелени — самый широкий ассортимент в Узбекистане</p>
+        <p class="s">Минимальный срок хранения — максимум свежести и пользы</p>
+      </div>
+      <div class="dot-sep"><span>MICROGREEN</span></div>
+      <div style="text-align:center;padding:3mm 8mm;background:var(--bg2);border-radius:var(--rm);border:1px solid var(--bd)">
+        <p style="font-size:8.5pt;font-weight:600;color:var(--ink);line-height:1.5">«Микрозелень — концентрат витаминов, антиоксидантов и вкуса в каждом побеге»</p>
+        <p style="font-size:7pt;color:var(--ink3);margin-top:1.5mm;font-style:italic">Суперфуд, рекомендованный нутрициологами всего мира</p>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">5</span>
+  </div>
+
+  <!-- ══════════ PAGE 6 — BABY LEAF ══════════ -->
+  <div class="pg" style="background:#F8F7F2">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Бейби-лист</div>
+    </div>
+    <div style="padding:4mm 14mm 6mm">
+      <div class="cat-hdr">
+        <h2 class="serif">Бейби-лист</h2><span class="sub">Baby Leaf</span>
+      </div>
+      <p class="cat-desc">Молодые, тающие во рту листья с деликатной текстурой. Безупречная основа для премиальных салатов и лёгких гарниров.</p>
+      <div class="pgrid pg2">
+        <div class="pc">
+          <div class="pc-img"><img src="rukkola_baby.png" alt="Руккола бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Руккола</div>
+            <div class="pc-nr">Rukkola</div>
+            <div class="pc-d">Ярко выраженный орехово-горчичный профиль. Безупречная основа для премиальных салатов.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span><span class="tag tag-hit">Хит продаж</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="rayhon_baby.png" alt="Базилик бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Базилик</div>
+            <div class="pc-nr">Rayhon</div>
+            <div class="pc-d">Нежнейшие молодые листочки с концентрированным средиземноморским ароматом. Идеально для брускетт.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="yalpiz_baby.png" alt="Мята бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Мята</div>
+            <div class="pc-nr">Yalpiz</div>
+            <div class="pc-d">Максимальная свежесть и обилие эфирных масел. Изысканный штрих для десертов и крафтовых лимонадов.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="ismaloq_baby.png" alt="Шпинат бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Шпинат</div>
+            <div class="pc-nr">Ismaloq</div>
+            <div class="pc-d">Нежная, тающая во рту текстура. Незаменимая лёгкая база для фитнес-меню и витаминных смузи.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span><span class="tag tag-detox">Fitnes</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="keyl_baby.png" alt="Кейл бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Кейл</div>
+            <div class="pc-nr">Keyl</div>
+            <div class="pc-d">Знаменитый суперфуд в самом нежном исполнении. Концентрат пользы без жёстких волокон.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span><span class="tag tag-chef">Superfood</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="mangold_baby.png" alt="Мангольд бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Мангольд</div>
+            <div class="pc-nr">Mangold</div>
+            <div class="pc-d">Рубиновые прожилки на изумрудном фоне. Создаёт потрясающий цветовой контраст в салатных миксах.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span><span class="tag tag-decor">Decor</span></div>
+          </div>
+        </div>
+        </div>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">6</span>
+  </div>
+
+  <!-- ══════════ PAGE 7 — BABY LEAF 2/2 ══════════ -->
+  <div class="pg" style="background:#F8F7F2">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Бейби-лист — продолжение</div>
+    </div>
+    <div style="padding:4mm 14mm 6mm">
+      <div class="cat-hdr">
+        <h2 class="serif">Бейби-лист</h2><span class="sub">продолжение</span>
+      </div>
+      <div class="pgrid pg2">
+        <div class="pc">
+          <div class="pc-img"><img src="tatsoy_baby.png" alt="Татсой бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Татсой</div>
+            <div class="pc-nr">Tatsoy</div>
+            <div class="pc-d">Нежные ложковидные листья с деликатным сладковато-горчичным оттенком. Идеально для азиатских тёплых салатов.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="mizuna_green_baby.png" alt="Мизуна зелёная бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Мизуна зелёная</div>
+            <div class="pc-nr">Mizuna yashil</div>
+            <div class="pc-d">Кружевные листья с освежающим вкусом. Добавляет объём и лёгкую пикантность свежим зелёным миксам.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="mizuna_red_baby.png" alt="Мизуна красная бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Мизуна красная</div>
+            <div class="pc-nr">Mizuna qizil</div>
+            <div class="pc-d">Эффектная фиолетовая бахрома и перечная нота. Настоящее эстетическое наслаждение для гурманов.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span><span class="tag tag-premium">Premium</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="shavel_red_lava.png" alt="Щавель Красная Лава бейби лист"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Щавель Красная Лава</div>
+            <div class="pc-nr">Qizil lava shovul</div>
+            <div class="pc-d">Стреловидные листья с гранатовыми прожилками. Яркая кислинка, мгновенно пробуждающая аппетит.</div>
+            <div class="pc-t"><span class="tag tg">Baby Leaf</span><span class="tag tag-chef">Выбор шефа</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="horeca" style="margin-top:4mm;background:linear-gradient(135deg,#1a0a2e,#2d1b4e,#1a3a2e)">
+        <div class="horeca-img"><img src="baby_leaf_mix.png" alt="Бейби-лист Микс"></div>
+        <div class="horeca-bd">
+          <h3 style="color:#a78bfa">Бейби-лист Микс</h3>
+          <p>Готовый микс из лучших бейби-листов: руккола, шпинат, мангольд, мизуна и татсой. Идеальная комбинация вкусов и текстур для ресторанной подачи.</p>
+        </div>
+      </div>
+      <div class="fresh-note" style="margin-top:4mm">
+        <p>10 видов бейби-листа — уникальная коллекция для гурманов</p>
+        <p class="s">Каждый лист собран вручную на оптимальной стадии зрелости</p>
+      </div>
+      <div class="dot-sep"><span>BABY LEAF</span></div>
+      <div style="text-align:center;padding:3mm 8mm;background:var(--bg2);border-radius:var(--rm);border:1px solid var(--bd)">
+        <p style="font-size:8.5pt;font-weight:600;color:var(--ink);line-height:1.5">«Бейби-лист — это не просто салат. Это искусство баланса между нежностью молодого листа и насыщенностью взрослого вкуса»</p>
+        <p style="font-size:7pt;color:var(--ink3);margin-top:1.5mm;font-style:italic">— Команда Microgreen Uzbekistan</p>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">7</span>
+  </div>
+
+  <!-- ══════════ PAGE 8 — SALATLAR ══════════ -->
+  <div class="pg">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Салаты</div>
+    </div>
+    <div style="padding:4mm 14mm 6mm">
+      <div class="cat-hdr">
+        <h2 class="serif">Салаты</h2><span class="sub">Salatlar</span>
+      </div>
+      <p class="cat-desc">Идеальный хруст и максимальная свежесть. Мы собираем урожай каждое утро, чтобы вы наслаждались безупречным качеством.</p>
+      <div class="pgrid pg2">
+        <div class="pc">
+          <div class="pc-img"><img src="latuk_salat.png" alt="Aveleda салат"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Aveleda</div>
+            <div class="pc-nr">Aveleda</div>
+            <div class="pc-d">Нежный и хрустящий, с пышной кудрявой розеткой. Универсальная лёгкая база для любого микс-салата.</div>
+            <div class="pc-t"><span class="tag tg">Salat</span><span class="tag tag-hit">Хит продаж</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="aysberg_salat.png" alt="Айсберг салат"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Айсберг</div>
+            <div class="pc-nr">Aysberg</div>
+            <div class="pc-d">Максимальный хруст и освежающая сочность. Безоговорочный лидер для крафтовых бургеров и сэндвичей.</div>
+            <div class="pc-t"><span class="tag tg">Salat</span><span class="tag tag-hit">Хит продаж</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="romano_salat.png" alt="Романо салат"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Романо</div>
+            <div class="pc-nr">Romano</div>
+            <div class="pc-d">Плотные вытянутые листья с хрустящей жилкой. Золотой стандарт для классического «Цезаря».</div>
+            <div class="pc-t"><span class="tag tg">Salat</span><span class="tag tag-hit">Хит продаж</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="lolo_rossa.png" alt="Лоло Росса салат"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Лоло Росса</div>
+            <div class="pc-nr">Lolo Rossa</div>
+            <div class="pc-d">Эффектные коралловые края и нежная сердцевина. Создаёт воздушный объём и цветовую игру в тарелке.</div>
+            <div class="pc-t"><span class="tag tg">Salat</span><span class="tag tag-chef">Выбор шефа</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="radichio_salat.png" alt="Радичио салат"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Радичио</div>
+            <div class="pc-nr">Radichio</div>
+            <div class="pc-d">Плотный рубиновый кочан с белыми прожилками. Придаёт пикантную итальянскую горчинку премиум-миксам.</div>
+            <div class="pc-t"><span class="tag tg">Salat</span><span class="tag tag-premium">Premium</span></div>
+          </div>
+        </div>
+        <div class="pc">
+          <div class="pc-img"><img src="frize_salat.png" alt="Фризе салат"></div>
+          <div class="pc-bd">
+            <div class="pc-n">Фризе</div>
+            <div class="pc-nr">Frize</div>
+            <div class="pc-d">Кудрявое кружево с утончённым пряным вкусом. Французская классика, идеальная в паре с сыром и беконом.</div>
+            <div class="pc-t"><span class="tag tg">Salat</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">8</span>
+  </div>
+
+  <!-- ══════════ PAGE 9 — DELIVERY ══════════ -->
+  <div class="pg">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Условия</div>
+    </div>
+    <div style="padding:5mm 14mm 6mm">
+      <div style="text-align:center;margin-bottom:6mm">
+        <div class="serif" style="font-size:18pt;font-weight:900;color:var(--ink);letter-spacing:-.02em">Доставка и
+          условия</div>
+        <div class="hr hr-c" style="margin:2.5mm auto"></div>
+        <p style="font-size:8pt;color:var(--ink2);font-style:italic">Yetkazib berish va hamkorlik shartlari</p>
+      </div>
+      <div class="igrid" style="margin-bottom:4mm">
+        <div class="icard">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="15" height="12" rx="2"/><polyline points="16 10 21 10 23 13 23 18 19 18"/><circle cx="7" cy="18" r="2"/><circle cx="19" cy="18" r="2"/></svg>Доставка</h3>
+          <ul>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Самарканд — доставка в день заказа</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Ташкент — доставка на следующий день</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Другие города — по договорённости</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Минимальный заказ — по договорённости</li>
+          </ul>
+        </div>
+        <div class="icard">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Способы оплаты</h3>
+          <ul>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Наличные — при доставке</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Банковский перевод</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Click / Payme</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Юр. лица — по договору</li>
+          </ul>
+        </div>
+        <div class="icard">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>Как заказать</h3>
+          <ul>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Telegram-бот — быстро и удобно</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Телефон: +998 94 999 95 99</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Сайт: microgreenuzbekistan.com</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Instagram: @microgreenuzbekistan</li>
+          </ul>
+        </div>
+        <div class="icard">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Упаковка</h3>
+          <ul>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Спец. контейнеры — сохраняют свежесть</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Холодная цепь — контроль температуры</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Экологичная упаковка</li>
+            <li><span class="ck"><svg viewBox="0 0 12 12"><polyline points="2.5 6 5 8.5 9.5 3.5"/></svg></span>Лотки и пакеты — на ваш выбор</li>
+          </ul>
+        </div>
+      </div>
+      <div class="horeca">
+        <div class="horeca-img"><img src="horeca_banner.png" alt="HoReCa сотрудничество"></div>
+        <div class="horeca-bd">
+          <h3>Сотрудничество HoReCa</h3>
+          <p>Программа регулярных поставок для ресторанов, кафе и отелей. Специальные цены, индивидуальные объёмы и
+            гарантия постоянного качества. Обсудим ваши условия.</p>
+        </div>
+      </div>
+      <div class="accent-bar">
+        <p>Гарантия свежести — собираем и доставляем в день заказа</p>
+        <p class="s">Вся продукция выращена на нашей ферме и прошла контроль качества</p>
+      </div>
+      <div style="margin-top:4mm;border-radius:var(--rm);overflow:hidden;position:relative;height:55mm">
+        <img src="fitness_banner.png" alt="Витграс и наборы для фитнеса" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block">
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:4mm 5mm;background:linear-gradient(to top,rgba(0,0,0,.7),transparent)">
+          <p style="font-size:10pt;font-weight:800;color:#fff;font-family:var(--serif)">Витграс и наборы для фитнеса</p>
+          <p style="font-size:7.5pt;color:rgba(255,255,255,.85);margin-top:1mm">Суперфуд-шоты, детокс-наборы и микрозелень для спортивного питания — скоро в каталоге</p>
+        </div>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">9</span>
+  </div>
+
+  <!-- ══════════ PAGE 10 — CONTACTS ══════════ -->
+  <div class="pg">
+    <div class="accent-line"></div>
+    <div class="topbar">
+      <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+      <div>Контакты</div>
+    </div>
+    <div style="padding:5mm 14mm 6mm;display:flex;flex-direction:column;height:calc(297mm - 1mm - 22px)">
+      <div style="text-align:center;margin-bottom:6mm">
+        <div class="serif" style="font-size:18pt;font-weight:900;color:var(--ink);letter-spacing:-.02em">Контакты</div>
+        <div class="hr hr-c" style="margin:2.5mm auto"></div>
+        <p style="font-size:8pt;color:var(--ink2)">Свяжитесь с нами — ответим на все вопросы</p>
+      </div>
+      <div class="cgrid" style="margin-bottom:5mm">
+        <div class="cc">
+          <div class="cc-l">Телефон</div>
+          <div class="cc-v"><a href="tel:+998949999599">+998 94 999 95 99</a><br><a href="tel:+998980072020">+998 98 007
+              20 20</a></div>
+        </div>
+        <div class="cc">
+          <div class="cc-l">Instagram</div>
+          <div class="cc-v"><a href="https://instagram.com/microgreenuzbekistan">@microgreenuzbekistan</a></div>
+        </div>
+        <div class="cc">
+          <div class="cc-l">Сайт</div>
+          <div class="cc-v"><a href="https://microgreenuzbekistan.com">microgreenuzbekistan.com</a></div>
+        </div>
+        <div class="cc">
+          <div class="cc-l">Адрес</div>
+          <div class="cc-v">г. Самарканд</div>
+        </div>
+      </div>
+      <div class="qr-block" style="margin-bottom:4mm">
+        <img
+          src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=https://microgreenuzbekistan.com&color=065F46&bgcolor=FFFFFF"
+          alt="QR — microgreenuzbekistan.com">
+        <p class="hint">Перейдите на наш сайт — каталог, заказы и подробная информация</p>
+        <span class="url">microgreenuzbekistan.com</span>
+      </div>
+      <div class="tg-bar">
+        <p>Оформите заказ через Telegram-бот</p>
+        <p class="s">Каталог, цены и заказ — всё в одном боте</p>
+      </div>
+      <div style="flex:1;margin-top:3mm;border-radius:var(--rm);overflow:hidden;min-height:20mm">
+        <img src="contacts_banner.png" alt="Продукция Microgreen Uzbekistan" style="width:100%;height:100%;object-fit:cover;object-position:center;display:block">
+      </div>
+      <div style="text-align:center;padding:3.5mm;background:linear-gradient(135deg,#021a0d,var(--gdd),#054d32);border-radius:var(--rm);color:#fff;margin-top:3mm">
+        <p style="font-size:12pt;font-weight:800;font-family:var(--serif);letter-spacing:-.02em">Натурально. Свежо. Премиум.</p>
+        <p style="font-size:8pt;margin-top:2mm;opacity:.8">Microgreen Uzbekistan — с заботой о вашем столе</p>
+      </div>
+      <div class="pgf">
+        <div class="pgf-logo"><img src="logo-clean.png" alt="Microgreen Uzbekistan"><span>Microgreen Uzbekistan</span>
+        </div>
+        <p>&copy; 2024–2026 Microgreen Uzbekistan. Все права защищены.</p>
+        <p style="margin-top:.5mm;opacity:.6">Самарканд, Узбекистан &middot; Натурально. Свежо. Премиум.</p>
+      </div>
+    </div>
+    <span class="pn pn-l" style="color:var(--bds)">Microgreen Uzbekistan</span><span class="pn pn-r">10</span>
+  </div>
+
+</body>
+
+</html>

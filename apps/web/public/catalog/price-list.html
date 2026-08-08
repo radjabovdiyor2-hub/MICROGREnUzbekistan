@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Прайс-лист — Microgreen Uzbekistan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --sans: 'Inter', system-ui, sans-serif;
+      --serif: 'Playfair Display', Georgia, serif;
+      --gdd: #065F46;
+      --gd: #047857;
+      --g: #10B981;
+      --a: #F59E0B;
+      --ink: #1a1a1a;
+      --ink2: #555;
+      --ink3: #888;
+      --bg: #fff;
+      --bg2: #f8f8f5;
+      --bd: #e5e5e0;
+      --r: 4px;
+      --rm: 8px
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box }
+    @page { size: A4 portrait; margin: 0 }
+
+    body {
+      font-family: var(--sans);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      background: #e0e0e0
+    }
+
+    .pg {
+      width: 210mm;
+      height: 297mm;
+      margin: 0 auto;
+      background: var(--bg);
+      position: relative;
+      page-break-after: always;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column
+    }
+
+    @media screen {
+      .pg { margin: 10mm auto; box-shadow: 0 4px 30px rgba(0,0,0,.15); border-radius: 2px }
+    }
+
+    .accent-line {
+      height: 2mm;
+      flex-shrink: 0;
+      background: linear-gradient(90deg, var(--gdd) 0%, var(--g) 50%, var(--a) 100%)
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 3mm 8mm;
+      border-bottom: 1px solid var(--bd);
+      font-size: 7.5pt;
+      color: var(--ink3);
+      flex-shrink: 0
+    }
+    .topbar .brand { font-weight: 800; color: var(--gd); font-size: 9pt }
+    .topbar .brand span { color: var(--g) }
+    .topbar .phone { font-weight: 600; color: var(--ink2); font-size: 7.5pt }
+
+    .content {
+      flex: 1;
+      padding: 3mm 8mm 2mm;
+      display: flex;
+      flex-direction: column
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3mm;
+      flex-shrink: 0
+    }
+    .header h1 {
+      font-family: var(--serif);
+      font-size: 18pt;
+      font-weight: 900;
+      color: var(--gdd);
+      letter-spacing: -.02em;
+      margin-bottom: .5mm
+    }
+    .header p { font-size: 7.5pt; color: var(--ink2) }
+
+    .grid {
+      display: flex;
+      gap: 5mm;
+      flex: 1
+    }
+    .col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column
+    }
+
+    .cat-title {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      margin: 0 0 1.5mm;
+      padding-bottom: 1mm;
+      border-bottom: 2px solid var(--gd);
+      flex-shrink: 0
+    }
+    .cat-title h2 {
+      font-family: var(--serif);
+      font-size: 11pt;
+      font-weight: 800;
+      color: var(--gdd)
+    }
+    .cat-title .badge {
+      font-size: 6pt;
+      font-weight: 700;
+      color: #fff;
+      background: var(--gd);
+      padding: 1px 6px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: .04em
+    }
+    .cat-title .unit {
+      margin-left: auto;
+      font-size: 6.5pt;
+      font-weight: 600;
+      color: var(--ink3);
+      text-transform: uppercase;
+      letter-spacing: .04em
+    }
+
+    table { width: 100%; border-collapse: collapse; flex-shrink: 0 }
+    thead th {
+      font-size: 6pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--ink3);
+      padding: 1.5mm 1mm;
+      text-align: left;
+      border-bottom: 1px solid var(--bd);
+      background: var(--bg2)
+    }
+    thead th:nth-child(n+4) { text-align: center }
+
+    /* Fixed row height — all cards are identical */
+    tbody tr { height: 23mm }
+
+    tbody td {
+      padding: 2mm 1mm;
+      font-size: 8.5pt;
+      border-bottom: 1px solid rgba(0,0,0,.06);
+      vertical-align: middle
+    }
+
+    .c-n { width: 5mm; text-align: center; font-size: 8pt; font-weight: 600; color: var(--ink3) }
+    .c-img { width: 22mm; text-align: center }
+    .c-img img {
+      width: 18mm;
+      height: 18mm;
+      border-radius: 5px;
+      object-fit: cover;
+      border: 1px solid var(--bd);
+      display: block;
+      margin: 0 auto
+    }
+    .c-nm { flex: 1; font-weight: 700; color: var(--ink); line-height: 1.2; padding-left: 1mm }
+    .c-lt {
+      font-size: 6.5pt;
+      font-weight: 400;
+      color: var(--ink3);
+      font-style: italic;
+      display: block;
+      margin-top: .5px
+    }
+    .c-pr { width: 16mm; text-align: center; font-weight: 800; font-size: 9pt; color: var(--gdd); white-space: nowrap }
+    .c-qty, .c-sum {
+      width: 16mm;
+      text-align: center;
+      border-left: 1px solid var(--bd);
+      border-bottom: 1px dashed var(--bd) !important
+    }
+
+    .red td { background: rgba(220,38,38,.03) }
+    .red .c-pr { color: #DC2626; font-style: italic }
+    .red .c-nm::after { content: ' ★'; font-size: 6pt; color: #DC2626; font-weight: 400 }
+
+    .page-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2.5mm 8mm;
+      font-size: 7pt;
+      color: var(--ink3);
+      flex-shrink: 0;
+      border-top: 1px solid var(--bd)
+    }
+
+    .total-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 3mm 4mm;
+      background: linear-gradient(135deg, var(--gdd), var(--gd));
+      border-radius: var(--rm);
+      color: #fff;
+      margin-top: 3mm;
+      flex-shrink: 0
+    }
+    .total-bar p { font-size: 9pt; font-weight: 700 }
+    .total-bar .s { font-size: 6.5pt; font-weight: 400; opacity: .8 }
+
+    .info-box {
+      padding: 3mm;
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--rm);
+      margin-top: 3mm;
+      flex-shrink: 0
+    }
+    .info-box p { font-size: 7.5pt; color: var(--ink2); line-height: 1.7 }
+    .info-box strong { color: var(--ink); font-weight: 700 }
+
+    .stamp {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+      padding: 3mm;
+      border: 1.5px dashed var(--bd);
+      border-radius: var(--r);
+      margin-top: 2.5mm;
+      flex-shrink: 0
+    }
+    .stamp-label {
+      font-size: 6.5pt;
+      color: var(--ink3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-weight: 700
+    }
+    .stamp-line { flex: 1; border-bottom: 1px solid var(--bd); min-height: 6mm }
+
+    .legend-box {
+      padding: 3mm;
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: var(--rm);
+      flex-shrink: 0
+    }
+    .legend-box p { font-size: 7.5pt; color: var(--ink2); line-height: 1.8 }
+
+    .spacer { flex: 1 }
+
+    @media print {
+      body { background: #fff !important }
+      .pg {
+        margin: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        break-inside: avoid
+      }
+      .pg:last-child { page-break-after: auto }
+      tbody tr { break-inside: avoid; page-break-inside: avoid }
+      .accent-line,
+      .total-bar,
+      .info-box,
+      .legend-box,
+      thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact }
+      .red td { background: rgba(220,38,38,.05) !important }
+      img { -webkit-print-color-adjust: exact; print-color-adjust: exact }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════ СТОРОНА 1 · Микрозелень 1–10 слева, 11–18 справа ═══════ -->
+<div class="pg">
+  <div class="accent-line"></div>
+  <div class="topbar">
+    <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+    <span class="phone">📞 +998 94 999 95 99 · +998 98 007 20 20</span>
+    <div>Прайс-лист</div>
+  </div>
+  <div class="content">
+    <div class="header">
+      <h1>Прайс-лист</h1>
+      <p>Актуальные цены на продукцию · Самарканд</p>
+    </div>
+
+    <div class="grid">
+      <!-- ─── Левая: 1–10 ─── -->
+      <div class="col">
+        <div class="cat-title">
+          <h2>Микрозелень</h2>
+          <span class="badge">18 видов</span>
+          <span class="unit">Лоток</span>
+        </div>
+        <table>
+          <thead><tr><th class="c-n">№</th><th class="c-img">Фото</th><th class="c-nm">Наименование</th><th class="c-pr">Цена</th><th class="c-qty">Кол-во</th><th class="c-sum">Сумма</th></tr></thead>
+          <tbody>
+            <tr><td class="c-n">1</td><td class="c-img"><img src="noxat_micro.png" alt="Микрозелень Горох"></td><td class="c-nm">Горох<span class="c-lt">No'xat</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">2</td><td class="c-img"><img src="kungaboqar_micro.png" alt="Микрозелень Подсолнечник"></td><td class="c-nm">Подсолнечник<span class="c-lt">Kungaboqar</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">3</td><td class="c-img"><img src="rukkola_micro.png" alt="Микрозелень Руккола"></td><td class="c-nm">Руккола<span class="c-lt">Rukkola</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr class="red"><td class="c-n">4</td><td class="c-img"><img src="redis_micro.png" alt="Микрозелень Редис Ред Корал"></td><td class="c-nm">Редис Ред Корал<span class="c-lt">Redis Red Coral</span></td><td class="c-pr">20 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">5</td><td class="c-img"><img src="brokkoli_micro.png" alt="Микрозелень Брокколи"></td><td class="c-nm">Брокколи<span class="c-lt">Brokkoli</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr class="red"><td class="c-n">6</td><td class="c-img"><img src="amarant_micro.png" alt="Микрозелень Амарант"></td><td class="c-nm">Амарант<span class="c-lt">Amarant</span></td><td class="c-pr">20 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">7</td><td class="c-img"><img src="rayhon_micro.png" alt="Микрозелень Базилик"></td><td class="c-nm">Базилик<span class="c-lt">Rayhon</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">8</td><td class="c-img"><img src="kashnich_micro.png" alt="Микрозелень Кориандр"></td><td class="c-nm">Кориандр<span class="c-lt">Kashnich</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">9</td><td class="c-img"><img src="kress_micro.png" alt="Микрозелень Кресс-салат"></td><td class="c-nm">Кресс-салат<span class="c-lt">Kress-salat</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">10</td><td class="c-img"><img src="gorchitsa_micro.png" alt="Микрозелень Горчица"></td><td class="c-nm">Горчица<span class="c-lt">Gorchitsa</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ─── Правая: 11–18 + легенда ─── -->
+      <div class="col">
+        <div class="cat-title">
+          <h2 style="visibility:hidden">М</h2>
+          <span class="unit" style="margin-left:0;font-style:italic">продолжение</span>
+        </div>
+        <table>
+          <thead><tr><th class="c-n">№</th><th class="c-img">Фото</th><th class="c-nm">Наименование</th><th class="c-pr">Цена</th><th class="c-qty">Кол-во</th><th class="c-sum">Сумма</th></tr></thead>
+          <tbody>
+            <tr class="red"><td class="c-n">11</td><td class="c-img"><img src="gorchitsa_red.png" alt="Микрозелень Горчица красная"></td><td class="c-nm">Горчица красная<span class="c-lt">Qizil gorchitsa</span></td><td class="c-pr">20 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr class="red"><td class="c-n">12</td><td class="c-img"><img src="redis_sango.png" alt="Микрозелень Редис Санго"></td><td class="c-nm">Редис Санго<span class="c-lt">Redis Sango</span></td><td class="c-pr">20 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">13</td><td class="c-img"><img src="pakchoy_green.png" alt="Микрозелень Пак-чой зелёный"></td><td class="c-nm">Пак-чой зелёный<span class="c-lt">Pakchoy yashil</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr class="red"><td class="c-n">14</td><td class="c-img"><img src="pakchoy_red.png" alt="Микрозелень Пак-чой красный"></td><td class="c-nm">Пак-чой красный<span class="c-lt">Pakchoy qizil</span></td><td class="c-pr">20 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">15</td><td class="c-img"><img src="tatsoy_micro.png" alt="Микрозелень Татсой"></td><td class="c-nm">Татсой<span class="c-lt">Tatsoy</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">16</td><td class="c-img"><img src="mizuna_green.png" alt="Микрозелень Мизуна зелёная"></td><td class="c-nm">Мизуна зелёная<span class="c-lt">Mizuna yashil</span></td><td class="c-pr">15 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr class="red"><td class="c-n">17</td><td class="c-img"><img src="mizuna_red.png" alt="Микрозелень Мизуна красная"></td><td class="c-nm">Мизуна красная<span class="c-lt">Mizuna qizil</span></td><td class="c-pr">20 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr class="red"><td class="c-n">18</td><td class="c-img"><img src="mangold_micro.png" alt="Микрозелень Мангольд"></td><td class="c-nm">Мангольд<span class="c-lt">Mangold</span></td><td class="c-pr">20 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+          </tbody>
+        </table>
+
+        <div class="spacer"></div>
+
+        <!-- Легенда — заполняет пустое место -->
+        <div class="legend-box">
+          <p>● Зелёные сорта — <strong style="color:var(--gdd)">15 000 сум</strong> / лоток</p>
+          <p>● <span style="color:#DC2626;font-weight:700">Красные сорта ★</span> — <strong style="color:#DC2626">20 000 сум</strong> / лоток</p>
+        </div>
+        <div class="info-box" style="margin-top:2mm">
+          <p>🌱 Срезка в день доставки</p>
+          <p>🧪 Без пестицидов и химикатов</p>
+          <p>📦 Вакуумная упаковка для свежести</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="page-foot">
+    <span>microgreenuzbekistan.com</span>
+    <span>▸ Продолжение на обороте</span>
+  </div>
+</div>
+
+<!-- ═══════ СТОРОНА 2 · Бейби-лист слева, Салаты + итог справа ═══════ -->
+<div class="pg">
+  <div class="accent-line"></div>
+  <div class="topbar">
+    <div class="brand"><span>M</span>icrogreen Uzbekistan</div>
+    <span class="phone">📞 +998 94 999 95 99 · +998 98 007 20 20</span>
+    <div>Прайс-лист</div>
+  </div>
+  <div class="content">
+    <div class="grid">
+
+      <!-- ─── Левая: Бейби-лист 10 шт ─── -->
+      <div class="col">
+        <div class="cat-title">
+          <h2>Бейби-лист</h2>
+          <span class="badge">10 видов</span>
+          <span class="unit">100 грамм</span>
+        </div>
+        <table>
+          <thead><tr><th class="c-n">№</th><th class="c-img">Фото</th><th class="c-nm">Наименование</th><th class="c-pr">Цена</th><th class="c-qty">Кол-во</th><th class="c-sum">Сумма</th></tr></thead>
+          <tbody>
+            <tr><td class="c-n">1</td><td class="c-img"><img src="rukkola_baby.png" alt="Бейби-лист Руккола"></td><td class="c-nm">Руккола<span class="c-lt">Rukkola</span></td><td class="c-pr">25 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">2</td><td class="c-img"><img src="rayhon_baby.png" alt="Бейби-лист Базилик"></td><td class="c-nm">Базилик<span class="c-lt">Rayhon</span></td><td class="c-pr">35 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">3</td><td class="c-img"><img src="yalpiz_baby.png" alt="Бейби-лист Мята"></td><td class="c-nm">Мята<span class="c-lt">Yalpiz</span></td><td class="c-pr">30 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">4</td><td class="c-img"><img src="ismaloq_baby.png" alt="Бейби-лист Шпинат"></td><td class="c-nm">Шпинат<span class="c-lt">Ismaloq</span></td><td class="c-pr">25 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">5</td><td class="c-img"><img src="keyl_baby.png" alt="Бейби-лист Кейл"></td><td class="c-nm">Кейл<span class="c-lt">Keyl</span></td><td class="c-pr">30 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">6</td><td class="c-img"><img src="mangold_baby.png" alt="Бейби-лист Мангольд"></td><td class="c-nm">Мангольд<span class="c-lt">Mangold</span></td><td class="c-pr">30 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">7</td><td class="c-img"><img src="tatsoy_baby.png" alt="Бейби-лист Татсой"></td><td class="c-nm">Татсой<span class="c-lt">Tatsoy</span></td><td class="c-pr">25 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">8</td><td class="c-img"><img src="mizuna_green_baby.png" alt="Бейби-лист Мизуна зелёная"></td><td class="c-nm">Мизуна зелёная<span class="c-lt">Mizuna yashil</span></td><td class="c-pr">25 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">9</td><td class="c-img"><img src="mizuna_red_baby.png" alt="Бейби-лист Мизуна красная"></td><td class="c-nm">Мизуна красная<span class="c-lt">Mizuna qizil</span></td><td class="c-pr">30 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">10</td><td class="c-img"><img src="shavel_red_lava.png" alt="Бейби-лист Щавель Красная Лава"></td><td class="c-nm">Щавель Кр. Лава<span class="c-lt">Qizil lava shovul</span></td><td class="c-pr">40 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+          </tbody>
+        </table>
+
+        <div class="spacer"></div>
+
+        <div class="info-box" style="margin-top:0">
+          <p>🥗 Бейби-лист — молодые листья 14–21 день</p>
+          <p>💡 Идеально для салатов и смузи</p>
+        </div>
+      </div>
+
+      <!-- ─── Правая: Салаты + итог + условия + подпись ─── -->
+      <div class="col">
+        <div class="cat-title">
+          <h2>Салаты</h2>
+          <span class="badge">6 видов</span>
+          <span class="unit">За 1 кг</span>
+        </div>
+        <table>
+          <thead><tr><th class="c-n">№</th><th class="c-img">Фото</th><th class="c-nm">Наименование</th><th class="c-pr">Цена</th><th class="c-qty">Кол-во</th><th class="c-sum">Сумма</th></tr></thead>
+          <tbody>
+            <tr><td class="c-n">1</td><td class="c-img"><img src="latuk_salat.png" alt="Салат Aveleda"></td><td class="c-nm">Aveleda<span class="c-lt">Aveleda</span></td><td class="c-pr">100 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">2</td><td class="c-img"><img src="aysberg_salat.png" alt="Салат Айсберг"></td><td class="c-nm">Айсберг<span class="c-lt">Aysberg</span></td><td class="c-pr">100 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">3</td><td class="c-img"><img src="romano_salat.png" alt="Салат Романо"></td><td class="c-nm">Романо<span class="c-lt">Romano</span></td><td class="c-pr">120 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">4</td><td class="c-img"><img src="lolo_rossa.png" alt="Салат Лоло Росса"></td><td class="c-nm">Лоло Росса<span class="c-lt">Lolo Rossa</span></td><td class="c-pr">150 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">5</td><td class="c-img"><img src="radichio_salat.png" alt="Салат Радичио"></td><td class="c-nm">Радичио<span class="c-lt">Radichio</span></td><td class="c-pr">180 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+            <tr><td class="c-n">6</td><td class="c-img"><img src="frize_salat.png" alt="Салат Фризе"></td><td class="c-nm">Фризе<span class="c-lt">Frize</span></td><td class="c-pr">200 000</td><td class="c-qty"></td><td class="c-sum"></td></tr>
+          </tbody>
+        </table>
+
+        <!-- Итого -->
+        <div class="total-bar">
+          <div>
+            <p>34 позиции</p>
+            <p class="s">Микрозелень · Бейби-лист · Салаты</p>
+          </div>
+          <div style="text-align:right">
+            <p>от 15 000 сум</p>
+            <p class="s">2026</p>
+          </div>
+        </div>
+
+        <!-- Условия -->
+        <div class="info-box">
+          <p>📦 <strong>Доставка:</strong> Самарканд — день заказа, Ташкент — след. день</p>
+          <p>💳 <strong>Оплата:</strong> Наличные · Click / Payme · Перевод · Договор</p>
+          <p>📞 <strong>Телефон:</strong> <span style="color:var(--ink);font-weight:800">+998 94 999 95 99 · +998 98 007 20 20</span></p>
+          <p>🌐 <strong>Сайт:</strong> <span style="color:var(--gd);font-weight:800">microgreenuzbekistan.com</span></p>
+          <p>✈️ <strong>Telegram:</strong> <span style="color:var(--gd);font-weight:700">@microgreen_uz</span></p>
+        </div>
+
+        <div class="spacer"></div>
+
+        <!-- Подпись -->
+        <div class="stamp">
+          <div><p class="stamp-label">Подпись клиента</p></div>
+          <div class="stamp-line"></div>
+        </div>
+        <div class="stamp">
+          <div><p class="stamp-label">Дата заказа</p></div>
+          <div class="stamp-line"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <div class="page-foot">
+    <span>Microgreen Uzbekistan · +998 94 999 95 99 · +998 98 007 20 20</span>
+    <span>microgreenuzbekistan.com</span>
+  </div>
+</div>
+
+</body>
+</html>
