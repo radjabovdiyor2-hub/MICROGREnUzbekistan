@@ -152,6 +152,46 @@ def check_executor_wired() -> None:
             )
 
 
+#: Обязательные аргументы-идентификаторы и инструменты, которые их отдают.
+#: Ключ — суффикс имени аргумента, значение — чем его получить.
+_ID_SOURCES = {
+    "employee_id": ("list_staff",),
+    "driver_id": ("list_staff",),
+    "material_id": ("get_inventory",),
+    "supplier_id": ("list_suppliers",),
+    "batch_id": ("get_grow_batches",),
+    "task_id": ("get_tasks",),
+}
+
+
+def check_tool_arguments_are_obtainable() -> None:
+    """Обязательный id должен быть откуда взять — в ТОМ ЖЕ отделе.
+
+    Инструмент с обязательным `employee_id` бесполезен, если ни один
+    инструмент этого отдела не отдаёт id сотрудников: модель не может
+    выдумать cuid. Ровно так `assign_shift` и `create_delivery_route`
+    были непригодны к вызову с рождения — списки людей и курьеров не
+    существовало вовсе, а `list_employees` отдела кадров читает другую
+    таблицу с другими ключами.
+
+    Это единственная проверка, которая ловит «инструмент есть, а позвать
+    его нечем»: покрытие отделов считает только количество имён.
+    """
+    for tool in tool_registry.all_tools():
+        for arg in tool.required:
+            sources = _ID_SOURCES.get(arg)
+            if not sources:
+                continue
+            for dept in tool.departments:
+                available = {t.name for t in tool_registry.tools_for(dept)}
+                if not available & set(sources):
+                    problems.append(
+                        f"«{tool.name}» требует «{arg}», но у отдела «{dept}» нет "
+                        f"инструмента, который его отдаёт "
+                        f"(нужен один из: {', '.join(sources)}) — вызвать нельзя"
+                    )
+
+
 def check_risky_tools_are_reachable() -> None:
     """У отдела с рискованным инструментом должен быть канал подтверждения.
 
@@ -221,6 +261,7 @@ def main() -> int:
     check_risky_have_confirmation()
     check_delegation_targets()
     check_executor_wired()
+    check_tool_arguments_are_obtainable()
     check_risky_tools_are_reachable()
     check_no_prices_in_prompts()
 

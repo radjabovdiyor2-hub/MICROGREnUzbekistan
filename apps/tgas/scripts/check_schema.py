@@ -193,6 +193,48 @@ def load_init_sql() -> dict[str, set[str]]:
 
 
 # ── 4. Все SQL-строки ботов ─────────────────────────────────────────────
+
+#: Чем заменяется подставляемое значение внутри f-строки. Слово, а не пустота:
+#: `WHERE {where}` без замены даёт «WHERE ORDER BY», и разбор ломается.
+PLACEHOLDER = "_x_"
+
+
+def _sql_text(node: ast.AST) -> Optional[str]:
+    """Восстановить SQL из литерала, f-строки или склейки через `+`.
+
+    Раньше принимался только `ast.Constant`, и ЛЮБОЙ запрос, собранный
+    f-строкой или конкатенацией, сторож пропускал целиком — молча, без следа
+    в отчёте. Так мимо прошёл `LOWER(kind)` по нативному enum в
+    `get_inventory` (падал при каждом вызове с фильтром) и ещё около десятка
+    запросов в common/crm/finance/operations_read.
+
+    Подставляемые значения заменяются на `PLACEHOLDER`: что именно там
+    окажется, статически неизвестно, но остальная часть запроса — обычные
+    имена таблиц и колонок, и её проверить можно.
+    """
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+
+    if isinstance(node, ast.JoinedStr):
+        parts: list[str] = []
+        for piece in node.values:
+            if isinstance(piece, ast.Constant) and isinstance(piece.value, str):
+                parts.append(piece.value)
+            else:
+                parts.append(PLACEHOLDER)
+        return "".join(parts)
+
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _sql_text(node.left)
+        right = _sql_text(node.right)
+        if left is None or right is None:
+            return None
+        return left + right
+
+    # Имя переменной, вызов, что угодно ещё — содержимое статически неизвестно.
+    return None
+
+
 def collect_sql() -> list[tuple[str, int, str]]:
     """[(файл, строка, sql)] из вызовов text("...")."""
     found: list[tuple[str, int, str]] = []
@@ -211,12 +253,10 @@ def collect_sql() -> list[tuple[str, int, str]]:
             name = fn.id if isinstance(fn, ast.Name) else getattr(fn, "attr", "")
             if name != "text" or not node.args:
                 continue
-            arg = node.args[0]
             # ast сам склеивает соседние литералы — то, ради чего он здесь
-            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                found.append(
-                    (path.relative_to(ROOT).as_posix(), node.lineno, arg.value)
-                )
+            sql = _sql_text(node.args[0])
+            if sql:
+                found.append((path.relative_to(ROOT).as_posix(), node.lineno, sql))
     return found
 
 
@@ -315,7 +355,11 @@ SQL_WORDS = {
 }
 
 # Значения без скобок, которые выглядят как идентификатор, но им не являются.
+# `_x_` — след подстановки в f-строке (см. PLACEHOLDER): на его месте могло
+# быть что угодно, включая целое выражение вроде SQL_PHONE_TAIL, и колонкой
+# он не является.
 SQL_CONSTANTS = {
+    "_x_",
     "current_date",
     "current_timestamp",
     "current_time",

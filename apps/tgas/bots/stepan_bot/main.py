@@ -732,6 +732,65 @@ async def grow_urgent():
         logger.error(f"Ошибка срочного напоминания по посадкам: {exc}")
 
 
+async def remind_pending_approvals():
+    """Напомнить владельцу о заявках, которые ждут его решения.
+
+    Раньше заявка жила 15 минут и молча исчезала: ни напоминания, ни повтора,
+    ни следа. Задача при этом навсегда оставалась в `todo`, и о том, что бот
+    вообще чего-то просил, узнать было негде.
+
+    Интервал нарастает (`approvals.REMIND_AFTER_HOURS`): час, четыре, двенадцать,
+    сутки. Так заявка не теряется, но и не превращается в долбёжку.
+    """
+    try:
+        from datetime import datetime, timedelta, timezone
+
+        from shared import approvals
+
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
+        if not admin_id or not _bot:
+            return
+
+        pending = await approvals.list_pending(limit=20)
+        if not pending:
+            return
+
+        now = datetime.now(timezone.utc)
+        steps = approvals.REMIND_AFTER_HOURS
+        due = []
+        for item in pending:
+            created = item.get("created_at")
+            if not created:
+                continue
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            # Сколько ждать до следующего напоминания — по числу уже сделанных.
+            step = steps[min(int(item.get("remind_count") or 0), len(steps) - 1)]
+            if now - created >= timedelta(hours=step):
+                due.append(item)
+
+        if not due:
+            return
+
+        lines = [
+            f"⏳ <b>Ждут вашего решения: {len(pending)}</b>",
+            "",
+        ]
+        for item in due[:10]:
+            age = now - item["created_at"].replace(tzinfo=timezone.utc)
+            hours = int(age.total_seconds() // 3600)
+            lines.append(f"• {item['summary'][:120]} — {hours} ч ({item['bot_name']})")
+            await approvals.mark_reminded(item["token"])
+
+        lines.append("")
+        lines.append("<i>Карточки с кнопками выше в переписке — заявки не истекают.</i>")
+        await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+    except Exception as exc:
+        logger.warning("Не смог напомнить о заявках: %s", exc)
+
+
 async def retry_stuck_tasks():
     """Раз в час переотправляем задачи, которые никто не взял.
 
@@ -801,6 +860,10 @@ scheduler.add_interval(
 )
 # Восстановление работы: задачи, до которых событие не доехало.
 scheduler.add_interval(name="retry_stuck_tasks", func=retry_stuck_tasks, seconds=3600)
+# Заявки, ждущие решения владельца: раньше они просто испарялись через 15 минут.
+scheduler.add_interval(
+    name="remind_pending_approvals", func=remind_pending_approvals, seconds=3600
+)
 # Частая проверка (5 мин) — теперь антиспам: алертит только при ИЗМЕНЕНИИ (упал/восстановился).
 scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=300)
 # Ежедневная полная сводка в 09:00 (всегда присылается).
@@ -1524,14 +1587,35 @@ async def main():
                 "Дождитесь первого планового цикла.",
             }
 
-        done, failed = 0, 0
+        # Пересчёт идёт по РЕАЛЬНЫМ замерам из bot_measurements.
+        #
+        # Раньше сюда передавали `current_data={"trigger": "manual"}` и пустой
+        # бенчмарк: модель просили «оценить результаты относительно эталона»,
+        # не дав ни результатов, ни эталона. Она честно выдумывала вывод, а
+        # `evaluate_and_adapt` гасила предыдущий — добытый по данным. То есть
+        # нажатие кнопки в админке ЗАМЕНЯЛО настоящее обучение галлюцинацией.
+        # Нет замеров — пропускаем пару и говорим об этом вслух.
+        done, failed, skipped = 0, 0, 0
         for bot_name, metric in pairs:
             try:
+                history = await feedback_loop.recent_measurements(bot_name, metric, limit=10)
+                if not history:
+                    skipped += 1
+                    continue
+
+                latest = history[0]
                 await feedback_loop.evaluate_and_adapt(
                     bot=bot_name,
                     metric=metric,
-                    current_data={"trigger": "manual", "source": "web_admin"},
-                    benchmark_data={},
+                    current_data={
+                        "value": latest["value"],
+                        "measured_at": latest["at"],
+                        "history": [h["value"] for h in history],
+                        "source": "web_admin_manual",
+                    },
+                    benchmark_data=(
+                        {"target": latest["target"]} if latest.get("target") is not None else {}
+                    ),
                 )
                 done += 1
             except Exception as exc:
@@ -1540,10 +1624,16 @@ async def main():
                 )
                 failed += 1
 
+        parts = [f"{done} пересчитано"]
+        if skipped:
+            parts.append(f"{skipped} без замеров — пропущено")
+        if failed:
+            parts.append(f"{failed} с ошибкой")
         return {
             "status": "ok",
-            "message": f"Петли пересчитаны: {done} успешно, {failed} с ошибкой",
+            "message": "Петли: " + ", ".join(parts),
             "processed": done,
+            "skipped": skipped,
             "failed": failed,
         }
 

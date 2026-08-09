@@ -65,6 +65,37 @@ class FeedbackLoopEngine:
             # Замер — телеметрия: его потеря не должна ронять задачу бота.
             logger.debug("[%s] Замер %s не сохранён: %s", bot, metric, exc)
 
+    async def recent_measurements(
+        self, bot: str, metric: str, limit: int = 10
+    ) -> list[Dict[str, Any]]:
+        """История замеров по метрике — свежие первыми.
+
+        `bot_measurements` заполнялась с самого начала и НЕ ЧИТАЛАСЬ НИКЕМ:
+        ни одного SELECT по этой таблице во всём репозитории. Из-за этого
+        петля обучения работала по одному снимку «сегодня», не видела
+        динамики и не могла проверить, помог ли предыдущий вывод.
+        """
+        try:
+            async with get_session_ctx() as session:
+                rows = (
+                    await session.execute(
+                        text(
+                            "SELECT value, target, ts FROM bot_measurements "
+                            "WHERE bot = :bot AND metric = :metric "
+                            "ORDER BY ts DESC LIMIT :lim"
+                        ),
+                        {"bot": bot, "metric": metric, "lim": int(limit)},
+                    )
+                ).fetchall()
+            return [
+                {"value": float(r[0]), "target": float(r[1]) if r[1] is not None else None,
+                 "at": str(r[2])}
+                for r in rows
+            ]
+        except Exception as exc:
+            logger.debug("[%s] история замеров %s недоступна: %s", bot, metric, exc)
+            return []
+
     async def evaluate_and_adapt(
         self,
         bot: str,
@@ -240,9 +271,19 @@ class FeedbackLoopEngine:
                 except ValueError:
                     value = None
             if isinstance(value, dict):
-                directives.extend(
-                    f"[{metric}] {v}" for v in value.values() if isinstance(v, str)
-                )
+                # Числа доходят наравне со строками — с именем параметра.
+                #
+                # Раньше фильтр оставлял только `isinstance(v, str)`, хотя
+                # промпт выше просит у модели ровно пары «параметр: значение».
+                # То есть система просила числа, сохраняла их, показывала в
+                # админке как «Адаптированные параметры» — и выбрасывала по
+                # дороге к модели. Вывод вида {"discount_threshold": 15} не
+                # влиял ни на что.
+                for key, v in value.items():
+                    if isinstance(v, str):
+                        directives.append(f"[{metric}] {v}")
+                    elif isinstance(v, (int, float)) and not isinstance(v, bool):
+                        directives.append(f"[{metric}] {key} = {v}")
 
         if not directives:
             return ""

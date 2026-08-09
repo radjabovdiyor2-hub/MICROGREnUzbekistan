@@ -279,6 +279,8 @@ async def execute_bot_task(
     if result.acted and not result.awaiting_approval and not escalated:
         await _set_task_status(task_id, "done")
 
+    await _record_own_performance(bot_name, result, escalated)
+
     if bot is None:
         await event_bus.publish(
             Events.TASK_COMPLETED,
@@ -290,6 +292,47 @@ async def execute_bot_task(
             },
             bot_name,
         )
+
+
+async def _record_own_performance(bot_name: str, result, escalated: bool) -> None:
+    """Записать, как отдел отработал ЭТУ задачу — в замеры для обучения.
+
+    Самое большое упущение петли обратной связи: она училась по выручке
+    компании, а работа самого бота в неё не попадала вообще. Провалы
+    инструментов, эскалации «сам не могу», ответы без единого действия —
+    всё это считалось прямо здесь и выбрасывалось. Получалось, что бот,
+    отработавший сегодня плохо, не давал в обучение НИ ОДНОГО сигнала,
+    хотя директива в промпте обещает «выводы аналитики по твоей работе».
+
+    Три метрики на задачу, 1 — плохо, 0 — хорошо:
+      · tool_failure — инструмент вернул ошибку;
+      · escalation — отдел передал работу человеку;
+      · no_action — ответ текстом без единого вызова инструмента.
+    """
+    try:
+        from shared.feedback_loop import feedback_loop
+
+        calls = list(getattr(result, "calls", []) or [])
+        failed = sum(
+            1
+            for c in calls
+            if isinstance(c.result, dict)
+            and (c.result.get("ok") is False or c.result.get("error"))
+        )
+        failure_rate = (failed / len(calls)) if calls else 0.0
+
+        await feedback_loop.record_measurement(
+            bot_name, "tool_failure", failure_rate, target=0.0
+        )
+        await feedback_loop.record_measurement(
+            bot_name, "escalation", 1.0 if escalated else 0.0, target=0.0
+        )
+        await feedback_loop.record_measurement(
+            bot_name, "no_action", 0.0 if result.acted else 1.0, target=0.0
+        )
+    except Exception as exc:
+        # Телеметрия не должна ронять задачу.
+        logger.debug("TASK_EXECUTOR: замеры своей работы не записаны: %s", exc)
 
 
 async def _send_with_image(

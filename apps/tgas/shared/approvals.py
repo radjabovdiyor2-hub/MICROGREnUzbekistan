@@ -13,8 +13,22 @@
     (словарь в памяти процесса: перезапуск бота обнулял всё неподтверждённое);
   · `PENDING_EXEC` в team_meeting.py — планы совещаний (тоже словарь в памяти).
 Три хранилища, три префикса callback_data, три набора текстов. Теперь заявка
-одна, лежит в Redis и переживает перезапуск, а тип действия задаётся полем
-`kind` с обработчиком, который регистрирует владелец логики.
+одна, а тип действия задаётся полем `kind` с обработчиком, который
+регистрирует владелец логики.
+
+ЗАЯВКА НЕ ИСТЕКАЕТ
+
+Хранилище — таблица `owner_approvals`, а не Redis с TTL 15 минут. Прежний
+срок жизни означал ровно одно: не нажал за четверть часа — намерение
+исчезло. Никто не напоминал, повтора не было, задача оставалась в `todo`
+навсегда, и владельцу даже не сообщали, что заявка существовала. Очереди
+«что от меня ждут» не было ни в Telegram, ни в админке.
+
+Теперь заявка ждёт решения сколько нужно, о ней напоминают с нарастающим
+интервалом (`REMIND_AFTER_HOURS`), а `list_pending()` показывает очередь.
+Решение атомарно — `UPDATE ... WHERE status = 'pending'`, поэтому двойное
+нажатие не выполняет действие дважды (связка Redis GET+DELETE такой
+гарантии не давала).
 
 Тот же принцип действует в веб-админке: там write-инструмент возвращает
 предложение с подписанным токеном, а не выполняется сразу
@@ -48,8 +62,10 @@ logger = logging.getLogger(__name__)
 
 approvals_router = Router()
 
-KEY_PREFIX = "approval:"
-TTL_SECONDS = 15 * 60
+#: Через сколько часов напомнить о невзятой заявке. Интервал нарастает:
+#: первое напоминание через час, дальше реже — чтобы не превратиться в спам,
+#: но и не дать заявке потеряться.
+REMIND_AFTER_HOURS = (1, 4, 12, 24)
 
 #: Тип заявки → что сделать после «Одобрить». Возвращает текст для карточки.
 Handler = Callable[[Dict[str, Any], CallbackQuery], Awaitable[str]]
@@ -71,10 +87,107 @@ def register_reject_handler(kind: str, handler: Handler) -> None:
     _REJECT_HANDLERS[kind] = handler
 
 
-async def _redis():
-    import redis.asyncio as aioredis
+async def _save(
+    token: str,
+    kind: str,
+    payload: Dict[str, Any],
+    summary: str,
+    bot_name: str,
+    chat_id: Optional[int],
+) -> bool:
+    """Сохранить заявку в базу. False — сохранить не удалось, заявки нет."""
+    from sqlalchemy import text as sa_text
 
-    return aioredis.from_url(settings.redis_url, decode_responses=True)
+    from shared.database import get_session_ctx
+
+    try:
+        async with get_session_ctx() as session:
+            await session.execute(
+                sa_text(
+                    "INSERT INTO owner_approvals "
+                    "(token, kind, summary, payload, bot_name, chat_id, task_id, "
+                    " status, remind_count, created_at) "
+                    "VALUES (:tok, :kind, :sum, CAST(:pl AS jsonb), :bot, :chat, "
+                    " :task, 'pending', 0, NOW())"
+                ),
+                {
+                    "tok": token,
+                    "kind": kind,
+                    "sum": summary[:2000],
+                    "pl": json.dumps(payload, ensure_ascii=False, default=str),
+                    "bot": bot_name[:50],
+                    "chat": chat_id,
+                    "task": (payload or {}).get("args", {}).get("task_id")
+                    if isinstance(payload, dict)
+                    else None,
+                },
+            )
+            await session.commit()
+        return True
+    except Exception as exc:
+        logger.warning("APPROVALS: не смог сохранить заявку: %s", exc)
+        return False
+
+
+async def list_pending(limit: int = 20) -> list:
+    """Заявки, ждущие решения. Это и есть очередь «на вас».
+
+    Такого списка не существовало: заявка жила в Redis 15 минут и молча
+    испарялась, а увидеть «что от меня ждут» было негде — ни в Telegram,
+    ни в админке.
+    """
+    from sqlalchemy import text as sa_text
+
+    from shared.database import get_session_ctx
+
+    try:
+        async with get_session_ctx() as session:
+            rows = (
+                await session.execute(
+                    sa_text(
+                        "SELECT token, kind, summary, bot_name, chat_id, "
+                        "remind_count, created_at FROM owner_approvals "
+                        "WHERE status = 'pending' ORDER BY created_at ASC LIMIT :lim"
+                    ),
+                    {"lim": int(limit)},
+                )
+            ).fetchall()
+        return [
+            {
+                "token": r[0],
+                "kind": r[1],
+                "summary": r[2],
+                "bot_name": r[3],
+                "chat_id": r[4],
+                "remind_count": r[5],
+                "created_at": r[6],
+            }
+            for r in rows
+        ]
+    except Exception as exc:
+        logger.warning("APPROVALS: очередь недоступна: %s", exc)
+        return []
+
+
+async def mark_reminded(token: str) -> None:
+    """Отметить, что о заявке напомнили — интервал следующего растёт."""
+    from sqlalchemy import text as sa_text
+
+    from shared.database import get_session_ctx
+
+    try:
+        async with get_session_ctx() as session:
+            await session.execute(
+                sa_text(
+                    "UPDATE owner_approvals "
+                    "SET remind_count = remind_count + 1, reminded_at = NOW() "
+                    "WHERE token = :tok"
+                ),
+                {"tok": token},
+            )
+            await session.commit()
+    except Exception as exc:
+        logger.warning("APPROVALS: не отметил напоминание %s: %s", token, exc)
 
 
 def _owner_chat_id() -> Optional[int]:
@@ -150,16 +263,7 @@ async def request(
         return None
 
     token = uuid.uuid4().hex[:16]
-    record = {"kind": kind, "payload": payload, "bot": bot_name, "chat_id": target}
-    try:
-        client = await _redis()
-        await client.set(
-            KEY_PREFIX + token,
-            json.dumps(record, ensure_ascii=False, default=str),
-            ex=TTL_SECONDS,
-        )
-    except Exception as exc:
-        logger.warning("APPROVALS: не смог сохранить заявку: %s", exc)
+    if not await _save(token, kind, payload, summary, bot_name, target):
         return None
 
     builder = InlineKeyboardBuilder()
@@ -174,7 +278,10 @@ async def request(
     )
     if details:
         body += f"\n{details}\n"
-    body += "\n<i>В базе пока ничего не изменилось. Кнопки живут 15 минут.</i>"
+    # Заявка больше НЕ истекает. Раньше здесь обещали «кнопки живут 15 минут»,
+    # и это была правда: ключ в Redis истекал, намерение исчезало, задача
+    # оставалась в todo навсегда, и владельцу об этом никто не говорил.
+    body += "\n<i>В базе пока ничего не изменилось. Заявка ждёт вашего решения.</i>"
 
     try:
         await bot.send_message(
@@ -239,16 +346,42 @@ def approver(bot: Optional[Bot], bot_name: str, chat_id: Optional[int] = None):
     return _approve
 
 
-async def _take(token: str) -> Optional[Dict[str, Any]]:
-    """Забрать заявку. Одноразово: повторное нажатие не выполнит действие дважды."""
+async def _take(token: str, decision: str) -> Optional[Dict[str, Any]]:
+    """Забрать заявку и зафиксировать решение. Одноразово.
+
+    Одним UPDATE с условием `status = 'pending'`: два быстрых нажатия дают
+    одну сработавшую строку, вторая вернёт пусто. Прежняя связка
+    Redis GET + DELETE такой гарантии не давала — между ними помещался
+    второй обработчик, и действие могло выполниться дважды.
+    """
+    from sqlalchemy import text as sa_text
+
+    from shared.database import get_session_ctx
+
     try:
-        client = await _redis()
-        key = KEY_PREFIX + token
-        raw = await client.get(key)
-        if not raw:
+        async with get_session_ctx() as session:
+            row = (
+                await session.execute(
+                    sa_text(
+                        "UPDATE owner_approvals SET status = :st, decided_at = NOW() "
+                        "WHERE token = :tok AND status = 'pending' "
+                        "RETURNING kind, payload, bot_name, chat_id"
+                    ),
+                    {"tok": token, "st": decision},
+                )
+            ).fetchone()
+            await session.commit()
+        if not row:
             return None
-        await client.delete(key)
-        return json.loads(raw)
+        payload = row[1]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return {
+            "kind": row[0],
+            "payload": payload or {},
+            "bot": row[2],
+            "chat_id": row[3],
+        }
     except Exception as exc:
         logger.warning("APPROVALS: не смог прочитать заявку %s: %s", token, exc)
         return None
@@ -269,7 +402,7 @@ async def on_approve(callback: CallbackQuery):
         return
 
     token = callback.data.split(":", 1)[1]
-    request_data = await _take(token)
+    request_data = await _take(token, "approved")
     if not request_data:
         await callback.answer("Заявка истекла или уже обработана", show_alert=True)
         return
@@ -302,7 +435,7 @@ async def on_reject(callback: CallbackQuery):
         return
 
     token = callback.data.split(":", 1)[1]
-    request_data = await _take(token)
+    request_data = await _take(token, "rejected")
     if not request_data:
         await callback.answer("Заявка истекла или уже обработана", show_alert=True)
         return

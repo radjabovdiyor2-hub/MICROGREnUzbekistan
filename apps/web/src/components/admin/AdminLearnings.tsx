@@ -6,13 +6,15 @@ import type { BotLearningItem } from './adminLearningsTypes';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, RefreshCw, Search, CheckCircle2, AlertCircle, Bot, Activity } from 'lucide-react';
+import { RefreshCw, Search, AlertCircle, Bot } from 'lucide-react';
 
+import { AdminLearningCard } from './AdminLearningCard';
 import { BOT_EMOJIS } from './adminLearningsConfig';
 
 export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
   const [selectedBot, setSelectedBot] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [busyId, setBusyId] = useState<number | null>(null);
   const { data: learnings = [], isLoading: loading, error, refetch: fetchLearnings } = useQuery<BotLearningItem[], Error>({
     queryKey: ['admin-learnings'],
     queryFn: async () => {
@@ -22,6 +24,38 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
       return data.learnings || [];
     }
   });
+
+  const deactivate = async (item: BotLearningItem) => {
+    setBusyId(item.id);
+    try {
+      await fetch('/api/admin/learnings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id: item.id, isActive: false }),
+      });
+      await fetchLearnings();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const remove = async (item: BotLearningItem) => {
+    const question = lang === 'ru'
+      ? `Удалить вывод «${item.metric}» для ${item.bot}?`
+      : `${item.bot} uchun «${item.metric}» xulosasi o'chirilsinmi?`;
+    if (!confirm(question)) return;
+    setBusyId(item.id);
+    try {
+      await fetch(`/api/admin/learnings?id=${item.id}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+      await fetchLearnings();
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const filteredLearnings = learnings.filter((item) => {
     const matchesBot = selectedBot === 'all' || item.bot === selectedBot;
@@ -111,63 +145,14 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 'var(--space-6)' }}>
           {filteredLearnings.map((item) => (
-            <div
+            <AdminLearningCard
               key={item.id}
-              className="card"
-              style={{ minWidth: 0, padding: 'var(--space-5)', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}
-            >
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>
-                      {BOT_EMOJIS[item.bot] || item.bot}
-                    </span>
-                  </div>
-                  <span style={{ padding: '4px 10px', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', border: '1px solid rgba(var(--brand-primary-rgb), 0.2)', fontSize: '11px', fontFamily: 'monospace', borderRadius: 'var(--radius-md)' }}>
-                    {item.metric}
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--info)', fontSize: '11px', fontWeight: 'var(--font-semibold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                      <Activity size={14} />
-                      <span>{lang === 'ru' ? 'Измерение (Observation)' : 'O\'lchov (Observation)'}</span>
-                    </div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)', background: 'var(--bg-secondary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', margin: 0 }}>
-                      {item.observation}
-                    </p>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--warning)', fontSize: '11px', fontWeight: 'var(--font-semibold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                      <Brain size={14} />
-                      <span>{lang === 'ru' ? 'Вывод ИИ (LLM Inference)' : 'AI Xulosasi (Inference)'}</span>
-                    </div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: 'var(--text-sm)', background: 'var(--bg-secondary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', margin: 0, lineHeight: 1.5 }}>
-                      {item.inference}
-                    </p>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontSize: '11px', fontWeight: 'var(--font-semibold)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                      <CheckCircle2 size={14} />
-                      <span>{lang === 'ru' ? 'Адаптированные параметры (Behavior Adjustments)' : 'Moslashtirilgan parametrlar'}</span>
-                    </div>
-                    <pre style={{ color: 'var(--success)', fontSize: '11px', fontFamily: 'monospace', background: 'var(--bg-primary)', padding: '12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', overflowX: 'auto', margin: 0 }}>
-                      {JSON.stringify(item.adjustment, null, 2)}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border)', textAlign: 'right' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  {lang === 'ru' ? 'Применено: ' : 'Qo\'llandi: '}
-                  {new Date(item.appliedAt).toLocaleString()}
-                </span>
-              </div>
-            </div>
+              item={item}
+              lang={lang}
+              busy={busyId === item.id}
+              onDeactivate={deactivate}
+              onRemove={remove}
+            />
           ))}
         </div>
       )}

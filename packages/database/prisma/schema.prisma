@@ -1149,6 +1149,43 @@ model CrmEmployee {
   @@map("crm_employees")
 }
 
+/// Заявки на подтверждение владельца: что бот хочет сделать и ждёт решения.
+///
+/// Раньше заявка жила ТОЛЬКО в Redis с TTL 15 минут. Не нажал за четверть
+/// часа — ключ истекал, и намерение исчезало бесследно: никто не напоминал,
+/// повторов не было, задача оставалась в `todo` навсегда, а владельцу даже не
+/// сообщали, что заявка вообще была. Очереди «ждёт вашего решения» не
+/// существовало ни в Telegram, ни в админке.
+///
+/// Теперь источник правды — эта таблица. Заявка не истекает: она ждёт, пока
+/// её не одобрят или не отклонят, а напоминания приходят с нарастающим
+/// интервалом. Решение атомарно (UPDATE ... WHERE status='pending'), поэтому
+/// двойное нажатие не выполняет действие дважды.
+model OwnerApproval {
+  id      Int    @id @default(autoincrement())
+  token   String @unique @db.VarChar(32)
+  kind    String @db.VarChar(32)
+  summary String @db.Text
+  payload Json
+
+  botName String  @map("bot_name") @db.VarChar(50)
+  chatId  BigInt? @map("chat_id")
+  taskId  Int?    @map("task_id")
+
+  /// pending | approved | rejected
+  status String @default("pending") @db.VarChar(16)
+
+  remindCount Int       @default(0) @map("remind_count")
+  remindedAt  DateTime? @map("reminded_at")
+  decidedAt   DateTime? @map("decided_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("owner_approvals")
+}
+
 /// Показатели сотрудников: выработка, качество, продажи.
 ///
 /// Раньше `log_employee_kpi` писал их строкой в `tasks` со статусом `done` —
