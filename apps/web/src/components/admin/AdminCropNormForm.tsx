@@ -1,13 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import type { CropNorm } from './growingData';
+import type { CropNorm, SubstrateOption } from './growingData';
+import { plantingUnitWord } from './growingData';
 
 // Форма нормы культуры. Вынесена из AdminCropNorms, чтобы оба файла
 // оставались в пределах 200 строк.
+//
+// Два способа выращивания: микрозелень в ЛОТКАХ на кокосе (граммы на лоток),
+// салаты ПОШТУЧНО в стаканчиках 63 мм на агро вате (штуки семян и одна пробка
+// на стаканчик). Поэтому подписи полей зависят от выбранного способа, а не
+// говорят «на лоток» всегда.
 
 interface Props {
   norm: CropNorm | null;
+  substrates: SubstrateOption[];
   saving: boolean;
   error: string;
   onCancel: () => void;
@@ -24,25 +31,49 @@ const label: React.CSSProperties = {
   fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 4, display: 'block',
 };
 
-export function AdminCropNormForm({ norm, saving, error, onCancel, onSubmit }: Props) {
+export function AdminCropNormForm({ norm, substrates, saving, error, onCancel, onSubmit }: Props) {
   const [cropType, setCropType] = useState(norm?.cropType ?? '');
   const [nameRu, setNameRu] = useState(norm?.nameRu ?? '');
-  const [seedGrams, setSeedGrams] = useState(String(norm?.seedGramsPerTray ?? ''));
-  const [substrate, setSubstrate] = useState(String(norm?.substrateGramsPerTray ?? ''));
-  const [packaging, setPackaging] = useState(String(norm?.packagingPerTray ?? ''));
-  const [yieldPerTray, setYieldPerTray] = useState(String(norm?.yieldPerTray ?? ''));
+  const [plantingUnit, setPlantingUnit] = useState<'tray' | 'cup'>(norm?.plantingUnit ?? 'tray');
+  const [seedUnit, setSeedUnit] = useState<'g' | 'pcs'>(norm?.seedUnit ?? 'g');
+  const [seedPerUnit, setSeedPerUnit] = useState(String(norm?.seedPerUnit ?? ''));
+  const [substrate, setSubstrate] = useState(String(norm?.substratePerUnit ?? ''));
+  const [substrateId, setSubstrateId] = useState(norm?.substrateMaterialId ?? '');
+  const [traysPerBatch, setTraysPerBatch] = useState(String(norm?.traysPerBatch ?? 1));
+  const [packaging, setPackaging] = useState(String(norm?.packagingPerUnit ?? ''));
+  const [yieldPerUnit, setYieldPerUnit] = useState(String(norm?.yieldPerUnit ?? ''));
   const [darkDays, setDarkDays] = useState(String(norm?.darkDays ?? 3));
   const [lightDays, setLightDays] = useState(String(norm?.lightDays ?? 6));
   const [shelfDays, setShelfDays] = useState(String(norm?.shelfDays ?? 5));
+
+  const unit = plantingUnitWord(plantingUnit);
+  const seedUnitWord = seedUnit === 'pcs' ? 'шт' : 'г';
+
+  const pickUnit = (next: 'tray' | 'cup') => {
+    setPlantingUnit(next);
+    // Разумные умолчания под способ: стаканчики лотков не расходуют и сеются
+    // поштучно. Без нуля посадка 250 стаканчиков списала бы 250 лотков.
+    if (next === 'cup') {
+      setSeedUnit('pcs');
+      setTraysPerBatch('0');
+    } else {
+      setSeedUnit('g');
+      setTraysPerBatch('1');
+    }
+  };
 
   const submit = () => {
     onSubmit({
       cropType: cropType.trim().toLowerCase(),
       nameRu: nameRu.trim() || cropType.trim(),
-      seedGramsPerTray: Number(seedGrams),
-      substrateGramsPerTray: substrate || null,
-      packagingPerTray: packaging || null,
-      yieldPerTray: yieldPerTray || null,
+      plantingUnit,
+      seedUnit,
+      seedPerUnit: Number(seedPerUnit),
+      substratePerUnit: substrate || null,
+      substrateMaterialId: substrateId || null,
+      traysPerBatch: traysPerBatch === '' ? null : Number(traysPerBatch),
+      packagingPerUnit: packaging || null,
+      yieldPerUnit: yieldPerUnit || null,
       darkDays: Number(darkDays),
       lightDays: Number(lightDays),
       shelfDays: Number(shelfDays),
@@ -69,22 +100,54 @@ export function AdminCropNormForm({ norm, saving, error, onCancel, onSubmit }: P
             onChange={(e) => setCropType(e.target.value)} placeholder="pea" />
         </div>
         <div>
-          <label style={label} htmlFor="norm-seed">Семян на лоток, г *</label>
-          <input id="norm-seed" style={input} type="number" value={seedGrams}
-            onChange={(e) => setSeedGrams(e.target.value)} placeholder="120" />
+          <label style={label} htmlFor="norm-unit">Способ посадки</label>
+          <select id="norm-unit" style={input} value={plantingUnit}
+            onChange={(e) => pickUnit(e.target.value as 'tray' | 'cup')}>
+            <option value="tray">Лотки (микрозелень)</option>
+            <option value="cup">Стаканчики 63 мм (салаты)</option>
+          </select>
         </div>
         <div>
-          <label style={label} htmlFor="norm-yield">Выход с лотка, г</label>
-          <input id="norm-yield" style={input} type="number" value={yieldPerTray}
-            onChange={(e) => setYieldPerTray(e.target.value)} placeholder="500" />
+          <label style={label} htmlFor="norm-seed-unit">Семена считаем</label>
+          <select id="norm-seed-unit" style={input} value={seedUnit}
+            onChange={(e) => setSeedUnit(e.target.value as 'g' | 'pcs')}>
+            <option value="g">в граммах</option>
+            <option value="pcs">в штуках</option>
+          </select>
         </div>
         <div>
-          <label style={label} htmlFor="norm-substrate">Субстрат на лоток, г</label>
+          <label style={label} htmlFor="norm-seed">Семян на {unit}, {seedUnitWord} *</label>
+          <input id="norm-seed" style={input} type="number" value={seedPerUnit}
+            onChange={(e) => setSeedPerUnit(e.target.value)} placeholder="120" />
+        </div>
+        <div>
+          <label style={label} htmlFor="norm-yield">Выход с {unit === 'лоток' ? 'лотка' : 'стаканчика'}, г</label>
+          <input id="norm-yield" style={input} type="number" value={yieldPerUnit}
+            onChange={(e) => setYieldPerUnit(e.target.value)} placeholder="500" />
+        </div>
+        <div>
+          <label style={label} htmlFor="norm-substrate-id">Какой субстрат</label>
+          <select id="norm-substrate-id" style={input} value={substrateId}
+            onChange={(e) => setSubstrateId(e.target.value)}>
+            <option value="">— не выбран —</option>
+            {substrates.map((s) => (
+              <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={label} htmlFor="norm-substrate">Субстрата на {unit}</label>
           <input id="norm-substrate" style={input} type="number" value={substrate}
-            onChange={(e) => setSubstrate(e.target.value)} placeholder="0" />
+            onChange={(e) => setSubstrate(e.target.value)}
+            placeholder={plantingUnit === 'cup' ? '1' : '150'} />
         </div>
         <div>
-          <label style={label} htmlFor="norm-pack">Упаковка на лоток, шт</label>
+          <label style={label} htmlFor="norm-trays">Лотков на {unit}</label>
+          <input id="norm-trays" style={input} type="number" value={traysPerBatch}
+            onChange={(e) => setTraysPerBatch(e.target.value)} placeholder="1" />
+        </div>
+        <div>
+          <label style={label} htmlFor="norm-pack">Упаковка на {unit}, шт</label>
           <input id="norm-pack" style={input} type="number" value={packaging}
             onChange={(e) => setPackaging(e.target.value)} placeholder="0" />
         </div>
@@ -107,7 +170,8 @@ export function AdminCropNormForm({ norm, saving, error, onCancel, onSubmit }: P
 
       <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
         Расход семян — главное число: по нему посадка спишет сырьё со склада
-        и посчитает себестоимость партии. Уточните его по своим семенам.
+        и посчитает себестоимость партии. Субстрат выбирайте явно: кокос и агро
+        вата не взаимозаменяемы, и без выбора посадка списала бы первый попавшийся.
       </div>
 
       {error && (

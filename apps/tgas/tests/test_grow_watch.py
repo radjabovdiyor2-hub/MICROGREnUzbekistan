@@ -17,6 +17,10 @@ def batch(**over):
         "id": "b1",
         "crop": "Горошек",
         "trays": 4,
+        # Готовая подпись количества: единица зависит от культуры — лотки у
+        # микрозелени, стаканчики 63 мм у салата. Сводка не должна описывать
+        # партию салата лотками, которых в ней нет.
+        "units": "4 лотк.",
         "seed_date": None,
         "cost": 33_600.0,
         "planned_yield": 2000.0,
@@ -25,6 +29,19 @@ def batch(**over):
     }
     b.update(over)
     return b
+
+
+def test_salad_batch_is_counted_in_cups_not_trays():
+    """Партия салата описывается стаканчиками.
+
+    Салаты растят поштучно в стаканчиках 63 мм, лотков в такой посадке нет
+    вовсе — а сводка безусловно писала «лотк.» для любой культуры.
+    """
+    text_body = grow_watch.morning_text(
+        empty_state(ready=[batch(crop="Салат Лолло Росса", units="250 стаканч.")])
+    )
+    assert "250 стаканч." in text_body
+    assert "лотк." not in text_body
 
 
 def empty_state(**over):

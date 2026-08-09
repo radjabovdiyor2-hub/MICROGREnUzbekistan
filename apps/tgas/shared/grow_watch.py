@@ -47,7 +47,11 @@ async def scan() -> Dict[str, List[Dict[str, Any]]]:
                     "       COALESCE(b.seed_cost, 0) + COALESCE(b.supplies_cost, 0) AS cost, "
                     "       b.planned_yield, b.product_name, "
                     "       (CURRENT_DATE - b.seed_date) AS elapsed, "
-                    "       COALESCE(n.name_ru, b.crop_type) AS crop_name "
+                    "       COALESCE(n.name_ru, b.crop_type) AS crop_name, "
+                    # Единица посадки: лотки у микрозелени, стаканчики у салата.
+                    # Без неё сводка описывала партию салата лотками, которых
+                    # в ней нет вовсе.
+                    "       COALESCE(n.planting_unit, 'tray') AS planting_unit "
                     "FROM grow_batches b "
                     "LEFT JOIN crop_norms n ON n.crop_type = b.crop_type "
                     "WHERE b.status <> 'harvested' "
@@ -71,6 +75,7 @@ async def scan() -> Dict[str, List[Dict[str, Any]]]:
             "id": r[0],
             "crop": r[11],
             "trays": r[2],
+            "units": f"{r[2]} {'стаканч.' if r[12] == 'cup' else 'лотк.'}",
             "seed_date": r[3],
             "cost": float(r[7] or 0),
             "planned_yield": float(r[8] or 0),
@@ -107,20 +112,20 @@ def morning_text(state: Dict[str, List[Dict[str, Any]]]) -> str | None:
                 if b["days_left"] > 1
                 else " — <b>последний день</b>"
             )
-            lines.append(f"  • {b['crop']}, {b['trays']} лотк.{tail}")
+            lines.append(f"  • {b['crop']}, {b['units']}{tail}")
         lines.append("")
 
     if tomorrow:
         lines.append(f"⏳ <b>Дозреет завтра ({len(tomorrow)}):</b>")
         for b in tomorrow:
-            lines.append(f"  • {b['crop']}, {b['trays']} лотк.")
+            lines.append(f"  • {b['crop']}, {b['units']}")
         lines.append("")
 
     if expired:
         loss = sum(b["cost"] for b in expired)
         lines.append(f"❌ <b>Просрочено ({len(expired)}):</b>")
         for b in expired:
-            lines.append(f"  • {b['crop']}, {b['trays']} лотк. — {format_price(b['cost'])}")
+            lines.append(f"  • {b['crop']}, {b['units']} — {format_price(b['cost'])}")
         if loss > 0:
             lines.append(f"  Убыток: <b>{format_price(loss)}</b>")
         lines.append("\nСпишите их в админке — иначе они так и висят в остатках.")
@@ -134,7 +139,7 @@ def urgent_text(urgent: List[Dict[str, Any]]) -> str | None:
         return None
     lines = ["🔴 <b>Продать сегодня</b>\n"]
     for b in urgent:
-        lines.append(f"  • {b['crop']}, {b['trays']} лотк. — завтра списывать")
+        lines.append(f"  • {b['crop']}, {b['units']} — завтра списывать")
     total = sum(b["cost"] for b in urgent)
     if total > 0:
         lines.append(f"\nВложено: {format_price(total)}. Завтра это станет убытком.")

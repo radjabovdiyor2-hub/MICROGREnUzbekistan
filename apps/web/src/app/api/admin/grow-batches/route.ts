@@ -56,7 +56,14 @@ export async function GET(request: NextRequest) {
       const { norm, needs } = await plantingRequirements(cropType, trays);
       return NextResponse.json({
         status: 'ok',
-        crop: { cropType: norm.cropType, nameRu: norm.nameRu },
+        // plantingUnit отдаём наружу: бот подписывает результат «лотков» или
+        // «стаканчиков» по норме культуры, а не угадывает.
+        crop: {
+          cropType: norm.cropType,
+          nameRu: norm.nameRu,
+          plantingUnit: norm.plantingUnit,
+          seedUnit: norm.seedUnit,
+        },
         trays,
         needs: needs.map((n) => ({
           kind: n.kind,

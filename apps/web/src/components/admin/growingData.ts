@@ -46,18 +46,49 @@ export interface Batch {
   plannedYield?: number | null;
 }
 
-/** Норма культуры из базы (таблица crop_norms). */
+/**
+ * Норма культуры из базы (таблица crop_norms).
+ *
+ * Поля называются `...PerUnit`, а не `...PerTray`: единица посадки зависит от
+ * культуры — лоток у микрозелени, стаканчик 63 мм у салата. Имя с «PerTray»,
+ * в котором лежат штуки семян на стаканчик, врало бы о содержимом.
+ */
 export interface CropNorm {
   id: string;
   cropType: string;
   nameRu: string;
-  seedGramsPerTray: number;
-  substrateGramsPerTray: number | null;
-  packagingPerTray: number | null;
-  yieldPerTray: number | null;
+  /** `tray` — лотки микрозелени, `cup` — стаканчики салата. */
+  plantingUnit: 'tray' | 'cup';
+  /** `g` — граммы, `pcs` — штуки семян. */
+  seedUnit: 'g' | 'pcs';
+  seedPerUnit: number;
+  substratePerUnit: number | null;
+  /** Какой именно субстрат списывать: кокос и агро вата не взаимозаменяемы. */
+  substrateMaterialId: string | null;
+  substrateMaterialName: string | null;
+  traysPerBatch: number | null;
+  packagingPerUnit: number | null;
+  yieldPerUnit: number | null;
   darkDays: number;
   lightDays: number;
   shelfDays: number;
+}
+
+/** Позиция субстрата для выбора в норме культуры. */
+export interface SubstrateOption {
+  id: string;
+  name: string;
+  unit: string;
+}
+
+/** Подпись единицы посадки — «лоток» / «стаканчик». */
+export function plantingUnitWord(unit: 'tray' | 'cup' | string): string {
+  return unit === 'cup' ? 'стаканчик' : 'лоток';
+}
+
+/** Подпись единицы во множественном числе для заголовков и подсказок. */
+export function plantingUnitPlural(unit: 'tray' | 'cup' | string): string {
+  return unit === 'cup' ? 'стаканчиков' : 'лотков';
 }
 
 /** Что уйдёт со склада на посадку — предпросмотр до её создания. */

@@ -78,10 +78,36 @@ async def test_plant_consumes_and_reports_what_went(calls):
     result = await operations.plant_batch("redis", 5, note="тест")
 
     assert result["ok"] is True
-    assert result["trays"] == 5
+    assert result["quantity"] == 5
+    # Микрозелень — лотки: единицу берём из ответа витрины, а не угадываем.
+    assert result["unit"] == "лотк."
     assert result["consumed"][0]["материал"] == "Семена редиса"
     assert [c["method"] for c in calls.log] == ["GET", "POST"]
     assert calls.log[1]["payload"]["performedBy"] == "ai_office"
+
+
+@pytest.mark.asyncio
+async def test_salad_planting_is_reported_in_cups(calls):
+    """Салат сажают поштучно — и отчёт обязан говорить «стаканчиков».
+
+    Параметр инструмента назывался `trays`, а итог всегда подписывался
+    лотками. Для поштучной посадки в стаканчиках 63 мм это неправда:
+    лотков в такой партии нет вовсе.
+    """
+    calls.replies["grow-batches"] = {
+        "ok": True,
+        "data": {
+            "crop": {"cropType": "lettuce", "plantingUnit": "cup"},
+            "needs": [{"label": "Агро вата", "required": 250, "enough": True}],
+            "batch": {"id": "btch_2"},
+        },
+    }
+
+    result = await operations.plant_batch("lettuce", 250)
+
+    assert result["ok"] is True
+    assert result["unit"] == "стаканч."
+    assert "250 стаканч." in result["summary"]
 
 
 @pytest.mark.asyncio

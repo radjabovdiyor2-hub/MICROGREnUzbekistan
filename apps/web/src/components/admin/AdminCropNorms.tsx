@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Sprout } from 'lucide-react';
 import { AdminCropNormForm } from './AdminCropNormForm';
-import type { CropNorm } from './growingData';
+import type { CropNorm, SubstrateOption } from './growingData';
 
 // ══════════════════════════════════════════════════════════════════════
 // Нормы культур: сколько сырья уходит на лоток и сколько с него снимают.
@@ -23,14 +23,20 @@ export function AdminCropNorms() {
   const [editing, setEditing] = useState<CropNorm | null>(null);
   const [showNew, setShowNew] = useState(false);
 
-  const { data: norms = [], isLoading } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['admin-crop-norms'],
     queryFn: async () => {
       const res = await fetch('/api/admin/crop-norms', { credentials: 'same-origin' });
       const json = await res.json();
-      return (json.norms ?? []) as CropNorm[];
+      return {
+        norms: (json.norms ?? []) as CropNorm[],
+        substrates: (json.substrates ?? []) as SubstrateOption[],
+      };
     },
   });
+
+  const norms = data?.norms ?? [];
+  const substrates = data?.substrates ?? [];
 
   const save = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
@@ -88,6 +94,7 @@ export function AdminCropNorms() {
         <AdminCropNormForm
           key={editing?.cropType ?? 'new'}
           norm={editing}
+          substrates={substrates}
           saving={save.isPending}
           error={save.error instanceof Error ? save.error.message : ''}
           onCancel={() => { setShowNew(false); setEditing(null); }}
@@ -108,8 +115,12 @@ export function AdminCropNorms() {
             <thead>
               <tr style={{ borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
                 <th style={{ ...cell, color: 'var(--text-muted)' }}>КУЛЬТУРА</th>
-                <th style={{ ...cell, color: 'var(--text-muted)' }}>СЕМЯН НА ЛОТОК</th>
-                <th style={{ ...cell, color: 'var(--text-muted)' }}>ВЫХОД С ЛОТКА</th>
+                <th style={{ ...cell, color: 'var(--text-muted)' }}>СПОСОБ</th>
+                <th style={{ ...cell, color: 'var(--text-muted)' }}>СЕМЯН НА ЕД.</th>
+                {/* Субстрат раньше не показывался вовсе — владелец не мог
+                    увидеть, задан ли он и какой именно. */}
+                <th style={{ ...cell, color: 'var(--text-muted)' }}>СУБСТРАТ</th>
+                <th style={{ ...cell, color: 'var(--text-muted)' }}>ВЫХОД</th>
                 <th style={{ ...cell, color: 'var(--text-muted)' }}>ФАЗЫ (Т/С/Х)</th>
                 <th style={cell} />
               </tr>
@@ -123,8 +134,18 @@ export function AdminCropNorms() {
                       {' '}· {n.cropType}
                     </span>
                   </td>
-                  <td style={cell}>{n.seedGramsPerTray} г</td>
-                  <td style={cell}>{n.yieldPerTray ? `${n.yieldPerTray} г` : '—'}</td>
+                  <td style={{ ...cell, color: 'var(--text-secondary)' }}>
+                    {n.plantingUnit === 'cup' ? 'стаканчики' : 'лотки'}
+                  </td>
+                  <td style={cell}>
+                    {n.seedPerUnit} {n.seedUnit === 'pcs' ? 'шт' : 'г'}
+                  </td>
+                  <td style={cell}>
+                    {n.substratePerUnit
+                      ? `${n.substratePerUnit} · ${n.substrateMaterialName ?? '⚠ не выбран'}`
+                      : '—'}
+                  </td>
+                  <td style={cell}>{n.yieldPerUnit ? `${n.yieldPerUnit} г` : '—'}</td>
                   <td style={{ ...cell, color: 'var(--text-secondary)' }}>
                     {n.darkDays} / {n.lightDays} / {n.shelfDays} дн
                   </td>

@@ -445,6 +445,9 @@ model RawMaterial {
   movements RawMaterialMovement[]
   prices    SupplierPrice[]
 
+  /// Нормы культур, которые явно закреплены за этим субстратом.
+  cropNorms CropNorm[] @relation("CropNormSubstrate")
+
   @@index([kind])
   @@index([cropType])
   @@index([isActive])
@@ -508,33 +511,65 @@ model SupplierPrice {
   @@map("supplier_prices")
 }
 
-/// Нормы культуры: сколько сырья уходит на лоток и сколько с него снимают.
-/// Длительности фаз переезжают сюда из CROP_DB (жили в коде фронтенда, и
-/// изменить их без правки кода было нельзя).
+/// Нормы культуры: сколько сырья уходит на единицу посадки и сколько с неё
+/// снимают. Длительности фаз переезжают сюда из CROP_DB (жили в коде
+/// фронтенда, и изменить их без правки кода было нельзя).
+///
+/// ДВА СПОСОБА ПОСАДКИ
+///
+/// Микрозелень растят в ЛОТКАХ на кокосовом субстрате: норма — граммы на
+/// лоток (стандарт 150 г субстрата). Салаты растят ПОШТУЧНО в стаканчиках
+/// 63 мм на агро вате: норма — штуки семян и одна пробка ваты на стаканчик,
+/// а сами стаканчики многоразовые и на складе не ведутся.
+///
+/// Поэтому поля называются `...PerUnit`, а не `...PerTray`: единица задаётся
+/// в `plantingUnit`. Имя `seedGramsPerTray`, в котором лежат «штуки семян на
+/// стаканчик», врало бы о содержимом — ровно тот сорт лжи, из-за которого в
+/// этом проекте уже ловили дорогие ошибки. Колонки в базе прежние (`@map`),
+/// миграции данных нет.
 model CropNorm {
   id       String @id @default(cuid())
   cropType String @unique @map("crop_type") @db.VarChar(50)
   nameRu   String @map("name_ru") @db.VarChar(100)
 
-  /// Те самые «5-6 грамм на лоток».
-  seedGramsPerTray Decimal @map("seed_grams_per_tray") @db.Decimal(10, 2)
+  /// `tray` — лоток микрозелени, `cup` — стаканчик салата.
+  plantingUnit String @default("tray") @map("planting_unit") @db.VarChar(10)
 
-  substrateGramsPerTray Decimal? @map("substrate_grams_per_tray") @db.Decimal(10, 2)
+  /// В чём считается расход семян: `g` (граммы на лоток) или `pcs`
+  /// (штуки семян на стаканчик).
+  seedUnit String @default("g") @map("seed_unit") @db.VarChar(10)
 
-  /// Сколько лотков уходит на один лоток посадки. Лотки одноразовые, поэтому
+  /// Те самые «5-6 грамм на лоток» — или штуки семян на стаканчик,
+  /// смотря что стоит в `seedUnit`.
+  seedPerUnit Decimal @map("seed_grams_per_tray") @db.Decimal(10, 2)
+
+  /// Кокос в граммах на лоток либо пробка ваты в штуках на стаканчик.
+  substratePerUnit Decimal? @map("substrate_grams_per_tray") @db.Decimal(10, 2)
+
+  /// КАКОЙ ИМЕННО субстрат. Без этой привязки посадка выбирала «первый
+  /// активный субстрат, самый старый» — кокос и агро вата были для кода
+  /// неразличимы, и при двух позициях любая посадка списывала бы ту, что
+  /// заведена раньше: у салата неверная себестоимость, вата вечно в остатке,
+  /// и ни ошибки, ни предупреждения.
+  substrateMaterialId String?       @map("substrate_material_id")
+  substrateMaterial   RawMaterial?  @relation("CropNormSubstrate", fields: [substrateMaterialId], references: [id])
+
+  /// Сколько лотков уходит на одну единицу посадки. Лотки одноразовые, поэтому
   /// по умолчанию 1. Раньше тип «Лотки» существовал в справочнике сырья, но
   /// посадка его не списывала вовсе — себестоимость партии выходила заниженной
   /// на стоимость лотков, и заметить это было нельзя.
+  ///
+  /// Для стаканчиков здесь должен стоять 0: иначе посадка 250 стаканчиков
+  /// спишет 250 лотков.
   traysPerBatch Decimal @default(1) @map("trays_per_batch") @db.Decimal(10, 2)
 
   /// Упаковка списывается при СБОРЕ, а не при посадке: упаковывают готовый
-  /// урожай. Норма задана на лоток, расход считается от фактического числа
-  /// собранных лотков.
-  packagingPerTray      Decimal? @map("packaging_per_tray") @db.Decimal(10, 2)
+  /// урожай. Норма задана на единицу, расход считается от фактического сбора.
+  packagingPerUnit Decimal? @map("packaging_per_tray") @db.Decimal(10, 2)
 
-  /// Ожидаемый выход с лотка — по нему считается плановая себестоимость
-  /// единицы и видно отклонение факта от нормы.
-  yieldPerTray Decimal? @map("yield_per_tray") @db.Decimal(10, 2)
+  /// Ожидаемый выход с единицы — по нему считается плановая себестоимость
+  /// и видно отклонение факта от нормы.
+  yieldPerUnit Decimal? @map("yield_per_tray") @db.Decimal(10, 2)
 
   darkDays  Int @default(3) @map("dark_days")
   lightDays Int @default(6) @map("light_days")
@@ -545,6 +580,7 @@ model CropNorm {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
+  @@index([substrateMaterialId])
   @@map("crop_norms")
 }
 

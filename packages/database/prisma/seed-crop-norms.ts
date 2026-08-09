@@ -46,6 +46,15 @@ const NORMS: {
   { cropType: 'other',      nameRu: 'Другое',     seedGramsPerTray: 20, yieldPerTray: 250, darkDays: 3, lightDays: 6,  shelfDays: 5 },
 ];
 
+/**
+ * Стандарт расхода кокосового субстрата на лоток микрозелени.
+ *
+ * Раньше субстрат не был задан НИ ДЛЯ ОДНОЙ культуры, а посадка пропускает
+ * статью при нуле — то есть субстрат не списывался вообще ни разу, и
+ * себестоимость каждой партии была занижена на его стоимость.
+ */
+const SUBSTRATE_GRAMS_PER_TRAY = 150;
+
 async function main() {
   let created = 0;
   for (const norm of NORMS) {
@@ -56,8 +65,9 @@ async function main() {
       data: {
         cropType: norm.cropType,
         nameRu: norm.nameRu,
-        seedGramsPerTray: new Prisma.Decimal(norm.seedGramsPerTray),
-        yieldPerTray: new Prisma.Decimal(norm.yieldPerTray),
+        seedPerUnit: new Prisma.Decimal(norm.seedGramsPerTray),
+        yieldPerUnit: new Prisma.Decimal(norm.yieldPerTray),
+        substratePerUnit: new Prisma.Decimal(SUBSTRATE_GRAMS_PER_TRAY),
         darkDays: norm.darkDays,
         lightDays: norm.lightDays,
         shelfDays: norm.shelfDays,
@@ -65,8 +75,22 @@ async function main() {
     });
     created++;
   }
+
+  // Заполняем стандарт там, где его нет. Именно заполняем пустое, а не
+  // перезаписываем: число, уточнённое владельцем, остаётся как есть.
+  // Без этого шага 150 г не появились бы у 16 уже засеянных культур —
+  // сидер идемпотентен и существующие строки пропускает.
+  const filled = await prisma.cropNorm.updateMany({
+    where: { substratePerUnit: null, plantingUnit: 'tray' },
+    data: { substratePerUnit: new Prisma.Decimal(SUBSTRATE_GRAMS_PER_TRAY) },
+  });
+
   console.log(`Нормы культур: добавлено ${created}, пропущено ${NORMS.length - created} (уже были).`);
+  if (filled.count > 0) {
+    console.log(`Проставлен стандарт субстрата ${SUBSTRATE_GRAMS_PER_TRAY} г/лоток: ${filled.count} культур.`);
+  }
   console.log('⚠️ Расход семян — ориентировочный. Уточните по факту в админке: Посадки → Нормы культур.');
+  console.log('⚠️ Субстрат выберите явно в норме культуры: кокос и агро вата не взаимозаменяемы.');
 }
 
 main()

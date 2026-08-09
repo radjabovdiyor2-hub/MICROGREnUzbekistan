@@ -2,10 +2,27 @@
 
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { CheckCircle, Leaf, Plus } from 'lucide-react';
-import { CROP_DB, type PlantingRequirement, type ProductOption } from './growingData';
+import { useEffect, useState } from 'react';
+import {
+  CROP_DB,
+  fetchCropNorms,
+  plantingUnitPlural,
+  type CropNorm,
+  type PlantingRequirement,
+  type ProductOption,
+} from './growingData';
 
-// Форма добавления и правки партии: культура, лоток, даты, цикл.
+// Форма добавления и правки партии: культура, количество, даты, цикл.
 // Показывается по флагу showForm и от списка партий не зависит.
+//
+// Список культур берётся из СПРАВОЧНИКА НОРМ, а не из константы CROP_DB.
+// Пока он читал константу, культура, заведённая владельцем в админке (тот же
+// салат), в форме не появлялась вовсе: посадить её можно было только через
+// API или бота. CROP_DB остаётся запасным вариантом на случай, если нормы
+// ещё не загрузились.
+//
+// Подпись количества зависит от способа посадки: лотки у микрозелени,
+// стаканчики у салата.
 
 
 interface Props {
@@ -42,6 +59,27 @@ interface Props {
 }
 
 export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingId, products, selectedProductId, setSelectedProductId, cropType, setCropType, trays, setTrays, seedDate, setSeedDate, harvestQty, setHarvestQty, costPriceInput, setCostPriceInput, note, setNote, customDark, setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, addBatch, requirements, estimatedCost, plantError, inputStyle }: Props) {
+  const [norms, setNorms] = useState<CropNorm[]>([]);
+
+  useEffect(() => {
+    fetchCropNorms().then(setNorms).catch(() => {});
+  }, []);
+
+  // Пока нормы не пришли — показываем константу, чтобы форма не была пустой.
+  const options = norms.length
+    ? norms.map((n) => ({
+        key: n.cropType,
+        nameRu: n.nameRu,
+        darkDays: n.darkDays,
+        lightDays: n.lightDays,
+        shelfDays: n.shelfDays,
+      }))
+    : Object.entries(CROP_DB).map(([key, val]) => ({ key, ...val }));
+
+  const unitWord = plantingUnitPlural(
+    norms.find((n) => n.cropType === cropType)?.plantingUnit ?? 'tray',
+  );
+
   return (
     <>
 {/* Add batch form */}
@@ -56,20 +94,23 @@ export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingI
         <select value={cropType} onChange={e => {
           const c = e.target.value;
           setCropType(c);
-          if (!editingId && CROP_DB[c]) {
-            setCustomDark(CROP_DB[c].darkDays);
-            setCustomLight(CROP_DB[c].lightDays);
-            setCustomShelf(CROP_DB[c].shelfDays);
+          const picked = options.find(o => o.key === c);
+          if (!editingId && picked) {
+            setCustomDark(picked.darkDays);
+            setCustomLight(picked.lightDays);
+            setCustomShelf(picked.shelfDays);
           }
         }}
           style={{ ...inputStyle, cursor: 'pointer' }}>
-          {Object.entries(CROP_DB).map(([key, val]) => (
-            <option key={key} value={key}>{val.nameRu} ({val.darkDays}д + {val.lightDays}с)</option>
+          {options.map((o) => (
+            <option key={o.key} value={o.key}>{o.nameRu} ({o.darkDays}д + {o.lightDays}с)</option>
           ))}
         </select>
       </div>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Лотков</label>
+        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>
+          {unitWord.charAt(0).toUpperCase() + unitWord.slice(1)}
+        </label>
         <input type="number" min={1} value={trays} onChange={e => setTrays(Number(e.target.value))} style={inputStyle} />
       </div>
       <div>

@@ -25,6 +25,17 @@ import { unitCostOfHarvest, weightedAverageCost } from './weightedAverage';
 const dec = (v: Prisma.Decimal | number | null | undefined): number =>
   v == null ? 0 : Number(v);
 
+/**
+ * «10 лотков» или «250 стаканчиков» — как назвать количество посадки.
+ *
+ * Единица зависит от культуры: микрозелень растят в лотках, салаты — поштучно
+ * в стаканчиках 63 мм. До этого слово «лотков» было вшито в текст движений
+ * склада и в подписи, и партия салата описывалась лотками, которых нет.
+ */
+export function unitLabel(plantingUnit: string, quantity: number): string {
+  return plantingUnit === 'cup' ? `${quantity} стаканч.` : `${quantity} лотк.`;
+}
+
 /** Не хватает справочных данных — вызывающий обязан спросить у человека. */
 export class MissingDataError extends Error {
   constructor(readonly needs: string[], message: string) {
@@ -46,8 +57,13 @@ export interface PlantInput {
   productName?: string | null;
 }
 
-/** Что и сколько уйдёт со склада на такую посадку — до её создания. */
-export async function plantingRequirements(cropType: string, trays: number) {
+/**
+ * Что и сколько уйдёт со склада на такую посадку — до её создания.
+ *
+ * `quantity` — число единиц посадки в тех единицах, что заданы в норме:
+ * лотков для микрозелени, стаканчиков для салата.
+ */
+export async function plantingRequirements(cropType: string, quantity: number) {
   const norm = await prisma.cropNorm.findUnique({ where: { cropType } });
   if (!norm) {
     throw new MissingDataError(
@@ -69,18 +85,18 @@ export async function plantingRequirements(cropType: string, trays: number) {
     label: string;
   }[] = [];
 
+  const brief = (m: { id: string; name: string; unit: string; stock: Prisma.Decimal; avgCost: Prisma.Decimal }) => ({
+    id: m.id,
+    name: m.name,
+    unit: m.unit,
+    stock: dec(m.stock),
+    avgCost: dec(m.avgCost),
+  });
+
   needs.push({
-    material: seedMaterial
-      ? {
-          id: seedMaterial.id,
-          name: seedMaterial.name,
-          unit: seedMaterial.unit,
-          stock: dec(seedMaterial.stock),
-          avgCost: dec(seedMaterial.avgCost),
-        }
-      : null,
+    material: seedMaterial ? brief(seedMaterial) : null,
     kind: 'SEED',
-    required: dec(norm.seedGramsPerTray) * trays,
+    required: dec(norm.seedPerUnit) * quantity,
     label: 'Семена',
   });
 
@@ -92,41 +108,93 @@ export async function plantingRequirements(cropType: string, trays: number) {
   // Раньше она списывалась при посадке, и у погибшей партии упаковка
   // оказывалась потрачена зря — да ещё и входила в её убыток.
   // Теперь её списывает harvestBatch, по фактическому сбору.
-  for (const [kind, perTray, label] of [
-    ['SUBSTRATE', dec(norm.substrateGramsPerTray), 'Субстрат'],
-    ['TRAY', dec(norm.traysPerBatch), 'Лотки'],
-  ] as const) {
-    if (perTray <= 0) continue;
-    const material = await prisma.rawMaterial.findFirst({
-      where: { kind, isActive: true },
+  const substratePerUnit = dec(norm.substratePerUnit);
+  if (substratePerUnit > 0) {
+    needs.push({
+      material: brief(await resolveSubstrate(norm)),
+      kind: 'SUBSTRATE',
+      required: substratePerUnit * quantity,
+      label: 'Субстрат',
+    });
+  }
+
+  const traysPerUnit = dec(norm.traysPerBatch);
+  if (traysPerUnit > 0) {
+    // Лотки остаются «первым активным»: тип один на всё производство, выбирать
+    // тут не из чего. У субстратов иначе — их два и они не взаимозаменяемы.
+    const tray = await prisma.rawMaterial.findFirst({
+      where: { kind: 'TRAY', isActive: true },
       orderBy: { createdAt: 'asc' },
     });
     needs.push({
-      material: material
-        ? {
-            id: material.id,
-            name: material.name,
-            unit: material.unit,
-            stock: dec(material.stock),
-            avgCost: dec(material.avgCost),
-          }
-        : null,
-      kind,
-      required: perTray * trays,
-      label,
+      material: tray ? brief(tray) : null,
+      kind: 'TRAY',
+      required: traysPerUnit * quantity,
+      label: 'Лотки',
     });
   }
 
   return { norm, needs };
 }
 
+/**
+ * Какой субстрат списывать под эту культуру.
+ *
+ * Раньше здесь стоял `findFirst({ where: { kind: 'SUBSTRATE' } })` с сортировкой
+ * по дате — то есть «самый старый активный». Пока субстрат был один, это
+ * работало. Как только рядом с кокосом появляется агро вата, они становятся
+ * для кода неразличимы: любая посадка — хоть редиса, хоть салата — списывает
+ * тот, что заведён раньше. Ошибки не будет, остаток второго не сдвинется
+ * никогда, а себестоимость окажется чужой.
+ *
+ * Поэтому: явная привязка в норме культуры. Не задана и субстрат ровно один —
+ * берём его (прежнее поведение, ничего не ломаем). Не задана, а субстратов
+ * несколько — отказываемся и просим выбрать, а не угадываем.
+ */
+async function resolveSubstrate(norm: { cropType: string; nameRu: string; substrateMaterialId: string | null }) {
+  if (norm.substrateMaterialId) {
+    const bound = await prisma.rawMaterial.findFirst({
+      where: { id: norm.substrateMaterialId, isActive: true },
+    });
+    if (bound) return bound;
+    throw new MissingDataError(
+      ['substrateMaterial'],
+      `У культуры «${norm.nameRu}» указан субстрат, которого больше нет в справочнике. ` +
+        `Выберите другой в нормах культуры.`,
+    );
+  }
+
+  const active = await prisma.rawMaterial.findMany({
+    where: { kind: 'SUBSTRATE', isActive: true },
+    orderBy: { createdAt: 'asc' },
+    take: 2,
+  });
+
+  if (active.length === 1) return active[0];
+
+  if (active.length === 0) {
+    throw new MissingDataError(
+      ['substrateMaterial'],
+      `Норма культуры «${norm.nameRu}» требует субстрат, но на складе нет ни одного. ` +
+        `Заведите его в разделе «Сырьё».`,
+    );
+  }
+
+  throw new MissingDataError(
+    ['substrateMaterial'],
+    `Субстратов на складе несколько, а у культуры «${norm.nameRu}» не указано, какой её. ` +
+      `Выберите субстрат в нормах культуры — иначе списался бы первый попавшийся.`,
+  );
+}
+
 /** Посадить партию: списать сырьё и зафиксировать себестоимость. */
 export async function plantBatch(input: PlantInput) {
-  const trays = Math.max(1, Math.floor(Number(input.trays) || 1));
+  const quantity = Math.max(1, Math.floor(Number(input.trays) || 1));
   const seedDate = new Date(input.seedDate);
   if (Number.isNaN(seedDate.getTime())) throw new Error('Некорректная дата посева');
 
-  const { norm, needs } = await plantingRequirements(input.cropType, trays);
+  const { norm, needs } = await plantingRequirements(input.cropType, quantity);
+  const units = unitLabel(norm.plantingUnit, quantity);
 
   // Семена обязательны: без них посадки не существует. Нет карточки сырья —
   // это вопрос владельцу, а не повод записать посадку без себестоимости.
@@ -135,7 +203,8 @@ export async function plantBatch(input: PlantInput) {
     throw new MissingDataError(
       ['seedMaterial'],
       `Семян «${norm.nameRu}» нет на складе сырья. Заведите их и укажите приход — ` +
-        `тогда посадка спишет нужные ${seed.required} г и посчитает себестоимость.`,
+        `тогда посадка спишет нужные ${seed.required} ${norm.seedUnit === 'pcs' ? 'шт' : 'г'} ` +
+        `и посчитает себестоимость.`,
     );
   }
 
@@ -143,7 +212,7 @@ export async function plantBatch(input: PlantInput) {
     const batch = await tx.growBatch.create({
       data: {
         cropType: input.cropType,
-        trays,
+        trays: quantity,
         seedDate,
         darkDays: norm.darkDays,
         lightDays: norm.lightDays,
@@ -152,8 +221,8 @@ export async function plantBatch(input: PlantInput) {
         note: input.note ? String(input.note).slice(0, 1000) : null,
         productId: input.productId || null,
         productName: input.productName || null,
-        plannedYield: norm.yieldPerTray
-          ? new Prisma.Decimal(dec(norm.yieldPerTray) * trays)
+        plannedYield: norm.yieldPerUnit
+          ? new Prisma.Decimal(dec(norm.yieldPerUnit) * quantity)
           : null,
       },
     });
@@ -167,7 +236,7 @@ export async function plantBatch(input: PlantInput) {
         materialId: need.material.id,
         quantity: need.required,
         growBatchId: batch.id,
-        reason: `Посадка ${norm.nameRu} — ${trays} лотков`,
+        reason: `Посадка ${norm.nameRu} — ${units}`,
         performedBy: input.performedBy,
       });
       if (need.kind === 'SEED') seedCost += spent.cost;
@@ -213,10 +282,11 @@ export async function harvestBatch(input: HarvestInput) {
 
     // Упаковка списывается ЗДЕСЬ, а не при посадке: упаковывают готовый
     // урожай. У погибшей партии упаковка теперь не тратится вовсе.
-    // Норма задана на лоток, поэтому считаем от числа лотков партии.
+    // Норма задана на единицу посадки, поэтому считаем от их числа.
     const norm = await tx.cropNorm.findUnique({ where: { cropType: batch.cropType } });
     let packagingCost = 0;
-    const packagingNeeded = dec(norm?.packagingPerTray) * batch.trays;
+    const packagingNeeded = dec(norm?.packagingPerUnit) * batch.trays;
+    const batchUnits = unitLabel(norm?.plantingUnit ?? 'tray', batch.trays);
 
     if (packagingNeeded > 0) {
       const packaging = await tx.rawMaterial.findFirst({
@@ -232,7 +302,7 @@ export async function harvestBatch(input: HarvestInput) {
             materialId: packaging.id,
             quantity: packagingNeeded,
             growBatchId: batch.id,
-            reason: `Упаковка урожая — ${batch.trays} лотков`,
+            reason: `Упаковка урожая — ${batchUnits}`,
             performedBy: input.performedBy,
           });
           packagingCost = spent.cost;
@@ -261,7 +331,7 @@ export async function harvestBatch(input: HarvestInput) {
           type: 'IN',
           quantity: Math.round(harvestQty),
           reason: 'Урожай с посадки',
-          note: `${batch.cropType}, ${batch.trays} лотков, посев ${batch.seedDate.toISOString().slice(0, 10)}`,
+          note: `${batch.cropType}, ${batchUnits}, посев ${batch.seedDate.toISOString().slice(0, 10)}`,
           costPrice: Math.round(unitCost),
           performedBy: input.performedBy || 'Посадки',
         },

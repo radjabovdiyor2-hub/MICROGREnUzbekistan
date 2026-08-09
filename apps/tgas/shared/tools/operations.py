@@ -309,14 +309,19 @@ async def list_suppliers() -> Dict[str, Any]:
 
 
 async def plant_batch(
-    crop_type: str, trays: int, seed_date: str = "", note: str = ""
+    crop_type: str, quantity: int, seed_date: str = "", note: str = ""
 ) -> Dict[str, Any]:
-    """Посадить партию: списать сырьё по нормам и посчитать себестоимость."""
-    trays = max(1, int(trays or 1))
+    """Посадить партию: списать сырьё по нормам и посчитать себестоимость.
+
+    `quantity` — в единицах, заданных нормой культуры: лотки у микрозелени,
+    стаканчики 63 мм у салата. Параметр назывался `trays`, и для салата это
+    было неправдой — поштучная посадка лотков не использует вовсе.
+    """
+    quantity = max(1, int(quantity or 1))
 
     # Сначала спрашиваем расход. Витрина откажет и сама, но тогда владелец
     # увидит «не смог» вместо «не хватает 300 г семян гороха, есть 120».
-    preview = await production_repo.plant_requirements(crop_type, trays)
+    preview = await production_repo.plant_requirements(crop_type, quantity)
     if not preview.get("ok"):
         details = preview.get("details") or {}
         return {
@@ -343,19 +348,24 @@ async def plant_batch(
             "note": "Посадка НЕ выполнена. Назови, чего и сколько не хватает.",
         }
 
-    planted = await production_repo.plant(crop_type, trays, seed_date, note)
+    planted = await production_repo.plant(crop_type, quantity, seed_date, note)
     if not planted.get("ok"):
         return _fail(planted, "Посадка")
 
     batch = (planted.get("data") or {}).get("batch") or {}
+    # Единицу берём из ответа витрины: она знает норму культуры.
+    unit_word = (
+        "стаканч." if (data.get("crop") or {}).get("plantingUnit") == "cup" else "лотк."
+    )
     return {
         "ok": True,
         "batch_id": batch.get("id"),
         "crop": crop_type,
-        "trays": trays,
+        "quantity": quantity,
+        "unit": unit_word,
         "consumed": short,
         "estimated_cost": data.get("estimatedCost"),
-        "summary": f"Посажено {trays} лотков «{crop_type}».",
+        "summary": f"Посажено {quantity} {unit_word} «{crop_type}».",
     }
 
 
@@ -566,24 +576,38 @@ register(
         description=(
             "ПОСАДИТЬ партию: завести посадку, списать семена и субстрат по "
             "норме культуры и посчитать себестоимость. Вызывай на «посади», "
-            "«посей», «поставь N лотков». Сначала сам проверит, хватает ли "
-            "сырья, и откажется сажать в минус."
+            "«посей», «поставь N лотков», «посади N стаканчиков». Микрозелень "
+            "считается ЛОТКАМИ, салаты — СТАКАНЧИКАМИ поштучно; единицу знает "
+            "норма культуры. Сначала сам проверит, хватает ли сырья, и "
+            "откажется сажать в минус."
         ),
         run=plant_batch,
         departments=DEPTS,
         params={
             "crop_type": {"type": "string", "description": "Культура: redis, gorox, podsolnuh…"},
-            "trays": {"type": "integer", "description": "Сколько лотков"},
+            "quantity": {
+                "type": "integer",
+                "description": "Сколько единиц: лотков у микрозелени, стаканчиков у салата",
+            },
             "seed_date": {"type": "string", "description": "Дата посева YYYY-MM-DD, пусто — сегодня"},
             "note": {"type": "string", "description": "Заметка к партии"},
         },
-        required=["crop_type", "trays"],
+        required=["crop_type", "quantity"],
         risky=True,
         confirm=lambda a: (
-            f"Посадить {a.get('trays', '?')} лотков «{a.get('crop_type', '?')}» "
+            f"Посадить {a.get('quantity', '?')} ед. «{a.get('crop_type', '?')}» "
             f"со списанием семян и субстрата по норме"
         ),
-        auto_when=lambda a, lim: _within(a.get("trays"), lim.get("autonomy.plantTraysMax")),
+        # Порог один на обе единицы, и это осознанно. Единицу посадки знает
+        # витрина (норма культуры), а предикат порога синхронный и в базу не
+        # ходит — выбрать «порог для лотков» или «порог для стаканчиков» здесь
+        # физически нечем. Брать больший из двух значило бы тихо ослабить лимит
+        # на лотки, а это ровно та подмена, от которой уходим. Поэтому порог
+        # считается в ЕДИНИЦАХ ПОСАДКИ, и владелец ставит его под свой обычный
+        # объём: не подошло — заявка просто уйдёт на подтверждение.
+        auto_when=lambda a, lim: _within(
+            a.get("quantity"), lim.get("autonomy.plantTraysMax")
+        ),
     )
 )
 

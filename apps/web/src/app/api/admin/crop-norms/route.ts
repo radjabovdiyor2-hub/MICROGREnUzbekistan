@@ -20,18 +20,33 @@ export async function GET(request: NextRequest) {
   const norms = await prisma.cropNorm.findMany({
     where: { isActive: true },
     orderBy: { nameRu: 'asc' },
+    include: { substrateMaterial: { select: { id: true, name: true, unit: true } } },
+  });
+
+  // Список субстратов отдаём вместе с нормами: форма должна дать выбрать
+  // конкретный, а не полагаться на «первый попавшийся».
+  const substrates = await prisma.rawMaterial.findMany({
+    where: { kind: 'SUBSTRATE', isActive: true },
+    select: { id: true, name: true, unit: true },
+    orderBy: { name: 'asc' },
   });
 
   return NextResponse.json({
     status: 'ok',
+    substrates,
     norms: norms.map((n) => ({
       id: n.id,
       cropType: n.cropType,
       nameRu: n.nameRu,
-      seedGramsPerTray: Number(n.seedGramsPerTray),
-      substrateGramsPerTray: dec(n.substrateGramsPerTray),
-      packagingPerTray: dec(n.packagingPerTray),
-      yieldPerTray: dec(n.yieldPerTray),
+      plantingUnit: n.plantingUnit,
+      seedUnit: n.seedUnit,
+      seedPerUnit: Number(n.seedPerUnit),
+      substratePerUnit: dec(n.substratePerUnit),
+      substrateMaterialId: n.substrateMaterialId,
+      substrateMaterialName: n.substrateMaterial?.name ?? null,
+      traysPerBatch: dec(n.traysPerBatch),
+      packagingPerUnit: dec(n.packagingPerUnit),
+      yieldPerUnit: dec(n.yieldPerUnit),
       darkDays: n.darkDays,
       lightDays: n.lightDays,
       shelfDays: n.shelfDays,
@@ -46,11 +61,15 @@ export async function POST(request: NextRequest) {
   if (!body) return NextResponse.json({ error: 'Некорректный JSON' }, { status: 400 });
 
   const cropType = String(body.cropType ?? '').trim();
-  const seedGrams = Number(body.seedGramsPerTray);
+  const seedPerUnit = Number(body.seedPerUnit);
   if (!cropType) return NextResponse.json({ error: 'Укажите культуру' }, { status: 400 });
-  if (!Number.isFinite(seedGrams) || seedGrams <= 0) {
+
+  const plantingUnit = body.plantingUnit === 'cup' ? 'cup' : 'tray';
+  const unitWord = plantingUnit === 'cup' ? 'стаканчик' : 'лоток';
+
+  if (!Number.isFinite(seedPerUnit) || seedPerUnit <= 0) {
     return NextResponse.json(
-      { error: 'Укажите расход семян на лоток — без него посадка не спишет сырьё' },
+      { error: `Укажите расход семян на ${unitWord} — без него посадка не спишет сырьё` },
       { status: 400 },
     );
   }
@@ -58,12 +77,37 @@ export async function POST(request: NextRequest) {
   const optional = (v: unknown) =>
     v == null || v === '' ? null : new Prisma.Decimal(Number(v) || 0);
 
+  // Субстрат обязателен, если задана его норма: иначе посадка снова начнёт
+  // выбирать «первый попавшийся», ради чего привязка и заведена.
+  const substrateMaterialId = body.substrateMaterialId
+    ? String(body.substrateMaterialId)
+    : null;
+  const substratePerUnit = optional(body.substratePerUnit);
+  if (substratePerUnit && Number(substratePerUnit) > 0 && !substrateMaterialId) {
+    return NextResponse.json(
+      { error: 'Указан расход субстрата — выберите, какой именно субстрат списывать' },
+      { status: 400 },
+    );
+  }
+
   const data = {
     nameRu: String(body.nameRu ?? cropType).slice(0, 100),
-    seedGramsPerTray: new Prisma.Decimal(seedGrams),
-    substrateGramsPerTray: optional(body.substrateGramsPerTray),
-    packagingPerTray: optional(body.packagingPerTray),
-    yieldPerTray: optional(body.yieldPerTray),
+    plantingUnit,
+    seedUnit: body.seedUnit === 'pcs' ? 'pcs' : 'g',
+    seedPerUnit: new Prisma.Decimal(seedPerUnit),
+    substratePerUnit,
+    substrateMaterialId,
+    // Стаканчики лотков не расходуют: без явного нуля посадка 250 стаканчиков
+    // списала бы 250 лотков — у поля дефолт 1.
+    traysPerBatch: new Prisma.Decimal(
+      body.traysPerBatch == null || body.traysPerBatch === ''
+        ? plantingUnit === 'cup'
+          ? 0
+          : 1
+        : Math.max(0, Number(body.traysPerBatch) || 0),
+    ),
+    packagingPerUnit: optional(body.packagingPerUnit),
+    yieldPerUnit: optional(body.yieldPerUnit),
     darkDays: Math.max(0, Math.floor(Number(body.darkDays) || 3)),
     lightDays: Math.max(0, Math.floor(Number(body.lightDays) || 6)),
     shelfDays: Math.max(0, Math.floor(Number(body.shelfDays) || 5)),
