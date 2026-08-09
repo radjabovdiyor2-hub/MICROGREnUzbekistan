@@ -240,9 +240,13 @@ class BotScheduler:
         Возвращает список задач к запуску (без выключенных).
         """
         try:
-            from shared.settings_store import get_job_overrides, register_job
+            from shared.settings_store import get_job_overrides, prune_jobs, register_job
         except Exception:
             return list(self._jobs)
+
+        # Снятые с расписания задачи убираем из таблицы: иначе админка вечно
+        # показывает их действующими, а выполнять их уже некому.
+        await prune_jobs(self.bot_name, [job.name for job in self._jobs])
 
         # Показать владельцу полный список задач, включая нетронутые.
         for job in self._jobs:

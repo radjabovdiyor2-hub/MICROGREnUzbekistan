@@ -25,7 +25,8 @@ import logging
 import time
 from typing import Any, Optional
 
-from sqlalchemy import text
+from sqlalchemy import String, bindparam, text
+from sqlalchemy.dialects.postgresql import ARRAY
 
 from shared.database import get_session_ctx
 
@@ -223,6 +224,44 @@ async def register_job(bot: str, name: str, kind: str, **fields: Any) -> None:
         logger.debug(
             "settings_store: задача %s/%s не зарегистрирована (%s)", bot, name, exc
         )
+
+
+async def prune_jobs(bot: str, live_names: list[str]) -> int:
+    """Убрать из bot_jobs задачи, которых больше нет в коде.
+
+    `register_job` вставляет с ON CONFLICT DO NOTHING и никогда ничего не
+    удаляет. Снятая с расписания задача оставалась в таблице навсегда:
+    админка продолжала показывать её как действующую, владелец мог править
+    ей время и переключать «включена» — без всякого эффекта, потому что
+    выполнять эту строку уже некому. Так копились журнальный конвейер,
+    отключённые reels, ежедневные идеи контента и старый daily_report.
+
+    Пустой список игнорируем: у бота без задач (например sales_bot заводит
+    планировщик, но не регистрирует ни одной) иначе стёрлось бы всё подряд.
+    """
+    if not live_names:
+        return 0
+    try:
+        async with get_session_ctx() as session:
+            result = await session.execute(
+                text(
+                    "DELETE FROM bot_jobs WHERE bot = :bot "
+                    "AND NOT (name = ANY(:names)) RETURNING name"
+                ).bindparams(bindparam("names", value=live_names, type_=ARRAY(String))),
+                {"bot": bot},
+            )
+            removed = [r[0] for r in result.fetchall()]
+            await session.commit()
+        if removed:
+            logger.info(
+                "settings_store: из расписания %s убраны снятые задачи: %s",
+                bot,
+                ", ".join(sorted(removed)),
+            )
+        return len(removed)
+    except Exception as exc:
+        logger.debug("settings_store: уборка задач %s не выполнена (%s)", bot, exc)
+        return 0
 
 
 async def record_job_run(

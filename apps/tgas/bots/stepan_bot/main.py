@@ -971,30 +971,27 @@ async def _cron_magazine_print_run():
         logger.error(f"Cron Print-Run error: {e}")
 
 
-# Wednesday 09:00 - Prepare
-scheduler.add_cron(
-    name="magazine_cron_prepare",
-    func=_cron_magazine_prepare,
-    day_of_week=2,
-    hour=9,
-    minute=0,
-)
-# Thursday 12:00 - Finalize
-scheduler.add_cron(
-    name="magazine_cron_finalize",
-    func=_cron_magazine_finalize,
-    day_of_week=3,
-    hour=12,
-    minute=0,
-)
-# Friday 08:00 - Print-Run & Generate PDF
-scheduler.add_cron(
-    name="magazine_cron_print_run",
-    func=_cron_magazine_print_run,
-    day_of_week=4,
-    hour=8,
-    minute=0,
-)
+# ── Журнальный конвейер ОТКЛЮЧЁН по решению владельца ────────────────────
+#
+# FRESH WEEKLY делается вручную и выкладывается через админку: кому нужен —
+# берёт с сайта. Автоматика тут не помогала, а мешала.
+#
+# Опаснее всего был `finalize`: он брал ПОСЛЕДНИЙ неопубликованный выпуск и
+# ставил ему `isPublished = true` каждый четверг в 12:00 — в том числе номер,
+# который владелец в этот момент готовил руками. То есть незаконченный журнал
+# мог уехать в публикацию сам по себе.
+# `prepare` каждую среду заводил пустой выпуск «Автоматический выпуск», а
+# `print-run` в пятницу создавал заказы на печать по активным подпискам.
+#
+# Функции оставлены: конвейер вызывается вручную через POST /n8n-webhook и
+# через админку журнала. Убрано только расписание.
+#
+# scheduler.add_cron(name="magazine_cron_prepare", func=_cron_magazine_prepare,
+#                    day_of_week=2, hour=9, minute=0)
+# scheduler.add_cron(name="magazine_cron_finalize", func=_cron_magazine_finalize,
+#                    day_of_week=3, hour=12, minute=0)
+# scheduler.add_cron(name="magazine_cron_print_run", func=_cron_magazine_print_run,
+#                    day_of_week=4, hour=8, minute=0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
