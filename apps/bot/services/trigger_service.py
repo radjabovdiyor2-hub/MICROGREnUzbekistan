@@ -12,7 +12,7 @@ import logging
 from aiogram import Bot
 from datetime import datetime, timezone, timedelta
 
-from services.channel_service import post_daily_tip, DAILY_CONTENT
+from services.channel_service import post_daily_tip
 
 logger = logging.getLogger(__name__)
 

@@ -22,6 +22,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.redis import RedisStorage
 
+from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import get_session_ctx
 from shared.event_bus import event_bus
@@ -1096,7 +1097,7 @@ async def main():
                 )
                 try:
                     ai_report = await ai.chat_completion(
-                        "Ты руководитель Степан. Отправь отчёт о доставке для команды.",
+                        role_prompt("Ты руководитель Степан. Отправь отчёт о доставке для команды."),
                         prompt,
                     )
                     await bot.send_message(

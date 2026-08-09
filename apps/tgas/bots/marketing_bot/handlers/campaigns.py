@@ -7,6 +7,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import text
+from shared.config import settings
 from shared.database import get_session_ctx
 from shared.ai_engine import AIEngine
 from shared.utils import simulate_typing
@@ -125,11 +126,15 @@ async def show_segments(cb: CallbackQuery):
 
 @router.callback_query(F.data == "mkt:promo")
 async def show_promo(cb: CallbackQuery):
+    # Шаблон акции: цену подставляет маркетолог из каталога, порог доставки и
+    # телефон приходят из настроек. Раньше здесь стояли числа — образец
+    # показывал «Было 55 000», когда в каталоге давно другая цена.
+    threshold = f"{settings.free_delivery_threshold:,}".replace(",", " ")
     await cb.message.edit_text(
-        "🏷️ <b>Пример акции:</b>\n━━━━━━━━━━━━━━━━━━\n"
-        "🌱 Руккола микрозелень\n\n💰 Было: 55 000 сум\n"
-        "🔥 Стало: 44 000 сум (-20%)\n\n📅 01.07 — 07.07.2026\n"
-        "🚚 Бесплатная доставка от 500 000 сум\n\n📞 +998 94 999 95 99\n"
+        "🏷️ <b>Шаблон акции:</b>\n━━━━━━━━━━━━━━━━━━\n"
+        "🌱 &lt;товар из каталога&gt;\n\n💰 Было: &lt;цена из каталога&gt;\n"
+        "🔥 Стало: &lt;цена со скидкой&gt;\n\n📅 &lt;даты&gt;\n"
+        f"🚚 Бесплатная доставка от {threshold} сум\n\n📞 {settings.company_phone}\n"
         "🌐 microgreenuzbekistan.com",
         reply_markup=back_kb(),
     )

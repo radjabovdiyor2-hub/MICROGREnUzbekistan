@@ -16,7 +16,7 @@ from shared.utils import simulate_typing
 import json
 import logging
 
-from shared.prompts import TEAM_CONTEXT
+from shared.prompts import TEAM_CONTEXT, role_prompt
 
 router = Router()
 ai = AIEngine()
@@ -200,7 +200,7 @@ async def process_report(msg: Message):
 
     try:
         response = await ai.chat_completion(
-            "Ты контролёр качества. Оцени выполнение задачи строго но справедливо.",
+            role_prompt("Ты контролёр качества. Оцени выполнение задачи строго но справедливо."),
             verify_prompt,
             effort="high",
         )

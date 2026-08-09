@@ -18,7 +18,7 @@ from bots.content_bot.handlers import all_routers
 
 from shared.ai_engine import AIEngine
 from shared.brand import BRAND_TEXT_STYLE
-from shared.prompts import TEAM_CONTEXT
+from shared.prompts import TEAM_CONTEXT, role_prompt
 from shared import catalog_repo
 from shared.config import settings
 from shared.content_archive import (
@@ -226,7 +226,7 @@ async def auto_publish_to_channel():
         )
 
         post_text = await ai.chat_completion(
-            "Ты SMM-менеджер Microgreen Uzbekistan. Пиши красиво и профессионально.",
+            role_prompt("Ты SMM-менеджер Microgreen Uzbekistan. Пиши красиво и профессионально."),
             prompt,
             temperature=0.8,
         )
@@ -390,8 +390,8 @@ async def morning_post(d: date | None = None):
 
         async def _gen_headline() -> str:
             return await ai.chat_completion(
-                "Sen kreativ kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz, so'zlarni buzma."
-                + (await get_dynamic_content_policy()),
+                role_prompt("Sen kreativ kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz, so'zlarni buzma."
+                + (await get_dynamic_content_policy())),
                 f"Shu post uchun qisqa, jozibali SARLAVHA (hook) o'ylab top — FAQAT Uzbek Latin, ko'pi bilan 5 so'z, "
                 f"emoji va tinish belgilarisiz. Faqat sarlavhani yoz:\n{post_text[:500]}",
             )
@@ -436,7 +436,7 @@ async def morning_post(d: date | None = None):
         elif fmt["key"] == "this_or_that":
             headline = await _gen_headline()
             raw_opts = await ai.chat_completion(
-                "Sen kopirayter. Uzbek Latin, grammatik to'g'ri." + (await get_dynamic_content_policy()),
+                role_prompt("Sen kopirayter. Uzbek Latin, grammatik to'g'ri." + (await get_dynamic_content_policy())),
                 f"Ikkita QISQA tanlov variantini taklif qil, har biri 1-3 so'z, ular orasiga '|' qo'y, "
                 f"emoji va tinish belgilarisiz. FAQAT ikkita variant:\n{post_text[:300]}",
             )
@@ -448,8 +448,8 @@ async def morning_post(d: date | None = None):
             # Вовлекающие форматы (вопрос/цитата) — заголовок + одна фраза пользы
             headline = await _gen_headline()
             benefit = await ai.chat_completion(
-                "Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz."
-                + (await get_dynamic_content_policy()),
+                role_prompt("Sen kopirayter. Grammatik to'g'ri, tabiiy o'zbek tilida yoz."
+                + (await get_dynamic_content_policy())),
                 f"Bitta ANIQ foyda/qiziqarli iborani yoz — Uzbek Latin, ko'pi bilan 6 so'z, "
                 f"emoji va tinish belgilarisiz. MUHIM: bu sarlavhadan FARQ qilsin. Sarlavha: «{headline[:60]}». "
                 f"Faqat iborani yoz:\n{post_text[:400]}",
@@ -640,7 +640,9 @@ async def evening_post(d: date | None = None):
             f"🍽 <b>{title}</b>\n\n"
             f"👨‍🍳 <b>Tayyorlash:</b>\n{steps_txt}\n"
             + (f"\n🔑 <i>Sirimiz:</i> {secret}\n" if secret else "")
-            + "\n📞 +998 94 999 95 99 · Buyurtma berish\n#MicrogreenUzbekistan"
+            # Телефон из настроек: подпись уходит в канал и в Instagram,
+            # менять его правкой кода в каждом посте — тот же путь к заглушке.
+            + f"\n📞 {settings.company_phone} · Buyurtma berish\n#MicrogreenUzbekistan"
         )
 
         channel_caption = f"{caption}\n\nmicrogreenuzbekistan.com"
@@ -1115,7 +1117,7 @@ async def daily_magazine_rubric():
             "📰 <b>Рубрика дня из FRESH WEEKLY</b>\n\n"
             "✨ Факт дня: Пибимпаб с микрозеленью — это не только вкусно, но и полезно для пищеварения!\n"
             "Добавьте ростки дайкона для пикантности.\n\n"
-            "👉 Читайте полную статью: <a href='https://microgreenuzbekistan.com/magazine/2'>FRESH WEEKLY #2</a>"
+            "👉 Читайте полную статью: <a href='https://microgreenuzbekistan.com/magazine'>FRESH WEEKLY #2</a>"
         )
 
         if _bot:
@@ -1188,7 +1190,7 @@ async def bus_publish_story(params: dict) -> dict:
 
     # Генерируем короткий заголовок для картинки
     headline = await ai.chat_completion(
-        "Ты копирайтер.",
+        role_prompt("Ты копирайтер."),
         f"Придумай ОДИН короткий, броский заголовок (максимум 2-4 слова) на ТОМ ЖЕ ЯЗЫКЕ, что и тема (узбекский или русский). Пиши ТОЛЬКО сам заголовок без кавычек:\nТема: {topic}",
     )
 
@@ -1239,19 +1241,19 @@ async def bus_generate_meme(params: dict) -> dict:
     context = await fetch_uzbek_trends()
 
     meme_idea = await ai.chat_completion(
-        "Ты топовый мемолог Узбекистана. Аудитория: молодёжь 18-35, женщины, ЗОЖники.",
+        role_prompt("Ты топовый мемолог Узбекистана. Аудитория: молодёжь 18-35, женщины, ЗОЖники."),
         f"Тема: {topic}\n\nАКТУАЛЬНЫЙ КОНТЕКСТ:\n{context}\n\n"
         f"Создай вирусный мем связанный с темой '{topic}' и актуальными трендами. "
         f"Юмор для узбекской аудитории. На русском. Опиши сцену и пунчлайн.",
     )
 
     headline = await ai.chat_completion(
-        "Ты редактор мемов.",
+        role_prompt("Ты редактор мемов."),
         f"Выдели ОДНУ смешную фразу (до 5 слов) на РУССКОМ. Без кавычек:\n{meme_idea}",
     )
 
     image_prompt = await ai.chat_completion(
-        "Ты создатель мемов.",
+        role_prompt("Ты создатель мемов."),
         f"Промпт на английском для DALL-E 3 (funny meme, vertical for Instagram Stories). "
         f'Вписать текст: "{headline}" (bold white text, black outline, meme font). Ситуация: {meme_idea[:300]}',
     )

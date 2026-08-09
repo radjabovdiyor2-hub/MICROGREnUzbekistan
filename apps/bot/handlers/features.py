@@ -9,7 +9,6 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Optional
 
 import httpx
 from aiogram import Router, F
@@ -22,7 +21,9 @@ from aiogram.types import (
 from aiogram.filters import Command
 
 from services.ecosystem_bridge import bridge
+from services.config_service import fetch_site_config
 from shared.constants import format_price
+from shared.offers import referral_text
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -154,13 +155,9 @@ async def cb_profile_referral(callback: CallbackQuery):
     user_id = callback.from_user.id
     ref_link = f"https://t.me/Microgreenuzbekistan_bot?start=ref_{user_id}"
 
+    config = await fetch_site_config()
     await callback.message.edit_text(
-        "👥 <b>Пригласи друга — получи бонусы!</b>\n\n"
-        f"🔗 Твоя ссылка:\n<code>{ref_link}</code>\n\n"
-        "🎁 <b>Бонусы:</b>\n"
-        "• Ты: <b>500 баллов</b> за каждого друга\n"
-        "• Друг: <b>200 баллов</b> при первом заказе\n\n"
-        "📤 Поделитесь с друзьями!",
+        referral_text(config, ref_link),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="« Назад", callback_data="menu:profile")],
         ]),

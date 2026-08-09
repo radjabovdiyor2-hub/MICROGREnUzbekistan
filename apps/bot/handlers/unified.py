@@ -10,7 +10,9 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import Command
 
 from services.ecosystem_bridge import bridge
+from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_LABELS_LOWER, CATEGORY_LABELS, format_price
+from shared.offers import balance_text, referral_text
 
 router = Router()
 
@@ -102,15 +104,8 @@ async def cmd_bonuses(message: Message):
     user = message.from_user
     bonuses = await bridge.get_user_bonuses(user.id)
     
-    await message.answer(
-        f"💰 <b>Ваши бонусы</b>\n\n"
-        f"🎁 Баланс: <b>{bonuses}</b> баллов\n\n"
-        f"<i>Как заработать:</i>\n"
-        f"• 🛒 Делать заказы — 5% от суммы\n"
-        f"• 🎮 Играть в игру — до 100 баллов/день\n"
-        f"• 👥 Приглашать друзей — 500 баллов\n"
-        f"• ⭐ Оставлять отзывы — 50 баллов"
-    )
+    config = await fetch_site_config()
+    await message.answer(balance_text(config, bonuses), parse_mode="HTML")
 
 
 # NOTE: /game command is handled by start.py (higher priority router)
@@ -260,7 +255,7 @@ async def cb_category(callback: CallbackQuery):
             text += f"• {title} — <b>{format_price(price)}</b> сум\n"
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 На сайте", url=f"https://microgreenuzbekistan.com/shop?category={category}")],
+        [InlineKeyboardButton(text="🌐 На сайте", url=f"https://microgreenuzbekistan.com/catalog?category={category}")],
         [InlineKeyboardButton(text="« Каталог", callback_data="catalog:pricelist"),
          InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
     ])
@@ -330,10 +325,10 @@ async def cb_bonuses(callback: CallbackQuery):
     user = callback.from_user
     bonuses = await bridge.get_user_bonuses(user.id)
     
+    config = await fetch_site_config()
     await callback.message.edit_text(
-        f"💰 <b>Ваши бонусы</b>\n\n"
-        f"🎁 Баланс: <b>{bonuses}</b> баллов\n\n"
-        f"\n<i>100 баллов = 1 000 сум скидки</i>",
+        balance_text(config, bonuses),
+        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
         ])
@@ -345,7 +340,7 @@ async def cb_bonuses(callback: CallbackQuery):
 async def cb_game(callback: CallbackQuery):
     """Игра"""
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Играть", url="https://microgreenuzbekistan.com/game")],
+        [InlineKeyboardButton(text="🎮 Играть", url="https://t.me/Microgreenuzbekistan_bot/game")],
         [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
     ])
     
@@ -412,6 +407,7 @@ async def cb_agronomist_shop(callback: CallbackQuery):
     """Hint: how to use AI for shopping"""
     try:
         await callback.message.edit_text(
+            # prompt-ok: obrazec formata telefona dlya klienta, a ne kontakt kompanii
             "🛒 <b>Подбор микрозелени</b>\n\n"
             "Напишите мне, что вам нужно, например:\n\n"
             "• <i>«Какая микрозелень самая вкусная?»</i>\n"
@@ -436,15 +432,8 @@ async def cmd_referral(message: Message):
     user_id = message.from_user.id
     ref_link = f"https://t.me/Microgreenuzbekistan_bot?start=ref_{user_id}"
     
-    await message.answer(
-        "👥 <b>Пригласи друга — получи бонусы!</b>\n\n"
-        f"🔗 Твоя реферальная ссылка:\n<code>{ref_link}</code>\n\n"
-        "🎁 <b>Бонусы:</b>\n"
-        "• Ты получишь <b>500 баллов</b> за каждого друга\n"
-        "• Друг получит <b>200 баллов</b> при первом заказе\n\n"
-        "📤 Поделитесь ссылкой с друзьями!",
-        parse_mode="HTML"
-    )
+    config = await fetch_site_config()
+    await message.answer(referral_text(config, ref_link), parse_mode="HTML")
 
 
 @router.callback_query(F.data == "menu:about")

@@ -14,6 +14,7 @@ from bots.finance_bot.keyboards.inline import (
     income_categories_kb,
 )
 from bots.finance_bot.states import ExpenseStates, IncomeStates
+from shared.prompts import role_prompt
 
 logger = logging.getLogger(__name__)
 router = Router()
@@ -238,6 +239,6 @@ async def start_ai(cb: CallbackQuery):
 async def ai_fin(msg: Message):
     await simulate_typing(msg, delay=2)
     r = await ai.chat_completion(
-        "Ты финансист Microgreen Uzbekistan.", msg.text, effort="high"
+        role_prompt("Ты финансист Microgreen Uzbekistan."), msg.text, effort="high"
     )
     await msg.answer(r)

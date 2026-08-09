@@ -2,6 +2,7 @@ import logging
 from aiogram import Router, F
 from aiogram.types import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 from keyboards.magazine import magazine_keyboard
+from services.config_service import fetch_site_config
 
 router = Router()
 
@@ -20,10 +21,14 @@ async def inline_magazine_query(inline_query: InlineQuery):
     text = (
         f"🌟 <b>FRESH WEEKLY — Выпуск #{issue_number}</b>\n\n"
         "Главный интерактивный гастрономический журнал Узбекистана о микрозелени, ресторанах и рецептах!\n\n"
-        f"👉 <a href='https://microgreenuzbekistan.com/magazine/{issue_number}'>Читать выпуск онлайн</a>"
+        # Страницы выпуска по номеру нет — /magazine показывает все выпуски.
+        "👉 <a href='https://microgreenuzbekistan.com/magazine'>Читать выпуск онлайн</a>"
     )
 
-    thumb_url = f"https://microgreenuzbekistan.com/magazine/cover_issue_0{issue_number}.png" if issue_number > 1 else "https://microgreenuzbekistan.com/magazine/cover-01.png"
+    thumb_url = "https://microgreenuzbekistan.com/magazine/img/cover.png"
+
+    # Цена печатного выпуска — из настроек: она стоит на кнопке клавиатуры.
+    config = await fetch_site_config()
 
     result = InlineQueryResultArticle(
         id=f"mag_{issue_number}",
@@ -35,7 +40,7 @@ async def inline_magazine_query(inline_query: InlineQuery):
             parse_mode="HTML",
             disable_web_page_preview=False
         ),
-        reply_markup=magazine_keyboard(issue_number)
+        reply_markup=magazine_keyboard(issue_number, config.magazine_print_price)
     )
 
     try:

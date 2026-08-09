@@ -195,7 +195,7 @@ async def admin_products(callback: CallbackQuery):
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Добавить товар", callback_data="products:add")],
-        [InlineKeyboardButton(text="📋 Список товаров", url="https://microgreenuzbekistan.com/admin/products")],
+        [InlineKeyboardButton(text="📋 Список товаров", url="https://microgreenuzbekistan.com/admin")],
         [InlineKeyboardButton(text="« Назад", callback_data="admin:back")],
     ])
     
@@ -384,10 +384,10 @@ async def handle_products_add(callback: CallbackQuery):
     await callback.message.edit_text(
         "➕ <b>Добавить товар</b>\n\n"
         "Добавление товаров через веб-админку:\n"
-        "🌐 microgreenuzbekistan.com/admin/products\n\n"
+        "🌐 microgreenuzbekistan.com/admin\n\n"
         "⚠️ Добавление через бота в разработке.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🌐 Веб-админка", url="https://microgreenuzbekistan.com/admin/products")],
+            [InlineKeyboardButton(text="🌐 Веб-админка", url="https://microgreenuzbekistan.com/admin")],
             [InlineKeyboardButton(text="« Назад", callback_data="admin:products")],
         ]),
         parse_mode="HTML"
@@ -425,14 +425,14 @@ async def admin_users(callback: CallbackQuery):
         return
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 Все пользователи", url="https://microgreenuzbekistan.com/admin/users")],
+        [InlineKeyboardButton(text="🌐 Все пользователи", url="https://microgreenuzbekistan.com/admin")],
         [InlineKeyboardButton(text="« Назад", callback_data="admin:back")],
     ])
     
     await callback.message.edit_text(
         "👥 <b>Пользователи</b>\n\n"
         "Управление пользователями через веб-админку.\n\n"
-        "🌐 microgreenuzbekistan.com/admin/users",
+        "🌐 microgreenuzbekistan.com/admin",
         reply_markup=keyboard
     )
     await callback.answer()

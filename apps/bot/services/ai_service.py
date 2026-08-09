@@ -1,3 +1,4 @@
+import asyncio
 import os
 import base64
 import tempfile
@@ -9,6 +10,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 from mg_ai.engine import AIEngine
+
+from services.config_service import fetch_site_config
 
 # Load env
 env_path = Path(__file__).parent.parent / '.env'
@@ -75,7 +78,8 @@ async def _load_product_catalog() -> str:
                     catalog += f" — {desc}"
                 catalog += "\n"
         
-        catalog += "\n🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\n"
+        # Условия доставки собирает _conditions_block() из настроек — здесь
+        # они были второй копией и разошлись бы при первой же правке.
         
         _catalog_cache["text"] = catalog
         _catalog_cache["timestamp"] = now
@@ -104,27 +108,21 @@ SYSTEM_PROMPT_BASE = """Ты — AI-помощник бренда Microgreen Uzb
 - 🗣️ Язык: отвечай на языке собеседника (русский / ўзбекча / English).
 - Если клиент ищет товар → СРАЗУ предлагай конкретные позиции с ценами!
 
-ПРОДУКЦИЯ И ВКУСЫ:
-• Микрозелень (лоток): зелёные 15 000 сум, красные 20 000 сум
+ВКУСЫ (без цен — цены только из каталога ниже):
+• Микрозелень (лоток)
   - Горох: нежный, свежий | Подсолнечник: ореховый, насыщенный
   - Руккола: горчично-ореховый, пикантный | Брокколи: мягкий, витаминный
   - Базилик: ароматный, пряный | Кориандр: яркий, специфический
   - Кресс-салат: островатый | Редис: острый, яркий цвет
-• Бейби-лист (100г): 25 000 — 40 000 сум
+• Бейби-лист (100г)
   - Руккола, базилик, мята, шпинат, кейл, мангольд, татсой, мизуна, щавель
-• Салаты (1 кг): 100 000 — 200 000 сум
+• Салаты (1 кг)
   - Aveleda, айсберг, романо, лоло росса, радичио, фризе
 
-УСЛОВИЯ:
-📞 +998 94 999 95 99 / +998 98 007 20 20
-📍 Ray сenter, Самарканд
-🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день
-💳 Оплата: наличные, Click, Payme, перевод, договор (юр. лица)
-🌐 microgreenuzbekistan.com
-
 ПРАВИЛА РАБОТЫ С КАТАЛОГОМ:
-- Предлагай КОНКРЕТНЫЕ товары с ценами из каталога ниже.
-- Если товара нет — предложи аналог.
+- Цену бери ТОЛЬКО из каталога ниже. Своих цифр не придумывай и не округляй.
+- Если товара в каталоге нет — так и скажи и предложи аналог из каталога.
+- Нет каталога — не называй цену вообще, предложи уточнить у менеджера.
 - Предлагай сопутствующие товары.
 
 ПРИ АНАЛИЗЕ ЕДЫ ПО ФОТО (Nutritionist Vision):
@@ -144,10 +142,31 @@ SYSTEM_PROMPT_BASE = """Ты — AI-помощник бренда Microgreen Uzb
 """
 
 
+async def _conditions_block() -> str:
+    """Условия доставки, оплаты и контакты — из настроек витрины.
+
+    Раньше этот блок стоял в промпте строкой: два телефона, адрес «Ray сenter»
+    и «Оплата: наличные, Click, Payme…». Поменять их можно было только правкой
+    кода, а рядом в том же промпте лежал второй, захардкоженный прайс —
+    модель получала две противоречащие цены сразу и выбирала любую.
+    """
+    config = await fetch_site_config()
+    free_from = f"{config.free_delivery_threshold:,}".replace(",", " ")
+    fee = f"{config.delivery_fee:,}".replace(",", " ")
+    return (
+        "\nУСЛОВИЯ (актуальные, из настроек — им верь больше, чем памяти):\n"
+        f"📞 {config.contact_phone}\n"
+        "🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\n"
+        f"🚚 Доставка {fee} сум, бесплатно от {free_from} сум\n"
+        f"💳 Оплата: {config.payment_text}\n"
+        "🌐 microgreenuzbekistan.com\n"
+    )
+
+
 async def _get_system_prompt() -> str:
     """Build full system prompt with product catalog"""
     catalog = await _load_product_catalog()
-    return SYSTEM_PROMPT_BASE + catalog
+    return SYSTEM_PROMPT_BASE + await _conditions_block() + catalog
 
 
 # ── AI: всё через OpenAI ──────────────────────────────────────────────
@@ -162,6 +181,45 @@ async def _get_system_prompt() -> str:
 _engine: Optional[AIEngine] = None
 
 
+def _persist_usage(
+    bot_name: str, model: str, input_tokens: int, output_tokens: int, cost_usd: float
+) -> None:
+    """Записать расход токенов через витрину — best-effort, не блокирует ответ.
+
+    Прямого доступа к базе у бота нет и быть не должно, поэтому расход уходит
+    в `POST /api/ai/usage`. Без этого крючка `bot_name="storefront_bot"`
+    передавался в движок, но записывать его было некому: разбор фото и
+    расшифровка голоса тратили платные токены мимо всякого учёта.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return  # вызвано вне event loop — записывать некуда
+
+    async def _send() -> None:
+        try:
+            headers = {"Content-Type": "application/json"}
+            secret = os.getenv("BOT_SECRET", "")
+            if secret:
+                headers["Authorization"] = f"Bearer {secret}"
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    f"{WEB_API_URL}/ai/usage",
+                    headers=headers,
+                    json={
+                        "bot": bot_name,
+                        "model": model,
+                        "inputTokens": input_tokens,
+                        "outputTokens": output_tokens,
+                        "costUsd": cost_usd,
+                    },
+                )
+        except Exception as e:
+            logger.debug("Расход ИИ не записан: %s", e)
+
+    loop.create_task(_send())
+
+
 def _get_engine() -> AIEngine:
     """Ленивый общий движок. Один на процесс — держит HTTP-сессию и клиент."""
     global _engine
@@ -170,6 +228,7 @@ def _get_engine() -> AIEngine:
             openai_key=os.getenv("OPENAI_API_KEY"),
             openai_model=os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
             bot_name="storefront_bot",
+            persist_fn=_persist_usage,
         )
     return _engine
 

@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import init_db
 from shared.event_bus import event_bus
@@ -246,7 +247,10 @@ async def monthly_pnl():
             # AI analysis
             ai = AIEngine()
             analysis = await ai.chat_completion(
-                "Ты финансовый аналитик микрозелени в Узбекистане. Дай краткий анализ (3-5 предложений).",
+                role_prompt(
+                    "Ты финансовый аналитик микрозелени в Узбекистане. "
+                    "Дай краткий анализ (3-5 предложений)."
+                ),
                 f"Проанализируй P&L:\n{report_text}",
                 effort="high",
             )

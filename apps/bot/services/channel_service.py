@@ -3,12 +3,18 @@ Telegram Channel & Group Automation Service
 Auto-posts content to channel and manages group moderation.
 """
 
+import logging
 import os
 from aiogram import Bot
 from aiogram.enums import ParseMode
 from dotenv import load_dotenv
 
+from services.config_service import fetch_site_config
+from services.ecosystem_bridge import bridge
+
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID", "@MicrogreenUzbekistan")  # Official channel
@@ -23,55 +29,72 @@ def _get_bot() -> Bot:
         _bot_instance = Bot(token=BOT_TOKEN)
     return _bot_instance
 
-# Daily content for auto-posting — продающие посты для покупателей
+# Ежедневные посты в канал — уходят по расписанию, без человека.
+#
+# Цены здесь НЕ пишутся. Раньше в теле поста стояло «Лоток брокколи —
+# 15 000 сум», и после любой правки прайса канал ещё месяцами обещал старую
+# цифру: никто не помнит, что цену надо менять в двух местах.
+#
+# `match` — подстрока названия товара. Перед публикацией она ищется в живом
+# каталоге, `{product}` и `{price}` подставляются оттуда. Товара нет в
+# каталоге — пост пропускается, а не выходит с устаревшей ценой.
+#
+# `{payment}` подставляется из настроек витрины (`payment.methods`).
 DAILY_CONTENT = [
     {
         "title": "🥗 Рецепт дня",
+        "match": "подсолнеч",
         "body": "Салат с микрозеленью подсолнечника, авокадо и лимонной заправкой — за 10 минут!\n\n"
                 "Подсолнечник — ореховый, сочный вкус. Идеален для салатов и боулов.\n\n"
-                "💰 Лоток микрозелени подсолнечника — 15 000 сум",
+                "💰 {product} — {price} сум",
     },
     {
         "title": "🌿 Знаете ли вы?",
+        "match": "брокколи",
         "body": "Микрозелень брокколи содержит в 40 раз больше сульфорафана, чем взрослый брокколи!\n\n"
                 "Добавляйте в смузи, салаты и сэндвичи — вкус мягкий, нежный.\n\n"
-                "💰 Лоток брокколи — 15 000 сум",
+                "💰 {product} — {price} сум",
     },
     {
         "title": "🍽️ Шеф рекомендует",
+        "match": "руккол",
         "body": "Руккола микро — пикантный, горчичный вкус. Идеальна для:\n"
                 "• Пиццы и пасты\n"
                 "• Стейков и бургеров\n"
                 "• Песто и заправок\n\n"
-                "💰 Лоток рукколы — 15 000 сум",
+                "💰 {product} — {price} сум",
     },
     {
-        "title": "🎁 Акция недели",
-        "body": "Закажите 3 лотка — получите скидку 10%!\n\n"
-                "Попробуйте набор «Знакомство»:\n"
-                "🌻 Подсолнечник + 🟢 Горох + 🥦 Брокколи\n\n"
-                "💰 3 лотка за 40 500 сум (вместо 45 000)",
+        # Скидки «3 лотка за 40 500 вместо 45 000» в системе нет: ни промокода,
+        # ни правила на количество. Пост зовёт в каталог, а не обещает её.
+        "title": "🎁 Набор «Знакомство»",
+        "body": "Не знаете, с чего начать? Возьмите три вкуса сразу:\n\n"
+                "🌻 Подсолнечник — ореховый\n"
+                "🟢 Горох — сладкий, хрустящий\n"
+                "🥦 Брокколи — мягкий, полезный\n\n"
+                "Наборы и цены — в каталоге.",
     },
     {
-        "title": "🥬 Новинка: Бейби-лист",
+        "title": "🥬 Бейби-лист",
+        "match": "бейби",
         "body": "Нежные молодые листья — крупнее микрозелени, нежнее салата.\n\n"
-                "В наличии: шпинат, кейл, мангольд, руккола.\n"
                 "Идеально для салатов, гарниров и смузи-боулов.\n\n"
-                "💰 Упаковка 100г — от 25 000 сум",
+                "💰 {product} — {price} сум",
     },
     {
         "title": "💪 ЗОЖ-совет",
+        "match": "горох",
         "body": "Добавьте микрозелень в утренний смузи — заряд витаминов на весь день!\n\n"
                 "Рецепт: банан + шпинат + микрозелень гороха + мёд + вода.\n"
                 "Готово за 3 минуты!\n\n"
-                "💰 Микрозелень гороха — 15 000 сум/лоток",
+                "💰 {product} — {price} сум",
     },
     {
         "title": "🚚 Доставка по Самарканду",
         "body": "Заказали утром — получите в тот же день!\n\n"
                 "📍 Самарканд — в день заказа\n"
                 "📍 Ташкент — на следующий день\n"
-                "💳 Оплата: наличные, Click, Payme\n\n"
+                "💳 Оплата: {payment}\n\n"
                 "Закажите прямо сейчас!",
     },
 ]
@@ -123,23 +146,65 @@ async def post_new_product(product: dict) -> dict:
 💰 <b>{price} сум</b>
 
 🛒 Заказать: @Microgreenuzbekistan_bot
-🌐 Сайт: microgreenuzbekistan.com/shop"""
+🌐 Сайт: microgreenuzbekistan.com/catalog"""
     
     return await post_to_channel(text, product.get('image'))
 
+async def _find_product(match: str) -> dict | None:
+    """Найти товар в живом каталоге по подстроке названия.
+
+    Берём самый дешёвый из подходящих: пост зовёт попробовать, и называть
+    цену топовой позиции, когда рядом лежит доступная, — обман ожидания.
+    """
+    try:
+        products = await bridge.get_products(limit=100)
+    except Exception as e:
+        logger.error("Не удалось загрузить каталог для поста: %s", e)
+        return None
+
+    needle = match.lower()
+    found = [
+        p for p in products
+        if needle in str(p.get("title", "")).lower() and p.get("inStock", True)
+    ]
+    if not found:
+        return None
+    return min(found, key=lambda p: int(p.get("price", 0) or 0))
+
+
 async def post_daily_tip(day_of_week: int) -> dict:
-    """Posts daily content based on day of week (0=Monday)."""
+    """Posts daily content based on day of week (0=Monday).
+
+    Цена подставляется из каталога. Товара нет — пост не выходит: устаревшая
+    цена в канале дороже пропущенного дня.
+    """
     content = DAILY_CONTENT[day_of_week % len(DAILY_CONTENT)]
-    
+    body = content["body"]
+
+    if "{product}" in body or "{price}" in body:
+        product = await _find_product(content["match"])
+        if not product:
+            logger.warning(
+                "Пост «%s» пропущен: в каталоге нет товара по «%s»",
+                content["title"], content["match"],
+            )
+            return {"skipped": "product_not_in_catalog", "title": content["title"]}
+        price = f"{int(product['price']):,}".replace(",", " ")
+        body = body.replace("{product}", str(product["title"])).replace("{price}", price)
+
+    if "{payment}" in body:
+        config = await fetch_site_config()
+        body = body.replace("{payment}", config.payment_text)
+
     text = f"""🌱 <b>Microgreen Uzbekistan</b>
 
 <b>{content['title']}</b>
 
-{content['body']}
+{body}
 
 🛒 Заказать: @Microgreenuzbekistan_bot
 🌐 microgreenuzbekistan.com"""
-    
+
     return await post_to_channel(text)
 
 async def send_group_welcome(user_name: str, group_id: str = None) -> dict:
@@ -162,7 +227,7 @@ async def send_group_welcome(user_name: str, group_id: str = None) -> dict:
 • Узнавать о новинках и акциях
 
 🤖 AI-помощник: @Microgreenuzbekistan_bot
-🛒 Каталог: microgreenuzbekistan.com/shop"""
+🛒 Каталог: microgreenuzbekistan.com/catalog"""
     
     try:
         msg = await bot.send_message(
@@ -174,11 +239,6 @@ async def send_group_welcome(user_name: str, group_id: str = None) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
-# FAQ auto-responder keywords
-FAQ_RESPONSES = {
-    "цена": "💰 Актуальные цены на сайте: microgreenuzbekistan.com/shop\nИли напишите боту: @Microgreenuzbekistan_bot",
-    "доставка": "🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\nОплата: наличные, Click, Payme",
-    "заказ": "🛒 Заказать можно:\n• Через бота: @Microgreenuzbekistan_bot\n• На сайте: microgreenuzbekistan.com/shop",
-    "семена": "🌱 Семена для микрозелени в каталоге: microgreenuzbekistan.com/shop?category=seeds",
-    "оборудование": "⚙️ LED-лампы, pH-метры, стеллажи: microgreenuzbekistan.com/shop?category=equipment",
-}
+# FAQ_RESPONSES удалён: его никто не читал, а он дословно повторял
+# FAQ_PATTERNS из handlers/group.py — вторая копия тех же ответов, которая
+# при первой же правке разошлась бы с живой.

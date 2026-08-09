@@ -87,10 +87,31 @@ jobs:
           if [ -f apps/tgas/requirements.txt ]; then pip install -r apps/tgas/requirements.txt; fi
       - name: Run Ruff
         run: ruff check apps/tgas
+      # Витринный бот раньше не проверялся вовсе — там накопился 21 мёртвый
+      # импорт, и «ruff чисто» относилось только к офису.
+      - name: Run Ruff (storefront bot)
+        run: ruff check --select F apps/bot
       - name: Run Mypy
         run: mypy apps/tgas --ignore-missing-imports || true
       - name: Run compose invariant watchdog
         run: python scripts/check_compose.py
+      # Ниже — проверки, которые CLAUDE.md требует прогонять перед «готово»,
+      # но CI не запускал ни одну: они существовали только как ручная команда.
+      # Именно поэтому check_prompts мог месяцами не видеть половины нарушений —
+      # его никто не запускал, а значит, никто и не замечал, что он ослеп.
+      - name: Run tgas tests
+        run: python -m pytest tests/ -q
+        working-directory: apps/tgas
+      - name: Run storefront bot tests
+        run: python -m pytest tests/ -q
+        working-directory: apps/bot
+      - name: Run static cross-checks
+        working-directory: apps/tgas
+        run: |
+          python scripts/check_schema.py
+          python scripts/check_tools.py
+          python scripts/check_bot_roster.py
+          python scripts/check_prompts.py
 
   # ─────────────────────────── BUILD IMAGES ───────────────────────────
   build-images:

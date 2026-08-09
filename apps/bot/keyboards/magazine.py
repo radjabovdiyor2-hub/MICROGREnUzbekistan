@@ -1,13 +1,18 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-def magazine_keyboard(issue_number: int) -> InlineKeyboardMarkup:
-    """Returns the main magazine keyboard."""
+def magazine_keyboard(issue_number: int, print_price: int) -> InlineKeyboardMarkup:
+    """Returns the main magazine keyboard.
+
+    `print_price` приходит из настроек (`magazine.printPrice`): цена стояла
+    числом и здесь, и в тексте заявки — два места, которые расходятся при
+    первой же правке прайса.
+    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text="📖 Читать онлайн",
-                    url=f"https://microgreenuzbekistan.com/magazine/{issue_number}"
+                    url="https://microgreenuzbekistan.com/magazine"
                 )
             ],
             [
@@ -22,7 +27,7 @@ def magazine_keyboard(issue_number: int) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    text="🖨 Заказать печатную копию (30 000 сум)",
+                    text=f"🖨 Заказать печатную копию ({print_price:,} сум)".replace(",", " "),
                     callback_data=f"mag_print_{issue_number}"
                 )
             ],

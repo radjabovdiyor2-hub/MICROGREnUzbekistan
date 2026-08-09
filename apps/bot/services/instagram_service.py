@@ -97,7 +97,7 @@ def format_product_caption(product: dict) -> str:
 
 💰 {price} сум
 
-🛒 Заказать: microgreenuzbekistan.com/shop
+🛒 Заказать: microgreenuzbekistan.com/catalog
 📱 Telegram: @Microgreenuzbekistan_bot
 📢 Канал: @MicrogreenUzbekistan
 

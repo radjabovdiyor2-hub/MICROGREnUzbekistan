@@ -1,6 +1,5 @@
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-import httpx
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 import os
 import logging
 
@@ -101,24 +100,31 @@ async def show_bonuses(callback: CallbackQuery):
     """Show user's bonuses"""
     from services.ecosystem_bridge import bridge
     
+    from services.config_service import fetch_site_config
+
+    config = await fetch_site_config()
     bonuses = await bridge.get_user_bonuses(callback.from_user.id)
     bonus_value = f"{bonuses:,}".replace(",", " ")
-    discount = f"{(bonuses // 100) * 1000:,}".replace(",", " ")
-    
+    # Балл равен суму — ровно как списывает корзина (`Math.min(balance, subtotal)`).
+    # Раньше здесь стояло `(bonuses // 100) * 1000`, и бот обещал вдесятеро
+    # больше, чем клиент получал на оформлении.
+    discount = f"{bonuses:,}".replace(",", " ")
+    min_cashout = f"{config.bonus.min_cashout:,}".replace(",", " ")
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎮 Farm Simulator", url="https://t.me/Microgreenuzbekistan_bot/game")],
         [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
     ])
-    
+
     await callback.message.edit_text(
         "💎 <b>Мои бонусы</b>\n\n"
         f"🎁 Баланс: <b>{bonus_value} баллов</b>\n"
         f"= {discount} сум скидки\n\n"
         "📈 <b>Как заработать:</b>\n"
-        "• +10% от суммы заказа\n"
-        "• +100 за приглашённого друга\n"
-        "• +50 за отзыв с фото\n"
-        "• 🎮 Играйте в Farm Simulator!",
+        f"• +{config.bonus.referral_percent}% от заказа приглашённого друга\n"
+        f"• +{config.bonus.referrer_reward:,} за приглашённого друга\n".replace(",", " ")
+        + "• 🎮 Играйте в Farm Simulator!\n\n"
+        f"<i>Списать баллы можно, когда на балансе от {min_cashout}.</i>",
         reply_markup=keyboard,
         parse_mode="HTML"
     )

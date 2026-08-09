@@ -3,7 +3,8 @@ import { prisma } from '@repo/database';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 import { callOpenAI, fallbackResponse } from '@/lib/ai/openaiClient';
-import { getWeather, buildStoreContext } from '@/lib/ai/chatHelpers';
+import { getWeather, buildStoreContext, buildConditions } from '@/lib/ai/chatHelpers';
+import { getSettings } from '@/lib/settings/store';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 // ==========================================
@@ -56,8 +57,11 @@ export async function POST(request: NextRequest) {
 
     if (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) {
       try {
-        const storeContext = await buildStoreContext();
-        reply = await callOpenAI(message || 'Bu rasmni tahlil qil', history || [], storeContext, userInfo, image);
+        const [storeContext, conditions] = await Promise.all([
+          buildStoreContext(),
+          buildConditions(),
+        ]);
+        reply = await callOpenAI(message || 'Bu rasmni tahlil qil', history || [], storeContext, conditions, userInfo, image);
       } catch (error) {
         console.error('OpenAI fallback:', error);
         reply = await fallbackResponse(message || '');
@@ -74,8 +78,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('AI chat error:', error);
+    // Телефон — из настроек. Здесь литералом стоял третий по счёту номер,
+    // не совпадавший ни с одним из двух в промпте.
+    let phone = '';
+    try {
+      phone = String((await getSettings())['contacts.phonePrimary'] || '');
+    } catch { /* настройки недоступны — обойдёмся без номера */ }
+    const call = phone ? ` yoki ${phone} ga qo'ng'iroq qiling` : '';
+    const callRu = phone ? ` или позвоните ${phone}` : '';
     return NextResponse.json({
-      reply: "Voy, nimadur xato ketdi! 😅 Qayta urinib ko'ring yoki +998 94 999 95 99 ga qo'ng'iroq qiling.\n\nУпс, что-то пошло не так! 😅 Попробуйте еще раз или позвоните +998 94 999 95 99.",
+      reply: `Voy, nimadur xato ketdi! 😅 Qayta urinib ko'ring${call}.\n\nУпс, что-то пошло не так! 😅 Попробуйте еще раз${callRu}.`,
       source: 'error',
     });
   }

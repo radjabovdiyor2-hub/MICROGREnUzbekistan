@@ -5,6 +5,7 @@ from aiogram.types import FSInputFile
 from pathlib import Path
 
 from keyboards.magazine import magazine_keyboard
+from services.config_service import fetch_site_config
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -33,7 +34,8 @@ async def cmd_magazine(message: types.Message):
         "<i>Используйте AR-магию на обложке печатной версии, чтобы оживить блюда!</i>"
     )
     
-    keyboard = magazine_keyboard(issue_number)
+    config = await fetch_site_config()
+    keyboard = magazine_keyboard(issue_number, config.magazine_print_price)
     cover_path, _ = get_issue_paths(issue_number)
     
     if cover_path.exists():
@@ -75,12 +77,17 @@ async def handle_magazine_print_order(callback: types.CallbackQuery):
     issue_number = callback.data.split("_")[-1]
     user = callback.from_user
     
+    # Цена и телефон — из настроек: раньше стояли числом здесь и второй раз в
+    # тексте кнопки, и поднять цену можно было только правкой кода в двух местах.
+    config = await fetch_site_config()
+    price = f"{config.magazine_print_price:,}".replace(",", " ")
+
     await callback.message.answer(
         f"📝 <b>Заявка на печатную версию (Выпуск #{issue_number})</b>\n\n"
-        "Стоимость: 30 000 сум (включает доставку по Самарканду).\n\n"
+        f"Стоимость: {price} сум (включает доставку по Самарканду).\n\n"
         "📞 Для оформления свяжитесь с нами:\n"
         "• Telegram: @microgreen_uz\n"
-        "• Телефон: +998 94 999 95 99\n\n"
+        f"• Телефон: {config.contact_phone}\n\n"
         f"<i>Ваша заявка зафиксирована. Наш менеджер скоро с вами свяжется! Имя: {user.full_name}</i>"
     )
     await callback.answer()

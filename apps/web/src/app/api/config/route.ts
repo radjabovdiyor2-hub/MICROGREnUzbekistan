@@ -35,6 +35,17 @@ export async function GET() {
     bannerEnabled: s['content.bannerEnabled'],
     bannerText: s['content.bannerText'],
     paymentMethods: s['payment.methods'],
+    // Бонусы. Бот раньше держал эти суммы литералами и обещал вдесятеро
+    // меньше, чем начисляет /api/referral: он считал в модели «1 балл =
+    // 10 сум», которой в коде витрины никогда не было. Балл равен суму,
+    // а суммы — вот они, одни на все каналы.
+    bonus: {
+      referrerReward: s['bonus.referrerReward'],
+      newUserReward: s['bonus.newUserReward'],
+      minCashout: s['bonus.minCashout'],
+      referralPercent: s['bonus.referralPercent'],
+    },
+    magazinePrintPrice: s['magazine.printPrice'],
     social: {
       telegramChannel: s['contacts.telegramChannelUrl'],
       // Историческое поле: бот ждёт telegramGroup, отдельной группы нет —

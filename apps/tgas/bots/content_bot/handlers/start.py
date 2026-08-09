@@ -8,6 +8,7 @@ from shared.ai_engine import AIEngine
 from shared.utils import simulate_typing
 from bots.content_bot.keyboards.inline import cnt_menu_kb, back_kb
 from bots.content_bot.states import ContentStates
+from shared.prompts import role_prompt
 
 router = Router()
 ai = AIEngine()
@@ -101,36 +102,36 @@ async def generate_content(msg: Message, state: FSMContext):
 
     if content_type == "insta":
         r = await ai.chat_completion(
-            "Ты SMM-менеджер Microgreen Uzbekistan.",
+            role_prompt("Ты SMM-менеджер Microgreen Uzbekistan."),
             f"Напиши пост для Instagram о: {topic}. С эмодзи и хештегами.",
         )
         await msg.answer(f"📸 <b>Instagram пост:</b>\n\n{r}", reply_markup=back_kb())
     elif content_type == "tg":
         r = await ai.chat_completion(
-            "Ты контент-менеджер Telegram канала Microgreen Uzbekistan.",
+            role_prompt("Ты контент-менеджер Telegram канала Microgreen Uzbekistan."),
             f"Напиши информационный пост для Telegram канала на тему: {topic}.",
         )
         await msg.answer(f"📢 <b>Telegram пост:</b>\n\n{r}", reply_markup=back_kb())
     elif content_type == "desc":
         r = await ai.chat_completion(
-            "Ты копирайтер Microgreen Uzbekistan.",
+            role_prompt("Ты копирайтер Microgreen Uzbekistan."),
             f"Напиши продающее описание для продукта: {topic}.",
         )
         await msg.answer(f"📝 <b>Описание товара:</b>\n\n{r}", reply_markup=back_kb())
     elif content_type == "recipe":
         r = await ai.chat_completion(
-            "Ты шеф-повар.",
+            role_prompt("Ты шеф-повар."),
             f"Напиши простой рецепт для ресторана или дома, используя: {topic}.",
         )
         await msg.answer(f"🍽 <b>Рецепт:</b>\n\n{r}", reply_markup=back_kb())
     elif content_type == "plan":
         r = await ai.chat_completion(
-            "Ты SMM-стратег Microgreen Uzbekistan.",
+            role_prompt("Ты SMM-стратег Microgreen Uzbekistan."),
             f"Составь контент-план на неделю для соцсетей на тему: {topic}.",
         )
         await msg.answer(f"📅 <b>Контент-план:</b>\n\n{r}", reply_markup=back_kb())
     elif content_type == "ai":
-        r = await ai.chat_completion("Ты копирайтер Microgreen Uzbekistan.", topic)
+        r = await ai.chat_completion(role_prompt("Ты копирайтер Microgreen Uzbekistan."), topic)
         await msg.answer(f"🤖 <b>AI Копирайтер:</b>\n\n{r}", reply_markup=back_kb())
     else:
         await msg.answer("Неизвестный тип контента.", reply_markup=back_kb())

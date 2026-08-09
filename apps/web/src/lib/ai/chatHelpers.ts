@@ -1,5 +1,41 @@
 import { prisma } from '@repo/database';
 import { getRecipeForDay } from '@/lib/nutrition/recipes';
+import { getSettings } from '@/lib/settings/store';
+
+const PAYMENT_LABELS: Record<string, string> = {
+  cash: 'naqd', click: 'Click', payme: 'Payme',
+  card: 'karta', transfer: "o'tkazma", contract: 'shartnoma (yuridik)',
+};
+
+/**
+ * Контакты, доставка и оплата для системного промпта — из настроек.
+ *
+ * Раньше этот блок был вписан в промпт строкой: два телефона, адрес
+ * «Ray senter» и «To'lov: naqd, Click, Payme…». Поменять их в админке было
+ * нельзя — ассистент продолжал диктовать клиенту старые.
+ */
+export async function buildConditions(): Promise<string> {
+  try {
+    const s = await getSettings();
+    const fmt = (n: unknown) => Number(n || 0).toLocaleString('ru-RU').replace(/,/g, ' ');
+    const methods = (s['payment.methods'] as string[] | undefined) || [];
+    const payment = methods.map(m => PAYMENT_LABELS[m] || m).join(', ');
+
+    const lines = [
+      `📞 ${s['contacts.phonePrimary']}`,
+      `📍 ${s['contacts.address']}`,
+      '🚚 Yetkazib berish: Samarqand — buyurtma kuni, Toshkent — ertasi kuni',
+      `🚚 Yetkazish ${fmt(s['delivery.fee'])} so'm, ${fmt(s['delivery.freeThreshold'])} so'mdan bepul`,
+      payment ? `💳 To'lov: ${payment}` : '',
+      '🌐 microgreenuzbekistan.com',
+    ];
+    return lines.filter(Boolean).join('\n');
+  } catch (error) {
+    // Настройки недоступны — лучше промпт без условий, чем с выдуманными.
+    console.error('Conditions build error:', error);
+    return '';
+  }
+}
 
 let weatherCache: { data: string; ts: number } | null = null;
 

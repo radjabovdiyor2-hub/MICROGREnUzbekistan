@@ -15,6 +15,7 @@ import json
 import re
 
 from services.ecosystem_bridge import bridge
+from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_LABELS, format_price
 
 router = Router()
@@ -27,7 +28,13 @@ WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 # ==================== AI CHAT INTEGRATION ====================
 
 async def ask_ai(message: str, user_id: int, history: list = None) -> dict:
-    """Отправить сообщение в AI API"""
+    """Отправить сообщение в AI API.
+
+    Ответ витрины — `{reply, source, timestamp}`. Ключ ответа тут ровно один и
+    называется `reply`: раньше обработчик читал `response`, которого витрина
+    никогда не отдавала, и каждое сообщение в личку получало «Ошибка AI».
+    Контракт закреплён тестом `tests/test_api_contract.py`.
+    """
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -39,15 +46,20 @@ async def ask_ai(message: str, user_id: int, history: list = None) -> dict:
                     "userId": str(user_id),
                 }
             )
-            
+
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                if data.get("reply"):
+                    return data
+                # Витрина ответила 200 без текста — для клиента это тот же отказ.
+                logger.error("AI API returned 200 without 'reply': %s", sorted(data))
+                return {"reply": "Извините, AI временно недоступен.", "error": True}
             else:
                 logger.error(f"AI API error: {response.status_code}")
-                return {"response": "Извините, AI временно недоступен.", "error": True}
+                return {"reply": "Извините, AI временно недоступен.", "error": True}
     except Exception as e:
         logger.error(f"AI request failed: {e}")
-        return {"response": "Ошибка соединения с AI.", "error": True}
+        return {"reply": "Ошибка соединения с AI.", "error": True}
 
 
 # Храним историю разговоров (в памяти, для production используйте Redis)
@@ -94,8 +106,7 @@ async def cmd_clear(message: Message):
     await message.answer("🧹 История разговора очищена!")
 
 
-from aiogram.types import ContentType
-from services.ai_service import get_ai_response, analyze_image, transcribe_audio
+from services.ai_service import analyze_image, transcribe_audio
 
 @router.message(F.chat.type == "private", F.photo)
 async def handle_photo(message: Message):
@@ -219,7 +230,7 @@ async def handle_ai_message(message: Message):
     # 1. Get AI Response via Web API (includes weather, currency, order context)
     history = conversation_history.get(user_id, [])[-10:]  # Last 10 messages
     ai_result = await ask_ai(user_text, user_id, history)
-    ai_response = ai_result.get("response", "Ошибка AI")
+    ai_response = ai_result["reply"]
     
     # Save to conversation history
     if user_id not in conversation_history:
@@ -265,9 +276,11 @@ async def handle_ai_message(message: Message):
     # 3. Reply
     try:
         await status_msg.delete()
-    except:
-        pass
-        
+    except Exception as e:
+        # Сообщение «Думаю…» могли удалить руками — на ответ это не влияет.
+        logger.debug("Не удалось убрать статусное сообщение: %s", e)
+
+
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
     buttons = []
     matches = re.findall(r'\[BUTTON:(.*?)\|(.*?)\]', ai_response)
@@ -333,7 +346,7 @@ async def cmd_prices(message: Message):
         logger.error(f"Price fetch failed: {e}")
         await message.answer(
             "💰 Актуальные цены на сайте:\n"
-            "🌐 microgreenuzbekistan.com/shop"
+            "🌐 microgreenuzbekistan.com/catalog"
         )
 
 
@@ -341,6 +354,7 @@ async def cmd_prices(message: Message):
 async def cmd_order(message: Message):
     """Начать оформление заказа"""
     await message.answer(
+        # prompt-ok: образец формата телефона для клиента, а не контакт компании
         "🛒 <b>Оформление заказа</b>\n\n"
         "Просто напишите мне, что хотите заказать, и номер телефона. Например:\n\n"
         "<i>«Хочу 2 лотка подсолнечника и 1 горох. "
@@ -353,14 +367,13 @@ async def cmd_order(message: Message):
 @router.message(Command("delivery", "доставка"))
 async def cmd_delivery(message: Message):
     """Информация о доставке"""
+    # Способы оплаты — из настроек витрины: перечислять их литералами значило
+    # обещать то, что владелец мог отключить в админке час назад.
+    config = await fetch_site_config()
     await message.answer(
         "🚚 <b>Доставка</b>\n\n"
         "📍 Самарканд — <b>в день заказа</b>\n"
         "📍 Ташкент — <b>на следующий день</b>\n"
         "⏰ Минимальный заказ: нет\n\n"
-        "💳 <b>Оплата:</b>\n"
-        "• Наличные при получении\n"
-        "• Click\n"
-        "• Payme\n"
-        "• Перевод / договор (юр. лица)"
+        f"💳 <b>Оплата:</b> {config.payment_text}"
     )

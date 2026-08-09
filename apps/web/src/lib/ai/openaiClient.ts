@@ -1,8 +1,19 @@
+import { recordAiUsage } from './usage';
+
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
-export function buildSystemPrompt(storeContext: string, userInfo?: string): string {
+/**
+ * Системный промпт ассистента витрины.
+ *
+ * `conditions` — контакты, доставка и оплата из настроек; `storeContext` —
+ * живой каталог из базы (`buildStoreContext`). Ни того, ни другого в тексте
+ * промпта быть не должно: раньше здесь строкой стояли прайс, два телефона и
+ * адрес «Ray senter», и модель получала два противоречащих прайса сразу —
+ * захардкоженный и настоящий.
+ */
+export function buildSystemPrompt(storeContext: string, conditions: string, userInfo?: string): string {
   return `Sen — "Microgreen Uzbekistan" brendining AI yordamchisi va maslahatchi-sotuvchisi. Samarqandda joylashgan Microgreen Uzbekistan kompaniyasi uchun ishlaytirasan.
 
 === SEN KIM ===
@@ -19,15 +30,14 @@ Sen AGRONOM EMASSAN. Mijozlar — xaridorlar (restoranlar, uy xo'jaligi, ZOJ), u
 - Jonli, samimiy, do'stona gapir. Huddi yaxshi do'stingdek maslahat ber.
 - O'zbek yoki rus tilida javob ber (mijoz qaysi tilda yozsa, shu tilda).
 - Qisqa javob ber (5-12 qator).
-- Har doim mahsulot tavsiya et va narxlarini ayt.
+- Har doim mahsulot tavsiya et.
 - "Yetishtirish", "ekin", "hosil", "tuproq" haqida gapirma — sen sotuvchisan, agronom emas.
 
-=== MAHSULOTLAR ===
-MIKROKO'KATLAR (lotok): Yashil sortlar 15,000 so'm, Qizil sortlar 20,000 so'm
-BEYBI-LIST (100g): 25,000 — 40,000 so'm
-SALATLAR (1 kg): 100,000 — 200,000 so'm
+=== NARXLAR ===
+- Narxni FAQAT quyidagi katalogdan ol. O'zingdan narx o'ylab topma va yaxlitlama.
+- Katalogda yo'q mahsulot uchun narx aytma — menejerdan aniqlashni taklif qil.
 
-Ta'mlar:
+=== TA'MLAR (narxsiz — narx katalogdan) ===
 - No'xat (Goroh): nozik, yashil ta'm
 - Kungaboqar (Podsolnechnik): yong'oqsimon, boy ta'm
 - Rukkola: o'tkir-gorchichali, pikantli
@@ -45,11 +55,7 @@ Agar mijoz buyurtma bermoqchi bo'lsa:
 4. JSON formatda buyurtma yarat
 
 === DO'KON MA'LUMOTLARI ===
-📞 +998 94 999 95 99 / +998 98 007 20 20
-📍 Ray senter, Samarqand
-🚚 Yetkazib berish: Samarqand — buyurtma kuni, Toshkent — ertasi kuni
-💳 To'lov: naqd, Click, Payme, o'tkazma, shartnoma (yuridik)
-🌐 microgreenuzbekistan.com
+${conditions}
 ${storeContext}
 ${userInfo || ''}
 `;
@@ -64,13 +70,14 @@ export async function callOpenAI(
   message: string,
   history: { role: string; content: string }[],
   storeContext: string,
+  conditions: string,
   userInfo?: string,
   image?: { data: string; mimeType: string }
 ): Promise<string> {
   if (!OPENAI_API_KEY) throw new Error('No OPENAI_API_KEY');
 
   const messages: OpenAIMessage[] = [
-    { role: 'system', content: buildSystemPrompt(storeContext, userInfo) },
+    { role: 'system', content: buildSystemPrompt(storeContext, conditions, userInfo) },
   ];
 
   // Add conversation history
@@ -112,6 +119,15 @@ export async function callOpenAI(
 
     if (res.ok) {
       const data = await res.json();
+      // Расход витрины раньше выбрасывался вместе с `data.usage`, и админка
+      // показывала только траты офиса. Ждать запись не нужно — ответ клиенту
+      // важнее, а `recordAiUsage` не бросает.
+      void recordAiUsage({
+        bot: 'storefront_web',
+        model: data.model || OPENAI_MODEL,
+        inputTokens: data.usage?.prompt_tokens ?? 0,
+        outputTokens: data.usage?.completion_tokens ?? 0,
+      });
       return data.choices?.[0]?.message?.content || 'Javob topilmadi';
     }
 

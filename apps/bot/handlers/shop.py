@@ -24,7 +24,8 @@ import math
 
 from services.ecosystem_bridge import bridge
 from services.cart_storage import cart_storage
-from shared.constants import CATEGORY_TUPLES as CATEGORIES, CATEGORY_LABELS, format_price
+from services.config_service import fetch_site_config
+from shared.constants import CATEGORY_TUPLES as CATEGORIES, format_price
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -129,7 +130,7 @@ def get_product_keyboard(product: dict, idx: int, total: int, category: str, pho
     # 2. Add to Cart
     buttons.append([
         InlineKeyboardButton(text="🛒 В корзину", callback_data=f"cart:add:{product_id}"),
-        InlineKeyboardButton(text="🌐 На сайте", url=f"{WEB_URL}/shop"),
+        InlineKeyboardButton(text="🌐 На сайте", url=f"{WEB_URL}/catalog"),
     ])
     
     # 3. Navigation with HOME
@@ -383,7 +384,7 @@ async def cb_checkout(callback: CallbackQuery):
             f"📱 {contact_info}\n"
             f"📍 Адрес уточним при звонке\n\n"
             f"🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\n"
-            f"💳 Оплата: наличные, Click, Payme",
+            f"💳 Оплата: {(await fetch_site_config()).payment_text}",
             reply_markup=kb,
             parse_mode="HTML"
         )
@@ -477,56 +478,79 @@ async def handle_contact_for_order(message: Message):
     user = message.from_user
     customer_name = user.full_name or "Клиент"
     
+    # Адрес бот не спрашивает — и не выдумывает. Раньше в каждый заказ
+    # подставлялся Ташкент, хотя возим и в Самарканд, и адрес всё равно
+    # уточняет менеджер: курьера это отправляло не в тот город.
+    ADDRESS_TO_CLARIFY = "Уточнить по телефону"
+
     # API data with REAL phone number
     api_order_data = {
         "name": customer_name,
         "phone": phone,
-        "address": "Доставка по Ташкенту (уточнить)",
+        "address": ADDRESS_TO_CLARIFY,
         "source": "telegram_bot",
         "telegramId": str(user_id),
         "items": [{"id": p.get("id", f"bot_{i}"), "title": p.get("title"), "price": int(p.get("price", 0)), "quantity": 1} for i, p in enumerate(cart)]
     }
-    
-    # Save to DB
+
+    # Save to DB.
+    #
+    # `saved` решает, что клиент увидит дальше. Раньше исход POST на текст не
+    # влиял: витрина могла отказать, а клиент всё равно получал «✅ Заказ #…
+    # оформлен» с номером, которого нет ни в одной таблице.
+    saved = False
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.post(f"{WEB_API_URL}/orders", json=api_order_data)
             if resp.status_code in (200, 201):
                 result = resp.json()
                 order_id = result.get("orderId", order_id)
+                saved = True
                 logger.info(f"Order {order_id} saved to database with phone {phone}")
             else:
                 logger.warning(f"Order API returned {resp.status_code}: {resp.text}")
     except Exception as e:
         logger.error(f"Failed to save order to API: {e}")
-    
+
     # Notify admin
     order_data = {
         "id": order_id,
         "customerName": customer_name,
         "phone": phone,
-        "address": "Доставка по Ташкенту",
+        "address": ADDRESS_TO_CLARIFY,
         "total": total,
         "items": [{"title": p.get("title"), "price": p.get("price"), "quantity": 1} for p in cart],
         "telegramUserId": user_id,
-        "status": "PENDING"
+        "status": "PENDING" if saved else "NOT_SAVED"
     }
-    
+
     try:
         await send_order_to_group(message.bot, order_data)
     except Exception as e:
         logger.error(f"Failed to send notification: {e}")
     
-    # Уведомить Степана-менеджера (@MG_PM1_bot)
+    # Уведомить Степана-менеджера (@MG_PM1_bot).
+    # Уходит в обоих случаях: если витрина отказала, заявку тем более надо
+    # спасать руками — но менеджер должен видеть, что в админке её нет.
     items_for_stepan = "\n".join([f"  • {p.get('title')} — {format_price(int(p.get('price', 0)))} сум" for p in cart[:8]])
+    header = (
+        "📦 <b>Новый заказ из Telegram бота!</b>"
+        if saved
+        else "🚨 <b>Заказ НЕ сохранён — перезвонить вручную!</b>"
+    )
+    order_line = (
+        f"🆔 Заказ: <code>#{order_id}</code>\n"
+        if saved
+        else "🆔 Номера нет: витрина заказ не приняла\n"
+    )
     try:
         await bridge.notify_stepan(
-            f"📦 <b>Новый заказ из Telegram бота!</b>\n"
+            f"{header}\n"
             f"━━━━━━━━━━━━━━━━━━\n"
-            f"🆔 Заказ: <code>#{order_id}</code>\n"
+            f"{order_line}"
             f"👤 Клиент: <b>{customer_name}</b>\n"
             f"📱 Телефон: {phone}\n"
-            f"📍 Адрес: Доставка по Ташкенту\n\n"
+            f"📍 Адрес: {ADDRESS_TO_CLARIFY}\n\n"
             f"🛒 <b>Товары:</b>\n{items_for_stepan}\n\n"
             f"💰 <b>Итого: {format_price(total)} сум</b>\n"
             f"━━━━━━━━━━━━━━━━━━\n"
@@ -535,15 +559,31 @@ async def handle_contact_for_order(message: Message):
         )
     except Exception as e:
         logger.error(f"Failed to notify Stepan: {e}")
-    
-    # Clear
-    cart_storage.clear_cart(user_id)
-    cart_storage.clear_checkout_state(user_id)
-    
+
     items_text = "\n".join([f"• {p.get('title')}" for p in cart[:5]])
     if len(cart) > 5:
         items_text += f"\n• ... и ещё {len(cart) - 5}"
-    
+
+    if not saved:
+        # Корзину НЕ чистим: клиент сможет повторить, ничего не набирая заново.
+        cart_storage.clear_checkout_state(user_id)
+        config = await fetch_site_config()
+        await message.answer(
+            "⚠️ <b>Не получилось оформить заказ автоматически</b>\n\n"
+            f"<b>Товары:</b>\n{items_text}\n\n"
+            f"💰 <b>Итого: {format_price(total)} сум</b>\n\n"
+            "Корзина сохранена — можно попробовать ещё раз.\n"
+            f"Мы уже видим вашу заявку и перезвоним на {phone}.\n"
+            f"Если удобнее сразу — {config.contact_phone}",
+            parse_mode="HTML",
+            reply_markup=ReplyKeyboardRemove()
+        )
+        return
+
+    # Clear
+    cart_storage.clear_cart(user_id)
+    cart_storage.clear_checkout_state(user_id)
+
     await message.answer(
         f"✅ <b>Заказ #{order_id} оформлен!</b>\n\n"
         f"<b>Товары:</b>\n{items_text}\n\n"

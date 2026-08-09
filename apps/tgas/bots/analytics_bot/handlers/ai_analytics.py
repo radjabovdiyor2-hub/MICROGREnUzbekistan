@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery, Message
 from shared.ai_engine import AIEngine
 from shared.utils import simulate_typing
 from bots.analytics_bot.keyboards.inline import back_kb
+from shared.prompts import role_prompt
 
 router = Router()
 ai = AIEngine()
@@ -35,7 +36,7 @@ async def start_ai(cb: CallbackQuery):
 async def ai_chat(msg: Message):
     await simulate_typing(msg, delay=2)
     resp = await ai.chat_completion(
-        "Ты бизнес-аналитик Microgreen Uzbekistan. Отвечай с цифрами и рекомендациями.",
+        role_prompt("Ты бизнес-аналитик Microgreen Uzbekistan. Отвечай с цифрами и рекомендациями."),
         msg.text,
     )
     await msg.answer(resp)

@@ -23,6 +23,7 @@ export const SETTING_CATEGORIES = [
   'stock',
   'payment',
   'ai',
+  'magazine',
 ] as const;
 
 export type SettingCategory = (typeof SETTING_CATEGORIES)[number];
@@ -35,4 +36,5 @@ export const CATEGORY_LABELS: Record<SettingCategory, { ru: string; uz: string }
   stock: { ru: 'Склад и пороги', uz: 'Ombor' },
   payment: { ru: 'Оплата', uz: "To'lov" },
   ai: { ru: 'ИИ и бюджет', uz: 'AI va byudjet' },
+  magazine: { ru: 'Журнал', uz: 'Jurnal' },
 };

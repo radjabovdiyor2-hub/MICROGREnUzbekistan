@@ -10,7 +10,6 @@ All content passes through here for consistent branding.
 """
 
 import os
-import asyncio
 from typing import Optional, Dict, List
 from dataclasses import dataclass
 from enum import Enum
@@ -181,9 +180,9 @@ async def post_order_milestone(order_count: int) -> Dict:
     """Celebrate order milestones"""
     post = CrossPost(
         title=f"🎉 {order_count} заказов!",
-        body=f"Спасибо что выбираете Microgreen Uzbekistan!\n\n"
-             f"Каждый заказ = +5% бонусов 💎\n"
-             f"Играйте в Farm Simulator для ещё больше бонусов! 🎮",
+        body="Спасибо что выбираете Microgreen Uzbekistan!\n\n"
+             "Каждый заказ = +5% бонусов 💎\n"
+             "Играйте в Farm Simulator для ещё больше бонусов! 🎮",
         platforms=[Platform.CHANNEL, Platform.GROUP]
     )
     

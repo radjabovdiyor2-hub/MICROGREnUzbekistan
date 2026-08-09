@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
@@ -357,7 +358,7 @@ async def monthly_executive():
 
         ai = AIEngine()
         ai_analysis = await ai.chat_completion(
-            "Ты бизнес-аналитик микрозелени в Узбекистане. Дай краткий анализ и 3 рекомендации.",
+            role_prompt("Ты бизнес-аналитик микрозелени в Узбекистане. Дай краткий анализ и 3 рекомендации."),
             f"Данные за прошлый месяц:\n{data_summary}\n\nДай анализ и рекомендации.",
         )
 

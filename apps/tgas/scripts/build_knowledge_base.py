@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import sys
 
 # Добавляем корневую папку проекта в sys.path
@@ -8,6 +9,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlalchemy import text
 from shared.ai_engine import AIEngine
 from shared.database import get_session_ctx
+from shared.storefront_config import knowledge_placeholders
 
 # Эмбеддинги через общий движок: прямой AsyncOpenAI здесь был обходом mg_ai,
 # из-за чего сборка базы знаний не попадала в учёт расхода токенов.
@@ -45,6 +47,13 @@ async def build_knowledge_base():
     async with get_session_ctx() as session:
         await session.execute(text("TRUNCATE TABLE knowledge_base"))
 
+    # Живые значения вместо плейсхолдеров: стоимость доставки, порог
+    # бесплатной и способы оплаты берутся из настроек витрины. Раньше они
+    # стояли в faq.md числами и обещанием «Click, Payme» — и уходили клиенту
+    # прямо из системного промпта, даже когда владелец давно поменял их.
+    placeholders = await knowledge_placeholders()
+    print(f"Подстановки из настроек витрины: {placeholders}")
+
     for filename in os.listdir(kb_path):
         if not filename.endswith(".md"):
             continue
@@ -52,6 +61,17 @@ async def build_knowledge_base():
         filepath = os.path.join(kb_path, filename)
         with open(filepath, "r", encoding="utf-8") as f:
             content = f.read()
+
+        # Служебные комментарии — не знание. Без этого пояснение про
+        # плейсхолдеры попало бы в чанк и оттуда в системный промпт.
+        content = re.sub(r"<!--.*?-->", "", content, flags=re.S)
+
+        for key, value in placeholders.items():
+            content = content.replace(key, value)
+
+        left = [k for k in placeholders if k in content]
+        if left:
+            print(f"⚠️ {filename}: не подставлены {left}")
 
         # Очень примитивный чанкинг по заголовкам ##
         chunks = content.split("##")

@@ -818,9 +818,8 @@ async def main():
 
             issue_id = payload.get("issue_id", "?")
             title = payload.get("title", "Новый выпуск")
-            url = payload.get(
-                "url", f"https://microgreenuzbekistan.com/magazine/{issue_id}"
-            )
+            # Запасной адрес — витрина выпусков: страницы по номеру на сайте нет.
+            url = payload.get("url", "https://microgreenuzbekistan.com/magazine")
             cover = payload.get("cover", "")
 
             post_text = (

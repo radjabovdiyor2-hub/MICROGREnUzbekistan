@@ -161,6 +161,16 @@ export const SETTINGS = {
 
   // ── Журнал ──────────────────────────────────────────────────────────
   // magazine.printUnitCost убрана по той же причине: её никто не читал.
+  //
+  // А вот цена печатного выпуска читается: /api/config отдаёт её витринному
+  // боту, и тот называет её в двух местах — в кнопке «Заказать печатную
+  // копию» и в ответе на заявку. До этого 30 000 стояли в обоих местах
+  // числом, и поднять цену можно было только правкой кода.
+  'magazine.printPrice': {
+    category: 'magazine', type: 'money', default: 30000, publicKey: true,
+    labelRu: 'Цена печатного выпуска', labelUz: 'Bosma son narxi', min: 0,
+    hintRu: 'Показывается в боте при заказе печатной версии (с доставкой по Самарканду)',
+  },
 } as const satisfies Record<string, SettingDef>;
 
 export type SettingKey = keyof typeof SETTINGS;

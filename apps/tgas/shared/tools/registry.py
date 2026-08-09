@@ -112,6 +112,7 @@ def _load() -> None:
         hr,
         marketing,
         operations,
+        operations_read,
         ops,
         sales,
         support,

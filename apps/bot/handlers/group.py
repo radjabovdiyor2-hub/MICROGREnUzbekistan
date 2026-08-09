@@ -15,6 +15,7 @@ import re
 
 from services.crosspost_service import welcome_to_group
 from services.ai_service import get_ai_response
+from services.config_service import fetch_site_config
 import logging
 
 router = Router()
@@ -57,30 +58,37 @@ async def handle_group_photo(message: Message):
         )
 
 
-# FAQ patterns and responses
+# FAQ patterns and responses.
+#
+# `{payment}` подставляется при ответе из настроек витрины: раньше здесь
+# литералом стояло «наличные, Click, Payme», и отключить способ оплаты в
+# админке было нельзя — бот продолжал его обещать.
 FAQ_PATTERNS = {
     r"(цен|стои|почём|сколько)": {
-        "answer": "💰 Актуальные цены на сайте: microgreenuzbekistan.com/shop\nИли напишите боту: @Microgreenuzbekistan_bot",
+        "answer": "💰 Актуальные цены на сайте: microgreenuzbekistan.com/catalog\nИли напишите боту: @Microgreenuzbekistan_bot",
         "keywords": ["цена", "стоимость", "почём", "сколько"]
     },
     r"(доставк|привез|курьер)": {
-        "answer": "🚚 Доставка: <b>Самарканд — в день заказа, Ташкент — на следующий день</b>\nОплата: наличные, Click, Payme",
+        "answer": "🚚 Доставка: <b>Самарканд — в день заказа, Ташкент — на следующий день</b>\nОплата: {payment}",
         "keywords": ["доставка", "привезти", "курьер"]
     },
     r"(заказ|купить|оформ)": {
-        "answer": "🛒 Заказать можно:\n• Через бота: @Microgreenuzbekistan_bot\n• На сайте: microgreenuzbekistan.com/shop\n• В Mini App: t.me/Microgreenuzbekistan_bot/game",
+        "answer": "🛒 Заказать можно:\n• Через бота: @Microgreenuzbekistan_bot\n• На сайте: microgreenuzbekistan.com/catalog\n• В Mini App: t.me/Microgreenuzbekistan_bot/game",
         "keywords": ["заказ", "купить", "оформить"]
     },
     r"(семен|посев|сажать)": {
-        "answer": "🌱 Семена для микрозелени в каталоге:\nmicrogreenuzbekistan.com/shop?category=seeds\n\nТоп-5: редис, подсолнечник, горох, руккола, брокколи",
+        "answer": "🌱 Семена для микрозелени в каталоге:\nmicrogreenuzbekistan.com/catalog?category=seeds\n\nТоп-5: редис, подсолнечник, горох, руккола, брокколи",
         "keywords": ["семена", "посев", "сажать"]
     },
+    # Акции здесь не называем: BOGO на LED-панели была вписана в текст
+    # намертво и обещала скидку, которой нет ни в промокодах, ни в каталоге.
     r"(оборудован|лампа|стеллаж|гидропон)": {
-        "answer": "⚙️ LED-лампы, pH-метры, Tower Garden:\nmicrogreenuzbekistan.com/shop?category=equipment\n\nBOGO-акция на LED панели!",
+        "answer": "⚙️ LED-лампы, pH-метры, Tower Garden:\nmicrogreenuzbekistan.com/catalog?category=equipment",
         "keywords": ["оборудование", "лампа", "стеллаж", "гидропоника"]
     },
+    # Курса EcoPoints к скидке в коде нет — обмена монет на баллы не существует.
     r"(игр|farmsim|бонус|очки)": {
-        "answer": "🎮 <b>Farm Simulator</b> — играйте и получайте бонусы!\n\nОткрыть: t.me/Microgreenuzbekistan_bot/game\n\n💎 1000 EcoPoints = 10,000 UZS скидка!",
+        "answer": "🎮 <b>Farm Simulator</b> — играйте и получайте бонусы!\n\nОткрыть: t.me/Microgreenuzbekistan_bot/game",
         "keywords": ["игра", "farmsim", "бонусы", "очки"]
     },
 }
@@ -142,8 +150,11 @@ async def handle_group_message(message: Message):
     # Check FAQ patterns
     for pattern, faq in FAQ_PATTERNS.items():
         if re.search(pattern, text_lower):
-            # Reply with FAQ answer
-            await message.reply(faq["answer"])
+            answer = faq["answer"]
+            if "{payment}" in answer:
+                config = await fetch_site_config()
+                answer = answer.replace("{payment}", config.payment_text)
+            await message.reply(answer)
             return
 
     # К боту обратились — маршрутизируем в AI.

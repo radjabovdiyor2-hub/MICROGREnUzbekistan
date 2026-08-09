@@ -8,6 +8,7 @@ from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
 from shared import catalog_repo, customer_repo, storefront_orders
 from shared.utils import format_price
+from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import init_db
 from shared.event_bus import event_bus
@@ -122,7 +123,7 @@ async def handle_magazine_published(payload: dict):
                 f"которое он отправит шеф-повару этого ресторана вместе со ссылкой на журнал. "
                 f"Цель — похвалить их и предложить тестовый набор микрозелени."
             )
-            msg = await ai.chat_completion("Ты B2B менеджер.", prompt)
+            msg = await ai.chat_completion(role_prompt("Ты B2B менеджер."), prompt)
 
             report = (
                 f"🎯 <b>Новый тёплый инфоповод!</b>\n\n"
@@ -505,7 +506,7 @@ async def handle_task_created(payload: dict):
             or "коммерческ" in desc
         ):
             logging.info("SALES_BOT: Requested commercial offer PDF.")
-            from shared.prompts import TEAM_CONTEXT
+            from shared.prompts import TEAM_CONTEXT, role_prompt
 
             prompt = f"Составь продающий текст коммерческого предложения для клиента. Задача: {data.get('title')} - {data.get('description')}. Укажи преимущества микрозелени."
             answer = await ai.chat_completion(
@@ -562,7 +563,7 @@ async def handle_task_created(payload: dict):
                 "}\n"
             )
             ai_parse = await ai.chat_completion(
-                "Ты профессиональный парсер заказов.", parser_prompt, effort="high"
+                role_prompt("Ты профессиональный парсер заказов."), parser_prompt, effort="high"
             )
             ai_parse = (
                 ai_parse.strip()

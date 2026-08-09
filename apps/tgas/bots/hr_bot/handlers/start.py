@@ -10,6 +10,7 @@ from shared.utils import simulate_typing
 from shared.ai_engine import AIEngine
 from bots.hr_bot.keyboards.inline import hr_menu_kb, back_kb, leave_type_kb
 from bots.hr_bot.states import ApplicationStates, LeaveStates
+from shared.prompts import role_prompt
 
 router = Router()
 ai = AIEngine()
@@ -18,13 +19,16 @@ VACANCIES = [
     (
         "🌱 Фермер микрозелени",
         "Посев, полив, сбор урожая. Опыт не требуется.",
+        # prompt-ok: vilka zarplaty v vakansii - ne cena kataloga, svoego istochnika net
         "15 000 - 20 000 сум/день",
     ),
     (
         "🚚 Курьер",
         "Доставка заказов по Самарканду. Авто/мото.",
+        # prompt-ok: vilka zarplaty v vakansii - ne cena kataloga, svoego istochnika net
         "20 000 - 30 000 сум/день",
     ),
+    # prompt-ok: vilka zarplaty v vakansii - ne cena kataloga, svoego istochnika net
     ("📦 Упаковщик", "Упаковка и маркировка продукции.", "12 000 - 15 000 сум/день"),
     ("📱 SMM-менеджер", "Ведение Instagram и Telegram.", "Договорная"),
 ]
@@ -209,5 +213,5 @@ async def start_ai(cb: CallbackQuery):
 @router.message(F.text, F.chat.type == "private")
 async def ai_hr(msg: Message):
     await simulate_typing(msg, delay=2)
-    r = await ai.chat_completion("Ты HR-менеджер Microgreen Uzbekistan.", msg.text)
+    r = await ai.chat_completion(role_prompt("Ты HR-менеджер Microgreen Uzbekistan."), msg.text)
     await msg.answer(r)
