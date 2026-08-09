@@ -134,9 +134,13 @@ async def get_shifts(date: str = "") -> Dict[str, Any]:
     """Кто в смене на дату (по умолчанию — сегодня)."""
     async with get_session_ctx() as session:
         result = await session.execute(
+            # e.role, а не e.position: колонки `position` у `employees` нет
+            # (см. schema.prisma, модель Employee — там `role`). Запрос падал
+            # с UndefinedColumn на КАЖДОМ вызове, ошибка гасилась внешним
+            # except, и офис не мог прочитать ни одной смены.
             text("""
                 SELECT sh.type, sh.start_time, sh.end_time, sh.note,
-                       e.name AS employee_name, e.position
+                       e.name AS employee_name, e.role
                 FROM shifts sh
                 JOIN employees e ON e.id = sh.employee_id
                 WHERE sh.date = COALESCE(NULLIF(:date, '')::date,
@@ -157,7 +161,7 @@ async def get_shifts(date: str = "") -> Dict[str, Any]:
     def fmt(r: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "name": r["employee_name"],
-            "position": r["position"],
+            "role": r["role"],
             "type": r["type"],
             "from": r["start_time"].strftime("%H:%M") if r["start_time"] else None,
             "to": r["end_time"].strftime("%H:%M") if r["end_time"] else None,

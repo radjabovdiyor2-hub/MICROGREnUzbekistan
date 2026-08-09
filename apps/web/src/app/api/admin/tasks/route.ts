@@ -190,3 +190,44 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 });
   }
 }
+
+/**
+ * Удалить задачу насовсем — одну (`?id=12`) или пачкой (`?ids=12,13,14`).
+ *
+ * Именно удалить, а не отменить: `cancelled` оставляет строку в таблице
+ * навсегда, а разбирать приходится мусор — дубли одной и той же фразы и
+ * задачи отделам, которых не существует. На `Task` в схеме не ссылается
+ * ни одна связь, поэтому каскадов нет и удаление безопасно.
+ */
+export async function DELETE(request: NextRequest) {
+  if (!isAuthorized(request)) return unauthorized();
+
+  const sp = new URL(request.url).searchParams;
+  const ip = request.headers.get('x-forwarded-for') ?? undefined;
+
+  const raw = sp.get('ids') ?? sp.get('id') ?? '';
+  const ids = raw.split(',').map(part => Number(part.trim())).filter(Number.isInteger);
+
+  if (!ids.length) {
+    return NextResponse.json({ error: 'Нужен числовой id или ids' }, { status: 400 });
+  }
+
+  const { count } = await prisma.task.deleteMany({ where: { id: { in: ids } } });
+
+  if (!count) {
+    return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 });
+  }
+
+  audit({
+    action: 'task.delete', actor: 'owner', role: 'ADMIN', ip,
+    target: ids.map(id => `#${id}`).join(', '), meta: { requested: ids.length, deleted: count },
+  });
+
+  // Расхождение показываем честно: часть задач мог удалить кто-то другой,
+  // и молчаливое «ок» на половину операции ввело бы владельца в заблуждение.
+  return NextResponse.json({
+    status: 'ok',
+    deleted: count,
+    ...(count < ids.length ? { warning: `Удалено ${count} из ${ids.length}: остальных уже не было` } : {}),
+  });
+}

@@ -25,7 +25,7 @@ from aiogram.types import (
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
-from shared import approvals
+from shared import approvals, tasks_repo
 from shared import tools as tool_registry
 from shared.config import settings
 from shared.database import get_session_ctx
@@ -256,12 +256,18 @@ async def show_tasks(cb: CallbackQuery):
         dept_str = f" [{dept}]" if dept else ""
         lines.append(f"{si}{pi} <b>#{tid}</b>{dept_str} {title[:50]}{dl}")
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")],
-        ]
+    # Кнопка удаления у каждой строки: это единственный экран, с которого
+    # владелец разбирает накопившееся, и до сих пор он был только на чтение.
+    lines.append("\n🗑 — удалить задачу с этим номером.")
+    del_buttons = [
+        InlineKeyboardButton(text=f"🗑 #{t[0]}", callback_data=f"stp:del:ask:{t[0]}")
+        for t in tasks
+    ]
+    rows = [del_buttons[i : i + 3] for i in range(0, len(del_buttons), 3)]
+    rows.append([InlineKeyboardButton(text="🔙 Меню", callback_data="st:menu")])
+    await cb.message.edit_text(
+        "\n".join(lines), reply_markup=InlineKeyboardMarkup(inline_keyboard=rows)
     )
-    await cb.message.edit_text("\n".join(lines), reply_markup=kb)
 
 
 @router.callback_query(F.data == "st:finance")
@@ -538,11 +544,7 @@ async def mark_done(cb: CallbackQuery):
         return await cb.answer("⛔")
     task_id = int(cb.data.split(":")[2])
 
-    async with get_session_ctx() as session:
-        await session.execute(
-            text("UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task_id}
-        )
-        await session.commit()
+    await tasks_repo.set_status(task_id, "done")
 
     await cb.answer("✅ Задача выполнена!")
     await cb.message.edit_text(
@@ -565,17 +567,72 @@ async def cancel_task(cb: CallbackQuery):
         return await cb.answer("⛔")
     task_id = int(cb.data.split(":")[2])
 
-    async with get_session_ctx() as session:
-        await session.execute(
-            text("UPDATE tasks SET status = 'cancelled' WHERE id = :id"),
-            {"id": task_id},
-        )
-        await session.commit()
+    await tasks_repo.set_status(task_id, "cancelled")
 
     await cb.answer("❌ Задача отменена")
     await cb.message.edit_text(
         cb.message.text + "\n\n❌ <b>Статус: ОТМЕНЕНА</b>",
     )
+
+
+# Удаление — в два шага: строка исчезает безвозвратно, а кнопка стоит вплотную
+# к «Выполнено». Отмена (`cancelled`) рядом остаётся: она для задач, которые
+# потеряли смысл, а удаление — для мусора вроде четырёх дублей одной фразы.
+@router.callback_query(F.data.startswith("stp:del:ask:"))
+async def ask_delete_task(cb: CallbackQuery):
+    if not is_admin(cb.from_user.id):
+        return await cb.answer("⛔")
+    task_id = int(cb.data.split(":")[3])
+
+    task = await tasks_repo.get(task_id)
+    if not task:
+        return await cb.answer("Задачи уже нет", show_alert=True)
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🗑 Да, удалить", callback_data=f"stp:del:yes:{task_id}"
+                ),
+                InlineKeyboardButton(
+                    text="◀️ Не надо", callback_data=f"stp:del:no:{task_id}"
+                ),
+            ],
+        ]
+    )
+    await cb.message.answer(
+        f"🗑 <b>Удалить задачу #{task_id} безвозвратно?</b>\n\n"
+        f"📝 {task['title'][:200]}\n"
+        f"📁 Отдел: {task['department'] or '—'}\n\n"
+        f"<i>Восстановить будет нельзя. Если задача просто потеряла "
+        f"актуальность — лучше «Отменить».</i>",
+        reply_markup=kb,
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("stp:del:yes:"))
+async def confirm_delete_task(cb: CallbackQuery):
+    if not is_admin(cb.from_user.id):
+        return await cb.answer("⛔")
+    task_id = int(cb.data.split(":")[3])
+
+    removed = await tasks_repo.delete(task_id)
+    if not removed:
+        return await cb.answer("Задачи уже нет", show_alert=True)
+
+    await cb.answer("🗑 Удалено")
+    await cb.message.edit_text(
+        f"🗑 <b>Задача #{task_id} удалена.</b>\n\n{removed['title'][:200]}"
+    )
+
+
+@router.callback_query(F.data.startswith("stp:del:no:"))
+async def decline_delete_task(cb: CallbackQuery):
+    if not is_admin(cb.from_user.id):
+        return await cb.answer("⛔")
+    await cb.answer("Оставили как есть")
+    await cb.message.edit_text("◀️ Удаление отменено — задача на месте.")
 
 
 # ═══════════════════════════════════════════════════════
@@ -1282,11 +1339,29 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 )
             calls = [c for c in calls if c.function.name != "create_task"]
 
+        # Одно поручение = одна задача. Модель дробит «собери совещание всех
+        # отделов» на вызов create_task per-отдел, и в базу ложились четыре
+        # подряд идущие строки с одним и тем же текстом — их потом было даже
+        # нечем удалить. Защита ровно как у register_sale ниже, только ключом
+        # служит пара (заголовок, отдел): разные задачи в одном ответе — норма.
+        seen_tasks: set = set()
+
         for tool_call in calls:
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments or "{}")
 
             if name == "create_task":
+                key = (
+                    " ".join(str(args.get("title", "")).lower().split()),
+                    str(args.get("department", "pm")).lower(),
+                )
+                if key in seen_tasks:
+                    logger.warning(
+                        "Степан: повторный create_task «%s» в одном сообщении — игнорирую",
+                        key[0][:60],
+                    )
+                    continue
+                seen_tasks.add(key)
                 # Activate the previously dead _handle_task orchestrator
                 await _handle_task(message, args)
                 tool_results_text.append(
@@ -1949,6 +2024,17 @@ async def _handle_task(message: Message, data: dict):
                 )
             return
 
+    # Тот же заголовок в тот же отдел час назад — это повтор, а не вторая
+    # задача. Владелец переспрашивает голосом по нескольку раз, и каждый
+    # переспрос заводил новую строку; разобрать их потом было нечем.
+    twin_id = await tasks_repo.find_recent_duplicate(title, dept)
+    if twin_id:
+        await message.answer(
+            f"📋 Такая задача уже есть — <b>#{twin_id}</b> в отделе {dept}. "
+            f"Новую не завожу, чтобы не плодить дубли."
+        )
+        return
+
     # Сохраняем в БД
     try:
         from datetime import datetime
@@ -2029,6 +2115,11 @@ async def _handle_task(message: Message, data: dict):
                 ),
                 InlineKeyboardButton(
                     text="❌ Отменить", callback_data=f"stp:cancel:{task_id}"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🗑 Удалить", callback_data=f"stp:del:ask:{task_id}"
                 ),
             ],
         ]

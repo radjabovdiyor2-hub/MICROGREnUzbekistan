@@ -128,16 +128,23 @@ async def test_debts_empty_is_not_an_error(fake_db):
 
 @pytest.mark.asyncio
 async def test_shifts_separate_working_from_absent(fake_db):
-    """Больничный — не смена: посчитать его работающим значит соврать."""
+    """Больничный — не смена: посчитать его работающим значит соврать.
+
+    Ключ — `role`, а не `position`. Пока в запросе стояло `e.position`,
+    этот тест был зелёным: FakeSession отдаёт словарь, который написал автор
+    теста, и несуществующую колонку так не поймать. На живой базе `get_shifts`
+    падал с UndefinedColumn при каждом вызове. Ловит это только
+    `scripts/check_schema.py` — сверка SQL со schema.prisma.
+    """
     fake_db([
         {
             "type": "work", "start_time": datetime(2026, 8, 9, 8, 0),
             "end_time": datetime(2026, 8, 9, 17, 0), "note": None,
-            "employee_name": "Азиз", "position": "фермер",
+            "employee_name": "Азиз", "role": "фермер",
         },
         {
             "type": "sick", "start_time": None, "end_time": None, "note": None,
-            "employee_name": "Дилшод", "position": "курьер",
+            "employee_name": "Дилшод", "role": "курьер",
         },
     ])
 

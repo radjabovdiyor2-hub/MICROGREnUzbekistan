@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, ClipboardList, Plus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardList, Plus, Trash2 } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
 // Задачи отделам.
@@ -13,23 +12,21 @@ import { AlertTriangle, CheckCircle2, ClipboardList, Plus } from 'lucide-react';
 // Задача не просто пишется в таблицу — она уходит событием в шину, где
 // её подхватывает бот отдела. Если офис недоступен, честно говорим, что
 // задача сохранена, но исполнитель не уведомлён.
+//
+// Удаление — поштучно и пачкой: отмена оставляет строку в таблице навсегда,
+// а разбирать приходится именно мусор (дубли одного поручения, задачи
+// отделам, которых нет). Каскадов у Task в схеме нет.
 // ══════════════════════════════════════════════════════════════════════
 
-interface Task {
-  id: number; title: string; department: string | null; assignee: string | null;
-  status: string; priority: string; deadline: string | null;
-  description: string | null; createdAt: string;
-}
-
 import { AdminTaskForm } from './AdminTaskForm';
-import { DEPT_LABELS, PRIORITY_COLOR } from './adminTasksConfig';
+import { AdminTaskRow } from './AdminTaskRow';
+import { DEPT_LABELS } from './adminTasksConfig';
+import { useAdminTasks } from './useAdminTasks';
 
 export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
-  const queryClient = useQueryClient();
 
   const [filter, setFilter] = useState('all');
-  const [msg, setMsg] = useState<{ type: 'ok' | 'warn' | 'error'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -38,63 +35,17 @@ export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const [deadline, setDeadline] = useState('');
   const [description, setDescription] = useState('');
 
-  const { data, isLoading: loading } = useQuery({
-    queryKey: ['admin-tasks', filter],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (filter !== 'all') params.set('department', filter);
-      const res = await fetch(`/api/admin/tasks?${params}`, { credentials: 'same-origin' });
-      const d = await res.json();
-      if (d.status === 'ok') {
-        return { tasks: d.tasks as Task[], departments: d.departments as string[] };
-      }
-      throw new Error('Failed to load tasks');
-    }
-  });
+  const {
+    tasks, departments, loading, msg, selected, setSelected,
+    create, setStatus, toggle, remove,
+  } = useAdminTasks(filter, t);
 
-  const tasks = data?.tasks || [];
-  const departments = data?.departments || [];
-
-  const load = async () => {
-    await queryClient.invalidateQueries({ queryKey: ['admin-tasks'] });
-  };
-
-  const create = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMsg(null);
-    try {
-      const res = await fetch('/api/admin/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ title, department, priority, deadline: deadline || null, description }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMsg({ type: 'error', text: data.error || t('Не удалось создать', "Yaratib bo'lmadi") });
-        return;
-      }
-      setMsg(
-        data.warning
-          ? { type: 'warn', text: data.warning }
-          : { type: 'ok', text: t('Задача поставлена и отправлена боту отдела', 'Vazifa bo\'lim botiga yuborildi') },
-      );
-      setTitle(''); setDescription(''); setDeadline('');
-      setShowForm(false);
-      await load();
-    } catch {
-      setMsg({ type: 'error', text: t('Ошибка сети', 'Tarmoq xatosi') });
-    }
-  };
-
-  const setStatus = async (task: Task, status: string) => {
-    await fetch('/api/admin/tasks', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ id: task.id, status }),
-    });
-    await load();
+    const ok = await create({ title, department, priority, deadline, description });
+    if (!ok) return;
+    setTitle(''); setDescription(''); setDeadline('');
+    setShowForm(false);
   };
 
   const inputStyle: React.CSSProperties = {
@@ -130,9 +81,32 @@ export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         </div>
       )}
 
+      {selected.length > 0 && (
+        <div className="card" style={{
+          padding: '10px 14px', borderRadius: 10, display: 'flex', gap: 12,
+          alignItems: 'center', flexWrap: 'wrap', fontSize: 'var(--text-sm)',
+        }}>
+          <span style={{ fontWeight: 600 }}>
+            {t(`Выбрано: ${selected.length}`, `Tanlandi: ${selected.length}`)}
+          </span>
+          <button className="btn btn-sm btn-ghost" onClick={() => setSelected([])}>
+            {t('Снять выбор', 'Bekor qilish')}
+          </button>
+          <button
+            className="btn btn-sm btn-ghost"
+            style={{ color: 'var(--error)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => remove(
+              selected,
+              t(`Удалить ${selected.length} задач(и) безвозвратно?`, `${selected.length} ta vazifa butunlay o'chirilsinmi?`),
+            )}>
+            <Trash2 size={15} /> {t('Удалить выбранные', "Tanlanganlarni o'chirish")}
+          </button>
+        </div>
+      )}
+
       {showForm && (
         <AdminTaskForm
-          create={create} title={title} setTitle={setTitle} department={department}
+          create={submit} title={title} setTitle={setTitle} department={department}
           setDepartment={setDepartment} priority={priority} setPriority={setPriority}
           deadline={deadline} setDeadline={setDeadline} description={description}
           setDescription={setDescription} departments={departments} t={t} inputStyle={inputStyle}
@@ -144,39 +118,18 @@ export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-6)' }}>
             {t('Загрузка…', 'Yuklanmoqda…')}
           </div>
-        ) : tasks.map(task => {
-          const overdue = task.deadline && task.deadline < today && task.status !== 'done';
-          return (
-            <div key={task.id} className="card" style={{
-              padding: 'var(--space-4)', borderRadius: 12,
-              borderLeft: `3px solid ${PRIORITY_COLOR[task.priority] ?? 'var(--border)'}`,
-              display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap',
-            }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{task.title}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  <span>{DEPT_LABELS[task.department ?? ''] ?? task.department ?? '—'}</span>
-                  <span style={{ color: PRIORITY_COLOR[task.priority] }}>{task.priority}</span>
-                  {task.deadline && (
-                    <span style={{ color: overdue ? 'var(--error)' : 'var(--text-muted)', fontWeight: overdue ? 700 : 400 }}>
-                      {overdue ? `⚠ ${t('просрочено', 'muddati o\'tgan')} ` : ''}{task.deadline}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <select
-                value={task.status}
-                onChange={e => setStatus(task, e.target.value)}
-                style={{ ...inputStyle, width: 'auto', padding: '6px 10px', fontSize: 'var(--text-xs)' }}>
-                <option value="todo">{t('К выполнению', 'Bajarilishi kerak')}</option>
-                <option value="in_progress">{t('В работе', 'Jarayonda')}</option>
-                <option value="done">{t('Готово', 'Tayyor')}</option>
-                <option value="cancelled">{t('Отменено', 'Bekor qilindi')}</option>
-              </select>
-            </div>
-          );
-        })}
+        ) : tasks.map(task => (
+          <AdminTaskRow
+            key={task.id} task={task} today={today} inputStyle={inputStyle} t={t}
+            selected={selected.includes(task.id)}
+            onToggle={toggle}
+            onStatus={setStatus}
+            onDelete={x => remove(
+              [x.id],
+              t(`Удалить задачу «${x.title}» безвозвратно?`, `«${x.title}» butunlay o'chirilsinmi?`),
+            )}
+          />
+        ))}
 
         {!loading && !tasks.length && (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>

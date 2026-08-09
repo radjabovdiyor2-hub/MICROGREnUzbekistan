@@ -1407,12 +1407,9 @@ async def _perform(manager_bot: Bot, chat_id: int, tasks: list):
                 done += 1
                 if tid:
                     try:
-                        async with get_session_ctx() as s:
-                            await s.execute(
-                                text("UPDATE tasks SET status='done' WHERE id=:id"),
-                                {"id": tid},
-                            )
-                            await s.commit()
+                        from shared import tasks_repo
+
+                        await tasks_repo.set_status(tid, "done")
                     except Exception as e:
                         logger.warning(f"exec: не закрыл задачу {tid}: {e}")
             elif cap_key == "human_task":

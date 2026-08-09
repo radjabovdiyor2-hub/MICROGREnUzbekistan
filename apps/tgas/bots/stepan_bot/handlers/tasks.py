@@ -5,6 +5,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import text
 from shared.database import get_session_ctx
+from shared.event_bus import event_bus
 from bots.stepan_bot.states import TaskStates
 from bots.stepan_bot.keyboards.inline import (
     priority_kb,
@@ -58,16 +59,36 @@ async def task_desc(msg: Message, state: FSMContext):
 async def confirm_task(cb: CallbackQuery, state: FSMContext):
     d = await state.get_data()
     async with get_session_ctx() as session:
-        await session.execute(
+        res = await session.execute(
             text(
                 "INSERT INTO tasks (title, description, priority, department, status, created_at) "
-                "VALUES (:t, :desc, :p, 'pm', 'todo', NOW())"
+                "VALUES (:t, :desc, :p, 'pm', 'todo', NOW()) RETURNING id"
             ),
             {"t": d["title"], "desc": d["description"], "p": d["priority"]},
         )
+        task_id = res.scalar()
+        await session.commit()
+
+    # Без этого события строка в базе появлялась, а исполнителя у неё не было:
+    # задачи из PM-меню не брал никто и никогда. Payload — ПЛОСКИЙ, publish()
+    # сам оборачивает его в {"event", "data", ...} (см. shared/event_bus.py).
+    await event_bus.publish(
+        "TASK_CREATED",
+        {
+            "task_id": task_id,
+            "title": d["title"],
+            "description": d["description"],
+            "department": "pm",
+            "priority": d["priority"],
+            "chat_id": cb.message.chat.id,
+        },
+        "stepan_bot",
+    )
+
     await state.set_state(None)
     await cb.message.edit_text(
-        "✅ Задача создана!", reply_markup=pm_menu_kb(d.get("lang", "ru"))
+        f"✅ Задача #{task_id} создана и передана в работу!",
+        reply_markup=pm_menu_kb(d.get("lang", "ru")),
     )
     await cb.answer()
 

@@ -82,6 +82,31 @@ def _owner_chat_id() -> Optional[int]:
     return ids[0] if ids else None
 
 
+def _fallback_bot() -> Optional[Bot]:
+    """Бот Стёпана — запасной канал до владельца.
+
+    У qa_bot, rnd_bot и devops_bot нет Telegram-интерфейса: они зовут
+    `execute_bot_task(bot=None)`, и карточку подтверждения слать было нечем.
+    Заявка не создавалась, модель получала «подтвердить не удалось», и ЛЮБОЙ
+    рискованный инструмент у этих трёх отделов не выполнялся никогда — включая
+    `run_backup`, единственное реальное действие DevOps.
+
+    Стёпан подходит: у него есть токен и подключён `approvals_router`,
+    а владелец у офиса один. Кнопку всё равно нажимает только он (`is_owner`).
+    """
+    token = getattr(settings, "stepan_bot_token", "") or ""
+    if not token:
+        return None
+    try:
+        from aiogram.client.default import DefaultBotProperties
+        from aiogram.enums import ParseMode
+
+        return Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    except Exception as exc:  # токен битый — молча не падаем
+        logger.warning("APPROVALS: запасной канал недоступен: %s", exc)
+        return None
+
+
 def is_owner(user_id: Optional[int]) -> bool:
     """Кнопку подтверждения нажимает ТОЛЬКО владелец.
 
@@ -112,6 +137,14 @@ async def request(
     Ничего не выполняется: до нажатия кнопки в данных не меняется ни строки.
     """
     target = chat_id or _owner_chat_id()
+
+    # Безголовый бот (qa/rnd/devops) шлёт карточку через Стёпана, а не молчит.
+    # Чат при этом всегда владельца: у чужого бота нет доступа к чату задачи.
+    own_bot = bot is not None
+    if bot is None:
+        bot = _fallback_bot()
+        target = _owner_chat_id()
+
     if bot is None or not target:
         logger.warning("APPROVALS: нет канала до руководителя — заявка %s не создана", kind)
         return None
@@ -150,6 +183,14 @@ async def request(
     except Exception as exc:
         logger.warning("APPROVALS: карточка не доставлена: %s", exc)
         return None
+    finally:
+        # Запасного бота создали здесь — здесь же и закрываем сессию,
+        # иначе aiohttp течёт по одному соединению на каждую заявку.
+        if not own_bot:
+            try:
+                await bot.session.close()
+            except Exception:
+                pass
     return token
 
 

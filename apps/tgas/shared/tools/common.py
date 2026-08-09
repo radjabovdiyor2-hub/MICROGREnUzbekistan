@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 
-from shared import bot_registry, catalog_repo, storefront_orders
+from shared import bot_registry, catalog_repo, storefront_orders, tasks_repo
 from shared.database import get_session_ctx
 from shared.tools.registry import Tool, register
 from shared.utils import format_price
@@ -124,6 +124,20 @@ async def create_task(
 ) -> Dict[str, Any]:
     """Завести задачу отделу (без передачи текущей — для этого delegate)."""
     dept = _route(department)
+
+    # Модель дробит одно поручение на несколько вызовов, и в базе появлялись
+    # подряд идущие строки с одним и тем же текстом. Повтор за последний час
+    # считаем тем же поручением и возвращаем номер уже существующей задачи.
+    twin_id = await tasks_repo.find_recent_duplicate(title, dept)
+    if twin_id:
+        return {
+            "ok": True,
+            "task_id": twin_id,
+            "department": dept,
+            "duplicate": True,
+            "note": f"Такая задача уже заведена — #{twin_id}. Новую не создаю.",
+        }
+
     async with get_session_ctx() as session:
         task_id = (
             await session.execute(
@@ -142,7 +156,51 @@ async def create_task(
             )
         ).scalar()
         await session.commit()
+
+    # Без события строка появляется, а исполнителя у неё нет: отдел, которому
+    # её завели, о ней не узнает. Так и копились «невыполнимые» задачи.
+    # Payload ПЛОСКИЙ — publish() оборачивает его сам (см. shared/event_bus.py).
+    try:
+        from shared.config import settings
+        from shared.event_bus import event_bus
+
+        owner_ids = getattr(settings, "admin_telegram_ids", None) or []
+        await event_bus.publish(
+            "TASK_CREATED",
+            {
+                "task_id": task_id,
+                "title": title,
+                "description": description,
+                "department": dept,
+                "priority": priority,
+                "chat_id": owner_ids[0] if owner_ids else None,
+            },
+            "office",
+        )
+    except Exception as exc:
+        logger.warning("create_task: событие не ушло, задача #%s без исполнителя: %s", task_id, exc)
+
     return {"ok": True, "task_id": task_id, "department": dept}
+
+
+async def delete_task(task_id: int, reason: str = "") -> Dict[str, Any]:
+    """Удалить задачу насовсем. Для мусора, а не для «больше не актуально»."""
+    task = await tasks_repo.get(int(task_id))
+    if not task:
+        return {"ok": False, "task_id": task_id, "error": f"Задачи #{task_id} нет."}
+
+    removed = await tasks_repo.delete(int(task_id))
+    if not removed:
+        return {"ok": False, "task_id": task_id, "error": "Удалить не удалось."}
+
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "title": removed["title"],
+        "department": removed["department"],
+        "reason": reason,
+        "summary": f"Задача #{task_id} «{removed['title'][:60]}» удалена.",
+    }
 
 
 def _route(department: Optional[str]) -> str:
@@ -335,6 +393,32 @@ register(
             },
         },
         required=["title", "department"],
+    )
+)
+
+# Только руководителю: `tools_for` отдаёт весь реестр отделам из CHIEF_ALIASES
+# и фильтрует по этому списку для остальных. Отделам удалять задачи незачем —
+# им есть чем их закрыть, а удаление необратимо.
+register(
+    Tool(
+        name="delete_task",
+        description=(
+            "Удалить задачу НАСОВСЕМ по её номеру. Только для мусора: дублей, "
+            "ошибочно заведённых, потерявших смысл строк. Если задачу просто "
+            "не будут делать — закрой её, а не удаляй: удалённую не вернуть."
+        ),
+        run=delete_task,
+        departments=["pm"],
+        params={
+            "task_id": {"type": "integer", "description": "Номер задачи"},
+            "reason": {"type": "string", "description": "Почему удаляем"},
+        },
+        required=["task_id"],
+        risky=True,
+        confirm=lambda a: (
+            f"Удалить задачу #{a.get('task_id', '?')} безвозвратно"
+            + (f": {a.get('reason')}" if a.get("reason") else "")
+        ),
     )
 )
 

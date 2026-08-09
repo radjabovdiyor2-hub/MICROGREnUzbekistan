@@ -163,11 +163,18 @@ async def search_knowledge(query: str, limit: int = 2) -> str:
             return ""
 
         async with get_session_ctx() as session:
+            # Колонки — source/chunk, а НЕ title/content: так базу знаний
+            # наполняет scripts/build_knowledge_base.py (INSERT INTO
+            # knowledge_base (chunk, source, embedding)), и так она объявлена
+            # в schema.prisma. Запрос за title/content падал с UndefinedColumn,
+            # ошибка гасилась внешним except с текстом «проверьте расширение
+            # vector» — и поиск по базе знаний не работал НИ РАЗУ: бот отвечал
+            # из общих знаний модели, а не по документам компании.
             r = await session.execute(
-                text("""
-                SELECT title, content FROM knowledge_base
-                ORDER BY embedding <=> CAST(:emb AS vector) LIMIT :lim
-            """),
+                text(
+                    "SELECT source, chunk FROM knowledge_base "
+                    "ORDER BY embedding <=> CAST(:emb AS vector) LIMIT :lim"
+                ),
                 {"emb": str(emb), "lim": limit},
             )
             rows = r.fetchall()
@@ -175,7 +182,7 @@ async def search_knowledge(query: str, limit: int = 2) -> str:
         if not rows:
             return ""
 
-        context_str = "\n\n".join([f"[{row.title}]\n{row.content}" for row in rows])
+        context_str = "\n\n".join([f"[{row.source}]\n{row.chunk}" for row in rows])
         return f"\nДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ ИЗ БАЗЫ ЗНАНИЙ:\n{context_str}\n"
     except Exception as e:
         if not _kb_failure_logged:

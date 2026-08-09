@@ -35,11 +35,23 @@
 схемой. Скрипт отдельно предупреждает, если init.sql объявляет таблицу с тем
 же именем, но другим набором колонок, — это ровно та ловушка, что сработала.
 
+ПОЧЕМУ ПРОВЕРЯЕТСЯ И СПИСОК ВЫБИРАЕМЫХ КОЛОНОК
+
+Колонки искались только в сравнениях, агрегатах и списках INSERT. Колонка,
+которую просто ЧИТАЮТ, под проверку не попадала — и на этом сторож пропустил
+`SELECT message_id FROM tasks` в stepan_bot. Такой колонки нет, запрос падал
+до `UPDATE tasks SET status='done'` в той же транзакции, ошибка гасилась
+внешним `except`: в чат уходило «задача выполнена», а в базе оставалось
+`todo`. Кнопка «✅ Выполнено» не закрывала задачу НИ РАЗУ, и просрочка у
+владельца копилась месяцами. Теперь разбирается и проекция SELECT — для
+однотабличных запросов, где сопоставление однозначно.
+
 ЧЕГО СКРИПТ НЕ ДЕЛАЕТ
-Он не полноценный разборщик SQL. Колонки проверяются только у запросов к одной
-таблице без JOIN — там разбор однозначен. Запросы с JOIN проверяются лишь на
-существование таблиц: сопоставить колонку с нужной таблицей без схемы алиасов
-нельзя, а гадать хуже, чем молчать.
+Он не полноценный разборщик SQL. Неквалифицированные колонки проверяются
+только у запросов к одной таблице без JOIN — там разбор однозначен. Запросы с
+JOIN проверяются по `алиас.колонка` и на существование таблиц: сопоставить
+голое имя с нужной таблицей без схемы алиасов нельзя, а гадать хуже,
+чем молчать.
 """
 
 from __future__ import annotations
@@ -48,6 +60,7 @@ import ast
 import re
 import sys
 from pathlib import Path
+from typing import Optional
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -90,6 +103,12 @@ def load_prisma_schema() -> dict[str, set[str]]:
     Поля-связи (`category Category @relation(...)`, `items OrderItem[]`)
     колонками не являются — в базе от них остаётся только скалярный ключ,
     объявленный отдельным полем. Отличаем по типу: скаляр Prisma или enum.
+
+    Списки скаляров (`cuisine String[]` → `text[]`) — это КОЛОНКИ. Раньше
+    здесь отбрасывалось всё со скобками `[]`, и вместе со связями терялись
+    массивы: `SELECT cuisine, dishes, microgreens FROM restaurants` выглядел
+    обращением к несуществующим колонкам. Признак связи — имя модели в типе,
+    а не квадратные скобки.
     """
     path = REPO / "packages" / "database" / "prisma" / "schema.prisma"
     if not path.exists():
@@ -115,7 +134,7 @@ def load_prisma_schema() -> dict[str, set[str]]:
             if not field:
                 continue
             name, ftype = field.group(1), field.group(2)
-            if ftype not in scalar_types or "[]" in line.split("//")[0]:
+            if ftype not in scalar_types:
                 continue  # связь, а не колонка
             column = re.search(r'@map\("(\w+)"\)', line)
             columns.add((column.group(1) if column else name).lower())
@@ -353,25 +372,46 @@ def columns_used(sql: str) -> set[str]:
     return out
 
 
+# `e.name AS employee_name`, `sh.type` — квалифицированное имя в списке
+# выбираемых колонок. Алиас после AS отбрасываем: проверяем то, что читается
+# из таблицы, а не то, как это назвали в результате.
+QUALIFIED_TOKEN_RE = re.compile(r"\b([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)")
+
+
 def qualified_columns(sql: str) -> set[tuple[str, str]]:
     """{(таблица, колонка)} для `алиас.колонка` — разбор однозначен даже с JOIN.
 
     Это снимает главное ограничение скрипта: раньше запросы больше чем с одной
     таблицей пропускались целиком, а весь офисный SQL — это JOIN'ы CRM-зеркала.
+
+    Проекция разбирается наравне со сравнениями. Пока её не проверяли,
+    `SELECT e.name, e.position FROM shifts sh JOIN employees e` считался
+    здоровым: колонки `position` у `employees` нет (есть `role`), запрос падал
+    с UndefinedColumn на каждом вызове, и офис не мог прочитать ни одной смены.
+    Однотабличная проверка проекции (`select_columns`) такой запрос не видит —
+    таблиц в нём две.
     """
     s = _strip(sql)
     aliases = alias_map(s)
     out: set[tuple[str, str]] = set()
-    for rx in (COMPARISON_RE, AGGREGATE_RE):
-        for m in rx.finditer(s):
-            token = m.group(1).lower()
-            if "." not in token:
-                continue
-            alias, _, column = token.partition(".")
-            table = aliases.get(alias)
-            if not table or column in SQL_WORDS or column in SQL_CONSTANTS:
-                continue
-            out.add((table, column))
+
+    tokens = [m.group(1).lower() for rx in (COMPARISON_RE, AGGREGATE_RE) for m in rx.finditer(s)]
+
+    projection = SELECT_RE.search(s)
+    if projection:
+        tokens += [
+            f"{alias}.{column}"
+            for alias, column in QUALIFIED_TOKEN_RE.findall(projection.group(1).lower())
+        ]
+
+    for token in tokens:
+        if "." not in token:
+            continue
+        alias, _, column = token.partition(".")
+        table = aliases.get(alias)
+        if not table or column in SQL_WORDS or column in SQL_CONSTANTS:
+            continue
+        out.add((table, column))
     return out
 
 
@@ -379,6 +419,31 @@ def _strip(sql: str) -> str:
     s = re.sub(r"'[^']*'", " ", sql)  # строковые литералы
     s = re.sub(r":\w+", " ", s)  # параметры :name
     return re.sub(r"--[^\n]*", " ", s)  # комментарии
+
+
+# Список выбираемых колонок: SELECT a, b, c FROM t.
+# Берём только простой список имён — как только встречается вызов функции,
+# арифметика, звёздочка, алиас или подзапрос, разбор перестаёт быть
+# однозначным, и всю проекцию пропускаем целиком.
+SELECT_RE = re.compile(r"(?is)\bSELECT\s+(.*?)\s+\bFROM\b")
+
+
+def select_columns(sql: str) -> Optional[set[str]]:
+    """Колонки из проекции `SELECT a, b, c FROM t` или None, если не разобрать."""
+    match = SELECT_RE.search(sql)
+    if not match:
+        return None
+    body = match.group(1)
+    # Скобки — это функция или подзапрос; звёздочка ничего не называет.
+    if "(" in body or "*" in body:
+        return None
+    columns: set[str] = set()
+    for part in body.split(","):
+        name = part.strip().lower()
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*", name) or name in SQL_WORDS:
+            return None  # алиас, литерал, DISTINCT — не гадаем
+        columns.add(name)
+    return columns or None
 
 
 # Колонки, перечисленные в INSERT INTO t (a, b, c) — разбор однозначен,
@@ -478,6 +543,24 @@ def main() -> int:
             problems.append(
                 f"{rel}:{line} — в «{table}» нет колонки «{column}». "
                 f"Есть: {', '.join(sorted(known[table]))}"
+            )
+
+    # ── колонки в проекции SELECT (только однотабличные запросы) ─────────
+    # Читаемая колонка раньше не проверялась вовсе — так прошёл
+    # `SELECT message_id FROM tasks`, из-за которого задачи не закрывались.
+    for rel, line, sql in statements:
+        tables = tables_used(sql)
+        if len(tables) != 1:
+            continue  # с JOIN не гадаем
+        if len(re.findall(r"(?i)\bSELECT\b", sql)) > 1:
+            continue  # подзапрос приносит свои имена
+        tbl = next(iter(tables))
+        if tbl not in known or not known[tbl]:
+            continue
+        for col in sorted((select_columns(sql) or set()) - known[tbl]):
+            problems.append(
+                f"{rel}:{line} — SELECT из «{tbl}»: колонки «{col}» нет. "
+                f"Есть: {', '.join(sorted(known[tbl]))}"
             )
 
     # ── колонки существуют (только однотабличные запросы) ────────────────

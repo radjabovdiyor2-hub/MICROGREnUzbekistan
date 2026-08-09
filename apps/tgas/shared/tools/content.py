@@ -77,18 +77,61 @@ async def generate_image(prompt: str) -> Dict[str, Any]:
     return {"ok": True, "image": path}
 
 
+_WEEKDAYS = ("понедельник", "вторник", "среда", "четверг", "пятница", "суббота", "воскресенье")
+
+
+def _describe_job(job: Dict[str, Any]) -> str:
+    """Расписание задачи словами — из тех же полей, что задают её планировщику."""
+    if job.get("kind") == "interval":
+        seconds = int(job.get("seconds") or 0)
+        if seconds >= 3600 and seconds % 3600 == 0:
+            return f"каждые {seconds // 3600} ч"
+        if seconds >= 60:
+            return f"каждые {seconds // 60} мин"
+        return f"каждые {seconds} с"
+
+    at = f"{int(job.get('hour') or 0):02d}:{int(job.get('minute') or 0):02d}"
+    day_of_week = job.get("day_of_week")
+    if day_of_week is not None:
+        return f"{_WEEKDAYS[int(day_of_week) % 7]} {at}"
+    day_of_month = job.get("day_of_month")
+    if day_of_month is not None:
+        return f"{int(day_of_month)}-го числа {at}"
+    return f"ежедневно {at}"
+
+
 async def get_content_schedule() -> Dict[str, Any]:
-    """Расписание автопубликаций — чтобы не публиковать вручную то, что выйдет само."""
+    """Расписание автопубликаций — чтобы не публиковать вручную то, что выйдет само.
+
+    Читается из `bot_jobs`, куда планировщик записывает КАЖДУЮ свою задачу при
+    старте (`settings_store.register_job`). Раньше здесь лежал захардкоженный
+    список из трёх слотов с временами, которых не знал ни один планировщик:
+    расписание правили в коде или в админке, а инструмент продолжал уверенно
+    называть модели старые часы — и та отвечала ими владельцу.
+    """
+    from shared import settings_store
+
+    try:
+        jobs = await settings_store.get_job_overrides("content_bot")
+    except Exception as exc:
+        logger.warning("get_content_schedule: расписание недоступно: %s", exc)
+        return {
+            "schedule": [],
+            "note": "Расписание сейчас недоступно — не называй конкретные часы.",
+        }
+
+    schedule = [
+        {"what": name, "when": _describe_job(job)}
+        for name, job in sorted(jobs.items())
+        if job.get("enabled", True)
+    ]
     return {
-        "schedule": [
-            {"what": "Рецепт дня", "when": "ежедневно 18:00"},
-            {"what": "Утренний сторис", "when": "07:15 (лето) / 08:15 (зима)"},
-            {"what": "Пост недели в ленту", "when": "суббота 12:00"},
-        ],
+        "schedule": schedule,
+        "source": "bot_jobs — то же расписание, по которому работает планировщик",
         "note": (
-            "Всё перечисленное публикуется автоматически по расписанию. "
-            "Если задача про эти слоты — отдельная публикация не нужна, "
-            "ответь расписанием."
+            "Всё перечисленное публикуется автоматически. Если задача про эти "
+            "слоты — отдельная публикация не нужна, ответь расписанием. "
+            "Списка нет — так и скажи, часы не выдумывай."
         ),
     }
 

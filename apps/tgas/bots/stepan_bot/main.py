@@ -47,38 +47,55 @@ scheduler = BotScheduler("stepan_bot")
 
 
 async def check_deadlines():
-    """Каждый час проверяем просроченные задачи и уведомляем админа."""
+    """Раз в сутки показываем владельцу просроченные задачи.
+
+    Раньше это был interval-job раз в час: одни и те же строки приходили
+    24 раза за сутки, а закрыть их было нечем — из чата не было ни одного
+    пути к задаче. Теперь дайджест ежедневный и с кнопкой на экран, где
+    задачу можно удалить.
+    """
     try:
         admin_id = (
             settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
         )
         if not admin_id:
             return
-        from sqlalchemy import text as sa_text
+        from shared import tasks_repo
 
-        async with get_session_ctx() as session:
-            res = await session.execute(
-                sa_text(
-                    "SELECT id, title, department, deadline "
-                    "FROM tasks "
-                    "WHERE deadline < CURRENT_DATE AND status NOT IN ('done', 'cancelled') "
-                    "ORDER BY deadline ASC LIMIT 10"
-                )
-            )
-            overdue = res.fetchall()
+        shown = 10
+        overdue = await tasks_repo.list_overdue(limit=shown)
+        # Считаем отдельным COUNT(*): раньше печатали len() выборки с LIMIT 10
+        # и при любом числе просрочки рапортовали ровно «10».
+        total = await tasks_repo.count_overdue()
 
         if overdue:
             lines = ["⏰ <b>Просроченные задачи:</b>\n"]
-            for row in overdue:
-                tid, title, dept, deadline = row
-                dept_str = f" ({dept})" if dept else ""
-                dl = deadline.strftime("%d.%m.%Y") if deadline else "?"
+            for task in overdue:
+                dept_str = f" ({task['department']})" if task["department"] else ""
+                dl = task["deadline"] or "?"
                 lines.append(
-                    f"• <b>#{tid}</b>{dept_str}: {title[:80]} — дедлайн был {dl}"
+                    f"• <b>#{task['id']}</b>{dept_str}: {task['title'][:80]} "
+                    f"— дедлайн был {dl}"
                 )
-            lines.append(f"\n🔴 Всего просрочено: {len(overdue)}")
-            await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
-            logger.info(f"Отправлено уведомление о {len(overdue)} просроченных задачах")
+            lines.append(f"\n🔴 Всего просрочено: {total}")
+            if total > len(overdue):
+                lines.append(f"<i>Показаны первые {len(overdue)}.</i>")
+
+            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+            kb = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="📋 Разобрать задачи", callback_data="st:tasks"
+                        )
+                    ],
+                ]
+            )
+            await _bot.send_message(
+                admin_id, "\n".join(lines), parse_mode="HTML", reply_markup=kb
+            )
+            logger.info(f"Отправлено уведомление о {total} просроченных задачах")
 
             # Второй канал — админка: владелец мог не смотреть в Telegram.
             from shared.owner_alerts import raise_alert, SEVERITY_WARNING
@@ -86,7 +103,7 @@ async def check_deadlines():
             await raise_alert(
                 kind="deadline",
                 severity=SEVERITY_WARNING,
-                title=f"Просрочено задач: {len(overdue)}",
+                title=f"Просрочено задач: {total}",
                 message="\n".join(lines[1:]),
                 source="stepan_bot",
             )
@@ -672,7 +689,10 @@ async def grow_urgent():
 
 # ── Регистрация задач ────────────────────────────────────────────────────
 # ── Регистрация задач операционного управления ────────────────────────────
-scheduler.add_interval(name="check_deadlines", func=check_deadlines, seconds=3600)
+# Раз в сутки, а не раз в час: дайджест просрочки — это напоминание, а не
+# монитор. Имя job'а менять нельзя — по нему админка переопределяет расписание
+# (shared/settings_store.get_job_overrides).
+scheduler.add_cron(name="check_deadlines", func=check_deadlines, hour=9, minute=30)
 scheduler.add_interval(name="check_followups", func=check_followups, seconds=1800)
 scheduler.add_cron(name="evening_summary", func=evening_summary, hour=20, minute=0)
 scheduler.add_cron(
@@ -1118,11 +1138,21 @@ async def main():
                 from shared.database import get_session_ctx
                 from sqlalchemy import text
 
+                # Отдел — 'logistics', а не 'delivery'. Отдела 'delivery' в
+                # офисе не существует: его нет ни в LISTENED_DEPARTMENTS, ни в
+                # CHIEF_ALIASES, ни в белом списке витрины. Событие доходило до
+                # всех 13 ботов и каждым молча отбрасывалось — задача «Доставить
+                # заказ» не могла быть выполнена в принципе. 'logistics' ведёт
+                # Стёпан как COO (см. registry.CHIEF_ALIASES).
+                #
+                # Дедлайн — завтра, а не CURRENT_DATE: с сегодняшней датой
+                # задача становилась просроченной на следующее же утро.
                 async with get_session_ctx() as session:
                     res = await session.execute(
                         text(
                             "INSERT INTO tasks (title, description, status, department, priority, deadline) "
-                            "VALUES (:title, :desc, 'todo', 'delivery', 'high', CURRENT_DATE) RETURNING id"
+                            "VALUES (:title, :desc, 'todo', 'logistics', 'high', "
+                            "CURRENT_DATE + INTERVAL '1 day') RETURNING id"
                         ),
                         {
                             "title": f"Доставить заказ {order_number}",
@@ -1137,7 +1167,7 @@ async def main():
                     {
                         "task_id": task_id,
                         "title": f"Доставить заказ {order_number}",
-                        "department": "delivery",
+                        "department": "logistics",
                         "description": f"Новый заказ на сумму {amount} UZS.\nДетали: {items}",
                         "chat_id": getattr(settings, "sales_group_id", 0) or admin_id,
                     },
@@ -1167,13 +1197,14 @@ async def main():
         инструменты всех отделов, включая write_off_inventory с явными
         аргументами.
         """
+        from shared.tools.registry import CHIEF_ALIASES
+
+        # Список отделов без своего бота живёт в registry.CHIEF_ALIASES —
+        # здесь он был пятой копией и уже успел разойтись. 'delivery' —
+        # легаси: так помечены задачи, созданные до починки маршрутизации,
+        # без него они остались бы сиротами навсегда.
         data = payload.get("data", {})
-        if str(data.get("department", "")).lower() not in (
-            "pm",
-            "operations",
-            "production",
-            "logistics",
-        ):
+        if str(data.get("department", "")).lower() not in CHIEF_ALIASES | {"delivery"}:
             return
 
         try:
@@ -1208,28 +1239,18 @@ async def main():
         chat_id = data.get("chat_id")
         if task_id:
             try:
-                from shared.database import get_session_ctx
-                from sqlalchemy import text
+                # Здесь стоял `SELECT message_id FROM tasks` ради удаления
+                # карточки задачи в чате. Колонки message_id в схеме нет
+                # (см. schema.prisma, модель Task), запрос падал, исключение
+                # ловилось внизу — и UPDATE ниже не выполнялся НИКОГДА.
+                # В чат уходило «задача выполнена», а в базе оставалось 'todo',
+                # и дайджест просрочки показывал её вечно. Именно так у
+                # владельца накопились «невыполнимые» задачи.
+                from shared import tasks_repo
 
-                async with get_session_ctx() as session:
-                    res = await session.execute(
-                        text("SELECT message_id FROM tasks WHERE id=:tid"),
-                        {"tid": task_id},
-                    )
-                    row = res.fetchone()
-                    msg_id = row[0] if row else None
-
-                    if msg_id and chat_id:
-                        try:
-                            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
-                        except Exception as e:
-                            logger.warning(f"Could not delete original message: {e}")
-
-                    await session.execute(
-                        text("UPDATE tasks SET status='done' WHERE id=:tid"),
-                        {"tid": task_id},
-                    )
-                    await session.commit()
+                if not await tasks_repo.set_status(int(task_id), "done"):
+                    logger.warning(f"TASK {task_id}: статус не обновлён")
+                    return
                 logger.info(f"TASK {task_id} MARKED AS DONE by {completed_by}")
 
                 report_text = data.get("text", "")

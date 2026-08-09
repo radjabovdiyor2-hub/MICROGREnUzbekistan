@@ -22,6 +22,7 @@ from sqlalchemy import text
 
 from shared import bot_registry, customer_repo
 from shared import phone as phone_utils
+from shared.config import settings
 from shared.database import get_session_ctx
 from shared.event_bus import event_bus, Events
 from shared.utils import format_price
@@ -380,6 +381,11 @@ async def create_task(
         try:
             from shared.event_bus import event_bus
 
+            # chat_id обязателен: sales, marketing, finance, hr, support и
+            # analytics начинают обработчик с `if not chat_id: return` — им
+            # некуда отвечать. Без него задача создавалась, событие уходило,
+            # и шесть отделов из десяти молча его выбрасывали.
+            owner_ids = getattr(settings, "admin_telegram_ids", None) or []
             await event_bus.publish(
                 "TASK_CREATED",
                 {
@@ -388,6 +394,7 @@ async def create_task(
                     "description": description or title,
                     "department": department,
                     "priority": priority,
+                    "chat_id": owner_ids[0] if owner_ids else None,
                 },
                 "web_office",
             )
@@ -1943,6 +1950,14 @@ async def admin_dispatch_task(request: Request):
             {"status": "error", "error": "department required"}, status_code=400
         )
 
+    # Без chat_id задача не доходит до половины офиса: sales, marketing,
+    # finance, hr, support и analytics начинают обработчик с
+    # `if not chat_id: return` — им некуда отвечать. Событие уходило, бот его
+    # получал и молча выбрасывал, а админка показывала «dispatched: true».
+    # Отвечать будем владельцу: задачу поставил он.
+    owner_ids = getattr(settings, "admin_telegram_ids", None) or []
+    chat_id = owner_ids[0] if owner_ids else None
+
     try:
         await event_bus.publish(
             "TASK_CREATED",
@@ -1955,6 +1970,7 @@ async def admin_dispatch_task(request: Request):
                 "department": department,
                 "priority": body.get("priority") or "medium",
                 "deadline": body.get("deadline"),
+                "chat_id": chat_id,
             },
             "web_admin",
         )

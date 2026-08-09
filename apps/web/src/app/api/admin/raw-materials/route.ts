@@ -102,7 +102,9 @@ export async function POST(request: NextRequest) {
         onCredit: body.onCredit === true,
         dueDate: body.dueDate ? String(body.dueDate) : null,
         note: body.note ? String(body.note).slice(0, 500) : null,
-        performedBy: 'owner',
+        // Офис подписывается собой: иначе приход, оприходованный ботом,
+        // неотличим в движениях сырья от прихода, внесённого владельцем.
+        performedBy: String(body.performedBy ?? '') === 'ai_office' ? 'ai_office' : 'owner',
       });
 
       // Цена изменилась — обновляем прайс поставщика, чтобы следующий приход
@@ -112,7 +114,9 @@ export async function POST(request: NextRequest) {
       }
 
       audit({
-        action: 'raw.receipt', actor: 'owner', role: 'ADMIN',
+        action: 'raw.receipt',
+        actor: String(body.performedBy ?? '') === 'ai_office' ? 'ai_office' : 'owner',
+        role: 'ADMIN',
         ip: request.headers.get('x-forwarded-for') ?? undefined,
         target: materialId,
         meta: { quantity, unitCost, avgCostAfter: result.avgCostAfter },

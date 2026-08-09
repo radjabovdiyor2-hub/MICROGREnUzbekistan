@@ -30,6 +30,18 @@ import {
 
 const STATUSES = new Set(['dark', 'light', 'ready', 'harvested', 'expired']);
 
+/**
+ * Кто выполнил операцию: владелец руками или ИИ-офис по HTTP.
+ *
+ * Раньше здесь было жёстко `'owner'`, и посадка бота выглядела в
+ * `raw_material_movements` и в аудите неотличимо от посадки владельца —
+ * вопрос «кто списал семена» было не к кому адресовать.
+ */
+function actor(body: Record<string, unknown>): string {
+  const claimed = String(body.performedBy ?? '').trim();
+  return claimed === 'ai_office' ? 'ai_office' : 'owner';
+}
+
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
@@ -126,11 +138,11 @@ export async function POST(request: NextRequest) {
       note: body.note ? String(body.note) : null,
       productId: body.productId ? String(body.productId) : null,
       productName: body.productName ? String(body.productName) : null,
-      performedBy: 'owner',
+      performedBy: actor(body),
     });
 
     audit({
-      action: 'grow.create', actor: 'owner', role: 'ADMIN',
+      action: 'grow.create', actor: actor(body), role: 'ADMIN',
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: created.id,
       meta: { cropType, trays: created.trays, seedCost: String(created.seedCost) },
@@ -166,10 +178,10 @@ export async function PATCH(request: NextRequest) {
         harvestQty: Number(body.harvestQty),
         productId: body.productId ? String(body.productId) : null,
         productName: body.productName ? String(body.productName) : null,
-        performedBy: 'owner',
+        performedBy: actor(body),
       });
       audit({
-        action: 'grow.harvest', actor: 'owner', role: 'ADMIN',
+        action: 'grow.harvest', actor: actor(body), role: 'ADMIN',
         ip: request.headers.get('x-forwarded-for') ?? undefined,
         target: id, meta: { harvestQty: batch.harvestQty, unitCost: batch.costPrice },
       });
@@ -177,9 +189,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (body.action === 'write_off') {
-      const batch = await writeOffBatch(id, 'owner');
+      const batch = await writeOffBatch(id, actor(body));
       audit({
-        action: 'grow.write_off', actor: 'owner', role: 'ADMIN',
+        action: 'grow.write_off', actor: actor(body), role: 'ADMIN',
         ip: request.headers.get('x-forwarded-for') ?? undefined, target: id,
       });
       return NextResponse.json({ status: 'ok', batch });

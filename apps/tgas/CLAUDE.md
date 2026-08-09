@@ -27,7 +27,7 @@ FastAPI-дашборд (`web_office/`) даёт read-view над той же Б�
 
 ```
 python -m ruff check --select F .    # мёртвые и неопределённые имена
-python -m pytest tests/ -q           # 44 теста: инструменты, исполнитель, цепь продажи, зеркало
+python -m pytest tests/ -q           # 110 тестов: инструменты, исполнитель, задачи, производство, цепь продажи, зеркало
 python scripts/check_schema.py       # весь сырой SQL против schema.prisma
 python scripts/check_tools.py        # инструменты отделов и цепочка делегирования
 python scripts/check_bot_roster.py   # состав 13 ботов во всех шести местах
@@ -129,7 +129,8 @@ webhook-приёмники.
 - `database.py` — асинхронный движок/сессии SQLAlchemy 2.0 (asyncpg). Бизнес-логика почти всегда работает
   через сырые запросы `sqlalchemy.text()` через `get_session_ctx()`, а не через ORM-модели — `Base`/
   `init_db()` существуют, но схемой владеет Prisma (`packages/database/prisma/schema.prisma`).
-- **`tools/` — инструменты отделов (47 штук).** То, чем бот ДЕЛАЕТ работу, а не рассказывает о ней.
+- **`tools/` — инструменты отделов (64 штуки, 18 рискованных).** То, чем бот ДЕЛАЕТ работу,
+  а не рассказывает о ней.
   `tools/registry.py` — дата-класс `Tool` и функции `tools_for(department)` / `schemas_for(...)` /
   `catalog_text(...)` (для планировщика совещаний) / `normalize_result(...)`;
   по файлу на отдел (`sales.py`, `finance.py`, `content.py`, `operations.py`, …), плюс
@@ -137,8 +138,22 @@ webhook-приёмники.
   `create_task`, `delegate_to_department`, `human_task`, `get_business_summary`).
   Стёпан (`pm`, а также `production`/`logistics`/`operations`) видит все.
   **Тела инструментов ничего не реализуют** — зовут `sales_ops`, `catalog_ops`, `catalog_repo`,
-  `storefront_orders`, `capabilities`, `bot_bus`. Новая возможность → сначала ищите её там.
-  Сверка: `python scripts/check_tools.py`.
+  `storefront_orders`, `production_repo`, `capabilities`, `bot_bus`. Новая возможность →
+  сначала ищите её там. Сверка: `python scripts/check_tools.py`.
+
+  **Рискованный инструмент обязан быть достижим.** `risky=True` уходит в
+  `shared/approvals.py`, а карточку надо чем-то отправить. У qa/rnd/devops нет
+  Telegram-интерфейса — они зовут `execute_bot_task(bot=None)`, и заявка просто не
+  создавалась: модель получала «подтвердить не удалось», а `run_backup`, единственное
+  реальное действие DevOps, не выполнялся из задач НИ РАЗУ. Теперь у `approvals` есть
+  запасной канал через бота Стёпана (`_fallback_bot`), и это проверяет
+  `check_risky_tools_are_reachable` в `scripts/check_tools.py`.
+
+  **Журнал пишется в свою таблицу, а не в `tasks`.** `log_quality_check` и `log_experiment`
+  раньше вставляли строку в `tasks` со статусом `done` — при том, что `quality_controls`
+  и `experiments` есть в схеме и их ведёт веб-админка. Ни отчёт `get_quality_report`,
+  ни владелец на вкладке «ОТК» этих записей не видели никогда. Не заводите «журнал»
+  задачей: сначала проверьте `schema.prisma`.
 
   **Один владелец на имя.** У Стёпана инструменты из двух источников: витрина
   (`apps/web/src/lib/stepan/*.ts` — цена товара, настройки, расписания ботов, обучение)
@@ -159,6 +174,14 @@ webhook-приёмники.
   заявки в словаре процесса и теряли их при рестарте.
 - `catalog_repo.py` — **единственная дверь к каталогу** (витринные `products`/`categories`).
 - `storefront_orders.py` — **единственная дверь к заказам** (`POST /api/orders`, смена статуса).
+- `production_repo.py` — **единственная дверь к производству**: партии (`grow_batches`), приход
+  сырья, смены, ОТК, опыты, маршруты. Тоже по HTTP в `/api/admin/*`, и по той же причине, что
+  и заказы: посадка списывает сырьё по нормам культуры и складывает себестоимость партии,
+  приход пересчитывает средневзвешенную цену, сбор урожая приходует товар с себестоимостью
+  единицы. Эта арифметика живёт в `apps/web/src/lib/production/`, и вторая копия на Python
+  разойдётся с первой. Своим SQL в офисе списывается только сырьё
+  (`write_off_inventory` — вычитание с проверкой остатка в одном UPDATE).
+  **Отказ витрины = отказ операции**, а не тихий успех: иначе «посадил» без партии.
 - `ai_engine.py` — **обёртка, а не движок**. Сам транспорт (OpenAI primary + Gemini fallback, таблица
   стоимости токенов `TOKEN_COSTS`, эмбеддинги `embed()`, TTS/STT) живёт в `packages/mg_ai` и общий с
   витринным ботом. Здесь остаётся то, что специфично для офиса: ключи из `shared.config`, большой

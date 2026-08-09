@@ -480,15 +480,9 @@ async def handle_task_created(payload: dict):
                 await bot.send_message(
                     chat_id, format_sale_report(result), parse_mode="HTML"
                 )
-                from shared.database import get_session_ctx
-                from sqlalchemy import text
+                from shared import tasks_repo
 
-                async with get_session_ctx() as session:
-                    await session.execute(
-                        text("UPDATE tasks SET status = 'done' WHERE id = :tid"),
-                        {"tid": task_id},
-                    )
-                    await session.commit()
+                await tasks_repo.set_status(task_id, "done")
             elif result["status"] == "duplicate":
                 await bot.send_message(chat_id, f"ℹ️ {result['message']}")
             else:

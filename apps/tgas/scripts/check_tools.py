@@ -38,6 +38,7 @@ except (AttributeError, OSError):
 ROOT = Path(__file__).resolve().parent.parent  # apps/tgas
 sys.path.insert(0, str(ROOT))
 
+from shared import approvals  # noqa: E402
 from shared import bot_registry  # noqa: E402
 from shared import tools as tool_registry  # noqa: E402
 from shared.tools.common import CHIEF_FALLBACK, LISTENED_DEPARTMENTS  # noqa: E402
@@ -151,6 +152,39 @@ def check_executor_wired() -> None:
             )
 
 
+def check_risky_tools_are_reachable() -> None:
+    """У отдела с рискованным инструментом должен быть канал подтверждения.
+
+    qa_bot, rnd_bot и devops_bot не имеют Telegram-интерфейса и зовут
+    `execute_bot_task(bot=None)`. Пока `approvals.request` не умел запасного
+    канала, заявка у них просто не создавалась: модель получала «подтвердить
+    не удалось», и ЛЮБОЙ risky-инструмент этих отделов не выполнялся никогда.
+    `run_backup` — единственное реальное действие DevOps — был мёртв из задач,
+    и ни одна проверка этого не видела.
+
+    Канал есть, если у бота отдела свой токен ИЛИ в approvals объявлен запасной
+    (`_fallback_bot`). Второе и чинит безголовых.
+    """
+    fallback = getattr(approvals, "_fallback_bot", None)
+    if fallback is None:
+        problems.append(
+            "approvals не объявляет запасной канал подтверждения: у ботов без "
+            "Telegram-интерфейса рискованные инструменты не выполнятся никогда"
+        )
+
+    for bot in bot_registry.BOTS:
+        dept = bot.department
+        if not dept:
+            continue
+        risky = [t.name for t in tool_registry.tools_for(dept) if t.risky]
+        if risky and not bot.telegram and fallback is None:
+            problems.append(
+                f"у отдела «{dept}» ({bot.name}) есть рискованные инструменты "
+                f"({', '.join(sorted(risky)[:3])}…), но бот безголовый и запасного "
+                f"канала подтверждения нет — они не выполнятся никогда"
+            )
+
+
 def check_no_prices_in_prompts() -> None:
     """В промптах не должно быть цен строкой: источник цен — get_price_list."""
     price_re = re.compile(r"\d[\d\s]{3,}\s*(сум|so'm|uzs)", re.I)
@@ -187,6 +221,7 @@ def main() -> int:
     check_risky_have_confirmation()
     check_delegation_targets()
     check_executor_wired()
+    check_risky_tools_are_reachable()
     check_no_prices_in_prompts()
 
     all_tools = tool_registry.all_tools()

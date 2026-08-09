@@ -34,11 +34,9 @@ import os
 from typing import Any, Dict, Optional
 
 from aiogram import Bot
-from sqlalchemy import text
 
-from shared import approvals, bot_registry, tool_runtime
+from shared import approvals, bot_registry, tasks_repo, tool_runtime
 from shared.ai_engine import AIEngine
-from shared.database import get_session_ctx
 from shared.event_bus import Events, event_bus
 from shared.task_ui import get_task_keyboard
 
@@ -93,12 +91,7 @@ async def _learning_policy(bot_name: str) -> str:
 
 async def _set_task_status(task_id: Any, status: str) -> None:
     try:
-        async with get_session_ctx() as session:
-            await session.execute(
-                text("UPDATE tasks SET status = :s WHERE id = :tid"),
-                {"s": status, "tid": task_id},
-            )
-            await session.commit()
+        await tasks_repo.set_status(int(task_id), status)
     except Exception as exc:
         logger.warning("TASK_EXECUTOR: статус задачи %s не обновлён: %s", task_id, exc)
 
@@ -124,6 +117,21 @@ def _delegation_from(calls) -> Optional[Dict[str, Any]]:
             if call.result.get("ok"):
                 return call.result
     return None
+
+
+def _escalated_to_human(calls) -> bool:
+    """Отдел признал, что сам не может, и завёл задачу человеку.
+
+    Это не выполнение: работа впереди, просто делать её будет не бот. Закрывать
+    исходную задачу по такому вызову — то же самое, что отчитаться об успехе
+    в момент отказа.
+    """
+    return any(
+        call.name == "human_task"
+        and isinstance(call.result, dict)
+        and call.result.get("ok")
+        for call in calls
+    )
 
 
 async def execute_bot_task(
@@ -220,8 +228,23 @@ async def execute_bot_task(
         )
         return
 
-    # ── Задача выполнена ────────────────────────────────────────────────
-    body = f"✅ <b>Результат ({department}):</b>\n\n{result.text}"
+    # ── Ответ отдела ────────────────────────────────────────────────────
+    #
+    # Заголовок честный. Раньше «✅ Результат» стояло всегда — в том числе
+    # когда модель не вызвала ни одного инструмента и просто написала текст.
+    # Владелец видел зелёную галочку и считал задачу сделанной, а строка
+    # оставалась `todo`; расхождение всплывало только в сводке просрочки.
+    escalated = _escalated_to_human(result.calls)
+    if escalated:
+        header = f"🙋 <b>Нужен человек ({department}):</b>"
+    elif result.awaiting_approval:
+        header = f"⏳ <b>Ждёт вашего подтверждения ({department}):</b>"
+    elif result.acted:
+        header = f"✅ <b>Результат ({department}):</b>"
+    else:
+        header = f"💬 <b>Ответ без действий ({department}):</b>"
+
+    body = f"{header}\n\n{result.text}"
     image = _image_from(result.calls)
 
     if bot is not None and chat_id and image:
@@ -236,7 +259,13 @@ async def execute_bot_task(
     # которого не было. Признак работы — состоявшийся вызов инструмента
     # (`result.acted`); ждём подтверждения — тем более не закрываем, действие
     # ещё не произошло. Иначе оставляем `todo` и кнопку «Выполнено» человеку.
-    if result.acted and not result.awaiting_approval:
+    #
+    # `human_task` — тоже вызов инструмента, но это ЭСКАЛАЦИЯ: работа впереди,
+    # и закрывать исходную задачу нельзя. Планировщик совещаний уже считает
+    # так же (см. handlers/team_meeting.py, ветка `cap_key != "human_task"`);
+    # здесь этого условия не было, и задача закрывалась ровно в тот момент,
+    # когда бот признал, что сделать её не может.
+    if result.acted and not result.awaiting_approval and not escalated:
         await _set_task_status(task_id, "done")
 
     if bot is None:

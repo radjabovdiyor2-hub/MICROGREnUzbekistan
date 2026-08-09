@@ -9,6 +9,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardButton
 from sqlalchemy import text
+from shared import tasks_repo
 from shared.database import get_session_ctx
 from shared.ai_engine import AIEngine
 from shared.event_bus import event_bus, Events
@@ -253,10 +254,7 @@ async def process_report(msg: Message):
 
     if status == "approved":
         # Задача выполнена!
-        async with get_session_ctx() as session:
-            await session.execute(
-                text("UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task.id}
-            )
+        await tasks_repo.set_status(task.id, "done")
         await event_bus.publish(
             Events.TASK_COMPLETED,
             {"task_id": task.id, "title": task.title, "score": score},
@@ -273,10 +271,7 @@ async def process_report(msg: Message):
 @router.callback_query(F.data.startswith("dispatch:done:"))
 async def mark_done(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
-    async with get_session_ctx() as session:
-        await session.execute(
-            text("UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task_id}
-        )
+    await tasks_repo.set_status(task_id, "done")
     await event_bus.publish(
         Events.TASK_COMPLETED, {"task_id": task_id}, source_bot="stepan_bot"
     )
@@ -323,11 +318,7 @@ async def check_status(cb: CallbackQuery):
 @router.callback_query(F.data.startswith("dispatch:cancel:"))
 async def cancel_task(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
-    async with get_session_ctx() as session:
-        await session.execute(
-            text("UPDATE tasks SET status = 'cancelled' WHERE id = :id"),
-            {"id": task_id},
-        )
+    await tasks_repo.set_status(task_id, "cancelled")
     await cb.message.edit_text(
         cb.message.text + "\n\n❌ <b>ОТМЕНЕНО</b>", reply_markup=None
     )
@@ -337,10 +328,7 @@ async def cancel_task(cb: CallbackQuery):
 @router.callback_query(F.data.startswith("dispatch:approve:"))
 async def approve_task(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
-    async with get_session_ctx() as session:
-        await session.execute(
-            text("UPDATE tasks SET status = 'done' WHERE id = :id"), {"id": task_id}
-        )
+    await tasks_repo.set_status(task_id, "done")
     await cb.message.edit_text(
         cb.message.text + "\n\n✅ <b>ПРИНЯТО</b>", reply_markup=None
     )
@@ -350,11 +338,7 @@ async def approve_task(cb: CallbackQuery):
 @router.callback_query(F.data.startswith("dispatch:revise:"))
 async def revise_task(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
-    async with get_session_ctx() as session:
-        await session.execute(
-            text("UPDATE tasks SET status = 'in_progress' WHERE id = :id"),
-            {"id": task_id},
-        )
+    await tasks_repo.set_status(task_id, "in_progress")
     await cb.message.edit_text(
         cb.message.text + "\n\n🔄 <b>НА ДОРАБОТКУ</b>", reply_markup=None
     )

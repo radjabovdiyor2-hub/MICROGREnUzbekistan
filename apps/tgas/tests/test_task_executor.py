@@ -88,6 +88,7 @@ def patched(monkeypatch):
     """Подменяем базу и шину событий, возвращаем перехваченные события."""
     import shared.database as database
     import shared.task_executor as task_executor
+    import shared.tasks_repo as tasks_repo
     import shared.tools.common as common
 
     published = []
@@ -98,7 +99,10 @@ def patched(monkeypatch):
 
     monkeypatch.setattr(database, "get_session_ctx", fake_session_ctx)
     monkeypatch.setattr(common, "get_session_ctx", fake_session_ctx)
-    monkeypatch.setattr(task_executor, "get_session_ctx", fake_session_ctx)
+    # Статус задачи пишет shared/tasks_repo, а не сам исполнитель: раньше
+    # каждый UPDATE стоял по месту, и из-за этого две поломки со статусами
+    # прожили в проекте месяцами (см. докстринг tasks_repo).
+    monkeypatch.setattr(tasks_repo, "get_session_ctx", fake_session_ctx)
     monkeypatch.setattr(task_executor, "event_bus", FakeBus())
     return published
 
@@ -413,6 +417,51 @@ async def test_task_closes_when_a_tool_actually_ran(patched, monkeypatch):
         team_context="ctx",
     )
     assert closed == [(6, "done")]
+
+
+@pytest.mark.asyncio
+async def test_escalation_to_human_does_not_close_the_task(patched, monkeypatch):
+    """`human_task` — признание «я не могу», а не выполнение.
+
+    Инструмент вызван, значит `acted` истинно, и задача закрывалась как `done`
+    ровно в тот момент, когда бот отказался её делать. Работа при этом только
+    начиналась: человеку заводилась новая строка. Планировщик совещаний уже
+    считал правильно (`cap_key != "human_task"`), исполнитель — нет.
+    """
+    import shared.task_executor as task_executor
+
+    closed = []
+
+    async def track_status(task_id, status):
+        closed.append((task_id, status))
+
+    monkeypatch.setattr(task_executor, "_set_task_status", track_status)
+    monkeypatch.setattr(
+        task_executor,
+        "AIEngine",
+        lambda *a, **k: ScriptedAI(
+            [
+                FakeMessage(
+                    calls=[
+                        FakeToolCall(
+                            "human_task",
+                            {"action": "Съездить к поставщику", "reason": "нужен человек"},
+                        )
+                    ]
+                ),
+                FakeMessage(content="Передал человеку."),
+            ]
+        ),
+    )
+
+    await task_executor.execute_bot_task(
+        bot=FakeBot(),
+        bot_name="hr_bot",
+        department="hr",
+        task_data={"task_id": 9, "title": "договориться о встрече", "chat_id": 1},
+        team_context="ctx",
+    )
+    assert closed == [], "эскалация человеку не закрывает исходную задачу"
 
 
 @pytest.mark.asyncio

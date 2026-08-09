@@ -5,9 +5,18 @@
 шины. Тем важнее, чтобы у них были настоящие инструменты: иначе задача «проверь
 партию» закрывалась текстом без единой записи.
 
-Наблюдения и опыты пишем в `tasks` со статусом `done` — отдельной таблицы под
-журнал качества в схеме нет, а заводить её ради одного поля мы не станем:
-запись должна быть видна в общем списке задач, где её ищут.
+КУДА ПИШУТСЯ ОТК И ОПЫТЫ
+
+Раньше оба журнала писались в `tasks` со статусом `done`, а докстринг уверял,
+что «отдельной таблицы под журнал качества в схеме нет». Это было неправдой:
+`quality_controls` и `experiments` есть в `schema.prisma`, их ведёт веб-админка
+(вкладки «ОТК» и «Эксперименты»), и `get_quality_report` читает именно
+`quality_controls`. То есть QA-бот записывал брак — и ни отчёт по качеству, ни
+владелец в админке этого не видели никогда.
+
+Теперь записи идут в настоящие таблицы через `shared/production_repo.py`
+(HTTP к витрине). Эскалация брака задачей отделу `pm` осталась: это
+уведомление производству, и ему место именно в `tasks`.
 """
 
 from __future__ import annotations
@@ -16,7 +25,7 @@ from typing import Any, Dict, Optional
 
 from sqlalchemy import text
 
-from shared import bot_registry
+from shared import bot_registry, production_repo
 from shared.database import get_session_ctx
 from shared.tools.registry import Tool, register
 
@@ -28,26 +37,26 @@ DEVOPS = ["devops"]
 async def log_quality_check(
     batch: str, verdict: str, issues: str = "", crop: str = ""
 ) -> Dict[str, Any]:
-    """Записать результат проверки партии."""
+    """Записать результат проверки партии в журнал ОТК."""
     ok = str(verdict).lower() in ("ok", "pass", "годна", "принята")
-    async with get_session_ctx() as session:
-        task_id = (
-            await session.execute(
-                text(
-                    "INSERT INTO tasks (title, assignee, department, status, priority, "
-                    "description, created_at) "
-                    "VALUES (:t, 'QA', 'qa', 'done', :p, :descr, NOW()) RETURNING id"
-                ),
-                {
-                    "t": f"QA партия {batch}: {'годна' if ok else 'брак'}"[:255],
-                    "p": "low" if ok else "high",
-                    "descr": f"Культура: {crop or '—'}\nВердикт: {verdict}\nЗамечания: {issues or 'нет'}",
-                },
-            )
-        ).scalar()
-        await session.commit()
 
-    result: Dict[str, Any] = {"ok": True, "record_id": task_id, "passed": ok}
+    written = await production_repo.log_quality(
+        batch_id=batch,
+        status="passed" if ok else "defect",
+        defect_type="" if ok else str(verdict),
+        notes=f"Культура: {crop or '—'}. Вердикт: {verdict}. Замечания: {issues or 'нет'}",
+    )
+    if not written.get("ok"):
+        # Отказ витрины — отказ операции. Молча «записать» в другую таблицу
+        # нельзя: именно так журнал ОТК и разошёлся с админкой.
+        return {
+            "ok": False,
+            "error": written.get("error", ""),
+            "note": "Проверка НЕ записана в журнал ОТК. Не говори, что записал.",
+        }
+
+    record = written.get("data") or {}
+    result: Dict[str, Any] = {"ok": True, "record_id": record.get("id"), "passed": ok}
     if not ok:
         # Брак — это не только запись в журнале: производство должно узнать.
         async with get_session_ctx() as session:
@@ -70,29 +79,30 @@ async def log_quality_check(
 async def log_experiment(
     hypothesis: str, crop: str = "", result: str = "", metric: Optional[float] = None
 ) -> Dict[str, Any]:
-    """Записать опыт R&D: гипотеза, культура, результат."""
-    async with get_session_ctx() as session:
-        task_id = (
-            await session.execute(
-                text(
-                    "INSERT INTO tasks (title, assignee, department, status, priority, "
-                    "description, created_at) "
-                    "VALUES (:t, 'R&D', 'rnd', :st, 'medium', :descr, NOW()) RETURNING id"
-                ),
-                {
-                    "t": f"R&D: {hypothesis}"[:255],
-                    "st": "done" if result else "todo",
-                    "descr": (
-                        f"Культура: {crop or '—'}\n"
-                        f"Гипотеза: {hypothesis}\n"
-                        f"Результат: {result or 'ещё идёт'}\n"
-                        f"Показатель: {metric if metric is not None else '—'}"
-                    ),
-                },
-            )
-        ).scalar()
-        await session.commit()
-    return {"ok": True, "experiment_id": task_id, "closed": bool(result)}
+    """Записать опыт R&D в журнал экспериментов: гипотеза, культура, результат."""
+    written = await production_repo.log_experiment(
+        title=f"{crop or 'Опыт'}: {hypothesis}",
+        hypothesis=(
+            f"Культура: {crop or '—'}\n"
+            f"Гипотеза: {hypothesis}\n"
+            f"Результат: {result or 'ещё идёт'}\n"
+            f"Показатель: {metric if metric is not None else '—'}"
+        ),
+        status="success" if result else "ongoing",
+    )
+    if not written.get("ok"):
+        return {
+            "ok": False,
+            "error": written.get("error", ""),
+            "note": "Опыт НЕ записан. Не говори, что записал.",
+        }
+
+    record = written.get("data") or {}
+    return {
+        "ok": True,
+        "experiment_id": record.get("id"),
+        "closed": bool(result),
+    }
 
 
 async def get_bot_health() -> Dict[str, Any]:

@@ -3,20 +3,31 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from shared.approvals import is_owner
+
 logger = logging.getLogger(__name__)
 task_ui_router = Router()
 
 
 def get_task_keyboard(task_id: int):
-    """Генерирует клавиатуру с кнопкой 'Выполнено'."""
+    """Клавиатура карточки задачи: закрыть или удалить."""
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Выполнено", callback_data=f"task_done:{task_id}")
+    builder.button(text="🗑 Удалить", callback_data=f"task_del:{task_id}")
+    builder.adjust(2)
     return builder.as_markup()
 
 
 @task_ui_router.callback_query(F.data.startswith("task_done:"))
 async def on_task_done(callback: CallbackQuery):
     try:
+        # Проверки прав здесь не было вообще, а `task_ui_router` подключён к
+        # восьми ботам, часть из которых работает в групповых чатах: закрыть
+        # чужую задачу мог любой участник группы. Ту же ошибку уже разбирали
+        # в shared/approvals.py — там проверка стоит именно поэтому.
+        if not is_owner(callback.from_user.id):
+            return await callback.answer("⛔ Только владелец", show_alert=True)
+
         task_id = callback.data.split(":")[1]
 
         bot_info = await callback.bot.get_me()
@@ -51,6 +62,58 @@ async def on_task_done(callback: CallbackQuery):
     except Exception as e:
         logger.error(f"Error handling task_done callback: {e}", exc_info=True)
         await callback.answer("Ошибка при закрытии задачи", show_alert=True)
+
+
+@task_ui_router.callback_query(F.data.startswith("task_del:"))
+async def on_task_delete(callback: CallbackQuery):
+    """Удалить задачу из карточки отдела. Только владелец, в два шага."""
+    try:
+        if not is_owner(callback.from_user.id):
+            return await callback.answer("⛔ Только владелец", show_alert=True)
+
+        task_id = int(callback.data.split(":")[1])
+        builder = InlineKeyboardBuilder()
+        builder.button(text="🗑 Да, удалить", callback_data=f"task_delok:{task_id}")
+        builder.button(text="◀️ Не надо", callback_data=f"task_delno:{task_id}")
+        builder.adjust(2)
+        await callback.message.reply(
+            f"🗑 Удалить задачу #{task_id} безвозвратно?\n"
+            f"Если она просто потеряла смысл — закройте её как выполненную.",
+            reply_markup=builder.as_markup(),
+        )
+        await callback.answer()
+    except Exception as e:
+        logger.error(f"Error handling task_del callback: {e}", exc_info=True)
+        await callback.answer("Ошибка", show_alert=True)
+
+
+@task_ui_router.callback_query(F.data.startswith("task_delok:"))
+async def on_task_delete_confirmed(callback: CallbackQuery):
+    try:
+        if not is_owner(callback.from_user.id):
+            return await callback.answer("⛔ Только владелец", show_alert=True)
+
+        from shared import tasks_repo
+
+        task_id = int(callback.data.split(":")[1])
+        removed = await tasks_repo.delete(task_id)
+        if not removed:
+            return await callback.answer("Задачи уже нет", show_alert=True)
+
+        await callback.message.edit_text(
+            f"🗑 Задача #{task_id} удалена: {removed['title'][:150]}"
+        )
+        await callback.answer("Удалено")
+    except Exception as e:
+        logger.error(f"Error deleting task: {e}", exc_info=True)
+        await callback.answer("Ошибка при удалении", show_alert=True)
+
+
+@task_ui_router.callback_query(F.data.startswith("task_delno:"))
+async def on_task_delete_declined(callback: CallbackQuery):
+    await callback.message.edit_text("◀️ Удаление отменено — задача на месте.")
+    await callback.answer()
+
 
 # --- HITL (Human In The Loop) ---
 
