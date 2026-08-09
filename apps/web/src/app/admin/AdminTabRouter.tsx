@@ -30,6 +30,7 @@ import { AdminPromo } from '@/components/admin/AdminPromo';
 import { AdminFinance } from '@/components/admin/AdminFinance';
 import { AdminAudit } from '@/components/admin/AdminAudit';
 import { AdminAiSpend } from '@/components/admin/AdminAiSpend';
+import { AdminApprovals } from '@/components/admin/AdminApprovals';
 import { AdminTasks } from '@/components/admin/AdminTasks';
 import { AdminCategories } from '@/components/admin/AdminCategories';
 import { AdminDeliveries } from '@/components/admin/AdminDeliveries';
@@ -76,6 +77,7 @@ export function AdminTabRouter({ activeTab, isOwner, sellerName, lang, t }: {
     {activeTab === 'bot_control' && isOwner && <AdminBotControl lang={lang} />}
     {activeTab === 'bot_health' && isOwner && <AdminBotHealth lang={lang} />}
     {activeTab === 'tasks' && isOwner && <AdminTasks lang={lang} />}
+    {activeTab === 'approvals' && isOwner && <AdminApprovals lang={lang} />}
     {activeTab === 'learnings' && isOwner && <AdminLearnings lang={lang} />}
     {activeTab === 'ai_spend' && isOwner && <AdminAiSpend lang={lang} />}
 

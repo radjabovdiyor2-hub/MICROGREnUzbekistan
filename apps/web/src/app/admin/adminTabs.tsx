@@ -53,6 +53,7 @@ export const TAB_GROUPS = [
       { id: 'bot_control', ru: 'Пульт ИИ', uz: 'AI Pult', icon: <Play size={16} /> },
       { id: 'bot_health', ru: 'Здоровье ботов', uz: 'Botlar holati', icon: <Activity size={16} /> },
       { id: 'tasks', ru: 'Задачи отделам', uz: 'Vazifalar', icon: <ClipboardList size={16} /> },
+      { id: 'approvals', ru: 'Ждёт решения', uz: 'Qaror kutmoqda', icon: <Clock size={16} /> },
       { id: 'learnings', ru: 'Обучение ИИ', uz: "AI O'rgatish", icon: <Brain size={16} /> },
       { id: 'ai_spend', ru: 'Расходы ИИ', uz: 'AI xarajatlari', icon: <Cpu size={16} /> },
     ]
