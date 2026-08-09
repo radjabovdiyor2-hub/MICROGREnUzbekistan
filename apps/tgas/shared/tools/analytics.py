@@ -102,9 +102,9 @@ async def get_sales_trend(days: int = 14) -> Dict[str, Any]:
     }
 
 
-async def build_report(kind: str = "daily") -> Dict[str, Any]:
-    """Сводный отчёт от аналитики."""
-    result = await capabilities.run_capability("build_report", {"kind": kind})
+async def build_report() -> Dict[str, Any]:
+    """Сводка дня от аналитики: выручка, заказы, средний чек, новые клиенты."""
+    result = await capabilities.run_capability("build_report", {})
     return from_capability(result)
 
 
@@ -150,10 +150,17 @@ register(
 register(
     Tool(
         name="build_report",
-        description="Сформировать сводный отчёт (daily, finance, sales, tasks).",
+        # `kind` убран: обработчик шины (analytics_bot.bus_get_report) его не
+        # читал никогда и на любой запрос отдавал одну и ту же сводку дня.
+        # Обещать четыре вида отчёта, выдавая один, — это ложь инструмента.
+        # Разрезы уже есть отдельными инструментами, на них и указываем.
+        description=(
+            "Сводка за сегодня: выручка, число заказов, средний чек, новые "
+            "клиенты. Другие разрезы — top_products, get_sales_trend, "
+            "abc_analysis, get_pnl."
+        ),
         run=build_report,
         departments=DEPTS,
-        params={"kind": {"type": "string", "description": "Тип отчёта"}},
     )
 )
 

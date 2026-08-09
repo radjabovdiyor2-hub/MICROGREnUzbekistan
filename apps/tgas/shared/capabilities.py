@@ -280,16 +280,46 @@ async def cap_push_stale_orders(params: dict) -> Result:
 async def _bus(
     to_bot: str, action: str, params: dict, timeout: int = 120
 ) -> Optional[dict]:
-    """Вызвать действие другого бота через шину и дождаться результата."""
+    """Вызвать действие другого бота через шину и дождаться результата.
+
+    Проверяются ДВА статуса, и это главное здесь.
+
+    `status` конверта шины говорит лишь о том, что обработчик отработал и
+    вернул ответ. Сам ответ при неудаче выглядит как
+    `{"status": "error", "message": ...}` — и `complete_task` всё равно
+    помечает задачу шины выполненной. Раньше проверялся только конверт, и
+    непустой словарь ошибки проходил `if not r` у вызывающих: `broadcast` по
+    сегменту без подписчиков возвращал «✅ Рассылка выполнена», а исполнитель
+    закрывал задачу как `done`. Так вели себя все семь капабилити на шине.
+
+    Возврат: словарь результата при успехе, иначе None. Ошибку логируем
+    с текстом обработчика, чтобы её было по чему искать.
+    """
     from shared.bot_bus import send_task, get_result
 
     tid = await send_task("stepan_bot", to_bot, action, params)
     res = await get_result(tid, timeout=timeout)
-    if res and res.get("status") == "done":
-        return res.get("result") or {}
-    if res and res.get("status") == "error":
-        logger.warning(f"{to_bot}.{action} ошибка: {res.get('error')}")
-    return None
+
+    if not res:
+        logger.warning("%s.%s: ответа нет (таймаут %sс)", to_bot, action, timeout)
+        return None
+
+    if res.get("status") != "done":
+        logger.warning("%s.%s ошибка шины: %s", to_bot, action, res.get("error"))
+        return None
+
+    payload = res.get("result")
+    if not isinstance(payload, dict):
+        logger.warning("%s.%s вернул пустой результат", to_bot, action)
+        return None
+
+    if str(payload.get("status", "")).lower() == "error":
+        logger.warning(
+            "%s.%s не выполнено: %s", to_bot, action, payload.get("message")
+        )
+        return None
+
+    return payload
 
 
 async def cap_broadcast(params: dict) -> Result:
@@ -328,9 +358,17 @@ async def cap_b2b_offer(params: dict) -> Result:
 
 
 async def cap_collect_leads(params: dict) -> Result:
-    """Собрать новых B2B-лидов (рестораны) из 2ГИС / Google / Яндекс."""
+    """Собрать новых B2B-лидов (рестораны) из 2ГИС / Google / Яндекс.
+
+    `city` доносим до шины: инструмент объявляет его модели, а сюда он
+    приходил и терялся — сбор всегда шёл по городу из настроек, что бы
+    ни попросил владелец.
+    """
     r = await _bus(
-        "marketing_bot", "collect_leads", {"limit": params.get("limit")}, timeout=180
+        "marketing_bot",
+        "collect_leads",
+        {"limit": params.get("limit"), "city": params.get("city")},
+        timeout=180,
     )
     if not r:
         return Result(False, "Не удалось собрать лидов.")
@@ -339,9 +377,20 @@ async def cap_collect_leads(params: dict) -> Result:
 
 
 async def cap_publish_content(params: dict) -> Result:
-    """Опубликовать пост/сторис в Instagram (через content_bot)."""
-    topic = params.get("topic") or params.get("message") or "микрозелень"
-    r = await _bus("content_bot", "publish_post", {"topic": topic}, timeout=180)
+    """Опубликовать сторис в Instagram (через content_bot).
+
+    `text` — то, что показали владельцу в карточке подтверждения. Донести его
+    до бота обязательно: ключ здесь читался как `topic`/`message`, а инструмент
+    присылал `text`, поэтому одобряли один текст, а публиковался другой.
+    """
+    text_body = str(params.get("text") or params.get("message") or "").strip()
+    topic = params.get("topic") or text_body[:80] or "микрозелень"
+    r = await _bus(
+        "content_bot",
+        "publish_post",
+        {"text": text_body, "topic": topic},
+        timeout=180,
+    )
     if not r:
         return Result(False, "Контент-бот не смог опубликовать.")
     return Result(
@@ -350,21 +399,43 @@ async def cap_publish_content(params: dict) -> Result:
 
 
 async def cap_build_report(params: dict) -> Result:
-    """Отчёт из БД (аналитика)."""
-    r = await _bus("analytics_bot", "get_report", {"kind": params.get("kind", "full")})
+    """Сводка дня из БД (аналитика)."""
+    r = await _bus("analytics_bot", "get_report", {})
     if not r:
         return Result(False, "Аналитика не отдала отчёт.")
-    return Result(True, "Отчёт собран", [f"📊 {r.get('message', '')[:300]}"])
+    # В доказательства идут цифры, если обработчик их вернул, а не только
+    # шаблонная строка: по одному тексту модель не может ничего утверждать.
+    facts = [f"📊 {r.get('message', '')[:300]}"]
+    data = r.get("data")
+    if isinstance(data, dict):
+        facts += [f"{k}: {v}" for k, v in data.items()][:10]
+    return Result(True, "Сводка дня собрана", facts)
 
 
 async def cap_instagram_stats(params: dict) -> Result:
-    """Статистика Instagram — реальные охваты и вовлечённость."""
+    """Статистика Instagram — реальные охваты и вовлечённость.
+
+    В доказательства идут САМИ ЦИФРЫ из `data`. Раньше читался только
+    `message` — шаблонная строка «Instagram статистика получена», — а `data`
+    выбрасывалась. Модель получала успех без единого числа и по правилу «не
+    называй данные не из инструмента» не могла ответить вообще ничего.
+    """
     r = await _bus("analytics_bot", "get_instagram_stats", {})
     if not r:
         return Result(False, "Не удалось получить статистику Instagram.")
-    return Result(
-        True, "Статистика Instagram получена", [f"📈 {r.get('message', '')[:300]}"]
+
+    data = r.get("data")
+    if not data:
+        # Модуль не настроен — обработчик отвечает «ок» с пояснением в тексте.
+        # Успехом это называть нельзя: цифр нет.
+        return Result(False, r.get("message") or "Статистика Instagram недоступна.")
+
+    facts = (
+        [f"{k}: {v}" for k, v in data.items()]
+        if isinstance(data, dict)
+        else [str(data)[:300]]
     )
+    return Result(True, "Статистика Instagram получена", [f"📈 {f}" for f in facts[:12]])
 
 
 async def cap_check_dm(params: dict) -> Result:

@@ -618,10 +618,12 @@ async def handle_task_created(payload: dict):
     data = payload.get("data", {})
     if str(data.get("department", "")).lower() != "analytics":
         return
-    chat_id = data.get("chat_id")
-    data.get("task_id")
-    if not chat_id:
-        return
+    # Гарда `if not chat_id: return` здесь больше нет. Она отбрасывала
+    # задачу раньше, чем исполнитель успевал её спасти: task_executor
+    # сам делает `chat_id or _admin_chat_id()`, а _notify без чата —
+    # пустая операция. Из-за гарды задача из офисной панели создавалась,
+    # событие уходило, и шесть отделов из десяти молча его выбрасывали.
+    # Отдельная переменная не нужна: исполнитель берёт chat_id из data.
 
     bot = Bot(
         token=settings.analytics_bot_token,

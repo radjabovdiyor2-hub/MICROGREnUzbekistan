@@ -84,6 +84,82 @@ def _row(row: Any) -> Dict[str, Any]:
     }
 
 
+async def create(
+    title: str,
+    department: str,
+    description: str = "",
+    priority: str = "medium",
+    assignee: Optional[str] = None,
+    deadline_days: Optional[int] = None,
+    chat_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Завести задачу и РАЗБУДИТЬ отдел. Единственный правильный способ.
+
+    Строка в `tasks` сама по себе не работа: пока не ушло `TASK_CREATED`,
+    исполнителя у неё нет. Это забывали в пяти местах независимо
+    (`escalate` в поддержке, эскалация брака в ОТК, PM-меню, инструмент
+    `create_task`, `human_task`), и каждый раз задача создавалась мёртвой.
+
+    `deadline_days` обязателен по смыслу для всего, что ждёт человека:
+    дайджест просрочки ключуется по `deadline`, и задача без него не
+    попадает в него никогда — то есть о ней не узнают вообще.
+
+    Payload события — ПЛОСКИЙ: `publish()` оборачивает его сам.
+    """
+    dept = str(department or "").strip().lower() or "pm"
+
+    async with get_session_ctx() as session:
+        task_id = (
+            await session.execute(
+                text(
+                    "INSERT INTO tasks (title, assignee, department, status, "
+                    "priority, description, deadline, created_at, updated_at) "
+                    "VALUES (:t, :a, :d, 'todo', :p, :descr, "
+                    "CASE WHEN :days IS NULL THEN NULL "
+                    "ELSE CURRENT_DATE + (INTERVAL '1 day' * :days) END, "
+                    "NOW(), NOW()) RETURNING id"
+                ),
+                {
+                    "t": str(title)[:500],
+                    "a": assignee,
+                    "d": dept,
+                    "p": priority,
+                    "descr": description,
+                    "days": deadline_days,
+                },
+            )
+        ).scalar()
+        await session.commit()
+
+    try:
+        from shared.config import settings
+        from shared.event_bus import event_bus
+
+        owner_ids = getattr(settings, "admin_telegram_ids", None) or []
+        await event_bus.publish(
+            "TASK_CREATED",
+            {
+                "task_id": task_id,
+                "title": title,
+                "description": description,
+                "department": dept,
+                "priority": priority,
+                "chat_id": chat_id or (owner_ids[0] if owner_ids else None),
+            },
+            "office",
+        )
+        dispatched = True
+    except Exception as exc:
+        logger.warning(
+            "tasks_repo.create: событие не ушло, задача #%s без исполнителя: %s",
+            task_id,
+            exc,
+        )
+        dispatched = False
+
+    return {"ok": True, "task_id": task_id, "department": dept, "dispatched": dispatched}
+
+
 async def get(task_id: int) -> Optional[Dict[str, Any]]:
     """Задача по номеру или None."""
     async with get_session_ctx() as session:
@@ -229,6 +305,47 @@ async def list_overdue(limit: int = 10) -> List[Dict[str, Any]]:
             )
         ).fetchall()
     return [_row(r) for r in rows]
+
+
+async def list_stuck(older_than_hours: int = 3, limit: int = 20) -> List[Dict[str, Any]]:
+    """Задачи, которые никто не взял: `todo` старше N часов.
+
+    Событие `TASK_CREATED` доставляется Redis Pub/Sub, а он не переигрывает:
+    отдел, который в этот момент перезапускался, задачу не получит НИКОГДА.
+    Прямой HTTP-фолбэк глотает ошибки в `except: pass`, поэтому «доставлено»
+    и «бот лежал» неразличимы. Ни одного повторного вызова в системе не было —
+    задача просто оставалась в `todo` и всплывала лишь в сводке просрочки.
+    """
+    async with get_session_ctx() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT id, title, description, department, assignee, "
+                    "status, priority, deadline, created_at "
+                    "FROM tasks WHERE status = 'todo' "
+                    "AND created_at < NOW() - (INTERVAL '1 hour' * :hrs) "
+                    "AND updated_at < NOW() - (INTERVAL '1 hour' * :hrs) "
+                    "ORDER BY created_at ASC LIMIT :lim"
+                ),
+                {"hrs": max(1, int(older_than_hours)), "lim": int(limit)},
+            )
+        ).fetchall()
+    return [_row(r) for r in rows]
+
+
+async def mark_retried(task_id: int) -> None:
+    """Отметить попытку переотправки — чтобы метельщик не крутил одно и то же.
+
+    Пишем `updated_at`: у задачи нет счётчика попыток, а заводить колонку ради
+    одного числа не стоит. Сдвинутая метка выводит задачу из окна `list_stuck`
+    ровно на тот же срок, то есть попытка повторится не раньше него.
+    """
+    async with get_session_ctx() as session:
+        await session.execute(
+            text("UPDATE tasks SET updated_at = NOW() WHERE id = :tid"),
+            {"tid": int(task_id)},
+        )
+        await session.commit()
 
 
 async def count_overdue() -> int:

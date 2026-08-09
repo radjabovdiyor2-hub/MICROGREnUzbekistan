@@ -23,7 +23,8 @@ async def get_dynamic_support_policy(base_sys: str) -> str:
         active = await feedback_loop.get_active_behavior("support_bot", "ticket_sla")
         directives = [str(v) for v in active.values() if isinstance(v, str)]
         if directives:
-            return base_sys + "\\n\\n[ДИРЕКТИВА ИИ-ПОДДЕРЖКИ: " + " ".join(directives) + "]"
+            # Обычная строка, а не raw: с "\\n" в промпт уходили литералы \n.
+            return base_sys + "\n\n[ДИРЕКТИВА ИИ-ПОДДЕРЖКИ: " + " ".join(directives) + "]"
     except Exception:
         pass
     return base_sys
@@ -315,10 +316,12 @@ async def handle_task_created(payload: dict):
     data = payload.get("data", {})
     if str(data.get("department", "")).lower() != "support":
         return
-    chat_id = data.get("chat_id")
-    data.get("task_id")
-    if not chat_id:
-        return
+    # Гарда `if not chat_id: return` здесь больше нет. Она отбрасывала
+    # задачу раньше, чем исполнитель успевал её спасти: task_executor
+    # сам делает `chat_id or _admin_chat_id()`, а _notify без чата —
+    # пустая операция. Из-за гарды задача из офисной панели создавалась,
+    # событие уходило, и шесть отделов из десяти молча его выбрасывали.
+    # Отдельная переменная не нужна: исполнитель берёт chat_id из data.
 
     bot = Bot(
         token=settings.support_bot_token,

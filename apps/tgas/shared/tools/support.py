@@ -10,6 +10,7 @@ from sqlalchemy import text
 
 from shared import capabilities
 from shared import phone as phone_utils
+from shared import tasks_repo
 from shared.database import get_session_ctx
 from shared.tools.registry import Tool, from_capability, register
 from shared.utils import format_price
@@ -76,16 +77,30 @@ async def get_order_status(
 async def create_followup(
     phone: str, message: str, days: int = 2
 ) -> Dict[str, Any]:
-    """Напомнить себе связаться с клиентом через N дней."""
+    """Напомнить себе связаться с клиентом через N дней.
+
+    Поиск по последним девяти цифрам (`SQL_PHONE_TAIL`), а не точным
+    сравнением строки. В базе телефоны лежат в четырёх исторических форматах —
+    ровно поэтому `phone.match_tail` и существует, и `get_order_status` выше
+    в этом же файле им пользуется. Точное сравнение не находило клиента почти
+    никогда, и инструмент уверенно отвечал «такого клиента нет в CRM».
+    """
     async with get_session_ctx() as session:
         created = (
             await session.execute(
                 text(
                     "INSERT INTO followups (customer_id, scheduled_at, message, status) "
-                    "SELECT id, NOW() + CAST(:days || ' days' AS INTERVAL), :msg, 'pending' "
-                    "FROM customers WHERE phone = :phone LIMIT 1 RETURNING id"
+                    "SELECT id, NOW() + (INTERVAL '1 day' * :days), :msg, 'pending' "
+                    "FROM customers "
+                    "WHERE phone IS NOT NULL AND "
+                    + phone_utils.SQL_PHONE_TAIL
+                    + " = :tail LIMIT 1 RETURNING id"
                 ),
-                {"days": str(int(days)), "msg": message, "phone": phone},
+                {
+                    "days": int(days),
+                    "msg": message,
+                    "tail": phone_utils.match_tail(phone),
+                },
             )
         ).scalar()
         await session.commit()
@@ -95,24 +110,24 @@ async def create_followup(
 
 
 async def escalate(summary: str, department: str = "sales") -> Dict[str, Any]:
-    """Передать обращение с высоким приоритетом ответственному отделу."""
-    async with get_session_ctx() as session:
-        task_id = (
-            await session.execute(
-                text(
-                    "INSERT INTO tasks (title, assignee, department, status, priority, "
-                    "description, created_at) "
-                    "VALUES (:t, :d, :d, 'todo', 'urgent', :descr, NOW()) RETURNING id"
-                ),
-                {
-                    "t": f"🚨 Эскалация: {summary[:200]}",
-                    "d": str(department or "sales").lower(),
-                    "descr": summary,
-                },
-            )
-        ).scalar()
-        await session.commit()
-    return {"ok": True, "task_id": task_id, "department": department}
+    """Передать обращение с высоким приоритетом ответственному отделу.
+
+    Через `tasks_repo.create`, а не своим INSERT: раньше строка появлялась,
+    события не было, отдел о срочной эскалации не узнавал никогда — а
+    инструмент отвечал «ok» и исполнитель закрывал обращение как решённое.
+    `_route` нужен по той же причине: отдел из фантазии модели («продажи»,
+    «Sales») попадал в базу как есть, и слушателя у него не было.
+    """
+    from shared.tools.common import _route
+
+    return await tasks_repo.create(
+        title=f"🚨 Эскалация: {summary[:200]}",
+        department=_route(department or "sales"),
+        description=summary,
+        priority="urgent",
+        # Срочное без срока не попадает в дайджест просрочки — сегодня же.
+        deadline_days=0,
+    )
 
 
 async def check_dm() -> Dict[str, Any]:

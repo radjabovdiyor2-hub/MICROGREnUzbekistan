@@ -413,23 +413,30 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
     return {"inserted": inserted, "skipped": skipped}
 
 
-async def collect_and_import_all(limit: Optional[int] = None) -> dict[str, int]:
-    """Собирает лиды со ВСЕХ настроенных источников (2ГИС, Google, Yandex)."""
+async def collect_and_import_all(
+    limit: Optional[int] = None, city: Optional[str] = None
+) -> dict[str, int]:
+    """Собирает лиды со ВСЕХ настроенных источников (2ГИС, Google, Yandex).
+
+    `city` проброшен во все три сборщика: каждый из них его принимает, но
+    сюда он не доходил, и «собери лидов по Ташкенту» всегда собирало по
+    городу из настроек. Пусто — прежнее поведение (город по умолчанию).
+    """
     limit = limit or settings.b2b_daily_limit * 3
     all_leads = []
 
     # 1. 2GIS
-    l2 = await collect_from_2gis(limit=limit)
+    l2 = await collect_from_2gis(limit=limit, city=city)
     if l2:
         all_leads.extend(l2)
 
     # 2. Google
-    lg = await collect_from_google_places(limit=limit)
+    lg = await collect_from_google_places(limit=limit, city=city)
     if lg:
         all_leads.extend(lg)
 
     # 3. Yandex
-    ly = await collect_from_yandex_maps(limit=limit)
+    ly = await collect_from_yandex_maps(limit=limit, city=city)
     if ly:
         all_leads.extend(ly)
 

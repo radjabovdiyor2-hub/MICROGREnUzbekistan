@@ -45,8 +45,15 @@ DEPTS = ["pm", "production", "logistics"]
 
 
 async def get_inventory(category: Optional[str] = None) -> Dict[str, Any]:
-    """Остатки сырья: семена, субстрат, лотки, упаковка."""
-    where = "AND LOWER(kind) = :cat" if category else ""
+    """Остатки сырья: семена, субстрат, лотки, упаковка.
+
+    `kind::text` обязателен: `raw_materials.kind` — нативный enum
+    `RawMaterialKind`, а Postgres не приводит enum к тексту неявно.
+    `LOWER(kind)` падал с «function lower(RawMaterialKind) does not exist»,
+    ошибку глотал реестр инструментов, и фильтр по категории — та самая
+    ветка, которую описание рекомендует модели, — не работал ни разу.
+    """
+    where = "AND LOWER(kind::text) = :cat" if category else ""
     async with get_session_ctx() as session:
         rows = (
             await session.execute(
@@ -218,12 +225,86 @@ async def get_grow_batches(only_active: bool = True) -> Dict[str, Any]:
 # сырья. Считает их витрина, офис только просит (см. shared/production_repo.py).
 
 
+def _within(value: Any, limit: Any) -> bool:
+    """Укладывается ли значение в порог самостоятельности.
+
+    Порог 0 или неизвестное значение = спрашивать владельца. Отказ всегда
+    в безопасную сторону: непонятный аргумент не повод списывать со склада.
+    """
+    try:
+        amount = float(value)
+        cap = float(limit or 0)
+    except (TypeError, ValueError):
+        return False
+    return cap > 0 and 0 < amount <= cap
+
+
+def _safe_mul(a: Any, b: Any) -> float:
+    """Произведение или 0 — чтобы порог по сумме не падал на мусоре."""
+    try:
+        return float(a) * float(b)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def _fail(result: Dict[str, Any], what: str) -> Dict[str, Any]:
     """Отказ витрины — отказ операции. Модель обязана сказать это вслух."""
     return {
         "ok": False,
         "error": result.get("error", "неизвестная ошибка"),
         "note": f"{what} НЕ выполнено. Не сообщай, что получилось.",
+    }
+
+
+async def list_staff() -> Dict[str, Any]:
+    """Сотрудники с их id — по ним ставится смена и назначается курьер.
+
+    Без этого инструмента `assign_shift` и `create_delivery_route` вызвать
+    было НЕЛЬЗЯ: они требуют id витринной таблицы `employees` (cuid), а
+    единственный список людей в офисе — `list_employees` отдела HR — читает
+    `crm_employees` с совершенно другими, serial-ключами. Имя сотрудника
+    в id не превращалось ничем, и оба инструмента оставались мёртвыми.
+    """
+    result = await production_repo.list_employees()
+    if not result.get("ok"):
+        return _fail(result, "Список сотрудников")
+
+    data = result.get("data") or {}
+    raw = data.get("employees") if isinstance(data, dict) else data
+    people = [
+        {
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "role": p.get("role"),
+            "phone": p.get("phone"),
+        }
+        for p in (raw or [])
+        if isinstance(p, dict)
+    ]
+    return {
+        "count": len(people),
+        "staff": people,
+        "note": "id отсюда — то, что просят assign_shift и create_delivery_route.",
+    }
+
+
+async def list_suppliers() -> Dict[str, Any]:
+    """Поставщики с id — к ним привязывается приход сырья."""
+    result = await production_repo.list_suppliers()
+    if not result.get("ok"):
+        return _fail(result, "Список поставщиков")
+
+    data = result.get("data") or {}
+    raw = data.get("suppliers") if isinstance(data, dict) else data
+    suppliers = [
+        {"id": s.get("id"), "name": s.get("name"), "phone": s.get("phone")}
+        for s in (raw or [])
+        if isinstance(s, dict)
+    ]
+    return {
+        "count": len(suppliers),
+        "suppliers": suppliers,
+        "note": "id отсюда — то, что просит receive_material.",
     }
 
 
@@ -407,14 +488,42 @@ register(
 
 register(
     Tool(
+        name="list_staff",
+        description=(
+            "Сотрудники и их id. Вызывай ПЕРЕД assign_shift и "
+            "create_delivery_route: они работают по id, а не по имени."
+        ),
+        run=list_staff,
+        departments=DEPTS,
+    )
+)
+
+register(
+    Tool(
+        name="list_suppliers",
+        description=(
+            "Поставщики и их id. Вызывай перед receive_material, если приход "
+            "нужно привязать к поставщику."
+        ),
+        run=list_suppliers,
+        departments=DEPTS,
+    )
+)
+
+register(
+    Tool(
         name="get_grow_batches",
         description=(
-            "Посадки: что растёт, в какой фазе, что готово к продаже и что "
+            "Посадки: id партии, культура, фаза, что готово к продаже и что "
             "просрочено. Вызывай на «что на выращивании», «что созрело», "
-            "«сколько лотков посажено»."
+            "«сколько лотков посажено», а также ПЕРЕД записью ОТК — "
+            "log_quality_check работает по id партии отсюда."
         ),
         run=get_grow_batches,
-        departments=DEPTS,
+        # +qa: отделу качества этот список был недоступен, а без него
+        # log_quality_check не мог назвать партию — журнал ОТК падал на
+        # внешнем ключе при каждом вызове.
+        departments=DEPTS + ["qa"],
         params={
             "only_active": {
                 "type": "boolean",
@@ -445,6 +554,7 @@ register(
             f"Списать со склада {a.get('quantity')} × «{a.get('item_name')}»"
             + (f" ({a.get('reason')})" if a.get("reason") else "")
         ),
+        auto_when=lambda a, lim: _within(a.get("quantity"), lim.get("autonomy.writeOffMax")),
     )
 )
 
@@ -473,6 +583,7 @@ register(
             f"Посадить {a.get('trays', '?')} лотков «{a.get('crop_type', '?')}» "
             f"со списанием семян и субстрата по норме"
         ),
+        auto_when=lambda a, lim: _within(a.get("trays"), lim.get("autonomy.plantTraysMax")),
     )
 )
 
@@ -496,6 +607,9 @@ register(
         confirm=lambda a: (
             f"Оприходовать урожай {a.get('quantity', '?')} с партии {a.get('batch_id', '?')}"
         ),
+        # Сбор урожая самостоятелен всегда: партия уже существует, цифра —
+        # факт с весов, а не решение. Спрашивать тут нечего.
+        auto_when=lambda a, lim: True,
     )
 )
 
@@ -519,6 +633,10 @@ register(
             f"Списать партию {a.get('batch_id', '?')} целиком"
             + (f": {a.get('reason')}" if a.get("reason") else "")
         ),
+        # Списание партии — фиксация уже случившегося убытка (переросла,
+        # заражена), а не решение потратить. Держать это за подтверждением
+        # значит держать в остатках то, чего физически нет.
+        auto_when=lambda a, lim: True,
     )
 )
 
@@ -545,6 +663,16 @@ register(
         confirm=lambda a: (
             f"Оприходовать {a.get('quantity', '?')} сырья по {a.get('unit_cost', '?')} за единицу"
             + (" в долг" if a.get("on_credit") else "")
+        ),
+        # Порог по СУММЕ закупки, а не по количеству: тысяча лотков дешевле
+        # килограмма редких семян. Закупка в долг — всегда через владельца:
+        # она создаёт обязательство, а не только приход.
+        auto_when=lambda a, lim: (
+            not a.get("on_credit")
+            and _within(
+                _safe_mul(a.get("quantity"), a.get("unit_cost")),
+                lim.get("autonomy.receiptMaxSum"),
+            )
         ),
     )
 )

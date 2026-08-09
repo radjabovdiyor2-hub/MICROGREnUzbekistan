@@ -20,6 +20,8 @@ import sys
 import types
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
@@ -69,3 +71,23 @@ def _install_mg_ai_stub() -> None:
 
 
 _install_mg_ai_stub()
+
+
+@pytest.fixture(autouse=True)
+def _no_real_event_bus(monkeypatch):
+    """Шина событий в тестах не ходит в сеть.
+
+    `publish()` дёргает вебхук n8n и Redis, а при их недоступности ещё и
+    обходит ботов прямым HTTP. В тестах это оставляло висящие соединения
+    aiohttp и растягивало прогон вчетверо. Проводку событий проверяют
+    отдельные тесты со своей поддельной шиной — здесь глушим только транспорт.
+    """
+    from shared.event_bus import event_bus
+
+    published: list[dict] = []
+
+    async def fake_publish(event, data=None, source=None):
+        published.append({"event": event, "data": data, "source": source})
+
+    monkeypatch.setattr(event_bus, "publish", fake_publish)
+    return published

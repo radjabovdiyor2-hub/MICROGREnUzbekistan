@@ -1149,6 +1149,27 @@ model CrmEmployee {
   @@map("crm_employees")
 }
 
+/// Показатели сотрудников: выработка, качество, продажи.
+///
+/// Раньше `log_employee_kpi` писал их строкой в `tasks` со статусом `done` —
+/// тем же способом, от которого уже отказались журналы ОТК и опытов. Прочитать
+/// такую запись было нечем: ни один запрос её не искал, а список задач она
+/// засоряла. Отдельная таблица нужна, чтобы показатель можно было поднять
+/// (`get_employee_kpi`) и сравнить во времени.
+model EmployeeKpi {
+  id       Int     @id @default(autoincrement())
+  employee String  @db.VarChar(255)
+  metric   String  @db.VarChar(50)
+  value    Float
+  comment  String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([employee])
+  @@index([metric])
+  @@map("employee_kpi")
+}
+
 model Followup {
   id          Int      @id @default(autoincrement())
   customerId  Int      @map("customer_id")

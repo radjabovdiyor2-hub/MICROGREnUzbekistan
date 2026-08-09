@@ -101,22 +101,75 @@ def _looks_like_date(value: str) -> bool:
 async def log_employee_kpi(
     employee: str, metric: str, value: float, comment: str = ""
 ) -> Dict[str, Any]:
-    """Зафиксировать показатель сотрудника."""
+    """Зафиксировать показатель сотрудника в журнале KPI.
+
+    В `employee_kpi`, а не строкой в `tasks`. Задача со статусом `done` не
+    журнал: её никто не искал, прочитать показатель было нечем, а список
+    задач она замусоривала. Тот же антипаттерн уже убрали у ОТК и опытов.
+    """
     async with get_session_ctx() as session:
-        await session.execute(
-            text(
-                "INSERT INTO tasks (title, assignee, department, status, priority, "
-                "description, created_at) "
-                "VALUES (:t, :a, 'hr', 'done', 'low', :descr, NOW())"
-            ),
-            {
-                "t": f"KPI {employee}: {metric} = {value}"[:255],
-                "a": employee,
-                "descr": comment or f"{metric}={value}",
-            },
-        )
+        record_id = (
+            await session.execute(
+                text(
+                    "INSERT INTO employee_kpi (employee, metric, value, comment, created_at) "
+                    "VALUES (:e, :m, :v, :c, NOW()) RETURNING id"
+                ),
+                {
+                    "e": str(employee)[:255],
+                    "m": str(metric)[:50],
+                    "v": float(value),
+                    "c": comment or None,
+                },
+            )
+        ).scalar()
         await session.commit()
-    return {"ok": True, "employee": employee, "metric": metric, "value": value}
+    return {
+        "ok": True,
+        "record_id": record_id,
+        "employee": employee,
+        "metric": metric,
+        "value": value,
+    }
+
+
+async def get_employee_kpi(
+    employee: str = "", metric: str = "", days: int = 30
+) -> Dict[str, Any]:
+    """Показатели сотрудников за период — то, что записал log_employee_kpi."""
+    window = max(1, min(int(days or 30), 365))
+    async with get_session_ctx() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT employee, metric, value, comment, created_at "
+                    "FROM employee_kpi "
+                    "WHERE created_at > NOW() - (INTERVAL '1 day' * :days) "
+                    "AND (:emp = '' OR LOWER(employee) LIKE :emp_like) "
+                    "AND (:met = '' OR LOWER(metric) = :met) "
+                    "ORDER BY created_at DESC LIMIT 50"
+                ),
+                {
+                    "days": window,
+                    "emp": str(employee or "").lower(),
+                    "emp_like": f"%{str(employee or '').lower()}%",
+                    "met": str(metric or "").lower(),
+                },
+            )
+        ).fetchall()
+    return {
+        "count": len(rows),
+        "days": window,
+        "records": [
+            {
+                "employee": r[0],
+                "metric": r[1],
+                "value": float(r[2] or 0),
+                "comment": r[3],
+                "at": str(r[4]),
+            }
+            for r in rows
+        ],
+    }
 
 
 register(
@@ -173,10 +226,26 @@ register(
             "comment": {"type": "string", "description": "Комментарий"},
         },
         required=["employee", "metric", "value"],
-        risky=True,
-        confirm=lambda a: (
-            f"Записать KPI сотруднику {a.get('employee')}: "
-            f"{a.get('metric')} = {a.get('value')}"
+        # Не risky: это запись во внутренний журнал показателей — обратимая,
+        # никого наружу не касается и денег не двигает. Соседние журналы
+        # (log_quality_check, log_experiment) подтверждения тоже не просят.
+    )
+)
+
+register(
+    Tool(
+        name="get_employee_kpi",
+        description=(
+            "Показатели сотрудников за период: что записывали через "
+            "log_employee_kpi. Без него журнал KPI был бы только на запись — "
+            "записать можно, а прочитать нечем."
         ),
+        run=get_employee_kpi,
+        departments=DEPTS,
+        params={
+            "employee": {"type": "string", "description": "Имя сотрудника, пусто — все"},
+            "metric": {"type": "string", "description": "Показатель, пусто — все"},
+            "days": {"type": "integer", "description": "За сколько дней, по умолчанию 30"},
+        },
     )
 )

@@ -171,6 +171,43 @@ export const SETTINGS = {
     labelRu: 'Цена печатного выпуска', labelUz: 'Bosma son narxi', min: 0,
     hintRu: 'Показывается в боте при заказе печатной версии (с доставкой по Самарканду)',
   },
+
+  // ── Самостоятельность ботов ─────────────────────────────────────────
+  // До этих порогов «рискованно» означало «спрашивать всегда», и под правило
+  // попало ВСЁ, что делает настоящую работу. Списать два килограмма субстрата
+  // стоило владельцу столько же внимания, сколько рассылка по всей базе, —
+  // и без него офис только смотрел.
+  //
+  // Мелкое и обратимое бот делает сам и докладывает постфактум. Крупное —
+  // по-прежнему через подтверждение. Ноль = спрашивать всегда, то есть
+  // прежнее поведение.
+  //
+  // Рассылки, письма клиентам и публикации порогов НЕ имеют намеренно:
+  // отправленное сообщение не отзывается.
+  'autonomy.writeOffMax': {
+    category: 'autonomy', type: 'number', default: 5,
+    labelRu: 'Списание сырья без спроса, до', labelUz: "So'rovsiz hisobdan chiqarish",
+    hintRu: 'Сколько единиц бот спишет сам (кг, шт). Больше — спросит. 0 — спрашивать всегда',
+    min: 0,
+  },
+  'autonomy.plantTraysMax': {
+    category: 'autonomy', type: 'number', default: 20,
+    labelRu: 'Посадка без спроса, до (лотков)', labelUz: "So'rovsiz ekish (lotok)",
+    hintRu: 'Посадка списывает семена и субстрат по норме. 0 — спрашивать всегда',
+    min: 0,
+  },
+  'autonomy.receiptMaxSum': {
+    category: 'autonomy', type: 'money', default: 1000000,
+    labelRu: 'Приход сырья без спроса, до суммы', labelUz: "So'rovsiz qabul summasi",
+    hintRu: 'Оприходование закупки на сумму меньше этой. 0 — спрашивать всегда',
+    min: 0,
+  },
+  'autonomy.financeMaxSum': {
+    category: 'autonomy', type: 'money', default: 500000,
+    labelRu: 'Запись расхода без спроса, до суммы', labelUz: "So'rovsiz xarajat summasi",
+    hintRu: 'Проводка в финансы на сумму меньше этой. 0 — спрашивать всегда',
+    min: 0,
+  },
 } as const satisfies Record<string, SettingDef>;
 
 export type SettingKey = keyof typeof SETTINGS;

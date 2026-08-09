@@ -1007,17 +1007,25 @@ async def publish_restaurant_of_week():
         )
 
         if _bot:
+            # Раньше здесь стояло «📰 Опубликовано в канал» — неправдой это было
+            # дважды: сама функция в канал не пишет, а подписчик, который пишет,
+            # публиковал совсем другой текст (см. ниже).
             await _bot.send_message(
                 admin_id,
-                f"📰 <b>Опубликовано в канал:</b>\n\n{post_text}",
+                f"📰 <b>Рубрика «Ресторан недели» готова:</b>\n\n{post_text}",
                 parse_mode="HTML",
             )
 
-        # Уведомляем Sales Bot, что вышел журнал с упоминанием ресторана!
+        # `text` — готовый текст рубрики. Без него подписчик в marketing_bot
+        # собирал пост из ключей issue_id/title/url, которых тут нет, и каждый
+        # понедельник в публичный канал уходило «FRESH WEEKLY №?! В этом
+        # выпуске: Новый выпуск». Издатель и подписчик обязаны сходиться
+        # по ключам — это проверяет scripts/check_event_contracts.py.
         await event_bus.publish(
             "MAGAZINE_PUBLISHED",
             {
                 "rubric": "restaurant_of_week",
+                "text": post_text,
                 "restaurant_name": name,
                 "city": city,
                 "microgreens_recommended": mg_str,
@@ -1176,17 +1184,28 @@ async def bus_sync_publication_metrics(params: dict) -> dict:
 
 
 async def bus_publish_story(params: dict) -> dict:
-    """Генерирует картинку по теме и публикует в Instagram Stories."""
-    topic = params.get("topic", "микрозелень")
+    """Публикует сторис в Instagram: готовый текст либо сгенерированный по теме.
+
+    `text` — уже утверждённый текст. Он публикуется ДОСЛОВНО, без повторной
+    генерации: карточка подтверждения показывает владельцу именно его, и
+    расхождение между одобренным и опубликованным недопустимо. Раньше
+    инструмент присылал `text`, а капабилити читала `topic`, поэтому тема
+    всегда сваливалась в литерал «микрозелень», бот сочинял текст заново —
+    и в Instagram уходило не то, что одобрил владелец.
+    """
+    ready_text = str(params.get("text") or "").strip()
+    topic = params.get("topic") or ready_text[:80] or "микрозелень"
     admin_id = settings.admin_telegram_ids[0]
     ai = AIEngine()
 
-    # Генерируем текст поста
-    post_text = await ai.chat_completion(
-        "Ты SMM-менеджер Microgreen Uzbekistan." + BRAND_TEXT_STYLE + (await get_dynamic_content_policy()),
-        f"Напиши короткий, цепляющий текст для Instagram Stories на тему: {topic}. "
-        "Максимум 3-4 предложения, добавь эмодзи. На русском языке.",
-    )
+    if ready_text:
+        post_text = ready_text
+    else:
+        post_text = await ai.chat_completion(
+            "Ты SMM-менеджер Microgreen Uzbekistan." + BRAND_TEXT_STYLE + (await get_dynamic_content_policy()),
+            f"Напиши короткий, цепляющий текст для Instagram Stories на тему: {topic}. "
+            "Максимум 3-4 предложения, добавь эмодзи. На русском языке.",
+        )
 
     # Генерируем короткий заголовок для картинки
     headline = await ai.chat_completion(

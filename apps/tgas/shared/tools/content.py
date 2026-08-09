@@ -52,11 +52,9 @@ async def build_price_list_post(category: Optional[str] = None) -> Dict[str, Any
     }
 
 
-async def publish_content(text_body: str = "", kind: str = "post") -> Dict[str, Any]:
-    """Опубликовать контент через контент-бот."""
-    result = await capabilities.run_capability(
-        "publish_content", {"text": text_body, "kind": kind}
-    )
+async def publish_content(text_body: str = "") -> Dict[str, Any]:
+    """Опубликовать готовый текст в Instagram Stories — дословно."""
+    result = await capabilities.run_capability("publish_content", {"text": text_body})
     return from_capability(result)
 
 
@@ -244,21 +242,25 @@ register(
 register(
     Tool(
         name="publish_content",
-        description="Опубликовать пост или сторис в наших каналах.",
+        # Формат один — Stories. `kind` обещал модели выбор post/story/reel,
+        # но обработчик шины замаплен на bus_publish_story: и «пост», и «reel»
+        # уходили сторисом. Обещать выбор, которого нет, — та же ложь, что
+        # и публиковать не тот текст. Пост в ленту выходит по расписанию
+        # (weekly_grid_post), reels отключены по решению владельца.
+        description=(
+            "Опубликовать текст в Instagram Stories. Публикуется ДОСЛОВНО то, "
+            "что передашь. Пост в ленту выходит по расписанию — этим "
+            "инструментом его не сделать."
+        ),
         run=publish_content,
         departments=DEPTS,
         params={
             "text_body": {"type": "string", "description": "Текст публикации"},
-            "kind": {
-                "type": "string",
-                "enum": ["post", "story", "reel"],
-                "description": "Формат",
-            },
         },
         required=["text_body"],
         risky=True,
         confirm=lambda a: (
-            f"Опубликовать {a.get('kind') or 'post'}: {str(a.get('text_body'))[:80]}…"
+            f"Опубликовать в Instagram Stories: {str(a.get('text_body'))[:120]}…"
         ),
     )
 )

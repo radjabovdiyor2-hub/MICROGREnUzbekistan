@@ -37,17 +37,20 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { batchId, title, hypothesis, status } = body;
-    
+    // `result` принимаем при создании: офис записывает завершённый опыт одним
+    // вызовом, и без этого поля колонка «Результат» оставалась пустой всегда.
+    const { batchId, title, hypothesis, result, status } = body;
+
     if (!title) {
       return NextResponse.json({ error: 'Missing title' }, { status: 400 });
     }
-    
+
     const exp = await prisma.experiment.create({
       data: {
         batchId,
         title,
         hypothesis,
+        result,
         status: status || 'ongoing'
       }
     });

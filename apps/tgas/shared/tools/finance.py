@@ -19,6 +19,20 @@ from shared.utils import format_price
 
 DEPTS = ["finance"]
 
+
+def _within_sum(value: Any, limit: Any) -> bool:
+    """Укладывается ли сумма в порог самостоятельности.
+
+    Порог 0 или нечитаемая сумма — спрашиваем владельца. Отказ всегда
+    в безопасную сторону.
+    """
+    try:
+        amount = float(value)
+        cap = float(limit or 0)
+    except (TypeError, ValueError):
+        return False
+    return cap > 0 and 0 < amount <= cap
+
 ALLOWED_TYPES = {"income", "expense"}
 
 
@@ -213,6 +227,11 @@ register(
         confirm=lambda a: (
             f"Записать {'доход' if a.get('type') == 'income' else 'расход'} "
             f"{format_price(float(a.get('amount') or 0))} — {a.get('category')}"
+        ),
+        # Мелкую проводку бот делает сам: это учёт уже случившегося, а строку
+        # всегда можно удалить. Крупная сумма — через владельца.
+        auto_when=lambda a, lim: _within_sum(
+            a.get("amount"), lim.get("autonomy.financeMaxSum")
         ),
     )
 )

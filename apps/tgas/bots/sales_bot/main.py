@@ -200,6 +200,18 @@ async def bus_get_orders(params: dict) -> dict:
 # Защита от спама: повторное касание не раньше чем через 10 дней и не более
 # 3 раз на ресторан; недавно получившие КП в выборку не попадают.
 
+# Ресторан, чьё КП уже ждёт одобрения владельца, в выборку не берём НИ В ОДНОМ
+# сегменте. Пока фильтр смотрел только на 'b2b_offer_sent', неподтверждённые
+# карточки отбирались заново каждое утро: модель перегенерировала им КП за
+# деньги, в `interactions` копились дубликаты 'b2b_offer_pending', а одно
+# нажатие переводило в 'sent' сразу всю накопленную пачку. Неделя без ответа
+# владельца — семь одинаковых предложений одному ресторану.
+_NOT_PENDING = """
+          AND NOT EXISTS (SELECT 1 FROM interactions i
+                          WHERE i.customer_id = c.id
+                            AND i.interaction_type = 'b2b_offer_pending')
+"""
+
 _SEG_SQL = {
     "new_lead": """
         SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address, 0
@@ -208,6 +220,9 @@ _SEG_SQL = {
           AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
           AND NOT EXISTS (SELECT 1 FROM interactions i
                           WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
+    """
+    + _NOT_PENDING
+    + """
         ORDER BY c.review_score DESC NULLS LAST, c.created_at ASC
         LIMIT :lim
     """,
@@ -223,6 +238,9 @@ _SEG_SQL = {
           AND NOT EXISTS (SELECT 1 FROM interactions i
                           WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent'
                             AND i.created_at > NOW() - INTERVAL '14 days')
+    """
+    + _NOT_PENDING
+    + """
         ORDER BY c.total_spent DESC NULLS LAST
         LIMIT :lim
     """,
@@ -241,6 +259,9 @@ _SEG_SQL = {
                             AND i.created_at > NOW() - INTERVAL '10 days')
           AND (SELECT COUNT(*) FROM interactions i
                WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent') < 3
+    """
+    + _NOT_PENDING
+    + """
         ORDER BY (SELECT MAX(i.created_at) FROM interactions i
                   WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent') ASC
         LIMIT :lim
@@ -444,10 +465,13 @@ async def handle_task_created(payload: dict):
     data = payload.get("data", {})
     if str(data.get("department", "")).lower() != "sales":
         return
+    # Гарда `if not chat_id: return` здесь больше нет. Она отбрасывала
+    # задачу раньше, чем исполнитель успевал её спасти: task_executor
+    # сам делает `chat_id or _admin_chat_id()`, а _notify без чата —
+    # пустая операция. Из-за гарды задача из офисной панели создавалась,
+    # событие уходило, и шесть отделов из десяти молча его выбрасывали.
     chat_id = data.get("chat_id")
     task_id = data.get("task_id")
-    if not chat_id:
-        return
 
     bot = Bot(
         token=settings.sales_bot_token,

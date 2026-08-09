@@ -213,8 +213,18 @@ async def receive_material(
 
 
 async def list_employees() -> Dict[str, Any]:
-    """Сотрудники витрины с id — смена ставится по id, а не по имени."""
+    """Сотрудники витрины с id — смена ставится по id, а не по имени.
+
+    Важно, что именно витринные: `shifts.employee_id` и `delivery_routes.
+    driver_id` ссылаются на `employees` (cuid). Офисный `crm_employees` —
+    другое семейство таблиц с serial-ключами, и его id сюда не подходят.
+    """
     return await _call("GET", "/inventory/employees")
+
+
+async def list_suppliers() -> Dict[str, Any]:
+    """Поставщики с id — приход сырья привязывается к поставщику по id."""
+    return await _call("GET", "/inventory/suppliers")
 
 
 async def assign_shift(
@@ -249,19 +259,32 @@ async def log_quality(
     """Запись ОТК в `quality_controls` — ту таблицу, которую читает админка."""
     payload: Dict[str, Any] = {"batchId": str(batch_id), "status": str(status)}
     if defect_type:
-        payload["defectType"] = str(defect_type)[:255]
+        # 50, а не 255: в схеме QualityControl.defectType — VarChar(50).
+        payload["defectType"] = str(defect_type)[:50]
     if notes:
         payload["notes"] = str(notes)[:1000]
     return await _call("POST", "/admin/qa", payload=payload)
 
 
 async def log_experiment(
-    title: str, hypothesis: str = "", batch_id: str = "", status: str = "ongoing"
+    title: str,
+    hypothesis: str = "",
+    result: str = "",
+    batch_id: str = "",
+    status: str = "ongoing",
 ) -> Dict[str, Any]:
-    """Опыт R&D в `experiments`."""
+    """Опыт R&D в `experiments`.
+
+    `result` — отдельным полем, а не внутри гипотезы: у `Experiment` есть
+    своя колонка `result`, и колонка «Результат» на вкладке «Эксперименты»
+    читает именно её. Пока итог заворачивали в текст гипотезы, колонка
+    оставалась пустой всегда — то самое «владелец в админке этого не видит».
+    """
     payload: Dict[str, Any] = {"title": str(title)[:255], "status": str(status)}
     if hypothesis:
         payload["hypothesis"] = str(hypothesis)[:2000]
+    if result:
+        payload["result"] = str(result)[:2000]
     if batch_id:
         payload["batchId"] = str(batch_id)
     return await _call("POST", "/admin/experiments", payload=payload)

@@ -61,6 +61,41 @@ class LoopResult:
     def awaiting_approval(self) -> bool:
         return any(c.pending_approval for c in self.calls)
 
+    @property
+    def autonomous_calls(self) -> List[ToolRun]:
+        """Рискованные действия, выполненные без подтверждения — на доклад."""
+        return [
+            c
+            for c in self.calls
+            if isinstance(c.result, dict) and c.result.get("autonomous")
+        ]
+
+
+#: Пороги самостоятельности из настроек админки. Ключи — `autonomy.*`.
+_LIMIT_KEYS = (
+    "autonomy.writeOffMax",
+    "autonomy.plantTraysMax",
+    "autonomy.receiptMaxSum",
+    "autonomy.financeMaxSum",
+)
+
+
+async def _autonomy_limits() -> Dict[str, float]:
+    """Пороги из настроек. Недоступны — считаем нулями, то есть спрашиваем.
+
+    Безопасная сторона отказа здесь важнее свежести: если база настроек
+    недоступна, бот не должен «на всякий случай» списать со склада сам.
+    """
+    try:
+        from shared import settings_store
+
+        return {
+            key: await settings_store.get_float(key, 0.0) for key in _LIMIT_KEYS
+        }
+    except Exception as exc:
+        logger.warning("Пороги автономии недоступны (%s) — спрашиваю владельца", exc)
+        return {key: 0.0 for key in _LIMIT_KEYS}
+
 
 def _dump(value: Any) -> str:
     try:
@@ -132,7 +167,12 @@ async def run_tool_loop(
                 answers.append(f"{name}: такого инструмента нет.")
                 continue
 
-            if tool.risky:
+            # Мелкое и обратимое рискованный инструмент делает сам — если у
+            # него объявлен порог и аргументы в него укладываются. Крупное
+            # и всё клиентское по-прежнему идёт владельцу.
+            alone = tool.may_run_alone(args, await _autonomy_limits())
+
+            if tool.risky and not alone:
                 if approve is None:
                     outcome = (
                         f"{name}: действие требует подтверждения владельца, "
@@ -147,6 +187,13 @@ async def run_tool_loop(
                 continue
 
             result = await tool_registry.call(name, {**args, **(extra_args or {})})
+            if tool.risky:
+                # Пометка нужна исполнителю: о самостоятельном действии
+                # владельцу докладывают постфактум отдельной строкой.
+                result = {**result, "autonomous": True} if isinstance(result, dict) else result
+                logger.info(
+                    "AUTONOMY: %s выполнен без подтверждения (%s)", name, _dump(args)
+                )
             calls.append(ToolRun(name, args, result))
             asked.append(f"{name}({_dump(args)})")
             answers.append(f"{name} вернул: {_dump(result)}")

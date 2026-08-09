@@ -160,10 +160,12 @@ async def handle_task_created(payload: dict):
     data = payload.get("data", {})
     if str(data.get("department", "")).lower() != "marketing":
         return
-    chat_id = data.get("chat_id")
-    data.get("task_id")
-    if not chat_id:
-        return
+    # Гарда `if not chat_id: return` здесь больше нет. Она отбрасывала
+    # задачу раньше, чем исполнитель успевал её спасти: task_executor
+    # сам делает `chat_id or _admin_chat_id()`, а _notify без чата —
+    # пустая операция. Из-за гарды задача из офисной панели создавалась,
+    # событие уходило, и шесть отделов из десяти молча его выбрасывали.
+    # Отдельная переменная не нужна: исполнитель берёт chat_id из data.
 
     bot = Bot(
         token=settings.marketing_bot_token,
@@ -248,11 +250,20 @@ async def _fetch_b2b_targets(limit: int) -> list:
     async with get_session_ctx() as session:
         res = await session.execute(
             text(
+                # Исключаем и уже отправленные, и ЖДУЩИЕ одобрения.
+                #
+                # Фильтр по одному 'b2b_offer_sent' означал: пока владелец не
+                # нажал кнопку, те же 15 ресторанов отбирались заново каждое
+                # утро. Модель генерировала им КП по новой (платные токены),
+                # в `interactions` копились дубликаты 'b2b_offer_pending', а
+                # одно нажатие потом переводило в 'sent' сразу всю пачку.
+                # Неделя молчания — семь одинаковых КП на один ресторан.
                 "SELECT id, name, company_name, email, phone, review_summary, address "
                 "FROM customers "
                 "WHERE customer_type = 'b2b' AND status = 'lead' "
                 "AND NOT EXISTS (SELECT 1 FROM interactions i "
-                "                WHERE i.customer_id = customers.id AND i.interaction_type = 'b2b_offer_sent') "
+                "                WHERE i.customer_id = customers.id "
+                "                AND i.interaction_type IN ('b2b_offer_sent', 'b2b_offer_pending')) "
                 "ORDER BY review_score DESC NULLS LAST, created_at ASC "
                 "LIMIT :lim"
             ),
@@ -713,11 +724,15 @@ async def bus_collect_leads(params: dict) -> dict:
         from shared.lead_gen import collect_and_import_all
 
         limit = params.get("limit")
-        result = await collect_and_import_all(limit=int(limit) if limit else None)
+        city = str(params.get("city") or "").strip() or None
+        result = await collect_and_import_all(
+            limit=int(limit) if limit else None, city=city
+        )
         return {
             "status": "ok",
             "message": f"Собрано лидов: +{result['inserted']} новых, "
-            f"{result['skipped']} дублей пропущено",
+            f"{result['skipped']} дублей пропущено"
+            + (f" (город: {city})" if city else ""),
         }
     except Exception as e:
         logging.error(f"bus_collect_leads error: {e}", exc_info=True)
@@ -816,18 +831,35 @@ async def main():
                 )
                 return
 
-            issue_id = payload.get("issue_id", "?")
-            title = payload.get("title", "Новый выпуск")
-            # Запасной адрес — витрина выпусков: страницы по номеру на сайте нет.
-            url = payload.get("url", "https://microgreenuzbekistan.com/magazine")
-            cover = payload.get("cover", "")
+            # payload разворачиваем ОДИН раз: publish() сам оборачивает данные
+            # в {"event", "data", "source"}. Читая с верхнего уровня, этот
+            # обработчик не находил вообще ничего и постил дефолты.
+            data = payload.get("data", {})
 
-            post_text = (
-                f"🔥 <b>Вышел новый FRESH WEEKLY №{issue_id}!</b>\n\n"
-                f"В этом выпуске: <b>{title}</b>\n\n"
-                f"📖 <a href='{url}'>Читать выпуск онлайн</a>\n\n"
-                f"<i>Автоматически опубликовано через Microgreen AI Office</i>"
-            )
+            # Готовый текст от издателя — предпочтительный путь: в канал уходит
+            # ровно то, что собрал автор рубрики.
+            post_text = str(data.get("text") or "").strip()
+            cover = data.get("cover", "")
+
+            if not post_text:
+                issue_id = data.get("issue_id")
+                title = data.get("title")
+                if not issue_id and not title:
+                    # Ни текста, ни номера выпуска — публиковать нечего.
+                    # Молчание лучше, чем «FRESH WEEKLY №?» в публичном канале:
+                    # именно так этот обработчик и работал каждый понедельник.
+                    logging.warning(
+                        "MAGAZINE_PUBLISHED без текста и номера выпуска (%s) — "
+                        "в канал не публикую",
+                        data.get("rubric", "?"),
+                    )
+                    return
+                url = data.get("url", "https://microgreenuzbekistan.com/magazine")
+                post_text = (
+                    f"🔥 <b>Вышел новый FRESH WEEKLY №{issue_id or '—'}!</b>\n\n"
+                    f"В этом выпуске: <b>{title or 'новый выпуск'}</b>\n\n"
+                    f"📖 <a href='{url}'>Читать выпуск онлайн</a>"
+                )
 
             if cover and cover.startswith("http"):
                 await bot.send_photo(
@@ -842,7 +874,7 @@ async def main():
                 )
 
             logging.info(
-                f"Successfully auto-posted magazine #{issue_id} to {channel_id}"
+                "Опубликовано в канал %s: %s", channel_id, data.get("rubric", "выпуск")
             )
         except Exception as e:
             logging.error(f"Error auto-posting magazine: {e}")

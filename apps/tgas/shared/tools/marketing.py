@@ -29,9 +29,9 @@ async def broadcast(message: str, segment: str = "all") -> Dict[str, Any]:
     )
 
 
-async def b2b_offer(message: str = "") -> Dict[str, Any]:
-    """Коммерческие предложения ресторанам: PDF + письмо."""
-    return from_capability(await capabilities.run_capability("b2b_offer", {"message": message}))
+async def b2b_offer() -> Dict[str, Any]:
+    """Подготовить коммерческие предложения ресторанам: PDF + письмо."""
+    return from_capability(await capabilities.run_capability("b2b_offer", {}))
 
 
 async def collect_leads(city: str = "") -> Dict[str, Any]:
@@ -93,12 +93,21 @@ register(
 register(
     Tool(
         name="b2b_offer",
-        description="Отправить коммерческие предложения ресторанам (PDF на email).",
+        # `message` убран: он объявлялся модели, но до пайплайна не доходил —
+        # `bus_b2b_outreach` зовёт `b2b_outreach()` без аргументов, а текст КП
+        # генерируется под каждый ресторан отдельно. Параметр, который ничего
+        # не делает, заставляет модель тратить на него ход и врать владельцу.
+        #
+        # Описание тоже уточнено: инструмент ГОТОВИТ письма, а уходят они
+        # только после отдельного одобрения под каждым КП.
+        description=(
+            "Подготовить коммерческие предложения ресторанам (PDF). Письма "
+            "уйдут только после вашего одобрения по каждому КП отдельно."
+        ),
         run=b2b_offer,
         departments=DEPTS,
-        params={"message": {"type": "string", "description": "Сопроводительный текст"}},
         risky=True,
-        confirm=lambda a: "Разослать коммерческие предложения ресторанам",
+        confirm=lambda a: "Подготовить коммерческие предложения ресторанам",
     )
 )
 

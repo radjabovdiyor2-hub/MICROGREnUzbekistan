@@ -67,12 +67,17 @@ def _order_number_patterns(raw: str) -> List[str]:
     cleaned = re.sub(r"\s+", "", str(raw or "")).upper()
     if not cleaned:
         return []
-    patterns = [cleaned, f"%{cleaned}%"]
-    # Голое число — скорее всего офисный номер: «42» → «MG-000042».
+
+    # Порядок важен: вызывающий берёт ПЕРВОЕ совпадение и на нём
+    # останавливается. Широкий `%42%` стоял раньше точного `MG-000042`,
+    # поэтому «заказ 42» возвращал свежайший заказ, в номере которого просто
+    # встречались эти цифры (например M-20260804-8E6E4042) — и подавал его
+    # как найденный, с чужим клиентом и чужой суммой. Сначала точные формы,
+    # подстрока — только последней надеждой.
     if cleaned.isdigit():
-        patterns.append(f"MG-{int(cleaned):06d}")
-        patterns.append(f"%{cleaned}%")
-    return patterns
+        # Голое число — скорее всего офисный номер: «42» → «MG-000042».
+        return [f"MG-{int(cleaned):06d}", cleaned, f"%{cleaned}%"]
+    return [cleaned, f"%{cleaned}%"]
 
 
 async def find_customer(query: str) -> Dict[str, Any]:

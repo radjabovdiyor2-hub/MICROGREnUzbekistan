@@ -24,6 +24,7 @@ export const SETTING_CATEGORIES = [
   'payment',
   'ai',
   'magazine',
+  'autonomy',
 ] as const;
 
 export type SettingCategory = (typeof SETTING_CATEGORIES)[number];
@@ -37,4 +38,5 @@ export const CATEGORY_LABELS: Record<SettingCategory, { ru: string; uz: string }
   payment: { ru: 'Оплата', uz: "To'lov" },
   ai: { ru: 'ИИ и бюджет', uz: 'AI va byudjet' },
   magazine: { ru: 'Журнал', uz: 'Jurnal' },
+  autonomy: { ru: 'Самостоятельность ботов', uz: 'Botlar mustaqilligi' },
 };

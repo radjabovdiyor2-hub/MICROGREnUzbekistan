@@ -138,49 +138,16 @@ async def create_task(
             "note": f"Такая задача уже заведена — #{twin_id}. Новую не создаю.",
         }
 
-    async with get_session_ctx() as session:
-        task_id = (
-            await session.execute(
-                text(
-                    "INSERT INTO tasks (title, assignee, department, status, priority, "
-                    "description, created_at) "
-                    "VALUES (:t, :a, :d, 'todo', :p, :descr, NOW()) RETURNING id"
-                ),
-                {
-                    "t": title[:255],
-                    "a": dept,
-                    "d": dept,
-                    "p": priority,
-                    "descr": description,
-                },
-            )
-        ).scalar()
-        await session.commit()
-
-    # Без события строка появляется, а исполнителя у неё нет: отдел, которому
-    # её завели, о ней не узнает. Так и копились «невыполнимые» задачи.
-    # Payload ПЛОСКИЙ — publish() оборачивает его сам (см. shared/event_bus.py).
-    try:
-        from shared.config import settings
-        from shared.event_bus import event_bus
-
-        owner_ids = getattr(settings, "admin_telegram_ids", None) or []
-        await event_bus.publish(
-            "TASK_CREATED",
-            {
-                "task_id": task_id,
-                "title": title,
-                "description": description,
-                "department": dept,
-                "priority": priority,
-                "chat_id": owner_ids[0] if owner_ids else None,
-            },
-            "office",
-        )
-    except Exception as exc:
-        logger.warning("create_task: событие не ушло, задача #%s без исполнителя: %s", task_id, exc)
-
-    return {"ok": True, "task_id": task_id, "department": dept}
+    # Вставка и событие — одной дверью (shared/tasks_repo.create). Без события
+    # строка появляется, а исполнителя у неё нет: отдел, которому её завели,
+    # о ней не узнает. Ровно так копились «невыполнимые» задачи.
+    return await tasks_repo.create(
+        title=title,
+        department=dept,
+        description=description,
+        priority=priority,
+        assignee=dept,
+    )
 
 
 async def delete_task(task_id: int, reason: str = "") -> Dict[str, Any]:
@@ -243,30 +210,29 @@ async def delegate_to_department(
 
 
 async def human_task(action: str, department: str = "pm", reason: str = "") -> Dict[str, Any]:
-    """Честно передать человеку то, чего бот сделать не может."""
+    """Честно передать человеку то, чего бот сделать не может.
+
+    С ДЕДЛАЙНОМ — это здесь главное. Дайджест просрочки ищет задачи по
+    `deadline < CURRENT_DATE`, а эскалация заводилась без него: значит,
+    просроченной она не становилась никогда и в сводку не попадала. Задача,
+    о которой бот честно сказал «сам не могу», молча ложилась в базу, и
+    человек о ней не узнавал вообще. Сутки — срок по умолчанию для того,
+    что уже потребовало вмешательства.
+    """
     dept = _route(department)
-    async with get_session_ctx() as session:
-        task_id = (
-            await session.execute(
-                text(
-                    "INSERT INTO tasks (title, assignee, department, status, priority, "
-                    "description, created_at) "
-                    "VALUES (:t, 'Человек', :d, 'todo', 'high', :descr, NOW()) RETURNING id"
-                ),
-                {
-                    "t": action[:255],
-                    "d": dept,
-                    "descr": (
-                        f"{action}\n\n"
-                        f"Бот выполнить это не может: {reason or 'нужен человек'}."
-                    ),
-                },
-            )
-        ).scalar()
-        await session.commit()
+    created = await tasks_repo.create(
+        title=action[:500],
+        department=dept,
+        description=(
+            f"{action}\n\nБот выполнить это не может: {reason or 'нужен человек'}."
+        ),
+        priority="high",
+        assignee="Человек",
+        deadline_days=1,
+    )
     return {
         "ok": True,
-        "task_id": task_id,
+        "task_id": created.get("task_id"),
         "department": dept,
         "human_task": action,
         "summary": f"Передано человеку: {action}",

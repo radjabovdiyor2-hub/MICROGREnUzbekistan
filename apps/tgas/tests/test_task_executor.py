@@ -288,23 +288,78 @@ async def test_risky_tool_is_not_executed_without_approval():
 
 @pytest.mark.asyncio
 async def test_risky_tool_without_approval_channel_is_refused():
-    """Нет канала подтверждения — действие не выполняется и не выдаётся за успех."""
+    """Нет канала подтверждения — действие не выполняется и не выдаётся за успех.
+
+    Берём инструмент с ПОРОГОМ: пороги приходят из настроек, вне контейнера
+    они недоступны, и `_autonomy_limits` честно отдаёт нули — то есть
+    «спрашивать всегда». Это и есть безопасная сторона отказа.
+    """
     from shared import tool_runtime
 
     result = await tool_runtime.run_tool_loop(
         ScriptedAI(
             [
-                FakeMessage(calls=[FakeToolCall("run_backup", {})]),
+                FakeMessage(
+                    calls=[
+                        FakeToolCall(
+                            "write_off_inventory",
+                            {"item_name": "субстрат", "quantity": 2},
+                        )
+                    ]
+                ),
                 FakeMessage(content="Не могу подтвердить."),
             ]
         ),
         system_prompt="sys",
-        user_message="сделай бэкап",
-        department="devops",
+        user_message="спиши субстрат",
+        department="pm",
         approve=None,
     )
     assert result.awaiting_approval is True
     assert result.calls[0].result == {"skipped": "no_approval_channel"}
+
+
+def test_threshold_lets_small_actions_through():
+    """Мелкое действие бот делает сам, крупное — спрашивает.
+
+    Без порогов `risky=True` означало «спрашивать всегда», и под это правило
+    попало всё, что делает настоящую работу: списать два килограмма субстрата
+    стоило владельцу столько же внимания, сколько рассылка по всей базе.
+    """
+    from shared import tools as tool_registry
+    from shared.tools import operations
+
+    tool = tool_registry.by_name("write_off_inventory")
+    limits = {"autonomy.writeOffMax": 5.0}
+
+    assert tool.may_run_alone({"item_name": "субстрат", "quantity": 2}, limits) is True
+    assert tool.may_run_alone({"item_name": "субстрат", "quantity": 200}, limits) is False
+    # Порог не задан — прежнее поведение, спрашиваем.
+    assert tool.may_run_alone({"item_name": "субстрат", "quantity": 2}, {}) is False
+    # Мусор в аргументе не повод списывать со склада.
+    assert operations._within("много", 5.0) is False
+
+
+def test_customer_facing_tools_never_run_alone():
+    """Письмо клиенту и публикацию отозвать нельзя — порога у них быть не должно."""
+    from shared import tools as tool_registry
+
+    for name in (
+        "register_sale",
+        "notify_customers",
+        "push_stale_orders",
+        "broadcast",
+        "b2b_offer",
+        "publish_content",
+        "publish_story",
+        "add_product",
+        "update_order_status",
+    ):
+        tool = tool_registry.by_name(name)
+        assert tool is not None, f"{name} не зарегистрирован"
+        assert tool.risky, f"{name} должен требовать подтверждения"
+        assert tool.auto_when is None, f"{name} не должен иметь порога автономии"
+        assert tool.may_run_alone({"amount": 1}, {"autonomy.financeMaxSum": 10**9}) is False
 
 
 @pytest.mark.asyncio

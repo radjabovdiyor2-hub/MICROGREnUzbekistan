@@ -4,7 +4,6 @@ import { CategoriesSection } from '@/components/home/CategoriesSection';
 import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { SproutDivider } from '@/components/ui/SproutDivider';
-import { SalesDirectiveBanner } from '@/components/home/SalesDirectiveBanner';
 
 // Lazy-load below-fold sections — reduces initial JS bundle
 const RecipeOfDay = dynamic(() => import('@/components/home/RecipeOfDay').then(m => ({ default: m.RecipeOfDay })));
@@ -16,10 +15,15 @@ const GrowFieldCTA = dynamic(() => import('@/components/home/GrowFieldCTA').then
 const RecentlyViewed = dynamic(() => import('@/components/home/RecentlyViewed').then(m => ({ default: m.RecentlyViewed })));
 const Footer = dynamic(() => import('@/components/layout/Footer').then(m => ({ default: m.Footer })));
 
+// SalesDirectiveBanner убран с главной. Он печатал покупателям `adjustment`
+// последнего вывода feedback_loop — текст, сочинённый моделью по вчерашней
+// выручке и не прочитанный ни одним человеком: экран учений в админке умеет
+// только «Обновить», а PATCH/DELETE из api/admin/learnings интерфейс не зовёт.
+// Промо на витрине пишет человек, а не автообучение.
+
 export default function HomePage() {
   return (
     <main>
-      <SalesDirectiveBanner />
       {/* Hero — первое впечатление + CTA "Каталог" */}
       <HeroSection />
 

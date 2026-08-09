@@ -245,6 +245,17 @@ async def execute_bot_task(
         header = f"💬 <b>Ответ без действий ({department}):</b>"
 
     body = f"{header}\n\n{result.text}"
+
+    # Что отдел сделал САМ, без подтверждения. Автономия без доклада — это
+    # незаметные действия: владелец узнавал бы о них только по изменившимся
+    # остаткам. Пороги настраиваются в админке, раздел «Самостоятельность».
+    autonomous = result.autonomous_calls
+    if autonomous:
+        body += "\n\n🤖 <b>Выполнено самостоятельно (в пределах порога):</b>"
+        for run in autonomous:
+            done = run.result.get("summary") or run.result.get("message") or run.name
+            body += f"\n• {done}"
+
     image = _image_from(result.calls)
 
     if bot is not None and chat_id and image:

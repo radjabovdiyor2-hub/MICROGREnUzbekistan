@@ -52,6 +52,33 @@ class Tool:
     # Короткая фраза для карточки подтверждения владельцу: что именно произойдёт.
     confirm: Optional[Callable[[Dict[str, Any]], str]] = None
 
+    #: Когда рискованный инструмент можно выполнить БЕЗ подтверждения.
+    #:
+    #: `risky=True` означало «всегда спрашивать», и под это правило попало
+    #: всё, что делает настоящую работу: деньги, склад, производство, клиенты.
+    #: Без владельца офис оставался наблюдателем — списать два килограмма
+    #: субстрата стоило столько же внимания, сколько рассылка по всей базе.
+    #:
+    #: Предикат получает аргументы вызова и словарь порогов из настроек
+    #: (`autonomy.*`, правятся в админке). Вернул True — выполняем сразу и
+    #: докладываем постфактум; False — прежний путь через подтверждение.
+    #:
+    #: Клиентские и публикующие действия предиката НЕ имеют намеренно:
+    #: письмо клиенту и пост в Instagram отозвать нельзя.
+    auto_when: Optional[Callable[[Dict[str, Any], Dict[str, float]], bool]] = None
+
+    def may_run_alone(self, args: Dict[str, Any], limits: Dict[str, float]) -> bool:
+        """Можно ли выполнить без подтверждения при этих аргументах."""
+        if not self.risky:
+            return True
+        if self.auto_when is None:
+            return False
+        try:
+            return bool(self.auto_when(args or {}, limits or {}))
+        except Exception:  # порог не должен ронять исполнение
+            logger.warning("Порог автономии у «%s» не сработал — спрошу владельца", self.name)
+            return False
+
     def schema(self) -> Dict[str, Any]:
         """Объявление в формате OpenAI/Gemini function calling."""
         return {

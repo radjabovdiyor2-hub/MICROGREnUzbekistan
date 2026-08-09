@@ -631,9 +631,54 @@ async def bot_health_check(force: bool = False):
         logger.warning(f"Ошибка проверки здоровья: {e}")
 
 
+async def failed_jobs_report():
+    """Задачи расписания, упавшие при последнем запуске.
+
+    Планировщик пишет исход каждого запуска в `bot_jobs.last_status`, но
+    ЧИТАЛ это поле только дашборд. Крон, падающий каждую ночь, давал
+    тридцать строк в логе, красную ячейку на экране, который никто не
+    открывал, — и ни одного сигнала. Пульс при этом оставался зелёным:
+    он доказывает, что процесс жив, а не что работа делается.
+    """
+    from sqlalchemy import text as sa_text
+
+    async with get_session_ctx() as session:
+        rows = (
+            await session.execute(
+                sa_text(
+                    "SELECT bot, name, last_error, last_run_at FROM bot_jobs "
+                    "WHERE last_status = 'error' AND enabled = true "
+                    "AND last_run_at > NOW() - INTERVAL '2 days' "
+                    "ORDER BY last_run_at DESC LIMIT 15"
+                )
+            )
+        ).fetchall()
+
+    if not rows:
+        return ""
+
+    lines = ["", "⚠️ <b>Упавшие задачи расписания:</b>"]
+    for bot_name, job_name, err, at in rows:
+        when = at.strftime("%d.%m %H:%M") if at else "?"
+        lines.append(f"• {bot_name} / {job_name} ({when}): {str(err or '')[:120]}")
+    return "\n".join(lines)
+
+
 async def bot_health_summary():
     """Ежедневная (09:00) полная сводка статуса ботов — всегда присылается."""
     await bot_health_check(force=True)
+
+    # Живой процесс и работающий бот — не одно и то же. Отдельной строкой
+    # показываем, что из расписания реально падает.
+    try:
+        failed = await failed_jobs_report()
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
+        if failed and admin_id and _bot:
+            await _bot.send_message(admin_id, failed, parse_mode="HTML")
+    except Exception as exc:
+        logger.warning("Не смог собрать отчёт об упавших задачах: %s", exc)
 
 
 async def grow_morning():
@@ -687,6 +732,59 @@ async def grow_urgent():
         logger.error(f"Ошибка срочного напоминания по посадкам: {exc}")
 
 
+async def retry_stuck_tasks():
+    """Раз в час переотправляем задачи, которые никто не взял.
+
+    Единственный механизм восстановления работы в офисе. `TASK_CREATED`
+    доставляется через Redis Pub/Sub, а он не переигрывает: отдел, который
+    в момент публикации перезапускался, задачу не получал НИКОГДА, и она
+    молча оставалась в `todo`. Ни одного повтора в системе не было.
+
+    Две попытки: после второй задача уже не «не доехала», а не выполняется
+    по существу — тогда это вопрос к владельцу, а не к доставке.
+    """
+    try:
+        from shared import tasks_repo
+
+        admin_id = (
+            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
+        )
+        stuck = await tasks_repo.list_stuck(older_than_hours=3, limit=20)
+        if not stuck:
+            return
+
+        for task in stuck:
+            await event_bus.publish(
+                "TASK_CREATED",
+                {
+                    "task_id": task["id"],
+                    "title": task["title"],
+                    "description": task["description"] or task["title"],
+                    "department": task["department"],
+                    "priority": task["priority"],
+                    "chat_id": admin_id,
+                    "retry": True,
+                },
+                "stepan_bot",
+            )
+            await tasks_repo.mark_retried(task["id"])
+
+        logger.info("Переотправлено зависших задач: %s", len(stuck))
+
+        # Молчать нельзя: если отдел не берёт задачу и со второго раза,
+        # проблема не в доставке, и владелец должен об этом узнать.
+        if admin_id and _bot and len(stuck) >= 5:
+            await _bot.send_message(
+                admin_id,
+                f"🔁 <b>Переотправил {len(stuck)} зависших задач.</b>\n"
+                f"Если они повиснут снова — отдел их не берёт по существу, "
+                f"а не из-за доставки.",
+                parse_mode="HTML",
+            )
+    except Exception as exc:
+        logger.warning("Не смог переотправить зависшие задачи: %s", exc)
+
+
 # ── Регистрация задач ────────────────────────────────────────────────────
 # ── Регистрация задач операционного управления ────────────────────────────
 # Раз в сутки, а не раз в час: дайджест просрочки — это напоминание, а не
@@ -701,6 +799,8 @@ scheduler.add_cron(
 scheduler.add_interval(
     name="auto_task_creation", func=auto_task_creation, seconds=4 * 3600
 )
+# Восстановление работы: задачи, до которых событие не доехало.
+scheduler.add_interval(name="retry_stuck_tasks", func=retry_stuck_tasks, seconds=3600)
 # Частая проверка (5 мин) — теперь антиспам: алертит только при ИЗМЕНЕНИИ (упал/восстановился).
 scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=300)
 # Ежедневная полная сводка в 09:00 (всегда присылается).
