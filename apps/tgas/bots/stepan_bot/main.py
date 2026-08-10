@@ -800,7 +800,9 @@ async def retry_stuck_tasks():
     молча оставалась в `todo`. Ни одного повтора в системе не было.
 
     Две попытки: после второй задача уже не «не доехала», а не выполняется
-    по существу — тогда это вопрос к владельцу, а не к доставке.
+    по существу — тогда это вопрос к владельцу, а не к доставке. Счёт ведёт
+    `tasks.retry_count`; до его появления «две попытки» были только здесь в
+    тексте, а на деле повтор шёл вечно, каждые три часа.
     """
     try:
         from shared import tasks_repo
@@ -812,6 +814,7 @@ async def retry_stuck_tasks():
         if not stuck:
             return
 
+        exhausted = []
         for task in stuck:
             await event_bus.publish(
                 "TASK_CREATED",
@@ -827,6 +830,8 @@ async def retry_stuck_tasks():
                 "stepan_bot",
             )
             await tasks_repo.mark_retried(task["id"])
+            if task["retry_count"] + 1 >= tasks_repo.MAX_RETRIES:
+                exhausted.append(task)
 
         logger.info("Переотправлено зависших задач: %s", len(stuck))
 
@@ -838,6 +843,19 @@ async def retry_stuck_tasks():
                 f"🔁 <b>Переотправил {len(stuck)} зависших задач.</b>\n"
                 f"Если они повиснут снова — отдел их не берёт по существу, "
                 f"а не из-за доставки.",
+                parse_mode="HTML",
+            )
+
+        # Исчерпавшие попытки надо назвать поимённо. Иначе задача просто
+        # перестаёт переотправляться и остаётся в `todo` навсегда, никак себя
+        # не обозначив: молчание тут неотличимо от «всё в порядке».
+        if admin_id and _bot and exhausted:
+            names = "\n".join(f"• #{t['id']} {t['title'][:60]}" for t in exhausted[:10])
+            await _bot.send_message(
+                admin_id,
+                f"🛑 <b>Больше не переотправляю ({len(exhausted)}):</b>\n{names}\n\n"
+                f"Попытки исчерпаны — отдел не берёт их по существу. "
+                f"Решите сами или удалите.",
                 parse_mode="HTML",
             )
     except Exception as exc:

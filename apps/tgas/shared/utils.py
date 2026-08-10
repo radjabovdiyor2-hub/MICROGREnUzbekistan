@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from datetime import datetime
-from typing import Optional
+from typing import Iterable, Mapping, Optional
 
 from zoneinfo import ZoneInfo
 
@@ -232,6 +233,60 @@ def collapsible(text: str, threshold: int = 550, header: str = "") -> str:
         return f"{header}\n{t}" if header else t
     head = header or "🔽 <i>Подробно — нажмите, чтобы развернуть:</i>"
     return f"{head}\n<blockquote expandable>{_html.escape(t)}</blockquote>"
+
+
+# ── Поиск ключевых слов в тексте ──────────────────────────────────────────
+#
+# 10.08.2026 владелец надиктовал «Поставь этот вопрос на общее заседание», и
+# офис попытался опубликовать пост в Instagram. Причина — поиск по подстроке
+# сразу в двух списках: «пост» ⊂ «Поставь», «опрос» ⊂ «вопрос». Ни одного
+# ложного слова в списках не было; ошибка была в способе сравнения.
+#
+# «пост» внутри «поставки», «поставщика» и «постоянно» — это же самое, то есть
+# половина складских и закупочных формулировок вела бы к публикации.
+
+_ENDINGS = (
+    "а|ам|ами|ах|е|ей|ем|и|ии|ий|ию|ия|о|ов|ой|ом|у|ы|ю|я|ы|s|es"
+)
+
+
+def _keyword_pattern(word: str) -> str:
+    """Регулярка для одного ключевого слова.
+
+    Три случая, и различаются они формой самого слова:
+
+    * `«слово со словом»` (есть пробел) — фраза, ищется как есть: у фраз
+      ложных срабатываний не бывает, а склонять их пришлось бы целиком.
+    * `«корень*»` — совпадение по началу слова: так живут «публикац*»,
+      «викторин*» — их формы слишком разные, чтобы перечислять.
+    * `«слово»` — целое слово с обычными русскими окончаниями. Окончание
+      берётся из закрытого списка, поэтому «пост» находится в «посты» и
+      «постом», но НЕ в «поставь»: «авь» окончанием не является.
+    """
+    if " " in word:
+        return re.escape(word)
+    if word.endswith("*"):
+        return r"\b" + re.escape(word[:-1])
+    return r"\b" + re.escape(word) + rf"(?:{_ENDINGS})?\b"
+
+
+def contains_any(text: str, words: "Iterable[str]") -> bool:
+    """Есть ли в тексте хоть одно из ключевых слов. Регистр не важен."""
+    low = (text or "").lower()
+    return any(re.search(_keyword_pattern(w.lower()), low) for w in words)
+
+
+def first_match(text: str, mapping: "Mapping[str, str]") -> Optional[str]:
+    """Значение первого ключа `mapping`, найденного в тексте.
+
+    Порядок обхода — порядок объявления словаря: он значим, первое совпадение
+    и выигрывает.
+    """
+    low = (text or "").lower()
+    for word, value in mapping.items():
+        if re.search(_keyword_pattern(word.lower()), low):
+            return value
+    return None
 
 
 # ── Телефон ───────────────────────────────────────────────────────────────

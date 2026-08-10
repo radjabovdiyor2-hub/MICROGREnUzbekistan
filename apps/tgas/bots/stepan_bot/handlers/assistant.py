@@ -31,7 +31,7 @@ from shared.config import settings
 from shared.database import get_session_ctx
 from sqlalchemy import text
 from shared.ai_engine import AIEngine
-from shared.utils import format_price, simulate_typing
+from shared.utils import contains_any, first_match, format_price, simulate_typing
 from shared.event_bus import event_bus
 from shared.group_orchestrator import set_reaction
 
@@ -1740,6 +1740,16 @@ async def _add_product(message: Message, args: dict) -> str:
     return f"Товар не добавлен: {result.get('message', 'нет данных')}"
 
 
+# Текст карточки подтверждения повторяет формулировки инструментов
+# publish_content / publish_story: владелец должен видеть одно и то же, каким
+# бы путём действие ни пришло — из задачи отдела или из голосового сообщения.
+_PUBLISH_SUMMARY = {
+    "publish_story": "Опубликовать сторис в Instagram",
+    "publish_post": "Опубликовать сторис в Instagram (пост)",
+    "generate_meme": "Сгенерировать и опубликовать мем",
+}
+
+
 async def _handle_task(message: Message, data: dict):
     """Создаём задачу и распределяем по отделам."""
     dept = data.get("department", "pm").lower()
@@ -1751,20 +1761,25 @@ async def _handle_task(message: Message, data: dict):
     response_text = data.get("response", "")
 
     # ── Принудительное перенаправление (Safety routing) ──
-    combined_text = f"{title.lower()} {description.lower()} {dept.lower()}"
-    if any(
-        word in combined_text
-        for word in [
+    #
+    # Сравнение по ЦЕЛЫМ СЛОВАМ, а не по подстроке. 10.08.2026 фраза «Поставь
+    # этот вопрос на общее заседание» попала сюда дважды: «опрос» ⊂ «вопрос»
+    # и «пост» ⊂ «Поставь». Задача про зарплату сотрудника уехала в отдел
+    # контента и чуть не вышла постом в Instagram.
+    combined_text = f"{title} {description} {dept}"
+    if contains_any(
+        combined_text,
+        [
             "опрос",
             "poll",
-            "викторин",
+            "викторин*",
             "мем",
             "сторис",
             "stories",
             "пост",
-            "публикац",
-            "контент",
-        ]
+            "публикац*",
+            "контент*",
+        ],
     ):
         dept = "content"
         assignee = "Content Bot"
@@ -1807,49 +1822,36 @@ async def _handle_task(message: Message, data: dict):
             "мем": "generate_meme",
         }
 
-        action = None
-        combined = f"{title.lower()} {description.lower()}"
-
-        for keyword, act in content_actions.items():
-            if keyword in combined:
-                action = act
-                break
+        # Целые слова: см. комментарий у safety routing выше. Порядок ключей
+        # значим — первое совпадение выигрывает, поэтому «сторис» стоит раньше
+        # «пост».
+        action = first_match(f"{title} {description}", content_actions)
 
         if action:
-            from shared.bot_bus import send_task, get_result
-
-            await message.answer(
-                f"📸 <b>Передаю в отдел контента!</b>\n\n"
-                f"✍️ Действие: {action}\n"
-                f"📝 Тема: {title}\n\n"
-                f"⏳ Ожидайте, Content Bot генерирует и публикует...",
-                parse_mode="HTML",
+            # ⚠️ ПУБЛИКАЦИЯ ТОЛЬКО ПОСЛЕ ПОДТВЕРЖДЕНИЯ.
+            #
+            # Раньше отсюда шёл send_task сразу, и content_bot выкладывал в
+            # Instagram без единого вопроса. Тот же самый инструмент через
+            # реестр объявлен risky=True с карточкой ✅/❌ (shared/tools/content.py):
+            # одно действие, две двери, и одна была без охраны. 10.08.2026
+            # публикацию остановила только ошибка импорта — иначе в аккаунт
+            # компании ушёл бы пост, сочинённый по теме зарплаты сотрудника.
+            #
+            # Распознавание намерения теперь по целым словам, но это первая
+            # преграда, а не единственная: ошибётся снова — карточка удержит.
+            topic = description or title
+            token = await approvals.request(
+                message.bot,
+                message.chat.id,
+                "content_publish",
+                {"action": action, "topic": topic},
+                _PUBLISH_SUMMARY.get(action, action),
+                bot_name="stepan_bot",
+                details=f"📝 Тема: {topic[:300]}",
             )
-
-            bus_task_id = await send_task(
-                from_bot="stepan_bot",
-                to_bot="content_bot",
-                action=action,
-                params={"topic": description or title},
-            )
-
-            result = await get_result(bus_task_id, timeout=120)
-
-            if result and result.get("status") == "done":
-                res_data = result.get("result", {})
+            if not token:
                 await message.answer(
-                    f"✅ <b>Content Bot выполнил задачу!</b>\n\n"
-                    f"📋 {res_data.get('message', 'Готово')}",
-                    parse_mode="HTML",
-                )
-            elif result and result.get("status") == "error":
-                await message.answer(
-                    f"❌ <b>Ошибка:</b> {result.get('error', 'Неизвестная ошибка')}",
-                    parse_mode="HTML",
-                )
-            else:
-                await message.answer(
-                    "⏰ Content Bot ещё работает. Результат появится в чате.",
+                    "⚠️ Не смог показать карточку подтверждения — ничего не публикую.",
                     parse_mode="HTML",
                 )
             return
@@ -2172,6 +2174,29 @@ async def _confirm_storefront_write(payload: dict, cb: CallbackQuery) -> str:
 
 
 approvals.register_handler("storefront_write", _confirm_storefront_write)
+
+
+async def _confirm_content_publish(payload: dict, cb: CallbackQuery) -> str:
+    """Владелец одобрил — только теперь просим отдел контента опубликовать."""
+    from shared.bot_bus import get_result, send_task
+
+    bus_task_id = await send_task(
+        from_bot="stepan_bot",
+        to_bot="content_bot",
+        action=payload["action"],
+        params={"topic": payload["topic"]},
+    )
+    result = await get_result(bus_task_id, timeout=120)
+
+    if result and result.get("status") == "done":
+        return (result.get("result") or {}).get("message") or "Опубликовано."
+    if result and result.get("status") == "error":
+        return f"Не опубликовано: {result.get('error', 'отдел контента отказал')}"
+    # Молчание шины — не отказ: задача могла уйти в работу и завершиться позже.
+    return "Отдел контента ещё работает — результат придёт в чат."
+
+
+approvals.register_handler("content_publish", _confirm_content_publish)
 
 
 async def _offer_write_action(message: Message, proposal: dict) -> None:

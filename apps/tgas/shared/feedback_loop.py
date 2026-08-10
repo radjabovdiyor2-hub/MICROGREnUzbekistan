@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy import text
 
 from shared import settings_store
-from shared.ai_engine import ai_engine
+from shared.ai_engine import AIEngine
 from shared.database import get_session_ctx
 
 logger = logging.getLogger(__name__)
@@ -144,9 +144,16 @@ class FeedbackLoopEngine:
         )
 
         try:
-            raw_response = await ai_engine.generate_text(
-                prompt=user_message,
+            # `AIEngine().chat_completion` — тот же вызов, что у всех остальных
+            # модулей офиса. Здесь стоял `ai_engine.generate_text(...)`: ни
+            # такого объекта, ни такого метода не существует, поэтому ВЕСЬ
+            # слой обучения падал на импорте и не отработал ни разу — ни один
+            # замер, ни один вывод, ни одна директива в промпте отдела.
+            # Ловилось это только по ошибке в чате у контент-бота, где импорт
+            # случайно стоял вне try. Сторож — scripts/check_imports.py.
+            raw_response = await AIEngine().chat_completion(
                 system_prompt=system_prompt,
+                user_message=user_message,
                 temperature=temperature,
             )
 

@@ -20,7 +20,7 @@ from sqlalchemy import text
 
 from shared import bot_registry, catalog_repo, storefront_orders, tasks_repo
 from shared.database import get_session_ctx
-from shared.tools.registry import Tool, register
+from shared.tools.registry import CHIEF_ALIASES, Tool, register
 from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
@@ -177,15 +177,64 @@ def _route(department: Optional[str]) -> str:
 
 
 async def delegate_to_department(
-    department: str, reason: str = "", task_id: Optional[int] = None, hops: int = 0
+    department: str,
+    reason: str = "",
+    task_id: Optional[int] = None,
+    hops: int = 0,
+    caller_department: str = "",
 ) -> Dict[str, Any]:
-    """Передать текущую задачу другому отделу — если она не твоя."""
+    """Передать текущую задачу другому отделу — если она не твоя.
+
+    `caller_department` подставляет исполнитель (`shared/task_executor.py`),
+    модель его не задаёт. Имя не `department` намеренно: так называется цель,
+    а `extra_args` перекрывает аргументы модели — совпадение имён стёрло бы
+    выбор отдела.
+
+    ДВЕ ОСТАНОВКИ, И ОБЕ ОБЯЗАТЕЛЬНЫ.
+
+    10.08.2026 офис ушёл в бесконечный цикл, и остановила его только
+    перезагрузка сервера. Механика была такая: на пределе передач задача
+    не останавливалась, а перенаправлялась в CHIEF_FALLBACK = "pm". Но "pm" —
+    это Стёпан, и когда предел срабатывал у него самого, он передавал задачу
+    себе же. Событие уходило, он его принимал, снова передавал — и так без
+    конца, потому что предел на каждом витке срабатывал заново.
+
+    Поэтому: передача самому себе запрещена, а предел передач — ОТКАЗ,
+    а не смена адресата. Отказ возвращается с `ok: False`, и исполнитель,
+    который ищет делегирование по `ok`, события не публикует: цикл не
+    начинается вообще, вместо того чтобы обрываться на каком-то витке.
+    """
+    caller = str(caller_department or "").strip().lower()
     target = _route(department)
+    requested = str(department or "").strip().lower()
+
+    # Себе передать нельзя. Для Стёпана это ещё и все его псевдонимы:
+    # production/logistics/operations ведёт он же, и передача туда из pm —
+    # та же передача самому себе, только под другим именем.
+    caller_owns_target = target == caller or (
+        caller in CHIEF_ALIASES and target in CHIEF_ALIASES
+    )
+    if caller and caller_owns_target:
+        return {
+            "ok": False,
+            "department": caller,
+            "error": (
+                f"Отдел «{target}» — это ты сам. Передать задачу себе нельзя: "
+                f"выполняй её инструментами или заводи human_task, если нужен человек."
+            ),
+        }
+
     if hops >= MAX_DELEGATION_HOPS:
-        target = CHIEF_FALLBACK
-        reason = (
-            f"{reason} (задачу передавали {hops} раза — дальше решает руководитель)"
-        ).strip()
+        return {
+            "ok": False,
+            "department": caller or CHIEF_FALLBACK,
+            "hops": hops,
+            "error": (
+                f"Задачу уже передавали {hops} раза — предел исчерпан, дальше "
+                f"решаешь ты. Выполни её сам или заведи human_task с объяснением, "
+                f"что именно нужно от человека."
+            ),
+        }
 
     if task_id:
         async with get_session_ctx() as session:
@@ -198,12 +247,17 @@ async def delegate_to_department(
     return {
         "ok": True,
         "department": target,
-        "requested": str(department or "").lower(),
+        "requested": requested,
         "reason": reason,
         "hops": hops + 1,
+        # Причина подмены адресата ровно одна — у отдела нет слушателя.
+        # Раньше сюда попадал и случай исчерпанного лимита, и модель читала
+        # «отдела finance с исполнителем нет» про существующий отдел, верила
+        # и передавала снова. Теперь лимит выходит отказом выше и сюда не
+        # доходит.
         "note": (
             f"Отдела «{department}» с исполнителем нет — задачу ведёт руководитель."
-            if target != str(department or "").lower()
+            if target != requested
             else f"Задача передана в отдел {target}."
         ),
     }
@@ -395,7 +449,9 @@ register(
             "Передать ТЕКУЩУЮ задачу другому отделу, если она не входит в твои "
             "обязанности. Отдел укажи по-английски: "
             + ", ".join(EVERY_DEPARTMENT)
-            + ". Если исполнителя нет, задачу примет руководитель."
+            + ". Если исполнителя нет, задачу примет руководитель. "
+            "Себе передать нельзя, и после двух передач инструмент откажет — "
+            "тогда задачу делает тот, у кого она сейчас, либо заводит human_task."
         ),
         run=delegate_to_department,
         departments=EVERY_DEPARTMENT,

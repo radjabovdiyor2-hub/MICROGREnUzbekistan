@@ -32,7 +32,16 @@ python scripts/check_schema.py       # весь сырой SQL против sche
 python scripts/check_tools.py        # инструменты, достижимость аргументов и подтверждений
 python scripts/check_bot_roster.py   # состав 13 ботов во всех шести местах
 python scripts/check_prompts.py      # контакты и промпты
+python scripts/check_imports.py      # `from shared.X import Y` — Y там есть
 ```
+
+`check_imports.py` появился после 10.08.2026: `shared/feedback_loop.py`
+импортировал `ai_engine`, которого в `shared/ai_engine.py` нет и не было, и
+**весь слой самообучения не отработал ни разу** — падал на импорте у всех
+одиннадцати ботов, а исключение почти везде глоталось. Тем же классом ошибки
+оказалось сломано еженедельное обновление токена Instagram
+(`auto_check_and_refresh_token` вместо `auto_refresh_token`). `ruff` такое не
+ловит: он не разрешает импорты между модулями.
 
 `tests/conftest.py` подменяет `mg_ai` заглушкой, если пакета нет (вне контейнера
 он не ставится) — поэтому тесты идут и локально. Внутри Docker подмена не

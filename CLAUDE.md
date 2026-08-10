@@ -41,7 +41,7 @@ cd apps/web && npm run test           # Vitest
 cd apps/web && npm run tokens:build   # пересборка дизайн-токенов
 ```
 
-`apps/tgas`: автотестов и линтера нет, но есть четыре статические сверки — прогонять все:
+`apps/tgas`: автотестов и линтера нет, но есть пять статических сверок — прогонять все:
 
 ```bash
 cd apps/tgas
@@ -51,6 +51,7 @@ python scripts/check_schema.py   # сырой SQL против schema.prisma
 python scripts/check_tools.py    # инструменты отделов и делегирование
 python scripts/check_bot_roster.py
 python scripts/check_prompts.py
+python scripts/check_imports.py  # `from shared.X import Y` — Y существует
 ```
 
 Подробности — в [apps/tgas/CLAUDE.md](apps/tgas/CLAUDE.md).

@@ -560,3 +560,182 @@ async def test_fractional_quantity_is_refused_not_rounded(monkeypatch):
     )
     assert result["status"] == "clarify"
     assert "целых единицах" in result["message"]
+
+
+# ── Петля делегирования (инцидент 10.08.2026) ───────────────────────────
+#
+# Владелец надиктовал задачу, Стёпан начал передавать её «в отдел pm» — то
+# есть самому себе — и не останавливался; офис остановила только ручная
+# перезагрузка сервера.
+#
+# Тесты ниже проверяют не значение счётчика, а то, что цепочка КОНЧАЕТСЯ.
+# Прежний `test_hops_limit_is_small` смотрел на константу и был зелёным всё
+# время, пока задача крутилась по кругу: предел передач не останавливал
+# работу, а перенаправлял её в CHIEF_FALLBACK = "pm", то есть обратно
+# исполнителю.
+
+
+@pytest.mark.asyncio
+async def test_department_cannot_delegate_to_itself(patched, monkeypatch):
+    """Передача самому себе — отказ, и события передачи не возникает."""
+    import shared.task_executor as task_executor
+
+    monkeypatch.setattr(
+        task_executor,
+        "AIEngine",
+        lambda *a, **k: ScriptedAI(
+            [
+                FakeMessage(
+                    calls=[FakeToolCall("delegate_to_department", {"department": "pm"})]
+                ),
+                FakeMessage(content="Ладно, делаю сам."),
+            ]
+        ),
+    )
+
+    await task_executor.execute_bot_task(
+        bot=FakeBot(),
+        bot_name="stepan_bot",
+        department="pm",
+        task_data={"task_id": 1, "title": "зарплата агента", "chat_id": 5},
+        team_context="ctx",
+    )
+
+    assert [e for e in patched if str(e["event"]).lower() == "task_created"] == []
+
+
+@pytest.mark.asyncio
+async def test_chief_aliases_count_as_self(patched, monkeypatch):
+    """production/logistics/operations ведёт тот же Стёпан.
+
+    Передача из pm в «production» выглядит как передача другому отделу, но
+    принимает её тот же бот — то есть это та же петля под другим именем.
+    """
+    import shared.task_executor as task_executor
+
+    monkeypatch.setattr(
+        task_executor,
+        "AIEngine",
+        lambda *a, **k: ScriptedAI(
+            [
+                FakeMessage(
+                    calls=[
+                        FakeToolCall(
+                            "delegate_to_department", {"department": "production"}
+                        )
+                    ]
+                ),
+                FakeMessage(content="Моё."),
+            ]
+        ),
+    )
+
+    await task_executor.execute_bot_task(
+        bot=FakeBot(),
+        bot_name="stepan_bot",
+        department="pm",
+        task_data={"task_id": 2, "title": "посев", "chat_id": 5},
+        team_context="ctx",
+    )
+
+    assert [e for e in patched if str(e["event"]).lower() == "task_created"] == []
+
+
+@pytest.mark.asyncio
+async def test_delegation_chain_terminates(patched, monkeypatch):
+    """Задача, которую КАЖДЫЙ отдел пытается сбросить дальше, останавливается.
+
+    Гоняем ровно то, что случилось на проде: отдел за отделом просит передачу,
+    каждый следующий получает hops от предыдущего. Раньше это не сходилось
+    никогда — на пределе задача возвращалась к руководителю и шла на новый
+    круг. Теперь передач не больше MAX_DELEGATION_HOPS, дальше инструмент
+    отказывает и задача остаётся у того, у кого она есть.
+    """
+    import shared.task_executor as task_executor
+    from shared.tools.common import MAX_DELEGATION_HOPS
+
+    # Отделы, между которыми модель гоняет задачу. Первым идёт не pm, чтобы
+    # проверить именно предел, а не запрет самопередачи.
+    ring = ["hr", "finance", "analytics", "sales", "marketing", "support"]
+
+    department = "content"
+    hops = 0
+    handovers = 0
+    for step in range(10):  # заведомо больше предела: цикл обязан кончиться раньше
+        target = ring[step % len(ring)]
+        monkeypatch.setattr(
+            task_executor,
+            "AIEngine",
+            lambda *a, **k: ScriptedAI(
+                [
+                    FakeMessage(
+                        calls=[
+                            FakeToolCall(
+                                "delegate_to_department", {"department": target}
+                            )
+                        ]
+                    ),
+                    FakeMessage(content="Не наше."),
+                ]
+            ),
+        )
+        patched.clear()
+        await task_executor.execute_bot_task(
+            bot=FakeBot(),
+            bot_name=f"{department}_bot",
+            department=department,
+            task_data={"task_id": 3, "title": "чужое", "chat_id": 5, "hops": hops},
+            team_context="ctx",
+        )
+        events = [e for e in patched if str(e["event"]).lower() == "task_created"]
+        if not events:
+            break  # инструмент отказал — задача осталась у отдела
+        handovers += 1
+        department = events[0]["data"]["department"]
+        hops = events[0]["data"]["hops"]
+
+    assert handovers == MAX_DELEGATION_HOPS, (
+        f"передач {handovers} при пределе {MAX_DELEGATION_HOPS} — "
+        f"цепочка не останавливается"
+    )
+
+
+@pytest.mark.asyncio
+async def test_refused_delegation_does_not_close_task(patched, monkeypatch):
+    """Отказ в передаче — не выполнение. Задачу закрывать нельзя.
+
+    Иначе «не смог передать» превратилось бы в «сделано», и работа исчезла бы
+    из всех сводок, ни разу не будучи выполненной.
+    """
+    import shared.task_executor as task_executor
+    import shared.tasks_repo as tasks_repo
+
+    statuses = []
+
+    async def fake_set_status(task_id, status):
+        statuses.append(status)
+        return True
+
+    monkeypatch.setattr(tasks_repo, "set_status", fake_set_status)
+    monkeypatch.setattr(
+        task_executor,
+        "AIEngine",
+        lambda *a, **k: ScriptedAI(
+            [
+                FakeMessage(
+                    calls=[FakeToolCall("delegate_to_department", {"department": "pm"})]
+                ),
+                FakeMessage(content="Передать не вышло."),
+            ]
+        ),
+    )
+
+    await task_executor.execute_bot_task(
+        bot=FakeBot(),
+        bot_name="stepan_bot",
+        department="pm",
+        task_data={"task_id": 4, "title": "чужое", "chat_id": 5},
+        team_context="ctx",
+    )
+
+    assert "done" not in statuses

@@ -112,6 +112,7 @@ jobs:
           python scripts/check_tools.py
           python scripts/check_bot_roster.py
           python scripts/check_prompts.py
+          python scripts/check_imports.py
 
   # ─────────────────────────── BUILD IMAGES ───────────────────────────
   build-images:

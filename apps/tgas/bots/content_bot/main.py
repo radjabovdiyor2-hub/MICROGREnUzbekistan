@@ -52,8 +52,13 @@ logger = logging.getLogger(__name__)
 
 
 async def get_dynamic_content_policy() -> str:
-    from shared.feedback_loop import feedback_loop
+    # Импорт внутри try, а не над ним: директива обучения — украшение поста,
+    # и её недоступность не повод отменять публикацию. Именно эта строка,
+    # стоявшая снаружи, 10.08.2026 превратила поломку feedback_loop в отказ
+    # публикации — единственное место, где мёртвая петля обучения себя выдала.
     try:
+        from shared.feedback_loop import feedback_loop
+
         active = await feedback_loop.get_active_behavior("content_bot", "weekly_reach")
         directives = [str(v) for v in active.values() if isinstance(v, str)]
         if directives:
@@ -1040,10 +1045,17 @@ async def publish_restaurant_of_week():
 async def check_and_refresh_token_job():
     """Еженедельная задача по проверке и обновлению токена Instagram."""
     try:
-        from shared.token_refresh import auto_check_and_refresh_token
+        # Имя функции — `auto_refresh_token`. Здесь годами стояло
+        # `auto_check_and_refresh_token`, которого в модуле нет: еженедельная
+        # задача падала на импорте, ловилась внешним except и слала владельцу
+        # «не удалось обновить токен». То есть обновление не отработало НИ
+        # РАЗУ, а долгоживущий токен Instagram истекает за 60 дней — публикации
+        # умирали, и токен каждый раз чинили руками. Нашла сверка
+        # scripts/check_imports.py.
+        from shared.token_refresh import auto_refresh_token
 
         # Воркер пытается обновить токен при возрасте более 50 дней
-        await auto_check_and_refresh_token()
+        await auto_refresh_token()
     except Exception as e:
         logger.error(f"Ошибка при автоматическом обновлении токена Instagram: {e}")
         admin_id = (

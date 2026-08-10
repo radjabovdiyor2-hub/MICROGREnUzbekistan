@@ -63,13 +63,22 @@ OPEN_STATUSES = ("todo", "in_progress")
 
 STATUSES = ("todo", "in_progress", "done", "cancelled")
 
+# Сколько раз метельщик переотправляет задачу, которую никто не взял.
+# После этого проблема не в доставке, и дальнейшие повторы только шумят —
+# а до появления счётчика они шли вечно, каждые три часа.
+MAX_RETRIES = 2
+
 
 def _row(row: Any) -> Dict[str, Any]:
     """Строка задачи в одинаковом виде для всех функций модуля.
 
     Порядок полей обязан совпадать со списком колонок в запросах:
     id, title, description, department, assignee, status, priority,
-    deadline, created_at.
+    deadline, created_at [, retry_count].
+
+    `retry_count` необязателен: он нужен только метельщику зависших задач,
+    и дописывать его в проекцию всех остальных запросов ради одного места
+    незачем. Отсутствует — значит попыток не было.
     """
     return {
         "id": row[0],
@@ -81,6 +90,7 @@ def _row(row: Any) -> Dict[str, Any]:
         "priority": row[6],
         "deadline": str(row[7]) if row[7] else None,
         "created_at": str(row[8]) if row[8] else None,
+        "retry_count": int(row[9]) if len(row) > 9 and row[9] is not None else 0,
     }
 
 
@@ -315,19 +325,28 @@ async def list_stuck(older_than_hours: int = 3, limit: int = 20) -> List[Dict[st
     Прямой HTTP-фолбэк глотает ошибки в `except: pass`, поэтому «доставлено»
     и «бот лежал» неразличимы. Ни одного повторного вызова в системе не было —
     задача просто оставалась в `todo` и всплывала лишь в сводке просрочки.
+
+    `retry_count < MAX_RETRIES` — то самое «две попытки», которое до сих пор
+    было только в докстринге. Без него задача возвращалась вечно: сдвинутый
+    `updated_at` выводил её из окна ровно на три часа, а потом всё повторялось.
     """
     async with get_session_ctx() as session:
         rows = (
             await session.execute(
                 text(
                     "SELECT id, title, description, department, assignee, "
-                    "status, priority, deadline, created_at "
+                    "status, priority, deadline, created_at, retry_count "
                     "FROM tasks WHERE status = 'todo' "
+                    "AND retry_count < :max_retries "
                     "AND created_at < NOW() - (INTERVAL '1 hour' * :hrs) "
                     "AND updated_at < NOW() - (INTERVAL '1 hour' * :hrs) "
                     "ORDER BY created_at ASC LIMIT :lim"
                 ),
-                {"hrs": max(1, int(older_than_hours)), "lim": int(limit)},
+                {
+                    "hrs": max(1, int(older_than_hours)),
+                    "lim": int(limit),
+                    "max_retries": MAX_RETRIES,
+                },
             )
         ).fetchall()
     return [_row(r) for r in rows]
@@ -336,13 +355,15 @@ async def list_stuck(older_than_hours: int = 3, limit: int = 20) -> List[Dict[st
 async def mark_retried(task_id: int) -> None:
     """Отметить попытку переотправки — чтобы метельщик не крутил одно и то же.
 
-    Пишем `updated_at`: у задачи нет счётчика попыток, а заводить колонку ради
-    одного числа не стоит. Сдвинутая метка выводит задачу из окна `list_stuck`
-    ровно на тот же срок, то есть попытка повторится не раньше него.
+    Считаем попытки и двигаем `updated_at`: счётчик закрывает задачу от
+    повторов навсегда, метка разносит две разрешённые попытки во времени.
     """
     async with get_session_ctx() as session:
         await session.execute(
-            text("UPDATE tasks SET updated_at = NOW() WHERE id = :tid"),
+            text(
+                "UPDATE tasks SET retry_count = retry_count + 1, updated_at = NOW() "
+                "WHERE id = :tid"
+            ),
             {"tid": int(task_id)},
         )
         await session.commit()

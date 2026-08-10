@@ -164,3 +164,54 @@ def test_delete_task_confirm_survives_missing_arguments():
     tool = tool_registry.by_name("delete_task")
     assert tool.summary({})
     assert "#12" in tool.summary({"task_id": 12, "reason": "дубль"})
+
+
+# ── Повторная отправка зависших задач ───────────────────────────────────
+@pytest.mark.asyncio
+async def test_stuck_tasks_are_limited_by_retry_count(session):
+    """Метельщик берёт только задачи, у которых попытки не исчерпаны.
+
+    До 10.08.2026 счётчика не было вовсе: `mark_retried` двигала `updated_at`,
+    задача выпадала из окна на три часа и возвращалась — и так вечно, хотя
+    докстринг обещал «две попытки». Для задачи, зациклившей офис, это
+    означало, что ручная перезагрузка сервера давала отсрочку на три часа,
+    а не решение.
+    """
+    session.results = [FakeResult(rows=[])]
+    await tasks_repo.list_stuck(older_than_hours=3)
+    sql = _sql(session)
+    assert "retry_count < :max_retries" in sql
+    _, params = session.statements[0]
+    assert params["max_retries"] == tasks_repo.MAX_RETRIES
+
+
+@pytest.mark.asyncio
+async def test_retry_increments_the_counter(session):
+    """Отметка попытки увеличивает счётчик, а не только двигает дату."""
+    await tasks_repo.mark_retried(11)
+    sql = _sql(session)
+    assert "retry_count = retry_count + 1" in sql
+    assert "updated_at = NOW()" in sql
+    assert session.committed == 1
+
+
+@pytest.mark.asyncio
+async def test_stuck_row_carries_retry_count(session):
+    """Строка отдаёт число попыток: по нему решают, была ли она последней."""
+    session.results = [
+        FakeResult(rows=[(1, "t", "d", "pm", "pm", "todo", "high", None, None, 1)])
+    ]
+    rows = await tasks_repo.list_stuck()
+    assert rows[0]["retry_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_other_queries_still_work_without_retry_count(session):
+    """Остальные запросы не выбирают retry_count — и не должны падать.
+
+    Колонка дописана только в проекцию метельщика: тащить её во все запросы
+    ради одного места незачем, но `_row` обязан пережить её отсутствие.
+    """
+    session.results = [FakeResult(row=(9, "t", "d", "pm", "pm", "todo", "high", None, None))]
+    task = await tasks_repo.get(9)
+    assert task["retry_count"] == 0

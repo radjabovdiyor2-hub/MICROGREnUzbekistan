@@ -47,6 +47,23 @@ class ToolRun:
     pending_approval: bool = False
 
 
+def _call_succeeded(result: Any) -> bool:
+    """Сработал ли вызов. Форма отказа — как в `tools.normalize_result`.
+
+    Заявка на подтверждение (`sent_for_approval`) успехом НЕ считается:
+    действие ещё не произошло, и закрывать по нему задачу нельзя. Отсутствие
+    подтверждающего канала (`skipped`) — тем более.
+    """
+    if not isinstance(result, dict):
+        return True  # инструмент вернул строку/число — значит, что-то отдал
+    if result.get("sent_for_approval") or result.get("skipped"):
+        return False
+    if result.get("error"):
+        return False
+    ok = result.get("ok")
+    return True if ok is None else bool(ok)
+
+
 @dataclass
 class LoopResult:
     text: str
@@ -54,8 +71,22 @@ class LoopResult:
 
     @property
     def acted(self) -> bool:
-        """Был ли хоть один реальный вызов инструмента."""
-        return bool(self.calls)
+        """Сделал ли отдел хоть что-то РЕЗУЛЬТАТИВНОЕ.
+
+        По этому признаку исполнитель закрывает задачу, поэтому «вызвал
+        инструмент» и «сделал работу» здесь не одно и то же. Раньше стояло
+        `bool(self.calls)`: любой вызов, включая упавший и получивший отказ,
+        закрывал задачу как выполненную. Отдел, которому инструмент ответил
+        «нельзя» или «не нашёл», рапортовал об успехе, и работа исчезала из
+        всех сводок, ни разу не будучи сделанной.
+
+        Заметно это стало на запрете самопередачи: отказ в делегировании —
+        буквально «я ничего не сделал», а задача закрывалась.
+
+        Неудачу опознаём так же, как весь остальной офис (`normalize_result`):
+        `ok: False` либо ключ `error`.
+        """
+        return any(_call_succeeded(c.result) for c in self.calls)
 
     @property
     def awaiting_approval(self) -> bool:
