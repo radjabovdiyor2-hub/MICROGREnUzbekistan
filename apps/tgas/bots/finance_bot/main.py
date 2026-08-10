@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from shared import alert_once
 from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import init_db
@@ -112,21 +113,30 @@ async def overdue_payments():
                     )
                 )
                 rows = result.fetchall()
+            # Список номеров, а не их количество: закрыли один долг, появился
+            # другой — число совпало бы, а сообщать надо. Проверка идёт каждые
+            # 8 часов; писать один и тот же список трижды в сутки бессмысленно.
+            key = "finance.overdue"
             if rows:
-                lines = [f"🚨 <b>Просроченные платежи (>3 дней):</b> {len(rows)}\n"]
-                total = 0
-                for row in rows[:15]:
-                    oid = row[0]
-                    amount = row[1] or 0
-                    days = int(row[3])
-                    total += amount
+                ids = ",".join(str(r[0]) for r in rows)
+                if alert_once.should_send(key, ids):
+                    lines = [f"🚨 <b>Просроченные платежи (>3 дней):</b> {len(rows)}\n"]
+                    total = 0
+                    for row in rows[:15]:
+                        oid = row[0]
+                        amount = row[1] or 0
+                        days = int(row[3])
+                        total += amount
+                        lines.append(
+                            f"• #MG-{oid:04d} — {'{:,.0f}'.format(amount)} сум ({days} дн.)"
+                        )
                     lines.append(
-                        f"• #MG-{oid:04d} — {'{:,.0f}'.format(amount)} сум ({days} дн.)"
+                        f"\n💰 Итого задолженность: {'{:,.0f}'.format(total)} сум"
                     )
-                lines.append(f"\n💰 Итого задолженность: {'{:,.0f}'.format(total)} сум")
-                await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+                    await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
                 logger.info("overdue_payments: %d заказов", len(rows))
             else:
+                alert_once.resolved(key)
                 logger.info("overdue_payments: нет просроченных")
         finally:
             await bot.session.close()
@@ -159,19 +169,26 @@ async def large_expense_check():
                     )
                 )
                 rows = result.fetchall()
+            # Расход за сегодня не исчезает до полуночи, а проверка идёт каждые
+            # 4 часа: один и тот же список приходил владельцу до шести раз.
+            # Отпечаток — номера записей, то есть пишем при НОВОМ расходе.
+            key = "finance.large_expenses"
             if rows:
-                lines = ["🔴 <b>Крупные расходы сегодня:</b>\n"]
-                for row in rows:
-                    fid = row[0]
-                    category = row[1] or "—"
-                    amount = row[2]
-                    desc = (row[3] or "")[:60]
-                    lines.append(
-                        f"• #{fid} [{category}]: {'{:,.0f}'.format(amount)} сум — {desc}"
-                    )
-                await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+                ids = ",".join(str(r[0]) for r in rows)
+                if alert_once.should_send(key, ids):
+                    lines = ["🔴 <b>Крупные расходы сегодня:</b>\n"]
+                    for row in rows:
+                        fid = row[0]
+                        category = row[1] or "—"
+                        amount = row[2]
+                        desc = (row[3] or "")[:60]
+                        lines.append(
+                            f"• #{fid} [{category}]: {'{:,.0f}'.format(amount)} сум — {desc}"
+                        )
+                    await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
                 logger.info("large_expense_check: %d записей", len(rows))
             else:
+                alert_once.resolved(key)
                 logger.info("large_expense_check: крупных расходов нет")
         finally:
             await bot.session.close()

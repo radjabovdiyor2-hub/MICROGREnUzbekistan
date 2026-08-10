@@ -459,10 +459,30 @@ async def weekly_report():
 
 
 async def auto_task_creation():
-    """Каждые 4 часа: автоматическое создание задач по условиям."""
+    """Каждые 4 часа: задачи по зависшим заказам.
+
+    ПОЧЕМУ ЗДЕСЬ БОЛЬШЕ НЕТ ЗАДАЧ ПО ОСТАТКАМ
+
+    Была ветка «остаток товара < 3 → завести задачу „Пополнить <товар>“».
+    Задача заводилась НА КАЖДЫЙ товар, и по каждой уходило событие
+    TASK_CREATED. Событие будит Стёпана, тот прогоняет полный цикл с моделью
+    и шлёт два сообщения: «принял в работу» и результат. При 34 позициях
+    каталога это 69 сообщений и 34 вызова модели за один прогон, четыре раза
+    в сутки; метельщик зависших задач потом повторял их ещё дважды.
+
+    И главное: такая задача невыполнима в принципе. «Пополнить Рукколу» —
+    это посадить и собрать; инструмента «пополнить готовый товар» нет ни у
+    одного отдела. То есть каждая из них могла только висеть в списке до
+    ручного закрытия — ровно те «невыполнимые задачи», из-за которых
+    владелец и начал этот разбор.
+
+    Сигнал сохранён: заканчивающиеся позиции идут одной строкой в утренней
+    сводке (`grow_morning`), где их видно рядом с посадками — то есть рядом
+    с тем единственным действием, которым остаток и пополняется.
+    """
     try:
         from sqlalchemy import text as sa_text
-        from shared.event_bus import event_bus
+        from shared import tasks_repo
 
         admin_id = (
             settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
@@ -470,50 +490,8 @@ async def auto_task_creation():
         created_tasks = []
 
         async with get_session_ctx() as session:
-            # 1. Продукты с низким запасом (stock_qty < 3)
-            res = await session.execute(
-                sa_text(
-                    "SELECT p.id, p.name_ru, p.stock_qty FROM crm_products p "
-                    "WHERE p.stock_qty < 3 AND p.is_active = true "
-                    "AND NOT EXISTS ("
-                    "  SELECT 1 FROM tasks t "
-                    "  WHERE t.title LIKE '%' || p.name_ru || '%' "
-                    "  AND t.status NOT IN ('done', 'cancelled') "
-                    "  AND t.created_at > CURRENT_DATE - INTERVAL '1 day'"
-                    ")"
-                )
-            )
-            low_stock = res.fetchall()
-
-            for pid, name, qty in low_stock:
-                res = await session.execute(
-                    sa_text(
-                        "INSERT INTO tasks (title, description, department, status, created_at) "
-                        "VALUES (:title, :desc, 'operations', 'todo', NOW()) RETURNING id"
-                    ),
-                    {
-                        "title": f"🔄 Пополнить запас: {name}",
-                        "desc": f"Остаток: {qty} шт. Необходимо пополнить запас продукта '{name}' (ID: {pid}).",
-                    },
-                )
-                task_id = res.scalar()
-                await session.commit()
-                created_tasks.append(f"📦 Пополнить {name} (остаток: {qty})")
-
-                # Publish TASK_CREATED event
-                if admin_id:
-                    await event_bus.publish(
-                        "TASK_CREATED",
-                        {
-                            "task_id": task_id,
-                            "title": f"Пополнить запас: {name}",
-                            "department": "operations",
-                            "chat_id": admin_id,
-                        },
-                        "stepan_bot",
-                    )
-
-            # 2. Заказы 'new' более 24 часов
+            # Заказы 'new' более 24 часов. Их всегда единицы, и с ними
+            # действительно есть что делать — позвонить и подтвердить.
             res = await session.execute(
                 sa_text(
                     "SELECT o.id, o.created_at FROM crm_orders o "
@@ -529,42 +507,31 @@ async def auto_task_creation():
             )
             stale_orders = res.fetchall()
 
-            for oid, created_at in stale_orders:
-                res = await session.execute(
-                    sa_text(
-                        "INSERT INTO tasks (title, description, department, status, created_at) "
-                        "VALUES (:title, :desc, 'sales', 'todo', NOW()) RETURNING id"
-                    ),
-                    {
-                        "title": f"⚠️ Обработать Заказ #{oid}",
-                        "desc": f"Заказ #{oid} от {created_at.strftime('%d.%m %H:%M')} не обработан более 24 часов.",
-                    },
-                )
-                task_id = res.scalar()
-                await session.commit()
+        # Задачу заводит tasks_repo, а не сырой INSERT.
+        #
+        # Прежний INSERT шёл мимо единственной двери и потому не получал ни
+        # защиты от дублей, ни дедлайна. Без дедлайна задача не попадает в
+        # сводку просрочки НИКОГДА: сводка ищет `deadline < CURRENT_DATE`.
+        # То есть «обработать зависший заказ» тихо ложилось в базу и больше
+        # нигде не всплывало.
+        for oid, created_at in stale_orders:
+            created = await tasks_repo.create(
+                title=f"⚠️ Обработать Заказ #{oid}",
+                department="sales",
+                description=(
+                    f"Заказ #{oid} от {created_at.strftime('%d.%m %H:%M')} "
+                    f"не обработан более 24 часов."
+                ),
+                priority="high",
+                deadline_days=1,
+                chat_id=admin_id,
+            )
+            if created.get("ok"):
                 created_tasks.append(f"📋 Обработать заказ #{oid}")
 
-                if admin_id:
-                    await event_bus.publish(
-                        "TASK_CREATED",
-                        {
-                            "task_id": task_id,
-                            "title": f"Обработать Заказ #{oid}",
-                            "department": "sales",
-                            "chat_id": admin_id,
-                        },
-                        "stepan_bot",
-                    )
-
-        # Уведомить админа если были созданы задачи
-        if created_tasks and admin_id:
-            lines = [
-                "🤖 <b>Авто-задачи созданы:</b>\n",
-                "━━━━━━━━━━━━━━━━━━━━━━\n",
-            ]
-            for t in created_tasks:
-                lines.append(f"  • {t}")
-            lines.append(f"\n✅ Создано задач: <b>{len(created_tasks)}</b>")
+        if created_tasks and admin_id and _bot:
+            lines = ["🤖 <b>Авто-задачи созданы:</b>\n"]
+            lines.extend(f"  • {t}" for t in created_tasks)
             await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
     except Exception as e:
         logger.warning(f"Ошибка автосоздания задач: {e}")
@@ -702,11 +669,34 @@ async def grow_morning():
         from shared import grow_watch
 
         state = await grow_watch.scan()
-        text_body = grow_watch.morning_text(state)
-        if text_body:
-            await _bot.send_message(admin_id, text_body, parse_mode="HTML")
+        parts = [p for p in (grow_watch.morning_text(state), await _low_stock_line()) if p]
+        if parts:
+            await _bot.send_message(admin_id, "\n\n".join(parts), parse_mode="HTML")
     except Exception as exc:
         logger.error(f"Ошибка утренней сводки по посадкам: {exc}")
+
+
+async def _low_stock_line() -> str | None:
+    """Заканчивающиеся товары — одной строкой к утренней сводке.
+
+    Здесь, а не отдельным сообщением и не задачами: пополнить готовый товар
+    можно только посадкой, и рядом с посадками этот список читается как
+    «что сеять сегодня». Отдельным сообщением он был бы ещё одним уведомлением,
+    а задачами — тем, чем и был: тридцатью четырьмя невыполнимыми поручениями.
+    """
+    from shared import catalog_repo
+
+    try:
+        items = await catalog_repo.low_stock(threshold=3)
+    except Exception as exc:
+        logger.warning("Не смог прочитать заканчивающиеся товары: %s", exc)
+        return None
+    if not items:
+        return None
+
+    shown = ", ".join(i["name"] for i in items[:5])
+    tail = f" и ещё {len(items) - 5}" if len(items) > 5 else ""
+    return f"📉 <b>Заканчиваются ({len(items)}):</b> {shown}{tail}"
 
 
 async def grow_urgent():

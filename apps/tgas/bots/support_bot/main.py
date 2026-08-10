@@ -7,6 +7,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from shared import alert_once
 from shared.config import settings
 from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
@@ -61,12 +62,18 @@ async def csat_survey_check():
                 )
             )
             count = result.scalar() or 0
+        # Проверка идёт каждые 2 часа, а сообщение уходит только когда число
+        # ИЗМЕНИЛОСЬ (плюс напоминание раз в сутки). Раньше одно и то же
+        # «7 заказов без обратной связи» приходило владельцу 12 раз за день.
         if count > 0:
-            await bot.send_message(
-                admin_id,
-                f"📊 {count} заказов без обратной связи\n(доставлены более 24ч назад)",
-                parse_mode="HTML",
-            )
+            if alert_once.should_send("support.csat", str(count)):
+                await bot.send_message(
+                    admin_id,
+                    f"📊 {count} заказов без обратной связи\n(доставлены более 24ч назад)",
+                    parse_mode="HTML",
+                )
+        else:
+            alert_once.resolved("support.csat")
         # Замыкаем петлю: Поддержка (замер CSAT / заказов без фидбека -> вывод -> пополнение базы знаний)
         try:
             from shared.feedback_loop import feedback_loop
@@ -100,14 +107,20 @@ async def complaint_followup():
             )
             unresolved = result.fetchall()
         if unresolved:
-            lines = ["🚨 <b>Нерешённые жалобы (>48ч):</b>\n"]
-            for c in unresolved:
-                lines.append(
-                    f"  🔴 #{c.id} — клиент #{c.customer_id} "
-                    f"(от {c.created_at.strftime('%d.%m %H:%M')})"
-                )
-            lines.append(f"\nВсего: <b>{len(unresolved)}</b> — требуется внимание!")
-            await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+            # Отпечаток — номера самих жалоб, а не их количество: если одну
+            # закрыли, а другая появилась, число то же, а список другой.
+            ids = ",".join(str(c.id) for c in unresolved)
+            if alert_once.should_send("support.complaints", ids):
+                lines = ["🚨 <b>Нерешённые жалобы (>48ч):</b>\n"]
+                for c in unresolved:
+                    lines.append(
+                        f"  🔴 #{c.id} — клиент #{c.customer_id} "
+                        f"(от {c.created_at.strftime('%d.%m %H:%M')})"
+                    )
+                lines.append(f"\nВсего: <b>{len(unresolved)}</b> — требуется внимание!")
+                await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+        else:
+            alert_once.resolved("support.complaints")
         await bot.session.close()
     except Exception as e:
         logging.error(f"complaint_followup error: {e}", exc_info=True)
@@ -136,7 +149,13 @@ async def delivery_status_report():
                 )
             )
             stuck_count = stuck.scalar() or 0
-        if rows:
+        # Сводка по логистике идёт Стёпану, а он генерирует по ней текст
+        # моделью и шлёт в группу продаж. Раньше — каждые 4 часа независимо от
+        # того, изменилось ли хоть что-то: шесть одинаковых сводок и шесть
+        # оплаченных генераций в сутки. Отпечаток из статусов обрывает это в
+        # источнике, до вызова модели.
+        fingerprint = ";".join(f"{r.status}:{r.cnt}" for r in rows) + f"|{stuck_count}"
+        if rows and alert_once.should_send("support.delivery_status", fingerprint):
             status_emoji = {
                 "new": "🆕",
                 "confirmed": "✅",

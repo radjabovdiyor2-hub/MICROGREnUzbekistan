@@ -126,6 +126,33 @@ async def list_active(
     return [_row(r) for r in rows]
 
 
+async def low_stock(threshold: float = 3, limit: int = 30) -> List[Dict[str, Any]]:
+    """Активные товары, которых почти не осталось. Пустой список — всё в порядке.
+
+    Раньше этот же вопрос задавала `auto_task_creation` и на каждый ответ
+    заводила отдельную задачу «Пополнить <товар>» с событием и вызовом модели:
+    при нулевом каталоге — 34 задачи и 69 сообщений владельцу за прогон. Задача
+    при этом невыполнима, пополнить готовый товар нечем — пополнение идёт через
+    посадку. Поэтому теперь это просто список для утренней сводки.
+    """
+    async with get_session_ctx() as session:
+        rows = (
+            await session.execute(
+                text(
+                    _SELECT
+                    + "WHERE p.is_active = true AND p.stock <= :threshold "
+                    "ORDER BY p.stock ASC, p.name_ru LIMIT :limit"
+                ),
+                {
+                    "threshold": float(threshold),
+                    "limit": int(limit),
+                    "default_unit": DEFAULT_UNIT,
+                },
+            )
+        ).fetchall()
+    return [_row(r) for r in rows]
+
+
 async def categories() -> List[Dict[str, Any]]:
     """Категории каталога с количеством активных товаров — для навигации."""
     async with get_session_ctx() as session:

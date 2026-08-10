@@ -5,22 +5,32 @@ import type { CartItem, Product } from './AdminPOSTypes';
 
 // Корзина кассы. Вынесено из AdminPOS: файл перерос 200 строк.
 //
-// В режиме возврата ограничение по остатку не действует — возвращают то,
-// что уже ушло со склада, и на витрине этого количества быть не обязано.
+// ОСТАТОК НЕ ЗАПРЕЩАЕТ ПРОДАЖУ. Раньше касса молча не добавляла товар с нулём
+// и не давала набрать больше остатка: `return prev` без единого слова — для
+// продавца это выглядело как сломанная кнопка. А остаток на кассе почти
+// всегда отстаёт от жизни: товар лежит на прилавке, в базе ноль. Отказ по
+// устаревшему числу срывает настоящую продажу.
+//
+// Сайт в этой же ситуации заказ принимает (микрозелень растят под заказ,
+// см. lib/orders/afterCreate.ts). После перехода каталога на прайс все
+// остатки стали нулевыми, и касса перестала продавать вообще.
+//
+// Теперь количество набирается свободно, а нехватку показывает сама карточка
+// позиции — числом, а не запретом. Из-за этого исчез и параметр `returnMode`:
+// он существовал только чтобы снимать проверку остатка при возврате, а
+// проверки больше нет ни в одном из режимов.
 
-export function usePosCart(returnMode: boolean) {
+export function usePosCart() {
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const addToCart = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id);
       if (existing) {
-        if (!returnMode && existing.quantity >= product.stock) return prev;
         return prev.map(item =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      if (!returnMode && product.stock <= 0) return prev;
       return [...prev, { product, quantity: 1, customPrice: product.price }];
     });
   };
@@ -39,7 +49,6 @@ export function usePosCart(returnMode: boolean) {
           if (item.product.id !== productId) return item;
           const newQty = item.quantity + delta;
           if (newQty <= 0) return null;
-          if (newQty > item.product.stock) return item;
           return { ...item, quantity: newQty };
         })
         .filter(Boolean) as CartItem[]

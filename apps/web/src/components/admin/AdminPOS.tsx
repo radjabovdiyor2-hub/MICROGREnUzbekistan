@@ -26,7 +26,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
   // по нему проверяется, что возвращают не больше проданного и не повторно.
   const [returnSaleNumber, setReturnSaleNumber] = useState('');
   const { cart, setCart, addToCart, updatePrice, updateQuantity, removeFromCart, total } =
-    usePosCart(returnMode);
+    usePosCart();
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);

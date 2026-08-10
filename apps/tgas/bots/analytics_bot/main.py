@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
+from shared import alert_once
 from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import init_db, get_session_ctx
@@ -255,7 +256,19 @@ async def sales_anomaly():
 
         ratio = today_revenue / avg_daily
 
-        if ratio < 0.5:
+        # Проверка идёт каждые 6 часов, и низкая выручка держится весь день —
+        # то есть до четырёх одинаковых «АНОМАЛИЯ» в сутки. Отпечаток — сторона
+        # отклонения и выручка с точностью до десяти тысяч: новая продажа не
+        # считается новостью, а вот переход «низкая → высокая» считается.
+        key = "analytics.revenue_anomaly"
+        side = "low" if ratio < 0.5 else "high" if ratio > 2.0 else None
+        if side is None:
+            alert_once.resolved(key)
+            return
+        if not alert_once.should_send(key, f"{side}:{int(today_revenue // 10_000)}"):
+            return
+
+        if side == "low":
             alert = (
                 "🔴 <b>АНОМАЛИЯ: Низкая выручка!</b>\n\n"
                 f"Сегодня: <b>{'{:,.0f}'.format(today_revenue)} сум</b>\n"
@@ -263,8 +276,7 @@ async def sales_anomaly():
                 f"Отклонение: <b>{ratio * 100:.0f}%</b> от среднего\n\n"
                 "⚠️ Выручка ниже 50% от среднего!"
             )
-            await _bot.send_message(admin_id, alert, parse_mode="HTML")
-        elif ratio > 2.0:
+        else:
             alert = (
                 "🟢 <b>АНОМАЛИЯ: Высокая выручка!</b>\n\n"
                 f"Сегодня: <b>{'{:,.0f}'.format(today_revenue)} сум</b>\n"
@@ -272,7 +284,7 @@ async def sales_anomaly():
                 f"Отклонение: <b>{ratio * 100:.0f}%</b> от среднего\n\n"
                 "🚀 Выручка выше 200% от среднего!"
             )
-            await _bot.send_message(admin_id, alert, parse_mode="HTML")
+        await _bot.send_message(admin_id, alert, parse_mode="HTML")
     except Exception as e:
         logging.error(f"sales_anomaly error: {e}", exc_info=True)
 

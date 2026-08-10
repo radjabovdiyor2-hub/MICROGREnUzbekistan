@@ -3,14 +3,15 @@ import crypto from 'crypto';
 import { prisma } from '@repo/database';
 import { notifyOfficePosSale } from '@/lib/orders/notify';
 
+/** Уровень тревоги по остатку. `null` — тревожиться не о чем. */
+const stockLevel = (stock: number): 'CRITICAL' | 'WARNING' | null =>
+  stock <= 2 ? 'CRITICAL' : stock <= 5 ? 'WARNING' : null;
+
 // ══════════════════════════════════════════════════════════════════════
 // Продажа в магазине. Вынесено из api/inventory/pos/route.ts: файл
 // перерос 200 строк, а в route.ts Next.js разрешает экспортировать
 // только HTTP-обработчики. Здесь списание остатков и запись долга.
 // ══════════════════════════════════════════════════════════════════════
-
-/** Остатка не хватило — откатывает транзакцию и превращается в 400. */
-class PosStockError extends Error {}
 
 /** Возвращает готовый ответ: коды статусов у отказов различаются по причине. */
 export async function processSale(request: NextRequest): Promise<NextResponse> {
@@ -34,15 +35,18 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
 
   const productMap = new Map(products.map(p => [p.id, p]));
 
+  // Остаток продажу НЕ запрещает — проверяем только существование товара.
+  //
+  // Отказ по остатку здесь означал: продавец держит товар в руках, покупатель
+  // стоит у кассы, а чек не проходит из-за отставшего числа в базе. Сайт в
+  // такой же ситуации заказ принимает (микрозелень растят под заказ), и после
+  // перехода каталога на прайс с нулевыми остатками касса встала совсем.
+  //
+  // Нехватка не теряется: она уходит в примечание движения и видна в журнале
+  // склада — то есть остаток чинится инвентаризацией, а не срывом продажи.
   for (const item of items as { productId: string; quantity: number }[]) {
-    const product = productMap.get(item.productId);
-    if (!product) {
+    if (!productMap.get(item.productId)) {
       return NextResponse.json({ error: `Tovar topilmadi: ${item.productId}` }, { status: 404 });
-    }
-    if (product.stock < item.quantity) {
-      return NextResponse.json({
-        error: `${product.nameUz}: omborda ${product.stock} dona, ${item.quantity} dona so'ralmoqda`,
-      }, { status: 400 });
     }
   }
 
@@ -75,8 +79,11 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
   // штук вместо десяти. Проверка «хватает ли остатка» тоже шла до транзакции
   // и потому не мешала уйти в минус.
   //
-  // Теперь остаток уменьшается условным UPDATE внутри транзакции: не хватило —
-  // ничего не записалось, продажа отклонена целиком.
+  // Теперь остаток уменьшается условным UPDATE внутри транзакции. Не хватило —
+  // списываем что было и зажимаем нулём: продажа состоялась физически, и
+  // отменять её из-за отставшего числа нельзя. В минус тоже не уходим —
+  // отрицательный остаток сделал бы бессмысленным расчёт закупки.
+  const shortfall = new Map<string, number>();
   let stockAfter: Map<string, number>;
   try {
     stockAfter = await prisma.$transaction(async (tx) => {
@@ -88,8 +95,20 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
           data: { stock: { decrement: quantity } },
         });
         if (decremented.count === 0) {
-          const name = productMap.get(productId)?.nameUz ?? productId;
-          throw new PosStockError(`${name}: omborda yetarli emas`);
+          // Забираем остаток до нуля одним условным UPDATE — при гонке
+          // выиграет только один вызов, второй увидит уже ноль.
+          const before = await tx.product.findUnique({
+            where: { id: productId },
+            select: { stock: true },
+          });
+          const had = before?.stock ?? 0;
+          if (had > 0) {
+            await tx.product.updateMany({
+              where: { id: productId, stock: { gt: 0 } },
+              data: { stock: 0 },
+            });
+          }
+          shortfall.set(productId, quantity - had);
         }
         const fresh = await tx.product.findUnique({
           where: { id: productId },
@@ -107,6 +126,11 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
             reason: paymentMethod === 'debt'
               ? `Qarzga sotish — ${debtInfo?.personName || 'Nomalum'} (${saleNumber})`
               : `Do'kon sotish (${saleNumber})`,
+            // Нехватка остатка не теряется: она видна в журнале склада, и по
+            // ней понятно, где учёт разошёлся с полкой.
+            note: shortfall.get(item.productId)
+              ? `Продано сверх остатка на ${shortfall.get(item.productId)} — требуется инвентаризация`
+              : null,
             performedBy: performedBy || 'Egasi',
             costPrice: productMap.get(item.productId)?.costPrice || null,
             // salePrice отличает продажу от ручного списания — по нему
@@ -138,23 +162,23 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
       return after;
     });
   } catch (err) {
-    if (err instanceof PosStockError) {
-      return NextResponse.json({ error: err.message }, { status: 400 });
-    }
     throw err;
   }
 
   // Предупреждения считаем по РЕАЛЬНОМУ остатку после транзакции, а не по
-  // значению, прочитанному до неё.
+  // значению, прочитанному до неё. И только если стало ХУЖЕ: товар, который
+  // и так лежал на нуле, — не новость, а при нулевом каталоге такая строка
+  // висела бы в каждом чеке по каждой позиции.
   const alerts: { productName: string; stock: number; level: string }[] = [];
   for (const [productId, newStock] of stockAfter) {
-    if (newStock <= 5) {
-      alerts.push({
-        productName: productMap.get(productId)?.nameUz ?? productId,
-        stock: newStock,
-        level: newStock <= 2 ? 'CRITICAL' : 'WARNING',
-      });
-    }
+    const level = stockLevel(newStock);
+    if (!level) continue;
+    if (level === stockLevel(productMap.get(productId)?.stock ?? 0)) continue;
+    alerts.push({
+      productName: productMap.get(productId)?.nameUz ?? productId,
+      stock: newStock,
+      level,
+    });
   }
 
   // Зеркало в CRM офиса. Без него продажа за прилавком оставалась невидимой:

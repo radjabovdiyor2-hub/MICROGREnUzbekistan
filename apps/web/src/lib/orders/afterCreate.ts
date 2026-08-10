@@ -28,6 +28,15 @@ const lowStockAlerts: string[] = [];
 const lowStockThreshold = await getNumber('stock.lowStockAlert');
 try {
   for (const item of order.items) {
+    // Остаток ДО списания нужен, чтобы не кричать о том, что и так было
+    // известно. С переходом каталога на прайс все остатки стали нулевыми, и
+    // предупреждение «zaxira tugadi» уходило бы на каждый заказ по каждой
+    // позиции — то есть перестало бы что-либо значить.
+    const before = (await prisma.product.findUnique({
+      where: { id: item.productId },
+      select: { stock: true },
+    }))?.stock ?? 0;
+
     const dec = await prisma.product.updateMany({
       where: { id: item.productId, stock: { gte: item.quantity } },
       data: { stock: { decrement: item.quantity } },
@@ -48,10 +57,14 @@ try {
     if (soldOut) {
       // Never go negative — clamp remaining stock to zero (idempotent under races).
       await prisma.product.updateMany({ where: { id: item.productId, stock: { gt: 0 } }, data: { stock: 0 } });
-      lowStockAlerts.push(`⚠️ ${item.product.nameUz} — zaxira tugadi (backorder)!`);
+      // Товар, который и до заказа лежал на нуле, — это обычный «под заказ»,
+      // а не событие. Пишем, только если запас именно СЕЙЧАС кончился.
+      if (before > 0) {
+        lowStockAlerts.push(`⚠️ ${item.product.nameUz} — zaxira tugadi (backorder)!`);
+      }
     } else {
       const fresh = await prisma.product.findUnique({ where: { id: item.productId }, select: { stock: true } });
-      if (fresh && fresh.stock <= lowStockThreshold) {
+      if (fresh && fresh.stock <= lowStockThreshold && before > lowStockThreshold) {
         lowStockAlerts.push(`⚠️ ${item.product.nameUz} — faqat ${fresh.stock} dona qoldi!`);
       }
     }

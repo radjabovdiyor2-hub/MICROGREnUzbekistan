@@ -2,13 +2,13 @@
 
 import Image from 'next/image';
 import {
-  CheckCircle, Flame, Heart, Leaf, Minus, Phone, Plus, ShoppingCart, Truck,
-  XCircle, Zap,
+  CheckCircle, Flame, Heart, Leaf, Minus, Phone, Plus, ShoppingCart, Sprout,
+  Truck, Zap,
 } from 'lucide-react';
 import { StarRow } from './productPageParts';
 import type { Product } from './productDetailTypes';
 import { useLang } from '@/components/providers/LangProvider';
-import { CONTACT, DELIVERY } from '@/lib/site';
+import { CONTACT, DELIVERY, GROW_TO_ORDER_DAYS } from '@/lib/site';
 
 // Верх карточки товара: изображение, цена, наличие, количество и покупка.
 // Вкладки и отзывы лежат ниже в общем контейнере, поэтому их отсюда
@@ -69,12 +69,20 @@ export function ProductMain({ product, catIcon, discount, fav, quantity, setQuan
     )}
 
     {/* Stock */}
+    {/*
+      Нулевой остаток — это «под заказ», а не «нельзя купить». Микрозелень
+      растят под заказ, и приём заказа сверх остатка уже заложен в самом API
+      (см. lib/orders/afterCreate.ts): заказ принимается, остаток зажимается
+      нулём. Кнопки при этом стояли `disabled`, то есть интерфейс запрещал то,
+      что система умеет — а после перехода каталога на прайс все остатки стали
+      нулевыми, и сайт перестал продавать вообще.
+    */}
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
       {product.stock > 0 ? (
         product.stock <= 5
           ? <span style={{ color: 'var(--brand-accent)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}><Flame size={16} /> {t(`Faqat ${product.stock} dona qoldi — shoshiling!`, `Осталось всего ${product.stock} шт — успейте!`)}</span>
           : <span style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={16} /> {t(`Mavjud (${product.stock} dona)`, `В наличии (${product.stock} шт)`)}</span>
-      ) : <span style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: '4px' }}><XCircle size={16} /> {t("Tugagan", "Нет в наличии")}</span>}
+      ) : <span style={{ color: 'var(--brand-accent)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}><Sprout size={16} /> {t(`Buyurtma asosida — ${GROW_TO_ORDER_DAYS} kun ichida`, `Под заказ — вырастим за ${GROW_TO_ORDER_DAYS} дн.`)}</span>}
     </div>
 
     {/* Price */}
@@ -97,14 +105,14 @@ export function ProductMain({ product, catIcon, discount, fav, quantity, setQuan
         <span style={{ width: 44, textAlign: 'center', fontWeight: 'var(--font-bold)' }}>{quantity}</span>
         <button onClick={() => setQuantity(quantity + 1)} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Plus size={16} /></button>
       </div>
-      <button className="btn btn-lg" onClick={handleAddToCart} disabled={product.stock === 0}
+      <button className="btn btn-lg" onClick={handleAddToCart}
         style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', color: 'var(--text-inverse)', fontWeight: 'var(--font-bold)', background: added ? 'var(--success)' : 'var(--brand-primary)', transform: added ? 'scale(1.02)' : 'scale(1)', transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease' }}>
         {added ? <><CheckCircle size={20} /> {t("Savatga qo'shildi", "Добавлено в корзину")}</> : <><ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}</>}
       </button>
     </div>
 
     {/* Buy Now */}
-    <button className="btn btn-accent btn-lg btn-block" onClick={handleBuyNow} disabled={product.stock === 0} id="buy-now-btn"
+    <button className="btn btn-accent btn-lg btn-block" onClick={handleBuyNow} id="buy-now-btn"
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontWeight: 'var(--font-bold)' }}>
       <Zap size={20} /> {t('Hozir sotib olish', 'Купить сейчас')}
     </button>

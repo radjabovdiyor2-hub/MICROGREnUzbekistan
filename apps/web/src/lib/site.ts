@@ -22,6 +22,16 @@ export function freeDeliveryRemaining(subtotal: number): number {
   return Math.max(0, DELIVERY.freeThreshold - subtotal);
 }
 
+/**
+ * Срок «под заказ» в днях — что обещаем, когда остатка нет.
+ *
+ * Микрозелень растят под заказ, и заказ сверх остатка приём уже принимает
+ * (см. lib/orders/afterCreate.ts). Число — типовой цикл микрозелени от посева
+ * до среза; оно попадает покупателю на глаза, поэтому живёт здесь, рядом с
+ * порогом доставки, а не строкой в компоненте.
+ */
+export const GROW_TO_ORDER_DAYS = 7;
+
 export const CONTACT = {
   phonePrimary: "+998 94 999 95 99",
   phonePrimaryHref: "tel:+998949999599",
