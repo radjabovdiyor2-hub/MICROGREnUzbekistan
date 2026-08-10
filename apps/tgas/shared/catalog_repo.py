@@ -60,13 +60,17 @@ DEFAULT_UNIT = "piece"
 
 # Витрина отдаёт товар одним и тем же набором полей во всех функциях модуля,
 # чтобы вызывающему не приходилось помнить, какая выборка что вернула.
-# Единица измерения берётся подзапросом, а не JOIN'ом: `crm_products.storefront_id`
-# не уникален на уровне схемы, и join размножил бы товар при задвоенном зеркале.
+#
+# Единица измерения берётся из САМОГО товара (`p.unit`). Раньше её тянули
+# подзапросом из офисного зеркала `crm_products` по `storefront_id`, а без
+# зеркальной строки честно отдавали `piece` — и это было единственной причиной,
+# по которой прайс ботов вообще упоминал единицы. Теперь она есть на витрине:
+# микрозелень продаётся за лоток, бейби-лист за 100 г, салаты за килограмм,
+# и «Фризе 200 000 сум» без единицы читается как цена за кочан.
 _FIELDS = (
     "p.id, p.name_ru, p.name_uz, p.price, p.stock, "
     "c.slug AS category_slug, p.is_active, "
-    "COALESCE((SELECT m.unit FROM crm_products m "
-    "          WHERE m.storefront_id = p.id LIMIT 1), :default_unit) AS unit, "
+    "COALESCE(NULLIF(p.unit, ''), :default_unit) AS unit, "
     "p.description_ru, p.description_uz"
 )
 _FROM = "FROM products p LEFT JOIN categories c ON c.id = p.category_id "

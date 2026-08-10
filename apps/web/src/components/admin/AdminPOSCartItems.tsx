@@ -69,7 +69,16 @@ export function AdminPOSCartItems({
                 style={{ width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
                 <Minus size={14} />
               </button>
-              <span style={{ fontWeight: 'var(--font-bold)', minWidth: 24, textAlign: 'center', fontSize: '15px' }}>{item.quantity}</span>
+              {/* Количество с единицей: «2» само по себе не говорит, два это
+                  лотка или два килограмма, а цена у них разная на порядок. */}
+              <span style={{ fontWeight: 'var(--font-bold)', minWidth: 24, textAlign: 'center', fontSize: '15px' }}>
+                {item.quantity}
+                {item.product.unit && (
+                  <span style={{ display: 'block', fontSize: '9px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                    {item.product.unit}
+                  </span>
+                )}
+              </span>
               <button onClick={() => updateQuantity(item.product.id, 1)} className="btn btn-ghost btn-sm"
                 style={{ width: 32, height: 32, padding: 0, borderRadius: '10px' }}>
                 <Plus size={14} />

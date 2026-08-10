@@ -16,6 +16,13 @@ export interface CartProduct {
   nameRu?: string;
   price: number;
   oldPrice?: number | null;
+  /**
+   * За что назначена цена: «лоток», «100 г», «кг».
+   *
+   * Необязательно: корзина лежит в localStorage, и у корзин, собранных до
+   * появления единицы, поля просто нет — терять их из-за этого нельзя.
+   */
+  unit?: string | null;
   slug: string;
   images: string[];
   category?: { nameUz: string; slug: string };

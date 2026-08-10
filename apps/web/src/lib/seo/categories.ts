@@ -100,7 +100,25 @@ export const CATEGORY_SEO: Record<string, CategorySeo> = {
   },
 };
 
-export const CATEGORY_SLUGS = Object.keys(CATEGORY_SEO);
+/**
+ * Категории, которые сейчас продаются.
+ *
+ * Источник состава каталога — прайс (`public/catalog/price-list.html`): в нём
+ * микрозелень, бейби-лист и салаты, всего 34 позиции. Цветы, семена,
+ * оборудование, наборы и услуги в прайсе не значатся, их товары скрыты
+ * импортом, и раздел остался бы пустым.
+ *
+ * Отсюда строятся карта сайта, предгенерация страниц и кэш в middleware —
+ * без этого списка в поиске остались бы проиндексированные ссылки на пустые
+ * разделы. Тексты ниже НЕ удалены намеренно: вернёте категорию в прайс —
+ * достаточно дописать её сюда, SEO-копия уже готова.
+ */
+const ACTIVE_CATEGORIES = ['microgreens', 'baby-leaf', 'salads'] as const;
+
+export const CATEGORY_SLUGS: string[] = [...ACTIVE_CATEGORIES];
+
+/** Все описанные категории, включая временно снятые с продажи. */
+export const ALL_CATEGORY_SLUGS = Object.keys(CATEGORY_SEO);
 
 /**
  * hreflang-кластер категории. Один источник на все три версии страницы:

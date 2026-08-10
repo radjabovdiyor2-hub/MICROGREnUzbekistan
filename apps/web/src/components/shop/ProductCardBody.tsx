@@ -72,6 +72,14 @@ export function ProductCardBody({
   <div style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
     <span style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', color: 'var(--brand-primary)' }}>
       {formatPrice(product.price)} {t('product.currency')}
+      {/* Единица обязательна: микрозелень продаётся за лоток, бейби-лист за
+          100 г, салаты за килограмм. Без неё «200 000 сум» у салата выглядит
+          как цена за кочан, и покупатель уходит. */}
+      {product.unit && (
+        <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-normal)', color: 'var(--text-muted)' }}>
+          {' / '}{product.unit}
+        </span>
+      )}
     </span>
     {product.oldPrice && (
       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textDecoration: 'line-through' }}>

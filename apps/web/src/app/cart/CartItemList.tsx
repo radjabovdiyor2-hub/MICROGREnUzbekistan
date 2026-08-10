@@ -43,6 +43,13 @@ export function CartItemList({ cart, fmt, t }: Props) {
             </div>
             <div style={{ color: 'var(--brand-primary)', fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }}>
               {fmt(item.product.price)} {t("so'm", "сум")}
+              {/* Единица идёт при цене за штуку, но НЕ при сумме строки справа:
+                  там уже цена × количество, и «/ кг» читалось бы как цена. */}
+              {item.product.unit && (
+                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-normal)', color: 'var(--text-muted)' }}>
+                  {' / '}{item.product.unit}
+                </span>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>

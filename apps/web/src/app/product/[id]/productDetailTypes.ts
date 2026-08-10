@@ -6,6 +6,8 @@ export interface Product {
   descriptionUz: string | null;
   descriptionRu: string | null;
   price: number;
+  /** За что цена: «лоток», «100 г», «кг». У категорий она разная. */
+  unit?: string | null;
   oldPrice: number | null;
   images: string[];
   stock: number;

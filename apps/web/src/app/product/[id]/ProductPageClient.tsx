@@ -111,13 +111,13 @@ export function ProductPageClient({ id }: { id: string }) {
   const fav = isFavorite(product.id);
 
   const handleAddToCart = () => {
-    cart.addItem({ id: product.id, nameUz: product.nameUz, nameRu: product.nameRu, price: product.price, oldPrice: product.oldPrice, slug: product.slug, images: product.images, category: product.category }, quantity);
+    cart.addItem({ id: product.id, nameUz: product.nameUz, nameRu: product.nameRu, price: product.price, oldPrice: product.oldPrice, unit: product.unit, slug: product.slug, images: product.images, category: product.category }, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 1800);
   };
 
   const handleBuyNow = () => {
-    cart.addItem({ id: product!.id, nameUz: product!.nameUz, nameRu: product!.nameRu, price: product!.price, oldPrice: product!.oldPrice, slug: product!.slug, images: product!.images, category: product!.category }, quantity);
+    cart.addItem({ id: product!.id, nameUz: product!.nameUz, nameRu: product!.nameRu, price: product!.price, oldPrice: product!.oldPrice, unit: product!.unit, slug: product!.slug, images: product!.images, category: product!.category }, quantity);
     router.push('/cart');
   };
 

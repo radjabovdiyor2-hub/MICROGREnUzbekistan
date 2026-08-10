@@ -94,8 +94,34 @@ async def sync_catalog_from_storefront() -> dict:
                 )
             synced += 1
 
+        # Товар ушёл с витрины — гасим и зеркало.
+        #
+        # Синхронизация переносила только активные и НИКОГДА не трогала строки
+        # исчезнувших товаров. Скрытый на витрине товар оставался живым в
+        # crm_products навсегда, и офис продолжал его предлагать: прайс-лист
+        # ботов, регистрация продажи, подбор для КП — всё читает зеркало.
+        # Уберёшь оборудование с сайта — Стёпан всё равно его продаёт.
+        deactivated = (
+            await session.execute(
+                text(
+                    "UPDATE crm_products SET is_active = FALSE "
+                    "WHERE storefront_id IS NOT NULL AND is_active = TRUE "
+                    "AND storefront_id NOT IN "
+                    "(SELECT id FROM products WHERE is_active = TRUE) "
+                    "RETURNING id"
+                )
+            )
+        ).fetchall()
+        await session.commit()
+
+    if deactivated:
+        logger.info("Catalog sync: погашено в зеркале (нет на витрине): %s", len(deactivated))
     logger.info("Catalog sync: витрина → CRM, товаров обработано: %s", synced)
-    return {"synced": synced, "total": len(web_products)}
+    return {
+        "synced": synced,
+        "total": len(web_products),
+        "deactivated": len(deactivated),
+    }
 
 
 async def ensure_schema() -> None:

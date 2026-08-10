@@ -31,6 +31,8 @@ export interface RecoProduct {
   slug: string;
   price: number;
   oldPrice?: number | null;
+  /** «лоток» / «100 г» / «кг» — едет в корзину вместе с ценой. */
+  unit?: string | null;
   images: string[];
   category?: { nameUz: string; slug: string };
 }
@@ -176,7 +178,7 @@ export function CartView({ cart, recos, recosLoading, fmt, setStep, isSubscripti
                         </div>
                         <button
                           className="btn btn-sm"
-                          onClick={() => cart.addItem({ id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price, oldPrice: p.oldPrice, slug: p.slug, images: p.images, category: p.category } as CartProduct)}
+                          onClick={() => cart.addItem({ id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price, oldPrice: p.oldPrice, unit: p.unit, slug: p.slug, images: p.images, category: p.category } as CartProduct)}
                           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', border: 'none', color: 'var(--text-inverse)', background: 'var(--brand-primary)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)' }}
                           id={`reco-add2-${p.id}`}
                         >

@@ -13,6 +13,8 @@ export interface RecipeCartProduct {
   nameRu: string;
   price: number;
   oldPrice: number | null;
+  /** «лоток» / «100 г» / «кг» — едет в корзину вместе с ценой. */
+  unit?: string | null;
   slug: string;
   images: string[];
   category?: { nameUz: string; slug: string };
@@ -80,11 +82,12 @@ export async function recipesForProduct(productId: string, take = 4): Promise<Re
 
 function toCartProduct(p: {
   id: string; nameUz: string; nameRu: string; price: number; oldPrice: number | null;
+  unit?: string | null;
   slug: string; images: string[]; category?: { nameUz: string; slug: string } | null;
 }): RecipeCartProduct {
   return {
     id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price, oldPrice: p.oldPrice,
-    slug: p.slug, images: p.images,
+    unit: p.unit, slug: p.slug, images: p.images,
     category: p.category ? { nameUz: p.category.nameUz, slug: p.category.slug } : undefined,
   };
 }

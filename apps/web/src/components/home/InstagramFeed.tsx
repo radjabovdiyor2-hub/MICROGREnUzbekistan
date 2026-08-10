@@ -52,7 +52,7 @@ export function InstagramFeed() {
 
   const handleBuy = (p: ShopProduct) => {
     cart.addItem({
-      id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price,
+      id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price, unit: p.unit,
       slug: p.slug || p.id, images: p.images || [],
     });
     setAddedId(p.id);

@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Instagram, MessageCircle, Phone, Leaf, Droplet, Plug, MapPin,
+  Instagram, MessageCircle, Phone, Leaf, MapPin,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { LogoIcon } from '@/components/ui/Logo';
@@ -85,8 +85,8 @@ export function Footer() {
             <li><Link href="/catalog/microgreens" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</Link></li>
             <li><Link href="/catalog/baby-leaf" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Baby Leaf", 'Бейби лист')}</Link></li>
             <li><Link href="/catalog/salads" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Salatlar", 'Салаты')}</Link></li>
-            <li><Link href="/catalog/seeds" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Droplet size={14} /> {t("Urug'lar", 'Семена')}</Link></li>
-            <li><Link href="/catalog/equipment" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Plug size={14} /> {t("Uskunalar", 'Оборудование')}</Link></li>
+            {/* Семена и оборудование убраны: в прайсе их нет, товары
+                скрыты, и ссылки вели бы на пустой раздел. */}
           </ul>
         </div>
 

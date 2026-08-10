@@ -36,15 +36,16 @@ logger = logging.getLogger(__name__)
 STOREFRONT_API_URL = os.getenv("STOREFRONT_API_URL", "http://web:3000/api")
 BOT_SECRET = os.getenv("BOT_SECRET", "")
 
+# Категории, в которые офис может завести товар.
+#
+# Ровно те, что продаются по прайсу (public/catalog/price-list.html):
+# микрозелень, бейби-лист, салаты. Цветы, семена, оборудование и наборы из
+# прайса ушли, их товары скрыты — заводить туда новые нечего. `substrate`
+# в этом списке был всегда, но такой категории в базе не существует вовсе.
 ALLOWED_CATEGORY = {
     "microgreens",
     "baby-leaf",
     "salads",
-    "flowers",
-    "seeds",
-    "substrate",
-    "equipment",
-    "sets",
 }
 ALLOWED_UNIT = {"kg", "g", "piece", "pack", "set"}
 
@@ -280,7 +281,9 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
         unit = "piece"
     category = str(params.get("category") or "microgreens").lower()
     if category not in ALLOWED_CATEGORY:
-        category = "sets"
+        # Запасной вариант — микрозелень, а не «наборы»: наборы сняты с продажи
+        # и скрыты, и товар уехал бы в раздел, которого нет на витрине.
+        category = "microgreens"
     try:
         stock = float(params.get("stock") or 0)
     except (TypeError, ValueError):

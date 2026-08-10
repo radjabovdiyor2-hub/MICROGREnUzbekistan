@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
-import { CATEGORY_SLUGS } from '@/lib/seo/categories';
+import { ALL_CATEGORY_SLUGS } from '@/lib/seo/categories';
 
 // ══════════════════════════════════════════════════════════════════════
 // Категории каталога.
@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
     include: { _count: { select: { products: true } } },
   });
 
-  const known = new Set<string>(CATEGORY_SLUGS as readonly string[]);
+  // Полный список, а не только продающиеся: флаг говорит «нет SEO-текста»,
+  // а тексты снятых с продажи категорий на месте — вернутся вместе с ними.
+  const known = new Set<string>(ALL_CATEGORY_SLUGS);
 
   return NextResponse.json({
     status: 'ok',
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       status: 'ok',
       category: created,
-      ...((CATEGORY_SLUGS as readonly string[]).includes(slug)
+      ...(ALL_CATEGORY_SLUGS.includes(slug)
         ? {}
         : {
             warning:

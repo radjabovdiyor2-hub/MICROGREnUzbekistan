@@ -172,6 +172,11 @@ export function AdminPOSProducts({
                 {/* Price */}
                 <div className="pos-product-price" style={{ fontWeight: 800, color: 'var(--brand-primary)', fontSize: '14px', fontFamily: 'var(--font-display)', textAlign: 'right' }}>
                   {fmt(product.price)}
+                  {product.unit && (
+                    <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)' }}>
+                      за {product.unit}
+                    </span>
+                  )}
                 </div>
               </div>
             );

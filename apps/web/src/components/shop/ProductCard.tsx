@@ -42,6 +42,7 @@ export function ProductCard({ product }: { product: Product }) {
       nameRu: product.nameRu,
       price: product.price,
       oldPrice: product.oldPrice,
+      unit: product.unit,
       slug: product.slug,
       images: product.images,
       category: product.category,

@@ -72,6 +72,8 @@ export interface ShopProduct {
   nameUz: string;
   nameRu?: string;
   price: number;
+  /** «лоток» / «100 г» / «кг» — едет в корзину вместе с ценой. */
+  unit?: string | null;
   slug?: string;
   images?: string[];
 }

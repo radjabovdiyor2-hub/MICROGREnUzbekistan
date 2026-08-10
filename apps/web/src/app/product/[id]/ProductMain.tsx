@@ -79,7 +79,9 @@ export function ProductMain({ product, catIcon, discount, fav, quantity, setQuan
 
     {/* Price */}
     <div style={{ marginBottom: 'var(--space-6)' }}>
-      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-3xl)', color: 'var(--brand-primary)' }}>{fmt(product.price)} {t("so'm", "сум")}</div>
+      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-3xl)', color: 'var(--brand-primary)' }}>{fmt(product.price)} {t("so'm", "сум")}{product.unit && (
+        <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-normal)', color: 'var(--text-muted)' }}>{' / '}{product.unit}</span>
+      )}</div>
       {product.oldPrice && <div style={{ fontSize: 'var(--text-lg)', color: 'var(--text-muted)', textDecoration: 'line-through' }}>{fmt(product.oldPrice)} {t("so'm", "сум")}</div>}
     </div>
 
