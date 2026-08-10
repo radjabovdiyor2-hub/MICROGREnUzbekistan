@@ -103,13 +103,22 @@ register(
                     "type": "object",
                     "properties": {
                         "product": {"type": "string", "description": "Название товара"},
-                        "quantity": {"type": "number", "description": "Количество"},
+                        "quantity": {
+                            "type": "number",
+                            "description": (
+                                "Количество — ТОЛЬКО если названо. Не назвали — "
+                                "НЕ СТАВЬ 1 и не угадывай: пропусти поле, отдел "
+                                "продаж сам спросит у руководителя."
+                            ),
+                        },
                         "unit_price": {
                             "type": "number",
                             "description": "Цена за единицу — только если названа явно",
                         },
                     },
-                    "required": ["product", "quantity"],
+                    # quantity намеренно НЕ обязателен: пока он стоял в required,
+                    # модель дописывала единицу, лишь бы вызов прошёл валидацию.
+                    "required": ["product"],
                 },
             },
             "customer_type": {

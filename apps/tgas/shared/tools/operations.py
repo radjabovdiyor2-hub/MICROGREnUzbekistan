@@ -309,15 +309,36 @@ async def list_suppliers() -> Dict[str, Any]:
 
 
 async def plant_batch(
-    crop_type: str, quantity: int, seed_date: str = "", note: str = ""
+    crop_type: str, quantity: Optional[int] = None, seed_date: str = "", note: str = ""
 ) -> Dict[str, Any]:
     """Посадить партию: списать сырьё по нормам и посчитать себестоимость.
 
     `quantity` — в единицах, заданных нормой культуры: лотки у микрозелени,
     стаканчики 63 мм у салата. Параметр назывался `trays`, и для салата это
     было неправдой — поштучная посадка лотков не использует вовсе.
+
+    Не назвали количество — спрашиваем. Здесь стояло `max(1, int(quantity or 1))`,
+    то есть «посади горох» сажало ровно один лоток и списывало сырьё под него:
+    партия заведена, семена списаны, себестоимость посчитана — всё на числе,
+    которого никто не называл.
     """
-    quantity = max(1, int(quantity or 1))
+    try:
+        quantity = int(quantity)
+    except (TypeError, ValueError):
+        return {
+            "ok": False,
+            "needs": ["quantity"],
+            "error": (
+                f"Не назвали, сколько сажаем «{crop_type}». Скажите число единиц "
+                f"(лотков для микрозелени, стаканчиков для салата) — тогда посажу."
+            ),
+        }
+    if quantity <= 0:
+        return {
+            "ok": False,
+            "needs": ["quantity"],
+            "error": "Количество должно быть больше нуля.",
+        }
 
     # Сначала спрашиваем расход. Витрина откажет и сама, но тогда владелец
     # увидит «не смог» вместо «не хватает 300 г семян гороха, есть 120».
@@ -590,7 +611,10 @@ register(
             "crop_type": {"type": "string", "description": "Культура: redis, gorox, podsolnuh…"},
             "quantity": {
                 "type": "integer",
-                "description": "Сколько единиц: лотков у микрозелени, стаканчиков у салата",
+                "description": (
+                    "Сколько единиц: лотков у микрозелени, стаканчиков у салата. "
+                    "Не назвали — НЕ ПРИДУМЫВАЙ, спроси у руководителя."
+                ),
             },
             "seed_date": {"type": "string", "description": "Дата посева YYYY-MM-DD, пусто — сегодня"},
             "note": {"type": "string", "description": "Заметка к партии"},

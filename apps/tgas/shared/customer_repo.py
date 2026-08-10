@@ -52,6 +52,11 @@ logger = logging.getLogger(__name__)
 # случайные созвучия вроде «Жасмин» ↔ «Ясмина».
 FUZZY_THRESHOLD = 0.45
 
+# Порог для `similar()` — «нет ли рядом похожего, о ком стоит спросить».
+# Мягче обычного намеренно: цена ошибки здесь — один лишний вопрос
+# руководителю, а цена пропуска — второй клиент с той же историей заказов.
+LOOSE_THRESHOLD = 0.3
+
 # Родовые слова в названиях заведений. Их отбрасываем, когда ищем по словам:
 # они есть у половины базы и различать клиентов не помогают. «Ресторан Жасмин»
 # должен находиться по «Жасмин» и наоборот — ради этого проход и существует.
@@ -216,10 +221,15 @@ async def _search_like(session, patterns: List[str], limit: int) -> List[Any]:
     return (await session.execute(stmt, {"limit": limit})).fetchall()
 
 
-async def _search_fuzzy(session, variants: List[str], limit: int) -> List[Any]:
+async def _search_fuzzy(
+    session, variants: List[str], limit: int, threshold: float = FUZZY_THRESHOLD
+) -> List[Any]:
     """
     Опечатки через pg_trgm: `word_similarity` сравнивает запрос с лучшим куском
     названия, поэтому «жасмн» находит «Ресторан Жасмин».
+
+    `threshold` мягче у `similar()`: там ответ идёт в вопрос руководителю, а не
+    в запись, и лишний кандидат стоит дешевле пропущенного дубля.
 
     Без расширения запрос падает — тогда честно остаёмся без нечёткого поиска,
     как это уже сделано в catalog_repo.
@@ -241,10 +251,40 @@ async def _search_fuzzy(session, variants: List[str], limit: int) -> List[Any]:
             )
         ).fetchall()
         # sim идёт сразу за общим набором полей (_row читает 0..16).
-        return [r for r in rows if (r[17] or 0) >= FUZZY_THRESHOLD]
+        return [r for r in rows if (r[17] or 0) >= threshold]
     except Exception as exc:  # pg_trgm не установлен — остаёмся без fuzzy
         logger.warning("CUSTOMER_REPO: нечёткий поиск недоступен (%s)", exc)
         return []
+
+
+async def similar(name: Optional[str], limit: int = 5) -> List[Dict[str, Any]]:
+    """Кто ПОХОЖ на это имя — даже если обычный поиск ничего не нашёл.
+
+    Нужно ровно перед заведением новой карточки. `find` отвечает на вопрос
+    «это он?» и молчит, когда не уверен; здесь вопрос другой — «нет ли рядом
+    кого-то похожего, о ком стоит спросить».
+
+    10.08.2026 рядом с «Жасмин» завёлся «ресторан жасмин»: поиск не нашёл
+    совпадения, и карточка создалась молча. Дубль клиента разводит историю
+    заказов и долги на два лица, а замечают это на сверке — то есть поздно.
+
+    Порог мягче обычного: здесь ошибка стоит одного лишнего вопроса, а не
+    неверно записанной продажи.
+    """
+    query = str(name or "").strip()
+    if not query:
+        return []
+    async with get_session_ctx() as session:
+        rows = await _search_fuzzy(
+            session, query_variants(query), limit, threshold=LOOSE_THRESHOLD
+        )
+        if not rows:
+            words = _significant_words(query)
+            if words:
+                rows = await _search_fuzzy(
+                    session, words, limit, threshold=LOOSE_THRESHOLD
+                )
+    return [_row(r) for r in rows]
 
 
 async def resolve(

@@ -65,6 +65,54 @@ async def drop_pending(token: str) -> None:
         await client.aclose()
 
 
+# ── Незакрытая продажа этого чата ──────────────────────────────────────
+#
+# Токен заявки жил ТОЛЬКО в callback_data кнопок, то есть ответить на вопрос
+# можно было исключительно нажатием. На «Сколько продали?» руководитель
+# отвечает словами — «15 штук», — и найти по этим словам заявку было нечем:
+# со стороны это выглядело как «бот не помнит, о чём мы только что говорили».
+#
+# Держим последний открытый вопрос по чату рядом с самой заявкой: тот же
+# Redis, тот же TTL, отдельной инфраструктуры не нужно.
+
+
+async def remember_open(chat_id: int, token: str, needs: str) -> None:
+    client = _redis()
+    try:
+        await client.set(
+            f"sale:open:{int(chat_id)}",
+            json.dumps({"token": token, "needs": needs}),
+            ex=PENDING_TTL,
+        )
+    finally:
+        await client.aclose()
+
+
+async def open_question(chat_id: int) -> Optional[Dict[str, Any]]:
+    """Незакрытый вопрос по продаже в этом чате, если он есть."""
+    client = _redis()
+    try:
+        raw = await client.get(f"sale:open:{int(chat_id)}")
+    finally:
+        await client.aclose()
+    if not raw:
+        return None
+    entry = json.loads(raw)
+    pending = await load_pending(entry["token"])
+    if not pending:
+        return None  # заявка истекла — вопроса больше нет
+    return {"token": entry["token"], "needs": entry.get("needs"), "pending": pending}
+
+
+async def forget_open(chat_id: int) -> None:
+    """Вопрос закрыт (ответили кнопкой, отменили, дописали) — забыть."""
+    client = _redis()
+    try:
+        await client.delete(f"sale:open:{int(chat_id)}")
+    finally:
+        await client.aclose()
+
+
 def _short(name: str) -> str:
     """«Микрозелень рукколы» → «Рукколы»: в кнопке важна суть, а не общий префикс."""
     for prefix in ("Микрозелень ", "Бейби ", "Салат "):
@@ -96,6 +144,21 @@ def build_clarify_keyboard(token: str, data: Dict[str, Any]):
     Остальные вопросы зададим следующим шагом — по одному, чтобы не путать.
     """
     builder = InlineKeyboardBuilder()
+
+    # Количество не назвали. Кнопки — ходовые числа, но ответить можно и
+    # словами: «15 штук» дописывает заявку (см. remember_open выше).
+    if data.get("needs") == "quantity" and data.get("unknown"):
+        first = data["unknown"][0]
+        for value in (1, 2, 3, 5, 10, 15, 20):
+            builder.button(
+                text=str(value),
+                callback_data=f"sale:qty:{token}:{first['index']}:{value}",
+            )
+        builder.adjust(4)
+        builder.row(
+            InlineKeyboardButton(text="✖️ Отмена", callback_data=f"sale:cancel:{token}")
+        )
+        return builder.as_markup()
 
     # «Жасмин» подходит и ресторану, и частному лицу — выбираем карточку.
     # Угадать здесь нельзя: продажа уйдёт не тому, и заметят это на сверке долгов.
@@ -297,6 +360,8 @@ async def answer_sale_result(message: Message, result: Dict[str, Any]) -> str:
             return "Вопрос по этой продаже уже задан выше — жду ответа."
 
         token = await save_pending(data["pending"])
+        # Помним вопрос по чату: на «сколько?» отвечают словами, а не кнопкой.
+        await remember_open(message.chat.id, token, str(data.get("needs") or ""))
         keyboard = build_clarify_keyboard(token, data)
         await message.answer(
             f"❓ <b>Отдел продаж:</b> {result.get('message')}",
@@ -334,6 +399,7 @@ async def on_pick_product(callback: CallbackQuery):
 
         result = await run_sale(pending)
         await drop_pending(token)
+        await forget_open(callback.message.chat.id)
         await answer_sale_result(callback.message, result)
     except Exception as e:
         logger.error(f"sale:pick — {e}", exc_info=True)
@@ -367,6 +433,7 @@ async def on_pick_customer(callback: CallbackQuery):
 
         result = await run_sale(pending)
         await drop_pending(token)
+        await forget_open(callback.message.chat.id)
         await answer_sale_result(callback.message, result)
     except Exception as e:
         logger.error(f"sale:cust — {e}", exc_info=True)
@@ -464,11 +531,66 @@ async def on_noop(callback: CallbackQuery):
     await callback.answer()
 
 
+@sale_ui_router.callback_query(F.data.startswith("sale:qty:"))
+async def on_pick_quantity(callback: CallbackQuery):
+    """Количество выбрали кнопкой — дозаписываем продажу."""
+    try:
+        _, _, token, index, value = callback.data.split(":")
+        pending = await load_pending(token)
+        if not pending:
+            await callback.answer(
+                "Этот вопрос уже неактуален (прошёл час).", show_alert=True
+            )
+            return
+
+        _fill_quantity(pending, float(value))
+        await callback.answer("Принято, записываю…")
+        await callback.message.edit_reply_markup(reply_markup=None)
+
+        result = await run_sale(pending)
+        await drop_pending(token)
+        await forget_open(callback.message.chat.id)
+        await answer_sale_result(callback.message, result)
+    except Exception as e:
+        logger.error(f"sale:qty — {e}", exc_info=True)
+        await callback.answer("Не смог записать количество.", show_alert=True)
+
+
+def _fill_quantity(pending: Dict[str, Any], value: float) -> None:
+    """Проставить количество всем позициям, где его не назвали.
+
+    Позиций в одной продаже обычно одна; когда их несколько и число названо
+    одно, оно относится ко всем неназванным — иначе пришлось бы спрашивать по
+    кругу о каждой.
+    """
+    for item in pending.get("items", []):
+        if item.get("quantity") in (None, ""):
+            item["quantity"] = value
+
+
+async def complete_with_quantity(chat_id: int, value: float) -> Optional[Dict[str, Any]]:
+    """Дописать открытую заявку числом из текстового ответа.
+
+    None — открытого вопроса про количество нет, отвечать нечего.
+    """
+    question = await open_question(chat_id)
+    if not question or question.get("needs") != "quantity":
+        return None
+
+    pending = question["pending"]
+    _fill_quantity(pending, value)
+    result = await run_sale(pending)
+    await drop_pending(question["token"])
+    await forget_open(chat_id)
+    return result
+
+
 @sale_ui_router.callback_query(F.data.startswith("sale:cancel:"))
 async def on_cancel(callback: CallbackQuery):
     try:
         token = callback.data.split(":")[2]
         await drop_pending(token)
+        await forget_open(callback.message.chat.id)
         await callback.message.edit_reply_markup(reply_markup=None)
         await callback.message.answer("✖️ Продажа отменена — в CRM ничего не записано.")
         await callback.answer()

@@ -73,7 +73,14 @@ def _normalize_items(params: Dict[str, Any]) -> List[Dict[str, Any]]:
                 # тогда искать по названию уже не нужно.
                 "product_id": entry.get("product_id"),
                 "product": str(entry.get("product") or "").strip() or None,
-                "quantity": _to_float(entry.get("quantity")) or 1.0,
+                # НЕ подставляем единицу вместо «не сказали».
+                #
+                # Здесь стояло `or 1.0`, и «продажа ресторану Жасмин микрозелень
+                # гороха» записывалась как один лоток: доход учтён, остаток
+                # списан, всё на выдуманном числе. Это хуже отказа — отказ
+                # видно, а выдумка выглядит успехом. Дальше по коду количество
+                # проверяется и превращается в вопрос руководителю.
+                "quantity": _to_float(entry.get("quantity")),
                 "unit_price": _to_float(entry.get("unit_price")),
             }
         )
@@ -132,14 +139,18 @@ async def _resolve_items(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         unit_price = (
             item["unit_price"] if item["unit_price"] is not None else product["price"]
         )
+        quantity = item["quantity"]
         resolved.append(
             {
                 "product_id": product["id"],
                 "name": product["name"],
                 "unit": product["unit"] or "piece",
-                "quantity": item["quantity"],
+                # Количество может быть неизвестно: его не назвали. Позицию всё
+                # равно сопоставляем — чтобы спросить «сколько ЛОТКОВ ГОРОХА»,
+                # а не «сколько того, что вы там сказали».
+                "quantity": quantity,
                 "unit_price": unit_price,
-                "total_price": unit_price * item["quantity"],
+                "total_price": None if quantity is None else unit_price * quantity,
             }
         )
 
@@ -286,11 +297,27 @@ async def _known_customer(
         return match["customer"], None
 
     candidates = match.get("candidates") or []
+
+    # Совпадений нет — но прежде чем заводить карточку, смотрим, нет ли
+    # ПОХОЖЕЙ. 10.08.2026 рядом с «Жасмин» появился «ресторан жасмин»: поиск
+    # промахнулся, и вторая карточка создалась молча. С этого момента история
+    # заказов и долги одного ресторана разъезжаются на два лица, и замечают
+    # это на сверке — то есть месяцем позже.
+    #
+    # Спрашиваем только когда сами не уверены: нашлось похожее — вопрос,
+    # не нашлось ничего — заводим молча, как и раньше.
+    if not candidates:
+        candidates = await customer_repo.similar(customer_name)
+
     if candidates:
+        one = len(candidates) == 1
         return None, {
             "status": "clarify",
             "message": (
-                f"Под «{customer_name}» подходит несколько клиентов. "
+                f"«{customer_name}» — это {candidates[0]['name']}? "
+                f"Или новый клиент? Выберите ниже 👇"
+                if one
+                else f"Под «{customer_name}» подходит несколько клиентов. "
                 f"Кому продали? Выберите ниже 👇"
             ),
             "data": {
@@ -421,6 +448,61 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
             }
 
         lines = outcome["resolved"]
+
+        # ── Количество не назвали — спрашиваем, а не ставим единицу ──
+        #
+        # 10.08.2026 «Продажа ресторан жасмин микрозелень гороха» записалась как
+        # ОДИН лоток: количество в тексте не звучало, а код подставлял 1.0.
+        # Продажа ушла в базу, доход учёлся, остаток списался — всё на
+        # выдуманном числе, и выглядело это как успешно выполненная работа.
+        #
+        # Спрашиваем ровно так же, как про дробное количество ниже: назвать
+        # цифру дешевле, чем потом искать, откуда в кассе лишние 15 000.
+        unknown = [line for line in lines if line["quantity"] is None]
+        if unknown:
+            names = ", ".join(f"{line['name']} ({line['unit']})" for line in unknown)
+            return {
+                "status": "clarify",
+                "message": (
+                    f"Сколько продали? Не назвали количество: {names}.\n"
+                    f"Скажите число — запишу продажу."
+                ),
+                "data": {
+                    "needs": "quantity",
+                    "unknown": [
+                        {
+                            "index": index,
+                            "name": line["name"],
+                            "unit": line["unit"],
+                            "unit_price": line["unit_price"],
+                        }
+                        for index, line in enumerate(lines)
+                        if line["quantity"] is None
+                    ],
+                    "pending": {
+                        "customer_name": customer_name,
+                        "customer_id": params.get("customer_id"),
+                        "phone": phone,
+                        "customer_type": customer_type,
+                        "payment_status": payment_status,
+                        "status": order_status,
+                        "notes": notes,
+                        # Позиции уже сопоставлены с каталогом: при дозаписи
+                        # искать товар заново не придётся, и «горох» не
+                        # превратится вдруг в другую позицию.
+                        "items": [
+                            {
+                                "product_id": line["product_id"],
+                                "product": line["name"],
+                                "quantity": line["quantity"],
+                                "unit_price": line["unit_price"],
+                            }
+                            for line in lines
+                        ],
+                    },
+                },
+            }
+
         total_amount = sum(line["total_price"] for line in lines)
 
         # Витрина считает позиции в целых единицах (OrderItem.quantity — Int).

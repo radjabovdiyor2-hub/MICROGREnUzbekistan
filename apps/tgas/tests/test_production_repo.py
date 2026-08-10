@@ -240,3 +240,26 @@ def test_shift_tools_do_not_collide():
     assert "график" in assign.description.lower()
     assert "поручение" in task.description.lower()
     assert "assign_shift" in task.description
+
+
+@pytest.mark.asyncio
+async def test_planting_without_quantity_asks_instead_of_planting_one(calls):
+    """Не назвали, сколько сажать — отказ с вопросом, а не один лоток.
+
+    Здесь стояло `max(1, int(quantity or 1))`: «посади горох» заводило партию
+    в один лоток и списывало под неё семена и субстрат. Партия есть,
+    себестоимость посчитана, сырьё ушло — всё на числе, которого никто не
+    называл. Та же болезнь, что и у продажи без количества.
+    """
+    result = await operations.plant_batch("gorox")
+
+    assert result["ok"] is False
+    assert "quantity" in result["needs"]
+    assert calls.log == [], "посадка ушла в витрину без количества"
+
+
+@pytest.mark.asyncio
+async def test_planting_zero_is_refused(calls):
+    result = await operations.plant_batch("gorox", 0)
+    assert result["ok"] is False
+    assert calls.log == []

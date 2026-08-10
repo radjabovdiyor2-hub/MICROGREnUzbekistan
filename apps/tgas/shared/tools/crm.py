@@ -114,6 +114,75 @@ async def find_customer(query: str) -> Dict[str, Any]:
     }
 
 
+async def add_customer(
+    name: str,
+    phone: str = "",
+    customer_type: str = "",
+    city: str = "",
+    notes: str = "",
+    force_new: bool = False,
+) -> Dict[str, Any]:
+    """Завести карточку клиента в CRM.
+
+    Заводить клиента было НЕЧЕМ: карточка появлялась только побочным эффектом
+    продажи, и «запиши ресторан Навруз, телефон такой-то» руководитель сказать
+    не мог. Продажа при этом карточку создаёт — то есть возможность была, но
+    только вместе с заказом.
+
+    Перед созданием ищем похожих: инструмент, плодящий дубли, хуже
+    отсутствующего. Нашёлся похожий — возвращаем его и НЕ создаём вторую
+    карточку; настаивать нужно явно, флагом `force_new`.
+    """
+    display = str(name or "").strip()
+    if not display:
+        return {"ok": False, "error": "Не назвали имя клиента."}
+
+    if not force_new:
+        match = await customer_repo.resolve(display, phone or None)
+        existing = match.get("customer")
+        if existing:
+            return {
+                "ok": True,
+                "created": False,
+                "customer_id": existing["id"],
+                "summary": (
+                    f"«{existing['name']}» уже в CRM (#{existing['id']}). "
+                    f"Новую карточку не завожу."
+                ),
+            }
+        close = match.get("candidates") or await customer_repo.similar(display)
+        if close:
+            return {
+                "ok": False,
+                "needs": "confirmation",
+                "candidates": [
+                    {"id": c["id"], "name": c["name"], "phone": c["phone_display"]}
+                    for c in close
+                ],
+                "error": (
+                    f"Похоже, «{display}» уже есть: "
+                    + ", ".join(f"{c['name']} (#{c['id']})" for c in close[:3])
+                    + ". Это он? Если всё же новый — повтори с force_new."
+                ),
+            }
+
+    saved = await customer_repo.upsert(
+        name=display,
+        raw_phone=phone or None,
+        customer_type=(customer_type or "").lower() or None,
+        city=city or None,
+        notes=notes or None,
+        source="office",
+        match_by_name=not force_new,
+    )
+    return {
+        "ok": True,
+        "created": True,
+        "customer_id": saved.get("id"),
+        "summary": f"Клиент «{display}» заведён в CRM (#{saved.get('id')}).",
+    }
+
+
 async def get_customer_orders(query: str, limit: int = 10) -> Dict[str, Any]:
     """Прошлые заказы клиента — что и на сколько он брал."""
     match = await customer_repo.resolve(query)
@@ -311,6 +380,39 @@ async def get_sales_today(date: Optional[str] = None) -> Dict[str, Any]:
         ],
     }
 
+
+register(
+    Tool(
+        name="add_customer",
+        description=(
+            "Завести клиента в CRM: «запиши клиента», «добавь ресторан», "
+            "«новый клиент». Сам проверит, нет ли такого — и если похожий "
+            "найдётся, вернёт его вместо второй карточки. Для продажи вызывать "
+            "НЕ нужно: register_sale заводит клиента сам."
+        ),
+        run=add_customer,
+        departments=DEPTS,
+        params={
+            "name": {"type": "string", "description": "Имя или название заведения"},
+            "phone": {"type": "string", "description": "Телефон, если назван"},
+            "customer_type": {
+                "type": "string",
+                "enum": ["b2b", "b2c"],
+                "description": "Ресторан/кафе/отель → b2b, частное лицо → b2c",
+            },
+            "city": {"type": "string", "description": "Город, если назван"},
+            "notes": {"type": "string", "description": "Заметка о клиенте"},
+            "force_new": {
+                "type": "boolean",
+                "description": (
+                    "Завести карточку, даже если похожая есть. Ставить ТОЛЬКО "
+                    "когда руководитель подтвердил, что это другой клиент."
+                ),
+            },
+        },
+        required=["name"],
+    )
+)
 
 register(
     Tool(

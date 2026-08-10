@@ -73,6 +73,15 @@ def chain(monkeypatch):
     async def fake_customer_resolve(name, phone=None):
         return {}
 
+    # И похожих тоже нет. Без этой заглушки `similar()` лезла бы в настоящую
+    # базу; ошибку подключения глотал бы запасной путь «pg_trgm не установлен»,
+    # и тест проходил бы по неверной причине — молча, ничего не проверив.
+    async def fake_similar(name, limit=5):
+        calls.setdefault("similar", []).append(name)
+        return []
+
+    monkeypatch.setattr(customer_repo, "similar", fake_similar)
+
     async def fake_upsert(name, phone, ctype, by, customer_id=None, match_by_name=True):
         calls["customer"].append(
             {"name": name, "phone": phone, "type": ctype, "id": customer_id}
@@ -367,3 +376,102 @@ def test_storefront_refusal_is_explained_in_russian():
 
     transient = sales_ops._storefront_refusal_message("витрина недоступна (timeout)")
     assert "повторите" in transient.lower()
+
+
+# ── Количество не выдумываем (инцидент 10.08.2026) ──────────────────────
+#
+# «Продажа ресторан жасмин микрозелень гороха» — количество не звучало вовсе,
+# а `_normalize_items` подставляла 1.0. Продажа ушла в базу: доход учтён,
+# остаток списан, в чате зелёная галочка. Выдумка, выглядящая как успех,
+# хуже честного отказа — отказ хотя бы видно.
+
+
+@pytest.mark.asyncio
+async def test_sale_without_quantity_asks_instead_of_assuming_one(chain, monkeypatch):
+    """Не назвали сколько — вопрос, и НИ ОДНОГО заказа в витрине."""
+
+    async def resolve_without_quantity(items):
+        return {"resolved": [dict(LINE, quantity=None, total_price=None)]}
+
+    monkeypatch.setattr(sales_ops, "_resolve_items", resolve_without_quantity)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "ресторан жасмин",
+            "items": [{"product": "микрозелень гороха"}],
+        }
+    )
+
+    assert result["status"] == "clarify"
+    assert result["data"]["needs"] == "quantity"
+    assert chain["create"] == [], "заказ создан на выдуманном количестве"
+    # В заявке уже сопоставленный товар: при дозаписи «горох» не превратится
+    # вдруг в другую позицию каталога.
+    assert result["data"]["pending"]["items"][0]["product_id"] == LINE["product_id"]
+
+
+@pytest.mark.asyncio
+async def test_quantity_named_goes_through_without_questions(chain):
+    """Количество назвали — работает как раньше, вопроса нет."""
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Zarra Resort",
+            "phone": "+998881552557",
+            "items": [{"product": "горох", "quantity": 10}],
+        }
+    )
+    assert result["status"] == "ok"
+    assert len(chain["create"]) == 1
+
+
+def test_missing_quantity_survives_normalisation():
+    """`_normalize_items` не подставляет единицу вместо «не сказали»."""
+    items = sales_ops._normalize_items({"product": "горох"})
+    assert items[0]["quantity"] is None
+
+
+# ── Похожий клиент: спросить, а не завести второго ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_similar_customer_is_asked_about_not_duplicated(chain, monkeypatch):
+    """«ресторан жасмин» при существующем «Жасмин» → вопрос, а не дубль.
+
+    Поиск промахнулся (иначе вернул бы карточку), но похожий в базе есть.
+    Завести вторую карточку молча — значит развести историю заказов и долги
+    одного ресторана на два лица; замечают это на сверке, месяцем позже.
+    """
+
+    async def one_similar(name, limit=5):
+        return [customer_card(id=42, name="Жасмин")]
+
+    monkeypatch.setattr(customer_repo, "similar", one_similar)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "ресторан жасмин",
+            "items": [{"product": "горох", "quantity": 10}],
+        }
+    )
+
+    assert result["status"] == "clarify"
+    assert result["data"]["needs"] == "customer"
+    assert [c["id"] for c in result["data"]["candidates"]] == [42]
+    assert chain["create"] == [], "заказ ушёл до ответа руководителя"
+    # Вопрос про ОДНОГО похожего звучит иначе, чем про нескольких: «это он?»,
+    # а не «выберите из списка».
+    assert "Жасмин" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_truly_new_customer_is_created_without_questions(chain):
+    """Ничего похожего нет — заводим молча. Уточняем, только когда не уверены."""
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Ресторан Навруз",
+            "phone": "+998901234567",
+            "items": [{"product": "горох", "quantity": 5}],
+        }
+    )
+    assert result["status"] == "ok"
+    assert chain["similar"] == ["Ресторан Навруз"]
