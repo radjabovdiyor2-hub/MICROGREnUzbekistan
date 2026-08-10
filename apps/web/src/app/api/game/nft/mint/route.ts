@@ -1,35 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // ══════════════════════════════════════════════════════════════════════
-// NFT Minting for Farm Simulator (Telegram Mini App)
-// Выдаёт NFT-персонажа (Агро Друзья) игроку за достижения.
+// NFT для игры-фермы (Telegram Mini App) — НЕ РЕАЛИЗОВАНО.
+//
+// Здесь стоял «mock успешного минта»: эндпоинт отвечал
+// `{ success: true, message: 'NFT character successfully minted!' }`
+// и выдавал СЛУЧАЙНЫЙ hex-хэш, выглядящий как хэш транзакции блокчейна.
+//
+// Ни смарт-контракта, ни кошелька, ни сети в проекте нет. То есть игрок
+// получал бы подделанное доказательство сделки, которой не было, — а по
+// хэшу он пошёл бы искать её в обозревателе блокчейна. Выдуманная запись,
+// выданная за настоящую, недопустима независимо от того, что это «пока
+// заглушка».
+//
+// Отвечаем честным 501. Появится контракт — здесь будет вызов; до тех пор
+// вызывающий видит «не умеем», а не мнимый успех. Сейчас эндпоинт не
+// вызывает никто.
 // ══════════════════════════════════════════════════════════════════════
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { telegramId, characterId, walletAddress } = body;
-
-    if (!telegramId || !characterId || !walletAddress) {
-      return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
-    }
-
-    // В будущем здесь будет логика вызова Smart Contract на TON или Polygon
-    console.log(`[NFT] Minting character ${characterId} for TG user ${telegramId} to wallet ${walletAddress}`);
-
-    // Mock успешного минта
-    const mockTxHash = `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
-
-    return NextResponse.json({
-      success: true,
-      message: 'NFT character successfully minted!',
-      txHash: mockTxHash,
-      character: characterId,
-      owner: walletAddress
-    });
-
-  } catch (error) {
-    console.error('[NFT] Error during minting:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+export async function POST() {
+  return NextResponse.json(
+    {
+      error: 'not_implemented',
+      message:
+        'Выпуск NFT не подключён: смарт-контракта нет. Ничего не выпущено.',
+    },
+    { status: 501 },
+  );
 }

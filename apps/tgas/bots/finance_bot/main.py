@@ -44,8 +44,14 @@ async def daily_finance_report():
                         "  COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income, "
                         "  COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expense "
                         "FROM finances "
-                        "WHERE DATE(created_at AT TIME ZONE 'Asia/Samarkand') = "
-                        "      (NOW() AT TIME ZONE 'Asia/Samarkand')::date"
+                        # По ДЕЛОВОЙ дате операции, а не по моменту внесения
+                        # строки. Здесь стояло `created_at`: расход за вчера,
+                        # записанный сегодня, попадал в сегодняшний отчёт и
+                        # навсегда исчезал из вчерашнего. Итог — оба дня
+                        # неверны, а сходятся они только в сумме за месяц.
+                        # Месячный P&L это уже считает по `date`; дневной
+                        # отчёт остался единственным местом со старой ошибкой.
+                        "WHERE date = CURRENT_DATE"
                     )
                 )
                 row = result.fetchone()
@@ -163,6 +169,11 @@ async def large_expense_check():
                         "FROM finances "
                         "WHERE type = 'expense' "
                         "AND amount > 1000000 "
+                        # Здесь `created_at` осознанно, в отличие от дневного
+                        # отчёта: это оповещение о ВНЕСЁННЫХ записях, а не
+                        # сводка за день. Крупный расход недельной давности,
+                        # записанный сегодня, владелец должен увидеть сегодня.
+                        # Поэтому и заголовок ниже говорит «внесены сегодня».
                         "AND DATE(created_at AT TIME ZONE 'Asia/Samarkand') = "
                         "      (NOW() AT TIME ZONE 'Asia/Samarkand')::date "
                         "ORDER BY amount DESC"
@@ -176,7 +187,7 @@ async def large_expense_check():
             if rows:
                 ids = ",".join(str(r[0]) for r in rows)
                 if alert_once.should_send(key, ids):
-                    lines = ["🔴 <b>Крупные расходы сегодня:</b>\n"]
+                    lines = ["🔴 <b>Крупные расходы, внесённые сегодня:</b>\n"]
                     for row in rows:
                         fid = row[0]
                         category = row[1] or "—"

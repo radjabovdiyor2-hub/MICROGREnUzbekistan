@@ -42,9 +42,22 @@ function normalizeStatus(raw: unknown): OrderStatus | null {
 }
 
 export async function POST(request: NextRequest) {
-  // Auth — timing-safe comparison
+  // Auth — timing-safe comparison.
+  //
+  // Отсутствие секрета в проде = ОТКАЗ, а не свободный вход. Здесь стояло
+  // `if (secret) { ...проверка... }`: не задана переменная — проверки нет
+  // вовсе, и эндпоинт открыт всему интернету. А он меняет статус заказа,
+  // пишет клиенту и при отмене возвращает товар на склад.
+  //
+  // Так же поступают обе соседние двери: `lib/botAuth.ts` и приёмник офиса
+  // `web_office/main.py` при пустом секрете в проде отвечают отказом.
   const secret = process.env.INGEST_SECRET;
-  if (secret) {
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('FATAL: INGEST_SECRET is missing in production!');
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+  } else {
     const provided = request.headers.get('x-ingest-secret') ?? '';
     if (provided.length !== secret.length ||
         !crypto.timingSafeEqual(Buffer.from(provided), Buffer.from(secret))) {
