@@ -183,6 +183,52 @@ async def add_customer(
     }
 
 
+async def resolve_complaint(complaint_id: int, note: str = "") -> Dict[str, Any]:
+    """Пометить жалобу решённой.
+
+    `interactions.resolved` читали, но НИКОГДА не писали: ни в офисе, ни на
+    витрине не было ни одного UPDATE по этой колонке. То есть каждая жалоба
+    оставалась открытой навсегда, а `complaint_followup` напоминал о ней
+    вечно — оповещение, которое невозможно погасить, приучает не читать
+    оповещения вообще.
+
+    Номер жалобы приходит из того же напоминания: «🔴 #12 — клиент #7».
+    """
+    try:
+        cid = int(complaint_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "Номер жалобы должен быть числом."}
+
+    async with get_session_ctx() as session:
+        row = (
+            await session.execute(
+                text(
+                    "UPDATE interactions SET resolved = true "
+                    "WHERE id = :cid AND interaction_type = 'complaint' "
+                    "RETURNING id, summary"
+                ),
+                {"cid": cid},
+            )
+        ).fetchone()
+        if row and note:
+            await session.execute(
+                text(
+                    "UPDATE interactions "
+                    "SET summary = COALESCE(summary, '') || :note WHERE id = :cid"
+                ),
+                {"cid": cid, "note": f"\n[решено] {note[:500]}"},
+            )
+        await session.commit()
+
+    if not row:
+        return {"ok": False, "error": f"Жалобы #{cid} нет — проверьте номер."}
+    return {
+        "ok": True,
+        "complaint_id": cid,
+        "summary": f"Жалоба #{cid} закрыта: {(row[1] or '')[:80]}",
+    }
+
+
 async def get_customer_orders(query: str, limit: int = 10) -> Dict[str, Any]:
     """Прошлые заказы клиента — что и на сколько он брал."""
     match = await customer_repo.resolve(query)
@@ -380,6 +426,24 @@ async def get_sales_today(date: Optional[str] = None) -> Dict[str, Any]:
         ],
     }
 
+
+register(
+    Tool(
+        name="resolve_complaint",
+        description=(
+            "Закрыть жалобу: «жалоба #12 решена», «разобрались с претензией». "
+            "Номер берётся из напоминания о нерешённых жалобах. Без этого "
+            "напоминание повторяется вечно — погасить его больше нечем."
+        ),
+        run=resolve_complaint,
+        departments=DEPTS,
+        params={
+            "complaint_id": {"type": "integer", "description": "Номер жалобы"},
+            "note": {"type": "string", "description": "Чем закончилось"},
+        },
+        required=["complaint_id"],
+    )
+)
 
 register(
     Tool(

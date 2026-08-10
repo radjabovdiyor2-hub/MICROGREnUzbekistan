@@ -278,3 +278,25 @@ async def test_publishing_happens_only_after_approval(monkeypatch):
     assert sent[0]["action"] == "publish_story"
     assert sent[0]["params"] == {"topic": "руккола"}
     assert "опубликован" in text.lower()
+
+
+# ── Распознавание «покажи пост» ─────────────────────────────────────────
+#
+# Тот же класс ошибки, найденный при полной сверке: CONTENT_WORDS сравнивались
+# по подстроке, и «пост» находился внутри «поставки» и «Поставь».
+# «Покажи поставки за неделю» читалось как «покажи опубликованный пост».
+@pytest.mark.parametrize(
+    "phrase,expected",
+    [
+        ("покажи поставки за неделю", None),
+        ("поставь задачу отделу продаж", None),
+        ("свяжись с поставщиком лотков", None),
+        ("покажи пост за сегодня", "show"),
+        ("покажи сторис", "show"),
+        ("когда выйдет сторис", "status"),
+    ],
+)
+def test_content_intent_needs_whole_words(phrase, expected):
+    from bots.stepan_bot.handlers.assistant import detect_content_intent
+
+    assert detect_content_intent(phrase) == expected

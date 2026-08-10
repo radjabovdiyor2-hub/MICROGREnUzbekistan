@@ -1,5 +1,7 @@
 """Sales Bot — Оформление заказа."""
 
+import logging
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
@@ -11,6 +13,7 @@ from shared.config import settings
 from bots.sales_bot.states import OrderStates
 from bots.sales_bot.keyboards.inline import confirm_order_kb, main_menu_kb
 
+logger = logging.getLogger(__name__)
 router = Router()
 
 
@@ -170,8 +173,11 @@ async def confirm_order(cb: CallbackQuery, state: FSMContext):
                     f"Будем рады вашему отзыву! 🌱",
                 },
             )
-    except Exception:
-        pass  # Не ломаем заказ из-за CRM
+    except Exception as exc:
+        # Заказ из-за CRM не ломаем, но и молчать нельзя: без этой строки
+        # обещанный клиенту отзыв просто не запрашивается, и узнать об этом
+        # неоткуда — followups создаются только здесь.
+        logger.warning("Заказ %s: напоминание об отзыве не заведено: %s", order_number, exc)
 
     # Кнопки «Оплатить онлайн» здесь нет и быть не должно.
     #

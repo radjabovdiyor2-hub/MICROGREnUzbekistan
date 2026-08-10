@@ -814,10 +814,16 @@ async def bus_process_ig_order(params: dict) -> dict:
 
         customer_name = params.get("customer_name") or "Instagram Client"
         product = params.get("product")
+        # Клиент в директе часто не называет количество. Заказ из-за этого не
+        # отменяем — потерять лид хуже, — но и молчать нельзя: единица здесь
+        # НАША догадка, а не слова клиента. Помечаем её в уведомлении, чтобы
+        # владелец переспросил, а не отгрузил один лоток вместо десяти.
+        quantity_stated = str(params.get("quantity") or "").strip() != ""
         try:
             quantity = int(params.get("quantity") or 1)
         except (ValueError, TypeError):
             quantity = 1
+            quantity_stated = False
         phone = params.get("phone", "")
         address = params.get("address", "")
 
@@ -920,8 +926,11 @@ async def bus_process_ig_order(params: dict) -> dict:
                     "bus_process_ig_order: у товара нет storefront_id — заказ в магазин не уйдёт"
                 )
 
+            # Догадку называем догадкой — и в журнале, и в чате владельцу.
+            qty_note = "" if quantity_stated else " (клиент количество не назвал)"
             notes = (
-                f"IG: {product or '—'} x {quantity}, Phone: {phone}, Address: {address}"
+                f"IG: {product or '—'} x {quantity}{qty_note}, "
+                f"Phone: {phone}, Address: {address}"
             )
 
             if storefront_success:
@@ -929,7 +938,12 @@ async def bus_process_ig_order(params: dict) -> dict:
                     f"✅ <b>Заказ {real_order_number} оформлен в магазине!</b>\n"
                     f"Клиент: {customer_name}\n"
                     f"Товар: {product or '—'} x {quantity}\n"
-                    f"Сумма: {amount} UZS\n\n"
+                    + (
+                        ""
+                        if quantity_stated
+                        else "⚠️ Количество клиент НЕ называл — поставил 1, уточните.\n"
+                    )
+                    + f"Сумма: {amount} UZS\n\n"
                     f"{PAYMENT_METHODS_HINT}"
                 )
                 order_number = real_order_number
