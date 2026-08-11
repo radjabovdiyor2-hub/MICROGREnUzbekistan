@@ -48,7 +48,7 @@ from sqlalchemy import String, bindparam, text
 from sqlalchemy.dialects.postgresql import ARRAY
 
 from shared.database import get_session_ctx
-from shared.text_match import query_variants
+from shared.text_match import normal_forms, query_variants
 from shared.utils import format_price
 
 logger = logging.getLogger(__name__)
@@ -171,41 +171,158 @@ async def categories() -> List[Dict[str, Any]]:
     return [{"slug": r[0], "title": r[1], "count": r[2]} for r in rows]
 
 
+# Слова-категории: менеджер называет их вместе с товаром («микрозелень
+# гороха»), но в НАЗВАНИИ товара их нет — это категория. Пока поиск считал их
+# частью имени, такой запрос не находился вовсе: «микрозелень» отсутствует в
+# name_ru у всех 34 позиций.
+#
+# Слово ищется и как есть, и в нормальной форме: «семена» приводятся к «семя»,
+# а вот заимствования морфология портит — pymorphy3 разбирает «бейби» как
+# форму глагола «бейбить», а «беби» как «бести». Поэтому сверяем оба варианта,
+# и обе записи ниже нужны.
+CATEGORY_WORDS = {
+    "микрозелень": "microgreens",
+    "микрозелен": "microgreens",
+    "бейби": "baby-leaf",
+    "беби": "baby-leaf",
+    "бейбилист": "baby-leaf",
+    "салат": "salads",
+    "семя": "seeds",
+    "семена": "seeds",
+}
+
+
+def _split_category(query: str) -> tuple[Optional[str], str]:
+    """Отделить слово-категорию от названия товара.
+
+    «микрозелень гороха» → ("microgreens", "гороха"). Если после отделения не
+    остаётся имени («микрозелень» одним словом) — категорию не выделяем: искать
+    пустое имя внутри категории бессмысленно.
+    """
+    words = re.split(r"\s+", query.strip())
+    if len(words) < 2:
+        return None, query
+
+    slug, rest = None, []
+    for word in words:
+        forms = normal_forms(word)
+        keys = {word.lower().strip("-·,.")} | set(forms)
+        hit = next((CATEGORY_WORDS[k] for k in keys if k in CATEGORY_WORDS), None)
+        if slug is None and hit:
+            slug = hit
+            continue
+        rest.append(word)
+
+    remainder = " ".join(rest).strip()
+    if not slug or not remainder:
+        return None, query
+    return slug, remainder
+
+
 async def find(query: Optional[str], limit: int = 10) -> List[Dict[str, Any]]:
     """
     Поиск товара так, как его мог написать человек: «санго», «sango», «cfyuj»
-    (кириллица в латинской раскладке), «сангоо» с опечаткой.
+    (кириллица в латинской раскладке), «сангоо» с опечаткой, «микрозелень
+    гороха» в родительном падеже.
 
-    Три прохода, каждый следующий — только если предыдущий пуст:
+    Проходы, каждый следующий — только если предыдущий пуст:
     1. Подстрока по всем вариантам написания (транслит + исправленная раскладка).
-    2. Все слова запроса по отдельности («санго микрозелень» в любом порядке).
-    3. Нечёткое совпадение через pg_trgm (ловит опечатки).
+    2. То же, но со словом-категорией, отделённым от имени.
+    3. Все слова запроса по отдельности, в любом порядке.
+    4. Нормальные формы слов — падежи («гороха» → «горох»).
+    5. Нечёткое совпадение через pg_trgm (ловит опечатки).
+
+    Проход 1 идёт по ЦЕЛОМУ запросу и раньше отделения категории намеренно:
+    «Кресс-салат» — настоящее имя товара, и слово «салат» в нём не должно
+    превращаться в фильтр по категории салатов.
     """
-    variants = query_variants(query or "")
+    raw = str(query or "").strip()
+    variants = query_variants(raw)
     if not variants:
         return []
-    patterns = [f"%{v}%" for v in variants]
 
     async with get_session_ctx() as session:
-        rows = (
-            await session.execute(
-                text(
-                    _SELECT + "WHERE p.is_active = true "
-                    "AND (p.name_ru ILIKE ANY(:pats) OR p.name_uz ILIKE ANY(:pats)) "
-                    "ORDER BY p.name_ru LIMIT :limit"
-                ).bindparams(bindparam("pats", value=patterns, type_=ARRAY(String))),
-                {"limit": limit, "default_unit": DEFAULT_UNIT},
-            )
-        ).fetchall()
+        rows = await _search_substring(session, variants, None, limit)
 
-        words = [w for w in re.split(r"\s+", str(query).strip()) if len(w) >= 3]
+        category, name = _split_category(raw)
+        if not rows and category:
+            rows = await _search_substring(
+                session, query_variants(name), category, limit
+            )
+
+        words = [w for w in re.split(r"\s+", name) if len(w) >= 3]
         if not rows and len(words) > 1:
             rows = await _search_by_words(session, words, limit)
+
+        if not rows:
+            rows = await _search_morph(session, name, category, limit)
 
         if not rows:
             rows = await _search_fuzzy(session, variants, limit)
 
     return [_row(r) for r in rows]
+
+
+async def _search_substring(
+    session, variants: List[str], category: Optional[str], limit: int
+) -> List[Any]:
+    """Подстрока по всем написаниям, при желании — внутри одной категории."""
+    if not variants:
+        return []
+    where = (
+        "WHERE p.is_active = true "
+        "AND (p.name_ru ILIKE ANY(:pats) OR p.name_uz ILIKE ANY(:pats)) "
+    )
+    params: Dict[str, Any] = {"limit": limit, "default_unit": DEFAULT_UNIT}
+    if category:
+        where += "AND c.slug = :cat "
+        params["cat"] = category
+
+    patterns = [f"%{v}%" for v in variants]
+    return (
+        await session.execute(
+            text(_SELECT + where + "ORDER BY p.name_ru LIMIT :limit").bindparams(
+                bindparam("pats", value=patterns, type_=ARRAY(String))
+            ),
+            params,
+        )
+    ).fetchall()
+
+
+async def _search_morph(
+    session, query: str, category: Optional[str], limit: int
+) -> List[Any]:
+    """
+    Совпадение по нормальным формам: «гороха» находит «Горох».
+
+    Сравнение идёт в Python по обеим сторонам сразу — SQL нормальную форму не
+    знает, а нормализация одной стороны только сдвигает несовпадение. Каталог
+    маленький (34 позиции), поэтому перебор дешевле любой индексной хитрости.
+    """
+    wanted = set(normal_forms(query))
+    if not wanted:
+        return []
+
+    where = "WHERE p.is_active = true "
+    params: Dict[str, Any] = {"limit": 500, "default_unit": DEFAULT_UNIT}
+    if category:
+        where += "AND c.slug = :cat "
+        params["cat"] = category
+
+    rows = (
+        await session.execute(
+            text(_SELECT + where + "ORDER BY p.name_ru LIMIT :limit"), params
+        )
+    ).fetchall()
+
+    # Имя товара должно содержать ВСЕ слова запроса — иначе «горох» вытянул бы
+    # и «Горчицу» просто потому, что она тоже в микрозелени.
+    matched = [
+        r
+        for r in rows
+        if wanted <= set(normal_forms(r[1])) | set(normal_forms(r[2]))
+    ]
+    return matched[:limit]
 
 
 async def _search_by_words(session, words: List[str], limit: int) -> List[Any]:
@@ -265,14 +382,26 @@ async def resolve(query: Optional[str]) -> Dict[str, Any]:
 
     Возвращает {"product": {...}} либо {"candidates": [...]} (нужен выбор),
     либо {} — товара нет. Единая трактовка для продаж и для инструментов.
+
+    ⚠️ Тёзки. Шесть позиций прайса называются одинаково в двух категориях:
+    Руккола, Базилик, Мангольд, Татсой и обе Мизуны есть и в микрозелени
+    (лоток, 15 000), и в бейби-листе (100 г, 25 000). Здесь стояло
+    `if exact: return {"product": exact[0]}` — при двух точных совпадениях
+    молча бралось первое, а порядок у тёзок задаёт `ORDER BY p.name_ru`, то
+    есть произволен. «Продажа руккола» записывалась бейби-листом за 25 000
+    вместо микрозелени за 15 000: не тот товар, не та цена, не тот остаток.
+
+    Несколько точных совпадений — это неоднозначность, а не готовый ответ.
     """
     name = str(query or "").strip()
     if not name:
         return {}
     matches = await find(name)
     exact = [m for m in matches if (m["name_ru"] or "").strip().lower() == name.lower()]
-    if exact:
+    if len(exact) == 1:
         return {"product": exact[0]}
+    if len(exact) > 1:
+        return {"candidates": exact}
     if len(matches) == 1:
         return {"product": matches[0]}
     if matches:

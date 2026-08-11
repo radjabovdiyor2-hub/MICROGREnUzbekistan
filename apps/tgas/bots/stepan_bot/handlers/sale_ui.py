@@ -132,8 +132,21 @@ def _price_short(price: float) -> str:
 def _product_button(
     builder: InlineKeyboardBuilder, token: str, index: int, product: Dict[str, Any]
 ):
+    """Кнопка товара: имя · единица · цена.
+
+    Единица здесь не украшение. Шесть позиций прайса — Руккола, Базилик,
+    Мангольд, Татсой и обе Мизуны — называются одинаково в микрозелени и в
+    бейби-листе. Без единицы выбор из двух тёзок выглядел бы как «Руккола ·
+    15к» и «Руккола · 25к»: по такой паре не понять, что именно выбираешь, а
+    ошибка стоит и цены, и списания не с того остатка.
+    """
+    unit = str(product.get("unit") or "").strip()
+    parts = [_short(product["name"])]
+    if unit and unit != "piece":
+        parts.append(unit)
+    parts.append(_price_short(product["price"]))
     builder.button(
-        text=f"{_short(product['name'])} · {_price_short(product['price'])}",
+        text=" · ".join(parts),
         callback_data=f"sale:pick:{token}:{index}:{product['id']}",
     )
 

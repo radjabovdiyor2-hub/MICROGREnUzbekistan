@@ -250,6 +250,24 @@ jobs:
               docker logs mg_db_push 2>&1 || true
               exit 1
             }
+            # Поиск «как назвал человек»: pg_trgm + триграммные индексы.
+            #
+            # Расширение создавалось только в apps/tgas/database/init.sql, а он
+            # исторический и в прод не монтируется. На базе, поднятой Prisma с
+            # нуля, pg_trgm нет — и нечёткий проход поиска (опечатки) молча
+            # выключен и у товаров, и у клиентов: код ловит исключение, пишет
+            # warning и остаётся без третьего прохода.
+            #
+            # После db-push, потому что индексы ложатся на таблицы, которыми
+            # владеет Prisma. Файл idempotent. Отдельным psql -f, БЕЗ
+            # --single-transaction: CREATE INDEX CONCURRENTLY внутри транзакции
+            # не выполняется.
+            SEARCH_SQL="packages/database/prisma/migrations/manual/2026-08-customer-search.sql"
+            if [ -f "$SEARCH_SQL" ]; then
+              echo "🔧 Running search indexes migration (pg_trgm)..."
+              docker cp "$SEARCH_SQL" mg_postgres:/tmp/search-indexes.sql
+              docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/search-indexes.sql
+            fi
             # Seed (self-skips when already populated)
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-seed
             # Now start web (skip db-push dependency since it already ran)
