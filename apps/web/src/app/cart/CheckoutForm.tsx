@@ -3,25 +3,16 @@
 import { useEffect, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import {
-  AlertTriangle, ArrowLeft, Banknote, CheckCircle, Clock, CreditCard, FileText,
-  MapPin, Phone, Smartphone, Truck, User, } from 'lucide-react';
+  AlertTriangle, ArrowLeft, CheckCircle, Clock, CreditCard, FileText,
+  MapPin, Phone, Truck, User, } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import type { useCart } from '@/components/providers/CartProvider';
 import { CheckoutSummary } from './CheckoutSummary';
+import { PAYMENT_METHODS, PaymentMethodPicker } from './paymentMethods';
 
 // Форма оформления заказа — второй шаг. Рендерится вместо корзины и экрана
 // успеха, поэтому вынесена так же, как CartView.
 
-// Полный каталог способов оплаты. Какие из них показывать — решает
-// настройка `payment.methods`: она редактировалась в админке, но оформление
-// её не читало и рисовало весь список. Подсказка настройки при этом обещала,
-// что пустой список «сломает оформление» — то есть настройка выглядела
-// работающей, ничего не делая.
-export const PAYMENT_METHODS = [
-  { id: 'cash', labelUz: 'Naqd pul', labelRu: 'Наличные', icon: <Banknote size={18} />, descUz: "Yetkazib berishda to'lang", descRu: "Оплата при доставке" },
-  { id: 'click', labelUz: 'Click', labelRu: 'Click', icon: <Smartphone size={18} />, descUz: "Click ilovasi orqali", descRu: "Через приложение Click" },
-  { id: 'payme', labelUz: 'Payme', labelRu: 'Payme', icon: <CreditCard size={18} />, descUz: "Payme ilovasi orqali", descRu: "Через приложение Payme" },
-];
 
 type CheckoutFields = {
   firstName: string;
@@ -155,27 +146,12 @@ export function CheckoutForm(props: Props) {
           <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-base)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CreditCard size={18} /> {t("To'lov usuli", "Способ оплаты")}
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            {enabledMethods.map(pm => (
-              <label key={pm.id} style={{
-                display: 'flex', alignItems: 'center', gap: 'var(--space-3)',
-                padding: 'var(--space-3)', borderRadius: 'var(--radius-md)',
-                border: `2px solid ${form.paymentMethod === pm.id ? 'var(--brand-primary)' : 'var(--border)'}`,
-                background: form.paymentMethod === pm.id ? 'var(--brand-primary-light)' : 'transparent',
-                cursor: 'pointer', transition: 'all var(--transition-fast)',
-              }}>
-                <input type="radio" name="payment" value={pm.id}
-                  checked={form.paymentMethod === pm.id}
-                  onChange={() => setForm(p => ({ ...p, paymentMethod: pm.id }))}
-                  style={{ accentColor: 'var(--brand-primary)' }} />
-                <span style={{ color: 'var(--brand-primary)' }}>{pm.icon}</span>
-                <div>
-                  <div style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)' }}>{t(pm.labelUz, pm.labelRu)}</div>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t(pm.descUz, pm.descRu)}</div>
-                </div>
-              </label>
-            ))}
-          </div>
+          <PaymentMethodPicker
+            methods={enabledMethods}
+            selected={form.paymentMethod}
+            onSelect={(id) => setForm(p => ({ ...p, paymentMethod: id }))}
+            t={t}
+          />
         </div>
 
         <CheckoutSummary

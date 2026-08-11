@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { CheckCircle, CreditCard, Folder, Home, MapPin, PartyPopper, Phone, User } from 'lucide-react';
-import { PAYMENT_METHODS } from './CheckoutForm';
+import { PAYMENT_METHODS } from './paymentMethods';
 
 interface Props {
   orderNumber: string;

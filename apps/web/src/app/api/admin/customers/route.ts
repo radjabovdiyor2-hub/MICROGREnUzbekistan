@@ -1,12 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { safeError } from '@/lib/safeError';
+import { getCustomerCard } from '@/lib/customers/card';
+import { setCustomerBonus } from '@/lib/customers/bonus';
+
+// ══════════════════════════════════════════════════════════════════════
+// Клиенты админки.
+//
+// GET без параметров — список (страницами), GET ?id=<n> — карточка целиком
+// с историей заказов и обращениями. Сбор карточки живёт в lib/customers:
+// в route.ts Next.js разрешает экспортировать только HTTP-обработчики.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Страница списка. Раньше стояло `take: 100` без сдвига — 101-й клиент
+ *  был недостижим ничем, кроме поиска по имени. */
+const PAGE_SIZE = 50;
+const MAX_PAGE_SIZE = 200;
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+
+    // ── Карточка одного клиента ──────────────────────────────────────
+    const idParam = searchParams.get('id');
+    if (idParam) {
+      const id = Number(idParam);
+      if (!Number.isInteger(id) || id <= 0) {
+        return NextResponse.json({ error: 'Invalid customer id' }, { status: 400 });
+      }
+      const card = await getCustomerCard(id);
+      if (!card) {
+        return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
+      }
+      return NextResponse.json({ status: 'ok', customer: card });
+    }
+
+    // ── Список ───────────────────────────────────────────────────────
     const query = searchParams.get('q') || '';
     const filter = (searchParams.get('status') || '').toLowerCase();
+    const page = Math.max(1, Number(searchParams.get('page')) || 1);
+    const limit = Math.min(Number(searchParams.get('limit')) || PAGE_SIZE, MAX_PAGE_SIZE);
 
     const where: Prisma.CustomerWhereInput = {};
     if (query) {
@@ -35,14 +68,21 @@ export async function GET(request: NextRequest) {
       where.status = filter;
     }
 
-    const customers = await prisma.customer.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: 100,
-    });
+    const [customers, total] = await Promise.all([
+      prisma.customer.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.customer.count({ where }),
+    ]);
 
     return NextResponse.json({
       status: 'ok',
+      total,
+      page,
+      hasMore: page * limit < total,
       customers: customers.map((c) => ({
         id: c.id,
         name: c.name || '—',
@@ -77,12 +117,21 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'Customer ID is required' }, { status: 400 });
     }
+    const customerId = Number(id);
+
+    // Баллы — отдельным путём: они лежат на аккаунте витрины, а не в карточке
+    // CRM, и запись «как есть» в customers.bonus_balance ничего не начисляла.
+    if (bonusBalance !== undefined) {
+      const result = await setCustomerBonus(customerId, Number(bonusBalance));
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.status });
+      }
+    }
 
     const updated = await prisma.customer.update({
-      where: { id: Number(id) },
+      where: { id: customerId },
       data: {
         status: status !== undefined ? status : undefined,
-        bonusBalance: bonusBalance !== undefined ? Number(bonusBalance) : undefined,
         notes: notes !== undefined ? notes : undefined,
         city: city !== undefined ? city : undefined,
         companyName: companyName !== undefined ? companyName : undefined,
@@ -96,6 +145,8 @@ export async function PUT(request: NextRequest) {
         status: updated.status,
         bonusBalance: Number(updated.bonusBalance || 0),
         notes: updated.notes,
+        city: updated.city,
+        companyName: updated.companyName,
       },
     });
   } catch (error: unknown) {

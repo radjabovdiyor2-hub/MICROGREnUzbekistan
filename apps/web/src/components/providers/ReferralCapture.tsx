@@ -29,7 +29,7 @@ export function ReferralCapture() {
     fetch('/api/referral', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: dbUser.id, referralCode: ref }),
+      body: JSON.stringify({ referralCode: ref }),
     }).catch(() => { /* ignore */ }).finally(() => {
       try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ }
     });

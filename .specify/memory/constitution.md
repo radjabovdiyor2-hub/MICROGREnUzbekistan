@@ -8,10 +8,10 @@
 
 | Модуль | Стек | Роль | Размер |
 |--------|------|------|--------|
-| `apps/web` | Next.js 16.2, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 26 API-групп, 89 route-файлов, 115 компонентов | ~65KB globals.css, 55 Prisma-моделей |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 29 API-групп, 107 route-файлов, 213 компонентов | ~66KB globals.css, 71 Prisma-модель |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 13 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 40 shared-модулей, ~400KB main.py суммарно |
-| `packages/database` | Prisma ORM, PostgreSQL | Схема (55 моделей, 1209 строк), миграции, сиды | schema.prisma — единый источник DDL |
+| `packages/database` | Prisma ORM, PostgreSQL | Схема (71 модель, 1763 строки), миграции, сиды | schema.prisma — единый источник DDL |
 
 **Запреты:**
 - Прямой импорт между модулями запрещён. Всё через HTTP API или Event Bus.
@@ -43,6 +43,11 @@
 - Шрифты: Inter (body), Outfit/SF Pro Display (display), Playfair Display (editorial).
 - Cascade layers: `@layer theme, base, components, utilities`. Tailwind v4 utilities в слое `utilities`.
 - Захардкоженные цвета — дефект. Только CSS-переменные: `--brand-primary`, `--bg-primary`, `--text-primary`.
+  Переменная обязана существовать в `design-system/build/tokens.css`: `var(--border-primary)`
+  не объявлена нигде, и три рамки в админке брали цвет текста вместо `var(--border)`.
+  Два исключения: `theme-color` в `app/layout.tsx` (спецификация требует литеральный
+  hex — переменную браузер не прочитает) и файлы `*.stories.tsx` шаблонов, которые
+  намеренно воспроизводят чужой визуальный язык и к нашим токенам не относятся.
 - Mobile-first. `clamp()` для адаптивной типографики.
 - Тёмная тема: `[data-theme="dark"]`.
 - Анимации — CSS transitions. JS-анимации (Framer Motion) — только для complex choreography.
@@ -102,9 +107,13 @@
 8. **No git side effects.** Commit/push — только по явному запросу.
 9. **No secrets.** Никогда не печатать/логировать/коммитить `.env`, токены, ключи.
 
-### VII. API — 26 групп, 89 роутов
+### VII. API — 29 групп, 107 роутов
 
-Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, config, content, ecosystem, health, instagram, inventory, leads, magazine, menu, metrics, notify, orders, payment, products, promo, referral, reviews, sms, support, telegram, upload, users.
+Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, config, content, ecosystem, game, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, referral, reviews, subscriptions, support, telegram, upload, users, whatsapp.
+
+Здесь значилась ещё и `sms` — группы с таким именем нет и не было, а витринный
+бот слал в неё `POST /api/sms` и получал 404. Список сверять с каталогом, а не
+дописывать по памяти.
 
 Дублирование API-роута — дефект.
 
@@ -120,7 +129,7 @@
 
 | Файл | Что содержит |
 |------|-------------|
-| `packages/database/prisma/schema.prisma` | 55 моделей, 1209 строк — полная схема БД |
+| `packages/database/prisma/schema.prisma` | 71 модель, 1763 строки — полная схема БД |
 | `apps/web/src/app/globals.css` | Design System v1.0 (2696 строк) |
 | `apps/web/design-system/tokens/tokens.json` | Дизайн-токены W3C DTCG |
 | `apps/tgas/shared/bot_registry.py` | Реестр всех 13 ботов (порты, имена, отделы) |

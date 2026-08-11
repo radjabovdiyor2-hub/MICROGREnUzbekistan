@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { z } from 'zod';
+import { getCustomerId, unauthorized, forbidden } from '@/lib/adminAuth';
 
 // ══════════════════════════════════════════════════════════════════
 // API: /api/subscriptions
 // CRUD для подписки «Зелёная Коробка»
+//
+// Владелец подписки берётся из подписанной сессии. Раньше `userId` и
+// `subscriptionId` приходили из запроса и принимались как есть: по чужому
+// id подписку можно было прочитать, поставить на паузу, отменить и
+// переписать ей адрес, телефон и состав.
 // ══════════════════════════════════════════════════════════════════
 
 const createSchema = z.object({
-  userId: z.string(),
   interval: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY']).default('WEEKLY'),
   deliveryDay: z.number().min(0).max(6).default(1),
   address: z.string().min(2),
@@ -53,10 +58,8 @@ function nextDeliveryDate(deliveryDay: number, interval: string): Date {
 
 // GET — список подписок пользователя
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId');
-  if (!userId) {
-    return NextResponse.json({ error: 'userId required' }, { status: 400 });
-  }
+  const userId = getCustomerId(req);
+  if (!userId) return unauthorized();
 
   const subscriptions = await prisma.greenBoxSubscription.findMany({
     where: { userId },
@@ -73,6 +76,9 @@ export async function GET(req: NextRequest) {
 
 // POST — создание или обновление подписки
 export async function POST(req: NextRequest) {
+  const userId = getCustomerId(req);
+  if (!userId) return unauthorized();
+
   const body = await req.json();
 
   // Обновление существующей подписки
@@ -87,6 +93,9 @@ export async function POST(req: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: 'Подписка не найдена' }, { status: 404 });
     }
+    // Подписка есть, но не его — 403. Дальше идут пауза, отмена и правка
+    // адреса: без этой проверки они выполнялись над чужой записью.
+    if (existing.userId !== userId) return forbidden();
 
     if (action === 'pause') {
       const sub = await prisma.greenBoxSubscription.update({
@@ -168,7 +177,7 @@ export async function POST(req: NextRequest) {
   const data = parsed.data;
 
   // Проверяем, что пользователь существует
-  const user = await prisma.user.findUnique({ where: { id: data.userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) {
     return NextResponse.json({ error: 'Пользователь не найден' }, { status: 404 });
   }
@@ -183,7 +192,7 @@ export async function POST(req: NextRequest) {
 
   const subscription = await prisma.greenBoxSubscription.create({
     data: {
-      userId: data.userId,
+      userId,
       interval: data.interval,
       deliveryDay: data.deliveryDay,
       address: data.address,

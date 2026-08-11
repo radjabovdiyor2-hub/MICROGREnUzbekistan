@@ -229,19 +229,14 @@ async def sync_order_from_web(order_id: str) -> Optional[Dict]:
     return await bridge._api_call(f"orders/{order_id}")
 
 
-async def notify_order_status(phone: str, order_id: str, status: str):
-    """Уведомить клиента о статусе заказа"""
-    status_messages = {
-        "CONFIRMED": f"✅ Заказ #{order_id[-6:]} подтверждён! Собираем ваш заказ.",
-        "PROCESSING": f"📦 Заказ #{order_id[-6:]} собирается. Скоро отправим!",
-        "SHIPPED": f"🚚 Заказ #{order_id[-6:]} в пути! Курьер свяжется с вами.",
-        "DELIVERED": f"🎉 Заказ #{order_id[-6:]} доставлен! Спасибо за покупку!",
-        "CANCELLED": f"❌ Заказ #{order_id[-6:]} отменён. Свяжитесь с нами если есть вопросы."
-    }
-
-    message = status_messages.get(status, f"📋 Статус заказа #{order_id[-6:]}: {status}")
-
-    await bridge._api_call("sms", "POST", {
-        "phone": phone,
-        "message": f"🌱 Microgreen: {message}"
-    })
+# Здесь была `notify_order_status()` — рассылка статуса заказа по SMS.
+#
+# Она слала POST на `/api/sms`, которого в витрине нет: 29 групп маршрутов
+# перечислены в apps/web/src/app/api, и `sms` среди них не значится и не
+# значилось. То есть функция при любом вызове получала 404. Вызывающих у неё
+# при этом не было ни одного — но она попала в список групп в конституции,
+# и по документации выходило, что SMS-канал существует.
+#
+# О смене статуса клиента извещает витрина (`apps/web/src/lib/orders`), она
+# же единственный владелец заказов. Появится SMS-провайдер — маршрут заводится
+# там же, а не отдельной дверью в боте.

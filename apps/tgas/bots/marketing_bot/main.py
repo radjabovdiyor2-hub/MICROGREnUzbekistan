@@ -26,8 +26,10 @@ async def get_dynamic_marketing_policy(base_sys: str) -> str:
         directives = [str(v) for v in active.values() if isinstance(v, str)]
         if directives:
             return base_sys + "\\n\\n[ДИРЕКТИВА АНАЛИТИКА: " + " ".join(directives) + "]"
-    except Exception:
-        pass
+    except Exception as exc:
+        # Молчать здесь нельзя — см. тот же приём в content_bot: именно так
+        # слой самообучения падал на импорте и не отрабатывал ни разу.
+        logger.warning("marketing_bot: директива обучения не получена: %s", exc)
     return base_sys
 
 

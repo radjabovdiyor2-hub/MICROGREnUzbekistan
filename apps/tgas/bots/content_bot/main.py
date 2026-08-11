@@ -64,8 +64,11 @@ async def get_dynamic_content_policy() -> str:
         if directives:
             directive_text = " ".join(directives)
             return f"\n\n[ДИРЕКТИВА ИИ-АНАЛИТИКА: {directive_text}]\n"
-    except Exception:
-        pass
+    except Exception as exc:
+        # Молчать здесь нельзя. Ровно так слой самообучения и падал на импорте
+        # у одиннадцати ботов, не отработав ни разу: исключение глоталось, а
+        # бот продолжал работать без директив — и выглядел исправным.
+        logger.warning("content_bot: директива обучения не получена: %s", exc)
     return ""
 logging.basicConfig(level=logging.INFO)
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import crypto from 'crypto';
+import { respondWithCustomerSession } from '@/lib/customerSession';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 // ==========================================
 // Telegram Auth Verification
@@ -27,7 +29,14 @@ function verifyTelegramAuth(data: Record<string, string>, botToken: string): boo
   return hmac === hash;
 }
 
+/** 20 попыток входа в час на адрес — подпись проверяется, но не бесплатно. */
+const LIMIT = 20;
+const WINDOW_MS = 60 * 60 * 1000;
+
 export async function POST(request: NextRequest) {
+  const limit = await consume(`tglogin:${clientIp(request)}`, LIMIT, WINDOW_MS);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
   try {
     const body = await request.json();
     const { id, first_name, last_name, username, photo_url, auth_date, hash } = body;
@@ -74,7 +83,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json({
+    // Личность доказана HMAC по токену бота выше — выдаём сессию кабинета.
+    return respondWithCustomerSession(user.id, {
       success: true,
       user: {
         id: user.id,

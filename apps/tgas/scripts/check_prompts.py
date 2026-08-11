@@ -465,6 +465,75 @@ if not any("системный промпт" in p for p in problems):
     notes.append("  ok  однострочных системных промптов нет")
 
 
+# ═══ 8. Секрет с запасным значением в коде ══════════════════════════════
+# `process.env.WHATSAPP_VERIFY_TOKEN || 'microgreen_uz_wa_token_stub'` —
+# верификацию вебхука WhatsApp проходил кто угодно, кто прочитал этот файл в
+# публичном репозитории, пока переменная не задана. Правило то же, что у
+# `getSecret()` в lib/session.ts и у `requireBotAuth`: нет переменной — отказ,
+# а не тихий вход по значению из исходников.
+#
+# Правило 1 такое не ловило: оно смотрит только Python и знает конкретные
+# заглушки в лицо. Здесь важна не строка, а форма — «секрет со значением
+# по умолчанию».
+SECRET_FALLBACK = re.compile(
+    r"process\.env\.[A-Z0-9_]*(?:SECRET|TOKEN|KEY|PASSWORD)[A-Z0-9_]*\s*\|\|\s*"
+    r"['\"`][^'\"`]+['\"`]"
+)
+
+WEB_SRC = REPO / "apps" / "web" / "src"
+TS_SCOPE: list[Path] = []
+for root in (WEB_SRC / "app" / "api", WEB_SRC / "lib", WEB_SRC / "middleware.ts"):
+    if root.is_dir():
+        TS_SCOPE += [f for f in root.rglob("*.ts") if not skip(f)]
+    elif root.is_file():
+        TS_SCOPE.append(root)
+
+for path in TS_SCOPE:
+    body = path.read_text(encoding="utf-8", errors="replace")
+    # Комментарии вырезаем: в них разбор прошлых ошибок, а не живой код.
+    body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
+    for i, line in enumerate(body.splitlines(), 1):
+        if re.match(r"\s*(//|\*)", line):
+            continue
+        if SECRET_FALLBACK.search(line):
+            problems.append(
+                f"{rel(path)}:{i} — секрет с запасным значением в коде: "
+                f"нет переменной окружения — должен быть отказ, а не вход "
+                f"по значению из исходников"
+            )
+
+# Та же форма на Python: `os.getenv("META_VERIFY_TOKEN", "microgreen_secure_token_2026")`
+# — вебхук Meta в web_office проходил верификацию по значению из исходников.
+PY_SECRET_ARG = re.compile(r"(?:SECRET|TOKEN|KEY|PASSWORD)", re.I)
+
+for path in PY_SCOPE + py_files(TGAS / "web_office"):
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+    except SyntaxError:
+        continue
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or len(node.args) < 2:
+            continue
+        func = node.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+        if name not in {"getenv", "environ_get"}:
+            continue
+        var, default = node.args[0], node.args[1]
+        if not (isinstance(var, ast.Constant) and isinstance(var.value, str)):
+            continue
+        if not (isinstance(default, ast.Constant) and isinstance(default.value, str)):
+            continue
+        if not PY_SECRET_ARG.search(var.value) or not default.value:
+            continue
+        problems.append(
+            f"{rel(path)}:{node.lineno} — секрет с запасным значением в коде: "
+            f"{var.value} по умолчанию «{default.value[:24]}»"
+        )
+
+if not any("секрет с запасным значением" in p for p in problems):
+    notes.append(f"  ok  секретов со значением по умолчанию нет ({len(TS_SCOPE)} .ts + .py)")
+
+
 # ═══ итог ═══════════════════════════════════════════════════════════════
 print("Проверка промптов и контактов\n")
 print(f"  область: apps/tgas, apps/bot, apps/web/src/lib/ai — {len(TEXT_SCOPE)} файлов\n")

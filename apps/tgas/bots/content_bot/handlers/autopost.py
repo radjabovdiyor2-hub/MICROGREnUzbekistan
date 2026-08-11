@@ -179,8 +179,10 @@ async def approve_publish(cb: CallbackQuery):
     post = PENDING_POSTS.pop(token, None)
     try:
         await cb.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+    except Exception as exc:
+        # Кнопки уже убраны или сообщение устарело — не повод прерывать
+        # обработку, но и молчать нельзя: сюда же попадёт отзыв прав бота.
+        logger.debug("autopost: не убрал кнопки под сообщением: %s", exc)
     if not post:
         await cb.answer("Пост устарел или уже обработан")
         return
@@ -217,8 +219,8 @@ async def approve_publish(cb: CallbackQuery):
     if img and str(img).startswith(str(_STORE_DIR)) and os.path.isfile(img):
         try:
             os.remove(img)
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.warning("autopost: не удалил временный файл %s: %s", img, exc)
 
 
 @router.callback_query(F.data.startswith("autopost:cancel:"))
@@ -227,14 +229,16 @@ async def cancel_post(cb: CallbackQuery):
     post = PENDING_POSTS.pop(token, None)
     try:
         await cb.message.edit_reply_markup(reply_markup=None)
-    except Exception:
-        pass
+    except Exception as exc:
+        # Кнопки уже убраны или сообщение устарело — не повод прерывать
+        # обработку, но и молчать нельзя: сюда же попадёт отзыв прав бота.
+        logger.debug("autopost: не убрал кнопки под сообщением: %s", exc)
     if post:
         img = post.get("image")
         if img and str(img).startswith(str(_STORE_DIR)) and os.path.isfile(img):
             try:
                 os.remove(img)
-            except OSError:
-                pass
+            except OSError as exc:
+                logger.warning("autopost: не удалил временный файл %s: %s", img, exc)
     await cb.answer("Отменено")
     await cb.message.answer("❌ Публикация отменена.")

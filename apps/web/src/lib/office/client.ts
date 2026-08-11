@@ -116,6 +116,7 @@ async function postOffice(suffix: string, body: unknown): Promise<void> {
 
 /** Регистрация или обновление клиента в CRM офиса (signup / первый вход). */
 export async function notifyOfficeCustomer(user: {
+  id?: string | null;
   firstName?: string | null;
   lastName?: string | null;
   phone?: string | null;
@@ -130,6 +131,12 @@ export async function notifyOfficeCustomer(user: {
     telegram_id: user.telegramId ? user.telegramId.toString() : null,
     bonus_balance: user.bonusPoints ?? 0,
     language: user.language ?? 'ru',
+    // Связка Customer(CRM) ↔ User(витрина). Её передавал только путь заказа
+    // (lib/orders/notify.ts), а этот — нет, хотя id был под рукой. До первого
+    // заказа клиент оставался двумя несвязанными карточками, и сопоставить их
+    // потом можно было лишь по телефону или имени — самым шатким ключам.
+    // По этой же связке админка начисляет бонусы (lib/customers/bonus.ts).
+    web_user_id: user.id ?? null,
   });
 }
 

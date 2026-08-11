@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getNumber } from '@/lib/settings/store';
+import { getCustomerId, unauthorized } from '@/lib/adminAuth';
 
-// ==========================================
+// ══════════════════════════════════════════════════════════════════════
 // Referral API — Bonus system for masters
-// ==========================================
+//
+// Чей это счёт — берём из подписанной сессии, а не из `?userId=` и не из
+// тела запроса. Раньше id приезжал параметром, и POST применял СВОЙ код к
+// ЧУЖОМУ аккаунту: пригласившему (то есть атакующему) начислялся
+// bonus.referrerReward, и это повторялось по каждому известному id. Баллы
+// здесь — деньги: /api/orders списывает ими часть суммы заказа.
+// ══════════════════════════════════════════════════════════════════════
 
 // GET — Get referral info for current user
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
-    if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+    const userId = getCustomerId(request);
+    if (!userId) return unauthorized();
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -67,10 +74,12 @@ export async function GET(request: NextRequest) {
 // POST — Apply referral code (new user enters master's code)
 export async function POST(request: NextRequest) {
   try {
-    const { userId, referralCode } = await request.json();
+    const { referralCode } = await request.json();
+    const userId = getCustomerId(request);
 
-    if (!userId || !referralCode) {
-      return NextResponse.json({ error: 'userId and referralCode required' }, { status: 400 });
+    if (!userId) return unauthorized();
+    if (!referralCode) {
+      return NextResponse.json({ error: 'referralCode required' }, { status: 400 });
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });

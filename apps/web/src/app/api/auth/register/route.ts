@@ -1,9 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { notifyOfficeCustomer } from '@/lib/office/client';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
+import { respondWithCustomerSession } from '@/lib/customerSession';
 
-// Simple registration — no verification required
+// ══════════════════════════════════════════════════════════════════════
+// Вход по имени и телефону — без подтверждения номера.
+//
+// Здесь стоял безусловный `upsert` по телефону и ни одного ограничения.
+// Из этого следовали две вещи, и обе плохие:
+//
+//  · чужим номером переписывалось имя существующего клиента — карточка
+//    живого покупателя менялась кем угодно, кто знает его телефон;
+//  · вызов не был ограничен ничем, а каждый заводил карточку в CRM офиса
+//    через notifyOfficeCustomer — то есть перебором номеров CRM засыпалась
+//    выдуманными клиентами.
+//
+// Теперь: существующая запись НЕ меняется, а сессия кабинета выдаётся
+// только новому телефону. Номер здесь ничем не подтверждён, поэтому пускать
+// по нему в чужую историю заказов нельзя — для существующего аккаунта нужен
+// вход через Telegram (api/auth/telegram, api/auth/telegram-webapp), где
+// личность доказана подписью. Настоящее решение — SMS-код; до него дверь
+// открыта ровно настолько, чтобы новый покупатель мог оформить заказ.
+// ══════════════════════════════════════════════════════════════════════
+
+/** 5 регистраций в час на IP — столько же, сколько у выгрузки перс. данных. */
+const LIMIT = 5;
+const WINDOW_MS = 60 * 60 * 1000;
+
 export async function POST(request: NextRequest) {
+  const ip = clientIp(request);
+  const limit = await consume(`register:${ip}`, LIMIT, WINDOW_MS);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
   try {
     const { name, phone } = await request.json();
 
@@ -12,23 +41,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Clean phone number
-    const cleanPhone = phone.replace(/\D/g, '').slice(-9);
+    const cleanPhone = String(phone).replace(/\D/g, '').slice(-9);
     if (cleanPhone.length < 9) {
       return NextResponse.json({ error: 'Invalid phone' }, { status: 400 });
     }
 
-    const nameParts = name.trim().split(' ');
+    const nameParts = String(name).trim().split(' ');
     const firstName = nameParts[0];
     const lastName = nameParts.slice(1).join(' ') || null;
 
-    // Upsert by phone number
-    const user = await prisma.user.upsert({
-      where: { phone: cleanPhone },
-      update: {
-        firstName,
-        lastName,
-      },
-      create: {
+    const existing = await prisma.user.findUnique({ where: { phone: cleanPhone } });
+
+    // Телефон уже за кем-то числится. Ничего не трогаем и сессию не выдаём:
+    // мы не знаем, тот ли это человек. Отвечаем нейтрально — по ответу нельзя
+    // отличить занятый номер от свободного, иначе это перебор базы клиентов.
+    if (existing) {
+      return NextResponse.json({
+        success: true,
+        requiresTelegramLogin: true,
+        user: null,
+      });
+    }
+
+    const user = await prisma.user.create({
+      data: {
         phone: cleanPhone,
         firstName,
         lastName,
@@ -36,10 +72,12 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Register/refresh the customer in the AI-office CRM (best-effort, idempotent).
+    // Register the new customer in the AI-office CRM (best-effort, idempotent).
     await notifyOfficeCustomer(user);
 
-    return NextResponse.json({
+    // Аккаунт только что создан и пуст — выдать по нему сессию безопасно:
+    // отбирать у прежнего владельца нечего, владельца ещё не было.
+    return respondWithCustomerSession(user.id, {
       success: true,
       user: {
         id: user.id,

@@ -6,9 +6,14 @@ import { SESSION_COOKIE, verifySession, type SessionRole } from '@/lib/session';
 // Единая точка авторизации API + SEO-редирект каталога.
 // ════════════════════════════════════════════════════════════════════
 
+// CUSTOMER — «вошёл хоть кто-то из покупателей». Она отвечает только на
+// вопрос «есть ли сессия», а не «его ли это заказ»: чей именно кабинет,
+// решает сам роут по `getCustomerId()`. Middleware работает по префиксу
+// пути и владельца записи знать не может.
 type Access =
   | 'ADMIN'
-  | 'STAFF';
+  | 'STAFF'
+  | 'CUSTOMER';
 
 interface Rule {
   prefix: string;
@@ -33,6 +38,17 @@ const RULES: Rule[] = [
   { prefix: '/api/notify', access: 'ADMIN' },
   { prefix: '/api/telegram', access: 'ADMIN' },
   { prefix: '/api/users/referral', access: 'ADMIN' },
+  // Личный кабинет: без сессии сюда не пускаем вовсе, а внутри роут ещё раз
+  // сверяет владельца. Без первого рубежа эти двери отвечали кому угодно,
+  // достаточно было подставить чужой userId/telegramId/subscriptionId.
+  //
+  // `/api/users/telegram` зовёт витринный бот — он проходит выше по
+  // hasBotSecret, поэтому правило его не задевает. `/api/orders` GET сюда
+  // не попадает: там три разных вызывающих (админка, бот, покупатель), и
+  // выбор между ними делает сам роут.
+  { prefix: '/api/subscriptions', access: 'CUSTOMER' },
+  { prefix: '/api/referral', access: 'CUSTOMER' },
+  { prefix: '/api/users/telegram', access: 'CUSTOMER' },
 ];
 
 const PUBLIC_EXCEPTIONS = ['/api/inventory/employees/auth'];
@@ -72,6 +88,9 @@ function safeEq(a: string, b: string): boolean {
 
 function roleSatisfies(role: SessionRole, access: Access): boolean {
   if (access === 'ADMIN') return role === 'ADMIN';
+  // Кабинет открыт и сотруднику: он тоже покупатель, и отдельного запрета нет.
+  // Обратное неверно — CUSTOMER не проходит ни в ADMIN, ни в STAFF.
+  if (access === 'CUSTOMER') return true;
   return role === 'ADMIN' || role === 'SELLER';
 }
 

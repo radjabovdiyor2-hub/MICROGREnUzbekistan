@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { CropNorm, SubstrateOption } from './growingData';
 import { plantingUnitWord } from './growingData';
+import { input, label } from './adminFormStyles';
 
 // Форма нормы культуры. Вынесена из AdminCropNorms, чтобы оба файла
 // оставались в пределах 200 строк.
@@ -20,16 +21,6 @@ interface Props {
   onCancel: () => void;
   onSubmit: (body: Record<string, unknown>) => void;
 }
-
-const input: React.CSSProperties = {
-  width: '100%', padding: 'var(--space-2)', borderRadius: 'var(--radius-md)',
-  border: '1px solid var(--border)', background: 'var(--bg-secondary)',
-  color: 'var(--text-primary)', fontSize: 'var(--text-sm)',
-};
-
-const label: React.CSSProperties = {
-  fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 4, display: 'block',
-};
 
 export function AdminCropNormForm({ norm, substrates, saving, error, onCancel, onSubmit }: Props) {
   const [cropType, setCropType] = useState(norm?.cropType ?? '');

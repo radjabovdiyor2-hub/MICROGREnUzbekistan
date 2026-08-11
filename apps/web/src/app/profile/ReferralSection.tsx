@@ -31,7 +31,10 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
   const loadData = useCallback(async () => {
     if (!userId) return;
     try {
-      const res = await fetch(`/api/referral?userId=${userId}`);
+      // userId здесь только признак «вошёл»: чей это счёт, сервер берёт из
+      // cookie сессии. Раньше он приезжал параметром, и по чужому id
+      // открывался чужой баланс.
+      const res = await fetch('/api/referral');
       if (res.ok) {
         const data = await res.json();
         setReferralData(data);
@@ -74,7 +77,7 @@ export function ReferralSection({ userId, referralCode, bonusPoints, lang, t }: 
       const res = await fetch('/api/referral', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, referralCode: inputCode.trim() }),
+        body: JSON.stringify({ referralCode: inputCode.trim() }),
       });
       const data = await res.json();
       if (res.ok) {

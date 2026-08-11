@@ -86,6 +86,11 @@ class Recorder:
                     return (5, "pack")
                 if "INSERT INTO crm_orders" in query:
                     return (101, "M-20260804-0007")
+                # Смена статуса возвращает и customer_id: по нему пересчитываются
+                # счётчики клиента. Порядок колонок — как в RETURNING роута,
+                # иначе заглушка разойдётся с оригиналом.
+                if "UPDATE crm_orders" in query and "RETURNING" in query:
+                    return (101, "M-20260804-0007", "cancelled", 77)
                 return None
 
             def fetchall(self):
@@ -151,10 +156,40 @@ async def test_mirror_links_customer_to_storefront_user(office):
 
 @pytest.mark.asyncio
 async def test_mirror_updates_customer_stats(office):
-    """orders_count / total_spent ведёт зеркало — больше этого не делает никто."""
+    """orders_count / total_spent ведёт зеркало — больше этого не делает никто.
+
+    Считаем ПО ФАКТУ заказов, а не приращением. Здесь стояло приращение
+    (`orders_count + 1`), и уменьшать его было некому: отменённый заказ
+    навсегда оставался в счётчике и в сумме потраченного.
+    """
     office_main, recorder, _ = office
     await office_main.ingest_order(FakeRequest(dict(ORDER)))
-    assert any("orders_count = orders_count + 1" in q for q in recorder.sql)
+
+    stats = [q for q in recorder.sql if "orders_count" in q and "UPDATE customers" in q]
+    assert stats, "зеркало не обновило счётчики клиента"
+    sql = " ".join(stats)
+    assert "orders_count + 1" not in sql, "счётчик снова приращивается вместо пересчёта"
+    assert "COUNT(*)" in sql and "SUM(total_amount)" in sql
+    # Отменённые в счётчики не входят — иначе отмена ничего не меняла бы.
+    assert "status <> 'cancelled'" in sql
+
+
+@pytest.mark.asyncio
+async def test_cancelling_order_recalculates_customer_stats(office):
+    """Отмена заказа обязана пересчитать счётчики клиента.
+
+    Раньше смена статуса не трогала `customers` вовсе: «Потрачено» у клиента
+    оставалось завышенным, а на этом числе стоят статус VIP и сортировка
+    «лучшие клиенты» в sales_bot.
+    """
+    office_main, recorder, _ = office
+    await office_main.ingest_order_status(
+        FakeRequest({"order_number": "M-20260804-0007", "status": "cancelled"})
+    )
+
+    assert any(
+        "UPDATE customers" in q and "status <> 'cancelled'" in q for q in recorder.sql
+    ), "смена статуса не пересчитала счётчики клиента"
 
 
 @pytest.mark.asyncio

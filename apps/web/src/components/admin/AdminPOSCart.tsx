@@ -1,10 +1,9 @@
 'use client';
 
-import {
-  Banknote, CheckCircle, Clock, CreditCard, RefreshCw, ShoppingCart,
-} from 'lucide-react';
+import { Clock, RefreshCw, ShoppingCart } from 'lucide-react';
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { AdminPOSCartItems } from './AdminPOSCartItems';
+import { AdminPOSSaleFooter } from './AdminPOSSaleFooter';
 import type { CartItem, DebtInfo } from './AdminPOSTypes';
 
 // Правая половина кассы: корзина, способ оплаты, долг и оформление.
@@ -127,76 +126,17 @@ export function AdminPOSCart({
             </>
           ) : (
             /* Sale mode: payment methods + total + submit */
-            <>
-              {/* Payment method */}
-              <div style={{ marginBottom: 'var(--space-4)' }}>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)', fontWeight: 600 }}>Способ оплаты:</div>
-                <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                  {([
-                    { key: 'cash' as const, label: 'Нал', icon: <Banknote size={14} /> },
-                    { key: 'card' as const, label: 'Карта', icon: <CreditCard size={14} /> },
-                    { key: 'debt' as const, label: 'В долг', icon: <Clock size={14} /> },
-                  ]).map(method => (
-                    <button key={method.key} onClick={() => setPaymentMethod(method.key)}
-                      className={`btn btn-sm ${paymentMethod === method.key ? 'btn-primary' : 'btn-outline'}`}
-                      style={{
-                        flex: 1, fontSize: 'var(--text-xs)', borderRadius: '10px',
-                        display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center',
-                      }}>
-                      {method.icon} {method.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Debt info */}
-              {paymentMethod === 'debt' && (
-                <div style={{
-                  marginBottom: 'var(--space-4)', padding: 'var(--space-4)',
-                  background: 'var(--bg-secondary)', borderRadius: '14px',
-                  border: '1px solid var(--border)',
-                  display: 'flex', flexDirection: 'column', gap: '10px',
-                }}>
-                  <input type="text" placeholder="Имя должника *" value={debtInfo.personName}
-                    onChange={e => setDebtInfo(prev => ({ ...prev, personName: e.target.value }))}
-                    style={inputStyle} />
-                  <input type="tel" placeholder="Телефон" value={debtInfo.phone}
-                    onChange={e => setDebtInfo(prev => ({ ...prev, phone: e.target.value }))}
-                    style={inputStyle} />
-                  <input type="date" value={debtInfo.dueDate}
-                    onChange={e => setDebtInfo(prev => ({ ...prev, dueDate: e.target.value }))}
-                    style={inputStyle} />
-                </div>
-              )}
-
-              {/* Total + Submit */}
-              <div style={{ borderTop: '2px solid var(--border)', paddingTop: 'var(--space-4)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)', alignItems: 'baseline' }}>
-                  <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>Итого:</span>
-                  <span style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
-                    fontSize: 'var(--text-2xl)', color: 'var(--brand-primary)',
-                    letterSpacing: '-0.5px',
-                  }}>
-                    {fmt(total)} сум
-                  </span>
-                </div>
-                <button onClick={processSale} disabled={processing || (paymentMethod === 'debt' && !debtInfo.personName)}
-                  className="btn btn-primary btn-lg btn-block"
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center',
-                    opacity: processing ? 0.6 : 1, borderRadius: '14px',
-                    fontSize: '1rem', fontWeight: 700, padding: '16px',
-                    boxShadow: '0 6px 20px rgba(var(--brand-primary-rgb), 0.3)',
-                  }}>
-                  {processing ? (
-                    <><Clock size={18} style={{ animation: 'pulse 1s infinite' }} /> Обработка...</>
-                  ) : (
-                    <><CheckCircle size={18} /> ПОДТВЕРДИТЬ</>
-                  )}
-                </button>
-              </div>
-            </>
+            <AdminPOSSaleFooter
+              processing={processing}
+              paymentMethod={paymentMethod}
+              setPaymentMethod={setPaymentMethod}
+              debtInfo={debtInfo}
+              setDebtInfo={setDebtInfo}
+              processSale={processSale}
+              total={total}
+              fmt={fmt}
+              inputStyle={inputStyle}
+            />
           )}
         </>
       )}

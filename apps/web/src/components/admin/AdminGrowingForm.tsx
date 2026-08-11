@@ -11,6 +11,7 @@ import {
   type PlantingRequirement,
   type ProductOption,
 } from './growingData';
+import { GrowingCycleFields, PlantingRequirements, fieldLabel } from './AdminGrowingFormBlocks';
 
 // Форма добавления и правки партии: культура, количество, даты, цикл.
 // Показывается по флагу showForm и от списка партий не зависит.
@@ -90,7 +91,7 @@ export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingI
     </div>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Культура</label>
+        <label style={fieldLabel}>Культура</label>
         <select value={cropType} onChange={e => {
           const c = e.target.value;
           setCropType(c);
@@ -108,24 +109,24 @@ export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingI
         </select>
       </div>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>
+        <label style={fieldLabel}>
           {unitWord.charAt(0).toUpperCase() + unitWord.slice(1)}
         </label>
         <input type="number" min={1} value={trays} onChange={e => setTrays(Number(e.target.value))} style={inputStyle} />
       </div>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Дата посева</label>
+        <label style={fieldLabel}>Дата посева</label>
         <input type="date" value={seedDate} onChange={e => setSeedDate(e.target.value)} style={inputStyle} />
       </div>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Заметка</label>
+        <label style={fieldLabel}>Заметка</label>
         <input type="text" placeholder="Поставщик, сорт..." value={note} onChange={e => setNote(e.target.value)} style={inputStyle} />
       </div>
     </div>
     {/* Product link + harvest qty + cost */}
     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '10px', marginBottom: '12px' }}>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Товар на складе (сбор → +склад)</label>
+        <label style={fieldLabel}>Товар на складе (сбор → +склад)</label>
         <select value={selectedProductId} onChange={e => {
           setSelectedProductId(e.target.value);
           const p = products.find(pr => pr.id === e.target.value);
@@ -139,74 +140,29 @@ export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingI
         </select>
       </div>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Получим шт (упаковок)</label>
+        <label style={fieldLabel}>Получим шт (упаковок)</label>
         <input type="number" min={1} value={harvestQty} onChange={e => setHarvestQty(Number(e.target.value))} style={inputStyle} />
       </div>
       <div>
-        <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 4, display: 'block' }}>Себест. (сум)</label>
+        <label style={fieldLabel}>Себест. (сум)</label>
         <input type="number" min={0} value={costPriceInput} onChange={e => setCostPriceInput(Number(e.target.value))} style={inputStyle} placeholder="8000" />
       </div>
     </div>
-    {/* Preview timeline */}
-    {/* Preview timeline & Editable Cycle */}
-    <div style={{ marginBottom: '12px', padding: '10px 14px', borderRadius: '10px', background: 'var(--bg-secondary)' }}>
-      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
-        <span>Цикл выращивания (Дни)</span>
-        <span>Всего: {customDark + customLight + customShelf} дней</span>
-      </div>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-        <div>
-          <label style={{ fontSize: '10px', color: 'var(--cat-1)', fontWeight: 600, marginBottom: 2, display: 'block' }}>🌑 Темнота (груз)</label>
-          <input type="number" min={0} value={customDark} onChange={e => setCustomDark(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
-        </div>
-        <div>
-          <label style={{ fontSize: '10px', color: 'var(--warning)', fontWeight: 600, marginBottom: 2, display: 'block' }}>☀️ На свету</label>
-          <input type="number" min={0} value={customLight} onChange={e => setCustomLight(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
-        </div>
-        <div>
-          <label style={{ fontSize: '10px', color: 'var(--success)', fontWeight: 600, marginBottom: 2, display: 'block' }}>📦 Хранение</label>
-          <input type="number" min={0} value={customShelf} onChange={e => setCustomShelf(Number(e.target.value))} style={{...inputStyle, padding: '6px 8px'}} />
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
-        <div style={{ flex: customDark, background: 'var(--cat-1)', borderRadius: '4px 0 0 4px' }} title={`Темно: ${customDark} дн`} />
-        <div style={{ flex: customLight, background: 'var(--warning)' }} title={`Свет: ${customLight} дн`} />
-        <div style={{ flex: customShelf, background: 'var(--success)', borderRadius: '0 4px 4px 0' }} title={`Хранение: ${customShelf} дн`} />
-      </div>
-    </div>
-    {/* Что уйдёт со склада. Показываем ДО посадки: раньше сырьё не
-        списывалось вообще, и нехватка семян выяснялась в теплице. */}
+    <GrowingCycleFields
+      customDark={customDark}
+      setCustomDark={setCustomDark}
+      customLight={customLight}
+      setCustomLight={setCustomLight}
+      customShelf={customShelf}
+      setCustomShelf={setCustomShelf}
+      inputStyle={inputStyle}
+    />
     {!editingId && (requirements.length > 0 || plantError) && (
-      <div style={{ marginBottom: '12px', padding: '10px 12px', borderRadius: '10px', background: 'var(--bg-tertiary)' }}>
-        {plantError ? (
-          <div style={{ color: 'var(--warning)', fontSize: 'var(--text-sm)' }}>⚠️ {plantError}</div>
-        ) : (
-          <>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 6 }}>
-              Спишется со склада сырья
-            </div>
-            {requirements.map((need) => (
-              <div key={need.kind} style={{ fontSize: 'var(--text-sm)', display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                <span>
-                  {need.label}: {need.required.toLocaleString('ru-RU')} {need.material?.unit ?? ''}
-                </span>
-                <span style={{ color: need.enough ? 'var(--text-secondary)' : 'var(--error)' }}>
-                  {need.material
-                    ? `есть ${need.material.stock.toLocaleString('ru-RU')} ${need.material.unit}`
-                    : 'нет на складе'}
-                </span>
-              </div>
-            ))}
-            {estimatedCost > 0 && (
-              <div style={{ marginTop: 6, fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)' }}>
-                Себестоимость партии ≈ {Math.round(estimatedCost).toLocaleString('ru-RU')} сум
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      <PlantingRequirements
+        requirements={requirements}
+        estimatedCost={estimatedCost}
+        plantError={plantError}
+      />
     )}
     <div style={{ display: 'flex', gap: '8px' }}>
       {editingId && (

@@ -26,10 +26,15 @@ export default async function AdminPage() {
   const cookieStore = await cookies();
   const session = await verifySession(cookieStore.get(SESSION_COOKIE)?.value);
 
+  // Сессия покупателя админкой не является: для неё экран показывает форму
+  // входа, как и полному незнакомцу. Иначе вошедший в кабинет клиент попадал
+  // бы в оболочку админки — пусть и без прав на её API.
+  const staffRole = session?.role === 'ADMIN' || session?.role === 'SELLER' ? session.role : null;
+
   return (
     <AdminShell
-      initialRole={session?.role ?? null}
-      initialName={session?.name ?? ''}
+      initialRole={staffRole}
+      initialName={staffRole ? session?.name ?? '' : ''}
     />
   );
 }

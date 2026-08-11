@@ -52,8 +52,11 @@ class _Job:
             from shared.settings_store import record_job_run
 
             await record_job_run(self.bot_name, self.name, status, error)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Ронять задачу нельзя, но и молчать не надо: без этой строки
+            # админка просто показывает пустую историю запусков, и понять,
+            # что отчёт не доходит, неоткуда.
+            logger.debug("scheduler: не записал прогон %s/%s: %s", self.bot_name, self.name, exc)
 
 
 class _CronJob(_Job):
@@ -326,8 +329,11 @@ class BotScheduler:
             from shared.settings_store import invalidate
 
             invalidate()
-        except Exception:
-            pass
+        except Exception as exc:
+            # Кэш настроек не сброшен — значит, задачи перезапустятся со
+            # СТАРЫМ расписанием. Владелец поменял время в админке и не
+            # поймёт, почему оно не подхватилось.
+            logger.warning("scheduler: не сбросил кэш настроек: %s", exc)
         await self.start()
 
     async def stop(self):

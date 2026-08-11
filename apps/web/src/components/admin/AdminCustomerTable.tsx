@@ -16,6 +16,8 @@ interface Props {
   loading: boolean;
   lang: 'ru' | 'uz';
   handleEditClick: (c: CustomerItem) => void;
+  /** Открыть карточку клиента с историей заказов. */
+  onOpen: (c: CustomerItem) => void;
 }
 
 const cell: React.CSSProperties = {
@@ -43,7 +45,7 @@ function statusColor(status: string): string {
   return 'var(--text-muted)';
 }
 
-export function AdminCustomerTable({ customers, loading, lang, handleEditClick }: Props) {
+export function AdminCustomerTable({ customers, loading, lang, handleEditClick, onOpen }: Props) {
   if (loading) {
     return (
       <div className="card" style={{ padding: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)' }}>
@@ -83,7 +85,9 @@ export function AdminCustomerTable({ customers, loading, lang, handleEditClick }
         </thead>
         <tbody>
           {customers.map((c) => (
-            <tr key={c.id} style={{ borderBottom: '1px solid var(--border-secondary, var(--border))' }}>
+            // Строка открывает карточку с историей заказов. Кнопка «Правка»
+            // ниже останавливает всплытие, иначе она открывала бы и карточку.
+            <tr key={c.id} onClick={() => onOpen(c)} style={{ borderBottom: '1px solid var(--border-secondary, var(--border))', cursor: 'pointer' }}>
               <td style={cell}>
                 <div style={{ fontWeight: 'var(--font-semibold)' }}>{c.name}</div>
                 {c.companyName && (
@@ -129,7 +133,7 @@ export function AdminCustomerTable({ customers, loading, lang, handleEditClick }
                 </span>
               </td>
               <td style={{ ...cell, textAlign: 'right' }}>
-                <button onClick={() => handleEditClick(c)} className="btn btn-sm btn-ghost"
+                <button onClick={(e) => { e.stopPropagation(); handleEditClick(c); }} className="btn btn-sm btn-ghost"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                   <Edit3 size={14} />
                   Правка

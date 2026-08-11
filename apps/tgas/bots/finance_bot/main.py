@@ -535,8 +535,14 @@ async def handle_payment_received(payload: dict):
                 admin_id,
                 f"✅ <b>Поступление оплаты!</b>\n\nСумма: {amount:,.0f} UZS\nЗаказ ID: {order_id}",
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            # Оплата уже записана, поэтому отказ доставки не откатываем. Но
+            # владелец о поступлении так и не узнает — это должно быть видно
+            # в логах, а не исчезать бесследно.
+            logging.warning(
+                "finance_bot: не отправил владельцу уведомление об оплате заказа %s: %s",
+                order_id, exc,
+            )
         finally:
             await bot.session.close()
     except Exception as e:

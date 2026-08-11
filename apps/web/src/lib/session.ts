@@ -17,13 +17,30 @@ import { SignJWT, jwtVerify } from 'jose';
 
 export const SESSION_COOKIE = 'mg_session';
 
-/** Срок жизни сессии. Смена = разлогин всех при следующем запросе. */
-const SESSION_TTL = '12h';
+/**
+ * Срок жизни сессии. Смена = разлогин всех при следующем запросе.
+ *
+ * У сотрудника и покупателя он разный. Смена в админке длится день, и 12 часов
+ * для неё — верхняя граница: забытая на общем компьютере вкладка протухает к
+ * следующему утру. Покупателю тот же срок означал бы разлогин посреди дня, а
+ * его сессия не даёт никаких прав, кроме доступа к собственному кабинету.
+ */
+export const STAFF_TTL_SECONDS = 12 * 60 * 60;
+export const CUSTOMER_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-export type SessionRole = 'ADMIN' | 'SELLER';
+export type SessionRole = 'ADMIN' | 'SELLER' | 'CUSTOMER';
 
 export interface SessionPayload {
   role: SessionRole;
+  /**
+   * id покупателя в таблице `users` — только для роли CUSTOMER.
+   *
+   * Личный кабинет держался на localStorage: `userId` приезжал параметром
+   * запроса, и сервер ему верил. По чужому id открывались история заказов с
+   * адресами, телефон, баланс бонусов и подписка. Теперь идентификатор
+   * покупателя приходит только отсюда — из подписи, которую клиент не подделает.
+   */
+  userId?: string;
   /** Имя сотрудника для роли SELLER — показывается в шапке POS. */
   name?: string;
   /** SHA-256 truncated hash of IP + User-Agent — привязка к устройству. */
@@ -53,15 +70,29 @@ function getSecret(): Uint8Array | null {
   return new TextEncoder().encode(raw);
 }
 
-/** Выпускает подписанный токен сессии. null — если секрет не настроен. */
-export async function createSession(payload: SessionPayload): Promise<string | null> {
+/**
+ * Выпускает подписанный токен сессии. null — если секрет не настроен.
+ *
+ * Срок по умолчанию — сотруднический. Покупателю передаём CUSTOMER_TTL_SECONDS
+ * тем же числом, что уходит в maxAge cookie: разъехавшись, они дали бы либо
+ * мёртвую cookie с живым токеном, либо наоборот.
+ */
+export async function createSession(
+  payload: SessionPayload,
+  ttlSeconds: number = STAFF_TTL_SECONDS,
+): Promise<string | null> {
   const secret = getSecret();
   if (!secret) return null;
 
-  return new SignJWT({ role: payload.role, name: payload.name, fp: payload.fp })
+  return new SignJWT({
+    role: payload.role,
+    userId: payload.userId,
+    name: payload.name,
+    fp: payload.fp,
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime(SESSION_TTL)
+    .setExpirationTime(`${ttlSeconds}s`)
     .sign(secret);
 }
 
@@ -80,12 +111,23 @@ export async function verifySession(
   try {
     const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
     const role = payload.role;
-    if (role !== 'ADMIN' && role !== 'SELLER') return null;
+    if (role !== 'ADMIN' && role !== 'SELLER' && role !== 'CUSTOMER') return null;
 
     const fp = typeof payload.fp === 'string' ? payload.fp : undefined;
     if (fp && expectedFp && fp !== expectedFp) return null;
 
-    return { role, name: typeof payload.name === 'string' ? payload.name : undefined, fp };
+    // Роль покупателя без userId бессмысленна: она существует ровно затем,
+    // чтобы назвать владельца заказов, бонусов и подписки. Токен без него —
+    // это либо чужая подделка, либо наш собственный баг при выпуске.
+    const userId = typeof payload.userId === 'string' ? payload.userId : undefined;
+    if (role === 'CUSTOMER' && !userId) return null;
+
+    return {
+      role,
+      userId,
+      name: typeof payload.name === 'string' ? payload.name : undefined,
+      fp,
+    };
   } catch {
     return null;
   }

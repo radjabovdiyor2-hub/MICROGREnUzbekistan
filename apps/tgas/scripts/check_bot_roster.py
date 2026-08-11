@@ -66,7 +66,13 @@ def read(path: Path) -> str | None:
 
 
 def compare(label: str, found: set[str], *, expected: set[str] = EXPECTED) -> None:
-    """Сравнить найденный набор с ожидаемым и записать расхождения."""
+    """Сравнить найденный набор с ожидаемым и записать расхождения.
+
+    Если ожидаемых меньше полного состава, называем исключённых вслух. Строка
+    «карта портов — 12» при тринадцати ботах читалась как расхождение, которое
+    проверка почему-то считает успехом; на деле у n8n_bridge порта нет
+    намеренно, но по выводу этого было не понять.
+    """
     missing = expected - found
     extra = found - expected
     if missing:
@@ -74,7 +80,9 @@ def compare(label: str, found: set[str], *, expected: set[str] = EXPECTED) -> No
     if extra:
         problems.append(f"{label}: лишние {', '.join(sorted(extra))}")
     if not missing and not extra:
-        notes.append(f"  ok  {label} — {len(found)}")
+        skipped = EXPECTED - expected
+        suffix = f" из {len(EXPECTED)} (без {', '.join(sorted(skipped))})" if skipped else ""
+        notes.append(f"  ok  {label} — {len(found)}{suffix}")
 
 
 # ── 1. вызов start_heartbeat в каждом боте ──────────────────────────────

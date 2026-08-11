@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { requireBotAuth } from '@/lib/botAuth';
+import { unauthorized } from '@/lib/adminAuth';
 
-// ==========================================
+// ══════════════════════════════════════════════════════════════════════
 // Users Telegram API — Create/Update & Get by telegramId
-// ==========================================
+//
+// Единственный вызывающий — витринный бот (apps/bot, ecosystem_bridge),
+// и он ходит сюда с общим секретом. Проверок здесь не было вообще: по
+// telegramId любой желающий читал телефон и баланс бонусов клиента, а
+// POST'ом переписывал имя и телефон чужого аккаунта.
+// ══════════════════════════════════════════════════════════════════════
 
 // Helper: serialize BigInt fields for JSON response
 function serializeUser(user: {
@@ -30,6 +37,8 @@ function serializeUser(user: {
 
 // POST — Create or update user by telegramId
 export async function POST(request: NextRequest) {
+  if (!requireBotAuth(request)) return unauthorized();
+
   try {
     const body = await request.json();
     const { telegramId, name, phone } = body;
@@ -61,6 +70,8 @@ export async function POST(request: NextRequest) {
 
 // GET — Get user by telegramId
 export async function GET(request: NextRequest) {
+  if (!requireBotAuth(request)) return unauthorized();
+
   try {
     const { searchParams } = new URL(request.url);
     const telegramId = searchParams.get('telegramId');

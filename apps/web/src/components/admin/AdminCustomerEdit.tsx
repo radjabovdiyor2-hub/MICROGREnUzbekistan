@@ -59,7 +59,7 @@ export function AdminCustomerEdit({ editingCustomer, setEditingCustomer, editSta
       onClick={() => setEditingCustomer(null)}
       style={{
         position: 'fixed', inset: 0, zIndex: 50,
-        background: 'rgba(0, 0, 0, 0.7)',
+        background: 'var(--bg-overlay)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: 'var(--space-4)',
       }}

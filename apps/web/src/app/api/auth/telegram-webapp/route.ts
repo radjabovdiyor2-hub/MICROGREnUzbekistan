@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { notifyOfficeCustomer } from '@/lib/office/client';
 import { validateInitData, getBotToken } from '@/lib/telegramAuth';
+import { respondWithCustomerSession } from '@/lib/customerSession';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { prisma } from '@repo/database';
 
 // ==========================================
@@ -9,7 +11,14 @@ import { prisma } from '@repo/database';
 // маршруту выгрузки/удаления персональных данных (/api/users/data).
 // ==========================================
 
+/** 30 входов в час на адрес: Mini App переоткрывают часто, но не сотнями. */
+const LIMIT = 30;
+const WINDOW_MS = 60 * 60 * 1000;
+
 export async function POST(request: NextRequest) {
+  const limit = await consume(`tgwebapp:${clientIp(request)}`, LIMIT, WINDOW_MS);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
   try {
     const { initData } = await request.json();
     const botToken = getBotToken();
@@ -36,7 +45,8 @@ export async function POST(request: NextRequest) {
       await notifyOfficeCustomer(user);
     }
 
-    return NextResponse.json({
+    // initData подписан ботом и проверен выше — выдаём сессию кабинета.
+    return respondWithCustomerSession(user.id, {
       success: true,
       user: {
         id: user.id,

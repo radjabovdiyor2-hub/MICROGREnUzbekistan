@@ -143,8 +143,13 @@ class EventBus:
                             logger.info(
                                 f"Direct EventBus: [{source_bot}] → {host}:{port} ({event_type})"
                             )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # Прямая доставка — третья ступень, ниже Redis: бот может
+                    # быть просто выключен. Но полное молчание означает, что
+                    # событие потерялось и никто об этом не узнал.
+                    logger.debug(
+                        "Direct EventBus: %s:%s не принял %s — %s", host, port, event_type, exc
+                    )
 
             async def broadcast():
                 try:

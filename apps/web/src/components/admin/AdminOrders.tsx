@@ -2,47 +2,46 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ChevronRight, ClipboardList, Clock, Folder, Package, Settings } from 'lucide-react';
-
-interface OrderItem {
-  id: string;
-  quantity: number;
-  price: number;
-  product: { nameUz: string; nameRu: string };
-}
-
-interface Order {
-  id: string;
-  orderNumber: string;
-  status: string;
-  total: number;
-  subtotal: number;
-  deliveryFee: number;
-  phone: string;
-  address: string;
-  note: string | null;
-  paymentMethod: string;
-  paymentStatus: string;
-  createdAt: string;
-  user: { firstName: string | null; phone: string | null };
-  items: OrderItem[];
-}
-
+import { ChevronRight, ClipboardList, Clock, Folder } from 'lucide-react';
 import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
+import { AdminOrderDetail } from './AdminOrderDetail';
+import type { Order } from './adminOrderTypes';
+import { AdminPager } from './AdminPager';
+
+interface OrdersPage {
+  orders: Order[];
+  total: number;
+}
+
+/** Заказов на странице. По умолчанию API отдаёт 20 — этого мало даже на день.
+ *  Листаем страницами, а не «показать ещё»: limit на сервере ограничен сотней,
+ *  и накопительная кнопка молча перестала бы догружать. */
+const PAGE_SIZE = 50;
 
 export function AdminOrders() {
   const [activeTab, setActiveTab] = useState('ALL');
   const [selected, setSelected] = useState<Order | null>(null);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [phone, setPhone] = useState('');
+  const [page, setPage] = useState(1);
 
-  const { data: orders = [], isLoading: loading, refetch: fetchOrders } = useQuery<Order[]>({
-    queryKey: ['admin-orders', activeTab],
+  // Раньше запрос шёл без параметров, а API по умолчанию отдаёт 20 записей:
+  // экран показывал последние двадцать заказов и молчал об остальных. Найти
+  // заказы конкретного клиента было нечем — фильтр по телефону API умел
+  // всегда, но его никто не передавал.
+  const { data, isLoading: loading, refetch: fetchOrders } = useQuery<OrdersPage>({
+    queryKey: ['admin-orders', activeTab, phone, page],
     queryFn: async () => {
-      const url = activeTab === 'ALL' ? '/api/orders' : `/api/orders?status=${activeTab}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      return data.orders || [];
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), page: String(page) });
+      if (activeTab !== 'ALL') params.set('status', activeTab);
+      if (phone) params.set('phone', phone);
+      const res = await fetch(`/api/orders?${params}`);
+      const body = await res.json();
+      return { orders: body.orders || [], total: body.total ?? 0 };
     }
   });
+
+  const orders = data?.orders ?? [];
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
   const fmtDate = (d: string) => {
@@ -64,61 +63,15 @@ export function AdminOrders() {
     }
   };
 
-  // Order detail modal
   if (selected) {
-    const st = STATUS_CONFIG[selected.status] || STATUS_CONFIG.PENDING;
     return (
-      <div>
-        <button onClick={() => setSelected(null)} className="btn btn-ghost btn-sm" style={{ marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <ArrowLeft size={16} /> Orqaga
-        </button>
-        <div className="card" style={{ padding: 'var(--space-6)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
-            <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }}>#{selected.orderNumber}</h3>
-            <span style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', background: `${st.color}15`, color: st.color, fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              {st.icon} {st.label}
-            </span>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
-            <div><span style={{ color: 'var(--text-muted)' }}>Mijoz:</span> <strong>{selected.user?.firstName || 'Noma\'lum'}</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Telefon:</span> <strong>{selected.phone}</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Manzil:</span> <strong>{selected.address}</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>Sana:</span> <strong>{fmtDate(selected.createdAt)}</strong></div>
-            <div><span style={{ color: 'var(--text-muted)' }}>To&apos;lov:</span> <strong>{selected.paymentMethod}</strong></div>
-            {selected.note && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--text-muted)' }}>Izoh:</span> <strong>{selected.note}</strong></div>}
-          </div>
-
-          <h4 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Package size={16} /> Mahsulotlar
-          </h4>
-          <div style={{ marginBottom: 'var(--space-4)' }}>
-            {selected.items.map(item => (
-              <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) 0', borderBottom: '1px solid var(--border)', fontSize: 'var(--text-sm)' }}>
-                <span>{item.quantity}x {item.product.nameUz}</span>
-                <span style={{ fontWeight: 'var(--font-semibold)' }}>{fmt(item.price * item.quantity)} so&apos;m</span>
-              </div>
-            ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 'var(--space-3)', fontWeight: 'var(--font-bold)' }}>
-              <span>Jami:</span>
-              <span style={{ color: 'var(--brand-primary)' }}>{fmt(selected.total)} so&apos;m</span>
-            </div>
-          </div>
-
-          {/* Status actions */}
-          <h4 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Settings size={16} /> Statusni o&apos;zgartirish
-          </h4>
-          <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            {Object.entries(STATUS_CONFIG).filter(([k]) => k !== selected.status).map(([key, cfg]) => (
-              <button key={key} onClick={() => updateStatus(selected.id, key)} className="btn btn-sm"
-                style={{ border: `1px solid ${cfg.color}`, color: cfg.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {cfg.icon} {cfg.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      <AdminOrderDetail
+        order={selected}
+        onBack={() => setSelected(null)}
+        onStatus={(status) => updateStatus(selected.id, status)}
+        fmt={fmt}
+        fmtDate={fmtDate}
+      />
     );
   }
 
@@ -127,12 +80,40 @@ export function AdminOrders() {
       {/* Status tabs */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', overflowX: 'auto', paddingBottom: 4 }}>
         {STATUS_TABS.map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-ghost'}`}
+          <button key={tab} onClick={() => { setActiveTab(tab); setPage(1); }} className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-ghost'}`}
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
             {tab === 'ALL' ? <><ClipboardList size={14} /> Barchasi</> : <>{STATUS_CONFIG[tab]?.icon} {STATUS_CONFIG[tab]?.label}</>}
           </button>
         ))}
       </div>
+
+      <form
+        onSubmit={(e) => { e.preventDefault(); setPage(1); setPhone(phoneInput.trim()); }}
+        style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}
+      >
+        <input
+          type="text"
+          value={phoneInput}
+          onChange={(e) => setPhoneInput(e.target.value)}
+          placeholder="Поиск по телефону клиента"
+          style={{
+            flex: '1 1 220px', minWidth: 0,
+            padding: 'var(--space-2) var(--space-3)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-secondary)',
+            color: 'var(--text-primary)',
+            fontSize: 'var(--text-sm)',
+          }}
+        />
+        <button type="submit" className="btn btn-sm btn-primary">Найти</button>
+        {phone && (
+          <button type="button" className="btn btn-sm btn-ghost"
+            onClick={() => { setPhoneInput(''); setPhone(''); setPage(1); }}>
+            Сбросить
+          </button>
+        )}
+      </form>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
@@ -180,6 +161,15 @@ export function AdminOrders() {
             );
           })}
         </div>
+      )}
+
+      {!loading && (data?.total ?? 0) > 0 && (
+        <AdminPager
+          page={page}
+          total={data?.total ?? 0}
+          pageSize={PAGE_SIZE}
+          onPage={setPage}
+        />
       )}
     </div>
   );

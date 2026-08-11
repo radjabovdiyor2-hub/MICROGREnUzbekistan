@@ -24,7 +24,27 @@ export type CreateOrderResult =
   | { ok: true; order: CreatedOrder; user: Awaited<ReturnType<typeof prisma.user.upsert>>; customerName: string }
   | { ok: false; error: string; status: number };
 
-export async function createOrder(body: OrderBody): Promise<CreateOrderResult> {
+/**
+ * Кто оформляет заказ. Определяется в роуте по подписи, а не по телу запроса.
+ *
+ * `userId` в теле принимался как есть: если он резолвился, на этот аккаунт
+ * вешался заказ и с него СПИСЫВАЛИСЬ бонусы. Чужой id — и покупка оплачена
+ * чужими баллами. То же было доступно через «ботовский» формат тела с чужим
+ * telegramId: достаточно было прислать `name` вместо `customer`.
+ */
+export interface OrderIdentity {
+  /** id вошедшего покупателя из подписанной сессии — иначе null. */
+  customerId: string | null;
+  /** Вызов витринного бота: ему telegramId/userId в теле верить можно. */
+  trusted: boolean;
+}
+
+const ANONYMOUS: OrderIdentity = { customerId: null, trusted: false };
+
+export async function createOrder(
+  body: OrderBody,
+  identity: OrderIdentity = ANONYMOUS,
+): Promise<CreateOrderResult> {
   // ── Bot compatibility layer ─────────────────────────────
   // The Telegram bot sends a flat format:
   //   { name, phone, address, items: [{ id, title, price, quantity }], source, telegramId }
@@ -51,12 +71,22 @@ export async function createOrder(body: OrderBody): Promise<CreateOrderResult> {
     paymentMethod = body.paymentMethod || 'cash';
 
     // If bot sent a telegramId, resolve the user from it
-    if (body.telegramId && !userId) {
+    if (body.telegramId && !userId && identity.trusted) {
       const tgUser = await prisma.user.findUnique({
         where: { telegramId: BigInt(body.telegramId) },
       });
       if (tgUser) userId = tgUser.id;
     }
+  }
+
+  // Владелец заказа — из подписи, а не из тела. Вошедшему покупателю
+  // подставляем его собственный id (что бы ни лежало в `userId`), гостю не
+  // оставляем никакого: его заказ привяжется по телефону ниже. Боту верим —
+  // он пришёл с общим секретом и оформляет заказ от имени своего клиента.
+  if (identity.customerId) {
+    userId = identity.customerId;
+  } else if (!identity.trusted) {
+    userId = undefined;
   }
 
   // Validate

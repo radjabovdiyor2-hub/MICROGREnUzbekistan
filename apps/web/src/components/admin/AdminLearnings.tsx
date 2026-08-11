@@ -82,7 +82,7 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
             style={{
               padding: '6px 12px', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-medium)', whiteSpace: 'nowrap', transition: 'all 0.2s', border: 'none', cursor: 'pointer',
               background: selectedBot === 'all' ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-              color: selectedBot === 'all' ? '#fff' : 'var(--text-primary)',
+              color: selectedBot === 'all' ? 'var(--text-inverse)' : 'var(--text-primary)',
             }}
           >
             {lang === 'ru' ? 'Все боты' : 'Barchasi'} ({learnings.length})
@@ -96,7 +96,7 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
                 style={{
                   padding: '6px 12px', borderRadius: 'var(--radius-md)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-medium)', whiteSpace: 'nowrap', transition: 'all 0.2s', border: 'none', cursor: 'pointer',
                   background: selectedBot === botKey ? 'var(--brand-primary)' : 'var(--bg-secondary)',
-                  color: selectedBot === botKey ? '#fff' : 'var(--text-primary)',
+                  color: selectedBot === botKey ? 'var(--text-inverse)' : 'var(--text-primary)',
                 }}
               >
                 {BOT_EMOJIS[botKey]} ({count})

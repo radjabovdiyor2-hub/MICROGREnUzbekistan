@@ -33,6 +33,8 @@ function getSecret(): string | null {
 
 interface VerifiedSession {
   role: SessionRole;
+  /** id покупателя — только у роли CUSTOMER. */
+  userId?: string;
   name?: string;
 }
 
@@ -66,7 +68,7 @@ function verifySessionSync(token: string | undefined): VerifiedSession | null {
   if (expected.length !== actual.length) return null;
   if (!crypto.timingSafeEqual(expected, actual)) return null;
 
-  let payload: { role?: string; name?: string; exp?: number };
+  let payload: { role?: string; userId?: string; name?: string; exp?: number };
   try {
     payload = JSON.parse(b64urlToBuffer(payloadB64).toString('utf-8'));
   } catch {
@@ -74,9 +76,13 @@ function verifySessionSync(token: string | undefined): VerifiedSession | null {
   }
 
   if (!payload.exp || payload.exp * 1000 <= Date.now()) return null;
-  if (payload.role !== 'ADMIN' && payload.role !== 'SELLER') return null;
+  if (payload.role !== 'ADMIN' && payload.role !== 'SELLER' && payload.role !== 'CUSTOMER') {
+    return null;
+  }
+  // Роль покупателя без userId назвать владельца не может — см. lib/session.ts.
+  if (payload.role === 'CUSTOMER' && typeof payload.userId !== 'string') return null;
 
-  return { role: payload.role, name: payload.name };
+  return { role: payload.role, userId: payload.userId, name: payload.name };
 }
 
 /** Достаёт cookie сессии из заголовка Cookie. */
@@ -114,6 +120,28 @@ export function isStaff(request: Request): boolean {
   return getSession(request)?.role === 'SELLER';
 }
 
+/**
+ * id вошедшего покупателя — единственный источник правды о том, чей это
+ * кабинет. null, если сессии нет или она сотрудническая.
+ *
+ * Роут обязан брать владельца отсюда, а НЕ из `?userId=` или тела запроса.
+ * Раньше эти параметры принимались как есть: по чужому id открывались
+ * история заказов с адресами, телефон, бонусы и подписка, а реферальный код
+ * применялся к чужому аккаунту с начислением себе.
+ *
+ * Сотрудник намеренно НЕ получает здесь id: у админки свои маршруты с
+ * явной выборкой по клиенту, и подмешивать её в кабинет незачем.
+ */
+export function getCustomerId(request: Request): string | null {
+  const session = getSession(request);
+  if (!session || session.role !== 'CUSTOMER') return null;
+  return session.userId ?? null;
+}
+
 export function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+}
+
+export function forbidden() {
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 }

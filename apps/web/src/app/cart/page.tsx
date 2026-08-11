@@ -13,6 +13,7 @@ type Step = 'cart' | 'checkout' | 'success';
 
 import { CartView, type RecoProduct } from './CartView';
 import { CheckoutForm } from './CheckoutForm';
+import { usePromoCode } from './usePromoCode';
 import { CartOrderSuccess } from './CartOrderSuccess';
 
 
@@ -61,37 +62,10 @@ export default function CartPage() {
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
-  // Promo code
-  const [promoInput, setPromoInput] = useState('');
-  const [promo, setPromo] = useState<{ code: string; discount: number } | null>(null);
-  const [promoState, setPromoState] = useState<'idle' | 'checking' | 'error'>('idle');
-  const [promoError, setPromoError] = useState('');
-
-  const applyPromo = async () => {
-    const code = promoInput.trim().toUpperCase();
-    if (!code) return;
-    setPromoState('checking');
-    setPromoError('');
-    try {
-      const res = await fetch('/api/promo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, subtotal: cart.subtotal }),
-      });
-      const data = await res.json();
-      if (data.valid) {
-        setPromo({ code, discount: data.discount });
-        setPromoState('idle');
-      } else {
-        setPromo(null);
-        setPromoState('error');
-        setPromoError(data.error || t("Promokod noto'g'ri", 'Промокод недействителен'));
-      }
-    } catch {
-      setPromoState('error');
-      setPromoError(t('Ulanishda xatolik', 'Ошибка соединения'));
-    }
-  };
+  const {
+    promoInput, setPromoInput, promo, setPromo,
+    promoState, setPromoState, promoError, applyPromo,
+  } = usePromoCode(cart.subtotal, t);
 
   // Bonus points (only for logged-in accounts). Capped by the goods subtotal.
   const bonusBalance = dbUser?.bonusPoints || 0;
@@ -123,7 +97,9 @@ export default function CartPage() {
           city,
           items: cart.items.map(i => ({ productId: i.product.id, price: i.product.price, quantity: i.quantity })),
           paymentMethod: form.paymentMethod,
-          userId: dbUser?.id,
+          // userId не передаём: владельца заказа сервер берёт из cookie
+          // сессии. Присланный телом он всё равно игнорируется — иначе
+          // чужими баллами можно было оплатить свою покупку.
           bonusToUse: bonusApplied,
           promoCode: promo?.code,
           isSubscription,

@@ -95,7 +95,8 @@ export function UserOrders() {
       return;
     }
     Promise.resolve().then(() => {
-      fetch(`/api/orders?userId=${encodeURIComponent(dbUser.id)}&limit=10`)
+      // Без userId в адресе: чьи это заказы, сервер знает из cookie сессии.
+      fetch('/api/orders?limit=10')
         .then(r => r.json())
         .then(d => {
           setOrders(d.orders || []);

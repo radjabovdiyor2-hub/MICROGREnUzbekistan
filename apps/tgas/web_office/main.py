@@ -6,6 +6,8 @@ FastAPI Web Dashboard Backend
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
 import os
@@ -329,7 +331,7 @@ async def dashboard(request: Request):
     except Exception as exc:
         logger.exception("Failed to load dashboard data: %s", exc)
 
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
@@ -345,10 +347,24 @@ async def dashboard(request: Request):
         },
     )
 
+    # Токен для кнопок страницы (создать задачу, сменить статус заказа).
+    # Браузер приложит его сам — читать из JS не нужно и нельзя.
+    token = _dashboard_token()
+    if token:
+        response.set_cookie(
+            DASHBOARD_COOKIE,
+            token,
+            httponly=True,
+            samesite="strict",
+            max_age=12 * 60 * 60,
+        )
+    return response
+
 
 # ── API: Создание задачи ────────────────────────────────────
 @app.post("/api/tasks")
 async def create_task(
+    request: Request,
     title: str = Form(...),
     department: str = Form(...),
     priority: str = Form("medium"),
@@ -356,7 +372,14 @@ async def create_task(
     assignee: str = Form(""),
     deadline: str = Form(""),
 ):
-    """Создать задачу из веб-интерфейса и отправить боту через EventBus."""
+    """Создать задачу из веб-интерфейса и отправить боту через EventBus.
+
+    Проверки не было вовсе: задача пишется в базу и будит бота отдела через
+    event bus, то есть открытой дверью можно было ставить работу команде.
+    """
+    if not _check_office_action(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     try:
         async with get_session_ctx() as session:
             result = await session.execute(
@@ -409,7 +432,10 @@ async def create_task(
 
 
 # ── API: Meta Webhooks (Instagram & Facebook) ──────────────────
-META_VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN", "microgreen_secure_token_2026")
+# Пустая строка, а не «microgreen_secure_token_2026»: запасное значение лежало
+# в репозитории, то есть верификацию вебхука проходил любой, кто его прочитал.
+# Нет переменной — верификации нет вовсе (см. ветку в verify_meta_webhook).
+META_VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN", "")
 
 
 @app.get("/webhooks/meta")
@@ -419,17 +445,49 @@ async def verify_meta_webhook(
     hub_verify_token: str = Query(None, alias="hub.verify_token"),
 ):
     """Verify webhook subscription for Meta (Instagram/Facebook)."""
-    if hub_mode == "subscribe" and hub_verify_token == META_VERIFY_TOKEN:
+    if not META_VERIFY_TOKEN:
+        logger.error("META_VERIFY_TOKEN не задан — верификация вебхука отключена")
+        return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+    if (
+        hub_mode == "subscribe"
+        and hub_verify_token
+        and hmac.compare_digest(hub_verify_token, META_VERIFY_TOKEN)
+    ):
         logger.info("Meta Webhook Verified Successfully!")
         return int(hub_challenge)
     return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+
+def _meta_signature_ok(raw: bytes, header: str | None) -> bool:
+    """Подпись тела ключом приложения Meta (X-Hub-Signature-256).
+
+    Считается по СЫРЫМ байтам: разбор и повторная сборка JSON меняют их, и
+    подпись перестаёт сходиться. Поэтому тело читается до json-разбора.
+
+    Проверки не было вовсе: «сообщением из Instagram» мог прикинуться любой,
+    кто знает адрес вебхука, а событие уходит в event bus дальше по отделам.
+    """
+    app_secret = settings.facebook_app_secret
+    if not app_secret:
+        logger.error("FACEBOOK_APP_SECRET не задан — вебхук Meta закрыт")
+        return False
+    if not header or not header.startswith("sha256="):
+        return False
+
+    expected = hmac.new(app_secret.encode(), raw, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(header[len("sha256=") :], expected)
 
 
 @app.post("/webhooks/meta")
 async def handle_meta_webhook(request: Request):
     """Handle incoming messages from Instagram/Facebook."""
     try:
-        data = await request.json()
+        raw = await request.body()
+        if not _meta_signature_ok(raw, request.headers.get("X-Hub-Signature-256")):
+            return JSONResponse({"error": "Forbidden"}, status_code=403)
+
+        data = json.loads(raw)
         logger.info(f"Received Meta Webhook: {data}")
 
         if data.get("object") in ["instagram", "page"]:
@@ -584,6 +642,46 @@ a{{color:#58a6ff;text-decoration:none}}</style></head><body><div class=wrap>
     return HTMLResponse(html)
 
 
+async def recalc_customer_stats(session, customer_id: int) -> None:
+    """Пересчитать счётчики клиента по фактическим заказам.
+
+    Здесь стоял инкремент: `orders_count = orders_count + 1,
+    total_spent = total_spent + :amount`. Уменьшения не было НИГДЕ — при
+    отмене заказа и счётчик, и сумма оставались прежними. На этих числах
+    держатся статус VIP, сортировка «лучшие клиенты» (`ORDER BY total_spent`
+    в sales_bot) и сегменты рассылок, то есть завышение расходилось по всему
+    офису.
+
+    Пересчёт вместо декремента выбран по двум причинам: он самоисцеляющийся
+    (уже накопленное искажение уходит при первом же касании клиента) и
+    снимает риск двойного счёта, о котором предупреждает комментарий в
+    sales_bot/handlers/order.py.
+
+    Статус только повышается. Понижать его нельзя: `churned` и `vip`
+    проставляет отдел продаж, и отмена одного заказа не повод откатывать
+    наработанное — то же правило, что и в `customer_repo.upsert`.
+    """
+    await session.execute(
+        text(
+            "UPDATE customers c SET "
+            "  orders_count = s.cnt, "
+            "  total_spent = s.total, "
+            "  last_order_date = s.last_at, "
+            "  status = CASE "
+            "             WHEN s.cnt >= 5 THEN 'vip' "
+            "             WHEN s.cnt >= 1 AND c.status = 'lead' THEN 'active' "
+            "             ELSE c.status END "
+            "FROM ("
+            "  SELECT COUNT(*) AS cnt, COALESCE(SUM(total_amount), 0) AS total, "
+            "         MAX(created_at) AS last_at "
+            "  FROM crm_orders WHERE customer_id = :cid AND status <> 'cancelled'"
+            ") s "
+            "WHERE c.id = :cid"
+        ),
+        {"cid": int(customer_id)},
+    )
+
+
 # ─── Мост «витрина → AI-офис» ────────────────────────────────
 @app.post("/ingest/order")
 async def ingest_order(request: Request):
@@ -603,11 +701,7 @@ async def ingest_order(request: Request):
     как маркер `[webapp:<номер>]` — маркер даёт идемпотентность: повторный вызов с
     тем же номером дубль не создаёт.
     """
-    if not INGEST_SECRET:
-        if os.getenv("ENVIRONMENT", "development") == "production":
-            logger.error("FATAL: INGEST_SECRET is missing in production!")
-            return JSONResponse({"error": "unauthorized"}, status_code=401)
-    elif request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+    if not _check_ingest_secret(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
@@ -758,15 +852,7 @@ async def ingest_order(request: Request):
                 )
 
             # Статистика клиента + журнал взаимодействия (как это делает sales_bot).
-            await session.execute(
-                text(
-                    "UPDATE customers SET orders_count = orders_count + 1, "
-                    "total_spent = total_spent + :amount, last_order_date = NOW(), "
-                    "status = CASE WHEN orders_count >= 5 THEN 'vip' "
-                    "WHEN orders_count >= 1 THEN 'active' ELSE 'active' END WHERE id = :cid"
-                ),
-                {"amount": total, "cid": customer_id},
-            )
+            await recalc_customer_stats(session, customer_id)
             await session.execute(
                 text(
                     "INSERT INTO interactions (customer_id, order_id, channel, interaction_type, "
@@ -820,11 +906,7 @@ async def ingest_order_status(request: Request):
     Степан/Analytics видели актуальный жизненный цикл. Обратно на витрину не
     ходим — этот путь только storefront → office.
     """
-    if not INGEST_SECRET:
-        if os.getenv("ENVIRONMENT", "development") == "production":
-            logger.error("FATAL: INGEST_SECRET is missing in production!")
-            return JSONResponse({"error": "unauthorized"}, status_code=401)
-    elif request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+    if not _check_ingest_secret(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     try:
@@ -848,11 +930,16 @@ async def ingest_order_status(request: Request):
                     text(
                         "UPDATE crm_orders SET status = COALESCE(:status, status), "
                         "payment_status = COALESCE(:pstatus, payment_status), updated_at = NOW() "
-                        "WHERE notes LIKE :m RETURNING id, order_number, status"
+                        "WHERE notes LIKE :m RETURNING id, order_number, status, customer_id"
                     ),
                     {"status": status, "pstatus": payment_status, "m": marker + "%"},
                 )
             ).fetchone()
+            # Отмена убирает заказ из счётчиков клиента, возврат в работу —
+            # возвращает. Пересчёт идёт в той же транзакции, что и смена
+            # статуса: разъехавшись, они дали бы «Потрачено» из воздуха.
+            if row:
+                await recalc_customer_stats(session, row[3])
     except Exception as exc:
         logger.exception(
             "Ingest-status: не удалось обновить заказ %s: %s", ext_number, exc
@@ -893,7 +980,14 @@ async def change_order_status(order_id: int, request: Request):
     заказ витрины (в notes есть `[webapp:<номер>]`), синкаем статус обратно на
     витрину (`STOREFRONT_STATUS_URL`), которая обновит свою БД и уведомит клиента.
     Обратно витрина сюда не ходит — петли нет.
+
+    Проверки не было: смена статуса уходит на витрину и оттуда СООБЩЕНИЕМ
+    клиенту, а при отмене возвращает товар на склад. Отправленное клиенту не
+    отзывается, поэтому дверь закрыта тем же секретом, что и соседние.
     """
+    if not _check_office_action(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     try:
         body = await request.json()
     except Exception:
@@ -908,11 +1002,15 @@ async def change_order_status(order_id: int, request: Request):
                 await session.execute(
                     text(
                         "UPDATE crm_orders SET status = :s, updated_at = NOW() "
-                        "WHERE id = :id RETURNING order_number, notes"
+                        "WHERE id = :id RETURNING order_number, notes, customer_id"
                     ),
                     {"s": status, "id": order_id},
                 )
             ).fetchone()
+            # Отмена из дашборда тоже обязана убрать заказ из счётчиков —
+            # иначе «Потрачено» у клиента остаётся завышенным навсегда.
+            if row:
+                await recalc_customer_stats(session, row[2])
     except Exception as exc:
         logger.exception(
             "Order-status: не удалось обновить заказ #%s: %s", order_id, exc
@@ -966,7 +1064,7 @@ async def ingest_customer(request: Request):
     регистрация на витрине заводит/обновляет запись в `customers` и публикует
     `CUSTOMER_REGISTERED` (Sales/Analytics видят новых лидов).
     """
-    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+    if not _check_ingest_secret(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     try:
         body = await request.json()
@@ -982,6 +1080,10 @@ async def ingest_customer(request: Request):
         tid = None
     bonus = _safe_float(body.get("bonus_balance"))
     language = (body.get("language") or "ru").strip()[:5]
+    # Связка с аккаунтом витрины. Раньше её передавал только путь заказа, и
+    # клиент, который зарегистрировался, но пока не купил, оставался двумя
+    # несвязанными карточками. По этой же связке админка начисляет бонусы.
+    web_user_id = str(body.get("web_user_id") or "").strip() or None
     if not tid and not phone:
         return JSONResponse({"error": "telegram_id or phone required"}, status_code=400)
 
@@ -994,6 +1096,7 @@ async def ingest_customer(request: Request):
             name=name,
             raw_phone=phone,
             telegram_id=tid,
+            web_user_id=web_user_id,
             bonus_balance=bonus,
             language=language,
             status="lead",
@@ -1024,7 +1127,62 @@ async def ingest_customer(request: Request):
 
 
 def _check_ingest_secret(request: Request) -> bool:
-    return not INGEST_SECRET or request.headers.get("X-Ingest-Secret") == INGEST_SECRET
+    """Сверка общего секрета. В проде отсутствие секрета = отказ.
+
+    Здесь стояло `not INGEST_SECRET or ...`: пустая переменная означала «пускать
+    всех». А в docker-compose.prod.yml она задана как `${INGEST_SECRET:-}` с
+    подписью «empty = off», то есть достаточно было не выставить её в окружении.
+    Через эту функцию открывались `/api/admin/bot-action` (перезапуск и остановка
+    ботов, запуск бэкапа), `/admin/sync-catalog` и приёмники `/ingest/*`.
+
+    Соседние двери — `/ingest/order` и `/ingest/order-status` — так себя вели
+    правильно: в production нет секрета → 401. Теперь поведение одно на всех.
+
+    Сравнение с постоянным временем: обычное `==` на строках выходит на первом
+    несовпавшем байте и позволяет подбирать секрет по времени ответа.
+    """
+    provided = request.headers.get("X-Ingest-Secret") or ""
+    if not INGEST_SECRET:
+        if os.getenv("ENVIRONMENT", "development") == "production":
+            logger.error("FATAL: INGEST_SECRET is missing in production!")
+            return False
+        return True
+    return hmac.compare_digest(provided, INGEST_SECRET)
+
+
+# ── Действия из самого дашборда ────────────────────────────────────────
+#
+# Кнопки «создать задачу» и «сменить статус заказа» живут на странице офиса и
+# ходят обычным fetch из браузера — заголовка с общим секретом у них нет и
+# взяться ему неоткуда. Просто закрыть эти две двери `_check_ingest_secret`
+# значило бы сломать работающие кнопки; выдать странице сам INGEST_SECRET —
+# отдать браузеру ключ от приёмников `/ingest/*`, которыми витрина пишет
+# заказы.
+#
+# Поэтому странице выдаётся ПРОИЗВОДНЫЙ токен: HMAC от общего секрета с
+# фиксированной меткой. Он открывает только действия дашборда, а обратно в
+# INGEST_SECRET не разворачивается. Кука httpOnly (её не прочитает JS, то есть
+# и XSS её не утащит) и SameSite=strict (чужой сайт её не приложит).
+_DASHBOARD_LABEL = b"office-dashboard-action"
+DASHBOARD_COOKIE = "mg_office_action"
+
+
+def _dashboard_token() -> str:
+    """Токен действий дашборда. Пустая строка — если общего секрета нет."""
+    if not INGEST_SECRET:
+        return ""
+    return hmac.new(INGEST_SECRET.encode(), _DASHBOARD_LABEL, hashlib.sha256).hexdigest()
+
+
+def _check_office_action(request: Request) -> bool:
+    """Секрет server-to-server ИЛИ кука дашборда. Иначе отказ."""
+    if _check_ingest_secret(request):
+        return True
+
+    expected = _dashboard_token()
+    if not expected:
+        return False
+    return hmac.compare_digest(request.cookies.get(DASHBOARD_COOKIE) or "", expected)
 
 
 async def _find_customer(session, tid, phone):
@@ -1331,7 +1489,7 @@ async def learnings_dashboard():
 @app.post("/admin/sync-catalog")
 async def sync_catalog(request: Request):
     """Ручной запуск синка каталога витрины в офис."""
-    if INGEST_SECRET and request.headers.get("X-Ingest-Secret") != INGEST_SECRET:
+    if not _check_ingest_secret(request):
         return JSONResponse({"error": "unauthorized"}, status_code=401)
     try:
         from shared.catalog_sync import sync_catalog_from_storefront

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma, OrderStatus } from '@repo/database';
 import { syncOrderStatus } from '@/lib/orderSync';
-import { isStaff, unauthorized } from '@/lib/adminAuth';
+import { isStaff, getCustomerId, unauthorized } from '@/lib/adminAuth';
+import { requireBotAuth } from '@/lib/botAuth';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 import { orderSchema } from '@/lib/orders/schema';
@@ -28,7 +29,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Noto'g'ri ma'lumot formati", details: parseResult.error.issues }, { status: 400 });
     }
     const body = parseResult.data;
-    const result = await createOrder(body);
+    const result = await createOrder(body, {
+      customerId: getCustomerId(request),
+      trusted: requireBotAuth(request),
+    });
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
@@ -61,17 +65,29 @@ export async function GET(request: NextRequest) {
   const limitRaw = parseInt(searchParams.get('limit') || '20');
   const limit = Math.min(limitRaw, 100);
 
-  const phone = searchParams.get('phone');
-  const userId = searchParams.get('userId');
-  const telegramId = searchParams.get('telegramId');
+  let phone = searchParams.get('phone');
+  let userId = searchParams.get('userId');
+  let telegramId = searchParams.get('telegramId');
 
-  // Выборка без привязки к конкретному покупателю — это выгрузка всей базы
-  // заказов с именами и телефонами. Раньше она была открыта: /api/orders
-  // без параметров отдавал всё подряд кому угодно.
-  // Запрос своих заказов (профиль покупателя фильтрует по userId) остаётся
-  // доступным без сессии — это существующее поведение личного кабинета.
-  const scopedToUser = Boolean(phone || userId || telegramId);
-  if (!scopedToUser && !isStaff(request)) {
+  // Кто спрашивает — решается здесь, а не по наличию параметров.
+  //
+  // Раньше признаком «свои заказы» считался сам факт того, что фильтр задан:
+  // `scopedToUser = Boolean(phone || userId || telegramId)`. То есть любой,
+  // кто подставил чужой userId — или просто чужой номер телефона, а у B2B он
+  // публичен, — получал историю заказов этого клиента с адресами доставки.
+  //
+  // Теперь у покупателя есть подписанная сессия (lib/session.ts), и его
+  // заказы выбираются по id ИЗ НЕЁ. Параметры запроса для него игнорируются:
+  // подставить чужой id больше нечем. Свободные фильтры остаются у админки
+  // (isStaff) и у витринного бота (requireBotAuth) — им они нужны по делу.
+  const customerId = getCustomerId(request);
+  const privileged = isStaff(request) || requireBotAuth(request);
+
+  if (customerId) {
+    userId = customerId;
+    phone = null;
+    telegramId = null;
+  } else if (!privileged) {
     return unauthorized();
   }
 

@@ -38,7 +38,7 @@ export function AdminWorkflowStudio() {
               id: workflowName,
               data: { label: workflowName.toUpperCase() },
               position: { x: 20, y: yOffset - 40 },
-              style: { backgroundColor: 'rgba(255,255,255,0.1)', width: 800, height: 200, zIndex: -1 },
+              style: { backgroundColor: 'var(--bg-secondary)', width: 800, height: 200, zIndex: -1 },
               type: 'group'
             });
             
@@ -56,7 +56,7 @@ export function AdminWorkflowStudio() {
                   label: (
                     <div style={{ padding: '8px' }}>
                       <div style={{ fontWeight: 'bold' }}>{stepName}</div>
-                      <div style={{ fontSize: '12px', color: '#666' }}>Bot: {config.bot}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Bot: {config.bot}</div>
                     </div>
                   ) 
                 },

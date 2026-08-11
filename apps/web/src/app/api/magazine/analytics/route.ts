@@ -6,6 +6,7 @@
 // ════════════════════════════════════════════════════════════
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
 const VALID_TYPES = [
   'page_view', 'qr_scan',
@@ -14,7 +15,16 @@ const VALID_TYPES = [
   'recipe_view', 'recipe_cart',
 ] as const;
 
+// Дверь анонимная и пишет строку в базу на каждый вызов — то есть ею можно
+// раздувать таблицу событий бесплатно и сколько угодно. Порог щедрый: живой
+// читатель журнала листает страницы десятками, а не тысячами.
+const LIMIT = 120;
+const WINDOW_MS = 60_000;
+
 export async function POST(req: NextRequest) {
+  const limit = await consume(`mgzevent:${clientIp(req)}`, LIMIT, WINDOW_MS);
+  if (!limit.ok) return tooManyRequests(limit.retryAfter);
+
   const body = await req.json().catch(() => null);
   if (!body || !body.type || !body.sessionId) {
     return NextResponse.json({ error: 'type and sessionId required' }, { status: 400 });

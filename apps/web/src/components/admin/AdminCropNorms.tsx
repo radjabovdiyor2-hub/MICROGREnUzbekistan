@@ -113,7 +113,9 @@ export function AdminCropNorms() {
         <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
+              {/* --border, а не --border-primary: второй переменной нет ни в
+                  токенах, ни в globals.css, и рамка брала цвет текста. */}
+              <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                 <th style={{ ...cell, color: 'var(--text-muted)' }}>КУЛЬТУРА</th>
                 <th style={{ ...cell, color: 'var(--text-muted)' }}>СПОСОБ</th>
                 <th style={{ ...cell, color: 'var(--text-muted)' }}>СЕМЯН НА ЕД.</th>
