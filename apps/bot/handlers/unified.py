@@ -240,8 +240,10 @@ async def cb_category(callback: CallbackQuery):
     if category == "pricelist":
         return  # Already handled above
     
-    # Получаем товары через ecosystem bridge
-    products = await bridge.get_products(limit=10, category=category.upper())
+    # Получаем товары через ecosystem bridge.
+    # Без `.upper()`: витрина фильтрует по слагу (`salads`), и `SALADS`
+    # возвращал ноль товаров — вторая независимая причина пустой категории.
+    products = await bridge.get_products(limit=10, category=category)
     
     cat_title = CATEGORY_LABELS_LOWER.get(category, category.capitalize())
     

@@ -1,6 +1,6 @@
 import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
+import { stateFile } from '@/lib/stateDir';
 
 // ════════════════════════════════════════════════════════════════════
 // Пароль владельца: хранение и проверка.
@@ -18,7 +18,9 @@ import crypto from 'crypto';
 // Только node-рантайм: crypto.scrypt в edge недоступен.
 // ════════════════════════════════════════════════════════════════════
 
-const PASSWORD_FILE = path.join(process.cwd(), '.admin-password.json');
+// Каталог задаётся STATE_DIR и в проде смонтирован томом: файл в слое образа
+// стирался каждым деплоем, возвращая утёкший пароль из окружения.
+const PASSWORD_FILE = stateFile('.admin-password.json');
 
 const SCRYPT_KEYLEN = 64;
 const MIN_PASSWORD_LENGTH = 8;

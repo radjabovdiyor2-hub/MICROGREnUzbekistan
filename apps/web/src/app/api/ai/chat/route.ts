@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     const limit = await consume(`ai:${ip}`, 20, 60 * 1000);
     if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
-    const { message, history, userId, cartItems, image } = await request.json();
+    const { message, history, userId, telegramId, cartItems, image } = await request.json();
 
     if (!message?.trim() && !image) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 });
@@ -27,13 +27,23 @@ export async function POST(request: NextRequest) {
     let reply: string;
     let userInfo = '';
 
-    if (userId) {
+    // Витринный бот знает собеседника по Telegram ID, сайт — по cuid.
+    //
+    // Бот слал свой Telegram ID в поле `userId`, а поиск шёл по первичному
+    // ключу: совпадения не было никогда, и модель не знала ни имени клиента,
+    // ни языка, ни баланса баллов. Диагностировать это было нечем — ошибку
+    // глотал пустой `catch { /* ignore */ }`.
+    if (userId || telegramId) {
       try {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const user = telegramId
+          ? await prisma.user.findUnique({ where: { telegramId: BigInt(telegramId) } })
+          : await prisma.user.findUnique({ where: { id: userId } });
         if (user) {
           userInfo = `\nMIJOZ: ${user.firstName || 'Mehmon'} | Til: ${user.language} | Ball: ${user.bonusPoints}`;
         }
-      } catch { /* ignore */ }
+      } catch (error) {
+        console.error('[AI chat] Не удалось определить клиента:', error);
+      }
     }
 
     if (cartItems && cartItems.length > 0) {

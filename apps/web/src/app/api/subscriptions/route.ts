@@ -39,6 +39,25 @@ const updateSchema = z.object({
   })).optional(),
 });
 
+/** Сумма подписки по ценам каталога. `null` — если какого-то товара уже нет.
+ *
+ *  Раньше стояло `priceMap.get(id) || 0`: удалённый из каталога товар оставался
+ *  в составе подписки, но в сумму не входил. Клиент видел полный набор и
+ *  заниженный итог, и расхождение всплыло бы только в чеке.
+ */
+function subscriptionTotal(
+  items: { productId: string; quantity: number }[],
+  priceById: Map<string, number>,
+): number | null {
+  let total = 0;
+  for (const item of items) {
+    const price = priceById.get(item.productId);
+    if (price === undefined) return null;
+    total += price * item.quantity;
+  }
+  return total;
+}
+
 function nextDeliveryDate(deliveryDay: number, interval: string): Date {
   const now = new Date();
   const currentDay = now.getDay(); // 0=Sun, but we use 0=Mon
@@ -52,8 +71,11 @@ function nextDeliveryDate(deliveryDay: number, interval: string): Date {
 
   const next = new Date(now);
   next.setDate(next.getDate() + daysUntil);
-  next.setHours(0, 0, 0, 0);
-  return next;
+  // Колонка объявлена как @db.Date, и Prisma берёт из значения UTC-составляющие.
+  // Местная полночь в UTC+5 — это 19:00 предыдущего дня по UTC, то есть дата
+  // доставки уехала бы на сутки назад. Собираем полночь сразу в UTC, сохраняя
+  // местный календарный день.
+  return new Date(Date.UTC(next.getFullYear(), next.getMonth(), next.getDate()));
 }
 
 // GET — список подписок пользователя
@@ -149,7 +171,10 @@ export async function POST(req: NextRequest) {
         select: { id: true, price: true },
       });
       const priceMap = new Map(products.map(p => [p.id, p.price]));
-      const total = updates.items.reduce((sum, i) => sum + (priceMap.get(i.productId) || 0) * i.quantity, 0);
+      const total = subscriptionTotal(updates.items, priceMap);
+      if (total === null) {
+        return NextResponse.json({ error: 'Товар из подписки больше не продаётся' }, { status: 409 });
+      }
       updateData.total = total;
     }
 
@@ -188,7 +213,10 @@ export async function POST(req: NextRequest) {
     select: { id: true, price: true },
   });
   const priceMap = new Map(products.map(p => [p.id, p.price]));
-  const total = data.items.reduce((sum, i) => sum + (priceMap.get(i.productId) || 0) * i.quantity, 0);
+  const total = subscriptionTotal(data.items, priceMap);
+  if (total === null) {
+    return NextResponse.json({ error: 'Товар из подписки больше не продаётся' }, { status: 409 });
+  }
 
   const subscription = await prisma.greenBoxSubscription.create({
     data: {

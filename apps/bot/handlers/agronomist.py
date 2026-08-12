@@ -43,7 +43,10 @@ async def ask_ai(message: str, user_id: int, history: list = None) -> dict:
                     "message": message,
                     "history": history or [],
                     "source": "bot",
-                    "userId": str(user_id),
+                    # Именно telegramId: раньше сюда клался Telegram ID под
+                    # именем `userId`, а витрина ищет по cuid — персонализация
+                    # не срабатывала ни разу.
+                    "telegramId": str(user_id),
                 }
             )
 
@@ -264,12 +267,25 @@ async def handle_ai_message(message: Message):
                             telegram_id=user_id
                         )
                         
-                        if "id" in result:
-                            order_id = result["id"]
+                        # Ответ витрины — `{success, order: {id, orderNumber, …}}`.
+                        # Проверялось `"id" in result`, то есть ключ верхнего
+                        # уровня, которого там нет: условие не выполнялось
+                        # никогда. Из-за этого JSON-блок НЕ вырезался из
+                        # ответа, и клиент получал в чат сырой
+                        # `{"action": "create_order", …}` со своим телефоном и
+                        # адресом — а заказ при этом был создан.
+                        created = (result or {}).get("order") or {}
+                        if created.get("orderNumber"):
+                            order_id = created["orderNumber"]
                             order_created = True
                             ai_response = ai_response.replace(match.group(0), "").strip()
                             if not ai_response:
-                                ai_response = f"✅ Заказ #{order_id[-6:]} успешно создан!"
+                                ai_response = f"✅ Заказ #{order_id} успешно создан!"
+                        else:
+                            # Заказ не создан — но JSON клиенту показывать всё
+                            # равно нельзя.
+                            ai_response = ai_response.replace(match.group(0), "").strip()
+                            logger.error("Витрина не приняла заказ из чата: %s", result)
         except Exception as e:
             logger.error(f"Order creation from AI response failed: {e}")
 
@@ -324,13 +340,17 @@ async def cmd_prices(message: Message):
         # Group by category
         categories = {}
         for p in products:
-            cat = p.get("category", "OTHER")
+            cat = p.get("category") or "other"
             if cat not in categories:
                 categories[cat] = []
             categories[cat].append(p)
-        
+
+        # Перечисляем ВСЕ категории каталога по слагам. Здесь был жёсткий
+        # список `["MICROGREENS", "SEEDS", "KITS"]`: таких слагов не существует
+        # (реальные — `microgreens`, `seeds`, `sets`), поэтому цены не
+        # показывались ни разу, а «KITS» не был категорией никогда.
         text = "💰 <b>Наши цены:</b>\n\n"
-        for cat_key in ["MICROGREENS", "SEEDS", "KITS"]:
+        for cat_key in CATEGORY_LABELS:
             items = categories.get(cat_key, [])
             if items:
                 text += f"<b>{CATEGORY_LABELS.get(cat_key, cat_key)}:</b>\n"

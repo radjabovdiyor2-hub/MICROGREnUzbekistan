@@ -7,6 +7,8 @@ type FindManyArgs = { where: Record<string, unknown> };
 
 const findMany = vi.fn((_args: FindManyArgs) => Promise.resolve([] as unknown[]));
 const count = vi.fn((_args: FindManyArgs) => Promise.resolve(0));
+// Каталог для резолва цен: сервер обязан брать цену отсюда, а не из тела.
+const productFindMany = vi.fn((_args: FindManyArgs) => Promise.resolve([] as unknown[]));
 
 // Mock Prisma
 vi.mock('@repo/database', () => ({
@@ -26,6 +28,7 @@ vi.mock('@repo/database', () => ({
     },
     product: {
       update: vi.fn(),
+      findMany: (args: FindManyArgs) => productFindMany(args),
     },
     $transaction: vi.fn((callbacks) => Promise.resolve(callbacks)),
     Prisma: {},
@@ -40,7 +43,31 @@ function createRequest(body: unknown) {
   });
 }
 
+
+/** Мок Prisma для сценариев создания заказа: пользователь и транзакция. */
+async function stubPrisma(orderCreate: ReturnType<typeof vi.fn>) {
+  const { prisma } = await import('@repo/database');
+  const mocked = prisma as unknown as {
+    user: { findUnique: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> };
+    $transaction: ReturnType<typeof vi.fn>;
+  };
+  mocked.user.findUnique.mockResolvedValue(null);
+  mocked.user.upsert = vi.fn().mockResolvedValue({ id: 'u1', bonusPoints: 0 });
+  mocked.$transaction.mockImplementation(async (cb: unknown) =>
+    typeof cb === 'function'
+      ? cb({ order: { create: orderCreate }, user: { updateMany: vi.fn() } })
+      : cb,
+  );
+}
+
 describe('POST /api/orders', () => {
+  beforeEach(() => {
+    // Секрет задан: иначе requireBotAuth в dev считает доверенным КОГО УГОДНО,
+    // и проверка «цена из браузера игнорируется» ничего бы не проверяла.
+    // (В проде пустой BOT_SECRET — это fail closed, доверенных нет вовсе.)
+    vi.stubEnv('BOT_SECRET', 'test-bot-secret-value');
+  });
+
   it('should return 400 if personal data is missing', async () => {
     const req = createRequest({
       items: [{ productId: '123', price: 100, quantity: 1 }]
@@ -50,6 +77,75 @@ describe('POST /api/orders', () => {
     expect(response.status).toBe(400);
     const data = await response.json();
     expect(data.error).toBe("Shaxsiy ma'lumotlar to'liq emas");
+  });
+
+  // ══════════════════════════════════════════════════════════════════
+  // Цену назначает сервер.
+  //
+  // `subtotal` складывался из присланного `item.price`, и та же цена ложилась
+  // в `order_items`: тело `{"price": 1, "quantity": 100}` списывало сотню
+  // лотков со склада и уходило в P&L по одному суму.
+  // ══════════════════════════════════════════════════════════════════
+  it('отказывает, если товара нет в каталоге', async () => {
+    productFindMany.mockResolvedValueOnce([]);
+    const req = createRequest({
+      customer: { firstName: 'Test', phone: '+998901234567', address: 'Tashkent' },
+      items: [{ productId: 'ghost', price: 1, quantity: 100 }],
+    });
+
+    const response = await POST(req);
+    expect(response.status).toBe(409);
+  });
+
+  it('запрашивает у каталога только активные товары из корзины', async () => {
+    productFindMany.mockClear();
+    productFindMany.mockResolvedValueOnce([]);
+    await POST(createRequest({
+      customer: { firstName: 'Test', phone: '+998901234567', address: 'Tashkent' },
+      items: [{ productId: 'p1', price: 1, quantity: 100 }],
+    }));
+
+    expect(productFindMany).toHaveBeenCalled();
+    expect(productFindMany.mock.calls[0][0]).toMatchObject({
+      where: { id: { in: ['p1'] }, isActive: true },
+    });
+  });
+
+  it('игнорирует цену из браузера и берёт каталожную', async () => {
+    productFindMany.mockResolvedValueOnce([{ id: 'p1', price: 15000 }]);
+    const created = vi.fn().mockResolvedValue({ id: 'o1', orderNumber: 'M-1', items: [] });
+    await stubPrisma(created);
+
+    await POST(createRequest({
+      customer: { firstName: 'Test', phone: '+998901234567', address: 'Tashkent' },
+      items: [{ productId: 'p1', price: 1, quantity: 2 }],
+    }));
+
+    expect(created).toHaveBeenCalled();
+    const data = created.mock.calls[0][0].data;
+    expect(data.items.create[0].price).toBe(15000);
+    expect(data.subtotal).toBe(30000);
+  });
+
+  it('доверенному офису оставляет договорную цену', async () => {
+    productFindMany.mockResolvedValueOnce([{ id: 'p1', price: 15000 }]);
+    const created = vi.fn().mockResolvedValue({ id: 'o2', orderNumber: 'M-2', items: [] });
+    await stubPrisma(created);
+
+    const req = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test-bot-secret-value' },
+      body: JSON.stringify({
+        customer: { firstName: 'Жасмин', phone: '+998901234567', address: 'Самарканд' },
+        items: [{ productId: 'p1', price: 12000, quantity: 10 }],
+      }),
+    });
+    await POST(req);
+
+    // Продажа ресторану по согласованной цене не должна подмениться прайсовой.
+    const data = created.mock.calls[0][0].data;
+    expect(data.items.create[0].price).toBe(12000);
+    expect(data.subtotal).toBe(120000);
   });
 
   it('should return 400 if cart is empty', async () => {

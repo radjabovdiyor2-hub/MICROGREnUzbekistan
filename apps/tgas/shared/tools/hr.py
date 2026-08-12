@@ -71,26 +71,43 @@ async def get_payroll() -> Dict[str, Any]:
 async def create_shift_task(
     employee: str, when: str, note: str = ""
 ) -> Dict[str, Any]:
-    """Поставить сотруднику смену/поручение задачей отдела HR."""
-    async with get_session_ctx() as session:
-        task_id = (
-            await session.execute(
-                text(
-                    "INSERT INTO tasks (title, assignee, department, status, priority, "
-                    "description, deadline, created_at) "
-                    "VALUES (:t, :a, 'hr', 'todo', 'medium', :descr, "
-                    "CAST(NULLIF(:dl, '') AS DATE), NOW()) RETURNING id"
-                ),
-                {
-                    "t": f"Смена: {employee} — {when}"[:255],
-                    "a": employee,
-                    "descr": note,
-                    "dl": when if _looks_like_date(when) else "",
-                },
-            )
-        ).scalar()
-        await session.commit()
-    return {"ok": True, "task_id": task_id, "employee": employee, "when": when}
+    """Поставить сотруднику смену/поручение задачей отдела HR.
+
+    Смену выполняет человек, поэтому событие отделу не шлём — иначе HR-бот
+    возьмёт задачу «поставить Азизу смену», ничего с ней сделать не сможет и
+    вернёт её же. Срок нужен обязательно: без `deadline` задача не попадает
+    в дайджест просрочки никогда, а «завтра» словом (а не датой `YYYY-MM-DD`)
+    раньше давало ровно такую задачу-невидимку.
+    """
+    from shared import tasks_repo
+
+    deadline_days = _days_until(when) if _looks_like_date(when) else 1
+    created = await tasks_repo.create(
+        title=f"Смена: {employee} — {when}"[:255],
+        department="hr",
+        description=note or f"Смена сотрудника {employee}: {when}",
+        priority="medium",
+        assignee=employee,
+        deadline_days=deadline_days,
+        notify_department=False,
+    )
+    return {
+        "ok": True,
+        "task_id": created.get("task_id"),
+        "employee": employee,
+        "when": when,
+    }
+
+
+def _days_until(date_str: str) -> int:
+    """Сколько дней от сегодня до «YYYY-MM-DD». Прошедшая дата — сегодня (0)."""
+    from datetime import date
+
+    try:
+        year, month, day = (int(part) for part in date_str.split("-"))
+        return max(0, (date(year, month, day) - date.today()).days)
+    except (ValueError, TypeError):
+        return 1
 
 
 def _looks_like_date(value: str) -> bool:

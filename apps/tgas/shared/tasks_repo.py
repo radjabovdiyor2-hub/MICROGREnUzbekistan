@@ -102,6 +102,7 @@ async def create(
     assignee: Optional[str] = None,
     deadline_days: Optional[int] = None,
     chat_id: Optional[int] = None,
+    notify_department: bool = True,
 ) -> Dict[str, Any]:
     """Завести задачу и РАЗБУДИТЬ отдел. Единственный правильный способ.
 
@@ -109,6 +110,10 @@ async def create(
     исполнителя у неё нет. Это забывали в пяти местах независимо
     (`escalate` в поддержке, эскалация брака в ОТК, PM-меню, инструмент
     `create_task`, `human_task`), и каждый раз задача создавалась мёртвой.
+
+    `notify_department=False` — для задач, которые делает ЧЕЛОВЕК. Событие им
+    не нужно: разбудить оно может только бота, а бот эту работу и не может
+    выполнить — он её только что отдал. См. `tools/common.human_task`.
 
     `deadline_days` обязателен по смыслу для всего, что ждёт человека:
     дайджест просрочки ключуется по `deadline`, и задача без него не
@@ -140,6 +145,11 @@ async def create(
             )
         ).scalar()
         await session.commit()
+
+    if not notify_department:
+        # Задача для человека: события нет, будить некого. Видна она через
+        # дайджест просрочки (для этого и нужен `deadline`) и через список задач.
+        return {"ok": True, "task_id": task_id, "department": dept, "dispatched": False}
 
     try:
         from shared.config import settings

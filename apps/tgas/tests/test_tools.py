@@ -144,3 +144,29 @@ async def test_call_unknown_tool_is_reported_not_raised():
 def test_hops_limit_is_small():
     """Предел передач нужен, чтобы отделы не гоняли задачу по кругу."""
     assert 1 <= MAX_DELEGATION_HOPS <= 3
+
+
+def test_normalize_result_understands_status_form():
+    """`{"status": "error"}` — это провал, а не успех.
+
+    `normalize_result` определял успех как `not value.get("error")`. Форма
+    `{"status": ..., "message": ...}` — а так отвечают `register_sale` и
+    `add_product` — ключа `error` не содержит, поэтому ЛЮБОЙ её вариант
+    считался удачей. Карточка подтверждения получалась «✅ Одобрено. Продажу
+    НЕ записал…», а телеметрия обучения записывала провал как успешный вызов
+    и училась на неверном сигнале.
+    """
+    from shared.tools import registry as tool_registry
+
+    failed = tool_registry.normalize_result(
+        {"status": "error", "message": "Продажу НЕ записал: витрине не хватило данных"}
+    )
+    assert failed["ok"] is False, "статус error снова считается успехом"
+
+    clarify = tool_registry.normalize_result(
+        {"status": "clarify", "message": "Какую рукколу продали?"}
+    )
+    assert clarify["ok"] is False, "уточнение — не выполненное действие"
+
+    for good in ("ok", "duplicate"):
+        assert tool_registry.normalize_result({"status": good, "message": "…"})["ok"] is True

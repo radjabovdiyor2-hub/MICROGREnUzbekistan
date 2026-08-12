@@ -633,12 +633,27 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
         # Витрина создаёт заказ как PENDING — это верно для покупки на сайте, но
         # менеджер сообщает об УЖЕ состоявшейся продаже. Статус правим тем же
         # путём, что и админка: она уведомит клиента и отзеркалит статус в CRM.
+        #
+        # Результат ПРОВЕРЯЕМ. `update_status` возвращает `{"ok": False, …}` при
+        # любой HTTP-ошибке, и это молча выбрасывалось: отчёт печатал статус из
+        # ЗАПРОСА, а не из факта. Менеджер читал «💳 Оплата: получена», а в базе
+        # заказ оставался PENDING/UNPAID — дальше `get_sales_today` показывал его
+        # неоплаченным, через сутки автозадача требовала «обработать» уже
+        # отгруженный заказ, а клиенту не уходило уведомление о доставке.
+        status_applied = True
         if order_id and (order_status != "new" or payment_status == "paid"):
-            await storefront_orders.update_status(
+            applied = await storefront_orders.update_status(
                 order_id,
                 status=order_status,
                 payment_status=payment_status,
             )
+            status_applied = bool((applied or {}).get("ok", False))
+            if not status_applied:
+                logger.error(
+                    "SALES_OPS: заказ %s создан, но статус/оплату витрина не приняла: %s",
+                    order_number,
+                    applied,
+                )
 
     except Exception as exc:
         logger.exception("SALES_OPS: не удалось зарегистрировать продажу: %s", exc)
@@ -669,6 +684,9 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
             "total_amount": total_amount,
             "payment_status": payment_status,
             "order_status": order_status,
+            # Отчёт печатает статус только если витрина его действительно
+            # приняла — иначе «Оплата: получена» была бы выдумкой.
+            "status_applied": status_applied,
         },
     }
 
@@ -696,10 +714,22 @@ def format_sale_report(result: Dict[str, Any]) -> str:
         )
     lines.append("")
     lines.append(f"💰 Итого: <b>{format_price(d['total_amount'])}</b>")
-    lines.append(
-        "💳 Оплата: "
-        + ("получена" if d.get("payment_status") == "paid" else "ожидается")
-    )
-    lines.append("")
-    lines.append("Финансы учли доход, аналитика — метрику, PM видит заказ.")
+
+    # Статус печатаем как ФАКТ, только если витрина его приняла. Раньше здесь
+    # стояло значение из запроса, и при отказе витрины отчёт уверенно сообщал
+    # «Оплата: получена» по заказу, который в базе висел неоплаченным.
+    if d.get("status_applied", True):
+        lines.append(
+            "💳 Оплата: "
+            + ("получена" if d.get("payment_status") == "paid" else "ожидается")
+        )
+        lines.append("")
+        lines.append("Финансы учли доход, аналитика — метрику, PM видит заказ.")
+    else:
+        lines.append("")
+        lines.append(
+            "⚠️ Статус и оплату витрина не приняла — заказ висит как новый и "
+            "неоплаченный. Поправьте в админке, иначе через сутки придёт "
+            "напоминание «заказ не обработан»."
+        )
     return "\n".join(lines)

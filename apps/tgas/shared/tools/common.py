@@ -80,6 +80,15 @@ async def find_product(query: str) -> Dict[str, Any]:
 async def get_orders(limit: int = 10, status: Optional[str] = None) -> Dict[str, Any]:
     """Последние заказы магазина (и с сайта, и оформленные офисом)."""
     orders = await storefront_orders.list_orders(limit=limit, status=status)
+    if orders is None:
+        # Отказ витрины — не «ноль заказов». Форма `{"count": 0}` неотличима
+        # от честного «сегодня никто не купил», и модель докладывала провал
+        # продаж, которого не было.
+        return {
+            "ok": False,
+            "error": "Витрина недоступна — список заказов получить не удалось. "
+            "Не выдавай это за отсутствие заказов.",
+        }
     return {"count": len(orders), "orders": orders}
 
 
@@ -272,6 +281,14 @@ async def human_task(action: str, department: str = "pm", reason: str = "") -> D
     о которой бот честно сказал «сам не могу», молча ложилась в базу, и
     человек о ней не узнавал вообще. Сутки — срок по умолчанию для того,
     что уже потребовало вмешательства.
+
+    И БЕЗ СОБЫТИЯ — это второе. `tasks_repo.create` рассылал `TASK_CREATED`
+    с отделом `pm`, а `pm` принимает Стёпан: он брал задачу «Бот выполнить это
+    не может: нужен человек», исполнял её, снова упирался в то же самое и звал
+    `human_task` ещё раз. Счётчик `hops` есть только у `delegate_to_department`,
+    поэтому виток повторялся бесконечно, оставляя за собой цепочку одинаковых
+    строк в `tasks` и по два сообщения владельцу на круг; останавливалось это
+    только перезапуском. Человека будит не событие, а дайджест и список задач.
     """
     dept = _route(department)
     created = await tasks_repo.create(
@@ -283,6 +300,7 @@ async def human_task(action: str, department: str = "pm", reason: str = "") -> D
         priority="high",
         assignee="Человек",
         deadline_days=1,
+        notify_department=False,
     )
     return {
         "ok": True,

@@ -94,6 +94,7 @@ async def _save(
     summary: str,
     bot_name: str,
     chat_id: Optional[int],
+    task_id: Optional[int] = None,
 ) -> bool:
     """Сохранить заявку в базу. False — сохранить не удалось, заявки нет."""
     from sqlalchemy import text as sa_text
@@ -117,9 +118,13 @@ async def _save(
                     "pl": json.dumps(payload, ensure_ascii=False, default=str),
                     "bot": bot_name[:50],
                     "chat": chat_id,
-                    "task": (payload or {}).get("args", {}).get("task_id")
-                    if isinstance(payload, dict)
-                    else None,
+                    "task": task_id
+                    if task_id is not None
+                    else (
+                        (payload or {}).get("args", {}).get("task_id")
+                        if isinstance(payload, dict)
+                        else None
+                    ),
                 },
             )
             await session.commit()
@@ -243,11 +248,16 @@ async def request(
     *,
     bot_name: str = "office",
     details: str = "",
+    task_id: Optional[int] = None,
 ) -> Optional[str]:
     """
     Показать владельцу карточку и запомнить заявку. Возвращает токен или None.
 
     Ничего не выполняется: до нажатия кнопки в данных не меняется ни строки.
+
+    `task_id` связывает заявку с задачей, из которой она выросла: по нему
+    решение владельца закрывает задачу. Если не передан — берётся из
+    `payload["args"]["task_id"]`, как было раньше.
     """
     target = chat_id or _owner_chat_id()
 
@@ -263,7 +273,7 @@ async def request(
         return None
 
     token = uuid.uuid4().hex[:16]
-    if not await _save(token, kind, payload, summary, bot_name, target):
+    if not await _save(token, kind, payload, summary, bot_name, target, task_id):
         return None
 
     builder = InlineKeyboardBuilder()
@@ -308,6 +318,7 @@ async def request_approval(
     *,
     bot_name: str,
     chat_id: Optional[int] = None,
+    task_id: Optional[int] = None,
 ) -> str:
     """
     Отправить на подтверждение вызов рискованного инструмента.
@@ -322,6 +333,7 @@ async def request_approval(
         {"tool": tool.name, "args": args},
         tool.summary(args),
         bot_name=bot_name,
+        task_id=task_id,
     )
     if not token:
         return (
@@ -335,12 +347,21 @@ async def request_approval(
     )
 
 
-def approver(bot: Optional[Bot], bot_name: str, chat_id: Optional[int] = None):
-    """Готовая функция `approve` для shared/tool_runtime.run_tool_loop."""
+def approver(
+    bot: Optional[Bot],
+    bot_name: str,
+    chat_id: Optional[int] = None,
+    task_id: Optional[int] = None,
+):
+    """Готовая функция `approve` для shared/tool_runtime.run_tool_loop.
+
+    `task_id` нужен, чтобы решение владельца закрыло задачу, из которой
+    выросла заявка, — иначе она остаётся в очереди и её переоткрывают заново.
+    """
 
     async def _approve(tool: tool_registry.Tool, args: Dict[str, Any]) -> str:
         return await request_approval(
-            bot, tool, args, bot_name=bot_name, chat_id=chat_id
+            bot, tool, args, bot_name=bot_name, chat_id=chat_id, task_id=task_id
         )
 
     return _approve
@@ -365,7 +386,7 @@ async def _take(token: str, decision: str) -> Optional[Dict[str, Any]]:
                     sa_text(
                         "UPDATE owner_approvals SET status = :st, decided_at = NOW() "
                         "WHERE token = :tok AND status = 'pending' "
-                        "RETURNING kind, payload, bot_name, chat_id"
+                        "RETURNING kind, payload, bot_name, chat_id, task_id"
                     ),
                     {"tok": token, "st": decision},
                 )
@@ -381,18 +402,43 @@ async def _take(token: str, decision: str) -> Optional[Dict[str, Any]]:
             "payload": payload or {},
             "bot": row[2],
             "chat_id": row[3],
+            "task_id": row[4],
         }
     except Exception as exc:
         logger.warning("APPROVALS: не смог прочитать заявку %s: %s", token, exc)
         return None
 
 
-async def _run_tool(payload: Dict[str, Any], callback: CallbackQuery) -> str:
+async def _run_tool(payload: Dict[str, Any], callback: CallbackQuery):
     result = await tool_registry.call(payload["tool"], payload.get("args") or {})
-    return tool_registry.normalize_result(result)["summary"]
+    normalized = tool_registry.normalize_result(result)
+    # Возвращаем и признак успеха: по нему решается судьба задачи. Инструмент
+    # может отказать уже ПОСЛЕ нажатия ✅ (витрина не ответила, данных не
+    # хватило), и закрывать задачу в этом случае значит записать несделанное
+    # в сделанное.
+    return normalized["summary"], normalized["ok"]
 
 
 _HANDLERS["tool"] = _run_tool
+
+
+async def _close_task(task_id: Optional[int], status: str) -> None:
+    """Довести решение по заявке до задачи, из которой она выросла.
+
+    Колонка `owner_approvals.task_id` заполнялась с самого начала и не
+    читалась нигде. Задача оставалась в `todo`, пока владелец думал, и через
+    три часа `retry_stuck_tasks` заводил ВТОРУЮ карточку на то же действие,
+    в 15:00 — третью. Заявки разные, поэтому защита от двойного нажатия не
+    срабатывала: три «✅» списывали втрое больше, чем просили.
+    """
+    if not task_id:
+        return
+    try:
+        from shared import tasks_repo
+
+        await tasks_repo.set_status(int(task_id), status)
+    except Exception as exc:
+        logger.warning("APPROVALS: не смог сменить статус задачи #%s: %s", task_id, exc)
 
 
 @approvals_router.callback_query(F.data.startswith("approve:"))
@@ -417,13 +463,25 @@ async def on_approve(callback: CallbackQuery):
         return
 
     await callback.answer("Выполняю…")
+    acted = True
     try:
-        message = await handler(request_data.get("payload") or {}, callback)
+        outcome = await handler(request_data.get("payload") or {}, callback)
+        # Обработчик может вернуть либо текст, либо пару (текст, успех).
+        if isinstance(outcome, tuple):
+            message, acted = outcome
+        else:
+            message = outcome
     except Exception as exc:
         logger.exception("APPROVALS: обработчик %s упал: %s", request_data.get("kind"), exc)
         message = f"Не выполнено: {exc}"
+        acted = False
 
-    await _finish(callback, f"✅ <b>Одобрено.</b>\n{message}")
+    # Действие получилось — задача закрыта. Не получилось — возвращаем в работу,
+    # чтобы она не считалась выполненной и осталась на виду.
+    await _close_task(request_data.get("task_id"), "done" if acted else "todo")
+
+    head = "✅ <b>Одобрено.</b>" if acted else "⚠️ <b>Одобрено, но не выполнено.</b>"
+    await _finish(callback, f"{head}\n{message}")
 
 
 @approvals_router.callback_query(F.data.startswith("reject:"))
@@ -452,6 +510,9 @@ async def on_reject(callback: CallbackQuery):
             logger.exception(
                 "APPROVALS: обработчик отказа %s упал: %s", request_data.get("kind"), exc
             )
+    # Владелец сказал «нет» — задача закрыта отказом, а не висит в очереди,
+    # откуда её через три часа достанет retry_stuck_tasks и спросит снова.
+    await _close_task(request_data.get("task_id"), "cancelled")
     await _finish(callback, tail)
 
 

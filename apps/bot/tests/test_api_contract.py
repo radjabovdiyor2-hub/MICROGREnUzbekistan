@@ -139,3 +139,128 @@ def test_ask_ai_error_paths_use_the_same_key(bot_source: str):
     assert set(fallbacks) == {"reply"}, (
         f"аварийные ветки ask_ai отдают {sorted(set(fallbacks))}, а обработчик ждёт 'reply'"
     )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Ниже — сторожа, добавленные после третьего раунда сверки. Все четыре
+# поломки, которые они ловят, прожили в проде месяцами: HTTP-граница молчит,
+# обе стороны считают, что отработали штатно, и ни ruff, ни vitest, ни пять
+# статических сверок офиса сюда не смотрят.
+# ══════════════════════════════════════════════════════════════════════
+
+SHOP = BOT / "handlers/shop.py"
+FEATURES = BOT / "handlers/features.py"
+CONSTANTS = BOT / "shared/constants.py"
+CATALOG = BOT / "services/catalog.py"
+
+ORDERS_ROUTE = WEB / "src/app/api/orders/route.ts"
+REVIEWS_ROUTE = WEB / "src/app/api/reviews/route.ts"
+CATEGORY_SEO = WEB / "src/lib/seo/categories.ts"
+
+
+def _read(path: Path) -> str:
+    assert path.exists(), f"файл не найден: {path}"
+    return path.read_text(encoding="utf-8")
+
+
+def _code_only(source: str) -> str:
+    """Исходник без докстрингов и строчных комментариев.
+
+    Проверки ниже ищут слова в КОДЕ. Без очистки они находят те же слова в
+    пояснительных комментариях — и тест краснеет на объяснении бага, а не на
+    самом баге.
+    """
+    body = re.sub(r'"""[\s\S]*?"""', "", source)
+    body = re.sub(r"'''[\s\S]*?'''", "", body)
+    return "\n".join(
+        line for line in body.splitlines() if not line.lstrip().startswith("#")
+    )
+
+
+
+def test_bot_takes_order_number_from_the_route_envelope():
+    """Номер заказа — из ответа витрины, а не выдуманный на месте.
+
+    Роут отдаёт `{success, order: {id, orderNumber, …}}`, а обработчик читал
+    ключ `orderId` верхнего уровня — его там нет и не было. `.get(..., default)`
+    молча возвращал локальный `uuid4()[:8]`, и клиент с менеджером получали
+    номер, которого нет ни в одной таблице.
+    """
+    route = _read(ORDERS_ROUTE)
+    shop = _code_only(_read(SHOP))
+
+    assert "orderNumber" in route, "роут перестал отдавать orderNumber — сверьте обе стороны"
+    assert 'get("orderId"' not in shop and "get('orderId'" not in shop, (
+        "shop.py снова читает orderId — такого ключа в ответе /api/orders нет"
+    )
+    assert 'get("orderNumber")' in shop, (
+        "shop.py должен брать номер заказа из order.orderNumber"
+    )
+
+
+def test_review_payload_carries_what_the_route_requires():
+    """Отзыв из бота содержит поля, без которых роут отвечает 400.
+
+    Бот слал `{rating, orderId, telegramId, author}`, а роут требует
+    `productId` и автора (сессия, telegramId бота или guestId): 100% отзывов
+    получали 400, ошибку глотал `except`, и клиенту всё равно сообщали
+    «Спасибо за оценку! +50 бонусов начислено».
+    """
+    route = _read(REVIEWS_ROUTE)
+    features = _code_only(_read(FEATURES))
+
+    assert "productId" in route
+    assert '"productId"' in features, (
+        "features.py не шлёт productId — отзыв будет отклонён с 400"
+    )
+    assert '"telegramId"' in features, (
+        "features.py не шлёт telegramId — роут не сможет определить автора"
+    )
+    assert "+50 бонусов начислено" not in features, (
+        "бот снова обещает бонусы за отзыв, которых витрина не начисляет"
+    )
+
+
+def test_category_keys_are_real_slugs():
+    """Ключи категорий бота существуют в каталоге витрины.
+
+    Здесь были `MICROGREENS`/`BABY_LEAF`/`SALADS`, а витрина фильтрует по
+    слагам `microgreens`/`baby-leaf`/`salads`: каждая кнопка категории
+    отвечала «Нет товаров».
+    """
+    constants = _read(CONSTANTS)
+    seo = _read(CATEGORY_SEO)
+
+    # Ключи собираем ЛЮБЫЕ, а не только строчные: иначе возврат к
+    # `MICROGREENS` просто не попал бы в выборку и тест остался бы зелёным
+    # ровно на той поломке, ради которой написан.
+    bot_keys = set(re.findall(r'^\s{4}"([^"]+)":', constants, re.M))
+    assert bot_keys, "не нашли ключей CATEGORY_LABELS — тест ослеп"
+
+    web_slugs = set(re.findall(r"slug:\s*'([a-z0-9-]+)'", seo))
+    assert web_slugs, "не нашли слагов категорий на витрине — тест ослеп"
+
+    missing = bot_keys - web_slugs
+    assert not missing, (
+        f"категорий {sorted(missing)} на витрине нет — кнопка отдаст пустой список"
+    )
+
+
+def test_catalog_has_a_single_door():
+    """Разбор ответа `/api/products` живёт в одном месте.
+
+    Копий было три, и две разбирали конверт неверно: `isinstance(result, list)`
+    при ответе `{items, pagination}` давал пустой список ВСЕГДА — и в
+    объединённом меню, и в системном промпте ИИ-агронома, где из-за этого не
+    оказывалось ни одного товара и ни одной цены.
+    """
+    catalog = _code_only(_read(CATALOG))
+    assert '"items"' in catalog or "'items'" in catalog, (
+        "services/catalog.py перестал разбирать конверт {items, …}"
+    )
+
+    for path in (SHOP, FEATURES, BOT / "handlers/unified.py", BOT / "services/ai_service.py"):
+        source = _code_only(_read(path))
+        assert "/products" not in source, (
+            f"{path.name} снова ходит в /api/products мимо services/catalog"
+        )

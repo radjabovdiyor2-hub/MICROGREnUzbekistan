@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { productSelect } from '@/lib/products/fields';
 
 // ==========================================
 // Product by ID — Dynamic route /api/products/[id]
@@ -19,7 +20,7 @@ export async function GET(
 
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      select: productSelect(request),
     });
 
     if (!product) {

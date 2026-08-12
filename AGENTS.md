@@ -28,7 +28,7 @@ apps/tgas/bots/<bot>/main.py                        обработчик дей�
 
 **3. Заказ с витрины**
 
-`apps/web/src/app/api/orders/route.ts` → Prisma (`packages/database/prisma/schema.prisma`) → уведомление в Telegram. Статусы — `api/orders/status`, карточка заказа — `api/orders/[id]`.
+`apps/web/src/app/api/orders/route.ts` → Prisma (`packages/database/prisma/schema.prisma`) → уведомление в Telegram. Статусы — `api/orders/status`, карточка заказа — `api/admin/orders/[id]` (под `requireBotAuth`/админом). Публичного `api/orders/[id]` нет: он отдавал адрес и телефон любому, у кого есть id заказа, и вызывающих у него не было.
 
 **4. Событие между ботами**
 

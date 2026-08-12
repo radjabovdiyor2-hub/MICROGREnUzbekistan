@@ -159,8 +159,15 @@ async def update_status(
 
 async def list_orders(
     limit: int = 10, status: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """Последние заказы витрины (`GET /api/admin/orders`) — для отчётов ботов."""
+) -> Optional[List[Dict[str, Any]]]:
+    """Последние заказы витрины (`GET /api/admin/orders`) — для отчётов ботов.
+
+    `None` — витрина недоступна, `[]` — заказов действительно нет. Раньше обе
+    ситуации давали пустой список, и модель, которой предписано считать данные
+    инструмента фактом, уверенно отвечала «Заказов сегодня нет» в момент, когда
+    контейнер витрины перезапускался. Владелец принимал решения по несуществующему
+    провалу продаж.
+    """
     params: Dict[str, Any] = {"limit": min(int(limit), 50)}
     if status:
         params["status"] = OFFICE_TO_STOREFRONT_STATUS.get(
@@ -178,9 +185,9 @@ async def list_orders(
                         "STOREFRONT_ORDERS: список заказов недоступен (HTTP %s)",
                         resp.status,
                     )
-                    return []
+                    return None
                 body = await resp.json(content_type=None)
                 return (body or {}).get("orders") or []
     except Exception as exc:
         logger.warning("STOREFRONT_ORDERS: список заказов недоступен: %s", exc)
-        return []
+        return None

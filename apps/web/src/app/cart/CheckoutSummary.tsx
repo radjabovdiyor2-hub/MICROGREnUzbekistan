@@ -11,6 +11,8 @@ interface Props {
   grandTotal: number;
   bonusBalance: number;
   bonusApplied: number;
+  /** Порог списания баллов из настроек. null — ещё не загрузился. */
+  minCashout: number | null;
   useBonus: boolean;
   setUseBonus: (v: boolean) => void;
   promo: Promo;
@@ -27,10 +29,15 @@ interface Props {
 }
 
 export function CheckoutSummary({
-  cart, grandTotal, bonusBalance, bonusApplied, useBonus, setUseBonus,
+  cart, grandTotal, bonusBalance, bonusApplied, minCashout, useBonus, setUseBonus,
   promo, setPromo, promoInput, setPromoInput, promoState, setPromoState,
   promoApplied, promoError, applyPromo, fmt, t,
 }: Props) {
+  // Списание возможно только с порога. Раньше галочка появлялась при любом
+  // ненулевом балансе, «Итого» уменьшалось на всю сумму баллов, а сервер при
+  // балансе ниже порога молча списывал ноль: клиент видел одну сумму, а
+  // курьер называл другую.
+  const bonusEligible = minCashout === null || bonusBalance >= minCashout;
   return (
     <div className="card" style={{ padding: 'var(--space-6)', background: 'var(--brand-primary-light)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
@@ -78,7 +85,7 @@ export function CheckoutSummary({
           </>
         )}
       </div>
-      {bonusBalance > 0 && (
+      {bonusBalance > 0 && bonusEligible && (
         <label htmlFor="use-bonus" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'var(--font-medium)' }}>
             <Sparkles size={16} /> {t(`${fmt(bonusBalance)} ball ishlatish`, `Списать ${fmt(bonusBalance)} баллов`)}
@@ -86,6 +93,15 @@ export function CheckoutSummary({
           <input id="use-bonus" type="checkbox" checked={useBonus} onChange={e => setUseBonus(e.target.checked)}
             style={{ accentColor: 'var(--brand-primary)', width: 18, height: 18 }} />
         </label>
+      )}
+      {bonusBalance > 0 && !bonusEligible && minCashout !== null && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 'var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+          <Sparkles size={14} />
+          {t(
+            `${fmt(bonusBalance)} ball. Yechish uchun kamida ${fmt(minCashout)} kerak`,
+            `${fmt(bonusBalance)} баллов. Списать можно от ${fmt(minCashout)}`,
+          )}
+        </div>
       )}
       {bonusApplied > 0 && (
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--success)' }}>

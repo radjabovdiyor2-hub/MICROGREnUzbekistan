@@ -10,7 +10,11 @@ import { DishOverlayCard } from './DishOverlayCard';
 export const dynamic = 'force-dynamic';
 
 export const viewport: Viewport = {
-  themeColor: 'rgb(var(--overlay-dark-rgb))',
+  // Литеральный hex — одно из двух исключений конституции: `theme-color`
+  // читает браузер, а не CSS, и `rgb(var(--overlay-dark-rgb))` он просто
+  // отбрасывал. Страница блюда тёмная, поэтому чёрный — то же значение,
+  // что у токена `--overlay-dark-rgb: 0, 0, 0`.
+  themeColor: '#000000',
 };
 
 // Apple-style constants

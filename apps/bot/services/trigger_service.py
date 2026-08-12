@@ -59,24 +59,41 @@ async def _reengage_inactive_users(bot: Bot):
     
     if now.hour == 18:
         _last_reengage_date = today
-        
+
+        # Рассылка возврата пишет РЕАЛЬНЫМ клиентам, поэтому включается явно.
+        #
+        # Роута `/api/users/inactive` не существовало, бот получал 404 и молча
+        # выходил — кампания не отработала ни разу. Роут теперь есть, и если
+        # просто «починить», после первого же деплоя в 18:00 уйдут сообщения
+        # двадцати живым людям без чьего-либо решения. Поэтому выключатель:
+        # REENGAGE_ENABLED=true в окружении витринного бота.
+        import os
+
+        if os.getenv("REENGAGE_ENABLED", "").lower() not in ("1", "true", "yes"):
+            logger.info(
+                "Кампания возврата выключена (REENGAGE_ENABLED не задан) — не пишем клиентам"
+            )
+            return
+
         try:
             import httpx
-            import os
-            
+
             api_url = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
             bot_secret = os.getenv("BOT_SECRET", "")
             headers = {"Authorization": f"Bearer {bot_secret}"} if bot_secret else {}
-            
+
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(
                     f"{api_url}/users/inactive?days=7",
                     headers=headers
                 )
                 if resp.status_code != 200:
-                    logger.info("No inactive users endpoint or no users")
+                    logger.error(
+                        "Кампания возврата: витрина ответила %s — рассылки не будет",
+                        resp.status_code,
+                    )
                     return
-                
+
                 users = resp.json()
                 if not isinstance(users, list):
                     users = users.get("users", [])

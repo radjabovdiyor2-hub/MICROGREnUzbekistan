@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { audit } from '@/lib/audit';
 import { inc } from '@/lib/metrics';
+import { formatLocalDate } from '@/lib/revenue/salesLedger';
 
 // Вынесено из api/orders/route.ts: файл перерос 200 строк, а Next.js
 // разрешает в route.ts экспортировать только HTTP-обработчики.
@@ -8,7 +9,9 @@ import { inc } from '@/lib/metrics';
 // Generate order number
 export function generateOrderNumber(): string {
   const now = new Date();
-  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+  // Дата в номере — местная. По UTC заказ, оформленный 12 августа в 02:00,
+  // получал номер `M-20260811-…`, и по дате его не находили.
+  const date = formatLocalDate(now).replace(/-/g, '');
   const rand = crypto.randomBytes(4).toString('hex').toUpperCase();
   const ms = now.getTime().toString(36).slice(-4).toUpperCase();
   return `M-${date}-${rand}${ms}`;

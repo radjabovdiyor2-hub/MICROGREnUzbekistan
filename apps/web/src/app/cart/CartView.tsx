@@ -5,7 +5,6 @@ import Image from 'next/image';
 import { motion } from 'framer-motion';
 import {
   ArrowRight, ClipboardList, Folder, Lightbulb, Package, PartyPopper, CreditCard, Plus, ShoppingCart, Sparkles, } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import { LottieAnimation } from '@/components/ui/LottieAnimation';
 import emptyStateData from '@/assets/lottie/empty-state.json';
 import type { useCart, CartProduct } from '@/components/providers/CartProvider';
@@ -15,11 +14,6 @@ import { trackBeginCheckout } from '@/lib/analytics';
 import { CartItemList } from './CartItemList';
 
 const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
-
-const SmartSubscriptionWidget = dynamic(
-  () => import('@/components/shop/SmartSubscriptionWidget').then(m => m.SmartSubscriptionWidget),
-  { ssr: false },
-);
 
 // Экран корзины — первый из трёх шагов оформления. Рендерится ВМЕСТО формы
 // и экрана успеха, то есть это самостоятельный режим страницы.
@@ -37,21 +31,15 @@ export interface RecoProduct {
   category?: { nameUz: string; slug: string };
 }
 
-import type { SubscriptionConfig } from '@/components/shop/SmartSubscriptionWidget';
-
 interface Props {
   cart: ReturnType<typeof useCart>;
   recos: RecoProduct[];
   recosLoading: boolean;
   fmt: (n: number) => string;
   setStep: (s: 'cart' | 'checkout' | 'success') => void;
-  isSubscription: boolean;
-  setIsSubscription: (v: boolean) => void;
-  subscriptionConfig: SubscriptionConfig;
-  setSubscriptionConfig: (cfg: SubscriptionConfig) => void;
 }
 
-export function CartView({ cart, recos, recosLoading, fmt, setStep, isSubscription, setIsSubscription, subscriptionConfig, setSubscriptionConfig }: Props) {
+export function CartView({ cart, recos, recosLoading, fmt, setStep }: Props) {
   const { t } = useLang();
 
   return (
@@ -92,7 +80,9 @@ export function CartView({ cart, recos, recosLoading, fmt, setStep, isSubscripti
 
           {/* Order Summary Section */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <SmartSubscriptionWidget active={isSubscription} onToggle={() => setIsSubscription(!isSubscription)} config={subscriptionConfig} onConfigChange={setSubscriptionConfig} />
+            {/* Виджет подписки «Зелёная Коробка» убран: он обещал
+                автодоставку, которой не существует — ни подписка не
+                создавалась, ни крона доставки нет. См. app/cart/page.tsx. */}
             <div className="card" style={{ padding: 'var(--space-6)', position: 'sticky', top: 'calc(var(--header-height) + var(--space-4))' }}>
               <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-lg)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ClipboardList size={20} /> {t("Buyurtma", "Заказ")}

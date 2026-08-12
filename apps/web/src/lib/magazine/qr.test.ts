@@ -1,15 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { qrPng, qrSvg, dishUrl, menuUrl } from './qr';
 
-// canvas npm package is required for PNG rendering but may not be
-// available in CI (native dependency). Skip PNG tests gracefully.
-let hasCanvas = false;
-try {
-  require.resolve('canvas');
-  hasCanvas = true;
-} catch {
-  // Пакета нет — это и есть ответ на вопрос «доступен ли canvas». Не ошибка.
-}
+// Здесь стоял пропуск обоих PNG-тестов, если не резолвится пакет `canvas`.
+// Пакета `canvas` нет ни в одном package.json репозитория, поэтому условие
+// выполнялось ВСЕГДА: печатный путь QR не проверялся ни разу — ни локально,
+// ни в CI, — а CI при этом ставил cairo/pango/jpeg/gif/rsvg ради зависимости,
+// которая никогда не установится.
+//
+// Canvas тут и не нужен: `qrcode.toBuffer` рисует PNG через `pngjs`.
 
 describe('magazine/qr · печатные QR', () => {
   it('qrSvg возвращает валидный SVG', async () => {
@@ -18,7 +16,7 @@ describe('magazine/qr · печатные QR', () => {
     expect(svg).toContain('</svg>');
   });
 
-  it.skipIf(!hasCanvas)('qrPng возвращает PNG-буфер с корректной сигнатурой', async () => {
+  it('qrPng возвращает PNG-буфер с корректной сигнатурой', async () => {
     const buf = await qrPng(menuUrl('non-kabob'), 256);
     expect(buf.length).toBeGreaterThan(0);
     // \x89PNG — магическая сигнатура PNG
@@ -26,7 +24,7 @@ describe('magazine/qr · печатные QR', () => {
     expect(buf.subarray(1, 4).toString('ascii')).toBe('PNG');
   });
 
-  it.skipIf(!hasCanvas)('размер PNG растёт вместе с запрошенной шириной', async () => {
+  it('размер PNG растёт вместе с запрошенной шириной', async () => {
     const small = await qrPng(menuUrl('x'), 128);
     const large = await qrPng(menuUrl('x'), 1024);
     expect(large.length).toBeGreaterThan(small.length);

@@ -39,7 +39,7 @@
 │  │  Telegram    │  │  Farm Sim    │  │  AI Office           │   │
 │  │  Storefront  │  │  Vite+React  │  │  11 Python bots      │   │
 │  │  Bot         │  │  TWA         │  │  Event Bus (HTTP)    │   │
-│  │  (aiogram)   │  │              │  │  Ports 8081-8092     │   │
+│  │  (aiogram)   │  │              │  │  Ports 8081-8093     │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 │                                                                  │
 │  ┌──────────────┐                                               │
@@ -56,7 +56,7 @@
 | `apps/web` | Next.js, React, TypeScript | Storefront, Admin, Magazine, API | PostgreSQL (Prisma) |
 | `apps/bot` | Python, aiogram | Telegram orders, AI agronomist | `apps/web/api/*` |
 | `apps/game` | Vite, React, TypeScript | Farm Simulator (Telegram Mini App) | `apps/web/api/game` |
-| `apps/tgas` | Python, aiogram, FastAPI | 11 AI employees | PostgreSQL (SQLAlchemy), Event Bus |
+| `apps/tgas` | Python, aiogram, FastAPI | 12 AI employees + n8n_bridge | PostgreSQL (SQLAlchemy), Event Bus |
 | `packages/database` | Prisma | Schema, migrations, seed | PostgreSQL |
 
 ## Communication Patterns
@@ -64,7 +64,7 @@
 1. **Web ↔ Database**: Prisma Client (direct)
 2. **Bot → Web**: HTTP API calls to `/api/*`
 3. **Game → Web**: HTTP API calls to `/api/game`
-4. **AI Bots ↔ AI Bots**: Event Bus (HTTP POST to container ports 8081-8092)
+4. **AI Bots ↔ AI Bots**: Event Bus (HTTP POST to container ports 8081-8093)
 5. **AI Bots → Telegram**: aiogram Bot API
 6. **Web → AI Bots**: FastAPI endpoint on port 8050 (`/ingest/order`)
 
@@ -104,7 +104,7 @@ graph TB
         subgraph mgnet["docker network: mg_net"]
             web["apps/web<br/>Next.js 16<br/>:3000 → 127.0.0.1:3002"]
             office["web_office<br/>FastAPI<br/>127.0.0.1:8050"]
-            bots["11 AI-ботов<br/>Event Bus :8081-8092<br/>наружу не публикуются"]
+            bots["12 AI-ботов<br/>Event Bus :8081-8093<br/>наружу не публикуются"]
             store["apps/bot<br/>storefront bot"]
             pg[("PostgreSQL 16<br/>+ pgvector<br/>127.0.0.1:5432")]
             redis[("Redis 7<br/>127.0.0.1:6379")]

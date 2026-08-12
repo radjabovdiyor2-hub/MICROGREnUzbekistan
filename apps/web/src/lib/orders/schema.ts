@@ -6,7 +6,11 @@ export const orderItemSchema = z.object({
   id: z.string().optional(),
   productId: z.string().optional(),
   title: z.string().optional(),
-  price: z.number().int().min(0),
+  // Необязательна и ни на что не влияет: цену позиции сервер берёт из
+  // каталога (`lib/orders/create.ts`). Раньше она была обязательной и
+  // попадала прямо в `order_items` — покупатель назначал сумму заказа сам.
+  // Поле оставлено, потому что его всё ещё шлют витринный бот и офис.
+  price: z.number().int().min(0).optional(),
   // Целые: OrderItem.quantity и price в схеме — Int. Дробное значение проходило
   // Zod и падало уже в Prisma, отдавая клиенту безымянный 500 вместо внятного
   // отказа. Дробный вес выражается в граммах или в количестве упаковок.
@@ -34,5 +38,7 @@ export const orderSchema = z.object({
   address: z.string().optional(),
   telegramId: z.union([z.number(), z.string()]).optional(),
   source: z.string().optional(),
-  isSubscription: z.boolean().optional(),
+  // Заметка на верхнем уровне — формат офиса (`storefront_orders.py`).
+  // Без объявления Zod её отбрасывал, и она не доезжала до `orders.note`.
+  note: z.string().optional().nullable(),
 });

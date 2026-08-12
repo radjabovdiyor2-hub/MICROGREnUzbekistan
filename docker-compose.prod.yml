@@ -231,10 +231,24 @@ services:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
+      # Тот же пояс, что у postgres. Без него Node в контейнере работает в UTC,
+      # а `startOfLocalDay()` (lib/revenue/salesLedger.ts) режет сутки через
+      # `setHours(0,0,0,0)` — то есть по поясу процесса. Полночь UTC — это
+      # 05:00 по Ташкенту: продажи с 00:00 до 05:00 попадали во вчерашний день,
+      # и «Сводка» расходилась со складом, который датирует движения Postgres
+      # с ПРАВИЛЬНЫМ поясом. Одна база, два представления о том, какой сегодня
+      # день, — и обе стороны уверены в своей правоте.
+      TZ: Asia/Samarkand
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
       REDIS_URL: redis://redis:6379/0
       NEXT_PUBLIC_URL: https://microgreenuzbekistan.com
       UPLOADS_DIR: /data/uploads
+      # Состояние, которое обязано пережить деплой: пароль владельца,
+      # привязанные passkeys и журнал аудита. Без тома они лежали в слое
+      # образа и стирались при каждой выкатке — а смена утёкшего пароля
+      # откатывалась к прежнему значению из .env молча.
+      STATE_DIR: /data/state
+      AUDIT_LOG_DIR: /data/state/logs
       # Bridge app orders/customers into the tgas AI-office CRM (`microgreen` DB).
       OFFICE_INGEST_URL: http://web_office:8050/ingest/order
       OFFICE_STATUS_URL: http://web_office:8050/ingest/order-status
@@ -255,6 +269,8 @@ services:
     volumes:
       # Persist + serve uploaded product images (host dir, kept across deploys).
       - ${HOST_UPLOADS_DIR:-/home/ubuntu/microgreen-uploads}:/data/uploads
+      # Пароль владельца, passkeys и журнал аудита (STATE_DIR).
+      - mg_web_state:/data/state
     depends_on:
       postgres:
         condition: service_healthy
@@ -282,7 +298,16 @@ services:
     env_file: .env
     environment:
       ENVIRONMENT: production
+      TZ: Asia/Samarkand
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
+      # Корзины живут в Redis. Без этой строки сервис наследовал из общего
+      # .env хостовое значение `redis://localhost:6379/0` — а внутри
+      # контейнера по localhost Redis нет. Ping падал, cart_storage тихо
+      # переходил на файл `/app/data/carts.json`, тома у сервиса нет, и
+      # каждый деплой (то есть каждый push в main) пересоздавал контейнер
+      # вместе со всеми корзинами и незавершёнными оформлениями. Клиент
+      # возвращался к пустой корзине без единого объяснения.
+      REDIS_URL: redis://redis:6379/0
       WEB_API_URL: http://web:3000/api
       # Весь ИИ витрины идёт через OpenAI (mg_ai): текст, зрение, распознавание
       # речи и озвучка. Без ключа бот не упадёт, но будет отвечать заглушкой —
@@ -295,6 +320,8 @@ services:
       STEPAN_BOT_TOKEN: ${STEPAN_BOT_TOKEN:-}
     depends_on:
       web:
+        condition: service_started
+      redis:
         condition: service_started
     networks:
       - mg_net
@@ -448,6 +475,8 @@ volumes:
   pg_data:
   redis_data:
   bus_tasks:
+  # Состояние витрины, переживающее деплой: пароль владельца, passkeys, аудит.
+  mg_web_state:
 
 networks:
   mg_net:

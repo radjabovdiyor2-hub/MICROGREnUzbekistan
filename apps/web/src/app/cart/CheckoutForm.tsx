@@ -34,6 +34,7 @@ interface Props {
   grandTotal: number;
   bonusBalance: number;
   bonusApplied: number;
+  minCashout: number | null;
   useBonus: boolean;
   setUseBonus: (v: boolean) => void;
   promo: Promo;
@@ -74,7 +75,7 @@ export function CheckoutForm(props: Props) {
   const { t } = useLang();
   const {
     cart, form, setForm, errors, apiError, isSubmitting, grandTotal,
-    bonusBalance, bonusApplied, useBonus, setUseBonus,
+    bonusBalance, bonusApplied, minCashout, useBonus, setUseBonus,
     promo, setPromo, promoInput, setPromoInput, promoState, setPromoState,
     promoApplied, promoError, applyPromo, handleSubmitOrder, fmt, setStep,
   } = props;
@@ -159,6 +160,7 @@ export function CheckoutForm(props: Props) {
           grandTotal={grandTotal}
           bonusBalance={bonusBalance}
           bonusApplied={bonusApplied}
+          minCashout={minCashout}
           useBonus={useBonus}
           setUseBonus={setUseBonus}
           promo={promo}

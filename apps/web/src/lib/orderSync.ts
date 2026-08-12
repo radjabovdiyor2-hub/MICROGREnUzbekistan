@@ -14,7 +14,8 @@
 // ==========================================
 
 import { notifyCustomer } from './notify';
-import { restoreStockForCancelledOrder } from './orders/cancel';
+import { restoreStockForCancelledOrder, reapplyStockForRevivedOrder } from './orders/cancel';
+import { ingestUrl } from './office/client';
 
 // Storefront status (Prisma OrderStatus) -> customer-facing bilingual message.
 const STATUS_MESSAGE: Record<string, { uz: string; ru: string }> = {
@@ -63,10 +64,13 @@ export async function pushStatusToOffice(params: {
   status?: string | null;
   paymentStatus?: string | null;
 }): Promise<void> {
-  const url =
-    process.env.OFFICE_STATUS_URL ||
-    process.env.OFFICE_INGEST_URL?.replace(/\/order$/, '/order-status');
-  if (!url) return;
+  // `OFFICE_STATUS_URL` — исторический явный адрес (он задан в проде), дальше
+  // общая цепочка `ingestUrl`. Третьей ступени (вывод из `WEB_OFFICE_URL`)
+  // здесь не было, и развёртывание, где задан только общий адрес офиса, молча
+  // теряло ВСЮ синхронизацию статусов заказов в CRM — при том, что соседний
+  // `ingestUrl` эту ступень уже имеет, и добавлена она была ровно по этой
+  // причине.
+  const url = process.env.OFFICE_STATUS_URL || ingestUrl('order-status');
 
   const maxRetries = 3;
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -131,11 +135,21 @@ export async function syncOrderStatus(order: {
     // Возврат обрабатывается как отмена. Раньше `REFUNDED` не имел
     // обработчика вовсе: деньги возвращали клиенту, а товар оставался
     // списанным, бонусы — сгоревшими, доход — записанным.
+    //
+    // Обратный переход — тоже событие: заказ, снятый с отмены, обязан снова
+    // списать остаток и забрать возвращённые баллы. Само по себе
+    // `reapplyStockForRevivedOrder` безопасно для заказов, которые никогда не
+    // отменяли: оно считает пары «вернули/забрали» и без открытого возврата
+    // не делает ничего.
     (order.status === 'CANCELLED' || order.paymentStatus === 'REFUNDED') && order.id
       ? restoreStockForCancelledOrder(order.id).catch((err) =>
           console.error('Stock restore on cancel/refund failed:', err),
         )
-      : Promise.resolve(0),
+      : order.id
+        ? reapplyStockForRevivedOrder(order.id).catch((err) =>
+            console.error('Stock re-apply on un-cancel failed:', err),
+          )
+        : Promise.resolve(0),
   ]);
 }
 

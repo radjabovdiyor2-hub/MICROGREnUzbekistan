@@ -10,7 +10,7 @@ Guidance для Claude Code при работе в этом репозитори
 |--------|------|------|
 | `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 29 API-групп, 107 роутов |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины, ходит в `apps/web/api/*` по HTTP |
-| `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 13 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
+| `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
 | `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 71 модель, единый источник DDL |
 
 Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
@@ -69,7 +69,7 @@ python scripts/check_imports.py  # `from shared.X import Y` — Y существ
 
 - `packages/database/prisma/schema.prisma` — вся схема БД
 - `apps/web/src/app/globals.css` — Design System v1.0
-- `apps/tgas/shared/bot_registry.py` — реестр 13 ботов (порты, отделы)
+- `apps/tgas/shared/bot_registry.py` — реестр 12 ботов + мост (порты, отделы)
 - `apps/tgas/shared/event_bus.py`, `shared/bot_bus.py` — межботовая связь
 
 ## Документация

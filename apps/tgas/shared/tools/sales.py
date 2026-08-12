@@ -24,8 +24,18 @@ async def register_sale(
     customer_type: str = "b2c",
     payment_status: str = "paid",
     notes: str = "",
+    customer_id: Optional[int] = None,
+    force_new_customer: bool = False,
 ) -> Dict[str, Any]:
-    """Зарегистрировать состоявшуюся продажу."""
+    """Зарегистрировать состоявшуюся продажу.
+
+    `customer_id`, `force_new_customer` и `items[].product_id` — это ответы на
+    уточнения, которые `sales_ops` умеет задавать: «какую рукколу продали?» и
+    «этот клиент или новый?». В сигнатуре и схеме их не было, поэтому ответить
+    на уточнение модель физически не могла: кнопки рисует только UI Стёпана, а
+    у sales_bot такого роутера нет — задача уходила в тупик и через три часа
+    возвращалась с тем же вопросом.
+    """
     return await sales_ops.register_sale(
         {
             "customer_name": customer_name,
@@ -34,6 +44,8 @@ async def register_sale(
             "customer_type": customer_type,
             "payment_status": payment_status,
             "notes": notes,
+            "customer_id": customer_id,
+            "force_new_customer": force_new_customer,
             "registered_by": "sales_bot",
         }
     )
@@ -103,6 +115,13 @@ register(
                     "type": "object",
                     "properties": {
                         "product": {"type": "string", "description": "Название товара"},
+                        "product_id": {
+                            "type": "integer",
+                            "description": (
+                                "Номер товара из уточнения «какой именно» — "
+                                "подставь его, если отдел прислал варианты."
+                            ),
+                        },
                         "quantity": {
                             "type": "number",
                             "description": (
@@ -132,6 +151,20 @@ register(
                 "description": "Оплачено или ждём оплату",
             },
             "notes": {"type": "string", "description": "Как сформулировал менеджер"},
+            "customer_id": {
+                "type": "integer",
+                "description": (
+                    "Номер клиента из уточнения «этот или этот» — подставь, "
+                    "если отдел прислал список карточек."
+                ),
+            },
+            "force_new_customer": {
+                "type": "boolean",
+                "description": (
+                    "true — завести НОВУЮ карточку клиента, даже если есть "
+                    "похожие. Ответ на уточнение о тёзках."
+                ),
+            },
         },
         required=["customer_name", "items"],
         risky=True,

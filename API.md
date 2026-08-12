@@ -2,84 +2,140 @@
 
 Base URL: `https://microgreenuzbekistan.com/api`
 
-## API Route Groups (apps/web/src/app/api/)
+**29 групп, 107 route-файлов.** Список ниже сверен с каталогом
+`apps/web/src/app/api/`, а не дописан по памяти. Раньше здесь значились восемь
+эндпоинтов, которых нет и не было, — в том числе `POST /api/sms`, из-за
+которого витринный бот месяцами получал 404 (этот случай конституция
+специально занесла в память как урок «список сверять с каталогом»).
 
-### Products & Catalog
+Полный перечень групп: `admin`, `ai`, `auth`, `categories`, `config`,
+`content`, `ecosystem`, `game`, `health`, `instagram`, `inventory`, `leads`,
+`magazine`, `marketing`, `menu`, `metrics`, `notify`, `orders`, `payment`,
+`products`, `promo`, `referral`, `reviews`, `subscriptions`, `support`,
+`telegram`, `upload`, `users`, `whatsapp`.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/products` | List products (with filters, pagination) |
-| GET | `/api/products/[id]` | Product detail |
-| GET | `/api/categories` | Category tree |
+## Авторизация
 
-### Orders & Cart
+Единая точка — `apps/web/src/middleware.ts`, правила по префиксу пути:
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/orders` | Create order |
-| GET | `/api/orders` | List user orders |
-| POST | `/api/orders/[id]/status` | Update order status (admin) |
+| Доступ | Кто проходит |
+|---|---|
+| `ADMIN` | подписанная сессия с ролью ADMIN |
+| `STAFF` | ADMIN или SELLER |
+| `CUSTOMER` | любая валидная сессия покупателя (владельца записи проверяет сам роут) |
 
-### Users & Auth
+Витринный бот проходит мимо правил по общему секрету: заголовок
+`X-Bot-Secret` или `Authorization: Bearer <BOT_SECRET>` (сравнение в
+постоянном времени). Telegram `initData` проверяется только в
+`auth/telegram-webapp`; всё остальное держится на подписанной cookie-сессии
+(`lib/session.ts`) — здесь было написано, что аутентификация вся на `initData`.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/telegram` | Telegram WebApp auth |
-| GET | `/api/users/me` | Current user profile |
-| POST | `/api/referral` | Apply referral code |
+## Products & Catalog
 
-### AI & Content
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| GET | `/api/products` | Каталог с фильтрами и пагинацией. Ответ — `{ items, pagination }`, **не массив**. Поля — белый список (`lib/products/fields.ts`); `costPrice` уходит только сотруднику. `?all=true` (показать скрытые) — только под `isStaff` |
+| GET | `/api/products/[id]` | Карточка товара |
+| POST/PUT/PATCH/DELETE | `/api/products` | CRUD (ADMIN) |
+| GET | `/api/products/export` | Выгрузка каталога |
+| GET | `/api/categories` | Дерево категорий (слаги: `microgreens`, `baby-leaf`, `salads`, `flowers`, `seeds`, `equipment`, `sets`) |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/ai/chat` | AI nutritionist chat |
-| GET | `/api/content` | Content feed |
-| GET | `/api/instagram` | Instagram feed proxy |
+## Orders
 
-### Admin
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| POST | `/api/orders` | Создать заказ — **единственная дверь**. Цены берутся из каталога; присланная `price` игнорируется. Ответ: `{ success, order: { id, orderNumber, total, status } }` |
+| GET | `/api/orders` | Список: покупателю — свои (по сессии), админке и боту — с фильтрами |
+| PUT | `/api/orders` | Смена статуса (ADMIN) |
+| POST | `/api/orders/status` | Обратная синхронизация статуса из офиса |
+| GET | `/api/admin/orders`, `/api/admin/orders/[id]` | Заказы для админки и бота |
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/admin/dashboard` | Admin stats |
-| POST | `/api/admin/products` | CRUD products |
-| GET | `/api/inventory` | Stock movements |
+Публичного `/api/orders/[id]` нет: он отдавал адрес и телефон любому, у кого
+есть id заказа, и вызывающих у него не было.
 
-### Integrations
+## Users & Auth
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/payment/[provider]` | Payment callbacks (Click, Payme) |
-| POST | `/api/notify` | Push notifications |
-| POST | `/api/sms` | SMS sending |
-| GET | `/api/game/state` | Farm Simulator sync |
-| POST | `/api/game/save` | Farm Simulator save |
-| POST | `/api/leads` | Lead capture |
-| POST | `/api/support` | Support ticket |
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| POST | `/api/auth/register` | Регистрация по телефону (телефон нормализуется, `lib/phone.ts`) |
+| POST | `/api/auth/telegram`, `/api/auth/telegram-webapp` | Вход через Telegram |
+| POST | `/api/auth/password` | Пароль владельца |
+| GET/POST | `/api/auth/webauthn` | Passkeys (login-ветки отвечают 501) |
+| GET/POST | `/api/users/telegram` | Пользователь по `?telegramId=`; ответ — `{ user }` |
+| GET | `/api/users/telegram/[id]/bonuses` | Баланс баллов (свой, бот или сотрудник) |
+| GET | `/api/users/inactive` | Клиенты без заказов за N дней (для кампании возврата, только бот) |
+| POST | `/api/users/data` | Экспорт и удаление своих данных |
+| GET | `/api/referral` | Реферальные правила и статистика |
+
+## AI & Content
+
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| POST | `/api/ai/chat` | ИИ-агроном. Клиента находит по `userId` (cuid) или `telegramId` |
+| GET | `/api/content/recipe-of-day` | Рецепт дня |
+| GET | `/api/instagram` | Прокси ленты Instagram |
+| GET | `/api/menu`, `/api/magazine/*` | Журнал FRESH WEEKLY и меню ресторанов |
+
+## Admin & Operations
+
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| GET | `/api/admin/stats` | Сводка для Telegram-панели (выручка без отменённых и возвращённых) |
+| GET | `/api/admin/analytics`, `/api/admin/finance` | Аналитика и P&L |
+| GET/POST | `/api/inventory`, `/api/inventory/pos`, `/api/inventory/movements` | Склад и касса |
+| GET/POST | `/api/admin/*` | Ещё ~45 роутов: магазин журнала, посадки, смены, ОТК, настройки, Стёпан |
+
+## Integrations
+
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| POST | `/api/payment/click`, `/api/payment/payme` | Колбэки платёжных провайдеров (подпись проверяется) |
+| POST | `/api/notify` | Push-уведомления (ADMIN) |
+| POST | `/api/leads` | Захват лида |
+| POST | `/api/support` | Обращение в поддержку |
+| POST | `/api/reviews` | Отзыв (автор — из сессии, бота или гостевого хеша) |
+| GET | `/api/health`, `/api/metrics` | Здоровье и метрики |
+| POST | `/api/whatsapp/webhook`, `/api/telegram/*` | Вебхуки мессенджеров |
+| POST | `/api/game/nft/mint` | Farm Simulator (отвечает 501 — не реализовано) |
+
+SMS-группы нет. `/api/marketing/digest` существует, но отвечает 501: рассылки
+не реализовано — ни выборки подписчиков, ни транспорта.
 
 ## AI Office API (apps/tgas/web_office)
 
-Base URL: `http://localhost:8050` (internal only)
+Base URL: `http://web_office:8050` (только внутренняя сеть)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/ingest/order` | Receive order from storefront → Event Bus |
-| GET | `/dashboard` | Web dashboard (FastAPI HTML) |
+| Method | Endpoint | Описание |
+|--------|----------|----------|
+| POST | `/ingest/order` | Заказ с витрины → зеркало в `crm_orders` → `ORDER_CREATED` |
+| POST | `/ingest/order-status` | Смена статуса заказа |
+| POST | `/ingest/customer`, `/ingest/support`, `/ingest/lead`, `/ingest/feedback` | Остальные сигналы витрины |
+| GET | `/` | Дашборд (FastAPI HTML) |
+| GET | `/funnel`, `/learnings`, `/health/bots` | Воронка, обучение, здоровье ботов |
 
-Auth: `X-Ingest-Secret` header for `/ingest/*` routes.
+Auth: заголовок `X-Ingest-Secret` для `/ingest/*`. **В проде переменная
+`INGEST_SECRET` обязательна**: при пустом значении и `ENVIRONMENT=production`
+все `/ingest/*` отвечают 401, а витрина глушит ошибку — заказ появляется на
+сайте, но офис о нём не узнаёт.
 
 ## Event Bus Events (apps/tgas)
 
-| Event | Payload | Published by | Consumed by |
-|-------|---------|-------------|-------------|
-| `ORDER_CREATED` | `order_id, order_number, total` | web_office | stepan, sales, finance |
-| `TASK_CREATED` | `task_id, department, description` | stepan | all bots |
-| `TASK_COMPLETED` | `task_id` | any bot | stepan |
-| `MAGAZINE_PUBLISHED` | `issue_id, title` | content_bot | sales, marketing |
+| Event | Payload | Publisher | Consumers |
+|-------|---------|-----------|-----------|
+| `ORDER_CREATED` | `order_id, order_number, total_amount, items_summary` | web_office (зеркало) | stepan, finance, analytics |
+| `TASK_CREATED` | `task_id, department, title, description, chat_id` | `tasks_repo.create` | бот отдела |
+| `TASK_COMPLETED` | `task_id` | любой бот, Стёпан | stepan |
+| `COMPLAINT_RECEIVED` | `summary, customer_name` | support | stepan |
+| `ORDER_STATUS_CHANGED` | `order_id, order_number, status` | витрина | finance |
+
+Payload передаётся ПЛОСКИМ: `publish()` сам оборачивает его в
+`{event, data, source, timestamp}`.
 
 ## Rules
 
-- All API routes return JSON
-- Authentication via Telegram `initData` validation
-- Error format: `{ error: string, code: number }`
-- Pagination: `?page=1&limit=20`
-- Never create new API groups without documenting here first
+- Все роуты отвечают JSON.
+- Формат ошибки: `{ error: string }` (поля `code` ни один роут не возвращает).
+- Пагинация: `?page=1&limit=20`, потолок `limit` — 100.
+- Отказ зависимости — это 5xx, а не пустой успешный ответ.
+- Перед созданием нового роута — прочитать каталог `apps/web/src/app/api/` и
+  дописать сюда. Сверять с каталогом, а не с этим файлом по памяти.

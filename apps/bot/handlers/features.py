@@ -24,6 +24,7 @@ from services.ecosystem_bridge import bridge
 from services.config_service import fetch_site_config
 from shared.constants import format_price
 from shared.offers import referral_text
+from shared.api import api_headers
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -115,16 +116,22 @@ async def cb_profile(callback: CallbackQuery):
     user_data = await bridge.get_user_by_telegram_id(user.id)
     bonuses = await bridge.get_user_bonuses(user.id)
 
+    # Число заказов считаем по их списку: поля `ordersCount` в ответе роута
+    # нет, и `user_data.get("ordersCount", 0)` показывал ноль всем и всегда.
+    try:
+        orders_count = len(await bridge.get_orders_by_telegram_id(user.id))
+    except Exception as exc:
+        logger.warning("Профиль: не смог получить заказы: %s", exc)
+        orders_count = 0
+
     if user_data:
         name = user_data.get("firstName") or user.full_name
         phone = user_data.get("phone") or "не указан"
         lang = user_data.get("language", "ru")
-        orders_count = user_data.get("ordersCount", 0)
     else:
         name = user.full_name
         phone = "не указан"
         lang = "ru"
-        orders_count = 0
 
     text = (
         f"👤 <b>Ваш профиль</b>\n\n"
@@ -419,15 +426,70 @@ async def cb_review_start(callback: CallbackQuery):
         [InlineKeyboardButton(text="Пропустить", callback_data="menu:main")],
     ])
 
+    # Обещания «+50 бонусов за отзыв» здесь больше нет: начисления за отзыв
+    # не существует ни в одном роуте витрины — баллы не приходили никогда.
     await callback.message.edit_text(
         "⭐ <b>Оставьте отзыв!</b>\n\n"
         "Как вам наша продукция?\n"
-        "Выберите оценку:\n\n"
-        "+50 бонусов за отзыв! 🎁",
+        "Выберите оценку:",
         reply_markup=kb,
         parse_mode="HTML"
     )
     await callback.answer()
+
+
+async def _save_order_review(telegram_id: int, order_id: str, rating: int) -> int:
+    """Сохранить оценку как отзыв на каждый товар заказа. Вернуть их число.
+
+    Отзыв на витрине привязан к ТОВАРУ (`userId_productId` — составной ключ),
+    а бот присылал `{rating, orderId, telegramId, author}`: ни `productId`, ни
+    признака автора, который роут понимает. Каждый отзыв получал 400, ошибку
+    глотал `except`, и следом клиенту безусловно писали «Спасибо за оценку!
+    +50 бонусов начислено». Не сохранялось ничего: ни отзыв, ни рейтинг
+    товара, ни бонусы — вся обратная связь из Telegram терялась.
+    """
+    try:
+        orders = await bridge.get_orders_by_telegram_id(telegram_id)
+    except Exception as exc:
+        logger.error("Отзыв: не смог получить заказы: %s", exc)
+        return 0
+
+    order = next((o for o in orders if str(o.get("id")) == str(order_id)), None)
+    if not order:
+        logger.warning("Отзыв: заказ %s у клиента %s не найден", order_id, telegram_id)
+        return 0
+
+    product_ids = {
+        item.get("productId") for item in order.get("items", []) if item.get("productId")
+    }
+    if not product_ids:
+        return 0
+
+    saved = 0
+    async with httpx.AsyncClient(timeout=10) as client:
+        for product_id in product_ids:
+            try:
+                resp = await client.post(
+                    f"{WEB_API_URL}/reviews",
+                    json={
+                        "productId": product_id,
+                        "rating": rating,
+                        "telegramId": telegram_id,
+                    },
+                    headers=api_headers(),
+                )
+                if resp.status_code == 200:
+                    saved += 1
+                else:
+                    logger.warning(
+                        "Отзыв на %s отклонён: %s %s",
+                        product_id,
+                        resp.status_code,
+                        resp.text[:200],
+                    )
+            except Exception as exc:
+                logger.error("Отзыв на %s не ушёл: %s", product_id, exc)
+    return saved
 
 
 @router.callback_query(F.data.startswith("review:rate:"))
@@ -437,30 +499,33 @@ async def cb_review_rate(callback: CallbackQuery):
     order_id = parts[2]
     rating = int(parts[3])
 
-    # Сохраняем через API
-    try:
-        async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(f"{WEB_API_URL}/reviews", json={
-                "rating": rating,
-                "orderId": order_id,
-                "telegramId": callback.from_user.id,
-                "author": callback.from_user.full_name,
-            })
-    except Exception as e:
-        logger.error("Ошибка отзыва: %s", e)
+    saved = await _save_order_review(callback.from_user.id, order_id, rating)
+
+    if saved:
+        body = (
+            f"{'⭐' * rating}\n\n"
+            "Спасибо за оценку! 🎉\n"
+            "Она уже видна на странице товара.\n\n"
+            "💬 Хотите написать комментарий?\n"
+            "Просто отправьте сообщение в чат."
+        )
+        toast = "Спасибо за отзыв!"
+    else:
+        body = (
+            f"{'⭐' * rating}\n\n"
+            "Спасибо! Оценку записать не получилось — попробуйте чуть позже "
+            "или напишите нам сообщением, мы учтём вручную."
+        )
+        toast = "Не удалось сохранить отзыв"
 
     await callback.message.edit_text(
-        f"{'⭐' * rating}\n\n"
-        "Спасибо за оценку! 🎉\n"
-        "+50 бонусов начислено! 💰\n\n"
-        "💬 Хотите написать комментарий?\n"
-        "Просто отправьте сообщение в чат.",
+        body,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
         ]),
         parse_mode="HTML"
     )
-    await callback.answer("Спасибо! +50 бонусов 🎁")
+    await callback.answer(toast)
 
 
 # ==================== ПОДПИСКИ ====================

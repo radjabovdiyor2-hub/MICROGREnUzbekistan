@@ -45,17 +45,24 @@ class EcosystemBridge:
     # ==================== PRODUCTS ====================
 
     async def get_products(self, limit: int = 20, category: Optional[str] = None) -> list:
-        """Получить список товаров"""
-        params = f"?limit={limit}"
-        if category:
-            params += f"&category={category}"
-        result = await self._api_call(f"products{params}")
-        return result if isinstance(result, list) else []
+        """Получить список товаров.
+
+        Тонкий делегат к `services.catalog`: разбор ответа и приведение полей
+        живут там, в одном месте. Здесь была своя проверка
+        `isinstance(result, list)`, а роут отдаёт `{items, pagination}` —
+        функция возвращала пустой список ВСЕГДА, и все пять вызывающих
+        (объединённое меню, избранное, поиск по каналу, контекст агронома)
+        показывали пустой каталог без единой ошибки в логах.
+        """
+        from services.catalog import fetch_products
+
+        return await fetch_products(category=category, limit=limit)
 
     async def get_product(self, product_id: str) -> Optional[Dict]:
         """Получить товар по ID"""
-        result = await self._api_call(f"products/{product_id}")
-        return result if "error" not in result else None
+        from services.catalog import fetch_product
+
+        return await fetch_product(product_id)
 
     # ==================== ORDERS ====================
 
@@ -103,9 +110,20 @@ class EcosystemBridge:
         return result.get("bonuses", 0) if isinstance(result, dict) else 0
 
     async def get_user_by_telegram_id(self, telegram_id: int) -> Optional[Dict]:
-        """Получить данные пользователя по Telegram ID"""
-        result = await self._api_call(f"users/telegram/{telegram_id}")
-        return result if isinstance(result, dict) and "error" not in result else None
+        """Получить данные пользователя по Telegram ID.
+
+        Три несовпадения подряд были здесь. Путь `users/telegram/{id}` —
+        такого роута нет (есть `users/telegram/{id}/bonuses`), и запрос
+        отдавал 404. Роут, который нужен, — `users/telegram?telegramId=…`, и
+        он заворачивает ответ в `{user: {...}}`, а вызывающие читали плоский
+        объект. Поэтому экран «Профиль» у КАЖДОГО показывал «телефон не
+        указан», даже когда телефон в базе был.
+        """
+        result = await self._api_call(f"users/telegram?telegramId={telegram_id}")
+        if not isinstance(result, dict) or "error" in result:
+            return None
+        user = result.get("user")
+        return user if isinstance(user, dict) else None
 
     # ==================== STEPAN MANAGER ====================
 

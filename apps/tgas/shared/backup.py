@@ -238,13 +238,27 @@ async def run_backup_cycle() -> dict:
     offsite = await copy_offsite(path)
     await cleanup_old_backups()
 
-    if not offsite and os.getenv("BACKUP_REMOTE_TARGET", "").strip():
+    if not offsite:
+        # Предупреждение показывалось ТОЛЬКО при заданном BACKUP_REMOTE_TARGET,
+        # а переменной нет ни в одном `.env.example` и ни в одном compose. То
+        # есть условие не выполнялось никогда, и владелец видел чистое
+        # «✅ Бэкап готов» ровно в том случае, против которого написан этот
+        # модуль: единственная копия лежит на той же машине, что и база.
+        target_set = bool(os.getenv("BACKUP_REMOTE_TARGET", "").strip())
+        tail = (
+            "Копия только на этом сервере."
+            if target_set
+            else (
+                "Внешнее хранилище НЕ настроено (BACKUP_REMOTE_TARGET пуст) — "
+                "копия только на этом сервере и погибнет вместе с ним."
+            )
+        )
         return {
             "ok": True,
             "file": name,
             "size": size,
             "offsite": False,
-            "message": f"⚠️ Бэкап создан, но не уехал наружу: {name}. Копия только на этом сервере.",
+            "message": f"⚠️ Бэкап создан, но не уехал наружу: {name}. {tail}",
         }
 
     return {

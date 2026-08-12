@@ -191,12 +191,24 @@ model Order {
   address       String
   phone         String
   note          String?       @db.Text
+  /// Откуда пришёл заказ: `web` | `telegram_bot` | `ai_office`.
+  ///
+  /// Поля не было, а передавали его честно все три клиента — витринный бот
+  /// (`source: "telegram_bot"`), офис (`storefront_orders.py`, `"ai_office"`)
+  /// и сайт. Zod пропускал, `createOrder` не записывал, и отличить заказ с
+  /// сайта от заказа из бота было нечем: атрибуция каналов продаж не
+  /// существовала.
+  source        String        @default("web")
   paymentMethod String        @map("payment_method") // click | payme | cash
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  /// Исторический флаг. Виджет подписки в корзине его выставлял, но не читал
+  /// НИКТО: `GreenBoxSubscription` из корзины не создавалась, а исполнения
+  /// подписок нет ни в одном модуле. Виджет убран, флаг больше не пишется;
+  /// колонка оставлена, чтобы `db push` не удалял данные на проде.
   isSubscription Boolean @default(false) @map("is_subscription")
 
   items        OrderItem[]

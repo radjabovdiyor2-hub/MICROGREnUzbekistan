@@ -27,18 +27,13 @@ WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 _catalog_cache = {"text": "", "timestamp": 0}
 CATALOG_TTL = 300  # 5 minutes
 
-from shared.constants import CATEGORY_LABELS as _BASE_LABELS
+from shared.constants import CATEGORY_LABELS
 
-# Extend base labels with additional product categories (for AI catalog context)
-CATEGORY_LABELS = {
-    **_BASE_LABELS,
-    "VEGETABLES": "🥕 Овощи",
-    "FRUITS": "🍓 Фрукты",
-    "HERBS": "🌿 Зелень",
-    "MUSHROOMS": "🍄 Грибы",
-    "SPROUTS": "🌾 Проростки",
-    "BERRIES": "🫐 Ягоды",
-}
+# Расширения списка здесь больше нет. Оно добавляло `VEGETABLES`, `FRUITS`,
+# `HERBS`, `MUSHROOMS`, `SPROUTS`, `BERRIES` — категорий с такими слагами в
+# каталоге нет ни одной (`/api/categories` отдаёт семь: microgreens,
+# baby-leaf, salads, flowers, seeds, equipment, sets), так что подписи не
+# подставлялись никогда. Неизвестный слаг и так печатается как есть.
 
 
 async def _load_product_catalog() -> str:
@@ -48,30 +43,33 @@ async def _load_product_catalog() -> str:
         return _catalog_cache["text"]
     
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(f"{WEB_API_URL}/products")
-            if resp.status_code != 200:
-                return _catalog_cache.get("text", "")
-            products = resp.json()
-        
-        if not isinstance(products, list) or not products:
+        # Раньше здесь стоял свой запрос с проверкой `isinstance(products, list)`,
+        # а `/api/products` отдаёт объект `{items, pagination}`. Условие не
+        # выполнялось никогда, функция возвращала пустую строку, и системный
+        # промпт собирался БЕЗ единого товара и без единой цены — при том, что
+        # модели запрещено выдумывать суммы. Она их и выдумывала.
+        from services.catalog import fetch_products
+
+        products = await fetch_products(limit=100)
+
+        if not products:
             return ""
-        
+
         # Group by category
         grouped = {}
         for p in products:
-            cat = p.get("category", "OTHER")
+            cat = p.get("category") or "other"
             if cat not in grouped:
                 grouped[cat] = []
             grouped[cat].append(p)
-        
+
         catalog = f"\n══ КАТАЛОГ ({len(products)} товаров) ══\n"
         for cat, items in grouped.items():
             label = CATEGORY_LABELS.get(cat, cat)
             catalog += f"\n{label}:\n"
             for item in items:
                 price = f"{item['price']:,.0f}".replace(",", " ")
-                stock = "✅" if item.get("inStock") else "❌"
+                stock = "✅" if item.get("in_stock") else "❌"
                 desc = (item.get("description") or "")[:60]
                 catalog += f"  • {item['title']} | {price} сум | {stock}"
                 if desc:

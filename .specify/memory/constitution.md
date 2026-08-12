@@ -10,7 +10,7 @@
 |--------|------|------|--------|
 | `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 29 API-групп, 107 route-файлов, 213 компонентов | ~66KB globals.css, 71 Prisma-модель |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
-| `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 13 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 40 shared-модулей, ~400KB main.py суммарно |
+| `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 40 shared-модулей, ~400KB main.py суммарно |
 | `packages/database` | Prisma ORM, PostgreSQL | Схема (71 модель, 1763 строки), миграции, сиды | schema.prisma — единый источник DDL |
 
 **Запреты:**
@@ -55,7 +55,12 @@
 
 ### IV. Event-Driven Architecture (AI Office)
 
-13 ботов + 1 мост. Единый реестр: `shared/bot_registry.py` (BotInfo dataclass).
+12 ботов + 1 мост. Единый реестр: `shared/bot_registry.py` (BotInfo dataclass).
+Здесь значилось «13 ботов», при том что таблица ниже перечисляет двенадцать:
+документ противоречил сам себе. Каталогов в `apps/tgas/bots/` — двенадцать
+плюс `n8n_bridge`, который ботом не является. `check_bot_roster.py` этого не
+ловил: он сверяет шесть источников с `ALL_BOTS`, то есть внутреннюю
+согласованность, а не заявленное в документах число.
 
 **Порты (фиксированы):**
 
@@ -119,7 +124,7 @@
 
 ## Deployment
 
-- **Production:** `docker-compose.prod.yml` — 15 сервисов (13 ботов + web + bot) + nginx + postgres + redis.
+- **Production:** `docker-compose.prod.yml` — 12 ботов + n8n_bridge + web_office + web + bot + nginx + postgres + redis.
 - **Сеть:** `mg_net` (Docker bridge). Наружу только nginx (443).
 - **Web:** `127.0.0.1:3002:3000`, nginx проксирует с `microgreenuzbekistan.com`.
 - **Deploy:** `./deploy.sh` (все) или `./deploy.sh web` / `./deploy.sh sales content stepan` (выборочно).
@@ -132,7 +137,7 @@
 | `packages/database/prisma/schema.prisma` | 71 модель, 1763 строки — полная схема БД |
 | `apps/web/src/app/globals.css` | Design System v1.0 (2696 строк) |
 | `apps/web/design-system/tokens/tokens.json` | Дизайн-токены W3C DTCG |
-| `apps/tgas/shared/bot_registry.py` | Реестр всех 13 ботов (порты, имена, отделы) |
+| `apps/tgas/shared/bot_registry.py` | Реестр всех 12 ботов и моста (порты, имена, отделы) |
 | `apps/tgas/shared/config.py` | Pydantic Settings — все env-переменные |
 | `apps/tgas/shared/event_bus.py` | Event Bus (Redis Pub/Sub + HTTP fallback) |
 | `apps/tgas/shared/ai_engine.py` | AIEngine wrapper (35KB — единственный AI-клиент) |

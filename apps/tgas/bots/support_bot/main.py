@@ -113,8 +113,13 @@ async def complaint_followup():
             if alert_once.should_send("support.complaints", ids):
                 lines = ["🚨 <b>Нерешённые жалобы (>48ч):</b>\n"]
                 for c in unresolved:
+                    # Жалоба может прийти без привязки к клиенту (Bot Bus
+                    # принимает `customer_id=None`). Печатать «клиент #None»
+                    # бессмысленно: связать её с человеком всё равно нечем,
+                    # и честнее так и сказать.
+                    who = f"клиент #{c.customer_id}" if c.customer_id else "клиент не определён"
                     lines.append(
-                        f"  🔴 #{c.id} — клиент #{c.customer_id} "
+                        f"  🔴 #{c.id} — {who} "
                         f"(от {c.created_at.strftime('%d.%m %H:%M')})"
                     )
                 lines.append(f"\nВсего: <b>{len(unresolved)}</b> — требуется внимание!")
@@ -289,9 +294,10 @@ async def bus_handle_complaint(params: dict) -> dict:
         from shared.database import get_session_ctx
         from sqlalchemy import text
 
-        customer_id = params.get(
-            "customer_id"
-        )  # может быть None — жалоба без привязки к клиенту
+        # Может быть None — жалоба без привязки к клиенту. Так тоже бывает
+        # (сообщение из канала, звонок), но в ответе это надо сказать вслух:
+        # разбирать такую жалобу придётся руками, связать её с человеком нечем.
+        customer_id = params.get("customer_id")
         complaint_text = params.get("text", "Жалоба через Bot Bus")
         async with get_session_ctx() as session:
             await session.execute(
@@ -302,9 +308,10 @@ async def bus_handle_complaint(params: dict) -> dict:
                 {"cid": customer_id, "summary": complaint_text},
             )
             await session.commit()
+        tail = "" if customer_id else " (клиент не определён — свяжите вручную)"
         return {
             "status": "ok",
-            "message": f"Жалоба зарегистрирована: {complaint_text[:80]}",
+            "message": f"Жалоба зарегистрирована: {complaint_text[:80]}{tail}",
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}

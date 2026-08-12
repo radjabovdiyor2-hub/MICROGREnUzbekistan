@@ -1,4 +1,5 @@
 import logging
+import os
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
@@ -10,8 +11,35 @@ from services.config_service import fetch_site_config
 router = Router()
 logger = logging.getLogger(__name__)
 
-# Paths relative to the bot's working directory (apps/bot/ in Docker, project root locally)
-_CONTENT_DIR = Path(__file__).resolve().parent.parent.parent.parent / "content"
+
+def _resolve_content_dir() -> Path:
+    """Каталог с обложками и PDF журнала.
+
+    Комментарий здесь обещал «apps/bot/ в Docker, корень проекта локально», а
+    арифметика была обратной. В контейнере `WORKDIR /app` и код лежит в
+    `/app/handlers`, поэтому четыре `.parent` давали корень файловой системы,
+    и путь получался `/content` — каталога с таким именем там нет. Локально
+    тот же расчёт указывает верно, поэтому расхождение видно только в проде.
+
+    Берём первый существующий каталог; переопределяется переменной
+    `MAGAZINE_CONTENT_DIR`.
+    """
+    override = os.getenv("MAGAZINE_CONTENT_DIR")
+    if override:
+        return Path(override)
+
+    here = Path(__file__).resolve()
+    candidates = (
+        here.parent.parent / "content",                # /app/content — Docker
+        here.parent.parent.parent.parent / "content",  # корень репозитория
+    )
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate
+    return candidates[0]
+
+
+_CONTENT_DIR = _resolve_content_dir()
 
 def get_issue_paths(issue_number: int):
     cover_name = f"cover_issue_0{issue_number}.png" if issue_number > 1 else "cover.png"

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
-import path from 'path';
 import crypto from 'crypto';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { stateFile } from '@/lib/stateDir';
 
 // ════════════════════════════════════════════════════════════════════
 // WebAuthn (Face ID / Touch ID) — ВХОД ОТКЛЮЧЁН.
@@ -20,7 +20,9 @@ import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 // @simplewebauthn). Все под isAuthorized — без пароля не войти.
 // ════════════════════════════════════════════════════════════════════
 
-const WEBAUTHN_FILE = path.join(process.cwd(), '.admin-webauthn.json');
+// STATE_DIR, а не слой образа: иначе привязанные passkeys исчезали при
+// каждом деплое вместе с файлом.
+const WEBAUTHN_FILE = stateFile('.admin-webauthn.json');
 
 interface StoredCredential {
   id: string;

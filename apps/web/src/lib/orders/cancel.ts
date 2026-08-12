@@ -20,6 +20,17 @@ import { prisma } from '@repo/database';
 
 export const CANCEL_REASON_PREFIX = 'Отмена заказа';
 
+// Обратная операция: заказ вышел из отмены и снова живой.
+//
+// Идемпотентность была ОДНОСТОРОННЕЙ: маркер возврата навсегда запрещал
+// повторный возврат, а операции «забрать обратно» не существовало вовсе.
+// Оператор, промахнувшийся по кнопке «Отменён» и сразу исправивший статус,
+// оставлял склад с лишними единицами (их продадут второй раз), клиента — с
+// баллами при живом заказе, где скидка уже учтена в сумме, и промокод с
+// `maxUses: 1` снова доступным. Вторая отмена уже ничего не возвращала, так
+// что расхождение фиксировалось навсегда и в обе стороны.
+export const REVIVE_REASON_PREFIX = 'Снятие отмены заказа';
+
 /**
  * Вернуть клиенту бонусы и освободить использование промокода.
  *
@@ -81,14 +92,19 @@ export async function restoreStockForCancelledOrder(orderId: string): Promise<nu
   if (!order) return 0;
 
   const reason = `${CANCEL_REASON_PREFIX} #${order.orderNumber}`;
+  const reviveReason = `${REVIVE_REASON_PREFIX} #${order.orderNumber}`;
 
-  // Уже возвращали? Тогда выходим — иначе вторая отмена удвоила бы остаток
-  // и второй раз начислила бы бонусы.
-  const already = await prisma.stockMovement.findFirst({
-    where: { orderId: order.id, type: 'IN', reason },
-    select: { id: true },
-  });
-  if (already) return 0;
+  // Возврат разрешён, только если он не «висит» уже сделанным. Считаем пары:
+  // сколько раз возвращали и сколько раз забирали обратно. Простой проверки
+  // «маркер есть» не хватает — после снятия отмены заказ можно отменить
+  // снова, и тогда товар обязан вернуться во второй раз.
+  const [restores, revives] = await Promise.all([
+    prisma.stockMovement.count({ where: { orderId: order.id, type: 'IN', reason } }),
+    prisma.stockMovement.count({
+      where: { orderId: order.id, type: 'OUT', reason: reviveReason },
+    }),
+  ]);
+  if (restores > revives) return 0;
 
   // Бонусы и промокод возвращаются ДО товара: их возврат дешевле повторить,
   // чем движение склада, если что-то оборвётся посередине.
@@ -121,4 +137,83 @@ export async function restoreStockForCancelledOrder(orderId: string): Promise<nu
   }
 
   return restored;
+}
+
+/**
+ * Забрать обратно то, что вернула отмена: заказ снова живой.
+ *
+ * Зеркало `restoreStockForCancelledOrder`. Вызывается при выходе заказа из
+ * `CANCELLED`/`REFUNDED`. Возвращает число позиций, списанных повторно.
+ */
+export async function reapplyStockForRevivedOrder(orderId: string): Promise<number> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      userId: true,
+      bonusUsed: true,
+      promoCode: true,
+      items: { select: { productId: true, quantity: true } },
+    },
+  });
+  if (!order) return 0;
+
+  const reason = `${CANCEL_REASON_PREFIX} #${order.orderNumber}`;
+  const reviveReason = `${REVIVE_REASON_PREFIX} #${order.orderNumber}`;
+
+  // Забирать обратно нечего, если возврата не было: заказ, который никогда не
+  // отменяли, при смене статуса не должен терять остаток второй раз.
+  const [restores, revives] = await Promise.all([
+    prisma.stockMovement.count({ where: { orderId: order.id, type: 'IN', reason } }),
+    prisma.stockMovement.count({
+      where: { orderId: order.id, type: 'OUT', reason: reviveReason },
+    }),
+  ]);
+  if (restores <= revives) return 0;
+
+  // Скидки — первыми, как и при возврате: их проще повторить.
+  if (order.bonusUsed > 0) {
+    // Условное списание: баллы клиент мог уже потратить. Не ушли в минус —
+    // значит, скидка в сумме заказа больше ничем не обеспечена, и это видно
+    // в логе, а не молча.
+    const taken = await prisma.user.updateMany({
+      where: { id: order.userId, bonusPoints: { gte: order.bonusUsed } },
+      data: { bonusPoints: { decrement: order.bonusUsed } },
+    });
+    if (taken.count === 0) {
+      console.error(
+        `Revive #${order.orderNumber}: не хватило баллов, чтобы забрать ${order.bonusUsed}`,
+      );
+    }
+  }
+
+  if (order.promoCode) {
+    await prisma.promoCode
+      .updateMany({ where: { code: order.promoCode }, data: { usedCount: { increment: 1 } } })
+      .catch((err) => console.error('Promo re-consume failed:', err));
+  }
+
+  let reapplied = 0;
+  for (const item of order.items) {
+    await prisma.$transaction([
+      prisma.product.update({
+        where: { id: item.productId },
+        data: { stock: { decrement: item.quantity } },
+      }),
+      prisma.stockMovement.create({
+        data: {
+          productId: item.productId,
+          type: 'OUT',
+          quantity: item.quantity,
+          reason: reviveReason,
+          orderId: order.id,
+          performedBy: 'System',
+        },
+      }),
+    ]);
+    reapplied++;
+  }
+
+  return reapplied;
 }

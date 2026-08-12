@@ -146,14 +146,24 @@ async def admin_stats(callback: CallbackQuery):
         logger.error(f"Admin stats fetch error: {e}")
         stats = {}
     
-    text = (
-        "📊 <b>Статистика</b>\n\n"
-        f"👥 Пользователей: <b>{stats.get('users', 0)}</b>\n"
-        f"📦 Заказов: <b>{stats.get('orders', 0)}</b>\n"
-        f"🛍️ Товаров: <b>{stats.get('products', 158)}</b>\n"
-        f"💰 Выручка: <b>{stats.get('revenue', 0):,.0f}</b> сум\n\n"
-        f"📈 Сегодня: +{stats.get('todayOrders', 0)} заказов"
-    )
+    if not stats:
+        # Пустой ответ витрины — это «не знаю», а не нули. Раньше здесь
+        # подставлялось `stats.get('products', 158)`: при отказе API админ
+        # видел «🛍️ Товаров: 158» и принимал это за настоящее число.
+        text = (
+            "📊 <b>Статистика</b>\n\n"
+            "⚠️ Витрина не ответила — цифр сейчас нет.\n"
+            "Попробуйте обновить через минуту."
+        )
+    else:
+        text = (
+            "📊 <b>Статистика</b>\n\n"
+            f"👥 Пользователей: <b>{stats.get('users', 0)}</b>\n"
+            f"📦 Заказов: <b>{stats.get('orders', 0)}</b>\n"
+            f"🛍️ Товаров: <b>{stats.get('products', 0)}</b>\n"
+            f"💰 Выручка: <b>{stats.get('revenue', 0):,.0f}</b> сум\n\n"
+            f"📈 Сегодня: +{stats.get('todayOrders', 0)} заказов"
+        )
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔄 Обновить", callback_data="admin:stats")],

@@ -17,43 +17,11 @@ from shared.utils import simulate_typing
 import json
 import logging
 
-from shared.prompts import TEAM_CONTEXT, role_prompt
+from shared.prompts import role_prompt
 
 router = Router()
 ai = AIEngine()
 logger = logging.getLogger(__name__)
-
-# ─── AI классификация задачи ────────────────────────────────
-
-CLASSIFIER_PROMPT = f"""{TEAM_CONTEXT}
-Ты — Операционный Директор (COO) и главный диспетчер задач.
-Проанализируй задачу и верни JSON:
-{{
-  "department": "production|sales|marketing|finance|hr|support|content|logistics|analytics|qa|rnd|devops",
-  "priority": "urgent|high|medium|low",
-  "assignee": "кому назначить (роль)",
-  "title": "краткое название задачи (до 100 символов)",
-  "steps": ["шаг 1", "шаг 2", "шаг 3"],
-  "deadline_days": число_дней_на_выполнение,
-  "verification": "как проверить результат"
-}}
-
-Отделы (выбери один из существующих ботов/отделов компании):
-- production: выращивание, посев, сбор урожая, полив, субстрат
-- sales: продажи, клиенты, заказы, B2B, звонки
-- marketing: реклама, SMM, Instagram, Telegram, акции, рассылки
-- finance: бюджет, расходы, доходы, зарплата, налоги
-- hr: сотрудники, найм, обучение, табель, отпуск
-- support: жалобы, возвраты, обслуживание клиентов
-- content: посты, фото, видео, рецепты, описания, прайс-листы
-- logistics: доставка, упаковка, склад, курьеры
-- analytics: отчёты, метрики, воронки, ABC-анализ, тренды продаж
-- qa: качество урожая, проверка партий, плесень, всхожесть, брак
-- rnd: опыты с культурами и субстратами, урожайность, новые сорта
-- devops: серверы, контейнеры, бэкапы, доступность сервисов
-
-Верни ТОЛЬКО JSON, без markdown и пояснений."""
-
 
 VERIFY_PROMPT = """Ты — Операционный Директор в Microgreen Uzbekistan.
 Проверь отчёт о выполнении задачи:
@@ -153,29 +121,56 @@ async def request_report(cb: CallbackQuery):
     await cb.answer()
 
 
-@router.message(F.text.lower().startswith("отчёт") | F.text.lower().startswith("отчет"))
+@router.message(F.text.regexp(r"(?i)^отч[её]т\s+\d+\b"))
 async def process_report(msg: Message):
-    """Получает отчёт и проверяет через AI."""
-    parts = msg.text.split(maxsplit=1)
-    if len(parts) < 2:
-        await msg.answer("📝 Формат: <code>отчёт [текст отчёта]</code>")
+    """Получает отчёт по КОНКРЕТНОЙ задаче и показывает мнение модели.
+
+    Здесь было две ошибки сразу, и обе тихие.
+
+    Первая: номер задачи не разбирался вовсе. Кнопка «📝 Отчёт» просит начать
+    сообщение с «отчёт {id}», а обработчик брал `LIMIT 1` по «самая срочная,
+    самая свежая» — то есть отчёт всегда приписывался чужой задаче. Фильтр при
+    этом ловил ЛЮБОЕ сообщение на «отчёт», а роутер диспетчера стоит первым:
+    «отчет по продажам за неделю» уходило сюда же. Теперь номер обязателен и
+    разбирается регуляркой в самом фильтре — сообщения без номера сюда не
+    попадают и достаются обычному ассистенту.
+
+    Вторая: вердикт модели писался в базу как факт. `status == "approved"`
+    закрывал задачу и рассылал `TASK_COMPLETED` — при том, что критериев у
+    модели почти никогда нет: описания задач хранятся плоским текстом, а не
+    JSON, поэтому `steps` пусто, а `verification` — строка по умолчанию.
+    Оценка «8/10» выставлялась ни по чему. Теперь это рекомендация с кнопками
+    «Принять» / «На доработку», а закрывает задачу человек.
+    """
+    parts = msg.text.split(maxsplit=2)
+    if len(parts) < 3:
+        await msg.answer(
+            "📝 Формат: <code>отчёт [номер задачи] [текст отчёта]</code>\n"
+            "Например: <code>отчёт 42 закупил субстрат, накладная у Азиза</code>"
+        )
         return
 
-    report_text = parts[1]
+    task_id = int(parts[1])
+    report_text = parts[2]
 
-    # Находим последнюю незакрытую задачу
     async with get_session_ctx() as session:
         result = await session.execute(
             text(
-                "SELECT id, title, department, description FROM tasks "
-                "WHERE status IN ('todo', 'in_progress') "
-                "ORDER BY priority = 'urgent' DESC, created_at DESC LIMIT 1"
-            )
+                "SELECT id, title, department, description, status FROM tasks "
+                "WHERE id = :tid"
+            ),
+            {"tid": task_id},
         )
         task = result.fetchone()
 
     if not task:
-        await msg.answer("❌ Нет активных задач для отчёта.")
+        await msg.answer(f"❌ Задачи #{task_id} нет.")
+        return
+    if task.status in ("done", "cancelled"):
+        await msg.answer(
+            f"ℹ️ Задача #{task_id} уже закрыта со статусом «{task.status}» — "
+            f"отчёт по ней не нужен."
+        )
         return
 
     await simulate_typing(msg, delay=3)
@@ -246,23 +241,16 @@ async def process_report(msg: Message):
         f"{status_emoji} <b>Проверка задачи #{task.id}</b>\n"
         f"━━━━━━━━━━━━━━━━━━━━━\n\n"
         f"📌 {task.title}\n\n"
-        f"📊 Оценка: [{score_bar}] {score}/10\n"
-        f"📋 Статус: <b>{status_text}</b>\n\n"
+        f"📊 Оценка модели: [{score_bar}] {score}/10\n"
+        f"📋 Мнение: <b>{status_text}</b>\n\n"
         f"💬 {feedback}"
-        f"{missing_text}"
+        f"{missing_text}\n\n"
+        f"<i>Это рекомендация. Задачу закрываете вы.</i>"
     )
 
-    if status == "approved":
-        # Задача выполнена!
-        await tasks_repo.set_status(task.id, "done")
-        await event_bus.publish(
-            Events.TASK_COMPLETED,
-            {"task_id": task.id, "title": task.title, "score": score},
-            source_bot="stepan_bot",
-        )
-        await msg.answer(response_msg)
-    else:
-        await msg.answer(response_msg, reply_markup=verify_kb(task.id))
+    # Кнопки в обоих случаях: «одобрено» моделью — тоже лишь мнение, и
+    # закрывает задачу нажатие человека (dispatch:approve → status done).
+    await msg.answer(response_msg, reply_markup=verify_kb(task.id))
 
 
 # ─── Кнопки управления ─────────────────────────────────────
@@ -329,6 +317,14 @@ async def cancel_task(cb: CallbackQuery):
 async def approve_task(cb: CallbackQuery):
     task_id = int(cb.data.split(":")[-1])
     await tasks_repo.set_status(task_id, "done")
+    # Событие уходит отсюда: раньше его публиковал автоматический вердикт
+    # модели, а теперь задачу закрывает человек — и подписчики должны узнать
+    # именно об этом моменте.
+    await event_bus.publish(
+        Events.TASK_COMPLETED,
+        {"task_id": task_id},
+        source_bot="stepan_bot",
+    )
     await cb.message.edit_text(
         cb.message.text + "\n\n✅ <b>ПРИНЯТО</b>", reply_markup=None
     )

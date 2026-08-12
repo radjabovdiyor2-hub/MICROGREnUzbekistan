@@ -197,7 +197,7 @@ async def execute_bot_task(
                 "chat_id": chat_id,
                 "caller_department": department,
             },
-            approve=approvals.approver(bot, bot_name, chat_id),
+            approve=approvals.approver(bot, bot_name, chat_id, task_id),
         )
     except Exception as exc:
         logger.error("TASK_EXECUTOR: задача %s упала: %s", task_id, exc, exc_info=True)
@@ -292,6 +292,18 @@ async def execute_bot_task(
     # когда бот признал, что сделать её не может.
     if result.acted and not result.awaiting_approval and not escalated:
         await _set_task_status(task_id, "done")
+    elif result.awaiting_approval:
+        # Ждём решения владельца — это работа в процессе, а не «зависло».
+        #
+        # Задача оставалась в `todo`, а заявка по замыслу не истекает и ждёт
+        # часами. `retry_stuck_tasks` берёт всё, что висит в `todo` дольше трёх
+        # часов, и переопубликовывал задачу: отдел прогонял модель заново и
+        # присылал ВТОРУЮ карточку на то же действие, в 15:00 — третью. Заявки
+        # разные, поэтому одноразовость каждой из них не помогала: владелец жал
+        # все три, и списывалось втрое больше, чем он просил.
+        #
+        # Закроет задачу решение по заявке — см. shared/approvals._close_task.
+        await _set_task_status(task_id, "in_progress")
 
     await _record_own_performance(bot_name, result, escalated)
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { processSale } from '@/lib/pos/sale';
 import { processRefund } from '@/lib/pos/refund';
+import { localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
 
 // ==========================================
 // POS (Point of Sale) — Quick Store Sales
@@ -33,15 +34,15 @@ export async function PUT(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const seller = searchParams.get('seller');
-  const date = searchParams.get('date') || new Date().toISOString().slice(0, 10);
-
-  const startOfDay = new Date(`${date}T00:00:00.000Z`);
-  const endOfDay = new Date(`${date}T23:59:59.999Z`);
+  const dateParam = searchParams.get('date');
+  // Одна граница суток на все отчёты — та же, что у сводки и аналитики.
+  const { start: startOfDay, end: endOfDay } = localDayRange(dateParam || undefined);
+  const date = dateParam || formatLocalDate(startOfDay);
 
   const where: Record<string, unknown> = {
     type: 'OUT',
     reason: { startsWith: "Do'kon sotish" },
-    createdAt: { gte: startOfDay, lte: endOfDay },
+    createdAt: { gte: startOfDay, lt: endOfDay },
   };
 
   if (seller) {
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
   const returnWhere: Record<string, unknown> = {
     type: 'IN',
     reason: { startsWith: 'Qaytarish' },
-    createdAt: { gte: startOfDay, lte: endOfDay },
+    createdAt: { gte: startOfDay, lt: endOfDay },
   };
   if (seller) {
     returnWhere.performedBy = seller;

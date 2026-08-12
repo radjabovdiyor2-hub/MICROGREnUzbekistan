@@ -22,8 +22,10 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
-      - name: Install canvas native deps
-        run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
+      # Шага установки cairo/pango/jpeg/gif/rsvg здесь больше нет: он ставил
+      # системные зависимости пакета `canvas`, которого нет ни в одном
+      # package.json. Печатные QR рисует `qrcode` через `pngjs`, нативных
+      # библиотек ему не нужно.
 
       - run: npm ci
       - run: cd packages/database && npx prisma generate && npm run build
@@ -95,6 +97,11 @@ jobs:
         run: mypy apps/tgas --ignore-missing-imports || true
       - name: Run compose invariant watchdog
         run: python scripts/check_compose.py
+      # Переменная, которую код читает, но никто не объявил, — это функция,
+      # молча выключенная в проде (так были обезоружены BACKUP_REMOTE_TARGET,
+      # CRON_SECRET и AUDIT_LOG_DIR).
+      - name: Run env declaration watchdog
+        run: python scripts/check_env_declared.py
       # Ниже — проверки, которые CLAUDE.md требует прогонять перед «готово»,
       # но CI не запускал ни одну: они существовали только как ручная команда.
       # Именно поэтому check_prompts мог месяцами не видеть половины нарушений —
@@ -113,6 +120,44 @@ jobs:
           python scripts/check_bot_roster.py
           python scripts/check_prompts.py
           python scripts/check_imports.py
+
+  # ─────────────────────────── E2E ───────────────────────────
+  # Шесть сценариев Playwright (auth, checkout, homepage, profile, shop) и
+  # готовый playwright.config.ts лежали в репозитории, но ни один workflow их
+  # не запускал: проверка оформления заказа существовала только на бумаге.
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: microgreen_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 10s
+          --health-timeout 5s --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: cd packages/database && npx prisma generate && npx prisma db push --skip-generate
+      - run: cd apps/web && npx playwright install --with-deps chromium
+      - run: cd apps/web && npm run build
+      # Свой сервер поднимает сам playwright.config.ts, когда
+      # PLAYWRIGHT_BASE_URL не задан.
+      - run: cd apps/web && npx playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 7
 
   # ─────────────────────────── BUILD IMAGES ───────────────────────────
   build-images:

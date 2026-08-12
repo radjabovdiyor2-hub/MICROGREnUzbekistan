@@ -2,6 +2,7 @@ import { prisma } from '@repo/database';
 import { deliveryFeeForSubtotal, getNumber } from '@/lib/settings/store';
 import { validatePromo, consumePromo } from '@/lib/promo';
 import { generateOrderNumber } from './notify';
+import { normalizePhone } from '@/lib/phone';
 import type { orderSchema, OrderItemInput } from './schema';
 import type { z } from 'zod';
 
@@ -61,6 +62,12 @@ export async function createOrder(
       firstName: body.name,
       phone: body.phone || '',
       address: body.address || 'Telegram bot orqali',
+      // Заметку офис кладёт на ВЕРХНИЙ уровень тела
+      // (`shared/storefront_orders.py`), а схема знает `note` только внутри
+      // `customer` — нестрогий Zod-объект молча срезал лишнее поле. «Позвонить
+      // перед доставкой» и «договорная цена» до `orders.note` не доезжали, и
+      // курьер условий не видел.
+      note: body.note ?? null,
     };
     // Map bot item shape: { id → productId }
     items = (body.items || []).map((item: OrderItemInput) => ({
@@ -97,20 +104,64 @@ export async function createOrder(
     return { ok: false, error: "Savat bo'sh", status: 400 };
   }
 
-  const subtotal = items.reduce((sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity, 0);
+  // Цену ставит сервер, а не покупатель.
+  //
+  // Раньше `subtotal` складывался из присланного `item.price`, и та же цена
+  // ложилась в `order_items`. Тело `{"price":1,"quantity":100}` списывало сто
+  // лотков со склада и уходило в P&L по одному суму; завышенная цена тем же
+  // способом накручивала реферальный кэшбэк — он считается процентом от
+  // `order.total`. Доставка и промокод в этом же файле всегда считались на
+  // сервере, товар оставался единственной дырой.
+  const pricedItems: { productId: string; quantity: number; price: number }[] = [];
+  const requestedIds = items.map((item: OrderItemInput) => item.productId || item.id || '');
+  const catalog = await prisma.product.findMany({
+    where: { id: { in: requestedIds }, isActive: true },
+    select: { id: true, price: true },
+  });
+  const priceById = new Map(catalog.map((product) => [product.id, product.price]));
+
+  for (const item of items) {
+    const productId = item.productId || item.id || '';
+    const catalogPrice = priceById.get(productId);
+    if (catalogPrice === undefined) {
+      return { ok: false, error: "Mahsulot topilmadi yoki sotuvda yo'q", status: 409 };
+    }
+
+    // Договорная цена — только от доверенного вызывающего.
+    //
+    // Офис регистрирует продажи ресторанам по согласованной цене, и подменять
+    // её прайсовой нельзя: `storefront_orders.create_order` передаёт цену
+    // намеренно (см. его докстринг). Но доверять цене из БРАУЗЕРА нельзя тем
+    // более — именно так покупатель назначал себе сумму заказа. Разделяем по
+    // подписи: общий секрет бот/офис → цена принимается, аноним и покупатель
+    // → всегда каталог.
+    const negotiated =
+      identity.trusted && typeof item.price === 'number' && item.price >= 0
+        ? item.price
+        : catalogPrice;
+
+    pricedItems.push({ productId, quantity: item.quantity, price: negotiated });
+  }
+
+  const subtotal = pricedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const deliveryFee = await deliveryFeeForSubtotal(subtotal);
 
   // Resolve the ordering user: prefer the logged-in account (userId), then
   // phone, else create a guest by phone.
+  // Телефон — в едином виде (lib/phone). Регистрация в кабинете хранила его
+  // как «901234567», а сюда приходило «+998901234567»: `upsert` не находил
+  // запись и заводил ВТОРОГО пользователя на того же человека.
+  const normalizedPhone = normalizePhone(customer.phone) || customer.phone;
+
   let user = userId ? await prisma.user.findUnique({ where: { id: userId } }) : null;
   if (!user) {
     // Atomic upsert by phone — two concurrent first-time orders sharing a phone
     // would otherwise both miss findUnique and both create → unique-violation 500.
     user = await prisma.user.upsert({
-      where: { phone: customer.phone },
+      where: { phone: normalizedPhone },
       update: {},
       create: {
-        phone: customer.phone,
+        phone: normalizedPhone,
         firstName: customer.firstName,
         lastName: customer.lastName || null,
       },
@@ -137,6 +188,17 @@ export async function createOrder(
     const promoResult = await validatePromo(promoCode, subtotal);
     if (!promoResult.valid) {
       return { ok: false, error: promoResult.error ?? "Promokod rad etildi", status: 422 };
+    }
+    // Использование занимаем СРАЗУ, одним условным UPDATE, а не после
+    // создания заказа: между проверкой и инкрементом помещался чужой заказ,
+    // и последнее использование доставалось обоим.
+    const claimed = await consumePromo(promoCode, promoResult.maxUses);
+    if (!claimed) {
+      return {
+        ok: false,
+        error: 'Promokod limiti tugagan / Лимит использований исчерпан',
+        status: 422,
+      };
     }
     promoApplied = Math.min(promoResult.discount, subtotal - bonusApplied);
   }
@@ -170,18 +232,14 @@ export async function createOrder(
         promoCode: promoApplied > 0 ? promoCode : null,
         city: city || 'tashkent',
         address: customer!.address,
-        phone: customer!.phone,
+        phone: normalizedPhone,
         note: customer!.note || null,
+        // Канал продажи: его передавали все три клиента, а записывать было
+        // некуда — колонки не существовало.
+        source: body.source || 'web',
         paymentMethod: paymentMethod || 'cash',
-        isSubscription: body.isSubscription || false,
         paymentStatus: 'PENDING',
-        items: {
-          create: items!.map((item: OrderItemInput) => ({
-            productId: item.productId || item.id || '',
-            quantity: item.quantity,
-            price: item.price,
-          })),
-        },
+        items: { create: pricedItems },
       },
       include: {
         items: { include: { product: { select: { nameUz: true } } } },
@@ -189,10 +247,7 @@ export async function createOrder(
     });
   });
 
-  // Count the promo use
-  if (promoCode && promoApplied > 0) {
-    await consumePromo(promoCode);
-  }
+  // Использование промокода уже занято выше, до создания заказа.
 
   return { ok: true, order, user, customerName: customer.firstName };
 }

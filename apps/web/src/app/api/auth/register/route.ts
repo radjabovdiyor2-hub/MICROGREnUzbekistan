@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { notifyOfficeCustomer } from '@/lib/office/client';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { respondWithCustomerSession } from '@/lib/customerSession';
+import { normalizePhone } from '@/lib/phone';
 
 // ══════════════════════════════════════════════════════════════════════
 // Вход по имени и телефону — без подтверждения номера.
@@ -40,9 +41,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and phone required' }, { status: 400 });
     }
 
-    // Clean phone number
-    const cleanPhone = String(phone).replace(/\D/g, '').slice(-9);
-    if (cleanPhone.length < 9) {
+    // Телефон приводится к единому виду (lib/phone). Здесь он обрезался до
+    // девяти цифр, а оформление заказа писало номер с «+998» — и один клиент
+    // получал два аккаунта, потому что `users.phone` уникален.
+    const cleanPhone = normalizePhone(phone);
+    if (!cleanPhone) {
       return NextResponse.json({ error: 'Invalid phone' }, { status: 400 });
     }
 

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 import { notifyOfficeFeedback } from '@/lib/office/client';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
+import { getCustomerId } from '@/lib/adminAuth';
+import { requireBotAuth } from '@/lib/botAuth';
 
 /** Предел длины отзыва. Раньше его не было вовсе. */
 const MAX_COMMENT = 1000;
@@ -45,9 +47,10 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ reviews });
 }
 
-// POST — create/update a review
-// Accepts either { userId, productId, rating, comment }   (authenticated user)
-//            or  { guestId, guestName, productId, rating, comment } (guest)
+// POST — create/update a review. Автор берётся из подписи:
+//   сессия покупателя            → { productId, rating, comment }
+//   витринный бот (BOT_SECRET)   → { productId, rating, comment, telegramId }
+//   гость                        → { productId, rating, comment, guestId, guestName }
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIp(request);
@@ -55,7 +58,7 @@ export async function POST(request: NextRequest) {
     if (!limit.ok) return tooManyRequests(limit.retryAfter);
 
     const body = await request.json();
-    const { userId, guestId, guestName, productId, rating } = body;
+    const { guestId, guestName, productId, rating } = body;
     const r = Number(rating);
 
     if (!productId || !(r >= 1 && r <= 5)) {
@@ -72,10 +75,32 @@ export async function POST(request: NextRequest) {
     let firstName: string | null = null;
     let telegramId: bigint | null = null;
 
-    if (userId) {
-      // Authenticated path (unchanged)
+    // Чей это отзыв — решает подпись, а не тело запроса.
+    //
+    // `userId` принимался как есть. Гостевой путь ниже защищён хешированием
+    // именно потому, что «клиент не должен выбирать себе первичный ключ», —
+    // авторизованный этой защиты не получил. Зная чужой cuid, можно было
+    // опубликовать отзыв от его имени и с его аватаром, а `upsert` по
+    // составному ключу ещё и ПЕРЕЗАПИСЫВАЛ настоящий отзыв жертвы. Текст
+    // уходит в schema.org Review на странице товара, то есть в выдачу.
+    const sessionUserId = getCustomerId(request);
+    // Витринный бот приходит с общим секретом и оставляет отзыв от имени
+    // своего собеседника — ему telegramId в теле верить можно.
+    const botTelegramId = requireBotAuth(request) ? body.telegramId : undefined;
+
+    if (sessionUserId || botTelegramId !== undefined) {
+      let where: Prisma.UserWhereUniqueInput;
+      if (sessionUserId) {
+        where = { id: sessionUserId };
+      } else {
+        try {
+          where = { telegramId: BigInt(botTelegramId as string | number) };
+        } catch {
+          return NextResponse.json({ error: 'invalid telegramId' }, { status: 400 });
+        }
+      }
       const user = await prisma.user.findUnique({
-        where: { id: userId },
+        where,
         select: { id: true, firstName: true, telegramId: true },
       });
       if (!user) {
@@ -105,7 +130,7 @@ export async function POST(request: NextRequest) {
       firstName = guestUser.firstName;
       telegramId = guestUser.telegramId;
     } else {
-      return NextResponse.json({ error: 'userId or guestId required' }, { status: 400 });
+      return NextResponse.json({ error: 'sessiya yoki guestId talab qilinadi' }, { status: 400 });
     }
 
     const product = await prisma.product.findUnique({

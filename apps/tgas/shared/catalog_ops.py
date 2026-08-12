@@ -316,6 +316,27 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
             name, price, category, stock, description_ru, description_uz, image_url
         )
 
+        # Отказ витрины = отказ операции. Это доктрина модуля
+        # (`production_repo.py`, `storefront_orders.py`), и здесь она была
+        # нарушена: строка уходила в `crm_products` со `storefront_id = NULL`,
+        # а ответ начинался с «✅ Товар добавлен».
+        #
+        # Сирота при этом не гасится ничем: `catalog_sync` деактивирует только
+        # строки со `storefront_id IS NOT NULL`. А продажа входит в вечный
+        # круг — `sales_ops` ищет товар через `catalog_repo`, то есть в
+        # ВИТРИННОЙ таблице, где его нет, и снова предлагает «добавить»:
+        # каждое согласие плодило ещё одну активную фантомную позицию.
+        if not storefront_id:
+            logger.error("CATALOG_OPS: витрина не приняла товар «%s» — в CRM не пишем", name)
+            return {
+                "status": "error",
+                "message": (
+                    f"Товар «{name}» НЕ добавлен: витрина не ответила. "
+                    f"В CRM тоже не записал, чтобы не появился товар-призрак. "
+                    f"Повторите позже или заведите товар в админке."
+                ),
+            }
+
         async with get_session_ctx() as session:
             # Зеркало в CRM: на него ссылаются позиции офисных заказов
             # (crm_order_items.product_id — целочисленный ключ) и из него же
@@ -356,17 +377,10 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
         storefront_id or "—",
     )
 
-    if storefront_id:
-        message = (
-            f"✅ Товар «{name}» добавлен: {format_price(price)} / {unit}.\n"
-            f"Он есть и в магазине, и в CRM."
-        )
-    else:
-        message = (
-            f"✅ Товар «{name}» добавлен в CRM: {format_price(price)} / {unit}.\n"
-            f"⚠️ В магазин витрины не попал (сайт не ответил) — добавьте там вручную "
-            f"или повторите позже."
-        )
+    message = (
+        f"✅ Товар «{name}» добавлен: {format_price(price)} / {unit}.\n"
+        f"Он есть и в магазине, и в CRM."
+    )
 
     return {
         "status": "ok",

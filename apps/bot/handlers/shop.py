@@ -26,6 +26,7 @@ from services.ecosystem_bridge import bridge
 from services.cart_storage import cart_storage
 from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_TUPLES as CATEGORIES, format_price
+from shared.api import api_headers as _api_headers
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -41,37 +42,70 @@ ITEMS_PER_PAGE = 4
 
 
 async def fetch_products(category: str = None) -> list:
-    """Fetch products from API"""
-    try:
-        url = f"{WEB_API_URL}/products"
-        if category:
-            url += f"?category={category}"
-        
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(url)
-            if response.status_code == 200:
-                data = response.json()
-                if isinstance(data, dict):
-                    products = data.get('items', data.get('products', []))
-                else:
-                    products = data
-                if category:
-                    products = [p for p in products if p.get("category") == category]
-                return products
-    except Exception as e:
-        logger.error(f"Failed to fetch products: {e}")
-    return []
+    """Товары каталога через общий слой `services.catalog`.
+
+    Здесь была вторая реализация разбора ответа. Конверт `{items, …}` она
+    понимала верно, но следом фильтровала список ещё раз, уже на клиенте:
+    `p.get("category") == category`, где `category` в ответе витрины —
+    вложенный объект, а не строка. Сравнение объекта со строкой ложно всегда,
+    поэтому любая кнопка категории отвечала «Нет товаров» — при том, что
+    витрина по слагу отдавала товары исправно.
+    """
+    from services.catalog import fetch_products as _fetch
+
+    return await _fetch(category=category)
 
 
 # format_price imported from shared.constants
 
 
+# ──────────────────────────────────────────────────────────────
+# Количество в корзине.
+#
+# `cart_storage.add_to_cart` честно увеличивает `quantity`, когда тот же товар
+# добавляют повторно, — и это значение не читал НИКТО: ни витрина корзины, ни
+# сумма, ни payload заказа (там стояло `"quantity": 1` литералом), ни
+# уведомление менеджеру. Клиент трижды нажимал «Добавить в корзину», трижды
+# получал «✅ Добавлено», а заказ уходил на одну единицу. Расхождение было
+# самосогласованным — сумма занижалась ровно так же, — поэтому ни одна
+# проверка его не замечала.
+# ──────────────────────────────────────────────────────────────
+
+
+def cart_quantity(item: dict) -> int:
+    """Количество в позиции корзины, не меньше одного."""
+    try:
+        return max(1, int(item.get("quantity", 1) or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def cart_total(cart: list) -> int:
+    """Сумма корзины с учётом количества."""
+    return sum(int(p.get("price", 0) or 0) * cart_quantity(p) for p in cart)
+
+
+def cart_item_text(item: dict) -> str:
+    """Позиция без нумерации: «Руккола × 3 = 45 000» или «Руккола — 15 000»."""
+    qty = cart_quantity(item)
+    price = int(item.get("price", 0) or 0)
+    if qty > 1:
+        return f"{item.get('title')} × {qty} = {format_price(price * qty)}"
+    return f"{item.get('title')} — {format_price(price)}"
+
+
+def cart_line(index: int, item: dict) -> str:
+    """Строка позиции для витрины корзины: «2. Руккола × 3 = 45 000»."""
+    return f"{index}. {cart_item_text(item)}"
+
+
 def get_product_images(product: dict, category: str) -> list[str]:
-    """Return product's actual image(s) only — no stock photos"""
-    main_image = product.get("image", "/images/logo.jpg")
-    if main_image.startswith("/"):
-        main_image = f"{WEB_URL}{main_image}"
-    return [main_image]
+    """Return product's actual image(s) only — no stock photos.
+
+    `normalize_product` уже отдаёт абсолютную ссылку или None, поэтому
+    достраивать путь второй раз не нужно — нужен только запасной вариант.
+    """
+    return [product.get("image") or f"{WEB_URL}/images/logo.jpg"]
 
 
 # ==================== KEYBOARDS & LAYOUTS ====================
@@ -305,10 +339,10 @@ async def cb_view_cart(callback: CallbackQuery):
         await callback.answer("Корзина пуста", show_alert=True)
         return
         
-    total = sum(int(p.get("price", 0)) for p in cart)
+    total = cart_total(cart)
     text = "🛒 <b>Корзина</b>\n\n"
     for i, p in enumerate(cart):
-        text += f"{i+1}. {p.get('title')} — {format_price(int(p.get('price')))}\n"
+        text += cart_line(i + 1, p) + "\n"
     text += f"\n💰 <b>Итого: {format_price(total)} сум</b>"
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -359,11 +393,11 @@ async def cb_checkout(callback: CallbackQuery):
         await callback.answer("Корзина пуста", show_alert=True)
         return
     
-    total = sum(int(p.get("price", 0)) for p in cart)
-    items_text = "\n".join([f"• {p.get('title')} — {format_price(int(p.get('price', 0)))}" for p in cart[:5]])
+    total = cart_total(cart)
+    items_text = "\n".join([f"• {cart_item_text(p)}" for p in cart[:5]])
     if len(cart) > 5:
         items_text += f"\n• ... и ещё {len(cart) - 5}"
-    
+
     # Save checkout state
     cart_storage.set_checkout_state(user_id, {"cart": list(cart), "step": "confirm"})
     
@@ -448,8 +482,8 @@ async def cb_quick_confirm(callback: CallbackQuery):
 async def handle_contact_for_order(message: Message):
     """Step 2: Receive phone from contact, create order"""
     from handlers.admin import send_order_to_group
-    import uuid
-    
+
+
     user_id = message.from_user.id
     state = cart_storage.get_checkout_state(user_id)
     
@@ -472,9 +506,9 @@ async def handle_contact_for_order(message: Message):
         cart_storage.clear_checkout_state(user_id)
         return
     
-    total = sum(int(p.get("price", 0)) for p in cart)
-    order_id = str(uuid.uuid4())[:8].upper()
-    
+    total = cart_total(cart)
+    order_id = None
+
     user = message.from_user
     customer_name = user.full_name or "Клиент"
     
@@ -490,7 +524,15 @@ async def handle_contact_for_order(message: Message):
         "address": ADDRESS_TO_CLARIFY,
         "source": "telegram_bot",
         "telegramId": str(user_id),
-        "items": [{"id": p.get("id", f"bot_{i}"), "title": p.get("title"), "price": int(p.get("price", 0)), "quantity": 1} for i, p in enumerate(cart)]
+        "items": [
+            {
+                "id": p.get("id", f"bot_{i}"),
+                "title": p.get("title"),
+                "price": int(p.get("price", 0)),
+                "quantity": cart_quantity(p),
+            }
+            for i, p in enumerate(cart)
+        ],
     }
 
     # Save to DB.
@@ -501,12 +543,27 @@ async def handle_contact_for_order(message: Message):
     saved = False
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.post(f"{WEB_API_URL}/orders", json=api_order_data)
+            resp = await client.post(
+                f"{WEB_API_URL}/orders", json=api_order_data, headers=_api_headers()
+            )
             if resp.status_code in (200, 201):
                 result = resp.json()
-                order_id = result.get("orderId", order_id)
-                saved = True
-                logger.info(f"Order {order_id} saved to database with phone {phone}")
+                # Номер заказа — тот, что выдала витрина, и никакой другой.
+                #
+                # Здесь читался ключ `orderId`, которого в ответе нет и не
+                # было: роут отдаёт `{success, order: {id, orderNumber, …}}`.
+                # `.get(..., order_id)` молча возвращал запасное значение —
+                # локальный `uuid4()[:8]`, — и клиент с менеджером получали
+                # номер, которого нет ни в одной таблице. Найти по нему заказ
+                # было невозможно.
+                order_id = (result.get("order") or {}).get("orderNumber")
+                saved = bool(order_id)
+                if saved:
+                    logger.info("Order %s saved to database", order_id)
+                else:
+                    logger.error(
+                        "Витрина приняла заказ, но не вернула orderNumber: %s", result
+                    )
             else:
                 logger.warning(f"Order API returned {resp.status_code}: {resp.text}")
     except Exception as e:
@@ -514,14 +571,21 @@ async def handle_contact_for_order(message: Message):
 
     # Notify admin
     order_data = {
-        "id": order_id,
+        "id": order_id or "—",
         "customerName": customer_name,
         "phone": phone,
         "address": ADDRESS_TO_CLARIFY,
         "total": total,
-        "items": [{"title": p.get("title"), "price": p.get("price"), "quantity": 1} for p in cart],
+        "items": [
+            {
+                "title": p.get("title"),
+                "price": p.get("price"),
+                "quantity": cart_quantity(p),
+            }
+            for p in cart
+        ],
         "telegramUserId": user_id,
-        "status": "PENDING" if saved else "NOT_SAVED"
+        "status": "PENDING" if saved else "NOT_SAVED",
     }
 
     try:
@@ -532,7 +596,7 @@ async def handle_contact_for_order(message: Message):
     # Уведомить Степана-менеджера (@MG_PM1_bot).
     # Уходит в обоих случаях: если витрина отказала, заявку тем более надо
     # спасать руками — но менеджер должен видеть, что в админке её нет.
-    items_for_stepan = "\n".join([f"  • {p.get('title')} — {format_price(int(p.get('price', 0)))} сум" for p in cart[:8]])
+    items_for_stepan = "\n".join([f"  • {cart_item_text(p)} сум" for p in cart[:8]])
     header = (
         "📦 <b>Новый заказ из Telegram бота!</b>"
         if saved
@@ -560,7 +624,7 @@ async def handle_contact_for_order(message: Message):
     except Exception as e:
         logger.error(f"Failed to notify Stepan: {e}")
 
-    items_text = "\n".join([f"• {p.get('title')}" for p in cart[:5]])
+    items_text = "\n".join([f"• {cart_item_text(p)}" for p in cart[:5]])
     if len(cart) > 5:
         items_text += f"\n• ... и ещё {len(cart) - 5}"
 

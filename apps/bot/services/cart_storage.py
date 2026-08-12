@@ -165,12 +165,55 @@ class FileCartStorage:
 
 # ==================== AUTO-SELECT BACKEND ====================
 
+class ResilientCartStorage:
+    """Redis с файловым откатом НА ХОДУ, а не только при старте.
+
+    Модуль обещает в шапке «Fallback: JSON file (when Redis is unavailable)»,
+    но откат существовал ровно один раз — в момент импорта. Если Redis отпадал
+    позже (перезапуск, сеть), каждый вызов корзины бросал исключение, и клиент
+    получал ошибку на любое действие вплоть до перезапуска бота.
+    """
+
+    def __init__(self, primary: "RedisCartStorage", backup: "FileCartStorage"):
+        self._primary = primary
+        self._backup = backup
+        self.available = True
+
+    def _call(self, method: str, *args):
+        try:
+            return getattr(self._primary, method)(*args)
+        except Exception as exc:
+            logger.warning("Redis отпал (%s) — работаем с файлом: %s", method, exc)
+            return getattr(self._backup, method)(*args)
+
+    def get_cart(self, user_id: int) -> list:
+        return self._call("get_cart", user_id)
+
+    def add_to_cart(self, user_id: int, product: dict):
+        return self._call("add_to_cart", user_id, product)
+
+    def clear_cart(self, user_id: int):
+        return self._call("clear_cart", user_id)
+
+    def set_cart(self, user_id: int, cart: list):
+        return self._call("set_cart", user_id, cart)
+
+    def get_checkout_state(self, user_id: int) -> dict:
+        return self._call("get_checkout_state", user_id)
+
+    def set_checkout_state(self, user_id: int, state: dict):
+        return self._call("set_checkout_state", user_id, state)
+
+    def clear_checkout_state(self, user_id: int):
+        return self._call("clear_checkout_state", user_id)
+
+
 def _create_storage():
     """Auto-select Redis if available, else fall back to file storage"""
     if REDIS_URL:
         redis_storage = RedisCartStorage(REDIS_URL)
         if redis_storage.available:
-            return redis_storage
+            return ResilientCartStorage(redis_storage, FileCartStorage())
         logger.warning("Redis configured but unavailable — falling back to file storage")
 
     return FileCartStorage()

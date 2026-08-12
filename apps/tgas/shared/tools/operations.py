@@ -138,11 +138,15 @@ async def write_off_inventory(
             }
 
         # Журнал сырья — остаток меняется только вместе с записью в него.
+        #
+        # Подпись — та же, что у HTTP-пути (`production_repo.PERFORMED_BY`).
+        # Здесь стояло 'office_bot', там 'ai_office', и отчёт «кто списал»
+        # раскладывал один и тот же офис на двух разных акторов.
         await session.execute(
             text(
                 "INSERT INTO raw_material_movements "
                 "(id, material_id, type, quantity, unit_cost, total_cost, reason, performed_by, created_at) "
-                "VALUES (gen_random_uuid()::text, :mid, 'WRITE_OFF', :q, :uc, :tc, :r, 'office_bot', NOW())"
+                "VALUES (gen_random_uuid()::text, :mid, 'WRITE_OFF', :q, :uc, :tc, :r, 'ai_office', NOW())"
             ),
             {
                 "mid": row[0],

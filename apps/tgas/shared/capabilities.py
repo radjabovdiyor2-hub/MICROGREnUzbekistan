@@ -173,19 +173,18 @@ async def _reach(bot, cust: dict, message: str) -> str:
 async def _create_human_task(
     title: str, description: str, dept: str = "sales"
 ) -> Optional[int]:
-    """Задача ЖИВОМУ сотруднику — то, что бот сделать физически не может."""
+    """Задача ЖИВОМУ сотруднику — то, что бот сделать физически не может.
+
+    Раньше здесь стоял сырой INSERT без `deadline`: задача не попадала в
+    дайджест просрочки никогда, то есть о ней не узнавали. Рядом, в
+    `shared/tools/common.human_task`, всё это уже сделано правильно — идём
+    через него, а не через вторую реализацию той же идеи.
+    """
     try:
-        async with get_session_ctx() as s:
-            res = await s.execute(
-                text(
-                    "INSERT INTO tasks (title, description, department, status, priority) "
-                    "VALUES (:t, :d, :dep, 'todo', 'high') RETURNING id"
-                ),
-                {"t": title[:100], "d": description, "dep": dept},
-            )
-            tid = res.scalar()
-            await s.commit()
-            return tid
+        from shared.tools.common import human_task
+
+        created = await human_task(action=title[:500], department=dept, reason=description)
+        return created.get("task_id")
     except Exception as e:
         logger.warning(f"не создал задачу человеку: {e}")
         return None
@@ -252,7 +251,13 @@ async def cap_notify_customers(params: dict) -> Result:
             f"📞 Обзвонить {len(calls)} клиентов (нет Telegram и email)",
             f"Бот до них не дозвонится — нужен живой звонок.\n\nКлиенты: {names}\n\nЧто сказать:\n{message}",
         )
-        human = f"📞 {len(calls)} клиентов только с телефоном → задача #{tid} менеджеру (звонок)"
+        # Номер задачи может не появиться (INSERT упал) — тогда честно говорим
+        # об этом, а не печатаем «задача #None», как было.
+        human = (
+            f"📞 {len(calls)} клиентов только с телефоном → задача #{tid} менеджеру (звонок)"
+            if tid
+            else f"📞 {len(calls)} клиентов только с телефоном, но задачу на обзвон завести НЕ удалось"
+        )
         evidence.append(human)
 
     reached = len(tg) + len(mail)
@@ -456,6 +461,14 @@ async def cap_human_task(params: dict) -> Result:
     action = params.get("action") or params.get("message") or "Задача"
     dept = params.get("dept") or "pm"
     tid = await _create_human_task(action, params.get("details") or action, dept)
+    if not tid:
+        # Ни строки в базе — значит, работу никто не примет. Успехом это
+        # называть нельзя: раньше сюда уходило «Задача #None поставлена».
+        return Result(
+            False,
+            "Задачу человеку завести НЕ удалось — поручите вручную",
+            ["🙋 Требует человека, но задача не создана"],
+        )
     return Result(
         True,
         f"Задача #{tid} поставлена человеку — бот это сделать не может",

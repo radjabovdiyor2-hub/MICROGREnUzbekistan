@@ -487,9 +487,21 @@ async def handle_task_created(payload: dict):
         desc = str(data.get("description", "")).lower()
 
         if _is_sale_registration(title, desc):
-            # Реальная работа отдела: продажа записывается в CRM, а не «берётся в работу».
-            logging.info("SALES_BOT: регистрация продажи по задаче #%s", task_id)
-            from shared.sales_ops import register_sale, format_sale_report
+            # Продажа — необратимое клиентское действие: она создаёт настоящий
+            # заказ на витрине, списывает остаток и уведомляет клиента. Поэтому
+            # идёт через ту же карточку с ✅/❌, что и все рискованные
+            # инструменты, а не напрямую.
+            #
+            # Раньше здесь стоял прямой вызов `register_sale`, минуя реестр и
+            # `approvals`: `risky=True` не действовал, и `check_tools` с тестом
+            # `test_customer_facing_tools_never_run_alone` эту ветку не видели —
+            # они проверяют реестр, а ветка реестр обходила. Достаточно было
+            # жалобы «продали 3 лотка, а привезли 2»: эскалация заводила задачу
+            # отделу продаж, парсер доставал количество, и на витрине появлялся
+            # заказ, которого никто не оформлял.
+            logging.info("SALES_BOT: заявка на регистрацию продажи по задаче #%s", task_id)
+            from shared import approvals, tasks_repo
+            from shared.tools import registry as tool_registry
 
             sale_params = await _extract_sale_params(
                 ai, data.get("title", ""), data.get("description", "")
@@ -498,24 +510,33 @@ async def handle_task_created(payload: dict):
                 f"{data.get('title', '')}. {data.get('description', '')}"[:500]
             )
             sale_params["registered_by"] = "sales_bot"
-            result = await register_sale(sale_params)
 
-            if result["status"] == "ok":
-                await bot.send_message(
-                    chat_id, format_sale_report(result), parse_mode="HTML"
-                )
-                from shared import tasks_repo
-
-                await tasks_repo.set_status(task_id, "done")
-            elif result["status"] == "duplicate":
-                await bot.send_message(chat_id, f"ℹ️ {result['message']}")
-            else:
-                # Не хватает данных или ошибка — честно спрашиваем, а не имитируем работу.
+            sale_tool = tool_registry.by_name("register_sale")
+            if sale_tool is None:
+                logging.error("SALES_BOT: инструмент register_sale не найден в реестре")
                 await bot.send_message(
                     chat_id,
-                    f"❓ <b>Отдел продаж:</b> {result['message']}",
+                    "⚠️ <b>Отдел продаж:</b> не нашёл инструмент регистрации продажи. "
+                    "Продажа НЕ записана.",
                     parse_mode="HTML",
                 )
+            else:
+                verdict = await approvals.request_approval(
+                    bot,
+                    sale_tool,
+                    sale_params,
+                    bot_name="sales_bot",
+                    chat_id=chat_id,
+                    task_id=task_id,
+                )
+                await bot.send_message(
+                    chat_id, f"🧾 <b>Отдел продаж:</b> {verdict}", parse_mode="HTML"
+                )
+                # Задача ждёт решения владельца, а не висит в `todo`: иначе
+                # `retry_stuck_tasks` через три часа переопубликует её, и на
+                # витрине появится второй настоящий заказ — окно дедупликации
+                # к тому моменту давно закрыто. Закроет задачу подтверждение.
+                await tasks_repo.set_status(task_id, "in_progress")
 
         elif (
             "кп" in title

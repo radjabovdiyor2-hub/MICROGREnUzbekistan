@@ -43,7 +43,10 @@ git pull && ./deploy.sh                       # пересобрать всё
   pages_read_engagement) → `python apps/tgas/run_token_exchange.py <short_token>`
   → скопировать новый `INSTAGRAM_ACCESS_TOKEN` в корневой `.env` и `apps/tgas/.env`
   → `./deploy.sh content support analytics rnd stepan web`.
-- Порты event-bus ботов фиксированы (8081–8092), см. `docker-compose.prod.yml`.
+- Порты event-bus ботов фиксированы (8081–8093), см. `docker-compose.prod.yml`.
+  Здесь значилось «8081–8092», и 8093 терялся: `EVENT_ENDPOINTS` включает
+  `("mg_franchise", 8093)`, поэтому firewall по старому диапазону обрывал
+  HTTP-fallback Event Bus до franchise_bot, когда Redis недоступен.
 
 ## 4. Авто-деплой через GitHub Actions (по push в main)
 

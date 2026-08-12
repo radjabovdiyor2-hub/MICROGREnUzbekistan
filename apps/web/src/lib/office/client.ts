@@ -86,7 +86,7 @@ export async function officeFetch<T = unknown>(
  * добавлена при слиянии: раньше при заданном только WEB_OFFICE_URL
  * сигналы молча никуда не уходили.
  */
-function ingestUrl(suffix: string): string {
+export function ingestUrl(suffix: string): string {
   const explicit = process.env[`OFFICE_${suffix.toUpperCase().replace(/-/g, '_')}_URL`];
   if (explicit) return explicit;
 

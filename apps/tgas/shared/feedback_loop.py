@@ -18,6 +18,57 @@ from shared.database import get_session_ctx
 
 logger = logging.getLogger(__name__)
 
+# ── Что модели позволено менять в своём поведении ──────────────────────
+#
+# `adjustments` были СВОБОДНЫМ словарём: какие ключи модель придумает, такие и
+# запишутся в `bot_learnings`, а оттуда — в системный промпт каждого отдела и,
+# что хуже, в промпт КЛИЕНТСКОГО чата продаж (`sales_bot/handlers/ai_chat.py`
+# читает `tone_modifier`). Достаточно было слабой конверсии, чтобы модель
+# «решила» отвечать «предлагай скидку 15% и бесплатную доставку от 100 000» —
+# и это дословно уходило покупателям. Ни скидки, ни порога в настройках нет.
+#
+# Белый список: ключи, которые описывают МАНЕРУ, а не условия сделки.
+# Цены, скидки и пороги приходят только из каталога и настроек.
+ALLOWED_ADJUSTMENT_KEYS = (
+    "tone_modifier",
+    "focus_topic",
+    "response_length",
+    "follow_up_delay_hours",
+    "priority_segment",
+)
+
+# Слова, за которыми стоят деньги: даже в разрешённом ключе им не место.
+_FORBIDDEN_IN_TEXT = (
+    "скидк",
+    "chegirma",
+    "%",
+    "бесплатн",
+    "bepul",
+    "сум",
+    "so'm",
+    "промокод",
+)
+
+
+def _sanitize_adjustments(raw: Any) -> Dict[str, Any]:
+    """Оставить только известные ключи и вычистить обещания про деньги."""
+    if not isinstance(raw, dict):
+        return {}
+
+    clean: Dict[str, Any] = {}
+    for key, value in raw.items():
+        if key not in ALLOWED_ADJUSTMENT_KEYS:
+            logger.warning("FEEDBACK_LOOP: ключ «%s» не в белом списке — отброшен", key)
+            continue
+        text_value = str(value).lower()
+        if any(marker in text_value for marker in _FORBIDDEN_IN_TEXT):
+            logger.warning(
+                "FEEDBACK_LOOP: «%s» обещает условия сделки — отброшен: %s", key, value
+            )
+            continue
+        clean[key] = value
+    return clean
+
 
 class FeedbackLoopEngine:
     """Движок замкнутых петель обратной связи и самообучения ботов."""
@@ -120,10 +171,12 @@ class FeedbackLoopEngine:
             '  "observation": "Краткое резюме измерений",\n'
             '  "inference": "Глубокий вывод о причинах и логика дальнейших действий",\n'
             '  "adjustments": {\n'
-            '     "key_parameter_1": value_1,\n'
-            '     "key_parameter_2": value_2\n'
+            f'     "<любой из: {", ".join(ALLOWED_ADJUSTMENT_KEYS)}>": "значение"\n'
             "  }\n"
-            "}"
+            "}\n\n"
+            "В adjustments РАЗРЕШЕНЫ только перечисленные ключи. Никаких цен, "
+            "скидок, процентов и порогов доставки: они берутся из каталога и "
+            "настроек, а не из твоих выводов."
         )
 
         # Промпт рассуждения, бенчмарки и температура правятся из админки:
@@ -166,7 +219,7 @@ class FeedbackLoopEngine:
             data = json.loads(clean_json)
             observation = str(data.get("observation") or "Измерение выполнено")
             inference = str(data.get("inference") or "Анализ завершен")
-            adjustments = data.get("adjustments") or {}
+            adjustments = _sanitize_adjustments(data.get("adjustments"))
 
             # Сохраняем выводы и адаптации в PostgreSQL (bot_learnings)
             async with get_session_ctx() as session:

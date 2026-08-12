@@ -666,10 +666,26 @@ async def grow_morning():
         if not admin_id:
             return
 
-        from shared import grow_watch
+        from shared import alert_once, grow_watch
 
         state = await grow_watch.scan()
-        parts = [p for p in (grow_watch.morning_text(state), await _low_stock_line()) if p]
+        text_body = grow_watch.morning_text(state)
+
+        # Просроченные партии повторялись КАЖДОЕ утро одной и той же строкой:
+        # `scan()` берёт всё, что не `harvested`, а просрочка под это подходит
+        # всегда. К концу месяца владелец получал тридцать одинаковых сообщений
+        # про один и тот же убыток. Это ровно то, против чего написан
+        # `alert_once`: пишем, когда состав изменился, плюс напоминание раз в
+        # сутки. «Созрело сегодня» и «дозреет завтра» меняются сами по себе,
+        # поэтому отпечаток берём со всей сводки.
+        if text_body:
+            fingerprint = str(hash(text_body))
+            if not alert_once.should_send("grow_morning", fingerprint):
+                text_body = None
+        else:
+            alert_once.resolved("grow_morning")
+
+        parts = [p for p in (text_body, await _low_stock_line()) if p]
         if parts:
             await _bot.send_message(admin_id, "\n\n".join(parts), parse_mode="HTML")
     except Exception as exc:
@@ -1240,12 +1256,6 @@ async def main():
         data = payload.get("data", {})
         source = payload.get("source", "unknown")
 
-        # Заказ, о котором Степан объявил сам, ему же и вернётся по шине —
-        # второй раз показывать его владельцу не нужно.
-        if event_type == "order_created" and source in ("stepan_bot", "instagram_bot"):
-            logger.info(f"Степан: событие {event_type} от {source} — обработано")
-            return
-
         # Только критичные события отправляем админу
         admin_id = (
             settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
@@ -1298,54 +1308,16 @@ async def main():
         elif event_type == "new_message" and admin_id:
             # Отключено: пересылает ВСЕ служебные уведомления, спамит
             pass
-        elif event_type == "order_created":
-            order_number = data.get("order_number", "Unknown")
-            amount = data.get("total_amount", 0)
-            items = data.get("items_summary", "")
-            try:
-                from shared.database import get_session_ctx
-                from sqlalchemy import text
-
-                # Отдел — 'logistics', а не 'delivery'. Отдела 'delivery' в
-                # офисе не существует: его нет ни в LISTENED_DEPARTMENTS, ни в
-                # CHIEF_ALIASES, ни в белом списке витрины. Событие доходило до
-                # всех 13 ботов и каждым молча отбрасывалось — задача «Доставить
-                # заказ» не могла быть выполнена в принципе. 'logistics' ведёт
-                # Стёпан как COO (см. registry.CHIEF_ALIASES).
-                #
-                # Дедлайн — завтра, а не CURRENT_DATE: с сегодняшней датой
-                # задача становилась просроченной на следующее же утро.
-                async with get_session_ctx() as session:
-                    res = await session.execute(
-                        text(
-                            "INSERT INTO tasks (title, description, status, department, priority, deadline) "
-                            "VALUES (:title, :desc, 'todo', 'logistics', 'high', "
-                            "CURRENT_DATE + INTERVAL '1 day') RETURNING id"
-                        ),
-                        {
-                            "title": f"Доставить заказ {order_number}",
-                            "desc": f"Новый заказ на сумму {amount} UZS.\nДетали: {items}",
-                        },
-                    )
-                    task_id = res.scalar()
-                    await session.commit()
-
-                await event_bus.publish(
-                    "TASK_CREATED",
-                    {
-                        "task_id": task_id,
-                        "title": f"Доставить заказ {order_number}",
-                        "department": "logistics",
-                        "description": f"Новый заказ на сумму {amount} UZS.\nДетали: {items}",
-                        "chat_id": getattr(settings, "sales_group_id", 0) or admin_id,
-                    },
-                    "stepan_bot",
-                )
-                logger.info(
-                    f"Степан: Auto-created delivery task for order {order_number}"
-                )
-            except Exception as e:
-                logger.error(f"Степан order handling error: {e}")
+        # Ветки `order_created` здесь больше нет — и подписки тоже.
+        #
+        # На один заказ заводились ДВЕ задачи: «🛒 Заказ N — подготовить»
+        # (`notifications.pm_on_order_created`, отдел production) и «Доставить
+        # заказ N» отсюда (отдел logistics). Оба отдела ведёт Стёпан, поэтому
+        # один заказ стоил двух строк в `tasks`, двух полных прогонов модели со
+        # всем набором инструментов и четырёх сообщений владельцу. При двадцати
+        # заказах в день — сорок задач и восемьдесят сообщений.
+        #
+        # Осталась одна задача, в её описании есть и сборка, и доставка.
 
         else:
             # Всё остальное — только лог, не спамим в чат
@@ -1443,7 +1415,6 @@ async def main():
 
     # Подписываемся на события
     for event_type in [
-        "order_created",
         "complaint_received",
         "application_received",
         "large_expense_alert",

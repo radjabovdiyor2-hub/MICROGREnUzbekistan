@@ -82,6 +82,37 @@ export function startOfLocalDay(date: Date = new Date()): Date {
   return d;
 }
 
+/** «YYYY-MM-DD» по местному времени.
+ *
+ *  `toISOString().slice(0, 10)` отдаёт дату по UTC: с полуночи до пяти утра по
+ *  Ташкенту это вчерашнее число. Так номер заказа, оформленного 12 августа в
+ *  02:00, получался `M-20260811-…`, и персонал не находил его по дате.
+ */
+export function formatLocalDate(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Границы суток по местному времени для «YYYY-MM-DD» (или для сегодня).
+ *
+ *  Отчёт смены строил их сам: `new Date(`${date}T00:00:00.000Z`)` — это явный
+ *  UTC, то есть 05:00 по Ташкенту. Продажа в 03:00 в отчёт за свой день не
+ *  попадала, зато попадала в чужой, и «Касса сегодня» на сводке владельца
+ *  показывала не то же самое, что отчёт продавца по той же смене.
+ *
+ *  Верхняя граница — начало следующих суток, сравнение строгое (`lt`):
+ *  `23:59:59.999` теряет последнюю миллисекунду часа.
+ */
+export function localDayRange(date?: string): { start: Date; end: Date } {
+  // Строка без суффикса «Z» разбирается как местное время — это и нужно.
+  const start = date ? startOfLocalDay(new Date(`${date}T00:00:00`)) : startOfLocalDay();
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
 export function daysAgo(days: number, from: Date = new Date()): Date {
   const d = new Date(from);
   d.setDate(d.getDate() - days);

@@ -218,6 +218,16 @@ def normalize_result(value: Any) -> Dict[str, Any]:
     if not isinstance(value, dict):
         return {"ok": True, "summary": str(value)[:500], "evidence": [], "human_task": None}
     ok = value.get("ok")
+    if ok is None and "status" in value:
+        # Форма `{"status": "ok"|"error"|"clarify"|"duplicate"}` — так отвечают
+        # `sales_ops.register_sale` и `catalog_ops.add_product`. Ключа `error` в
+        # ней нет, поэтому проверка ниже считала провал успехом: карточка
+        # получалась «✅ Одобрено. Продажу НЕ записал…», а телеметрия обучения
+        # записывала неудачный вызов как удачный и училась на неверном сигнале.
+        #
+        # `duplicate` — успех: нужное состояние уже достигнуто. `clarify` — нет:
+        # не хватило данных, и не произошло ничего.
+        ok = str(value.get("status", "")).lower() in ("ok", "success", "done", "duplicate")
     if ok is None:
         ok = not value.get("error")
     summary = (

@@ -35,6 +35,10 @@ const RULES: Rule[] = [
   { prefix: '/api/products', access: 'ADMIN', methods: ['POST', 'PUT', 'PATCH', 'DELETE'] },
   { prefix: '/api/orders', access: 'ADMIN', methods: ['PUT', 'PATCH', 'DELETE'] },
   { prefix: '/api/upload', access: 'ADMIN' },
+  // Дайджест и аналитика журнала считались «внутренними», но в RULES их не
+  // было вовсе: middleware сюда не заходил, и обе двери отвечали анониму.
+  { prefix: '/api/marketing', access: 'ADMIN' },
+  { prefix: '/api/magazine/analytics', access: 'ADMIN' },
   { prefix: '/api/notify', access: 'ADMIN' },
   { prefix: '/api/telegram', access: 'ADMIN' },
   { prefix: '/api/users/referral', access: 'ADMIN' },

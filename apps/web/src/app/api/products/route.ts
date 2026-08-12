@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
+import { isStaff } from '@/lib/adminAuth';
+import { productSelect } from '@/lib/products/fields';
 
 // ==========================================
 // Products API — Prisma-backed CRUD
@@ -18,8 +20,17 @@ export async function GET(request: NextRequest) {
   const limitRaw = parseInt(searchParams.get('limit') || '24');
   const limit = Math.min(limitRaw, 100); // cap at 100 per page for safety
   const id = searchParams.get('id');
-  const showAll = searchParams.get('all') === 'true';
   const countOnly = searchParams.get('count') === 'true';
+
+  // `?all=true` снимает фильтр `isActive`, то есть показывает черновики и
+  // снятые с продажи позиции. Это админский режим, и он требует сессии
+  // сотрудника — раньше флаг работал для кого угодно.
+  const staff = isStaff(request);
+  const showAll = searchParams.get('all') === 'true';
+  if (showAll && !staff) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const select = productSelect(request);
 
   // Lightweight count-only mode for stats dashboards
   if (countOnly) {
@@ -34,7 +45,7 @@ export async function GET(request: NextRequest) {
   if (id) {
     const product = await prisma.product.findUnique({
       where: { id },
-      include: { category: true },
+      select,
     });
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
@@ -82,7 +93,7 @@ export async function GET(request: NextRequest) {
   const [items, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      include: { category: true },
+      select,
       orderBy,
       skip: (page - 1) * limit,
       take: limit,
@@ -100,8 +111,13 @@ export async function GET(request: NextRequest) {
     },
   });
   } catch (error) {
+    // Отказ базы — это 503, а не пустой каталог.
+    //
+    // Раньше сюда возвращался `items: []` с кодом 200: при перезапуске
+    // Postgres магазин показывал «товаров не найдено», healthcheck оставался
+    // зелёным, и владелец узнавал о простое от клиента.
     console.error('[Products API] Error:', error);
-    return NextResponse.json({ items: [], pagination: { page: 1, limit: 24, total: 0, totalPages: 0 } });
+    return NextResponse.json({ error: 'Katalog vaqtincha mavjud emas' }, { status: 503 });
   }
 }
 
