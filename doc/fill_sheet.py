@@ -67,6 +67,7 @@ def build(m: dict) -> str:
             ["Конец периода", labels[-1]],
             ["Горизонт", f"{n} месяцев"],
             ["Налоговый режим", f"упрощённый, {M.TAX_RATE:.0%} с оборота"],
+            ["Вложено основателем ранее", f"${num(M.FOUNDER_INVESTED_USD)} личных средств"],
         ],
     ))
 
@@ -93,10 +94,15 @@ def build(m: dict) -> str:
     parts.append(table(
         ["Продукт", "Цена UZS", "Цена $", "Период"],
         [
-            ["Подписка ресторана (Standard)", num(M.PRICE_RESTAURANT),
-             f"{M.PRICE_RESTAURANT / M.USD_RATE:.0f}", "месяц"],
+            ["Ресторан — чек за поставку", num(M.CHECK_RESTAURANT),
+             f"{M.CHECK_RESTAURANT / M.USD_RATE:.0f}",
+             f"поставка (~{M.DELIVERIES_PER_MONTH}/мес)"],
+            ["Ресторан — выходит в месяц", num(m["arpu_restaurant"]),
+             f"{m['arpu_restaurant'] / M.USD_RATE:.0f}", "месяц"],
             ["Подписка семьи (средняя)", num(M.PRICE_FAMILY),
              f"{M.PRICE_FAMILY / M.USD_RATE:.0f}", "месяц"],
+            ["Розница — средний чек", num(M.CHECK_RETAIL),
+             f"{M.CHECK_RETAIL / M.USD_RATE:.0f}", "покупка"],
             ["Клубника премиум", num(M.STRAWBERRY_PRICE_KG),
              f"{M.STRAWBERRY_PRICE_KG / M.USD_RATE:.1f}", "кг"],
         ],
@@ -115,12 +121,15 @@ def build(m: dict) -> str:
         rows.append([
             f"M{i + 1}", labels[i],
             str(m["restaurants"][i]), str(m["families"][i]),
-            num(m["b2b"][i]), num(m["b2c"][i]), num(m["strawberry"][i]),
+            str(m["retail_purchases"][i]),
+            num(m["b2b"][i]), num(m["subscriptions"][i]), num(m["retail"][i]),
+            num(m["strawberry"][i]),
             num(m["revenue"][i]), num(m["cogs"][i]), num(m["opex_total"][i]),
             num(m["ebitda"][i]), num(m["net"][i]), num(m["cash"][i]),
         ])
     parts.append(table(
-        ["#", "Месяц", "Рест.", "Семьи", "B2B", "B2C", "Клубника",
+        ["#", "Месяц", "Рест.", "Семьи", "Розн.покупок",
+         "Рестораны", "Подписки", "Розница", "Клубника",
          "Выручка", "COGS", "OPEX", "EBITDA", "Чистая", "Касса"],
         rows,
     ))
@@ -181,8 +190,10 @@ def build(m: dict) -> str:
             ["ARR (последний месяц)", num(m["arr"][last]), "MRR × 12"],
             ["ARPU (последний месяц)", num(m["arpu"][last]),
              "выручка / число клиентов"],
-            ["ARPU B2B", num(M.PRICE_RESTAURANT), "тариф подписки ресторана"],
-            ["ARPU B2C", num(M.PRICE_FAMILY), "средний семейный пакет"],
+            ["ARPU ресторан", num(m["arpu_restaurant"]),
+             f"чек {num(M.CHECK_RESTAURANT)} × {M.DELIVERIES_PER_MONTH} поставок"],
+            ["ARPU семья (подписка)", num(M.PRICE_FAMILY), "средний пакет"],
+            ["Розница — средний чек", num(M.CHECK_RETAIL), "покупка поштучно"],
             ["CAC", num(m["cac"][last]),
              "(маркетинг + 40% зарплаты директора) / новые клиенты"],
             ["LTV", num(m["ltv"][last]),

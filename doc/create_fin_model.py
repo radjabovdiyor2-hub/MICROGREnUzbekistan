@@ -90,13 +90,16 @@ def build_workbook(m: dict) -> Workbook:
     ws.title = "1. Mijozlar"
     _title(ws, "1. MIJOZLAR — baza va o'sish", n + 2)
     ws.cell(row=2, column=1,
-            value="M1 — bugungi FAKT: 5 restoran + 15 oila = 20 mln so'm/oy "
-                  "(Ariza, 32-band). O'sish shu nuqtadan hisoblanadi.")
+            value=f"M1 — bugungi FAKT: {m['restaurants'][0]} restoran + "
+                  f"{m['families'][0]} oila (obuna) + ~{m['retail_purchases'][0]} chakana "
+                  f"xarid = {m['revenue'][0]:,} so'm/oy. O'sish shu nuqtadan.")
     _header(ws, 4, labels, "Ko'rsatkich", "Oxirgi oy")
     row = 5
     row = _series(ws, row, "Restoranlar (B2B)", m["restaurants"], m["restaurants"][-1])
-    row = _series(ws, row, "Oilalar (B2C)", m["families"], m["families"][-1])
-    row = _series(ws, row, "JAMI MIJOZLAR", m["customers"], m["customers"][-1], bold=True)
+    row = _series(ws, row, "Oilalar (obuna)", m["families"], m["families"][-1])
+    row = _series(ws, row, "DOIMIY MIJOZLAR", m["regulars"], m["regulars"][-1], bold=True)
+    row = _series(ws, row, "Chakana xaridlar (dona/oy)", m["retail_purchases"],
+                  m["retail_purchases"][-1])
     row = _series(ws, row, "Yangi mijozlar", m["new_customers"], sum(m["new_customers"]))
     row = _series(ws, row, "Churn (oylik, %)", [M.MONTHLY_CHURN * 100] * n,
                   M.MONTHLY_CHURN * 100, fmt="0.0")
@@ -105,14 +108,17 @@ def build_workbook(m: dict) -> Workbook:
     # ── 2. Тарифы ────────────────────────────────────────────────────────
     ws = wb.create_sheet("2. Tariflar")
     _title(ws, "2. TARIFLAR — modelda ishlatilgan narxlar", 4)
-    _header(ws, 3, ["Narx (UZS)", "Narx ($)", "Izoh"], "Mahsulot/Xizmat", None)
+    _header(ws, 3, ["Narx (UZS)", "Narx ($)", "Izoh"], "Kanal / Mahsulot", None)
     rows = [
-        ("Restoran obunasi (Standard, oylik)", M.PRICE_RESTAURANT,
-         "Modelda B2B ARPU shu narxdan hisoblanadi"),
-        ("Oila obunasi (o'rtacha, oylik)", M.PRICE_FAMILY,
-         "Haftalik va premium paketlarning o'rtachasi"),
+        ("Restoran — bitta yetkazish cheki", M.CHECK_RESTAURANT,
+         f"Oyiga ~{M.DELIVERIES_PER_MONTH} marta yetkazamiz → "
+         f"{M.CHECK_RESTAURANT * M.DELIVERIES_PER_MONTH:,} so'm/oy"),
+        ("Oila obunasi (oylik)", M.PRICE_FAMILY,
+         "Yagona haqiqiy obuna kanali"),
+        ("Chakana savdo — o'rtacha chek", M.CHECK_RETAIL,
+         "Mijozlar donalab oladi, eng katta oqim"),
         ("Premium qulupnay (1 kg)", M.STRAWBERRY_PRICE_KG,
-         "Qulupnay daromadi shu narxdan hisoblanadi"),
+         "Yangi ferma mahsuloti, asosan chakanaga"),
     ]
     for i, (name, price, note) in enumerate(rows):
         r = 4 + i
@@ -137,12 +143,13 @@ def build_workbook(m: dict) -> Workbook:
     _title(ws, "3. DAROMAD", n + 2)
     _header(ws, 3, labels, "Ko'rsatkich (UZS)", "JAMI")
     row = 4
-    row = _series(ws, row, "B2B (restoranlar)", m["b2b"], sum(m["b2b"]))
-    row = _series(ws, row, "B2C (oilalar)", m["b2c"], sum(m["b2c"]))
+    row = _series(ws, row, "Restoranlar (buyurtma)", m["b2b"], sum(m["b2b"]))
+    row = _series(ws, row, "Oila obunalari", m["subscriptions"], sum(m["subscriptions"]))
+    row = _series(ws, row, "Chakana savdo", m["retail"], sum(m["retail"]))
     row = _series(ws, row, "Qulupnay", m["strawberry"], sum(m["strawberry"]))
     row = _series(ws, row, "JAMI DAROMAD", m["revenue"], sum(m["revenue"]), bold=True)
     row += 1
-    row = _series(ws, row, "MRR (obuna)", m["mrr"], m["mrr"][-1])
+    row = _series(ws, row, "MRR (takrorlanuvchi)", m["mrr"], m["mrr"][-1])
     row = _series(ws, row, "ARR (yillik)", m["arr"], m["arr"][-1])
     row = _series(ws, row, "ARPU", m["arpu"], m["arpu"][-1])
     row = _series(ws, row, "Daromad ($)", [round(v / M.USD_RATE) for v in m["revenue"]],
@@ -250,7 +257,10 @@ def build_workbook(m: dict) -> Workbook:
         ("", "", ""),
         ("DAVR", f"{m['labels'][0]} — {m['labels'][-1]}", f"{M.MONTHS} oy"),
         ("Boshlang'ich baza (M1)", f"{m['revenue'][0]:,} UZS/oy",
-         f"{m['restaurants'][0]} restoran + {m['families'][0]} oila — FAKT"),
+         f"{m['restaurants'][0]} restoran + {m['families'][0]} oila obuna + "
+         f"~{m['retail_purchases'][0]} chakana xarid — FAKT"),
+        ("Asoschi allaqachon kiritgan", f"${M.FOUNDER_INVESTED_USD:,}",
+         "shaxsiy mablag', tashqi investitsiyasiz"),
         ("", "", ""),
         ("DAROMAD", "", ""),
         ("Jami daromad", f"{sum(m['revenue']):,} UZS",
@@ -272,8 +282,10 @@ def build_workbook(m: dict) -> Workbook:
          "transh kelgan kundan hisoblanadi"),
         ("", "", ""),
         ("MIJOZLAR", "", ""),
-        ("Oxirgi oy", f"{m['customers'][-1]}",
-         f"{m['restaurants'][-1]} restoran + {m['families'][-1]} oila"),
+        ("Doimiy mijozlar (M24)", f"{m['regulars'][-1]}",
+         f"{m['restaurants'][-1]} restoran + {m['families'][-1]} oila obuna"),
+        ("Chakana xaridlar (M24)", f"{m['retail_purchases'][-1]}/oy",
+         f"o'rtacha chek {M.CHECK_RETAIL:,} so'm"),
         ("Churn (oylik)", f"{M.MONTHLY_CHURN * 100:.1f}%", ""),
         ("LTV/CAC (o'rtacha)",
          f"{sum(valid_ratio) / len(valid_ratio):.1f}x", "formula 7-varaqda"),

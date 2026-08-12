@@ -43,6 +43,11 @@ def mln(value: int) -> str:
     return f"{value / 1_000_000:.1f}".replace(".0", "") + " mln"
 
 
+def spaced(value: int) -> str:
+    """200000 → «200 000». Только разряды, запятые в тексте не трогает."""
+    return f"{value:,}".replace(",", " ")
+
+
 def set_cell(cell, text: str) -> None:
     """Заменить текст ячейки, сохранив оформление первого run."""
     paragraphs = cell.paragraphs
@@ -236,14 +241,24 @@ def build_sotuv(m: dict) -> None:
                      f"yetkazuvchi №1\n"
                      f"• Premium qulupnay siti-fermani ishga tushirish "
                      f"({kg_month} kg/oy — 60 m² quvvati)\n"
-                     f"• Mijozlar: {m['customers'][0]} → {m['customers'][last]}, "
-                     f"daromad: {mln(m['revenue'][0])} → {mln(m['revenue'][last])} so'm")
+                     f"• Doimiy mijozlar: {m['regulars'][0]} → {m['regulars'][last]}, "
+                     f"oborot: {mln(m['revenue'][0])} → {mln(m['revenue'][last])} so'm")
         elif text.startswith("2. Traction"):
+            # Три канала, а не «5 restoran + 15 oila»: рестораны берут
+            # заказами, семьи по подписке, основной оборот делает розница.
             set_para(paragraph,
                      f"2. Traction (bugungi holat)\n"
-                     f"• {m['restaurants'][0]} restoran + {m['families'][0]} oila = "
-                     f"{m['customers'][0]} barqaror mijoz\n"
-                     f"• Oylik: {mln(m['revenue'][0])} so'm | microgreenuzbekistan.com\n"
+                     f"• Oylik oborot: {mln(m['revenue'][0])} so'm | "
+                     f"microgreenuzbekistan.com\n"
+                     f"• Restoranlar: {m['restaurants'][0]} ta — {mln(m['b2b'][0])} "
+                     f"(chek ~{M.CHECK_RESTAURANT // 1000}k × "
+                     f"{M.DELIVERIES_PER_MONTH} marta/oy)\n"
+                     f"• Oila obunalari: {m['families'][0]} ta — "
+                     f"{mln(m['subscriptions'][0])}\n"
+                     f"• Chakana savdo: ~{m['retail_purchases'][0]} xarid — "
+                     f"{mln(m['retail'][0])}\n"
+                     f"• Asoschi shaxsiy ${M.FOUNDER_INVESTED_USD // 1000} ming "
+                     f"kiritgan, tashqi investitsiyasiz\n"
                      f"• \"Mirzo Ulug'bek Vorislari\" — Samarqand viloyat g'olibi\n"
                      f"• Kompaniya bugun ham foydali: sof foyda "
                      f"{mln(m['net'][0])} so'm/oy")
@@ -255,8 +270,10 @@ def build_sotuv(m: dict) -> None:
             set_para(paragraph, "\n".join(lines))
         elif text.startswith("7. Unit Economics"):
             set_para(paragraph,
-                     f"7. Unit Economics: ARPU {mln(M.PRICE_RESTAURANT)} (restoran) / "
-                     f"{M.PRICE_FAMILY // 1000}k (oila) | "
+                     f"7. Unit Economics: ARPU {mln(m['arpu_restaurant'])} (restoran, "
+                     f"chek {M.CHECK_RESTAURANT // 1000}k × {M.DELIVERIES_PER_MONTH}) / "
+                     f"{M.PRICE_FAMILY // 1000}k (oila obuna) / "
+                     f"{M.CHECK_RETAIL // 1000}k (chakana chek) | "
                      f"CAC ~{m['cac'][last] // 1000}k | "
                      f"LTV/CAC {m['ltv'][last] / m['cac'][last]:.0f}x | "
                      f"Brutto marja {m['gross_margin'][last] * 100:.0f}%")
@@ -295,10 +312,14 @@ def build_biznes(m: dict) -> None:
     # Таблица 3 — юнит-экономика. Одна версия, из модели, с формулами.
     unit = doc.tables[2]
     values = [
-        ("ARPU (oy)",
-         f"{M.PRICE_RESTAURANT:,} so'm (restoran), {M.PRICE_FAMILY:,} (oila)"
-         .replace(",", " "),
-         "Tariflar varag'idagi obuna narxlari"),
+        ("ARPU restoran (oy)",
+         f"{m['arpu_restaurant']:,} so'm".replace(",", " "),
+         f"chek {M.CHECK_RESTAURANT:,} × oyiga {M.DELIVERIES_PER_MONTH} yetkazish"
+         .replace(",", " ")),
+        ("ARPU oila (obuna)", f"{M.PRICE_FAMILY:,} so'm".replace(",", " "),
+         "oylik obuna paketi"),
+        ("Chakana — o'rtacha chek", f"{M.CHECK_RETAIL:,} so'm".replace(",", " "),
+         "donalab xarid, oborotning eng katta qismi"),
         ("CAC", f"~{m['cac'][last]:,} so'm".replace(",", " "),
          "(Marketing + direktor ish haqining 40%) / yangi mijozlar"),
         ("LTV", f"{m['ltv'][last]:,} so'm".replace(",", " "),
@@ -391,7 +412,7 @@ def build_biznes(m: dict) -> None:
     fill("Oilalar", [str(q["families"]) for q in quarters[:4]])
     fill("Premium mijozlar", [str(q["restaurants"]) for q in quarters[:4]])
     fill("Valyuta kursi", [f"{M.USD_RATE:,}".replace(",", " ")] * 4)
-    fill("Chek restoran", [f"{M.PRICE_RESTAURANT:,}".replace(",", " ")] * 4)
+    fill("Chek restoran", [f"{M.CHECK_RESTAURANT:,}".replace(",", " ")] * 4)
     fill("Chek oila", [f"{M.PRICE_FAMILY:,}".replace(",", " ")] * 4)
     fill("Mikro-ko'katlar",
          [f"{(m['b2b'][i * 3 + 2] + m['b2c'][i * 3 + 2]) / 1e6:.1f}" for i in range(4)])
@@ -438,15 +459,29 @@ def build_ariza(m: dict) -> None:
 
     last = len(m["labels"]) - 1
     updates = {
-        "7": f"$300 000 — birinchi 2 yilda: {m['restaurants'][last]}+ restoran + "
-             f"{m['families'][last]}+ uy xo'jaligi (moliyaviy modelga muvofiq)",
+        "7": f"$300 000 — birinchi 2 yilda: {m['restaurants'][last]}+ restoran, "
+             f"{m['families'][last]}+ obunachi oila va oyiga "
+             f"{m['retail_purchases'][last]}+ chakana xarid (moliyaviy modelga muvofiq)",
         "12": f"24/08/2002 — {age} yosh",
-        "32": f"Oylik ~{mln(m['revenue'][0])} so'm ({m['restaurants'][0]} restoran + "
-              f"{m['families'][0]} oila). Yillik ~{mln(m['revenue'][0] * 12)} so'm. "
-              f"Mahsulotlar: mikro-ko'katlar, salatlar, gullar",
-        "33": f"Jami: {m['customers'][0]} mijoz ({m['restaurants'][0]} restoran + "
-              f"{m['families'][0]} oila). Sayt: microgreenuzbekistan.com — "
+        # Три канала, а не «5 restoran + 15 oila»: рестораны берут заказами,
+        # семьи по подписке, основной оборот делает розница поштучно.
+        # Пробелы в разрядах ставим точечно: сплошной replace(",", " ") съедал
+        # и запятые между фразами, превращая текст в кашу.
+        "32": f"Oylik ~{mln(m['revenue'][0])} so'm, yillik ~{mln(m['revenue'][0] * 12)} so'm. "
+              f"Tarkibi: restoranlar {mln(m['b2b'][0])} ({m['restaurants'][0]} ta, "
+              f"chek ~{spaced(M.CHECK_RESTAURANT)} so'm, "
+              f"oyiga ~{M.DELIVERIES_PER_MONTH} marta), "
+              f"oila obunalari {mln(m['subscriptions'][0])} ({m['families'][0]} ta), "
+              f"chakana savdo {mln(m['retail'][0])} (~{m['retail_purchases'][0]} xarid, "
+              f"o'rtacha chek ~{spaced(M.CHECK_RETAIL)})",
+        "33": f"Doimiy mijozlar: {m['regulars'][0]} ({m['restaurants'][0]} restoran + "
+              f"{m['families'][0]} obunachi oila). Chakana: oyiga ~"
+              f"{m['retail_purchases'][0]} xarid. Sayt: microgreenuzbekistan.com — "
               f"50+ foydalanuvchi. Telegram-bot: 30+ obunachi",
+        # Сумма прежних вложений — главный аргумент заявки: у основателя своя
+        # шкура в игре. Раньше здесь стояло только «на личные средства».
+        "34": f"Shaxsiy mablag'lar: ${M.FOUNDER_INVESTED_USD:,} kiritilgan. "
+              f"Tashqi investitsiya olinmagan.".replace(",", " "),
         "35": plan,
         "10": f"${M.INVESTMENT_USD:,} — 2-siti-ferma (premium qulupnay gidroponik "
               f"ferma, 60 m2)".replace(",", " "),

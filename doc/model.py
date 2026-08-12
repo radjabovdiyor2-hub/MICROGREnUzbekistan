@@ -1,30 +1,37 @@
 """
 Финансовая модель MICROGREEN AND STRAWBERRY — ЕДИНСТВЕННЫЙ источник цифр.
 
-Всё, что попадает в Excel и в пять Word-документов, считается здесь. Word руками
-не правится: пакет разъехался ровно потому, что одни и те же величины набирались
-в четырёх местах независимо.
+Всё, что попадает в Excel, в пять Word-документов и в онлайн-форму фонда,
+считается здесь. Руками ничего не набирается: пакет разъехался ровно потому,
+что одни и те же величины вводились в четырёх местах независимо.
 
-ЧТО ИЗМЕНИЛОСЬ ПОСЛЕ АУДИТА 12.08.2026
+КАК ЗАРАБАТЫВАЕТ КОМПАНИЯ (уточнено 13.08.2026 у владельца)
 
-1. Календарь. Прежняя модель шла Jul'25…Jun'27 с приходом транша в Jan'26 — то
-   есть на момент подачи 14 месяцев из 24 лежали в прошлом, а «получение
-   инвестиции» было датировано семью месяцами ранее. Теперь M1 = Sep'26.
+Не помесячными подписками, как было написано во всех документах, а тремя
+разными способами — и это принципиально, потому что от структуры зависят и
+ARPU, и рост, и то, что даст новая ферма:
 
-2. База. Прежняя модель рисовала рост с 20 до 100 млн/мес за Jul'25–Jul'26,
-   тогда как заявка (Ariza, п. 32) честно указывает: последние 12 месяцев —
-   ~20 млн/мес, 5 ресторанов + 15 семей. Факт не изменился и на август 2026.
-   Модель стартует ровно с него: заявка и модель наконец сходятся в одной точке.
+  · Рестораны берут ЗАКАЗАМИ. Чек ~200 000 сум за поставку, поставок около
+    пяти в месяц. Прежняя версия документов писала «ARPU ресторана 200 000 в
+    МЕСЯЦ» — отсюда и брались 5,2 млн выручки в таблицах, не сходившиеся с
+    45 млн в соседней строке. А вчерашняя правка заменила 200 000 на 2 500 000
+    по прайсу подписки — и это тоже было неверно: подписку почти не покупают.
+  · Семьи — единственный по-настоящему подписной канал, 15 семей.
+  · Розница «с улицы» — самый крупный поток: люди берут поштучно, средний чек
+    около 100 000 сум.
 
-3. Клубника ограничена физикой фермы. Прежняя модель доводила её до 100 млн/мес
-   с 60 м² и 2700 кустов. При урожайности даже 1 кг с куста в год это 2700 кг,
-   то есть 225 кг/мес, то есть 24,75 млн/мес при цене 110 000/кг — вчетверо
-   меньше обещанного. Ферма упирается в потолок, и это сказано прямо: следующий
-   раунд расширяет площадь, а не выжимает невозможное из имеющейся.
+Итого на сегодня 40 млн сум/мес, из них рестораны ~30 %, остальное — семьи и
+розница. Именно розницу расширяет новая ферма: клубника продаётся в первую
+очередь ей.
 
-4. Бюджет закрывает всю сумму. 455 млн транша расписаны до последнего сума:
-   CAPEX + подготовка помещения + маркетинг/оборотка + резерв. Раньше CAPEX был
-   204,75 млн, а остальные 250 млн просто лежали в кассе без объяснения.
+ЧТО ЕЩЁ ИЗМЕНИЛОСЬ ПОСЛЕ АУДИТА
+
+  · Календарь. Прежняя модель шла Jul'25…Jun'27 с приходом транша в Jan'26 —
+    на момент подачи 14 месяцев из 24 лежали в прошлом. Теперь M1 = Sep'26.
+  · Клубника ограничена физикой фермы: 2700 кустов × 1 кг/год = 225 кг/мес =
+    24,75 млн/мес. Прежняя модель доводила её до 100 млн — вчетверо больше
+    того, что растёт на 60 м².
+  · Бюджет закрывает всю сумму: 455 млн расписаны до последнего сума.
 """
 
 from __future__ import annotations
@@ -42,6 +49,11 @@ USD_RATE = 13_000
 INVESTMENT_USD = 35_000
 INVESTMENT_UZS = INVESTMENT_USD * USD_RATE          # 455 000 000
 
+# Уже вложено основателем из личных средств — до этого раунда, деньгами.
+# В заявке (п. 34) сумма обязана быть названа: она показывает фонду, что у
+# основателя своя шкура в игре, и объясняет, откуда взялась текущая выручка.
+FOUNDER_INVESTED_USD = 50_000
+
 # Бюджет: статьи $30 000 + резерв $5 000 = $35 000. Резерв показан ОДИН раз.
 BUDGET_USD = {
     "Bino tayyorlash": 3_830,          # ремонт + 6 месяцев аренды новой площади
@@ -52,70 +64,79 @@ BUDGET_USD = {
 }
 RESERVE_USD = 5_000
 
-# Капитальные статьи — то, что амортизируется. Аренда и маркетинг не капитал.
 CAPEX_ITEMS = ("Premium uskunalar", "LED + klimat", "Ekin materiallari")
 DEPRECIATION_MONTHS = 60
 
-# ── Клиентская база ──────────────────────────────────────────────────────
-# M1 — факт на дату подачи: 5 ресторанов + 15 семей = 20 млн/мес.
-# Дальше рост от этой точки, а не от вымышленных 18 ресторанов.
-RESTAURANTS = (5, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-               16, 17, 18, 20, 21, 22, 24, 25, 26, 28, 29, 30)
-FAMILIES = (15, 16, 18, 20, 23, 26, 29, 33, 37, 41, 45, 50,
-            55, 60, 66, 72, 78, 85, 92, 100, 108, 116, 124, 132)
+# ══════════════════════════════════════════════════════════════════════════
+# ТРИ КАНАЛА ПРОДАЖ. M1 — факт на дату подачи, дальше рост от него.
+# ══════════════════════════════════════════════════════════════════════════
 
-PRICE_RESTAURANT = 2_500_000   # Restoran-Standard, лист «Tariflar»
-PRICE_FAMILY = 500_000         # средний семейный пакет
+# 1. Рестораны: заказами, не подпиской.
+CHECK_RESTAURANT = 200_000        # средний чек за одну поставку
+DELIVERIES_PER_MONTH = 5          # примерно раз в неделю плюс довоз
+RESTAURANTS = (12, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22,
+               23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 35)
 
-MONTHLY_CHURN = 0.025          # 2,5 % в месяц
+# 2. Семьи по подписке — единственный по-настоящему регулярный канал.
+PRICE_FAMILY = 500_000            # средний семейный пакет в месяц
+FAMILIES = (15, 16, 17, 18, 20, 22, 24, 26, 28, 30, 32, 34,
+            36, 38, 40, 42, 45, 48, 50, 52, 55, 57, 58, 60)
+
+# 3. Розница «с улицы»: поштучно, средний чек ~100 000.
+CHECK_RETAIL = 100_000
+RETAIL_PURCHASES = (205, 210, 220, 230, 245, 260, 275, 290, 305, 320, 335, 350,
+                    365, 380, 395, 410, 425, 440, 455, 470, 485, 500, 515, 530)
+
+MONTHLY_CHURN = 0.025             # 2,5 % в месяц
 
 # ── Клубника: потолок задаёт ферма, а не желание ─────────────────────────
 STRAWBERRY_PLANTS = 2_700
-KG_PER_PLANT_YEAR = 1.0        # консервативно для NFT-гидропоники
-STRAWBERRY_PRICE_KG = 110_000  # лист «Tariflar», Premium qulupnay 1 kg
-FARM_BUILD_MONTHS = 3          # KPI: ферма строится 3 месяца
-# Выход на мощность: первый урожай на 4-й месяц, полная мощность к 7-му.
+KG_PER_PLANT_YEAR = 1.0           # консервативно для NFT-гидропоники
+STRAWBERRY_PRICE_KG = 110_000
+FARM_BUILD_MONTHS = 3             # KPI: ферма строится 3 месяца
 STRAWBERRY_RAMP = (0.25, 0.50, 0.75)
 
 # ── Операционные расходы ─────────────────────────────────────────────────
-# «До фермы» — фактические расходы сегодняшней работы (2 человека).
-# «После фермы» — с M4, когда добавляются агроном, помощник и курьер.
+#
+# ⚠️ ДОПУЩЕНИЕ, ТРЕБУЮЩЕЕ ПОДТВЕРЖДЕНИЯ ВЛАДЕЛЬЦА.
+# Точных текущих расходов при обороте 40 млн/мес у нас нет. Прежние значения
+# в модели (зарплата 3 млн, аренда 1 млн, электричество 1,5 млн) считались от
+# оборота 20 млн и при вдвое большем обороте занижены. Ниже — оценка, от
+# которой напрямую зависит прибыль, а её фонд смотрит первой. Три верхние
+# строки надо либо подтвердить, либо поправить.
 OPEX_BEFORE = {
-    "Ish haqi": 3_000_000,
-    "Ijara + kommunal": 1_000_000,
-    "Elektr energiya": 1_500_000,
-    "Materiallar": 800_000,
+    "Ish haqi": 6_000_000,
+    "Ijara + kommunal": 2_000_000,
+    "Elektr energiya": 3_000_000,
+    "Materiallar": 2_000_000,
     "Marketing": 1_500_000,
-    "Transport": 300_000,
-    "Boshqa": 200_000,
-}
-OPEX_AFTER = {
-    "Ish haqi": 8_000_000,
-    "Ijara + kommunal": 1_800_000,
-    "Elektr energiya": 4_300_000,
-    "Materiallar": 2_500_000,
-    "Marketing": 1_000_000,
-    "Transport": 800_000,
+    "Transport": 1_500_000,
     "Boshqa": 500_000,
 }
-OPEX_SWITCH_MONTH = 4          # ферма запущена — расходы новой площадки
-# Аренда новой площади оплачена вперёд на 6 месяцев из статьи «Bino tayyorlash»,
-# поэтому в OPEX она появляется только с 7-го месяца.
-RENT_PREPAID_MONTHS = 6
+# После запуска второй фермы: агроном, помощник, курьер; LED и климат.
+OPEX_AFTER = {
+    "Ish haqi": 10_000_000,
+    "Ijara + kommunal": 3_000_000,
+    "Elektr energiya": 6_000_000,
+    "Materiallar": 3_500_000,
+    "Marketing": 2_000_000,
+    "Transport": 2_000_000,
+    "Boshqa": 800_000,
+}
+OPEX_SWITCH_MONTH = 4             # ферма запущена — расходы новой площадки
+RENT_PREPAID_MONTHS = 6           # аренда новой площади оплачена вперёд
 
-TAX_RATE = 0.04                # упрощённый оборотный налог
-COGS_SUBSCRIPTION = 0.30       # микрозелень/салаты: маржа 70 %
-COGS_STRAWBERRY = 0.45         # клубника: маржа 55 %, как в прайсе
+TAX_RATE = 0.04                   # упрощённый оборотный налог
+COGS_GOODS = 0.30                 # микрозелень, салаты: маржа 70 %
+COGS_STRAWBERRY = 0.45            # клубника: маржа 55 %
 
-# Доля зарплаты директора, отнесённая на продажи, — чтобы CAC не выглядел
-# бесплатным. Клиентов приводят дегустации, которые проводит директор лично.
+# Доля зарплаты, отнесённая на продажи, — чтобы CAC не выглядел бесплатным.
 SALES_SALARY_SHARE = 0.40
 
 OPENING_CASH = 5_000_000
 
 
 def month_labels() -> list[str]:
-    """['Sep'26', 'Oct'26', …] — 24 подписи от START_MONTH."""
     labels = []
     year, month = START_YEAR, START_MONTH
     for _ in range(MONTHS):
@@ -137,15 +158,14 @@ def strawberry_capacity_uzs() -> int:
 
 
 def _strawberry_series() -> list[int]:
-    """Клубника по месяцам: ноль, пока ферма строится, затем выход на потолок."""
     capacity = strawberry_capacity_uzs()
     series = []
     for i in range(MONTHS):
-        months_after_build = i - FARM_BUILD_MONTHS       # 0 на первом урожае
-        if months_after_build < 0:
+        after_build = i - FARM_BUILD_MONTHS
+        if after_build < 0:
             series.append(0)
-        elif months_after_build < len(STRAWBERRY_RAMP):
-            series.append(round(capacity * STRAWBERRY_RAMP[months_after_build]))
+        elif after_build < len(STRAWBERRY_RAMP):
+            series.append(round(capacity * STRAWBERRY_RAMP[after_build]))
         else:
             series.append(capacity)
     return series
@@ -154,23 +174,25 @@ def _strawberry_series() -> list[int]:
 def _opex_for_month(i: int) -> dict[str, int]:
     base = dict(OPEX_BEFORE if i < OPEX_SWITCH_MONTH - 1 else OPEX_AFTER)
     if i < RENT_PREPAID_MONTHS:
-        # Аренда новой площади уже оплачена из статьи «Bino tayyorlash».
         base["Ijara + kommunal"] = OPEX_BEFORE["Ijara + kommunal"]
     return base
 
 
 def build() -> dict:
-    """Собрать модель. Все производные величины считаются здесь и только здесь."""
     labels = month_labels()
     strawberry = _strawberry_series()
 
-    b2b = [RESTAURANTS[i] * PRICE_RESTAURANT for i in range(MONTHS)]
-    b2c = [FAMILIES[i] * PRICE_FAMILY for i in range(MONTHS)]
-    revenue = [b2b[i] + b2c[i] + strawberry[i] for i in range(MONTHS)]
-    subscription = [b2b[i] + b2c[i] for i in range(MONTHS)]
+    # Три канала — складываются в общую выручку и нигде больше не дублируются.
+    b2b = [RESTAURANTS[i] * CHECK_RESTAURANT * DELIVERIES_PER_MONTH
+           for i in range(MONTHS)]
+    subscriptions = [FAMILIES[i] * PRICE_FAMILY for i in range(MONTHS)]
+    retail = [RETAIL_PURCHASES[i] * CHECK_RETAIL for i in range(MONTHS)]
 
-    cogs = [round(subscription[i] * COGS_SUBSCRIPTION
-                  + strawberry[i] * COGS_STRAWBERRY) for i in range(MONTHS)]
+    goods = [b2b[i] + subscriptions[i] + retail[i] for i in range(MONTHS)]
+    revenue = [goods[i] + strawberry[i] for i in range(MONTHS)]
+
+    cogs = [round(goods[i] * COGS_GOODS + strawberry[i] * COGS_STRAWBERRY)
+            for i in range(MONTHS)]
     gross = [revenue[i] - cogs[i] for i in range(MONTHS)]
 
     opex_rows: dict[str, list[int]] = {k: [] for k in OPEX_AFTER}
@@ -183,17 +205,15 @@ def build() -> dict:
     opex_rows["Soliq (4%)"] = tax
     opex_total = [sum(opex_rows[k][i] for k in opex_rows) for i in range(MONTHS)]
 
-    # Амортизация начинается, когда ферма введена в строй, а не в день покупки.
     monthly_dep = round(capex_uzs() / DEPRECIATION_MONTHS)
     depreciation = [0 if i < OPEX_SWITCH_MONTH - 1 else monthly_dep
                     for i in range(MONTHS)]
 
-    ebitda = [gross[i] - opex_total[i] + tax[i] for i in range(MONTHS)]  # ДО налога
-    ebit = [gross[i] - opex_total[i] for i in range(MONTHS)]             # после налога
+    ebitda = [gross[i] - opex_total[i] + tax[i] for i in range(MONTHS)]  # до налога
+    ebit = [gross[i] - opex_total[i] for i in range(MONTHS)]
     net = [ebit[i] - depreciation[i] for i in range(MONTHS)]
 
-    cumulative = []
-    running = 0
+    cumulative, running = [], 0
     for value in net:
         running += value
         cumulative.append(running)
@@ -208,38 +228,35 @@ def build() -> dict:
     outflow = [opex_total[i] + capex_flow[i] + building_prep[i] for i in range(MONTHS)]
     net_cf = [inflow[i] - outflow[i] for i in range(MONTHS)]
 
-    cash = []
-    balance = OPENING_CASH
+    cash, balance = [], OPENING_CASH
     for value in net_cf:
         balance += value
         cash.append(balance)
 
     # ── Клиенты и метрики ────────────────────────────────────────────────
-    customers = [RESTAURANTS[i] + FAMILIES[i] for i in range(MONTHS)]
-    new_customers = [0] + [max(0, customers[i] - customers[i - 1])
-                           for i in range(1, MONTHS)]
-    arpu = [round(revenue[i] / customers[i]) for i in range(MONTHS)]
+    # Розничные покупки — это чеки, а не люди. Считаем плательщиков честно:
+    # ресторан и семья по подписке — постоянные клиенты, розница — покупки.
+    regulars = [RESTAURANTS[i] + FAMILIES[i] for i in range(MONTHS)]
+    new_regulars = [0] + [max(0, regulars[i] - regulars[i - 1])
+                          for i in range(1, MONTHS)]
+    arpu = [round(revenue[i] / regulars[i]) for i in range(MONTHS)]
+    arpu_restaurant = CHECK_RESTAURANT * DELIVERIES_PER_MONTH
 
-    # CAC учитывает не только рекламу: клиентов приводят дегустации, которые
-    # проводит директор. Без его времени CAC выглядел бы почти нулевым, и
-    # LTV/CAC улетал в сотни — цифра, из-за которой перепроверяют всю модель.
     sales_cost = [opex_rows["Marketing"][i]
                   + round(opex_rows["Ish haqi"][i] * SALES_SALARY_SHARE)
                   for i in range(MONTHS)]
-    cac = [round(sales_cost[i] / new_customers[i]) if new_customers[i] else None
+    cac = [round(sales_cost[i] / new_regulars[i]) if new_regulars[i] else None
            for i in range(MONTHS)]
 
-    # LTV по явной формуле: ARPU × брутто-маржа × срок жизни.
-    #
-    # Срок жизни ограничен горизонтом модели: 1/churn даёт 40 месяцев, но
-    # обещать доход за пределами того, что мы сами посчитали, нельзя. Берём
-    # меньшее из двух — так цифра защищается, а не вызывает желание
-    # перепроверить всю модель (прежняя версия давала LTV/CAC 174x).
+    # LTV: срок жизни ограничен горизонтом модели — обещать доход дальше того,
+    # что посчитали, нельзя.
     lifetime_months = min(1 / MONTHLY_CHURN, MONTHS)
     gross_margin = [gross[i] / revenue[i] for i in range(MONTHS)]
     ltv = [round(arpu[i] * gross_margin[i] * lifetime_months) for i in range(MONTHS)]
 
-    mrr = subscription[:]                       # клубника не подписка
+    # MRR — только по-настоящему повторяющаяся выручка: подписки семей и
+    # регулярные заказы ресторанов. Розница поштучно повторяющейся не является.
+    mrr = [b2b[i] + subscriptions[i] for i in range(MONTHS)]
     arr = [mrr[i] * 12 for i in range(MONTHS)]
 
     break_even_index = next((i for i, value in enumerate(net) if value > 0), None)
@@ -248,10 +265,15 @@ def build() -> dict:
         "labels": labels,
         "restaurants": list(RESTAURANTS),
         "families": list(FAMILIES),
-        "customers": customers,
-        "new_customers": new_customers,
+        "retail_purchases": list(RETAIL_PURCHASES),
+        "regulars": regulars,
+        "customers": regulars,
+        "new_customers": new_regulars,
         "b2b": b2b,
-        "b2c": b2c,
+        "subscriptions": subscriptions,
+        "retail": retail,
+        "b2c": [subscriptions[i] + retail[i] for i in range(MONTHS)],
+        "goods": goods,
         "strawberry": strawberry,
         "revenue": revenue,
         "cogs": cogs,
@@ -273,6 +295,7 @@ def build() -> dict:
         "net_cf": net_cf,
         "cash": cash,
         "arpu": arpu,
+        "arpu_restaurant": arpu_restaurant,
         "cac": cac,
         "ltv": ltv,
         "mrr": mrr,
@@ -285,16 +308,17 @@ def build() -> dict:
 
 
 def quarters(model: dict) -> list[dict]:
-    """Агрегация по кварталам — из неё строятся все квартальные таблицы Word."""
+    """Агрегация по кварталам — из неё строятся квартальные таблицы Word."""
     result = []
     for start in range(0, MONTHS, 3):
         end = start + 3
         last = end - 1
         result.append({
             "label": f"{model['labels'][start]} – {model['labels'][last]}",
-            "customers": model["customers"][last],
+            "customers": model["regulars"][last],
             "restaurants": model["restaurants"][last],
             "families": model["families"][last],
+            "retail_purchases": model["retail_purchases"][last],
             "new_customers": sum(model["new_customers"][start:end]),
             "revenue_month": model["revenue"][last],
             "revenue_sum": sum(model["revenue"][start:end]),

@@ -153,6 +153,51 @@ def check_calendar(m: dict) -> None:
         ok(block, f"Ariza 32-band = model M1: {base_mln} mln, "
                   f"{m['restaurants'][0]} restoran + {m['families'][0]} oila")
 
+    # Сумма прежних вложений основателя — главный аргумент заявки. Без неё
+    # фонд не видит, что у основателя своя шкура в игре.
+    if str(M.FOUNDER_INVESTED_USD // 1000) not in ariza:
+        fail(block, f"Ariza 34-bandida asoschi kiritgan "
+                    f"${M.FOUNDER_INVESTED_USD:,} ko'rsatilmagan")
+    else:
+        ok(block, f"Ariza 34-band: asoschi ${M.FOUNDER_INVESTED_USD:,} kiritgan")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2b. Каналы продаж: три потока обязаны складываться в выручку
+# ══════════════════════════════════════════════════════════════════════════
+
+def check_channels(m: dict) -> None:
+    block = "kanallar"
+
+    for i in range(M.MONTHS):
+        total = (m["b2b"][i] + m["subscriptions"][i]
+                 + m["retail"][i] + m["strawberry"][i])
+        if total != m["revenue"][i]:
+            fail(block, f"{m['labels'][i]}: kanallar yig'indisi {total:,} != "
+                        f"daromad {m['revenue'][i]:,}")
+            return
+    ok(block, f"barcha {M.MONTHS} oyda uch kanal + qulupnay = jami daromad")
+
+    # ARPU ресторана обязан быть произведением чека на частоту, а не числом
+    # «из головы»: прежние документы писали 200 000 как месячный ARPU, из-за
+    # чего выручка в таблицах не сходилась с выручкой в соседней строке.
+    expected = M.CHECK_RESTAURANT * M.DELIVERIES_PER_MONTH
+    if m["arpu_restaurant"] != expected:
+        fail(block, f"ARPU restoran {m['arpu_restaurant']:,} != chek × chastota "
+                    f"{expected:,}")
+    else:
+        ok(block, f"ARPU restoran = {M.CHECK_RESTAURANT:,} × "
+                  f"{M.DELIVERIES_PER_MONTH} = {expected:,}")
+
+    # Доля ресторанов — то, что назвал владелец: около 30 %.
+    share = m["b2b"][0] / m["revenue"][0]
+    if not 0.25 <= share <= 0.35:
+        fail(block, f"restoranlar ulushi {share:.0%} — egasining "
+                    f"«~30%» ma'lumotiga mos emas")
+    else:
+        ok(block, f"M1 tarkibi: restoranlar {share:.0%}, qolgani "
+                  f"{1 - share:.0%} (obuna + chakana)")
+
 
 # ══════════════════════════════════════════════════════════════════════════
 # 3. Траектория: квартальные таблицы против модели
@@ -223,13 +268,16 @@ def check_unit_economics(m: dict) -> None:
     text = "\n".join(c.text for r in unit.rows for c in r.cells)
     found = numbers(text)
 
-    if M.PRICE_RESTAURANT not in found:
-        fail(block, f"Biznes-reja: ARPU restoran {M.PRICE_RESTAURANT:,} yo'q "
-                    f"(Tariflar varag'i bilan mos kelishi shart)")
+    if m["arpu_restaurant"] not in found:
+        fail(block, f"Biznes-reja: ARPU restoran {m['arpu_restaurant']:,} yo'q "
+                    f"(chek × chastota bo'lishi shart)")
     elif M.PRICE_FAMILY not in found:
-        fail(block, f"Biznes-reja: ARPU oila {M.PRICE_FAMILY:,} yo'q")
+        fail(block, f"Biznes-reja: oila obunasi {M.PRICE_FAMILY:,} yo'q")
+    elif M.CHECK_RETAIL not in found:
+        fail(block, f"Biznes-reja: chakana chek {M.CHECK_RETAIL:,} yo'q")
     else:
-        ok(block, f"ARPU {M.PRICE_RESTAURANT:,} / {M.PRICE_FAMILY:,} = Tariflar")
+        ok(block, f"ARPU restoran {m['arpu_restaurant']:,} / oila "
+                  f"{M.PRICE_FAMILY:,} / chakana {M.CHECK_RETAIL:,}")
 
     ratio = m["ltv"][last] / m["cac"][last]
     if f"{ratio:.0f}x" not in text:
@@ -244,7 +292,7 @@ def check_unit_economics(m: dict) -> None:
         ok(block, "LTV formulasi hujjatda ko'rsatilgan")
 
     sotuv = doc_text("sotuv")
-    if "2.5 mln" not in sotuv and f"{M.PRICE_RESTAURANT // 1000}k" not in sotuv:
+    if f"{M.CHECK_RESTAURANT // 1000}k" not in sotuv:
         fail(block, "Sotuv-reja: ARPU Biznes-reja bilan mos emas")
     else:
         ok(block, "Sotuv-reja unit-ekonomikasi = Biznes-reja")
@@ -282,11 +330,18 @@ def check_kpi(m: dict) -> None:
             continue
         promised_value = int(promised.group(1))
         actual = m[series][months - 1]
+        today_base = m[series][0]
         if promised_value >= actual:
             fail(block, f"«{needle}»: KPI {promised_value}+ >= model {actual} "
                         f"({months} oy) — zaxira yo'q, majburiyat bajarilmaydi")
+        elif promised_value <= today_base:
+            # Порог ниже сегодняшней базы = обязательство, выполненное в момент
+            # подписания. Фонд платит транш за результат, которого уже достигли.
+            fail(block, f"«{needle}»: KPI {promised_value}+ <= bugungi baza "
+                        f"{today_base} — imzolash paytidayoq bajarilgan bo'ladi")
         else:
-            ok(block, f"«{needle}» {promised_value}+ < model {actual} ({months} oy)")
+            ok(block, f"«{needle}» {today_base} (bugun) < {promised_value}+ "
+                      f"< {actual} (model, {months} oy)")
 
     for table_index in (0, 1):
         found = target(table_index, "Oylik daromad")
@@ -318,6 +373,7 @@ def main() -> int:
 
     check_budget(m)
     check_calendar(m)
+    check_channels(m)
     check_trajectory(m)
     check_unit_economics(m)
     check_kpi(m)
