@@ -1,0 +1,63 @@
+name: Subscriptions — daily run
+
+# Исполнение подписок «Зелёная Коробка»: подошедшая дата → заказ.
+#
+# Роут /api/admin/subscriptions/run существовал, но его никто не вызывал —
+# подписки оформлялись и не отгружались, ровно как до этого никто не читал
+# nextDelivery. Расписание живёт здесь, а не в vercel.json: прод развёрнут
+# на своём сервере через docker compose, Vercel-кронов там нет.
+#
+# ПОЧЕМУ ЧЕРЕЗ SSH, А НЕ CURL ИЗВНЕ
+#
+# Роут закрыт `x-bot-secret` (lib/adminAuth.isAuthorized). Дёргая его снаружи,
+# пришлось бы завести BOT_SECRET ещё и секретом репозитория — вторая копия
+# того же ключа в третьем месте. Изнутри контейнера он уже есть: web поднят
+# с `env_file: .env`. Наружу сайт вообще опубликован только на 127.0.0.1:3002.
+#
+# Секреты и путь — те же, что у боевого деплоя в ci.yml (SERVER_HOST/
+# SERVER_USER/SSH_PRIVATE_KEY, /opt/microgreen), а не из legacy deploy.yml.
+
+on:
+  schedule:
+    # 01:00 UTC = 06:00 Asia/Tashkent. Утро выбрано намеренно: заказ должен
+    # попасть к сборщикам до выезда курьера, а не родиться среди дня.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+# Деплой на время пересборки убивает контейнер web, и `exec` в этот момент
+# отвалится. Разводим их по разным группам, но запрещаем накладываться самим
+# на себя: повторный запуск создал бы вторую попытку отгрузки за тот же день.
+# Она была бы отбита уникальностью (subscription_id, date), но шуметь незачем.
+concurrency:
+  group: subscriptions-run
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Fulfil due subscriptions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Trigger over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 9m
+          script: |
+            set -e
+            cd /opt/microgreen
+            # Node 22 в образе — fetch глобальный, curl в standalone-образе нет.
+            # Ненулевой код выхода на !ok обязателен: иначе провалившаяся
+            # отгрузка выглядела бы как успешный прогон, и подписки молча
+            # переставали бы ездить.
+            docker compose -f docker-compose.prod.yml exec -T web node -e '
+              const url = "http://127.0.0.1:3000/api/admin/subscriptions/run";
+              fetch(url, { method: "POST", headers: { "x-bot-secret": process.env.BOT_SECRET } })
+                .then(async (r) => {
+                  console.log("HTTP", r.status, await r.text());
+                  if (!r.ok) process.exit(1);
+                })
+                .catch((e) => { console.error(e); process.exit(1); });
+            '
