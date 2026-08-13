@@ -32,6 +32,14 @@ ARPU, и рост, и то, что даст новая ферма:
     24,75 млн/мес. Прежняя модель доводила её до 100 млн — вчетверо больше
     того, что растёт на 60 м².
   · Бюджет закрывает всю сумму: 455 млн расписаны до последнего сума.
+  · Налоги. Компания — плательщик НДС, а значит на общем режиме: прежние 4 % с
+    оборота платят как раз те, кто НДС не платит. Теперь НДС идёт транзитом
+    (выручка в P&L считается без него), а вместо оборотного налога — налог на
+    прибыль. Из-за этого выручка в отчётности на ~11 % ниже суммы, которую
+    платят клиенты: 40 млн с НДС = 35,7 млн выручки.
+  · Денежный поток. В оттоке не было себестоимости — касса прирастала на
+    величину закупок, которых будто бы не совершалось. Добавлены COGS, НДС и
+    налог на прибыль.
 """
 
 from __future__ import annotations
@@ -126,7 +134,34 @@ OPEX_AFTER = {
 OPEX_SWITCH_MONTH = 4             # ферма запущена — расходы новой площадки
 RENT_PREPAID_MONTHS = 6           # аренда новой площади оплачена вперёд
 
-TAX_RATE = 0.04                   # упрощённый оборотный налог
+# ── Налоги: общий режим, компания плательщик НДС ─────────────────────────
+#
+# Раньше модель считала 4 % с оборота — упрощённый режим. Но оборотный налог
+# платят те, кто НЕ является плательщиком НДС; у плательщика НДС общий режим:
+# НДС с реализации плюс налог на прибыль вместо оборотного.
+#
+# ⚠️ ДВА ДОПУЩЕНИЯ, ТРЕБУЮЩИЕ ПОДТВЕРЖДЕНИЯ:
+#
+# 1. `REVENUE_INCLUDES_VAT = True` — считаем, что названные 40 млн/мес это то,
+#    что платят клиенты, то есть сумма С НДС. Для розницы это почти наверняка
+#    так (розничная цена всегда с налогом). Если 40 млн — выручка БЕЗ НДС, а
+#    клиенты платят сверху 44,8 млн, поставьте False: выручка и прибыль
+#    вырастут на 12 %. Занижать безопаснее, поэтому по умолчанию True.
+#
+# 2. `PROFIT_TAX_RATE = 0.12` — ставка, которую сама платформа фонда
+#    (startupplan.uz) помечает как «12% (standart)». Взята именно она, а не
+#    моя оценка в 15 %: расчёт фонда и бумажный пакет обязаны давать одну
+#    прибыль, иначе рецензент увидит два разных ответа на один вопрос.
+#    Бухгалтеру стоит подтвердить ставку; если она 15 %, здесь одна цифра.
+#
+# НДС в P&L расходом не является: он собирается с покупателя и перечисляется
+# в бюджет. Поэтому прибыль считается от выручки БЕЗ НДС, а сам НДС проходит
+# транзитом. Входящий НДС по закупкам уменьшает платёж в бюджет; здесь он не
+# моделируется — это в пользу консервативности.
+VAT_RATE = 0.12
+REVENUE_INCLUDES_VAT = True
+PROFIT_TAX_RATE = 0.12
+
 COGS_GOODS = 0.30                 # микрозелень, салаты: маржа 70 %
 COGS_STRAWBERRY = 0.45            # клубника: маржа 55 %
 
@@ -171,6 +206,13 @@ def _strawberry_series() -> list[int]:
     return series
 
 
+def net_of_vat(amount: float) -> int:
+    """Выручка без НДС. Если цены названы без налога, делитель равен единице."""
+    if not REVENUE_INCLUDES_VAT:
+        return round(amount)
+    return round(amount / (1.0 + VAT_RATE))
+
+
 def _opex_for_month(i: int) -> dict[str, int]:
     base = dict(OPEX_BEFORE if i < OPEX_SWITCH_MONTH - 1 else OPEX_AFTER)
     if i < RENT_PREPAID_MONTHS:
@@ -180,16 +222,29 @@ def _opex_for_month(i: int) -> dict[str, int]:
 
 def build() -> dict:
     labels = month_labels()
-    strawberry = _strawberry_series()
 
-    # Три канала — складываются в общую выручку и нигде больше не дублируются.
-    b2b = [RESTAURANTS[i] * CHECK_RESTAURANT * DELIVERIES_PER_MONTH
-           for i in range(MONTHS)]
-    subscriptions = [FAMILIES[i] * PRICE_FAMILY for i in range(MONTHS)]
-    retail = [RETAIL_PURCHASES[i] * CHECK_RETAIL for i in range(MONTHS)]
+    # Цены каналов — это то, что платит клиент, то есть суммы С НДС. В отчёте о
+    # прибылях выручкой считается сумма БЕЗ налога: НДС компании не принадлежит,
+    # она лишь собирает его с покупателя и перечисляет в бюджет.
+    b2b_gross = [RESTAURANTS[i] * CHECK_RESTAURANT * DELIVERIES_PER_MONTH
+                 for i in range(MONTHS)]
+    subs_gross = [FAMILIES[i] * PRICE_FAMILY for i in range(MONTHS)]
+    retail_gross = [RETAIL_PURCHASES[i] * CHECK_RETAIL for i in range(MONTHS)]
+    strawberry_gross = _strawberry_series()
+
+    b2b = [net_of_vat(v) for v in b2b_gross]
+    subscriptions = [net_of_vat(v) for v in subs_gross]
+    retail = [net_of_vat(v) for v in retail_gross]
+    strawberry = [net_of_vat(v) for v in strawberry_gross]
 
     goods = [b2b[i] + subscriptions[i] + retail[i] for i in range(MONTHS)]
     revenue = [goods[i] + strawberry[i] for i in range(MONTHS)]
+
+    revenue_gross = [b2b_gross[i] + subs_gross[i] + retail_gross[i]
+                     + strawberry_gross[i] for i in range(MONTHS)]
+    # НДС к уплате. Входящий налог по закупкам его уменьшил бы, но поставщики
+    # сельхозсырья часто вне НДС, поэтому вычет не моделируется — в запас.
+    vat_payable = [revenue_gross[i] - revenue[i] for i in range(MONTHS)]
 
     cogs = [round(goods[i] * COGS_GOODS + strawberry[i] * COGS_STRAWBERRY)
             for i in range(MONTHS)]
@@ -201,17 +256,19 @@ def build() -> dict:
         for key in opex_rows:
             opex_rows[key].append(month_opex[key])
 
-    tax = [round(revenue[i] * TAX_RATE) for i in range(MONTHS)]
-    opex_rows["Soliq (4%)"] = tax
+    # Оборотного налога больше нет: компания на общем режиме. Налог на прибыль
+    # считается в самом конце, от результата, а не от выручки, — поэтому в
+    # операционные расходы он не входит.
     opex_total = [sum(opex_rows[k][i] for k in opex_rows) for i in range(MONTHS)]
 
     monthly_dep = round(capex_uzs() / DEPRECIATION_MONTHS)
     depreciation = [0 if i < OPEX_SWITCH_MONTH - 1 else monthly_dep
                     for i in range(MONTHS)]
 
-    ebitda = [gross[i] - opex_total[i] + tax[i] for i in range(MONTHS)]  # до налога
-    ebit = [gross[i] - opex_total[i] for i in range(MONTHS)]
-    net = [ebit[i] - depreciation[i] for i in range(MONTHS)]
+    ebitda = [gross[i] - opex_total[i] for i in range(MONTHS)]
+    ebit = [ebitda[i] - depreciation[i] for i in range(MONTHS)]
+    tax = [round(max(0, ebit[i]) * PROFIT_TAX_RATE) for i in range(MONTHS)]
+    net = [ebit[i] - tax[i] for i in range(MONTHS)]
 
     cumulative, running = [], 0
     for value in net:
@@ -224,8 +281,13 @@ def build() -> dict:
     building_prep = [BUDGET_USD["Bino tayyorlash"] * USD_RATE if i == 0 else 0
                      for i in range(MONTHS)]
 
-    inflow = [revenue[i] + investment[i] for i in range(MONTHS)]
-    outflow = [opex_total[i] + capex_flow[i] + building_prep[i] for i in range(MONTHS)]
+    # Приход — то, что реально платят клиенты, то есть вместе с НДС.
+    inflow = [revenue_gross[i] + investment[i] for i in range(MONTHS)]
+    # Расход. Себестоимости здесь раньше не было вовсе: касса росла на величину
+    # закупок, которых будто бы не происходило, и за 24 месяца набегали сотни
+    # миллионов несуществующих денег. Теперь в оттоке и COGS, и НДС, и налог.
+    outflow = [cogs[i] + opex_total[i] + tax[i] + vat_payable[i]
+               + capex_flow[i] + building_prep[i] for i in range(MONTHS)]
     net_cf = [inflow[i] - outflow[i] for i in range(MONTHS)]
 
     cash, balance = [], OPENING_CASH
@@ -272,10 +334,17 @@ def build() -> dict:
         "b2b": b2b,
         "subscriptions": subscriptions,
         "retail": retail,
+        # То же самое в суммах, которые платит клиент: этими цифрами владелец
+        # оперирует в разговоре и их же видно по банковской выписке.
+        "b2b_gross": b2b_gross,
+        "subs_gross": subs_gross,
+        "retail_gross": retail_gross,
         "b2c": [subscriptions[i] + retail[i] for i in range(MONTHS)],
         "goods": goods,
         "strawberry": strawberry,
         "revenue": revenue,
+        "revenue_gross": revenue_gross,
+        "vat_payable": vat_payable,
         "cogs": cogs,
         "gross": gross,
         "gross_margin": gross_margin,

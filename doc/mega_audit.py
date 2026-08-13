@@ -141,17 +141,24 @@ def check_calendar(m: dict) -> None:
     else:
         ok(block, f"transh {m['labels'][0]} da, ya'ni birinchi oyda")
 
-    # Заявка и модель обязаны сходиться в стартовой точке.
+    # Заявка и модель обязаны сходиться в стартовой точке. Оборот называется с
+    # НДС — так он выглядит в выписке; выручка без НДС обязана стоять рядом,
+    # иначе рецензент увидит два разных числа и не поймёт, какое настоящее.
     ariza = doc_text("ariza")
-    base_mln = round(m["revenue"][0] / 1_000_000)
+    base_mln = round(m["revenue_gross"][0] / 1_000_000)
+    net_mln = round(m["revenue"][0] / 1_000_000)
     if str(base_mln) not in ariza:
-        fail(block, f"Ariza 32-bandida bazaviy daromad {base_mln} mln topilmadi")
+        fail(block, f"Ariza 32-bandida bazaviy oborot {base_mln} mln topilmadi")
+    elif str(net_mln) not in ariza:
+        fail(block, f"Ariza 32-bandida QQSsiz daromad {net_mln} mln ko'rsatilmagan — "
+                    f"model shu summadan hisoblanadi")
     elif str(m["restaurants"][0]) not in ariza or str(m["families"][0]) not in ariza:
         fail(block, f"Ariza: baza {m['restaurants'][0]} restoran + "
                     f"{m['families'][0]} oila ko'rsatilmagan")
     else:
-        ok(block, f"Ariza 32-band = model M1: {base_mln} mln, "
-                  f"{m['restaurants'][0]} restoran + {m['families'][0]} oila")
+        ok(block, f"Ariza 32-band = model M1: {base_mln} mln QQS bilan / "
+                  f"{net_mln} mln QQSsiz, {m['restaurants'][0]} restoran + "
+                  f"{m['families'][0]} oila")
 
     # Сумма прежних вложений основателя — главный аргумент заявки. Без неё
     # фонд не видит, что у основателя своя шкура в игре.
@@ -197,6 +204,69 @@ def check_channels(m: dict) -> None:
     else:
         ok(block, f"M1 tarkibi: restoranlar {share:.0%}, qolgani "
                   f"{1 - share:.0%} (obuna + chakana)")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# 2c. Налоги и денежный поток
+#
+# Два дефекта, которые здесь ловятся, уже случались. Первый: в модели стоял
+# оборотный налог 4 %, который платят НЕ плательщики НДС, — то есть режим был
+# перепутан. Второй: в оттоке денег отсутствовала себестоимость, и касса росла
+# на величину закупок, которых будто бы не совершалось.
+# ══════════════════════════════════════════════════════════════════════════
+
+def check_taxes(m: dict) -> None:
+    block = "soliqlar"
+
+    turnover_rows = [k for k in m["opex_rows"] if "soliq" in k.lower()]
+    if turnover_rows:
+        fail(block, f"OPEX ichida soliq qatori bor: {turnover_rows} — aylanma "
+                    f"solig'i QQS to'lovchisiga tegishli emas")
+    else:
+        ok(block, "OPEX ichida aylanma solig'i yo'q — umumiy rejim")
+
+    for i in range(M.MONTHS):
+        if m["revenue"][i] + m["vat_payable"][i] != m["revenue_gross"][i]:
+            fail(block, f"{m['labels'][i]}: QQSsiz {m['revenue'][i]:,} + QQS "
+                        f"{m['vat_payable'][i]:,} != oborot {m['revenue_gross'][i]:,}")
+            break
+    else:
+        ok(block, f"barcha {M.MONTHS} oyda oborot = QQSsiz daromad + QQS")
+
+    expected_tax = [round(max(0, m["ebit"][i]) * M.PROFIT_TAX_RATE)
+                    for i in range(M.MONTHS)]
+    if expected_tax != m["tax"]:
+        fail(block, "foyda solig'i EBIT ning "
+                    f"{M.PROFIT_TAX_RATE:.0%} iga teng emas")
+    else:
+        ok(block, f"foyda solig'i = EBIT × {M.PROFIT_TAX_RATE:.0%}")
+
+    # Себестоимость обязана быть в оттоке: без неё касса рисует деньги.
+    for i in range(M.MONTHS):
+        minimum = (m["cogs"][i] + m["opex_total"][i] + m["tax"][i]
+                   + m["vat_payable"][i] + m["capex"][i] + m["building_prep"][i])
+        if m["outflow"][i] != minimum:
+            fail(block, f"{m['labels'][i]}: chiqim {m['outflow'][i]:,} != "
+                        f"COGS + OPEX + soliqlar + CAPEX {minimum:,}")
+            break
+    else:
+        ok(block, "pul chiqimiga tannarx, QQS va foyda solig'i kiritilgan")
+
+    # Excel обязан показывать ту же чистую прибыль, что и модель.
+    wb = openpyxl.load_workbook(READY / NAMES["excel"])
+    ws = wb["6. Sof foyda"]
+    profit_row = next((r for r in ws.iter_rows()
+                       if r[0].value and str(r[0].value).strip() == "SOF FOYDA"), None)
+    if profit_row is None:
+        fail(block, "Excel: «SOF FOYDA» qatori topilmadi")
+    else:
+        excel = [c.value for c in profit_row[1:M.MONTHS + 1]]
+        if excel != m["net"]:
+            mismatch = next(i for i in range(M.MONTHS) if excel[i] != m["net"][i])
+            fail(block, f"Excel sof foyda {m['labels'][mismatch]}: "
+                        f"{excel[mismatch]:,} != model {m['net'][mismatch]:,}")
+        else:
+            ok(block, "Excel P&L sof foydasi = model")
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -374,6 +444,7 @@ def main() -> int:
     check_budget(m)
     check_calendar(m)
     check_channels(m)
+    check_taxes(m)
     check_trajectory(m)
     check_unit_economics(m)
     check_kpi(m)

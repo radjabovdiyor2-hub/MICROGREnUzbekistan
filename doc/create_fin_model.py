@@ -143,11 +143,17 @@ def build_workbook(m: dict) -> Workbook:
     _title(ws, "3. DAROMAD", n + 2)
     _header(ws, 3, labels, "Ko'rsatkich (UZS)", "JAMI")
     row = 4
+    row = _series(ws, row, "Mijozlar to'lovi (QQS bilan)", m["revenue_gross"],
+                  sum(m["revenue_gross"]))
+    row = _series(ws, row, f"QQS ({M.VAT_RATE:.0%})", m["vat_payable"],
+                  sum(m["vat_payable"]))
+    row += 1
     row = _series(ws, row, "Restoranlar (buyurtma)", m["b2b"], sum(m["b2b"]))
     row = _series(ws, row, "Oila obunalari", m["subscriptions"], sum(m["subscriptions"]))
     row = _series(ws, row, "Chakana savdo", m["retail"], sum(m["retail"]))
     row = _series(ws, row, "Qulupnay", m["strawberry"], sum(m["strawberry"]))
-    row = _series(ws, row, "JAMI DAROMAD", m["revenue"], sum(m["revenue"]), bold=True)
+    row = _series(ws, row, "JAMI DAROMAD (QQSsiz)", m["revenue"], sum(m["revenue"]),
+                  bold=True)
     row += 1
     row = _series(ws, row, "MRR (takrorlanuvchi)", m["mrr"], m["mrr"][-1])
     row = _series(ws, row, "ARR (yillik)", m["arr"], m["arr"][-1])
@@ -178,12 +184,16 @@ def build_workbook(m: dict) -> Workbook:
     _header(ws, 3, labels, "Ko'rsatkich (UZS)", "JAMI")
     row = 4
     row = _series(ws, row, "Investitsiya kirimi", m["investment"], sum(m["investment"]))
-    row = _series(ws, row, "Daromad kirimi", m["revenue"], sum(m["revenue"]))
+    row = _series(ws, row, "Mijozlardan tushum (QQS bilan)", m["revenue_gross"],
+                  sum(m["revenue_gross"]))
     row = _series(ws, row, "JAMI KIRIM", m["inflow"], sum(m["inflow"]), bold=True)
     row += 1
     row = _series(ws, row, "CAPEX (uskunalar)", m["capex"], sum(m["capex"]))
     row = _series(ws, row, "Bino tayyorlash", m["building_prep"], sum(m["building_prep"]))
+    row = _series(ws, row, "COGS (xarid, tannarx)", m["cogs"], sum(m["cogs"]))
     row = _series(ws, row, "OPEX", m["opex_total"], sum(m["opex_total"]))
+    row = _series(ws, row, "QQS to'lovi", m["vat_payable"], sum(m["vat_payable"]))
+    row = _series(ws, row, "Foyda solig'i", m["tax"], sum(m["tax"]))
     row = _series(ws, row, "JAMI CHIQIM", m["outflow"], sum(m["outflow"]), bold=True)
     row += 1
     row = _series(ws, row, "SOF PUL OQIMI", m["net_cf"], sum(m["net_cf"]), bold=True)
@@ -195,16 +205,15 @@ def build_workbook(m: dict) -> Workbook:
     _title(ws, "6. SOF FOYDA (P&L)", n + 2)
     _header(ws, 3, labels, "P&L (UZS)", "JAMI")
     row = 4
-    row = _series(ws, row, "Jami daromad", m["revenue"], sum(m["revenue"]))
+    row = _series(ws, row, "Jami daromad (QQSsiz)", m["revenue"], sum(m["revenue"]))
     row = _series(ws, row, "COGS", m["cogs"], sum(m["cogs"]))
     row = _series(ws, row, "BRUTTO FOYDA", m["gross"], sum(m["gross"]), bold=True)
-    row = _series(ws, row, "OPEX (soliqsiz)",
-                  [m["opex_total"][i] - m["tax"][i] for i in range(n)],
-                  sum(m["opex_total"]) - sum(m["tax"]))
-    row = _series(ws, row, "EBITDA (soliqqacha)", m["ebitda"], sum(m["ebitda"]), bold=True)
-    row = _series(ws, row, "Soliq (4%)", m["tax"], sum(m["tax"]))
-    row = _series(ws, row, "Operatsion foyda", m["ebit"], sum(m["ebit"]))
+    row = _series(ws, row, "OPEX", m["opex_total"], sum(m["opex_total"]))
+    row = _series(ws, row, "EBITDA", m["ebitda"], sum(m["ebitda"]), bold=True)
     row = _series(ws, row, "Amortizatsiya", m["depreciation"], sum(m["depreciation"]))
+    row = _series(ws, row, "Operatsion foyda (EBIT)", m["ebit"], sum(m["ebit"]))
+    row = _series(ws, row, f"Foyda solig'i ({M.PROFIT_TAX_RATE:.0%})", m["tax"],
+                  sum(m["tax"]))
     row = _series(ws, row, "SOF FOYDA", m["net"], sum(m["net"]), bold=True)
     row = _series(ws, row, "Sof marja (%)",
                   [round(m["net"][i] / m["revenue"][i] * 100, 1) for i in range(n)],
@@ -256,9 +265,13 @@ def build_workbook(m: dict) -> Workbook:
          f"{M.DEPRECIATION_MONTHS} oyda amortizatsiya"),
         ("", "", ""),
         ("DAVR", f"{m['labels'][0]} — {m['labels'][-1]}", f"{M.MONTHS} oy"),
-        ("Boshlang'ich baza (M1)", f"{m['revenue'][0]:,} UZS/oy",
+        ("Boshlang'ich baza (M1)", f"{m['revenue_gross'][0]:,} UZS/oy",
          f"{m['restaurants'][0]} restoran + {m['families'][0]} oila obuna + "
-         f"~{m['retail_purchases'][0]} chakana xarid — FAKT"),
+         f"~{m['retail_purchases'][0]} chakana xarid — FAKT, QQS bilan"),
+        ("  — QQSsiz daromad", f"{m['revenue'][0]:,} UZS/oy",
+         "P&L shu summadan hisoblanadi"),
+        ("Soliq rejimi", f"umumiy: QQS {M.VAT_RATE:.0%}",
+         f"foyda solig'i {M.PROFIT_TAX_RATE:.0%} — aylanma solig'i emas"),
         ("Asoschi allaqachon kiritgan", f"${M.FOUNDER_INVESTED_USD:,}",
          "shaxsiy mablag', tashqi investitsiyasiz"),
         ("", "", ""),
