@@ -130,7 +130,13 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        # Не `postgres:15`: в схеме есть knowledge_base.embedding типа
+        # Unsupported("vector(1536)"), и на образе без pgvector `prisma db push`
+        # обрывается на CREATE TABLE с `type "vector" does not exist`. Весь job
+        # умирал за минуту, до единого сценария. Прод (docker-compose.prod.yml)
+        # работает на pgvector/pgvector:pg16 — стенд должен совпадать с ним,
+        # а не с локальным docker-compose.yml.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -146,7 +152,18 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      # Образ несёт расширения, но не включает их — CREATE EXTENSION живёт
+      # в базе, а не в образе. vector нужен самому db push (см. выше), pg_trgm —
+      # migrations/manual/2026-08-customer-search.sql, который накатывает деплой:
+      # без него нечёткий проход поиска молча выключен, и стенд врал бы о нём.
+      - name: Enable Postgres extensions
+        run: psql "$DATABASE_URL" -c 'CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
       - run: cd packages/database && npx prisma generate && npx prisma db push --skip-generate
+      # Пустая база — пустой каталог. Три сценария («каталог показывает товары»,
+      # «поиск принимает ввод», «catalog link navigates to catalog») ждут ссылку
+      # /product/<id> и без сидера падают по таймауту: выглядит как поломка
+      # витрины, хотя витрине просто нечего показывать.
+      - run: cd packages/database && npm run db:seed
       - run: cd apps/web && npx playwright install --with-deps chromium
       - run: cd apps/web && npm run build
       # Свой сервер поднимает сам playwright.config.ts, когда
