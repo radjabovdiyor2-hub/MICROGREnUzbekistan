@@ -38,6 +38,28 @@ export const CATEGORY_SEO: Record<string, CategorySeo> = {
     introRu: "Baby Leaf — молодые нежные листья салата с мягким, чуть сладковатым вкусом. Почти не требуют мытья и готовы к подаче. Отличная основа для салатов, бургеров и сэндвичей. Свежая срезка и доставка по Самарканду.",
     keywords: ['baby leaf', 'бейби лист', 'молодой салат', 'салатные листья', 'салат Самарканд'],
   },
+  balans: {
+    slug: 'balans',
+    h1Uz: "BALANS — tayyor mikroko'kat mikslari va kitlar",
+    h1Ru: 'BALANS — готовые миксы микрозелени и киты',
+    title: 'BALANS — готовые миксы микрозелени 100 г купить в Самарканде | Доставка',
+    description:
+      'Готовые миксы микрозелени BALANS в упаковке 100 г и киты с заправкой. Мало углеводов, источник клетчатки. Подача за 10–15 минут до основного блюда. Доставка по Самарканду.',
+    introUz:
+      "BALANS — tayyor mikroko'kat mikslari 100 g qadoqda va sous sashesi bilan kitlar. Yuvish shart emas: ochib, asosiy taomdan 10-15 daqiqa oldin bering. Har bir miksda kaloriya, uglevod va tolalar qadoqda yozilgan. Sous alohida sashede — shuning uchun ko'kat berishgacha cho'kmaydi.",
+    introRu:
+      'BALANS — готовые миксы микрозелени в упаковке 100 г и киты с заправкой в саше. Мыть не нужно: откройте и подайте за 10–15 минут до основного блюда. На каждой упаковке указаны калорийность, углеводы и клетчатка. Заправка идёт отдельным саше, поэтому до подачи зелень не оседает. Доставка по Самарканду, срок хранения 3–5 дней при 2–5 °C.',
+    keywords: [
+      'BALANS',
+      'микс микрозелени',
+      'готовый салат Самарканд',
+      'микрозелень 100 г',
+      'мало углеводов',
+      'источник клетчатки',
+      "mikroko'kat miks",
+      'салат к плову',
+    ],
+  },
   salads: {
     slug: 'salads',
     h1Uz: "Salatlar — Bacio, Romano, Latuk, Rukkola",
@@ -104,7 +126,7 @@ export const CATEGORY_SEO: Record<string, CategorySeo> = {
  * Категории, которые сейчас продаются.
  *
  * Источник состава каталога — прайс (`public/catalog/price-list.html`): в нём
- * микрозелень, бейби-лист и салаты, всего 34 позиции. Цветы, семена,
+ * микрозелень, бейби-лист, салаты и BALANS, всего 40 позиций. Цветы, семена,
  * оборудование, наборы и услуги в прайсе не значатся, их товары скрыты
  * импортом, и раздел остался бы пустым.
  *
@@ -113,7 +135,7 @@ export const CATEGORY_SEO: Record<string, CategorySeo> = {
  * разделы. Тексты ниже НЕ удалены намеренно: вернёте категорию в прайс —
  * достаточно дописать её сюда, SEO-копия уже готова.
  */
-const ACTIVE_CATEGORIES = ['microgreens', 'baby-leaf', 'salads'] as const;
+const ACTIVE_CATEGORIES = ['microgreens', 'baby-leaf', 'salads', 'balans'] as const;
 
 export const CATEGORY_SLUGS: string[] = [...ACTIVE_CATEGORIES];
 

@@ -74,10 +74,10 @@ export const HOME_JSON_LD_DATA = {
       mainEntity: [
         {
           '@type': 'Question',
-          name: "Mikroko'katlar nima va ularning qanday foydasi bor? / Что такое микрозелень и в чём её польза?",
+          name: "Mikroko'katlar nima? / Что такое микрозелень?",
           acceptedAnswer: {
             '@type': 'Answer',
-            text: "Mikroko'katlar — 7-14 kunlik yosh o'simliklar bo'lib, oddiy sabzavotlarga qaraganda 40 barobargacha ko'proq vitamin, mineral va antioksidantlarga boy. Immunitetni oshiradi, ozishga va detoksga yordam beradi. Микрозелень — 7-14-дневные проростки с содержанием витаминов до 40 раз выше обычных овощей.",
+            text: "Mikroko'kat — urug'dan chiqqan 7-14 kunlik nihol: birinchi haqiqiy barglar ochilganda kesiladi. Past kaloriya, kam uglevod, kletchatka va vitaminlar manbai. Микрозелень — росток 7-14 дней от посева, срезанный при появлении первых настоящих листьев. Низкая калорийность, мало углеводов, источник клетчатки и витаминов.",
           },
         },
         {
@@ -117,7 +117,7 @@ export const HOME_JSON_LD_DATA = {
           name: "Mikroko'katlar bilan qanday taomlar tayyorlanadi? / Какие блюда можно приготовить с микрозеленью?",
           acceptedAnswer: {
             '@type': 'Answer',
-            text: "Salatlar, smuzlar, sendvichlar, sushlar, garnirlar, detoks ichimliklar va boshqa 100+ PP retseptlar. Shef-povarlar uchun taom bezash va garnir sifatida ham ishlatiladi. Салаты, смузи, сэндвичи, суши, гарниры, детокс-напитки и более 100 ПП-рецептов. Шеф-повара используют для украшения и гарнира.",
+            text: "Salatlar, smuzilar, sendvichlar, sushi, garnirlar va 100+ retsept. BALANS liniyasida tayyor 100 g mikslar bor: asosiy taomdan oldin beriladi. Салаты, смузи, сэндвичи, суши, гарниры и более 100 рецептов. В линейке BALANS — готовые миксы 100 г, которые подают перед основным блюдом.",
           },
         },
         {

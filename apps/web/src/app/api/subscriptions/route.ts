@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { z } from 'zod';
 import { getCustomerId, unauthorized, forbidden } from '@/lib/adminAuth';
+import { PLAN_CODES, applyPlanDiscount } from '@/lib/subscriptions/plans';
 
 // ══════════════════════════════════════════════════════════════════
 // API: /api/subscriptions
@@ -20,6 +21,9 @@ const createSchema = z.object({
   phone: z.string().min(5),
   city: z.string().default('tashkent'),
   note: z.string().optional(),
+  // Неизвестный код тарифа отвергаем, а не молча пишем в базу: иначе скидка
+  // не применится, а клиент будет считать, что оформил тариф.
+  planCode: z.enum(PLAN_CODES as [string, ...string[]]).optional(),
   items: z.array(z.object({
     productId: z.string(),
     quantity: z.number().min(1).default(1),
@@ -175,7 +179,7 @@ export async function POST(req: NextRequest) {
       if (total === null) {
         return NextResponse.json({ error: 'Товар из подписки больше не продаётся' }, { status: 409 });
       }
-      updateData.total = total;
+      updateData.total = applyPlanDiscount(total, existing.planCode);
     }
 
     if (updates.interval || updates.deliveryDay !== undefined) {
@@ -227,7 +231,8 @@ export async function POST(req: NextRequest) {
       phone: data.phone,
       city: data.city,
       note: data.note,
-      total,
+      planCode: data.planCode,
+      total: applyPlanDiscount(total, data.planCode),
       nextDelivery: nextDeliveryDate(data.deliveryDay, data.interval),
       items: {
         create: data.items.map(item => ({

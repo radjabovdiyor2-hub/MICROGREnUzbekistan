@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {
-  Droplet, Leaf, Package, Plug, Sparkles,
+  Droplet, Leaf, Package, Plug, Salad, Sparkles,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { motion } from 'framer-motion';
@@ -16,6 +16,7 @@ export function CategoriesSection() {
     { slug: 'microgreens', icon: <Leaf size={22} />, name: t("Mikroko'katlar", 'Микрозелень'), color: 'var(--brand-primary)' },
     { slug: 'baby-leaf', icon: <Leaf size={22} />, name: t('Baby Leaf', 'Бейби лист'), color: 'var(--cat-7)' },
     { slug: 'salads', icon: <Leaf size={22} />, name: t('Salatlar', 'Салаты'), color: 'var(--brand-primary)' },
+    { slug: 'balans', icon: <Salad size={22} />, name: 'BALANS', color: 'var(--cat-2)' },
     { slug: 'flowers', icon: <Sparkles size={22} />, name: t('Gullar', 'Цветы'), color: 'var(--cat-3)' },
     { slug: 'seeds', icon: <Droplet size={22} />, name: t("Urug'lar", 'Семена'), color: 'var(--warning)' },
     { slug: 'equipment', icon: <Plug size={22} />, name: t('Uskunalar', 'Оборудование'), color: 'var(--cat-12)' },

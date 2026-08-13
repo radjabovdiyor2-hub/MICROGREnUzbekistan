@@ -78,7 +78,7 @@ export const Default: Story = {
       {/* Statement band */}
       <section style={{ background: OFFWHITE, textAlign: 'center', padding: 'clamp(80px, 12vw, 140px) 22px' }}>
         <h2 style={{ fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.08, maxWidth: 900, margin: '0 auto' }}>
-          В 40 раз больше витаминов, чем во взрослых растениях.
+          Срезано утром. На тарелке в тот же день.
         </h2>
         <p style={{ fontSize: 'clamp(17px, 2vw, 21px)', color: SUB, marginTop: 18 }}>Витамины K, C и фолиевая кислота — в каждом ростке.</p>
       </section>

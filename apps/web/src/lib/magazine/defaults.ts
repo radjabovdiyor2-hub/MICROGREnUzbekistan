@@ -27,6 +27,15 @@ export function defaultSharedSpec(_weekNumber = 1): MagazineSpec {
           fact: { uz: 'Ko‘z ostidagi qorayish haqidagi so‘rovlar oshdi.', ru: 'Всплеск запросов о тёмных кругах под глазами.' },
           advice: { uz: 'K vitamini va temir: no‘xat va lavlagi mikrozeleni.', ru: 'Витамин K и железо: микрозелень гороха и свёклы.' },
         },
+        {
+          // Метод BALANS — порядок подачи, а не свойство продукта. Формулировки
+          // держим на этом уровне: заявления о влиянии на здоровье требуют
+          // разрешения Минздрава, и в журнал их писать нельзя.
+          trendQuery: { uz: 'palovdan keyin og‘irlik', ru: 'тяжесть после плова' },
+          factTitle: { uz: 'Stol odati', ru: 'Привычка за столом' },
+          fact: { uz: 'Yaponiyada ko‘katni asosiy taomdan oldin berish odat.', ru: 'В Японии зелень принято подавать до основного блюда.' },
+          advice: { uz: 'BALANS usuli: 100 g miks — palovdan 10-15 daqiqa oldin.', ru: 'Метод BALANS: 100 г микса — за 10–15 минут до плова.' },
+        },
       ],
     },
     {

@@ -20,7 +20,10 @@ export function ProductSpecsTab({
           [t('Vitaminlar', 'Витамины')]: 'A, B, C, E, K, Sulforaphane',
           [t('Minerallar', 'Минералы')]: t('Temir, Magniy, Kaltsiy, Rux', 'Железо, Магний, Кальций, Цинк'),
           [t("Ta'm", 'Вкус')]: t('Yangi va sersuv', 'Свежий и сочный'),
-          [t('Foydali xususiyati', 'Полезные свойства')]: t('Immunitet va hazm qilish', 'Иммунитет и детоксикация'),
+          // Было «Полезные свойства: иммунитет и детоксикация» — заявление
+          // об оздоровительном действии, на которое нужно разрешение Минздрава.
+          // Запасная карточка описывает состав, а не эффект.
+          [t('Tarkibida', 'В составе')]: t('Kletchatka, vitaminlar', 'Клетчатка, витамины'),
           [t('Saqlash harorati', 'Температура хранения')]: '2°C — 5°C',
           [t('Yaroqlilik muddati', 'Срок годности')]: t('7 kun', '7 дней'),
         }

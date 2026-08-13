@@ -1,21 +1,17 @@
 import { PrismaClient } from '@prisma/client';
+import { seedCategories } from './seed-categories';
+
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Seeding Microgreen Uzbekistan store...');
 
   // ===== CATEGORIES =====
-  const cats = await Promise.all([
-    prisma.category.upsert({ where: { slug: 'microgreens' }, update: {}, create: { nameUz: "Mikroko'katlar", nameRu: 'Микрозелень', slug: 'microgreens', icon: 'Leaf', order: 1 }}),
-    prisma.category.upsert({ where: { slug: 'baby-leaf' }, update: {}, create: { nameUz: 'Baby Leaf', nameRu: 'Бейби лист', slug: 'baby-leaf', icon: 'Leaf', order: 2 }}),
-    prisma.category.upsert({ where: { slug: 'salads' }, update: {}, create: { nameUz: 'Salatlar', nameRu: 'Салаты', slug: 'salads', icon: 'Leaf', order: 3 }}),
-    prisma.category.upsert({ where: { slug: 'flowers' }, update: {}, create: { nameUz: 'Gullar', nameRu: 'Цветы', slug: 'flowers', icon: 'Sparkles', order: 4 }}),
-    prisma.category.upsert({ where: { slug: 'seeds' }, update: {}, create: { nameUz: "Urug'lar", nameRu: 'Семена', slug: 'seeds', icon: 'Droplet', order: 5 }}),
-    prisma.category.upsert({ where: { slug: 'equipment' }, update: {}, create: { nameUz: 'Uskunalar', nameRu: 'Оборудование', slug: 'equipment', icon: 'Settings', order: 6 }}),
-    prisma.category.upsert({ where: { slug: 'sets' }, update: {}, create: { nameUz: "To'plamlar", nameRu: 'Наборы', slug: 'sets', icon: 'Package', order: 7 }}),
-    prisma.category.upsert({ where: { slug: 'services' }, update: {}, create: { nameUz: "Xizmatlar", nameRu: 'Услуги и Сервис', slug: 'services', icon: 'Sparkles', order: 8 }}),
-  ]);
-  const [micro, baby, salad, flower, seed, equip, sets, services] = cats;
+  // Список живёт в seed-categories.ts: он же запускается на каждом деплое,
+  // иначе новая категория не появлялась бы на непустом проде (см. там шапку).
+  const cats = await seedCategories(prisma);
+  const { microgreens: micro, 'baby-leaf': baby, salads: salad, flowers: flower } = cats;
+  const { seeds: seed, equipment: equip, sets, services } = cats;
 
   // ===== MICROGREENS — cost:8000, old:20000, price:15000 =====
   const microProducts = [
@@ -48,7 +44,7 @@ async function main() {
       "Vitaminlar / Витамины": "A, B, C, E, K, Sulforaphane",
       "Minerallar / Минералы": "Кальций, Железо, Магний, Калий",
       "Ta'm / Вкус": "Yangi va sersuv / Свежий и сочный",
-      "Foydasi / Полеза": "Immunitet, hazm qilish / Иммунитет, детоксикация",
+      "Tarkibida / В составе": "Kletchatka, vitaminlar / Клетчатка, витамины",
       "Yaroqlilik muddati / Срок хранения": "7 kun (2-5°C) / 7 дней (2-5°C)"
     };
     await prisma.product.upsert({

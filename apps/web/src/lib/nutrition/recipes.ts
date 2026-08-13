@@ -123,7 +123,6 @@ type NutritionRow = NutrientTotals & {
   nameUz: string;
   nameRu: string;
   grams: number;
-  antioxidantMultiplier: number;
   benefits: { uz: string; ru: string }[];
 };
 
@@ -144,7 +143,6 @@ export function calculateNutrition(items: { crop: string; grams: number }[]) {
       vitE: +(db.vitE * mult).toFixed(1), iron: +(db.iron * mult).toFixed(2),
       calcium: +(db.calcium * mult).toFixed(0), potassium: +(db.potassium * mult).toFixed(0),
       magnesium: +(db.magnesium * mult).toFixed(0), zinc: +(db.zinc * mult).toFixed(2),
-      antioxidantMultiplier: db.antioxidantMultiplier,
       benefits: db.benefits,
     };
     details.push(row);

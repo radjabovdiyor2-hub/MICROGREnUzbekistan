@@ -4,7 +4,6 @@ export interface NutrientDetail {
   nameUz: string;
   nameRu: string;
   grams: number;
-  antioxidantMultiplier: number;
   benefits?: Array<{ uz: string; ru: string }>;
 }
 

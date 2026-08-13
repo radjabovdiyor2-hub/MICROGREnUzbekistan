@@ -28,7 +28,10 @@ export type SubscriptionConfig = {
 
 interface Props {
   active: boolean;
-  onToggle: () => void;
+  /** Не передан — подписка включена всегда, и карточка перестаёт быть
+   *  переключателем. Так виджет работает на `/balans`, где страница целиком
+   *  посвящена подписке и выключать нечего. */
+  onToggle?: () => void;
   config: SubscriptionConfig;
   onConfigChange: (cfg: SubscriptionConfig) => void;
 }
@@ -38,6 +41,7 @@ export function SmartSubscriptionWidget({ active, onToggle, config, onConfigChan
   const [expanded, setExpanded] = useState(false);
 
   const toggleSub = () => {
+    if (!onToggle) return;
     triggerHaptic('heavy');
     onToggle();
     if (!active) setExpanded(true);
@@ -52,7 +56,7 @@ export function SmartSubscriptionWidget({ active, onToggle, config, onConfigChan
       border: active ? '2px solid var(--brand-primary)' : '1px solid var(--border)',
       background: active ? 'rgba(var(--brand-primary-rgb), 0.05)' : 'var(--card)',
       transition: 'all 0.3s ease',
-      cursor: 'pointer',
+      cursor: onToggle ? 'pointer' : 'default',
       position: 'relative',
       overflow: 'hidden'
     }} onClick={toggleSub}>

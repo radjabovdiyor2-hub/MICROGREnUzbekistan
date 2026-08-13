@@ -148,9 +148,6 @@ export function NutritionistCalculator({
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Leaf size={13} color="var(--brand-primary)" />
               {lang === 'ru' ? d.nameRu : d.nameUz} ({d.grams}g)
-              <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--brand-primary)', fontWeight: 800, background: 'var(--brand-primary-light)', padding: '2px 8px', borderRadius: 6 }}>
-                ×{d.antioxidantMultiplier} {t("antioksidant", "антиоксид.")}
-              </span>
             </div>
             {d.benefits?.map((b: { uz: string; ru: string }, j: number) => (
               <div key={j} style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>

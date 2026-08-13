@@ -13,9 +13,13 @@ import { join } from 'node:path';
 //
 // Логика разбора продублирована из packages/database/prisma/import-catalog.ts
 // намеренно: тестовый прогон витрины не тянет пакет базы и клиент Prisma.
+// Числа позиций здесь НЕ зашиты: их объявляет сам прайс в `data-count`,
+// иначе каждая новая секция требовала бы правки теста.
 // ══════════════════════════════════════════════════════════════════════
 
 const CATALOG_DIR = join(process.cwd(), 'public/catalog');
+
+const tableRe = /<table\b([^>]*)>([\s\S]*?)<\/table>/g;
 
 // Флага `s` тут нет намеренно: target проекта — ES2017, а dotAll появился
 // в ES2018, и `tsc --noEmit` на нём краснеет. `[\s\S]` делает то же самое.
@@ -26,20 +30,56 @@ const cardRe =
   /<div class="pc-img"><img src="([^"]+)"[^>]*>[\s\S]*?<div class="pc-n">([^<]*)<\/div>[\s\S]*?<div class="pc-nr">([^<]*)<\/div>[\s\S]*?<div class="pc-d">([\s\S]*?)<\/div>/g;
 
 const slugOf = (file: string) => file.replace(/\.png$/i, '').replace(/_/g, '-');
+const attrOf = (tag: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
 
-function priceRows() {
-  const html = readFileSync(join(CATALOG_DIR, 'price-list.html'), 'utf8');
-  return [...html.matchAll(priceRe)].map((m) => ({
-    file: m[1],
-    nameRu: m[2].trim(),
-    nameUz: m[3].trim(),
-    price: Number(m[4].replace(/\D/g, '')),
-  }));
+interface Row {
+  file: string;
+  nameRu: string;
+  nameUz: string;
+  price: number;
+  category: string;
+  unit: string;
 }
 
+/** Секции прайса: тег таблицы + разобранные из неё строки. */
+function sections(): { category?: string; unit?: string; declared: string | undefined; rows: Row[] }[] {
+  const html = readFileSync(join(CATALOG_DIR, 'price-list.html'), 'utf8');
+  return [...html.matchAll(tableRe)].map(([, tag, body]) => {
+    const category = attrOf(tag, 'data-category');
+    const unit = attrOf(tag, 'data-unit');
+    return {
+      category,
+      unit,
+      declared: attrOf(tag, 'data-count'),
+      rows: [...body.matchAll(priceRe)].map((m) => ({
+        file: m[1],
+        nameRu: m[2].trim(),
+        nameUz: m[3].trim(),
+        price: Number(m[4].replace(/\D/g, '')),
+        category: category ?? '',
+        unit: unit ?? '',
+      })),
+    };
+  });
+}
+
+const priceRows = (): Row[] => sections().flatMap((s) => s.rows);
+
 describe('прайс-лист как источник каталога', () => {
-  it('даёт ровно 34 позиции', () => {
-    expect(priceRows()).toHaveLength(34);
+  it('каждая таблица объявляет категорию, единицу и число строк', () => {
+    const all = sections();
+    expect(all.length).toBeGreaterThan(0);
+    for (const s of all) {
+      expect(s.category, 'data-category у таблицы прайса').toBeTruthy();
+      expect(s.unit, 'data-unit у таблицы прайса').toBeTruthy();
+      expect(s.declared, 'data-count у таблицы прайса').toBeTruthy();
+    }
+  });
+
+  it('разобрано ровно столько строк, сколько объявлено в data-count', () => {
+    for (const s of sections()) {
+      expect(s.rows.length, `секция «${s.category}»`).toBe(Number(s.declared));
+    }
   });
 
   it('у каждой позиции есть цена, картинка и оба названия', () => {
@@ -51,12 +91,18 @@ describe('прайс-лист как источник каталога', () => {
     }
   });
 
-  it('раскладка по категориям — 18 микрозелени, 10 бейби-листа, 6 салатов', () => {
-    const rows = priceRows();
-    expect(rows.slice(0, 18).every((r) => r.file.includes('micro') || r.file.includes('sango')
-      || r.file.includes('pakchoy') || r.file.includes('mizuna_') || r.file.includes('gorchitsa'))).toBe(true);
-    // Салаты идут последними и стоят кратно дороже: 100 000+ за килограмм
-    expect(rows.slice(28).every((r) => r.price >= 100_000)).toBe(true);
+  it('единица измерения одна на секцию, но у категории их может быть несколько', () => {
+    // BALANS продаётся и упаковкой 100 г (миксы), и штукой (киты) — раньше
+    // единица была жёстко одна на категорию, и такая линейка не выражалась.
+    const balans = priceRows().filter((r) => r.category === 'balans');
+    expect(balans.length).toBeGreaterThan(0);
+    expect(new Set(balans.map((r) => r.unit)).size).toBeGreaterThan(1);
+  });
+
+  it('салаты стоят кратно дороже — это цена за килограмм', () => {
+    const salads = priceRows().filter((r) => r.category === 'salads');
+    expect(salads.length).toBeGreaterThan(0);
+    expect(salads.every((r) => r.price >= 100_000)).toBe(true);
   });
 
   it('slug из имени файла разводит тёзок', () => {

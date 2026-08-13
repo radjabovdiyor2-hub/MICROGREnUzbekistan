@@ -54,10 +54,13 @@ def get_catalog_kb() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton(text="🥗 Салаты", callback_data="catalog:salads"),
-            InlineKeyboardButton(text="🌸 Цветы", callback_data="catalog:flowers"),
+            InlineKeyboardButton(text="🥙 BALANS", callback_data="catalog:balans"),
         ],
         [
+            InlineKeyboardButton(text="🌸 Цветы", callback_data="catalog:flowers"),
             InlineKeyboardButton(text="🌾 Семена", callback_data="catalog:seeds"),
+        ],
+        [
             InlineKeyboardButton(text="⚙️ Оборудование", callback_data="catalog:equipment"),
         ],
         [

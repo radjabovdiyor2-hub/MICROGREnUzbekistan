@@ -8,10 +8,13 @@ const prisma = new PrismaClient();
 // Каталог витрины из прайса и каталога — они и есть источник правды.
 //
 // `apps/web/public/catalog/price-list.html` и `product-catalog.html` — те
-// самые файлы, что владелец отдаёт клиентам: 34 позиции в трёх категориях.
-// Раньше состав базы жил отдельной жизнью: там было ~50 товаров, включая
-// оборудование и наборы, которых в прайсе нет вовсе, а количество не
-// сходилось ни по одной категории.
+// самые файлы, что владелец отдаёт клиентам. Раньше состав базы жил отдельной
+// жизнью: там было ~50 товаров, включая оборудование и наборы, которых в
+// прайсе нет вовсе, а количество не сходилось ни по одной категории.
+//
+// Состав категорий задаёт сам прайс: каждая <table> объявляет `data-category`,
+// `data-unit` и `data-count` (см. parsePriceList). Ни здесь, ни в тесте нет
+// зашитого числа позиций — добавление секции не требует правок в коде.
 //
 // ПРАЙС — ЕДИНСТВЕННЫЙ ИСТОЧНИК ЦЕН
 //
@@ -30,19 +33,14 @@ const prisma = new PrismaClient();
 
 const CATALOG_DIR = join(__dirname, '../../../apps/web/public/catalog');
 
-/** Единица измерения по категории — в прайсе она указана в шапке таблицы. */
-const CATEGORY_UNIT: Record<string, string> = {
-  microgreens: 'лоток',
-  'baby-leaf': '100 г',
-  salads: 'кг',
-};
-
 interface Parsed {
   file: string;
   slug: string;
   nameRu: string;
   nameUz: string;
   price: number;
+  category: string;
+  unit: string;
   descriptionRu: string;
   isHit: boolean;
 }
@@ -53,22 +51,67 @@ const slugOf = (file: string) => file.replace(/\.png$/i, '').replace(/_/g, '-');
 
 const strip = (html: string) => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 
-/** Цены и названия — из прайса. Порядок строк = порядок категорий в файле. */
+/**
+ * Таблица прайса объявляет о себе сама: категорию, единицу измерения и число
+ * строк. Раньше категория выводилась из порядкового номера строки
+ * (`index < 18 → микрозелень`), а единица бралась из карты «одна на категорию».
+ * Из-за этого вставка строки в середину прайса молча перекладывала товары в
+ * чужую категорию, а категория с разными единицами внутри (микс за 100 г и
+ * кит за штуку) была невыразима вовсе.
+ */
+const TABLE_RE = /<table\b([^>]*)>([\s\S]*?)<\/table>/g;
+
+/** `[\s\S]` вместо флага `s`: та же регулярка живёт в тесте витрины
+ *  (apps/web/src/lib/production/catalogImport.test.ts), а там target ES2017
+ *  и dotAll недоступен. Держим формы одинаковыми, чтобы расхождение было видно. */
+const ROW_RE =
+  /<td class="c-img"><img src="([^"]+)"[\s\S]*?<td class="c-nm">([^<]*)<span class="c-lt">([^<]*)<\/span>[\s\S]*?<td class="c-pr[^"]*">([^<]*)<\/td>/g;
+
+const attrOf = (tag: string, name: string) =>
+  new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
+
+/** Цены, названия, категория и единица — из прайса. */
 function parsePriceList(): Omit<Parsed, 'descriptionRu' | 'isHit'>[] {
   const html = readFileSync(join(CATALOG_DIR, 'price-list.html'), 'utf8');
-  // `[\s\S]` вместо флага `s`: та же регулярка живёт в тесте витрины
-  // (apps/web/src/lib/production/catalogImport.test.ts), а там target ES2017
-  // и dotAll недоступен. Держим формы одинаковыми, чтобы расхождение было видно.
-  const re =
-    /<td class="c-img"><img src="([^"]+)"[\s\S]*?<td class="c-nm">([^<]*)<span class="c-lt">([^<]*)<\/span>[\s\S]*?<td class="c-pr[^"]*">([^<]*)<\/td>/g;
-
   const out: Omit<Parsed, 'descriptionRu' | 'isHit'>[] = [];
-  for (const m of html.matchAll(re)) {
-    const [, file, nameRu, nameUz, priceRaw] = m;
-    const price = Number(priceRaw.replace(/\D/g, ''));
-    if (!price) throw new Error(`Нет цены у «${nameRu.trim()}» (${file})`);
-    out.push({ file, slug: slugOf(file), nameRu: nameRu.trim(), nameUz: nameUz.trim(), price });
+
+  for (const [, tag, body] of html.matchAll(TABLE_RE)) {
+    const category = attrOf(tag, 'data-category');
+    const unit = attrOf(tag, 'data-unit');
+    const declared = Number(attrOf(tag, 'data-count'));
+
+    if (!category || !unit || !Number.isInteger(declared)) {
+      throw new Error(
+        `В прайсе есть <table> без data-category / data-unit / data-count. ` +
+          `Добавили секцию — объявите её: <table data-category="..." data-unit="..." data-count="N">.`,
+      );
+    }
+
+    const rows = [...body.matchAll(ROW_RE)];
+    // Защита на месте разбора: сломанная разметка одной строки раньше просто
+    // роняла товар с витрины, и заметить это было нечем.
+    if (rows.length !== declared) {
+      throw new Error(
+        `Секция «${category}»: разобрано ${rows.length} строк вместо ${declared}. Сверьте разметку прайса.`,
+      );
+    }
+
+    for (const [, file, nameRu, nameUz, priceRaw] of rows) {
+      const price = Number(priceRaw.replace(/\D/g, ''));
+      if (!price) throw new Error(`Нет цены у «${nameRu.trim()}» (${file})`);
+      out.push({
+        file,
+        slug: slugOf(file),
+        nameRu: nameRu.trim(),
+        nameUz: nameUz.trim(),
+        price,
+        category,
+        unit,
+      });
+    }
   }
+
+  if (!out.length) throw new Error('Прайс разобран пустым — проверьте price-list.html');
   return out;
 }
 
@@ -86,32 +129,19 @@ function parseCatalog(): Map<string, { descriptionRu: string; isHit: boolean }> 
   return out;
 }
 
-/** Категория по номеру строки: прайс идёт микрозелень → бейби-лист → салаты. */
-function categoryOf(index: number): keyof typeof CATEGORY_UNIT {
-  if (index < 18) return 'microgreens';
-  if (index < 28) return 'baby-leaf';
-  return 'salads';
-}
-
 async function main() {
   const priced = parsePriceList();
   const described = parseCatalog();
 
-  if (priced.length !== 34) {
-    throw new Error(`Прайс разобран неверно: ${priced.length} позиций вместо 34`);
-  }
-
-  const items: (Parsed & { category: string })[] = priced.map((p, i) => ({
+  const items: Parsed[] = priced.map((p) => ({
     ...p,
     ...(described.get(p.file) ?? { descriptionRu: '', isHit: false }),
-    category: categoryOf(i),
   }));
 
-  const categories = await prisma.category.findMany({
-    where: { slug: { in: Object.keys(CATEGORY_UNIT) } },
-  });
+  const used = [...new Set(items.map((i) => i.category))];
+  const categories = await prisma.category.findMany({ where: { slug: { in: used } } });
   const byslug = new Map(categories.map((c) => [c.slug, c.id]));
-  for (const slug of Object.keys(CATEGORY_UNIT)) {
+  for (const slug of used) {
     if (!byslug.has(slug)) throw new Error(`Нет категории «${slug}» — сначала прогоните seed.ts`);
   }
 
@@ -123,7 +153,7 @@ async function main() {
       nameRu: item.nameRu,
       nameUz: item.nameUz,
       price: item.price,
-      unit: CATEGORY_UNIT[item.category],
+      unit: item.unit,
       descriptionRu: item.descriptionRu || null,
       images: [`/catalog/${item.file}`],
       categoryId: byslug.get(item.category)!,
@@ -168,5 +198,5 @@ if (require.main === module) {
     .finally(() => prisma.$disconnect());
 }
 
-export { parsePriceList, parseCatalog, slugOf, categoryOf, CATEGORY_UNIT };
+export { parsePriceList, parseCatalog, slugOf };
 export type { Parsed };

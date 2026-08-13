@@ -17,6 +17,7 @@ CATEGORY_LABELS = {
     "microgreens": "🌱 Микрозелень",
     "baby-leaf": "🥬 Бейби-лист",
     "salads": "🥗 Салаты",
+    "balans": "🥙 BALANS",
     "flowers": "🌸 Цветы",
     "seeds": "🌾 Семена",
     "equipment": "⚙️ Оборудование",

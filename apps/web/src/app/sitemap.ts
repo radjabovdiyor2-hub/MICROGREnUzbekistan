@@ -1,5 +1,6 @@
 import { MetadataRoute } from 'next';
 import { prisma } from '@repo/database';
+import { CATEGORY_SLUGS } from '@/lib/seo/categories';
 
 const BASE = 'https://microgreenuzbekistan.com';
 
@@ -17,6 +18,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.95,
+    },
+    {
+      url: `${BASE}/balans`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.9,
     },
     {
       url: `${BASE}/cart`,
@@ -67,11 +74,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Category landing pages — реальные индексируемые URL /catalog/<slug>,
   // а не query-параметры (Google их схлопывает в дубль /catalog).
-  const categories = [
-    'microgreens', 'baby-leaf', 'salads', 'flowers',
-    'seeds', 'equipment', 'sets', 'services',
-  ];
-  const categoryPages: MetadataRoute.Sitemap = categories.flatMap(slug => [
+  //
+  // Список берётся из `CATEGORY_SLUGS` — того же источника, что предгенерация
+  // страниц и кэш в middleware. Раньше он был продублирован здесь строкой и
+  // включал цветы, семена, оборудование, наборы и услуги: их товары скрыты
+  // импортом каталога, и в карту сайта уходили пять заведомо пустых разделов.
+  const categoryPages: MetadataRoute.Sitemap = CATEGORY_SLUGS.flatMap(slug => [
     {
       url: `${BASE}/catalog/${slug}`,
       lastModified: new Date(),

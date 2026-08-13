@@ -191,7 +191,7 @@ model Order {
   address       String
   phone         String
   note          String?       @db.Text
-  /// Откуда пришёл заказ: `web` | `telegram_bot` | `ai_office`.
+  /// Откуда пришёл заказ: `web` | `telegram_bot` | `ai_office` | `subscription`.
   ///
   /// Поля не было, а передавали его честно все три клиента — витринный бот
   /// (`source: "telegram_bot"`), офис (`storefront_orders.py`, `"ai_office"`)
@@ -211,8 +211,9 @@ model Order {
   /// колонка оставлена, чтобы `db push` не удалял данные на проде.
   isSubscription Boolean @default(false) @map("is_subscription")
 
-  items        OrderItem[]
-  DeliveryStop DeliveryStop[]
+  items                OrderItem[]
+  DeliveryStop         DeliveryStop[]
+  subscriptionDelivery SubscriptionDelivery[]
 
   // Composite indexes for the hot list queries (newest-first pagination):
   // admin list by status, a customer's own orders, and lookup by phone.
@@ -1675,6 +1676,13 @@ model GreenBoxSubscription {
   status   SubscriptionStatus   @default(ACTIVE)
   interval SubscriptionInterval @default(WEEKLY)
 
+  /// Тариф линейки BALANS: `balans-mini` | `balans-standart` | `balans-kunlik`.
+  /// Определяет только скидку — состав и цены по-прежнему берутся из каталога,
+  /// потому что единственный источник цен — прайс. Справочник тарифов живёт в
+  /// `apps/web/src/lib/subscriptions/plans.ts`.
+  /// `null` — подписка без тарифа, собранная вручную.
+  planCode String? @map("plan_code") @db.VarChar(32)
+
   /// День недели доставки: 0=Пн, 1=Вт, …, 6=Вс
   deliveryDay Int    @default(1) @map("delivery_day")
   address     String
@@ -1693,11 +1701,39 @@ model GreenBoxSubscription {
   updatedAt DateTime  @updatedAt @map("updated_at")
   pausedAt  DateTime? @map("paused_at")
 
-  items GreenBoxItem[]
+  items      GreenBoxItem[]
+  deliveries SubscriptionDelivery[]
 
   @@index([userId])
   @@index([status, nextDelivery])
   @@map("green_box_subscriptions")
+}
+
+/// Факт отгрузки по подписке за конкретную дату.
+///
+/// Существует ради `@@unique([subscriptionId, date])`: исполнение подписок
+/// запускается по расписанию, а расписание может сработать дважды (повторный
+/// запуск, ретрай, две реплики). Без этой записи второй запуск создал бы
+/// клиенту второй заказ на тот же день и списал бы остатки повторно.
+/// Строка создаётся ПЕРЕД заказом и служит заявкой на слот.
+model SubscriptionDelivery {
+  id             String               @id @default(cuid())
+  subscriptionId String               @map("subscription_id")
+  subscription   GreenBoxSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  /// Календарный день отгрузки — то же значение, что стояло в `nextDelivery`.
+  date DateTime @db.Date
+
+  /// Заказ, который родился из этой отгрузки. `null` — слот занят, но заказ
+  /// создать не удалось: такую строку разбирают руками, повторно она не сыграет.
+  orderId String? @map("order_id")
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([subscriptionId, date])
+  @@index([date])
+  @@map("subscription_deliveries")
 }
 
 model GreenBoxItem {
