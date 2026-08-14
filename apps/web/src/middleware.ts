@@ -13,6 +13,7 @@ import { SESSION_COOKIE, verifySession, type SessionRole } from '@/lib/session';
 type Access =
   | 'ADMIN'
   | 'STAFF'
+  | 'PRODUCTION'
   | 'CUSTOMER';
 
 interface Rule {
@@ -23,6 +24,15 @@ interface Rule {
 
 const RULES: Rule[] = [
   { prefix: '/api/admin', access: 'ADMIN' },
+  // Теплица. Сажает не владелец, а агроном, и посадки — единственное, что
+  // ему нужно. `findRule` берёт САМЫЙ ДЛИННЫЙ подходящий префикс, поэтому
+  // эти три правила перебивают общий `/api/admin` выше независимо от порядка.
+  { prefix: '/api/admin/grow-batches', access: 'PRODUCTION' },
+  // Нормы культур и остатки сырья — только на чтение: форма посадки показывает
+  // «нужно 30 г семян, на складе 1 200 г» до нажатия. Приход сырья и правка
+  // справочника остаются владельцу — это деньги и общие нормативы.
+  { prefix: '/api/admin/crop-norms', access: 'PRODUCTION', methods: ['GET'] },
+  { prefix: '/api/admin/raw-materials', access: 'PRODUCTION', methods: ['GET'] },
   { prefix: '/api/inventory/employees', access: 'ADMIN' },
   { prefix: '/api/inventory/debts', access: 'ADMIN' },
   { prefix: '/api/inventory/suppliers', access: 'ADMIN' },
@@ -90,11 +100,15 @@ function safeEq(a: string, b: string): boolean {
   return result === 0;
 }
 
-function roleSatisfies(role: SessionRole, access: Access): boolean {
+/** Экспортируется ради теста: пускать не того — самая тихая из ошибок доступа. */
+export function roleSatisfies(role: SessionRole, access: Access): boolean {
   if (access === 'ADMIN') return role === 'ADMIN';
   // Кабинет открыт и сотруднику: он тоже покупатель, и отдельного запрета нет.
   // Обратное неверно — CUSTOMER не проходит ни в ADMIN, ни в STAFF.
   if (access === 'CUSTOMER') return true;
+  // Теплица и касса не пересекаются: агроном не открывает смену, продавец не
+  // трогает партии. Владелец проходит везде.
+  if (access === 'PRODUCTION') return role === 'ADMIN' || role === 'GROWER';
   return role === 'ADMIN' || role === 'SELLER';
 }
 

@@ -126,6 +126,45 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PATCH — поправить ТОЛЬКО длительности фаз.
+ *
+ * Отдельно от POST намеренно: тот делает полный upsert и требует расход
+ * семян. Прислать в него `{cropType, darkDays}` значило бы обнулить и
+ * субстрат, и выход, и привязку материала — то есть сломать себестоимость
+ * будущих посадок ради правки одного числа.
+ *
+ * Нужен, когда партия вышла из темноты раньше норматива: админка предлагает
+ * закрепить факт в справочнике, и менять при этом можно ровно то, что
+ * человек увидел своими глазами.
+ */
+export async function PATCH(request: NextRequest) {
+  if (!isAuthorized(request)) return unauthorized();
+
+  const body = await request.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: 'Некорректный JSON' }, { status: 400 });
+
+  const cropType = String(body.cropType ?? '').trim();
+  if (!cropType) return NextResponse.json({ error: 'Укажите культуру' }, { status: 400 });
+
+  const data: Record<string, number> = {};
+  for (const field of ['darkDays', 'lightDays', 'shelfDays'] as const) {
+    if (body[field] == null) continue;
+    const n = Math.floor(Number(body[field]));
+    if (Number.isFinite(n) && n >= 0) data[field] = n;
+  }
+  if (!Object.keys(data).length) {
+    return NextResponse.json({ error: 'Нечего менять' }, { status: 400 });
+  }
+
+  try {
+    const norm = await prisma.cropNorm.update({ where: { cropType }, data });
+    return NextResponse.json({ status: 'ok', norm });
+  } catch {
+    return NextResponse.json({ error: 'Такой культуры нет в справочнике' }, { status: 404 });
+  }
+}
+
+/**
  * DELETE — скрыть культуру из справочника.
  *
  * Скрытие, а не удаление: `RawMaterial.cropType` и `GrowBatch.cropType` —

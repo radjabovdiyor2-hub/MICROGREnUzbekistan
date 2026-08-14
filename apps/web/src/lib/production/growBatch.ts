@@ -1,5 +1,6 @@
 import { prisma, Prisma } from '@repo/database';
 import { consumeMaterial, NotEnoughMaterialError } from './rawMaterials';
+import { daysSince } from './growWatch';
 import { unitCostOfHarvest, weightedAverageCost } from './weightedAverage';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -377,6 +378,62 @@ export async function harvestBatch(input: HarvestInput) {
       },
     });
   });
+}
+
+/** Как правим тёмную фазу: выпустить на свет сегодня или подержать ещё сутки. */
+export type DarkPhaseMode = 'open' | 'extend';
+
+/**
+ * Досрочно открыть партию или продлить тёмную фазу.
+ *
+ * Фаза партии нигде не хранится — она ВЫЧИСЛЯЕТСЯ из `seedDate` и длительностей
+ * (`getBatchStatus` в админке, `scanGrowBatches` здесь же, `grow_watch.py` у
+ * бота). Поэтому «открыть сейчас» — это не смена статуса, а правка того самого
+ * числа: ставим `darkDays` равным фактически прожитым дням, и все три
+ * потребителя сами показывают «На свету». Ничего пересчитывать не нужно.
+ *
+ * Зачем понадобилось: в норме культуры 4 дня, а партия вышла за 3. Норма —
+ * средняя по больнице, всходы зависят от партии семян и температуры, и
+ * подгонять реальность под справочник значит держать готовый товар в темноте
+ * лишние сутки.
+ *
+ * `normDarkDays` возвращается, чтобы вызывающий мог спросить, не пора ли
+ * поправить и сам справочник. Менять норму здесь молча нельзя: одна ранняя
+ * партия — ещё не новый норматив.
+ */
+export async function setDarkPhase(
+  batchId: string,
+  mode: DarkPhaseMode,
+  now: Date = new Date(),
+) {
+  const batch = await prisma.growBatch.findUnique({ where: { id: batchId } });
+  if (!batch) throw new Error('Партия не найдена');
+  if (batch.status === 'harvested') {
+    throw new AlreadyHarvestedError(batch.harvestQty ?? 0);
+  }
+
+  const elapsed = Math.max(0, daysSince(batch.seedDate, now));
+  // «Открыть» = темнота закончилась ровно сегодня. «Ещё день» = закончится
+  // завтра. Обе величины считаются от факта, а не от прежнего срока: иначе
+  // повторное нажатие сдвигало бы дату бесконечно.
+  const darkDays = mode === 'extend' ? elapsed + 1 : elapsed;
+
+  const updated = await prisma.growBatch.update({
+    where: { id: batch.id },
+    data: { darkDays, status: mode === 'extend' ? 'dark' : 'light' },
+  });
+
+  const norm = await prisma.cropNorm.findUnique({
+    where: { cropType: batch.cropType },
+    select: { darkDays: true, nameRu: true },
+  });
+
+  return {
+    batch: updated,
+    actualDarkDays: darkDays,
+    normDarkDays: norm?.darkDays ?? null,
+    cropNameRu: norm?.nameRu ?? batch.cropType,
+  };
 }
 
 /** Партию уже собирали — повторный приход отклонён. */

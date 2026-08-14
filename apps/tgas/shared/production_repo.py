@@ -168,6 +168,29 @@ async def write_off_batch(batch_id: str) -> Dict[str, Any]:
     )
 
 
+async def open_dark_phase(batch_id: str, extend: bool = False) -> Dict[str, Any]:
+    """Досрочно вывести партию на свет — или подержать в темноте ещё сутки.
+
+    Фаза партии нигде не хранится, она считается из даты посева и числа тёмных
+    дней. Поэтому «открыть» — это не смена статуса, а правка того самого числа:
+    ставим столько, сколько партия реально прожила. Норма культуры остаётся
+    прежней, витрина лишь возвращает её рядом для сравнения.
+
+    Нужно потому, что всходы зависят от партии семян и температуры: в норме
+    четыре дня, а вышла за три — держать готовый лоток в темноте лишние сутки
+    значит терять день срока хранения.
+    """
+    return await _call(
+        "PATCH",
+        "/admin/grow-batches",
+        payload={
+            "id": str(batch_id),
+            "action": "extend_dark" if extend else "open_dark",
+            "performedBy": PERFORMED_BY,
+        },
+    )
+
+
 async def list_batches(include_harvested: bool = False) -> Dict[str, Any]:
     """Партии. По умолчанию без собранных — витрина фильтрует их сама."""
     params = {"all": "1"} if include_harvested else None

@@ -23,10 +23,13 @@ interface Props {
   harvestBatch: (id: string) => void;
   writeOffBatch: (id: string) => void;
   deleteBatch: (id: string) => void;
+  /** Досрочно вывести партию на свет / подержать в темноте ещё сутки. */
+  openDark: (id: string) => void;
+  extendDark: (id: string) => void;
 }
 
 export function AdminGrowingCards({ filtered, enriched, statusColors, statusIcons, harvesting, fmt, handleEdit,
-  harvestBatch, writeOffBatch, deleteBatch }: Props) {
+  harvestBatch, writeOffBatch, deleteBatch, openDark, extendDark }: Props) {
   return (
     <>
 {/* Batch cards */}
@@ -136,6 +139,28 @@ export function AdminGrowingCards({ filtered, enriched, statusColors, statusIcon
                 <button onClick={() => writeOffBatch(batch.id)} disabled={harvesting === batch.id}
                   style={{ padding: '5px 14px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--error)', color: 'var(--text-inverse)', fontSize: '11px', fontWeight: 700, opacity: harvesting === batch.id ? 0.6 : 1 }}>
                   {harvesting === batch.id ? 'Списываем...' : 'Списать'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Тёмная фаза: партия могла выйти раньше норматива */}
+          {info.status === 'dark' && (
+            <div style={{ marginTop: '6px', padding: '8px 12px', borderRadius: '8px', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                В темноте {info.daysInPhase} дн., по норме ещё {info.daysLeft}
+              </div>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {/* Всходы зависят от партии семян и температуры: держать
+                    готовый лоток в темноте лишние сутки — терять день срока
+                    хранения. Норму правим отдельно и только с согласия. */}
+                <button onClick={() => openDark(batch.id)}
+                  style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--warning)', color: 'var(--text-inverse)', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Sun size={12} /> Открыть сейчас
+                </button>
+                <button onClick={() => extendDark(batch.id)}
+                  style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Moon size={12} /> Ещё день
                 </button>
               </div>
             </div>

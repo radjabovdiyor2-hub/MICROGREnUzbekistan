@@ -11,14 +11,22 @@ import type { AuthMode } from './AdminAuthScreens';
 // не годится — вкладка помнила бы вход после отзыва доступа.
 // ══════════════════════════════════════════════════════════════════════
 
+/** Кто вошёл. `GROWER` — агроном: у него теплица вместо кассы. */
+export type StaffRole = 'ADMIN' | 'SELLER' | 'GROWER';
+
 export function useAdminAuth(
-  initialRole: 'ADMIN' | 'SELLER' | null,
+  initialRole: StaffRole | null,
   initialName: string,
   t: (ru: string, uz: string) => string,
 ) {
   const [authMode, setAuthMode] = useState<AuthMode>('choose');
   const [isOwner, setIsOwner] = useState(initialRole === 'ADMIN');
-  const [sellerName, setSellerName] = useState(initialRole === 'SELLER' ? initialName : '');
+  const [sellerName, setSellerName] = useState(
+    initialRole === 'SELLER' || initialRole === 'GROWER' ? initialName : '',
+  );
+  // Должность сотрудника решает, какие вкладки он видит. Раньше вход по PIN
+  // всегда означал продавца, и человеку из теплицы показывать было нечего.
+  const [staffRole, setStaffRole] = useState<StaffRole | null>(initialRole);
   const [password, setPassword] = useState('');
   const [pin, setPin] = useState('');
   const [authError, setAuthError] = useState('');
@@ -68,6 +76,7 @@ export function useAdminAuth(
       const data = await res.json();
       if (data.success) {
         setSellerName(data.employee.name);
+        setStaffRole(data.employee.role === 'grower' ? 'GROWER' : 'SELLER');
         setAuthError('');
       } else {
         setAuthError(t("Неверный PIN", "PIN noto'g'ri"));
@@ -98,13 +107,14 @@ export function useAdminAuth(
     }
     setIsOwner(false);
     setSellerName('');
+    setStaffRole(null);
     setAuthMode('choose');
     setPassword('');
     setPin('');
   };
 
   return {
-    authMode, setAuthMode, isOwner, sellerName, password, setPassword,
+    authMode, setAuthMode, isOwner, sellerName, staffRole, password, setPassword,
     pin, setPin, authError, setAuthError,
     handleOwnerLogin, handleSellerLogin, handlePinPress, handleLogout,
     isAuthenticated: isOwner || sellerName,

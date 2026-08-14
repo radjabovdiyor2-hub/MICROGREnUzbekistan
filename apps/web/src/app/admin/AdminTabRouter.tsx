@@ -43,20 +43,24 @@ import { AdminWorkflowStudio } from '@/components/admin/AdminWorkflowStudio';
 // Вынесено из AdminShell: файл перерос 200 строк, и почти половину его
 // занимал этот список.
 
-export function AdminTabRouter({ activeTab, isOwner, sellerName, lang, t }: {
+export function AdminTabRouter({ activeTab, isOwner, canGrow, canSell, sellerName, lang, t }: {
   activeTab: string;
   isOwner: boolean;
+  /** Владелец или агроном — теплица открыта обоим. */
+  canGrow: boolean;
+  /** Владелец или продавец — касса. Агроному она не нужна. */
+  canSell: boolean;
   sellerName: string;
   lang: 'ru' | 'uz';
   t: (ru: string, uz: string) => string;
 }) {
   return (
   <main className="admin-main">
-    {activeTab === 'pos' && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} />}
+    {activeTab === 'pos' && canSell && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} />}
     {activeTab === 'stepan' && isOwner && <AdminStepan lang={lang} />}
     {activeTab === 'stats' && isOwner && <AdminStats />}
     {activeTab === 'revenue' && isOwner && <AdminRevenue />}
-    {activeTab === 'growing' && isOwner && <AdminGrowing />}
+    {activeTab === 'growing' && canGrow && <AdminGrowing />}
     {activeTab === 'crop_norms' && isOwner && <AdminCropNorms />}
     {activeTab === 'customers' && isOwner && <AdminCustomers lang={lang} />}
     {activeTab === 'inventory' && isOwner && <AdminInventory />}

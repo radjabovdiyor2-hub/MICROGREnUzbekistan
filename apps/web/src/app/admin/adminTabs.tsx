@@ -111,3 +111,13 @@ export const ALL_TABS = TAB_GROUPS.flatMap(g =>
 export const SELLER_TABS = [
   { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <ShoppingCart size={16} /> },
 ];
+
+/** Агроном ведёт теплицу: посадки и ничего больше. Касса ему не нужна. */
+export const GROWER_TABS = [
+  { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Leaf size={16} /> },
+];
+
+/** Вкладки сотрудника по его должности. Владелец сюда не попадает — у него все. */
+export function staffTabsFor(role: 'SELLER' | 'GROWER' | null) {
+  return role === 'GROWER' ? GROWER_TABS : SELLER_TABS;
+}

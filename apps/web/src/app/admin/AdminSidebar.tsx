@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Command, Home, LogOut, Settings, Tag, Menu, X } from 'lucide-react';
 import { AdminNotifications } from '@/components/admin/AdminNotifications';
-import { TAB_GROUPS, SELLER_TABS } from './adminTabs';
+import { TAB_GROUPS } from './adminTabs';
 import { useState } from 'react';
 
 // Боковая панель админки: вкладки, переключатели языка и темы, выход.
@@ -13,6 +13,8 @@ interface Props {
   setActiveTab: (id: string) => void;
   isOwner: boolean;
   sellerName: string;
+  /** Вкладки сотрудника: у продавца касса, у агронома посадки. */
+  staffTabs: { id: string; ru: string; uz: string; icon: React.ReactNode }[];
   lang: 'ru' | 'uz';
   toggleLang: () => void;
   handleLogout: () => void;
@@ -21,7 +23,7 @@ interface Props {
   t: (ru: string, uz: string) => string;
 }
 
-export function AdminSidebar({ activeTab, setActiveTab, isOwner, sellerName, lang, toggleLang, handleLogout, setPaletteOpen, setPaletteQuery, t }: Props) {
+export function AdminSidebar({ activeTab, setActiveTab, isOwner, sellerName, staffTabs, lang, toggleLang, handleLogout, setPaletteOpen, setPaletteQuery, t }: Props) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const handleTabClick = (id: string) => {
@@ -113,7 +115,7 @@ export function AdminSidebar({ activeTab, setActiveTab, isOwner, sellerName, lan
             ))
           ) : (
             <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {SELLER_TABS.map(tab => (
+              {staffTabs.map(tab => (
                 <button key={tab.id} onClick={() => handleTabClick(tab.id)}
                   className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
                   {tab.icon} {tab[lang]}

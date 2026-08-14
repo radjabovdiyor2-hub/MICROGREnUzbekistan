@@ -394,6 +394,35 @@ async def plant_batch(
     }
 
 
+async def open_batch(batch_id: str, extend: bool = False) -> Dict[str, Any]:
+    """Досрочно вывести партию на свет или продлить тёмную фазу."""
+    result = await production_repo.open_dark_phase(batch_id, extend=bool(extend))
+    if not result.get("ok"):
+        return _fail(result, "Тёмная фаза")
+
+    data = result.get("data") or {}
+    actual = data.get("actualDarkDays")
+    norm = data.get("normDarkDays")
+    crop = data.get("cropNameRu") or batch_id
+
+    if extend:
+        summary = f"Партия {crop}: остаётся в темноте, всего {actual} дн."
+    else:
+        summary = f"Партия {crop} выведена на свет: {actual} дн. в темноте."
+    # Расхождение с нормой называем вслух — по нему владелец решает, править
+    # ли справочник. Сами норму не трогаем: одна ранняя партия ещё не норматив.
+    if isinstance(actual, int) and isinstance(norm, int) and actual != norm:
+        summary += f" В норме культуры {norm} дн. — стоит проверить справочник."
+
+    return {
+        "ok": True,
+        "batch_id": batch_id,
+        "dark_days": actual,
+        "norm_dark_days": norm,
+        "summary": summary,
+    }
+
+
 async def harvest_batch(
     batch_id: str, quantity: float, product_name: str = ""
 ) -> Dict[str, Any]:
@@ -639,6 +668,31 @@ register(
         auto_when=lambda a, lim: _within(
             a.get("quantity"), lim.get("autonomy.plantTraysMax")
         ),
+    )
+)
+
+register(
+    Tool(
+        name="open_batch",
+        description=(
+            "ОТКРЫТЬ ПАРТИЮ раньше срока — вывести из тёмной фазы на свет. "
+            "Вызывай на «открой партию», «вышла раньше», «уже проросла», "
+            "«готова к свету». С `extend=true` — наоборот, оставить в темноте "
+            "ещё на сутки. Номер партии бери из get_grow_batches (поле id)."
+        ),
+        run=open_batch,
+        departments=DEPTS,
+        params={
+            "batch_id": {"type": "string", "description": "id партии из get_grow_batches"},
+            "extend": {
+                "type": "boolean",
+                "description": "true — подержать в темноте ещё сутки вместо открытия",
+            },
+        },
+        required=["batch_id"],
+        # Не рискованный: денег не двигает, склада не касается и обратим —
+        # ошиблись, открыли не ту, вернули срок назад. Спрашивать разрешения
+        # на то, что агроном делает руками у стеллажа, значит его тормозить.
     )
 )
 

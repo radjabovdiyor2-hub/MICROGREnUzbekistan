@@ -52,9 +52,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PIN noto'g'ri" }, { status: 401 });
     }
 
+    // Должность из карточки сотрудника решает, что он увидит. Поле `role`
+    // существовало и раньше, но ни на что не влияло: любой сотрудник получал
+    // SELLER и одну вкладку «Продажи», поэтому агроному, который ведёт
+    // теплицу, показывать было нечего — посадки лежат под доступом владельца.
+    const sessionRole = employee.role === 'grower' ? 'GROWER' : 'SELLER';
+
     const ua = request.headers.get('user-agent') ?? '';
     const fp = await sessionFingerprint(ip, ua);
-    const token = await createSession({ role: 'SELLER', name: employee.name, fp });
+    const token = await createSession({ role: sessionRole, name: employee.name, fp });
     if (!token) {
       return NextResponse.json(
         { error: "SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq" },
@@ -63,11 +69,11 @@ export async function POST(request: NextRequest) {
     }
 
     await reset(`pin:${ip}`);
-    Metrics.loginSuccess('SELLER');
+    Metrics.loginSuccess(sessionRole);
     audit({
       action: 'pin.success',
       actor: employee.name,
-      role: 'SELLER',
+      role: sessionRole,
       ip,
       target: employee.id,
     });

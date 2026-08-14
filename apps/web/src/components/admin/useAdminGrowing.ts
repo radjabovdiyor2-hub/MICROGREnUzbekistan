@@ -5,7 +5,7 @@ import {
   fetchBatches, fetchPlantingRequirements, getBatchStatus, migrateLegacyBatches,
   type Batch, type PlantingRequirement, type ProductOption,
 } from './growingData';
-import { harvestBatchApi, writeOffBatchApi } from './growingActions';
+import { harvestBatchApi, setDarkPhaseApi, writeOffBatchApi } from './growingActions';
 
 export function useAdminGrowing() {
   const [batches, setBatches] = useState<Batch[]>([]);
@@ -181,6 +181,24 @@ export function useAdminGrowing() {
     }
   };
 
+  // Досрочное открытие и продление темноты. Фаза считается из дат, поэтому
+  // операция правит `darkDays` партии — статус вслед за ней пересчитается сам.
+  const setDark = async (id: string, mode: 'open' | 'extend') => {
+    const batch = batches.find(b => b.id === id);
+    if (!batch) return;
+    setHarvesting(id);
+    try {
+      await setDarkPhaseApi(batch, mode, reload);
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка при изменении тёмной фазы');
+    } finally {
+      setHarvesting(null);
+    }
+  };
+  const openDark = (id: string) => setDark(id, 'open');
+  const extendDark = (id: string) => setDark(id, 'extend');
+
   const enriched = batches.map(b => ({ ...b, info: getBatchStatus(b) }));
   const alerts = enriched.filter(b => b.info.status === 'ready' || b.info.status === 'expired');
   const filtered = enriched.filter(b => {
@@ -196,7 +214,7 @@ export function useAdminGrowing() {
     note, setNote, filter, setFilter, products, selectedProductId, setSelectedProductId, harvestQty,
     setHarvestQty, costPriceInput, setCostPriceInput, harvesting, editingId, setEditingId, customDark,
     setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, handleEdit, addBatch,
-    harvestBatch, deleteBatch, writeOffBatch, fmt, enriched, alerts, filtered,
+    harvestBatch, deleteBatch, writeOffBatch, openDark, extendDark, fmt, enriched, alerts, filtered,
     requirements, estimatedCost, plantError,
   };
 }

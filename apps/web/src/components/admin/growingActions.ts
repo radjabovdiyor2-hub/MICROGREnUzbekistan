@@ -56,6 +56,63 @@ export async function harvestBatchApi(
   await refresh();
 }
 
+/**
+ * Досрочно открыть партию или продлить темноту.
+ *
+ * Фаза считается из дат, поэтому «открыть» — это поставить партии столько
+ * тёмных дней, сколько она реально прожила. Норма культуры при этом остаётся
+ * прежней: всходы зависят от партии семян и температуры, и одна ранняя партия
+ * ещё не повод править справочник. Если факт разошёлся с нормой — спрашиваем.
+ */
+export async function setDarkPhaseApi(
+  batch: Batch,
+  mode: 'open' | 'extend',
+  refresh: () => void | Promise<void>,
+) {
+  const result = await patchBatchOperation({
+    id: batch.id,
+    action: mode === 'extend' ? 'extend_dark' : 'open_dark',
+  });
+  if (!result.ok) {
+    alert(`❌ ${result.message}`);
+    return;
+  }
+
+  const data = result as unknown as {
+    actualDarkDays?: number;
+    normDarkDays?: number | null;
+    cropNameRu?: string;
+  };
+  await refresh();
+
+  if (mode !== 'open') return;
+  const actual = data.actualDarkDays;
+  const norm = data.normDarkDays;
+  if (typeof actual !== 'number' || typeof norm !== 'number' || actual === norm) return;
+
+  const agreed = confirm(
+    `Партия вышла из темноты за ${actual} дн., а в норме культуры «${data.cropNameRu}» стоит ${norm}.\n\n` +
+      `Поставить ${actual} дн. нормой — чтобы следующие посадки считались правильно?`,
+  );
+  if (!agreed) return;
+
+  // PATCH, а не POST: POST — полный upsert справочника, и запрос из двух
+  // полей обнулил бы расход семян, субстрат и выход.
+  const res = await fetch('/api/admin/crop-norms', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify({ cropType: batch.cropType, darkDays: actual }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    // Норму правит только владелец: агроному сюда закрыто, и это не ошибка.
+    alert(`⚠️ Норму не изменил: ${body?.error || 'нет доступа'}`);
+    return;
+  }
+  alert(`✅ Норма культуры «${data.cropNameRu}»: ${actual} дн. в темноте.`);
+}
+
 export async function writeOffBatchApi(
   batch: Batch,
   refresh: () => void | Promise<void>,

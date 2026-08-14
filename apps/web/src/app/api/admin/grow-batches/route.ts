@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { getSession, isProduction, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import {
   plantBatch,
   harvestBatch,
   writeOffBatch,
+  setDarkPhase,
   plantingRequirements,
   MissingDataError,
   NotEnoughMaterialError,
@@ -31,19 +32,26 @@ import {
 const STATUSES = new Set(['dark', 'light', 'ready', 'harvested', 'expired']);
 
 /**
- * Кто выполнил операцию: владелец руками или ИИ-офис по HTTP.
+ * Кто выполнил операцию: сотрудник по PIN, владелец руками или ИИ-офис.
  *
  * Раньше здесь было жёстко `'owner'`, и посадка бота выглядела в
  * `raw_material_movements` и в аудите неотличимо от посадки владельца —
  * вопрос «кто списал семена» было не к кому адресовать.
+ *
+ * Имя сотрудника берём ИЗ СЕССИИ, а не из тела запроса. Теперь за посадки
+ * садится агроном, и подпись должна быть той, под которой он вошёл: тело
+ * присылает браузер, и доверять ему авторство списания сырья нельзя.
+ * У владельца имени в сессии нет — он остаётся `owner`.
  */
-function actor(body: Record<string, unknown>): string {
+function actor(request: Request, body: Record<string, unknown>): string {
+  const name = getSession(request)?.name?.trim();
+  if (name) return name;
   const claimed = String(body.performedBy ?? '').trim();
   return claimed === 'ai_office' ? 'ai_office' : 'owner';
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isProduction(request)) return unauthorized();
 
   const params = new URL(request.url).searchParams;
 
@@ -125,7 +133,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isProduction(request)) return unauthorized();
 
   let body: Record<string, unknown>;
   try {
@@ -145,11 +153,11 @@ export async function POST(request: NextRequest) {
       note: body.note ? String(body.note) : null,
       productId: body.productId ? String(body.productId) : null,
       productName: body.productName ? String(body.productName) : null,
-      performedBy: actor(body),
+      performedBy: actor(request, body),
     });
 
     audit({
-      action: 'grow.create', actor: actor(body), role: 'ADMIN',
+      action: 'grow.create', actor: actor(request, body), role: 'ADMIN',
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: created.id,
       meta: { cropType, trays: created.trays, seedCost: String(created.seedCost) },
@@ -162,7 +170,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isProduction(request)) return unauthorized();
 
   let body: Record<string, unknown>;
   try {
@@ -185,20 +193,37 @@ export async function PATCH(request: NextRequest) {
         harvestQty: Number(body.harvestQty),
         productId: body.productId ? String(body.productId) : null,
         productName: body.productName ? String(body.productName) : null,
-        performedBy: actor(body),
+        performedBy: actor(request, body),
       });
       audit({
-        action: 'grow.harvest', actor: actor(body), role: 'ADMIN',
+        action: 'grow.harvest', actor: actor(request, body), role: 'ADMIN',
         ip: request.headers.get('x-forwarded-for') ?? undefined,
         target: id, meta: { harvestQty: batch.harvestQty, unitCost: batch.costPrice },
       });
       return NextResponse.json({ status: 'ok', batch });
     }
 
-    if (body.action === 'write_off') {
-      const batch = await writeOffBatch(id, actor(body));
+    // Досрочное открытие / продление темноты. Тоже операция, а не поле:
+    // фаза считается из дат, поэтому «открыть» — это поставить `darkDays`
+    // равным фактически прожитым дням. Норму культуры не трогаем, а
+    // возвращаем её рядом: предложить поправить справочник — дело человека.
+    if (body.action === 'open_dark' || body.action === 'extend_dark') {
+      const mode = body.action === 'extend_dark' ? 'extend' : 'open';
+      const result = await setDarkPhase(id, mode);
       audit({
-        action: 'grow.write_off', actor: actor(body), role: 'ADMIN',
+        action: mode === 'extend' ? 'grow.extend_dark' : 'grow.open_dark',
+        actor: actor(request, body), role: 'ADMIN',
+        ip: request.headers.get('x-forwarded-for') ?? undefined,
+        target: id,
+        meta: { darkDays: result.actualDarkDays, normDarkDays: result.normDarkDays },
+      });
+      return NextResponse.json({ status: 'ok', ...result });
+    }
+
+    if (body.action === 'write_off') {
+      const batch = await writeOffBatch(id, actor(request, body));
+      audit({
+        action: 'grow.write_off', actor: actor(request, body), role: 'ADMIN',
         ip: request.headers.get('x-forwarded-for') ?? undefined, target: id,
       });
       return NextResponse.json({ status: 'ok', batch });
@@ -248,7 +273,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isProduction(request)) return unauthorized();
 
   const id = new URL(request.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Нужен id' }, { status: 400 });

@@ -8,18 +8,19 @@ import { useState, useEffect } from 'react';
 
 import '@/styles/admin-shell.css';
 import { AdminTabRouter } from './AdminTabRouter';
-import { ALL_TABS } from './adminTabs';
+import { ALL_TABS, staffTabsFor } from './adminTabs';
 import { AdminAuthScreens } from './AdminAuthScreens';
-import { useAdminAuth } from './useAdminAuth';
+import { useAdminAuth, type StaffRole } from './useAdminAuth';
 
 interface AdminShellProps {
   /** Роль из подписанной cookie, проверенной на сервере. null — не вошёл. */
-  initialRole: 'ADMIN' | 'SELLER' | null;
+  initialRole: StaffRole | null;
   initialName: string;
 }
 
 export function AdminShell({ initialRole, initialName }: AdminShellProps) {
-  const [activeTab, setActiveTab] = useState('pos');
+  // Агроном открывается на теплице, а не на кассе: кассы у него нет вовсе.
+  const [activeTab, setActiveTab] = useState(initialRole === 'GROWER' ? 'growing' : 'pos');
   const [lang, setLang] = useState<'ru' | 'uz'>(() => {
     if (typeof window === 'undefined') return 'ru';
     const saved = sessionStorage.getItem('admin_lang');
@@ -38,10 +39,16 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
   const t = (ru: string, uz: string) => lang === 'ru' ? ru : uz;
 
   const {
-    authMode, setAuthMode, isOwner, sellerName, password, setPassword,
+    authMode, setAuthMode, isOwner, sellerName, staffRole, password, setPassword,
     pin, setPin, authError, setAuthError,
     handleOwnerLogin, handlePinPress, handleLogout, isAuthenticated,
   } = useAdminAuth(initialRole, initialName, t);
+
+  // Теплица открыта владельцу и агроному. Продавцу — нет: касса и посадки
+  // это разные люди, и смешивать их права незачем.
+  const canGrow = isOwner || staffRole === 'GROWER';
+  const canSell = isOwner || staffRole === 'SELLER';
+  const staffTabs = staffTabsFor(staffRole === 'GROWER' ? 'GROWER' : 'SELLER');
 
   // Сессия уже проверена на сервере (см. admin/page.tsx) — читать её из
   // браузера незачем, поэтому и экрана ожидания «checking» больше нет.
@@ -106,6 +113,7 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isOwner={isOwner}
+        staffTabs={staffTabs}
         sellerName={sellerName}
         lang={lang}
         toggleLang={toggleLang}
@@ -115,7 +123,7 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
         t={t}
       />
       {/* Main Content */}
-      <AdminTabRouter activeTab={activeTab} isOwner={isOwner} sellerName={sellerName} lang={lang} t={t} />
+      <AdminTabRouter activeTab={activeTab} isOwner={isOwner} canGrow={canGrow} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
 
       <AdminCommandPalette
         paletteOpen={paletteOpen}

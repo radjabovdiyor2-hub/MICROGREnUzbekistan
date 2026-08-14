@@ -12,7 +12,7 @@ export function AdminGrowing() {
     note, setNote, filter, setFilter, products, selectedProductId, setSelectedProductId, harvestQty,
     setHarvestQty, costPriceInput, setCostPriceInput, harvesting, editingId, setEditingId, customDark,
     setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, handleEdit, addBatch,
-    harvestBatch, deleteBatch, writeOffBatch, fmt, enriched, alerts, filtered,
+    harvestBatch, deleteBatch, writeOffBatch, openDark, extendDark, fmt, enriched, alerts, filtered,
     requirements, estimatedCost, plantError,
   } = useAdminGrowing();
 
@@ -129,6 +129,8 @@ export function AdminGrowing() {
         harvestBatch={harvestBatch}
         writeOffBatch={writeOffBatch}
         deleteBatch={deleteBatch}
+        openDark={openDark}
+        extendDark={extendDark}
       />
     </div>
   );

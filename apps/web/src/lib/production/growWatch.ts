@@ -31,7 +31,17 @@ export interface GrowState {
   tomorrow: WatchedBatch[];
 }
 
-function daysSince(seedDate: Date, now: Date): number {
+/**
+ * Сколько ЦЕЛЫХ суток прошло с посева. Сравниваем календарные дни, а не
+ * моменты: партия, посеянная вчера вечером, сегодня утром прожила один день,
+ * а не ноль.
+ *
+ * Экспортируется, потому что этой же меркой считает досрочное открытие
+ * партии (`setDarkPhase` в growBatch.ts). Своей копии календаря там быть не
+ * должно: фаза выводится из дат, и разойдись эти две функции на день —
+ * открытая партия осталась бы «в темноте» на экране.
+ */
+export function daysSince(seedDate: Date, now: Date): number {
   const a = Date.UTC(seedDate.getFullYear(), seedDate.getMonth(), seedDate.getDate());
   const b = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.floor((b - a) / 86_400_000);

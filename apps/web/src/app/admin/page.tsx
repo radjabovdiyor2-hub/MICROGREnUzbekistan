@@ -29,7 +29,10 @@ export default async function AdminPage() {
   // Сессия покупателя админкой не является: для неё экран показывает форму
   // входа, как и полному незнакомцу. Иначе вошедший в кабинет клиент попадал
   // бы в оболочку админки — пусть и без прав на её API.
-  const staffRole = session?.role === 'ADMIN' || session?.role === 'SELLER' ? session.role : null;
+  const staffRole =
+    session?.role === 'ADMIN' || session?.role === 'SELLER' || session?.role === 'GROWER'
+      ? session.role
+      : null;
 
   return (
     <AdminShell

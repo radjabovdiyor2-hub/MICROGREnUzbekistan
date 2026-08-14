@@ -76,7 +76,12 @@ function verifySessionSync(token: string | undefined): VerifiedSession | null {
   }
 
   if (!payload.exp || payload.exp * 1000 <= Date.now()) return null;
-  if (payload.role !== 'ADMIN' && payload.role !== 'SELLER' && payload.role !== 'CUSTOMER') {
+  if (
+    payload.role !== 'ADMIN' &&
+    payload.role !== 'SELLER' &&
+    payload.role !== 'GROWER' &&
+    payload.role !== 'CUSTOMER'
+  ) {
     return null;
   }
   // Роль покупателя без userId назвать владельца не может — см. lib/session.ts.
@@ -118,6 +123,19 @@ export function isAuthorized(request: Request): boolean {
 export function isStaff(request: Request): boolean {
   if (isAuthorized(request)) return true;
   return getSession(request)?.role === 'SELLER';
+}
+
+/**
+ * Доступ владельца или агронома — посадки.
+ *
+ * Второй рубеж после middleware, как и `isAuthorized`: роут обязан проверять
+ * сам, иначе прямое обращение мимо matcher'а прошло бы без проверки.
+ *
+ * Продавца тут намеренно нет: касса и теплица — разные люди и разные права.
+ */
+export function isProduction(request: Request): boolean {
+  if (isAuthorized(request)) return true;
+  return getSession(request)?.role === 'GROWER';
 }
 
 /**
