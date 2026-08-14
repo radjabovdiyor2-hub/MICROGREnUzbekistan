@@ -80,9 +80,10 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - ⚠️ ОТЛИЧАЙ ВОПРОС ОТ ЗАДАЧИ: «когда опубликуешь / во сколько / опубликовал ли / какой статус публикации / готово ли» — это ВОПРОС, а НЕ поручение. Вызови get_content_status (он вернёт РЕАЛЬНЫЙ статус — что уже вышло, а что по плану). НЕ придумывай статус по памяти. НЕ создавай задачу и НЕ проси отдел публиковать — иначе получится лишняя публикация.
 - ✍️ Задачу на контент (create_task, department='content') создавай ТОЛЬКО когда просят СОЗДАТЬ/СДЕЛАТЬ/НАПИСАТЬ НОВЫЙ пост/сторис/мем. Прошедшее время («что опубликовали», «который выложили») — это НЕ поручение публиковать.
 - 💰 ФАКТ ПРОДАЖИ — ЭТО ДЕЙСТВИЕ, А НЕ ЗАДАЧА. «Зарегистрируй продажу», «продали N штук ресторану X», «оформи/запиши продажу» → вызывай register_sale (отдел продаж запишет клиента, заказ и доход в CRM). ЗАПРЕЩЕНО создавать на это create_task — задача породит только текст «беру в работу», а продажа так и не будет учтена.
+- 👤 «ЗАРЕГИСТРИРУЙ» БЕЗ ТОВАРА — ЭТО КЛИЕНТ, А НЕ ПРОДАЖА. «Клиент Иван, номер такой-то, зарегистрируй», «запиши ресторан Навруз», «добавь клиента», «новый клиент» → вызывай add_customer (имя, телефон из сообщения, b2b для заведения / b2c для человека). register_sale — только когда назван ТОВАР, количество или сумма. ЗАПРЕЩЕНО выдумывать позицию («микрозелень»), чтобы вызов продажи прошёл валидацию: так вместо карточки клиента получается вопрос «такого товара нет в каталоге», и не заводится ни клиент, ни заказ.
 - 🚫 НИКОГДА не выдумывай цену, сумму или количество, если руководитель их не назвал. Оставляй поля пустыми — отдел возьмёт цену из каталога или переспросит.
 - 🧾 ОДНА ПРОДАЖА = ОДИН вызов register_sale со списком items, даже если позиций несколько. «Продали 10 гороха и 13 редиса, из них 5 Санго по 15 тысяч» → items: [горох ×10, редис ×13, Санго ×5 по 15000]. НЕ дели на три вызова — иначе получится три заказа вместо одного.
-- 🆕 НЕТ ТОВАРА В КАТАЛОГЕ: отдел продаж сам предложит завести его кнопкой — руководитель нажмёт, и откроется мастер карточки (фото, категория, описание от контент-отдела). Тебе НИЧЕГО делать не нужно: не повторяй вопрос текстом и не вызывай register_sale заново. add_product вызывай только если руководитель прямо просит завести товар вне продажи.
+- 🆕 НЕТ ТОВАРА В КАТАЛОГЕ: отдел продаж сам предложит завести его кнопкой — руководитель нажмёт, и откроется мастер карточки (фото, категория, описание от контент-отдела). Вопрос текстом не повторяй. ИСКЛЮЧЕНИЕ: если в блоке «НЕЗАКРЫТАЯ ПРОДАЖА» написано «не хватает: цена» и руководитель цену назвал — вызови register_sale ещё раз с тем же клиентом и той же позицией, добавив unit_price. Без этого его ответ уходит в никуда. add_product вызывай только если руководитель прямо просит завести товар вне продажи.
 - ✅ ПРОШЕДШЕЕ ВРЕМЯ = ФАКТ, А НЕ ПОРУЧЕНИЕ. «Доставил Амир», «отвезли», «оплатили», «забрали» означают, что это УЖЕ СДЕЛАНО. Такие слова — часть описания продажи, а не просьба организовать доставку/оплату. ЗАПРЕЩЕНО создавать задачу (create_task) на то, что уже произошло: вызывай только register_sale. Задача на доставку нужна лишь тогда, когда доставку просят организовать в будущем («нужно доставить», «отвези завтра»).
 - 🔁 НЕ ПОВТОРЯЙ УЖЕ ЗАДАННЫЙ ВОПРОС. Новую продажу собирай из ТЕКУЩЕГО сообщения: не вытаскивай позиции из старой переписки и не создавай такую же ещё раз.
 - ❓ НО ОТВЕТ НА ВОПРОС ОТДЕЛА — ЭТО ПРОДОЛЖЕНИЕ ТОЙ ЖЕ ПРОДАЖИ. Если ниже есть блок «НЕЗАКРЫТАЯ ПРОДАЖА», короткая реплика руководителя («15 штук», «по 20», «Жасмин») отвечает именно на неё: вызови register_sale ОДИН раз, взяв клиента и товар из блока, а недостающее — из реплики. Не заводи вторую продажу и не переспрашивай то, что в блоке уже есть.
@@ -96,6 +97,7 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 
 Используй ВЫЗОВЫ ФУНКЦИЙ (Function Calling) для действий:
 - Если сообщают о состоявшейся продаже, вызови register_sale
+- Если просят завести/записать/зарегистрировать КЛИЕНТА (товара в сообщении нет) — add_customer
 - Если спрашивают про клиента — find_customer; про его прошлые заказы — get_customer_orders
 - Если спрашивают про конкретный заказ (кто взял, что внутри, оплачен ли) — get_order
 - Если нужно создать задачу, вызови create_task
@@ -1355,10 +1357,24 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     # Process tools if called
     if response_msg.tool_calls:
         tool_results_text = []
+        # Пары (инструмент, результат) — запасной ответ, если модель не
+        # сформулирует его сама. Держим отдельно от текста для истории: туда
+        # идёт сокращённая строка, а человеку нужен сам результат.
+        tool_facts: list = []
         intent_after = None
         sale_handled = (
             False  # одно сообщение = одна продажа, сколько бы вызовов ни выдала модель
         )
+        # Сказал ли бот руководителю хоть что-то.
+        #
+        # Инструмент, отработавший молча, неотличим от «бот не понял». В группе
+        # «Продажа» на «Клиент <имя>, <номер>, ЗАРЕГИСТРИРУЙ» карточка в CRM
+        # завелась, а в чат не ушло ни строчки: ветка офисных инструментов ниже
+        # печатала только ключ `message`, которого у CRM-инструментов нет —
+        # они возвращают `summary`. Второго прохода к модели здесь не было
+        # вовсе, в отличие от отделов (shared/tool_runtime.py), поэтому пустой
+        # `content` при function calling означал ровно тишину и реакцию 👍.
+        spoke = False
 
         # Сообщение о СОСТОЯВШЕЙСЯ продаже — это факт, а не поручение. «Продали 10 гороха,
         # доставил Амир» модель норовила превратить ещё и в задачу отделу «организовать
@@ -1400,6 +1416,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 seen_tasks.add(key)
                 # Activate the previously dead _handle_task orchestrator
                 await _handle_task(message, args)
+                # `_handle_task` отвечает руководителю на каждой ветке — от
+                # карточки подтверждения до отказа при ошибке вставки.
+                spoke = True
                 tool_results_text.append(
                     f"Задача передана в отдел {args.get('department', 'pm')}."
                 )
@@ -1418,6 +1437,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 result_text = await _register_sale(message, args, user_text)
                 tool_results_text.append(result_text)
                 intent_after = "sale"
+                spoke = True
 
             elif name == "add_product":
                 # Новый товар заводит отдел продаж — и в магазине, и в CRM.
@@ -1425,6 +1445,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 result_text = await _add_product(message, args)
                 tool_results_text.append(result_text)
                 intent_after = "sale"
+                spoke = True
 
             elif name == "roll_call":
                 from shared.event_bus import event_bus
@@ -1440,6 +1461,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 await send_response(
                     "📢 Я запросил все отделы отозваться в этом чате. Ожидайте подтверждений."
                 )
+                spoke = True
 
             elif name == "show_published_post":
                 # Показываем САМ пост (картинка + текст), а не пересказ расписания
@@ -1450,6 +1472,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     else "Показывать нечего — публикаций ещё не было."
                 )
                 intent_after = "show"
+                spoke = True
 
             elif tool_registry.by_name(name) is not None:
                 # Инструмент офиса — исполняем в процессе. Раньше сюда попадали
@@ -1465,9 +1488,15 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 result = await tool_registry.call(
                     name, {**args, "chat_id": message.chat.id}
                 )
+                # По логам нельзя было понять, что бот вообще сделал: имя
+                # вызванного инструмента нигде не печаталось, а разбор
+                # начинается именно с него.
+                logger.info("Степан: инструмент %s → %s", name, str(result)[:300])
                 if isinstance(result, dict) and result.get("message"):
                     await message.answer(str(result["message"]))
+                    spoke = True
                 tool_results_text.append(f"{name}: {json.dumps(result, ensure_ascii=False, default=str)[:600]}")
+                tool_facts.append((name, result))
 
             else:
                 # Инструмент витрины — исполняем удалённо: set_setting,
@@ -1483,22 +1512,27 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     prop = result.get("proposal") or {}
                     await _offer_write_action(message, prop)
                     tool_results_text.append(f"Предложено подтвердить: {name}.")
+                    spoke = True
                 elif result.get("status") == "ok":
                     # Форматируем результат для модели и отправляем в чат
                     res_data = result.get("result")
                     if isinstance(res_data, dict) and res_data.get("message"):
                         await message.answer(str(res_data["message"]))
+                        spoke = True
                     elif isinstance(res_data, dict) and res_data.get("ok") is not None:
                         # WriteTool.execute() вернул {ok, message}
                         msg = res_data.get("message", "Готово")
                         await message.answer(
                             f"{'✅' if res_data['ok'] else '❌'} {msg}"
                         )
+                        spoke = True
                     tool_results_text.append(f"Инструмент {name} выполнен.")
+                    tool_facts.append((name, res_data))
                 else:
                     error = result.get("error", "неизвестная ошибка")
                     await message.answer(f"⚠️ Инструмент {name}: {error}")
                     tool_results_text.append(f"Инструмент {name} не выполнен: {error}")
+                    spoke = True
 
         # Update history with tool execution result
         if state:
@@ -1517,6 +1551,14 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         # сверху приписать выдуманный комментарий и противоречить фактам из БД.
         if response_msg.content and intent_after not in ("show", "sale"):
             await send_response(response_msg.content)
+            spoke = True
+
+        # Инструмент отработал, а сказать оказалось нечего. Для руководителя это
+        # неотличимо от «бот не понял»: он видит только реакцию 👍 — и повторяет
+        # распоряжение, хотя оно уже выполнено. Отдаём результаты модели вторым
+        # проходом, ровно как это делают отделы в run_tool_loop.
+        if not spoke:
+            await send_response(await _explain_tool_results(prompt, tool_results_text, tool_facts))
 
         await set_reaction(message, "👍")
         return
@@ -1706,6 +1748,17 @@ _QUANTITY_REPLY = re.compile(
     re.IGNORECASE,
 )
 
+# Ответ ценой: «15000», «15 000», «15000 сум», «по 15 000 so'm».
+# Отдельная регулярка, а не расширение предыдущей: у количества стоит `\d{1,4}`
+# намеренно, чтобы «15000» не прочиталось как пятнадцать тысяч лотков. Какую из
+# двух применить, решает не длина числа, а вопрос, который задал отдел
+# (`needs` открытой заявки), — иначе эти два случая неразличимы.
+_PRICE_REPLY = re.compile(
+    r"^\D{0,12}(\d{1,3}(?:[\s ]?\d{3})*|\d{3,9})(?:[.,]\d+)?\s*"
+    r"(сум|сумов|сўм|so'm|som|uzs|тыс\w*|к)?\.?$",
+    re.IGNORECASE,
+)
+
 
 async def _open_sale_prompt(chat_id: int) -> str:
     """Блок про незакрытую продажу для системного промпта. Пусто — нечего ждать."""
@@ -1725,9 +1778,16 @@ async def _open_sale_prompt(chat_id: int) -> str:
         + ("" if i.get("quantity") in (None, "") else f" ×{i['quantity']:g}")
         for i in pending.get("items", [])
     )
-    missing = {"quantity": "количество", "customer": "клиент"}.get(
-        question.get("needs"), "данные"
-    )
+    # Карта знала только два вопроса из пяти, и «цена»/«товар»/«телефон»
+    # превращались в бессодержательное «данные»: модель не понимала, что
+    # именно означает короткая реплика руководителя.
+    missing = {
+        "quantity": "количество",
+        "customer": "клиент",
+        "price": "цена товара",
+        "product": "какой именно товар",
+        "phone": "телефон клиента",
+    }.get(question.get("needs"), "данные")
     return (
         f"\n\n❓ НЕЗАКРЫТАЯ ПРОДАЖА (отдел продаж ждёт ответа):\n"
         f"  клиент: {pending.get('customer_name') or '—'}\n"
@@ -1741,25 +1801,92 @@ async def _open_sale_prompt(chat_id: int) -> str:
 async def _answer_open_sale_question(message: Message, user_text: str) -> Optional[str]:
     """Дописать незакрытую продажу числом из ответа. None — это не ответ.
 
+    Какое это число — количество или цена, — решает вопрос, который задал отдел,
+    а не вид самого числа: «15000» одинаково похоже и на пятнадцать тысяч сумов,
+    и на количество. Раньше разбиралось только количество, поэтому «Назовите
+    цену» текстом закрыть было нельзя.
+
     Возвращает строку для истории диалога, если продажа дозаписана.
     """
     text_body = (user_text or "").strip()
     if len(text_body) > 30:
         return None
-    match = _QUANTITY_REPLY.match(text_body)
-    if not match:
-        return None
 
-    from bots.stepan_bot.handlers.sale_ui import answer_sale_result, complete_with_quantity
+    from bots.stepan_bot.handlers.sale_ui import (
+        answer_sale_result,
+        complete_with_price,
+        complete_with_quantity,
+        open_question,
+    )
 
     try:
-        result = await complete_with_quantity(message.chat.id, float(match.group(1)))
+        question = await open_question(message.chat.id)
+    except Exception as exc:
+        logger.warning(f"Незакрытая продажа недоступна: {exc}")
+        return None
+    if not question:
+        return None
+
+    needs = question.get("needs")
+    if needs == "quantity":
+        pattern, complete = _QUANTITY_REPLY, complete_with_quantity
+    elif needs == "price":
+        pattern, complete = _PRICE_REPLY, complete_with_price
+    else:
+        return None  # спрашивали не число — разбирает модель
+
+    match = pattern.match(text_body)
+    if not match:
+        return None
+    value = float(re.sub(r"[\s ]", "", match.group(1)).replace(",", "."))
+
+    try:
+        result = await complete(message.chat.id, value)
     except Exception as exc:
         logger.error(f"Дозапись продажи по ответу «{text_body}»: {exc}", exc_info=True)
         return None
     if result is None:
         return None  # открытого вопроса нет — обычное сообщение
     return await answer_sale_result(message, result)
+
+
+async def _explain_tool_results(
+    system_prompt: str, results: list, facts: list
+) -> str:
+    """Ответ руководителю по результатам инструментов — вторым проходом к модели.
+
+    Нужен потому, что офисные инструменты возвращают РАЗНЫЕ словари: у продажи
+    и каталога есть `message`, у CRM — `summary` или голые поля (`find_customer`
+    отдаёт `{found, count, customers}`). Печатать один ключ недостаточно, а
+    печатать сырой JSON руководителю — значит показывать ему внутренности.
+
+    Формулировку запроса и запасной вариант берём из `shared/tool_runtime.py`,
+    оттуда же, откуда их берут отделы: ответ Стёпана и ответ отдела на одни и те
+    же данные не должны расходиться.
+
+    `chat_completion`, а не `chat_with_tools`: инструменты уже отработали, и
+    второй круг вызовов здесь означал бы повторное действие.
+    """
+    from shared.tool_runtime import facts_fallback, results_prompt
+
+    if not results:
+        return "Инструмент отработал, но результата не вернул. Проверьте в админке."
+    fallback = (
+        facts_fallback(facts)
+        if facts
+        else ("Выполнено:\n" + "\n".join(f"• {r}" for r in results))
+    )
+
+    try:
+        answer = await ai.chat_completion(
+            system_prompt=system_prompt,
+            user_message=results_prompt(results),
+            temperature=0.3,
+        )
+    except Exception as exc:
+        logger.error(f"Ответ по результатам инструментов: {exc}", exc_info=True)
+        return fallback
+    return (answer or "").strip() or fallback
 
 
 async def _register_sale(message: Message, args: dict, user_text: str) -> str:

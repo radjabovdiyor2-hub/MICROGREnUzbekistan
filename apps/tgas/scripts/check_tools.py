@@ -18,7 +18,10 @@
     без ведома владельца;
   · delegate_to_department умеет отправить в отдел, у которого нет слушателя —
     задача создастся, событие улетит, исполнителя не будет (так терялся
-    `operations`).
+    `operations`);
+  · инструмент есть в реестре и доступен Стёпану, но в его промпте не упомянут —
+    значит не выбирается никогда (так `add_customer` существовал, а «зарегистрируй
+    клиента» уходило в register_sale с выдуманным товаром).
 
 Инфраструктура не нужна: только импорт реестра, как в check_bot_roster.py.
 """
@@ -225,6 +228,52 @@ def check_risky_tools_are_reachable() -> None:
             )
 
 
+#: Инструменты, без которых промпт Стёпана оставляет владельца без ответа.
+#: Каждый закрывает вопрос, который задают каждый день; модель зовёт то, о чём
+#: ей сказали, а `tools_for("pm")` отдаёт ей ВЕСЬ реестр — молчание промпта
+#: означает, что инструмент существует, но не выбирается никогда.
+_PERSONA_MUST_MENTION = {
+    "add_customer": "«зарегистрируй клиента», «запиши ресторан»",
+    "find_customer": "«есть ли такой клиент»",
+    "register_sale": "«продали N ресторану X»",
+    "get_customer_orders": "«что он обычно берёт»",
+}
+
+
+def check_stepan_persona_covers_tools() -> None:
+    """Промпт Стёпана: упомянутые инструменты существуют, нужные — упомянуты.
+
+    Ловит ровно ту поломку, из-за которой «Клиент <имя>, <номер>,
+    ЗАРЕГИСТРИРУЙ» не завёл карточку: `add_customer` был в реестре и доступен
+    Стёпану, но в персоне не упоминался НИ РАЗУ, а слово «зарегистрируй» там
+    жёстко привязано к `register_sale`. Модель послушно вызвала продажу,
+    выдумала товар и упёрлась в «нет в каталоге».
+
+    Чтением кода это не видно: инструмент на месте, отдел на месте, вызов
+    проходит. Не хватает одной строки в промпте — и её отсутствие ничем не
+    отличается от опечатки в имени.
+    """
+    persona_file = ROOT / "bots" / "stepan_bot" / "handlers" / "assistant.py"
+    if not persona_file.exists():
+        problems.append("не найден промпт Стёпана: bots/stepan_bot/handlers/assistant.py")
+        return
+    body = persona_file.read_text(encoding="utf-8", errors="replace")
+
+    known = {t.name for t in tool_registry.all_tools()}
+    for name, hint in _PERSONA_MUST_MENTION.items():
+        if name not in known:
+            problems.append(
+                f"промпт Стёпана обязан упоминать «{name}», но такого инструмента "
+                f"в реестре нет — проверьте имя"
+            )
+        elif not re.search(rf"\b{re.escape(name)}\b", body):
+            problems.append(
+                f"«{name}» есть в реестре и доступен Стёпану, но в его промпте не "
+                f"упомянут — на {hint} модель вызовет не его. Инструмент, о котором "
+                f"промпт молчит, не выбирается никогда"
+            )
+
+
 def check_no_prices_in_prompts() -> None:
     """В промптах не должно быть цен строкой: источник цен — get_price_list."""
     price_re = re.compile(r"\d[\d\s]{3,}\s*(сум|so'm|uzs)", re.I)
@@ -263,6 +312,7 @@ def main() -> int:
     check_executor_wired()
     check_tool_arguments_are_obtainable()
     check_risky_tools_are_reachable()
+    check_stepan_persona_covers_tools()
     check_no_prices_in_prompts()
 
     all_tools = tool_registry.all_tools()

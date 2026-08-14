@@ -149,6 +149,33 @@ def _parse_args(raw: Any) -> Dict[str, Any]:
         return {}
 
 
+def results_prompt(answers: List[str]) -> str:
+    """Реплика с результатами инструментов — то, что уходит модели за ответом.
+
+    Вынесено из `run_tool_loop`, потому что этот же шаг нужен обработчику
+    Стёпана: у него собственный разбор `tool_calls`, и без второго прохода
+    инструмент отрабатывал, а руководитель не видел ничего. Формулировка одна
+    на оба места: «опирайся ТОЛЬКО на эти данные» — единственное, что удерживает
+    модель от пересказа результата по памяти.
+    """
+    return (
+        "Результаты инструментов:\n"
+        + "\n".join(answers)
+        + "\n\nТеперь дай окончательный ответ по задаче. "
+        "Опирайся ТОЛЬКО на эти данные, ничего не додумывай."
+    )
+
+
+def facts_fallback(pairs: List[tuple[str, Any]]) -> str:
+    """Факты строкой, когда модель ушла в инструменты и не сформулировала ответ.
+
+    Пустое сообщение — худший из возможных исходов: инструмент отработал,
+    данные изменились, а человек видит тишину и считает, что бот не понял.
+    Лучше сырой результат, чем ничего.
+    """
+    return "Выполнено:\n" + "\n".join(f"• {name}: {_dump(value)}" for name, value in pairs)
+
+
 async def run_tool_loop(
     ai,
     system_prompt: str,
@@ -230,21 +257,11 @@ async def run_tool_loop(
             answers.append(f"{name} вернул: {_dump(result)}")
 
         history.append({"role": "assistant", "content": "Вызвал инструменты: " + "; ".join(asked)})
-        history.append(
-            {
-                "role": "user",
-                "content": (
-                    "Результаты инструментов:\n"
-                    + "\n".join(answers)
-                    + "\n\nТеперь дай окончательный ответ по задаче. "
-                    "Опирайся ТОЛЬКО на эти данные, ничего не додумывай."
-                ),
-            }
-        )
+        history.append({"role": "user", "content": results_prompt(answers)})
 
     text = (getattr(message, "content", None) or "").strip()
     if not text and calls:
         # Модель ушла в инструменты и не сформулировала ответ — отдаём факты,
         # а не пустое сообщение: человек должен видеть, что произошло.
-        text = "Выполнено:\n" + "\n".join(f"• {c.name}: {_dump(c.result)}" for c in calls)
+        text = facts_fallback([(c.name, c.result) for c in calls])
     return LoopResult(text=text or "Не смог сформулировать ответ по задаче.", calls=calls)

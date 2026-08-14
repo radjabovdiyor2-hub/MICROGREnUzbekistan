@@ -192,12 +192,19 @@ CATEGORY_WORDS = {
 }
 
 
+def _category_of(word: str) -> Optional[str]:
+    """Слово → слаг категории, если это слово-категория. Иначе None."""
+    keys = {word.lower().strip("-·,.")} | set(normal_forms(word))
+    return next((CATEGORY_WORDS[k] for k in keys if k in CATEGORY_WORDS), None)
+
+
 def _split_category(query: str) -> tuple[Optional[str], str]:
     """Отделить слово-категорию от названия товара.
 
     «микрозелень гороха» → ("microgreens", "гороха"). Если после отделения не
     остаётся имени («микрозелень» одним словом) — категорию не выделяем: искать
-    пустое имя внутри категории бессмысленно.
+    пустое имя внутри категории бессмысленно. Такой запрос разбирает
+    `_category_only` — там ответом служит вся категория.
     """
     words = re.split(r"\s+", query.strip())
     if len(words) < 2:
@@ -205,10 +212,7 @@ def _split_category(query: str) -> tuple[Optional[str], str]:
 
     slug, rest = None, []
     for word in words:
-        forms = normal_forms(word)
-        keys = {word.lower().strip("-·,.")} | set(forms)
-        hit = next((CATEGORY_WORDS[k] for k in keys if k in CATEGORY_WORDS), None)
-        if slug is None and hit:
+        if slug is None and (hit := _category_of(word)):
             slug = hit
             continue
         rest.append(word)
@@ -217,6 +221,22 @@ def _split_category(query: str) -> tuple[Optional[str], str]:
     if not slug or not remainder:
         return None, query
     return slug, remainder
+
+
+def _category_only(query: str) -> Optional[str]:
+    """Запрос — ОДНО слово-категория («микрозелень», «салаты», «бейби»).
+
+    Товара с таким именем нет и быть не может: слово «микрозелень» отсутствует в
+    `name_ru` у всех позиций прайса — это категория. Пока такой запрос проходил
+    все пять проходов `find()` впустую, ответ был «товара «микрозелень» нет в
+    каталоге. Назовите цену — заведу его в магазин», то есть предложение завести
+    товар с именем целой категории. В группе «Продажа» на этом и встала
+    регистрация: правильного ответа среди кнопок не было, и продажу отменили.
+
+    Правильный ответ — вся категория: пусть руководитель ткнёт в позицию.
+    """
+    words = re.split(r"\s+", query.strip())
+    return _category_of(words[0]) if len(words) == 1 and words[0] else None
 
 
 async def find(query: Optional[str], limit: int = 10) -> List[Dict[str, Any]]:
@@ -228,9 +248,10 @@ async def find(query: Optional[str], limit: int = 10) -> List[Dict[str, Any]]:
     Проходы, каждый следующий — только если предыдущий пуст:
     1. Подстрока по всем вариантам написания (транслит + исправленная раскладка).
     2. То же, но со словом-категорией, отделённым от имени.
-    3. Все слова запроса по отдельности, в любом порядке.
-    4. Нормальные формы слов — падежи («гороха» → «горох»).
-    5. Нечёткое совпадение через pg_trgm (ловит опечатки).
+    3. Запрос — одно слово-категория: отдаём категорию целиком.
+    4. Все слова запроса по отдельности, в любом порядке.
+    5. Нормальные формы слов — падежи («гороха» → «горох»).
+    6. Нечёткое совпадение через pg_trgm (ловит опечатки).
 
     Проход 1 идёт по ЦЕЛОМУ запросу и раньше отделения категории намеренно:
     «Кресс-салат» — настоящее имя товара, и слово «салат» в нём не должно
@@ -249,6 +270,13 @@ async def find(query: Optional[str], limit: int = 10) -> List[Dict[str, Any]]:
             rows = await _search_substring(
                 session, query_variants(name), category, limit
             )
+
+        # «микрозелень» одним словом — не отсутствующий товар, а целая
+        # категория: имени товара в запросе нет вовсе. Отдаём её позиции,
+        # чтобы вызывающий спросил «какую именно», а не предлагал завести
+        # в магазин товар с названием категории.
+        if not rows and (bare := _category_only(raw)):
+            rows = await _list_category(session, bare, limit)
 
         words = [w for w in re.split(r"\s+", name) if len(w) >= 3]
         if not rows and len(words) > 1:
@@ -285,6 +313,24 @@ async def _search_substring(
                 bindparam("pats", value=patterns, type_=ARRAY(String))
             ),
             params,
+        )
+    ).fetchall()
+
+
+async def _list_category(session, category: str, limit: int) -> List[Any]:
+    """Все активные позиции категории — ответ на запрос из одного слова-категории.
+
+    То же, что `list_active(category)`, но в уже открытой сессии `find()`:
+    открывать вторую ради одного SELECT незачем.
+    """
+    return (
+        await session.execute(
+            text(
+                _SELECT
+                + "WHERE p.is_active = true AND c.slug = :cat "
+                "ORDER BY p.name_ru LIMIT :limit"
+            ),
+            {"cat": category, "limit": limit, "default_unit": DEFAULT_UNIT},
         )
     ).fetchall()
 

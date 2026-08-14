@@ -347,6 +347,23 @@ async def _known_customer(
     return None, None
 
 
+def _clarify_needs(
+    ambiguous: List[Dict[str, Any]], missing: List[Dict[str, Any]]
+) -> str:
+    """Чего именно не хватает — тем же словарём, что у веток ниже.
+
+    Ключа `needs` в ответе про позиции не было вовсе, и это обрывало ответ
+    текстом: `sale_ui.remember_open` записывал пустую строку, а по ней ни
+    `complete_with_*` не срабатывал, ни промпт Стёпана не мог назвать, чего
+    ждут. На вопрос «Назовите цену» отвечать было буквально нечем — в
+    клавиатуре такой кнопки тоже нет, и единственным работающим ответом
+    оставалась «✖️ Отмена».
+    """
+    if not ambiguous and any(m.get("name") and not m.get("unit_price") for m in missing):
+        return "price"
+    return "product"
+
+
 def _clarify_message(
     ambiguous: List[Dict[str, Any]], missing: List[Dict[str, Any]]
 ) -> str:
@@ -433,6 +450,7 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                 "status": "clarify",
                 "message": _clarify_message(outcome["ambiguous"], outcome["missing"]),
                 "data": {
+                    "needs": _clarify_needs(outcome["ambiguous"], outcome["missing"]),
                     "ambiguous": outcome["ambiguous"],
                     "missing": outcome["missing"],
                     "pending": {

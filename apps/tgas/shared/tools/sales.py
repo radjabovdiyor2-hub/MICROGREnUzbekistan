@@ -19,7 +19,7 @@ DEPTS = ["sales"]
 
 async def register_sale(
     customer_name: str,
-    items: List[Dict[str, Any]],
+    items: Optional[List[Dict[str, Any]]] = None,
     phone: Optional[str] = None,
     customer_type: str = "b2c",
     payment_status: str = "paid",
@@ -35,11 +35,17 @@ async def register_sale(
     на уточнение модель физически не могла: кнопки рисует только UI Стёпана, а
     у sales_bot такого роутера нет — задача уходила в тупик и через три часа
     возвращалась с тем же вопросом.
+
+    `items` НЕ обязателен намеренно. Пока он стоял в `required`, модель, решившая
+    (пусть и ошибочно), что перед ней продажа, обязана была назвать хоть какой-то
+    товар — и называла общее слово «микрозелень». Дальше цепочка уходила в «такого
+    товара нет в каталоге» и не заводила ни клиента, ни заказ. Без позиций
+    `sales_ops` честно спрашивает «Что именно продали?», и это видно.
     """
     return await sales_ops.register_sale(
         {
             "customer_name": customer_name,
-            "items": items,
+            "items": items or [],
             "phone": phone,
             "customer_type": customer_type,
             "payment_status": payment_status,
@@ -110,7 +116,11 @@ register(
             "phone": {"type": "string", "description": "Телефон клиента, если назван"},
             "items": {
                 "type": "array",
-                "description": "Позиции продажи",
+                "description": (
+                    "Позиции продажи. Товар НЕ назван — оставь список пустым: "
+                    "отдел спросит сам. Выдумывать позицию, лишь бы вызов "
+                    "прошёл, ЗАПРЕЩЕНО."
+                ),
                 "items": {
                     "type": "object",
                     "properties": {
@@ -166,7 +176,9 @@ register(
                 ),
             },
         },
-        required=["customer_name", "items"],
+        # items НЕ обязателен: см. докстринг обёртки выше. Требование позиции
+        # заставляло модель выдумывать товар, когда продажи не было вовсе.
+        required=["customer_name"],
         risky=True,
         confirm=lambda a: (
             f"Зарегистрировать продажу «{a.get('customer_name')}»: "

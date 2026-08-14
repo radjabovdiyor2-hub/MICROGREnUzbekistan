@@ -161,6 +161,36 @@ async def test_loanword_category_survives_morphology(catalog):
 
 
 @pytest.mark.asyncio
+async def test_bare_category_word_offers_the_category(catalog):
+    """«микрозелень» одним словом — это ВЫБОР, а не «товара нет в каталоге».
+
+    Третий случай из той же переписки. Слово-категория без имени товара
+    проходило все пять проходов впустую, и отдел продаж отвечал «Товара
+    «микрозелень» нет в каталоге. Назовите цену — заведу его в магазин и CRM»,
+    то есть предлагал завести товар с названием целой категории. Ответить на
+    это было нечем: кнопки ввода цены нет, пока цена неизвестна, — и продажу
+    отменили.
+    """
+    outcome = await catalog_repo.resolve("микрозелень")
+    assert "candidates" in outcome, f"категория не раскрыта: {outcome}"
+    ids = {c["id"] for c in outcome["candidates"]}
+    assert ids == {"p_gorokh", "p_rukkola_m", "p_kress", "p_gorchica", "p_sango"}
+    assert all(c["category_slug"] == "microgreens" for c in outcome["candidates"])
+
+
+@pytest.mark.asyncio
+async def test_bare_category_word_does_not_hide_a_real_product(catalog):
+    """«салат» — сначала товар «Кресс-салат», и только потом категория.
+
+    Раскрытие категории стоит ПОСЛЕ поиска по имени намеренно: иначе слово
+    «салат» превратилось бы в фильтр и увело от товара, который так и зовут.
+    """
+    outcome = await catalog_repo.resolve("салат")
+    assert outcome.get("product"), f"товар не найден: {outcome}"
+    assert outcome["product"]["id"] == "p_kress"
+
+
+@pytest.mark.asyncio
 async def test_category_word_in_product_name_is_not_a_filter(catalog):
     """«Кресс-салат» — имя товара, а не «что-то из категории салатов».
 

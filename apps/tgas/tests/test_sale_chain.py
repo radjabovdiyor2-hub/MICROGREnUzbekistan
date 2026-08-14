@@ -475,3 +475,83 @@ async def test_truly_new_customer_is_created_without_questions(chain):
     )
     assert result["status"] == "ok"
     assert chain["similar"] == ["Ресторан Навруз"]
+
+
+# ── Продажа без товара и вопрос о цене ──────────────────────────────────
+#
+# Оба случая — из той же переписки, где «Клиент <имя>, <номер>,
+# ЗАРЕГИСТРИРУЙ» ушло в register_sale с выдуманной позицией «микрозелень».
+
+
+@pytest.mark.asyncio
+async def test_sale_without_items_asks_what_was_sold():
+    """Позиций нет — спрашиваем «что продали», а не падаем и не выдумываем.
+
+    `items` перестал быть обязательным в схеме инструмента именно ради этого:
+    пока он требовался, модель обязана была назвать хоть какой-нибудь товар,
+    даже когда речь шла о заведении клиента.
+    """
+    result = await sales_ops.register_sale(
+        {"customer_name": "Ахмад Каримов", "items": []}
+    )
+    assert result["status"] == "clarify"
+    assert "Что именно продали" in result["message"]
+
+
+def test_items_is_not_required_by_the_sale_tool():
+    """Схема инструмента не должна вынуждать модель выдумывать позицию."""
+    from shared import tools as tool_registry
+
+    tool = tool_registry.by_name("register_sale")
+    assert tool is not None
+    assert "items" not in tool.required
+    assert "customer_name" in tool.required
+
+
+@pytest.mark.asyncio
+async def test_unknown_product_says_it_needs_a_price(monkeypatch):
+    """«Товара нет в каталоге. Назовите цену» — с пометкой, чего ждут.
+
+    Ключа `needs` здесь не было вовсе, поэтому `sale_ui.remember_open` писал
+    пустую строку: ответить на этот вопрос текстом было нечем, а в клавиатуре
+    кнопки ввода цены нет, пока цена неизвестна. Работала только «✖️ Отмена».
+    """
+
+    async def nothing_found(name):
+        return {}
+
+    monkeypatch.setattr(sales_ops.catalog_repo, "resolve", nothing_found)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Ресторан Жасмин",
+            "items": [{"product": "санго-2", "quantity": 5}],
+        }
+    )
+    assert result["status"] == "clarify"
+    assert result["data"]["needs"] == "price"
+    assert "Назовите цену" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_ambiguous_product_needs_a_product_not_a_price(monkeypatch):
+    """Товар нашёлся, но не один — спрашиваем ТОВАР, а не цену."""
+
+    async def two_candidates(name):
+        return {
+            "candidates": [
+                {"id": "p_m", "name": "Руккола", "price": 15000, "unit": "лоток"},
+                {"id": "p_b", "name": "Руккола", "price": 25000, "unit": "100 г"},
+            ]
+        }
+
+    monkeypatch.setattr(sales_ops.catalog_repo, "resolve", two_candidates)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Ресторан Жасмин",
+            "items": [{"product": "руккола", "quantity": 5}],
+        }
+    )
+    assert result["status"] == "clarify"
+    assert result["data"]["needs"] == "product"

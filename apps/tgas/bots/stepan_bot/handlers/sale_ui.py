@@ -598,6 +598,36 @@ async def complete_with_quantity(chat_id: int, value: float) -> Optional[Dict[st
     return result
 
 
+def _fill_price(pending: Dict[str, Any], value: float) -> None:
+    """Проставить цену позициям, где её не назвали. Логика как у количества."""
+    for item in pending.get("items", []):
+        if item.get("unit_price") in (None, ""):
+            item["unit_price"] = value
+
+
+async def complete_with_price(chat_id: int, value: float) -> Optional[Dict[str, Any]]:
+    """Дописать открытую заявку ценой из текстового ответа.
+
+    Отдел спрашивает «Товара «X» нет в каталоге. Назовите цену» — и до этого
+    места ответить на такой вопрос было нечем: кнопки «завести товар» в
+    клавиатуре нет, пока цена неизвестна, а текст никуда не попадал. С ценой
+    заявка проходит по кругу ещё раз и возвращается уже с кнопкой
+    «➕ Завести «X» — 15 000», за которой открывается мастер карточки.
+
+    None — открытого вопроса про цену нет, отвечать нечего.
+    """
+    question = await open_question(chat_id)
+    if not question or question.get("needs") != "price":
+        return None
+
+    pending = question["pending"]
+    _fill_price(pending, value)
+    result = await run_sale(pending)
+    await drop_pending(question["token"])
+    await forget_open(chat_id)
+    return result
+
+
 @sale_ui_router.callback_query(F.data.startswith("sale:cancel:"))
 async def on_cancel(callback: CallbackQuery):
     try:
