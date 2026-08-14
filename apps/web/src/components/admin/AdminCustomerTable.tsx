@@ -1,6 +1,6 @@
 'use client';
 
-import { Edit3, Gift, Phone, RefreshCw, Users } from 'lucide-react';
+import { Edit3, Gift, Phone, RefreshCw, Trash2, Users } from 'lucide-react';
 import type { CustomerItem } from './customerTypes';
 
 // Таблица клиентов: контакты, тип, суммы, бонусы.
@@ -18,6 +18,8 @@ interface Props {
   handleEditClick: (c: CustomerItem) => void;
   /** Открыть карточку клиента с историей заказов. */
   onOpen: (c: CustomerItem) => void;
+  /** Удалить карточку. Клиента с заказами база не отдаст — сервер ответит 409. */
+  onDelete: (c: CustomerItem) => void;
 }
 
 const cell: React.CSSProperties = {
@@ -45,7 +47,7 @@ function statusColor(status: string): string {
   return 'var(--text-muted)';
 }
 
-export function AdminCustomerTable({ customers, loading, lang, handleEditClick, onOpen }: Props) {
+export function AdminCustomerTable({ customers, loading, lang, handleEditClick, onOpen, onDelete }: Props) {
   if (loading) {
     return (
       <div className="card" style={{ padding: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)' }}>
@@ -133,11 +135,23 @@ export function AdminCustomerTable({ customers, loading, lang, handleEditClick, 
                 </span>
               </td>
               <td style={{ ...cell, textAlign: 'right' }}>
-                <button onClick={(e) => { e.stopPropagation(); handleEditClick(c); }} className="btn btn-sm btn-ghost"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-                  <Edit3 size={14} />
-                  Правка
-                </button>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <button onClick={(e) => { e.stopPropagation(); handleEditClick(c); }} className="btn btn-sm btn-ghost"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                    <Edit3 size={14} />
+                    Правка
+                  </button>
+                  {/* Удаление показываем только там, где оно возможно: клиента
+                      с заказами база не отдаст (crm_orders → onDelete: Restrict),
+                      и кнопка, которая всегда отвечает отказом, только злит. */}
+                  {c.ordersCount === 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(c); }} className="btn btn-sm btn-ghost"
+                      title="Удалить карточку клиента"
+                      style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--error)' }}>
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </td>
             </tr>
           ))}

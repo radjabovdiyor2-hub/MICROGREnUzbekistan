@@ -8,6 +8,7 @@ import { AdminCustomerCard } from './AdminCustomerCard';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clientErrorMessage } from '@/lib/safeError';
+import { confirmDeleteText, deleteCustomer } from '@/lib/customers/remove';
 import { AdminCustomersToolbar } from './AdminCustomersToolbar';
 import { AdminPager } from './AdminPager';
 
@@ -66,6 +67,19 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
     setEditStatus(c.status);
     setEditBonus(c.bonusBalance);
     setEditNotes(c.notes || '');
+  };
+
+  // Клиента с заказами база не отдаёт (crm_orders на onDelete: Restrict) —
+  // сервер отвечает 409 с числом заказов, и причину показываем как есть.
+  const handleDeleteCustomer = async (c: CustomerItem) => {
+    if (!window.confirm(confirmDeleteText(c.name))) return;
+    try {
+      await deleteCustomer(c.id);
+      fetchCustomers();
+      queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
+    } catch (err: unknown) {
+      alert(clientErrorMessage(err, 'Ошибка при удалении'));
+    }
   };
 
   const handleSaveCustomer = async () => {
@@ -160,6 +174,7 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
         lang={lang}
         handleEditClick={handleEditClick}
         onOpen={(c) => setSelectedId(c.id)}
+        onDelete={handleDeleteCustomer}
       />
 
       {!loading && (data?.total ?? 0) > 0 && (

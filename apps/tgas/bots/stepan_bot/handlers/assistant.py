@@ -33,6 +33,7 @@ from shared.config import settings
 from shared.database import get_session_ctx
 from sqlalchemy import text
 from shared.ai_engine import AIEngine
+from shared.tool_runtime import dump_result
 from shared.utils import contains_any, first_match, format_price, simulate_typing
 from shared.event_bus import event_bus
 from shared.group_orchestrator import set_reaction
@@ -90,6 +91,8 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - 🔢 КОЛИЧЕСТВО НЕ ВЫДУМЫВАЙ. Не назвали, сколько продали или сколько сажать, — оставь поле пустым: отдел спросит сам. Поставить 1 «чтобы вызов прошёл» — значит записать в базу выдуманное число, деньги и остаток вместе с ним.
 - 📇 КЛИЕНТА НЕ СПРАШИВАЙ ДВАЖДЫ. Отдел продаж сам ищет карточку — нечётко, с латиницей и кириллицей: «ресторан жасмин», «Жасмин» и «Jasmina» находят одного клиента. Поэтому ЗАПРЕЩЕНО спрашивать телефон у клиента, который уже покупал: если номер в карточке есть, отдел возьмёт его сам. Спрашивай телефон ТОЛЬКО когда отдел прямо вернул такой вопрос.
 - 🚫 ЗАПРЕЩЕНО отвечать «такого клиента нет» по памяти. Сначала find_customer — он видит всю базу. Твоя история диалога базой не является.
+- 🙅 НЕТ ИНСТРУМЕНТА — СКАЖИ ПРЯМО «Я ЭТОГО НЕ УМЕЮ» и назови, где это делается (админка microgreenuzbekistan.com). ЗАПРЕЩЕНО отвечать, что действие «серьёзное», «требует отдельного рассмотрения» или согласования, если инструмента под него у тебя нет: это звучит как «могу, но не хочу», и руководитель ждёт от тебя того, чего не будет. Подтверждение у нас выглядит иначе — карточкой с кнопками ✅/❌; нет карточки, значит нет и действия.
+- 🗑 УДАЛЕНИЕ КЛИЕНТОВ: инструмента у тебя нет и не будет — это делается в админке, раздел «Клиенты». Клиента, у которого есть заказы, база не удалит вообще (на заказах стоит защита), и это правильно: вместе с ним ушла бы вся история продаж и финансов. Так и отвечай.
 - 📞 ВОПРОСЫ О КЛИЕНТАХ И ЗАКАЗАХ — ЭТО ИНСТРУМЕНТЫ, А НЕ ПАМЯТЬ. «Есть ли такой клиент», «кто он» → find_customer. «Кто взял заказ M-…», «что было в заказе», «оплачен ли» → get_order. «Что он раньше брал», «прошлые заказы клиента» → get_customer_orders. «Сколько сегодня продаж / какая выручка / сколько заказов» → get_sales_today. Отвечать по памяти или пересказывать историю чата ЗАПРЕЩЕНО — цифры и имена берутся из базы.
 - Если задача — верни JSON с type="task" и укажи нужный department.
 - Если вопрос о бизнесе — верни JSON с type="chat".
@@ -1495,7 +1498,13 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 if isinstance(result, dict) and result.get("message"):
                     await message.answer(str(result["message"]))
                     spoke = True
-                tool_results_text.append(f"{name}: {json.dumps(result, ensure_ascii=False, default=str)[:600]}")
+                # Усечение — общее с отделами (6000 символов и пометка
+                # «результат сокращён»). Здесь стояло `[:600]` без пометки: полный
+                # прайс-лист обрывался на первой категории — `list_active`
+                # сортирует по слагу, поэтому `[baby-leaf]` шёл первым, а все
+                # 18 позиций микрозелени в историю не попадали вовсе. Ни модель,
+                # ни лог не могли узнать, что данные обрезаны.
+                tool_results_text.append(f"{name}: {dump_result(result)}")
                 tool_facts.append((name, result))
 
             else:
@@ -1555,10 +1564,9 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
 
         # Инструмент отработал, а сказать оказалось нечего. Для руководителя это
         # неотличимо от «бот не понял»: он видит только реакцию 👍 — и повторяет
-        # распоряжение, хотя оно уже выполнено. Отдаём результаты модели вторым
-        # проходом, ровно как это делают отделы в run_tool_loop.
+        # распоряжение, хотя оно уже выполнено. Печатаем результат как есть.
         if not spoke:
-            await send_response(await _explain_tool_results(prompt, tool_results_text, tool_facts))
+            await send_response(_show_tool_results(tool_facts))
 
         await set_reaction(message, "👍")
         return
@@ -1850,43 +1858,26 @@ async def _answer_open_sale_question(message: Message, user_text: str) -> Option
     return await answer_sale_result(message, result)
 
 
-async def _explain_tool_results(
-    system_prompt: str, results: list, facts: list
-) -> str:
-    """Ответ руководителю по результатам инструментов — вторым проходом к модели.
+def _show_tool_results(facts: list) -> str:
+    """Результаты инструментов — руководителю, ДОСЛОВНО.
 
-    Нужен потому, что офисные инструменты возвращают РАЗНЫЕ словари: у продажи
-    и каталога есть `message`, у CRM — `summary` или голые поля (`find_customer`
-    отдаёт `{found, count, customers}`). Печатать один ключ недостаточно, а
-    печатать сырой JSON руководителю — значит показывать ему внутренности.
+    Здесь стоял второй проход к модели («сформулируй ответ по этим данным»), и
+    он разменял молчание на неверный ответ: прайс `[baby-leaf]` (100 г, 35 000)
+    модель назвала «прайс-листом на микрозелень», хотя микрозелень стоит
+    15 000–20 000 за ЛОТОК. Цены при этом были настоящие — переехала категория.
+    Вдобавок системный промпт несёт `BRAND_TEXT_STYLE`, то есть просит
+    рекламный тон и хэштег в конце: внутренний прайс выходил похожим на пост.
 
-    Формулировку запроса и запасной вариант берём из `shared/tool_runtime.py`,
-    оттуда же, откуда их берут отделы: ответ Стёпана и ответ отдела на одни и те
-    же данные не должны расходиться.
-
-    `chat_completion`, а не `chat_with_tools`: инструменты уже отработали, и
-    второй круг вызовов здесь означал бы повторное действие.
+    Цифра, прошедшая через пересказ, — уже не цифра из базы. Формат каждого
+    инструмента живёт в `shared/tool_render.py`.
     """
-    from shared.tool_runtime import facts_fallback, results_prompt
+    from shared import tool_render
 
-    if not results:
+    parts = [tool_render.render(name, result) for name, result in facts]
+    parts = [p for p in parts if p and p.strip()]
+    if not parts:
         return "Инструмент отработал, но результата не вернул. Проверьте в админке."
-    fallback = (
-        facts_fallback(facts)
-        if facts
-        else ("Выполнено:\n" + "\n".join(f"• {r}" for r in results))
-    )
-
-    try:
-        answer = await ai.chat_completion(
-            system_prompt=system_prompt,
-            user_message=results_prompt(results),
-            temperature=0.3,
-        )
-    except Exception as exc:
-        logger.error(f"Ответ по результатам инструментов: {exc}", exc_info=True)
-        return fallback
-    return (answer or "").strip() or fallback
+    return "\n\n".join(parts)
 
 
 async def _register_sale(message: Message, args: dict, user_text: str) -> str:

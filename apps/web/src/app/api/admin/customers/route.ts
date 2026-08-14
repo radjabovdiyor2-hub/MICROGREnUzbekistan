@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { safeError } from '@/lib/safeError';
+import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { audit } from '@/lib/audit';
 import { getCustomerCard } from '@/lib/customers/card';
 import { setCustomerBonus } from '@/lib/customers/bonus';
 
@@ -155,5 +157,129 @@ export async function PUT(request: NextRequest) {
       { error: safeError(error) },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Удалить карточку клиента — одну (`?id=12`) или все без заказов
+ * (`?scope=no-orders`).
+ *
+ * Удаления клиентов не было НИГДЕ: ни здесь, ни в боте, ни отдельным SQL.
+ * В Telegram на «удали всех клиентов» бот отвечал, что это «серьёзное
+ * действие, требующее отдельного рассмотрения», — то есть выдумывал
+ * согласование там, где просто нет возможности. Теперь возможность живёт
+ * здесь, у человека с админкой, а бот честно отсылает сюда.
+ *
+ * ⚠️ Клиента с заказами удалить НЕЛЬЗЯ, и это защита базы, а не наша:
+ * `crm_orders.customer_id` объявлен `onDelete: Restrict` (schema.prisma).
+ * Postgres такую строку не отдаст, и правильно — вместе с клиентом ушла бы
+ * вся история продаж, по которой считаются все отчёты офиса. Отвечаем 409
+ * с числом заказов, а не даём базе упасть с 500.
+ *
+ * ⚠️ У клиента БЕЗ заказов каскадом уходят `interactions` и `followups`
+ * (обе связи `onDelete: Cascade`). Среди них — метки `b2b_offer_sent`, по
+ * которым рассылка не пишет ресторану второй раз. Поэтому в ответе честно
+ * возвращаем, сколько записей уйдёт вместе с карточкой.
+ */
+export async function DELETE(request: NextRequest) {
+  if (!isAuthorized(request)) return unauthorized();
+
+  const sp = new URL(request.url).searchParams;
+  const ip = request.headers.get('x-forwarded-for') ?? undefined;
+  const scope = sp.get('scope');
+
+  try {
+    // ── Пачкой: все карточки без единого заказа ──────────────────────
+    // Именно для сценария «удалим и заведём заново»: клиентов с заказами
+    // такой запрос не тронет, поэтому история продаж остаётся целой.
+    if (scope === 'no-orders') {
+      const deletable = await prisma.customer.findMany({
+        where: { crmOrders: { none: {} } },
+        select: { id: true },
+      });
+      const ids = deletable.map((c) => c.id);
+      const kept = await prisma.customer.count({ where: { crmOrders: { some: {} } } });
+
+      const { count } = ids.length
+        ? await prisma.customer.deleteMany({ where: { id: { in: ids } } })
+        : { count: 0 };
+
+      audit({
+        action: 'customer.delete.bulk', actor: 'owner', role: 'ADMIN', ip,
+        target: `${count} шт.`, meta: { deleted: count, kept },
+      });
+
+      return NextResponse.json({
+        status: 'ok',
+        deleted: count,
+        kept,
+        message:
+          `Удалено карточек: ${count}. ` +
+          (kept
+            ? `Осталось ${kept} — у них есть заказы, и база их не отдаёт: вместе с ними ушла бы история продаж.`
+            : 'Клиентов с заказами не было.'),
+      });
+    }
+
+    // ── Одна карточка ────────────────────────────────────────────────
+    const id = Number(sp.get('id'));
+    if (!Number.isInteger(id) || id <= 0) {
+      return NextResponse.json({ error: 'Нужен числовой id или scope=no-orders' }, { status: 400 });
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { crmOrders: true, interactions: true, followups: true } },
+      },
+    });
+    if (!customer) {
+      return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
+    }
+
+    // Проверяем ДО удаления: иначе Postgres ответит нарушением внешнего
+    // ключа, и владелец увидит 500 вместо объяснения, почему нельзя.
+    if (customer._count.crmOrders > 0) {
+      return NextResponse.json(
+        {
+          error:
+            `У клиента ${customer._count.crmOrders} заказ(ов) — удалить нельзя: ` +
+            `вместе с карточкой пропала бы история продаж, по которой считаются отчёты. ` +
+            `Если клиент больше не нужен, поставьте ему статус «churned».`,
+          ordersCount: customer._count.crmOrders,
+        },
+        { status: 409 }
+      );
+    }
+
+    await prisma.customer.delete({ where: { id } });
+
+    audit({
+      action: 'customer.delete', actor: 'owner', role: 'ADMIN', ip,
+      target: `#${id} ${customer.name ?? ''}`.trim(),
+      meta: {
+        interactions: customer._count.interactions,
+        followups: customer._count.followups,
+      },
+    });
+
+    return NextResponse.json({
+      status: 'ok',
+      deleted: 1,
+      cascaded: {
+        interactions: customer._count.interactions,
+        followups: customer._count.followups,
+      },
+      message:
+        `Клиент «${customer.name ?? id}» удалён.` +
+        (customer._count.interactions || customer._count.followups
+          ? ` Вместе с ним удалено обращений: ${customer._count.interactions}, напоминаний: ${customer._count.followups}.`
+          : ''),
+    });
+  } catch (error: unknown) {
+    console.error('API Admin Customers DELETE Error:', error);
+    return NextResponse.json({ error: safeError(error) }, { status: 500 });
   }
 }

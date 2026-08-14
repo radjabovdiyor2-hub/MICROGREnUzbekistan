@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 
-from shared import bot_registry, catalog_repo, storefront_orders, tasks_repo
+from shared import bot_registry, catalog_repo, storefront_orders, tasks_repo, tool_render
 from shared.database import get_session_ctx
 from shared.tools.registry import CHIEF_ALIASES, Tool, register
 from shared.utils import format_price
@@ -47,7 +47,12 @@ MAX_DELEGATION_HOPS = 2
 
 
 async def get_price_list(category: Optional[str] = None) -> Dict[str, Any]:
-    """Актуальный прайс-лист из каталога."""
+    """Актуальный прайс-лист из каталога.
+
+    Показывается ДОСЛОВНО (`render=tool_render.price_list`): пересказ прайса
+    моделью один раз уже назвал бейби-лист микрозеленью — цены настоящие,
+    категория чужая.
+    """
     return {
         "price_list": await catalog_repo.price_list(category),
         "source": "каталог витрины (products)",
@@ -371,6 +376,7 @@ register(
                 "description": "Слаг категории (microgreens, salads, sets…). Пусто — весь каталог.",
             }
         },
+        render=tool_render.price_list,
     )
 )
 

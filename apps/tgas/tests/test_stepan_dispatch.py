@@ -153,6 +153,38 @@ async def test_tool_message_is_not_duplicated_by_a_second_pass(stepan):
 
 
 @pytest.mark.asyncio
+async def test_price_list_reaches_the_chat_verbatim(stepan):
+    """Прайс уходит руководителю дословно — модель его не пересказывает.
+
+    Пересказ уже стоил ошибки: блок `[baby-leaf]` (100 г) был показан как
+    «прайс-лист на микрозелень», хотя микрозелень идёт за ЛОТОК и стоит другие
+    деньги. Здесь проверяется, что текст каталога доходит нетронутым и ни одна
+    категория по дороге не теряется.
+    """
+    catalog_text = (
+        "[Микрозелень]\n"
+        "- Горох: 15 000 сум / лоток, нет в наличии\n"
+        "[Бейби-листья]\n"
+        "- Базилик: 35 000 сум / 100 г, нет в наличии"
+    )
+    _script(stepan, [_tool_call("get_price_list", "{}")])
+
+    async def fake_call(name, args):
+        return {"price_list": catalog_text, "source": "каталог витрины (products)"}
+
+    stepan.setattr(assistant.tool_registry, "call", fake_call)
+
+    message = FakeMessage("покажи прайс")
+    await assistant._process_brain(message, message.text, state=None)
+
+    assert message.answers, "прайс не дошёл до чата"
+    answer = "\n".join(message.answers)
+    assert "Микрозелень" in answer and "Бейби-листья" in answer
+    assert "15 000 сум / лоток" in answer
+    assert "35 000 сум / 100 г" in answer
+
+
+@pytest.mark.asyncio
 async def test_unknown_tool_does_not_end_in_silence(stepan):
     """Имени нет ни в офисе, ни на витрине — это тоже ответ, а не тишина.
 

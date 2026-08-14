@@ -29,7 +29,7 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 
-from shared import customer_repo
+from shared import customer_repo, tool_render
 from shared.database import get_session_ctx
 from shared.tools.registry import Tool, register
 from shared.utils import format_price
@@ -499,6 +499,7 @@ register(
             }
         },
         required=["query"],
+        render=tool_render.customers,
     )
 )
 
@@ -523,6 +524,7 @@ register(
             },
         },
         required=["query"],
+        render=tool_render.customer_orders,
     )
 )
 

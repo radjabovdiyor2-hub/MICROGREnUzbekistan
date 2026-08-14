@@ -39,12 +39,32 @@ CATALOG = [
 ]
 
 
+# Человеческие имена категорий — как в таблице `categories` (колонка name_ru).
+CATEGORY_NAMES = {
+    "microgreens": "Микрозелень",
+    "baby-leaf": "Бейби-листья",
+    "salads": "Салаты",
+}
+
+
+class _Result:
+    def __init__(self, data):
+        self._data = data
+
+    def fetchall(self):
+        return self._data
+
+    def fetchone(self):
+        return self._data[0] if self._data else None
+
+
 class FakeSession:
     """Отвечает на SQL каталога так же, как ответил бы Postgres.
 
     Разбирается ровно то, чем пользуется catalog_repo: ILIKE ANY по имени,
-    фильтр по слагу категории и выборка всей категории целиком (её читает
-    морфологический проход). Нечёткий проход pg_trgm заглушка не изображает —
+    фильтр по слагу категории, выборка всей категории целиком (её читают
+    морфологический проход и раскрытие слова-категории) и справочник категорий
+    для заголовков прайса. Нечёткий проход pg_trgm заглушка не изображает —
     он и на живой базе включается только там, где расширение установлено.
     """
 
@@ -60,6 +80,16 @@ class FakeSession:
         if "word_similarity" in sql:
             raise RuntimeError("pg_trgm не установлен")
 
+        # Справочник категорий: slug, человеческое имя, число товаров.
+        if "FROM categories c" in sql:
+            counts: dict[str, int] = {}
+            for row in self.rows:
+                if row[6]:
+                    counts[row[5]] = counts.get(row[5], 0) + 1
+            return _Result(
+                [(slug, CATEGORY_NAMES.get(slug, slug), n) for slug, n in counts.items()]
+            )
+
         rows = [r for r in self.rows if r[6]]
 
         category = params.get("cat")
@@ -70,17 +100,7 @@ class FakeSession:
         if patterns is not None:
             rows = [r for r in rows if self._matches(r, patterns)]
 
-        class Result:
-            def __init__(self, data):
-                self._data = data
-
-            def fetchall(self):
-                return self._data
-
-            def fetchone(self):
-                return self._data[0] if self._data else None
-
-        return Result(rows)
+        return _Result(rows)
 
     @staticmethod
     def _patterns(statement, params):
@@ -262,3 +282,29 @@ async def test_stub_has_no_fuzzy_fallback(catalog):
     assert any("word_similarity" not in q for q in catalog.queries)
     with pytest.raises(RuntimeError):
         await catalog.execute("SELECT word_similarity(:v, x)")
+
+
+# ── Заголовки прайс-листа ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_price_list_names_categories_in_words(catalog):
+    """Заголовок категории — слово, а не слаг.
+
+    Третий случай из группы «Продажа»: блок `[baby-leaf]` был показан
+    руководителю как «прайс-лист на микрозелень». Цены в нём были верные —
+    бейби-лист за 100 г, — но по слагу этого не видно, и заголовок переехал.
+    Микрозелень при этом продаётся за ЛОТОК и стоит другие деньги.
+    """
+    text = await catalog_repo.price_list()
+    assert "[baby-leaf]" not in text, "слаг в заголовке читать невозможно"
+    assert "[Бейби-листья]" in text
+    assert "[Микрозелень]" in text
+
+
+@pytest.mark.asyncio
+async def test_price_list_keeps_prices_and_units(catalog):
+    """Цена и единица остаются при товаре: по ним отличают тёзок из двух категорий."""
+    text = await catalog_repo.price_list()
+    assert "Руккола: 15 000 сум / лоток" in text
+    assert "Руккола: 25 000 сум / 100 г" in text

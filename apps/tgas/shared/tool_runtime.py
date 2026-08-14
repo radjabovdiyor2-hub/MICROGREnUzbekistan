@@ -128,7 +128,13 @@ async def _autonomy_limits() -> Dict[str, float]:
         return {key: 0.0 for key in _LIMIT_KEYS}
 
 
-def _dump(value: Any) -> str:
+def dump_result(value: Any) -> str:
+    """Результат инструмента строкой, с ЯВНОЙ пометкой об усечении.
+
+    Публичная, потому что тем же правилом обязан пользоваться разбор у Стёпана.
+    Там стояла своя копия с лимитом 600 символов и без пометки: полный прайс-лист
+    обрывался на первой категории, и ни модель, ни лог об этом не знали.
+    """
     try:
         text = json.dumps(value, ensure_ascii=False, default=str)
     except Exception:
@@ -136,6 +142,10 @@ def _dump(value: Any) -> str:
     if len(text) > MAX_RESULT_CHARS:
         text = text[:MAX_RESULT_CHARS] + "… (результат сокращён)"
     return text
+
+
+#: Прежнее внутреннее имя — модуль пользуется им в нескольких местах.
+_dump = dump_result
 
 
 def _parse_args(raw: Any) -> Dict[str, Any]:
