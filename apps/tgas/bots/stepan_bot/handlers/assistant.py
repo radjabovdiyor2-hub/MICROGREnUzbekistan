@@ -1519,7 +1519,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     # предложение, но ничего не выполнила. Показываем карточку
                     # «было → стало» и ждём нажатия — ровно как в админке.
                     prop = result.get("proposal") or {}
-                    await _offer_write_action(message, prop)
+                    await _offer_write_action(message, prop, name)
                     tool_results_text.append(f"Предложено подтвердить: {name}.")
                     spoke = True
                 elif result.get("status") == "ok":
@@ -2418,8 +2418,14 @@ async def _confirm_content_publish(payload: dict, cb: CallbackQuery) -> str:
 approvals.register_handler("content_publish", _confirm_content_publish)
 
 
-async def _offer_write_action(message: Message, proposal: dict) -> None:
-    """Показать карточку «было → стало» с кнопками подтверждения."""
+async def _offer_write_action(message: Message, proposal: dict, tool_name: str = "") -> None:
+    """Показать карточку «было → стало» с кнопками подтверждения.
+
+    `tool_name` кладётся в заявку не ради исполнения (его знает подписанный
+    токен витрины), а ради ссылки «Открыть в админке»: без имени инструмента
+    заявка не знает, на какой экран вести, и кнопка уводила бы в общую очередь
+    вместо цены товара или настройки, о которой спрашивают.
+    """
     token = proposal.get("token")
     if not token:
         await message.answer(
@@ -2440,7 +2446,7 @@ async def _offer_write_action(message: Message, proposal: dict) -> None:
         message.bot,
         message.chat.id,
         "storefront_write",
-        {"token": token},
+        {"token": token, "tool": tool_name or proposal.get("tool") or ""},
         proposal.get("summary") or "Действие",
         bot_name="Стёпан",
         details=details,

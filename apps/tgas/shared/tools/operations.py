@@ -617,6 +617,7 @@ register(
         },
         required=["item_name", "quantity"],
         risky=True,
+        admin_tab="inventory",
         confirm=lambda a: (
             f"Списать со склада {a.get('quantity')} × «{a.get('item_name')}»"
             + (f" ({a.get('reason')})" if a.get("reason") else "")
@@ -654,6 +655,7 @@ register(
         },
         required=["crop_type", "quantity"],
         risky=True,
+        admin_tab="growing",
         confirm=lambda a: (
             f"Посадить {a.get('quantity', '?')} ед. «{a.get('crop_type', '?')}» "
             f"со списанием семян и субстрата по норме"
@@ -713,6 +715,8 @@ register(
         },
         required=["batch_id", "quantity"],
         risky=True,
+        admin_tab="growing",
+        admin_focus_arg="batch_id",
         confirm=lambda a: (
             f"Оприходовать урожай {a.get('quantity', '?')} с партии {a.get('batch_id', '?')}"
         ),
@@ -738,6 +742,8 @@ register(
         },
         required=["batch_id"],
         risky=True,
+        admin_tab="growing",
+        admin_focus_arg="batch_id",
         confirm=lambda a: (
             f"Списать партию {a.get('batch_id', '?')} целиком"
             + (f": {a.get('reason')}" if a.get("reason") else "")
@@ -769,6 +775,8 @@ register(
         },
         required=["material_id", "quantity", "unit_cost"],
         risky=True,
+        admin_tab="raw_materials",
+        admin_focus_arg="material_id",
         confirm=lambda a: (
             f"Оприходовать {a.get('quantity', '?')} сырья по {a.get('unit_cost', '?')} за единицу"
             + (" в долг" if a.get("on_credit") else "")

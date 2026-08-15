@@ -215,6 +215,7 @@ register(
         run=run_backup,
         departments=DEVOPS,
         risky=True,
+        admin_tab="bot_health",
         confirm=lambda a: "Снять резервную копию базы",
         # Бэкап ничего не портит и ничего не тратит — держать его за
         # подтверждением незачем. Тем более что у безголового DevOps этот

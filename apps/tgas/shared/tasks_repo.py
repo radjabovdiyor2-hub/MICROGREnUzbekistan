@@ -339,6 +339,14 @@ async def list_stuck(older_than_hours: int = 3, limit: int = 20) -> List[Dict[st
     `retry_count < MAX_RETRIES` — то самое «две попытки», которое до сих пор
     было только в докстринге. Без него задача возвращалась вечно: сдвинутый
     `updated_at` выводил её из окна ровно на три часа, а потом всё повторялось.
+
+    Задача, по которой уже висит заявка владельцу, «застрявшей» НЕ считается:
+    она ждёт человека, а не потерялась в шине. Переоткрывать её значит заново
+    звать тот же рискованный инструмент и заводить вторую карточку на то же
+    действие — токены разные, и защита от двойного нажатия не спасает. Отсюда
+    и брались десять одинаковых строк в дайджесте. Полагаться на перевод задачи
+    в `in_progress` (task_executor) нельзя: он есть только на пути отдела, а из
+    чата Стёпана заявка создаётся вовсе без `task_id`.
     """
     async with get_session_ctx() as session:
         rows = (
@@ -350,6 +358,10 @@ async def list_stuck(older_than_hours: int = 3, limit: int = 20) -> List[Dict[st
                     "AND retry_count < :max_retries "
                     "AND created_at < NOW() - (INTERVAL '1 hour' * :hrs) "
                     "AND updated_at < NOW() - (INTERVAL '1 hour' * :hrs) "
+                    "AND NOT EXISTS ("
+                    "  SELECT 1 FROM owner_approvals oa "
+                    "  WHERE oa.task_id = tasks.id AND oa.status = 'pending'"
+                    ") "
                     "ORDER BY created_at ASC LIMIT :lim"
                 ),
                 {

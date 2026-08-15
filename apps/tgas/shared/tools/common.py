@@ -459,6 +459,8 @@ register(
         },
         required=["task_id"],
         risky=True,
+        admin_tab="tasks",
+        admin_focus_arg="task_id",
         confirm=lambda a: (
             f"Удалить задачу #{a.get('task_id', '?')} безвозвратно"
             + (f": {a.get('reason')}" if a.get("reason") else "")

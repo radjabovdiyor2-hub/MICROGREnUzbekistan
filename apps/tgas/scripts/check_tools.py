@@ -16,6 +16,9 @@
   · два инструмента с одним именем — модель вызовет не тот, что имел в виду автор;
   · рискованный инструмент без карточки подтверждения — запись в данные пройдёт
     без ведома владельца;
+  · рискованный инструмент без экрана админки (`admin_tab`) или с несуществующей
+    вкладкой — кнопка «Открыть в админке» уведёт владельца на кассу вместо
+    задачи, о которой его спрашивают;
   · delegate_to_department умеет отправить в отдел, у которого нет слушателя —
     задача создастся, событие улетит, исполнителя не будет (так терялся
     `operations`);
@@ -97,6 +100,54 @@ def check_risky_have_confirmation() -> None:
             problems.append(
                 f"«{tool.name}» помечен risky, но не описывает, что произойдёт: "
                 f"владелец увидит в карточке голый вызов функции"
+            )
+
+
+#: Реестр вкладок админки на витрине. Правды об экранах в Python нет —
+#: она в TypeScript, и другого способа сверить, кроме как прочитать файл, тоже.
+ADMIN_TABS_TSX = ROOT.parent / "web" / "src" / "app" / "admin" / "adminTabs.tsx"
+
+
+def admin_tab_ids() -> set[str]:
+    """Идентификаторы вкладок из adminTabs.tsx."""
+    if not ADMIN_TABS_TSX.exists():
+        return set()
+    return set(re.findall(r"\{\s*id:\s*'([a-z_]+)'", ADMIN_TABS_TSX.read_text(encoding="utf-8")))
+
+
+def check_risky_have_admin_screen() -> None:
+    """Из карточки подтверждения должен быть путь на экран админки.
+
+    Карточка «Удалить задачу #95 безвозвратно» была тупиком: посмотреть саму
+    задачу владелец мог, только открыв сайт и найдя вкладку глазами среди
+    сорока семи. Теперь у карточки есть кнопка, а куда она ведёт — говорит
+    `Tool.admin_tab`.
+
+    Сверяем со ВКЛАДКАМИ ВИТРИНЫ, а не с самим фактом заполнения: опечатка в
+    имени вкладки даёт ссылку, которая открывает админку на кассе, и заметить
+    это можно только руками. Ровно так уехали юзернеймы ботов, когда лежали
+    в четырёх местах.
+    """
+    known = admin_tab_ids()
+    if not known:
+        problems.append(
+            f"не читается реестр вкладок админки ({ADMIN_TABS_TSX}): "
+            f"проверить ссылки из карточек подтверждения нечем"
+        )
+        return
+
+    for tool in tool_registry.all_tools():
+        if not tool.risky:
+            continue
+        if not tool.admin_tab:
+            problems.append(
+                f"«{tool.name}» помечен risky, но не говорит, на какой экран "
+                f"админки вести владельца (Tool.admin_tab пуст)"
+            )
+        elif tool.admin_tab not in known:
+            problems.append(
+                f"«{tool.name}» ведёт на вкладку «{tool.admin_tab}», которой нет "
+                f"в adminTabs.tsx — ссылка откроет админку не там"
             )
 
 
@@ -308,6 +359,7 @@ def main() -> int:
     check_department_coverage()
     check_unique_names()
     check_risky_have_confirmation()
+    check_risky_have_admin_screen()
     check_delegation_targets()
     check_executor_wired()
     check_tool_arguments_are_obtainable()

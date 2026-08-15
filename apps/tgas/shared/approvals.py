@@ -46,15 +46,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid
 from typing import Any, Awaitable, Callable, Dict, Optional
 
 from aiogram import Bot, F, Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from shared import admin_links
 from shared import tools as tool_registry
 from shared.config import settings
 
@@ -76,6 +78,14 @@ _HANDLERS: Dict[str, Handler] = {}
 #: иначе он залипает в meeting_state и мешает следующему.
 _REJECT_HANDLERS: Dict[str, Handler] = {}
 
+#: Аргументы, которые модель пишет свободным текстом. В отпечаток они не входят.
+#:
+#: «Задача удалена по запросу» и «Удаление дублирующих задач» — это ОДНО
+#: действие `delete_task(task_id=95)` с разной формулировкой причины. Пока
+#: причина участвовала бы в отпечатке, дедуп не сработал бы ни разу: на
+#: скриншоте владельца именно так и вышло — десять строк про одну задачу.
+_VOLATILE_ARGS = frozenset({"reason", "comment", "note", "notes", "message", "description"})
+
 
 def register_handler(kind: str, handler: Handler) -> None:
     """Зарегистрировать обработчик типа заявки (вызывать при старте бота)."""
@@ -87,6 +97,66 @@ def register_reject_handler(kind: str, handler: Handler) -> None:
     _REJECT_HANDLERS[kind] = handler
 
 
+def fingerprint(kind: str, payload: Dict[str, Any], bot_name: str) -> str:
+    """Отпечаток действия: одинаковая просьба даёт одинаковую строку.
+
+    В него входят тип заявки, отдел, инструмент и его СТАБИЛЬНЫЕ аргументы —
+    то есть предмет действия. Свободный текст модели (`_VOLATILE_ARGS`)
+    исключён намеренно: переформулированная причина не делает действие другим.
+    """
+    data = payload or {}
+    args = data.get("args") if isinstance(data.get("args"), dict) else {}
+    stable = {k: v for k, v in args.items() if k not in _VOLATILE_ARGS}
+    material = json.dumps(
+        {
+            "kind": str(kind or ""),
+            "bot": str(bot_name or ""),
+            "tool": str(data.get("tool") or ""),
+            # Витринные заявки (`storefront_write`) намеренно НЕ склеиваются:
+            # аргументы у них спрятаны в подписанном токене, а он одноразовый
+            # и живёт 15 минут (apps/web/src/lib/stepan/proposal.ts). Вернув
+            # владельцу токен получасовой давности, дедуп превратил бы нажатие
+            # «Одобрить» в отказ витрины. Токен в отпечатке — это и есть отказ
+            # от склейки: у каждого предложения он свой.
+            "token": str(data.get("token") or ""),
+            "args": stable,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:32]
+
+
+async def _find_pending(fp: str) -> Optional[str]:
+    """Токен висящей заявки с тем же отпечатком, если она есть."""
+    from sqlalchemy import text as sa_text
+
+    from shared.database import get_session_ctx
+
+    try:
+        async with get_session_ctx() as session:
+            row = (
+                await session.execute(
+                    sa_text(
+                        "UPDATE owner_approvals "
+                        "SET duplicate_count = duplicate_count + 1 "
+                        "WHERE token = ("
+                        "  SELECT token FROM owner_approvals "
+                        "  WHERE status = 'pending' AND fingerprint = :fp "
+                        "  ORDER BY created_at ASC LIMIT 1"
+                        ") RETURNING token"
+                    ),
+                    {"fp": fp},
+                )
+            ).fetchone()
+            await session.commit()
+        return row[0] if row else None
+    except Exception as exc:
+        logger.warning("APPROVALS: сверка дублей не сработала: %s", exc)
+        return None
+
+
 async def _save(
     token: str,
     kind: str,
@@ -95,6 +165,7 @@ async def _save(
     bot_name: str,
     chat_id: Optional[int],
     task_id: Optional[int] = None,
+    fp: str = "",
 ) -> bool:
     """Сохранить заявку в базу. False — сохранить не удалось, заявки нет."""
     from sqlalchemy import text as sa_text
@@ -107,9 +178,9 @@ async def _save(
                 sa_text(
                     "INSERT INTO owner_approvals "
                     "(token, kind, summary, payload, bot_name, chat_id, task_id, "
-                    " status, remind_count, created_at) "
+                    " fingerprint, duplicate_count, status, remind_count, created_at) "
                     "VALUES (:tok, :kind, :sum, CAST(:pl AS jsonb), :bot, :chat, "
-                    " :task, 'pending', 0, NOW())"
+                    " :task, :fp, 0, 'pending', 0, NOW())"
                 ),
                 {
                     "tok": token,
@@ -118,6 +189,7 @@ async def _save(
                     "pl": json.dumps(payload, ensure_ascii=False, default=str),
                     "bot": bot_name[:50],
                     "chat": chat_id,
+                    "fp": fp or None,
                     "task": task_id
                     if task_id is not None
                     else (
@@ -151,7 +223,8 @@ async def list_pending(limit: int = 20) -> list:
                 await session.execute(
                     sa_text(
                         "SELECT token, kind, summary, bot_name, chat_id, "
-                        "remind_count, created_at FROM owner_approvals "
+                        "remind_count, created_at, reminded_at, payload, "
+                        "duplicate_count FROM owner_approvals "
                         "WHERE status = 'pending' ORDER BY created_at ASC LIMIT :lim"
                     ),
                     {"lim": int(limit)},
@@ -166,12 +239,44 @@ async def list_pending(limit: int = 20) -> list:
                 "chat_id": r[4],
                 "remind_count": r[5],
                 "created_at": r[6],
+                # Без него шаг напоминания отсчитывался от создания заявки, а не
+                # от последнего напоминания: после суток жизни условие
+                # срабатывало на КАЖДОМ часовом прогоне, и владелец получал
+                # один и тот же дайджест круглосуточно.
+                "reminded_at": r[7],
+                # Нужен, чтобы построить ссылку на экран по теме заявки.
+                "payload": json.loads(r[8]) if isinstance(r[8], str) else (r[8] or {}),
+                "duplicate_count": r[9] or 0,
             }
             for r in rows
         ]
     except Exception as exc:
         logger.warning("APPROVALS: очередь недоступна: %s", exc)
         return []
+
+
+async def count_pending() -> int:
+    """Сколько всего заявок ждёт решения.
+
+    Считается отдельно от `list_pending`: та отдаёт страницу с `LIMIT`, и
+    `len()` по ней печатал в шапке дайджеста размер лимита («20») вместо
+    настоящей очереди — сколько бы заявок ни висело на самом деле.
+    """
+    from sqlalchemy import text as sa_text
+
+    from shared.database import get_session_ctx
+
+    try:
+        async with get_session_ctx() as session:
+            row = (
+                await session.execute(
+                    sa_text("SELECT COUNT(*) FROM owner_approvals WHERE status = 'pending'")
+                )
+            ).fetchone()
+        return int(row[0]) if row else 0
+    except Exception as exc:
+        logger.warning("APPROVALS: не смог посчитать очередь: %s", exc)
+        return 0
 
 
 async def mark_reminded(token: str) -> None:
@@ -249,6 +354,7 @@ async def request(
     bot_name: str = "office",
     details: str = "",
     task_id: Optional[int] = None,
+    outcome: Optional[Dict[str, Any]] = None,
 ) -> Optional[str]:
     """
     Показать владельцу карточку и запомнить заявку. Возвращает токен или None.
@@ -258,6 +364,11 @@ async def request(
     `task_id` связывает заявку с задачей, из которой она выросла: по нему
     решение владельца закрывает задачу. Если не передан — берётся из
     `payload["args"]["task_id"]`, как было раньше.
+
+    `outcome` — необязательный словарь, куда кладётся `duplicate=True`, если
+    такая же заявка уже висела и новой карточки не было. Нужен вызывающему,
+    чтобы сказать модели «ты уже просила об этом», а не делать вид, что
+    отправлена новая просьба.
     """
     target = chat_id or _owner_chat_id()
 
@@ -272,14 +383,36 @@ async def request(
         logger.warning("APPROVALS: нет канала до руководителя — заявка %s не создана", kind)
         return None
 
+    # Та же просьба уже висит — поднимаем счётчик и молчим. Иначе владелец
+    # получал по карточке на каждый повтор: задача оставалась в `todo`, её
+    # ежечасно переоткрывал `retry_stuck_tasks`, отдел заново звал тот же
+    # инструмент, и каждый раз рождался новый токен — мимо защиты от двойного
+    # нажатия. Десять строк «Удалить задачу #95» в дайджесте — это оно.
+    fp = fingerprint(kind, payload, bot_name)
+    existing = await _find_pending(fp)
+    if existing:
+        logger.info("APPROVALS: повтор заявки %s — карточка уже висит (%s)", kind, existing)
+        if outcome is not None:
+            outcome["duplicate"] = True
+        if not own_bot:
+            try:
+                await bot.session.close()
+            except Exception:
+                pass
+        return existing
+
     token = uuid.uuid4().hex[:16]
-    if not await _save(token, kind, payload, summary, bot_name, target, task_id):
+    if not await _save(token, kind, payload, summary, bot_name, target, task_id, fp):
         return None
 
     builder = InlineKeyboardBuilder()
     builder.button(text="✅ Одобрить", callback_data=f"approve:{token}")
     builder.button(text="❌ Отклонить", callback_data=f"reject:{token}")
-    builder.adjust(2)
+    # Третья кнопка ведёт на экран админки по теме заявки. Без неё карточка
+    # была тупиком: чтобы посмотреть задачу, заказ или цену, о которых
+    # спрашивают, владелец открывал сайт и искал вкладку глазами.
+    builder.add(admin_links.open_button("🏢 Открыть в админке", kind, payload, target))
+    builder.adjust(2, 1)
 
     body = (
         f"⚠️ <b>Нужно ваше подтверждение</b>\n\n"
@@ -326,6 +459,7 @@ async def request_approval(
     Возвращает текст для модели — он попадёт в её контекст, поэтому формулировка
     важна: модель не должна решить, что действие уже выполнено.
     """
+    outcome: Dict[str, Any] = {}
     token = await request(
         bot,
         chat_id,
@@ -334,11 +468,20 @@ async def request_approval(
         tool.summary(args),
         bot_name=bot_name,
         task_id=task_id,
+        outcome=outcome,
     )
     if not token:
         return (
             f"{tool.name}: подтвердить не удалось (нет канала до руководителя "
             f"или недоступен Redis). Действие НЕ выполнено — так и скажи."
+        )
+    if outcome.get("duplicate"):
+        # Иначе модель решит, что отправила новую просьбу, и повторит вызов —
+        # именно так копилась пачка одинаковых карточек у владельца.
+        return (
+            f"{tool.name}: об этом УЖЕ отправлена заявка, она ждёт решения "
+            f"руководителя. Повторно не проси и не описывай результат как "
+            f"достигнутый — просто скажи, что ждём."
         )
     return (
         f"{tool.name}: отправлено руководителю на подтверждение. "
@@ -481,7 +624,7 @@ async def on_approve(callback: CallbackQuery):
     await _close_task(request_data.get("task_id"), "done" if acted else "todo")
 
     head = "✅ <b>Одобрено.</b>" if acted else "⚠️ <b>Одобрено, но не выполнено.</b>"
-    await _finish(callback, f"{head}\n{message}")
+    await _finish(callback, f"{head}\n{message}", token)
 
 
 @approvals_router.callback_query(F.data.startswith("reject:"))
@@ -513,13 +656,40 @@ async def on_reject(callback: CallbackQuery):
     # Владелец сказал «нет» — задача закрыта отказом, а не висит в очереди,
     # откуда её через три часа достанет retry_stuck_tasks и спросит снова.
     await _close_task(request_data.get("task_id"), "cancelled")
-    await _finish(callback, tail)
+    await _finish(callback, tail, token)
 
 
-async def _finish(callback: CallbackQuery, tail: str) -> None:
+def _keyboard_without(
+    markup: Optional[InlineKeyboardMarkup], token: str
+) -> Optional[InlineKeyboardMarkup]:
+    """Клавиатура без кнопок решённой заявки — остальные остаются живыми.
+
+    На одиночной карточке решение снимает обе кнопки, и клавиатуры не остаётся.
+    А в дайджесте кнопки трёх разных заявок висят на ОДНОМ сообщении: погасив
+    их все, нажатие «Одобрить» по первой строке лишило бы владельца решения по
+    двум другим — и он ушёл бы искать их карточки по переписке, ровно от чего
+    дайджест и уводит.
+    """
+    if markup is None:
+        return None
+    rows = []
+    for row in markup.inline_keyboard:
+        kept = [b for b in row if not (b.callback_data or "").endswith(f":{token}")]
+        if kept:
+            rows.append(kept)
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
+
+
+async def _finish(callback: CallbackQuery, tail: str, token: str = "") -> None:
+    keyboard = _keyboard_without(callback.message.reply_markup, token) if token else None
     try:
         await callback.message.edit_text(
-            callback.message.html_text + "\n\n" + tail, parse_mode="HTML"
+            callback.message.html_text + "\n\n" + tail,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+            # Ссылки в строках дайджеста ведут в админку; превью сайта под
+            # каждым решением превратило бы сообщение в ленту картинок.
+            disable_web_page_preview=True,
         )
     except Exception:
         await callback.message.answer(tail, parse_mode="HTML")

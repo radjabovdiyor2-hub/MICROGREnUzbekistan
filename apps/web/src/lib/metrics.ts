@@ -92,7 +92,10 @@ export function render(gauges: Gauge[] = []): string {
 // ── Готовые счётчики, чтобы имена не расползались по коду ──────────────
 
 export const Metrics = {
-  loginFailed: (kind: 'password' | 'pin') =>
+  // `telegram` — вход владельца из Mini App по подписи initData
+  // (/api/auth/telegram-admin). Отдельная метка нужна, чтобы отличить
+  // подобранный пароль от чужого Telegram-аккаунта, стучащегося в админку.
+  loginFailed: (kind: 'password' | 'pin' | 'telegram') =>
     inc('mg_auth_failed_total', 'Неудачные попытки входа', { kind }),
 
   loginSuccess: (role: string) =>

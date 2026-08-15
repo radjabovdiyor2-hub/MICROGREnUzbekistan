@@ -43,8 +43,16 @@ import { AdminWorkflowStudio } from '@/components/admin/AdminWorkflowStudio';
 // Вынесено из AdminShell: файл перерос 200 строк, и почти половину его
 // занимал этот список.
 
-export function AdminTabRouter({ activeTab, isOwner, canGrow, canSell, sellerName, lang, t }: {
+export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, sellerName, lang, t }: {
   activeTab: string;
+  /**
+   * Запись, ради которой пришли по ссылке из Telegram (`?focus=`).
+   *
+   * Ссылку строит ИИ-офис (`shared/admin_links.py`) из заявки владельцу:
+   * номер задачи, заказа, партии. Экраны, которым выделять нечего, его
+   * просто не берут — вкладка всё равно открыта правильная.
+   */
+  focus: string;
   isOwner: boolean;
   /** Владелец или агроном — теплица открыта обоим. */
   canGrow: boolean;
@@ -66,7 +74,7 @@ export function AdminTabRouter({ activeTab, isOwner, canGrow, canSell, sellerNam
     {activeTab === 'inventory' && isOwner && <AdminInventory />}
     {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials />}
     {activeTab === 'movements' && isOwner && <AdminMovements />}
-    {activeTab === 'orders' && isOwner && <AdminOrders />}
+    {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} />}
     {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}
     {activeTab === 'debts' && isOwner && <AdminDebts />}
     {activeTab === 'products' && isOwner && <AdminProducts />}
@@ -80,7 +88,7 @@ export function AdminTabRouter({ activeTab, isOwner, canGrow, canSell, sellerNam
     {activeTab === 'workflow_studio' && isOwner && <AdminWorkflowStudio />}
     {activeTab === 'bot_control' && isOwner && <AdminBotControl lang={lang} />}
     {activeTab === 'bot_health' && isOwner && <AdminBotHealth lang={lang} />}
-    {activeTab === 'tasks' && isOwner && <AdminTasks lang={lang} />}
+    {activeTab === 'tasks' && isOwner && <AdminTasks lang={lang} focus={focus} />}
     {activeTab === 'approvals' && isOwner && <AdminApprovals lang={lang} />}
     {activeTab === 'learnings' && isOwner && <AdminLearnings lang={lang} />}
     {activeTab === 'ai_spend' && isOwner && <AdminAiSpend lang={lang} />}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 
 import { DEPT_LABELS, PRIORITY_COLOR } from './adminTasksConfig';
@@ -22,6 +23,8 @@ interface Props {
   task: Task;
   today: string;
   selected: boolean;
+  /** Задача, ради которой владелец пришёл по ссылке из Telegram (`?focus=`). */
+  highlight?: boolean;
   onToggle: (id: number) => void;
   onStatus: (task: Task, status: string) => void;
   onDelete: (task: Task) => void;
@@ -30,14 +33,22 @@ interface Props {
 }
 
 export function AdminTaskRow({
-  task, today, selected, onToggle, onStatus, onDelete, inputStyle, t,
+  task, today, selected, highlight = false, onToggle, onStatus, onDelete, inputStyle, t,
 }: Props) {
   const overdue = task.deadline && task.deadline < today && task.status !== 'done';
+  const row = useRef<HTMLDivElement>(null);
+
+  // Ссылка привела на вкладку задач — доскроллим до самой задачи. Без этого
+  // владелец, пришедший из оповещения про #95, всё равно искал бы её глазами.
+  useEffect(() => {
+    if (highlight) row.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [highlight]);
 
   return (
-    <div className="card" style={{
+    <div ref={row} className="card" style={{
       padding: 'var(--space-4)', borderRadius: 12,
       borderLeft: `3px solid ${PRIORITY_COLOR[task.priority] ?? 'var(--border)'}`,
+      outline: highlight ? '2px solid var(--brand-primary)' : 'none',
       display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap',
     }}>
       <input

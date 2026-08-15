@@ -4,13 +4,15 @@ import { AdminSidebar } from './AdminSidebar';
 
 import { AdminCommandPalette } from './AdminCommandPalette';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 
 import '@/styles/admin-shell.css';
 import { AdminTabRouter } from './AdminTabRouter';
 import { ALL_TABS, staffTabsFor } from './adminTabs';
 import { AdminAuthScreens } from './AdminAuthScreens';
 import { useAdminAuth, type StaffRole } from './useAdminAuth';
+import { useAdminTab } from './useAdminTab';
+import { AdminTelegramInit } from './AdminTelegramInit';
 
 interface AdminShellProps {
   /** Роль из подписанной cookie, проверенной на сервере. null — не вошёл. */
@@ -18,9 +20,16 @@ interface AdminShellProps {
   initialName: string;
 }
 
-export function AdminShell({ initialRole, initialName }: AdminShellProps) {
-  // Агроном открывается на теплице, а не на кассе: кассы у него нет вовсе.
-  const [activeTab, setActiveTab] = useState(initialRole === 'GROWER' ? 'growing' : 'pos');
+/** `useSearchParams` требует Suspense-границы — она здесь, а не внутри хука. */
+export function AdminShell(props: AdminShellProps) {
+  return (
+    <Suspense fallback={null}>
+      <AdminShellInner {...props} />
+    </Suspense>
+  );
+}
+
+function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
   const [lang, setLang] = useState<'ru' | 'uz'>(() => {
     if (typeof window === 'undefined') return 'ru';
     const saved = sessionStorage.getItem('admin_lang');
@@ -43,6 +52,13 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
     pin, setPin, authError, setAuthError,
     handleOwnerLogin, handlePinPress, handleLogout, isAuthenticated,
   } = useAdminAuth(initialRole, initialName, t);
+
+  // Вкладка живёт в адресной строке — ссылка из Telegram приводит на свой
+  // экран (см. useAdminTab). Отсчитываем от ЖИВОЙ должности, а не от той,
+  // что пришла с сервера: у агронома, вошедшего по PIN в свежей вкладке,
+  // роли в cookie ещё нет, и он попадал на кассу — экран, которого ему не
+  // положено видеть. Отдел показывался пустым, пока он не ткнёт «Посадки».
+  const { activeTab, focus, openTab: setActiveTab } = useAdminTab(staffRole ?? initialRole);
 
   // Теплица открыта владельцу и агроному. Продавцу — нет: касса и посадки
   // это разные люди, и смешивать их права незачем.
@@ -86,9 +102,13 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
   };
 
 
+
   // === AUTH SCREENS ===
   if (!isAuthenticated) {
     return (
+      <>
+      {/* Открыли кнопкой из Telegram — войдём без пароля (см. AdminTelegramInit). */}
+      <AdminTelegramInit isAuthenticated={false} />
       <AdminAuthScreens
         authMode={authMode}
         setAuthMode={setAuthMode}
@@ -102,12 +122,14 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
         handlePinPress={handlePinPress}
         t={t}
       />
+      </>
     );
   }
 
   // === MAIN ADMIN PANEL ===
   return (
     <div className="admin-layout" style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
+      <AdminTelegramInit isAuthenticated />
 
       <AdminSidebar
         activeTab={activeTab}
@@ -123,7 +145,7 @@ export function AdminShell({ initialRole, initialName }: AdminShellProps) {
         t={t}
       />
       {/* Main Content */}
-      <AdminTabRouter activeTab={activeTab} isOwner={isOwner} canGrow={canGrow} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
+      <AdminTabRouter activeTab={activeTab} focus={focus} isOwner={isOwner} canGrow={canGrow} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
 
       <AdminCommandPalette
         paletteOpen={paletteOpen}

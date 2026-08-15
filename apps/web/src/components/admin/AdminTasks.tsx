@@ -23,7 +23,7 @@ import { AdminTaskRow } from './AdminTaskRow';
 import { DEPT_LABELS } from './adminTasksConfig';
 import { useAdminTasks } from './useAdminTasks';
 
-export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; focus?: string }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
   const [filter, setFilter] = useState('all');
@@ -122,6 +122,7 @@ export function AdminTasks({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           <AdminTaskRow
             key={task.id} task={task} today={today} inputStyle={inputStyle} t={t}
             selected={selected.includes(task.id)}
+            highlight={focus !== '' && String(task.id) === focus}
             onToggle={toggle}
             onStatus={setStatus}
             onDelete={x => remove(

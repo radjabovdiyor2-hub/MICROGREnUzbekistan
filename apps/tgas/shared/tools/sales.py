@@ -180,6 +180,9 @@ register(
         # заставляло модель выдумывать товар, когда продажи не было вовсе.
         required=["customer_name"],
         risky=True,
+        # Заказа ещё нет — он появится после «Одобрить», поэтому выделять
+        # нечего: ссылка ведёт на список заказов, где он и возникнет.
+        admin_tab="orders",
         confirm=lambda a: (
             f"Зарегистрировать продажу «{a.get('customer_name')}»: "
             f"{len(a.get('items') or [])} позиц. — заказ появится в магазине "
@@ -220,6 +223,7 @@ register(
         },
         required=["name", "price"],
         risky=True,
+        admin_tab="products",
         confirm=lambda a: (
             f"Добавить товар «{a.get('name')}» по {format_price(float(a.get('price') or 0))} "
             f"в магазин и CRM"
@@ -255,6 +259,8 @@ register(
         },
         required=["order_id"],
         risky=True,
+        admin_tab="orders",
+        admin_focus_arg="order_id",
         confirm=lambda a: (
             f"Заказ {a.get('order_id')} → статус {a.get('status') or '—'}, "
             f"оплата {a.get('payment_status') or '—'} (клиенту уйдёт уведомление)"
@@ -281,6 +287,7 @@ register(
         },
         required=["segment", "message"],
         risky=True,
+        admin_tab="customers",
         confirm=lambda a: (
             f"Разослать сообщение сегменту «{a.get('segment')}» — это уйдёт живым клиентам"
         ),
@@ -294,6 +301,7 @@ register(
         run=push_stale_orders,
         departments=DEPTS,
         risky=True,
+        admin_tab="orders",
         confirm=lambda a: "Написать клиентам по зависшим заказам",
     )
 )

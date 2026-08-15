@@ -266,6 +266,13 @@ services:
       # Shared secret for storefront-bot -> web admin API calls (empty = off).
       BOT_SECRET: ${BOT_SECRET:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      # Вход владельца в админку кнопкой из Telegram (/api/auth/telegram-admin).
+      # Подпись initData ставит бот, открывший Mini App, — карточки шлёт Стёпан,
+      # поэтому его токен нужен и витрине. Пустой список владельцев = дверь
+      # закрыта, остаётся вход по паролю. Держать в паре с ADMIN_TELEGRAM_IDS
+      # офиса: это один и тот же человек, просто список читают два сервиса.
+      STEPAN_BOT_TOKEN: ${STEPAN_BOT_TOKEN:-}
+      OWNER_TELEGRAM_IDS: ${OWNER_TELEGRAM_IDS:-}
     volumes:
       # Persist + serve uploaded product images (host dir, kept across deploys).
       - ${HOST_UPLOADS_DIR:-/home/ubuntu/microgreen-uploads}:/data/uploads

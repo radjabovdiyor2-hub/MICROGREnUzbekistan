@@ -259,6 +259,7 @@ register(
         },
         required=["text_body"],
         risky=True,
+        admin_tab="dept_content",
         confirm=lambda a: (
             f"Опубликовать в Instagram Stories: {str(a.get('text_body'))[:120]}…"
         ),
@@ -334,6 +335,7 @@ register(
         },
         required=["text_body"],
         risky=True,
+        admin_tab="dept_content",
         confirm=lambda a: (
             f"Опубликовать сторис в Instagram: «{str(a.get('headline') or a.get('text_body'))[:60]}»"
         ),

@@ -81,6 +81,15 @@ class Settings(BaseSettings):
         description="URL подключения к Redis (кэш, очереди, rate-limit)",
     )
 
+    # ── Публичный адрес витрины ────────────────────────────────────────
+    # Нужен для ссылок и кнопок в Telegram: он требует публичный HTTPS.
+    # `STOREFRONT_API_URL` для этого не годится — это внутренний адрес сети
+    # docker (`http://web:3000/api`), с телефона владельца он не открывается.
+    public_web_url: str = Field(
+        default="https://microgreenuzbekistan.com",
+        description="Публичный HTTPS-адрес витрины — база для ссылок в админку",
+    )
+
     # ── OpenAI (image generation) ───────────────────────────────────────
     openai_api_key: str | None = Field(
         default=None, description="API-ключ OpenAI (для генерации картинок)"

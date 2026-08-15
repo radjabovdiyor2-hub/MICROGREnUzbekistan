@@ -738,6 +738,48 @@ async def grow_urgent():
         logger.error(f"Ошибка срочного напоминания по посадкам: {exc}")
 
 
+#: Сколько заявок дайджест показывает строками и по скольким даёт кнопки.
+#: Кнопок три: клавиатура на десять заявок — это двадцать кнопок, стена,
+#: в которой владелец промахнётся мимо нужной. Остальное — по ссылке в админку.
+_DIGEST_LINES = 10
+_DIGEST_BUTTONS = 3
+
+
+def _aware(moment):
+    """Время из базы с поясом. Наивное считаем UTC — как и раньше."""
+    from datetime import timezone
+
+    if moment is None:
+        return None
+    return moment if moment.tzinfo is not None else moment.replace(tzinfo=timezone.utc)
+
+
+def _collapse_duplicates(items: list) -> list:
+    """Свернуть одинаковые заявки в одну строку со счётчиком.
+
+    Дедуп при создании (`approvals.fingerprint`) не даёт появиться новым
+    дублям, но те, что уже накопились в базе, отпечатка не имеют. Свёртка по
+    тексту заявки подбирает и их: владельцу незачем видеть «Удалить задачу
+    #95» десятью строками подряд, чтобы понять, что отдел зациклился.
+
+    `rows` — сколько строк очереди свернулось в эту (по ним считается хвост
+    «…ещё N», иначе он посчитал бы свёрнутые заявки во второй раз).
+    `repeats` — сколько раз попросили всего, включая дедуп при создании.
+    """
+    grouped: dict = {}
+    for item in items:
+        key = (item.get("summary") or "")[:120]
+        first = grouped.get(key)
+        if first is None:
+            item["rows"] = 1
+            item["repeats"] = 1 + int(item.get("duplicate_count") or 0)
+            grouped[key] = item
+        else:
+            first["rows"] += 1
+            first["repeats"] += 1 + int(item.get("duplicate_count") or 0)
+    return list(grouped.values())
+
+
 async def remind_pending_approvals():
     """Напомнить владельцу о заявках, которые ждут его решения.
 
@@ -747,11 +789,22 @@ async def remind_pending_approvals():
 
     Интервал нарастает (`approvals.REMIND_AFTER_HOURS`): час, четыре, двенадцать,
     сутки. Так заявка не теряется, но и не превращается в долбёжку.
+
+    ⚠️ Шаг отсчитывается от ПОСЛЕДНЕГО напоминания, а не от создания заявки.
+    Пока сравнивали с `created_at`, лестница упиралась в 24 часа, а возраст
+    висящей заявки заведомо был больше — и дайджест уходил на КАЖДОМ часовом
+    прогоне. Владелец получал одно и то же полотно круглосуточно.
+
+    Дайджест интерактивен: строка — ссылка на свой экран админки, у трёх
+    старейших заявок есть ✅/❌ прямо здесь (те же `approve:`/`reject:`, что и
+    на карточке), внизу — кнопка в очередь целиком.
     """
     try:
         from datetime import datetime, timedelta, timezone
 
-        from shared import approvals
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+        from shared import admin_links, approvals
 
         admin_id = (
             settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
@@ -767,32 +820,64 @@ async def remind_pending_approvals():
         steps = approvals.REMIND_AFTER_HOURS
         due = []
         for item in pending:
-            created = item.get("created_at")
+            created = _aware(item.get("created_at"))
             if not created:
                 continue
-            if created.tzinfo is None:
-                created = created.replace(tzinfo=timezone.utc)
             # Сколько ждать до следующего напоминания — по числу уже сделанных.
             step = steps[min(int(item.get("remind_count") or 0), len(steps) - 1)]
-            if now - created >= timedelta(hours=step):
+            since = _aware(item.get("reminded_at")) or created
+            if now - since >= timedelta(hours=step):
                 due.append(item)
 
         if not due:
             return
 
-        lines = [
-            f"⏳ <b>Ждут вашего решения: {len(pending)}</b>",
-            "",
-        ]
-        for item in due[:10]:
-            age = now - item["created_at"].replace(tzinfo=timezone.utc)
-            hours = int(age.total_seconds() // 3600)
-            lines.append(f"• {item['summary'][:120]} — {hours} ч ({item['bot_name']})")
+        # Счётчик берём отдельным запросом: `len(pending)` печатал размер
+        # LIMIT'а, то есть «20» при любой длине очереди.
+        total = await approvals.count_pending()
+        shown = _collapse_duplicates(due)[:_DIGEST_LINES]
+
+        lines = [f"⏳ <b>Ждут вашего решения: {total}</b>", ""]
+        for number, item in enumerate(shown, start=1):
+            hours = int((now - _aware(item["created_at"])).total_seconds() // 3600)
+            tail = f" — {hours} ч"
+            if item.get("repeats", 1) > 1:
+                tail += f" (просили {item['repeats']} раз)"
+            lines.append(
+                f"{number}. "
+                + admin_links.link(item["summary"][:120], item["kind"], item.get("payload"))
+                + tail
+            )
+
+        # Свёрнутые дубли уже посчитаны в своей строке — вычитаем именно их,
+        # а не число строк, иначе хвост обещал бы девять «ещё» заявок там,
+        # где на самом деле одна, повторённая десять раз.
+        covered = sum(int(item.get("rows") or 1) for item in shown)
+        if total > covered:
+            lines.append(f"…ещё {total - covered}")
+
+        # Напоминание засчитываем ВСЕМ, о ком написали, а не первым десяти:
+        # заявки из хвоста иначе никогда не двигали счётчик и переспрашивались
+        # по самому короткому шагу лестницы бесконечно.
+        for item in due:
             await approvals.mark_reminded(item["token"])
 
-        lines.append("")
-        lines.append("<i>Карточки с кнопками выше в переписке — заявки не истекают.</i>")
-        await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+        builder = InlineKeyboardBuilder()
+        for number, item in enumerate(shown[:_DIGEST_BUTTONS], start=1):
+            builder.button(text=f"✅ {number}", callback_data=f"approve:{item['token']}")
+            builder.button(text=f"❌ {number}", callback_data=f"reject:{item['token']}")
+        builder.add(admin_links.tab_button(f"🏢 Все {total} заявок", "approvals", admin_id))
+        builder.adjust(*([2] * min(len(shown), _DIGEST_BUTTONS) + [1]))
+
+        await _bot.send_message(
+            admin_id,
+            "\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=builder.as_markup(),
+            # Иначе Telegram подцепит превью сайта к первой же ссылке и
+            # растянет дайджест картинкой на пол-экрана.
+            disable_web_page_preview=True,
+        )
     except Exception as exc:
         logger.warning("Не смог напомнить о заявках: %s", exc)
 

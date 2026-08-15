@@ -1243,6 +1243,18 @@ model OwnerApproval {
   chatId  BigInt? @map("chat_id")
   taskId  Int?    @map("task_id")
 
+  /// Отпечаток действия: sha256 от (kind, bot_name, инструмент, стабильные
+  /// аргументы). По нему повторная просьба о том же самом не заводит вторую
+  /// заявку, а поднимает счётчик у висящей. Без него владелец получал десять
+  /// строк «Удалить задачу #95» — задача оставалась в `todo`, её каждый час
+  /// переоткрывал `retry_stuck_tasks`, отдел заново звал тот же инструмент,
+  /// и каждый раз рождался новый токен, мимо защиты от двойного нажатия.
+  fingerprint String? @db.VarChar(64)
+
+  /// Сколько раз о том же самом попросили повторно. Показывается в дайджесте
+  /// как «(просили N раз)»: это признак зациклившегося отдела, а не шум.
+  duplicateCount Int @default(0) @map("duplicate_count")
+
   /// pending | approved | rejected
   status String @default("pending") @db.VarChar(16)
 
@@ -1254,6 +1266,7 @@ model OwnerApproval {
 
   @@index([status])
   @@index([createdAt])
+  @@index([status, fingerprint])
   @@map("owner_approvals")
 }
 

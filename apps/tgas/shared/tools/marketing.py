@@ -83,6 +83,7 @@ register(
         },
         required=["message"],
         risky=True,
+        admin_tab="customers",
         confirm=lambda a: (
             f"Разослать сегменту «{a.get('segment') or 'all'}»: "
             f"{str(a.get('message'))[:80]}…"
@@ -107,6 +108,7 @@ register(
         run=b2b_offer,
         departments=DEPTS,
         risky=True,
+        admin_tab="customers",
         confirm=lambda a: "Подготовить коммерческие предложения ресторанам",
     )
 )

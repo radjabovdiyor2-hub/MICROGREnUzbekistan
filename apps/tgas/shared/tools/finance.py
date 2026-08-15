@@ -224,6 +224,7 @@ register(
         },
         required=["type", "amount", "category"],
         risky=True,
+        admin_tab="finance",
         confirm=lambda a: (
             f"Записать {'доход' if a.get('type') == 'income' else 'расход'} "
             f"{format_price(float(a.get('amount') or 0))} — {a.get('category')}"
