@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Постеры 4:5 — Shakar va tartib</title>
+<!--
+  Посты 1080×1350 для Instagram и Telegram, кампания «Shakar va tartib».
+
+  Язык по apps/tgas/shared/brand.py → CONTENT_POLICY: массовый контент —
+  узбекская латиница, русский вторым уровнем. Заголовок ≤5 слов, одна
+  фраза пользы, один CTA из списка («Saqlang», «Buyurtma berish»).
+
+  Текст подчинён doc/balans_concept.md §6.2: состав и порядок подачи,
+  никаких заявлений о свойствах. Гейт — node scripts/check-claims.mjs.
+  Рендер — node scripts/render-posters.mjs.
+-->
+<link rel="stylesheet" href="../templates/fonts/fonts-subset.css">
+<link rel="stylesheet" href="posters.css">
+</head>
+<body>
+
+<!-- ══ 1 · Норма ВОЗ ══ -->
+<div class="poster p-4x5" data-name="post-1-jsst-meyori">
+  <div class="inner">
+    <span class="badge">JSST me&#39;yori</span>
+    <h1 class="headline">Kuniga <span class="gold">12 qoshiq</span></h1>
+    <p class="sub">Jahon sog&#39;liqni saqlash tashkiloti erkin shakarni kunlik energiyaning 10 % idan kam ushlashni tavsiya etadi. Bu taxminan 50 gramm.</p>
+    <p class="sub ru">ВОЗ рекомендует держать свободные сахара ниже 10 % суточной энергии — это около 50 граммов, примерно 12 чайных ложек.</p>
+
+    <div class="rule"></div>
+
+    <div class="spoons">
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+    </div>
+    <p class="figure-cap">Bir banka shirin ichimlik ko&#39;pincha shuncha beradi · Одна банка сладкого напитка часто закрывает всю норму</p>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Saqlang</span>
+      <div class="brand">
+        <b>Microgreen Uzbekistan</b>
+        microgreenuzbekistan.com · Samarqand
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2 · Метод ══ -->
+<div class="poster p-4x5" data-name="post-2-avval-yashil">
+  <img class="bg" src="../generated/img/recipe.png" alt="">
+  <div class="scrim"></div>
+  <div class="inner">
+    <span class="badge">Usul · Метод</span>
+    <h1 class="headline">Avval <span class="gold">yashil</span></h1>
+    <p class="sub ru">Метод «Сначала зелень»: порядок еды, а не отказ от неё</p>
+
+    <div class="rule"></div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">1</div>
+        <div class="step-t">Asosiy taomdan 10–15 daqiqa oldin yeng
+          <small>Съешьте за 10–15 минут до основного блюда</small></div>
+      </div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <div class="step-t">Sousni berishdan oldin qo&#39;shing
+          <small>Заправку добавляйте перед подачей</small></div>
+      </div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <div class="step-t">Yaxshilab chaynang
+          <small>Жуйте тщательно</small></div>
+      </div>
+      <div class="step">
+        <div class="step-n">4</div>
+        <div class="step-t">Isitmang: 70 °C dan yuqorida C vitamini yo&#39;qoladi
+          <small>Не нагревайте: выше 70 °C теряется витамин C</small></div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Saqlang</span>
+      <div class="brand">
+        <b>BALANS</b>
+        microgreenuzbekistan.com/balans
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 3 · Состав ══ -->
+<div class="poster p-4x5" data-name="post-3-tarkib">
+  <div class="inner">
+    <span class="badge">Tarkib · Состав</span>
+    <h1 class="headline sm">100 g qadoqda nima bor</h1>
+    <p class="sub ru">Что внутри пачки — в граммах, а не в обещаниях. Микс BALANS «Мягкий»</p>
+
+    <div class="rule"></div>
+
+    <div class="tiles">
+      <div class="tile">
+        <div class="tile-v">25</div>
+        <div class="tile-l">kkal · ккал</div>
+      </div>
+      <div class="tile">
+        <div class="tile-v">3,3<span style="font-size:.5em"> g</span></div>
+        <div class="tile-l">uglevod · углеводы</div>
+      </div>
+      <div class="tile">
+        <div class="tile-v">2,0<span style="font-size:.5em"> g</span></div>
+        <div class="tile-l">tola · клетчатка</div>
+      </div>
+      <div class="tile">
+        <div class="tile-v">3,2<span style="font-size:.5em"> g</span></div>
+        <div class="tile-l">oqsil · белок</div>
+      </div>
+    </div>
+
+    <p class="legal">Qiymatlar ekinlar ulushi bo&#39;yicha hisoblangan, laboratoriya bayonnomasi emas · Значения рассчитаны по долям культур, это не лабораторный протокол. Продукт не является лечебным или диетическим питанием.</p>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Buyurtma berish</span>
+      <div class="brand">
+        <b>35 000 so&#39;m · 100 g</b>
+        microgreenuzbekistan.com/balans
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 4 · Остывший плов ══ -->
+<div class="poster p-4x5" data-name="post-4-kechagi-palov">
+  <img class="bg" src="../generated/plov-jasmin.jpeg" alt="">
+  <div class="scrim"></div>
+  <div class="inner">
+    <span class="badge">Bepul maslahat</span>
+    <h1 class="headline">Kechagi <span class="gold">palov</span></h1>
+    <p class="sub">Guruch sovutilganda kraxmalning bir qismi rezistent kraxmalga aylanadi. Qayta isitilgandan keyin ham shunday qoladi.</p>
+    <p class="sub ru">При охлаждении риса часть крахмала переходит в резистентный — он не расщепляется в тонкой кишке. После разогрева свойство сохраняется.</p>
+
+    <div class="rule"></div>
+
+    <div class="arrow-row">
+      <div>
+        <div class="figure-big dim">0,64</div>
+        <div class="figure-cap">yangi · свежий</div>
+      </div>
+      <div class="arrow">&rarr;</div>
+      <div>
+        <div class="figure-big">1,65</div>
+        <div class="figure-cap">24 soat 4 °C · остывший</div>
+      </div>
+    </div>
+    <p class="figure-cap">Rezistent kraxmal, g/100 g · Резистентный крахмал</p>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Saqlang</span>
+      <div class="brand">
+        <b>Microgreen Uzbekistan</b>
+        Bu maslahat bepul · Этот приём бесплатный
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

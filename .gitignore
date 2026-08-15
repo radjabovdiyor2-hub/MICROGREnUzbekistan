@@ -97,6 +97,23 @@ _*.txt
 # без него scripts/build-magazine.mjs нечего собирать.
 !content/templates/*.html
 
+# Спецвыпуск «Shakar va tartib» — вёрстка руками, без шага apply-magazine-design.
+# Лежит среди сгенерированных, но исходником является сам: перезаписывать его
+# нечем, и без этой строки он потерялся бы при клоне.
+!content/generated/shakar-01-print.html
+
+# Макеты рекламных постеров — тоже исходники, верстаются руками.
+# Их выгрузка (PNG/PDF) пересобирается из них же и не хранится: устаревший
+# макет опаснее отсутствующего, его легко отправить в печать вместо нового.
+!content/posters/*.html
+content/posters/out/
+
+# По той же причине не храним сборочный PDF номера и постраничные пруфы.
+# В репозитории лежит только опубликованная копия apps/web/public/magazine/*.pdf —
+# та, которую реально отдаёт сайт.
+content/generated/*.pdf
+content/generated/pages-*/
+
 # Random images in root
 dessert_*.png
 salad_*.png

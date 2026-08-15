@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Постер A4 — Линейка BALANS</title>
+<!--
+  Печатный лист A4 (210×297 мм): линейка BALANS с составом в граммах.
+  Для стойки на точке продаж, вкладыша в заказ и папки для HoReCa.
+
+  На снимках — ведущая культура рецептуры, а не упаковка: съёмка пачек
+  ещё не сделана, а заглушка «фото в работе» в тираже читается как брак.
+  Это оговорено подписью под сеткой.
+
+  Цифры — расчёт по долям культур из apps/web/src/lib/nutrition/nutritionDb.ts
+  и doc/balans_concept.md §3.2, и так подписано. Лабораторного протокола нет.
+
+  Текст подчинён doc/balans_concept.md §6.2. Гейт — scripts/check-claims.mjs.
+-->
+<link rel="stylesheet" href="../templates/fonts/fonts-subset.css">
+<link rel="stylesheet" href="posters.css">
+<style>
+  @page { size: A4 portrait; margin: 0; }
+
+  .sheet { background: var(--paper); color: var(--ink); }
+  .a-badge {
+    font-family: var(--font-ui);
+    font-size: 8pt; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--deep);
+    border-top: 2.2pt solid var(--deep);
+    padding-top: 3.5mm;
+  }
+  .a-h1 {
+    font-family: var(--font-display);
+    font-size: 40pt; font-weight: 800;
+    line-height: 1; letter-spacing: -0.03em;
+    margin-top: 5mm; color: var(--deep);
+  }
+  .a-deck { font-size: 12pt; line-height: 1.34; color: var(--ink-2); margin-top: 4mm; }
+
+  .a-tbl { width: 100%; border-collapse: collapse; font-family: var(--font-ui); margin-top: 8mm; }
+  .a-tbl th {
+    text-align: left; font-size: 7.4pt; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--deep);
+    border-top: 2pt solid var(--deep);
+    border-bottom: 0.4pt solid rgba(0,0,0,.18);
+    padding: 2.6mm 2mm 2.2mm 0;
+  }
+  .a-tbl td {
+    font-size: 10pt; color: var(--ink);
+    border-bottom: 0.4pt solid rgba(0,0,0,.12);
+    padding: 3mm 2mm 3mm 0; vertical-align: top;
+  }
+  .a-tbl .num { text-align: right; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+  .a-tbl .ru { display: block; font-size: 8pt; color: var(--ink-2); margin-top: 0.8mm; }
+  .a-tbl .price { font-weight: 700; color: var(--deep); }
+
+  .a-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; margin-top: 8mm; }
+  .a-cell img { width: 100%; height: 34mm; object-fit: cover; display: block; outline: 0.3pt solid rgba(0,0,0,.14); }
+  .a-cell b { display: block; font-family: var(--font-display); font-size: 11pt; margin-top: 2.4mm; color: var(--deep); }
+  .a-cell span { display: block; font-family: var(--font-ui); font-size: 7.4pt; line-height: 1.32; color: var(--ink-2); margin-top: 1.2mm; }
+
+  .a-cap { font-family: var(--font-ui); font-size: 7.4pt; line-height: 1.35; color: var(--ink-2); margin-top: 3mm; }
+
+  .a-method {
+    background: var(--deep); color: var(--on-dark);
+    padding: 7mm 8mm; margin-top: 8mm;
+    display: flex; gap: 8mm; align-items: center;
+  }
+  .a-method img { width: 30mm; height: 30mm; background: #fff; padding: 2mm; flex-shrink: 0; }
+  .a-method-t { font-family: var(--font-ui); font-size: 10pt; line-height: 1.4; }
+  .a-method-t b { display: block; font-family: var(--font-display); font-size: 17pt; color: var(--accent); margin-bottom: 2.4mm; }
+  .a-method-t span { display: block; font-size: 8.4pt; color: var(--on-dark-3); margin-top: 2mm; }
+
+  .a-legal { font-family: var(--font-ui); font-size: 7pt; line-height: 1.4; color: var(--ink-2); margin-top: auto; padding-top: 6mm; }
+  .a-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    font-family: var(--font-ui); font-size: 8pt; color: var(--ink-2);
+    border-top: 0.4pt solid rgba(0,0,0,.16); padding-top: 3.5mm; margin-top: 3.5mm;
+  }
+  .a-foot b { color: var(--deep); font-size: 9.4pt; }
+</style>
+</head>
+<body>
+
+<div class="sheet a4">
+  <span class="a-badge">BALANS · 100 g</span>
+  <h1 class="a-h1">Qadoqda nima bor</h1>
+  <p class="a-deck">Что внутри пачки — в граммах, а не в обещаниях</p>
+
+  <table class="a-tbl">
+    <thead>
+      <tr>
+        <th style="width: 26%;">Miks</th>
+        <th class="num">kkal</th>
+        <th class="num">Uglevod<br>Углеводы</th>
+        <th class="num">Tola<br>Клетчатка</th>
+        <th class="num">Oqsil<br>Белок</th>
+        <th class="num">K vit.</th>
+        <th class="num">Narx</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><b>Yumshoq</b><span class="ru">Мягкий</span></td>
+        <td class="num">25</td><td class="num">3,3 g</td><td class="num">2,0 g</td>
+        <td class="num">3,2 g</td><td class="num">103 mkg</td><td class="num price">35 000</td>
+      </tr>
+      <tr>
+        <td><b>Palovga</b><span class="ru">К плову</span></td>
+        <td class="num">32</td><td class="num">3,8 g</td><td class="num">1,8 g</td>
+        <td class="num">2,9 g</td><td class="num">259 mkg</td><td class="num price">40 000</td>
+      </tr>
+      <tr>
+        <td><b>Krestsimon</b><span class="ru">Крестоцветный</span></td>
+        <td class="num">32</td><td class="num">4,8 g</td><td class="num">2,0 g</td>
+        <td class="num">2,9 g</td><td class="num">194 mkg</td><td class="num price">45 000</td>
+      </tr>
+      <tr>
+        <td><b>Rangli</b><span class="ru">Цветной</span></td>
+        <td class="num">24</td><td class="num">3,6 g</td><td class="num">1,8 g</td>
+        <td class="num">2,5 g</td><td class="num">236 mkg</td><td class="num price">55 000</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="a-grid">
+    <div class="a-cell">
+      <img src="../../apps/web/public/catalog/noxat_micro.png" alt="">
+      <b>Yumshoq</b>
+      <span>No&#39;xat 35 % · kungaboqar · tatsoy · mizuna · brokkoli<br>Горох, подсолнечник, татсой</span>
+    </div>
+    <div class="a-cell">
+      <img src="../../apps/web/public/catalog/redis_micro.png" alt="">
+      <b>Palovga</b>
+      <span>Turp 30 % · kress · kashnich · xantal · rukkola<br>Редис, кресс, кориандр</span>
+    </div>
+    <div class="a-cell">
+      <img src="../../apps/web/public/catalog/brokkoli_micro.png" alt="">
+      <b>Krestsimon</b>
+      <span>Kolrabi 30 % · brokkoli 25 % · kress · Sango<br>Кольраби, брокколи, кресс</span>
+    </div>
+    <div class="a-cell">
+      <img src="../../apps/web/public/catalog/amarant_micro.png" alt="">
+      <b>Rangli</b>
+      <span>Amarant 25 % · qizil mizuna · qizil pakchoy<br>Амарант, мизуна красная</span>
+    </div>
+  </div>
+
+  <p class="a-cap">
+    Rasmda — retseptning yetakchi ekini, qadoq emas · На снимке — ведущая культура рецептуры, не упаковка.
+    Narx so&#39;mda, 100 g uchun · Цена в сумах за 100 г.
+  </p>
+
+  <div class="a-method">
+    <img src="../generated/qr-balans.png" alt="">
+    <div class="a-method-t">
+      <b>Avval yashil · Сначала зелень</b>
+      Qadoqni asosiy taomdan 10–15 daqiqa oldin yeng. Sousni berishdan oldin qo&#39;shing. Yaxshilab chaynang. Isitmang.
+      <span>Съешьте за 10–15 минут до основного блюда. Заправку — перед подачей. Жуйте тщательно. Не нагревайте.</span>
+    </div>
+  </div>
+
+  <p class="a-legal">
+    Qiymatlar ekinlar ulushi bo&#39;yicha hisoblangan, laboratoriya bayonnomasi emas. Mahsulot davolovchi yoki parhez ovqat emas. ·
+    Значения рассчитаны по долям культур, это не лабораторный протокол. Продукт не является лечебным или диетическим питанием.
+    Состав и пищевую ценность каждого микса смотрите на упаковке и в карточке товара.
+  </p>
+
+  <div class="a-foot">
+    <span><b>Microgreen Uzbekistan</b><br>Samarqand · +998 94 999 95 99 · @microgreenuzbekistan</span>
+    <span>microgreenuzbekistan.com/balans</span>
+  </div>
+</div>
+
+</body>
+</html>

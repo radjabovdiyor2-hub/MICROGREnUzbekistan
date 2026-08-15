@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Сторис 9:16 — Shakar va tartib</title>
+<!--
+  Сторис 1080×1920, кампания «Shakar va tartib».
+
+  Форматы соответствуют архетипам apps/tgas/shared/content_plan.py →
+  MORNING_FORMATS: fact (BILARMIDINGIZ?), tip (LIFEHACK), this_or_that
+  (TANLANG), mini_recipe (15 SONIYA). Тот же порядок «бейдж → заголовок →
+  одна польза → CTA», поэтому content_bot может брать эти макеты как
+  эталон, а не выдумывать свой.
+
+  Поля 190/210 px сверху и снизу: интерфейс Instagram перекрывает края
+  аватаром и полем ответа.
+
+  Текст подчинён doc/balans_concept.md §6.2. Гейт — scripts/check-claims.mjs.
+-->
+<link rel="stylesheet" href="../templates/fonts/fonts-subset.css">
+<link rel="stylesheet" href="posters.css">
+</head>
+<body>
+
+<!-- ══ fact · BILARMIDINGIZ? ══ -->
+<div class="poster p-9x16" data-name="story-1-fact-meyor">
+  <div class="inner">
+    <span class="badge">Bilarmidingiz?</span>
+    <h1 class="headline">Kuniga <span class="gold">12 qoshiq</span></h1>
+    <p class="sub">JSST erkin shakarni kunlik energiyaning 10 % idan kam ushlashni tavsiya etadi — taxminan 50 gramm.</p>
+
+    <div class="rule"></div>
+
+    <div class="spoons">
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+    </div>
+    <p class="figure-cap">≈ 50 g — kunlik me&#39;yor</p>
+
+    <div class="rule"></div>
+
+    <div class="spoons">
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon"></span><span class="spoon"></span><span class="spoon"></span>
+      <span class="spoon off"></span><span class="spoon off"></span><span class="spoon off"></span>
+      <span class="spoon off"></span><span class="spoon off"></span><span class="spoon off"></span>
+    </div>
+    <p class="figure-cap">≈ 25 g — qo&#39;shimcha foyda bor deb hisoblanadi (5 %)</p>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Saqlang</span>
+      <div class="brand">
+        <b>Microgreen Uzbekistan</b>
+        Manba: WHO Guideline
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ tip · LIFEHACK ══ -->
+<div class="poster p-9x16" data-name="story-2-tip-kechagi-palov">
+  <img class="bg" src="../generated/plov-jasmin.jpeg" alt="">
+  <div class="scrim"></div>
+  <div class="inner">
+    <span class="badge">Lifehack</span>
+    <h1 class="headline">Kechagi <span class="gold">palov</span></h1>
+    <p class="sub">Palovni kechqurun pishiring, bir kecha muzlatgichda saqlang va ertasi kuni qizdiring.</p>
+
+    <div class="rule"></div>
+
+    <div class="arrow-row">
+      <div>
+        <div class="figure-big dim">0,64</div>
+        <div class="figure-cap">yangi pishirilgan</div>
+      </div>
+      <div class="arrow">&rarr;</div>
+      <div>
+        <div class="figure-big">1,65</div>
+        <div class="figure-cap">24 soat 4 °C da</div>
+      </div>
+    </div>
+    <p class="figure-cap">Rezistent kraxmal, g/100 g · Резистентный крахмал</p>
+
+    <div class="rule"></div>
+
+    <p class="sub ru">Приготовьте плов накануне и разогрейте назавтра. Приём бесплатный — ничего покупать не нужно.</p>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Saqlang</span>
+      <div class="brand">
+        <b>Microgreen Uzbekistan</b>
+        microgreenuzbekistan.com
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ this_or_that · TANLANG ══ -->
+<div class="poster p-9x16" data-name="story-3-tanlang-tartib">
+  <div class="inner">
+    <span class="badge">Tanlang</span>
+    <h1 class="headline">Nimadan <span class="gold">boshlaysiz?</span></h1>
+    <p class="sub">Bir xil tarelka, boshqa tartib. Siz odatda nimadan boshlaysiz?</p>
+
+    <div class="rule"></div>
+
+    <div class="tiles" style="grid-template-columns: 1fr;">
+      <div class="tile" style="padding: 56px 44px;">
+        <div class="tile-v" style="font-size: 62px;">Avval palov</div>
+        <div class="tile-l">Сначала плов, зелень потом</div>
+      </div>
+      <div class="tile" style="padding: 56px 44px; background: var(--primary); color: #04241b;">
+        <div class="tile-v" style="font-size: 62px; color: #04241b;">Avval yashil</div>
+        <div class="tile-l" style="color: rgba(4,36,27,.78);">Сначала зелень, через 10–15 минут — плов</div>
+      </div>
+    </div>
+
+    <p class="sub ru">Tadqiqotlarda sabzavot va oqsil uglevoddan oldin yeyilgan tartib o&#39;rganilgan · В исследованиях изучали порядок, где овощи и белок идут до углеводов.</p>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Tanlang</span>
+      <div class="brand">
+        <b>BALANS</b>
+        microgreenuzbekistan.com/balans
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ mini_recipe · 15 SONIYA ══ -->
+<div class="poster p-9x16" data-name="story-4-retsept-palovga">
+  <img class="bg" src="../generated/img/recipe.png" alt="">
+  <div class="scrim"></div>
+  <div class="inner">
+    <span class="badge">15 soniya</span>
+    <h1 class="headline">Palov oldidan <span class="gold">salat</span></h1>
+
+    <div class="rule"></div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">1</div>
+        <div class="step-t">BALANS «Palovga» — 100 g, katta laganga soling
+          <small>Высыпьте микс в широкое блюдо, не приминая</small></div>
+      </div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <div class="step-t">Zaytun moyi 1 osh qoshiq + vino sirkasi 1 choy qoshiq
+          <small>Оливковое масло 1 ст. л. + винный уксус 1 ч. л.</small></div>
+      </div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <div class="step-t">Berishdan oldin aralashtiring va darhol yeng
+          <small>Перемешайте перед подачей и ешьте сразу</small></div>
+      </div>
+      <div class="step">
+        <div class="step-n">4</div>
+        <div class="step-t">10–15 daqiqadan keyin palovni oling
+          <small>Через 10–15 минут подавайте плов</small></div>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <div class="foot">
+      <span class="cta">Buyurtma berish</span>
+      <div class="brand">
+        <b>40 000 so&#39;m · 100 g</b>
+        microgreenuzbekistan.com/balans
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

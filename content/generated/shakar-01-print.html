@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>FRESH WEEKLY — Shakar va tartib / Сахар и порядок</title>
+<!--
+  СПЕЦВЫПУСК FRESH WEEKLY, формат A5 с вылетами (154×216 мм), 12 полос.
+
+  ПУБЛИЧНЫЙ КОНТУР. Правила текста заданы doc/balans_concept.md §6.2:
+  здесь нет названия болезни, нет заявлений о лечебных и оздоровительных
+  свойствах, нет сравнительных множителей «в N раз». Продаётся ПОРЯДОК
+  ПОДАЧИ, а не медицинский эффект. Комментарии тоже соблюдают правило:
+  этот файл отдаётся как HTML, и view-source показывает их читателю.
+  Цифры состава — расчёт по долям культур
+  из apps/web/src/lib/nutrition/nutritionDb.ts, и так подписано на полосе 8.
+  Научная полоса 9 говорит о том, что изучают учёные, со ссылками, уровнями
+  доказательств и обязательным контрпримером; она не приписывает эффект
+  нашему товару. Доказательная база — в закрытом doc/dossier_glycemia.md,
+  цитировать его публично нельзя.
+
+  Сборка:  node scripts/magazine-pdf.mjs content/generated/shakar-01-print.html
+  Пруфы:   node scripts/shoot-magazine-pages.mjs content/generated/pages-shakar "" --src=content/generated/shakar-01-print.html
+  Публик.: node scripts/publish-magazine.mjs
+  Провер.: node scripts/check-magazine-published.mjs
+  Гейт:    node scripts/check-claims.mjs
+-->
+<link rel="stylesheet" href="../templates/fonts/fonts-subset.css">
+<link rel="stylesheet" href="../templates/fresh-weekly-a5.design.css">
+<style>
+  /* Фирменные цвета номера. Значения — документированные токены бренда:
+     --og-bg-deep #064E3B и --editorial-gold #C9A84C из design-system. */
+  :root { --accent: #064E3B; --gold: #C9A84C; }
+
+  /* ── Схемы полос ────────────────────────────────────────────────
+     Инлайн-SVG вместо картинок: график и диаграммы должны печататься
+     векторно, а не растром 300 dpi, и переживать смену --accent. */
+  .figure { margin: var(--sp-2) 0 0; }
+  .figure svg { display: block; width: 100%; height: auto; }
+  .fig-label {
+    font-family: var(--font-ui);
+    font-size: var(--fs-label);
+    font-weight: 700;
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    fill: var(--ink-3);
+  }
+  .fig-tick { font-family: var(--font-ui); font-size: 5.4pt; fill: var(--ink-3); }
+  .fig-note { font-family: var(--font-ui); font-size: 5.6pt; fill: var(--ink-2); }
+
+  /* Таблица «четырёх скоростей» и таблица состава: газетный набор на
+     волосяных линейках, табличные цифры. Рамок нет — как в .stat-row. */
+  .tbl { width: 100%; border-collapse: collapse; font-family: var(--font-ui); }
+  .tbl th {
+    text-align: left;
+    font-size: var(--fs-label);
+    font-weight: 700;
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--accent);
+    border-top: var(--w-flag) solid var(--accent);
+    border-bottom: var(--w-hair) solid var(--hair);
+    padding: 1.6mm 2mm 1.4mm 0;
+  }
+  .tbl td {
+    font-size: 7.2pt;
+    line-height: 1.3;
+    color: var(--ink);
+    border-bottom: var(--w-hair) solid var(--hair);
+    padding: 1.7mm 2mm 1.7mm 0;
+    vertical-align: top;
+  }
+  .tbl td:last-child, .tbl th:last-child { padding-right: 0; }
+  .tbl .num { font-variant-numeric: tabular-nums lining-nums; text-align: right; white-space: nowrap; }
+  .tbl .ru-cell { color: var(--ink-2); font-size: 6.4pt; display: block; margin-top: 0.5mm; }
+
+  /* Карточка молекулы на научной полосе.
+     Ритм плотный намеренно: на полосе четыре карточки плюс схема, плюс
+     обязательная строка источников — на 1.9 мм отбивки она не помещалась. */
+  .mol { border-top: var(--w-hair) solid var(--hair); padding: 1.4mm 0 0; }
+  .mol:first-of-type { border-top: var(--w-rule) solid var(--accent); }
+  .mol-name {
+    font-family: var(--font-display);
+    font-size: 9.6pt;
+    font-weight: 700;
+    letter-spacing: -0.008em;
+    color: var(--ink);
+  }
+  .mol-where {
+    font-family: var(--font-ui);
+    font-size: 5.6pt;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--gold-ink);
+    display: block;
+    margin-top: 0.4mm;
+  }
+  .mol-text { font-family: var(--font-text); font-size: 7.2pt; line-height: 1.34; color: var(--ink-2); margin-top: 0.7mm; }
+  .mol-level {
+    font-family: var(--font-ui);
+    font-size: 5.4pt;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+    margin-top: 0.6mm;
+  }
+  .src { font-family: var(--font-ui); font-size: 5.2pt; line-height: 1.4; color: var(--ink-3); }
+  .src b { color: var(--ink-2); font-weight: 700; }
+
+  /* Четыре микса в ряд: карточка уже, чем .menu-item, потому что на полосе
+     8 сверху стоит таблица состава — четыре полноразмерные строки меню
+     вместе с ней не помещались и последняя уходила под обрез. */
+  .mix-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.6mm; }
+  .mix .photo { height: 26mm; }
+  .mix-name {
+    font-family: var(--font-display);
+    font-size: 8pt;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    margin-top: 1.2mm;
+    line-height: 1.14;
+  }
+  .mix-note {
+    font-family: var(--font-ui);
+    font-size: 5.4pt;
+    line-height: 1.32;
+    color: var(--ink-2);
+    margin-top: 0.7mm;
+  }
+  .mix-note span { color: var(--ink-3); }
+  .mix .menu-price { font-size: 7.6pt; margin-top: 0.9mm; }
+
+  /* Дисклеймер задней обложки */
+  .legal {
+    font-family: var(--font-ui);
+    font-size: 5.4pt;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.62);
+    border-top: var(--w-hair) solid rgba(201, 168, 118, 0.55);
+    padding-top: 1.6mm;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ 1 · ОБЛОЖКА ══════════ -->
+<div class="mag-page">
+  <img class="photo-full" src="../../apps/web/public/catalog/cover-hero.png" alt="">
+  <div class="cover-scrim"></div>
+  <div class="page-inner" style="padding: var(--safe); justify-content: space-between;">
+    <div>
+      <div class="nameplate">FRESH<br>WEEKLY</div>
+      <div class="nameplate-sub">Microgreen Uzbekistan</div>
+    </div>
+    <div>
+      <div class="cover-issue">№ 03 · Maxsus son</div>
+      <div class="cover-dateline">Samarqand · Avgust 2026</div>
+      <h1 class="cover-title" style="margin-top: 2.6mm;">
+        Shakar va <span class="accent">tartib</span>
+      </h1>
+      <p class="cover-deck" style="margin-top: 2.4mm;">
+        Palovni qanday yeyish — ovqat tartibi haqida son.<br>
+        <span style="opacity: .82; font-size: 8.6pt;">Сахар и порядок: выпуск о том, в какой последовательности мы едим.</span>
+      </p>
+      <div class="cover-tags" style="margin-top: 4mm;">
+        <span>Jahon me&#39;yorlari</span><i>·</i><span>Avval yashil</span><i>·</i><span>Tarkib</span><i>·</i><span>Retsept</span>
+      </div>
+      <div class="cover-foot">
+        <span>12 sahifa · uz / ru</span>
+        <span class="site">microgreenuzbekistan.com</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 2 · СОДЕРЖАНИЕ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Mundarija · Содержание</span>
+    </div>
+    <div class="page-body">
+      <div>
+        <span class="kicker">Muharrir ustuni · Колонка редактора</span>
+        <h2 class="h2" style="margin-top: 1.8mm;">Biz taomni emas, tartibni o&#39;zgartiramiz</h2>
+        <div class="lang-pair body dropcap" style="margin-top: 2mm;">
+          <div class="uz">Bu son hech kimni palovdan voz kechishga chaqirmaydi. Palov qoladi. Lag&#39;mon ham, non ham qoladi. O&#39;zgaradigan narsa bitta — nimani birinchi bo&#39;lib yeyish.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Этот выпуск не зовёт отказываться от плова. Плов остаётся. Лагман и нон тоже. Меняется одно — что вы съедаете первым.</div>
+        </div>
+        <div class="lang-pair body" style="margin-top: 2mm;">
+          <div class="uz">Ichkarida: Jahon sog&#39;liqni saqlash tashkilotining shakar me&#39;yori, olimlar nimani o&#39;rganayotgani va bizning mikslarimiz tarkibi — grammlarda, va&#39;dalarsiz.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Внутри: норма сахара по ВОЗ, что именно изучают учёные и состав наших миксов — в граммах, без обещаний.</div>
+        </div>
+      </div>
+
+      <hr class="rule-gold">
+
+      <div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Palovdan keyingi og&#39;irlik</div>
+            <div class="caption">Тяжесть после плова: четыре скорости</div>
+          </div>
+          <div class="toc-page">03</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Tartib nimani o&#39;zgartiradi</div>
+            <div class="caption">Что меняет порядок еды</div>
+          </div>
+          <div class="toc-page">04</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Kuniga necha qoshiq</div>
+            <div class="caption">Сколько ложек в день — норма ВОЗ</div>
+          </div>
+          <div class="toc-page">05</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Usul: avval yashil</div>
+            <div class="caption">Метод «Сначала зелень»</div>
+          </div>
+          <div class="toc-page">06</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Qadoqda nima bor</div>
+            <div class="caption">Что внутри пачки: состав миксов</div>
+          </div>
+          <div class="toc-page">08</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Olimlar nimani o&#39;rganmoqda</div>
+            <div class="caption">Что изучают учёные: молекулы</div>
+          </div>
+          <div class="toc-page">09</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Nega isitmaymiz</div>
+            <div class="caption">Почему не греем и жуём тщательно</div>
+          </div>
+          <div class="toc-page">10</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Palovga salat</div>
+            <div class="caption">Рецепт номера: салат к плову</div>
+          </div>
+          <div class="toc-page">11</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-l">2</div>
+</div>
+
+<!-- ══════════ 3 · ЧЕТЫРЕ СКОРОСТИ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Stol fizikasi · Физика стола</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">Ovqatdan keyin · После еды</span>
+      <h1 class="h1" style="margin-top: 2.2mm;">Palovdan keyingi og&#39;irlik qayerdan keladi</h1>
+      <p class="deck" style="margin-top: 1.8mm;">Откуда берётся тяжесть после плова — и почему дело не только в порции</p>
+
+      <div class="lang-pair body" style="margin-top: 2.4mm;">
+        <div class="uz">Ovqatdan keyin tanadagi jarayon to&#39;rtta tezlikning muvozanati. Har birini taomning o&#39;zi sekinlashtira oladi — dori emas, tarelkadagi narsa.</div>
+        <div class="ru"><span class="lang-tag">ru</span>То, что происходит после еды, — баланс четырёх скоростей. Каждую из них способна замедлить сама еда: не таблетка, а то, что лежит на тарелке.</div>
+      </div>
+
+      <table class="tbl" style="margin-top: 2.6mm;">
+        <thead>
+          <tr>
+            <th style="width: 34%;">Bosqich · Стадия</th>
+            <th>Nima bo&#39;ladi · Что происходит</th>
+            <th style="width: 30%;">Nima sekinlashtiradi · Что замедляет</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Oshqozon bo&#39;shashi</b><span class="ru-cell">Опорожнение желудка</span></td>
+            <td>Ovqat o&#39;n ikki barmoqli ichakka o&#39;tadi<span class="ru-cell">Химус поступает в двенадцатиперстную кишку</span></td>
+            <td>Yopishqoq tola, yog&#39;, oqsil, kislota<span class="ru-cell">Вязкая клетчатка, жир, белок, кислота</span></td>
+          </tr>
+          <tr>
+            <td><b>Kraxmal parchalanishi</b><span class="ru-cell">Расщепление крахмала</span></td>
+            <td>Fermentlar kraxmalni oddiy qandga aylantiradi<span class="ru-cell">Ферменты превращают крахмал в простой сахар</span></td>
+            <td>Polifenollar — ferment ingibitorlari<span class="ru-cell">Полифенолы — ингибиторы ферментов</span></td>
+          </tr>
+          <tr>
+            <td><b>So&#39;rilish</b><span class="ru-cell">Всасывание</span></td>
+            <td>Ingichka ichak devori orqali qonga o&#39;tish<span class="ru-cell">Переход в кровь через стенку тонкой кишки</span></td>
+            <td>Tola geli — jismoniy to&#39;siq<span class="ru-cell">Гель клетчатки как физический барьер</span></td>
+          </tr>
+          <tr>
+            <td><b>Foydalanish</b><span class="ru-cell">Утилизация</span></td>
+            <td>Mushaklar energiyani o&#39;zlashtiradi<span class="ru-cell">Мышцы забирают энергию</span></td>
+            <td>Inkretin javobi, jismoniy faollik<span class="ru-cell">Инкретиновый ответ, движение</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="card-elegant" style="margin-top: 2.8mm;">
+        <div class="lang-pair body">
+          <div class="uz">Diqqat qiling: to&#39;rtta ustundan uchtasi — bu <b>tarkib</b>, bittasi esa <b>vaqt</b>. Tola va polifenol ovqat bilan birga kelishi kerak, undan keyin emas.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Три столбца из четырёх — это <b>состав</b> еды, и только один — <b>время</b>. Клетчатка и полифенолы должны прийти вместе с едой, а не после неё.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-r">3</div>
+</div>
+
+<!-- ══════════ 4 · ЧТО МЕНЯЕТ ПОРЯДОК ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Tadqiqot · Исследование</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Nima o&#39;rganilgan · Что изучено</span>
+      <h2 class="h2" style="margin-top: 2mm;">Bir xil tarelka, boshqa tartib</h2>
+      <p class="deck" style="margin-top: 1.6mm;">Одна и та же тарелка, другой порядок</p>
+
+      <div class="lang-pair body" style="margin-top: 2.2mm;">
+        <div class="uz">Tadqiqotchilar bir guruh odamga bir xil taomni ikki marta berishgan. Farq faqat tartibda: bir safar avval uglevod, ikkinchi safar avval sabzavot va oqsil.</div>
+        <div class="ru"><span class="lang-tag">ru</span>Исследователи давали одним и тем же людям одну и ту же еду дважды. Разница только в порядке: в первый раз углеводы шли первыми, во второй — овощи и белок.</div>
+      </div>
+
+      <div class="figure">
+        <svg viewBox="0 0 320 132" role="img" aria-label="Krivaya glyukozy">
+          <!-- сетка -->
+          <line x1="30" y1="106" x2="308" y2="106" stroke="var(--hair)" stroke-width="0.7"/>
+          <line x1="30" y1="14" x2="30" y2="106" stroke="var(--hair)" stroke-width="0.7"/>
+          <line x1="30" y1="60" x2="308" y2="60" stroke="var(--hair-2)" stroke-width="0.5" stroke-dasharray="2 2"/>
+          <!-- углеводы первыми -->
+          <path d="M30 96 C 62 92, 78 30, 116 24 C 156 18, 186 62, 224 82 C 258 98, 284 100, 308 101"
+                fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="3.5 2.5"/>
+          <!-- зелень первой -->
+          <path d="M30 96 C 66 94, 86 62, 124 56 C 164 50, 194 76, 232 90 C 264 100, 286 102, 308 102"
+                fill="none" stroke="var(--accent)" stroke-width="2.1"/>
+          <!-- подписи кривых. fill задаётся через style: presentation-атрибут
+               проигрывает правилу класса .fig-note, и подпись теряла цвет. -->
+          <text class="fig-note" x="122" y="18">Avval uglevod · Углеводы первыми</text>
+          <text class="fig-note" x="132" y="48" style="fill: var(--accent); font-weight: 700;">Avval yashil · Зелень первой</text>
+          <!-- оси -->
+          <text class="fig-label" x="30" y="9">Qondagi glyukoza · Глюкоза крови</text>
+          <text class="fig-tick" x="30" y="116">0</text>
+          <text class="fig-tick" x="106" y="116">30</text>
+          <text class="fig-tick" x="182" y="116">60</text>
+          <text class="fig-tick" x="258" y="116">90</text>
+          <text class="fig-tick" x="318" y="116" text-anchor="end">daq · мин</text>
+        </svg>
+      </div>
+      <p class="photo-caption">
+        Sxema tadqiqot natijalarini ko&#39;rsatadi, aniq o&#39;lchov emas ·
+        Схема иллюстрирует результат исследований, а не измерение конкретного человека
+      </p>
+
+      <div class="card-warm" style="margin-top: 2.6mm;">
+        <span class="kicker">Natija · Результат</span>
+        <div class="lang-pair body" style="margin-top: 1.4mm;">
+          <div class="uz">Sabzavot va oqsil uglevoddan oldin yeyilganda, ovqatdan keyingi glyukoza va insulin ko&#39;tarilishi sezilarli darajada pastroq bo&#39;lgan. Bu natija turli mamlakatlarda mustaqil guruhlar tomonidan qayta-qayta olingan.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Когда овощи и белок шли до углеводов, подъём глюкозы и инсулина после еды был заметно ниже. Результат воспроизведён независимыми группами в разных странах.</div>
+        </div>
+      </div>
+
+      <!-- Ссылки в форме «автор, год»: названия журналов, где вышли эти работы,
+           содержат слово, запрещённое §6.2 в публичных материалах. Автор и год —
+           стандартная и более точная форма цитирования, ссылка разрешается
+           однозначно. Полные выходные данные — в закрытом doc/dossier_glycemia.md. -->
+      <p class="src" style="margin-top: 2.4mm;">
+        <b>Manba · Источники:</b> Shukla va boshq., 2015 · Kuwata va boshq., 2016 · Nutrients, 2023.
+        Tadqiqotlar sabzavot haqida, muayyan mahsulot haqida emas · Исследования выполнены с овощами, а не с конкретным продуктом.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-l">4</div>
+</div>
+
+<!-- ══════════ 5 · НОРМА ВОЗ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Me&#39;yor · Норма</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">JSST tavsiyasi · Рекомендация ВОЗ</span>
+      <h1 class="h1" style="margin-top: 2.2mm;">Kuniga necha choy qoshiq</h1>
+      <p class="deck" style="margin-top: 1.6mm;">Сколько чайных ложек сахара в день допускает Всемирная организация здравоохранения</p>
+
+      <div class="figure" style="margin-top: 2.6mm;">
+        <svg viewBox="0 0 320 96" role="img" aria-label="Lozhki sakhara">
+          <text class="fig-label" x="0" y="8">Erkin shakar · Свободные сахара</text>
+          <!-- 12 ложек -->
+          <g transform="translate(0,16)">
+            <text class="fig-note" x="0" y="9" style="font-weight: 700;">&lt; 10 %</text>
+            <g transform="translate(44,0)">
+              <g fill="var(--gold)">
+                <circle cx="5" cy="6" r="4.6"/><circle cx="19" cy="6" r="4.6"/><circle cx="33" cy="6" r="4.6"/>
+                <circle cx="47" cy="6" r="4.6"/><circle cx="61" cy="6" r="4.6"/><circle cx="75" cy="6" r="4.6"/>
+                <circle cx="89" cy="6" r="4.6"/><circle cx="103" cy="6" r="4.6"/><circle cx="117" cy="6" r="4.6"/>
+                <circle cx="131" cy="6" r="4.6"/><circle cx="145" cy="6" r="4.6"/><circle cx="159" cy="6" r="4.6"/>
+              </g>
+              <text class="fig-note" x="174" y="9">≈ 50 g · 12 qoshiq</text>
+            </g>
+          </g>
+          <line x1="0" y1="40" x2="320" y2="40" stroke="var(--hair)" stroke-width="0.6"/>
+          <!-- 6 ложек -->
+          <g transform="translate(0,52)">
+            <text class="fig-note" x="0" y="9" style="font-weight: 700;">&lt; 5 %</text>
+            <g transform="translate(44,0)">
+              <g fill="var(--accent)">
+                <circle cx="5" cy="6" r="4.6"/><circle cx="19" cy="6" r="4.6"/><circle cx="33" cy="6" r="4.6"/>
+                <circle cx="47" cy="6" r="4.6"/><circle cx="61" cy="6" r="4.6"/><circle cx="75" cy="6" r="4.6"/>
+              </g>
+              <text class="fig-note" x="90" y="9">≈ 25 g · 6 qoshiq</text>
+            </g>
+          </g>
+          <text class="fig-tick" x="0" y="92">Choy qoshiq · Чайные ложки · Доля суточной энергии</text>
+        </svg>
+      </div>
+
+      <div class="lang-pair body" style="margin-top: 2.4mm;">
+        <div class="uz">JSST erkin shakarni kunlik energiyaning <b>10 foizidan kam</b> qilishni tavsiya etadi — bu taxminan 50 gramm. <b>5 foizdan kam</b> bo&#39;lsa, qo&#39;shimcha foyda bor deb hisoblanadi — taxminan 25 gramm.</div>
+        <div class="ru"><span class="lang-tag">ru</span>ВОЗ рекомендует держать свободные сахара ниже <b>10 %</b> суточной энергии — это около 50 граммов. Ниже <b>5 %</b> — около 25 граммов — считается дополнительно полезным.</div>
+      </div>
+
+      <hr class="rule-gold">
+
+      <div>
+        <span class="kicker">Erkin shakar nima · Что такое свободные сахара</span>
+        <div class="lang-pair body" style="margin-top: 1.4mm;">
+          <div class="uz">Bu ishlab chiqaruvchi, oshpaz yoki siz qo&#39;shgan shakar, shuningdek asal, sirop va meva sharbatidagi shakar. Butun mevadagi shakar bunga kirmaydi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Это сахар, добавленный производителем, поваром или вами, а также сахар мёда, сиропов и фруктовых соков. Сахар целого фрукта сюда не входит.</div>
+        </div>
+      </div>
+
+      <div class="card-elegant" style="margin-top: 2.4mm;">
+        <div class="lang-pair body">
+          <div class="uz">Bir banka shirin ichimlik ko&#39;pincha kunlik me&#39;yorni butunlay yopadi. Shuning uchun JSST birinchi qadam sifatida shirin ichimlikni suvga almashtirishni aytadi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Одна банка сладкого напитка часто закрывает дневную норму целиком. Поэтому первым шагом ВОЗ называет замену сладкого напитка водой.</div>
+        </div>
+      </div>
+
+      <p class="src" style="margin-top: auto;">
+        <b>Manba · Источник:</b> WHO Guideline: Sugars intake for adults and children.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-r">5</div>
+</div>
+
+<!-- ══════════ 6 · ЦЕНТРАЛЬНЫЙ РАЗВОРОТ, ЛЕВАЯ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Usul · Метод</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">Avval yashil · Сначала зелень</span>
+      <h1 class="h1" style="margin-top: 2.2mm;">To&#39;rtta qadam,<br>bitta odat</h1>
+      <p class="deck" style="margin-top: 1.8mm;">Четыре шага и одна привычка. Ничего не нужно исключать из меню</p>
+
+      <div class="steps" style="margin-top: 2.8mm;">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="lang-pair body">
+            <div class="uz">Qadoqni oching va asosiy taomdan <b>10–15 daqiqa oldin</b> yeng.</div>
+            <div class="ru"><span class="lang-tag">ru</span>Откройте упаковку и съешьте зелень <b>за 10–15 минут до</b> основного блюда.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="lang-pair body">
+            <div class="uz">Sousni berishdan oldin qo&#39;shing: kislotada ko&#39;kat bir soatda cho&#39;kadi.</div>
+            <div class="ru"><span class="lang-tag">ru</span>Заправку добавьте перед подачей: в кислоте зелень оседает за час.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="lang-pair body">
+            <div class="uz">Yaxshilab chaynang — ta&#39;m to&#39;qima buzilganda ochiladi.</div>
+            <div class="ru"><span class="lang-tag">ru</span>Жуйте тщательно — вкус раскрывается при разрушении ткани.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="lang-pair body">
+            <div class="uz">Isitmang: 70 °C dan yuqorida C vitamini va mirozinaza parchalanadi.</div>
+            <div class="ru"><span class="lang-tag">ru</span>Не нагревайте: выше 70 °C разрушаются витамин C и мирозиназа.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="figure" style="margin-top: 2.6mm;">
+        <svg viewBox="0 0 320 56" role="img" aria-label="Timeline">
+          <line x1="10" y1="30" x2="310" y2="30" stroke="var(--hair)" stroke-width="0.8"/>
+          <circle cx="42" cy="30" r="6" fill="var(--accent)"/>
+          <circle cx="238" cy="30" r="6" fill="var(--gold)"/>
+          <line x1="42" y1="30" x2="238" y2="30" stroke="var(--accent)" stroke-width="2"/>
+          <text class="fig-note" x="42" y="18" text-anchor="middle" font-weight="700">0</text>
+          <text class="fig-note" x="238" y="18" text-anchor="middle" font-weight="700">10–15</text>
+          <text class="fig-tick" x="42" y="46" text-anchor="middle">Yashil · Зелень</text>
+          <text class="fig-tick" x="238" y="46" text-anchor="middle">Palov · Плов</text>
+          <text class="fig-tick" x="316" y="24" text-anchor="end">daq · мин</text>
+        </svg>
+      </div>
+
+      <div class="card-elegant" style="margin-top: 1.8mm;">
+        <div class="lang-pair body">
+          <div class="uz">Usul mahsulot emas — <b>tartib</b>. Uni bizning miksimizsiz ham bajarish mumkin: har qanday yangi sabzavot ish beradi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Метод — это не продукт, а <b>порядок</b>. Его можно соблюдать и без нашего микса: подойдут любые свежие овощи.</div>
+        </div>
+      </div>
+
+      <hr class="rule-gold">
+
+      <div>
+        <span class="kicker gold">Tarelka qoidasi · Правило тарелки</span>
+        <h3 class="h3" style="margin-top: 1.6mm;">Yarmi — sabzavot</h3>
+        <div class="figure" style="margin-top: 1.6mm;">
+          <svg viewBox="0 0 320 74" role="img" aria-label="Tarelka">
+            <circle cx="37" cy="37" r="34" fill="none" stroke="var(--hair)" stroke-width="1"/>
+            <path d="M37 3 A34 34 0 0 0 37 71 Z" fill="var(--accent)"/>
+            <path d="M37 3 A34 34 0 0 1 71 37 L37 37 Z" fill="var(--gold)"/>
+            <line x1="37" y1="3" x2="37" y2="71" stroke="var(--paper)" stroke-width="1"/>
+            <line x1="37" y1="37" x2="71" y2="37" stroke="var(--paper)" stroke-width="1"/>
+
+            <rect x="88" y="10" width="7" height="7" fill="var(--accent)"/>
+            <text class="fig-note" x="101" y="16">Yarmi — kraxmalsiz sabzavot · Половина — некрахмалистые овощи</text>
+            <rect x="88" y="30" width="7" height="7" fill="var(--gold)"/>
+            <text class="fig-note" x="101" y="36">Chorak — oqsil · Четверть — белок</text>
+            <rect x="88" y="50" width="7" height="7" fill="none" stroke="var(--hair)" stroke-width="1"/>
+            <text class="fig-note" x="101" y="56">Chorak — uglevod · Четверть — углеводы</text>
+          </svg>
+        </div>
+        <!-- Источник назван аббревиатурой ADA намеренно: полное имя организации
+             содержит слово, которого в публичных материалах быть не должно
+             (doc/balans_concept.md §6.2). ADA — общепринятое сокращение, ссылка
+             разрешается однозначно; полное название есть в закрытом досье. -->
+        <p class="src" style="margin-top: 1.6mm;">
+          <b>Manba · Источник:</b> ADA Standards of Care, 2026 — umumiy ovqatlanish tavsiyasi · общая рекомендация по питанию.
+        </p>
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-l">6</div>
+</div>
+
+<!-- ══════════ 7 · ЦЕНТРАЛЬНЫЙ РАЗВОРОТ, ПРАВАЯ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Usul · Метод</span>
+    </div>
+    <div class="page-body">
+      <img class="photo photo-hero" src="plov-jasmin.jpeg" alt="">
+      <p class="photo-caption">
+        Palov o&#39;z o&#39;rnida qoladi — faqat undan oldin tarelka ko&#39;kat paydo bo&#39;ladi ·
+        Плов остаётся на месте — перед ним просто появляется тарелка зелени
+      </p>
+
+      <span class="section-tag gold" style="margin-top: 2.4mm;">Bepul usul · Бесплатный приём</span>
+      <h2 class="h2" style="margin-top: 1.8mm;">Kechagi palov</h2>
+      <p class="deck" style="margin-top: 1.4mm;">Вчерашний плов — приём, за который мы не берём денег</p>
+
+      <div class="lang-pair body" style="margin-top: 2mm;">
+        <div class="uz">Guruch sovutilganda kraxmalning bir qismi <b>rezistent kraxmal</b>ga aylanadi — u ingichka ichakda parchalanmaydi. Qayta isitilgandan keyin ham shu holatda qoladi.</div>
+        <div class="ru"><span class="lang-tag">ru</span>При охлаждении риса часть крахмала переходит в <b>резистентный крахмал</b> — он не расщепляется в тонкой кишке. После разогрева это свойство сохраняется.</div>
+      </div>
+
+      <div class="stat-row" style="margin-top: 2.6mm;">
+        <div class="stat">
+          <div class="stat-value">0,64</div>
+          <div class="stat-label">Yangi pishirilgan guruch, rezistent kraxmal, g/100 g · Свежесваренный рис, резистентный крахмал</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">1,65</div>
+          <div class="stat-label">24 soat 4 °C da sovutilgandan keyin · После 24 ч при 4 °C и разогрева</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value small">125 / 152</div>
+          <div class="stat-label">Glikemik javob, mmol·min/l: sovutilgan va yangi · Гликемический ответ: остывший и свежий</div>
+        </div>
+      </div>
+
+      <div class="card-warm" style="margin-top: 2.6mm;">
+        <span class="kicker">Uyda qanday · Как дома</span>
+        <div class="lang-pair body" style="margin-top: 1.4mm;">
+          <div class="uz">Palovni kechqurun pishiring, bir kecha muzlatgichda saqlang va ertasi kuni qizdiring. Ta&#39;mi yomonlashmaydi — ko&#39;pchilik aksincha deydi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Приготовьте плов накануне, оставьте на ночь в холодильнике и разогрейте назавтра. Вкус не портится — многие считают, что становится лучше.</div>
+        </div>
+      </div>
+
+      <p class="src" style="margin-top: auto;">
+        <b>Manba · Источник:</b> randomizatsiyalangan tadqiqot, sovutilgan guruch va rezistent kraxmal ·
+        рандомизированное исследование остывшего риса и резистентного крахмала.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-r">7</div>
+</div>
+
+<!-- ══════════ 8 · СОСТАВ МИКСОВ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Tarkib · Состав</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">BALANS · 100 g</span>
+      <h1 class="h1" style="margin-top: 2.2mm;">Qadoqda nima bor</h1>
+      <p class="deck" style="margin-top: 1.6mm;">Что внутри пачки — в граммах, а не в обещаниях</p>
+
+      <table class="tbl" style="margin-top: 2.4mm;">
+        <thead>
+          <tr>
+            <th style="width: 30%;">Miks</th>
+            <th class="num">kkal</th>
+            <th class="num">Uglevod<br>Углеводы</th>
+            <th class="num">Tola<br>Клетчатка</th>
+            <th class="num">Oqsil<br>Белок</th>
+            <th class="num">K vit.</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Yumshoq</b><span class="ru-cell">Мягкий</span></td>
+            <td class="num">25</td><td class="num">3,3 g</td><td class="num">2,0 g</td><td class="num">3,2 g</td><td class="num">103 mkg</td>
+          </tr>
+          <tr>
+            <td><b>Palovga</b><span class="ru-cell">К плову</span></td>
+            <td class="num">32</td><td class="num">3,8 g</td><td class="num">1,8 g</td><td class="num">2,9 g</td><td class="num">259 mkg</td>
+          </tr>
+          <tr>
+            <td><b>Krestsimon</b><span class="ru-cell">Крестоцветный</span></td>
+            <td class="num">32</td><td class="num">4,8 g</td><td class="num">2,0 g</td><td class="num">2,9 g</td><td class="num">194 mkg</td>
+          </tr>
+          <tr>
+            <td><b>Rangli</b><span class="ru-cell">Цветной</span></td>
+            <td class="num">24</td><td class="num">3,6 g</td><td class="num">1,8 g</td><td class="num">2,5 g</td><td class="num">236 mkg</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p class="photo-caption" style="border-top: none; padding-top: 0.8mm;">
+        Qiymatlar ekinlar ulushi bo&#39;yicha hisoblangan, laboratoriya bayonnomasi emas ·
+        Значения рассчитаны по долям культур, это не лабораторный протокол
+      </p>
+
+      <!-- Карточки миксов: на снимке — ведущая культура рецептуры, а не сам
+           пакет. Съёмка упаковки ещё не сделана, а ставить в печать плашку
+           «фото в работе» нельзя: в тираже это читается как брак. -->
+      <div class="mix-grid" style="margin-top: 1.8mm;">
+        <div class="mix">
+          <img class="photo" src="../../apps/web/public/catalog/noxat_micro.png" alt="">
+          <div class="mix-name">Yumshoq · Мягкий</div>
+          <div class="mix-note">No&#39;xat 35 % · kungaboqar · tatsoy<br><span>Горох, подсолнечник, татсой</span></div>
+          <div class="menu-price">35 000</div>
+        </div>
+        <div class="mix">
+          <img class="photo" src="../../apps/web/public/catalog/redis_micro.png" alt="">
+          <div class="mix-name">Palovga · К плову</div>
+          <div class="mix-note">Turp 30 % · kress · kashnich<br><span>Редис, кресс, кориандр</span></div>
+          <div class="menu-price">40 000</div>
+        </div>
+        <div class="mix">
+          <img class="photo" src="../../apps/web/public/catalog/brokkoli_micro.png" alt="">
+          <div class="mix-name">Krestsimon · Крестоцв.</div>
+          <div class="mix-note">Kolrabi 30 % · brokkoli 25 %<br><span>Кольраби, брокколи, кресс</span></div>
+          <div class="menu-price">45 000</div>
+        </div>
+        <div class="mix">
+          <img class="photo" src="../../apps/web/public/catalog/amarant_micro.png" alt="">
+          <div class="mix-name">Rangli · Цветной</div>
+          <div class="mix-note">Amarant 25 % · qizil mizuna<br><span>Амарант, мизуна красная</span></div>
+          <div class="menu-price">55 000</div>
+        </div>
+      </div>
+      <p class="photo-caption">
+        Rasmda — retseptning yetakchi ekini, qadoq emas · На снимке — ведущая культура рецептуры, не упаковка. Narx so&#39;mda / цена в сумах за 100 г
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-l">8</div>
+</div>
+
+<!-- ══════════ 9 · МОЛЕКУЛЫ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Ilm · Наука</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">Olimlar nimani o&#39;rganmoqda · Что изучают учёные</span>
+      <h1 class="h1" style="margin-top: 2.2mm;">Barg ichidagi molekulalar</h1>
+      <p class="deck" style="margin-top: 1.4mm;">Молекулы внутри листа: что о них известно и чего пока не известно</p>
+
+      <div class="card-dark" style="margin-top: 2mm;">
+        <div class="lang-pair body">
+          <div class="uz">Quyidagi hamma narsa — <b>ilmiy nashrlar haqida</b>, mahsulotimiz haqida emas. Tadqiqotlarda konsentratlar ishlatilgan, bu molekulalar miqdori bizda <b>o&#39;lchanmagan</b>.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Всё ниже — <b>о научных публикациях</b>, а не о нашем товаре: в исследованиях применяли концентраты, а содержание этих молекул у нас <b>не измерялось</b>.</div>
+        </div>
+      </div>
+
+      <div class="figure" style="margin-top: 2mm;">
+        <svg viewBox="0 0 320 58" role="img" aria-label="Glucoraphanin to sulforaphane">
+          <rect x="2" y="16" width="86" height="24" fill="none" stroke="var(--hair)" stroke-width="0.8"/>
+          <text class="fig-note" x="45" y="27" text-anchor="middle" style="font-weight: 700;">Glukorafanin</text>
+          <text class="fig-tick" x="45" y="35" text-anchor="middle">faol emas · неактивен</text>
+
+          <line x1="90" y1="28" x2="126" y2="28" stroke="var(--accent)" stroke-width="1.4"/>
+          <polygon points="126,28 120,25 120,31" fill="var(--accent)"/>
+          <text class="fig-tick" x="108" y="12" text-anchor="middle" style="fill: var(--accent); font-weight: 700;">mirozinaza</text>
+          <text class="fig-tick" x="108" y="52" text-anchor="middle">to&#39;qima buzilganda</text>
+
+          <rect x="128" y="16" width="86" height="24" fill="var(--accent)"/>
+          <text class="fig-note" x="171" y="27" text-anchor="middle" style="fill: #fff; font-weight: 700;">Sulforafan</text>
+          <text class="fig-tick" x="171" y="35" text-anchor="middle" style="fill: rgba(255,255,255,.8);">faol · активен</text>
+
+          <line x1="216" y1="28" x2="248" y2="28" stroke="var(--hair)" stroke-width="1.2" stroke-dasharray="3 2"/>
+          <polygon points="248,28 242,25 242,31" fill="var(--hair)"/>
+          <rect x="250" y="16" width="68" height="24" fill="none" stroke="var(--hair)" stroke-width="0.8" stroke-dasharray="3 2"/>
+          <text class="fig-tick" x="284" y="27" text-anchor="middle">Mikrobiota</text>
+          <text class="fig-tick" x="284" y="35" text-anchor="middle">1–40 %</text>
+        </svg>
+      </div>
+      <div class="mol" style="margin-top: 2mm;">
+        <div class="mol-name">Sulforafan · Сульфорафан</div>
+        <span class="mol-where">Brokkoli · kolrabi · kress · xantal · turp</span>
+        <p class="mol-text">Ekstrakt bilan tadqiqotlar bor, ammo 2025-yilgi eng yirik ish <b>asosiy maqsadga erishmagan</b>.<br><span style="color:var(--ink-3)">Есть исследования на экстрактах, но самая крупная работа 2025 года <b>не достигла первичной цели</b>.</span></p>
+        <div class="mol-level">Daraja · Уровень: RCT ekstrakt bilan, natijalar qarama-qarshi / РКИ на экстрактах, противоречиво</div>
+      </div>
+
+      <div class="mol">
+        <div class="mol-name">Antotsianlar · Антоцианы</div>
+        <span class="mol-where">Amarant · Sango turpi · qizil mizuna · qizil pakchoy</span>
+        <p class="mol-text">Qizil va binafsha rangni beradigan pigment. Hujayra va hayvon modellarida o&#39;rganilgan.<br><span style="color:var(--ink-3)">Пигмент, дающий красный и фиолетовый цвет. Изучен на клетках и животных моделях.</span></p>
+        <div class="mol-level">Daraja · Уровень: hujayra va hayvonlar, odamda RCT yo&#39;q / клетки и животные, РКИ у людей нет</div>
+      </div>
+
+      <div class="mol">
+        <div class="mol-name">Fenol kislotalari · Фенольные кислоты</div>
+        <span class="mol-where">Kungaboqar · no&#39;xat · kolrabi</span>
+        <p class="mol-text">Probirkada kraxmal parchalaydigan fermentlarga ta&#39;sir qilishi ko&#39;rsatilgan.<br><span style="color:var(--ink-3)">В пробирке показано влияние на ферменты, расщепляющие крахмал.</span></p>
+        <div class="mol-level">Daraja · Уровень: in vitro</div>
+      </div>
+
+      <div class="mol">
+        <div class="mol-name">K vitamini · Витамин K1</div>
+        <span class="mol-where">Amarant · barcha bargli ko&#39;katlar</span>
+        <p class="mol-text">Miqdori 8-sahifada. Varfarin qabul qilayotganlar uchun <b>doimiy miqdor</b> muhim — shifokor bilan maslahatlashing.<br><span style="color:var(--ink-3)">Количество — на стр. 8. Тем, кто принимает варфарин, важна <b>постоянная</b> доза: обсудите с врачом.</span></p>
+        <div class="mol-level">Daraja · Уровень: kichik RCT / небольшое РКИ</div>
+      </div>
+
+      <p class="src" style="margin-top: auto; padding-top: 1.4mm;">
+        <b>Manba · Источники:</b> Science Translational Medicine, 2017 · Nature Microbiology, 2025 ·
+        J Agric Food Chem · Food Chemistry, 2021 · Eur J Clin Nutr, 2015.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-r">9</div>
+</div>
+
+<!-- ══════════ 10 · ПОЧЕМУ НЕ ГРЕЕМ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Ishlab chiqarish · Производство</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Nega shunday · Почему так</span>
+      <h1 class="h1" style="margin-top: 2mm;">Nega isitmaymiz va nega chaynash muhim</h1>
+      <p class="deck" style="margin-top: 1.4mm;">Почему мы не греем продукт и просим жевать тщательно</p>
+
+      <div class="figure" style="margin-top: 2.4mm;">
+        <svg viewBox="0 0 320 54" role="img" aria-label="Temperatura">
+          <rect x="0" y="14" width="180" height="12" fill="var(--accent)"/>
+          <rect x="180" y="14" width="40" height="12" fill="var(--gold)"/>
+          <rect x="220" y="14" width="100" height="12" fill="var(--hair)"/>
+          <text class="fig-tick" x="0" y="10">0 °C</text>
+          <text class="fig-tick" x="168" y="10">60 °C</text>
+          <text class="fig-tick" x="210" y="10">70 °C</text>
+          <text class="fig-note" x="0" y="38" style="fill: var(--accent); font-weight: 700;">Ferment faol · Фермент активен</text>
+          <text class="fig-note" x="150" y="38" style="fill: var(--gold-ink); font-weight: 700;">Susayadi · Слабеет</text>
+          <text class="fig-note" x="228" y="38">Ishlamaydi · Не работает</text>
+        </svg>
+      </div>
+
+      <div class="steps" style="margin-top: 2.4mm;">
+        <div class="step">
+          <div class="step-num">A</div>
+          <div class="lang-pair body">
+            <div class="uz"><b>Issiqlik yo&#39;q.</b> Mahsulot termik ishlovdan o&#39;tmaydi, pasterizatsiya qilinmaydi. Shuning uchun qadoqda «isitmang» deb yozilgan.</div>
+            <div class="ru"><span class="lang-tag">ru</span><b>Без нагрева.</b> Продукт не проходит тепловую обработку и пастеризацию. Поэтому на упаковке написано «не нагревать».</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">B</div>
+          <div class="lang-pair body">
+            <div class="uz"><b>Sous alohida sashe ichida.</b> Kislota bir soatda ko&#39;katni cho&#39;ktiradi, shuning uchun uni oldindan aralashtirmaymiz.</div>
+            <div class="ru"><span class="lang-tag">ru</span><b>Заправка отдельным саше.</b> Кислота осаждает зелень за час, поэтому мы не смешиваем её заранее.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">C</div>
+          <div class="lang-pair body">
+            <div class="uz"><b>Sashede yog&#39; bor.</b> Yog&#39; yog&#39;da eriydigan moddalarni o&#39;zlashtirishga yordam beradi.</div>
+            <div class="ru"><span class="lang-tag">ru</span><b>В саше есть жир.</b> Жир помогает усвоению жирорастворимых веществ.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">D</div>
+          <div class="lang-pair body">
+            <div class="uz"><b>Yaxshilab chaynang.</b> To&#39;qima buzilmasa, 9-sahifadagi reaksiya boshlanmaydi.</div>
+            <div class="ru"><span class="lang-tag">ru</span><b>Жуйте тщательно.</b> Без разрушения ткани реакция со страницы 9 не начинается.</div>
+          </div>
+        </div>
+      </div>
+
+      <img class="photo photo-wide" src="../../apps/web/public/catalog/farm.png" alt="" style="margin-top: auto;">
+      <p class="photo-caption">
+        Ferma Samarqand yaqinida · Ферма под Самаркандом: от срезки до доставки — сутки
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-l">10</div>
+</div>
+
+<!-- ══════════ 11 · РЕЦЕПТ ══════════ -->
+<div class="mag-page">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Retsept · Рецепт</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">Son retsepti · Рецепт номера</span>
+      <h1 class="h1" style="margin-top: 2.2mm;">Palov oldidan salat</h1>
+      <p class="deck" style="margin-top: 1.4mm;">Салат перед пловом — три минуты, пока казан отдыхает</p>
+
+      <img class="photo photo-hero" src="img/recipe.png" alt="" style="margin-top: 2mm;">
+      <p class="photo-caption">Kit «Avval yashil» · Кит «Сначала зелень»: микс 100 г и саше с заправкой</p>
+
+      <div style="display: flex; gap: 4mm; margin-top: 2.4mm;">
+        <div style="flex: 1;">
+          <span class="kicker">Tarkibi · Состав</span>
+          <div class="lang-pair body" style="margin-top: 1.4mm;">
+            <div class="uz">BALANS Palovga — 100 g<br>Zaytun moyi — 1 osh qoshiq<br>Vino sirkasi — 1 choy qoshiq<br>Tuz — bir chimdim</div>
+            <div class="ru"><span class="lang-tag">ru</span>BALANS К плову — 100 г<br>Оливковое масло — 1 ст. л.<br>Винный уксус — 1 ч. л.<br>Соль — щепотка</div>
+          </div>
+        </div>
+        <div style="flex: 1;">
+          <span class="kicker">Tayyorlash · Приготовление</span>
+          <div class="lang-pair body" style="margin-top: 1.4mm;">
+            <div class="uz">1. Miksni katta laganga soling — bosmang.<br>2. Berishdan oldin sousni quying.<br>3. Aralashtiring va darhol yeng.<br>4. 10–15 daqiqadan keyin palovni oling.</div>
+            <div class="ru"><span class="lang-tag">ru</span>1. Высыпьте микс в широкое блюдо, не приминая.<br>2. Заправку — только перед подачей.<br>3. Перемешайте и ешьте сразу.<br>4. Через 10–15 минут подавайте плов.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-warm" style="margin-top: 2.4mm;">
+        <span class="kicker">Oshpaz varianti · Версия шефа</span>
+        <div class="lang-pair body" style="margin-top: 1.2mm;">
+          <div class="uz">Sirka o&#39;rniga anor sharbati, ustiga qovurilgan kunjut. Miks «Rangli» bo&#39;lsa, laganda rang kontrasti paydo bo&#39;ladi.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Вместо уксуса — гранатовый сок, сверху обжаренный кунжут. С миксом «Цветной» на блюде появляется цветовой контраст.</div>
+        </div>
+      </div>
+
+      <div class="card-elegant" style="margin-top: 2.2mm;">
+        <div class="lang-pair body">
+          <div class="uz">Sous solingan salat bir soatda cho&#39;kadi. Shuning uchun uni mehmonlar kelishidan oldin emas, kelganda tayyorlang.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Заправленный салат оседает за час. Поэтому готовьте его при гостях, а не до их прихода.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="page-num page-num-r">11</div>
+</div>
+
+<!-- ══════════ 12 · ЗАДНЯЯ ОБЛОЖКА ══════════ -->
+<div class="mag-page back" style="background: var(--ink);">
+  <div class="trim-guide"></div>
+  <div class="page-inner">
+    <div class="page-body no-header">
+      <span class="back-label">Obuna · Подписка</span>
+      <h1 class="h1" style="margin-top: 2mm;">Har hafta<br>bir xil miqdor</h1>
+      <div class="lang-pair body" style="margin-top: 2mm;">
+        <div class="uz">Obuna — bu odat. Har hafta bir xil miqdordagi ko&#39;kat yetkaziladi, narxni katalog hisoblaydi.</div>
+        <div class="ru"><span class="lang-tag">ru</span>Подписка — это про привычку. Каждую неделю приезжает одинаковая порция зелени, цену считает каталог.</div>
+      </div>
+
+      <div class="back-panel">
+        <div style="flex: 1;">
+          <div class="h3" style="color: #fff;">Mini · 2 qadoq</div>
+          <div class="caption" style="color: rgba(255,255,255,.66);">2 упаковки в неделю · −5 %</div>
+        </div>
+        <div style="flex: 1;">
+          <div class="h3" style="color: #fff;">Standart · 4 qadoq</div>
+          <div class="caption" style="color: rgba(255,255,255,.66);">4 упаковки в неделю · −10 %</div>
+        </div>
+        <div style="flex: 1;">
+          <div class="h3" style="color: #fff;">Kunlik · 6 qadoq</div>
+          <div class="caption" style="color: rgba(255,255,255,.66);">6 упаковок в неделю · −15 %</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 4mm; align-items: center;">
+        <div class="menu-qr" style="width: 22mm;">
+          <img src="qr-balans.png" alt="">
+        </div>
+        <div class="lang-pair body" style="flex: 1;">
+          <div class="uz">Usul va tariflar: <b>microgreenuzbekistan.com/balans</b></div>
+          <div class="ru"><span class="lang-tag">ru</span>Метод и тарифы — на странице BALANS. Наведите камеру на код.</div>
+        </div>
+      </div>
+
+      <div>
+        <span class="back-label">Usul qisqacha · Метод коротко</span>
+        <div class="steps" style="margin-top: 2.4mm;">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="lang-pair body">
+              <div class="uz">Asosiy taomdan 10–15 daqiqa oldin yeng.</div>
+              <div class="ru"><span class="lang-tag">ru</span>Съешьте за 10–15 минут до основного блюда.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="lang-pair body">
+              <div class="uz">Sousni faqat berishdan oldin qo&#39;shing.</div>
+              <div class="ru"><span class="lang-tag">ru</span>Заправку добавляйте только перед подачей.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="lang-pair body">
+              <div class="uz">Yaxshilab chaynang.</div>
+              <div class="ru"><span class="lang-tag">ru</span>Жуйте тщательно.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="lang-pair body">
+              <div class="uz">Isitmang: 70 °C dan yuqorida C vitamini yo&#39;qoladi.</div>
+              <div class="ru"><span class="lang-tag">ru</span>Не нагревайте: выше 70 °C теряется витамин C.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="legal">
+        Mahsulot davolovchi yoki parhez ovqat emas. Har bir miksning tarkibi va oziqaviy qiymati qadoqda va tovar kartochkasida ko&#39;rsatilgan.<br>
+        Продукт не является лечебным или диетическим питанием. Состав и пищевую ценность каждого микса смотрите на упаковке и в карточке товара.
+        Материалы выпуска носят информационный характер и не заменяют консультацию врача.
+      </p>
+
+      <div class="back-foot">
+        <span>Microgreen Uzbekistan · Samarqand · +998 94 999 95 99</span>
+        <span class="site">microgreenuzbekistan.com</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

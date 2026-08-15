@@ -1,5 +1,47 @@
 # content/generated — собранные номера
 
+## Спецвыпуск «Shakar va tartib» — другая цепочка
+
+Номер № 03 собирается **не так**, как описанный ниже jasmin: у него нет
+дизайн-слоя и шага `apply-magazine-design.mjs`. Он свёрстан вручную сразу
+в готовом виде и лежит в источниках, а не здесь:
+
+| что | где |
+|---|---|
+| вёрстка и тексты, 12 полос | `content/generated/shakar-01-print.html` |
+| оформление | тот же `content/templates/fresh-weekly-a5.design.css` |
+| QR на `/balans` | `content/generated/qr-balans.png` |
+| закрытая доказательная база | `doc/dossier_glycemia.md` — **не публикуется** |
+
+⚠️ Единственный файл в этой папке, который **правится руками**. Он ничем не
+перезаписывается — `apply-magazine-design.mjs` его не трогает — и внесён в
+`.gitignore` отдельной строкой-исключением, иначе потерялся бы под общим `*.html`.
+
+```bash
+node scripts/magazine-pdf.mjs content/generated/shakar-01-print.html
+node scripts/shoot-magazine-pages.mjs content/generated/pages-shakar "" \
+     --src=content/generated/shakar-01-print.html      # пруфы полос
+node scripts/check-claims.mjs                          # стоп-список §6.2 — обязателен
+node scripts/publish-magazine.mjs                      # → apps/web/public/magazine/
+node scripts/check-magazine-published.mjs              # открывается и с сервера, и двойным щелчком
+```
+
+QR пересобирается одной строкой, если поменяется адрес:
+
+```bash
+node -e "require('qrcode').toFile('content/generated/qr-balans.png','https://microgreenuzbekistan.com/balans',{margin:4,errorCorrectionLevel:'M',width:1024})"
+```
+
+**Тексты этого номера подчинены [doc/balans_concept.md](../../doc/balans_concept.md) §6.2:**
+никаких заявлений о лечебных и оздоровительных свойствах. `check-claims.mjs`
+исполняет это правило машиной и падает с ненулевым кодом — прогонять после
+любой правки текста, а не только вёрстки.
+
+Рекламные макеты кампании — `content/posters/`, сборка
+`node scripts/render-posters.mjs`, тексты публикаций — `content/posters/captions.md`.
+
+---
+
 ## В печать идёт этот файл
 
 **`jasmin-print.html`** — готов к типографии: 12 полос по 154 × 216 мм, шрифты

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<title>Постер A3 — Avval yashil</title>
+<!--
+  Печатный постер A3 (297×420 мм) для точек продаж, ресторанов-партнёров
+  и ярмарок. Метод «Avval yashil / Сначала зелень» крупно, QR на /balans.
+
+  Вылетов нет: постер печатается на готовом листе A3 без обрезки, поэтому
+  фон до края не доводится, а поле 26/22 мм держит текст внутри.
+
+  Текст подчинён doc/balans_concept.md §6.2. Гейт — scripts/check-claims.mjs.
+  Сборка — node scripts/render-posters.mjs.
+-->
+<link rel="stylesheet" href="../templates/fonts/fonts-subset.css">
+<link rel="stylesheet" href="posters.css">
+<style>
+  @page { size: A3 portrait; margin: 0; }
+
+  .sheet { background: var(--deep); color: var(--on-dark); }
+  .s-badge {
+    font-family: var(--font-ui);
+    font-size: 11pt; font-weight: 700;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--accent);
+    border-top: 2.4pt solid var(--accent);
+    padding-top: 5mm;
+  }
+  .s-h1 {
+    font-family: var(--font-display);
+    font-size: 76pt; font-weight: 800;
+    line-height: 0.96; letter-spacing: -0.034em;
+    margin-top: 7mm;
+  }
+  .s-h1 .gold { color: var(--accent); }
+  .s-deck { font-size: 17pt; line-height: 1.34; color: var(--on-dark-2); margin-top: 6mm; max-width: 200mm; }
+  .s-deck .ru { display: block; font-size: 14pt; color: var(--on-dark-3); margin-top: 3mm; }
+
+  .s-steps { display: flex; flex-direction: column; gap: 7mm; margin-top: 12mm; }
+  .s-step { display: flex; gap: 8mm; align-items: flex-start; }
+  .s-n {
+    flex-shrink: 0; width: 16mm; height: 16mm;
+    background: var(--primary); color: #04241b;
+    font-family: var(--font-ui); font-size: 20pt; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .s-t { font-size: 20pt; line-height: 1.24; padding-top: 1.5mm; }
+  .s-t small { display: block; font-size: 14pt; color: var(--on-dark-3); margin-top: 2.5mm; }
+
+  .s-qr { display: flex; align-items: center; gap: 10mm; margin-top: auto; padding-top: 10mm; border-top: 0.6pt solid rgba(255,255,255,.3); }
+  .s-qr img { width: 46mm; height: 46mm; background: #fff; padding: 3mm; }
+  .s-qr-t { font-size: 16pt; line-height: 1.34; }
+  .s-qr-t b { display: block; font-family: var(--font-display); font-size: 24pt; color: var(--accent); margin-bottom: 3mm; }
+  .s-qr-t span { display: block; font-size: 13pt; color: var(--on-dark-3); margin-top: 3mm; }
+
+  .s-foot {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    font-size: 11pt; color: var(--on-dark-3);
+    border-top: 0.6pt solid rgba(255,255,255,.22);
+    padding-top: 5mm; margin-top: 8mm;
+  }
+  .s-foot b { color: var(--on-dark); font-size: 13pt; }
+  .s-legal { font-size: 9pt; line-height: 1.4; color: var(--on-dark-3); margin-top: 5mm; max-width: 190mm; }
+</style>
+</head>
+<body>
+
+<div class="sheet">
+  <span class="s-badge">Usul · Метод</span>
+  <h1 class="s-h1">Avval <span class="gold">yashil</span></h1>
+  <p class="s-deck">
+    Palov qoladi. Lag&#39;mon ham, non ham qoladi. O&#39;zgaradigan narsa bitta — nimani birinchi bo&#39;lib yeyish.
+    <span class="ru">Плов остаётся. Лагман и нон тоже. Меняется одно — что вы съедаете первым.</span>
+  </p>
+
+  <div class="s-steps">
+    <div class="s-step">
+      <div class="s-n">1</div>
+      <div class="s-t">Qadoqni oching va asosiy taomdan 10–15 daqiqa oldin yeng
+        <small>Откройте упаковку и съешьте зелень за 10–15 минут до основного блюда</small></div>
+    </div>
+    <div class="s-step">
+      <div class="s-n">2</div>
+      <div class="s-t">Sousni berishdan oldin qo&#39;shing — kislotada ko&#39;kat bir soatda cho&#39;kadi
+        <small>Заправку добавьте перед подачей: в кислоте зелень оседает за час</small></div>
+    </div>
+    <div class="s-step">
+      <div class="s-n">3</div>
+      <div class="s-t">Yaxshilab chaynang — ta&#39;m to&#39;qima buzilganda ochiladi
+        <small>Жуйте тщательно — вкус раскрывается при разрушении ткани</small></div>
+    </div>
+    <div class="s-step">
+      <div class="s-n">4</div>
+      <div class="s-t">Isitmang: 70 °C dan yuqorida C vitamini va mirozinaza parchalanadi
+        <small>Не нагревайте: выше 70 °C разрушаются витамин C и мирозиназа</small></div>
+    </div>
+  </div>
+
+  <div class="s-qr">
+    <img src="../generated/qr-balans.png" alt="">
+    <div class="s-qr-t">
+      <b>microgreenuzbekistan.com/balans</b>
+      Usul, mikslar tarkibi va obuna tariflari
+      <span>Метод, состав миксов и тарифы подписки — наведите камеру на код</span>
+    </div>
+  </div>
+
+  <p class="s-legal">
+    Mahsulot davolovchi yoki parhez ovqat emas. Tarkib va oziqaviy qiymat qadoqda ko&#39;rsatilgan. ·
+    Продукт не является лечебным или диетическим питанием. Состав и пищевую ценность смотрите на упаковке.
+  </p>
+
+  <div class="s-foot">
+    <span><b>Microgreen Uzbekistan</b><br>Samarqand · +998 94 999 95 99</span>
+    <span>@microgreenuzbekistan</span>
+  </div>
+</div>
+
+</body>
+</html>
