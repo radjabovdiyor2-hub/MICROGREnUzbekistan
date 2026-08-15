@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { EMPLOYEE_ROLE_VALUES } from '@/components/admin/employeeOptions';
 
 // ==========================================
 // Employees API — Seller Management
 // ==========================================
+
+/**
+ * Должность решает права: `grower` открывает теплицу, остальные — кассу.
+ * Вход по PIN (`employees/auth`) сверяет строку РЕГИСТРОЗАВИСИМО, поэтому
+ * «Grower» или «agronom» дали бы сотрудника с правами продавца и без единой
+ * ошибки на экране — та же болезнь, что у `department` без `.lower()`.
+ * Отказываем сразу, а не выясняем это при первом входе человека на смену.
+ */
+function badRole(role: unknown): NextResponse | null {
+  if (role === undefined || role === null || role === '') return null;
+  if (EMPLOYEE_ROLE_VALUES.includes(String(role))) return null;
+  return NextResponse.json(
+    { error: `Noma'lum lavozim: ${role}. Ruxsat etilgan: ${EMPLOYEE_ROLE_VALUES.join(', ')}` },
+    { status: 400 },
+  );
+}
 
 // GET — List employees with today's sales stats
 export async function GET() {
@@ -63,6 +80,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PIN 4 ta raqamdan iborat bo'lishi kerak" }, { status: 400 });
     }
 
+    const roleError = badRole(role);
+    if (roleError) return roleError;
+
     // Check PIN uniqueness
     const existing = await prisma.employee.findUnique({ where: { pin } });
     if (existing) {
@@ -107,6 +127,9 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: "Bu PIN allaqachon ishlatilmoqda" }, { status: 400 });
       }
     }
+
+    const roleError = badRole(data.role);
+    if (roleError) return roleError;
 
     // Белый список полей: раньше тело разворачивалось целиком, и клиент мог
     // переписать любую колонку — включая isActive и totalSales.

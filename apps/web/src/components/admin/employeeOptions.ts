@@ -18,3 +18,26 @@ export const CITIES = [
   { value: 'tashkent', label: 'Ташкент' },
   { value: 'bukhara', label: 'Бухара' },
 ];
+
+// ══════════════════════════════════════════════════════════════════════
+// Должности. Значение решает, что человек увидит, войдя по PIN:
+// `grower` → теплица (посадки), остальные → касса. Разбирает это
+// /api/inventory/employees/auth, сверяя строку РЕГИСТРОЗАВИСИМО.
+//
+// `grower` здесь появился не сразу: агроному раздали права по всей
+// системе — сессия, middleware, свои вкладки, — а завести его было негде.
+// Форма предлагала только продавца и менеджера, поэтому теплица открывалась
+// ровно никому: единственным способом было править строку в базе руками.
+// ══════════════════════════════════════════════════════════════════════
+export const EMPLOYEE_ROLES = [
+  { value: 'seller', label: 'Sotuvchi' },
+  { value: 'manager', label: 'Menejer' },
+  { value: 'grower', label: 'Agronom' },
+];
+
+/** Разрешённые значения — их же проверяет API. */
+export const EMPLOYEE_ROLE_VALUES = EMPLOYEE_ROLES.map((r) => r.value);
+
+export function employeeRoleLabel(role: string): string {
+  return EMPLOYEE_ROLES.find((r) => r.value === role)?.label ?? role;
+}

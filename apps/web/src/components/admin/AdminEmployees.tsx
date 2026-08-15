@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Edit, Plus, Trash, User,
 } from 'lucide-react';
-import { CITIES, DEPARTMENTS } from './employeeOptions';
+import { CITIES, DEPARTMENTS, EMPLOYEE_ROLES, employeeRoleLabel } from './employeeOptions';
 
 interface Employee {
   id: string;
@@ -21,6 +21,12 @@ interface Employee {
 
 const EMPTY_EMPLOYEE = {
   name: '', pin: '', phone: '', role: 'seller', department: '', city: 'samarqand',
+};
+
+/** Цвет плашки должности. Агроном — зелёный теплицы, а не кассы. */
+const ROLE_TONE: Record<string, { bg: string; fg: string }> = {
+  manager: { bg: 'var(--info-bg)', fg: 'var(--info)' },
+  grower: { bg: 'var(--brand-primary-light)', fg: 'var(--brand-primary)' },
 };
 
 export function AdminEmployees() {
@@ -98,8 +104,7 @@ export function AdminEmployees() {
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>
-              <option value="seller">Sotuvchi</option>
-              <option value="manager">Menejer</option>
+              {EMPLOYEE_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
             {/* Отдел и город: колонки в базе есть, график смен их показывает,
                 а задать их было негде — поэтому они всегда оставались пустыми. */}
@@ -141,8 +146,11 @@ export function AdminEmployees() {
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 'var(--font-bold)' }}>{emp.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-                    <span style={{ padding: '1px 6px', borderRadius: 'var(--radius-full)', background: emp.role === 'manager' ? 'var(--info-bg)' : 'var(--success-bg)', color: emp.role === 'manager' ? 'var(--info)' : 'var(--success)', fontSize: '10px', fontWeight: 'var(--font-bold)' }}>
-                      {emp.role === 'manager' ? 'Menejer' : 'Sotuvchi'}
+                    {/* Должность подписываем по справочнику, а не двумя ветками
+                        тернарника: агроном в них не помещался и показывался
+                        «продавцом» — то есть карточка врала о правах человека. */}
+                    <span style={{ padding: '1px 6px', borderRadius: 'var(--radius-full)', background: ROLE_TONE[emp.role]?.bg ?? 'var(--success-bg)', color: ROLE_TONE[emp.role]?.fg ?? 'var(--success)', fontSize: '10px', fontWeight: 'var(--font-bold)' }}>
+                      {employeeRoleLabel(emp.role)}
                     </span>
                     {emp.phone && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{emp.phone}</span>}
                   </div>
