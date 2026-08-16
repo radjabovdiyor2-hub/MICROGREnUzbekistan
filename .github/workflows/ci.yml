@@ -248,7 +248,10 @@ jobs:
     needs: [quality, python-quality, security, build-images]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
-    timeout-minutes: 30
+    # Час, а не полчаса: бюджет считается от худшего канала (см. pull ниже),
+    # а не от типичного. Обычный деплой как занимал три минуты, так и занимает —
+    # запас простаивает и ничего не стоит.
+    timeout-minutes: 60
     # Serialize deploys: concurrent SSH sessions raced on the same containers
     # ("container name already in use"). Don't cancel in-progress — each deploy
     # git-resets to origin/main, so the queued one ships the newest code anyway.
@@ -266,7 +269,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: MG_TAG,GHCR_OWNER
-          command_timeout: 28m
+          command_timeout: 50m
           script: |
             set -ex
             export MG_TAG=$MG_TAG
@@ -280,7 +283,31 @@ jobs:
             # это обрывает скрипт, и место обрыва решает многое — стоя после
             # unify_databases.sql, pull ронял бы деплой уже ПОСЛЕ переименования
             # таблиц, оставляя стек лежать на полпути с мигрированной базой.
-            docker compose -f docker-compose.prod.yml pull
+            #
+            # Три попытки с ограничением каждой, а не одна команда на весь
+            # бюджет сессии. 15 августа канал сервера до ghcr.io просел с
+            # 17 МБ/с до 0.35 МБ/с (замерено по прогонам #345 и #348), и 636 МБ
+            # новых слоёв перестали помещаться в отведённое время. Одиночный
+            # pull в такой ситуации не двигает деплой НИКОГДА: его убивают
+            # вместе со всей SSH-сессией, слои в полёте теряются, и следующий
+            # деплой начинает с того же места. Докачанные слои, наоборот,
+            # остаются в локальном хранилище — поэтому попытки накапливают
+            # прогресс, и медленный канал перестаёт быть вечной красной сборкой.
+            # Два прогона подряд, #346 и #348, сгорели ровно на этом.
+            df -h /var/lib/docker || true
+            pull_ok=""
+            for attempt in 1 2 3; do
+              if timeout 12m docker compose -f docker-compose.prod.yml pull; then
+                pull_ok="yes"
+                break
+              fi
+              echo "⚠️  попытка $attempt: pull не уложился в 12 минут; скачанные слои сохранены, повторяем"
+            done
+            if [ -z "$pull_ok" ]; then
+              echo "❌ образы не скачались за три попытки — смотреть канал до ghcr.io и место на диске:"
+              df -h /var/lib/docker || true
+              exit 1
+            fi
             # Remove stale one-shot containers first. db-push/db-seed use fixed
             # names, so a leftover from a previous/aborted run makes compose fail
             # with "container name already in use" on recreate. Two separate
