@@ -166,12 +166,17 @@ services:
 
   # One-shot: push the Prisma schema into the unified database, then exit.
   db-push:
-    # Тот же builder-образ, что и у db-seed: собираем его один раз, а не дважды.
-    image: ghcr.io/${GHCR_OWNER:-radjabovdiyor2-hub}/mg-web-builder:${MG_TAG:-latest}
+    # Тот же образ, что и у db-seed: собираем его один раз, а не дважды.
+    #
+    # Раньше здесь стояла builder-стадия apps/web (образ mg-web-builder) —
+    # полный node_modules монорепозитория, около 4 ГБ, и он ехал на сервер
+    # каждую выкатку ради двух одноразовых команд. 15 августа, когда канал до
+    # ghcr.io просел до 0.35 МБ/с, именно этот вес не дал деплою закончиться.
+    # mg-db-tools несёт только prisma CLI, tsx и клиент — 501 МБ.
+    image: ghcr.io/${GHCR_OWNER:-radjabovdiyor2-hub}/mg-db-tools:${MG_TAG:-latest}
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
-      target: builder
+      dockerfile: packages/database/Dockerfile
     container_name: mg_db_push
     working_dir: /app
     command: sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma --skip-generate --accept-data-loss"
@@ -191,11 +196,10 @@ services:
   # seed-if-empty runs the full seed only when product count is 0, so it never
   # overwrites admin-edited prices/stock on an already-populated shop.
   db-seed:
-    image: ghcr.io/${GHCR_OWNER:-radjabovdiyor2-hub}/mg-web-builder:${MG_TAG:-latest}
+    image: ghcr.io/${GHCR_OWNER:-radjabovdiyor2-hub}/mg-db-tools:${MG_TAG:-latest}
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
-      target: builder
+      dockerfile: packages/database/Dockerfile
     container_name: mg_db_seed
     working_dir: /app/packages/database
     command: sh -c "npx tsx prisma/seed-if-empty.ts"

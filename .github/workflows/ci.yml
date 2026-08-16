@@ -206,16 +206,19 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/mg-tgas:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build and push mg-web-builder
+      # Инструменты для db-push и db-seed. Раньше эти два одноразовых шага
+      # обслуживала builder-стадия apps/web (образ mg-web-builder ~4 ГБ):
+      # полный node_modules монорепозитория ехал на сервер каждую выкатку ради
+      # `prisma db push` и сидера. Теперь — 501 МБ ровно с тем, что им нужно.
+      - name: Build and push mg-db-tools
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/web/Dockerfile
-          target: builder
+          file: packages/database/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/mg-web-builder:latest
-            ghcr.io/${{ github.repository_owner }}/mg-web-builder:sha-${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/mg-db-tools:latest
+            ghcr.io/${{ github.repository_owner }}/mg-db-tools:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build and push mg-web
@@ -377,9 +380,10 @@ jobs:
             docker compose -f docker-compose.prod.yml ps
             # Наши образы помечены постоянным тегом sha-<коммит>, поэтому при
             # следующем деплое они НЕ становятся dangling и `image prune -f` их
-            # не видит. Один mg-web-builder тянет полный node_modules — выходит
-            # около 4 ГБ за деплой, и через десяток выкаток диск кончится ровно
-            # так же, как кончился от кэша buildkit.
+            # не видит: без явного rmi поколения копятся, и диск кончится так
+            # же, как он уже кончался от кэша buildkit. Этот же проход уносит
+            # оставшиеся mg-web-builder — прод на них больше не работает,
+            # db-push и db-seed переехали на mg-db-tools.
             # Удаляем только свой неймспейс: на машине живут чужие проекты.
             # Откат это не ломает — MG_TAG=sha-<старый> дотянет образ из GHCR.
             docker images --format '{{.Repository}}:{{.Tag}}' \
