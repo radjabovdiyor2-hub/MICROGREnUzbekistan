@@ -2104,11 +2104,13 @@ async def _answer_open_sale_question(message: Message, user_text: str) -> Option
     и на количество. Раньше разбиралось только количество, поэтому «Назовите
     цену» текстом закрыть было нельзя.
 
+    Реплай (свайп вправо) на сам вопрос считается ответом независимо от длины:
+    когда цитируют именно нашу реплику, адресат назван, и гадать по виду текста
+    незачем. Без этого «Пятнадцать, но два из них Санго» пролетало мимо заявки.
+
     Возвращает строку для истории диалога, если продажа дозаписана.
     """
     text_body = (user_text or "").strip()
-    if len(text_body) > 30:
-        return None
 
     from bots.stepan_bot.handlers.sale_ui import (
         answer_sale_result,
@@ -2123,6 +2125,15 @@ async def _answer_open_sale_question(message: Message, user_text: str) -> Option
         logger.warning(f"Незакрытая продажа недоступна: {exc}")
         return None
     if not question:
+        return None
+
+    reply_to = getattr(message, "reply_to_message", None)
+    answers_our_question = bool(
+        reply_to
+        and question.get("message_id")
+        and reply_to.message_id == question["message_id"]
+    )
+    if not answers_our_question and len(text_body) > 30:
         return None
 
     needs = question.get("needs")

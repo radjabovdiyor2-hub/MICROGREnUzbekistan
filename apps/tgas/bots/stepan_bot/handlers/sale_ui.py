@@ -76,12 +76,21 @@ async def drop_pending(token: str) -> None:
 # Redis, тот же TTL, отдельной инфраструктуры не нужно.
 
 
-async def remember_open(chat_id: int, token: str, needs: str) -> None:
+async def remember_open(
+    chat_id: int, token: str, needs: str, message_id: Optional[int] = None
+) -> None:
+    """Запомнить незакрытый вопрос чата — и сообщение, которым он задан.
+
+    `message_id` нужен для ответа реплаем (свайп вправо). Без него ответ
+    опознавался только по виду текста: короткая реплика с числом. «Пятнадцать,
+    но два из них Санго» под тем самым вопросом уже не проходило, хотя адресат
+    очевиден — на него показывает сама цитата.
+    """
     client = _redis()
     try:
         await client.set(
             f"sale:open:{int(chat_id)}",
-            json.dumps({"token": token, "needs": needs}),
+            json.dumps({"token": token, "needs": needs, "message_id": message_id}),
             ex=PENDING_TTL,
         )
     finally:
@@ -101,7 +110,12 @@ async def open_question(chat_id: int) -> Optional[Dict[str, Any]]:
     pending = await load_pending(entry["token"])
     if not pending:
         return None  # заявка истекла — вопроса больше нет
-    return {"token": entry["token"], "needs": entry.get("needs"), "pending": pending}
+    return {
+        "token": entry["token"],
+        "needs": entry.get("needs"),
+        "message_id": entry.get("message_id"),
+        "pending": pending,
+    }
 
 
 async def forget_open(chat_id: int) -> None:
@@ -373,13 +387,19 @@ async def answer_sale_result(message: Message, result: Dict[str, Any]) -> str:
             return "Вопрос по этой продаже уже задан выше — жду ответа."
 
         token = await save_pending(data["pending"])
-        # Помним вопрос по чату: на «сколько?» отвечают словами, а не кнопкой.
-        await remember_open(message.chat.id, token, str(data.get("needs") or ""))
         keyboard = build_clarify_keyboard(token, data)
-        await message.answer(
+        sent = await message.answer(
             f"❓ <b>Отдел продаж:</b> {result.get('message')}",
             parse_mode="HTML",
             reply_markup=keyboard,
+        )
+        # Помним вопрос по чату: на «сколько?» отвечают словами, а не кнопкой,
+        # и всё чаще — реплаем на само сообщение с вопросом.
+        await remember_open(
+            message.chat.id,
+            token,
+            str(data.get("needs") or ""),
+            getattr(sent, "message_id", None),
         )
         return "Отдел продаж уточняет позицию — продажа пока не записана."
 

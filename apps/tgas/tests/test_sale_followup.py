@@ -52,6 +52,23 @@ def test_other_messages_are_not_answers(text):
     assert _QUANTITY_REPLY.match(text) is None or len(text) > 30
 
 
+# ── Реплай на сам вопрос ────────────────────────────────────────────────
+def test_open_question_remembers_its_message():
+    """Заявка обязана помнить, КАКИМ сообщением задан вопрос.
+
+    По нему ответ свайпом вправо находит свою продажу. Без `message_id`
+    ответом считалась только короткая реплика с числом, и развёрнутое
+    «Пятнадцать, но два из них Санго» под тем самым вопросом пролетало мимо.
+    """
+    import inspect
+
+    signature = inspect.signature(sale_ui.remember_open)
+    assert "message_id" in signature.parameters, (
+        "вопрос перестал запоминать своё сообщение — ответ реплаем снова "
+        "будет опознаваться только по виду текста"
+    )
+
+
 # ── Дозапись заявки ─────────────────────────────────────────────────────
 PENDING = {
     "customer_name": "ресторан жасмин",
