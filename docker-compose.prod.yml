@@ -268,7 +268,7 @@ services:
       # код ждал `gpt-4o-mini`, а офис — третье; одна из моделей аккаунту не
       # принадлежала, и каждый вызов падал.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${WEB_OPENAI_MODEL:-gpt-5.6-sol}
+      OPENAI_MODEL: ${WEB_OPENAI_MODEL:-gpt-5.5}
       INGEST_SECRET: ${INGEST_SECRET:-}
       # Shared secret for storefront-bot -> web admin API calls (empty = off).
       BOT_SECRET: ${BOT_SECRET:-}
@@ -327,7 +327,7 @@ services:
       # речи и озвучка. Без ключа бот не упадёт, но будет отвечать заглушкой —
       # прописываем явно, как у веб-сервиса, чтобы это не осталось незамеченным.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-sol}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.5}
       # Must match the web service's BOT_SECRET so admin API calls authorize.
       BOT_SECRET: ${BOT_SECRET:-}
       # Степан-менеджер (@MG_PM1_bot) — для уведомлений о заказах

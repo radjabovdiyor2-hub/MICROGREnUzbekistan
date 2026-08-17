@@ -17,6 +17,11 @@ const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
   // Luna — для дешёвых массовых задач. Держать в согласии с TOKEN_COSTS в
   // packages/mg_ai/mg_ai/engine.py: расход считается в двух рантаймах, а
   // раздел «Расходы на ИИ» в админке у них один.
+  'gpt-5.5': { input: 5, output: 30 },
+  'gpt-5.4': { input: 2.5, output: 15 },
+  'gpt-5.4-mini': { input: 0.75, output: 4.5 },
+  'gpt-5-nano': { input: 0.05, output: 0.4 },
+  // Закрытое превью — цены на случай, если дадут доступ.
   'gpt-5.6-sol': { input: 5, output: 30 },
   'gpt-5.6-terra': { input: 2, output: 12 },
   'gpt-5.6-luna': { input: 0.2, output: 1.2 },

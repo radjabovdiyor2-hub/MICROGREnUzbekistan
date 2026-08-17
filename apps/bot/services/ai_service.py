@@ -227,7 +227,7 @@ def _get_engine() -> AIEngine:
             # Флагман OpenAI — тот же, что у офиса (apps/tgas/shared/config.py).
             # Одна переменная OPENAI_MODEL на всё; резервное значение здесь
             # только для случая, когда её забыли задать.
-            openai_model=os.getenv("OPENAI_MODEL") or "gpt-5.6-sol",
+            openai_model=os.getenv("OPENAI_MODEL") or "gpt-5.5",
             bot_name="storefront_bot",
             persist_fn=_persist_usage,
         )

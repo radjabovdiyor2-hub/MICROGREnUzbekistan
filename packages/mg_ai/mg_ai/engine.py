@@ -40,8 +40,14 @@ logger = logging.getLogger(__name__)
 # ⚠️ Модель, которой нет в этом словаре, считается по ставке «наугад»
 # (1.0/3.0) — расход в админке будет неверным. Меняете модель — правьте и здесь.
 TOKEN_COSTS: Dict[str, Dict[str, float]] = {
-    # Актуальное семейство OpenAI (август 2026). Sol — флагман, Terra —
-    # баланс цены и качества, Luna — для дешёвых массовых задач.
+    # Общедоступные по обычному ключу (август 2026).
+    "gpt-5.5": {"input": 5.00, "output": 30.00},
+    "gpt-5.4": {"input": 2.50, "output": 15.00},
+    "gpt-5.4-mini": {"input": 0.75, "output": 4.50},
+    "gpt-5": {"input": 1.25, "output": 10.00},
+    "gpt-5-mini": {"input": 0.25, "output": 2.00},
+    "gpt-5-nano": {"input": 0.05, "output": 0.40},
+    # Закрытое превью (нужен доступ от OpenAI) — цены на случай, если дадут.
     "gpt-5.6-sol": {"input": 5.00, "output": 30.00},
     "gpt-5.6-terra": {"input": 2.00, "output": 12.00},
     "gpt-5.6-luna": {"input": 0.20, "output": 1.20},
@@ -152,7 +158,7 @@ class AIEngine:
         # дефолтом приложений (apps/tgas/shared/config.py, apps/bot,
         # apps/web/src/lib/ai/models.ts): четыре разных «модели по умолчанию» в
         # одном проекте уже приводили к падению каждого вызова.
-        self._openai_model = openai_model or "gpt-5.6-sol"
+        self._openai_model = openai_model or "gpt-5.5"
         self._openai_client: Any = None
 
         self._default_system_prompt = default_system_prompt

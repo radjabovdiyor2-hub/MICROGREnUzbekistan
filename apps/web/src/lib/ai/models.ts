@@ -16,8 +16,13 @@
  * Общего кода у TypeScript и Python здесь нет — только общее правило.
  */
 
-/** Флагман OpenAI: reasoning_effort до `max`, окно 1,05 млн токенов. */
-export const DEFAULT_OPENAI_MODEL = 'gpt-5.6-sol';
+/**
+ * Самая умная модель, доступная по обычному ключу.
+ *
+ * ⚠️ `gpt-5.6-*` в прайсе есть, но раздаётся закрытым превью — партнёрам с
+ * личным менеджером OpenAI. Без доступа это 400 на каждом вызове.
+ */
+export const DEFAULT_OPENAI_MODEL = 'gpt-5.5';
 
 export const OPENAI_MODEL = process.env.OPENAI_MODEL || DEFAULT_OPENAI_MODEL;
 
