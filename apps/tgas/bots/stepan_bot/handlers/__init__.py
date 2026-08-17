@@ -1,4 +1,5 @@
 from .assistant import router as assistant_router
+from .customer_ui import customer_ui_router
 from .dispatcher import router as dispatcher_router
 from .product_card import product_card_router
 from .production import router as production_router
@@ -17,6 +18,7 @@ all_routers = [
     production_router,
     product_card_router,
     sale_ui_router,
+    customer_ui_router,
     standup_router,
     tasks_router,
     meeting_router,

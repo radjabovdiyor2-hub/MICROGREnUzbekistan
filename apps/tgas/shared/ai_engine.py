@@ -2,10 +2,13 @@
 Microgreen Uzbekistan — AI-движок офиса.
 =========================================
 
-Обёртка над пакетом `mg_ai`: сам транспорт (OpenAI + Gemini, TTS, STT) живёт
-там и общий у офиса и витринного бота. Здесь остаётся только то, что
+Обёртка над пакетом `mg_ai`: сам транспорт (OpenAI: текст, зрение, TTS, STT)
+живёт там и общий у офиса и витринного бота. Здесь остаётся только то, что
 принадлежит офису: ключи из настроек, брендовый системный промпт, запасные
-ответы и запись расхода токенов в базу.
+ответы, запись расхода токенов в базу и сигнал владельцу при отказе движка.
+
+Поставщик один — OpenAI. Запасного нет намеренно: тихая подмена модели
+неотличима от работающего движка (см. докстринг `mg_ai/engine.py`).
 
 Файл сохранён на прежнем месте намеренно: `shared.ai_engine.AIEngine`
 импортируют 44 раза в 32 файлах, и все вызовы — `AIEngine()` без аргументов.
@@ -23,7 +26,6 @@ from mg_ai.engine import (  # noqa: F401  — публичная поверхн�
     UsageStats,
     TOKEN_COSTS,
     _is_reasoning_model,
-    GEMINI_BASE_URL,
 )
 from shared.config import settings
 
@@ -126,7 +128,10 @@ def _persist_usage(
     try:
         from shared.ai_usage import record_ai_usage
 
-        provider = "gemini" if str(model).startswith("gemini") else "openai"
+        # Поставщик один, и в учёте он тоже один: колонка `provider` в
+        # `ai_usage` осталась ради истории — по ней видно расход тех
+        # месяцев, когда офис молча работал на Gemini.
+        provider = "openai"
         loop.create_task(
             record_ai_usage(
                 bot_name, provider, model, input_tokens, output_tokens, cost_usd
@@ -134,6 +139,54 @@ def _persist_usage(
         )
     except Exception as e:  # noqa: BLE001
         logger.debug("persist usage skip: %s", e)
+
+
+def _notify_ai_failure(where: str, model: str, error: str) -> None:
+    """Движок отказал — сказать владельцу один раз, а не только в лог.
+
+    Ключ у `alert_once` один на причину: пока проблема та же, сигнал не
+    повторяется чаще раза в сутки. Иначе при протухшем ключе OpenAI владелец
+    получал бы сообщение на каждое своё слово.
+
+    Сигнал обязателен именно потому, что запасного поставщика больше нет:
+    отказ движка означает, что офис сейчас без ИИ, и узнать об этом надо
+    сразу, а не по молчащим ботам.
+    """
+    try:
+        import asyncio
+
+        from shared import alert_once
+
+        if not alert_once.should_send("ai_failure", f"{model}|{error[:120]}"):
+            return
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return  # вне event loop — сигнал не отправить
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("ai failure alert skip: %s", exc)
+        return
+
+    async def _raise() -> None:
+        try:
+            from shared.owner_alerts import SEVERITY_CRITICAL, raise_alert
+
+            await raise_alert(
+                kind="ai_failure",
+                severity=SEVERITY_CRITICAL,
+                title=f"ИИ не отвечает ({where})",
+                message=(
+                    f"OpenAI ({model}) отказал: {error}\n\n"
+                    "Запасного движка нет намеренно — иначе офис молча работал "
+                    "бы на слабой модели. Проверьте OPENAI_API_KEY, "
+                    "OPENAI_MODEL и баланс аккаунта: "
+                    "python scripts/check_ai.py"
+                ),
+                source="ai_engine",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Не смог сообщить об отказе движка: %s", exc)
+
+    loop.create_task(_raise())
 
 
 class AIEngine(_BaseAIEngine):
@@ -151,14 +204,15 @@ class AIEngine(_BaseAIEngine):
     ):
         super().__init__(
             openai_key=api_key or settings.openai_api_key,
-            gemini_key=settings.gemini_api_key,
             openai_model=model or settings.openai_model,
-            gemini_model=settings.gemini_model or "gemini-2.5-flash",
             default_system_prompt=default_system_prompt or MICROGREEN_SYSTEM_PROMPT,
             fallback_responses=FALLBACK_RESPONSES,
             # Без этого крючка офис перестал бы видеть, во что обходится ИИ:
             # раздел «Расходы на ИИ» в админке читает таблицу ai_usage.
             persist_fn=_persist_usage,
+            # А без этого отказ движка остался бы строкой в логе — как и было
+            # всё то время, пока офис молча отвечал запасной моделью.
+            on_failure=_notify_ai_failure,
         )
 
     async def chat_completion(

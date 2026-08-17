@@ -57,6 +57,12 @@ _TECHNICAL = {
     "needs",
     "data",
     "pending",
+    # Подсказка модели, что делать дальше («вызови ещё раз с force_new»).
+    # Человеку она не адресована и в чате выглядит как приказ на непонятном
+    # языке — ровно так руководитель и увидел «повтори с force_new».
+    "hint",
+    "matched_field",
+    "score",
 }
 
 #: Сколько элементов списка показываем, прежде чем свернуть остаток в «и ещё N».
@@ -225,6 +231,24 @@ def customers(result: Dict[str, Any]) -> str:
             f"{c.get('orders_count', 0)} на {c.get('total_spent_text', '—')}"
         )
     return "\n".join(lines)
+
+
+def customer_confirm(result: Dict[str, Any]) -> str:
+    """Итог заведения клиента: карточка, отказ или вопрос о тёзке.
+
+    Вопрос печатается списком с телефонами: имя без номера ничего не решает —
+    именно по номеру руководитель и отличает «тот самый ресторан» от
+    однофамильца. Слова `force_new` здесь нет и быть не может: это инструкция
+    модели, а читает текст человек.
+    """
+    if result.get("needs") == "confirmation":
+        return "🤔 " + str(result.get("error") or "Похожий клиент уже есть.")
+
+    summary = result.get("summary")
+    if summary and str(summary).strip():
+        return str(summary).strip()
+    error = result.get("error")
+    return f"⚠️ {error}" if error else "Клиент не заведён — данных нет."
 
 
 def customer_orders(result: Dict[str, Any]) -> str:

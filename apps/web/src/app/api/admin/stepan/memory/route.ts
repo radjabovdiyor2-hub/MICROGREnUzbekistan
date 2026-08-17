@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
-import { loadRecentMessages, appendMessage, startNewConversation } from '@/lib/stepan/memory';
+import {
+  loadRecentMessages,
+  appendMessage,
+  startNewConversation,
+  conversationKey,
+} from '@/lib/stepan/memory';
 
 // ══════════════════════════════════════════════════════════════════════
 // Общая память ассистента — доступ снаружи витрины.
@@ -8,6 +13,12 @@ import { loadRecentMessages, appendMessage, startNewConversation } from '@/lib/s
 // Двое потребителей:
 //   · админка — рисует историю разговора при открытии страницы;
 //   · Стёпан в Telegram (apps/tgas) — читает контекст и дописывает реплики.
+//
+// `scope` — комната разговора. Пусто (личка владельца и админка) = общая
+// нить: один человек продолжает один разговор с любого устройства. Рабочая
+// группа передаёт свой `chat<id>` и получает отдельную нить — иначе вопрос
+// бота в группе и переписка владельца в личке смешиваются, и модель
+// отвечает на реплику из соседнего разговора.
 //
 // Прямой доступ из apps/tgas в эту таблицу запрещён конституцией: связь
 // между модулями только через HTTP. Бот авторизуется тем же BOT_SECRET,
@@ -19,7 +30,8 @@ export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
   try {
-    const messages = await loadRecentMessages();
+    const scope = request.nextUrl.searchParams.get('scope');
+    const messages = await loadRecentMessages(conversationKey(scope));
     return NextResponse.json({ status: 'ok', messages });
   } catch (error) {
     console.error('[stepan/memory] чтение не удалось:', error);
@@ -33,7 +45,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
-  let body: { role?: unknown; content?: unknown; channel?: unknown; toolCalls?: unknown };
+  let body: {
+    role?: unknown;
+    content?: unknown;
+    channel?: unknown;
+    toolCalls?: unknown;
+    scope?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -57,6 +75,7 @@ export async function POST(request: NextRequest) {
       channel,
       content: content.slice(0, 8000),
       toolCalls: body.toolCalls,
+      ownerKey: conversationKey(typeof body.scope === 'string' ? body.scope : null),
     });
     return NextResponse.json({ status: 'ok' });
   } catch (error) {
@@ -73,7 +92,8 @@ export async function DELETE(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
   try {
-    await startNewConversation();
+    const scope = request.nextUrl.searchParams.get('scope');
+    await startNewConversation(conversationKey(scope));
     return NextResponse.json({ status: 'ok' });
   } catch (error) {
     console.error('[stepan/memory] не удалось закрыть нить:', error);

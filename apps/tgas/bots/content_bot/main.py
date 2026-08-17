@@ -39,6 +39,7 @@ from shared.database import init_db
 from shared.event_bus import event_bus
 from shared.group_orchestrator import create_group_router
 from shared.health import start_heartbeat
+from shared import group_reply
 from shared.scheduler import BotScheduler
 from shared.trends import (
     build_topical_angle,
@@ -1661,7 +1662,13 @@ async def main():
     bot_info = await bot.me()
     group_router = create_group_router(
         bot_info.username,
-        ai_fallback,
+        # Инструменты отдела + память чата (shared/group_reply).
+        group_reply.group_handler(
+            "content_bot",
+            "content",
+            "Ты — главный редактор и бренд-менеджер Microgreen Uzbekistan: "
+            "посты, сторис, рецепты, визуальный стиль.",
+        ),
         wake_words=["отдел контент", "контент", "content", "посты", "сторис"],
     )
     dp.include_router(group_router)

@@ -9,7 +9,7 @@ from aiogram.enums import ParseMode
 from aiogram.types import MenuButtonWebApp, WebAppInfo
 from dotenv import load_dotenv
 
-from handlers import start, agronomist, orders
+from handlers import start, ai_seller, orders
 from handlers.unified import router as unified_router
 from handlers.group import router as group_router
 from handlers.shop import router as shop_router
@@ -38,7 +38,7 @@ dp.include_router(shop_router)         # /shop, /catalog, cart, checkout
 dp.include_router(unified_router)      # /orders, /bonuses, menu callbacks
 dp.include_router(features_router)     # recipes, profile, favorites, reorder, search, reviews
 dp.include_router(orders.router)       # Order display callbacks
-dp.include_router(agronomist.router)   # AI text/photo/voice in private chats
+dp.include_router(ai_seller.router)    # AI-продавец: текст/фото/голос в личке
 dp.include_router(group_router)        # Group FAQ & AI (last — catches remaining group msgs)
 
 

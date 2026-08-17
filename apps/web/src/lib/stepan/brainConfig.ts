@@ -4,9 +4,10 @@ import { TG_ONLY_NAMES } from './tools';
 import type { ProposalPayload } from './proposal';
 
 export const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-export const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
-export const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+// Имя модели — из общего lib/ai/models.ts. Здесь стояло своё значение, и
+// веб-Стёпан думал не той моделью, что офисный, хотя это один и тот же
+// помощник для владельца.
+export { OPENAI_MODEL } from '../ai/models';
 
 /** Больше двух-трёх шагов Стёпану не нужно, а стоимость растёт линейно. */
 export const MAX_STEPS = 6;
@@ -22,11 +23,9 @@ export interface BrainResult {
   usedTools: string[];
 }
 
+/** Есть ли чем думать. Поставщик один — запасного ключа больше не бывает. */
 export function aiAvailable(): boolean {
-  return Boolean(
-    (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) ||
-    (GEMINI_API_KEY && GEMINI_API_KEY.length > 10),
-  );
+  return Boolean(OPENAI_API_KEY && OPENAI_API_KEY.length > 10);
 }
 
 export const SYSTEM_PROMPT = `Ты — Стёпан, операционный директор компании Microgreen Uzbekistan (Самарканд).

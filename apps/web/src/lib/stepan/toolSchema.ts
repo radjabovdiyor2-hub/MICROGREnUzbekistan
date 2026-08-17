@@ -1,4 +1,4 @@
-// Вынесено из tools.ts: сборка описаний в формате JSON Schema для OpenAI и Gemini.
+// Вынесено из tools.ts: сборка описаний в формате JSON Schema для OpenAI.
 
 import type { ToolParam, ArrayToolParam, ReadTool, WriteTool } from './toolTypes';
 

@@ -63,7 +63,6 @@ def _install_mg_ai_stub() -> None:
     engine.UsageStats = object
     engine.TOKEN_COSTS = {}
     engine._is_reasoning_model = lambda model: False
-    engine.GEMINI_BASE_URL = ""
     package.engine = engine
 
     sys.modules["mg_ai"] = package

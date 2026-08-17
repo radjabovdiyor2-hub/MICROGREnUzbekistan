@@ -14,7 +14,7 @@ from shared.event_bus import event_bus
 from shared.notifications import register_analytics_handlers
 from bots.analytics_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
-from bots.analytics_bot.handlers.ai_analytics import ai_chat
+from shared import group_reply
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
@@ -697,7 +697,13 @@ async def main():
     bot_info = await bot.me()
     group_router = create_group_router(
         bot_info.username,
-        ai_chat,
+        # Инструменты отдела + память чата (shared/group_reply).
+        group_reply.group_handler(
+            "analytics_bot",
+            "analytics",
+            "Ты — Data Scientist Microgreen Uzbekistan: считаешь по фактам из "
+            "базы, находишь тренды и аномалии, не выдумываешь цифры.",
+        ),
         wake_words=["отдел аналитик", "аналитика", "analytics", "данные", "статистика"],
     )
     dp.include_router(group_router)

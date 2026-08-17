@@ -21,6 +21,28 @@ import { prisma } from '@repo/database';
  */
 export const OWNER_KEY = 'owner';
 
+/** Что считаем безопасным ключом комнаты: без пробелов и спецсимволов. */
+const SCOPE_RE = /^[A-Za-z0-9:_-]{1,48}$/;
+
+/**
+ * Ключ нити для отдельной «комнаты» разговора.
+ *
+ * Личный чат владельца и админка — ОДНА нить (`owner`): это один и тот же
+ * человек продолжает один и тот же разговор, начатый голосом в Telegram и
+ * дописанный с ноутбука. А вот рабочая группа — уже другая комната: там
+ * говорят менеджеры, и там свои темы. Пока нить была одна на всё, вопрос
+ * бота в группе и переписка владельца в личке перемешивались, и модель
+ * отвечала на реплику из соседнего разговора.
+ *
+ * Схема при этом не менялась: `ownerKey` уже был отдельным полем — просто
+ * роут всегда подставлял в него константу.
+ */
+export function conversationKey(scope?: string | null): string {
+  if (!scope || scope === OWNER_KEY) return OWNER_KEY;
+  if (!SCOPE_RE.test(scope)) return OWNER_KEY;
+  return `${OWNER_KEY}:${scope}`;
+}
+
 export type MemoryChannel = 'web' | 'telegram';
 
 export interface MemoryMessage {

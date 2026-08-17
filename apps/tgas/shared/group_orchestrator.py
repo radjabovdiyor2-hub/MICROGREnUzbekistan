@@ -39,8 +39,12 @@ def create_group_router(
 
             sig = inspect.signature(handle_mention_func)
             passed_kwargs = {k: v for k, v in kwargs.items() if k in sig.parameters}
-            await handle_mention_func(message, **passed_kwargs)
-            await set_reaction(message, "👍")
+            handled = await handle_mention_func(message, **passed_kwargs)
+            # 👍 означает «сделал», а не «не упало». Обработчик, вернувший
+            # False или None, ничего не ответил — и раньше это выглядело в
+            # чате как выполненное распоряжение: 16.08.2026 ответ менеджера
+            # «Нет» получил 👍 и был выброшен без единого слова.
+            await set_reaction(message, "👍" if handled is not False else "🤷‍♂️")
         except Exception as e:
             logger.error(f"Ошибка при обработке упоминания в группе: {e}")
             await set_reaction(message, "👎")

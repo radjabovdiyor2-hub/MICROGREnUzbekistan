@@ -9,7 +9,7 @@ Guidance для Claude Code при работе в этом репозитори
 | Модуль | Стек | Роль |
 |--------|------|------|
 | `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 29 API-групп, 107 роутов |
-| `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины, ходит в `apps/web/api/*` по HTTP |
+| `apps/bot` | Python, aiogram 3, OpenAI | Telegram-бот витрины: AI-продавец, ходит в `apps/web/api/*` по HTTP |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
 | `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 71 модель, единый источник DDL |
 
@@ -22,7 +22,8 @@ Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 - **База одна, но таблицы двух семейств.** Витрина: `products`, `orders`, `order_items`, `users`. CRM офиса: `crm_products`, `crm_orders`, `crm_order_items`, `crm_employees`, `customers`, `tasks`, `finances`. Путать их — та самая ошибка, из-за которой продажа не регистрировалась.
 - **Нет ручного SQL DDL.** Только `npx prisma db push` / `npx prisma generate` из `packages/database`.
 - **Нет захардкоженных цветов.** Только CSS-переменные (`--brand-primary`, `--bg-primary`, `--text-primary`). Цепочка: `design-system/tokens/tokens.json` → `npm run tokens:build` → `globals.css`.
-- **Нет прямых AI-клиентов в Python.** Движок один — `packages/mg_ai`; приложения ходят в него через свою обёртку: офис через `apps/tgas/shared/ai_engine.py`, витринный бот через `apps/bot/services/ai_service.py`. Обёртка подставляет ключи и учёт расхода, поэтому `AsyncOpenAI`/Gemini напрямую создавать нельзя — расход уйдёт мимо `ai_usage`.
+- **Нет прямых AI-клиентов в Python.** Движок один — `packages/mg_ai`; приложения ходят в него через свою обёртку: офис через `apps/tgas/shared/ai_engine.py`, витринный бот через `apps/bot/services/ai_service.py`. Обёртка подставляет ключи и учёт расхода, поэтому `AsyncOpenAI` напрямую создавать нельзя — расход уйдёт мимо `ai_usage`.
+- **Поставщик AI один — OpenAI, запасного нет.** Схема «OpenAI primary + Gemini fallback» молчала: пустой или неверный `OPENAI_API_KEY` не выключал ИИ, а переводил весь офис на слабую модель одной строкой в логе. Отказ теперь виден — исключением, честной заглушкой и сигналом владельцу. Модель задаётся ОДНИМ значением `OPENAI_MODEL` (пусто = дефолт кода); меняете её — правьте `TOKEN_COSTS` в `packages/mg_ai` и `apps/web/src/lib/ai/usage.ts`, иначе расход считается по ставке наугад. Проверка: `cd apps/tgas && python scripts/check_ai.py`.
 - **Нет `any`, `@ts-ignore`, `eslint-disable`, пустого `catch`, `TODO` и заглушек.** Компоненты ≤200 строк.
 - **Нет секретов в выводе.** `.env`, токены и ключи не печатать, не логировать, не коммитить.
 - **Нет git side effects** без явного запроса в этом же ходе.

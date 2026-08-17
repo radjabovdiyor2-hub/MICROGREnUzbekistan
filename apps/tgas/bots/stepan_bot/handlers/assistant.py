@@ -82,6 +82,7 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 - ✍️ Задачу на контент (create_task, department='content') создавай ТОЛЬКО когда просят СОЗДАТЬ/СДЕЛАТЬ/НАПИСАТЬ НОВЫЙ пост/сторис/мем. Прошедшее время («что опубликовали», «который выложили») — это НЕ поручение публиковать.
 - 💰 ФАКТ ПРОДАЖИ — ЭТО ДЕЙСТВИЕ, А НЕ ЗАДАЧА. «Зарегистрируй продажу», «продали N штук ресторану X», «оформи/запиши продажу» → вызывай register_sale (отдел продаж запишет клиента, заказ и доход в CRM). ЗАПРЕЩЕНО создавать на это create_task — задача породит только текст «беру в работу», а продажа так и не будет учтена.
 - 👤 «ЗАРЕГИСТРИРУЙ» БЕЗ ТОВАРА — ЭТО КЛИЕНТ, А НЕ ПРОДАЖА. «Клиент Иван, номер такой-то, зарегистрируй», «запиши ресторан Навруз», «добавь клиента», «новый клиент» → вызывай add_customer (имя, телефон из сообщения, b2b для заведения / b2c для человека). register_sale — только когда назван ТОВАР, количество или сумма. ЗАПРЕЩЕНО выдумывать позицию («микрозелень»), чтобы вызов продажи прошёл валидацию: так вместо карточки клиента получается вопрос «такого товара нет в каталоге», и не заводится ни клиент, ни заказ.
+- 👥 ТЁЗКА КЛИЕНТА: если add_customer вернул похожие карточки, это ВОПРОС, а не отказ. Ответ «нет / другой / новый» → вызови add_customer ещё раз с теми же данными и force_new=true. Ответ «да» → карточку не заводи. ЗАПРЕЩЕНО писать в чат слова «force_new», «повтори с флагом» и любые другие инструкции для машины: собеседник — человек, он их не выполнит, и клиент останется незаведённым.
 - 🚫 НИКОГДА не выдумывай цену, сумму или количество, если руководитель их не назвал. Оставляй поля пустыми — отдел возьмёт цену из каталога или переспросит.
 - 🧾 ОДНА ПРОДАЖА = ОДИН вызов register_sale со списком items, даже если позиций несколько. «Продали 10 гороха и 13 редиса, из них 5 Санго по 15 тысяч» → items: [горох ×10, редис ×13, Санго ×5 по 15000]. НЕ дели на три вызова — иначе получится три заказа вместо одного.
 - 🆕 НЕТ ТОВАРА В КАТАЛОГЕ: отдел продаж сам предложит завести его кнопкой — руководитель нажмёт, и откроется мастер карточки (фото, категория, описание от контент-отдела). Вопрос текстом не повторяй. ИСКЛЮЧЕНИЕ: если в блоке «НЕЗАКРЫТАЯ ПРОДАЖА» написано «не хватает: цена» и руководитель цену назвал — вызови register_sale ещё раз с тем же клиентом и той же позицией, добавив unit_price. Без этого его ответ уходит в никуда. add_product вызывай только если руководитель прямо просит завести товар вне продажи.
@@ -113,6 +114,39 @@ STEPAN_PERSONA = """Ты — Степан, Генеральный Управля
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+
+#: Что сотруднику РАЗРЕШЕНО поручать Стёпану. Всё остальное — деньги, цены,
+#: задачи отделам, рассылки, публикации — остаётся за руководителем.
+#: Ограничение сделано набором инструментов, а не просьбой в промпте: просьбу
+#: модель может и обойти, а чего нет в списке — того она вызвать не может.
+STAFF_TOOLS = frozenset(
+    {
+        "find_customer",
+        "add_customer",
+        "get_customer_orders",
+        "find_product",
+        "get_price_list",
+        "get_order",
+    }
+)
+
+
+def is_staff_chat(message: Message) -> bool:
+    """Рабочая группа отдела продаж — там пишут сотрудники, а не посторонние.
+
+    16.08.2026 менеджер ответил «Нет» на вопрос бота о тёзке клиента, и ответ
+    был отброшен молча: `brain` слышал только владельца. Со стороны это и есть
+    «бот тупой» — он спросил и не услышал ответа. Своих узнаём по чату:
+    `sales_group_id` уже настроен и никем, кроме команды, не читается.
+    """
+    group = getattr(settings, "sales_group_id", 0) or 0
+    return bool(group) and message.chat.id == group
+
+
+def may_command(message: Message) -> bool:
+    """Кого Стёпан вообще слушает: руководитель или сотрудник в своей группе."""
+    return is_admin(message.from_user.id) or is_staff_chat(message)
 
 
 # ═══════════════════════════════════════════════════════
@@ -985,27 +1019,70 @@ def _last_plan_from_history(history: list) -> tuple:
     return "", ""
 
 
+def _merge_history(
+    shared: list, local: list, limit: int = 20
+) -> list:
+    """Общая нить плюс то, чего в ней ещё нет.
+
+    Раньше здесь стояло присваивание: `history = shared_history`. Всё, что
+    легло только в FSM, при этом молча пропадало — а туда и попадали ответы с
+    вызовом инструментов, потому что в общую память их никто не писал. Бот
+    терял ровно те реплики, в которых он что-то сделал и о чём-то спросил.
+    """
+    seen = {(m.get("role"), (m.get("content") or "").strip()) for m in shared}
+    extra = [
+        m
+        for m in local
+        if (m.get("role"), (m.get("content") or "").strip()) not in seen
+    ]
+    return (list(shared) + extra)[-limit:]
+
+
+def memory_scope(message: Message) -> Optional[str]:
+    """Комната разговора для общей памяти. None — личная нить владельца.
+
+    Личка и веб-админка — один разговор одного человека. Групповой чат —
+    другой: там говорят менеджеры, и его реплики не должны всплывать в ответе
+    на личный вопрос владельца.
+    """
+    if message.chat.type in ("group", "supergroup"):
+        return f"chat{message.chat.id}"
+    return None
+
+
 async def _remember(
-    state: FSMContext, user_text: str, assistant_text: str, intent: str = None
+    state: FSMContext,
+    user_text: str,
+    assistant_text: str,
+    intent: str = None,
+    share: bool = True,
+    scope: Optional[str] = None,
 ):
     """
     Записать обмен в общую память владельца и в FSM.
 
-    Без этого быстрые перехваты (статус/показ/совещание) выходили через return,
-    история не пополнялась — и следующее короткое «Покажи» приходило к AI без
-    контекста, из-за чего он отвечал отпиской вместо самого поста.
+    Вызывать обязан КАЖДЫЙ путь ответа. Пока `_remember` стоял только на
+    быстрых перехватах, а главный путь (ответ модели и ответ с вызовом
+    инструмента) писал историю лишь в FSM, бот не помнил собственных слов:
+    вопрос «Похоже, «Nozi» уже есть — это он?» не сохранялся нигде, и
+    следующее «Нет» приходило к модели как реплика ни о чём.
 
     Общая память — источник истины: тот же разговор виден в веб-админке.
     FSM остаётся для короткого шага диалога (last_intent) и как запасной
     контекст, если витрина недоступна.
-    """
-    try:
-        from shared import assistant_memory
 
-        await assistant_memory.append("user", user_text)
-        await assistant_memory.append("assistant", assistant_text)
-    except Exception as e:
-        logger.warning(f"Не удалось записать обмен в общую память: {e}")
+    `share=False` — реплика не владельца (сотрудник в рабочей группе). Нить
+    в базе ключуется владельцем, и чужие сообщения в ней выглядели бы его
+    словами; в FSM чата такая реплика сохраняется как обычно.
+    """
+    if share:
+        try:
+            from shared import assistant_memory
+
+            await assistant_memory.append("user", user_text, scope=scope)
+            await assistant_memory.append("assistant", assistant_text, scope=scope)
+        except Exception as e:
+            logger.warning(f"Не удалось записать обмен в общую память: {e}")
 
     if not state:
         return
@@ -1051,22 +1128,28 @@ async def handle_voice(message: Message, state: FSMContext = None):
 
 
 @router.message(F.text)
-async def brain(message: Message, state: FSMContext = None):
-    """Степан обрабатывает текстовые сообщения."""
-    # Если это группа, реагируем только на упоминание Степана (оркестратор уже отфильтровал)
-    if message.chat.type in ("group", "supergroup"):
-        if not message.text:
-            return
+async def brain(message: Message, state: FSMContext = None) -> bool:
+    """Степан обрабатывает текстовые сообщения.
 
-    if not is_admin(message.from_user.id):
-        # Разрешаем отвечать другим ботам, если мы сделаем EventBus обёртку, но пока игнорим чужих
-        return
+    Возвращает False, если сообщение не для него: по этому ответу
+    `group_orchestrator` ставит 🤷‍♂️ вместо 👍. Реакция «сделал» под
+    выброшенным сообщением — ровно то, из-за чего распоряжение считали
+    выполненным, хотя бот его даже не читал.
+    """
+    if not message.text:
+        return False
 
     user_text = message.text.strip()
     if not user_text:
-        return
+        return False
+
+    # Посторонний в личке — молчим, как и раньше: бот руководителя не открытая
+    # приёмная. А вот в рабочей группе молчать нельзя (см. is_staff_chat).
+    if not may_command(message):
+        return False
 
     await _process_brain(message, user_text, state)
+    return True
 
 
 async def _process_brain(message: Message, user_text: str, state: FSMContext = None):
@@ -1075,6 +1158,12 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     await simulate_typing(message, 2)
 
     low = user_text.lower()
+
+    # Распоряжения отдаёт руководитель; сотруднику в рабочей группе доступны
+    # ответы на вопросы бота и работа с клиентами (см. `may_command`).
+    owner = is_admin(message.from_user.id)
+    # Комната разговора: у группы своя нить памяти, у лички и админки — общая.
+    scope = memory_scope(message)
 
     # Контекст прошлого обмена: last_intent — для коротких продолжений («Покажи»),
     # history — чтобы «Выполняй» знало, КАКОЙ план запускать.
@@ -1087,22 +1176,50 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     last_intent = state_data.get("last_intent")
 
     # Контекст берём из общей памяти: тот же разговор владелец мог начать в
-    # веб-админке, и продолжение здесь обязано его помнить. FSM — запасной
-    # вариант на случай, когда витрина недоступна.
+    # веб-админке, и продолжение здесь обязано его помнить. FSM — не запасной
+    # вариант, а вторая половина: в нём лежит то, что происходило в этом чате.
     history = state_data.get("history", [])
+    memory_ok = True
     try:
         from shared import assistant_memory
 
-        shared_history = await assistant_memory.load_context()
-        if shared_history:
-            history = shared_history
+        shared_history = await assistant_memory.load_context(scope=scope)
+        if shared_history is None:
+            memory_ok = False
+        elif shared_history:
+            history = _merge_history(shared_history, history)
     except Exception as e:
+        memory_ok = False
         logger.warning(f"Общая память недоступна, работаю по локальной истории: {e}")
+
+    # ── ОТВЕТ НА СОБСТВЕННЫЙ ВОПРОС БОТА ──
+    #
+    # Идёт ПЕРВЫМ и доступен не только владельцу: «да»/«нет» — это ответ на
+    # то, что бот сам спросил минуту назад, а не новое распоряжение. Отвечает
+    # обычно тот менеджер, который клиента и привёл.
+    answered = await _answer_open_customer_question(message, user_text)
+    if answered:
+        await set_reaction(message, "👍")
+        await _remember(state, user_text, answered, intent="customer", share=owner, scope=scope)
+        return
+
+    # ── Ответ на «Сколько продали?» ──
+    #
+    # Отдел продаж спросил количество и ждёт. Руководитель отвечает словами —
+    # «15 штук», — и это ответ на конкретный вопрос, а не новая мысль. Раньше
+    # ответить можно было только кнопкой: токен заявки жил в callback_data, и
+    # текст его не находил. Со стороны это выглядело как «бот не помнит, о чём
+    # мы говорили минуту назад».
+    answered = await _answer_open_sale_question(message, user_text)
+    if answered:
+        await set_reaction(message, "👍")
+        await _remember(state, user_text, answered, intent="sale", share=owner, scope=scope)
+        return
 
     # ── КОНТЕНТ: ПОКАЗАТЬ реальный пост / отдать статус публикаций ──
     # «Покажи пост» → присылаем сам пост (картинка + текст), а не расписание.
     # Ничего не публикуем и не создаём задачу — это просмотр уже вышедшего.
-    intent = detect_content_intent(low, last_intent)
+    intent = detect_content_intent(low, last_intent) if owner else None
 
     if intent == "show":
         day = "yesterday" if "вчера" in low else "today"
@@ -1115,6 +1232,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             if ok
             else "[Показывать нечего — публикаций ещё не было]",
             intent="show",
+            scope=scope,
         )
         return
 
@@ -1126,26 +1244,10 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 user_text,
                 "[Отдал статус публикаций на сегодня]",
                 intent="status",
+                scope=scope,
             )
             return
         # контент-бот не ответил — уходим в обычную обработку ниже
-
-    # ── Ответ на «Сколько продали?» ──
-    #
-    # Отдел продаж спросил количество и ждёт. Руководитель отвечает словами —
-    # «15 штук», — и это ответ на конкретный вопрос, а не новая мысль. Раньше
-    # ответить можно было только кнопкой: токен заявки жил в callback_data, и
-    # текст его не находил. Со стороны это выглядело как «бот не помнит, о чём
-    # мы говорили минуту назад».
-    #
-    # Перехватываем ДО модели: короткая реплика с числом однозначна, и гонять
-    # ради неё модель незачем. Длинный ответ уйдёт ниже — там о незакрытой
-    # заявке рассказано в промпте.
-    answered = await _answer_open_sale_question(message, user_text)
-    if answered:
-        await set_reaction(message, "👍")
-        await _remember(state, user_text, answered, intent="sale")
-        return
 
     # ── Команда «делайте / запускайте» → ЗАПУСК ПРИНЯТОГО ПЛАНА ──
     # После совещания это НЕ должно перезапускать анализ: если есть готовое
@@ -1159,7 +1261,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         run_plan_status,
     )
 
-    if is_execution_command(low):
+    if owner and is_execution_command(low):
         try:
             # Передаём план, который Степан только что предложил в чате, — это то,
             # что руководитель видит на экране, когда пишет «Делай». Он важнее
@@ -1173,7 +1275,8 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             ):
                 await set_reaction(message, "👍")
                 await _remember(
-                    state, user_text, "[Запустил план в работу]", intent="execute"
+                    state, user_text, "[Запустил план в работу]", intent="execute",
+                    scope=scope,
                 )
                 return
 
@@ -1186,7 +1289,8 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             )
             await set_reaction(message, "🤷‍♂️")
             await _remember(
-                state, user_text, "[Плана для запуска нет — попросил уточнение]"
+                state, user_text, "[Плана для запуска нет — попросил уточнение]",
+                scope=scope,
             )
             return
         except Exception as e:
@@ -1196,12 +1300,13 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             return
 
     # ── Запрос статуса плана ──
-    if is_status_request(low):
+    if owner and is_status_request(low):
         try:
             await run_plan_status(message.bot, message.chat.id)
             await set_reaction(message, "👍")
             await _remember(
-                state, user_text, "[Отдал статус принятого плана]", intent="plan_status"
+                state, user_text, "[Отдал статус принятого плана]", intent="plan_status",
+                scope=scope,
             )
             return
         except Exception as e:
@@ -1227,7 +1332,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         "check in",
         "roll call",
     ]
-    if any(t in low for t in _ROLL_CALL_TRIGGERS):
+    if owner and any(t in low for t in _ROLL_CALL_TRIGGERS):
         try:
             from shared.event_bus import event_bus
 
@@ -1244,7 +1349,8 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
             )
             await set_reaction(message, "👍")
             await _remember(
-                state, user_text, "[Запустил перекличку отделов]", intent="roll_call"
+                state, user_text, "[Запустил перекличку отделов]", intent="roll_call",
+                scope=scope,
             )
         except Exception as e:
             logger.error(f"Ошибка переклички: {e}", exc_info=True)
@@ -1255,7 +1361,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     # ── Кросс-функциональный вопрос → СОВЕЩАНИЕ ОТДЕЛОВ ──
     # Отделы обсуждают между собой, спорят и сходятся к одному решению,
     # вместо трёх разрозненных задач/ответов.
-    if is_meeting_request(low):
+    if owner and is_meeting_request(low):
         try:
             await run_team_meeting(message.bot, message.chat.id, user_text)
             await set_reaction(message, "👍")
@@ -1264,6 +1370,7 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 user_text,
                 "[Провёл совещание отделов по вопросу]",
                 intent="meeting",
+                scope=scope,
             )
         except Exception as e:
             logger.error(f"Ошибка совещания отделов: {e}", exc_info=True)
@@ -1290,12 +1397,45 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
     if pending_block:
         prompt += pending_block
 
+    # То же самое про клиента: развёрнутое «нет, это другой ресторан, у них
+    # свой номер» перехватом не ловится, а вопрос всё ещё открыт.
+    customer_block = await _open_customer_prompt(message.chat.id)
+    if customer_block:
+        prompt += customer_block
+
+    # На какое сообщение отвечают свайпом вправо. Без этого блока реплика
+    # «Нет» приходила к модели голой: адресат ответа известен Telegram, но
+    # никто его не читал.
+    prompt += _reply_context(message)
+
+    if not memory_ok:
+        prompt += (
+            "\n\n⚠️ ОБЩАЯ ПАМЯТЬ РАЗГОВОРА СЕЙЧАС НЕДОСТУПНА. Ты видишь только "
+            "последние реплики этого чата. Не делай вид, что помнишь прежние "
+            "договорённости: если ответ зависит от них — так и скажи."
+        )
+
     # история уже получена в начале _process_brain (state_data)
 
     # ── Инструменты из единого реестра (tools.ts → HTTP → кеш) ──
     from shared.stepan_tools import load_registry
 
     tools = await load_registry("tg")
+    if not owner:
+        # Сотруднику — только клиенты и каталог. Ограничение живёт в наборе
+        # инструментов, а не в тексте промпта: чего нет в списке, того модель
+        # не вызовет, как бы её ни просили.
+        tools = [
+            t
+            for t in tools
+            if str((t.get("function") or {}).get("name", "")) in STAFF_TOOLS
+        ]
+        prompt += (
+            "\n\n👤 СЕЙЧАС ПИШЕТ СОТРУДНИК, А НЕ РУКОВОДИТЕЛЬ. Ты можешь найти "
+            "и завести клиента, посмотреть его заказы, назвать цену из каталога. "
+            "Задачи, деньги, цены, рассылки и публикации — только через "
+            "руководителя: так и скажи, коротко и без извинений."
+        )
 
     try:
         response_msg = await ai.chat_with_tools(
@@ -1450,6 +1590,21 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                 intent_after = "sale"
                 spoke = True
 
+            elif name == "add_customer":
+                # Карточка клиента — с тем же вопросом о тёзке и теми же
+                # кнопками, что у продажи. Раньше вызов уходил в общий разбор
+                # офисных инструментов ниже, и вопрос печатался строкой
+                # `error` с припиской «повтори с force_new»: ответить на неё
+                # человеку было нечем, и клиент не заводился вовсе.
+                from bots.stepan_bot.handlers import customer_ui
+
+                result = await customer_ui.run_add_customer(args)
+                logger.info("Степан: add_customer → %s", str(result)[:300])
+                result_text = await customer_ui.answer_customer_result(message, result)
+                tool_results_text.append(result_text)
+                intent_after = "customer"
+                spoke = True
+
             elif name == "roll_call":
                 from shared.event_bus import event_bus
 
@@ -1543,22 +1698,30 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
                     tool_results_text.append(f"Инструмент {name} не выполнен: {error}")
                     spoke = True
 
-        # Update history with tool execution result
-        if state:
-            history.append({"role": "user", "content": user_text})
-            history.append(
-                {
-                    "role": "assistant",
-                    "content": f"[TOOLS CALLED: {', '.join(tool_results_text)}] {response_msg.content or ''}",
-                }
+        # Запоминаем то, что реально сказали. Раньше эта ветка писала историю
+        # ТОЛЬКО в FSM, а общая память её потом перетирала — бот забывал и
+        # выполненное действие, и заданный вопрос.
+        spoken = " ".join(
+            part
+            for part in (
+                "; ".join(t for t in tool_results_text if t),
+                (response_msg.content or "").strip(),
             )
-            if len(history) > 10:
-                history = history[-10:]
-            await state.update_data(history=history, last_intent=intent_after)
+            if part
+        ).strip()
+        await _remember(
+            state,
+            user_text,
+            spoken or "[Выполнил действие, но сказать было нечего]",
+            intent=intent_after,
+            share=owner,
+            scope=scope,
+        )
 
-        # Показ поста и отчёт о продаже уже сами себя объяснили — не даём модели
-        # сверху приписать выдуманный комментарий и противоречить фактам из БД.
-        if response_msg.content and intent_after not in ("show", "sale"):
+        # Показ поста, отчёт о продаже и вопрос о клиенте уже сами себя
+        # объяснили — не даём модели сверху приписать выдуманный комментарий и
+        # противоречить фактам из БД.
+        if response_msg.content and intent_after not in ("show", "sale", "customer"):
             await send_response(response_msg.content)
             spoke = True
 
@@ -1572,15 +1735,21 @@ async def _process_brain(message: Message, user_text: str, state: FSMContext = N
         return
 
     # If no tools called, just send the text
-    response_text = response_msg.content or ""
-    if state:
-        history.append({"role": "user", "content": user_text})
-        history.append({"role": "assistant", "content": response_text})
-        if len(history) > 10:
-            history = history[-10:]
-        await state.update_data(history=history)
-
+    response_text = (response_msg.content or "").strip()
+    if not response_text:
+        # Пустой ответ модели выглядел как «бот прочитал и промолчал»: ни
+        # текста, ни реакции, ни следа. Отвечаем честно — переспросить дешевле,
+        # чем оставить человека гадать, дошло ли сообщение.
+        response_text = (
+            "🤔 Не понял, что нужно сделать. Скажите чуть конкретнее — "
+            "или переспросите, я рядом."
+        )
+        await set_reaction(message, "🤷‍♂️")
     await send_response(response_text)
+    # Молчание модели тоже событие: без строки в истории следующая реплика
+    # придёт как первая, и разговор снова начнётся с нуля. `last_intent`
+    # переносим прежний — короткое «Покажи» должно оставаться продолжением.
+    await _remember(state, user_text, response_text, intent=last_intent, share=owner, scope=scope)
 
 
 # ═══════════════════════════════════════════════════════
@@ -1766,6 +1935,127 @@ _PRICE_REPLY = re.compile(
     r"(сум|сумов|сўм|so'm|som|uzs|тыс\w*|к)?\.?$",
     re.IGNORECASE,
 )
+
+
+# Ответ «это он» и ответ «это другой» — на трёх языках, которыми пишут в
+# группе «Продажа». Ошибиться здесь дороже, чем переспросить: чужая реплика,
+# принятая за ответ, привяжет клиента не к той карточке. Поэтому — только
+# короткая реплика целиком, без «нет, но вообще…» в продолжении.
+_YES_REPLY = re.compile(
+    r"^(да|ага|угу|он|она|это он|тот самый|верно|точно|ha|xa|ha'a|shu|shu odam)"
+    r"[\s.,!]*$",
+    re.IGNORECASE,
+)
+_NO_REPLY = re.compile(
+    r"^(нет|не|не он|другой|новый|это новый|новый клиент|заводи|заведи|"
+    r"yo'q|yoq|yangi|boshqa)[\s.,!]*$",
+    re.IGNORECASE,
+)
+
+
+def _reply_context(message: Message) -> str:
+    """Кого цитируют свайпом вправо — отдельной строкой в промпт.
+
+    В Telegram ответ на сообщение и есть указание адреса: «Нет» под вопросом
+    о тёзке клиента и «Нет» в общем потоке — разные реплики. Модель об этом не
+    знала ни разу: `reply_to_message` не читался нигде, кроме совещаний.
+    """
+    quoted = getattr(message, "reply_to_message", None)
+    if quoted is None:
+        return ""
+
+    body = (quoted.text or quoted.caption or "").strip()
+    if not body:
+        return ""
+    body = body[:600]
+
+    author = getattr(quoted, "from_user", None)
+    bot_id = getattr(message.bot, "id", None)
+    if author and bot_id and author.id == bot_id:
+        return (
+            f"\n\n📎 СОБЕСЕДНИК ОТВЕЧАЕТ НА ТВОЁ СООБЩЕНИЕ:\n«{body}»\n"
+            f"Его реплика относится именно к нему — не начинай тему заново."
+        )
+    name = (author.full_name if author else "") or "коллега"
+    return f"\n\n📎 СОБЕСЕДНИК ЦИТИРУЕТ СООБЩЕНИЕ ({name}):\n«{body}»"
+
+
+async def _open_customer_prompt(chat_id: int) -> str:
+    """Блок про незакрытый вопрос о клиенте. Пусто — нечего ждать."""
+    from bots.stepan_bot.handlers.customer_ui import open_question
+
+    try:
+        question = await open_question(chat_id)
+    except Exception as exc:
+        logger.warning(f"Незакрытый вопрос о клиенте недоступен: {exc}")
+        return ""
+    if not question:
+        return ""
+
+    record = question["pending"]
+    params = record.get("params") or {}
+    listed = ", ".join(
+        f"{c.get('name')} (#{c.get('id')})" for c in (record.get("candidates") or [])
+    )
+    return (
+        f"\n\n❓ НЕЗАКРЫТЫЙ ВОПРОС О КЛИЕНТЕ:\n"
+        f"  заводим: {params.get('name') or '—'} "
+        f"({params.get('phone') or 'телефон не назван'})\n"
+        f"  спросил, не он ли это: {listed or '—'}\n"
+        f"Ответ собеседника относится к НЕМУ. «Нет / другой / новый» — вызови "
+        f"add_customer с теми же данными и force_new=true. «Да» — карточку не "
+        f"заводи, скажи, что клиент уже есть."
+    )
+
+
+async def _answer_open_customer_question(
+    message: Message, user_text: str
+) -> Optional[str]:
+    """Закрыть вопрос о тёзке коротким «да»/«нет». None — это не ответ.
+
+    Ровно тот случай, ради которого всё и делалось: 16.08.2026 менеджер
+    ответил на вопрос бота «Нет» реплаем, и ответ пропал — состояния не было,
+    а сам он в администраторах не значится. Клиент так и не завёлся.
+
+    Реплай (свайп вправо) считается ответом, даже если слова не короткие:
+    когда цитируют именно наш вопрос, сомнений в адресате нет.
+    """
+    text_body = (user_text or "").strip()
+
+    from bots.stepan_bot.handlers.customer_ui import (
+        answer_customer_result,
+        confirm_existing,
+        confirm_new,
+        open_question,
+    )
+
+    try:
+        question = await open_question(message.chat.id)
+    except Exception as exc:
+        logger.warning(f"Незакрытый вопрос о клиенте недоступен: {exc}")
+        return None
+    if not question:
+        return None
+
+    reply_to = getattr(message, "reply_to_message", None)
+    answers_our_question = bool(
+        reply_to
+        and question.get("message_id")
+        and reply_to.message_id == question["message_id"]
+    )
+    if not answers_our_question and len(text_body) > 30:
+        return None
+
+    if _NO_REPLY.match(text_body):
+        result = await confirm_new(message.chat.id)
+    elif _YES_REPLY.match(text_body):
+        result = await confirm_existing(message.chat.id)
+    else:
+        return None  # ответили не «да» и не «нет» — пусть разбирает модель
+
+    if result is None:
+        return None
+    return await answer_customer_result(message, result)
 
 
 async def _open_sale_prompt(chat_id: int) -> str:

@@ -7,6 +7,12 @@
 в FSM-состоянии aiogram. Начатый голосом разговор не был виден в вебе, и
 наоборот.
 
+`scope` — комната разговора. Личка владельца и админка делят одну нить (это
+один человек продолжает одну беседу с любого устройства), а рабочая группа
+получает свою: там говорят менеджеры и о своём. Пока нить была одна на всё,
+вопрос бота в группе и переписка владельца в личке перемешивались, и модель
+отвечала репликой из соседнего разговора.
+
 Хранилище объявлено в schema.prisma и принадлежит витрине: конституция
 называет Prisma единственным владельцем DDL. Прямой SQL отсюда запрещён —
 связь между модулями только по HTTP, поэтому ходим в admin-роут витрины
@@ -41,25 +47,30 @@ def _headers() -> dict[str, str]:
     }
 
 
-async def load_context(limit: int = 20) -> list[dict[str, str]]:
+async def load_context(
+    limit: int = 20, scope: Optional[str] = None
+) -> Optional[list[dict[str, str]]]:
     """Хвост общей истории в виде [{role, content}, ...].
 
-    При недоступности хранилища возвращает пустой список — вызывающий
-    обязан предупредить владельца, что отвечает без памяти, а не делать
-    вид, что контекста и не было.
+    ⚠️ `None` и `[]` — РАЗНЫЕ ответы. `[]` значит «разговор пуст», `None` —
+    «хранилище недоступно». Раньше оба случая возвращали пустой список, и
+    вызывающий, обязанный предупредить владельца, что отвечает без памяти,
+    физически не мог отличить одно от другого — то есть предупреждение,
+    записанное здесь в докстринге, было невыполнимо.
     """
     url = f"{STOREFRONT_URL}{MEMORY_PATH}"
+    params = {"scope": scope} if scope else None
     try:
         timeout = aiohttp.ClientTimeout(total=TIMEOUT_SECONDS)
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, headers=_headers()) as resp:
+            async with session.get(url, headers=_headers(), params=params) as resp:
                 if resp.status != 200:
                     logger.error("Память недоступна: витрина ответила %s", resp.status)
-                    return []
+                    return None
                 data = await resp.json()
     except Exception as exc:
         logger.error("Память недоступна: %s", exc)
-        return []
+        return None
 
     messages = data.get("messages") or []
     return [
@@ -69,7 +80,12 @@ async def load_context(limit: int = 20) -> list[dict[str, str]]:
     ]
 
 
-async def append(role: str, content: str, tool_calls: Optional[Any] = None) -> bool:
+async def append(
+    role: str,
+    content: str,
+    tool_calls: Optional[Any] = None,
+    scope: Optional[str] = None,
+) -> bool:
     """Дописать реплику в общую нить. Возвращает True, если записалось."""
     if not content:
         return False
@@ -82,6 +98,8 @@ async def append(role: str, content: str, tool_calls: Optional[Any] = None) -> b
     }
     if tool_calls:
         payload["toolCalls"] = tool_calls
+    if scope:
+        payload["scope"] = scope
 
     try:
         timeout = aiohttp.ClientTimeout(total=TIMEOUT_SECONDS)

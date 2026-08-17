@@ -309,6 +309,16 @@ async def _known_customer(
     if not candidates:
         candidates = await customer_repo.similar(customer_name)
 
+    # Названный телефон закрывает вопрос до того, как он задан: карточка со
+    # СВОИМ, другим номером — заведомо другой клиент. Иначе продажа новому
+    # ресторану упирается в список однофамильцев, у каждого из которых номер
+    # чужой (так 16.08.2026 не завёлся клиент Nozi через add_customer).
+    if phone and candidates:
+        candidates = [
+            c for c in candidates
+            if customer_repo.same_phone(c.get("phone"), phone) is not False
+        ]
+
     if candidates:
         one = len(candidates) == 1
         return None, {

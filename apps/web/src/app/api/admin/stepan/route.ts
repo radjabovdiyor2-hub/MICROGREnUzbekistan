@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
   if (!aiAvailable()) {
     return NextResponse.json(
-      { error: 'ИИ не настроен: задайте OPENAI_API_KEY или GEMINI_API_KEY' },
+      { error: 'ИИ не настроен: задайте OPENAI_API_KEY' },
       { status: 503 },
     );
   }

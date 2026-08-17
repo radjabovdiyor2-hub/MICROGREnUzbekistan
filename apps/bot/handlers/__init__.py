@@ -5,7 +5,7 @@
 приняло их за мёртвые и не выкинуло — это молча отключило бы половину бота.
 """
 from . import start
-from . import agronomist
+from . import ai_seller
 from . import shop
 from . import orders
 from . import admin
@@ -15,7 +15,7 @@ from . import magazine
 
 __all__ = [
     "start",
-    "agronomist",
+    "ai_seller",
     "shop",
     "orders",
     "admin",

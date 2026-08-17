@@ -110,7 +110,7 @@ class Tool:
             return False
 
     def schema(self) -> Dict[str, Any]:
-        """Объявление в формате OpenAI/Gemini function calling."""
+        """Объявление в формате OpenAI function calling."""
         return {
             "type": "function",
             "function": {

@@ -114,6 +114,24 @@ async def find_customer(query: str) -> Dict[str, Any]:
     }
 
 
+def _other_phone(candidate: Dict[str, Any], phone: str) -> bool:
+    """У кандидата есть СВОЙ номер, и он не тот, что назвали."""
+    return customer_repo.same_phone(candidate.get("phone"), phone) is False
+
+
+def _candidate(c: Dict[str, Any]) -> Dict[str, Any]:
+    """Кандидат для вопроса руководителю: чем он и почему похож."""
+    return {
+        "id": c["id"],
+        "name": c["name"],
+        "phone": c["phone_display"] or "",
+        "customer_type": c.get("customer_type") or "b2c",
+        "orders_count": c.get("orders_count") or 0,
+        "score": c.get("score"),
+        "matched_field": c.get("matched_field"),
+    }
+
+
 async def add_customer(
     name: str,
     phone: str = "",
@@ -131,7 +149,15 @@ async def add_customer(
 
     Перед созданием ищем похожих: инструмент, плодящий дубли, хуже
     отсутствующего. Нашёлся похожий — возвращаем его и НЕ создаём вторую
-    карточку; настаивать нужно явно, флагом `force_new`.
+    карточку.
+
+    ⚠️ НАЗВАННЫЙ ТЕЛЕФОН СИЛЬНЕЕ ПОХОЖЕСТИ ИМЁН. Если номер известен и в базе
+    его нет, то карточка с ДРУГИМ номером — заведомо другой клиент, и
+    спрашивать о ней нечего. 16.08.2026 «Зарегистрируй нового клиента Nozi
+    +998975773203» упёрлось ровно в это: бот предложил двух посторонних
+    клиентов с их собственными номерами и остановился, карточка не завелась.
+    Похожесть имён отвечает на вопрос «может быть»; несовпавший номер отвечает
+    «нет» — и этот ответ окончательный.
     """
     display = str(name or "").strip()
     if not display:
@@ -151,19 +177,47 @@ async def add_customer(
                 ),
             }
         close = match.get("candidates") or await customer_repo.similar(display)
+        if phone:
+            kept = [c for c in close if not _other_phone(c, phone)]
+            if len(kept) != len(close):
+                logger.info(
+                    "CRM: «%s» — отбросил %s кандидатов с другим номером",
+                    display,
+                    len(close) - len(kept),
+                )
+            close = kept
         if close:
+            candidates = [_candidate(c) for c in close[:5]]
+            listed = "\n".join(
+                f"• {c['name']} · {c['phone'] or 'телефон не записан'} (#{c['id']})"
+                for c in candidates
+            )
             return {
                 "ok": False,
                 "needs": "confirmation",
-                "candidates": [
-                    {"id": c["id"], "name": c["name"], "phone": c["phone_display"]}
-                    for c in close
-                ],
+                "candidates": candidates,
                 "error": (
-                    f"Похоже, «{display}» уже есть: "
-                    + ", ".join(f"{c['name']} (#{c['id']})" for c in close[:3])
-                    + ". Это он? Если всё же новый — повтори с force_new."
+                    f"«{display}» похож на то, что уже есть в CRM:\n{listed}\n\n"
+                    f"Это он? Ответьте «да» — или «нет, новый», и я заведу "
+                    f"отдельную карточку."
                 ),
+                # Подсказка модели, а не человеку: слово `force_new` в чате
+                # руководителю бесполезно — выполнить его он не может.
+                "hint": (
+                    "Руководитель ответил «нет»/«новый» — вызови add_customer "
+                    "ещё раз с теми же данными и force_new=true."
+                ),
+                "data": {
+                    "needs": "customer_confirm",
+                    "candidates": candidates,
+                    "pending": {
+                        "name": display,
+                        "phone": phone,
+                        "customer_type": customer_type,
+                        "city": city,
+                        "notes": notes,
+                    },
+                },
             }
 
     saved = await customer_repo.upsert(
@@ -478,6 +532,7 @@ register(
             },
         },
         required=["name"],
+        render=tool_render.customer_confirm,
     )
 )
 

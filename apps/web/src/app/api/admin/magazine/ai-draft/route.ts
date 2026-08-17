@@ -6,7 +6,7 @@ import { generateJSON, aiProvider, type JsonRecord } from '@/lib/magazine/ai';
 export const dynamic = 'force-dynamic';
 
 // ════════════════════════════════════════════════════════════
-// Черновик слота от ИИ (OpenAI-first, Gemini fallback — см. lib/magazine/ai.ts).
+// Черновик слота от ИИ (только OpenAI — см. lib/magazine/ai.ts).
 // Заполняет ТЕКСТОВЫЕ поля блока, сохраняя структуру/ключи.
 // ════════════════════════════════════════════════════════════
 
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'block is required' }, { status: 400 });
     }
     if (!aiProvider()) {
-      return NextResponse.json({ error: 'AI не настроен (OPENAI_API_KEY или GEMINI_API_KEY)' }, { status: 503 });
+      return NextResponse.json({ error: 'AI не настроен (OPENAI_API_KEY)' }, { status: 503 });
     }
     const generated = await generateJSON(systemPrompt(), userPrompt(block, context || {}), { temperature: 0.85, maxTokens: 2048 });
     const merged = reconcile(block, generated);

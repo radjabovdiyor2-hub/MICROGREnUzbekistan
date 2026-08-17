@@ -359,8 +359,15 @@ async def cb_game(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "agronomist")
-async def cb_agronomist(callback: CallbackQuery):
-    """AI Agronomist intro — triggered from /start menu"""
+async def cb_ai_seller(callback: CallbackQuery):
+    """Заставка AI-продавца — кнопка из меню /start.
+
+    ⚠️ Строка `agronomist` в `callback_data` остаётся НАВСЕГДА, хотя агронома
+    в боте нет: она уже разослана клиентам в кнопках, а Telegram хранит их в
+    истории чата вечно. Переименуешь — старая кнопка перестанет отвечать, и
+    клиент получит молчание вместо помощника. Имя обработчика при этом
+    честное: продаёт продавец.
+    """
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📸 Отправить фото еды", callback_data="agronomist:photo_hint")],
         [InlineKeyboardButton(text="🛒 Подобрать микрозелень", callback_data="agronomist:shop_hint")],
@@ -398,8 +405,8 @@ async def cb_agronomist(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "agronomist:photo_hint")
-async def cb_agronomist_photo(callback: CallbackQuery):
-    """Hint: how to send a photo for diagnosis"""
+async def cb_ai_seller_photo(callback: CallbackQuery):
+    """Подсказка: как прислать фото блюда (не растения — мы не диагностируем)"""
     await callback.answer(
         "📸 Просто отправьте фото вашего блюда в этот чат!\n"
         "Я подскажу, какая микрозелень его дополнит.",
@@ -408,8 +415,8 @@ async def cb_agronomist_photo(callback: CallbackQuery):
 
 
 @router.callback_query(F.data == "agronomist:shop_hint")
-async def cb_agronomist_shop(callback: CallbackQuery):
-    """Hint: how to use AI for shopping"""
+async def cb_ai_seller_shop(callback: CallbackQuery):
+    """Подсказка: как попросить AI-продавца подобрать зелень"""
     try:
         await callback.message.edit_text(
             # prompt-ok: obrazec formata telefona dlya klienta, a ne kontakt kompanii

@@ -13,6 +13,13 @@ import { prisma } from '@repo/database';
  * хуже, чем ошибиться в большую сторону, поэтому берём не ноль.
  */
 const TOKEN_COSTS: Record<string, { input: number; output: number }> = {
+  // Актуальное семейство OpenAI (август 2026). Sol — флагман, Terra — баланс,
+  // Luna — для дешёвых массовых задач. Держать в согласии с TOKEN_COSTS в
+  // packages/mg_ai/mg_ai/engine.py: расход считается в двух рантаймах, а
+  // раздел «Расходы на ИИ» в админке у них один.
+  'gpt-5.6-sol': { input: 5, output: 30 },
+  'gpt-5.6-terra': { input: 2, output: 12 },
+  'gpt-5.6-luna': { input: 0.2, output: 1.2 },
   'gpt-4o': { input: 2.5, output: 10 },
   'gpt-4o-mini': { input: 0.15, output: 0.6 },
   'gpt-4.1': { input: 2, output: 8 },
@@ -52,7 +59,9 @@ export async function recordAiUsage(usage: AiUsageRecord): Promise<void> {
     await prisma.aiUsage.create({
       data: {
         bot: usage.bot,
-        provider: usage.provider ?? (usage.model.startsWith('gemini') ? 'gemini' : 'openai'),
+        // Поставщик один. Колонка осталась ради истории: по ней видно
+        // расход тех месяцев, когда часть запросов молча уходила в Gemini.
+        provider: usage.provider ?? 'openai',
         model: usage.model,
         inputTokens,
         outputTokens,

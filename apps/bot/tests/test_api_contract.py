@@ -21,7 +21,7 @@ BOT = Path(__file__).resolve().parent.parent
 WEB = BOT.parent / "web"
 
 CHAT_ROUTE = WEB / "src/app/api/ai/chat/route.ts"
-AGRONOMIST = BOT / "handlers/agronomist.py"
+AI_SELLER = BOT / "handlers/ai_seller.py"
 
 
 def _route_keys(source: str) -> set[str]:
@@ -90,8 +90,8 @@ def route_source() -> str:
 
 @pytest.fixture(scope="module")
 def bot_source() -> str:
-    assert AGRONOMIST.exists(), f"обработчик не найден: {AGRONOMIST}"
-    return AGRONOMIST.read_text(encoding="utf-8")
+    assert AI_SELLER.exists(), f"обработчик не найден: {AI_SELLER}"
+    return AI_SELLER.read_text(encoding="utf-8")
 
 
 def test_route_returns_reply_in_every_branch(route_source: str):
@@ -251,7 +251,7 @@ def test_catalog_has_a_single_door():
 
     Копий было три, и две разбирали конверт неверно: `isinstance(result, list)`
     при ответе `{items, pagination}` давал пустой список ВСЕГДА — и в
-    объединённом меню, и в системном промпте ИИ-агронома, где из-за этого не
+    объединённом меню, и в системном промпте AI-продавца, где из-за этого не
     оказывалось ни одного товара и ни одной цены.
     """
     catalog = _code_only(_read(CATALOG))

@@ -1,3 +1,4 @@
+import { OPENAI_MODEL, tokenLimitParams } from '../ai/models';
 import { NUTRITION_DB, RECIPES } from './nutritionDb';
 
 // Расчёт нутриентов и рецепт дня. Вынесено из api/ai/nutrition/route.ts.
@@ -27,14 +28,18 @@ export function getDailyRecipe(dateStr?: string) {
 }
 
 // ==========================================
-// AI RECIPE OF THE DAY (Gemini) — one fresh recipe per day, built around the
+// AI RECIPE OF THE DAY (OpenAI) — one fresh recipe per day, built around the
 // microgreens the store actually sells (NUTRITION_DB keys). Cached in-memory per
 // date so it's stable + cheap; the office content_bot pulls the same one so the
-// site and social share a single "recipe of the day". Falls back to the static
-// rotation if Gemini is unavailable or returns junk.
+// site and social share a single "recipe of the day".
+//
+// Провайдер один — OpenAI, как и везде в проекте. Запасной путь тут остаётся,
+// но он ЧЕСТНЫЙ: не другая модель втихую, а статическая ротация проверенных
+// рецептов. Разница принципиальная — читатель получает либо свежий рецепт,
+// либо заведомо хороший старый, но никогда «непонятно кем написанный».
 // ==========================================
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const RECIPE_CATEGORIES = ['breakfast', 'salad', 'smoothie', 'snack', 'main'];
 
 // Process-global cache so every route (site recipe, content endpoint, AI chat)
@@ -46,7 +51,7 @@ function todayKey(dateStr?: string): string {
 }
 
 async function generateAiRecipe(_dateStr?: string): Promise<Record<string, unknown> | null> {
-  if (!GEMINI_API_KEY) return null;
+  if (!OPENAI_API_KEY) return null;
   const crops = Object.entries(NUTRITION_DB).map(([k, v]) => `${k} (${v.nameRu})`).join(', ');
   const prompt = `Ты шеф-повар и нутрициолог бренда Microgreen Uzbekistan. Придумай ОДИН рецепт «блюдо дня» с микрозеленью.
 Используй 1–4 вида микрозелени ТОЛЬКО из этого списка (в поле microgreens указывай КЛЮЧИ на латинице): ${crops}.
@@ -55,18 +60,24 @@ async function generateAiRecipe(_dateStr?: string): Promise<Record<string, unkno
 category — одно из: breakfast, salad, smoothie, snack, main. Тексты на узбекском (латиница) и русском. Реалистичные ингредиенты и шаги.`;
 
   try {
-    const res = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+    const res = await fetch(OPENAI_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, responseMimeType: 'application/json' },
+        model: OPENAI_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.9,
+        response_format: { type: 'json_object' },
+        ...tokenLimitParams(OPENAI_MODEL, 1200),
       }),
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(30000),
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    const raw = data?.choices?.[0]?.message?.content ?? '';
     const json = JSON.parse(raw.replace(/^```json/i, '').replace(/```$/, '').trim());
 
     // Validate + sanitise so the frontend contract always holds.

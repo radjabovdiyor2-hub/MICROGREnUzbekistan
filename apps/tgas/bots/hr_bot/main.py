@@ -11,7 +11,7 @@ from shared.database import init_db
 from shared.event_bus import event_bus
 from bots.hr_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
-from bots.hr_bot.handlers.start import ai_hr
+from shared import group_reply
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
@@ -310,7 +310,13 @@ async def main():
     bot_info = await bot.me()
     group_router = create_group_router(
         bot_info.username,
-        ai_hr,
+        # Инструменты отдела + память чата (shared/group_reply).
+        group_reply.group_handler(
+            "hr_bot",
+            "hr",
+            "Ты — HR-директор Microgreen Uzbekistan: люди, смены, ФОТ, "
+            "мотивация, найм.",
+        ),
         wake_words=["отдел кадр", "кадры", "hr", "персонал", "сотрудники"],
     )
     dp.include_router(group_router)

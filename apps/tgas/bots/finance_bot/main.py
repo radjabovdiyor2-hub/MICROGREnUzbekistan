@@ -14,7 +14,7 @@ from shared.event_bus import event_bus
 from shared.notifications import register_finance_handlers
 from bots.finance_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
-from bots.finance_bot.handlers.start import ai_fin
+from shared import group_reply
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
@@ -581,7 +581,14 @@ async def main():
     bot_info = await bot.me()
     group_router = create_group_router(
         bot_info.username,
-        ai_fin,
+        # Инструменты отдела + память чата, а не голый chat_completion
+        # (shared/group_reply — один путь для всех отделов).
+        group_reply.group_handler(
+            "finance_bot",
+            "finance",
+            "Ты — Финансовый директор (CFO) Microgreen Uzbekistan: P&L, "
+            "кэшфлоу, дебиторка, расходы.",
+        ),
         wake_words=["отдел финанс", "финансы", "finance", "бюджет", "касса"],
     )
     dp.include_router(group_router)

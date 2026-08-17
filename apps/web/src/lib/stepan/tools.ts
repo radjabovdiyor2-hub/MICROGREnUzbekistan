@@ -44,7 +44,7 @@ export const WRITE_BY_NAME = new Map(ALL_WRITE.map(t => [t.name, t]));
 export const TG_ONLY_NAMES = ALL_READ.filter(t => !t.runtimes.includes('web')).map(t => t.name);
 
 /**
- * Описание инструментов в формате JSON Schema — для OpenAI и Gemini.
+ * Описание инструментов в формате JSON Schema — для OpenAI.
  * Без аргумента возвращает все; с runtime — только те, что доступны.
  */
 export function toolSchemas(runtime?: ToolRuntime) {

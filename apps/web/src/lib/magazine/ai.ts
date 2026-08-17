@@ -1,18 +1,23 @@
 // ════════════════════════════════════════════════════════════
-// Переключаемый AI-провайдер для магазинных роутов.
-// Приоритет: OpenAI (основной стек компании) → Gemini (fallback).
-// Все вызовы просят СТРОГО JSON. Один helper для ai-draft / нейро-сказки / брифинга.
+// AI-помощник журнальных роутов. Поставщик один — OpenAI.
+//
+// Здесь был запасной Gemini, и это та же тихая подмена, что уже стоила
+// ИИ-офису месяцев работы на слабой модели (packages/mg_ai/mg_ai/engine.py):
+// отличить «сгенерировано основной моделью» от «сгенерировано запасной» было
+// нельзя ни в ответе, ни в логе — а в журнал это уходит текстом для читателя.
+// Нет ключа — честная ошибка, а не текст неизвестного качества.
+//
+// Все вызовы просят СТРОГО JSON. Один helper для ai-draft / нейро-сказки /
+// брифинга.
 // ════════════════════════════════════════════════════════════
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+import { OPENAI_MODEL, tokenLimitParams } from '../ai/models';
 
-export function aiProvider(): 'openai' | 'gemini' | null {
-  if (OPENAI_API_KEY && OPENAI_API_KEY.length > 10) return 'openai';
-  if (GEMINI_API_KEY && GEMINI_API_KEY.length > 10) return 'gemini';
-  return null;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+
+/** Есть ли чем генерировать. `null` — ключа нет, роут обязан сказать об этом. */
+export function aiProvider(): 'openai' | null {
+  return OPENAI_API_KEY && OPENAI_API_KEY.length > 10 ? 'openai' : null;
 }
 
 interface Opts { temperature?: number; maxTokens?: number }
@@ -28,7 +33,10 @@ async function openaiJSON(system: string, prompt: string, o: Opts): Promise<Json
       { role: 'user', content: prompt },
     ],
     temperature: o.temperature ?? 0.85,
-    max_tokens: o.maxTokens ?? 2048,
+    // Лимит токенов — по семейству модели (lib/ai/models.ts). Здесь стоял
+    // жёсткий `max_tokens`, а рассуждающие модели его отвергают: генерация
+    // журнала падала бы с «OpenAI API error: 400» на каждом вызове.
+    ...tokenLimitParams(OPENAI_MODEL, o.maxTokens ?? 2048),
     response_format: { type: 'json_object' },
   });
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -47,29 +55,8 @@ async function openaiJSON(system: string, prompt: string, o: Opts): Promise<Json
   throw new Error('OpenAI: max retries exceeded');
 }
 
-async function geminiJSON(system: string, prompt: string, o: Opts): Promise<JsonRecord> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-  const body = JSON.stringify({
-    system_instruction: { parts: [{ text: system }] },
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: o.temperature ?? 0.85, maxOutputTokens: o.maxTokens ?? 2048, responseMimeType: 'application/json' },
-  });
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await fetch(`${url}?key=${GEMINI_API_KEY}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-    if (res.ok) {
-      const data = await res.json();
-      return JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text || '{}');
-    }
-    if (res.status === 429 && attempt < 2) { await new Promise((r) => setTimeout(r, (attempt + 1) * 2500)); continue; }
-    throw new Error(`Gemini API error: ${res.status}`);
-  }
-  throw new Error('Gemini: max retries exceeded');
-}
-
-/** Сгенерировать JSON-объект. OpenAI приоритетно, Gemini — fallback. */
+/** Сгенерировать JSON-объект через OpenAI. Без ключа — отказ, не подмена. */
 export async function generateJSON(system: string, prompt: string, opts: Opts = {}): Promise<JsonRecord> {
-  const provider = aiProvider();
-  if (provider === 'openai') return openaiJSON(system, prompt, opts);
-  if (provider === 'gemini') return geminiJSON(system, prompt, opts);
-  throw new Error('AI не настроен: задайте OPENAI_API_KEY (или GEMINI_API_KEY)');
+  if (!aiProvider()) throw new Error('AI не настроен: задайте OPENAI_API_KEY');
+  return openaiJSON(system, prompt, opts);
 }

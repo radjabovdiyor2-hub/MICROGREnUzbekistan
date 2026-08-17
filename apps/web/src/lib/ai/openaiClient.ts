@@ -1,7 +1,7 @@
+import { OPENAI_MODEL, tokenLimitParams } from './models';
 import { recordAiUsage } from './usage';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 
 /**
@@ -112,8 +112,9 @@ export async function callOpenAI(
         model: OPENAI_MODEL,
         messages,
         temperature: 0.8,
-        max_tokens: 1500,
-        top_p: 0.95,
+        // Лимит токенов зависит от семейства модели (см. lib/ai/models.ts):
+        // рассуждающие отвергают `max_tokens` с ошибкой 400.
+        ...tokenLimitParams(OPENAI_MODEL, 1500),
       }),
     });
 

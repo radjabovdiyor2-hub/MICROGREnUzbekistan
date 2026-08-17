@@ -259,13 +259,16 @@ services:
       OFFICE_CUSTOMER_URL: http://web_office:8050/ingest/customer
       # Брифинг журнала тянет Google Trends из офиса (/api/magazine/brief).
       WEB_OFFICE_URL: http://web_office:8050
-      # AI-провайдер веб-роутов журнала (ai-draft / нейро-сказка / брифинг):
-      # OpenAI приоритетно, Gemini — fallback (apps/web/src/lib/magazine/ai.ts).
-      # OPENAI_API_KEY/GEMINI_API_KEY подхватываются из env_file .env; модель
-      # задаём здесь ЯВНО, чтобы web не унаследовал tgas-значение gpt-4o-mini
-      # из общего .env (web хочет полноразмерный gpt-4o для качества текстов).
+      # Модель веба: флагман, тот же, что у офиса и бота витрины. Значение
+      # здесь ЯВНОЕ, чтобы веб можно было отдельно перевести на модель дешевле
+      # через WEB_OPENAI_MODEL, не задевая остальных.
+      #
+      # ⚠️ Имя обязано совпадать с дефолтом кода
+      # (apps/web/src/lib/ai/models.ts). Раньше compose подставлял `gpt-4o`,
+      # код ждал `gpt-4o-mini`, а офис — третье; одна из моделей аккаунту не
+      # принадлежала, и каждый вызов падал.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${WEB_OPENAI_MODEL:-gpt-4o}
+      OPENAI_MODEL: ${WEB_OPENAI_MODEL:-gpt-5.6-sol}
       INGEST_SECRET: ${INGEST_SECRET:-}
       # Shared secret for storefront-bot -> web admin API calls (empty = off).
       BOT_SECRET: ${BOT_SECRET:-}
@@ -324,7 +327,7 @@ services:
       # речи и озвучка. Без ключа бот не упадёт, но будет отвечать заглушкой —
       # прописываем явно, как у веб-сервиса, чтобы это не осталось незамеченным.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.6-sol}
       # Must match the web service's BOT_SECRET so admin API calls authorize.
       BOT_SECRET: ${BOT_SECRET:-}
       # Степан-менеджер (@MG_PM1_bot) — для уведомлений о заказах

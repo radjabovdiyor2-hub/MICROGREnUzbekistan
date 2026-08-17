@@ -13,7 +13,7 @@ from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
 from bots.support_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
-from bots.support_bot.handlers.faq import ai_chat
+from shared import group_reply
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 from sqlalchemy import text
@@ -408,7 +408,13 @@ async def main():
     bot_info = await bot.me()
     group_router = create_group_router(
         bot_info.username,
-        ai_chat,
+        # Инструменты отдела + память чата (shared/group_reply).
+        group_reply.group_handler(
+            "support_bot",
+            "support",
+            "Ты — руководитель клиентского сервиса Microgreen Uzbekistan: "
+            "жалобы, конфликты, лояльность, статусы заказов.",
+        ),
         wake_words=["отдел поддержк", "поддержка", "support", "жалоба", "клиент"],
     )
     dp.include_router(group_router)

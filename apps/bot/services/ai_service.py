@@ -224,7 +224,10 @@ def _get_engine() -> AIEngine:
     if _engine is None:
         _engine = AIEngine(
             openai_key=os.getenv("OPENAI_API_KEY"),
-            openai_model=os.getenv("OPENAI_MODEL") or "gpt-4o-mini",
+            # Флагман OpenAI — тот же, что у офиса (apps/tgas/shared/config.py).
+            # Одна переменная OPENAI_MODEL на всё; резервное значение здесь
+            # только для случая, когда её забыли задать.
+            openai_model=os.getenv("OPENAI_MODEL") or "gpt-5.6-sol",
             bot_name="storefront_bot",
             persist_fn=_persist_usage,
         )

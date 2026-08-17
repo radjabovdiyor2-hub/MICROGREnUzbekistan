@@ -221,40 +221,109 @@ async def _search_like(session, patterns: List[str], limit: int) -> List[Any]:
     return (await session.execute(stmt, {"limit": limit})).fetchall()
 
 
+def _fuzzy_sql(function: str) -> Any:
+    """Запрос нечёткого поиска на заданной функции сравнения pg_trgm.
+
+    Две меры похожести считаются по отдельности — по имени и по названию
+    компании, — чтобы вызывающий мог сказать, ЧТО именно совпало. Пока была
+    одна `GREATEST(...)`, вопрос руководителю выглядел так: «Похоже, «Nozi»
+    уже есть: SAMARQAND OSH MARKAZI N1». Совпало второе поле, которого в
+    вопросе нет, и объяснить это было нечем.
+
+    Обёртка подзапросом нужна из-за Postgres: в `ORDER BY` имя выходной
+    колонки можно использовать только само по себе, а не внутри выражения.
+    """
+    return text(
+        "SELECT * FROM ("
+        f"  SELECT {_FIELDS}, "
+        f"    (SELECT MAX({function}(v, lower(COALESCE(c.name, '')))) "
+        "      FROM unnest(:vars) AS v) AS sim_name, "
+        f"    (SELECT MAX({function}(v, lower(COALESCE(c.company_name, '')))) "
+        "      FROM unnest(:vars) AS v) AS sim_company "
+        f"  {_FROM}"
+        ") s "
+        "ORDER BY GREATEST(COALESCE(sim_name, 0), COALESCE(sim_company, 0)) DESC "
+        "LIMIT :limit"
+    ).bindparams(bindparam("vars", type_=ARRAY(String)))
+
+
 async def _search_fuzzy(
-    session, variants: List[str], limit: int, threshold: float = FUZZY_THRESHOLD
+    session,
+    variants: List[str],
+    limit: int,
+    threshold: float = FUZZY_THRESHOLD,
+    strict: bool = False,
 ) -> List[Any]:
     """
-    Опечатки через pg_trgm: `word_similarity` сравнивает запрос с лучшим куском
-    названия, поэтому «жасмн» находит «Ресторан Жасмин».
+    Опечатки через pg_trgm. `threshold` мягче у `similar()`: там ответ идёт в
+    вопрос руководителю, а не в запись.
 
-    `threshold` мягче у `similar()`: там ответ идёт в вопрос руководителю, а не
-    в запись, и лишний кандидат стоит дешевле пропущенного дубля.
+    ⚠️ `strict` — не оттенок, а разные вопросы.
 
-    Без расширения запрос падает — тогда честно остаёмся без нечёткого поиска,
-    как это уже сделано в catalog_repo.
+    `word_similarity` сравнивает запрос с лучшим КУСКОМ названия: «жасмн»
+    находит «Ресторан Жасмин» — ради этого функция и выбрана. Но кусок может
+    быть началом чужого слова, и тогда короткое имя цепляет однофамильцев по
+    двум буквам: у «nozi» и «noxat» общее начало «no» даёт ≈0.4 — выше любого
+    разумного порога. 16.08.2026 из-за этого не завёлся ресторан Nozi: бот
+    предложил двух посторонних клиентов и остановился.
+
+    `strict_word_similarity` берёт только ЦЕЛЫЕ слова. «Жасмин» ↔ «ресторан
+    жасмин» по-прежнему 1.0, опечатка «жасмн» ≈ 0.44, а «nozi» ↔ «noxat»
+    падает до ≈0.22 и в кандидаты не попадает.
+
+    Функция появилась в pg_trgm 9.6. Нет её — откатываемся на прежнюю и
+    честно говорим об этом в лог: лишний вопрос лучше, чем поиск без нечёткого
+    сравнения вовсе.
     """
     if not variants:
         return []
-    try:
-        rows = (
-            await session.execute(
-                text(
-                    f"SELECT {_FIELDS}, "
-                    "(SELECT MAX(GREATEST(word_similarity(v, lower(COALESCE(c.name, ''))), "
-                    "                     word_similarity(v, lower(COALESCE(c.company_name, ''))))) "
-                    " FROM unnest(:vars) AS v) AS sim "
-                    f"{_FROM}"
-                    "ORDER BY sim DESC NULLS LAST LIMIT :limit"
-                ).bindparams(bindparam("vars", value=variants, type_=ARRAY(String))),
-                {"limit": limit},
-            )
-        ).fetchall()
-        # sim идёт сразу за общим набором полей (_row читает 0..16).
-        return [r for r in rows if (r[17] or 0) >= threshold]
-    except Exception as exc:  # pg_trgm не установлен — остаёмся без fuzzy
-        logger.warning("CUSTOMER_REPO: нечёткий поиск недоступен (%s)", exc)
-        return []
+
+    functions = ["strict_word_similarity", "word_similarity"] if strict else ["word_similarity"]
+    rows: List[Any] = []
+    for number, function in enumerate(functions):
+        try:
+            rows = (
+                await session.execute(
+                    _fuzzy_sql(function), {"vars": variants, "limit": limit}
+                )
+            ).fetchall()
+            break
+        except Exception as exc:
+            # Упавший запрос обрывает транзакцию: без отката Postgres отвергнет
+            # и вторую попытку, и любой следующий SELECT этой сессии.
+            try:
+                await session.rollback()
+            except Exception:  # noqa: BLE001 — сессия уже нежива, откатывать нечего
+                pass
+            if number + 1 < len(functions):
+                logger.warning(
+                    "CUSTOMER_REPO: %s недоступна (%s) — сравниваю по куску слова",
+                    function,
+                    exc,
+                )
+                continue
+            # pg_trgm не установлен — остаёмся без fuzzy, как в catalog_repo
+            logger.warning("CUSTOMER_REPO: нечёткий поиск недоступен (%s)", exc)
+            return []
+
+    # Обе меры идут сразу за общим набором полей (_row читает 0..16).
+    return [r for r in rows if max(r[17] or 0, r[18] or 0) >= threshold]
+
+
+def _similar_row(row) -> Dict[str, Any]:
+    """Кандидат похожести: карточка плюс чем и насколько она похожа.
+
+    `score` и `matched_field` идут в вопрос руководителю и в лог. Без них
+    вопрос невозможно ни понять, ни разобрать потом: совпасть могло название
+    компании, которого в карточке не видно.
+    """
+    by_name = float(row[17] or 0)
+    by_company = float(row[18] or 0)
+    return {
+        **_row(row),
+        "score": round(max(by_name, by_company), 3),
+        "matched_field": "name" if by_name >= by_company else "company_name",
+    }
 
 
 async def similar(name: Optional[str], limit: int = 5) -> List[Dict[str, Any]]:
@@ -268,23 +337,52 @@ async def similar(name: Optional[str], limit: int = 5) -> List[Dict[str, Any]]:
     совпадения, и карточка создалась молча. Дубль клиента разводит историю
     заказов и долги на два лица, а замечают это на сверке — то есть поздно.
 
-    Порог мягче обычного: здесь ошибка стоит одного лишнего вопроса, а не
-    неверно записанной продажи.
+    Порог мягче обычного, но сравнение — по целым словам (`strict=True`).
+    Мягкий порог на сравнении с куском слова означал другое: любое короткое
+    имя «похоже» на всё, что начинается с тех же двух букв, и вопрос
+    задавался там, где спрашивать не о чем (см. `_search_fuzzy`).
     """
     query = str(name or "").strip()
     if not query:
         return []
     async with get_session_ctx() as session:
         rows = await _search_fuzzy(
-            session, query_variants(query), limit, threshold=LOOSE_THRESHOLD
+            session, query_variants(query), limit, LOOSE_THRESHOLD, strict=True
         )
         if not rows:
             words = _significant_words(query)
             if words:
                 rows = await _search_fuzzy(
-                    session, words, limit, threshold=LOOSE_THRESHOLD
+                    session, words, limit, LOOSE_THRESHOLD, strict=True
                 )
-    return [_row(r) for r in rows]
+    found = [_similar_row(r) for r in rows]
+    if found:
+        logger.info(
+            "CUSTOMER_REPO: «%s» похож на %s",
+            query,
+            ", ".join(
+                f"{c['name']} (#{c['id']}, {c['matched_field']}={c['score']})"
+                for c in found
+            ),
+        )
+    return found
+
+
+def same_phone(candidate_phone: Optional[str], raw_phone: Optional[str]) -> Optional[bool]:
+    """Один ли это номер. `None` — судить не по чему (номера нет у кого-то).
+
+    Единственное место, где офис решает «тот же номер или другой»: сравнение
+    идёт по тем же девяти цифрам, что и поиск, потому что в базе лежат
+    `+998 66 233-45-67`, `998662334567` и `662334567` — один и тот же номер.
+
+    Ответ `False` сильнее любой похожести имён: у карточки есть свой номер, и
+    он не тот. Значит это другой клиент, и спрашивать не о чем.
+    """
+    mine = phone_utils.match_tail(raw_phone)
+    theirs = phone_utils.match_tail(candidate_phone)
+    if not mine or not theirs:
+        return None
+    return mine == theirs
 
 
 async def resolve(

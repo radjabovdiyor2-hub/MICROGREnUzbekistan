@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
-from shared import catalog_repo, customer_repo, storefront_orders
+from shared import catalog_repo, customer_repo, group_reply, storefront_orders
 from shared.utils import format_price
 from shared.prompts import role_prompt
 from shared.config import settings
@@ -14,7 +14,6 @@ from shared.database import init_db
 from shared.event_bus import event_bus
 from bots.sales_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
-from bots.sales_bot.handlers.ai_chat import ai_fallback
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
@@ -1139,9 +1138,19 @@ async def main():
         dp.include_router(r)
 
     bot_info = await bot.me()
+    # В группе отдел отвечает СВОИМИ инструментами и помнит разговор
+    # (shared/group_reply). Здесь стоял `ai_fallback` — обработчик личной
+    # переписки с клиентом: без истории и без единого инструмента, поэтому на
+    # «есть ли такой клиент» и «сколько стоит руккола» отдел продаж отвечал
+    # общими словами, имея двадцать четыре инструмента.
     group_router = create_group_router(
         bot_info.username,
-        ai_fallback,
+        group_reply.group_handler(
+            "sales_bot",
+            "sales",
+            "Ты — Коммерческий директор (CRO) Microgreen Uzbekistan: сделки, "
+            "клиенты, конверсия, B2B-переговоры.",
+        ),
         wake_words=["отдел продаж", "продажи", "sales", "сейлз"],
     )
     dp.include_router(group_router)

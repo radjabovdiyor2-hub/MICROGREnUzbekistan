@@ -14,7 +14,7 @@ from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
 from bots.marketing_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
-from bots.marketing_bot.handlers.campaigns import ai_mkt
+from shared import group_reply
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 from sqlalchemy import text
@@ -816,7 +816,13 @@ async def main():
     bot_info = await bot.me()
     group_router = create_group_router(
         bot_info.username,
-        ai_mkt,
+        # Инструменты отдела + память чата (shared/group_reply).
+        group_reply.group_handler(
+            "marketing_bot",
+            "marketing",
+            "Ты — директор по маркетингу (CMO) Microgreen Uzbekistan: LTV, CAC, "
+            "кампании, возврат ушедших клиентов, B2B-предложения.",
+        ),
         wake_words=["отдел маркетинг", "маркетинг", "marketing", "реклама"],
     )
     dp.include_router(group_router)

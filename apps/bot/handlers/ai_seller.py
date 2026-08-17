@@ -1,8 +1,19 @@
 """
-🤖 AI AGRONOMIST — Полная интеграция с API
+🛒 AI-ПРОДАВЕЦ витрины — полная интеграция с API
 
-AI-помощник для Telegram бота.
-Использует единый API /api/ai/chat для ответов и создания заказов.
+AI-помощник клиента в Telegram: подбирает микрозелень по блюду и вкусу,
+советует рецепты, разбирает фото еды и оформляет заказ. Отвечает через единый
+API `/api/ai/chat`.
+
+⚠️ ЭТО НЕ АГРОНОМ. Файл назывался `agronomist.py`, и это было не описание, а
+приглашение к ошибке: клиенты микрозелень покупают, а не выращивают, и советы
+про замачивание семян и грунт им не нужны. Системный промпт продавца прямо
+запрещает такие ответы («Ты НЕ агроном» — services/ai_service.py), то есть имя
+файла спорило с содержимым.
+
+Прежние `callback_data` («agronomist», «agronomist:photo_hint»…) намеренно
+оставлены рабочими в handlers/unified.py: они уже разосланы клиентам кнопками,
+и переименование сделало бы старые кнопки молчащими.
 """
 
 import os
@@ -65,23 +76,10 @@ async def ask_ai(message: str, user_id: int, history: list = None) -> dict:
         return {"reply": "Ошибка соединения с AI.", "error": True}
 
 
-# Храним историю разговоров (в памяти, для production используйте Redis)
-conversation_history: dict[int, list] = {}
-
-
-def get_history(user_id: int) -> list:
-    """Получить историю разговора пользователя"""
-    return conversation_history.get(user_id, [])[-10:]  # Последние 10 сообщений
-
-
-def add_to_history(user_id: int, role: str, content: str):
-    """Добавить сообщение в историю"""
-    if user_id not in conversation_history:
-        conversation_history[user_id] = []
-    conversation_history[user_id].append({"role": role, "content": content})
-    # Ограничиваем историю
-    if len(conversation_history[user_id]) > 20:
-        conversation_history[user_id] = conversation_history[user_id][-20:]
+# История разговора живёт в Redis (services/chat_history.py), а не в словаре
+# процесса: словарь обнулялся каждым деплоем, и клиент, уже описавший своё
+# блюдо, после рестарта разговаривал с собеседником, впервые о нём слышащим.
+from services.chat_history import add_to_history, clear_history, get_history  # noqa: E402
 
 
 # ==================== HANDLERS ====================
@@ -103,9 +101,7 @@ async def cmd_ai(message: Message):
 @router.message(Command("clear"))
 async def cmd_clear(message: Message):
     """Очистить историю разговора"""
-    user_id = message.from_user.id
-    if user_id in conversation_history:
-        conversation_history[user_id] = []
+    clear_history(message.from_user.id)
     await message.answer("🧹 История разговора очищена!")
 
 
@@ -231,18 +227,14 @@ async def handle_ai_message(message: Message):
     await message.bot.send_chat_action(message.chat.id, "typing")
     
     # 1. Get AI Response via Web API (includes weather, currency, order context)
-    history = conversation_history.get(user_id, [])[-10:]  # Last 10 messages
+    history = get_history(user_id)
     ai_result = await ask_ai(user_text, user_id, history)
     ai_response = ai_result["reply"]
-    
-    # Save to conversation history
-    if user_id not in conversation_history:
-        conversation_history[user_id] = []
-    conversation_history[user_id].append({"role": "user", "content": user_text})
-    conversation_history[user_id].append({"role": "assistant", "content": ai_response})
-    # Keep last 20 entries max
-    if len(conversation_history[user_id]) > 20:
-        conversation_history[user_id] = conversation_history[user_id][-20:]
+
+    # Обе реплики — вопрос и ответ. Половина обмена в истории хуже целого
+    # отсутствия: модель видит вопрос без ответа и отвечает на него второй раз.
+    add_to_history(user_id, "user", user_text)
+    add_to_history(user_id, "assistant", ai_response)
     
     # 2. Check if order was created by the API
     order_created = ai_result.get("orderCreated", False)
