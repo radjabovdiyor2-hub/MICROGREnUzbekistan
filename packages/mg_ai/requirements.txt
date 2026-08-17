@@ -1,6 +1,9 @@
 # mg_ai — shared AI transport for Microgreen Uzbekistan
 # Installed in both apps/bot and apps/tgas Docker images.
-openai>=1.50.0
+# Не ниже 1.66: `chat_with_tools` ходит в /v1/responses (client.responses),
+# которого в 1.50 ещё нет. Со старым SDK это не «чуть иначе», а AttributeError
+# на каждом вызове инструмента — то есть неработающий офис при зелёной сборке.
+openai>=1.66.0
 aiohttp>=3.9.0
 httpx>=0.27.0
 edge-tts>=7.0.0

@@ -64,8 +64,11 @@ def _is_reasoning_model(model: str) -> bool:
     """Рассуждающая модель? От этого зависят ДВА обязательных параметра.
 
     Рассуждающие модели (gpt-5.x, o1/o3/o4) принимают `max_completion_tokens`
-    и НЕ принимают `max_tokens`, а качеством ответа управляет
-    `reasoning_effort`. Ошибка в этой проверке не «чуть портит ответ», а роняет
+    и НЕ принимают `max_tokens`, а качеством ответа управляет уровень
+    размышления. Имена параметров зависят от эндпоинта: на chat/completions это
+    `max_completion_tokens` + `reasoning_effort`, на /v1/responses (там живёт
+    `chat_with_tools`) — `max_output_tokens` + `reasoning={"effort": ...}`.
+    Ошибка в этой проверке не «чуть портит ответ», а роняет
     вызов целиком: старый префикс `gpt-5` был отсюда убран, и любая модель
     семейства 5.x получала `max_tokens` — то есть 400 от OpenAI на каждый
     запрос. Раньше такой отказ уводил офис на Gemini молча; теперь он просто
@@ -73,6 +76,106 @@ def _is_reasoning_model(model: str) -> bool:
     """
     m = model.lower()
     return m.startswith(("gpt-5", "o1", "o3", "o4"))
+
+
+# ── Инструменты: /v1/responses против /v1/chat/completions ────────────────
+#
+# `chat_with_tools` жил на /v1/chat/completions и там же упирался в стену: у
+# gpt-5.5 набор `tools` вместе с `reasoning_effort` отклоняется с 400 —
+# «Function tools with reasoning_effort are not supported for gpt-5.5 in
+# /v1/chat/completions. To use function tools, use /v1/responses or set
+# reasoning_effort to 'none'». Выбор из двух зол был ложным: убрать
+# размышление у вызова, который решает, ЧТО сделать, значит вернуть ту самую
+# экономию на выборе действия, от которой избавлялись. Поэтому переезд.
+#
+# Формат инструмента у эндпоинтов разный: chat кладёт функцию внутрь
+# `{"type": "function", "function": {...}}`, responses ждёт её плоско.
+# Схемы отделов лежат в chat-формате (`shared/tools/registry.py`) и оттуда же
+# уходят в текст промптов, поэтому конвертируем здесь: вызывающий не обязан
+# знать, каким эндпоинтом мы ходим.
+
+
+def _to_responses_tools(tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """chat-формат инструмента → плоский формат /v1/responses.
+
+    Идемпотентна намеренно: инструмент, уже описанный плоско, возвращается как
+    есть. Иначе первый же вызывающий с новым форматом получил бы инструмент без
+    имени, а модель — молчаливое «выбирать нечего».
+    """
+    converted: List[Dict[str, Any]] = []
+    for tool in tools or []:
+        function = tool.get("function") if isinstance(tool, dict) else None
+        if not isinstance(function, dict):
+            converted.append(tool)
+            continue
+        converted.append(
+            {
+                "type": "function",
+                "name": function.get("name"),
+                "description": function.get("description", ""),
+                "parameters": function.get("parameters")
+                or {"type": "object", "properties": {}},
+            }
+        )
+    return converted
+
+
+@dataclass
+class _ToolCallFunction:
+    """Имя и аргументы вызова — та же форма, что у chat/completions."""
+
+    name: str
+    arguments: str
+
+
+@dataclass
+class _ToolCall:
+    id: str
+    function: _ToolCallFunction
+
+
+@dataclass
+class _ToolMessage:
+    """Ответ модели в том виде, в каком его читают вызывающие.
+
+    Форма пришла от chat/completions (`.content`, `.tool_calls[].function`), и
+    читают её три места: `tool_runtime.run_tool_loop`, собственный разбор
+    Стёпана в `assistant.py` и сверка `scripts/check_ai.py`. Смена эндпоинта
+    менять её не должна — иначе одна правка транспорта тянет правки во всех
+    отделах сразу, а заглушка `mg_ai` в `tests/conftest.py` перестаёт
+    соответствовать настоящему движку и тесты зеленеют на неправде.
+    """
+
+    content: Optional[str]
+    tool_calls: List[_ToolCall]
+
+
+def _message_from_response(response: Any) -> _ToolMessage:
+    """Разбор ответа /v1/responses в контракт `_ToolMessage`.
+
+    Читаем `output` поэлементно, а не через удобное `output_text`: текст нужен
+    вместе с вызовами инструментов, а `output_text` про вызовы не знает.
+    """
+    calls: List[_ToolCall] = []
+    texts: List[str] = []
+    for item in getattr(response, "output", None) or []:
+        kind = getattr(item, "type", None)
+        if kind == "function_call":
+            calls.append(
+                _ToolCall(
+                    id=getattr(item, "call_id", None) or getattr(item, "id", "") or "",
+                    function=_ToolCallFunction(
+                        name=getattr(item, "name", "") or "",
+                        arguments=getattr(item, "arguments", None) or "{}",
+                    ),
+                )
+            )
+        elif kind == "message":
+            for part in getattr(item, "content", None) or []:
+                if getattr(part, "type", None) == "output_text":
+                    texts.append(getattr(part, "text", "") or "")
+    joined = "\n".join(t for t in texts if t).strip()
+    return _ToolMessage(content=joined or None, tool_calls=calls)
 
 
 @dataclass
@@ -397,6 +500,12 @@ class AIEngine:
         `high` по умолчанию: этот вызов решает, ЧТО делать, и он один на
         сообщение. Экономить размышление именно здесь — значит экономить на
         выборе действия, а не на длине текста.
+
+        ⚠️ Эндпоинт здесь — /v1/responses, а не /v1/chat/completions (см.
+        комментарий у `_to_responses_tools`): у gpt-5.5 инструменты вместе с
+        `reasoning_effort` на chat/completions отклоняются с 400. Возвращаемая
+        форма от переезда не изменилась — `_ToolMessage` повторяет контракт
+        chat/completions, потому что его читают три места сразу.
         """
         client = self._get_openai_client()
         if client is None:
@@ -405,43 +514,80 @@ class AIEngine:
             )
 
         try:
-            messages: List[Dict[str, Any]] = [
-                {"role": "system", "content": system_prompt}
-            ]
+            # Системный промпт у /v1/responses живёт в `instructions`, а не
+            # сообщением с ролью `system`. История ролями остаётся историей:
+            # переезд эндпоинта не меняет формат, которым её складывает
+            # `tool_runtime` (роль `tool` — отдельная задача, не заодно).
+            items: List[Dict[str, Any]] = []
             if conversation_history:
-                messages.extend(conversation_history)
+                items.extend(conversation_history)
             if user_message:
-                messages.append({"role": "user", "content": user_message})
+                items.append({"role": "user", "content": user_message})
 
             kwargs: Dict[str, Any] = {
                 "model": self._openai_model,
-                "messages": messages,
-                "tools": tools,
+                "instructions": system_prompt,
+                "input": items,
+                "tools": _to_responses_tools(tools),
                 "tool_choice": "auto",
+                # Хранение на стороне OpenAI выключено: у /v1/responses `store`
+                # включён по умолчанию, у chat/completions его не было вовсе.
+                # Смена эндпоинта — не повод молча продлить срок жизни
+                # переписки с клиентами на чужой стороне.
+                "store": False,
             }
             if _is_reasoning_model(self._openai_model):
-                kwargs["reasoning_effort"] = effort
+                kwargs["reasoning"] = {"effort": effort}
                 # Рассуждение тратит те же токены, что и ответ: без запаса
                 # вызов обрывается на середине размышления и возвращает
                 # пустоту — ни текста, ни инструмента.
-                kwargs["max_completion_tokens"] = max(max_tokens + 1500, 2000)
+                kwargs["max_output_tokens"] = max(max_tokens + 1500, 2000)
             else:
                 kwargs["temperature"] = temperature
-                kwargs["max_tokens"] = max_tokens
+                kwargs["max_output_tokens"] = max_tokens
+
+            def _record(resp: Any, ms: float) -> None:
+                """Учёт расхода. У /v1/responses поля называются иначе."""
+                usage = getattr(resp, "usage", None)
+                if not usage:
+                    return
+                self.usage.add_usage(
+                    input_tokens=getattr(usage, "input_tokens", 0) or 0,
+                    output_tokens=getattr(usage, "output_tokens", 0) or 0,
+                    model=self._openai_model,
+                    duration_ms=ms,
+                )
 
             start_time = time.monotonic()
-            response = await client.chat.completions.create(**kwargs)
+            response = await client.responses.create(**kwargs)
             duration_ms = (time.monotonic() - start_time) * 1000
+            _record(response, duration_ms)
+            message = _message_from_response(response)
 
-            usage = response.usage
-            if usage:
-                self.usage.add_usage(
-                    input_tokens=usage.prompt_tokens,
-                    output_tokens=usage.completion_tokens,
-                    model=self._openai_model,
-                    duration_ms=duration_ms,
+            # Обрыв на размышлении: лимит у рассуждающих общий на размышление и
+            # ответ, поэтому `incomplete` без текста и без вызова — это не
+            # «ответ короче», а пустота. Тот же повтор, что в `_openai_chat`.
+            if (
+                getattr(response, "status", None) == "incomplete"
+                and not message.tool_calls
+                and not message.content
+                and _is_reasoning_model(self._openai_model)
+            ):
+                logger.warning(
+                    "OpenAI %s не уложился в max_output_tokens. Повтор с +2000.",
+                    self._openai_model,
                 )
-            return response.choices[0].message
+                kwargs["max_output_tokens"] = kwargs["max_output_tokens"] + 2000
+                start_time = time.monotonic()
+                response = await client.responses.create(**kwargs)
+                retry_ms = (time.monotonic() - start_time) * 1000
+                # Оба вызова стоят денег. Учитывать только удачный — значит
+                # занижать расход ровно на неудавшиеся размышления, а они
+                # самые дорогие.
+                _record(response, retry_ms)
+                message = _message_from_response(response)
+
+            return message
         except Exception as e:
             self.usage.total_errors += 1
             logger.error("OpenAI tools сбой: %s", e)

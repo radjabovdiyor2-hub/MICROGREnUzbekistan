@@ -26,6 +26,7 @@ from __future__ import annotations
 import importlib.util
 import inspect
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -146,3 +147,110 @@ def test_no_dead_prices_of_the_removed_provider(engine):
     поддерживаемая модель.
     """
     assert not [m for m in engine.TOKEN_COSTS if "gemini" in m.lower()]
+
+
+# ── Инструменты и эндпоинт ──────────────────────────────────────────────
+#
+# 18.08.2026: живой вызов с инструментами падал с 400 — «Function tools with
+# reasoning_effort are not supported for gpt-5.5 in /v1/chat/completions».
+# Статическая сверка при этом была зелёной, потому что смотрела наличие
+# параметров, а не эндпоинт. Тесты ниже смотрят именно то, что тогда
+# разошлось.
+
+
+def _fake_response(*, output, status="completed"):
+    """Ответ /v1/responses в том виде, в каком его отдаёт SDK."""
+    return types.SimpleNamespace(output=list(output), status=status, usage=None)
+
+
+def _function_call(name: str, arguments: str):
+    return types.SimpleNamespace(
+        type="function_call", call_id="c1", name=name, arguments=arguments
+    )
+
+
+def _text_message(text: str):
+    return types.SimpleNamespace(
+        type="message",
+        content=[types.SimpleNamespace(type="output_text", text=text)],
+    )
+
+
+def test_tool_schemas_are_flattened_for_responses(engine):
+    """Схемы отделов лежат в chat-формате, а /v1/responses ждёт плоский.
+
+    Отдать инструмент неконвертированным — значит отдать его без имени:
+    модель «не выберет ничего», и это выглядит как поглупевший бот, а не как
+    ошибка формата.
+    """
+    chat_format = {
+        "type": "function",
+        "function": {
+            "name": "get_price_list",
+            "description": "Прайс",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    }
+    flat = engine._to_responses_tools([chat_format])[0]
+    assert flat["name"] == "get_price_list"
+    assert "function" not in flat, f"функция осталась вложенной: {flat}"
+
+
+def test_tool_flattening_is_idempotent(engine):
+    """Инструмент, уже описанный плоско, переживает конвертацию."""
+    flat = {"type": "function", "name": "find_product", "parameters": {}}
+    assert engine._to_responses_tools([flat])[0]["name"] == "find_product"
+
+
+def test_response_output_keeps_the_chat_contract(engine):
+    """Форму `.content` / `.tool_calls[].function` читают три места сразу.
+
+    `tool_runtime.run_tool_loop`, разбор Стёпана в `assistant.py` и
+    `scripts/check_ai.py`. Сменить её вместе с эндпоинтом означало бы
+    молчаливую поломку во всех отделах: `getattr(message, "tool_calls", None)`
+    вернул бы None, и инструменты просто перестали бы вызываться.
+    """
+    message = engine._message_from_response(
+        _fake_response(
+            output=[_function_call("get_price_list", '{"a": 1}'), _text_message("готово")]
+        )
+    )
+    assert message.tool_calls[0].function.name == "get_price_list"
+    assert message.tool_calls[0].function.arguments == '{"a": 1}'
+    assert message.content == "готово"
+
+
+def test_tools_call_uses_responses_endpoint_and_does_not_store(engine):
+    """Тот самый 400: `reasoning_effort` + инструменты на chat/completions.
+
+    Проверяем три вещи разом, потому что разошлись они вместе: запрос уходит в
+    /v1/responses (`input`, а не `messages`), размышление передаётся как
+    `reasoning`, а не запрещённым `reasoning_effort`, и переписка не остаётся
+    на стороне OpenAI (`store` там включён по умолчанию, у chat/completions
+    его не было вовсе).
+    """
+    import asyncio
+
+    captured: dict = {}
+
+    class _Responses:
+        async def create(self, **kwargs):
+            captured.update(kwargs)
+            return _fake_response(output=[_text_message("ок")])
+
+    ai = engine.AIEngine(openai_key="k", openai_model="gpt-5.5")
+    ai._get_openai_client = lambda: types.SimpleNamespace(responses=_Responses())
+
+    asyncio.run(
+        ai.chat_with_tools(system_prompt="s", user_message="u", tools=[], effort="high")
+    )
+
+    assert "input" in captured and "messages" not in captured, (
+        f"запрос ушёл не в /v1/responses: {sorted(captured)}"
+    )
+    assert captured["reasoning"] == {"effort": "high"}
+    assert "reasoning_effort" not in captured, (
+        "`reasoning_effort` вместе с инструментами — это 400 от OpenAI"
+    )
+    assert captured["store"] is False
+    assert captured["instructions"] == "s"
