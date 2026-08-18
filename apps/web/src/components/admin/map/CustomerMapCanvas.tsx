@@ -77,13 +77,24 @@ export default function CustomerMapCanvas(props: Props) {
       ready.current = true;
     };
 
-    const instance = new MapLibreMap({
-      container: node,
-      style: styleUrl(latest.current.theme),
-      center: DEFAULT_CENTER,
-      zoom: DEFAULT_ZOOM,
-      attributionControl: { compact: true },
-    });
+    let instance: MapLibreMap;
+    try {
+      instance = new MapLibreMap({
+        container: node,
+        style: styleUrl(latest.current.theme),
+        center: DEFAULT_CENTER,
+        zoom: DEFAULT_ZOOM,
+        attributionControl: { compact: true },
+      });
+    } catch (error) {
+      // Конструктор бросает СИНХРОННО без WebGL, и подписка на 'error' до
+      // этого места не доживает. Без перехвата исключение вылетает из
+      // эффекта и уносит весь раздел «Клиенты»; вместо этого родитель
+      // покажет список и скажет, что карта недоступна.
+      console.error('[customer-map] карта не поднялась:', error);
+      latest.current.onTilesError();
+      return;
+    }
     map.current = instance;
 
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { MapPin } from 'lucide-react';
 import { Map as MapLibreMap, Marker, NavigationControl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -36,29 +37,46 @@ function styleUrl(): string {
 export default function StoreMap({ latitude, longitude, title }: Props) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const node = container.current;
     if (!node || map.current) return;
 
-    const instance = new MapLibreMap({
-      container: node,
-      style: styleUrl(),
-      center: [longitude, latitude],
-      zoom: ZOOM,
-      attributionControl: { compact: true },
-      // Витрина — не рабочий инструмент: карта не должна перехватывать
-      // прокрутку страницы, когда посетитель просто листает мимо.
-      scrollZoom: false,
-      cooperativeGestures: true,
-    });
+    let instance: MapLibreMap;
+    try {
+      instance = new MapLibreMap({
+        container: node,
+        style: styleUrl(),
+        center: [longitude, latitude],
+        zoom: ZOOM,
+        attributionControl: { compact: true },
+        // Витрина — не рабочий инструмент: карта не должна перехватывать
+        // прокрутку страницы, когда посетитель просто листает мимо.
+        scrollZoom: false,
+        cooperativeGestures: true,
+      });
+    } catch (error) {
+      // Конструктор бросает СИНХРОННО, когда WebGL недоступен: старое
+      // железо, выключенное аппаратное ускорение, корпоративная политика.
+      // Без перехвата исключение вылетает из эффекта и роняет всю секцию
+      // на публичной главной — вместо карты посетитель теряет и адрес, и
+      // кнопки маршрута. Показываем подложку, ссылки ниже остаются живыми.
+      console.error('[store-map] карта не поднялась:', error);
+      // Отдельным тиком, а не прямо здесь: setState в теле эффекта даёт
+      // каскад перерисовок. Отрисовать подложку на кадр позже — ровно то,
+      // что нужно, кадр этот всё равно пустой.
+      queueMicrotask(() => setFailed(true));
+      return;
+    }
     map.current = instance;
 
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+    // Тайлы могли не приехать уже после старта — тот же исход для читателя.
+    instance.on('error', () => setFailed(true));
 
-    new Marker({ color: '#10B981' })
+    new Marker({ color: 'var(--brand-primary)' })
       .setLngLat([longitude, latitude])
-      .setPopup(undefined)
       .addTo(instance);
 
     return () => {
@@ -66,6 +84,28 @@ export default function StoreMap({ latitude, longitude, title }: Props) {
       map.current = null;
     };
   }, [latitude, longitude]);
+
+  if (failed) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: 240,
+          display: 'grid',
+          placeItems: 'center',
+          gap: 'var(--space-2)',
+          background: 'var(--bg-tertiary)',
+          color: 'var(--text-muted)',
+          textAlign: 'center',
+          padding: 'var(--space-4)',
+        }}
+      >
+        <MapPin size={28} aria-hidden />
+        <span style={{ fontSize: 'var(--text-sm)' }}>{title}</span>
+      </div>
+    );
+  }
 
   return (
     <div
