@@ -1,4 +1,4 @@
-import { prisma, Prisma } from '@repo/database';
+import { prisma, Prisma, type TransactionClient } from '@repo/database';
 import { weightedAverageCost } from './weightedAverage';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -148,7 +148,7 @@ export interface ConsumeInput {
  * складывается себестоимость партии.
  */
 export async function consumeMaterial(
-  tx: Prisma.TransactionClient,
+  tx: TransactionClient,
   input: ConsumeInput,
 ): Promise<{ cost: number; unitCost: number; stockAfter: number }> {
   const quantity = Math.abs(Number(input.quantity));

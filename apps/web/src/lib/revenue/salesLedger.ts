@@ -1,4 +1,5 @@
 import { prisma } from '@repo/database';
+import { lineTotal } from '@/lib/qty';
 
 // ══════════════════════════════════════════════════════════════════════
 // Единственное определение «что такое продажа» на всю витрину.
@@ -20,6 +21,16 @@ import { prisma } from '@repo/database';
 //   онлайн-продажа = строка `orders`, статус не CANCELLED
 //   продажа в точке = движение OUT, где orderId IS NULL И salePrice IS NOT NULL
 //   всё прочее OUT  = списание/усушка, это НЕ выручка
+//
+// ПО КАКОЙ ДАТЕ СЧИТАЕМ
+//
+// У движений склада — по `soldAt`, деловой дате операции, а не по
+// `createdAt`. Продажа, о которой продавец вспомнил на следующий день,
+// принадлежит тому дню, когда товар ушёл; время появления строки в базе —
+// это про аудит, а не про выручку. Так же устроен `Finance.date`.
+//
+// У заказов деловой даты нет: их задним числом не оформляют, и `createdAt`
+// для них и есть дата продажи.
 //
 // `orderId` ставит только afterCreate, `salePrice` — только касса
 // (lib/pos/sale.ts). Поэтому пересечения между источниками нет по построению,
@@ -70,54 +81,12 @@ export interface SalesLedger {
   costOf: (productId: string) => number;
 }
 
-/** Начало суток по местному времени — одна граница на все отчёты.
- *
- *  Касса считала день по UTC, аналитика — по локали; для Asia/Samarkand это
- *  пять часов расхождения, и продажи с полуночи до пяти утра попадали в разные
- *  сутки на соседних плитках одного экрана.
+/**
+ * Границы суток живут в `lib/localDate` — там нет серверных зависимостей.
+ * Реэкспорт оставлен, чтобы отчёты продолжали брать их отсюда: определение
+ * одно, а календарю кассы больше не нужно тянуть Prisma в браузер.
  */
-export function startOfLocalDay(date: Date = new Date()): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
-/** «YYYY-MM-DD» по местному времени.
- *
- *  `toISOString().slice(0, 10)` отдаёт дату по UTC: с полуночи до пяти утра по
- *  Ташкенту это вчерашнее число. Так номер заказа, оформленного 12 августа в
- *  02:00, получался `M-20260811-…`, и персонал не находил его по дате.
- */
-export function formatLocalDate(date: Date = new Date()): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-/** Границы суток по местному времени для «YYYY-MM-DD» (или для сегодня).
- *
- *  Отчёт смены строил их сам: `new Date(`${date}T00:00:00.000Z`)` — это явный
- *  UTC, то есть 05:00 по Ташкенту. Продажа в 03:00 в отчёт за свой день не
- *  попадала, зато попадала в чужой, и «Касса сегодня» на сводке владельца
- *  показывала не то же самое, что отчёт продавца по той же смене.
- *
- *  Верхняя граница — начало следующих суток, сравнение строгое (`lt`):
- *  `23:59:59.999` теряет последнюю миллисекунду часа.
- */
-export function localDayRange(date?: string): { start: Date; end: Date } {
-  // Строка без суффикса «Z» разбирается как местное время — это и нужно.
-  const start = date ? startOfLocalDay(new Date(`${date}T00:00:00`)) : startOfLocalDay();
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  return { start, end };
-}
-
-export function daysAgo(days: number, from: Date = new Date()): Date {
-  const d = new Date(from);
-  d.setDate(d.getDate() - days);
-  return startOfLocalDay(d);
-}
+export { startOfLocalDay, formatLocalDate, localDayRange, daysAgo } from '@/lib/localDate';
 
 async function buildCostMap(): Promise<Map<string, number>> {
   const costMap = new Map<string, number>();
@@ -170,13 +139,13 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
         type: 'OUT',
         orderId: null,
         salePrice: { not: null },
-        createdAt: range,
+        soldAt: range,
       },
       include: { product: { select: { nameUz: true, costPrice: true } } },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.stockMovement.findMany({
-      where: { type: 'IN', reason: { startsWith: 'Qaytarish' }, createdAt: range },
+      where: { type: 'IN', reason: { startsWith: 'Qaytarish' }, soldAt: range },
       include: { product: { select: { nameUz: true, price: true } } },
       orderBy: { createdAt: 'desc' },
     }),
@@ -189,7 +158,7 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
   const orderLines: OrderLine[] = [];
 
   for (const order of orders) {
-    const goods = order.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const goods = order.items.reduce((sum, i) => sum + lineTotal(i.price, i.quantity), 0);
     orderLines.push({
       id: order.id,
       at: order.createdAt,
@@ -206,8 +175,8 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
         productId: item.productId,
         productName: item.product?.nameUz ?? 'Tovar',
         quantity: item.quantity,
-        revenue: item.price * item.quantity,
-        cost: costOf(item.productId) * item.quantity,
+        revenue: lineTotal(item.price, item.quantity),
+        cost: lineTotal(costOf(item.productId), item.quantity),
         at: order.createdAt,
         channel: 'online',
       });
@@ -223,9 +192,9 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
       productId: m.productId,
       productName: m.product.nameUz,
       quantity,
-      revenue: quantity * (m.salePrice ?? 0),
-      cost: quantity * unitCost,
-      at: m.createdAt,
+      revenue: Math.round(quantity * (m.salePrice ?? 0)),
+      cost: Math.round(quantity * unitCost),
+      at: m.soldAt,
       channel: 'pos',
     });
   }
@@ -238,8 +207,8 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
       quantity,
       // salePrice пишется при возврате; без него берём прайс — но это уже
       // приближение, и оно видно в данных, а не спрятано.
-      amount: quantity * (m.salePrice ?? m.product.price),
-      at: m.createdAt,
+      amount: Math.round(quantity * (m.salePrice ?? m.product.price)),
+      at: m.soldAt,
     };
   });
 

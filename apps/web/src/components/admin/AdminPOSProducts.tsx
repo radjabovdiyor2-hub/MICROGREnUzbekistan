@@ -2,6 +2,7 @@
 
 import { Camera, Clock, Search } from 'lucide-react';
 import type { CSSProperties } from 'react';
+import { formatQty } from '@/lib/qty';
 import type { CartItem, Product } from './AdminPOSTypes';
 
 // Левая половина кассы: поиск, фильтр рубрик и сетка товаров.
@@ -128,7 +129,7 @@ export function AdminPOSProducts({
                     border: '2px solid var(--bg-primary)',
                     boxShadow: '0 2px 6px rgba(var(--brand-primary-rgb), 0.3)',
                   }}>
-                    {inCart.quantity}
+                    {formatQty(inCart.quantity)}
                   </span>
                 )}
                 {/* Thumbnail row */}

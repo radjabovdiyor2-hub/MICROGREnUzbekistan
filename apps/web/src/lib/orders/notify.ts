@@ -125,6 +125,15 @@ ${itemsList}
 export async function notifyOfficePosSale(sale: {
   saleNumber: string;
   total: number;
+  /**
+   * Деловая дата продажи в ISO.
+   *
+   * Без неё офис ставил продаже `NOW()`, и продажа, проведённая сегодня за
+   * вчера, попадала у витрины во вчерашний день, а у офиса — в сегодняшний.
+   * Это ровно то расхождение отчётов, ради устранения которого написан
+   * lib/revenue/salesLedger.
+   */
+  soldAt?: string;
   paymentMethod: string;
   customerName?: string | null;
   customerPhone?: string | null;
@@ -147,6 +156,7 @@ export async function notifyOfficePosSale(sale: {
           phone: sale.customerPhone || null,
         },
         total_amount: sale.total,
+        created_at: sale.soldAt ?? null,
         delivery_fee: 0,
         discount_amount: 0,
         payment_method: sale.paymentMethod,

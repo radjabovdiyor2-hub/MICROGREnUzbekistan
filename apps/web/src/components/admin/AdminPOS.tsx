@@ -4,29 +4,35 @@ import { useState, useEffect, useCallback } from 'react';
 import { AdminPOSReceipt } from './AdminPOSReceipt';
 import { AdminPOSProducts } from './AdminPOSProducts';
 import { AdminPOSCart } from './AdminPOSCart';
-import type { CartItem, DebtInfo, Product } from './AdminPOSTypes';
+import type { ContractPrice, PosCustomer, Product } from './AdminPOSTypes';
 import { usePosReceipt } from './usePosReceipt';
 import { usePosCart } from './usePosCart';
+import { usePosSubmit } from './usePosSubmit';
 import { AdminPOSChrome } from './AdminPOSChrome';
-import { submitSale, submitReturn, belowCostWarnings } from './posApi';
 
 
-export function AdminPOS({ sellerName }: { sellerName?: string }) {
+export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string; isOwner?: boolean }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'card' | 'debt'>('cash');
-  const [debtInfo, setDebtInfo] = useState<DebtInfo>({ personName: '', phone: '', dueDate: '' });
-  const [processing, setProcessing] = useState(false);
-  const [saleResult, setSaleResult] = useState<{ saleNumber: string; total: number; isReturn?: boolean; items?: CartItem[]; payMethod?: string; date?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
-  const [returnReason, setReturnReason] = useState('');
-  // Номер чека, из которого возвращают. Без него сервер отклонит возврат:
-  // по нему проверяется, что возвращают не больше проданного и не повторно.
-  const [returnSaleNumber, setReturnSaleNumber] = useState('');
-  const { cart, setCart, addToCart, updatePrice, updateQuantity, removeFromCart, total } =
-    usePosCart();
+  const [showCart, setShowCart] = useState(false);
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [editPriceValue, setEditPriceValue] = useState('');
+
+  const [customer, setCustomer] = useState<PosCustomer | null>(null);
+  const {
+    cart, setCart, addToCart, updatePrice, setPriceReason, applyContract,
+    updateQuantity, setQuantity, removeFromCart, total,
+  } = usePosCart();
+
+  const onPickCustomer = (picked: PosCustomer | null, prices: Map<string, ContractPrice>) => {
+    setCustomer(picked);
+    applyContract(prices);
+  };
+
+  const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -49,78 +55,32 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
     return () => clearTimeout(timer);
   }, [fetchProducts]);
 
-  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
-  const [editPriceValue, setEditPriceValue] = useState('');
-
-  const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
-
-  const processSale = async () => {
-    if (cart.length === 0) return;
-    if (paymentMethod === 'debt' && !debtInfo.personName) return;
-
-    const warnings = belowCostWarnings(cart, fmt);
-    if (warnings.length > 0 &&
-        !confirm(`DIQQAT! Tan narxidan past sotilmoqda:\n\n${warnings.join('\n')}\n\nDavom etasizmi?`)) return;
-
-    setProcessing(true);
-    try {
-      const data = await submitSale(cart, paymentMethod, sellerName || 'Egasi', debtInfo);
-      if (data.success) {
-        setSaleResult({ saleNumber: data.saleNumber!, total: data.total!, items: cart, payMethod: paymentMethod, date: new Date().toLocaleString('ru-RU') });
-        setCart([]);
-        setPaymentMethod('cash');
-        setDebtInfo({ personName: '', phone: '', dueDate: '' });
-        fetchProducts();
-      } else {
-        alert(data.error || 'Xatolik yuz berdi');
-      }
-    } catch (err) {
-      console.error('Sale error:', err);
-      alert('Xatolik yuz berdi');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const processReturn = async () => {
-    if (cart.length === 0) return;
-
-    setProcessing(true);
-    try {
-      const data = await submitReturn(cart, returnReason, sellerName || 'Egasi', returnSaleNumber.trim());
-      if (data.success) {
-        setSaleResult({ saleNumber: data.returnNumber!, total: data.totalRefund!, isReturn: true, items: cart, date: new Date().toLocaleString('ru-RU') });
-        setCart([]);
-        setReturnReason('');
-        setReturnSaleNumber('');
-        fetchProducts();
-      } else {
-        alert(data.error || 'Xatolik yuz berdi');
-      }
-    } catch (err) {
-      console.error('Return error:', err);
-      alert('Xatolik yuz berdi');
-    } finally {
-      setProcessing(false);
-    }
-  };
-  const [showCart, setShowCart] = useState(false);
+  // Оформление чека вынесено в хук: вместе с уступкой, деловой датой и
+  // автором продажи оно перестало помещаться в этот файл.
+  const submit = usePosSubmit({
+    cart,
+    customerId: customer?.id ?? null,
+    clearCart: () => setCart([]),
+    sellerName: sellerName || 'Egasi',
+    fmt,
+    onDone: fetchProducts,
+  });
 
   const { copied, isCapturing, handlePrint, handleCopyImage, handleShareImage } =
-    usePosReceipt(saleResult, fmt);
+    usePosReceipt(submit.saleResult, fmt);
 
   // Sale/Return success screen with PREMIUM receipt
-  if (saleResult) {
+  if (submit.saleResult) {
     return (
       <AdminPOSReceipt
-        saleResult={saleResult}
+        saleResult={submit.saleResult}
         fmt={fmt}
         copied={copied}
         isCapturing={isCapturing}
         onPrint={handlePrint}
         onCopyImage={handleCopyImage}
         onShareImage={handleShareImage}
-        onNewOperation={() => { setSaleResult(null); setReturnMode(false); }}
+        onNewOperation={() => { submit.setSaleResult(null); setReturnMode(false); }}
       />
     );
   }
@@ -138,7 +98,7 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         returnMode={returnMode} setReturnMode={setReturnMode} clearCart={() => setCart([])}
         showCart={showCart} setShowCart={setShowCart}
         productCount={products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length}
-        cartCount={cart.length} cartQty={cart.reduce((s, i) => s + i.quantity, 0)}
+        cartCount={cart.length}
         total={total} fmt={fmt} />
 
 
@@ -162,24 +122,35 @@ export function AdminPOS({ sellerName }: { sellerName?: string }) {
         <AdminPOSCart
           cart={cart}
           returnMode={returnMode}
-          processing={processing}
-          paymentMethod={paymentMethod}
-          setPaymentMethod={setPaymentMethod}
-          returnReason={returnReason}
-          returnSaleNumber={returnSaleNumber}
-          setReturnSaleNumber={setReturnSaleNumber}
-          setReturnReason={setReturnReason}
-          debtInfo={debtInfo}
-          setDebtInfo={setDebtInfo}
+          processing={submit.processing}
+          paymentMethod={submit.paymentMethod}
+          setPaymentMethod={submit.setPaymentMethod}
+          returnReason={submit.returnReason}
+          returnSaleNumber={submit.returnSaleNumber}
+          setReturnSaleNumber={submit.setReturnSaleNumber}
+          setReturnReason={submit.setReturnReason}
+          debtInfo={submit.debtInfo}
+          setDebtInfo={submit.setDebtInfo}
           editingPriceId={editingPriceId}
           setEditingPriceId={setEditingPriceId}
           editPriceValue={editPriceValue}
           setEditPriceValue={setEditPriceValue}
           updateQuantity={updateQuantity}
+          setQuantity={setQuantity}
           updatePrice={updatePrice}
+          setPriceReason={setPriceReason}
+          isOwner={isOwner}
+          discount={submit.discount}
+          setDiscount={submit.setDiscount}
+          saleDate={submit.saleDate}
+          setSaleDate={submit.setSaleDate}
+          seller={submit.seller}
+          setSeller={submit.setSeller}
+          customer={customer}
+          onPickCustomer={onPickCustomer}
           removeFromCart={removeFromCart}
-          processSale={processSale}
-          processReturn={processReturn}
+          processSale={submit.processSale}
+          processReturn={submit.processReturn}
           total={total}
           fmt={fmt}
           inputStyle={inputStyle}

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Banknote, CheckCircle, Clock, CreditCard, RefreshCw } from 'lucide-react';
+import { formatQtyWithUnit, lineTotal } from '@/lib/qty';
 import type { SaleResultData } from './posReceiptTypes';
 
 export function AdminPOSReceiptCard({
@@ -12,7 +13,9 @@ export function AdminPOSReceiptCard({
   fmt: (n: number) => string;
 }) {
   const isReturn = saleResult.isReturn;
-  const itemCount = saleResult.items?.reduce((s, i) => s + i.quantity, 0) || 0;
+  // Позиции, а не сумма количеств: 2 лотка и 1 кг — это не «3 товара»,
+  // и с дробными количествами такая сумма выглядела бы как «2.3 товар(ов)».
+  const itemCount = saleResult.items?.length || 0;
   const payLabel = saleResult.payMethod === 'cash' ? 'Наличные' : saleResult.payMethod === 'card' ? 'Карта' : 'В долг';
   const payIcon = saleResult.payMethod === 'cash' ? <Banknote size={14} /> : saleResult.payMethod === 'card' ? <CreditCard size={14} /> : <Clock size={14} />;
 
@@ -86,14 +89,14 @@ export function AdminPOSReceiptCard({
                   {item.product.nameUz}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 2, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {item.quantity} шт × {fmt(item.customPrice)}
+                  {formatQtyWithUnit(item.quantity, item.product.unit)} × {fmt(item.customPrice)}
                 </div>
               </div>
               <div style={{
                 fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '13px',
                 color: 'var(--text-primary)', flexShrink: 0, textAlign: 'right',
               }}>
-                {fmt(item.customPrice * item.quantity)}
+                {fmt(lineTotal(item.customPrice, item.quantity))}
               </div>
             </div>
           ))}
@@ -103,7 +106,7 @@ export function AdminPOSReceiptCard({
 
         {/* Summary row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{itemCount} товар(ов)</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{itemCount} позиц.</span>
           {saleResult.payMethod && (
             <span style={{
               display: 'flex', alignItems: 'center', gap: '5px',

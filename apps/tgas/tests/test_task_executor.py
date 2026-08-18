@@ -535,9 +535,13 @@ async def test_department_scope_limits_the_model():
 
 # ── Продажа ─────────────────────────────────────────────────────────────
 @pytest.mark.asyncio
-async def test_fractional_quantity_is_refused_not_rounded(monkeypatch):
-    """Витрина считает позиции целыми: округлять за менеджера нельзя —
-    это исказило бы и остаток, и сумму. Спрашиваем прямо."""
+async def test_fractional_quantity_is_accepted(monkeypatch):
+    """Дробное количество витрина принимает: салат продаётся за килограмм.
+
+    Раньше здесь стоял отказ («назовите в целых единицах»), потому что
+    `OrderItem.quantity` был Int. Колонка стала Decimal(10, 2), и округлять
+    2.5 кг до 2 или 3 больше не требуется — это искажало и остаток, и сумму.
+    """
     from shared import sales_ops
 
     async def fake_resolve(items):
@@ -554,12 +558,68 @@ async def test_fractional_quantity_is_refused_not_rounded(monkeypatch):
             ]
         }
 
+    sent = {}
+
+    async def fake_known_customer(*args, **kwargs):
+        # Опознание клиента ходит в базу — здесь проверяется не оно.
+        return {"id": 1, "name": "Zarra", "phone": "+998901234567"}, None
+
+    async def fake_create_order(**kwargs):
+        sent.update(kwargs)
+        # Дальше витрины не идём: нужен только payload, который до неё дошёл.
+        return {"ok": False, "error": "stop"}
+
+    monkeypatch.setattr(sales_ops, "_resolve_items", fake_resolve)
+    async def fake_upsert_customer(*args, **kwargs):
+        return 1, False, "+998901234567"
+
+    monkeypatch.setattr(sales_ops, "_known_customer", fake_known_customer)
+    monkeypatch.setattr(sales_ops, "_upsert_customer", fake_upsert_customer)
+    monkeypatch.setattr(
+        sales_ops.storefront_orders, "create_order", fake_create_order
+    )
+    await sales_ops.register_sale(
+        {
+            "customer_name": "Zarra",
+            "phone": "+998901234567",
+            "items": [{"product": "санго", "quantity": 2.5}],
+        }
+    )
+
+    # До витрины дошло РОВНО 2.5: int() здесь отбрасывал дробную часть.
+    assert sent["items"][0]["quantity"] == 2.5
+
+
+@pytest.mark.asyncio
+async def test_too_precise_quantity_is_refused_not_rounded(monkeypatch):
+    """Третий знак после запятой — отказ, а не тихое округление.
+
+    Столько не хранит ни `OrderItem.quantity`, ни зеркало
+    `crm_order_items.quantity`: Postgres округлил бы молча, и сумма чека
+    перестала бы сходиться с суммой позиций.
+    """
+    from shared import sales_ops
+
+    async def fake_resolve(items):
+        return {
+            "resolved": [
+                {
+                    "product_id": "cuid1",
+                    "name": "Микрозелень Санго",
+                    "unit": "kg",
+                    "quantity": 2.555,
+                    "unit_price": 40000,
+                    "total_price": 102200,
+                }
+            ]
+        }
+
     monkeypatch.setattr(sales_ops, "_resolve_items", fake_resolve)
     result = await sales_ops.register_sale(
-        {"customer_name": "Zarra", "items": [{"product": "санго", "quantity": 2.5}]}
+        {"customer_name": "Zarra", "items": [{"product": "санго", "quantity": 2.555}]}
     )
     assert result["status"] == "clarify"
-    assert "целых единицах" in result["message"]
+    assert "сотых" in result["message"]
 
 
 # ── Петля делегирования (инцидент 10.08.2026) ───────────────────────────

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
-import { prisma } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 
 const isValidDate = (d: unknown) => d instanceof Date && !isNaN(d.getTime());
 
@@ -112,7 +112,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
     }
 
-    const updateData: Record<string, unknown> = {};
+    // Именно `UncheckedUpdateInput`, а не `Record<string, unknown>`: смена
+    // задаётся плоским `employeeId`, а не `employee: { connect }`. Нетипизированный
+    // объект Prisma принимала лишь потому, что `Record<string, unknown>` подходит
+    // подо что угодно — опечатка в имени поля молча не доехала бы до базы.
+    const updateData: Prisma.ShiftUncheckedUpdateInput = {};
 
     if (employeeId !== undefined) updateData.employeeId = employeeId;
     if (type !== undefined) updateData.type = type;

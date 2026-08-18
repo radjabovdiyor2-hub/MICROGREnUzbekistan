@@ -4,7 +4,8 @@ import { Clock, RefreshCw, ShoppingCart } from 'lucide-react';
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { AdminPOSCartItems } from './AdminPOSCartItems';
 import { AdminPOSSaleFooter } from './AdminPOSSaleFooter';
-import type { CartItem, DebtInfo } from './AdminPOSTypes';
+import { AdminPOSSaleOptions } from './AdminPOSSaleOptions';
+import type { CartDiscount, CartItem, ContractPrice, DebtInfo, PosCustomer, SaleDate } from './AdminPOSTypes';
 
 // Правая половина кассы: корзина, способ оплаты, долг и оформление.
 // Вынесена из AdminPOS вместе с левой панелью.
@@ -25,8 +26,20 @@ interface Props {
   setEditingPriceId: (v: string | null) => void;
   editPriceValue: string;
   setEditPriceValue: (v: string) => void;
-  updateQuantity: (id: string, delta: number) => void;
+  /** Шаг вверх или вниз: направление, а не количество. */
+  updateQuantity: (id: string, direction: number) => void;
+  setQuantity: (id: string, value: number) => void;
   updatePrice: (id: string, newPrice: number) => void;
+  setPriceReason: (id: string, reason: string) => void;
+  isOwner: boolean;
+  discount: CartDiscount | null;
+  setDiscount: (v: CartDiscount | null) => void;
+  saleDate: SaleDate | null;
+  setSaleDate: (v: SaleDate | null) => void;
+  seller: string;
+  setSeller: (v: string) => void;
+  customer: PosCustomer | null;
+  onPickCustomer: (c: PosCustomer | null, prices: Map<string, ContractPrice>) => void;
   removeFromCart: (id: string) => void;
   processSale: () => void;
   processReturn: () => void;
@@ -39,7 +52,9 @@ export function AdminPOSCart({
   cart, returnMode, processing, paymentMethod, setPaymentMethod,
   returnReason, setReturnReason, returnSaleNumber, setReturnSaleNumber, debtInfo, setDebtInfo,
   editingPriceId, setEditingPriceId, editPriceValue, setEditPriceValue,
-  updateQuantity, updatePrice, removeFromCart, processSale, processReturn,
+  updateQuantity, setQuantity, updatePrice, setPriceReason, removeFromCart, processSale, processReturn,
+  isOwner, discount, setDiscount, saleDate, setSaleDate, seller, setSeller,
+  customer, onPickCustomer,
   total, fmt, inputStyle,
 }: Props) {
   return (
@@ -57,7 +72,7 @@ export function AdminPOSCart({
           fontSize: 'var(--text-xs)', color: 'var(--text-muted)',
           background: 'var(--bg-tertiary)', padding: '3px 10px',
           borderRadius: 'var(--radius-full)',
-        }}>({cart.length} шт)</span>}
+        }}>({cart.length} поз.)</span>}
       </h3>
 
       {cart.length === 0 ? (
@@ -76,7 +91,9 @@ export function AdminPOSCart({
             editPriceValue={editPriceValue}
             setEditPriceValue={setEditPriceValue}
             updateQuantity={updateQuantity}
+            setQuantity={setQuantity}
             updatePrice={updatePrice}
+            setPriceReason={setPriceReason}
             removeFromCart={removeFromCart}
             fmt={fmt}
           />
@@ -125,7 +142,16 @@ export function AdminPOSCart({
               </div>
             </>
           ) : (
-            /* Sale mode: payment methods + total + submit */
+            /* Sale mode: options + payment methods + total + submit */
+            <>
+            <AdminPOSSaleOptions
+              isOwner={isOwner}
+              discount={discount} setDiscount={setDiscount}
+              saleDate={saleDate} setSaleDate={setSaleDate}
+              seller={seller} setSeller={setSeller}
+              customer={customer} onPickCustomer={onPickCustomer}
+              inputStyle={inputStyle}
+            />
             <AdminPOSSaleFooter
               processing={processing}
               paymentMethod={paymentMethod}
@@ -137,6 +163,7 @@ export function AdminPOSCart({
               fmt={fmt}
               inputStyle={inputStyle}
             />
+            </>
           )}
         </>
       )}

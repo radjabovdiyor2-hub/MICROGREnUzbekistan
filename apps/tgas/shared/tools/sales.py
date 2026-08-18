@@ -26,6 +26,7 @@ async def register_sale(
     notes: str = "",
     customer_id: Optional[int] = None,
     force_new_customer: bool = False,
+    registered_by: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Зарегистрировать состоявшуюся продажу.
 
@@ -52,7 +53,9 @@ async def register_sale(
             "notes": notes,
             "customer_id": customer_id,
             "force_new_customer": force_new_customer,
-            "registered_by": "sales_bot",
+            # Имя менеджера, если вызывающий его знает. Здесь стояла строка
+            # "sales_bot", из-за чего авторство продажи терялось.
+            "registered_by": registered_by,
         }
     )
 

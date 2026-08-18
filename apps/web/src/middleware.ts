@@ -120,10 +120,27 @@ const MAP_TILES_ORIGIN = new URL(
   process.env.NEXT_PUBLIC_MAP_TILES_URL || 'https://tiles.openfreemap.org',
 ).origin;
 
+/**
+ * `'unsafe-eval'` — ТОЛЬКО в разработке.
+ *
+ * React в dev-режиме вызывает eval() для отладочных возможностей (сборка
+ * стека вызовов из другого окружения). Под нашим CSP страница из-за этого
+ * не отрисовывалась вовсе: `next dev` встречал «eval() is not supported in
+ * this environment» ещё до первого экрана. Раньше это не всплывало, потому
+ * что локально поднимали прод-сборку (`next start`), а в ней React eval()
+ * не использует.
+ *
+ * На проде послабление не появляется ни при каких условиях: `'unsafe-eval'`
+ * открывает ровно тот класс XSS, ради закрытия которого CSP и вводили.
+ * `NODE_ENV` Next.js подставляет на сборке, поэтому в прод-бандле этой
+ * ветки не остаётся.
+ */
+const DEV_SCRIPT_SRC = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '';
+
 function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://telegram.org https://oauth.telegram.org https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru`,
+    `script-src 'self' 'nonce-${nonce}'${DEV_SCRIPT_SRC} https://telegram.org https://oauth.telegram.org https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",

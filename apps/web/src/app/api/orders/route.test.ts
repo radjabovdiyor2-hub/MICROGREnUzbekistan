@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { POST, GET } from './route';
+import { POST, GET, PUT } from './route';
 import { NextRequest } from 'next/server';
 import { CUSTOMER_TTL_SECONDS, SESSION_COOKIE, createSession } from '@/lib/session';
 
@@ -148,6 +148,72 @@ describe('POST /api/orders', () => {
     expect(data.subtotal).toBe(120000);
   });
 
+  it('принимает дробное количество — салат продаётся за килограмм', async () => {
+    productFindMany.mockResolvedValueOnce([{ id: 'p1', price: 15000 }]);
+    const created = vi.fn().mockResolvedValue({ id: 'o3', orderNumber: 'M-3', items: [] });
+    await stubPrisma(created);
+
+    const res = await POST(createRequest({
+      customer: { firstName: 'Test', phone: '+998901234567', address: 'Tashkent' },
+      items: [{ productId: 'p1', quantity: 1.3 }],
+    }));
+
+    expect(res.status).not.toBe(400);
+    const data = created.mock.calls[0][0].data;
+    expect(data.items.create[0].quantity).toBe(1.3);
+    expect(data.subtotal).toBe(19500);
+  });
+
+  it('третий знак после запятой отклоняет — столько колонка не хранит', async () => {
+    // Раньше отбивалось любое дробное, и по той же причине: значение
+    // проходило Zod и падало уже в Prisma безымянным 500. Теперь предел —
+    // ровно тот, что помещается в колонку.
+    const res = await POST(createRequest({
+      customer: { firstName: 'Test', phone: '+998901234567', address: 'Tashkent' },
+      items: [{ productId: 'p1', quantity: 1.234 }],
+    }));
+    expect(res.status).toBe(400);
+  });
+
+  it('доверенному офису записывает автора продажи', async () => {
+    // У кассы автор был всегда, а продажи ИИ-офиса уходили в CRM с
+    // registered_by="sales_bot": какой менеджер продал ресторану, из данных
+    // было не видно.
+    productFindMany.mockResolvedValueOnce([{ id: 'p1', price: 15000 }]);
+    const created = vi.fn().mockResolvedValue({ id: 'o4', orderNumber: 'M-4', items: [] });
+    await stubPrisma(created);
+
+    const req = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test-bot-secret-value' },
+      body: JSON.stringify({
+        customer: { firstName: 'Жасмин', phone: '+998901234567', address: 'Самарканд' },
+        items: [{ productId: 'p1', quantity: 2 }],
+        performedBy: 'Диёр',
+      }),
+    });
+    await POST(req);
+
+    expect(created.mock.calls[0][0].data.performedBy).toBe('Диёр');
+  });
+
+  it('из браузера автора приписать нельзя', async () => {
+    // Иначе покупатель приписал бы свой заказ любому сотруднику, а по этому
+    // полю считается выработка — та же причина, по которой из браузера не
+    // принимается договорная цена.
+    productFindMany.mockResolvedValueOnce([{ id: 'p1', price: 15000 }]);
+    const created = vi.fn().mockResolvedValue({ id: 'o5', orderNumber: 'M-5', items: [] });
+    await stubPrisma(created);
+
+    await POST(createRequest({
+      customer: { firstName: 'Test', phone: '+998901234567', address: 'Tashkent' },
+      items: [{ productId: 'p1', quantity: 1 }],
+      performedBy: 'Диёр',
+    }));
+
+    expect(created.mock.calls[0][0].data.performedBy).toBeNull();
+  });
+
   it('should return 400 if cart is empty', async () => {
     const req = createRequest({
       customer: { firstName: 'Test', phone: '+998901234567', address: 'Tashkent' },
@@ -175,6 +241,43 @@ async function customerRequest(userId: string, query = ''): Promise<NextRequest>
     headers: { cookie: `${SESSION_COOKIE}=${token}` },
   });
 }
+
+describe('PUT /api/orders', () => {
+  // Смена статуса ОПЛАТЫ держалась на одном правиле в таблице префиксов
+  // middleware: в самом роуте проверки не было, в отличие от соседнего
+  // /api/admin/orders/[id].
+  beforeEach(() => {
+    vi.stubEnv('BOT_SECRET', 'test-bot-secret-value');
+  });
+
+  it('аноним не может пометить заказ оплаченным', async () => {
+    const req = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'PUT',
+      body: JSON.stringify({ id: 'o1', paymentStatus: 'PAID' }),
+    });
+    expect((await PUT(req)).status).toBe(401);
+  });
+
+  it('покупатель со своей сессией — тоже не может', async () => {
+    const token = await createSession({ role: 'CUSTOMER', userId: 'u1' }, CUSTOMER_TTL_SECONDS);
+    const req = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'PUT',
+      headers: { cookie: `${SESSION_COOKIE}=${token}` },
+      body: JSON.stringify({ id: 'o1', paymentStatus: 'PAID' }),
+    });
+    expect((await PUT(req)).status).toBe(401);
+  });
+
+  it('бот с общим секретом проходит', async () => {
+    const req = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'PUT',
+      headers: { authorization: 'Bearer test-bot-secret-value' },
+      body: JSON.stringify({ id: 'o1' }),
+    });
+    // Без id вернулся бы 400; главное — не 401.
+    expect((await PUT(req)).status).not.toBe(401);
+  });
+});
 
 describe('GET /api/orders', () => {
   beforeEach(() => {

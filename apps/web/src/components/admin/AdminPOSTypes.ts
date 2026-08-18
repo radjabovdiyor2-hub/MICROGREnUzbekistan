@@ -23,8 +23,50 @@ export interface Product {
 
 export interface CartItem {
   product: Product;
+  /**
+   * Количество — дробное: салат продаётся за килограмм, и 1.3 кг обычная
+   * продажа. Шаг набора зависит от единицы (`lib/qty#stepFor`).
+   */
   quantity: number;
   customPrice: number; // editable sale price
+  /**
+   * Почему цена отличается от прайсовой.
+   *
+   * Сервер откажет в продаже не по прайсу без причины: через месяц владелец
+   * видит, что товар за 15 000 ушёл по 13 000, и спросить не у кого.
+   */
+  priceReason?: string;
+}
+
+/** Покупатель чека. Нужен ради договорных цен, а не ради самой продажи. */
+export interface PosCustomer {
+  id: number;
+  name: string;
+  phone: string | null;
+}
+
+/** Договорная цена товара для выбранного покупателя. */
+export interface ContractPrice {
+  price: number;
+  note: string | null;
+}
+
+/** Уступка на весь чек — одна на продажу, а не по позициям. */
+export interface CartDiscount {
+  type: 'percent' | 'fixed';
+  value: string;
+  reason: string;
+}
+
+/**
+ * Деловая дата продажи.
+ *
+ * Пустая `date` означает «сейчас» — обычный чек. Заполненная включает
+ * продажу задним числом, и тогда причина обязательна.
+ */
+export interface SaleDate {
+  date: string;
+  reason: string;
 }
 
 export interface DebtInfo {

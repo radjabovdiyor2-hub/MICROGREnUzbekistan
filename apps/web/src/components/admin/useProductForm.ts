@@ -46,7 +46,7 @@ export function useProductForm(refresh: () => void) {
       nameUz: p.nameUz, nameRu: p.nameRu, slug: '',
       price: String(p.price), oldPrice: p.oldPrice ? String(p.oldPrice) : '',
       costPrice: p.costPrice ? String(p.costPrice) : '', categoryId: p.category?.id || '', stock: String(p.stock),
-      sku: '', brand: '', descriptionUz: '',
+      sku: '', brand: '', descriptionUz: '', unit: p.unit || 'шт',
       isFeatured: p.isFeatured, isOnSale: p.isOnSale,
     });
     setImages(p.images || []);
@@ -67,7 +67,10 @@ export function useProductForm(refresh: () => void) {
         nameRu: form.nameRu || form.nameUz,
         price: parseInt(form.price),
         categoryId: form.categoryId,
-        stock: parseInt(form.stock) || 0,
+        // Остаток дробный: салат считается килограммами, и после
+        // инвентаризации на складе может лежать 8.7.
+        stock: parseFloat(String(form.stock).replace(',', '.')) || 0,
+        unit: form.unit || 'шт',
         isFeatured: form.isFeatured,
         isOnSale: form.isOnSale,
       };

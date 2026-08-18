@@ -3,6 +3,7 @@ import { deliveryFeeForSubtotal, getNumber } from '@/lib/settings/store';
 import { validatePromo, consumePromo } from '@/lib/promo';
 import { generateOrderNumber } from './notify';
 import { normalizePhone } from '@/lib/phone';
+import { cartTotal } from '@/lib/qty';
 import type { orderSchema, OrderItemInput } from './schema';
 import type { z } from 'zod';
 
@@ -143,7 +144,10 @@ export async function createOrder(
     pricedItems.push({ productId, quantity: item.quantity, price: negotiated });
   }
 
-  const subtotal = pricedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Позиции округляются по одной и только потом складываются: иначе
+  // сохранённый `total` разойдётся с суммой, которую пересчитывают отчёты
+  // (lib/revenue/salesLedger) и зеркало CRM.
+  const subtotal = cartTotal(pricedItems);
   const deliveryFee = await deliveryFeeForSubtotal(subtotal);
 
   // Resolve the ordering user: prefer the logged-in account (userId), then
@@ -237,6 +241,10 @@ export async function createOrder(
         // Канал продажи: его передавали все три клиента, а записывать было
         // некуда — колонки не существовало.
         source: body.source || 'web',
+        // Автор — только от доверенного вызывающего (общий секрет офиса/бота).
+        // Из браузера это поле игнорируется: иначе покупатель мог бы приписать
+        // свой заказ любому сотруднику, а по этому полю считается выработка.
+        performedBy: identity.trusted && body.performedBy ? String(body.performedBy).slice(0, 100) : null,
         paymentMethod: paymentMethod || 'cash',
         paymentStatus: 'PENDING',
         items: { create: pricedItems },

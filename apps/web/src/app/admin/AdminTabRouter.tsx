@@ -64,7 +64,7 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
 }) {
   return (
   <main className="admin-main">
-    {activeTab === 'pos' && canSell && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} />}
+    {activeTab === 'pos' && canSell && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} isOwner={isOwner} />}
     {activeTab === 'stepan' && isOwner && <AdminStepan lang={lang} />}
     {activeTab === 'stats' && isOwner && <AdminStats />}
     {activeTab === 'revenue' && isOwner && <AdminRevenue />}

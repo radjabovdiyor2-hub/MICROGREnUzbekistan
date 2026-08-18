@@ -58,7 +58,13 @@ model Product {
   images        String[] // URLs
   categoryId    String   @map("category_id")
   category      Category @relation(fields: [categoryId], references: [id])
-  stock         Int      @default(0)
+  /// Остаток в единицах `unit` — дробный.
+  ///
+  /// Был `Int`, и это упиралось в весовой товар: салаты продаются за
+  /// килограмм, а продать 1.3 кг было нельзя ни на кассе, ни через офис.
+  /// Точность (10, 2) — та же, что у зеркала `crm_products.stock_qty`:
+  /// при разной количество округлялось бы на переходе в CRM.
+  stock         Decimal  @default(0) @db.Decimal(10, 2)
   sku           String?  @unique
   brand         String?
   specs         Json? // Характеристики
@@ -79,6 +85,7 @@ model Product {
   stockMovements    StockMovement[]
   recipeIngredients RecipeIngredient[]
   greenBoxItems     GreenBoxItem[]
+  customerPrices    CustomerPrice[]
 
   @@index([categoryId])
   @@index([categoryId, isActive])
@@ -145,7 +152,7 @@ model CartItem {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   productId String  @map("product_id")
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantity  Int     @default(1)
+  quantity  Decimal @default(1) @db.Decimal(10, 2)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -199,6 +206,16 @@ model Order {
   /// сайта от заказа из бота было нечем: атрибуция каналов продаж не
   /// существовала.
   source        String        @default("web")
+
+  /// Кто оформил заказ, если это сделал человек, а не покупатель.
+  ///
+  /// У кассы автор был всегда (`StockMovement.performedBy`), а у продаж,
+  /// которые ИИ-офис оформляет за менеджера, — нет: в CRM уходило
+  /// `registered_by="sales_bot"` во всех трёх точках вызова, и какой именно
+  /// менеджер продал ресторану, из данных было не видно. Пусто — заказ
+  /// оформил сам покупатель через сайт или бота.
+  performedBy   String?       @map("performed_by")
+
   paymentMethod String        @map("payment_method") // click | payme | cash
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
 
@@ -246,7 +263,11 @@ model OrderItem {
   order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId String  @map("product_id")
   product   Product @relation(fields: [productId], references: [id])
-  quantity  Int
+  /// Дробное количество: 1.3 кг салата — одна позиция, а не «1» или «2».
+  /// Цена остаётся целой (сумы); сумма позиции округляется РОВНО ОДИН РАЗ,
+  /// в `lib/qty.ts#lineTotal` — иначе сохранённый `Order.total` разойдётся
+  /// с суммой, которую пересчитывают отчёты.
+  quantity  Decimal @db.Decimal(10, 2)
   price     Int // Цена на момент заказа
 
   @@map("order_items")
@@ -368,7 +389,7 @@ model StockMovement {
   productId   String       @map("product_id")
   product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
   type        MovementType
-  quantity    Int // Positive for IN, negative for OUT
+  quantity    Decimal      @db.Decimal(10, 2) // Positive for IN, negative for OUT
   reason      String? // "Продажа", "Поставка", "Списание", "Возврат", etc.
   note        String?      @db.Text
   supplierId  String?      @map("supplier_id")
@@ -378,12 +399,125 @@ model StockMovement {
   orderId     String?      @map("order_id") // Привязка к заказу если продажа
   performedBy String?      @map("performed_by") // Кто провёл операцию
 
+  /// Прайсовая цена на момент продажи.
+  ///
+  /// `salePrice` говорит, ПО ЧЁМ продали, но не от чего отступили. Без этой
+  /// колонки уступка не измерима: на вопрос «сколько мы уступили за месяц»
+  /// пришлось бы сравнивать с сегодняшним прайсом, а он с тех пор менялся.
+  listPrice   Int?         @map("list_price")
+
+  /// Почему цена этой позиции отличается от прайсовой.
+  ///
+  /// Отдельной колонкой, а не строкой в `note`: `note` занят нехваткой
+  /// остатка, и складывать туда обе причины через разделитель значило бы
+  /// читать их глазами. Вопрос «почему уступили» задают запросом.
+  priceReason String?      @map("price_reason")
+
+  /// Чек, в который входит движение.
+  ///
+  /// Раньше чека как записи не существовало: он был набором движений,
+  /// объединённых номером ВНУТРИ строки `reason` («Do'kon sotish (S-…)»),
+  /// и номер вытаскивался регулярками в трёх местах. Всё, что относится
+  /// к чеку целиком — покупатель, скидка, причина уступки, деловая дата, —
+  /// приходилось складывать в текстовое примечание каждой позиции.
+  saleId      String?      @map("sale_id")
+  sale        PosSale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+
+  /// Деловая дата операции — отдельно от `createdAt` (времени записи).
+  ///
+  /// Продавец, вспомнивший о вчерашней продаже, проводит её вчерашним
+  /// числом: выручка ложится в тот день, когда товар ушёл. Слить обе даты
+  /// в одну колонку было бы дешевле, но тогда из данных исчезает сам факт
+  /// «занесли на два дня позже» — он остался бы только в аудите.
+  ///
+  /// Ровно так же разделены `Finance.date` и `Finance.createdAt`, см.
+  /// доктрину «дата операции против времени записи» в apps/tgas/CLAUDE.md.
+  ///
+  /// Колонка добавлялась в три шага, и повторять их придётся на каждом
+  /// стенде: nullable -> `npx tsx prisma/backfill-sold-at.ts` -> вот это
+  /// состояние. Сразу с дефолтом её объявлять нельзя — Postgres проставил бы
+  /// `now()` ВСЕМ существующим строкам, и вся история продаж съехала бы на
+  /// момент деплоя.
+  soldAt      DateTime     @default(now()) @map("sold_at")
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([productId])
   @@index([type])
   @@index([createdAt])
+  @@index([soldAt])
+  @@index([saleId])
   @@map("stock_movements")
+}
+
+/// Чек кассы: продажа или возврат целиком.
+///
+/// ЗАЧЕМ ОТДЕЛЬНАЯ ТАБЛИЦА
+///
+/// Чек существовал только как набор `stock_movements`, связанных номером
+/// внутри текста `reason`. Из-за этого всё, что относится к продаже целиком,
+/// не имело места в схеме: покупатель, скидка на чек, причина уступки,
+/// причина проводки задним числом — всё это дублировалось в примечание
+/// КАЖДОЙ позиции и читалось только глазами. Ответить запросом на «сколько
+/// мы уступили за месяц» или «какие чеки проведены задним числом» было нельзя.
+///
+/// Возврат ссылается на исходную продажу через `refundOfId`, а не через
+/// вхождение номера в `reason`: сверка «вернули не больше проданного»
+/// держалась на подстроке.
+///
+/// ВЫРУЧКУ ПО-ПРЕЖНЕМУ СЧИТАЮТ ДВИЖЕНИЯ. Шапка — это про чек, а не про
+/// деньги: в `lib/revenue/salesLedger` продажа в точке определяется как
+/// движение OUT без заказа и с ценой продажи, и это определение не меняется.
+/// Иначе появился бы второй источник правды о выручке — ровно то, ради
+/// устранения чего salesLedger и написан.
+model PosSale {
+  id     String @id @default(cuid())
+  number String @unique @db.VarChar(32)
+
+  /// `sale` — продажа, `refund` — возврат.
+  kind String @default("sale") @db.VarChar(10)
+
+  /// Деловая дата операции. У возврата — дата возврата.
+  soldAt    DateTime @map("sold_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  performedBy String  @map("performed_by") @db.VarChar(100)
+  role        String? @db.VarChar(32)
+
+  paymentMethod String @default("cash") @map("payment_method") @db.VarChar(20)
+
+  /// Покупатель — если его назвали ради договорной цены.
+  customerId Int?      @map("customer_id")
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  /// Сумма до скидки на чек.
+  gross Int
+  /// Фактическая скидка. Может отличаться от запрошенной: цена за единицу
+  /// целая, а количество дробное (см. lib/pos/discount.ts).
+  discount       Int     @default(0)
+  discountType   String? @map("discount_type") @db.VarChar(10)
+  discountReason String? @map("discount_reason")
+  /// Сумма к оплате: `gross - discount`.
+  total Int
+
+  backdated      Boolean @default(false)
+  backdateReason String? @map("backdate_reason")
+
+  /// Причина возврата — только у `kind = refund`.
+  reason String?
+
+  refundOfId String?   @map("refund_of_id")
+  refundOf   PosSale?  @relation("PosSaleRefunds", fields: [refundOfId], references: [id], onDelete: SetNull)
+  refunds    PosSale[] @relation("PosSaleRefunds")
+
+  movements StockMovement[]
+
+  @@index([soldAt])
+  @@index([kind, soldAt])
+  @@index([performedBy])
+  @@index([customerId])
+  @@index([refundOfId])
+  @@map("pos_sales")
 }
 
 enum MovementType {
@@ -1088,6 +1222,8 @@ model Customer {
   interactions Interaction[]
   followups    Followup[]
   restaurant   Restaurant?
+  prices       CustomerPrice[]
+  posSales     PosSale[]
 
   @@index([telegramId])
   @@index([phone])
@@ -1097,6 +1233,47 @@ model Customer {
   @@index([district])
   @@index([geoSource])
   @@map("customers")
+}
+
+/// Договорная цена товара для конкретного клиента.
+///
+/// ЗАЧЕМ ОТДЕЛЬНАЯ ТАБЛИЦА
+///
+/// Ресторан берёт объём и платит не по прайсу. До этого договорная цена жила
+/// только в голове продавца: он правил её в чеке руками при каждой продаже, и
+/// при следующей начинал заново — а из данных было не понять, договорённость
+/// это или разовая уступка.
+///
+/// Полями в `products` это не решается: `import-catalog.ts` переимпортирует
+/// прайс из `price-list.html` на КАЖДОМ деплое и затирает правки цен. Своя
+/// таблица переимпорт переживает.
+///
+/// ПОЧЕМУ ССЫЛКА НА `Customer`, А НЕ НА `User`
+///
+/// Договорная цена нужна заведению, а у ресторана-лида аккаунта витрины нет
+/// вовсе — ровно та же причина, по которой в `Customer` живут координаты
+/// карты. `User` завёлся бы только после первого заказа через сайт.
+model CustomerPrice {
+  id         String    @id @default(cuid())
+  customerId Int       @map("customer_id")
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId  String    @map("product_id")
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Цена за единицу `product.unit` в сумах.
+  price      Int
+  /// Чем цена обоснована — уходит в причину уступки при продаже.
+  note       String?
+  /// Срок действия договорённости. Пусто — бессрочно.
+  validFrom  DateTime? @map("valid_from")
+  validTo    DateTime? @map("valid_to")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([customerId, productId])
+  @@index([customerId])
+  @@index([productId])
+  @@map("customer_prices")
 }
 
 // Кэш геокодирования: один нормализованный адрес — одна строка.
@@ -1160,7 +1337,15 @@ model CrmOrder {
   id               Int       @id @default(autoincrement())
   customerId       Int       @map("customer_id")
   customer         Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  orderNumber      String?   @unique @map("order_number") @db.VarChar(20)
+  /// Номер заказа витрины. ШИРЕ, чем кажется нужным, и это не запас «на всякий».
+  ///
+  /// `generateOrderNumber()` выдаёт `M-20260818-A1B2C3D412AB` — 23 символа, а
+  /// колонка была VarChar(20). На базе, созданной Prisma, вставка зеркала
+  /// падала с «value too long», ошибка гасилась в /ingest/order и возвращалась
+  /// витрине 500-м, который та только логирует: НИ ОДИН заказ с сайта не
+  /// доезжал до CRM офиса. Продажи кассы (`S-…`, 19 символов) проходили, из-за
+  /// чего дефект выглядел выборочным.
+  orderNumber      String?   @unique @map("order_number") @db.VarChar(32)
   totalAmount      Decimal   @default(0) @map("total_amount") @db.Decimal(15, 2)
   deliveryFee      Decimal   @default(0) @map("delivery_fee") @db.Decimal(12, 2)
   discountAmount   Decimal   @default(0) @map("discount_amount") @db.Decimal(12, 2)

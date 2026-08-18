@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { quantitySchema } from '@/lib/qty';
 
 // Схемы тела POST /api/orders. Вынесено из route.ts.
 
@@ -11,10 +12,12 @@ export const orderItemSchema = z.object({
   // попадала прямо в `order_items` — покупатель назначал сумму заказа сам.
   // Поле оставлено, потому что его всё ещё шлют витринный бот и офис.
   price: z.number().int().min(0).optional(),
-  // Целые: OrderItem.quantity и price в схеме — Int. Дробное значение проходило
-  // Zod и падало уже в Prisma, отдавая клиенту безымянный 500 вместо внятного
-  // отказа. Дробный вес выражается в граммах или в количестве упаковок.
-  quantity: z.number().int().min(1),
+  // Дробное количество разрешено: салат продаётся за килограмм, и 1.3 кг —
+  // обычная позиция. Предел — два знака после запятой, столько же хранит
+  // колонка `OrderItem.quantity` и зеркало `crm_order_items.quantity`.
+  // Третий знак Postgres округлил бы молча, поэтому его отбиваем здесь
+  // (`lib/qty#quantitySchema`), а не узнаём по расхождению сумм.
+  quantity: quantitySchema,
 });
 
 export type OrderItemInput = z.infer<typeof orderItemSchema>;
@@ -38,6 +41,10 @@ export const orderSchema = z.object({
   address: z.string().optional(),
   telegramId: z.union([z.number(), z.string()]).optional(),
   source: z.string().optional(),
+  // Кто оформил заказ — менеджер офиса. Принимается только от доверенного
+  // вызывающего, как и договорная цена: из браузера этим полем можно было бы
+  // приписать чужую продажу кому угодно.
+  performedBy: z.string().max(100).optional().nullable(),
   // Заметка на верхнем уровне — формат офиса (`storefront_orders.py`).
   // Без объявления Zod её отбрасывал, и она не доезжала до `orders.note`.
   note: z.string().optional().nullable(),

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma, OrderStatus } from '@repo/database';
 import { syncOrderStatus } from '@/lib/orderSync';
-import { isStaff, getCustomerId, unauthorized } from '@/lib/adminAuth';
+import { isAuthorized, isStaff, getCustomerId, unauthorized } from '@/lib/adminAuth';
 import { requireBotAuth } from '@/lib/botAuth';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 
@@ -152,6 +152,13 @@ export async function GET(request: NextRequest) {
 // PUT — Update order status (admin)
 export async function PUT(request: NextRequest) {
   try {
+    // Второй рубеж после middleware. Его здесь не было вовсе: смена статуса и
+    // статуса ОПЛАТЫ держалась на одном правиле в таблице префиксов, и любая
+    // ошибка в нём — переименование пути, новый matcher — открыла бы ручку,
+    // которая помечает заказы оплаченными. Соседний `/api/admin/orders/[id]`
+    // свой рубеж имеет, этот был исключением.
+    if (!isAuthorized(request) && !requireBotAuth(request)) return unauthorized();
+
     const body = await request.json();
     const { id, status, paymentStatus } = body;
 
