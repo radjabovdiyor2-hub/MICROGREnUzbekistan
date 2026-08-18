@@ -267,11 +267,18 @@ jobs:
         env:
           MG_TAG: sha-${{ github.sha }}
           GHCR_OWNER: ${{ github.repository_owner }}
+          # Общие секреты приезжают из репозитория, а не заводятся руками на
+          # сервере. `.env` не в git и переживает `git reset --hard`, поэтому
+          # раньше он был единственным местом, где значение могло потеряться
+          # при переустановке — и потерялось: пустой INGEST_SECRET закрыл
+          # офис для витрины целиком, включая зеркало заказов.
+          INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
+          DGIS_API_KEY: ${{ secrets.DGIS_API_KEY }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: MG_TAG,GHCR_OWNER
+          envs: MG_TAG,GHCR_OWNER,INGEST_SECRET,DGIS_API_KEY
           command_timeout: 50m
           script: |
             set -ex
@@ -280,6 +287,58 @@ jobs:
             cd /opt/microgreen
             git fetch origin
             git reset --hard origin/main
+
+            # ── Секреты из GitHub Secrets в серверный .env ──
+            #
+            # `set +x` обязателен: трассировка включена выше, и без неё
+            # значение секрета ушло бы в открытый лог сборки.
+            #
+            # Переписываем строку целиком через фильтр, а не `sed -i s|...|`:
+            # значение произвольное, и в нём могут оказаться символы, которые
+            # sed примет за свои.
+            set +x
+            upsert_env() {
+              key="$1"
+              val="$2"
+              if [ -z "$val" ]; then return 0; fi
+              touch .env
+              grep -v "^${key}=" .env > .env.next || true
+              # printf без перевода строки + пустой echo: так в записи нет ни
+              # одного экранирования, и произвольное значение секрета не может
+              # быть истолковано как управляющая последовательность.
+              printf '%s=%s' "$key" "$val" >> .env.next
+              echo >> .env.next
+              mv .env.next .env
+            }
+            upsert_env INGEST_SECRET "$INGEST_SECRET"
+            upsert_env DGIS_API_KEY "$DGIS_API_KEY"
+            chmod 600 .env
+            set -x
+
+            # ── Ворота: с пустым общим секретом не выкатываемся ──
+            #
+            # web_office при ENVIRONMENT=production отвечает 401 на КАЖДЫЙ
+            # /ingest/*, если секрет пуст. Витрина эту ошибку гасит намеренно,
+            # поэтому сайт выглядит здоровым, а заказы не доезжают до CRM —
+            # так и жило незамеченным. Инструкция в DEPLOY.md выкатку не
+            # останавливает, ненулевой код возврата останавливает.
+            #
+            # Стоит ДО `docker compose pull`: отказ должен занимать секунды,
+            # а не двенадцать минут скачивания образов.
+            missing=""
+            for key in INGEST_SECRET BOT_SECRET; do
+              value=$(grep "^${key}=" .env 2>/dev/null | head -1 | cut -d= -f2- || true)
+              if [ -z "$value" ]; then missing="$missing $key"; fi
+            done
+            if [ -n "$missing" ]; then
+              echo "❌ Пустые общие секреты в .env:$missing"
+              echo "   Через них идёт всё сообщение витрины с ИИ-офисом:"
+              echo "   зеркало заказов, синхронизация статусов, карточки клиентов,"
+              echo "   геокодирование карты, управление ботами из админки."
+              echo "   INGEST_SECRET и DGIS_API_KEY задаются в Settings → Secrets"
+              echo "   и попадают сюда сами. Остальные — в /opt/microgreen/.env."
+              exit 1
+            fi
             # Скачиваем образы ПЕРВЫМ делом — до того, как что-либо тронуто.
             # Пакеты в GHCR приватные: если разовый `docker login ghcr.io` на
             # сервере не сделан (или PAT протух), pull вернёт denied. Под set -e
