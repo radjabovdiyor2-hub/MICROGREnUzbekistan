@@ -734,6 +734,12 @@ async def ingest_order(request: Request):
     items_summary = str(body.get("items_summary") or "").strip()
     extra_notes = str(body.get("notes") or "").strip()
 
+    # Деловая дата операции. Витрина присылает её у продаж, проведённых
+    # задним числом (`created_at` в теле). Раньше здесь всегда стоял NOW(),
+    # и продажа, занесённая сегодня за вчера, ложилась у витрины во вчерашний
+    # день, а у офиса — в сегодняшний: выручка в двух отчётах расходилась.
+    created_at = str(body.get("created_at") or "").strip() or None
+
     marker = f"[webapp:{ext_number}]"
     notes = marker
     if items_summary:
@@ -787,10 +793,13 @@ async def ingest_order(request: Request):
                         "delivery_fee, discount_amount, status, payment_status, payment_method, "
                         "delivery_address, notes, created_at, updated_at) "
                         "VALUES (:cid, :onum, :total, :delivery, :discount, 'new', 'pending', "
-                        ":pmethod, :addr, :notes, NOW(), NOW()) RETURNING id, order_number"
+                        ":pmethod, :addr, :notes, "
+                        "COALESCE(CAST(:created_at AS TIMESTAMP), NOW()), NOW()) "
+                        "RETURNING id, order_number"
                     ),
                     {
                         "cid": customer_id,
+                        "created_at": created_at,
                         "onum": ext_number,
                         "total": total,
                         "delivery": delivery_fee,
@@ -809,7 +818,11 @@ async def ingest_order(request: Request):
             # ней и аналитика по товару.
             for line in body.get("items") or []:
                 sid = str(line.get("storefront_id") or "").strip()
-                qty = _safe_float(line.get("quantity")) or 1
+                # `or 1` здесь превращал честный ноль в единицу: позиция с
+                # нулевым количеством попадала в CRM как проданная штука.
+                # Отсутствующее количество — по-прежнему единица, ноль — ноль.
+                raw_qty = line.get("quantity")
+                qty = 1.0 if raw_qty is None else _safe_float(raw_qty)
                 price = _safe_float(line.get("price"))
                 if not sid:
                     continue

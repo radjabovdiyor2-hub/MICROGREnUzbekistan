@@ -18,7 +18,7 @@ interface SaleResult {
   date?: string;
   total: number;
   payMethod?: string;
-  items?: { product: { nameUz: string }; quantity: number; customPrice: number }[];
+  items?: { product: { nameUz: string; unit?: string | null }; quantity: number; customPrice: number }[];
 }
 
 export function usePosReceipt(saleResult: SaleResult | null, fmt: (n: number) => string) {

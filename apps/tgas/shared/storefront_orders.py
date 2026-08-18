@@ -72,6 +72,7 @@ async def create_order(
     telegram_id: Optional[int] = None,
     note: Optional[str] = None,
     city: Optional[str] = None,
+    performed_by: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Создать заказ на витрине.
@@ -79,6 +80,13 @@ async def create_order(
     items — [{"id": <cuid товара>, "price": <цена за единицу>, "quantity": N}].
     Цена передаётся явно: витрина фиксирует её в позиции заказа, и продажа по
     договорной цене не должна тихо подмениться прайсовой.
+
+    Количество может быть дробным (до двух знаков): салат продаётся за
+    килограмм, и 1.3 кг — обычная позиция. Раньше витрина принимала только
+    целые, и продажу ресторану приходилось округлять.
+
+    performed_by — менеджер, оформивший продажу. Витрина принимает его только
+    от доверенного вызывающего (общий секрет), как и договорную цену.
 
     Возвращает {"ok": True, "order": {...}} либо {"ok": False, "error": "..."}.
     Сетевой сбой — это отказ, а не пустой успех: вызывающий обязан сказать
@@ -98,6 +106,8 @@ async def create_order(
         payload["note"] = note
     if city:
         payload["city"] = city
+    if performed_by:
+        payload["performedBy"] = performed_by
 
     try:
         async with aiohttp.ClientSession(headers=_headers()) as session:

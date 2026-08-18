@@ -14,14 +14,13 @@ interface Props {
   setShowCart: (v: boolean) => void;
   productCount: number;
   cartCount: number;
-  cartQty: number;
   total: number;
   fmt: (n: number) => string;
 }
 
 export function AdminPOSChrome({
   returnMode, setReturnMode, clearCart, showCart, setShowCart,
-  productCount, cartCount, cartQty, total, fmt,
+  productCount, cartCount, total, fmt,
 }: Props) {
   return (
     <>
@@ -88,7 +87,7 @@ export function AdminPOSChrome({
           }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShoppingCart size={20} />
-            Чек ({cartQty} шт)
+            Чек ({cartCount} поз.)
           </span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>
             {fmt(total)} сум

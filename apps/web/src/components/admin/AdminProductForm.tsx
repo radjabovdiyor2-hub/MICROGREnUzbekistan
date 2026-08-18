@@ -2,6 +2,7 @@
 
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import type { ProductForm, Category } from './productTypes';
+import { PRODUCT_UNITS } from './productTypes';
 import { ArrowLeft, CheckCircle, Clock, Plus, XCircle } from 'lucide-react';
 
 // Форма создания и правки товара. Вынесена из AdminProducts: она рендерится
@@ -70,14 +71,23 @@ export function AdminProductForm({
             )}
           </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
           <div>
             <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>Старая цена</label>
             <input style={inputStyle} type="number" value={form.oldPrice} onChange={e => setForm(f => ({ ...f, oldPrice: e.target.value }))} placeholder="20000" />
           </div>
           <div>
+            {/* Единица стоит рядом с остатком не случайно: «100» на складе
+                значит разное для лотков и килограммов, а на кассе от неё
+                зависит шаг набора количества. */}
+            <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>{t('Единица (цена за) *', 'Birlik (narx uchun) *')}</label>
+            <select style={inputStyle} value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}>
+              {PRODUCT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div>
             <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', display: 'block', marginBottom: 2 }}>На складе *</label>
-            <input style={inputStyle} type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} placeholder="100" />
+            <input style={inputStyle} type="number" step="0.1" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: e.target.value }))} placeholder="100" />
           </div>
         </div>
 

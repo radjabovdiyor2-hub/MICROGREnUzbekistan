@@ -29,7 +29,7 @@ async def sync_catalog_from_storefront() -> dict:
         # Берём активные товары из витрины (Prisma products)
         res = await session.execute(
             text(
-                "SELECT id, name_uz, name_ru, price, stock, category_id, is_active "
+                "SELECT id, name_uz, name_ru, price, stock, category_id, is_active, unit "
                 "FROM products WHERE is_active = TRUE"
             )
         )
@@ -41,6 +41,9 @@ async def sync_catalog_from_storefront() -> dict:
             name_ru = p[2] or "Товар"
             price = p[3] or 0
             stock = p[4] or 0
+            # Единица приезжает с витрины. Здесь стояло жёсткое 'piece', и
+            # зеркало объявляло штуками даже то, что продаётся за килограмм.
+            unit = (p[7] or "шт")[:20]
 
             # Категория витрины — cuid, маппим по имени
             category = "microgreens"
@@ -64,7 +67,8 @@ async def sync_catalog_from_storefront() -> dict:
                 await session.execute(
                     text(
                         "UPDATE crm_products SET name_uz = :name_uz, name_ru = :name_ru, "
-                        "price = :price, stock_qty = :stock, category = :category, is_active = TRUE "
+                        "price = :price, stock_qty = :stock, category = :category, "
+                        "unit = :unit, is_active = TRUE "
                         "WHERE id = :id"
                     ),
                     {
@@ -73,6 +77,7 @@ async def sync_catalog_from_storefront() -> dict:
                         "price": price,
                         "stock": stock,
                         "category": category,
+                        "unit": unit,
                         "id": existing,
                     },
                 )
@@ -81,13 +86,14 @@ async def sync_catalog_from_storefront() -> dict:
                     text(
                         "INSERT INTO crm_products (name_uz, name_ru, category, price, unit, stock_qty, "
                         "is_active, storefront_id) VALUES (:name_uz, :name_ru, :category, :price, "
-                        "'piece', :stock, TRUE, :sid)"
+                        ":unit, :stock, TRUE, :sid)"
                     ),
                     {
                         "name_uz": name_uz,
                         "name_ru": name_ru,
                         "category": category,
                         "price": price,
+                        "unit": unit,
                         "stock": stock,
                         "sid": sid,
                     },

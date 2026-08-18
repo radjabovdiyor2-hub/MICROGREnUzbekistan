@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { isValidQty, normalizeQty } from '@/lib/qty';
 
 // ==========================================
 // Stock Movements API — Inventory Operations
@@ -61,6 +62,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "productId, type, quantity majburiy" }, { status: 400 });
     }
 
+    // Количество дробное, но не любое: колонка хранит два знака, и третий
+    // Postgres округлил бы молча — журнал склада разошёлся бы с остатком.
+    if (!isValidQty(Math.abs(Number(quantity)))) {
+      return NextResponse.json({ error: `Miqdor noto'g'ri: ${String(quantity)}` }, { status: 400 });
+    }
+
     const validTypes = ['IN', 'OUT', 'ADJUSTMENT', 'RETURN', 'WRITE_OFF'];
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: `Noto'g'ri type: ${type}` }, { status: 400 });
@@ -89,7 +96,10 @@ export async function POST(request: NextRequest) {
         let after: number;
 
         if (type === 'ADJUSTMENT') {
-          const target = Math.max(0, Math.floor(Number(quantity)));
+          // `Math.floor` стоял, пока остаток был целым: выставить по итогам
+          // пересчёта 8.7 кг было нельзя — округлялось до 8, и почти
+          // килограмм списывался инвентаризацией в никуда.
+          const target = Math.max(0, normalizeQty(Number(quantity)));
           const current = await tx.product.findUnique({
             where: { id: productId },
             select: { stock: true },
@@ -130,6 +140,8 @@ export async function POST(request: NextRequest) {
             costPrice: costPrice || null,
             orderId: orderId || null,
             performedBy: performedBy || null,
+            // Деловая дата задаётся явно: дефолта у колонки нет (см. схему).
+            soldAt: new Date(),
           },
           include: { product: { select: { nameUz: true, stock: true } } },
         });
@@ -232,6 +244,7 @@ export async function DELETE(request: NextRequest) {
           reason: `Сторно движения ${original.id}`,
           note: original.reason,
           performedBy: 'System',
+          soldAt: new Date(),
         },
       });
     });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { byBusinessDate } from '@/lib/revenue/salesLedger';
 import { EMPLOYEE_ROLE_VALUES } from '@/components/admin/employeeOptions';
 
 // ==========================================
@@ -46,7 +47,9 @@ export async function GET() {
       type: 'OUT',
       orderId: null,
       salePrice: { not: null },
-      createdAt: { gte: today, lte: endOfDay },
+      // Деловая дата, а не время записи: продажа, занесённая сегодня за
+      // вчера, принадлежит вчерашней смене этого же продавца.
+      ...byBusinessDate({ gte: today, lte: endOfDay }),
     },
   });
 
@@ -54,7 +57,7 @@ export async function GET() {
     const empSales = todayMovements.filter(m => m.performedBy === emp.name);
     const todaySalesCount = empSales.length;
     const todayRevenue = empSales.reduce(
-      (s, m) => s + Math.abs(m.quantity) * (m.salePrice ?? 0), 0,
+      (s, m) => s + Math.round(Math.abs(m.quantity) * (m.salePrice ?? 0)), 0,
     );
 
     return { ...emp, pin: undefined, todaySalesCount, todayRevenue };

@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, Edit3, Gift, Phone, RefreshCw } from 'lucide-re
 import type { CustomerCard } from '@/lib/customers/card';
 import { AdminCustomerOrders } from './AdminCustomerOrders';
 import { AdminCustomerActivity } from './AdminCustomerActivity';
+import { AdminCustomerPrices } from './AdminCustomerPrices';
 
 // Экран одного клиента: контакты, сводка, история заказов, обращения.
 // Открывается кликом по строке в таблице — так же, как карточка заказа
@@ -156,6 +157,8 @@ export function AdminCustomerCard({ customerId, onBack, onEdit }: {
             <span style={{ color: 'var(--text-muted)' }}>Заметки: </span>{data.notes}
           </div>
         )}
+
+        <AdminCustomerPrices customerId={customerId} />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>

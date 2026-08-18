@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { nameUz, nameRu, slug, price, oldPrice, costPrice, categoryId, stock, sku, brand, specs, descriptionUz, descriptionRu, images, isFeatured, isOnSale } = body;
+    const { nameUz, nameRu, slug, price, oldPrice, costPrice, unit, categoryId, stock, sku, brand, specs, descriptionUz, descriptionRu, images, isFeatured, isOnSale } = body;
 
     if (!nameUz || !slug || !price || !categoryId) {
       return NextResponse.json({ error: "Majburiy maydonlar to'ldirilmagan" }, { status: 400 });
@@ -135,6 +135,9 @@ export async function POST(request: NextRequest) {
       nameUz, nameRu: nameRu || nameUz, slug,
       descriptionUz, descriptionRu,
       price, oldPrice: oldPrice || null, costPrice: costPrice || null,
+      // Без единицы товар получает дефолт «шт», и весовой товар теряет
+      // дробный шаг на кассе. Офис её теперь присылает (catalog_ops).
+      ...(unit ? { unit: String(unit).slice(0, 20) } : {}),
       images: images || [],
       categoryId, stock: stock || 0,
       sku: sku || null, brand: brand || null,
@@ -163,7 +166,12 @@ export async function POST(request: NextRequest) {
 // колонку — включая `rating`, `viewCount` и `stock`.
 const EDITABLE_PRODUCT_FIELDS = new Set([
   'nameUz', 'nameRu', 'slug', 'descriptionUz', 'descriptionRu',
-  'price', 'oldPrice', 'costPrice', 'images', 'categoryId',
+  // `unit` правится наравне с ценой, и это не косметика: от единицы зависит
+  // ШАГ НАБОРА на кассе (`lib/qty#stepFor`). Товар, у которого единица
+  // осталась дефолтной «шт», нельзя продать по 1.3 кг — кнопки прибавляют
+  // по одному. Раньше поле не принимал ни POST, ни PUT, и задать его можно
+  // было только переимпортом прайса.
+  'price', 'oldPrice', 'costPrice', 'unit', 'images', 'categoryId',
   'sku', 'brand', 'specs',
   'isActive', 'isFeatured', 'isOnSale',
 ]);
@@ -205,6 +213,7 @@ export async function PUT(request: NextRequest) {
             quantity: targetStock - current.stock,
             reason: 'Инвентаризация (карточка товара)',
             performedBy: 'Admin',
+            soldAt: new Date(),
           },
         });
         data.stock = targetStock;

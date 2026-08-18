@@ -44,9 +44,9 @@ Base URL: `https://microgreenuzbekistan.com/api`
 
 | Method | Endpoint | Описание |
 |--------|----------|----------|
-| POST | `/api/orders` | Создать заказ — **единственная дверь**. Цены берутся из каталога; присланная `price` игнорируется. Ответ: `{ success, order: { id, orderNumber, total, status } }` |
+| POST | `/api/orders` | Создать заказ — **единственная дверь**. Цены берутся из каталога; присланная `price` игнорируется (кроме доверенного вызывающего с общим секретом — у него договорная цена и `performedBy` принимаются). `quantity` дробное, до двух знаков. Ответ: `{ success, order: { id, orderNumber, total, status } }` |
 | GET | `/api/orders` | Список: покупателю — свои (по сессии), админке и боту — с фильтрами |
-| PUT | `/api/orders` | Смена статуса (ADMIN) |
+| PUT | `/api/orders` | Смена статуса (ADMIN или общий секрет — проверяется и в middleware, и в самом роуте) |
 | POST | `/api/orders/status` | Обратная синхронизация статуса из офиса |
 | GET | `/api/admin/orders`, `/api/admin/orders/[id]` | Заказы для админки и бота |
 
@@ -82,7 +82,10 @@ Base URL: `https://microgreenuzbekistan.com/api`
 |--------|----------|----------|
 | GET | `/api/admin/stats` | Сводка для Telegram-панели (выручка без отменённых и возвращённых) |
 | GET | `/api/admin/analytics`, `/api/admin/finance` | Аналитика и P&L |
-| GET/POST | `/api/inventory`, `/api/inventory/pos`, `/api/inventory/movements` | Склад и касса |
+| GET/POST | `/api/inventory`, `/api/inventory/movements` | Склад: остатки и движения. Количество дробное (два знака) |
+| POST/PUT/GET | `/api/inventory/pos` | Касса (STAFF). POST — продажа, PUT — возврат, GET — отчёт смены. Тело продажи: `items[{productId, quantity, price, priceReason}]`, `paymentMethod`, `customerId?`, `discount?{type,value,reason}`, `soldAt?` + `backdateReason?`, `performedBy?` (только у ADMIN). Цена не по прайсу требует `priceReason`; продавец проводит задним числом не глубже 7 суток, владелец — без предела, будущее закрыто всем |
+| GET | `/api/inventory/customers` | Поиск покупателя для кассы по имени и телефону (STAFF). Отдаёт только имя, компанию и телефон — карточка целиком остаётся под ADMIN |
+| GET/PUT/DELETE | `/api/inventory/customers/prices` | Договорные цены клиента. Читает касса (STAFF), меняет только владелец |
 | GET/POST | `/api/admin/*` | Ещё ~45 роутов: магазин журнала, посадки, смены, ОТК, настройки, Стёпан |
 
 ## Integrations

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { processSale } from '@/lib/pos/sale';
 import { processRefund } from '@/lib/pos/refund';
-import { localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
+import { byBusinessDate, localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
 
 // ==========================================
 // POS (Point of Sale) — Quick Store Sales
@@ -39,10 +39,18 @@ export async function GET(request: NextRequest) {
   const { start: startOfDay, end: endOfDay } = localDayRange(dateParam || undefined);
   const date = dateParam || formatLocalDate(startOfDay);
 
+  // Продажа опознаётся так же, как в lib/revenue/salesLedger: движение OUT
+  // без заказа и с ценой продажи. Раньше фильтр стоял по началу строки
+  // `reason` («Do'kon sotish»), и продажи в долг («Qarzga sotish») в отчёт
+  // смены не попадали вовсе — при том, что в выручку они входили.
+  //
+  // Дата — деловая (`soldAt`): продажа, занесённая сегодня за вчера, должна
+  // лечь во вчерашнюю смену.
   const where: Record<string, unknown> = {
     type: 'OUT',
-    reason: { startsWith: "Do'kon sotish" },
-    createdAt: { gte: startOfDay, lt: endOfDay },
+    orderId: null,
+    salePrice: { not: null },
+    ...byBusinessDate({ gte: startOfDay, lt: endOfDay }),
   };
 
   if (seller) {
@@ -52,16 +60,17 @@ export async function GET(request: NextRequest) {
   const movements = await prisma.stockMovement.findMany({
     where,
     include: {
-      product: { select: { nameUz: true, nameRu: true, price: true } },
+      product: { select: { nameUz: true, nameRu: true, price: true, unit: true } },
+      sale: { select: { number: true } },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { soldAt: 'desc' },
   });
 
   // Get returns for same period
   const returnWhere: Record<string, unknown> = {
     type: 'IN',
     reason: { startsWith: 'Qaytarish' },
-    createdAt: { gte: startOfDay, lt: endOfDay },
+    ...byBusinessDate({ gte: startOfDay, lt: endOfDay }),
   };
   if (seller) {
     returnWhere.performedBy = seller;
@@ -70,38 +79,41 @@ export async function GET(request: NextRequest) {
   const returnMovements = await prisma.stockMovement.findMany({
     where: returnWhere,
     include: {
-      product: { select: { nameUz: true, nameRu: true, price: true } },
+      product: { select: { nameUz: true, nameRu: true, price: true, unit: true } },
+      sale: { select: { number: true } },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { soldAt: 'desc' },
   });
 
   // Group sales by sale number
   const salesMap = new Map<string, { items: typeof movements; total: number; time: string }>();
 
   for (const m of movements) {
+    // Номер чека теперь колонка. Разбор регулярками оставлен запасным путём
+    // ради строк, записанных до появления колонки, — у них она пустая.
     const match = m.reason?.match(/\(S-[A-Z0-9-]+\)/);
-    const saleNum = match ? match[0].replace(/[()]/g, '') : 'unknown';
+    const saleNum = m.sale?.number ?? (match ? match[0].replace(/[()]/g, '') : 'unknown');
 
     if (!salesMap.has(saleNum)) {
-      salesMap.set(saleNum, { items: [], total: 0, time: m.createdAt.toISOString() });
+      salesMap.set(saleNum, { items: [], total: 0, time: (m.soldAt ?? m.createdAt).toISOString() });
     }
     const sale = salesMap.get(saleNum)!;
     sale.items.push(m);
-    sale.total += Math.abs(m.quantity) * (m.salePrice || m.product.price);
+    sale.total += Math.round(Math.abs(m.quantity) * (m.salePrice || m.product.price));
   }
 
   // Group returns by return number
   const returnsMap = new Map<string, { items: typeof returnMovements; total: number; time: string }>();
   for (const m of returnMovements) {
     const match = m.reason?.match(/\(R-[A-Z0-9-]+\)/);
-    const retNum = match ? match[0].replace(/[()]/g, '') : 'unknown';
+    const retNum = m.sale?.number ?? (match ? match[0].replace(/[()]/g, '') : 'unknown');
 
     if (!returnsMap.has(retNum)) {
-      returnsMap.set(retNum, { items: [], total: 0, time: m.createdAt.toISOString() });
+      returnsMap.set(retNum, { items: [], total: 0, time: (m.soldAt ?? m.createdAt).toISOString() });
     }
     const ret = returnsMap.get(retNum)!;
     ret.items.push(m);
-    ret.total += Math.abs(m.quantity) * (m.salePrice || m.product.price);
+    ret.total += Math.round(Math.abs(m.quantity) * (m.salePrice || m.product.price));
   }
 
   const sales = Array.from(salesMap.entries()).map(([number, data]) => ({

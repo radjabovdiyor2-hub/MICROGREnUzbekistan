@@ -2,6 +2,7 @@ import { prisma, Prisma } from '@repo/database';
 import { consumeMaterial, NotEnoughMaterialError } from './rawMaterials';
 import { daysSince } from './growWatch';
 import { unitCostOfHarvest, weightedAverageCost } from './weightedAverage';
+import { normalizeQty } from '@/lib/qty';
 
 // ══════════════════════════════════════════════════════════════════════
 // Посадка → урожай → товар на складе с реальной себестоимостью.
@@ -322,19 +323,24 @@ export async function harvestBatch(input: HarvestInput) {
       // Приход товара делает сервер, в той же транзакции, что и фиксация
       // урожая. Раньше это были два HTTP-запроса из браузера: если второй не
       // проходил, партия оставалась несобранной, а товар на складе уже был.
+      // Урожай приходуется дробным. `Math.round` здесь стоял вынужденно,
+      // пока остаток был целым: сбор 2.4 кг добавлял на склад 2, и четыреста
+      // граммов исчезали при каждой партии.
+      const harvested = normalizeQty(harvestQty);
       await tx.product.update({
         where: { id: productId },
-        data: { stock: { increment: Math.round(harvestQty) } },
+        data: { stock: { increment: harvested } },
       });
       await tx.stockMovement.create({
         data: {
           productId,
           type: 'IN',
-          quantity: Math.round(harvestQty),
+          quantity: harvested,
           reason: 'Урожай с посадки',
           note: `${batch.cropType}, ${batchUnits}, посев ${batch.seedDate.toISOString().slice(0, 10)}`,
           costPrice: Math.round(unitCost),
           performedBy: input.performedBy || 'Посадки',
+          soldAt: new Date(),
         },
       });
 
@@ -346,7 +352,7 @@ export async function harvestBatch(input: HarvestInput) {
         select: { stock: true, costPrice: true },
       });
       if (product) {
-        const stockBefore = Math.max(0, product.stock - Math.round(harvestQty));
+        const stockBefore = Math.max(0, normalizeQty(product.stock - harvested));
         const blended = weightedAverageCost(
           stockBefore,
           product.costPrice ?? 0,

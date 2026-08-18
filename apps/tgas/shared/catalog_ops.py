@@ -50,6 +50,22 @@ ALLOWED_CATEGORY = {
 }
 ALLOWED_UNIT = {"kg", "g", "piece", "pack", "set"}
 
+# Единица офиса → единица витрины.
+#
+# Словари разошлись: офис оперирует латиницей ("kg"), витрина показывает
+# «кг» покупателю И решает по ней ШАГ НАБОРА на кассе (`lib/qty#stepFor`).
+# `_create_on_storefront` единицу не передавал вовсе, поэтому товар,
+# заведённый офисом как весовой, приезжал на витрину со значением по
+# умолчанию «шт» — и продать его по 1.3 кг было нельзя: кнопки кассы
+# прибавляли по одному, а зеркало при этом хранило правильный "kg".
+STOREFRONT_UNIT = {
+    "kg": "кг",
+    "g": "г",
+    "piece": "шт",
+    "pack": "упак",
+    "set": "набор",
+}
+
 _TRANSLIT = {
     "а": "a",
     "б": "b",
@@ -163,6 +179,7 @@ async def _create_on_storefront(
     description_ru: str = "",
     description_uz: str = "",
     image_url: Optional[str] = None,
+    unit: str = "piece",
 ) -> Optional[str]:
     """Создать товар на витрине. Возвращает storefront_id (cuid) или None."""
     try:
@@ -178,6 +195,9 @@ async def _create_on_storefront(
                 "price": price,
                 "categoryId": category_id,
                 "stock": stock,
+                # Без единицы витрина ставит «шт», и весовой товар теряет
+                # дробный шаг на кассе.
+                "unit": STOREFRONT_UNIT.get(unit, "шт"),
                 "descriptionRu": description_ru or None,
                 "descriptionUz": description_uz or None,
                 "images": [image_url] if image_url else [],
@@ -314,7 +334,7 @@ async def add_product(params: Dict[str, Any]) -> Dict[str, Any]:
         image_url = str(params.get("image_url") or "").strip() or None
 
         storefront_id = await _create_on_storefront(
-            name, price, category, stock, description_ru, description_uz, image_url
+            name, price, category, stock, description_ru, description_uz, image_url, unit
         )
 
         # Отказ витрины = отказ операции. Это доктрина модуля

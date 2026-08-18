@@ -32,14 +32,36 @@ products` с офисными колонками проходил проверк
 | Model | Purpose | Key fields |
 |-------|---------|------------|
 | `Category` | Product categories (tree) | `nameUz`, `nameRu`, `slug`, `parentId` |
-| `Product` | Catalog items | `price`, `costPrice`, `stock`, `sku`, `images[]`, `rating` |
+| `Product` | Catalog items | `price`, `costPrice`, `stock` (**Decimal(10,2)**), `unit`, `sku`, `images[]`, `rating` |
 | `User` | Customers | `telegramId`, `phone`, `bonusPoints`, `referralCode` |
-| `Order` | Purchase orders | `orderNumber`, `status`, `total`, `bonusUsed`, `promoCode`, `source`, `paymentMethod` |
-| `OrderItem` | Line items | `quantity`, `price` (снимок цены НА МОМЕНТ заказа — её ставит сервер по каталогу, не клиент) |
+| `Order` | Purchase orders | `orderNumber`, `status`, `total`, `bonusUsed`, `promoCode`, `source`, `performedBy` (менеджер офиса, если продажу оформил он), `paymentMethod` |
+| `OrderItem` | Line items | `quantity` (**Decimal(10,2)**), `price` (снимок цены НА МОМЕНТ заказа — её ставит сервер по каталогу, не клиент) |
 
 `Product.costPrice` — закупочная цена. Наружу она не уходит: `/api/products`
 отдаёт белый список полей (`apps/web/src/lib/products/fields.ts`), и
 `costPrice` есть только в ответе сотруднику.
+
+#### Количества — дробные
+
+`Product.stock`, `OrderItem.quantity`, `CartItem.quantity` и
+`StockMovement.quantity` — `Decimal(10, 2)`. Салат продаётся за килограмм, и
+1.3 кг — обычная позиция; до этого всё считалось целыми, и продажу приходилось
+округлять. Точность совпадает с зеркалом CRM (`crm_order_items.quantity`),
+иначе количество округлялось бы на переходе.
+
+Деньги остаются `Int` в сумах. Сумма позиции округляется **ровно один раз**
+(`apps/web/src/lib/qty.ts#lineTotal`) и только потом складывается: если каждый
+отчёт округлит по-своему, сохранённый `Order.total` разойдётся с тем, что
+пересчитывает `lib/revenue/salesLedger`.
+
+`Product.unit` («кг», «100 г», «лоток», «шт») — не подпись: от неё зависит
+ШАГ НАБОРА на кассе (`lib/qty#stepFor`), 0.1 у весового товара против 1 у
+штучного.
+
+Prisma отдаёт `Decimal` объектом, а `NextResponse.json` сериализует его
+**строкой**. Чтобы это не текло наружу, клиент в `packages/database/src/index.ts`
+расширен: перечисленные поля читаются обычными `number`. Агрегаты
+(`_sum.quantity`) расширение не покрывает — их приводить к числу явно.
 
 ### Business Models
 
@@ -58,7 +80,9 @@ products` с офисными колонками проходил проверк
 | Model | Purpose |
 |-------|---------|
 | `Employee` | Staff with PIN login |
-| `StockMovement` | Inventory tracking (IN/OUT/ADJUSTMENT/RETURN/WRITE_OFF) |
+| `PosSale` | Шапка чека кассы: номер, деловая дата, автор, покупатель, скидка, причина проводки задним числом. `kind = sale \| refund`, возврат ссылается на продажу через `refundOfId`. До неё чек существовал только как набор движений, связанных номером внутри текста `reason` |
+| `CustomerPrice` | Договорная цена товара для клиента. Отдельной таблицей, потому что `import-catalog.ts` переимпортирует прайс на каждом деплое и затирает правки цен |
+| `StockMovement` | Inventory tracking (IN/OUT/ADJUSTMENT/RETURN/WRITE_OFF). `soldAt` — деловая дата операции, отдельно от `createdAt` (времени записи), как у `Finance.date`; по ней считают отчёты. `listPrice` и `priceReason` — прайс на момент продажи и объяснение уступки |
 | `Supplier` | Vendor management |
 | `Debt` | Accounts payable/receivable |
 | `Promotion` | Time-limited promotions with images |

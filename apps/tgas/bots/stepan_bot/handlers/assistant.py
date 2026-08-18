@@ -2194,7 +2194,14 @@ async def _register_sale(message: Message, args: dict, user_text: str) -> str:
 
     params = {k: v for k, v in (args or {}).items() if v not in (None, "")}
     params["notes"] = user_text[:500]
-    params["registered_by"] = "sales_bot"
+    # Автор продажи — тот, кто её надиктовал, а не «sales_bot». Раньше во все
+    # три точки вызова уходила строка с именем бота, и какой менеджер продал
+    # ресторану, из данных было не восстановить. Имя доезжает до витрины и
+    # ложится в `orders.performed_by`.
+    author = getattr(message, "from_user", None)
+    params["registered_by"] = (
+        (author.full_name if author else "") or "Менеджер"
+    )[:100]
 
     await message.answer("💼 Передал в отдел продаж — регистрирую продажу в CRM…")
 

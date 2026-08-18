@@ -52,6 +52,8 @@ try {
           : `Online buyurtma #${order.orderNumber}`,
         orderId: order.id,
         performedBy: 'System',
+        // Деловая дата онлайн-заказа — время его оформления.
+        soldAt: order.createdAt,
       },
     });
     if (soldOut) {

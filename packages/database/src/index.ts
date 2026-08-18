@@ -1,8 +1,102 @@
 import { PrismaClient } from '@prisma/client';
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+// ══════════════════════════════════════════════════════════════════════
+// Клиент Prisma. Расширен так, чтобы КОЛИЧЕСТВА читались числами.
+//
+// ЗАЧЕМ РАСШИРЕНИЕ
+//
+// `Product.stock`, `OrderItem.quantity`, `StockMovement.quantity` и
+// `CartItem.quantity` стали `Decimal(10, 2)` — иначе нельзя продать 1.3 кг.
+// Prisma отдаёт такие поля объектами `Decimal`, и это ломает две вещи:
+//
+//   1. Арифметику: `m.quantity * m.salePrice` перестаёт компилироваться.
+//      Это как раз НЕ страшно — компилятор перечислил бы все места сам.
+//
+//   2. JSON — а вот это тихо. `NextResponse.json` сериализует `Decimal`
+//      в СТРОКУ ("1.30"). Типы такого не ловят, и сломалось бы всё, что
+//      считает на клиенте: корзина кассы, экраны админки, витринный бот,
+//      офисный `catalog_repo`. Остаток «7.00» вместо 7 не падает — он
+//      молча складывается в «7.007.00».
+//
+// Расширение снимает обе проблемы в одном месте: наружу поля выходят
+// обычными `number`, внутрь пишутся как раньше (Prisma принимает число
+// для Decimal-колонки).
+//
+// ЧЕГО ОНО НЕ ПОКРЫВАЕТ
+//
+// Агрегаты. `_sum.quantity` и `_avg.quantity` возвращают `Decimal` мимо
+// `result`-расширения: это не результат модели. Такие места приводить к
+// числу явно — TypeScript их показывает.
+//
+// Точность не теряется: `Decimal(10, 2)` целиком помещается в double.
+// ══════════════════════════════════════════════════════════════════════
 
-export const prisma = globalForPrisma.prisma || new PrismaClient();
+function createPrismaClient() {
+  return new PrismaClient().$extends({
+    // ── Деловая дата движения проставляется, даже если её забыли ──
+    //
+    // У `stock_movements.sold_at` НЕТ дефолта в базе, и это осознанно: прод
+    // накатывает схему автоматическим `db push --accept-data-loss`, а колонка
+    // с `@default(now())` проставила бы момент деплоя всей истории продаж.
+    //
+    // Плата за это — компилятор больше не требует поле: колонка нулевая, и
+    // пропуск проходит молча. Ровно так три места (онлайн-заказ, возврат и
+    // сбор урожая) и записали движения без деловой даты, пройдя typecheck.
+    //
+    // Дефолт живёт здесь: в приложении, а не в DDL. Явное значение всегда
+    // побеждает — касса ставит дату продажи, заказ время оформления.
+    query: {
+      stockMovement: {
+        create({ args, query }) {
+          if (args.data && !Array.isArray(args.data) && args.data.soldAt == null) {
+            args.data.soldAt = new Date();
+          }
+          return query(args);
+        },
+        createMany({ args, query }) {
+          const rows = Array.isArray(args.data) ? args.data : [args.data];
+          for (const row of rows) {
+            if (row.soldAt == null) row.soldAt = new Date();
+          }
+          return query(args);
+        },
+      },
+    },
+    result: {
+      product: {
+        stock: { needs: { stock: true }, compute: (p) => Number(p.stock) },
+      },
+      orderItem: {
+        quantity: { needs: { quantity: true }, compute: (i) => Number(i.quantity) },
+      },
+      stockMovement: {
+        quantity: { needs: { quantity: true }, compute: (m) => Number(m.quantity) },
+      },
+      cartItem: {
+        quantity: { needs: { quantity: true }, compute: (c) => Number(c.quantity) },
+      },
+    },
+  });
+}
+
+type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>;
+
+/**
+ * Клиент внутри интерактивной транзакции — с теми же расширениями.
+ *
+ * Готовый `Prisma.TransactionClient` сюда не годится: он описывает
+ * НЕрасширенный клиент, и функция с таким параметром перестаёт принимать
+ * `tx` из `prisma.$transaction`. Список исключённых методов — тот же, что
+ * Prisma применяет сама.
+ */
+export type TransactionClient = Omit<
+  ExtendedPrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
+const globalForPrisma = globalThis as unknown as { prisma?: ExtendedPrismaClient };
+
+export const prisma: ExtendedPrismaClient = globalForPrisma.prisma ?? createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 

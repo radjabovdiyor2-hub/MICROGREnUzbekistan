@@ -307,7 +307,10 @@ async def run_sale(pending: Dict[str, Any]) -> Dict[str, Any]:
     from shared.bot_bus import send_task, get_result
 
     params = dict(pending)
-    params["registered_by"] = "sales_bot"
+    # Автор уже лежит в отложенной продаже: её создал ответ Стёпана, где
+    # известен человек. Подставлять здесь имя бота значило бы терять автора
+    # каждый раз, когда продажу дозаписали кнопками после уточнения.
+    params.setdefault("registered_by", "Менеджер")
     task_id = await send_task("stepan_bot", "sales_bot", "register_sale", params)
     bus_result = await get_result(task_id, timeout=60)
     if not bus_result or bus_result.get("status") == "error":

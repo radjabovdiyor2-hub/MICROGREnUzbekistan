@@ -447,6 +447,9 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
     ):
         order_status = "delivered"
     notes = str(params.get("notes") or "").strip()
+    # Кто зарегистрировал продажу. Раньше сюда во ВСЕХ трёх точках вызова
+    # приходило "sales_bot", и какой менеджер продал ресторану, из данных было
+    # не видно — при том, что у кассы автор был всегда (`performed_by`).
     registered_by = str(params.get("registered_by") or "sales_bot")
 
     try:
@@ -533,26 +536,31 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
 
         total_amount = sum(line["total_price"] for line in lines)
 
-        # Витрина считает позиции в целых единицах (OrderItem.quantity — Int).
-        # Дробное количество молча превратилось бы в отказ витрины с непонятной
-        # ошибкой, поэтому спрашиваем прямо, а не подгоняем цифры за менеджера:
-        # округление количества исказило бы и остаток, и сумму.
-        fractional = [
-            line for line in lines if not float(line["quantity"]).is_integer()
+        # Дробное количество витрина принимает: `OrderItem.quantity` — это
+        # Decimal(10, 2), потому что салат продаётся за килограмм и «1.3 кг»
+        # обычная продажа. Раньше здесь стоял отказ с просьбой назвать целое
+        # число, и продажу ресторану приходилось округлять.
+        #
+        # Предел — два знака после запятой: столько хранит и витрина, и
+        # зеркало `crm_order_items.quantity`. Третий знак Postgres округлил бы
+        # молча, поэтому спрашиваем, а не подгоняем цифры за менеджера.
+        too_precise = [
+            line
+            for line in lines
+            if round(float(line["quantity"]), 2) != float(line["quantity"])
         ]
-        if fractional:
+        if too_precise:
             names = ", ".join(
                 f"{line['name']} × {line['quantity']:g} {line['unit']}"
-                for line in fractional
+                for line in too_precise
             )
             return {
                 "status": "clarify",
                 "message": (
-                    f"Дробное количество записать не могу: {names}.\n"
-                    f"Назовите в целых единицах — например, в граммах или в "
-                    f"количестве упаковок."
+                    f"Слишком точное количество: {names}.\n"
+                    f"Округлите до сотых — например, 1.3 или 1.25."
                 ),
-                "data": {"fractional": fractional},
+                "data": {"too_precise": too_precise},
             }
 
         # ── 2. Защита от дубля ──
@@ -641,11 +649,16 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                 {
                     "id": line["product_id"],
                     "price": int(round(line["unit_price"])),
-                    "quantity": int(line["quantity"]),
+                    # Дробное количество уходит как есть: int() отбрасывал
+                    # дробную часть, и 1.3 кг уезжали на витрину как 1 кг.
+                    "quantity": round(float(line["quantity"]), 2),
                 }
                 for line in lines
             ],
             note=(notes or f"Продажа зарегистрирована вручную ({registered_by})")[:500],
+            # Автор продажи — отдельным полем, а не только внутри заметки:
+            # по заметке нельзя ни сгруппировать, ни посчитать выработку.
+            performed_by=registered_by,
         )
         if not created["ok"]:
             return {
