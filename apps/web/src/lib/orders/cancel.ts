@@ -130,6 +130,7 @@ export async function restoreStockForCancelledOrder(orderId: string): Promise<nu
           reason,
           orderId: order.id,
           performedBy: 'System',
+          soldAt: new Date(),
         },
       }),
     ]);
@@ -209,6 +210,7 @@ export async function reapplyStockForRevivedOrder(orderId: string): Promise<numb
           reason: reviveReason,
           orderId: order.id,
           performedBy: 'System',
+          soldAt: new Date(),
         },
       }),
     ]);

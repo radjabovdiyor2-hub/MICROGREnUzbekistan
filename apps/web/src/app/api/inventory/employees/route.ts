@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { byBusinessDate } from '@/lib/revenue/salesLedger';
 import { EMPLOYEE_ROLE_VALUES } from '@/components/admin/employeeOptions';
 
 // ==========================================
@@ -48,7 +49,7 @@ export async function GET() {
       salePrice: { not: null },
       // Деловая дата, а не время записи: продажа, занесённая сегодня за
       // вчера, принадлежит вчерашней смене этого же продавца.
-      soldAt: { gte: today, lte: endOfDay },
+      ...byBusinessDate({ gte: today, lte: endOfDay }),
     },
   });
 

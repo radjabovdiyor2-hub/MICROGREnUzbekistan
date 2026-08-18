@@ -213,6 +213,7 @@ export async function PUT(request: NextRequest) {
             quantity: targetStock - current.stock,
             reason: 'Инвентаризация (карточка товара)',
             performedBy: 'Admin',
+            soldAt: new Date(),
           },
         });
         data.stock = targetStock;

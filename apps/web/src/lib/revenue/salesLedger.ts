@@ -39,6 +39,18 @@ import { lineTotal } from '@/lib/qty';
 // из счётчика кассы, оставаясь при этом в выручке.
 // ══════════════════════════════════════════════════════════════════════
 
+/**
+ * Отбор движений по ДЕЛОВОЙ дате с откатом на время записи.
+ *
+ * `soldAt` нулевая: колонка добавляется на прод автоматическим `db push`, и
+ * заполнить старые строки можно только следующим шагом (см. схему). Пока
+ * заполнитель не отработал, деловой даты у них нет — и без этого отката
+ * вся прошлая выручка исчезла бы из отчётов на время выкатки.
+ */
+export const byBusinessDate = (range: { gte: Date; lte?: Date; lt?: Date }) => ({
+  OR: [{ soldAt: range }, { soldAt: null, createdAt: range }],
+});
+
 export type SaleChannel = 'online' | 'pos';
 
 /** Проданная позиция — ровно один раз, из ровно одного источника. */
@@ -139,13 +151,13 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
         type: 'OUT',
         orderId: null,
         salePrice: { not: null },
-        soldAt: range,
+        ...byBusinessDate(range),
       },
       include: { product: { select: { nameUz: true, costPrice: true } } },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.stockMovement.findMany({
-      where: { type: 'IN', reason: { startsWith: 'Qaytarish' }, soldAt: range },
+      where: { type: 'IN', reason: { startsWith: 'Qaytarish' }, ...byBusinessDate(range) },
       include: { product: { select: { nameUz: true, price: true } } },
       orderBy: { createdAt: 'desc' },
     }),
@@ -194,7 +206,7 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
       quantity,
       revenue: Math.round(quantity * (m.salePrice ?? 0)),
       cost: Math.round(quantity * unitCost),
-      at: m.soldAt,
+      at: m.soldAt ?? m.createdAt,
       channel: 'pos',
     });
   }
@@ -208,7 +220,7 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
       // salePrice пишется при возврате; без него берём прайс — но это уже
       // приближение, и оно видно в данных, а не спрятано.
       amount: Math.round(quantity * (m.salePrice ?? m.product.price)),
-      at: m.soldAt,
+      at: m.soldAt ?? m.createdAt,
     };
   });
 

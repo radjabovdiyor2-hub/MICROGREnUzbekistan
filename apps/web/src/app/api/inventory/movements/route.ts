@@ -140,6 +140,8 @@ export async function POST(request: NextRequest) {
             costPrice: costPrice || null,
             orderId: orderId || null,
             performedBy: performedBy || null,
+            // Деловая дата задаётся явно: дефолта у колонки нет (см. схему).
+            soldAt: new Date(),
           },
           include: { product: { select: { nameUz: true, stock: true } } },
         });
@@ -242,6 +244,7 @@ export async function DELETE(request: NextRequest) {
           reason: `Сторно движения ${original.id}`,
           note: original.reason,
           performedBy: 'System',
+          soldAt: new Date(),
         },
       });
     });

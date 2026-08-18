@@ -5,16 +5,17 @@
 //   node scripts/db-preflight-sales.mjs
 //   DATABASE_URL="postgresql://..." node scripts/db-preflight-sales.mjs
 //
-// Зачем отдельный преflight, а не строчка в DEPLOY.md
+// Зачем он нужен
 //
-// `stock_movements.sold_at` объявлена как `DateTime @default(now())`. На
-// таблице с данными `db push` выполнит ADD COLUMN ... DEFAULT now() и
-// проставит МОМЕНТ ДЕПЛОЯ всем существующим строкам: вся история продаж
-// схлопнется в один день, а выручка закрытых месяцев перестанет сходиться
-// с уже отправленными отчётами. Ошибки при этом не будет — ни одной.
+// Сама выкатка безопасна: `sold_at` объявлена нулевой, `db push` существующие
+// строки не трогает, а заполнители идут той же командой контейнера `db-push`.
+// Этот скрипт — не ворота, а способ ПОСМОТРЕТЬ, в каком состоянии база:
+// заполнена ли деловая дата, восстановлены ли шапки чеков, влезает ли номер
+// заказа витрины в зеркало CRM.
 //
-// Инструкция в документации такое не ловит: её читают один раз, а деплоят
-// много. Здесь ненулевой код возврата, чтобы шаг нельзя было проскочить.
+// Ненулевой код возврата остаётся ровно на один случай: колонки нет, а
+// движения есть И у колонки в схеме появился дефолт. Тогда push действительно
+// сотрёт историю, и об этом надо узнать до выкатки, а не после.
 //
 // Структуру читаем сырым SQL через information_schema: на базе со старой
 // структурой Prisma-модели не совпадут, а $queryRawUnsafe отработает.
@@ -54,6 +55,16 @@ try {
 
 const q = (sql, ...params) => prisma.$queryRawUnsafe(sql, ...params);
 
+/** Появился ли у `soldAt` дефолт в схеме — единственный опасный сценарий. */
+async function defaultInSchema() {
+  try {
+    const schema = await readFile(join(ROOT, 'packages/database/prisma/schema.prisma'), 'utf8');
+    return /soldAt\s+DateTime\s+@default/.test(schema);
+  } catch {
+    return false;
+  }
+}
+
 const tableExists = async (t) =>
   (await q('select 1 as x from information_schema.tables where table_schema=current_schema() and table_name=$1', t)).length > 0;
 
@@ -81,12 +92,14 @@ if (!await tableExists('stock_movements')) {
   const hasSoldAt = await columnExists('stock_movements', 'sold_at');
 
   if (!hasSoldAt && movements > 0) {
-    console.log(`   ⚠ колонки нет, а движений ${movements}`);
-    console.log('   db push проставит им ВСЕМ момент деплоя — история продаж будет потеряна');
-    blockers.push(
-      'Добавьте sold_at в три шага (DEPLOY.md §2a): nullable → ' +
-      'npx tsx prisma/backfill-sold-at.ts → обязательная',
-    );
+    // Колонка появится нулевой — существующие строки push не тронет, а
+    // значения им проставит заполнитель сразу после (см. docker-compose.prod).
+    console.log(`   колонки ещё нет, движений ${movements}`);
+    console.log('   db push добавит её НУЛЕВОЙ и историю не тронет; заполнитель идёт следом ✓');
+    if (await defaultInSchema()) {
+      console.log('   ⚠ но в schema.prisma у колонки появился @default — тогда push сотрёт историю');
+      blockers.push('Уберите @default у soldAt: на непустой таблице он проставит момент деплоя всем строкам');
+    }
   } else if (!hasSoldAt) {
     console.log('   колонки нет, движений 0 — db push безопасен ✓');
   } else {

@@ -179,7 +179,22 @@ services:
       dockerfile: packages/database/Dockerfile
     container_name: mg_db_push
     working_dir: /app
-    command: sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma --skip-generate --accept-data-loss"
+    # Схема, затем заполнители — ОДНОЙ командой, а не двумя шагами в
+    # инструкции: выкатка идёт без участия человека, и «не забудьте потом
+    # запустить» здесь читать некому.
+    #
+    # `sold_at` (деловая дата) добавляется НУЛЕВОЙ — так `db push` не трогает
+    # существующие строки. Значения им проставляет backfill-sold-at сразу
+    # после, из `created_at`. Объяви колонку с `@default(now())` — и push
+    # проставил бы момент деплоя всей истории продаж, молча.
+    #
+    # backfill-pos-sales восстанавливает шапки чеков, записанных до появления
+    # таблицы `pos_sales`. Оба скрипта идемпотентны: повторный запуск на уже
+    # заполненной базе ничего не меняет, поэтому они остаются в каждой выкатке.
+    command: >
+      sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma --skip-generate --accept-data-loss
+      && npx tsx packages/database/prisma/backfill-sold-at.ts
+      && npx tsx packages/database/prisma/backfill-pos-sales.ts"
     volumes:
       - ./packages/database/prisma/schema.prisma:/app/packages/database/prisma/schema.prisma:ro
     environment:

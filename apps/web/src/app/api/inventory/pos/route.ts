@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { processSale } from '@/lib/pos/sale';
 import { processRefund } from '@/lib/pos/refund';
-import { localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
+import { byBusinessDate, localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
 
 // ==========================================
 // POS (Point of Sale) — Quick Store Sales
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     type: 'OUT',
     orderId: null,
     salePrice: { not: null },
-    soldAt: { gte: startOfDay, lt: endOfDay },
+    ...byBusinessDate({ gte: startOfDay, lt: endOfDay }),
   };
 
   if (seller) {
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
   const returnWhere: Record<string, unknown> = {
     type: 'IN',
     reason: { startsWith: 'Qaytarish' },
-    soldAt: { gte: startOfDay, lt: endOfDay },
+    ...byBusinessDate({ gte: startOfDay, lt: endOfDay }),
   };
   if (seller) {
     returnWhere.performedBy = seller;
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     const saleNum = m.sale?.number ?? (match ? match[0].replace(/[()]/g, '') : 'unknown');
 
     if (!salesMap.has(saleNum)) {
-      salesMap.set(saleNum, { items: [], total: 0, time: m.soldAt.toISOString() });
+      salesMap.set(saleNum, { items: [], total: 0, time: (m.soldAt ?? m.createdAt).toISOString() });
     }
     const sale = salesMap.get(saleNum)!;
     sale.items.push(m);
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
     const retNum = m.sale?.number ?? (match ? match[0].replace(/[()]/g, '') : 'unknown');
 
     if (!returnsMap.has(retNum)) {
-      returnsMap.set(retNum, { items: [], total: 0, time: m.soldAt.toISOString() });
+      returnsMap.set(retNum, { items: [], total: 0, time: (m.soldAt ?? m.createdAt).toISOString() });
     }
     const ret = returnsMap.get(retNum)!;
     ret.items.push(m);
