@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { audit } from '@/lib/audit';
 import { inc } from '@/lib/metrics';
 import { formatLocalDate } from '@/lib/revenue/salesLedger';
+import { alertCrmSyncFailed } from './crmAlert';
 
 // Вынесено из api/orders/route.ts: файл перерос 200 строк, а Next.js
 // разрешает в route.ts экспортировать только HTTP-обработчики.
@@ -176,6 +177,12 @@ export async function notifyOfficePosSale(sale: {
   } catch (err) {
     console.error('POS sale not mirrored to office CRM (sale still recorded):', err);
     audit({ action: 'pos.crm_sync.failed', target: sale.saleNumber });
+    // Аудит отвечает, когда вопрос уже задали. Оповещение задаёт его само.
+    void alertCrmSyncFailed({
+      target: sale.saleNumber,
+      channel: 'pos',
+      reason: err instanceof Error ? err.message : undefined,
+    });
     inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'crm' });
   }
 }
@@ -212,6 +219,11 @@ export async function notifyOffice(
     console.error('AI-office ingest skipped: OFFICE_INGEST_URL not set');
     audit({ action: 'order.crm_sync.not_configured', target: order.orderNumber });
     inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'crm' });
+    void alertCrmSyncFailed({
+      target: order.orderNumber,
+      channel: 'order',
+      reason: 'OFFICE_INGEST_URL не задан',
+    });
     return;
   }
 
@@ -270,6 +282,11 @@ export async function notifyOffice(
         // Раньше это оставалось только строкой в логах.
         audit({ action: 'order.crm_sync.failed', target: order.orderNumber });
         inc('mg_order_notify_failed_total', 'Заказы, о которых не удалось уведомить', { channel: 'crm' });
+        void alertCrmSyncFailed({
+          target: order.orderNumber,
+          channel: 'order',
+          reason: err instanceof Error ? err.message : undefined,
+        });
       } else {
         console.warn(`AI-office ingest attempt ${attempt} failed, retrying in 2s...`);
         await new Promise((resolve) => setTimeout(resolve, 2000));

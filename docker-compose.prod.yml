@@ -74,6 +74,14 @@ x-tgas-bot: &tgas-bot
     # Catalog sync: pull the storefront catalog (master) into the office mirror.
     STOREFRONT_API_URL: http://web:3000/api
     BOT_SECRET: ${BOT_SECRET:-}
+    # Ключ 2ГИС: лид-генерация и геокодер карты клиентов (shared/geo.py).
+    #
+    # Задан здесь, а не только в apps/tgas/.env, потому что `environment:`
+    # ПЕРЕКРЫВАЕТ env_file, а не дополняет его. Пока переменной тут не было,
+    # значение из apps/tgas/.env доезжало — но стоило добавить её пустой,
+    # и она затёрла бы рабочий ключ. Ровно так и вышло с INGEST_SECRET.
+    # Значение в корневой .env пишет деплой из GitHub Secrets.
+    DGIS_API_KEY: ${DGIS_API_KEY:-}
   depends_on:
     postgres:
       condition: service_healthy

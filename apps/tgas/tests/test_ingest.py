@@ -217,3 +217,43 @@ async def test_mirror_is_idempotent(office, monkeypatch):
     assert body["status"] == "duplicate"
     assert not recorder.wrote_to("crm_orders")
     assert published == [], "повтор не должен поднимать событие второй раз"
+
+# ── Деловая дата заказа ────────────────────────────────────────────────
+#
+# Витрина шлёт `created_at` строкой ISO — так её отдаёт `Date.toISOString()`.
+# asyncpg проверяет тип ПАРАМЕТРА до того, как Postgres увидит CAST, и на
+# строке падает целиком: «expected a datetime instance, got str». Отваливалась
+# при этом не дата, а вся вставка — заказ не попадал в CRM вовсе.
+#
+# Поймано 18.08.2026 прогоном досылки на копии базы, а не чтением кода:
+# в SQL стоял `CAST(:created_at AS TIMESTAMP)`, и выглядело это правильно.
+
+
+def test_business_date_parsed_into_datetime():
+    """Строка ISO превращается в datetime — иначе падает вся вставка."""
+    from datetime import datetime
+
+    from web_office.main import _parse_business_date
+
+    parsed = _parse_business_date("2026-08-12T18:07:53.911Z")
+    assert isinstance(parsed, datetime)
+    assert parsed.tzinfo is not None, "момент без зоны Postgres развернёт не в тот пояс"
+    assert parsed.year == 2026 and parsed.month == 8 and parsed.day == 12
+
+
+def test_business_date_without_offset_is_utc():
+    """Витрина шлёт UTC. Значение без смещения трактуем так же, а не как местное."""
+    from web_office.main import _parse_business_date
+
+    parsed = _parse_business_date("2026-08-12T18:07:53")
+    assert parsed is not None and parsed.utcoffset().total_seconds() == 0
+
+
+def test_business_date_absent_or_broken_falls_back_to_now():
+    """Пусто и мусор дают None — в SQL сработает COALESCE(..., NOW())."""
+    from web_office.main import _parse_business_date
+
+    assert _parse_business_date(None) is None
+    assert _parse_business_date("") is None
+    # Мусор не должен ронять приём заказа: дата важна, но заказ важнее.
+    assert _parse_business_date("вчера вечером") is None

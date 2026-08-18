@@ -12,9 +12,9 @@ import json
 import logging
 import os
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import FastAPI, Request, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -738,7 +738,7 @@ async def ingest_order(request: Request):
     # задним числом (`created_at` в теле). Раньше здесь всегда стоял NOW(),
     # и продажа, занесённая сегодня за вчера, ложилась у витрины во вчерашний
     # день, а у офиса — в сегодняшний: выручка в двух отчётах расходилась.
-    created_at = str(body.get("created_at") or "").strip() or None
+    created_at = _parse_business_date(body.get("created_at"))
 
     marker = f"[webapp:{ext_number}]"
     notes = marker
@@ -794,7 +794,14 @@ async def ingest_order(request: Request):
                         "delivery_address, notes, created_at, updated_at) "
                         "VALUES (:cid, :onum, :total, :delivery, :discount, 'new', 'pending', "
                         ":pmethod, :addr, :notes, "
-                        "COALESCE(CAST(:created_at AS TIMESTAMP), NOW()), NOW()) "
+                        # Колонка без зоны, а приходит момент времени С зоной.
+                        # Разворачивает Postgres в СВОЙ пояс (Asia/Samarkand) —
+                        # тот же, в котором NOW() пишет соседние строки. Считать
+                        # зону в Python нельзя: zoneinfo без пакета tzdata в
+                        # контейнере не работает.
+                        "COALESCE("
+                        "CAST(:created_at AS TIMESTAMPTZ) AT TIME ZONE current_setting('TIMEZONE'), "
+                        "NOW()::timestamp), NOW()) "
                         "RETURNING id, order_number"
                     ),
                     {
@@ -1137,6 +1144,37 @@ async def ingest_customer(request: Request):
         "Ingest-customer: %s клиент #%s", "новый" if is_new else "обновлён", customer_id
     )
     return JSONResponse({"status": "ok", "customer_id": customer_id, "is_new": is_new})
+
+
+def _parse_business_date(raw: Any) -> Optional[datetime]:
+    """
+    Деловая дата операции из тела запроса — в datetime, а не строкой.
+
+    asyncpg проверяет тип ПАРАМЕТРА до того, как Postgres увидит CAST, и на
+    строке падает: «invalid input for query argument: expected a datetime
+    instance, got str». Строка сюда доезжала честно (витрина шлёт ISO), а
+    вставка зеркала отваливалась ЦЕЛИКОМ — то есть продажа задним числом не
+    попадала в CRM вовсе, вместе со всем заказом.
+
+    Возвращаем момент с зоной: перевод в местное время делает Postgres
+    выражением `AT TIME ZONE current_setting('TIMEZONE')`. Считать зону в
+    Python нельзя — zoneinfo без пакета tzdata в контейнере не работает.
+
+    Значение без смещения считаем UTC: именно так его шлёт витрина
+    (`Date.toISOString()`).
+    """
+    text_value = str(raw or "").strip()
+    if not text_value:
+        return None
+    try:
+        # fromisoformat до Python 3.11 не понимает суффикс Z.
+        parsed = datetime.fromisoformat(text_value.replace("Z", "+00:00"))
+    except ValueError:
+        logger.warning("Ingest: не разобрал created_at %r — ставлю текущее время", text_value)
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 def _check_ingest_secret(request: Request) -> bool:
