@@ -12,9 +12,11 @@ import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
 import '@/lib/map/worker';
 
 import {
-  DEFAULT_CENTER,
-  DEFAULT_ZOOM,
+  DEFAULT_BOUNDS,
   EMPTY_DELIVERY,
+  FIT_MAX_ZOOM,
+  FIT_PADDING,
+  boundsOfFeatures,
   type ColorizeMode,
   type MapCollection,
 } from './mapFeature';
@@ -47,10 +49,12 @@ interface Props {
   onPlace: (lngLat: { lng: number; lat: number }) => void;
   onViewportChange: (visibleIds: number[]) => void;
   onTilesError: () => void;
+  /** Меняется при смене фильтров — по нему подгоняется вид. */
+  fitToken: string;
 }
 
 export default function CustomerMapCanvas(props: Props) {
-  const { data, delivery, mode, selectedId, placingId } = props;
+  const { data, delivery, mode, selectedId, placingId, fitToken } = props;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
@@ -80,8 +84,10 @@ export default function CustomerMapCanvas(props: Props) {
       instance = new MapLibreMap({
         container: node,
         style: styleUrl(latest.current.theme),
-        center: DEFAULT_CENTER,
-        zoom: DEFAULT_ZOOM,
+        // Рамкой, а не центром с зумом: пока точек нет, показываем оба
+        // города сразу — ферма в Самарканде, заведения и там, и в Ташкенте.
+        bounds: DEFAULT_BOUNDS,
+        fitBoundsOptions: { padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM },
         attributionControl: { compact: true },
       });
     } catch (error) {
@@ -111,6 +117,28 @@ export default function CustomerMapCanvas(props: Props) {
       ready.current = false;
     };
   }, []);
+
+  // ── Вид по точкам ─────────────────────────────────────────────────
+  //
+  // Подгоняем не на каждое обновление данных, а когда меняется fitToken —
+  // то есть фильтры или сам факт наличия точек. Иначе фоновый опрос раз в
+  // минуту дёргал бы карту из-под руки владельца, стоило ему её сдвинуть.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance) return;
+
+    // Точки берём из ref, а не из пропа: попади `data` в зависимости —
+    // вид подгонялся бы на каждый фоновый опрос, дёргая карту из-под руки.
+    // Эффект синхронизации ref объявлен выше и на этом же рендере уже
+    // отработал, так что здесь лежит свежая коллекция.
+    const box = boundsOfFeatures(latest.current.data.features);
+    instance.fitBounds(box ?? DEFAULT_BOUNDS, {
+      padding: FIT_PADDING,
+      maxZoom: FIT_MAX_ZOOM,
+      // Без анимации: это установка вида, а не путешествие по карте.
+      animate: false,
+    });
+  }, [fitToken]);
 
   // ── Данные ────────────────────────────────────────────────────────
   useEffect(() => {

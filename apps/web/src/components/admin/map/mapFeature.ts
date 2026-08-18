@@ -81,9 +81,43 @@ export const EMPTY_DELIVERY = {
   routes: [],
 };
 
-/** Ташкент по умолчанию: там больше всего целевых заведений. */
-export const DEFAULT_CENTER: [number, number] = [69.2401, 41.3111];
-export const DEFAULT_ZOOM = 11;
+/**
+ * Стартовый вид, когда точек ещё нет: оба города разом.
+ *
+ * Фермa в Самарканде, а целевые заведения — и там, и в Ташкенте, поэтому
+ * центрировать карту на одном городе значит спрятать половину дела. Рамка
+ * растянута по двум точкам: Самарканд на юго-западе, Ташкент на
+ * северо-востоке.
+ */
+export const SAMARKAND: [number, number] = [66.9597, 39.6542];
+export const TASHKENT: [number, number] = [69.2401, 41.3111];
+export const DEFAULT_BOUNDS: [[number, number], [number, number]] = [SAMARKAND, TASHKENT];
+
+/** Ближе не приближаемся даже к одинокой точке — иначе теряется контекст. */
+export const FIT_MAX_ZOOM = 14;
+export const FIT_PADDING = 64;
+
+/**
+ * Рамка по точкам. null — точек нет, показываем оба города.
+ *
+ * Одна точка даёт вырожденную рамку нулевой площади: MapLibre такую
+ * принимает, но уводит зум в максимум, поэтому его и ограничиваем.
+ */
+export function boundsOfFeatures(
+  features: MapFeature[],
+): [[number, number], [number, number]] | null {
+  if (features.length === 0) return null;
+
+  let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+  for (const f of features) {
+    const [lon, lat] = f.geometry.coordinates;
+    if (lon < minLon) minLon = lon;
+    if (lat < minLat) minLat = lat;
+    if (lon > maxLon) maxLon = lon;
+    if (lat > maxLat) maxLat = lat;
+  }
+  return [[minLon, minLat], [maxLon, maxLat]];
+}
 
 export function formatSum(value: number): string {
   return new Intl.NumberFormat('ru-RU').format(Math.round(value));

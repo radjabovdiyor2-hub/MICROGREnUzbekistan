@@ -133,6 +133,15 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
               onPlace={m.savePin}
               onViewportChange={() => undefined}
               onTilesError={() => m.setTilesFailed(true)}
+              // Вид подгоняется при смене фильтров и при появлении первых
+              // точек — но не на каждом фоновом обновлении.
+              fitToken={[
+                m.typeFilter,
+                m.cityFilter,
+                m.district ?? '',
+                m.showProspects ? 'p' : '',
+                m.visible.features.length > 0 ? 'has' : 'none',
+              ].join('|')}
             />
           )}
         </div>
