@@ -1,4 +1,5 @@
 import type {
+  AddLayerObject,
   ErrorEvent,
   GeoJSONSource,
   Map as MapLibreMap,
@@ -6,7 +7,17 @@ import type {
   MapMouseEvent,
 } from 'maplibre-gl';
 
-import { LAYER_CLUSTERS, LAYER_POINTS, SOURCE_ID } from './mapLayers';
+import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
+
+import {
+  LAYER_CLUSTERS,
+  LAYER_POINTS,
+  SOURCE_DELIVERY,
+  SOURCE_ID,
+  buildDeliveryLayers,
+  buildLayers,
+  clusterSourceOptions,
+} from './mapLayers';
 import type { ColorizeMode, MapCollection } from './mapFeature';
 import type { TokenColors } from './useTokenColors';
 
@@ -21,6 +32,7 @@ import type { TokenColors } from './useTokenColors';
 
 export interface MapLatest {
   data: MapCollection;
+  delivery: DeliveryCollection | null;
   mode: ColorizeMode;
   colors: TokenColors;
   theme: 'light' | 'dark';
@@ -101,4 +113,38 @@ export function attachMapEvents(
   return () => {
     if (timer) clearTimeout(timer);
   };
+}
+
+
+/** Пустая коллекция доставки: выключенный слой, а не удалённый источник. */
+const EMPTY_DELIVERY = { type: 'FeatureCollection' as const, features: [] };
+
+/**
+ * Навешивает источники и слои. Зовётся и при старте карты, и после каждой
+ * смены стиля: `setStyle` выбрасывает всё, что мы добавили поверх.
+ *
+ * Доставка идёт последней — она рисуется ПОВЕРХ клиентов. Маршрут смотрят,
+ * когда точки уже расставлены, и линия под ними была бы бесполезна.
+ */
+export function attachMapLayers(instance: MapLibreMap, now: MapLatest): void {
+  if (!instance.getSource(SOURCE_ID)) {
+    instance.addSource(SOURCE_ID, {
+      type: 'geojson',
+      data: now.data as unknown as GeoJSON.FeatureCollection,
+      ...clusterSourceOptions(),
+    });
+  }
+  for (const layer of buildLayers(now.mode, now.colors, now.data.summary.spentPercentiles.p80)) {
+    if (!instance.getLayer(layer.id)) instance.addLayer(layer as unknown as AddLayerObject);
+  }
+
+  if (!instance.getSource(SOURCE_DELIVERY)) {
+    instance.addSource(SOURCE_DELIVERY, {
+      type: 'geojson',
+      data: (now.delivery ?? EMPTY_DELIVERY) as unknown as GeoJSON.FeatureCollection,
+    });
+  }
+  for (const layer of buildDeliveryLayers(now.colors)) {
+    if (!instance.getLayer(layer.id)) instance.addLayer(layer as unknown as AddLayerObject);
+  }
 }

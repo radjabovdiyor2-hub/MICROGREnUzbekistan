@@ -21,6 +21,7 @@ from shared.geo import (
     PLACEABLE,
     GeoHit,
     address_key,
+    district_from_text,
     normalize_address,
     normalize_city,
     pick_address,
@@ -148,6 +149,41 @@ class TestТочность:
     def test_дом_и_улица_пригодны(self):
         assert GeoHit(41.31, 69.24, "exact", "2gis").placeable
         assert GeoHit(41.31, 69.24, "street", "yandex").placeable
+
+
+class TestРайон:
+    """
+    Район вытаскивается из текста адреса, который вернул провайдер.
+
+    Ошибка здесь тише ошибки в координате и потому опаснее: неверный пин
+    видно на карте сразу, а клиент, приписанный к соседнему туману, молча
+    портит разрез «где недобираем» — по нему потом планируют обход.
+    """
+
+    def test_узнаёт_районы_ташкента_в_обоих_написаниях(self):
+        assert district_from_text("Chilonzor tumani, Bunyodkor 12") == "chilanzar"
+        assert district_from_text("Чиланзарский район, дом 12") == "chilanzar"
+        assert district_from_text("Yunusobod, Amir Temur 5") == "yunusobod"
+        assert district_from_text("Юнусабад, Амира Темура 5") == "yunusobod"
+
+    def test_узнаёт_районы_самарканда(self):
+        assert district_from_text("Siyob tumani") == "siyob"
+        assert district_from_text("Сиабский район") == "siyob"
+
+    def test_район_не_назван_значит_none(self):
+        # Выдумывать «прочее» нельзя: пустая категория на карте выглядела
+        # бы как настоящая территория.
+        assert district_from_text("Amir Temur 5") is None
+        assert district_from_text("") is None
+        assert district_from_text(None) is None
+
+    def test_чужой_город_не_приписывается(self):
+        assert district_from_text("Бухара, Ляби-Хауз") is None
+
+    def test_ищет_по_словам_а_не_подстрокой(self):
+        # «Мирзо» — начало Мирзо-Улугбека, но само по себе района не даёт.
+        # Поиск подстрокой уверенно приписал бы клиента не туда.
+        assert district_from_text("Мирзо Бобур 4") is None
 
 
 class TestГраницы:

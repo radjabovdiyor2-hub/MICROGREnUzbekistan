@@ -2,17 +2,20 @@
 
 import { useEffect, useRef } from 'react';
 // MapLibre 6 отказался от default-экспорта — только именованные.
-import {
-  GeoJSONSource,
-  Map as MapLibreMap,
-  NavigationControl,
-  type AddLayerObject,
-} from 'maplibre-gl';
+import { GeoJSONSource, Map as MapLibreMap, NavigationControl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-import { DEFAULT_CENTER, DEFAULT_ZOOM, type ColorizeMode, type MapCollection } from './mapFeature';
-import { attachMapEvents, type MapLatest } from './mapEvents';
-import { LAYER_SELECTED, SOURCE_ID, buildLayers, clusterSourceOptions, styleUrl } from './mapLayers';
+import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
+
+import {
+  DEFAULT_CENTER,
+  DEFAULT_ZOOM,
+  EMPTY_DELIVERY,
+  type ColorizeMode,
+  type MapCollection,
+} from './mapFeature';
+import { attachMapEvents, attachMapLayers, type MapLatest } from './mapEvents';
+import { LAYER_SELECTED, SOURCE_DELIVERY, SOURCE_ID, buildLayers, styleUrl } from './mapLayers';
 import { useTokenColors } from './useTokenColors';
 import { useTheme } from '@/components/providers/ThemeProvider';
 
@@ -30,6 +33,8 @@ import { useTheme } from '@/components/providers/ThemeProvider';
 
 interface Props {
   data: MapCollection;
+  /** Слой доставки. null — выключен. */
+  delivery: DeliveryCollection | null;
   mode: ColorizeMode;
   selectedId: number | null;
   /** Режим простановки пина: следующий клик по карте станет координатой. */
@@ -41,7 +46,7 @@ interface Props {
 }
 
 export default function CustomerMapCanvas(props: Props) {
-  const { data, mode, selectedId, placingId } = props;
+  const { data, delivery, mode, selectedId, placingId } = props;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
@@ -61,19 +66,8 @@ export default function CustomerMapCanvas(props: Props) {
     const node = container.current;
     if (!node || map.current) return;
 
-    /** Навесить источник и слои. И при старте, и после каждой смены стиля. */
-    const attach = (instance: MapLibreMap) => {
-      const now = latest.current;
-      if (!instance.getSource(SOURCE_ID)) {
-        instance.addSource(SOURCE_ID, {
-          type: 'geojson',
-          data: now.data as unknown as GeoJSON.FeatureCollection,
-          ...clusterSourceOptions(),
-        });
-      }
-      for (const layer of buildLayers(now.mode, now.colors, now.data.summary.spentPercentiles.p80)) {
-        if (!instance.getLayer(layer.id)) instance.addLayer(layer as unknown as AddLayerObject);
-      }
+    const attach = (m: MapLibreMap) => {
+      attachMapLayers(m, latest.current);
       ready.current = true;
     };
 
@@ -121,6 +115,16 @@ export default function CustomerMapCanvas(props: Props) {
     const source = instance.getSource(SOURCE_ID) as GeoJSONSource | undefined;
     source?.setData(data as unknown as GeoJSON.FeatureCollection);
   }, [data]);
+
+  // ── Слой доставки ─────────────────────────────────────────────────
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !ready.current) return;
+    const source = instance.getSource(SOURCE_DELIVERY) as GeoJSONSource | undefined;
+    // Выключенный слой — пустая коллекция, а не удаление источника:
+    // пересоздавать слои на каждое переключение дороже и мигает.
+    source?.setData((delivery ?? EMPTY_DELIVERY) as unknown as GeoJSON.FeatureCollection);
+  }, [delivery]);
 
   // ── Раскраска: меняем paint, данные не трогаем ─────────────────────
   const p80 = data.summary.spentPercentiles.p80;

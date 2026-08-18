@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clientErrorMessage } from '@/lib/safeError';
 import type { SegmentState } from '@/lib/customers/segments';
 
+import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
+
 import { EMPTY_COLLECTION, toPointView, type ColorizeMode, type MapCollection } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -31,14 +33,32 @@ export function useCustomerMap() {
   const [tilesFailed, setTilesFailed] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showProspects, setShowProspects] = useState(false);
+  const [district, setDistrict] = useState<string | null>(null);
+  const [showDelivery, setShowDelivery] = useState(false);
+
+  // Маршруты живут своей жизнью: клиенты меняются неделями, объезд — в
+  // течение дня. Отдельный запрос с частым обновлением вместо одного
+  // общего, который иначе пришлось бы дёргать целиком каждую минуту.
+  const deliveryQuery = useQuery<DeliveryCollection, Error>({
+    queryKey: ['admin-customers-map-delivery'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/customers/map/delivery');
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Не удалось загрузить маршруты');
+      return body;
+    },
+    enabled: showDelivery,
+    refetchInterval: showDelivery ? 60_000 : false,
+  });
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery<MapCollection, Error>({
-    queryKey: ['admin-customers-map', typeFilter, cityFilter, showProspects],
+    queryKey: ['admin-customers-map', typeFilter, cityFilter, showProspects, district],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (typeFilter !== 'all') params.set('type', typeFilter);
       if (cityFilter !== 'all') params.set('city', cityFilter);
       if (showProspects) params.set('prospects', '1');
+      if (district) params.set('district', district);
       const qs = params.toString();
 
       const res = await fetch(`/api/admin/customers/map${qs ? `?${qs}` : ''}`);
@@ -144,5 +164,12 @@ export function useCustomerMap() {
     saveError,
     showProspects,
     setShowProspects,
+    district,
+    setDistrict,
+    showDelivery,
+    setShowDelivery,
+    delivery: showDelivery ? (deliveryQuery.data ?? null) : null,
+    deliveryError: deliveryQuery.error,
+    routes: deliveryQuery.data?.routes ?? [],
   };
 }

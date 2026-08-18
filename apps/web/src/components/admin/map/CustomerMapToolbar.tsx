@@ -30,6 +30,9 @@ interface Props {
   showProspects: boolean;
   onProspects: (value: boolean) => void;
   prospects?: number;
+  showDelivery: boolean;
+  onDelivery: (value: boolean) => void;
+  routes: number;
 }
 
 const TYPES = [
@@ -65,6 +68,9 @@ export function CustomerMapToolbar({
   showProspects,
   onProspects,
   prospects,
+  showDelivery,
+  onDelivery,
+  routes,
 }: Props) {
   const stamp = updatedAt
     ? new Date(updatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
@@ -125,6 +131,17 @@ export function CustomerMapToolbar({
         >
           {lang === 'ru' ? 'Белые пятна' : 'Oq dogʻlar'}
           {showProspects && prospects !== undefined ? ` · ${prospects}` : ''}
+        </button>
+        {/* Маршруты на сегодня: отдельный слой поверх клиентов, со своим
+            обновлением — объезд меняется в течение дня, клиенты неделями. */}
+        <button
+          type="button"
+          style={chip(showDelivery)}
+          onClick={() => onDelivery(!showDelivery)}
+          aria-pressed={showDelivery}
+        >
+          {lang === 'ru' ? 'Доставка' : 'Yetkazish'}
+          {showDelivery && routes > 0 ? ` · ${routes}` : ''}
         </button>
       </div>
 

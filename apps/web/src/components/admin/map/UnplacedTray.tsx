@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, MapPin, Wand2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, MapPin } from 'lucide-react';
 
 import { SEGMENT_META } from '@/lib/customers/segments';
 
 import { formatSum, type UnplacedCustomer } from './mapFeature';
-import { useGeocodePass } from './useGeocodePass';
+import { GeocodeControls } from './GeocodeControls';
 
 // ══════════════════════════════════════════════════════════════════════
 // Клиенты, которых не удалось поставить на карту.
@@ -36,9 +36,6 @@ const label = {
   cancel: { ru: 'Отмена', uz: 'Bekor qilish' },
   noAddress: { ru: 'адрес не указан', uz: 'manzil koʻrsatilmagan' },
   empty: { ru: 'Все клиенты на карте', uz: 'Barcha mijozlar xaritada' },
-  geocode: { ru: 'Найти по адресам', uz: 'Manzil boʻyicha topish' },
-  stop: { ru: 'Стоп', uz: 'Toʻxtatish' },
-  coarse: { ru: 'только город — пин не ставим', uz: 'faqat shahar — pin qoʻyilmadi' },
 };
 
 export function UnplacedTray({
@@ -50,7 +47,6 @@ export function UnplacedTray({
   onRefresh,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const geo = useGeocodePass(onRefresh);
 
   if (items.length === 0) {
     return (
@@ -90,50 +86,7 @@ export function UnplacedTray({
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
 
-      {/* Автоматика и ручной пин стоят рядом намеренно: геокодер закрывает
-          массу, но точность «город» он честно пропускает, и остаток
-          доразмечается руками. */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 'var(--space-2)',
-          padding: '0 var(--space-3) var(--space-3)',
-          flexWrap: 'wrap',
-        }}
-      >
-        {geo.running ? (
-          <button type="button" className="btn btn-sm btn-ghost" onClick={geo.stop}>
-            {label.stop[lang]}
-          </button>
-        ) : (
-          <button type="button" className="btn btn-sm btn-primary" onClick={() => geo.start()}>
-            <Wand2 size={14} /> {label.geocode[lang]}
-          </button>
-        )}
-
-        {(geo.running || geo.finished) && (
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-            {geo.progress.processed} → {geo.progress.placed} ✓
-            {geo.progress.tooCoarse > 0 && `, ${geo.progress.tooCoarse} ${label.coarse[lang]}`}
-            {geo.progress.noAddress > 0 &&
-              `, ${geo.progress.noAddress} ${label.noAddress[lang]}`}
-          </span>
-        )}
-      </div>
-
-      {geo.error && (
-        <div
-          style={{
-            padding: 'var(--space-2) var(--space-3)',
-            background: 'var(--error-bg)',
-            color: 'var(--error)',
-            fontSize: 'var(--text-sm)',
-          }}
-        >
-          {geo.error}
-        </div>
-      )}
+      <GeocodeControls lang={lang} onBatchDone={onRefresh} />
 
       {open && (
         <div style={{ maxHeight: 260, overflowY: 'auto', borderTop: '1px solid var(--border)' }}>

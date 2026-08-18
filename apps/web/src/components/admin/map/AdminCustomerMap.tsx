@@ -6,6 +6,7 @@ import { AlertCircle, MapPin, RefreshCw } from 'lucide-react';
 import { CustomerMapLegend } from './CustomerMapLegend';
 import { CustomerMapPanel } from './CustomerMapPanel';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
+import { DistrictBreakdown } from './DistrictBreakdown';
 import { UnplacedTray } from './UnplacedTray';
 import { useCustomerMap } from './useCustomerMap';
 
@@ -66,9 +67,12 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
         showProspects={m.showProspects}
         onProspects={m.setShowProspects}
         prospects={m.collection.summary.prospects}
+        showDelivery={m.showDelivery}
+        onDelivery={m.setShowDelivery}
+        routes={m.routes.length}
       />
 
-      {(m.error || m.saveError || m.tilesFailed) && (
+      {(m.error || m.saveError || m.deliveryError || m.tilesFailed) && (
         <div
           className="card"
           style={{
@@ -84,6 +88,7 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
           <span style={{ fontSize: 'var(--text-sm)' }}>
             {m.saveError ||
               m.error?.message ||
+              m.deliveryError?.message ||
               'Карта недоступна — тайлы не загрузились. Клиенты показаны списком ниже.'}
           </span>
         </div>
@@ -120,6 +125,7 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
           ) : (
             <CustomerMapCanvas
               data={m.visible}
+              delivery={m.delivery}
               mode={m.mode}
               selectedId={m.selectedId}
               placingId={m.placingId}
@@ -150,6 +156,13 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
             lang={lang}
             active={m.states}
             onToggle={m.toggleState}
+          />
+
+          <DistrictBreakdown
+            districts={m.collection.summary.districts}
+            lang={lang}
+            active={m.district}
+            onSelect={m.setDistrict}
           />
 
           <UnplacedTray

@@ -69,8 +69,16 @@ export const EMPTY_COLLECTION: MapCollection = {
     byState: { prospect: 0, new: 0, healthy: 0, slipping: 0, at_risk: 0, lost: 0 },
     revenueByState: { prospect: 0, new: 0, healthy: 0, slipping: 0, at_risk: 0, lost: 0 },
     spentPercentiles: { p50: 0, p80: 0 },
+    districts: [],
   },
   unplaced: [],
+};
+
+/** Выключенный слой доставки: пустая коллекция вместо удаления источника. */
+export const EMPTY_DELIVERY = {
+  type: 'FeatureCollection' as const,
+  features: [],
+  routes: [],
 };
 
 /** Ташкент по умолчанию: там больше всего целевых заведений. */
