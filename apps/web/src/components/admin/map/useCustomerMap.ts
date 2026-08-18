@@ -35,6 +35,8 @@ export function useCustomerMap() {
   const [showProspects, setShowProspects] = useState(false);
   const [district, setDistrict] = useState<string | null>(null);
   const [showDelivery, setShowDelivery] = useState(false);
+  // Режим «подряд»: после каждого пина сам взводит следующего клиента.
+  const [chaining, setChaining] = useState(false);
 
   // Маршруты живут своей жизнью: клиенты меняются неделями, объезд — в
   // течение дня. Отдельный запрос с частым обновлением вместо одного
@@ -89,6 +91,14 @@ export function useCustomerMap() {
     };
   }, [collection, states]);
 
+  // Очередь на расстановку — по деньгам убыв. Порядок задаётся ЗДЕСЬ, а не
+  // в лотке: «следующий» в цепочке обязан совпадать с тем, что владелец
+  // видит списком, иначе карта прыгает не туда, куда он смотрит.
+  const queue = useMemo(
+    () => [...collection.unplaced].sort((a, b) => b.totalSpent - a.totalSpent),
+    [collection.unplaced],
+  );
+
   const selected = useMemo(() => {
     const feature = collection.features.find((f) => f.id === selectedId);
     return feature ? toPointView(feature) : null;
@@ -99,7 +109,11 @@ export function useCustomerMap() {
   useEffect(() => {
     if (placingId === null) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPlacingId(null);
+      if (e.key !== 'Escape') return;
+      // Esc выходит из режима целиком, а не только из текущего пина:
+      // иначе цепочка молча продолжилась бы со следующего клиента.
+      setPlacingId(null);
+      setChaining(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -116,7 +130,14 @@ export function useCustomerMap() {
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Не удалось сохранить пин');
-      setPlacingId(null);
+
+      // Следующего берём из очереди ДО перезапроса: после него поставленный
+      // клиент из неё исчезнет, и позиция потеряется.
+      const at = queue.findIndex((c) => c.id === placingId);
+      const next = chaining && at >= 0 ? queue[at + 1] : undefined;
+      setPlacingId(next ? next.id : null);
+      if (!next) setChaining(false);
+
       refetch();
       queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
     } catch (err: unknown) {
@@ -158,6 +179,18 @@ export function useCustomerMap() {
     placingId,
     setPlacingId,
     savePin,
+    queue,
+    chaining,
+    startChain: () => {
+      const first = queue[0];
+      if (!first) return;
+      setChaining(true);
+      setPlacingId(first.id);
+    },
+    stopChain: () => {
+      setChaining(false);
+      setPlacingId(null);
+    },
 
     tilesFailed,
     setTilesFailed,

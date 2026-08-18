@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, MapPin } from 'lucide-react';
+import { ChevronDown, ChevronUp, ListChecks, MapPin } from 'lucide-react';
 
-import { SEGMENT_META } from '@/lib/customers/segments';
-
-import { formatSum, type UnplacedCustomer } from './mapFeature';
+import { type UnplacedCustomer } from './mapFeature';
 import { GeocodeControls } from './GeocodeControls';
+import { UnplacedRow } from './UnplacedRow';
 
 // ══════════════════════════════════════════════════════════════════════
 // Клиенты, которых не удалось поставить на карту.
@@ -15,8 +14,9 @@ import { GeocodeControls } from './GeocodeControls';
 // расстановка — основной способ наполнить карту: тридцать ключевых
 // ресторанов ставятся за четверть часа и уже дают живую картину.
 //
-// Клиенты отсортированы по деньгам: если размечать успеют не всех,
-// размечены будут те, чья пропажа заметнее.
+// Клиенты приходят отсортированными по деньгам — порядок задаёт хук, и
+// второй сортировки здесь быть не должно: «следующий» в режиме подряд
+// обязан совпадать с тем, что владелец видит списком.
 // ══════════════════════════════════════════════════════════════════════
 
 interface Props {
@@ -27,6 +27,10 @@ interface Props {
   onCancelPlacing: () => void;
   /** Перезапросить карту после каждого батча геокодера. */
   onRefresh: () => void;
+  /** Режим «подряд»: следующий клиент взводится сам после каждого пина. */
+  chaining: boolean;
+  onStartChain: () => void;
+  onStopChain: () => void;
 }
 
 const label = {
@@ -36,6 +40,10 @@ const label = {
   cancel: { ru: 'Отмена', uz: 'Bekor qilish' },
   noAddress: { ru: 'адрес не указан', uz: 'manzil koʻrsatilmagan' },
   empty: { ru: 'Все клиенты на карте', uz: 'Barcha mijozlar xaritada' },
+  chain: { ru: 'Расставить подряд', uz: 'Ketma-ket joylash' },
+  stopChain: { ru: 'Закончить', uz: 'Tugatish' },
+  next: { ru: 'Сейчас ставим', uz: 'Hozir qoʻyamiz' },
+  left: { ru: 'осталось', uz: 'qoldi' },
 };
 
 export function UnplacedTray({
@@ -45,8 +53,12 @@ export function UnplacedTray({
   onPlace,
   onCancelPlacing,
   onRefresh,
+  chaining,
+  onStartChain,
+  onStopChain,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const current = items.find((c) => c.id === placingId) ?? null;
 
   if (items.length === 0) {
     return (
@@ -58,8 +70,6 @@ export function UnplacedTray({
       </div>
     );
   }
-
-  const sorted = [...items].sort((a, b) => b.totalSpent - a.totalSpent);
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -88,67 +98,45 @@ export function UnplacedTray({
 
       <GeocodeControls lang={lang} onBatchDone={onRefresh} />
 
+      {/* Расстановка подряд: тридцать с лишним точек по одной — это тридцать
+          заходов в список. В режиме подряд владелец только кликает по карте,
+          а очередь сама подаёт следующего, начиная с самого денежного. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-2)',
+          padding: '0 var(--space-3) var(--space-3)',
+        }}
+      >
+        {chaining ? (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onStopChain}>
+            {label.stopChain[lang]}
+          </button>
+        ) : (
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onStartChain}>
+            <ListChecks size={14} /> {label.chain[lang]}
+          </button>
+        )}
+      </div>
+
       {open && (
         <div style={{ maxHeight: 260, overflowY: 'auto', borderTop: '1px solid var(--border)' }}>
-          {sorted.map((c) => {
-            const isPlacing = placingId === c.id;
-            return (
-              <div
-                key={c.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 'var(--space-2)',
-                  padding: 'var(--space-2) var(--space-3)',
-                  borderBottom: '1px solid var(--border)',
-                  background: isPlacing ? 'var(--warning-bg)' : 'transparent',
-                }}
-              >
-                <span
-                  aria-hidden
-                  style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    background: SEGMENT_META[c.state].token,
-                    flexShrink: 0,
-                  }}
-                />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-sm)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {c.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 'var(--text-xs)',
-                      color: 'var(--text-muted)',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {c.address || label.noAddress[lang]} · {formatSum(c.totalSpent)} сум
-                  </div>
-                </div>
-                {isPlacing ? (
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={onCancelPlacing}>
-                    {label.cancel[lang]}
-                  </button>
-                ) : (
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => onPlace(c.id)}>
-                    {label.place[lang]}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+          {items.map((c) => (
+            <UnplacedRow
+              key={c.id}
+              customer={c}
+              lang={lang}
+              placing={placingId === c.id}
+              onPlace={() => onPlace(c.id)}
+              onCancel={onCancelPlacing}
+              labels={{
+                place: label.place[lang],
+                cancel: label.cancel[lang],
+                noAddress: label.noAddress[lang],
+              }}
+            />
+          ))}
         </div>
       )}
 
@@ -161,7 +149,18 @@ export function UnplacedTray({
             fontSize: 'var(--text-sm)',
           }}
         >
-          {label.placing[lang]} · Esc — {label.cancel[lang].toLowerCase()}
+          {current ? (
+            <>
+              <strong>{label.next[lang]}: {current.name}</strong>
+              {' — '}
+              {label.placing[lang].toLowerCase()}
+              {chaining && `, ${label.left[lang]} ${items.length}`}
+            </>
+          ) : (
+            label.placing[lang]
+          )}
+          {' · Esc — '}
+          {label.cancel[lang].toLowerCase()}
         </div>
       )}
     </div>
