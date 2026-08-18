@@ -33,6 +33,35 @@ import { PrismaClient } from '@prisma/client';
 
 function createPrismaClient() {
   return new PrismaClient().$extends({
+    // ── Деловая дата движения проставляется, даже если её забыли ──
+    //
+    // У `stock_movements.sold_at` НЕТ дефолта в базе, и это осознанно: прод
+    // накатывает схему автоматическим `db push --accept-data-loss`, а колонка
+    // с `@default(now())` проставила бы момент деплоя всей истории продаж.
+    //
+    // Плата за это — компилятор больше не требует поле: колонка нулевая, и
+    // пропуск проходит молча. Ровно так три места (онлайн-заказ, возврат и
+    // сбор урожая) и записали движения без деловой даты, пройдя typecheck.
+    //
+    // Дефолт живёт здесь: в приложении, а не в DDL. Явное значение всегда
+    // побеждает — касса ставит дату продажи, заказ время оформления.
+    query: {
+      stockMovement: {
+        create({ args, query }) {
+          if (args.data && !Array.isArray(args.data) && args.data.soldAt == null) {
+            args.data.soldAt = new Date();
+          }
+          return query(args);
+        },
+        createMany({ args, query }) {
+          const rows = Array.isArray(args.data) ? args.data : [args.data];
+          for (const row of rows) {
+            if (row.soldAt == null) row.soldAt = new Date();
+          }
+          return query(args);
+        },
+      },
+    },
     result: {
       product: {
         stock: { needs: { stock: true }, compute: (p) => Number(p.stock) },

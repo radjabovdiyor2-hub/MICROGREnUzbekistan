@@ -179,6 +179,8 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
           // и после смены цены сумма возврата менялась задним числом.
           salePrice: item.price,
           saleId: refundSale.id,
+          // Деловая дата возврата — время возврата, а не исходной продажи.
+          soldAt: now,
         },
       });
 

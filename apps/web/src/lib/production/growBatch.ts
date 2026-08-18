@@ -340,6 +340,7 @@ export async function harvestBatch(input: HarvestInput) {
           note: `${batch.cropType}, ${batchUnits}, посев ${batch.seedDate.toISOString().slice(0, 10)}`,
           costPrice: Math.round(unitCost),
           performedBy: input.performedBy || 'Посадки',
+          soldAt: new Date(),
         },
       });
 
