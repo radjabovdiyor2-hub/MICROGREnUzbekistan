@@ -22,6 +22,27 @@ import { safeError } from '@/lib/safeError';
 const DEFAULT_BATCH = 25;
 const MAX_BATCH = 50;
 
+/**
+ * Отказ офиса — человеку, а не как есть.
+ *
+ * На 401 офис отвечает односложным «unauthorized», и владелец видел в
+ * админке ровно это слово. Причина у него всегда одна: пустой или разный
+ * INGEST_SECRET у веба и офиса. Через ту же дверь ходит зеркало заказов,
+ * поэтому такой отказ значит и то, что заказы с сайта не доезжают до CRM —
+ * об этом стоит сказать сразу, а не оставлять владельца гадать.
+ */
+function explain(status: number, error?: string): string {
+  if (status === 401) {
+    return (
+      'ИИ-офис отклонил запрос: не совпадает общий секрет INGEST_SECRET. ' +
+      'Задайте одно и то же значение в корневом .env и перезапустите web и ' +
+      'web_office. Через эту же дверь идёт зеркало заказов — пока секрет ' +
+      'пуст, заказы с сайта не попадают в CRM.'
+    );
+  }
+  return error || 'ИИ-офис не смог выполнить запрос';
+}
+
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
 
@@ -44,7 +65,9 @@ export async function POST(request: NextRequest) {
     // значит показать владельцу «геокодирование прошло», когда не прошло
     // ничего, — ровно та ошибка, ради которой officeFetch и заведён.
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
+      return NextResponse.json({ error: explain(result.status, result.error) }, {
+        status: result.status,
+      });
     }
 
     audit({
@@ -69,7 +92,9 @@ export async function GET(request: NextRequest) {
   try {
     const result = await officeFetch<Record<string, unknown>>('/api/admin/geocode-status');
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: result.status });
+      return NextResponse.json({ error: explain(result.status, result.error) }, {
+        status: result.status,
+      });
     }
     return NextResponse.json(result.data);
   } catch (error: unknown) {
