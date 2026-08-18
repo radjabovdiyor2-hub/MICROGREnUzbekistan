@@ -175,12 +175,15 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
           />
 
           <UnplacedTray
-            items={m.collection.unplaced}
+            items={m.queue}
             lang={lang}
             placingId={m.placingId}
             onPlace={m.setPlacingId}
             onCancelPlacing={() => m.setPlacingId(null)}
             onRefresh={() => m.refetch()}
+            chaining={m.chaining}
+            onStartChain={m.startChain}
+            onStopChain={m.stopChain}
           />
 
           {unplaced > 0 && (
