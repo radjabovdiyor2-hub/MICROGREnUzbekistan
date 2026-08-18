@@ -137,6 +137,24 @@ ALTER SEQUENCE IF EXISTS products_id_seq RENAME TO crm_products_id_seq;
 ALTER SEQUENCE IF EXISTS order_items_id_seq RENAME TO crm_order_items_id_seq;
 ALTER SEQUENCE IF EXISTS employees_id_seq RENAME TO crm_employees_id_seq;
 
+-- ── Шаг 2б: снятие мёртвого триггера нумерации заказов ─────────────────
+--
+-- `trg_orders_generate_number` приехал из init.sql: он выдавал офисным
+-- заказам номер вида MG-000123. Номер давно приходит с витрины
+-- (`web_office/main.py` вставляет `order_number` явно), а сама функция
+-- читает `FROM orders` — таблицу, переименованную здесь же, шагом выше.
+-- То есть сработать она уже не может: сработала бы — упала бы.
+--
+-- Убираем не ради чистоты. Триггер ССЫЛАЕТСЯ на `order_number`, и Postgres
+-- из-за этого запрещает менять тип колонки:
+--   ERROR: cannot alter type of a column used in a trigger definition
+-- Ровно на этом 18.08.2026 остановился деплой (прогон #32155948060): номер
+-- витрины занимает 23 символа, колонка была VARCHAR(20), и расширить её до
+-- VARCHAR(32) не давал мёртвый триггер. Пока он на месте, `db push` не
+-- пройдёт, а без расширения ни один заказ с сайта не доедет до CRM.
+DROP TRIGGER IF EXISTS trg_orders_generate_number ON crm_orders;
+DROP FUNCTION IF EXISTS generate_order_number();
+
 -- ── Шаг 3: web_user_id колонка (связка Customer ↔ User) ────────────────
 ALTER TABLE customers ADD COLUMN IF NOT EXISTS web_user_id VARCHAR(255) UNIQUE;
 
