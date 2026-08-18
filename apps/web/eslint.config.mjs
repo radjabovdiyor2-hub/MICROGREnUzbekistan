@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
     "_shot.js",
     "server-cached.js",
     "public/webapp/**",
+    // Воркер MapLibre: минифицированный вендорный код, скопированный из
+    // node_modules скриптом prebuild. Не наш исходник и линтеру не подлежит.
+    "public/maplibre/**",
     "e2e/**",
   ]),
   {

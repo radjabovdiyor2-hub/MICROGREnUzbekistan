@@ -66,6 +66,22 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Воркер MapLibre (public/maplibre/*) — 489 КБ на пару файлов.
+      // Без своего правила он попадает под общее «no-store» ниже и
+      // перекачивается на каждую загрузку страницы с картой.
+      //
+      // Сутки с ревалидацией, а НЕ immutable: после обновления maplibre-gl
+      // старый воркер из кэша и новый главный бандл разойдутся по протоколу,
+      // и карта снова почернеет. Ценой одного 304 в сутки этого не случится.
+      {
+        source: "/maplibre/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, must-revalidate",
+          },
+        ],
+      },
       // Service Worker — NEVER cache (must always be fresh)
       {
         source: "/sw.js",
@@ -151,7 +167,7 @@ const nextConfig: NextConfig = {
       },
       // HTML pages — ALWAYS fresh (no stale content)
       {
-        source: "/:path((?!api|_next|images|icons).*)",
+        source: "/:path((?!api|_next|images|icons|maplibre).*)",
         headers: [
           {
             key: "Cache-Control",

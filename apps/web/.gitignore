@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Воркер MapLibre: копируется в public/ скриптом prebuild из node_modules.
+# Не исходник — вендорные файлы иначе разъедутся с установленной версией
+# при обновлении maplibre-gl (см. scripts/copy-maplibre-worker.mjs).
+/public/maplibre/

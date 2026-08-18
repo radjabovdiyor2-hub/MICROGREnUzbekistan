@@ -5,6 +5,10 @@ import { MapPin } from 'lucide-react';
 import { Map as MapLibreMap, Marker, NavigationControl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+// Сообщает MapLibre адрес воркера. Без него бандлер уводит воркер в 404,
+// и вместо карты магазина посетитель видит пустой прямоугольник.
+import '@/lib/map/worker';
+
 // ══════════════════════════════════════════════════════════════════════
 // Карта магазина на главной.
 //

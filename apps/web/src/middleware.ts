@@ -132,10 +132,12 @@ function buildCsp(nonce: string): string {
     // глифы обычным fetch, все с одного хоста.
     `connect-src 'self' ${MAP_TILES_ORIGIN} https://www.google-analytics.com https://mc.yandex.ru https://api.telegram.org https://oauth.telegram.org https://*.googleapis.com https://dl.polyhaven.org https://poly.pizza https://graph.instagram.com`,
     "frame-src 'self' https://telegram.org https://oauth.telegram.org",
-    // blob: здесь обязателен. MapLibre 6 поднимает воркер из собственного
-    // чанка (same-origin), но при отказе module-воркера уходит в запасной
-    // путь через Blob + createObjectURL. Убрать blob: значит оставить карту
-    // работающей «почти везде» — а отваливаться она будет молча.
+    // Воркер MapLibre берётся из public/maplibre/ — это same-origin, его
+    // покрывает 'self' (адрес задаёт src/lib/map/worker.ts). Полагаться на
+    // чанк бандлера нельзя: Turbopack приписывает воркеру и его спутнику
+    // разные хеши, относительный импорт уходит в 404, и карта молча
+    // показывает один фон. blob: оставлен как запасной путь самого
+    // MapLibre, если module-воркер где-то не поддержан.
     "worker-src 'self' blob:",
   ].join('; ');
 }

@@ -6,6 +6,10 @@ import { GeoJSONSource, Map as MapLibreMap, NavigationControl } from 'maplibre-g
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
+// Импорт обязателен ДО создания карты: модуль сообщает MapLibre, где лежит
+// воркер. Без него бандлер уводит воркер в 404, и карта показывает только
+// фон стиля — чёрный прямоугольник вместо улиц.
+import '@/lib/map/worker';
 
 import {
   DEFAULT_CENTER,
