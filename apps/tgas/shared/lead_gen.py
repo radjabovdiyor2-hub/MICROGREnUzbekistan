@@ -15,8 +15,14 @@
     {
       "company_name", "phone", "email", "address",
       "review_score", "review_summary",
-      "source", "source_ref", "company_type"
+      "source", "source_ref", "company_type",
+      "latitude", "longitude"
     }
+
+Координаты приходят от всех трёх API даром — их и так возвращают вместе с
+адресом. Раньше они выбрасывались (хранить было негде), и карта клиентов в
+админке начиналась с пустого экрана. Теперь это основной бесплатный источник
+точек для B2B: 2ГИС отдаёт координату входа в заведение, точнее геокодера.
 """
 
 from __future__ import annotations
@@ -24,6 +30,7 @@ from __future__ import annotations
 import csv
 import logging
 import re
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 import aiohttp
@@ -36,6 +43,52 @@ from shared.database import get_session_ctx
 logger = logging.getLogger(__name__)
 
 DGIS_CATALOG_URL = "https://catalog.api.2gis.com/3.0/items"
+
+# Границы Узбекистана с запасом. Координата вне их — это не «далёкий
+# ресторан», а перепутанные местами оси или мусор от провайдера. Такую
+# точку лучше не сохранять вовсе: пин посреди океана выглядит как данные.
+_UZ_LAT = (37.0, 46.0)
+_UZ_LON = (55.0, 74.0)
+
+
+def _valid_point(lat: Any, lon: Any) -> tuple[float, float] | None:
+    """Пара чисел в пределах страны — иначе None."""
+    try:
+        lat_f, lon_f = float(lat), float(lon)
+    except (TypeError, ValueError):
+        return None
+    if not (_UZ_LAT[0] <= lat_f <= _UZ_LAT[1]):
+        return None
+    if not (_UZ_LON[0] <= lon_f <= _UZ_LON[1]):
+        return None
+    return lat_f, lon_f
+
+
+def point_from_dgis(item: dict[str, Any]) -> tuple[float, float] | None:
+    """2ГИС: `point` — словарь {"lat": .., "lon": ..}. Порядок явный."""
+    point = item.get("point") or {}
+    return _valid_point(point.get("lat"), point.get("lon"))
+
+
+def point_from_google(item: dict[str, Any]) -> tuple[float, float] | None:
+    """Google Places: `geometry.location` — {"lat": .., "lng": ..}."""
+    location = (item.get("geometry") or {}).get("location") or {}
+    return _valid_point(location.get("lat"), location.get("lng"))
+
+
+def point_from_yandex(feature: dict[str, Any]) -> tuple[float, float] | None:
+    """
+    Яндекс отдаёт GeoJSON, а там координаты идут в порядке [ДОЛГОТА, ШИРОТА].
+
+    Порядок обратен привычному «широта, долгота», и это самая частая ошибка
+    в геоданных: пара 41.31 / 69.24 формально валидна в обе стороны, поэтому
+    перестановка не падает, а тихо уносит Ташкент в Индийский океан.
+    """
+    coords = (feature.get("geometry") or {}).get("coordinates") or []
+    if len(coords) != 2:
+        return None
+    lon, lat = coords
+    return _valid_point(lat, lon)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -103,6 +156,8 @@ async def collect_from_2gis(
                 f" ({review_count} отзывов)" if review_count else ""
             )
 
+        point = point_from_dgis(it)
+
         leads.append(
             {
                 "company_name": it.get("name"),
@@ -114,6 +169,9 @@ async def collect_from_2gis(
                 "source": "2gis",
                 "source_ref": str(it.get("id")) if it.get("id") else None,
                 "company_type": "restaurant",
+                "latitude": point[0] if point else None,
+                "longitude": point[1] if point else None,
+                "geo_precision": "exact" if point else None,
             }
         )
 
@@ -173,6 +231,8 @@ async def collect_from_google_places(
                 f" ({review_count} отзывов)" if review_count else ""
             )
 
+        point = point_from_google(it)
+
         leads.append(
             {
                 "company_name": it.get("name"),
@@ -184,6 +244,9 @@ async def collect_from_google_places(
                 "source": "google_places",
                 "source_ref": str(it.get("place_id")),
                 "company_type": "restaurant",
+                "latitude": point[0] if point else None,
+                "longitude": point[1] if point else None,
+                "geo_precision": "exact" if point else None,
             }
         )
 
@@ -241,6 +304,7 @@ async def collect_from_yandex_maps(
             phone = phones[0].get("formatted")
 
         url_website = props.get("url")
+        point = point_from_yandex(it)
 
         leads.append(
             {
@@ -253,6 +317,9 @@ async def collect_from_yandex_maps(
                 "source": "yandex_maps",
                 "source_ref": str(props.get("id")),
                 "company_type": "restaurant",
+                "latitude": point[0] if point else None,
+                "longitude": point[1] if point else None,
+                "geo_precision": "exact" if point else None,
             }
         )
 
@@ -380,15 +447,28 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
             if s_name:
                 seen_names.add(s_name)
 
+            # Координаты пишутся здесь же: `geocoded_at` заполняем только
+            # когда точка есть, иначе пакетный геокодер решит, что клиента
+            # уже обработали, и обойдёт его стороной.
+            point = _valid_point(lead.get("latitude"), lead.get("longitude"))
+
             await session.execute(
                 text(
                     "INSERT INTO customers "
                     "(name, company_name, phone, email, address, city, customer_type, "
-                    " company_type, status, source, source_ref, review_score, review_summary, created_at) "
+                    " company_type, status, source, source_ref, review_score, review_summary, "
+                    " latitude, longitude, geo_source, geo_precision, geo_address, geocoded_at, created_at) "
                     "VALUES (:name, :company, :phone, :email, :address, :city, 'b2b', "
-                    " :ctype, 'lead', :source, :ref, :score, :summary, NOW())"
+                    " :ctype, 'lead', :source, :ref, :score, :summary, "
+                    " :lat, :lon, :geo_source, :geo_precision, :geo_address, :geocoded_at, NOW())"
                 ),
                 {
+                    "lat": point[0] if point else None,
+                    "lon": point[1] if point else None,
+                    "geo_source": lead.get("source") if point else None,
+                    "geo_precision": lead.get("geo_precision") if point else None,
+                    "geo_address": lead.get("address") if point else None,
+                    "geocoded_at": datetime.now(timezone.utc) if point else None,
                     "name": name,
                     "company": name,
                     # Канон +998XXXXXXXXX. Раньше сюда ложилась сырая строка из

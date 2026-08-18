@@ -1,9 +1,20 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import {
   Clock, Home, Instagram, MapPin, Navigation, Phone, Truck,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+
+// maplibre-gl трогает window на импорте — при SSR падает сборка.
+const StoreMap = dynamic(() => import('./StoreMap'), {
+  ssr: false,
+  loading: () => <div style={{ width: '100%', height: '100%', background: 'var(--bg-tertiary)' }} />,
+});
+
+/** Координаты магазина. Отсюда же строятся ссылки «проложить маршрут». */
+const STORE_LAT = 39.581813;
+const STORE_LON = 66.961888;
 
 export function StoreLocation() {
   const { t } = useLang();
@@ -106,14 +117,10 @@ export function StoreLocation() {
             position: 'relative',
             background: 'var(--bg-tertiary)',
           }}>
-              <iframe
-                src="https://yandex.ru/map-widget/v1/?pt=66.961888%2C39.581813&z=16&l=map&lang=uz_UZ"
-                width="100%"
-                height="100%"
-                style={{ border: 0, display: 'block' }}
-                allowFullScreen
-                loading="lazy"
-                title="Microgreen do'koni joylashuvi"
+              <StoreMap
+                latitude={STORE_LAT}
+                longitude={STORE_LON}
+                title={t("Microgreen do'koni joylashuvi", 'Расположение магазина Microgreen')}
               />
             {/* Map Actions Overlay */}
             <div style={{
@@ -125,7 +132,7 @@ export function StoreLocation() {
               gap: 'var(--space-2)',
             }}>
               <a
-                href="https://yandex.com/maps/?pt=66.961888,39.581813&z=16&l=map"
+                href={`https://yandex.com/maps/?pt=${STORE_LON},${STORE_LAT}&z=16&l=map`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-primary btn-sm"
@@ -140,7 +147,7 @@ export function StoreLocation() {
                 <MapPin size={14} /> {t('Yandex Xarita', 'Яндекс Карты')}
               </a>
               <a
-                href="https://www.google.com/maps?q=39.581813,66.961888"
+                href={`https://www.google.com/maps?q=${STORE_LAT},${STORE_LON}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="btn btn-accent btn-sm"

@@ -1,0 +1,159 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { clientErrorMessage } from '@/lib/safeError';
+import { confirmDeleteText, deleteCustomer } from '@/lib/customers/remove';
+
+import { type CustomerItem } from './customerTypes';
+
+// ══════════════════════════════════════════════════════════════════════
+// Состояние раздела «Клиенты»: список, фильтры, правка, вид.
+//
+// Вынесено из AdminCustomers, который упёрся в 200 строк ровно в тот
+// момент, когда к списку добавился второй вид — карта. Тот же приём, что
+// у useAdminTasks и useAdminSettings: контейнер остаётся разметкой, а вся
+// механика живёт здесь и читается отдельно от неё.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Клиентов на странице. Раньше список жёстко обрывался на сотне без
+ *  возможности пролистать: 101-й клиент был недостижим. */
+export const PAGE_SIZE = 50;
+
+/** Список или карта. Вид живёт в состоянии раздела, а не в URL-вкладке:
+ *  вкладка одна, «Клиенты», и переключение вида её не меняет. */
+export type CustomersView = 'list' | 'map';
+
+interface CustomerPage {
+  customers: CustomerItem[];
+  total: number;
+}
+
+export function useAdminCustomers() {
+  const [searchInput, setSearchInput] = useState('');
+  // Отправленный запрос отделён от того, что человек печатает: он входит в
+  // queryKey, поэтому кэш и содержимое поля больше не расходятся. Раньше
+  // ключом был только фильтр, и переключение вкладки отдавало сохранённый
+  // результат ПРОШЛОГО поиска.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [view, setView] = useState<CustomersView>('list');
+
+  const queryClient = useQueryClient();
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<CustomerItem | null>(null);
+  const [editStatus, setEditStatus] = useState('');
+  const [editBonus, setEditBonus] = useState<number>(0);
+  const [editNotes, setEditNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const { data, isLoading: loading, error, refetch } = useQuery<CustomerPage, Error>({
+    queryKey: ['admin-customers', statusFilter, searchQuery, page],
+    queryFn: async () => {
+      const query = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
+      const status = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
+      const res = await fetch(`/api/admin/customers?limit=${PAGE_SIZE}&page=${page}${query}${status}`);
+      if (!res.ok) throw new Error('Failed to fetch customers');
+      const body = await res.json();
+      return { customers: body.customers || [], total: body.total ?? 0 };
+    },
+  });
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPage(1);
+    setSearchQuery(searchInput);
+  };
+
+  const handleFilter = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  const handleEditClick = (c: CustomerItem) => {
+    setEditingCustomer(c);
+    setEditStatus(c.status);
+    setEditBonus(c.bonusBalance);
+    setEditNotes(c.notes || '');
+  };
+
+  // Клиента с заказами база не отдаёт (crm_orders на onDelete: Restrict) —
+  // сервер отвечает 409 с числом заказов, и причину показываем как есть.
+  const handleDeleteCustomer = async (c: CustomerItem) => {
+    if (!window.confirm(confirmDeleteText(c.name))) return;
+    try {
+      await deleteCustomer(c.id);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
+    } catch (err: unknown) {
+      alert(clientErrorMessage(err, 'Ошибка при удалении'));
+    }
+  };
+
+  const handleSaveCustomer = async () => {
+    if (!editingCustomer) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/customers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingCustomer.id,
+          status: editStatus,
+          bonusBalance: editBonus,
+          notes: editNotes,
+        }),
+      });
+      // Сообщение сервера показываем как есть. Отказ начислить баллы —
+      // осмысленный ответ («карточка не связана с аккаунтом витрины»), и
+      // подменять его общим «Ошибка при сохранении» значит снова прятать
+      // причину, по которой начисление не работает.
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error || 'Не удалось сохранить клиента');
+
+      setEditingCustomer(null);
+      refetch();
+      // Карточка открыта — её данные тоже устарели.
+      queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
+    } catch (err: unknown) {
+      alert(clientErrorMessage(err, 'Ошибка при сохранении'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return {
+    customers: data?.customers ?? [],
+    total: data?.total ?? 0,
+    loading,
+    error,
+    refetch,
+
+    searchInput,
+    setSearchInput,
+    handleSearch,
+    statusFilter,
+    handleFilter,
+    page,
+    setPage,
+    view,
+    setView,
+
+    selectedId,
+    setSelectedId,
+    editingCustomer,
+    setEditingCustomer,
+    editStatus,
+    setEditStatus,
+    editBonus,
+    setEditBonus,
+    editNotes,
+    setEditNotes,
+    saving,
+    handleEditClick,
+    handleDeleteCustomer,
+    handleSaveCustomer,
+  };
+}
