@@ -272,6 +272,20 @@ class Settings(BaseSettings):
         default="",
         description="API-ключ Yandex Maps (Search API) для поиска ресторанов",
     )
+
+    # ── Геокодирование адресов (карта клиентов в админке) ─────────────
+    yandex_geocoder_api_key: str = Field(
+        default="",
+        description="API-ключ Yandex Geocoder — второй в каскаде после 2ГИС",
+    )
+    geocoder_allow_nominatim: bool = Field(
+        default=False,
+        description=(
+            "Разрешить публичный Nominatim (OpenStreetMap). ТОЛЬКО для разработки: "
+            "условия OSMF запрещают массовое и коммерчески-первичное использование"
+        ),
+    )
+
     b2b_daily_limit: int = Field(
         default=8,
         description="Сколько холодных B2B-контактов делать в день (1 AI-вызов на лид)",

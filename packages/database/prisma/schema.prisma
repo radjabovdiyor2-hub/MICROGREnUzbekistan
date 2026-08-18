@@ -692,6 +692,19 @@ model Restaurant {
   loyaltyGoal          Int? @default(5) @map("loyalty_goal")
   loyaltyRewardPercent Int? @default(15) @map("loyalty_reward_percent")
 
+  // ── Карта клиентов: заведение как цель продаж ──
+  // Связь заведена ЗДЕСЬ, а не на Customer, намеренно: `restaurants` — сотня
+  // редко меняющихся строк, и колонка на ней не задевает write-path офиса,
+  // где единственный писатель `customers` — customer_repo с фиксированной
+  // проекцией. Заведение с `customerId != null` уже наш клиент и рисуется
+  // как клиент, иначе — «белое пятно» территории.
+  customerId Int?      @unique @map("customer_id")
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  address    String?
+  latitude   Float?
+  longitude  Float?
+  geoSource  String?   @map("geo_source") @db.VarChar(20)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -1041,19 +1054,74 @@ model Customer {
   // Связь с веб-пользователем (User) для объединения профилей
   webUserId        String?   @unique @map("web_user_id")
 
+  // ── География: карта клиентов в админке ──
+  // Координаты живут здесь, а не в `addresses`: та таблица требует
+  // обязательного `user_id` витрины, а у лида из 2ГИС аккаунта нет вовсе —
+  // пришлось бы заводить фиктивных пользователей в таблице, на которой висят
+  // авторизация, бонусы и заказы. К тому же `addresses` участвует в удалении
+  // по GDPR, и точка ресторана исчезала бы вместе с аккаунтом покупателя.
+  // У заведения ровно одна точка, поэтому одна пара колонок здесь — верная
+  // кардинальность, а запрос карты остаётся одним findMany без join.
+  // Индекса по (latitude, longitude) нет намеренно: b-tree по паре не даёт
+  // пространственного поиска, а на нескольких тысячах строк bbox-фильтр —
+  // это seq scan за микросекунды.
+  latitude     Float?
+  longitude    Float?
+  geoSource    String?   @map("geo_source") @db.VarChar(20) // 2gis | google | yandex | manual | seed
+  geoPrecision String?   @map("geo_precision") @db.VarChar(20) // exact | street | district | city
+  geocodedAt   DateTime? @map("geocoded_at")
+  geoAddress   String?   @map("geo_address") @db.Text // адрес, по которому получена точка
+  // Slug на латинице (chilanzar, yunusabad). Отображаемые ru/uz-имена — в
+  // apps/web/src/lib/customers/districts.ts. Хранить сюда «Чиланзар» нельзя:
+  // ровно так уже разошлись `customers.city` ("Samarqand") и `orders.city`
+  // ("tashkent"), и повторять этот разнобой в новой колонке незачем.
+  district     String?   @db.VarChar(80)
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
   crmOrders    CrmOrder[]
   interactions Interaction[]
   followups    Followup[]
+  restaurant   Restaurant?
 
   @@index([telegramId])
   @@index([phone])
   @@index([status])
   @@index([customerType])
   @@index([city])
+  @@index([district])
+  @@index([geoSource])
   @@map("customers")
+}
+
+// Кэш геокодирования: один нормализованный адрес — одна строка.
+//
+// Промахи кэшируются тоже (latitude = null, attempts++). Без этого
+// безнадёжный адрес вроде «возле старого базара» будет молотить провайдера
+// на каждом прогоне, а условия Nominatim прямо требуют кэшировать результаты
+// на своей стороне.
+//
+// Ключ — sha256 нормализованной строки, а не сама строка: уникальный b-tree
+// по Text произвольной длины упрётся в лимит индекса. `queryText` лежит рядом
+// ради отладки — по хешу не понять, что именно спрашивали.
+model GeocodeCache {
+  id        Int      @id @default(autoincrement())
+  queryHash String   @unique @map("query_hash") @db.VarChar(64)
+  queryText String   @map("query_text") @db.Text
+  latitude  Float?
+  longitude Float?
+  precision String?  @db.VarChar(20)
+  provider  String   @db.VarChar(20)
+  district  String?  @db.VarChar(80)
+  attempts  Int      @default(1)
+  lastError String?  @map("last_error") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([provider])
+  @@map("geocode_cache")
 }
 
 model CrmProduct {

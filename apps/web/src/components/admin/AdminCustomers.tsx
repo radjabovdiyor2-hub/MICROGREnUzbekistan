@@ -1,128 +1,52 @@
 'use client';
 
 import { AdminCustomerTable } from './AdminCustomerTable';
-
 import { AdminCustomerEdit } from './AdminCustomerEdit';
 import { AdminCustomerCard } from './AdminCustomerCard';
-
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { clientErrorMessage } from '@/lib/safeError';
-import { confirmDeleteText, deleteCustomer } from '@/lib/customers/remove';
 import { AdminCustomersToolbar } from './AdminCustomersToolbar';
 import { AdminPager } from './AdminPager';
+import { AdminCustomerMap } from './map/AdminCustomerMap';
+import { PAGE_SIZE, useAdminCustomers } from './useAdminCustomers';
 
 import { type CustomerItem } from './customerTypes';
 export type { CustomerItem };
 
-interface CustomerPage {
-  customers: CustomerItem[];
-  total: number;
-}
-
-/** Клиентов на странице. Раньше список жёстко обрывался на сотне без
- *  возможности пролистать: 101-й клиент был недостижим. */
-const PAGE_SIZE = 50;
+// ══════════════════════════════════════════════════════════════════════
+// Раздел «Клиенты»: список или карта, карточка клиента, правка.
+//
+// Механика вынесена в useAdminCustomers — здесь осталась только разметка.
+// Оба вида работают с одной карточкой клиента и одним кэшем react-query,
+// поэтому клик по точке на карте и клик по строке в таблице приводят в
+// одно и то же место.
+// ══════════════════════════════════════════════════════════════════════
 
 export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
-  const [searchInput, setSearchInput] = useState('');
-  // Отправленный запрос отделён от того, что человек печатает: он входит в
-  // queryKey, поэтому кэш и содержимое поля больше не расходятся. Раньше
-  // ключом был только фильтр, и переключение вкладки отдавало сохранённый
-  // результат ПРОШЛОГО поиска.
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [page, setPage] = useState(1);
+  const s = useAdminCustomers();
 
-  const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [editingCustomer, setEditingCustomer] = useState<CustomerItem | null>(null);
-  const [editStatus, setEditStatus] = useState('');
-  const [editBonus, setEditBonus] = useState<number>(0);
-  const [editNotes, setEditNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const { data, isLoading: loading, error, refetch: fetchCustomers } = useQuery<CustomerPage, Error>({
-    queryKey: ['admin-customers', statusFilter, searchQuery, page],
-    queryFn: async () => {
-      const query = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
-      const status = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
-      const res = await fetch(`/api/admin/customers?limit=${PAGE_SIZE}&page=${page}${query}${status}`);
-      if (!res.ok) throw new Error('Failed to fetch customers');
-      const body = await res.json();
-      return { customers: body.customers || [], total: body.total ?? 0 };
-    }
-  });
-
-  const customers = data?.customers ?? [];
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPage(1);
-    setSearchQuery(searchInput);
-  };
-
-  const handleEditClick = (c: CustomerItem) => {
-    setEditingCustomer(c);
-    setEditStatus(c.status);
-    setEditBonus(c.bonusBalance);
-    setEditNotes(c.notes || '');
-  };
-
-  // Клиента с заказами база не отдаёт (crm_orders на onDelete: Restrict) —
-  // сервер отвечает 409 с числом заказов, и причину показываем как есть.
-  const handleDeleteCustomer = async (c: CustomerItem) => {
-    if (!window.confirm(confirmDeleteText(c.name))) return;
-    try {
-      await deleteCustomer(c.id);
-      fetchCustomers();
-      queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
-    } catch (err: unknown) {
-      alert(clientErrorMessage(err, 'Ошибка при удалении'));
-    }
-  };
-
-  const handleSaveCustomer = async () => {
-    if (!editingCustomer) return;
-    setSaving(true);
-    try {
-      const res = await fetch('/api/admin/customers', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editingCustomer.id,
-          status: editStatus,
-          bonusBalance: editBonus,
-          notes: editNotes,
-        }),
-      });
-      // Сообщение сервера показываем как есть. Отказ начислить баллы —
-      // осмысленный ответ («карточка не связана с аккаунтом витрины»), и
-      // подменять его общим «Ошибка при сохранении» значит снова прятать
-      // причину, по которой начисление не работает.
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error || 'Не удалось сохранить клиента');
-
-      setEditingCustomer(null);
-      fetchCustomers();
-      // Карточка открыта — её данные тоже устарели.
-      queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
-    } catch (err: unknown) {
-      alert(clientErrorMessage(err, 'Ошибка при сохранении'));
-    } finally {
-      setSaving(false);
-    }
-  };
+  const editModal = (
+    <AdminCustomerEdit
+      editingCustomer={s.editingCustomer}
+      setEditingCustomer={s.setEditingCustomer}
+      editStatus={s.editStatus}
+      setEditStatus={s.setEditStatus}
+      editBonus={s.editBonus}
+      setEditBonus={s.setEditBonus}
+      editNotes={s.editNotes}
+      setEditNotes={s.setEditNotes}
+      saving={s.saving}
+      handleSaveCustomer={s.handleSaveCustomer}
+    />
+  );
 
   // Открыт клиент — показываем его карточку вместо списка. Тот же приём,
   // что у карточки заказа в AdminOrders.
-  if (selectedId !== null) {
+  if (s.selectedId !== null) {
     return (
       <>
         <AdminCustomerCard
-          customerId={selectedId}
-          onBack={() => setSelectedId(null)}
-          onEdit={(c) => handleEditClick({
+          customerId={s.selectedId}
+          onBack={() => s.setSelectedId(null)}
+          onEdit={(c) => s.handleEditClick({
             id: c.id,
             name: c.name,
             phone: c.phone,
@@ -138,18 +62,7 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
             createdAt: c.createdAt,
           })}
         />
-        <AdminCustomerEdit
-          editingCustomer={editingCustomer}
-          setEditingCustomer={setEditingCustomer}
-          editStatus={editStatus}
-          setEditStatus={setEditStatus}
-          editBonus={editBonus}
-          setEditBonus={setEditBonus}
-          editNotes={editNotes}
-          setEditNotes={setEditNotes}
-          saving={saving}
-          handleSaveCustomer={handleSaveCustomer}
-        />
+        {editModal}
       </>
     );
   }
@@ -158,40 +71,38 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
     <div>
       <AdminCustomersToolbar
         lang={lang}
-        loading={loading}
-        error={error}
-        searchInput={searchInput}
-        setSearchInput={setSearchInput}
-        onSearch={handleSearch}
-        statusFilter={statusFilter}
-        onFilter={(v) => { setStatusFilter(v); setPage(1); }}
-        onRefresh={() => fetchCustomers()}
+        loading={s.loading}
+        error={s.error}
+        searchInput={s.searchInput}
+        setSearchInput={s.setSearchInput}
+        onSearch={s.handleSearch}
+        statusFilter={s.statusFilter}
+        onFilter={s.handleFilter}
+        onRefresh={() => s.refetch()}
+        view={s.view}
+        onView={s.setView}
       />
 
-      <AdminCustomerTable
-        customers={customers}
-        loading={loading}
-        lang={lang}
-        handleEditClick={handleEditClick}
-        onOpen={(c) => setSelectedId(c.id)}
-        onDelete={handleDeleteCustomer}
-      />
+      {s.view === 'map' ? (
+        <AdminCustomerMap lang={lang} onOpenCard={s.setSelectedId} />
+      ) : (
+        <>
+          <AdminCustomerTable
+            customers={s.customers}
+            loading={s.loading}
+            lang={lang}
+            handleEditClick={s.handleEditClick}
+            onOpen={(c) => s.setSelectedId(c.id)}
+            onDelete={s.handleDeleteCustomer}
+          />
 
-      {!loading && (data?.total ?? 0) > 0 && (
-        <AdminPager page={page} total={data?.total ?? 0} pageSize={PAGE_SIZE} onPage={setPage} />
+          {!s.loading && s.total > 0 && (
+            <AdminPager page={s.page} total={s.total} pageSize={PAGE_SIZE} onPage={s.setPage} />
+          )}
+        </>
       )}
-      <AdminCustomerEdit
-        editingCustomer={editingCustomer}
-        setEditingCustomer={setEditingCustomer}
-        editStatus={editStatus}
-        setEditStatus={setEditStatus}
-        editBonus={editBonus}
-        setEditBonus={setEditBonus}
-        editNotes={editNotes}
-        setEditNotes={setEditNotes}
-        saving={saving}
-        handleSaveCustomer={handleSaveCustomer}
-      />
+
+      {editModal}
     </div>
   );
 }

@@ -1501,6 +1501,51 @@ async def sync_catalog(request: Request):
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
+# ─── Геокодирование адресов клиентов (карта в веб-админке) ───
+# Ключи провайдеров живут только здесь, а проход с паузой в секунду по
+# тысячам адресов — работа демона, а не HTTP-роута Next. Веб зовёт эти
+# эндпоинты через officeFetch и рисует прогресс.
+@app.post("/admin/geocode-pass")
+async def geocode_pass_endpoint(request: Request):
+    """Один батч геокодирования. Вызывается повторно, пока done=false."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from shared.geo import geocode_pass
+
+        body = {}
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001 — пустое тело допустимо
+            body = {}
+
+        batch = int(body.get("batch") or 25)
+        # Верхняя граница не про производительность: батч идёт с паузой
+        # 1.1 с на адрес, и сотня уже упирается в таймаут HTTP-клиента.
+        batch = max(1, min(batch, 50))
+
+        result = await geocode_pass(batch=batch, city=body.get("city") or None)
+        status = 200 if result.get("ok") else 400
+        return JSONResponse(result, status_code=status)
+    except Exception as exc:
+        logger.exception("Geocode-pass: ошибка: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.get("/api/admin/geocode-status")
+async def geocode_status_endpoint(request: Request):
+    """Сколько клиентов размещено, сколько ждёт, какие провайдеры включены."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from shared.geo import geocode_status
+
+        return JSONResponse(await geocode_status())
+    except Exception as exc:
+        logger.exception("Geocode-status: ошибка: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
 # ── Department API ───────────────────────────────────────────
 # Юзернеймы берутся из реестра ботов — своей копии здесь больше нет.
 # В прежней копии контент и финансы были переставлены местами (карточка

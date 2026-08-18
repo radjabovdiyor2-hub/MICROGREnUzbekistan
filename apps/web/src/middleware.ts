@@ -112,6 +112,14 @@ export function roleSatisfies(role: SessionRole, access: Access): boolean {
   return role === 'ADMIN' || role === 'SELLER';
 }
 
+// Источник векторных тайлов карты клиентов. Origin вычисляется из той же
+// переменной, по которой карта их и грузит: если развести эти два места,
+// смена NEXT_PUBLIC_MAP_TILES_URL молча убьёт карту — тайлы уедут на новый
+// хост, а CSP останется разрешать старый, и в консоли будет только отказ.
+const MAP_TILES_ORIGIN = new URL(
+  process.env.NEXT_PUBLIC_MAP_TILES_URL || 'https://tiles.openfreemap.org',
+).origin;
+
 function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
@@ -120,8 +128,14 @@ function buildCsp(nonce: string): string {
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",
     "media-src 'self' blob:",
-    "connect-src 'self' https://www.google-analytics.com https://mc.yandex.ru https://api.telegram.org https://oauth.telegram.org https://*.googleapis.com https://dl.polyhaven.org https://poly.pizza https://graph.instagram.com",
+    // MAP_TILES_ORIGIN: MapLibre тянет style.json, .pbf-тайлы, спрайты и
+    // глифы обычным fetch, все с одного хоста.
+    `connect-src 'self' ${MAP_TILES_ORIGIN} https://www.google-analytics.com https://mc.yandex.ru https://api.telegram.org https://oauth.telegram.org https://*.googleapis.com https://dl.polyhaven.org https://poly.pizza https://graph.instagram.com`,
     "frame-src 'self' https://telegram.org https://oauth.telegram.org",
+    // blob: здесь обязателен. MapLibre 6 поднимает воркер из собственного
+    // чанка (same-origin), но при отказе module-воркера уходит в запасной
+    // путь через Blob + createObjectURL. Убрать blob: значит оставить карту
+    // работающей «почти везде» — а отваливаться она будет молча.
     "worker-src 'self' blob:",
   ].join('; ');
 }
