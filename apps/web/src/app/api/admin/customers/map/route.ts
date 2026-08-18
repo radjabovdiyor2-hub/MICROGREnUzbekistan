@@ -10,6 +10,7 @@ import {
   buildMapCollection,
   buildMapWhere,
   buildProspectFeatures,
+  districtStats,
   loadFirstOrderDates,
   parseStates,
   validateCoords,
@@ -70,13 +71,21 @@ export async function GET(request: NextRequest) {
     // клиенты. Грузится только по запросу — на карте клиентов он лишний
     // шум, а в режиме поиска новых точек продаж это главный слой.
     if (searchParams.get('prospects') === '1') {
+      const districtFilter = searchParams.get('district');
       const prospects = await prisma.restaurant.findMany({
-        where: { customerId: null, latitude: { not: null } },
+        // Фильтр по району действует и на цели: иначе клик по «Чиланзар»
+        // оставлял бы на карте цели со всего города.
+        where: {
+          customerId: null,
+          latitude: { not: null },
+          ...(districtFilter ? { district: districtFilter } : {}),
+        },
         select: {
           id: true,
           name: true,
           city: true,
           tier: true,
+          district: true,
           latitude: true,
           longitude: true,
           geoSource: true,
@@ -85,6 +94,9 @@ export async function GET(request: NextRequest) {
       });
       collection.features.push(...buildProspectFeatures(prospects));
       collection.summary.prospects = prospects.length;
+      // Разрез пересчитываем: цели появились после первой сборки, а без
+      // них строка «в Чиланзаре 14 целей и 2 клиента» показывала бы нули.
+      collection.summary.districts = districtStats(collection.features);
     }
 
     return NextResponse.json(collection);

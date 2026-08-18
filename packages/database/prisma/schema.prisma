@@ -704,6 +704,10 @@ model Restaurant {
   latitude   Float?
   longitude  Float?
   geoSource  String?   @map("geo_source") @db.VarChar(20)
+  // Тот же латинский slug, что у клиента: без него разрез по районам
+  // считает только своих и не может сказать «в Чиланзаре 14 целей и 2
+  // клиента» — а ради этой строки слой целей и заводился.
+  district   String?   @db.VarChar(80)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1856,6 +1860,14 @@ model DeliveryStop {
   status     String        @default("pending") @db.VarChar(20)
   orderIndex Int           @default(0) @map("order_index")
   note       String?       @db.Text
+
+  // Координаты точки выгрузки — тот же набор, что у клиента, и тот же
+  // геокодер. Порядок объезда задаёт orderIndex: линия на карте рисуется
+  // по нему, а не по расстоянию, — маршрут строит человек, и карта обязана
+  // показывать его замысел, а не свою догадку о лучшем пути.
+  latitude   Float?
+  longitude  Float?
+  geoSource  String?       @map("geo_source") @db.VarChar(20)
 
   @@index([routeId])
   @@map("delivery_stops")

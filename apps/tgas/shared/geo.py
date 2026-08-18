@@ -164,6 +164,63 @@ def address_key(raw: Optional[str], city: Optional[str] = None) -> Optional[str]
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
+# Районы Ташкента и Самарканда. Ключ — как слово выглядит после _fold,
+# значение — slug, тот же, что в apps/web/src/lib/customers/districts.ts.
+# Список держится здесь, а не тянется из веба: между модулями нет прямых
+# импортов, а четырнадцать строк дешевле HTTP-вызова за справочником.
+_DISTRICTS = {
+    "bektemir": "bektemir",
+    "chilonzor": "chilanzar", "chilanzar": "chilanzar", "chilanzor": "chilanzar",
+    "mirobod": "mirobod", "mirabad": "mirobod",
+    "mirzoulugbek": "mirzo-ulugbek", "mirzoulugbec": "mirzo-ulugbek",
+    "olmazor": "olmazor", "almazar": "olmazor",
+    "sergeli": "sergeli", "sergely": "sergeli",
+    "shayxontohur": "shayxontohur", "shayhontohur": "shayxontohur",
+    "yakkasaroy": "yakkasaroy", "yakkasaray": "yakkasaroy",
+    "yangihayot": "yangihayot",
+    "yashnobod": "yashnobod", "yashnabad": "yashnobod",
+    "yunusobod": "yunusobod", "yunusabad": "yunusobod",
+    "siyob": "siyob", "siab": "siyob",
+    "temiryol": "temiryol",
+}
+
+
+# Русские прилагательные окончания: «Чиланзарский район», «в Сиабском».
+# Отрезаются ПОСЛЕ неудачи точного совпадения — так поиск остаётся
+# пословным и не превращается в поиск подстроки.
+_ADJ_SUFFIXES = ("skogo", "skomu", "skiy", "skij", "skom", "skoy", "skaya", "sky", "ski")
+
+
+def district_from_text(raw: Optional[str]) -> Optional[str]:
+    """
+    Район из строки адреса. None — если провайдер его не назвал.
+
+    Ищем по отдельным словам, а не подстрокой: «Мирзо» — начало
+    Мирзо-Улугбека, но само по себе района не даёт, и поиск подстрокой
+    уверенно приписал бы клиента не туда. Ошибка в районе тише ошибки в
+    координате и потому опаснее: неверный пин видно на карте сразу, а
+    клиент в соседнем тумане молча портит разрез «где недобираем».
+    """
+    if not raw:
+        return None
+
+    for token in re.split(r"[^a-z0-9]+", _fold(raw)):
+        if not token:
+            continue
+        slug = _DISTRICTS.get(token)
+        if slug:
+            return slug
+        # «chilanzarskiy» → «chilanzar». Пробуем только если целое слово
+        # не подошло, и только с известным окончанием.
+        for suffix in _ADJ_SUFFIXES:
+            if token.endswith(suffix) and len(token) > len(suffix) + 2:
+                slug = _DISTRICTS.get(token[: -len(suffix)])
+                if slug:
+                    return slug
+                break
+    return None
+
+
 def valid_point(lat: Any, lon: Any) -> Optional[tuple[float, float]]:
     """Пара чисел в пределах Узбекистана — иначе None."""
     try:
@@ -189,6 +246,10 @@ class GeoHit:
     precision: str  # exact | street | district | city
     provider: str
     display_name: Optional[str] = None
+    # Slug района на латинице. Провайдеры называют его по-разному и не
+    # всегда — поэтому Optional, а разрез по районам просто не считает
+    # тех, у кого его нет, вместо того чтобы придумывать «прочее».
+    district: Optional[str] = None
 
     @property
     def placeable(self) -> bool:
@@ -223,7 +284,8 @@ async def _geocode_dgis(session: aiohttp.ClientSession, query: str) -> Optional[
     # 2ГИС называет тип найденного объекта: building/street/adm_div.
     kind = str(item.get("type") or "")
     precision = "exact" if kind == "building" else "street" if kind == "street" else "city"
-    return GeoHit(point[0], point[1], precision, "2gis", item.get("address_name"))
+    address = item.get("address_name")
+    return GeoHit(point[0], point[1], precision, "2gis", address, district_from_text(address))
 
 
 async def _geocode_yandex(session: aiohttp.ClientSession, query: str) -> Optional[GeoHit]:
@@ -266,7 +328,9 @@ async def _geocode_yandex(session: aiohttp.ClientSession, query: str) -> Optiona
         "exact": "exact", "number": "exact", "near": "street",
         "range": "street", "street": "street", "other": "city",
     }.get(kind, "city")
-    return GeoHit(point[0], point[1], precision, "yandex", obj.get("name"))
+    full = obj.get("metaDataProperty", {}).get("GeocoderMetaData", {}).get("text")
+    return GeoHit(point[0], point[1], precision, "yandex", obj.get("name"),
+                  district_from_text(full or obj.get("description")))
 
 
 async def _geocode_nominatim(session: aiohttp.ClientSession, query: str) -> Optional[GeoHit]:
@@ -300,7 +364,8 @@ async def _geocode_nominatim(session: aiohttp.ClientSession, query: str) -> Opti
         else "street" if category in {"road", "residential"}
         else "city"
     )
-    return GeoHit(point[0], point[1], precision, "nominatim", first.get("display_name"))
+    shown = first.get("display_name")
+    return GeoHit(point[0], point[1], precision, "nominatim", shown, district_from_text(shown))
 
 
 def _providers() -> list[tuple[str, Any]]:
@@ -328,7 +393,7 @@ async def _cache_get(session, key: str) -> Optional[dict[str, Any]]:
     row = (
         await session.execute(
             text(
-                "SELECT latitude, longitude, precision, provider FROM geocode_cache "
+                "SELECT latitude, longitude, precision, provider, district FROM geocode_cache "
                 "WHERE query_hash = :k"
             ),
             {"k": key},
@@ -336,7 +401,8 @@ async def _cache_get(session, key: str) -> Optional[dict[str, Any]]:
     ).first()
     if row is None:
         return None
-    return {"latitude": row[0], "longitude": row[1], "precision": row[2], "provider": row[3]}
+    return {"latitude": row[0], "longitude": row[1], "precision": row[2],
+            "provider": row[3], "district": row[4]}
 
 
 async def _cache_put(session, key: str, query: str, hit: Optional[GeoHit], error: Optional[str]) -> None:
@@ -350,11 +416,12 @@ async def _cache_put(session, key: str, query: str, hit: Optional[GeoHit], error
     await session.execute(
         text(
             "INSERT INTO geocode_cache "
-            "(query_hash, query_text, latitude, longitude, precision, provider, last_error, attempts, created_at, updated_at) "
-            "VALUES (:k, :q, :lat, :lon, :prec, :prov, :err, 1, NOW(), NOW()) "
+            "(query_hash, query_text, latitude, longitude, precision, provider, district, last_error, attempts, created_at, updated_at) "
+            "VALUES (:k, :q, :lat, :lon, :prec, :prov, :district, :err, 1, NOW(), NOW()) "
             "ON CONFLICT (query_hash) DO UPDATE SET "
             "  latitude = EXCLUDED.latitude, longitude = EXCLUDED.longitude, "
             "  precision = EXCLUDED.precision, provider = EXCLUDED.provider, "
+            "  district = EXCLUDED.district, "
             "  last_error = EXCLUDED.last_error, "
             "  attempts = geocode_cache.attempts + 1, updated_at = NOW()"
         ),
@@ -365,6 +432,7 @@ async def _cache_put(session, key: str, query: str, hit: Optional[GeoHit], error
             "lon": hit.longitude if hit else None,
             "prec": hit.precision if hit else None,
             "prov": hit.provider if hit else "none",
+            "district": hit.district if hit else None,
             "err": error,
         },
     )
@@ -448,6 +516,7 @@ async def geocode_pass(batch: int = 25, city: Optional[str] = None) -> dict[str,
                         hit = GeoHit(
                             cached["latitude"], cached["longitude"],
                             cached["precision"] or "city", cached["provider"],
+                            district=cached["district"],
                         )
                 else:
                     query = f"{raw}, {city_value}" if city_value else raw
@@ -477,13 +546,14 @@ async def geocode_pass(batch: int = 25, city: Optional[str] = None) -> dict[str,
                 await db.execute(
                     text(
                         "UPDATE customers SET latitude = :lat, longitude = :lon, "
-                        "  geo_source = :prov, geo_precision = :prec, "
+                        "  geo_source = :prov, geo_precision = :prec, district = :district, "
                         "  geo_address = :addr, geocoded_at = :now, updated_at = NOW() "
                         " WHERE id = :cid AND geo_source IS DISTINCT FROM 'manual'"
                     ),
                     {
                         "lat": hit.latitude, "lon": hit.longitude,
                         "prov": hit.provider, "prec": hit.precision,
+                        "district": hit.district,
                         "addr": raw, "now": datetime.now(timezone.utc), "cid": cid,
                     },
                 )

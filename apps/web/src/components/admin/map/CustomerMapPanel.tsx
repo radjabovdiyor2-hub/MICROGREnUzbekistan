@@ -1,15 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import {
-  ExternalLink,
-  MapPin,
-  Phone,
-  RefreshCw,
-  TrendingDown,
-  TrendingUp,
-  X,
-} from 'lucide-react';
+import { ExternalLink, MapPin, Phone, RefreshCw, X } from 'lucide-react';
 
 import type { CustomerCard } from '@/lib/customers/card';
 import {
@@ -18,10 +10,10 @@ import {
   computeTrend,
   explainSegment,
 } from '@/lib/customers/segments';
-import { districtLabel } from '@/lib/customers/districts';
 
+import { CustomerMapPanelStats } from './CustomerMapPanelStats';
 import { CustomerOrdersSparkline } from './CustomerOrdersSparkline';
-import { formatSum, type PointView } from './mapFeature';
+import { type PointView } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
 // Панель клиента по клику на точку.
@@ -112,28 +104,7 @@ export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePi
         </button>
       </div>
 
-      {/* Переход важнее самого состояния: «Активный → Под угрозой» значит,
-          что отношения рушатся прямо сейчас и их ещё можно спасти. */}
-      {trend && (trend.worsened || trend.improved) && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            fontSize: 'var(--text-sm)',
-            fontWeight: 'var(--font-semibold)',
-            color: trend.worsened ? 'var(--error)' : 'var(--success)',
-          }}
-        >
-          {trend.worsened ? <TrendingDown size={16} /> : <TrendingUp size={16} />}
-          <span>
-            {SEGMENT_META[trend.before][lang]} → {SEGMENT_META[trend.after][lang]}
-          </span>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>
-            {lang === 'ru' ? 'за месяц' : 'bir oyda'}
-          </span>
-        </div>
-      )}
+      <CustomerMapPanelStats point={point} trend={trend} lang={lang} />
 
       {/* Объяснение вместо ярлыка: ярлык говорит ЧТО, а это — ПОЧЕМУ,
           и владелец может проверить вывод глазами. */}
@@ -148,31 +119,6 @@ export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePi
           lang,
         )}
       </p>
-
-      <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
-        <div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-            {label.orders[lang]}
-          </div>
-          <div style={{ fontWeight: 'var(--font-semibold)' }}>{point.ordersCount}</div>
-        </div>
-        <div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-            {label.spent[lang]}
-          </div>
-          <div style={{ fontWeight: 'var(--font-semibold)' }}>
-            {formatSum(point.totalSpent)} сум
-          </div>
-        </div>
-        <div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-            {lang === 'ru' ? 'Район' : 'Tuman'}
-          </div>
-          <div style={{ fontWeight: 'var(--font-semibold)' }}>
-            {districtLabel(point.district, lang)}
-          </div>
-        </div>
-      </div>
 
       <div>
         <div

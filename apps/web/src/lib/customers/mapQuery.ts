@@ -78,6 +78,25 @@ export interface UnplacedCustomer {
   state: SegmentState;
 }
 
+/**
+ * Район в разрезе: сколько клиентов, сколько денег, сколько проблемных.
+ *
+ * Это замена хороплету, а не его черновик. Заливка полигонов требует
+ * границ районов, а свободного ODbL-экстракта у нас в репозитории нет
+ * (готовый популярный набор лежит под GPL-3.0 и в проект не годится).
+ * Список отвечает на тот же вопрос — «где недобираем» — и вдобавок
+ * называет цифры, которые с заливки пришлось бы считывать на глаз.
+ */
+export interface DistrictStat {
+  district: string;
+  customers: number;
+  revenue: number;
+  /** Клиентов в состоянии at_risk или lost. */
+  atRisk: number;
+  /** Заведений-целей, которым ещё не продали. */
+  prospects: number;
+}
+
 export interface MapCollection {
   type: 'FeatureCollection';
   features: MapFeature[];
@@ -90,6 +109,8 @@ export interface MapCollection {
     spentPercentiles: { p50: number; p80: number };
     /** Заведений-целей на карте. Есть только когда запрошен слой проспектов. */
     prospects?: number;
+    /** Разрез по районам, от худшего покрытия к лучшему. */
+    districts: DistrictStat[];
   };
   unplaced: UnplacedCustomer[];
 }
@@ -265,9 +286,49 @@ export function buildMapCollection(
       byState,
       revenueByState,
       spentPercentiles: percentiles,
+      districts: districtStats(features),
     },
     unplaced,
   };
+}
+
+/**
+ * Разрез по районам. Сортировка — от худшего к лучшему: сверху район, где
+ * больше всего проблемных клиентов, потом где меньше всего выручки.
+ * Владельцу нужен список дел, а не алфавитный справочник.
+ *
+ * Клиенты без района не выдумываются в «прочее»: если район не определён,
+ * строки просто нет — пустая категория выглядела бы как реальная территория.
+ */
+export function districtStats(features: MapFeature[]): DistrictStat[] {
+  const byDistrict = new Map<string, DistrictStat>();
+
+  for (const f of features) {
+    const key = f.properties.d;
+    if (!key) continue;
+
+    const stat = byDistrict.get(key) ?? {
+      district: key,
+      customers: 0,
+      revenue: 0,
+      atRisk: 0,
+      prospects: 0,
+    };
+
+    if (f.properties.k === 'restaurant') {
+      stat.prospects += 1;
+    } else {
+      stat.customers += 1;
+      stat.revenue += f.properties.sp;
+      if (f.properties.st === 'at_risk' || f.properties.st === 'lost') stat.atRisk += 1;
+    }
+
+    byDistrict.set(key, stat);
+  }
+
+  return [...byDistrict.values()].sort(
+    (a, b) => b.atRisk - a.atRisk || a.revenue - b.revenue,
+  );
 }
 
 /** Заведение из справочника, ещё не ставшее клиентом. */
@@ -276,6 +337,7 @@ export interface ProspectRow {
   name: string;
   city: string;
   tier: string;
+  district: string | null;
   latitude: number | null;
   longitude: number | null;
   geoSource: string | null;
@@ -313,7 +375,7 @@ export function buildProspectFeatures(rows: ProspectRow[]): MapFeature[] {
         dl: null,
         ov: null,
         vt: 'low',
-        d: null,
+        d: r.district,
         gs: r.geoSource,
         k: 'restaurant',
         tr: r.tier,

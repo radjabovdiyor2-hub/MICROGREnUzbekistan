@@ -9,6 +9,7 @@ import {
   buildMapCollection,
   buildMapWhere,
   buildProspectFeatures,
+  districtStats,
   parseStates,
   validateCoords,
 } from './mapQuery';
@@ -234,6 +235,60 @@ describe('buildProspectFeatures — белые пятна', () => {
     ]);
     expect(features.map((f) => f.id)).toEqual([-1, -2, -3]);
     expect(features.every((f) => f.id < 0)).toBe(true);
+  });
+});
+
+describe('districtStats — где недобираем', () => {
+  function feature(over: { d?: string | null; st?: string; sp?: number; k?: string } = {}) {
+    const c = buildMapCollection([customer()], new Map(), { now: NOW }).features[0];
+    return {
+      ...c,
+      properties: {
+        ...c.properties,
+        d: over.d === undefined ? 'chilanzar' : over.d,
+        st: (over.st ?? c.properties.st) as typeof c.properties.st,
+        sp: over.sp ?? c.properties.sp,
+        k: (over.k ?? 'customer') as typeof c.properties.k,
+      },
+    };
+  }
+
+  it('считает клиентов, деньги, уходящих и цели раздельно', () => {
+    const [stat] = districtStats([
+      feature({ st: 'healthy', sp: 1000 }),
+      feature({ st: 'at_risk', sp: 500 }),
+      feature({ k: 'restaurant' }),
+    ]);
+
+    expect(stat.district).toBe('chilanzar');
+    expect(stat.customers).toBe(2);
+    expect(stat.revenue).toBe(1500);
+    expect(stat.atRisk).toBe(1);
+    // Цель — не клиент: в выручку и в счётчик клиентов не попадает.
+    expect(stat.prospects).toBe(1);
+  });
+
+  it('сверху район с наибольшим числом уходящих', () => {
+    const stats = districtStats([
+      feature({ d: 'yunusobod', st: 'healthy', sp: 9000 }),
+      feature({ d: 'chilanzar', st: 'lost', sp: 100 }),
+      feature({ d: 'chilanzar', st: 'at_risk', sp: 100 }),
+    ]);
+    expect(stats[0].district).toBe('chilanzar');
+    expect(stats[0].atRisk).toBe(2);
+  });
+
+  it('при равной тревоге сверху район с меньшей выручкой', () => {
+    const stats = districtStats([
+      feature({ d: 'yunusobod', st: 'healthy', sp: 9000 }),
+      feature({ d: 'sergeli', st: 'healthy', sp: 100 }),
+    ]);
+    expect(stats[0].district).toBe('sergeli');
+  });
+
+  it('клиенты без района не сваливаются в выдуманное «прочее»', () => {
+    // Пустая категория на карте выглядела бы как настоящая территория.
+    expect(districtStats([feature({ d: null })])).toEqual([]);
   });
 });
 
