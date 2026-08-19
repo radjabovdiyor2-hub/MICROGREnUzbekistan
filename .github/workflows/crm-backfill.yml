@@ -1,0 +1,72 @@
+name: Сверка заказов с CRM офиса
+
+# ══════════════════════════════════════════════════════════════════════
+# Досылает в CRM заказы, которые до неё не доехали.
+#
+# ЗАЧЕМ КНОПКА, А НЕ ШАГ ДЕПЛОЯ
+#
+# `/ingest/order` вызывается один раз — в момент оформления заказа. Если
+# мост в этот момент лежал (18.08.2026 он лежал долго: пустой INGEST_SECRET
+# закрывал офис целиком), заказ остаётся только на витрине и сам не догонит.
+# Это разовая сверка после починки, а не то, что нужно делать каждую выкатку.
+#
+# Скрипт идемпотентен: зеркало узнаёт дубль по маркеру `[webapp:<номер>]` в
+# `crm_orders.notes` и отвечает `duplicate`. Поэтому кнопку можно жать
+# сколько угодно — она же служит проверкой «всё ли на месте».
+#
+# По умолчанию ПРОБНЫЙ прогон: показывает расхождение и ничего не шлёт.
+# ══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Только показать расхождение, ничего не отправлять"
+        type: boolean
+        default: true
+
+# Не пересекаться с выкаткой: она перезапускает web_office, в который мы шлём.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    name: Досылка в CRM
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Прогон на сервере
+        uses: appleboy/ssh-action@v1
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DRY_RUN
+          command_timeout: 25m
+          script: |
+            set -e
+            cd /opt/microgreen
+
+            FLAG=""
+            if [ "$DRY_RUN" = "true" ]; then FLAG="--dry-run"; fi
+
+            # Секрет читаем из серверного .env и передаём контейнеру напрямую.
+            # `set +x` не нужен — трассировка здесь не включена, — но и эхом
+            # значение нигде не печатаем.
+            SECRET=$(grep '^INGEST_SECRET=' .env | head -1 | cut -d= -f2- || true)
+            if [ -z "$SECRET" ]; then
+              echo "❌ INGEST_SECRET пуст — офис отклонит все запросы."
+              echo "   Задайте его в Settings → Secrets и выкатите заново."
+              exit 1
+            fi
+
+            # db-push уже в сети mg_net и видит web_office по имени, а скрипт
+            # лежит в его образе. Отдельный сервис заводить незачем.
+            docker compose -f docker-compose.prod.yml run --rm --no-deps \
+              -e INGEST_SECRET="$SECRET" \
+              -e OFFICE_INGEST_URL=http://web_office:8050/ingest/order \
+              db-push \
+              sh -c "npx tsx packages/database/prisma/backfill-crm-orders.ts $FLAG"
