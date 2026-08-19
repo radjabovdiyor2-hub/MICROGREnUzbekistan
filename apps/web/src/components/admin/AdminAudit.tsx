@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { AlertTriangle, Bot, History, Search, ShieldCheck, User } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -32,41 +33,42 @@ function actionColor(action: string): string {
 export function AdminAudit({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = useCallback((ru: string, uz: string) => (lang === 'ru' ? ru : uz), [lang]);
 
-  const [entries, setEntries] = useState<Entry[]>([]);
   const [q, setQ] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const [debouncedQ, setDebouncedQ] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const load = useCallback(async (append = false, from: string | null = null) => {
-    setLoading(true);
-    try {
+  // Небольшая задержка, чтобы не дёргать сервер на каждую букву поиска.
+  // Она теперь на ВВОДЕ: раньше стояла на самом запросе, и журнал ждал
+  // 300 мс даже при первом открытии вкладки.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  const failed = t('Ошибка при загрузке журнала аудита', 'Audit jurnalini yuklashda xatolik');
+
+  const audit = useInfiniteQuery<{ entries: Entry[]; nextCursor: string | null }>({
+    queryKey: ['admin-audit', debouncedQ],
+    initialPageParam: null as string | null,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({ take: '80' });
-      if (q.trim()) params.set('q', q.trim());
-      if (from) params.set('cursor', from);
+      if (debouncedQ) params.set('q', debouncedQ);
+      if (pageParam) params.set('cursor', String(pageParam));
 
       const res = await fetch(`/api/admin/audit?${params}`, { credentials: 'same-origin' });
-      const data = await res.json();
-      if (res.ok && data.status === 'ok') {
-        setError(null);
-        setEntries(prev => (append ? [...prev, ...data.entries] : data.entries));
-        setCursor(data.nextCursor);
-      } else {
-        setError(data.error || t('Ошибка при загрузке журнала аудита', 'Audit jurnalini yuklashda xatolik'));
-      }
-    } catch {
-      setError(t('Ошибка при загрузке журнала аудита', 'Audit jurnalini yuklashda xatolik'));
-    } finally {
-      setLoading(false);
-    }
-  }, [q, t]);
+      const data = await res.json().catch(() => ({}));
+      // Роут отвечает 200 и при отказе, отличая его полем `status`.
+      if (!res.ok || data.status !== 'ok') throw new Error(data.error || failed);
+      return { entries: data.entries as Entry[], nextCursor: data.nextCursor ?? null };
+    },
+    getNextPageParam: (last) => last.nextCursor,
+  });
 
-  useEffect(() => {
-    // Небольшая задержка, чтобы не дёргать сервер на каждую букву поиска.
-    const id = setTimeout(() => load(false, null), 300);
-    return () => clearTimeout(id);
-  }, [load]);
+  const entries = audit.data?.pages.flatMap((page) => page.entries) ?? [];
+  const cursor = audit.hasNextPage ? 'more' : null;
+  const loading = audit.isPending || audit.isFetchingNextPage;
+  const error = audit.error instanceof Error ? audit.error.message : null;
+  const load = useCallback(() => { void audit.fetchNextPage(); }, [audit]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -156,7 +158,7 @@ export function AdminAudit({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       )}
 
       {cursor && !loading && (
-        <button onClick={() => load(true, cursor)} className="btn btn-outline">
+        <button onClick={load} className="btn btn-outline">
           {t('Показать ещё', 'Yana ko\'rsatish')}
         </button>
       )}

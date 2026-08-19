@@ -19,7 +19,18 @@ import type { z } from 'zod';
 type OrderBody = z.infer<typeof orderSchema>;
 
 type CreatedOrder = Awaited<ReturnType<typeof prisma.order.create>> & {
-  items: { productId: string; quantity: number; price: number; product: { nameUz: string } }[];
+  /**
+   * `productId` и `product` нулевые: товар мог быть удалён из каталога после
+   * заказа (`onDelete: SetNull`). У ТОЛЬКО ЧТО созданного заказа они всегда
+   * заполнены — тип честен ради тех, кто читает заказ позже.
+   */
+  items: {
+    productId: string | null;
+    productName: string | null;
+    quantity: number;
+    price: number;
+    product: { nameUz: string } | null;
+  }[];
 };
 
 export type CreateOrderResult =
@@ -113,20 +124,24 @@ export async function createOrder(
   // способом накручивала реферальный кэшбэк — он считается процентом от
   // `order.total`. Доставка и промокод в этом же файле всегда считались на
   // сервере, товар оставался единственной дырой.
-  const pricedItems: { productId: string; quantity: number; price: number }[] = [];
+  // Имя снимается вместе с ценой и по той же причине: карточку товара
+  // переименовывают и удаляют, а прошлый заказ обязан остаться читаемым.
+  // См. `OrderItem.productName` в схеме.
+  const pricedItems: { productId: string; productName: string; quantity: number; price: number }[] = [];
   const requestedIds = items.map((item: OrderItemInput) => item.productId || item.id || '');
   const catalog = await prisma.product.findMany({
     where: { id: { in: requestedIds }, isActive: true },
-    select: { id: true, price: true },
+    select: { id: true, price: true, nameUz: true },
   });
-  const priceById = new Map(catalog.map((product) => [product.id, product.price]));
+  const cardById = new Map(catalog.map((product) => [product.id, product]));
 
   for (const item of items) {
     const productId = item.productId || item.id || '';
-    const catalogPrice = priceById.get(productId);
-    if (catalogPrice === undefined) {
+    const card = cardById.get(productId);
+    if (card === undefined) {
       return { ok: false, error: "Mahsulot topilmadi yoki sotuvda yo'q", status: 409 };
     }
+    const catalogPrice = card.price;
 
     // Договорная цена — только от доверенного вызывающего.
     //
@@ -141,7 +156,7 @@ export async function createOrder(
         ? item.price
         : catalogPrice;
 
-    pricedItems.push({ productId, quantity: item.quantity, price: negotiated });
+    pricedItems.push({ productId, productName: card.nameUz, quantity: item.quantity, price: negotiated });
   }
 
   // Позиции округляются по одной и только потом складываются: иначе

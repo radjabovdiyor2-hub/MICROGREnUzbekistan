@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import type { Batch } from './growingData';
+import { useState } from 'react';
+import { useGrowBatches } from './useAdminReferences';
 
 // Форма записи проверки качества.
 //
@@ -41,15 +41,8 @@ export function AdminQAForm({ saving, error, onCancel, onSubmit }: Props) {
   const [status, setStatus] = useState('passed');
   const [defectType, setDefectType] = useState('');
   const [notes, setNotes] = useState('');
-  const [batches, setBatches] = useState<Batch[]>([]);
-
-  useEffect(() => {
-    // Партию выбирают из живых посадок, а не вводят id руками.
-    fetch('/api/admin/grow-batches', { credentials: 'same-origin' })
-      .then((r) => r.json())
-      .then((d) => setBatches(d.status === 'ok' ? d.batches : []))
-      .catch(() => {});
-  }, []);
+  // Партию выбирают из живых посадок, а не вводят id руками.
+  const batches = useGrowBatches();
 
   return (
     <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, Banknote, BarChart, Clock, DollarSign, Percent, TrendingUp,
 } from 'lucide-react';
@@ -27,22 +28,18 @@ import { AdminRevenueDailyChart } from './AdminRevenueDailyChart';
 import { AdminRevenueTopProducts } from './AdminRevenueTopProducts';
 
 export function AdminRevenue() {
-  const [data, setData] = useState<RevenueData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'week' | 'month'>('week');
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/inventory/analytics?section=revenue&period=${period}`);
-        const d = await res.json();
-        setData(d);
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
-    };
-    load();
-  }, [period]);
+  // Период входит в ключ кэша: переключение «неделя ↔ месяц» второй раз
+  // рисуется мгновенно из кэша, а не перезапрашивает агрегат заново.
+  const { data = null, isPending: loading } = useQuery<RevenueData>({
+    queryKey: ['admin-revenue', period],
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/analytics?section=revenue&period=${period}`);
+      if (!res.ok) throw new Error('Не удалось загрузить доход');
+      return res.json();
+    },
+  });
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 

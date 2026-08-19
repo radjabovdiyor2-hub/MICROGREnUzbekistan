@@ -7,6 +7,7 @@ Shared Event Bus — Кросс-бот интеграция через Redis Pub
 
 import asyncio
 import logging
+import os
 import aiohttp
 from aiohttp import web
 from datetime import datetime
@@ -58,8 +59,16 @@ class EventBus:
         self._session: Optional[aiohttp.ClientSession] = None
         self._redis_client = None
         self._pubsub_task = None
-        # n8n global webhook URL for internal routing
-        self._n8n_url = "http://host.docker.internal:5678/webhook/internal-bus"
+        # Вебхук n8n — НЕОБЯЗАТЕЛЬНЫЙ и по умолчанию выключен.
+        #
+        # Раньше здесь стоял захардкоженный `host.docker.internal:5678`, и
+        # каждая публикация СНАЧАЛА ждала ответа оттуда с таймаутом 5 секунд.
+        # Сервиса n8n в docker-compose.prod.yml нет вовсе, то есть эти пять
+        # секунд платились впустую — и платились на критическом пути
+        # `/ingest/order` и `/ingest/order-status`, то есть при каждом заказе.
+        #
+        # Теперь адрес берётся из окружения: не задан — ступени просто нет.
+        self._n8n_url = os.getenv("N8N_BUS_WEBHOOK_URL", "").strip()
 
     async def connect(self):
         """Инициализировать общую HTTP-сессию и подключение к Redis."""
@@ -75,17 +84,8 @@ class EventBus:
                 settings.redis_url, decode_responses=True
             )
 
-    async def publish(self, event_type: str, data: dict, source_bot: str = "unknown"):
-        """Отправить событие в n8n (HTTP) и опубликовать в Redis Pub/Sub для ботов."""
-        message = {
-            "event": event_type,
-            "data": data,
-            "source": source_bot,
-            "timestamp": datetime.now().isoformat(),
-        }
-
-        # 1. Пытаемся отправить в n8n
-        session = self._session or aiohttp.ClientSession()
+    async def _echo_to_n8n(self, session, message: dict, event_type: str, source_bot: str) -> None:
+        """Продублировать событие во внешний n8n. Отказ — не ошибка шины."""
         try:
             async with session.post(
                 self._n8n_url, json=message, timeout=aiohttp.ClientTimeout(total=5)
@@ -96,10 +96,31 @@ class EventBus:
                     logger.warning(
                         f"EventBus (n8n): Failed to publish {event_type}, HTTP {resp.status}"
                     )
-        except Exception as e:
-            logger.error(f"EventBus (n8n): Ошибка публикации: {e}")
+        except Exception as exc:
+            logger.warning("EventBus (n8n): эхо не доставлено (%s): %s", event_type, exc)
 
-        # 2. Публикуем в Redis Pub/Sub
+    async def publish(self, event_type: str, data: dict, source_bot: str = "unknown"):
+        """Опубликовать событие в Redis Pub/Sub; n8n — необязательное эхо.
+
+        Порядок ступеней здесь — часть контракта, а не деталь реализации:
+        Redis первый, n8n в фоне, прямой HTTP только если Redis отказал.
+        """
+        message = {
+            "event": event_type,
+            "data": data,
+            "source": source_bot,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+        session = self._session or aiohttp.ClientSession()
+
+        # 1. Redis Pub/Sub — ОСНОВНОЙ канал, и он идёт первым.
+        #
+        # Раньше первым шёл HTTP в n8n с таймаутом 5 с, и Redis ждал своей
+        # очереди за ним. Порядок был не просто неоптимальным: он делал
+        # задержку доставки события зависимой от сервиса, которого в проде
+        # нет. Заказ регистрировался за секунды, а отделы узнавали о нём
+        # через пять.
         import json
 
         published_to_redis = False
@@ -113,6 +134,16 @@ class EventBus:
                 published_to_redis = True
         except Exception as e:
             logger.error(f"EventBus (Redis) publish error: {e}")
+
+        # 2. Эхо в n8n — В ФОНЕ и только если адрес задан.
+        #
+        # Ответ никого не ждёт: n8n здесь наблюдатель, а не участник доставки.
+        # Событие уже ушло подписчикам, и неудача внешнего вебхука не должна
+        # ни задерживать вызывающего, ни выглядеть как сбой шины.
+        if self._n8n_url:
+            task = asyncio.create_task(self._echo_to_n8n(session, message, event_type, source_bot))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
 
         # 3. Резервный канал (HTTP Direct) — только если Redis Pub/Sub не сработал
         if not published_to_redis:

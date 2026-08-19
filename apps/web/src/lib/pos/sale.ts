@@ -172,6 +172,7 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
       await tx.stockMovement.create({
         data: {
           productId: item.productId,
+          productName: product.nameUz,
           type: 'OUT',
           quantity: -item.quantity,
           reason: paymentMethod === 'debt'

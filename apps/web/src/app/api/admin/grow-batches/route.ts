@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getSession, isProduction, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
+import { publish } from '@/lib/realtime/bus';
 import {
   plantBatch,
   harvestBatch,
@@ -163,6 +164,7 @@ export async function POST(request: NextRequest) {
       meta: { cropType, trays: created.trays, seedCost: String(created.seedCost) },
     });
 
+    publish('growing', 'inventory', 'products');
     return NextResponse.json({ status: 'ok', batch: created });
   } catch (error) {
     return productionError(error);
@@ -200,6 +202,7 @@ export async function PATCH(request: NextRequest) {
         ip: request.headers.get('x-forwarded-for') ?? undefined,
         target: id, meta: { harvestQty: batch.harvestQty, unitCost: batch.costPrice },
       });
+      publish('growing', 'inventory', 'products');
       return NextResponse.json({ status: 'ok', batch });
     }
 
@@ -217,6 +220,7 @@ export async function PATCH(request: NextRequest) {
         target: id,
         meta: { darkDays: result.actualDarkDays, normDarkDays: result.normDarkDays },
       });
+      publish('growing', 'inventory', 'products');
       return NextResponse.json({ status: 'ok', ...result });
     }
 
@@ -226,6 +230,7 @@ export async function PATCH(request: NextRequest) {
         action: 'grow.write_off', actor: actor(request, body), role: 'ADMIN',
         ip: request.headers.get('x-forwarded-for') ?? undefined, target: id,
       });
+      publish('growing', 'inventory', 'products');
       return NextResponse.json({ status: 'ok', batch });
     }
 
@@ -266,6 +271,7 @@ export async function PATCH(request: NextRequest) {
       action: 'grow.update', actor: 'owner', role: 'ADMIN',
       ip: request.headers.get('x-forwarded-for') ?? undefined, target: id, meta: data,
     });
+    publish('growing', 'inventory', 'products');
     return NextResponse.json({ status: 'ok', batch: updated });
   } catch (error) {
     return productionError(error);

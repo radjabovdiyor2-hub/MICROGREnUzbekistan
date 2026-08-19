@@ -86,7 +86,7 @@ export async function restoreStockForCancelledOrder(orderId: string): Promise<nu
       userId: true,
       bonusUsed: true,
       promoCode: true,
-      items: { select: { productId: true, quantity: true } },
+      items: { select: { productId: true, productName: true, quantity: true } },
     },
   });
   if (!order) return 0;
@@ -114,6 +114,9 @@ export async function restoreStockForCancelledOrder(orderId: string): Promise<nu
 
   let restored = 0;
   for (const item of order.items) {
+    // Товар удалён из каталога окончательно — возвращать остаток некуда.
+    // Позиция заказа при этом цела: выручка по ней уже посчитана.
+    if (!item.productId) continue;
     // Остаток и запись в журнал — одной транзакцией. Раньше в соседнем коде
     // (afterCreate) это были два независимых запроса, и падение между ними
     // оставляло склад без объяснения, откуда делся товар.
@@ -125,6 +128,7 @@ export async function restoreStockForCancelledOrder(orderId: string): Promise<nu
       prisma.stockMovement.create({
         data: {
           productId: item.productId,
+          productName: item.productName,
           type: 'IN',
           quantity: item.quantity,
           reason,
@@ -155,7 +159,7 @@ export async function reapplyStockForRevivedOrder(orderId: string): Promise<numb
       userId: true,
       bonusUsed: true,
       promoCode: true,
-      items: { select: { productId: true, quantity: true } },
+      items: { select: { productId: true, productName: true, quantity: true } },
     },
   });
   if (!order) return 0;
@@ -197,6 +201,8 @@ export async function reapplyStockForRevivedOrder(orderId: string): Promise<numb
 
   let reapplied = 0;
   for (const item of order.items) {
+    // Как и при отмене: у удалённого товара карточки нет, списывать не с чего.
+    if (!item.productId) continue;
     await prisma.$transaction([
       prisma.product.update({
         where: { id: item.productId },
@@ -205,6 +211,7 @@ export async function reapplyStockForRevivedOrder(orderId: string): Promise<numb
       prisma.stockMovement.create({
         data: {
           productId: item.productId,
+          productName: item.productName,
           type: 'OUT',
           quantity: item.quantity,
           reason: reviveReason,

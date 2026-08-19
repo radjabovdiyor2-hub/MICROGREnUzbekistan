@@ -5,6 +5,7 @@ import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { getCustomerCard } from '@/lib/customers/card';
 import { setCustomerBonus } from '@/lib/customers/bonus';
+import { publish } from '@/lib/realtime/bus';
 
 // ══════════════════════════════════════════════════════════════════════
 // Клиенты админки.
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
       if (!card) {
         return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
       }
+      publish('customers');
       return NextResponse.json({ status: 'ok', customer: card });
     }
 

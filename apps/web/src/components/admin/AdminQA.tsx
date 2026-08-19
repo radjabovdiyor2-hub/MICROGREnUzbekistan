@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Eye, AlertTriangle, CheckCircle, Image as ImageIcon, Plus } from 'lucide-react';
 import { AdminQAForm } from './AdminQAForm';
 
@@ -23,22 +24,21 @@ interface QualityControl {
 }
 
 export function AdminQA() {
-  const [qcs, setQcs] = useState<QualityControl[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const reload = () => {
-    fetch('/api/admin/qa')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setQcs(data);
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(reload, []);
+  const { data: qcs = [], isPending: loading } = useQuery<QualityControl[]>({
+    queryKey: ['admin-qa'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/qa', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Не удалось загрузить отчёты ОТК');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+  const reload = () => queryClient.invalidateQueries({ queryKey: ['admin-qa'] });
 
   const create = async (body: Record<string, unknown>) => {
     setSaving(true);

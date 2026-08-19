@@ -1,4 +1,5 @@
 import type { SalesLedger, SaleLine, OrderLine, ReturnLine } from './salesLedger';
+import { soldProductKey } from '@/lib/products/sold';
 
 // ══════════════════════════════════════════════════════════════════════
 // Свод по реестру продаж. Здесь и только здесь считается «выручка».
@@ -113,7 +114,10 @@ export function demandByProduct(
   >();
   for (const sale of ledger.sales) {
     if (!inRange(sale.at, since, until)) continue;
-    const current = byProduct.get(sale.productId) ?? {
+    // У удалённого товара `productId` пустой, но продажа была — ключом
+    // становится снимок названия, см. `lib/products/sold`.
+    const key = soldProductKey(sale);
+    const current = byProduct.get(key) ?? {
       name: sale.productName,
       sold: 0,
       revenue: 0,
@@ -122,7 +126,7 @@ export function demandByProduct(
     current.sold += sale.quantity;
     current.revenue += sale.revenue;
     current.cost += sale.cost;
-    byProduct.set(sale.productId, current);
+    byProduct.set(key, current);
   }
   return byProduct;
 }

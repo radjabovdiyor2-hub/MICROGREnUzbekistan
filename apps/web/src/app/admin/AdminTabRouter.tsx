@@ -1,47 +1,93 @@
 'use client';
 
-import { AdminStats } from '@/components/admin/AdminStats';
-import { AdminOrders } from '@/components/admin/AdminOrders';
-import { AdminProducts } from '@/components/admin/AdminProducts';
-import { AdminPOS } from '@/components/admin/AdminPOS';
-import { AdminInventory } from '@/components/admin/AdminInventory';
-import { AdminDebts } from '@/components/admin/AdminDebts';
-import { AdminMovements } from '@/components/admin/AdminMovements';
-import { AdminSuppliers } from '@/components/admin/AdminSuppliers';
-import { AdminEmployees } from '@/components/admin/AdminEmployees';
-import { AdminShifts } from '@/components/admin/AdminShifts';
-import { AdminAnalytics } from '@/components/admin/AdminAnalytics';
-import { AdminForecast } from '@/components/admin/AdminForecast';
-import { AdminSettings } from '@/components/admin/AdminSettings';
-import { AdminRevenue } from '@/components/admin/AdminRevenue';
-import { AdminGrowing } from '@/components/admin/AdminGrowing';
-import { AdminRawMaterials } from '@/components/admin/AdminRawMaterials';
-import { AdminCropNorms } from '@/components/admin/AdminCropNorms';
-import { AdminMagazine } from '@/components/admin/AdminMagazine';
-import { AdminGuestPhotos } from '@/components/admin/AdminGuestPhotos';
-import { AdminRecipes } from '@/components/admin/AdminRecipes';
-import { AdminDepartment } from '@/components/admin/AdminDepartment';
-import { AdminLearnings } from '@/components/admin/AdminLearnings';
-import { AdminCustomers } from '@/components/admin/AdminCustomers';
-import { AdminBotControl } from '@/components/admin/AdminBotControl';
-import { AdminStepan } from '@/components/admin/AdminStepan';
-import { AdminBotHealth } from '@/components/admin/AdminBotHealth';
-import { AdminPromo } from '@/components/admin/AdminPromo';
-import { AdminFinance } from '@/components/admin/AdminFinance';
-import { AdminAudit } from '@/components/admin/AdminAudit';
-import { AdminAiSpend } from '@/components/admin/AdminAiSpend';
-import { AdminApprovals } from '@/components/admin/AdminApprovals';
-import { AdminTasks } from '@/components/admin/AdminTasks';
-import { AdminCategories } from '@/components/admin/AdminCategories';
-import { AdminDeliveries } from '@/components/admin/AdminDeliveries';
-import { AdminQA } from '@/components/admin/AdminQA';
-import { AdminExperiments } from '@/components/admin/AdminExperiments';
-import { AdminFranchise } from '@/components/admin/AdminFranchise';
-import { AdminWorkflowStudio } from '@/components/admin/AdminWorkflowStudio';
+import dynamic from 'next/dynamic';
 
+// ══════════════════════════════════════════════════════════════════════
 // Маршрутизация вкладок админки: какая вкладка — такой экран.
+//
 // Вынесено из AdminShell: файл перерос 200 строк, и почти половину его
 // занимал этот список.
+//
+// ПОЧЕМУ ЧЕРЕЗ next/dynamic
+//
+// Все 38 экранов импортировались статически, то есть попадали в ОДИН чанк:
+// 121 компонент и около 15 000 строк, включая редактор процессов
+// (`@xyflow/react`) и печать чека (`html2canvas`). Владелец, открывший кассу,
+// скачивал и разбирал заодно журнал, франшизу и студию workflow — экраны,
+// которые он видит раз в месяц. На телефоне по мобильной сети это и есть
+// «админка долго открывается».
+//
+// `ssr: false` здесь осознанно: страница объявлена `force-dynamic`, экраны
+// живут за паролем и всё равно грузят данные с клиента — рендерить их на
+// сервере значит платить дважды за одну и ту же картинку.
+//
+// Карта клиентов уже была разделена этим же приёмом изнутри
+// (`map/AdminCustomerMap`) — здесь тот же шаблон, но для всего списка.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Пока чанк экрана летит по сети. Высота держит место, чтобы не прыгало. */
+function TabLoading() {
+  return (
+    <div
+      aria-busy="true"
+      style={{
+        minHeight: 240,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: 'var(--text-muted)',
+        fontSize: 'var(--text-sm)',
+      }}
+    >
+      Загрузка…
+    </div>
+  );
+}
+
+// Настройки повторяются в каждой строке, и это не небрежность: компилятор
+// Next читает их СТАТИЧЕСКИ и отвергает вынесенную переменную — «next/dynamic
+// options must be an object literal». Обёртка-дженерик тоже не годится: вывод
+// типов пропсов идёт от лоадера и через промежуточную функцию схлопывается
+// в `never`, после чего экраны перестают принимать собственные пропсы.
+
+const AdminStats = dynamic(() => import('@/components/admin/AdminStats').then((m) => m.AdminStats), { ssr: false, loading: TabLoading });
+const AdminOrders = dynamic(() => import('@/components/admin/AdminOrders').then((m) => m.AdminOrders), { ssr: false, loading: TabLoading });
+const AdminProducts = dynamic(() => import('@/components/admin/AdminProducts').then((m) => m.AdminProducts), { ssr: false, loading: TabLoading });
+const AdminPOS = dynamic(() => import('@/components/admin/AdminPOS').then((m) => m.AdminPOS), { ssr: false, loading: TabLoading });
+const AdminInventory = dynamic(() => import('@/components/admin/AdminInventory').then((m) => m.AdminInventory), { ssr: false, loading: TabLoading });
+const AdminDebts = dynamic(() => import('@/components/admin/AdminDebts').then((m) => m.AdminDebts), { ssr: false, loading: TabLoading });
+const AdminMovements = dynamic(() => import('@/components/admin/AdminMovements').then((m) => m.AdminMovements), { ssr: false, loading: TabLoading });
+const AdminSuppliers = dynamic(() => import('@/components/admin/AdminSuppliers').then((m) => m.AdminSuppliers), { ssr: false, loading: TabLoading });
+const AdminEmployees = dynamic(() => import('@/components/admin/AdminEmployees').then((m) => m.AdminEmployees), { ssr: false, loading: TabLoading });
+const AdminShifts = dynamic(() => import('@/components/admin/AdminShifts').then((m) => m.AdminShifts), { ssr: false, loading: TabLoading });
+const AdminAnalytics = dynamic(() => import('@/components/admin/AdminAnalytics').then((m) => m.AdminAnalytics), { ssr: false, loading: TabLoading });
+const AdminForecast = dynamic(() => import('@/components/admin/AdminForecast').then((m) => m.AdminForecast), { ssr: false, loading: TabLoading });
+const AdminSettings = dynamic(() => import('@/components/admin/AdminSettings').then((m) => m.AdminSettings), { ssr: false, loading: TabLoading });
+const AdminRevenue = dynamic(() => import('@/components/admin/AdminRevenue').then((m) => m.AdminRevenue), { ssr: false, loading: TabLoading });
+const AdminGrowing = dynamic(() => import('@/components/admin/AdminGrowing').then((m) => m.AdminGrowing), { ssr: false, loading: TabLoading });
+const AdminRawMaterials = dynamic(() => import('@/components/admin/AdminRawMaterials').then((m) => m.AdminRawMaterials), { ssr: false, loading: TabLoading });
+const AdminCropNorms = dynamic(() => import('@/components/admin/AdminCropNorms').then((m) => m.AdminCropNorms), { ssr: false, loading: TabLoading });
+const AdminMagazine = dynamic(() => import('@/components/admin/AdminMagazine').then((m) => m.AdminMagazine), { ssr: false, loading: TabLoading });
+const AdminGuestPhotos = dynamic(() => import('@/components/admin/AdminGuestPhotos').then((m) => m.AdminGuestPhotos), { ssr: false, loading: TabLoading });
+const AdminRecipes = dynamic(() => import('@/components/admin/AdminRecipes').then((m) => m.AdminRecipes), { ssr: false, loading: TabLoading });
+const AdminDepartment = dynamic(() => import('@/components/admin/AdminDepartment').then((m) => m.AdminDepartment), { ssr: false, loading: TabLoading });
+const AdminLearnings = dynamic(() => import('@/components/admin/AdminLearnings').then((m) => m.AdminLearnings), { ssr: false, loading: TabLoading });
+const AdminCustomers = dynamic(() => import('@/components/admin/AdminCustomers').then((m) => m.AdminCustomers), { ssr: false, loading: TabLoading });
+const AdminBotControl = dynamic(() => import('@/components/admin/AdminBotControl').then((m) => m.AdminBotControl), { ssr: false, loading: TabLoading });
+const AdminStepan = dynamic(() => import('@/components/admin/AdminStepan').then((m) => m.AdminStepan), { ssr: false, loading: TabLoading });
+const AdminBotHealth = dynamic(() => import('@/components/admin/AdminBotHealth').then((m) => m.AdminBotHealth), { ssr: false, loading: TabLoading });
+const AdminPromo = dynamic(() => import('@/components/admin/AdminPromo').then((m) => m.AdminPromo), { ssr: false, loading: TabLoading });
+const AdminFinance = dynamic(() => import('@/components/admin/AdminFinance').then((m) => m.AdminFinance), { ssr: false, loading: TabLoading });
+const AdminAudit = dynamic(() => import('@/components/admin/AdminAudit').then((m) => m.AdminAudit), { ssr: false, loading: TabLoading });
+const AdminAiSpend = dynamic(() => import('@/components/admin/AdminAiSpend').then((m) => m.AdminAiSpend), { ssr: false, loading: TabLoading });
+const AdminApprovals = dynamic(() => import('@/components/admin/AdminApprovals').then((m) => m.AdminApprovals), { ssr: false, loading: TabLoading });
+const AdminTasks = dynamic(() => import('@/components/admin/AdminTasks').then((m) => m.AdminTasks), { ssr: false, loading: TabLoading });
+const AdminCategories = dynamic(() => import('@/components/admin/AdminCategories').then((m) => m.AdminCategories), { ssr: false, loading: TabLoading });
+const AdminDeliveries = dynamic(() => import('@/components/admin/AdminDeliveries').then((m) => m.AdminDeliveries), { ssr: false, loading: TabLoading });
+const AdminQA = dynamic(() => import('@/components/admin/AdminQA').then((m) => m.AdminQA), { ssr: false, loading: TabLoading });
+const AdminExperiments = dynamic(() => import('@/components/admin/AdminExperiments').then((m) => m.AdminExperiments), { ssr: false, loading: TabLoading });
+const AdminFranchise = dynamic(() => import('@/components/admin/AdminFranchise').then((m) => m.AdminFranchise), { ssr: false, loading: TabLoading });
+const AdminWorkflowStudio = dynamic(() => import('@/components/admin/AdminWorkflowStudio').then((m) => m.AdminWorkflowStudio), { ssr: false, loading: TabLoading });
 
 export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, sellerName, lang, t }: {
   activeTab: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Cpu, DollarSign, TrendingUp } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -24,24 +24,20 @@ const usd = (n: number) => `$${n.toFixed(2)}`;
 export function AdminAiSpend({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
-  const [budget, setBudget] = useState<Budget | null>(null);
-  const [byBot, setByBot] = useState<BotSpend[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    try {
+  const { data: spend, isPending: loading } = useQuery<{ budget: Budget | null; byBot: BotSpend[] }>({
+    queryKey: ['admin-ai-spend'],
+    queryFn: async () => {
       const res = await fetch('/api/admin/ai-usage?days=30', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Не удалось загрузить расход ИИ');
       const data = await res.json();
-      if (data.status === 'ok') {
-        setBudget(data.budget);
-        setByBot(data.byBot);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+      // Сервер отвечает 200 и со `status: 'error'` — раньше такой ответ
+      // просто оставлял экран пустым, без объяснения.
+      if (data.status !== 'ok') throw new Error(data.error || 'ИИ-расход недоступен');
+      return { budget: data.budget ?? null, byBot: data.byBot ?? [] };
+    },
+  });
+  const budget = spend?.budget ?? null;
+  const byBot = spend?.byBot ?? [];
 
   if (loading) {
     return <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-6)' }}>

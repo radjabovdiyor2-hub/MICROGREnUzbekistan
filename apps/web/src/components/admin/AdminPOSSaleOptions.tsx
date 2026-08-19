@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEmployees } from './useAdminReferences';
 import { CalendarClock, Tag } from 'lucide-react';
 // Оба импорта — из модулей БЕЗ серверных зависимостей. Раньше они шли из
 // `salesLedger` и `saleInput`, и клиентский бандл тянул Prisma и node:crypto.
@@ -48,19 +48,11 @@ export function AdminPOSSaleOptions({
   isOwner, discount, setDiscount, saleDate, setSaleDate, seller, setSeller,
   customer, onPickCustomer, inputStyle,
 }: Props) {
-  const [sellers, setSellers] = useState<string[]>([]);
-
-  useEffect(() => {
-    // Список сотрудников открыт только владельцу (`/api/inventory/employees`
-    // это ADMIN). Продавцу он и не нужен: чек подписывается его сессией.
-    if (!isOwner) return;
-    fetch('/api/inventory/employees')
-      .then(res => res.json())
-      .then((data: { employees?: { name: string }[] }) => {
-        setSellers((data.employees ?? []).map(e => e.name));
-      })
-      .catch(() => setSellers([]));
-  }, [isOwner]);
+  // Список сотрудников открыт только владельцу (`/api/inventory/employees`
+  // это ADMIN). Продавцу он и не нужен: чек подписывается его сессией, а
+  // общий запрос от него получил бы 401 и мусор в консоли.
+  const employees = useEmployees();
+  const sellers = isOwner ? employees.map(e => e.name) : [];
 
   // Продавцу дальше семи суток закрыто — сервер откажет, и предлагать такую
   // дату в календаре значит обещать то, чего не будет.

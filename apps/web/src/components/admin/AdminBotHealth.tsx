@@ -29,7 +29,10 @@ export function AdminBotHealth({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       if (err) throw new Error(err);
       return { bots: botsData.bots ?? [], jobs: jobsData.jobs ?? [] };
     },
-    refetchInterval: 30000,
+    // Две минуты вместо тридцати секунд: за каждым тиком стоит межсервисный
+    // хоп в FastAPI офиса и тринадцать HGETALL в Redis (`shared/health.py`),
+    // причём с новым клиентом Redis на каждый вызов.
+    refetchInterval: 120_000,
   });
 
   const bots = data?.bots || [];

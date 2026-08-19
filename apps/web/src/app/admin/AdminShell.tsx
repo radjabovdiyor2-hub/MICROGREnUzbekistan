@@ -13,6 +13,7 @@ import { AdminAuthScreens } from './AdminAuthScreens';
 import { useAdminAuth, type StaffRole } from './useAdminAuth';
 import { useAdminTab } from './useAdminTab';
 import { AdminTelegramInit } from './AdminTelegramInit';
+import { useRealtime } from '@/components/admin/useRealtime';
 
 interface AdminShellProps {
   /** Роль из подписанной cookie, проверенной на сервере. null — не вошёл. */
@@ -59,6 +60,12 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
   // роли в cookie ещё нет, и он попадал на кассу — экран, которого ему не
   // положено видеть. Отдел показывался пустым, пока он не ткнёт «Посадки».
   const { activeTab, focus, openTab: setActiveTab } = useAdminTab(staffRole ?? initialRole);
+
+  // Живой поток изменений. Одно подключение на всю админку, а не по одному
+  // на экран: событие приходит темой, и кэш React Query устаревает сразу у
+  // всех, кто эту тему читает. Экрану, который сейчас не открыт, запрос при
+  // этом не уходит — у его запросов нет активных наблюдателей.
+  const realtime = useRealtime(Boolean(isAuthenticated));
 
   // Теплица открыта владельцу и агроному. Продавцу — нет: касса и посадки
   // это разные люди, и смешивать их права незачем.
@@ -132,6 +139,7 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
       <AdminTelegramInit isAuthenticated />
 
       <AdminSidebar
+        realtime={realtime}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         isOwner={isOwner}

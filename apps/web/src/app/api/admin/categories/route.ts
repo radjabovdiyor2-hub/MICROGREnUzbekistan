@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { ALL_CATEGORY_SLUGS } from '@/lib/seo/categories';
+import { productsChanged } from '@/lib/products/changed';
 
 // ══════════════════════════════════════════════════════════════════════
 // Категории каталога.
@@ -91,6 +92,7 @@ export async function POST(request: NextRequest) {
       target: slug, meta: { nameRu, nameUz },
     });
 
+    productsChanged();
     return NextResponse.json({
       status: 'ok',
       category: created,
@@ -142,6 +144,7 @@ export async function PATCH(request: NextRequest) {
     target: updated.slug, meta: data,
   });
 
+  productsChanged();
   return NextResponse.json({ status: 'ok', category: updated });
 }
 
@@ -167,6 +170,7 @@ export async function DELETE(request: NextRequest) {
       action: 'category.delete', actor: 'owner', role: 'ADMIN',
       ip: request.headers.get('x-forwarded-for') ?? undefined, target: removed.slug,
     });
+    productsChanged();
     return NextResponse.json({ status: 'ok' });
   } catch {
     return NextResponse.json({ error: 'Категория не найдена' }, { status: 404 });

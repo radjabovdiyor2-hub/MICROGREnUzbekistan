@@ -7,7 +7,7 @@ import { AlertTriangle, CheckCircle, Tag } from 'lucide-react';
 
 
 interface Props {
-  counts: Record<string, number>;
+  counts: { total: number; active: number; archived: number };
   activeCount: number;
   lowStock: number;
   lang: 'ru' | 'uz';

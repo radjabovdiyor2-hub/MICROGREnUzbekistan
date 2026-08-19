@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { prisma } from '@repo/database';
+import { soldProductKey, soldProductName } from '@/lib/products/sold';
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
@@ -47,10 +48,11 @@ export async function GET(request: NextRequest) {
 
   const productStats: Record<string, { name: string; qty: number; revenue: number }> = {};
   for (const item of orderItems) {
-    if (!item.product) continue;
-    const pid = item.productId;
+    // Удалённый товар из топа НЕ выпадает: он продавался, и выручка по нему
+    // была. Ключ и подпись берутся из снимка — см. `lib/products/sold`.
+    const pid = soldProductKey(item);
     if (!productStats[pid]) {
-      productStats[pid] = { name: item.product.nameRu, qty: 0, revenue: 0 };
+      productStats[pid] = { name: item.product?.nameRu ?? soldProductName(item), qty: 0, revenue: 0 };
     }
     productStats[pid].qty += item.quantity;
     productStats[pid].revenue += (item.price * item.quantity);

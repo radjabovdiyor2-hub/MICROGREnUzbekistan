@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { soldProductName } from '@/lib/products/sold';
 import { audit } from '@/lib/audit';
 import { inc } from '@/lib/metrics';
 import { formatLocalDate } from '@/lib/revenue/salesLedger';
@@ -27,7 +28,8 @@ export async function notifyTelegram(order: {
   total: number;
   deliveryFee: number;
   paymentMethod: string;
-  items: { quantity: number; price: number; product: { nameUz: string } }[];
+  /** Товар мог быть удалён из каталога — подпись берётся из снимка. */
+  items: { quantity: number; price: number; productName: string | null; product: { nameUz: string } | null }[];
 }, customerName: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const adminChatId = process.env.ADMIN_CHAT_ID;
@@ -39,7 +41,7 @@ export async function notifyTelegram(order: {
     return;
   }
 
-  const itemsList = order.items.map(i => `▫️ ${i.quantity}x ${i.product.nameUz} — ${i.price.toLocaleString('ru-RU')} sum`).join('\n');
+  const itemsList = order.items.map(i => `▫️ ${i.quantity}x ${soldProductName(i)} — ${i.price.toLocaleString('ru-RU')} sum`).join('\n');
   const message = `
 🛍 <b>Yangi buyurtma: #${order.orderNumber}</b>
 
@@ -206,7 +208,13 @@ export async function notifyOffice(
     discount: number;
     paymentMethod: string;
     city: string;
-    items: { productId: string; quantity: number; price: number; product: { nameUz: string } }[];
+    items: {
+      productId: string | null;
+      productName: string | null;
+      quantity: number;
+      price: number;
+      product: { nameUz: string } | null;
+    }[];
   },
   user: { id: string; firstName: string | null; lastName: string | null; telegramId: bigint | null; bonusPoints: number },
 ) {
@@ -228,7 +236,7 @@ export async function notifyOffice(
   }
 
   const itemsSummary = order.items
-    .map((i) => `${i.product.nameUz} x${i.quantity}`)
+    .map((i) => `${soldProductName(i)} x${i.quantity}`)
     .join(', ');
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
 
@@ -262,7 +270,7 @@ export async function notifyOffice(
           items_summary: itemsSummary,
           items: order.items.map((i) => ({
             storefront_id: i.productId,
-            name: i.product.nameUz,
+            name: soldProductName(i),
             quantity: i.quantity,
             price: i.price,
           })),

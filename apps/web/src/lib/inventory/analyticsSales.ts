@@ -30,7 +30,7 @@ export async function loadSales(months: number) {
       orders: orders.length,
       revenue: orders.reduce((s, o) => s + o.total, 0),
       posSales: posMovements.length,
-      posRevenue: posMovements.reduce((s, m) => s + Math.abs(m.quantity) * (m.salePrice || m.product.price), 0),
+      posRevenue: posMovements.reduce((s, m) => s + Math.abs(m.quantity) * (m.salePrice || m.product?.price || 0), 0),
     });
   }
 

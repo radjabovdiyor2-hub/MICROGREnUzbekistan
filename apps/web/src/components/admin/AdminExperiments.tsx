@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Lightbulb, Play } from 'lucide-react';
 
 interface Experiment {
@@ -17,17 +17,15 @@ interface Experiment {
 }
 
 export function AdminExperiments() {
-  const [experiments, setExperiments] = useState<Experiment[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/admin/experiments')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setExperiments(data);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: experiments = [], isPending: loading } = useQuery<Experiment[]>({
+    queryKey: ['admin-experiments'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/experiments', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Не удалось загрузить опыты');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
 
   const handleRunAiAnalysis = async (id: string) => {
     // Вызов действия бота R&D для анализа эксперимента

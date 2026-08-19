@@ -216,6 +216,18 @@ async def complete_task(task_id: str, result: Any = None, error: str = None):
         logger.error(f"[BUS] Ошибка завершения задачи: {e}")
 
 
+# Как часто заглядывать за результатом.
+#
+# Было 2 секунды, и вместе с 3-секундным шагом слушателя (POLL_INTERVAL ниже)
+# это давало 3–5 секунд ЧИСТОГО ожидания на каждое нажатие в «Пульте ИИ» —
+# даже когда бот выполнял действие мгновенно. Владелец жал кнопку и смотрел на
+# крутилку, пока две петли сходились по фазе.
+#
+# Очередь файловая и лежит на локальном томе: одна проверка существования
+# файла стоит меньше микросекунды, и учащение опроса ничего не нагружает.
+RESULT_POLL_SEC = 0.25
+
+
 async def get_result(task_id: str, timeout: int = 120) -> Optional[Dict]:
     """
     Ожидать результат задачи с таймаутом.
@@ -223,7 +235,7 @@ async def get_result(task_id: str, timeout: int = 120) -> Optional[Dict]:
     """
     paths_to_check = [_completed_path(task_id), _failed_path(task_id)]
 
-    for _ in range(timeout // 2):
+    for _ in range(int(timeout / RESULT_POLL_SEC)):
         for path in paths_to_check:
             if path.exists():
                 try:
@@ -236,16 +248,22 @@ async def get_result(task_id: str, timeout: int = 120) -> Optional[Dict]:
                         return task
                 except (json.JSONDecodeError, OSError):
                     pass
-        await asyncio.sleep(2)
+        await asyncio.sleep(RESULT_POLL_SEC)
 
     logger.warning(f"[BUS] Таймаут ожидания задачи {task_id}")
     return None
 
 
+# Шаг слушателя — вторая половина той же задержки, см. RESULT_POLL_SEC.
+# Полсекунды: чтение каталога `bus_tasks/pending` на тринадцати ботах — это
+# тринадцать listdir по локальному тому, а не сетевые запросы.
+POLL_INTERVAL_SEC = 0.5
+
+
 async def start_listener(
     bot_name: str,
     handlers: Dict[str, Callable[..., Awaitable]],
-    poll_interval: int = 3,
+    poll_interval: float = POLL_INTERVAL_SEC,
 ):
     """Фоновый слушатель задач для бота."""
     logger.info(f"[BUS] Слушатель запущен для {bot_name}")

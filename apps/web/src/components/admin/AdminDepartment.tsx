@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle, CheckCircle, ClipboardList, Clock, Package, Send,
 } from 'lucide-react';
@@ -33,40 +34,28 @@ interface Props {
 import { AdminDepartmentTable, type Task } from './AdminDepartmentTable';
 
 export function AdminDepartment({ departmentId, departmentName, lang }: Props) {
-  const [data, setData] = useState<DeptData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
   const t = (ru: string, uz: string) => lang === 'ru' ? ru : uz;
 
-  // Считаем до эффекта: вызывать t() внутри него — значит тащить всю
-  // функцию в зависимости и перезапрашивать отдел на каждый рендер.
   const officeDownMessage = lang === 'ru' ? 'ИИ-офис недоступен' : 'AI-ofis mavjud emas';
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await fetch(`/api/admin/departments/${departmentId}`, { credentials: 'same-origin' });
-        const json = await res.json();
-        if (json.success && json.department) {
-          setData(json.department);
-        } else {
-          // Раньше роут в этом случае присылал выдуманный пустой отдел, и
-          // владелец видел «0 просрочено» вместо «офис недоступен».
-          setError(json.error || officeDownMessage);
-        }
-      } catch (err) {
-        console.error('Failed to load department:', err);
-        setError(officeDownMessage);
-      } finally {
-        setLoading(false);
+  // Отдел в ключе кэша: переход между вкладками отделов второй раз рисуется
+  // из кэша, а не ходит в ИИ-офис заново через межсервисный хоп.
+  const { data = null, isPending: loading, error: queryError } = useQuery<DeptData>({
+    queryKey: ['admin-department', departmentId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/departments/${departmentId}`, { credentials: 'same-origin' });
+      const json = await res.json().catch(() => ({}));
+      // Раньше роут в этом случае присылал выдуманный пустой отдел, и
+      // владелец видел «0 просрочено» вместо «офис недоступен».
+      if (!res.ok || !json.success || !json.department) {
+        throw new Error(json.error || officeDownMessage);
       }
-    };
-    load();
-  }, [departmentId, officeDownMessage]);
+      return json.department as DeptData;
+    },
+  });
+  const error = queryError instanceof Error ? queryError.message : '';
 
   if (loading) {
     return (

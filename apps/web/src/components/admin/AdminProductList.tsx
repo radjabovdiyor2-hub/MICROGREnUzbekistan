@@ -4,6 +4,7 @@ import {
   Camera, CheckCircle, Clock, Edit, Plus, Trash, XCircle,
 } from 'lucide-react';
 import type { Product } from './productTypes';
+import type { ProductMode } from './useAdminProducts';
 
 // Список товаров админки: строка товара, остаток, действия и подгрузка.
 // Вынесен из AdminProducts — форма товара уже отдельно, здесь вторая
@@ -15,26 +16,39 @@ interface Props {
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
-  page: number;
   totalProducts: number;
+  /** В архиве действия другие: вернуть в продажу или удалить навсегда. */
+  mode: ProductMode;
   lang: 'ru' | 'uz';
   t: (ru: string, uz: string) => string;
   fmt: (n: number) => string;
   openEdit: (p: Product) => void;
   toggleActive: (p: Product) => void;
   deleteProduct: (id: string) => void;
-  fetchProducts: (page: number, append: boolean) => void;
+  deleteForever: (p: Product) => void;
+  loadMore: () => void;
 }
 
-export function AdminProductList({ products, loading, loadingMore, hasMore, page, totalProducts, lang, t, fmt, openEdit, toggleActive, deleteProduct, fetchProducts }: Props) {
+export function AdminProductList({ products, loading, loadingMore, hasMore, totalProducts, mode, lang, t, fmt, openEdit, toggleActive, deleteProduct, deleteForever, loadMore }: Props) {
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
+        <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
+      </div>
+    );
+  }
+
+  if (products.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+        {mode === 'archived'
+          ? t('Архив пуст — все товары в продаже.', "Arxiv bo'sh — barcha tovarlar sotuvda.")
+          : t('Товаров не найдено.', 'Tovar topilmadi.')}
+      </div>
+    );
+  }
+
   return (
-    <>
-{/* Products List */}
-{loading ? (
-  <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
-    <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
-  </div>
-) : (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
     {products.map(p => (
       <div key={p.id} className="card" style={{
@@ -80,7 +94,7 @@ export function AdminProductList({ products, loading, loadingMore, hasMore, page
             {/* Status indicator */}
             {!p.isActive && (
               <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-full)', fontSize: '10px', background: 'var(--error-bg)', color: 'var(--error)' }}>
-                {t('Неактив', 'Nofaol')}
+                {t('В архиве', 'Arxivda')}
               </span>
             )}
             {p.isFeatured && (
@@ -96,7 +110,7 @@ export function AdminProductList({ products, loading, loadingMore, hasMore, page
               <Edit size={15} />
             </button>
             <button onClick={() => toggleActive(p)} className="btn btn-ghost btn-sm"
-              title={p.isActive ? t('Деактивировать', 'Nofaol qilish') : t('Активировать', 'Faol qilish')}
+              title={p.isActive ? t('Убрать в архив', 'Arxivga') : t('Вернуть в продажу', 'Sotuvga qaytarish')}
               style={{
                 padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
                 display: 'flex', alignItems: 'center', gap: '4px',
@@ -106,12 +120,27 @@ export function AdminProductList({ products, loading, loadingMore, hasMore, page
                 transition: 'all 0.2s',
               }}>
               {p.isActive ? <CheckCircle size={13} /> : <XCircle size={13} />}
-              {p.isActive ? t('Актив', 'Faol') : t('Неактив', 'Nofaol')}
+              {p.isActive ? t('Актив', 'Faol') : t('Вернуть', 'Qaytarish')}
             </button>
-            <button onClick={() => deleteProduct(p.id)} className="btn btn-ghost btn-sm"
-              style={{ padding: '6px', color: 'var(--error)', borderRadius: 'var(--radius-sm)' }}>
-              <Trash size={15} />
-            </button>
+            {/* Насовсем — только из архива: в списке «В продаже» такая кнопка
+                стояла бы рядом с обычным удалением и путала бы их между собой. */}
+            {mode === 'archived' ? (
+              <button onClick={() => deleteForever(p)} className="btn btn-ghost btn-sm"
+                title={t('Удалить навсегда', "Butunlay o'chirish")}
+                style={{
+                  padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: '4px',
+                  background: 'var(--error)', color: 'white', border: '1.5px solid var(--error)',
+                }}>
+                <Trash size={13} /> {t('Навсегда', 'Butunlay')}
+              </button>
+            ) : (
+              <button onClick={() => deleteProduct(p.id)} className="btn btn-ghost btn-sm"
+                title={t('Убрать в архив', 'Arxivga')}
+                style={{ padding: '6px', color: 'var(--error)', borderRadius: 'var(--radius-sm)' }}>
+                <Trash size={15} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -119,7 +148,7 @@ export function AdminProductList({ products, loading, loadingMore, hasMore, page
     {/* Load More */}
     {hasMore && (
       <button
-        onClick={() => fetchProducts(page + 1, true)}
+        onClick={loadMore}
         disabled={loadingMore}
         className="btn btn-outline"
         style={{
@@ -132,7 +161,7 @@ export function AdminProductList({ products, loading, loadingMore, hasMore, page
         {loadingMore ? (
           <><Clock size={16} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
         ) : (
-          <><Plus size={16} /> Ещё ({totalProducts - products.length} осталось)</>  
+          <><Plus size={16} /> Ещё ({totalProducts - products.length} осталось)</>
         )}
       </button>
     )}
@@ -141,7 +170,5 @@ export function AdminProductList({ products, loading, loadingMore, hasMore, page
       {products.length} / {totalProducts} товаров показано
     </div>
   </div>
-)}
-    </>
   );
 }

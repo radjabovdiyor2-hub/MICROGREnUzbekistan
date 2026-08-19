@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   fetchBatches, fetchPlantingRequirements, getBatchStatus, migrateLegacyBatches,
   type Batch, type PlantingRequirement, type ProductOption,
@@ -15,7 +16,6 @@ export function useAdminGrowing() {
   const [seedDate, setSeedDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'ready' | 'alert'>('active');
-  const [products, setProducts] = useState<ProductOption[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
   const [harvestQty, setHarvestQty] = useState(1);
   const [costPriceInput, setCostPriceInput] = useState(0);
@@ -45,22 +45,25 @@ export function useAdminGrowing() {
     })();
   }, [reload]);
 
-  useEffect(() => {
-    fetch('/api/products?limit=200')
-      .then(r => r.json())
-      .then(d => {
-        const mapped = (d.items || []).map((p: Record<string, unknown>) => ({
-          id: p.id as string,
-          nameUz: p.nameUz as string,
-          nameRu: p.nameRu as string,
-          stock: p.stock as number,
-          costPrice: (p.costPrice as number) || 0,
-          price: (p.price as number) || 0,
-        }));
-        setProducts(mapped);
-      })
-      .catch(() => {});
-  }, []);
+  // Справочник товаров для формы посадки. Через кэш: форму открывают и
+  // закрывают десятки раз за смену, а список товаров за это время не
+  // меняется — и точно не двести раз.
+  const { data: products = [] } = useQuery<ProductOption[]>({
+    queryKey: ['admin-products', 'growing-options'],
+    queryFn: async () => {
+      const res = await fetch('/api/products?limit=200', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Не удалось загрузить товары');
+      const d = await res.json();
+      return (d.items || []).map((p: Record<string, unknown>) => ({
+        id: p.id as string,
+        nameUz: p.nameUz as string,
+        nameRu: p.nameRu as string,
+        stock: p.stock as number,
+        costPrice: (p.costPrice as number) || 0,
+        price: (p.price as number) || 0,
+      }));
+    },
+  });
 
   // Пересчитываем потребность при смене культуры или числа лотков.
   useEffect(() => {

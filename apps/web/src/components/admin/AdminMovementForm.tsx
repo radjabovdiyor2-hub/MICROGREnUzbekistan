@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEmployees, useSuppliers } from './useAdminReferences';
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { Plus } from 'lucide-react';
 import { TYPE_CONFIG, type Product } from './movementTypes';
@@ -17,8 +17,6 @@ export interface MovementDraft {
   supplierId: string;
 }
 
-interface Employee { id: string; name: string }
-interface Supplier { id: string; name: string }
 
 
 interface Props {
@@ -39,15 +37,8 @@ export function AdminMovementForm({ showAdd, setShowAdd, form, setForm, products
   // «Kim tomonidan» было свободным полем, поэтому по движениям нельзя было
   // собрать отчёт по сотруднику; поставщика форма не спрашивала вовсе, и
   // каждый приход из админки уходил без него — хотя колонка и API есть.
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-
-  useEffect(() => {
-    fetch('/api/inventory/employees').then(r => r.json())
-      .then(d => setEmployees(d.employees ?? [])).catch(() => {});
-    fetch('/api/inventory/suppliers').then(r => r.json())
-      .then(d => setSuppliers(d.suppliers ?? [])).catch(() => {});
-  }, []);
+  const employees = useEmployees();
+  const suppliers = useSuppliers();
 
   return (
     <>

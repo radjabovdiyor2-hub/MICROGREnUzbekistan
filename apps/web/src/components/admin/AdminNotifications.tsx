@@ -25,9 +25,16 @@ export function AdminNotifications() {
 
   const checkForUpdates = useNotificationPoller(setNotifications);
 
+  // Пять минут, а не тридцать секунд.
+  //
+  // Тик колокольчика — три запроса к складу и аналитике, и раньше он уходил
+  // дважды в минуту у каждой открытой админки. Срочное теперь приезжает
+  // событием по `/api/events` (см. `useRealtime`), а этот опрос остался
+  // страховкой на случай, когда поток недоступен, — и в такой роли ему
+  // хватает пяти минут.
   useEffect(() => {
     checkForUpdates();
-    const interval = setInterval(checkForUpdates, 30000);
+    const interval = setInterval(checkForUpdates, 5 * 60_000);
     return () => clearInterval(interval);
   }, [checkForUpdates]);
 

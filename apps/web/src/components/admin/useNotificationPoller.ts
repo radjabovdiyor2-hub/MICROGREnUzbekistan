@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { detach } from '@/lib/background';
 import { fetchBatches, getBatchStatus } from './growingData';
 import type { Notification } from './notificationTypes';
 
@@ -40,15 +41,37 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
   const checkForUpdates = useCallback(async () => {
     try {
       const today = new Date().toISOString().slice(0, 10);
-      const res = await fetch(`/api/inventory/pos?date=${today}`);
-      const data = await res.json();
+
+      // Три источника — ПАРАЛЛЕЛЬНО.
+      //
+      // Были три последовательных `await`, и колокольчик тратил на тик сумму
+      // всех трёх задержек. Один из них — `/api/inventory/analytics` — считает
+      // агрегаты по складу, то есть самый долгий; остальные ждали его без
+      // всякой причины: между источниками зависимости нет.
+      //
+      // `allSettled`, а не `all`: отказ одного источника не должен лишать
+      // владельца двух других. Раньше падение первого же запроса выбрасывало
+      // в общий catch и гасило весь тик.
+      const [posRes, warnRes, batchesRes] = await Promise.allSettled([
+        fetch(`/api/inventory/pos?date=${today}`).then(r => r.json()),
+        fetch('/api/inventory/analytics?section=warnings').then(r => r.json()),
+        fetchBatches(),
+      ]);
+
+      // Журнал читается ОДИН раз за тик.
+      //
+      // `loadNotifications()` — это `localStorage.getItem` плюс `JSON.parse`
+      // до пятидесяти записей, и звался он из трёх мест, два из которых
+      // внутри циклов. Синхронная работа на главном потоке каждые 30 секунд,
+      // ради ответа на один и тот же вопрос «а это уже показывали?».
+      const seen = new Set(loadNotifications().map(n => n.id));
+      const data = posRes.status === 'fulfilled' ? posRes.value : {};
       const newNotifs: Notification[] = [];
 
       if (data.sales?.length > 0) {
         const latestSale = data.sales[0];
         const saleId = `sale_${latestSale.number}`;
-        const existing = loadNotifications();
-        if (!existing.some(n => n.id === saleId)) {
+        if (!seen.has(saleId)) {
           const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
           newNotifs.push({
             id: saleId,
@@ -60,14 +83,12 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
         }
       }
 
-      const warnRes = await fetch('/api/inventory/analytics?section=warnings');
-      const warnData = await warnRes.json();
+      const warnData = warnRes.status === 'fulfilled' ? warnRes.value : {};
       if (warnData.warnings?.length > 0) {
         const criticals = (warnData.warnings as StockWarning[]).filter((w) => w.level === 'CRITICAL');
         for (const w of criticals.slice(0, 3)) {
           const warnId = `warn_${w.message.replace(/\s/g, '_').slice(0, 30)}`;
-          const existing = loadNotifications();
-          if (!existing.some(n => n.id === warnId)) {
+          if (!seen.has(warnId)) {
             newNotifs.push({
               id: warnId,
               type: 'low_stock',
@@ -79,18 +100,17 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
         }
       }
 
-      try {
+      if (batchesRes.status === 'fulfilled') {
         let readyCount = 0;
         let expiredCount = 0;
-        for (const batch of await fetchBatches()) {
+        for (const batch of batchesRes.value) {
           const { status } = getBatchStatus(batch);
           if (status === 'expired') expiredCount++;
           else if (status === 'ready') readyCount++;
         }
         if (readyCount > 0 || expiredCount > 0) {
           const growId = `grow_${today}`;
-          const existing2 = loadNotifications();
-          if (!existing2.some(n => n.id === growId)) {
+          if (!seen.has(growId)) {
             const parts = [];
             if (readyCount > 0) parts.push(`${readyCount} партий готовы к продаже`);
             if (expiredCount > 0) parts.push(`${expiredCount} просрочено!`);
@@ -103,18 +123,19 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
             });
           }
         }
-      } catch (err) {
-        console.warn('Проверка остатков не удалась:', err);
+      } else {
+        // Отказ ловит `allSettled` выше — здесь только след в журнале, чтобы
+        // молчащий колокольчик не выглядел как «партий нет».
+        console.warn('Проверка партий не удалась:', batchesRes.reason);
       }
 
       try {
         const alertRes = await fetch('/api/admin/alerts', { credentials: 'same-origin' });
         const alertData = await alertRes.json();
         if (alertRes.ok && Array.isArray(alertData.alerts) && alertData.alerts.length > 0) {
-          const existing3 = loadNotifications();
           for (const a of alertData.alerts as OfficeAlert[]) {
             const alertId = `office_${a.id}`;
-            if (existing3.some(n => n.id === alertId)) continue;
+            if (seen.has(alertId)) continue;
             newNotifs.push({
               id: alertId,
               type: 'office',
@@ -123,12 +144,17 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
               read: false,
             });
           }
-          await fetch('/api/admin/alerts', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ all: true }),
-          });
+          // Пометку «прочитано» не ждём: она ничего не даёт этому тику, а
+          // ответ на неё владелец ждал наравне с самими оповещениями.
+          detach(
+            'пометка оповещений прочитанными',
+            fetch('/api/admin/alerts', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ all: true }),
+            }),
+          );
         }
       } catch (e) {
         console.error('[Notifications] Office alerts error:', e);

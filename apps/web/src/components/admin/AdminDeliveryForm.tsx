@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useEmployees } from './useAdminReferences';
 import { Plus, X } from 'lucide-react';
 
 // Форма создания маршрута доставки.
@@ -9,7 +10,6 @@ import { Plus, X } from 'lucide-react';
 // точек, а в компоненте не было ни одного POST. Экран показывал пустой
 // список — и выглядело это как отсутствующая функция при готовом бэкенде.
 
-interface Employee { id: string; name: string }
 interface Stop { address: string; phone: string; note: string }
 
 interface Props {
@@ -35,15 +35,8 @@ export function AdminDeliveryForm({ saving, error, onCancel, onSubmit }: Props) 
   const [driverId, setDriverId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [stops, setStops] = useState<Stop[]>([{ ...EMPTY_STOP }]);
-  const [drivers, setDrivers] = useState<Employee[]>([]);
-
-  useEffect(() => {
-    // Курьер выбирается из сотрудников, а не вводится текстом.
-    fetch('/api/inventory/employees')
-      .then((r) => r.json())
-      .then((d) => setDrivers(d.employees ?? []))
-      .catch(() => {});
-  }, []);
+  // Курьер выбирается из сотрудников, а не вводится текстом.
+  const drivers = useEmployees();
 
   const setStop = (index: number, patch: Partial<Stop>) =>
     setStops((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));

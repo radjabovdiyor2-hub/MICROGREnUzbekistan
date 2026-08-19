@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Clock, Minus, Package, TrendingDown, TrendingUp,
 } from 'lucide-react';
@@ -32,22 +33,17 @@ const TREND_ICON: Record<string, { icon: React.ReactNode; color: string }> = {
 };
 
 export function AdminForecast() {
-  const [forecast, setForecast] = useState<ForecastItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [urgencyFilter, setUrgencyFilter] = useState('');
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch('/api/inventory/analytics?section=forecast');
-        const data = await res.json();
-        setForecast(data.forecast || []);
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
-    };
-    load();
-  }, []);
+  const { data: forecast = [], isPending: loading } = useQuery<ForecastItem[]>({
+    queryKey: ['admin-forecast'],
+    queryFn: async () => {
+      const res = await fetch('/api/inventory/analytics?section=forecast');
+      if (!res.ok) throw new Error('Не удалось рассчитать прогноз');
+      const data = await res.json();
+      return data.forecast || [];
+    },
+  });
 
   const filtered = urgencyFilter ? forecast.filter(f => f.urgency === urgencyFilter) : forecast;
 
