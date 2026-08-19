@@ -30,7 +30,6 @@ from __future__ import annotations
 import csv
 import logging
 import re
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 import aiohttp
@@ -460,7 +459,16 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
                     " latitude, longitude, geo_source, geo_precision, geo_address, geocoded_at, created_at) "
                     "VALUES (:name, :company, :phone, :email, :address, :city, 'b2b', "
                     " :ctype, 'lead', :source, :ref, :score, :summary, "
-                    " :lat, :lon, :geo_source, :geo_precision, :geo_address, :geocoded_at, NOW())"
+                    # Время ставит база. Здесь был параметр с зоной
+                    # (`datetime.now(timezone.utc)`), а `geocoded_at` — колонка
+                    # `timestamp without time zone`: asyncpg такое не связывает
+                    # и валит вставку лида целиком. Тот же дефект был в
+                    # `geo.py`, и оба места пишут в одну колонку.
+                    #
+                    # Условие переехало в SQL: без координат отметки о
+                    # геокодировании быть не должно.
+                    " :lat, :lon, :geo_source, :geo_precision, :geo_address, "
+                    " CASE WHEN :lat IS NULL THEN NULL ELSE NOW() END, NOW())"
                 ),
                 {
                     "lat": point[0] if point else None,
@@ -468,7 +476,6 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
                     "geo_source": lead.get("source") if point else None,
                     "geo_precision": lead.get("geo_precision") if point else None,
                     "geo_address": lead.get("address") if point else None,
-                    "geocoded_at": datetime.now(timezone.utc) if point else None,
                     "name": name,
                     "company": name,
                     # Канон +998XXXXXXXXX. Раньше сюда ложилась сырая строка из

@@ -26,7 +26,6 @@ import hashlib
 import logging
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Optional
 
 import aiohttp
@@ -547,14 +546,24 @@ async def geocode_pass(batch: int = 25, city: Optional[str] = None) -> dict[str,
                     text(
                         "UPDATE customers SET latitude = :lat, longitude = :lon, "
                         "  geo_source = :prov, geo_precision = :prec, district = :district, "
-                        "  geo_address = :addr, geocoded_at = :now, updated_at = NOW() "
+                        # Время ставит база, а не Python. Здесь стоял параметр
+                        # `datetime.now(timezone.utc)`, а колонка — `timestamp
+                        # without time zone`: asyncpg отказывался класть в неё
+                        # значение с поясом и валил ВЕСЬ проход геокодера
+                        # («can't subtract offset-naive and offset-aware»).
+                        # Дефект был недостижим, пока не было ключа 2ГИС.
+                        #
+                        # Снять зону в Python тоже можно, но тогда сюда лёг бы
+                        # UTC, а в соседний `updated_at` — местное время той же
+                        # строки: расхождение в пять часов внутри одной записи.
+                        "  geo_address = :addr, geocoded_at = NOW(), updated_at = NOW() "
                         " WHERE id = :cid AND geo_source IS DISTINCT FROM 'manual'"
                     ),
                     {
                         "lat": hit.latitude, "lon": hit.longitude,
                         "prov": hit.provider, "prec": hit.precision,
                         "district": hit.district,
-                        "addr": raw, "now": datetime.now(timezone.utc), "cid": cid,
+                        "addr": raw, "cid": cid,
                     },
                 )
                 stats["placed"] += 1
