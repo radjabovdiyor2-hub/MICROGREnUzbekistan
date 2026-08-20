@@ -278,7 +278,15 @@ services:
       DATABASE_URL: postgresql://mg_user:${POSTGRES_PASSWORD}@postgres:5432/microgreen
       REDIS_URL: redis://redis:6379/0
       NEXT_PUBLIC_URL: https://microgreenuzbekistan.com
-      UPLOADS_DIR: /data/uploads
+      # ПУТЬ ОБЯЗАН СОВПАДАТЬ С ТЕМ, ОТКУДА NEXT РАЗДАЁТ СТАТИКУ.
+      # Здесь стояло /data/uploads, и том монтировался туда же — но
+      # standalone-сервер отдаёт файлы из apps/web/public, куда том не
+      # попадал. Фотография, загруженная в админке, ложилась на диск и тут же
+      # отдавала 404: записали в один каталог, ищем в другом. На bare-metal
+      # этого не видно — там deploy.sh сносит apps/web/public/uploads и вешает
+      # на его место симлинк на тот же хостовый каталог (фаза 5). Здесь то же
+      # самое, только средствами compose.
+      UPLOADS_DIR: /app/apps/web/public/uploads
       # Состояние, которое обязано пережить деплой: пароль владельца,
       # привязанные passkeys и журнал аудита. Без тома они лежали в слое
       # образа и стирались при каждой выкатке — а смена утёкшего пароля
@@ -314,7 +322,12 @@ services:
       OWNER_TELEGRAM_IDS: ${OWNER_TELEGRAM_IDS:-}
     volumes:
       # Persist + serve uploaded product images (host dir, kept across deploys).
-      - ${HOST_UPLOADS_DIR:-/home/ubuntu/microgreen-uploads}:/data/uploads
+      # Монтируется ПОВЕРХ apps/web/public/uploads — туда же, куда смотрит
+      # Next, иначе «persist» работал, а «serve» нет (см. UPLOADS_DIR выше).
+      # Запечённые в образ картинки сидера этот том закрывает — ровно то же
+      # происходит на bare-metal, где deploy.sh их удаляет перед сборкой:
+      # видимые товары ссылаются на /catalog/*, он лежит отдельно и цел.
+      - ${HOST_UPLOADS_DIR:-/home/ubuntu/microgreen-uploads}:/app/apps/web/public/uploads
       # Пароль владельца, passkeys и журнал аудита (STATE_DIR).
       - mg_web_state:/data/state
     depends_on:
