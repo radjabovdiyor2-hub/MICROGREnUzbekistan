@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp, LayoutGrid } from 'lucide-react';
 
+import { companyTypeLabel } from '@/lib/customers/companyTypes';
 import { districtLabel } from '@/lib/customers/districts';
 import type { DistrictStat } from '@/lib/customers/mapQuery';
 
@@ -38,6 +39,22 @@ const label = {
   leaving: { ru: 'уходят', uz: 'ketmoqda' },
   empty: { ru: 'Районы не определены', uz: 'Tumanlar aniqlanmagan' },
 };
+
+/**
+ * Три самых частых типа заведений района: «40 тойхон · 12 кафе · 7 фитнес».
+ *
+ * Без этой строки разрез отвечает «в Ургуте 59 точек» — число, из которого
+ * не следует ни одного действия. С ней видно, с каким предложением туда
+ * ехать. Три, а не все: в строке списка больше не помещается, а хвост из
+ * единичных категорий вопрос не проясняет.
+ */
+function topCategories(byCategory: Record<string, number>, lang: 'ru' | 'uz'): string {
+  return Object.entries(byCategory)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([slug, count]) => `${count} ${companyTypeLabel(slug, lang).toLowerCase()}`)
+    .join(' · ');
+}
 
 export function DistrictBreakdown({ districts, lang, active, onSelect }: Props) {
   const [open, setOpen] = useState(false);
@@ -109,6 +126,19 @@ export function DistrictBreakdown({ districts, lang, active, onSelect }: Props) 
                       </span>
                     )}
                   </div>
+                  {Object.keys(d.byCategory).length > 0 && (
+                    <div
+                      style={{
+                        fontSize: 'var(--text-xs)',
+                        color: 'var(--text-muted)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {topCategories(d.byCategory, lang)}
+                    </div>
+                  )}
                 </div>
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
                   {formatSum(d.revenue)}

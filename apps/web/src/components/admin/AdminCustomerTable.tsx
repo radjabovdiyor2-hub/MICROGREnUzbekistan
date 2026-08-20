@@ -1,6 +1,14 @@
 'use client';
 
 import { Edit3, Gift, Phone, RefreshCw, Trash2, Users } from 'lucide-react';
+
+import {
+  AUDIENCE_RELEVANT,
+  audienceLabel,
+  companyTypeLabel,
+} from '@/lib/customers/companyTypes';
+import { districtLabel } from '@/lib/customers/districts';
+
 import type { CustomerItem } from './customerTypes';
 
 // Таблица клиентов: контакты, тип, суммы, бонусы.
@@ -97,7 +105,32 @@ export function AdminCustomerTable({ customers, loading, lang, handleEditClick, 
                     🏢 {c.companyName}
                   </div>
                 )}
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{c.city}</div>
+                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+                  {c.district ? districtLabel(c.district, lang) : c.city}
+                </div>
+                {/* Тип заведения и пол зала — здесь, а не отдельной колонкой:
+                    восьмая колонка растянула бы таблицу за край экрана, а
+                    вопрос «что это за место» стоит рядом с «где оно». */}
+                {c.companyType && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)' }}>
+                    {companyTypeLabel(c.companyType, lang)}
+                    {AUDIENCE_RELEVANT.includes(c.companyType) && (
+                      <span
+                        style={{
+                          marginLeft: 6,
+                          padding: '0 6px',
+                          borderRadius: 'var(--radius-full)',
+                          background: 'var(--bg-tertiary)',
+                          // Невыясненная аудитория приглушена: это не факт о
+                          // заведении, а незакрытый вопрос к продавцу.
+                          color: c.audience ? 'var(--text-primary)' : 'var(--text-muted)',
+                        }}
+                      >
+                        {audienceLabel(c.audience, lang)}
+                      </span>
+                    )}
+                  </div>
+                )}
               </td>
               <td style={cell}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>

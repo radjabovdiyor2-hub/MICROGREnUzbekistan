@@ -84,6 +84,9 @@ _SYNONYMS = {
 _DROP = frozenset({
     "g", "gor", "gorod", "sh", "shahri", "shahar", "city",
     "respublika", "uzbekistan", "ozbekiston",
+    # Маркеры района. Без них «Urgut tumani» не сводился к «Urgut», и
+    # normalize_city отвечал None на половину адресов области.
+    "tumani", "tuman", "rayon", "raion", "obl", "viloyat",
 })
 
 # Маркеры квартиры. Пин ставится в дом, поэтому выбрасывается и сам маркер,
@@ -91,9 +94,27 @@ _DROP = frozenset({
 # останется «12», и один дом даст столько ключей кэша, сколько в нём квартир.
 _APARTMENT = frozenset({"kv", "kvartira", "xonadon", "apt", "kvart"})
 
+# Города области сведены к slug'у 'samarkand' намеренно: здесь slug города
+# означает ЗОНУ ОБСЛУЖИВАНИЯ, а не населённый пункт — точное место живёт в
+# `district`. Зеркало — CITY_ALIASES в apps/web/src/lib/customers/addressKey.ts.
 _CITY_ALIASES = {
     "tashkent": "tashkent", "toshkent": "tashkent",
     "samarkand": "samarkand", "samarqand": "samarkand",
+    "samarqandviloyati": "samarkand", "samarkandskayaoblast": "samarkand",
+    "bulungur": "samarkand",
+    "ishtixon": "samarkand", "ishtixan": "samarkand", "ishtikhan": "samarkand",
+    "jomboy": "samarkand", "djambay": "samarkand",
+    "kattaqorgon": "samarkand", "kattakurgan": "samarkand",
+    "qoshrabot": "samarkand", "kushrabot": "samarkand", "kushrabad": "samarkand",
+    "narpay": "samarkand",
+    "nurobod": "samarkand", "nurabad": "samarkand",
+    "oqdaryo": "samarkand", "akdarya": "samarkand",
+    "pastdargom": "samarkand",
+    "paxtachi": "samarkand",
+    "payariq": "samarkand", "payarik": "samarkand",
+    "toyloq": "samarkand", "taylak": "samarkand",
+    "urgut": "samarkand",
+    "gulobod": "samarkand",
 }
 
 
@@ -163,7 +184,7 @@ def address_key(raw: Optional[str], city: Optional[str] = None) -> Optional[str]
     return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
-# Районы Ташкента и Самарканда. Ключ — как слово выглядит после _fold,
+# Районы Ташкента и Самаркандской области. Ключ — как слово выглядит после _fold,
 # значение — slug, тот же, что в apps/web/src/lib/customers/districts.ts.
 # Список держится здесь, а не тянется из веба: между модулями нет прямых
 # импортов, а четырнадцать строк дешевле HTTP-вызова за справочником.
@@ -181,6 +202,25 @@ _DISTRICTS = {
     "yunusobod": "yunusobod", "yunusabad": "yunusobod",
     "siyob": "siyob", "siab": "siyob",
     "temiryol": "temiryol",
+    # Самаркандская область — 14 туманов. Без них тойхоны с выездов из
+    # города приходили с district = NULL и в разрезе не существовали.
+    "bulungur": "bulungur",
+    "ishtixon": "ishtixon", "ishtixan": "ishtixon", "ishtikhan": "ishtixon",
+    "jomboy": "jomboy", "djambay": "jomboy",
+    "kattaqorgon": "kattaqorgon", "kattakurgan": "kattaqorgon",
+    "qoshrabot": "qoshrabot", "kushrabot": "qoshrabot", "kushrabad": "qoshrabot",
+    "narpay": "narpay",
+    "nurobod": "nurobod", "nurabad": "nurobod",
+    "oqdaryo": "oqdaryo", "akdarya": "oqdaryo",
+    "pastdargom": "pastdargom",
+    "paxtachi": "paxtachi",
+    "payariq": "payariq", "payarik": "payariq",
+    "toyloq": "toyloq", "taylak": "toyloq", "tayloq": "toyloq",
+    "urgut": "urgut",
+    # Самаркандский туман — по названию его центра, посёлка Гулобод.
+    # Слова «samarqand» здесь нет и быть не может: оно стоит в КАЖДОМ
+    # городском адресе, и весь Самарканд разом уехал бы в сельский район.
+    "gulobod": "samarqand-tumani",
 }
 
 

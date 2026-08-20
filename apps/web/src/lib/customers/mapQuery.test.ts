@@ -39,6 +39,8 @@ function customer(over: Partial<Parameters<typeof buildMapCollection>[0][number]
     address: 'Amir Temur 5',
     district: 'chilanzar',
     customerType: 'b2b',
+    companyType: 'restaurant',
+    audience: null as string | null,
     ordersCount: 12,
     totalSpent: 4_200_000,
     lastOrderDate: daysAgo(10),
@@ -52,15 +54,48 @@ function customer(over: Partial<Parameters<typeof buildMapCollection>[0][number]
 describe('buildMapWhere', () => {
   it('город фильтруется перечислением написаний, а не одним значением', () => {
     const where = buildMapWhere({ city: 'Ташкент' });
-    expect(where.city).toBeDefined();
-    const filter = where.city as { in: string[]; mode: string };
-    expect(filter.in).toContain('tashkent');
-    expect(filter.in).toContain('toshkent');
-    expect(filter.mode).toBe('insensitive');
+    const [byCity] = (where.OR ?? []) as { city: { in: string[]; mode: string } }[];
+    expect(byCity?.city.in).toContain('tashkent');
+    expect(byCity?.city.in).toContain('toshkent');
+    expect(byCity?.city.mode).toBe('insensitive');
+  });
+
+  it('город ловится ВТОРЫМ условием — по району', () => {
+    // Написания перечислить целиком нельзя: Каттакурган приходит от
+    // провайдера то как «Kattaqoʻrgʻon», то как «Каттакурганский р-н», и
+    // любое пропущенное написание молча роняет точку из фильтра. Slug
+    // района канонический по построению — он ловит остальное.
+    const where = buildMapWhere({ city: 'Самарканд' });
+    const [, byDistrict] = (where.OR ?? []) as { district: { in: string[] } }[];
+    expect(byDistrict?.district.in).toContain('urgut');
+    expect(byDistrict?.district.in).toContain('siyob');
+    // Ташкентских районов в самаркандском фильтре быть не должно.
+    expect(byDistrict?.district.in).not.toContain('chilanzar');
   });
 
   it('неизвестный город не превращается в фильтр', () => {
-    expect(buildMapWhere({ city: 'Бухара' }).city).toBeUndefined();
+    expect(buildMapWhere({ city: 'Бухара' }).OR).toBeUndefined();
+  });
+
+  it('тип заведения и аудитория попадают в WHERE', () => {
+    const where = buildMapWhere({ companyType: 'fitness', audience: 'female' });
+    expect(where.companyType).toBe('fitness');
+    expect(where.audience).toBe('female');
+  });
+
+  it('выдуманный тип и выдуманная аудитория в WHERE не попадают', () => {
+    // Иначе карта пуста и неотличима от «здесь никого нет», а причина —
+    // опечатка в адресной строке.
+    const where = buildMapWhere({ companyType: 'вымысел', audience: 'вымысел' });
+    expect(where.companyType).toBeUndefined();
+    expect(where.audience).toBeUndefined();
+  });
+
+  it('«не выяснено» — это IS NULL, а не значение audience', () => {
+    // Рабочая очередь продавца: заведения, у которых пол зала ещё
+    // предстоит спросить. Уйди сюда строка 'unknown', запрос вернул бы
+    // пусто, потому что такого значения в базе не бывает.
+    expect(buildMapWhere({ audience: 'unknown' }).audience).toBeNull();
   });
 
   it('b2b кладётся в customerType, а не в status', () => {
@@ -239,7 +274,9 @@ describe('buildProspectFeatures — белые пятна', () => {
 });
 
 describe('districtStats — где недобираем', () => {
-  function feature(over: { d?: string | null; st?: string; sp?: number; k?: string } = {}) {
+  function feature(
+    over: { d?: string | null; st?: string; sp?: number; k?: string; ct?: string | null } = {},
+  ) {
     const c = buildMapCollection([customer()], new Map(), { now: NOW }).features[0];
     return {
       ...c,
@@ -249,6 +286,7 @@ describe('districtStats — где недобираем', () => {
         st: (over.st ?? c.properties.st) as typeof c.properties.st,
         sp: over.sp ?? c.properties.sp,
         k: (over.k ?? 'customer') as typeof c.properties.k,
+        ct: over.ct === undefined ? c.properties.ct : over.ct,
       },
     };
   }
@@ -289,6 +327,27 @@ describe('districtStats — где недобираем', () => {
   it('клиенты без района не сваливаются в выдуманное «прочее»', () => {
     // Пустая категория на карте выглядела бы как настоящая территория.
     expect(districtStats([feature({ d: null })])).toEqual([]);
+  });
+
+  it('состав района считается по типам заведений', () => {
+    // «В Ургуте 59 точек» — число, из которого не следует ни одного
+    // действия. «40 тойхон» — следует.
+    const stats = districtStats([
+      feature({ d: 'urgut', ct: 'toyxona' }),
+      feature({ d: 'urgut', ct: 'toyxona' }),
+      feature({ d: 'urgut', ct: 'fitness' }),
+    ]);
+    expect(stats[0].byCategory).toEqual({ toyxona: 2, fitness: 1 });
+  });
+
+  it('в состав идут и клиенты, и цели — вопрос «чего здесь много» не про продажи', () => {
+    const stats = districtStats([
+      feature({ d: 'urgut', ct: 'restaurant' }),
+      feature({ d: 'urgut', ct: 'restaurant', k: 'restaurant' }),
+    ]);
+    expect(stats[0].byCategory).toEqual({ restaurant: 2 });
+    expect(stats[0].customers).toBe(1);
+    expect(stats[0].prospects).toBe(1);
   });
 });
 

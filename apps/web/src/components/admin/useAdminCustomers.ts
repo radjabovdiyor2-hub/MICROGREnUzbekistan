@@ -38,6 +38,11 @@ export function useAdminCustomers() {
   // результат ПРОШЛОГО поиска.
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  // Тип заведения и аудитория — те же фильтры, что у карты. Список и карта
+  // это два вида ОДНОГО раздела, и уметь на карте то, чего нельзя в
+  // списке, — верный способ отучить людей верить фильтрам.
+  const [companyTypeFilter, setCompanyTypeFilter] = useState('all');
+  const [audienceFilter, setAudienceFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [view, setView] = useState<CustomersView>('list');
 
@@ -47,14 +52,27 @@ export function useAdminCustomers() {
   const [editStatus, setEditStatus] = useState('');
   const [editBonus, setEditBonus] = useState<number>(0);
   const [editNotes, setEditNotes] = useState('');
+  const [editCompanyType, setEditCompanyType] = useState('');
+  const [editAudience, setEditAudience] = useState('');
   const [saving, setSaving] = useState(false);
 
   const { data, isLoading: loading, error, refetch } = useQuery<CustomerPage, Error>({
-    queryKey: ['admin-customers', statusFilter, searchQuery, page],
+    queryKey: [
+      'admin-customers',
+      statusFilter,
+      searchQuery,
+      page,
+      companyTypeFilter,
+      audienceFilter,
+    ],
     queryFn: async () => {
       const query = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
       const status = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
-      const res = await fetch(`/api/admin/customers?limit=${PAGE_SIZE}&page=${page}${query}${status}`);
+      const type = companyTypeFilter !== 'all' ? `&companyType=${companyTypeFilter}` : '';
+      const aud = audienceFilter !== 'all' ? `&audience=${audienceFilter}` : '';
+      const res = await fetch(
+        `/api/admin/customers?limit=${PAGE_SIZE}&page=${page}${query}${status}${type}${aud}`,
+      );
       if (!res.ok) throw new Error('Failed to fetch customers');
       const body = await res.json();
       return { customers: body.customers || [], total: body.total ?? 0 };
@@ -72,11 +90,26 @@ export function useAdminCustomers() {
     setPage(1);
   };
 
+  const handleCompanyTypeFilter = (value: string) => {
+    setCompanyTypeFilter(value);
+    // Аудитория без своего типа заведения почти всегда даёт пустой список,
+    // а невидимый включённый фильтр читается как «клиентов нет».
+    setAudienceFilter('all');
+    setPage(1);
+  };
+
+  const handleAudienceFilter = (value: string) => {
+    setAudienceFilter(value);
+    setPage(1);
+  };
+
   const handleEditClick = (c: CustomerItem) => {
     setEditingCustomer(c);
     setEditStatus(c.status);
     setEditBonus(c.bonusBalance);
     setEditNotes(c.notes || '');
+    setEditCompanyType(c.companyType || '');
+    setEditAudience(c.audience || '');
   };
 
   // Клиента с заказами база не отдаёт (crm_orders на onDelete: Restrict) —
@@ -104,6 +137,11 @@ export function useAdminCustomers() {
           status: editStatus,
           bonusBalance: editBonus,
           notes: editNotes,
+          companyType: editCompanyType,
+          // Пустая строка = «снять аудиторию». Это осмысленный ответ («тут
+          // смешанный зал, я ошибся»), а не отсутствие правки, поэтому
+          // сервер её и различает.
+          audience: editAudience,
         }),
       });
       // Сообщение сервера показываем как есть. Отказ начислить баллы —
@@ -136,6 +174,10 @@ export function useAdminCustomers() {
     handleSearch,
     statusFilter,
     handleFilter,
+    companyTypeFilter,
+    handleCompanyTypeFilter,
+    audienceFilter,
+    handleAudienceFilter,
     page,
     setPage,
     view,
@@ -151,6 +193,10 @@ export function useAdminCustomers() {
     setEditBonus,
     editNotes,
     setEditNotes,
+    editCompanyType,
+    setEditCompanyType,
+    editAudience,
+    setEditAudience,
     saving,
     handleEditClick,
     handleDeleteCustomer,

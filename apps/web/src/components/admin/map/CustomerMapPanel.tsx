@@ -5,6 +5,11 @@ import { ExternalLink, MapPin, Phone, RefreshCw, X } from 'lucide-react';
 
 import type { CustomerCard } from '@/lib/customers/card';
 import {
+  AUDIENCE_RELEVANT,
+  audienceLabel,
+  companyTypeLabel,
+} from '@/lib/customers/companyTypes';
+import {
   SEGMENT_META,
   computeSegment,
   computeTrend,
@@ -98,6 +103,22 @@ export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePi
             />
             {meta[lang]}
           </div>
+          {/* Тип заведения рядом с состоянием: цвет точки на карте отвечает
+              за корзину («Фитнес и спорт»), а здесь виден точный тип и пол
+              зала — то, чем корзина и отличается от категории. */}
+          {point.companyType && (
+            <div
+              style={{
+                marginTop: 4,
+                fontSize: 'var(--text-xs)',
+                color: 'var(--text-muted)',
+              }}
+            >
+              {companyTypeLabel(point.companyType, lang)}
+              {AUDIENCE_RELEVANT.includes(point.companyType) &&
+                ` · ${audienceLabel(point.audience, lang)}`}
+            </div>
+          )}
         </div>
         <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Закрыть">
           <X size={16} />

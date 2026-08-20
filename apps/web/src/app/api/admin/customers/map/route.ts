@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
+import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
 import {
   MAP_CUSTOMER_SELECT,
@@ -44,6 +45,8 @@ export async function GET(request: NextRequest) {
       minSpent: searchParams.get('minSpent'),
       maxSpent: searchParams.get('maxSpent'),
       source: searchParams.get('source'),
+      companyType: searchParams.get('companyType'),
+      audience: searchParams.get('audience'),
     });
 
     const customers = await prisma.customer.findMany({
@@ -70,7 +73,12 @@ export async function GET(request: NextRequest) {
     // Слой «белых пятен»: заведения из справочника, которые нам ещё не
     // клиенты. Грузится только по запросу — на карте клиентов он лишний
     // шум, а в режиме поиска новых точек продаж это главный слой.
-    if (searchParams.get('prospects') === '1') {
+    const companyTypeFilter = searchParams.get('companyType');
+    // Слой целей — таблица `restaurants`, а там только рестораны. Когда
+    // выбран любой другой тип, показывать её поверх выбранных тойхон
+    // значит смешать два разных ответа на карте.
+    const prospectsFit = !companyTypeFilter || companyTypeFilter === 'restaurant';
+    if (searchParams.get('prospects') === '1' && prospectsFit) {
       const districtFilter = searchParams.get('district');
       const prospects = await prisma.restaurant.findMany({
         // Фильтр по району действует и на цели: иначе клик по «Чиланзар»
@@ -162,6 +170,12 @@ export async function PATCH(request: NextRequest) {
       target: `#${id}`,
       meta: clearing ? {} : { latitude: body.latitude, longitude: body.longitude },
     });
+
+    // Поставленный пин — это изменение карты: соседняя вкладка обязана
+    // увидеть точку там же, а клиента — исчезнувшим из лотка «без
+    // координат». Тема та же, что у списка: ключи карты и карточки
+    // перечислены в useRealtime под 'customers'.
+    publish('customers');
 
     return NextResponse.json({ status: 'ok', customer: updated });
   } catch (error: unknown) {

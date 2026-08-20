@@ -1,3 +1,5 @@
+import { BUCKET_META, bucketPairs, type ColorBucket } from '@/lib/customers/companyTypes';
+
 import type { ColorizeMode } from './mapFeature';
 import type { TokenColors } from './useTokenColors';
 
@@ -143,10 +145,36 @@ function typeColor(c: TokenColors): Expression {
   return ['match', ['get', 't'], 'b2b', c.brand, 'b2c', c.info, c.muted];
 }
 
+/**
+ * Цвет по типу заведения — через цветовые корзины, а не по категории.
+ *
+ * Категорий девятнадцать, различимых цветов восемь. Раскраска один-в-один
+ * дала бы карту, на которой «кофейня» и «пекарня» отличаются оттенком,
+ * который никто не различит, — то есть цвет перестал бы что-либо значить.
+ * Разбиение на корзины живёт в companyTypes.ts вместе с легендой, чтобы
+ * подпись и цвет не могли разойтись.
+ */
+function categoryColor(c: TokenColors): Expression {
+  const pairs: (string | Expression)[] = [];
+  for (const [slug, bucket] of bucketPairs()) {
+    pairs.push(slug, bucketColor(c, bucket));
+  }
+  // Последним — цвет для точек без типа: справочник знает не всё, и
+  // карточка, заведённая менеджером руками, приходит без категории.
+  return ['match', ['get', 'ct'], ...pairs, c.muted] as Expression;
+}
+
+/** Цвет корзины по её токену. Токен назван в BUCKET_META — источник один. */
+export function bucketColor(c: TokenColors, bucket: ColorBucket): string {
+  const token = BUCKET_META[bucket].token as keyof TokenColors;
+  return c[token] ?? c.muted;
+}
+
 export function pointColor(mode: ColorizeMode, c: TokenColors, p80: number): Expression {
   if (mode === 'revenue') return revenueColor(c, p80);
   if (mode === 'frequency') return frequencyColor(c);
   if (mode === 'type') return typeColor(c);
+  if (mode === 'category') return categoryColor(c);
   return stateColor(c);
 }
 

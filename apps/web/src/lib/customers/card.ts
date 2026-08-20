@@ -42,8 +42,12 @@ export interface CustomerCard {
   customerType: string;
   companyName: string | null;
   companyType: string | null;
+  /** Аудитория заведения: female | male | mixed. null = не выяснено */
+  audience: string | null;
   address: string | null;
   city: string;
+  /** Slug района (districts.ts) */
+  district: string | null;
   status: string;
   notes: string;
   source: string | null;
@@ -132,8 +136,10 @@ export async function getCustomerCard(id: number): Promise<CustomerCard | null> 
     customerType: customer.customerType,
     companyName: customer.companyName,
     companyType: customer.companyType,
+    audience: customer.audience,
     address: customer.address,
     city: customer.city,
+    district: customer.district,
     status: customer.status,
     notes: customer.notes || '',
     source: customer.source,

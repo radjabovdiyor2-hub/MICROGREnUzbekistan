@@ -36,6 +36,17 @@ const TOKENS = {
   rampLow: '--cat-10',
   rampMid: '--cat-11',
   rampHigh: '--cat-12',
+  // Качественная палитра для раскраски по типу заведения. Взяты НЕ подряд
+  // идущие токены: cat-6 занят состоянием «замедлился», а cat-10..12 —
+  // денежной шкалой, и переиспользовать их значило бы дать одному цвету
+  // два смысла на одной карте.
+  cat1: '--cat-1',
+  cat2: '--cat-2',
+  cat3: '--cat-3',
+  cat4: '--cat-4',
+  cat5: '--cat-5',
+  cat7: '--cat-7',
+  cat9: '--cat-9',
 } as const;
 
 export type TokenColors = Record<keyof typeof TOKENS, string>;
@@ -56,6 +67,13 @@ const FALLBACK: TokenColors = {
   rampLow: '#A7F3D0',
   rampMid: '#34D399',
   rampHigh: '#047857',
+  cat1: '#6366F1',
+  cat2: '#8B5CF6',
+  cat3: '#EC4899',
+  cat4: '#14B8A6',
+  cat5: '#2D5BFF',
+  cat7: '#22C55E',
+  cat9: '#7C3AED',
 };
 
 function readTokens(): TokenColors {

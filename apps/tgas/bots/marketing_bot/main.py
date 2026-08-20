@@ -260,7 +260,8 @@ async def _fetch_b2b_targets(limit: int) -> list:
                 # в `interactions` копились дубликаты 'b2b_offer_pending', а
                 # одно нажатие потом переводило в 'sent' сразу всю пачку.
                 # Неделя молчания — семь одинаковых КП на один ресторан.
-                "SELECT id, name, company_name, email, phone, review_summary, address "
+                "SELECT id, name, company_name, email, phone, review_summary, address, "
+                "       company_type, audience "
                 "FROM customers "
                 "WHERE customer_type = 'b2b' AND status = 'lead' "
                 "AND NOT EXISTS (SELECT 1 FROM interactions i "
@@ -280,6 +281,8 @@ async def _fetch_b2b_targets(limit: int) -> list:
                 "phone": r[4],
                 "review_summary": r[5],
                 "address": r[6],
+                "company_type": r[7],
+                "audience": r[8],
                 "segment": "new_lead",
                 "reason": "новый ресторан",
                 "touches": 0,
@@ -301,6 +304,7 @@ async def b2b_outreach():
         from shared.database import get_session_ctx
         from sqlalchemy import text
         from shared.ai_engine import AIEngine
+        from shared.lead_gen import venue_label
         from aiogram import Bot
         from aiogram.client.default import DefaultBotProperties
         from aiogram.enums import ParseMode
@@ -318,7 +322,7 @@ async def b2b_outreach():
 
         leads = await _fetch_b2b_targets(limit)
         if not leads:
-            logging.info("b2b_outreach: ресторанов на сегодня нет.")
+            logging.info("b2b_outreach: заведений на сегодня нет.")
             return
 
         ai = AIEngine()
@@ -342,7 +346,7 @@ async def b2b_outreach():
         try:
             await bot.send_message(
                 admin_id,
-                f"📣 <b>КП на сегодня: {len(leads)} ресторан(ов)</b>\n"
+                f"📣 <b>КП на сегодня: {len(leads)} заведени(й)</b>\n"
                 f"<i>Список отобрал отдел «Заказы»:</i>\n{breakdown}\n\n"
                 f"Ниже — карточки с КП. Нажмите ✅ для отправки или ❌ для пропуска.",
             )
@@ -357,19 +361,27 @@ async def b2b_outreach():
                 touches = lead.get("touches", 0)
 
                 chef_name = lead.get("name") or "Шеф-повар"
-                comp_name = lead.get("company_name") or "Ресторан"
+                comp_name = lead.get("company_name") or "Заведение"
+                # Тип заведения в промпте обязателен. Пока его не было,
+                # каждое КП начиналось со слова «ресторан»: фитнес-клуб
+                # получал письмо про сервировку блюд, а тойхона — про
+                # бизнес-ланчи. Такой контакт сгорает с первой строки.
+                venue = venue_label(lead.get("company_type"), lead.get("audience"))
                 review_hint = (
                     f"\nИзвестное о заведении: {review_summary}."
                     if review_summary
                     else ""
                 )
 
-                # Генерация КП — заход зависит от того, ПОЧЕМУ продажи выбрали ресторан
+                # Генерация КП — заход зависит от того, ПОЧЕМУ продажи выбрали заведение
                 brief = _SEGMENT_BRIEF.get(segment, _SEGMENT_BRIEF["new_lead"])
                 prompt = (
                     f"Напиши текст Коммерческого предложения от Microgreen Uzbekistan.\n"
-                    f"Адресат: {chef_name}, ресторан: {comp_name}.{review_hint}\n\n"
+                    f"Адресат: {chef_name}, {venue}: {comp_name}.{review_hint}\n\n"
                     f"КОНТЕКСТ: {brief}\n\n"
+                    f"Доводы подбирай под тип заведения: у фитнес-клуба и "
+                    f"тойханы кухня устроена иначе, чем у ресторана, и "
+                    f"ресторанные аргументы там звучат мимо.\n\n"
                     f"2-3 абзаца, тёплый деловой тон, без markdown."
                 )
                 ai_text = await ai.chat_completion(
@@ -379,7 +391,7 @@ async def b2b_outreach():
                 # Карточка ресторана для владельца
                 touch_note = f" · касание №{touches + 1}" if touches else ""
                 card = (
-                    f"🏪 <b>{comp_name}</b>\n"
+                    f"🏪 <b>{comp_name}</b> · {venue}\n"
                     f"{_SEGMENT_LABEL.get(segment, '')} — {lead.get('reason', '')}{touch_note}\n\n"
                     f"👤 Контакт: {chef_name}\n"
                     f"📧 Email: {email or '—'}\n"
@@ -600,13 +612,30 @@ async def handle_b2b_approval(callback_query):
 
 
 async def collect_leads_nightly():
-    """Ночной сбор новых ресторанов из всех источников (Google, Yandex, 2ГИС)."""
-    try:
-        from shared.lead_gen import collect_and_import_all
+    """
+    Ночной сбор заведений из всех источников (Google, Yandex, 2ГИС).
 
-        result = await collect_and_import_all()
+    За ночь берётся ОДНА категория из VENUE_QUERIES, по всей области.
+    Полный обход — это 18 категорий × 14 населённых пунктов × десятки
+    запросов на каждый: за один прогон он выжигает суточную квоту
+    провайдера, и остаток суток любой сбор возвращает пустоту. Ротация
+    по дню года проходит весь справочник за 18 ночей и не требует
+    хранить, на чём остановились: номер дня и есть состояние.
+    """
+    try:
+        from datetime import date
+
+        from shared.lead_gen import SAMARKAND_PLACES, VENUE_QUERIES, collect_and_import_all
+
+        categories = list(VENUE_QUERIES)
+        today = categories[date.today().timetuple().tm_yday % len(categories)]
+
+        result = await collect_and_import_all(
+            categories=[today], places=SAMARKAND_PLACES
+        )
         logging.info(
-            "collect_leads_nightly: +%d новых лидов, %d дублей",
+            "collect_leads_nightly [%s]: +%d новых лидов, %d дублей",
+            today,
             result["inserted"],
             result["skipped"],
         )
@@ -721,19 +750,26 @@ async def bus_trigger_lead_audit(params: dict) -> dict:
 
 
 async def bus_collect_leads(params: dict) -> dict:
-    """Собрать новых B2B-лидов (рестораны) из внешних источников."""
+    """Собрать новых B2B-лидов (заведения) из внешних источников."""
     try:
         from shared.lead_gen import collect_and_import_all
 
         limit = params.get("limit")
         city = str(params.get("city") or "").strip() or None
+        # Категория приходит слагом из COMPANY_TYPES («toyxona», «fitness»).
+        # Пусто — весь справочник: так «собери лидов» без уточнений работает
+        # как работало.
+        raw_category = str(params.get("category") or "").strip()
+        categories = [raw_category] if raw_category else None
+
         result = await collect_and_import_all(
-            limit=int(limit) if limit else None, city=city
+            limit=int(limit) if limit else None, city=city, categories=categories
         )
         return {
             "status": "ok",
             "message": f"Собрано лидов: +{result['inserted']} новых, "
             f"{result['skipped']} дублей пропущено"
+            + (f" (категория: {raw_category})" if raw_category else "")
             + (f" (город: {city})" if city else ""),
         }
     except Exception as e:

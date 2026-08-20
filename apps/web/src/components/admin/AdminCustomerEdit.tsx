@@ -2,9 +2,19 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import { X } from 'lucide-react';
+
+import {
+  AUDIENCES,
+  AUDIENCE_META,
+  AUDIENCE_RELEVANT,
+  COMPANY_TYPE_GROUPS,
+  GROUP_META,
+  typesOfGroup,
+} from '@/lib/customers/companyTypes';
+
 import type { CustomerItem } from './customerTypes';
 
-// Модалка правки клиента: статус, бонусы, заметки.
+// Модалка правки клиента: статус, тип заведения, аудитория, бонусы, заметки.
 // Стили — инлайн на токенах, как в остальной админке.
 
 interface Props {
@@ -16,6 +26,10 @@ interface Props {
   setEditBonus: Dispatch<SetStateAction<number>>;
   editNotes: string;
   setEditNotes: Dispatch<SetStateAction<string>>;
+  editCompanyType: string;
+  setEditCompanyType: Dispatch<SetStateAction<string>>;
+  editAudience: string;
+  setEditAudience: Dispatch<SetStateAction<string>>;
   saving: boolean;
   handleSaveCustomer: () => void;
 }
@@ -51,7 +65,12 @@ const field: React.CSSProperties = {
   fontSize: 'var(--text-sm)',
 };
 
-export function AdminCustomerEdit({ editingCustomer, setEditingCustomer, editStatus, setEditStatus, editBonus, setEditBonus, editNotes, setEditNotes, saving, handleSaveCustomer }: Props) {
+export function AdminCustomerEdit({
+  editingCustomer, setEditingCustomer, editStatus, setEditStatus,
+  editBonus, setEditBonus, editNotes, setEditNotes,
+  editCompanyType, setEditCompanyType, editAudience, setEditAudience,
+  saving, handleSaveCustomer,
+}: Props) {
   if (!editingCustomer) return null;
 
   return (
@@ -99,6 +118,41 @@ export function AdminCustomerEdit({ editingCustomer, setEditingCustomer, editSta
             ))}
           </select>
         </div>
+
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <label style={label} htmlFor="cust-type">Тип заведения</label>
+          <select id="cust-type" value={editCompanyType}
+            onChange={(e) => setEditCompanyType(e.target.value)} style={field}>
+            <option value="">Не указан</option>
+            {COMPANY_TYPE_GROUPS.map((group) => (
+              <optgroup key={group} label={GROUP_META[group].ru}>
+                {typesOfGroup(group).map(({ slug, meta }) => (
+                  <option key={slug} value={slug}>{meta.ru}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
+        {/* Пол зала спрашиваем только у фитнеса, спорта и тойхон — там это
+            разные закупщики и разное предложение. Справочники этот признак
+            не проставляют вовсе, сборщик лишь угадывает по названию, так
+            что настоящий источник правды — вот это поле.
+
+            Сохранённое здесь помечается как ручное, и ночной сбор своей
+            догадкой его больше не затирает. */}
+        {AUDIENCE_RELEVANT.includes(editCompanyType) && (
+          <div style={{ marginBottom: 'var(--space-3)' }}>
+            <label style={label} htmlFor="cust-audience">Аудитория</label>
+            <select id="cust-audience" value={editAudience}
+              onChange={(e) => setEditAudience(e.target.value)} style={field}>
+              <option value="">Не выяснено</option>
+              {AUDIENCES.map((slug) => (
+                <option key={slug} value={slug}>{AUDIENCE_META[slug].ru}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div style={{ marginBottom: 'var(--space-3)' }}>
           <label style={label} htmlFor="cust-bonus">Бонусные баллы</label>

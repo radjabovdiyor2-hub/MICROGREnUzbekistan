@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { publish } from '@/lib/realtime/bus';
 import { audit } from '@/lib/audit';
 import { officeFetch } from '@/lib/office/client';
 import { safeError } from '@/lib/safeError';
@@ -83,6 +84,12 @@ export async function POST(request: NextRequest) {
       target: `батч ${batch}`,
       meta: result.data ?? {},
     });
+
+    // Проход геокодера переносит клиентов из лотка «без координат» на
+    // карту — это изменение того же набора данных, что и правка карточки.
+    // Без оповещения владелец жмёт «Геокодировать», видит успех и пустой
+    // лоток только после ручного обновления страницы.
+    publish('customers');
 
     return NextResponse.json(result.data);
   } catch (error: unknown) {

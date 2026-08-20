@@ -1265,6 +1265,20 @@ model Customer {
   // ("tashkent"), и повторять этот разнобой в новой колонке незачем.
   district     String?   @db.VarChar(80)
 
+  // ── Аудитория заведения: female | male | mixed. NULL — не выяснено ──
+  //
+  // Завелась ради фитнеса: женский и мужской зал — это разные закупщики,
+  // разное меню бара и разное предложение, а справочники (2ГИС, Google,
+  // Яндекс) пол зала не проставляют вовсе. Признак применим и шире — к
+  // тойхонам и семейным кафе, — поэтому это колонка, а не три отдельных
+  // значения `company_type`.
+  //
+  // `audienceSource` держит тот же инвариант, что `geoSource`: значение
+  // 'manual' автоматика не перезаписывает никогда. Без него ночной сбор
+  // затирал бы выясненное продавцом своей же догадкой по названию.
+  audience       String? @db.VarChar(10)
+  audienceSource String? @map("audience_source") @db.VarChar(10) // guess | manual
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
@@ -1279,6 +1293,8 @@ model Customer {
   @@index([phone])
   @@index([status])
   @@index([customerType])
+  @@index([companyType])
+  @@index([audience])
   @@index([city])
   @@index([district])
   @@index([geoSource])

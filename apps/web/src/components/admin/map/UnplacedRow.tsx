@@ -1,5 +1,6 @@
 'use client';
 
+import { companyTypeLabel } from '@/lib/customers/companyTypes';
 import { SEGMENT_META } from '@/lib/customers/segments';
 
 import { formatSum, type UnplacedCustomer } from './mapFeature';
@@ -27,7 +28,7 @@ const ellipsis: React.CSSProperties = {
   textOverflow: 'ellipsis',
 };
 
-export function UnplacedRow({ customer, placing, onPlace, onCancel, labels }: Props) {
+export function UnplacedRow({ customer, lang, placing, onPlace, onCancel, labels }: Props) {
   return (
     <div
       style={{
@@ -51,7 +52,18 @@ export function UnplacedRow({ customer, placing, onPlace, onCancel, labels }: Pr
       />
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 'var(--text-sm)', ...ellipsis }}>{customer.name}</div>
+        <div style={{ fontSize: 'var(--text-sm)', ...ellipsis }}>
+          {customer.name}
+          {/* Тип заведения подсказывает, где искать адрес: тойхону ищут по
+              трассе, а кофейню — в квартале. Ставить пин вслепую по одному
+              названию — это как раз тот случай, когда точка уезжает не туда. */}
+          {customer.companyType && (
+            <span style={{ color: 'var(--text-muted)' }}>
+              {' · '}
+              {companyTypeLabel(customer.companyType, lang)}
+            </span>
+          )}
+        </div>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', ...ellipsis }}>
           {customer.address || labels.noAddress} · {formatSum(customer.totalSpent)} сум
         </div>

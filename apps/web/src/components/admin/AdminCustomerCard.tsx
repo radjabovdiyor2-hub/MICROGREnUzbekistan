@@ -3,6 +3,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, ArrowLeft, Edit3, Gift, Phone, RefreshCw } from 'lucide-react';
 import type { CustomerCard } from '@/lib/customers/card';
+import {
+  AUDIENCE_RELEVANT,
+  audienceLabel,
+  companyTypeLabel,
+} from '@/lib/customers/companyTypes';
+import { districtLabel } from '@/lib/customers/districts';
 import { AdminCustomerOrders } from './AdminCustomerOrders';
 import { AdminCustomerActivity } from './AdminCustomerActivity';
 import { AdminCustomerPrices } from './AdminCustomerPrices';
@@ -43,8 +49,9 @@ function Stat({ label, value, hint, color }: {
   );
 }
 
-export function AdminCustomerCard({ customerId, onBack, onEdit }: {
+export function AdminCustomerCard({ customerId, lang, onBack, onEdit }: {
   customerId: number;
+  lang: 'ru' | 'uz';
   onBack: () => void;
   onEdit: (c: CustomerCard) => void;
 }) {
@@ -100,7 +107,23 @@ export function AdminCustomerCard({ customerId, onBack, onEdit }: {
             </h2>
             {data.companyName && (
               <div style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>
-                🏢 {data.companyName}{data.companyType ? ` · ${data.companyType}` : ''}
+                🏢 {data.companyName}
+                {/* Подпись, а не слаг. Здесь стояло сырое значение колонки,
+                    и владелец читал «Плов Центр · toyxona» — то же самое
+                    место, где во всех остальных экранах уже стоит перевод. */}
+                {data.companyType ? ` · ${companyTypeLabel(data.companyType, lang)}` : ''}
+                {data.companyType && AUDIENCE_RELEVANT.includes(data.companyType) && (
+                  <span style={{ color: data.audience ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
+                    {' · '}
+                    {audienceLabel(data.audience, lang)}
+                  </span>
+                )}
+                {data.district && (
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {' · '}
+                    {districtLabel(data.district, lang)}
+                  </span>
+                )}
               </div>
             )}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 'var(--text-sm)' }}>

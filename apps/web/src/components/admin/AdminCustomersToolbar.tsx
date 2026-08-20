@@ -2,6 +2,8 @@
 
 import { AlertCircle, List, MapPin, RefreshCw, Search, Users } from 'lucide-react';
 
+import { CustomerFilterSelects } from './CustomerFilterSelects';
+
 // Шапка раздела «Клиенты», сообщение об отказе загрузки, поиск и фильтры.
 // Вынесено из AdminCustomers: тот перерос 200 строк, когда к списку
 // добавилась карточка клиента.
@@ -33,11 +35,16 @@ interface Props {
   onRefresh: () => void;
   view: 'list' | 'map';
   onView: (view: 'list' | 'map') => void;
+  companyTypeFilter: string;
+  onCompanyType: (value: string) => void;
+  audienceFilter: string;
+  onAudience: (value: string) => void;
 }
 
 export function AdminCustomersToolbar({
   lang, loading, error, searchInput, setSearchInput,
   onSearch, statusFilter, onFilter, onRefresh, view, onView,
+  companyTypeFilter, onCompanyType, audienceFilter, onAudience,
 }: Props) {
   return (
     <>
@@ -138,6 +145,14 @@ export function AdminCustomersToolbar({
             }}
           />
         </form>
+
+        <CustomerFilterSelects
+          lang={lang}
+          companyType={companyTypeFilter}
+          onCompanyType={onCompanyType}
+          audience={audienceFilter}
+          onAudience={onAudience}
+        />
 
         <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 2 }}>
           {FILTERS.map((f) => (
