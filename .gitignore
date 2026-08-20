@@ -59,6 +59,8 @@ deploy_standalone/
 __pycache__/
 .venv/
 .test_venv/
+.ruff_cache/
+.pytest_cache/
 
 # AI agent configs (Spec Kit skills/commands версионируются, локальные настройки — нет)
 .gemini/*
