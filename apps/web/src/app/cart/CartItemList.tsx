@@ -34,7 +34,7 @@ export function CartItemList({ cart, fmt, t }: Props) {
             justifyContent: 'center', flexShrink: 0, color: 'var(--text-muted)',
           }}>
             {item.product.images && item.product.images.length > 0
-              ? <Image src={item.product.images[0]} alt={item.product.nameUz} width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-lg)' }} quality={70} unoptimized={item.product.images[0].startsWith('/uploads/') || item.product.images[0].startsWith('/products/')} />
+              ? <Image src={item.product.images[0]} alt={item.product.nameUz} width={72} height={72} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'var(--radius-lg)' }} quality={70} />
               : <Package size={32} />}
           </div>
           <div style={{ flex: 1 }}>

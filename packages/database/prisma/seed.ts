@@ -38,7 +38,7 @@ async function main() {
   ];
 
   for (const p of microProducts) {
-    const imgPath = `/uploads/${p.slug}.png`;
+    const imgPath = `/uploads/${p.slug}.webp`;
     const defaultSpecs = {
       "O'sish vaqti / Срок выращивания": "7-10 kun / 7-10 дней",
       "Vitaminlar / Витамины": "A, B, C, E, K, Sulforaphane",
@@ -75,12 +75,12 @@ async function main() {
   for (const p of babyProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 35000, images: ['/uploads/cat_babyleaf.png'] },
+      update: { price: 35000, images: ['/uploads/cat_babyleaf.webp'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 35000, costPrice: 15000,
         categoryId: baby.id, stock: 30, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: false, images: ['/uploads/cat_babyleaf.png'],
+        isFeatured: true, isOnSale: false, images: ['/uploads/cat_babyleaf.webp'],
       },
     });
   }
@@ -101,12 +101,12 @@ async function main() {
   for (const p of saladProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: 35000, images: ['/uploads/cat_salads.png'] },
+      update: { price: 35000, images: ['/uploads/cat_salads.webp'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: 35000, costPrice: 15000,
         categoryId: salad.id, stock: 25, brand: 'Microgreen UZ',
-        isFeatured: false, isOnSale: false, images: ['/uploads/cat_salads.png'],
+        isFeatured: false, isOnSale: false, images: ['/uploads/cat_salads.webp'],
       },
     });
   }
@@ -125,7 +125,7 @@ async function main() {
   ];
 
   for (const p of flowerProducts) {
-    const imgPath = `/uploads/${p.slug}.png`;
+    const imgPath = `/uploads/${p.slug}.webp`;
     await prisma.product.upsert({
       where: { slug: p.slug },
       update: { price: 35000, images: [imgPath] },
@@ -154,12 +154,12 @@ async function main() {
   for (const p of seedProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: p.price, images: ['/uploads/cat_seeds.png'] },
+      update: { price: p.price, images: ['/uploads/cat_seeds.webp'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         price: p.price, costPrice: Math.round(p.price * 0.4),
         categoryId: seed.id, stock: 100, brand: 'Microgreen UZ',
-        isFeatured: false, isOnSale: false, images: ['/uploads/cat_seeds.png'],
+        isFeatured: false, isOnSale: false, images: ['/uploads/cat_seeds.webp'],
       },
     });
   }
@@ -182,12 +182,12 @@ async function main() {
   for (const p of equipProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: p.price, costPrice: p.cost, images: ['/uploads/cat_equipment.png'] },
+      update: { price: p.price, costPrice: p.cost, images: ['/uploads/cat_equipment.webp'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: p.price, oldPrice: Math.round(p.price * 1.2), costPrice: p.cost,
         categoryId: equip.id, stock: 15, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: false, images: ['/uploads/cat_equipment.png'],
+        isFeatured: true, isOnSale: false, images: ['/uploads/cat_equipment.webp'],
       },
     });
   }
@@ -204,7 +204,7 @@ async function main() {
   ];
 
   for (const p of setProducts) {
-    const imgPath = p.slug === 'smart-farm-set' ? '/uploads/smart-farm-set.png' : `/uploads/${p.slug}.png`;
+    const imgPath = p.slug === 'smart-farm-set' ? '/uploads/smart-farm-set.webp' : `/uploads/${p.slug}.webp`;
     await prisma.product.upsert({
       where: { slug: p.slug },
       update: { price: p.price, costPrice: p.cost, images: [imgPath] },
@@ -231,12 +231,12 @@ async function main() {
   for (const p of serviceProducts) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: { price: p.price, costPrice: p.cost, images: ['/uploads/cat_equipment.png'] },
+      update: { price: p.price, costPrice: p.cost, images: ['/uploads/cat_equipment.webp'] },
       create: {
         nameUz: p.uz, nameRu: p.ru, slug: p.slug,
         descriptionUz: p.desc, price: p.price, costPrice: p.cost,
         categoryId: services.id, stock: 99, brand: 'Microgreen UZ',
-        isFeatured: true, isOnSale: false, images: ['/uploads/cat_equipment.png'],
+        isFeatured: true, isOnSale: false, images: ['/uploads/cat_equipment.webp'],
         specs: {
           "Xizmat turi / Вид услуги": "B2B & Personal",
           "Kafolat / Гарантия": "100% Sifat kafolati / 100% Гарантия качества",

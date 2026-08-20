@@ -29,7 +29,7 @@ const priceRe =
 const cardRe =
   /<div class="pc-img"><img src="([^"]+)"[^>]*>[\s\S]*?<div class="pc-n">([^<]*)<\/div>[\s\S]*?<div class="pc-nr">([^<]*)<\/div>[\s\S]*?<div class="pc-d">([\s\S]*?)<\/div>/g;
 
-const slugOf = (file: string) => file.replace(/\.png$/i, '').replace(/_/g, '-');
+const slugOf = (file: string) => file.replace(/\.(png|webp)$/i, '').replace(/_/g, '-');
 const attrOf = (tag: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
 
 interface Row {
@@ -85,7 +85,7 @@ describe('прайс-лист как источник каталога', () => {
   it('у каждой позиции есть цена, картинка и оба названия', () => {
     for (const row of priceRows()) {
       expect(row.price, `цена у «${row.nameRu}»`).toBeGreaterThan(0);
-      expect(row.file).toMatch(/\.png$/i);
+      expect(row.file).toMatch(/\.webp$/i);
       expect(row.nameRu.length).toBeGreaterThan(0);
       expect(row.nameUz.length).toBeGreaterThan(0);
     }
