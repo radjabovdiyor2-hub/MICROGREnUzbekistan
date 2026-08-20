@@ -1597,6 +1597,105 @@ async def geocode_status_endpoint(request: Request):
         return JSONResponse({"error": str(exc)}, status_code=500)
 
 
+# ─── Сбор справочника заведений по требованию ───
+# Ночная задача берёт по одной категории за ночь и закрывает справочник за
+# 19 ночей — это правильный режим для поддержания, но негодный для первого
+# наполнения: владелец открывает пустой раздел и ждёт три недели.
+#
+# Обход разбит на ШАГИ (категория × населённый пункт) и отдаётся наружу по
+# одному: полный проход — это сотни запросов к провайдеру с паузами, и в
+# один HTTP-вызов он не укладывается ни по таймауту, ни по здравому смыслу.
+# Веб-админка гоняет шаги подряд и рисует прогресс. Тот же приём, что у
+# геокодирования выше.
+#
+# План живёт ЗДЕСЬ, а не в TypeScript: список населённых пунктов уже
+# существует в двух экземплярах (`SAMARKAND_PLACES` и `districts.ts`), и
+# третий сделал бы расхождение неизбежным.
+def _collect_plan() -> list[tuple[str, str, str | None]]:
+    from shared.lead_gen import SAMARKAND_PLACES, VENUE_QUERIES
+
+    return [
+        (category, place, district)
+        for category in VENUE_QUERIES
+        for place, district in SAMARKAND_PLACES
+    ]
+
+
+@app.get("/admin/collect-venues/plan")
+async def collect_venues_plan(request: Request):
+    """Сколько всего шагов в полном обходе области и какие ключи включены."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from shared.config import settings
+        from shared.lead_gen import SAMARKAND_PLACES, VENUE_QUERIES
+
+        providers = [
+            name
+            for name, key in (
+                ("2gis", settings.dgis_api_key),
+                ("google_places", settings.google_places_api_key),
+                ("yandex_maps", settings.yandex_maps_api_key),
+            )
+            if key
+        ]
+        return JSONResponse(
+            {
+                "total": len(_collect_plan()),
+                "categories": len(VENUE_QUERIES),
+                "places": len(SAMARKAND_PLACES),
+                # Без единого ключа сбор вернёт нули и будет выглядеть как
+                # «в области нет заведений». Говорим об этом до запуска.
+                "providers": providers,
+            }
+        )
+    except Exception as exc:
+        logger.exception("Collect-plan: ошибка: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/admin/collect-venues")
+async def collect_venues_step(request: Request):
+    """Один шаг обхода: одна категория в одном населённом пункте."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    try:
+        from shared.lead_gen import collect_and_import_all
+
+        body = {}
+        try:
+            body = await request.json()
+        except Exception:  # noqa: BLE001 — пустое тело допустимо
+            body = {}
+
+        plan = _collect_plan()
+        step = int(body.get("step") or 0)
+        if step < 0 or step >= len(plan):
+            return JSONResponse(
+                {"error": f"шаг {step} вне плана из {len(plan)}"}, status_code=400
+            )
+
+        category, place, district = plan[step]
+        result = await collect_and_import_all(
+            categories=[category], places=[(place, district)]
+        )
+        return JSONResponse(
+            {
+                "ok": True,
+                "step": step,
+                "total": len(plan),
+                "done": step + 1 >= len(plan),
+                "category": category,
+                "place": place,
+                "inserted": result["inserted"],
+                "skipped": result["skipped"],
+            }
+        )
+    except Exception as exc:
+        logger.exception("Collect-venues: ошибка: %s", exc)
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
 # ── Department API ───────────────────────────────────────────
 # Юзернеймы берутся из реестра ботов — своей копии здесь больше нет.
 # В прежней копии контент и финансы были переставлены местами (карточка

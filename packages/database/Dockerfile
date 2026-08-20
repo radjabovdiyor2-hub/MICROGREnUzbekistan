@@ -28,6 +28,11 @@ COPY packages/database/prisma ./packages/database/prisma
 # которые сидеру не нужны.
 COPY apps/web/public/catalog/price-list.html apps/web/public/catalog/product-catalog.html ./apps/web/public/catalog/
 
+# Справочник заведений области: seed-venues.ts читает его по пути
+# ../../../content от prisma/. Копируем один файл, а не каталог целиком —
+# в content/ лежат сгенерированные макеты журнала, сидеру не нужные.
+COPY content/venues-samarkand.json ./content/
+
 # Клиент генерируется на сборке: сидеру он нужен готовым, а db push вызывается
 # с --skip-generate. Схему compose дополнительно монтирует поверх — при db push
 # правду говорит файл из git-копии сервера, а не запечённый в образ.
