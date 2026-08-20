@@ -45,9 +45,9 @@ interface Parsed {
   isHit: boolean;
 }
 
-/** `noxat_micro.png` → `noxat-micro`. Разводит тёзок: руккола есть и в
+/** `noxat_micro.webp` → `noxat-micro`. Разводит тёзок: руккола есть и в
  *  микрозелени, и в бейби-листе, а имена файлов уже различаются. */
-const slugOf = (file: string) => file.replace(/\.png$/i, '').replace(/_/g, '-');
+const slugOf = (file: string) => file.replace(/\.(png|webp)$/i, '').replace(/_/g, '-');
 
 const strip = (html: string) => html.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
 

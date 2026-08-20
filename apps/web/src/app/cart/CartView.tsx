@@ -157,7 +157,7 @@ export function CartView({ cart, recos, recosLoading, fmt, setStep }: Props) {
                       <div key={p.id} style={{ flexShrink: 0, width: 130, display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 'var(--space-2)', border: '1px solid var(--border)' }}>
                         <div style={{ width: '100%', height: 76, borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           {p.images && p.images.length > 0
-                            ? <Image src={p.images[0]} alt={p.nameUz} width={130} height={76} style={{ width: '100%', height: '100%', objectFit: 'cover' }} quality={60} unoptimized={!p.images[0].startsWith('https://') && !p.images[0].startsWith('http://')} />
+                            ? <Image src={p.images[0]} alt={p.nameUz} width={130} height={76} style={{ width: '100%', height: '100%', objectFit: 'cover' }} quality={60} />
                             : <Package size={24} style={{ color: 'var(--text-muted)' }} />}
                         </div>
                         <div style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-medium)', color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: 1.3 }}>
