@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { prisma } from '@repo/database';
 import { ProductPageClient } from './ProductPageClient';
+import { PUBLIC_PRODUCT_SELECT } from '@/lib/products/fields';
+import type { Product as PublicProduct } from './productDetailTypes';
 import { recipesForProduct, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { jsonLdScript } from '@/lib/seo/jsonLd';
@@ -67,13 +69,25 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
 
   // Fetch product server-side for JSON-LD (SEO structured data)
+  //
+  // Этот же результат уезжает в клиентский компонент пропсом. Раньше товар
+  // запрашивался ТРИЖДЫ за один просмотр: здесь, в generateMetadata и ещё раз
+  // с браузера через `/api/products?id=`. Третий запрос стоил посетителю
+  // полного круга до сервера уже ПОСЛЕ того, как страница отрисовалась.
+  //
+  // `select`, а не `include`: набор полей берётся из `PUBLIC_PRODUCT_SELECT`,
+  // и это не косметика. `include` тянул строку целиком, вместе с `costPrice`;
+  // отдать её в пропсах клиентского компонента значит впечатать закупочную
+  // цену в HTML, который читает кто угодно. Ровно от этого и написан
+  // `lib/products/fields.ts`.
   let jsonLd = null;
   let breadcrumb = null;
+  let initialProduct: PublicProduct | null = null;
   try {
     const product = await prisma.product.findUnique({
       where: { id },
-      include: {
-        category: true,
+      select: {
+        ...PUBLIC_PRODUCT_SELECT,
         // Latest reviews with text — rendered as schema.org Review for rich snippets
         reviews: {
           where: { comment: { not: null } },
@@ -85,6 +99,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     });
 
     if (product) {
+      const { reviews: _reviews, ...card } = product;
+      initialProduct = card as PublicProduct;
+
       const image = product.images?.[0] || `${DOMAIN}/hero-microgreens.png`;
       jsonLd = {
         '@context': 'https://schema.org',
@@ -171,7 +188,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumb) }}
         />
       )}
-      <ProductPageClient id={id} />
+      <ProductPageClient id={id} initialProduct={initialProduct} />
 
       {recipes.length > 0 && (
         <section className="container" style={{ paddingBottom: 'var(--space-8)' }}>

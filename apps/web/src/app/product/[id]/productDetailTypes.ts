@@ -15,5 +15,7 @@ export interface Product {
   specs: Record<string, string> | null;
   rating: number;
   reviewCount: number;
+  /** Метка «акция» — её носит и карточка в «недавно просмотренных». */
+  isOnSale?: boolean;
   category: { id: string; nameUz: string; nameRu: string; slug: string };
 }
