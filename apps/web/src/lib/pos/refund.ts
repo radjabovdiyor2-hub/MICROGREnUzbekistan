@@ -40,6 +40,10 @@ async function soldQuantities(saleNumber: string): Promise<Map<string, number>> 
   });
   const map = new Map<string, number>();
   for (const m of movements) {
+    // Товар удалён из каталога окончательно — возвращать остаток некуда,
+    // и в расчёт возврата такая позиция не входит. Движение при этом
+    // остаётся в истории: выручку по нему уже посчитали.
+    if (!m.productId) continue;
     map.set(m.productId, normalizeQty((map.get(m.productId) ?? 0) + Math.abs(m.quantity)));
   }
   return map;
@@ -56,6 +60,10 @@ async function refundedQuantities(saleNumber: string): Promise<Map<string, numbe
   // здесь поиск только по тексту.
   const map = new Map<string, number>();
   for (const m of movements) {
+    // Товар удалён из каталога окончательно — возвращать остаток некуда,
+    // и в расчёт возврата такая позиция не входит. Движение при этом
+    // остаётся в истории: выручку по нему уже посчитали.
+    if (!m.productId) continue;
     map.set(m.productId, normalizeQty((map.get(m.productId) ?? 0) + Math.abs(m.quantity)));
   }
   return map;

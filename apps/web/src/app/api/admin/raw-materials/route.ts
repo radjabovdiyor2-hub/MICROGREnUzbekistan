@@ -3,6 +3,7 @@ import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { receiveMaterial, lowStockMaterials } from '@/lib/production/rawMaterials';
+import { publish } from '@/lib/realtime/bus';
 
 // ══════════════════════════════════════════════════════════════════════
 // Склад сырья: семена, субстрат, лотки, упаковка.
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
         meta: { quantity, unitCost, avgCostAfter: result.avgCostAfter },
       });
 
+      publish('inventory', 'growing');
       return NextResponse.json({ status: 'ok', receipt: result });
     } catch (error) {
       console.error('Raw material receipt error:', error);
@@ -156,6 +158,7 @@ export async function POST(request: NextRequest) {
     target: material.id, meta: { name, kind: material.kind },
   });
 
+  publish('inventory', 'growing');
   return NextResponse.json({ status: 'ok', material });
 }
 
@@ -191,6 +194,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const material = await prisma.rawMaterial.update({ where: { id: String(body.id) }, data });
+  publish('inventory', 'growing');
   return NextResponse.json({ status: 'ok', material });
 }
 
@@ -224,6 +228,7 @@ export async function DELETE(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: id, meta: { name: material.name, reason: 'без движений' },
     });
+    publish('inventory', 'growing');
     return NextResponse.json({ status: 'ok', removed: true });
   }
 

@@ -1,106 +1,38 @@
 'use client';
 
+import { useState } from 'react';
+import { Toast } from '@/components/ui/Toast';
 import { AdminProductMetrics } from './AdminProductMetrics';
-
 import { AdminProductList } from './AdminProductList';
-
-import { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { AdminProductForm } from './AdminProductForm';
+import { AdminProductFilters } from './AdminProductFilters';
 import { uploadImage } from './productImages';
 import { useProductForm } from './useProductForm';
-import { AdminProductFilters } from './AdminProductFilters';
+import { useAdminProducts } from './useAdminProducts';
 
 import { type Product, type Category, EMPTY_FORM, type ProductForm } from './productTypes';
 export type { Product, Category, ProductForm };
 export { EMPTY_FORM };
 
-const ADMIN_PAGE_SIZE = 50;
+// Экран «Товары». Данные и мутации живут в `useAdminProducts` — здесь только
+// раскладка и диалоги подтверждения.
 
 export function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('');
   const [lang, setLang] = useState<'ru' | 'uz'>('ru');
   const [uploading, setUploading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
 
-
-  const fetchProducts = useCallback(async (pageNum = 1, append = false) => {
-    if (pageNum === 1) setLoading(true);
-    else setLoadingMore(true);
-    try {
-      const params = new URLSearchParams();
-      if (searchQuery) params.set('search', searchQuery);
-      if (categoryFilter) params.set('category', categoryFilter);
-      params.set('limit', String(ADMIN_PAGE_SIZE));
-      params.set('page', String(pageNum));
-      params.set('all', 'true');
-      const res = await fetch(`/api/products?${params}`);
-      const data = await res.json();
-      if (append) {
-        setProducts(prev => [...prev, ...(data.items || [])]);
-      } else {
-        setProducts(data.items || []);
-      }
-      setPage(data.pagination?.page || 1);
-      setTotalProducts(data.pagination?.total || 0);
-      setTotalPages(data.pagination?.totalPages || 1);
-    } catch (err) {
-      console.error('Products fetch error:', err);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [searchQuery, categoryFilter]);
+  const {
+    mode, setMode, searchInput, setSearchInput, categoryFilter, setCategoryFilter,
+    notice, setNotice, products, total, loading, loadingMore, hasMore, loadMore,
+    listError, counts, categories, remove, toggleActive, refreshAll,
+  } = useAdminProducts();
 
   const {
     showForm, setShowForm, editingId, form, setForm, saving, formError, setFormError,
     images, setImages, handleNameChange, removeImage, openAdd, openEdit, handleSubmit,
-  } = useProductForm(() => fetchProducts());
+  } = useProductForm(refreshAll);
 
-  const { data: counts = { total: 0, active: 0 } } = useQuery({
-    queryKey: ['admin-products-counts'],
-    queryFn: async () => {
-      const res = await fetch('/api/products?count=true');
-      const data = await res.json();
-      return { total: data.total || 0, active: data.active || 0 };
-    }
-  });
-
-  const { data: rawCategories = [] } = useQuery({
-    queryKey: ['admin-products-categories'],
-    queryFn: async () => {
-      const res = await fetch('/api/categories');
-      const data = await res.json();
-      return data.categories || [];
-    }
-  });
-  const categories: Category[] = rawCategories;
-
-  // Товары — с дебаунсом, и на первом рендере, и при смене фильтров.
-  // Раньше первый запрос уходил дважды: сразу на маунте и ещё раз по таймеру.
-  useEffect(() => {
-    const timer = setTimeout(() => fetchProducts(1), 300);
-    return () => clearTimeout(timer);
-  }, [fetchProducts]);
-
-  const toggleActive = async (product: Product) => {
-    try {
-      await fetch('/api/products', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: product.id, isActive: !product.isActive }),
-      });
-      fetchProducts();
-    } catch (err) {
-      console.error('Toggle error:', err);
-    }
-  };
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
   const uploadImageFile = async (file: File) => {
     setUploading(true);
@@ -111,14 +43,37 @@ export function AdminProducts() {
     setUploading(false);
   };
 
-  const deleteProduct = async (id: string) => {
-    if (!confirm("Bu tovarni o'chirmoqchimisiz?")) return;
-    try {
-      await fetch(`/api/products?id=${id}`, { method: 'DELETE' });
-      fetchProducts();
-    } catch (err) {
-      console.error('Delete error:', err);
-    }
+  /**
+   * Обычное «удалить». Диалог больше не обещает того, чего может не случиться:
+   * товар с продажами сервер снимет с продажи и уберёт в архив, а объяснение
+   * покажет тостом. Раньше здесь стояло «o'chirmoqchimisiz?» — и владелец,
+   * подтвердив удаление, видел товар на прежнем месте.
+   */
+  const deleteProduct = (id: string) => {
+    const ok = window.confirm(
+      t(
+        'Снять товар с продажи и убрать в архив? Если по нему не было продаж — он удалится сразу.',
+        "Tovarni sotuvdan olib, arxivga o'tkazamizmi? Sotuvlari bo'lmasa — butunlay o'chadi.",
+      ),
+    );
+    if (ok) remove.mutate({ id, force: false });
+  };
+
+  /**
+   * Удаление из архива — необратимое. История продаж переживает его: позиции
+   * заказов и движения склада сохраняют название в снимке (см. схему,
+   * `OrderItem.productName`), поэтому выручка прошлых месяцев не меняется.
+   */
+  const deleteForever = (product: Product) => {
+    const ok = window.confirm(
+      t(
+        `Удалить «${product.nameUz}» НАВСЕГДА?\n\nТовар исчезнет из каталога без возможности восстановить. ` +
+          `История продаж сохранится: в отчётах он останется под этим названием.`,
+        `«${product.nameUz}» BUTUNLAY o'chirilsinmi?\n\nTovar katalogdan qaytarib bo'lmaydigan tarzda yo'qoladi. ` +
+          `Sotuvlar tarixi saqlanadi: hisobotlarda shu nom bilan qoladi.`,
+      ),
+    );
+    if (ok) remove.mutate({ id: product.id, force: true });
   };
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
@@ -126,9 +81,7 @@ export function AdminProducts() {
   // Only top-level categories for filter (no duplicates from children)
   const topCategories = categories.filter(c => !categories.some(p => p.children?.some(ch => ch.id === c.id)));
   const allCategories = categories.flatMap(c => [c, ...(c.children || [])]);
-  const activeCount = counts.active;
   const lowStock = products.filter(p => p.stock < 10).length;
-  const hasMore = page < totalPages;
 
   const inputStyle = {
     width: '100%', padding: 'var(--space-2) var(--space-3)',
@@ -136,8 +89,6 @@ export function AdminProducts() {
     background: 'var(--bg-secondary)', color: 'var(--text-primary)',
     fontSize: 'var(--text-sm)', outline: 'none',
   };
-
-  const t = (ru: string, uz: string) => lang === 'ru' ? ru : uz;
 
   // ========== ADD/EDIT FORM ==========
   if (showForm) {
@@ -155,9 +106,25 @@ export function AdminProducts() {
   // ========== PRODUCT LIST ==========
   return (
     <div>
+      {notice && (
+        <Toast
+          inline
+          variant={notice.variant}
+          onClose={() => setNotice(null)}
+          style={{ marginBottom: 'var(--space-3)' }}
+        >
+          {notice.text}
+        </Toast>
+      )}
+      {listError && (
+        <Toast inline variant="error" style={{ marginBottom: 'var(--space-3)' }}>
+          {listError}
+        </Toast>
+      )}
+
       <AdminProductMetrics
         counts={counts}
-        activeCount={activeCount}
+        activeCount={counts.active}
         lowStock={lowStock}
         lang={lang}
         setLang={setLang}
@@ -165,23 +132,25 @@ export function AdminProducts() {
       />
       <AdminProductFilters
         topCategories={topCategories} categoryFilter={categoryFilter}
-        setCategoryFilter={setCategoryFilter} searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery} lang={lang} counts={counts} t={t} onAdd={openAdd} />
+        setCategoryFilter={setCategoryFilter} searchQuery={searchInput}
+        setSearchQuery={setSearchInput} lang={lang} counts={counts} t={t} onAdd={openAdd}
+        mode={mode} setMode={setMode} />
 
       <AdminProductList
         products={products}
         loading={loading}
         loadingMore={loadingMore}
         hasMore={hasMore}
-        page={page}
-        totalProducts={totalProducts}
+        totalProducts={total}
+        mode={mode}
         lang={lang}
         t={t}
         fmt={fmt}
         openEdit={openEdit}
-        toggleActive={toggleActive}
+        toggleActive={p => toggleActive.mutate(p)}
         deleteProduct={deleteProduct}
-        fetchProducts={fetchProducts}
+        deleteForever={deleteForever}
+        loadMore={loadMore}
       />
     </div>
   );

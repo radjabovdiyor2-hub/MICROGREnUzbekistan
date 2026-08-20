@@ -1,14 +1,25 @@
 'use client';
 
-import { Plus, Search } from 'lucide-react';
+import { Archive, Plus, Search, Store } from 'lucide-react';
+import type { ProductMode } from './useAdminProducts';
 
-// Фильтр по рубрикам и строка поиска над списком товаров.
+// Режим списка, фильтр по рубрикам и строка поиска над списком товаров.
 // Вынесено из AdminProducts: файл перерос 200 строк.
 
 interface Category { id: string; nameUz: string; nameRu: string }
 
+const chip = (active: boolean) => ({
+  padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '12px',
+  fontWeight: 600, border: '1.5px solid', whiteSpace: 'nowrap' as const,
+  cursor: 'pointer', transition: 'all 0.2s',
+  background: active ? 'var(--brand-primary)' : 'transparent',
+  color: active ? 'white' : 'var(--text-secondary)',
+  borderColor: active ? 'var(--brand-primary)' : 'var(--border)',
+});
+
 export function AdminProductFilters({
-  topCategories, categoryFilter, setCategoryFilter, searchQuery, setSearchQuery, lang, counts, t, onAdd,
+  topCategories, categoryFilter, setCategoryFilter, searchQuery, setSearchQuery,
+  lang, counts, t, onAdd, mode, setMode,
 }: {
   topCategories: Category[];
   categoryFilter: string;
@@ -16,21 +27,34 @@ export function AdminProductFilters({
   searchQuery: string;
   setSearchQuery: (v: string) => void;
   lang: 'ru' | 'uz';
-  counts: { total: number; active: number };
+  counts: { total: number; active: number; archived: number };
   t: (ru: string, uz: string) => string;
   onAdd: () => void;
+  mode: ProductMode;
+  setMode: (v: ProductMode) => void;
 }) {
   return (
     <>
+  {/* Режим: в продаже или архив.
+      Раньше списка было два состояния в одном: `all=true` показывал живые и
+      снятые вперемешку, и «удалённый» товар возвращался на экран следующим
+      же запросом — на глаз неотличимо от «удаление не сработало». */}
+  <div style={{ display: 'flex', gap: '6px', marginBottom: 'var(--space-2)' }}>
+    <button onClick={() => setMode('active')} style={{ ...chip(mode === 'active'), display: 'flex', alignItems: 'center', gap: 5 }}>
+      <Store size={13} /> {t('В продаже', 'Sotuvda')} ({counts.active})
+    </button>
+    <button onClick={() => setMode('archived')} style={{ ...chip(mode === 'archived'), display: 'flex', alignItems: 'center', gap: 5 }}>
+      <Archive size={13} /> {t('Архив', 'Arxiv')} ({counts.archived})
+    </button>
+  </div>
+
   {/* Category Filter — top-level only, no duplicates */}
   <div style={{ display: 'flex', gap: '6px', marginBottom: 'var(--space-2)', overflowX: 'auto', paddingBottom: 4 }}>
-    <button onClick={() => setCategoryFilter('')}
-      style={{ padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '12px', fontWeight: 600, border: '1.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', background: !categoryFilter ? 'var(--brand-primary)' : 'transparent', color: !categoryFilter ? 'white' : 'var(--text-secondary)', borderColor: !categoryFilter ? 'var(--brand-primary)' : 'var(--border)' }}>
-      {t('Все', 'Barchasi')} ({counts.total})
+    <button onClick={() => setCategoryFilter('')} style={chip(!categoryFilter)}>
+      {t('Все', 'Barchasi')}
     </button>
     {topCategories.map(c => (
-      <button key={c.id} onClick={() => setCategoryFilter(c.id)}
-        style={{ padding: '5px 12px', borderRadius: 'var(--radius-full)', fontSize: '12px', fontWeight: 600, border: '1.5px solid', whiteSpace: 'nowrap', cursor: 'pointer', transition: 'all 0.2s', background: categoryFilter === c.id ? 'var(--brand-primary)' : 'transparent', color: categoryFilter === c.id ? 'white' : 'var(--text-secondary)', borderColor: categoryFilter === c.id ? 'var(--brand-primary)' : 'var(--border)' }}>
+      <button key={c.id} onClick={() => setCategoryFilter(c.id)} style={chip(categoryFilter === c.id)}>
         {lang === 'ru' ? (c.nameRu || c.nameUz) : c.nameUz}
       </button>
     ))}

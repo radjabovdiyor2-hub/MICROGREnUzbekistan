@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Truck } from 'lucide-react';
 import { AdminDeliveryForm } from './AdminDeliveryForm';
 
@@ -22,22 +23,21 @@ interface DeliveryStop {
 }
 
 export function AdminDeliveries() {
-  const [routes, setRoutes] = useState<DeliveryRoute[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const reload = () => {
-    fetch('/api/admin/deliveries')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setRoutes(data);
-      })
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(reload, []);
+  const { data: routes = [], isPending: loading } = useQuery<DeliveryRoute[]>({
+    queryKey: ['admin-deliveries'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/deliveries', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Не удалось загрузить маршруты');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
+  const reload = () => queryClient.invalidateQueries({ queryKey: ['admin-deliveries'] });
 
   const create = async (body: Record<string, unknown>) => {
     setSaving(true);

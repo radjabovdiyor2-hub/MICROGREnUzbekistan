@@ -1,5 +1,6 @@
 import { prisma } from '@repo/database';
 import { lineTotal } from '@/lib/qty';
+import { soldProductName } from '@/lib/products/sold';
 
 // ══════════════════════════════════════════════════════════════════════
 // Единственное определение «что такое продажа» на всю витрину.
@@ -55,7 +56,11 @@ export type SaleChannel = 'online' | 'pos';
 
 /** Проданная позиция — ровно один раз, из ровно одного источника. */
 export interface SaleLine {
-  productId: string;
+  /**
+   * Пустой — товар удалён из каталога окончательно. Продажа при этом
+   * остаётся: название берётся из снимка, см. `lib/products/sold`.
+   */
+  productId: string | null;
   productName: string;
   quantity: number;
   revenue: number;
@@ -78,7 +83,8 @@ export interface OrderLine {
 }
 
 export interface ReturnLine {
-  productId: string;
+  /** Пустой у удалённого товара — см. `SaleLine.productId`. */
+  productId: string | null;
   productName: string;
   quantity: number;
   amount: number;
@@ -90,7 +96,7 @@ export interface SalesLedger {
   orders: OrderLine[];
   returns: ReturnLine[];
   /** Себестоимость единицы: последняя закупка → карточка товара → 0. */
-  costOf: (productId: string) => number;
+  costOf: (productId: string | null) => number;
 }
 
 /**
@@ -110,6 +116,7 @@ async function buildCostMap(): Promise<Map<string, number>> {
     orderBy: { createdAt: 'desc' },
   });
   for (const m of purchases) {
+    if (!m.productId) continue;
     if (!costMap.has(m.productId) && m.costPrice) costMap.set(m.productId, m.costPrice);
   }
 
@@ -164,7 +171,9 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
     buildCostMap(),
   ]);
 
-  const costOf = (productId: string) => costMap.get(productId) ?? 0;
+  // У удалённого товара связи не осталось, а значит и себестоимости:
+  // ноль здесь честнее подстановки чужой закупки.
+  const costOf = (productId: string | null) => (productId ? costMap.get(productId) ?? 0 : 0);
 
   const sales: SaleLine[] = [];
   const orderLines: OrderLine[] = [];
@@ -185,7 +194,7 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
     for (const item of order.items) {
       sales.push({
         productId: item.productId,
-        productName: item.product?.nameUz ?? 'Tovar',
+        productName: soldProductName(item),
         quantity: item.quantity,
         revenue: lineTotal(item.price, item.quantity),
         cost: lineTotal(costOf(item.productId), item.quantity),
@@ -199,10 +208,10 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
     const quantity = Math.abs(m.quantity);
     // Цена и себестоимость зафиксированы в момент продажи — берём их, а не
     // сегодняшний прайс: иначе вчерашняя выручка менялась бы при смене цены.
-    const unitCost = m.costPrice ?? m.product.costPrice ?? costOf(m.productId);
+    const unitCost = m.costPrice ?? m.product?.costPrice ?? costOf(m.productId);
     sales.push({
       productId: m.productId,
-      productName: m.product.nameUz,
+      productName: soldProductName(m),
       quantity,
       revenue: Math.round(quantity * (m.salePrice ?? 0)),
       cost: Math.round(quantity * unitCost),
@@ -215,11 +224,12 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
     const quantity = Math.abs(m.quantity);
     return {
       productId: m.productId,
-      productName: m.product.nameUz,
+      productName: soldProductName(m),
       quantity,
       // salePrice пишется при возврате; без него берём прайс — но это уже
-      // приближение, и оно видно в данных, а не спрятано.
-      amount: Math.round(quantity * (m.salePrice ?? m.product.price)),
+      // приближение, и оно видно в данных, а не спрятано. У удалённого товара
+      // прайса не осталось вовсе, и тогда честнее ноль, чем выдуманное число.
+      amount: Math.round(quantity * (m.salePrice ?? m.product?.price ?? 0)),
       at: m.soldAt ?? m.createdAt,
     };
   });

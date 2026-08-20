@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useSuppliers } from './useAdminReferences';
 import type { Dispatch, SetStateAction } from 'react';
 
 // Форма добавления долга. Показывается по флагу showAdd.
@@ -16,7 +16,6 @@ export interface DebtDraft {
   supplierId: string;
 }
 
-interface Supplier { id: string; name: string; phone: string | null }
 
 interface Props {
   showAdd: boolean;
@@ -32,13 +31,9 @@ export function AdminDebtForm({ showAdd, setShowAdd, activeTab, newDebt, setNewD
   // связь `Debt.supplierId`, и API её принимает — а форма имя поставщика
   // спрашивала текстом, из-за чего долги оставались без привязки и свод по
   // поставщику собрать было нельзя.
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-
-  useEffect(() => {
-    if (activeTab !== 'WE_OWE') return;
-    fetch('/api/inventory/suppliers').then(r => r.json())
-      .then(d => setSuppliers(d.suppliers ?? [])).catch(() => {});
-  }, [activeTab]);
+  // Раньше список тянулся только на вкладке «мы должны» — с общим кэшем
+  // условие не нужно: запрос всё равно один на всю админку.
+  const suppliers = useSuppliers();
 
   const field = {
     padding: 'var(--space-2)', border: '1px solid var(--border)',

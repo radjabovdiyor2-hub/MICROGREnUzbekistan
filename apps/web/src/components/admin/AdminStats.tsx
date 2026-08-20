@@ -3,7 +3,7 @@
 import { AdminStatsRevenue } from './AdminStatsRevenue';
 import { AdminGrowSummary } from './AdminGrowSummary';
 
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Banknote, RefreshCw, ShoppingCart, TrendingUp,
 } from 'lucide-react';
@@ -12,21 +12,24 @@ import { type StatsData } from './statsTypes';
 export type { StatsData };
 
 export function AdminStats() {
-  const [stats, setStats] = useState<StatsData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchStats() {
-      try {
+  // React Query, а не useState + useEffect: сводку открывают и закрывают
+  // чаще любого другого экрана, а роутер вкладок размонтирует её целиком.
+  // Кэш переживает уход на другую вкладку, поэтому возврат рисуется сразу;
+  // а инвалидация по событию (`useRealtime`, темы orders/inventory) держит
+  // цифры свежими без опроса и без F5.
+  const { data: stats = null, isPending: loading } = useQuery<StatsData>({
+    queryKey: ['admin-stats'],
+    queryFn: async () => {
         // Один источник на весь экран. Раньше здесь склеивались четыре
         // эндпоинта: /api/orders (без limit — то есть первые 20 заказов),
         // /api/products, /api/inventory/pos (сутки по UTC) и аналитика
         // (сутки по местному времени). Числа на соседних плитках считались
         // по разным данным за разные сутки и сойтись не могли.
         const res = await fetch('/api/inventory/analytics?section=revenue');
+        if (!res.ok) throw new Error('Не удалось загрузить сводку');
         const d = await res.json();
 
-        setStats({
+        return {
           todayTotalRevenue: d.todayRevenue || 0,
           todayGoodsPos: d.todayGoodsPos || 0,
           todayGoodsOnline: d.todayGoodsOnline || 0,
@@ -47,15 +50,9 @@ export function AdminStats() {
           pendingOrders: d.pendingOrders || 0,
           deliveringOrders: d.deliveringOrders || 0,
           activeProducts: d.activeProducts || 0,
-        });
-      } catch (err) {
-        console.error('Stats fetch error:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStats();
-  }, []);
+        };
+    },
+  });
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 

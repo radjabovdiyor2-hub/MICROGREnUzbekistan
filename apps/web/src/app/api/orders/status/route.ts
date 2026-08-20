@@ -4,6 +4,8 @@ import { prisma, OrderStatus } from '@repo/database';
 import { notifyCustomer } from '@/lib/notify';
 import { customerStatusText } from '@/lib/orderSync';
 import { restoreStockForCancelledOrder } from '@/lib/orders/cancel';
+import { publish } from '@/lib/realtime/bus';
+import { detach } from '@/lib/background';
 
 // ==========================================
 // Reverse status sync: AI-office -> storefront.
@@ -93,9 +95,14 @@ export async function POST(request: NextRequest) {
     });
 
     if (order.user?.telegramId) {
-      await notifyCustomer(
-        order.user.telegramId,
-        customerStatusText(order.orderNumber, order.status, order.user.language),
+      // В фоне: офис ждёт подтверждения записи, а не доставки сообщения
+      // клиенту. Раньше его цикл разбора outbox стоял на этом вызове.
+      detach(
+        `статус ${order.orderNumber} клиенту`,
+        notifyCustomer(
+          order.user.telegramId,
+          customerStatusText(order.orderNumber, order.status, order.user.language),
+        ),
       );
     }
 
@@ -107,6 +114,11 @@ export async function POST(request: NextRequest) {
         console.error('Stock restore on office cancel failed:', err),
       );
     }
+
+    // Это ЕДИНСТВЕННАЯ дверь, которой офис меняет заказ на витрине. Без
+    // события открытая админка узнавала бы о смене статуса только по F5 —
+    // при том, что сам офис уже всё знает.
+    publish('orders', 'inventory');
 
     return NextResponse.json({ status: 'ok', order: { orderNumber: order.orderNumber, status: order.status } });
   } catch (error) {

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminPOSReceipt } from './AdminPOSReceipt';
 import { AdminPOSProducts } from './AdminPOSProducts';
 import { AdminPOSCart } from './AdminPOSCart';
@@ -12,10 +13,10 @@ import { AdminPOSChrome } from './AdminPOSChrome';
 
 
 export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string; isOwner?: boolean }) {
-  const [products, setProducts] = useState<Product[]>([]);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [loading, setLoading] = useState(false);
   const [returnMode, setReturnMode] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
@@ -34,26 +35,28 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
-  const fetchProducts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (searchQuery) params.set('search', searchQuery);
-      params.set('limit', '50');
-      const res = await fetch(`/api/products?${params}`);
-      const data = await res.json();
-      setProducts(data.items || []);
-    } catch (err) {
-      console.error('Products fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
+  // Дебаунс — на ВВОД, а не на запрос. Прежний таймер стоял на самом
+  // `fetchProducts`, поэтому касса ждала 300 мс даже при первом открытии,
+  // когда искать ещё нечего.
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => {
-    const timer = setTimeout(() => fetchProducts(), 300);
-    return () => clearTimeout(timer);
-  }, [fetchProducts]);
+  // Тот же ключ, что у экрана «Товары»: продажа и правка карточки
+  // инвалидируют его одинаково, и касса подхватывает новую цену сразу.
+  const { data: products = [], isPending: loading } = useQuery<Product[]>({
+    queryKey: ['admin-products', 'pos', debouncedSearch],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      params.set('limit', '50');
+      const res = await fetch(`/api/products?${params}`, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Не удалось загрузить товары');
+      const data = await res.json();
+      return (data.items || []) as Product[];
+    },
+  });
 
   // Оформление чека вынесено в хук: вместе с уступкой, деловой датой и
   // автором продажи оно перестало помещаться в этот файл.
@@ -63,7 +66,9 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
     clearCart: () => setCart([]),
     sellerName: sellerName || 'Egasi',
     fmt,
-    onDone: fetchProducts,
+    // После чека остатки изменились — сбрасываем ВЕСЬ куст `admin-products`,
+    // а не только список кассы: тот же товар открыт на «Товарах» и на складе.
+    onDone: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
   });
 
   const { copied, isCapturing, handlePrint, handleCopyImage, handleShareImage } =

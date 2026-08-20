@@ -2,7 +2,7 @@
 
 import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 import { CheckCircle, Leaf, Plus } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   CROP_DB,
   fetchCropNorms,
@@ -60,11 +60,12 @@ interface Props {
 }
 
 export function AdminGrowingForm({ showForm, setShowForm, editingId, setEditingId, products, selectedProductId, setSelectedProductId, cropType, setCropType, trays, setTrays, seedDate, setSeedDate, harvestQty, setHarvestQty, costPriceInput, setCostPriceInput, note, setNote, customDark, setCustomDark, customLight, setCustomLight, customShelf, setCustomShelf, addBatch, requirements, estimatedCost, plantError, inputStyle }: Props) {
-  const [norms, setNorms] = useState<CropNorm[]>([]);
-
-  useEffect(() => {
-    fetchCropNorms().then(setNorms).catch(() => {});
-  }, []);
+  // Тот же ключ, что у формы сырья: справочник норм один, и запрашивать его
+  // дважды при открытии двух форм подряд незачем.
+  const { data: norms = [] } = useQuery<CropNorm[]>({
+    queryKey: ['admin-crop-norms'],
+    queryFn: fetchCropNorms,
+  });
 
   // Пока нормы не пришли — показываем константу, чтобы форма не была пустой.
   const options = norms.length

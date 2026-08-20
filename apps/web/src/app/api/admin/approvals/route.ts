@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
+import { publish } from '@/lib/realtime/bus';
 
 // ══════════════════════════════════════════════════════════════════════
 // Очередь заявок, ждущих решения владельца.
@@ -68,6 +69,7 @@ export async function DELETE(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: `#${id}`, meta: { kind: removed.kind, bot: removed.botName },
     });
+    publish('tasks');
     return NextResponse.json({ status: 'ok' });
   } catch {
     return NextResponse.json({ error: 'Заявка не найдена' }, { status: 404 });

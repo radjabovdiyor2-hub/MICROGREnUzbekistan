@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Network } from 'lucide-react';
 
 interface FranchiseJournal {
@@ -14,32 +15,20 @@ interface FranchiseJournal {
 }
 
 export function AdminFranchise() {
-  const [entries, setEntries] = useState<FranchiseJournal[]>([]);
-  const [loading, setLoading] = useState(true);
   const [cityFilter, setCityFilter] = useState('');
 
-  useEffect(() => {
-    let active = true;
-    let url = '/api/admin/franchise';
-    if (cityFilter) url += `?city=${cityFilter}`;
-    
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(url);
-        const data = await res.json();
-        if (active && Array.isArray(data)) setEntries(data);
-      } catch (_err) {
-        // ignore
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    
-    fetchData();
-      
-    return () => { active = false; };
-  }, [cityFilter]);
+  // Отмена «устаревшего» ответа флагом `active` больше не нужна: гонку между
+  // сменами города разруливает сам ключ кэша.
+  const { data: entries = [], isPending: loading } = useQuery<FranchiseJournal[]>({
+    queryKey: ['admin-franchise', cityFilter],
+    queryFn: async () => {
+      const url = cityFilter ? `/api/admin/franchise?city=${cityFilter}` : '/api/admin/franchise';
+      const res = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('Не удалось загрузить журнал франшизы');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+  });
 
   return (
     <div>

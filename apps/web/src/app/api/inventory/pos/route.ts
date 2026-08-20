@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { processSale } from '@/lib/pos/sale';
 import { processRefund } from '@/lib/pos/refund';
+import { publish } from '@/lib/realtime/bus';
 import { byBusinessDate, localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
 
 // ==========================================
@@ -14,7 +15,10 @@ import { byBusinessDate, localDayRange, formatLocalDate } from '@/lib/revenue/sa
 // POST — Process a store sale (multiple items at once)
 export async function POST(request: NextRequest) {
   try {
-    return await processSale(request);
+    const res = await processSale(request);
+    // Продажа меняет и остаток, и выручку дня — обе темы разом.
+    if (res.ok) publish('inventory', 'products', 'orders');
+    return res;
   } catch (error) {
     console.error('POS sale error:', error);
     return NextResponse.json({ error: 'Xatolik yuz berdi' }, { status: 500 });
@@ -24,7 +28,9 @@ export async function POST(request: NextRequest) {
 // PUT — Process a product return
 export async function PUT(request: NextRequest) {
   try {
-    return await processRefund(request);
+    const res = await processRefund(request);
+    if (res.ok) publish('inventory', 'products', 'orders');
+    return res;
   } catch (error) {
     console.error('POS return error:', error);
     return NextResponse.json({ error: 'Xatolik yuz berdi' }, { status: 500 });
@@ -99,7 +105,7 @@ export async function GET(request: NextRequest) {
     }
     const sale = salesMap.get(saleNum)!;
     sale.items.push(m);
-    sale.total += Math.round(Math.abs(m.quantity) * (m.salePrice || m.product.price));
+    sale.total += Math.round(Math.abs(m.quantity) * (m.salePrice || m.product?.price || 0));
   }
 
   // Group returns by return number
@@ -113,7 +119,7 @@ export async function GET(request: NextRequest) {
     }
     const ret = returnsMap.get(retNum)!;
     ret.items.push(m);
-    ret.total += Math.round(Math.abs(m.quantity) * (m.salePrice || m.product.price));
+    ret.total += Math.round(Math.abs(m.quantity) * (m.salePrice || m.product?.price || 0));
   }
 
   const sales = Array.from(salesMap.entries()).map(([number, data]) => ({

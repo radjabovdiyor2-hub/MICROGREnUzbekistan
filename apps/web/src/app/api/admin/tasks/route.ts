@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { officeFetch } from '@/lib/office/client';
+import { publish } from '@/lib/realtime/bus';
 
 // ══════════════════════════════════════════════════════════════════════
 // Задачи отделам.
@@ -185,6 +186,7 @@ export async function PATCH(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: `#${id}`, meta: data,
     });
+    publish('tasks');
     return NextResponse.json({ status: 'ok', task: updated });
   } catch {
     return NextResponse.json({ error: 'Задача не найдена' }, { status: 404 });

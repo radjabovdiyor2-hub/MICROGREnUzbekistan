@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { ALL_TABS } from './adminTabs';
 import type { StaffRole } from './useAdminAuth';
 
@@ -19,6 +19,23 @@ import type { StaffRole } from './useAdminAuth';
 // Параметры переживают экран пароля сами: вход идёт fetch'ем без
 // навигации (useAdminAuth), адресная строка не меняется — поэтому здесь
 // важно читать их реактивно, а не один раз при монтировании.
+//
+// ПОЧЕМУ НЕ router.replace
+//
+// Он здесь стоял, и каждое нажатие вкладки стоило похода на сервер.
+// Страница объявлена `export const dynamic = 'force-dynamic'` (page.tsx):
+// на любую навигацию Next заново читает cookie, проверяет подпись сессии,
+// рендерит дерево и стримит RSC-ответ — и только потом меняется экран.
+// Это и была «медленная кнопка»: сорок вкладок, каждая через сеть, хотя
+// сама вкладка — чистое клиентское состояние, и сервер о ней ничего нового
+// сказать не может.
+//
+// `window.history.replaceState` меняет адрес БЕЗ обращения к серверу, и
+// Next 16 это поддерживает штатно: «pushState and replaceState calls
+// integrate into the Next.js Router, allowing you to sync with usePathname
+// and useSearchParams» (docs/01-app/01-getting-started/04-linking-and-navigating,
+// раздел Native History API). Поэтому `useSearchParams` ниже по-прежнему
+// видит смену вкладки, а ссылки из Telegram работают как работали.
 // ══════════════════════════════════════════════════════════════════════
 
 /** Куда открывать админку, если вкладка не задана. */
@@ -27,7 +44,6 @@ function defaultTab(role: StaffRole | null): string {
 }
 
 export function useAdminTab(initialRole: StaffRole | null) {
-  const router = useRouter();
   const params = useSearchParams();
 
   const requested = params.get('tab');
@@ -39,18 +55,15 @@ export function useAdminTab(initialRole: StaffRole | null) {
     return defaultTab(initialRole);
   }, [requested, initialRole]);
 
-  const openTab = useCallback(
-    (id: string) => {
-      const next = new URLSearchParams(params.toString());
-      next.set('tab', id);
-      // Смена вкладки — не отдельный шаг истории: иначе «назад» в браузере
-      // и в Telegram Mini App отматывал бы по одной вкладке за нажатие.
-      // `focus` снимаем: он относился к прошлому экрану.
-      next.delete('focus');
-      router.replace(`/admin?${next.toString()}`, { scroll: false });
-    },
-    [params, router],
-  );
+  const openTab = useCallback((id: string) => {
+    const next = new URLSearchParams(window.location.search);
+    next.set('tab', id);
+    // Смена вкладки — не отдельный шаг истории: иначе «назад» в браузере
+    // и в Telegram Mini App отматывал бы по одной вкладке за нажатие.
+    // `focus` снимаем: он относился к прошлому экрану.
+    next.delete('focus');
+    window.history.replaceState(null, '', `/admin?${next.toString()}`);
+  }, []);
 
   return { activeTab, focus: params.get('focus') ?? '', openTab };
 }

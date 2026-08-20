@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useSuppliers } from './useAdminReferences';
 import { BULK_KINDS, type RawMaterial } from './rawMaterialTypes';
 import { fetchCropNorms, type CropNorm } from './growingData';
 import { NewRawMaterialFields, RawMaterialReceiptFields } from './AdminRawMaterialFields';
@@ -8,11 +10,6 @@ import { NewRawMaterialFields, RawMaterialReceiptFields } from './AdminRawMateri
 // Форма выполняет две задачи: завести позицию сырья и оприходовать приход.
 // `material` задан → приход по нему; `null` → заведение новой позиции.
 // Сами поля живут в AdminRawMaterialFields — здесь состояние и отправка.
-
-interface Supplier {
-  id: string;
-  name: string;
-}
 
 interface Props {
   material: RawMaterial | null;
@@ -41,20 +38,15 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   const [onCredit, setOnCredit] = useState(false);
   // Единица ВВОДА прихода. Хранение всегда в граммах; килограммы переводим.
   const [intakeUnit, setIntakeUnit] = useState<'g' | 'kg'>('kg');
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const suppliers = useSuppliers();
 
-  const [norms, setNorms] = useState<CropNorm[]>([]);
-
-  useEffect(() => {
-    fetch('/api/inventory/suppliers', { credentials: 'same-origin' })
-      .then((r) => r.json())
-      .then((d) => setSuppliers(d.suppliers ?? []))
-      .catch(() => {});
-    // Культуры — из справочника норм, а не из головы. Поле было свободным,
-    // и «Амарант» по-русски прошло валидацию, но посадка ищет `amaranth`
-    // точным совпадением и семян не находила.
-    fetchCropNorms().then(setNorms).catch(() => {});
-  }, []);
+  // Культуры — из справочника норм, а не из головы. Поле было свободным,
+  // и «Амарант» по-русски прошло валидацию, но посадка ищет `amaranth`
+  // точным совпадением и семян не находила.
+  const { data: norms = [] } = useQuery<CropNorm[]>({
+    queryKey: ['admin-crop-norms'],
+    queryFn: fetchCropNorms,
+  });
 
   // Килограммы → граммы: и количество, и цена. Цена за килограмм делится
   // на 1000, иначе средневзвешенная себестоимость вырастет в тысячу раз.

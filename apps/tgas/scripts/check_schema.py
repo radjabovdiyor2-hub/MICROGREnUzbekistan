@@ -508,11 +508,27 @@ def insert_columns(sql: str) -> tuple[str, set[str]] | None:
 EXTRACT_RE = re.compile(r"(?i)\bEXTRACT\s*\([^)]*\)")
 TABLE_RE = re.compile(r"(?i)\b(FROM|JOIN|INTO|UPDATE)\s+([a-z_][a-z0-9_]*)(\()?")
 
+# Имена общих табличных выражений: `WITH src AS (…)`, `WITH a AS (…), b AS (…)`.
+#
+# Такое имя живёт ровно один запрос, и в schema.prisma его быть НЕ ДОЛЖНО. Без
+# этого разбора сверка требовала объявить `src` таблицей — то есть запрещала
+# обычный `WITH`, хотя именно он заменяет цикл по строкам одним запросом
+# (`shared/catalog_sync.py`, синк каталога в зеркало CRM).
+CTE_RE = re.compile(r"(?is)\b(?:WITH|,)\s+([a-z_][a-z0-9_]*)\s+AS\s*\(")
+
+
+def cte_names(sql: str) -> set[str]:
+    """Имена CTE запроса — это не таблицы базы."""
+    if not re.search(r"(?i)\bWITH\s+[a-z_]", sql):
+        return set()
+    return {m.group(1).lower() for m in CTE_RE.finditer(sql)}
+
 
 def tables_used(sql: str) -> set[str]:
-    """Имена таблиц из FROM/JOIN/INTO/UPDATE."""
+    """Имена таблиц из FROM/JOIN/INTO/UPDATE, без имён CTE."""
     s = EXTRACT_RE.sub(" ", sql)
     s = re.sub(r"'[^']*'", " ", s)
+    local = cte_names(s)
     out: set[str] = set()
     for m in TABLE_RE.finditer(s):
         kw, name, paren = m.group(1).upper(), m.group(2).lower(), m.group(3)
@@ -523,6 +539,8 @@ def tables_used(sql: str) -> set[str]:
             continue
         if name in SQL_WORDS or name in SQL_CONSTANTS:
             continue  # «DO UPDATE SET», «INSERT INTO ... SELECT»
+        if name in local:
+            continue  # имя из `WITH … AS (…)`: существует только внутри запроса
         out.add(name)
     return out
 

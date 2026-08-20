@@ -91,6 +91,11 @@ model Product {
   @@index([categoryId, isActive])
   @@index([slug])
   @@index([isActive, isFeatured])
+  /// Сортировки каталога `newest` и `price_asc`/`price_desc`
+  /// (`apps/web/src/app/api/products/route.ts`). Без них любая сортировка,
+  /// кроме «сначала избранные», шла сканом с последующим sort.
+  @@index([createdAt])
+  @@index([price])
   @@map("products")
 }
 
@@ -258,11 +263,28 @@ enum PaymentStatus {
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String  @map("order_id")
-  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId String  @map("product_id")
-  product   Product @relation(fields: [productId], references: [id])
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  /// Товар может быть удалён из каталога окончательно — позиция остаётся.
+  ///
+  /// Было `Product` с политикой по умолчанию (`Restrict`): удаление товара
+  /// с продажами падало по внешнему ключу, а админка вместо ошибки показывала
+  /// товар на прежнем месте. Снять запрет, не тронув связь, было нельзя:
+  /// `SetNull` без снимка названия оставил бы в отчёте безымянную строку.
+  /// Тот же приём уже применён у `RecipeIngredient`.
+  productId String?  @map("product_id")
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  /// Название товара на момент продажи.
+  ///
+  /// Цену позиция снимает давно (`price` ниже) — по той же причине: прайс
+  /// с тех пор менялся. Название до сих пор читалось из живой связи, поэтому
+  /// удаление товара стирало из отчёта не только его, но и смысл строки.
+  /// Заполняется при создании заказа и при окончательном удалении товара;
+  /// строкам, созданным до появления колонки, — `backfill-product-names.ts`.
+  productName String? @map("product_name")
   /// Дробное количество: 1.3 кг салата — одна позиция, а не «1» или «2».
   /// Цена остаётся целой (сумы); сумма позиции округляется РОВНО ОДИН РАЗ,
   /// в `lib/qty.ts#lineTotal` — иначе сохранённый `Order.total` разойдётся
@@ -270,6 +292,11 @@ model OrderItem {
   quantity  Decimal @db.Decimal(10, 2)
   price     Int // Цена на момент заказа
 
+  /// Индексов не было ни одного, а Postgres не индексирует внешние ключи сам.
+  /// Из-за этого `count(where: productId)` в обработчике удаления товара и
+  /// каждый `include: { items }` в книге продаж шли сканом всей таблицы.
+  @@index([orderId])
+  @@index([productId])
   @@map("order_items")
 }
 
@@ -386,8 +413,20 @@ model Shift {
 
 model StockMovement {
   id          String       @id @default(cuid())
-  productId   String       @map("product_id")
-  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// БЫЛО `onDelete: Cascade` — и это стирало книгу продаж молча.
+  ///
+  /// Движения с `type: OUT` и заполненным `salePrice` — это и есть продажи
+  /// кассы, из которых `lib/revenue/salesLedger.ts` считает выручку. Каскад
+  /// означал: удалили товар — выручка за прошлые месяцы уменьшилась, без
+  /// единой ошибки в логе. Единственным, что этого не допускало, был запрет
+  /// на удаление в API; запрет снят осознанно, поэтому защиту держит схема.
+  productId   String?      @map("product_id")
+  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  /// Название товара на момент движения — см. `OrderItem.productName`.
+  productName String?      @map("product_name")
+
   type        MovementType
   quantity    Decimal      @db.Decimal(10, 2) // Positive for IN, negative for OUT
   reason      String? // "Продажа", "Поставка", "Списание", "Возврат", etc.

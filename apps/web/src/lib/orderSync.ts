@@ -16,6 +16,7 @@
 import { notifyCustomer } from './notify';
 import { restoreStockForCancelledOrder, reapplyStockForRevivedOrder } from './orders/cancel';
 import { ingestUrl } from './office/client';
+import { detach } from '@/lib/background';
 
 // Storefront status (Prisma OrderStatus) -> customer-facing bilingual message.
 const STATUS_MESSAGE: Record<string, { uz: string; ru: string }> = {
@@ -123,15 +124,31 @@ export async function syncOrderStatus(order: {
   paymentStatus?: string | null;
   user?: { telegramId: bigint | null; language: string | null } | null;
 }): Promise<void> {
-  await Promise.allSettled([
-    order.user?.telegramId
-      ? notifyCustomer(order.user.telegramId, customerStatusText(order.orderNumber, order.status, order.user.language))
-      : Promise.resolve(false),
+  // Уведомления — В ФОНЕ, склад — в запросе.
+  //
+  // Раньше ждали всё скопом, и `pushStatusToOffice` с тремя ретраями по
+  // 4 секунды держал ответ до пятнадцати секунд при недоступном офисе.
+  // Заказ к тому моменту уже был изменён: владелец смотрел на замерший
+  // экран, ожидая доставки уведомления, которое его не касается.
+  //
+  // Возврат товара на склад остаётся здесь и ждётся: от него зависят
+  // остатки и бонусы, а не чья-то осведомлённость.
+  if (order.user?.telegramId) {
+    detach(
+      `статус ${order.orderNumber} клиенту`,
+      notifyCustomer(order.user.telegramId, customerStatusText(order.orderNumber, order.status, order.user.language)),
+    );
+  }
+  detach(
+    `статус ${order.orderNumber} в офис`,
     pushStatusToOffice({
       orderNumber: order.orderNumber,
       status: order.status,
       paymentStatus: order.paymentStatus ?? null,
     }),
+  );
+
+  await Promise.allSettled([
     // Возврат обрабатывается как отмена. Раньше `REFUNDED` не имел
     // обработчика вовсе: деньги возвращали клиенту, а товар оставался
     // списанным, бонусы — сгоревшими, доход — записанным.

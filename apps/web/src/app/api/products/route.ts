@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { isStaff } from '@/lib/adminAuth';
 import { productSelect } from '@/lib/products/fields';
+import { productsChanged } from '@/lib/products/changed';
 
 // ==========================================
 // Products API — Prisma-backed CRUD
@@ -22,13 +23,25 @@ export async function GET(request: NextRequest) {
   const id = searchParams.get('id');
   const countOnly = searchParams.get('count') === 'true';
 
-  // `?all=true` снимает фильтр `isActive`, то есть показывает черновики и
-  // снятые с продажи позиции. Это админский режим, и он требует сессии
-  // сотрудника — раньше флаг работал для кого угодно.
+  // Витрина видит только живые позиции. Админке нужны три режима, и раньше
+  // их было два: `?all=true` сваливал живые и снятые с продажи в одну кучу.
+  // Из-за этого «удалённый» товар возвращался в список следующим же
+  // запросом — владелец нажимал «удалить» и видел товар на прежнем месте.
+  //
+  //   active   — в продаже (по умолчанию, единственный публичный)
+  //   archived — снятые с продажи, «Архив» в админке
+  //   all      — и те и другие; оставлен для экспорта и старых вызовов
+  //
+  // `?all=true` продолжает работать как `mode=all`: по нему ходят касса,
+  // офис и витринный бот, и ломать их ради переименования незачем.
   const staff = isStaff(request);
-  const showAll = searchParams.get('all') === 'true';
-  if (showAll && !staff) {
+  const modeParam = searchParams.get('mode');
+  const mode = searchParams.get('all') === 'true' ? 'all' : modeParam ?? 'active';
+  if (mode !== 'active' && !staff) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (mode !== 'active' && mode !== 'archived' && mode !== 'all') {
+    return NextResponse.json({ error: "Noto'g'ri mode" }, { status: 400 });
   }
   const select = productSelect(request);
 
@@ -38,7 +51,9 @@ export async function GET(request: NextRequest) {
       prisma.product.count(),
       prisma.product.count({ where: { isActive: true } }),
     ]);
-    return NextResponse.json({ total, active });
+    // `archived` считаем здесь, а не вычитанием на клиенте: два экрана уже
+    // показывали разные числа, разойдясь в том, что считать «снятым».
+    return NextResponse.json({ total, active, archived: total - active });
   }
 
   // Single product by ID
@@ -53,8 +68,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(product);
   }
 
-  // Build where clause — admin can see all products with ?all=true
-  const where: Record<string, unknown> = showAll ? {} : { isActive: true };
+  // Build where clause — режим решает, что вообще попадает в выборку
+  const where: Record<string, unknown> =
+    mode === 'all' ? {} : { isActive: mode === 'active' };
 
   if (category) {
     // Support both slug and ID
@@ -154,6 +170,7 @@ export async function POST(request: NextRequest) {
       include: { category: true },
     });
 
+    productsChanged(product.id);
     return NextResponse.json({ success: true, product });
   } catch (error) {
     console.error('Product create error:', error);
@@ -226,6 +243,7 @@ export async function PUT(request: NextRequest) {
       });
     });
 
+    productsChanged(product.id);
     return NextResponse.json({ success: true, product });
   } catch (error) {
     console.error('Product update error:', error);
@@ -235,17 +253,23 @@ export async function PUT(request: NextRequest) {
 
 // DELETE — Delete product (admin)
 /**
- * DELETE — снять товар с продажи.
+ * DELETE — убрать товар с продажи, а с `?force=true` — удалить навсегда.
  *
- * ⚠️ Здесь было физическое удаление, и это было опасно: `StockMovement.product`
- * объявлен с `onDelete: Cascade`, поэтому удаление товара стирало ВЕСЬ его
- * складской журнал — а из этого журнала считается выручка кассы. Один клик
- * обнулял продажи товара задним числом за всю историю.
+ * ⚠️ ИСТОРИЯ ЭТОГО МЕСТА. Здесь было физическое удаление, и оно было опасно:
+ * `StockMovement.product` стоял с `onDelete: Cascade`, поэтому удаление
+ * товара стирало ВЕСЬ его складской журнал — а из журнала считается выручка
+ * кассы. Один клик обнулял продажи товара задним числом за всю историю.
  *
- * Теперь товар скрывается (`isActive = false`): из каталога и с витрины он
- * пропадает, история продаж остаётся. Физически удаляется только товар, по
- * которому вообще ничего не происходило — ни движений, ни заказов; такой
- * товар это просто ошибочно заведённая карточка.
+ * Тогда удаление запретили: товар с движениями или позициями заказов просто
+ * гасился в `isActive = false`. Это спасло выручку, но породило жалобу
+ * «удаляю товар, а он не исчезает» — админка просила у сервера список
+ * ВМЕСТЕ со снятыми и честно показывала товар на прежнем месте.
+ *
+ * Теперь оба требования выполнимы одновременно, потому что защиту держит не
+ * запрет, а схема: связи переведены на `onDelete: SetNull`, а название
+ * снимается в `product_name` (см. `OrderItem.productName`). Обычное удаление
+ * уводит товар в архив, `?force=true` из архива удаляет насовсем — история
+ * продаж переживает и то и другое.
  */
 export async function DELETE(request: NextRequest) {
   try {
@@ -256,6 +280,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Product ID required' }, { status: 400 });
     }
 
+    // `?force=true` — окончательное удаление из архива.
+    //
+    // Обычное «удалить» товар с историей не стирает: по позициям заказов
+    // считается выручка. Но и вечно копить снятые позиции нельзя, поэтому
+    // архив умеет удалять по-настоящему — ценой снимка названия, который
+    // остаётся в истории вместо ссылки (см. `OrderItem.productName`).
+    const force = searchParams.get('force') === 'true';
+
     const [movements, orderItems] = await Promise.all([
       prisma.stockMovement.count({ where: { productId: id } }),
       prisma.orderItem.count({ where: { productId: id } }),
@@ -263,20 +295,81 @@ export async function DELETE(request: NextRequest) {
 
     if (movements === 0 && orderItems === 0) {
       await prisma.product.delete({ where: { id } });
-      return NextResponse.json({ success: true, removed: true });
+      productsChanged(id);
+    return NextResponse.json({ success: true, removed: true, kept: 0 });
     }
 
+    if (force) return forceDelete(id, movements, orderItems);
+
     await prisma.product.update({ where: { id }, data: { isActive: false } });
+    productsChanged(id);
     return NextResponse.json({
       success: true,
       removed: false,
+      kept: movements + orderItems,
       message:
-        `Товар снят с продажи. Полностью удалить нельзя: по нему есть ` +
+        `Товар снят с продажи и убран в архив. Полностью удалить нельзя: по нему есть ` +
         `движения склада (${movements}) и позиции заказов (${orderItems}) — ` +
-        `из них считается выручка.`,
+        `из них считается выручка. Удалить навсегда можно из архива.`,
     });
   } catch (error) {
     console.error('Product delete error:', error);
     return NextResponse.json({ error: 'Xatolik yuz berdi' }, { status: 500 });
   }
+}
+
+/**
+ * Удалить товар навсегда, сохранив историю продаж.
+ *
+ * Связи из `order_items` и `stock_movements` обнуляются самой базой
+ * (`onDelete: SetNull`), но название до удаления надо снять в `product_name` —
+ * иначе в книге продаж останется безымянная сумма. Обе операции в ОДНОЙ
+ * транзакции: снимок без удаления безвреден, удаление без снимка необратимо.
+ *
+ * Подписки — единственное, что удаление по-прежнему запрещает: `GreenBoxItem`
+ * держит связь на `Restrict`, и молча выбросить товар из чужого активного
+ * бокса нельзя.
+ */
+async function forceDelete(id: string, movements: number, orderItems: number) {
+  const product = await prisma.product.findUnique({
+    where: { id },
+    select: { nameUz: true },
+  });
+  if (!product) {
+    return NextResponse.json({ error: 'Product not found' }, { status: 404 });
+  }
+
+  const inBoxes = await prisma.greenBoxItem.count({ where: { productId: id } });
+  if (inBoxes > 0) {
+    return NextResponse.json(
+      {
+        error:
+          `Удалить навсегда нельзя: товар входит в ${inBoxes} подписных бокса. ` +
+          `Сначала уберите его из подписок.`,
+      },
+      { status: 409 },
+    );
+  }
+
+  await prisma.$transaction([
+    prisma.orderItem.updateMany({
+      where: { productId: id, productName: null },
+      data: { productName: product.nameUz },
+    }),
+    prisma.stockMovement.updateMany({
+      where: { productId: id, productName: null },
+      data: { productName: product.nameUz },
+    }),
+    prisma.product.delete({ where: { id } }),
+  ]);
+
+  productsChanged(id);
+  return NextResponse.json({
+    success: true,
+    removed: true,
+    kept: movements + orderItems,
+    message:
+      `Товар удалён навсегда. История сохранена: ${orderItems} позиций заказов ` +
+      `и ${movements} движений склада остались под названием «${product.nameUz}».`,
+  });
 }

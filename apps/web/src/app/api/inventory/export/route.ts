@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { soldProductName } from '@/lib/products/sold';
 
 // ==========================================
 // Export API — Generate CSV reports
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
 
     csvContent = 'Sana,Tovar,Turi,Miqdor,Sabab,Kim\n';
     for (const m of movements) {
-      csvContent += `"${m.createdAt.toLocaleString('uz-UZ')}","${m.product.nameUz}","${m.type}",${m.quantity},"${m.reason || '-'}","${m.performedBy || '-'}"\n`;
+      csvContent += `"${m.createdAt.toLocaleString('uz-UZ')}","${soldProductName(m)}","${m.type}",${m.quantity},"${m.reason || '-'}","${m.performedBy || '-'}"\n`;
     }
   }
 
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
     // Online orders
     for (const o of orders) {
       for (const item of o.items) {
-        csvContent += `"${o.createdAt.toLocaleString('uz-UZ')}","Online","${o.orderNumber}","${item.product.nameUz}",${item.quantity},${item.price},${item.quantity * item.price},"${o.user?.firstName || o.phone || '-'}"\n`;
+        csvContent += `"${o.createdAt.toLocaleString('uz-UZ')}","Online","${o.orderNumber}","${soldProductName(item)}",${item.quantity},${item.price},${item.quantity * item.price},"${o.user?.firstName || o.phone || '-'}"\n`;
       }
     }
 
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
     for (const m of posSales) {
       const saleMatch = m.reason?.match(/\(S-[A-Z0-9-]+\)/);
       const saleNum = saleMatch ? saleMatch[0].replace(/[()]/g, '') : '-';
-      csvContent += `"${m.createdAt.toLocaleString('uz-UZ')}","Do'kon","${saleNum}","${m.product.nameUz}",${Math.abs(m.quantity)},${m.product.price},${Math.abs(m.quantity) * m.product.price},"${m.performedBy || '-'}"\n`;
+      csvContent += `"${m.createdAt.toLocaleString('uz-UZ')}","Do'kon","${saleNum}","${soldProductName(m)}",${Math.abs(m.quantity)},${m.product?.price ?? 0},${Math.abs(m.quantity) * (m.product?.price ?? 0)},"${m.performedBy || '-'}"\n`;
     }
   }
 

@@ -8,6 +8,7 @@ import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { orderSchema } from '@/lib/orders/schema';
 import { runAfterCreate } from '@/lib/orders/afterCreate';
 import { createOrder } from '@/lib/orders/create';
+import { publish } from '@/lib/realtime/bus';
 
 // ==========================================
 // Orders API — Create & List (Prisma-backed)
@@ -39,6 +40,11 @@ export async function POST(request: NextRequest) {
     const { order, user, customerName } = result;
 
     await runAfterCreate(order, user, customerName);
+
+    // Заказ есть и остатки списаны — открытые экраны узнают об этом сами.
+    // Сюда приходят все три источника: витрина, бот и ИИ-офис, — потому что
+    // заказ создаёт только эта дверь (конституция, §«Заказ создаёт витрина»).
+    publish('orders', 'inventory', 'products');
 
 
     return NextResponse.json({
@@ -179,6 +185,7 @@ export async function PUT(request: NextRequest) {
     // Notify the customer + mirror the status into the AI-office CRM.
     await syncOrderStatus(order);
 
+    publish('orders');
     return NextResponse.json({ success: true, order });
   } catch (error) {
     console.error('Order update error:', error);

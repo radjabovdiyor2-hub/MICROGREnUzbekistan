@@ -2,7 +2,8 @@
 
 import { HealthScoreWidget, ABCXYZWidget } from './AdminAnalyticsWidgets';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Clock,
 } from 'lucide-react';
@@ -15,39 +16,37 @@ interface Warning { level: string; message: string; action: string; }
 import { WarningsWidget, MonthlyChart, ExportWidget } from './AdminAnalyticsCharts';
 
 export function AdminAnalytics() {
-  const [monthlyData, setMonthlyData] = useState<MonthData[]>([]);
-  const [topBySales, setTopBySales] = useState<TopProduct[]>([]);
-  const [topByRevenue, setTopByRevenue] = useState<TopProduct[]>([]);
-  const [deadStock, setDeadStock] = useState<TopProduct[]>([]);
-  const [categories, setCategories] = useState<CategoryData[]>([]);
-  const [warnings, setWarnings] = useState<Warning[]>([]);
-  const [loading, setLoading] = useState(true);
   const [topView, setTopView] = useState<'sales' | 'revenue' | 'dead'>('sales');
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [salesRes, topRes, catRes, warnRes] = await Promise.all([
-          fetch('/api/inventory/analytics?section=sales&months=6'),
-          fetch('/api/inventory/analytics?section=top'),
-          fetch('/api/inventory/analytics?section=categories'),
-          fetch('/api/inventory/analytics?section=warnings'),
-        ]);
-        const [salesData, topData, catData, warnData] = await Promise.all([
-          salesRes.json(), topRes.json(), catRes.json(), warnRes.json()
-        ]);
-        setMonthlyData(salesData.monthlyData || []);
-        setTopBySales(topData.topBySales || []);
-        setTopByRevenue(topData.topByRevenue || []);
-        setDeadStock(topData.deadStock || []);
-        setCategories(catData.categories || []);
-        setWarnings(warnData.warnings || []);
-      } catch (err) { console.error(err); }
-      finally { setLoading(false); }
-    };
-    load();
-  }, []);
+  // Четыре среза одного экрана — одним запросом кэша. Разделять их по
+  // ключам смысла нет: показываются они вместе и устаревают вместе.
+  const { data, isPending: loading } = useQuery({
+    queryKey: ['admin-analytics'],
+    queryFn: async () => {
+      const sections = ['sales&months=6', 'top', 'categories', 'warnings'];
+      const [salesData, topData, catData, warnData] = await Promise.all(
+        sections.map(async (section) => {
+          const res = await fetch(`/api/inventory/analytics?section=${section}`);
+          if (!res.ok) throw new Error('Не удалось загрузить аналитику');
+          return res.json();
+        }),
+      );
+      return {
+        monthlyData: (salesData.monthlyData || []) as MonthData[],
+        topBySales: (topData.topBySales || []) as TopProduct[],
+        topByRevenue: (topData.topByRevenue || []) as TopProduct[],
+        deadStock: (topData.deadStock || []) as TopProduct[],
+        categories: (catData.categories || []) as CategoryData[],
+        warnings: (warnData.warnings || []) as Warning[],
+      };
+    },
+  });
+  const monthlyData = data?.monthlyData ?? [];
+  const topBySales = data?.topBySales ?? [];
+  const topByRevenue = data?.topByRevenue ?? [];
+  const deadStock = data?.deadStock ?? [];
+  const categories = data?.categories ?? [];
+  const warnings = data?.warnings ?? [];
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 

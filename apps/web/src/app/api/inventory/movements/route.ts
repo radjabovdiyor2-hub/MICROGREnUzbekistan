@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isValidQty, normalizeQty } from '@/lib/qty';
+import { publish } from '@/lib/realtime/bus';
 
 // ==========================================
 // Stock Movements API — Inventory Operations
@@ -228,17 +229,31 @@ export async function DELETE(request: NextRequest) {
     if (!original) {
       return NextResponse.json({ error: 'Harakat topilmadi' }, { status: 404 });
     }
+    // Сторно двигает остаток на карточке товара. Товар удалён из каталога
+    // окончательно — двигать нечего, и молча создать одну лишь запись в
+    // журнале было бы хуже отказа: остатки и история разошлись бы.
+    // В локальную константу: внутри колбэка транзакции TypeScript сужение
+    // по свойству не сохраняет, а класть сюда `!` значило бы вернуть ровно
+    // ту уверенность, из-за которой каскад и стирал историю.
+    const productId = original.productId;
+    if (!productId) {
+      return NextResponse.json(
+        { error: "Tovar katalogdan butunlay o'chirilgan — harakatni storno qilib bo'lmaydi" },
+        { status: 409 },
+      );
+    }
 
     const reversal = await prisma.$transaction(async (tx) => {
       // quantity хранится со знаком: приход положительный, расход
       // отрицательный. Обратная проводка — тот же модуль с обратным знаком.
       await tx.product.update({
-        where: { id: original.productId },
+        where: { id: productId },
         data: { stock: { increment: -original.quantity } },
       });
       return tx.stockMovement.create({
         data: {
-          productId: original.productId,
+          productId,
+          productName: original.productName,
           type: original.quantity > 0 ? 'OUT' : 'IN',
           quantity: -original.quantity,
           reason: `Сторно движения ${original.id}`,
@@ -249,6 +264,7 @@ export async function DELETE(request: NextRequest) {
       });
     });
 
+    publish('inventory', 'products');
     return NextResponse.json({ success: true, reversal });
   } catch (error) {
     console.error('Reverse movement error:', error);

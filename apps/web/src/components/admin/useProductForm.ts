@@ -84,19 +84,27 @@ export function useProductForm(refresh: () => void) {
 
       if (editingId) {
         payload.id = editingId;
-        await fetch('/api/products', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
       } else {
         payload.slug = form.slug || autoSlug(form.nameUz) + '-' + Date.now().toString(36);
-        await fetch('/api/products', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
       }
+      const res = await fetch('/api/products', {
+        method: editingId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+
+      // Ответ проверяем ДО закрытия формы.
+      //
+      // Раньше форма закрывалась и очищалась безусловно: истекла сессия, не
+      // прошла валидация, упала база — владелец видел закрытую форму, считал
+      // товар сохранённым, а введённое пропадало. Молча и без следа.
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setFormError(typeof body.error === 'string' ? body.error : 'Не удалось сохранить товар');
+        return;
+      }
+
       setShowForm(false);
       setForm(EMPTY_FORM);
       refresh();

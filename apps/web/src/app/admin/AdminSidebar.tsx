@@ -5,10 +5,20 @@ import { Command, Home, LogOut, Settings, Tag, Menu, X } from 'lucide-react';
 import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { TAB_GROUPS } from './adminTabs';
 import { useState } from 'react';
+import type { RealtimeState } from '@/components/admin/useRealtime';
 
 // Боковая панель админки: вкладки, переключатели языка и темы, выход.
 
+/** Подсказка к индикатору живого потока. */
+const REALTIME_TITLE: Record<RealtimeState, string> = {
+  live: 'Изменения приходят сразу — обновлять страницу не нужно',
+  polling: 'Живой поток недоступен, данные обновляются раз в 30 секунд',
+  connecting: 'Подключаемся к потоку изменений…',
+};
+
 interface Props {
+  /** Состояние живого потока — видно в подвале панели. */
+  realtime: RealtimeState;
   activeTab: string;
   setActiveTab: (id: string) => void;
   isOwner: boolean;
@@ -23,7 +33,7 @@ interface Props {
   t: (ru: string, uz: string) => string;
 }
 
-export function AdminSidebar({ activeTab, setActiveTab, isOwner, sellerName, staffTabs, lang, toggleLang, handleLogout, setPaletteOpen, setPaletteQuery, t }: Props) {
+export function AdminSidebar({ realtime, activeTab, setActiveTab, isOwner, sellerName, staffTabs, lang, toggleLang, handleLogout, setPaletteOpen, setPaletteQuery, t }: Props) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const handleTabClick = (id: string) => {
@@ -84,6 +94,22 @@ export function AdminSidebar({ activeTab, setActiveTab, isOwner, sellerName, sta
               style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
               {lang === 'ru' ? '🇷🇺' : '🇺🇿'}
             </button>
+            {/* Живой ли экран. Показываем не ради красоты: когда поток
+                недоступен, данные обновляются раз в полминуты, и владельцу
+                стоит об этом знать — иначе он решит, что касса не пробила
+                продажу, хотя это экран ещё не доехал. */}
+            <div title={REALTIME_TITLE[realtime]}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '11px', color: 'var(--text-muted)' }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                background: realtime === 'live' ? 'var(--success)' : realtime === 'polling' ? 'var(--warning)' : 'var(--text-muted)',
+              }} />
+              {realtime === 'live'
+                ? t('Обновления вживую', 'Jonli yangilanish')
+                : realtime === 'polling'
+                  ? t('Обновление раз в 30 с', '30 soniyada bir')
+                  : t('Подключение…', 'Ulanmoqda…')}
+            </div>
             <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
               <Link href="/" className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, justifyContent: 'center' }}>
                 <Home size={14} /> {t('Сайт', 'Sayt')}

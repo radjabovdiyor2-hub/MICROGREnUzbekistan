@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { soldProductKey, soldProductName } from '@/lib/products/sold';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { categoriesFor, isKnownCategory } from '@/lib/finance/categories';
@@ -95,12 +96,13 @@ async function getProductBreakdown(from: Date) {
   const byProduct: Record<string, { nameUz: string; nameRu: string; quantity: number; revenue: number; cogs: number; profit: number }> = {};
 
   for (const item of orderItems) {
-    if (!item.product) continue;
-    const pid = item.productId;
+    // Товар мог быть удалён из каталога — его продажи остаются в разрезе,
+    // иначе прибыль по отчёту разойдётся с выручкой по «Сводке».
+    const pid = soldProductKey(item);
     if (!byProduct[pid]) {
       byProduct[pid] = {
-        nameUz: item.product.nameUz,
-        nameRu: item.product.nameRu,
+        nameUz: item.product?.nameUz ?? soldProductName(item),
+        nameRu: item.product?.nameRu ?? soldProductName(item),
         quantity: 0,
         revenue: 0,
         cogs: 0,
@@ -108,7 +110,8 @@ async function getProductBreakdown(from: Date) {
       };
     }
     const rev = item.price * item.quantity;
-    const cogs = (item.product.costPrice || 0) * item.quantity;
+    // Себестоимости удалённого товара не осталось: ноль честнее догадки.
+    const cogs = (item.product?.costPrice || 0) * item.quantity;
     byProduct[pid].quantity += item.quantity;
     byProduct[pid].revenue += rev;
     byProduct[pid].cogs += cogs;

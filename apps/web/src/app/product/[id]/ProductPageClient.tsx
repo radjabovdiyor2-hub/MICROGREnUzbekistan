@@ -18,11 +18,24 @@ import { ProductCrossSell, type RelatedProduct } from './ProductCrossSell';
 import { type Product } from './productDetailTypes';
 export type { Product };
 
-export function ProductPageClient({ id }: { id: string }) {
+/** Карточка → запись в «недавно просмотренные». Форма одна на оба пути. */
+function toViewed(p: Product) {
+  return {
+    id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, slug: p.slug,
+    price: p.price, oldPrice: p.oldPrice, images: p.images || [],
+    rating: p.rating || 0, reviewCount: p.reviewCount || 0,
+    isOnSale: Boolean(p.isOnSale), category: p.category,
+  };
+}
+
+export function ProductPageClient({ id, initialProduct = null }: { id: string; initialProduct?: Product | null }) {
   const { t } = useLang();
   const router = useRouter();
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Товар приезжает с сервера пропсом — он там уже запрошен ради JSON-LD.
+  // Пустым он остаётся, только если база была недоступна при рендере; тогда
+  // ниже отрабатывает прежний запрос с браузера.
+  const [product, setProduct] = useState<Product | null>(initialProduct);
+  const [loading, setLoading] = useState(!initialProduct);
   const [activeTab, setActiveTab] = useState('desc');
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
@@ -44,20 +57,23 @@ export function ProductPageClient({ id }: { id: string }) {
   const [relatedLoading, setRelatedLoading] = useState(false);
 
   useEffect(() => {
+    // «Недавно просмотренные» — это localStorage, и писать в него можно
+    // только из браузера. Товар при этом уже здесь, ходить за ним не нужно.
+    if (initialProduct) {
+      Promise.resolve().then(() => trackViewed(toViewed(initialProduct)));
+      return;
+    }
+
+    // Запасной путь: сервер не смог отдать карточку (база была недоступна
+    // при рендере). Раньше этот запрос уходил ВСЕГДА — полный круг до
+    // сервера уже после того, как страница отрисовалась.
     async function fetchProduct() {
       try {
         const res = await fetch(`/api/products?id=${id}`);
         if (res.ok) {
           const data = await res.json();
           setProduct(data);
-          if (data?.id) {
-            trackViewed({
-              id: data.id, nameUz: data.nameUz, nameRu: data.nameRu, slug: data.slug,
-              price: data.price, oldPrice: data.oldPrice, images: data.images || [],
-              rating: data.rating || 0, reviewCount: data.reviewCount || 0,
-              isOnSale: data.isOnSale, category: data.category,
-            });
-          }
+          if (data?.id) trackViewed(toViewed(data));
         }
       } catch (err) {
         console.error('Product fetch error:', err);
@@ -66,7 +82,7 @@ export function ProductPageClient({ id }: { id: string }) {
       }
     }
     Promise.resolve().then(() => fetchProduct());
-  }, [id]);
+  }, [id, initialProduct]);
 
   useEffect(() => {
     if (!product) return;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Clock } from 'lucide-react';
 
 // Два самостоятельных виджета аналитики: здоровье склада и матрица ABC-XYZ.
@@ -15,14 +15,17 @@ const HEALTH_COLORS: Record<HealthLevel, string> = {
   critical: 'var(--error)',
 };
 export function HealthScoreWidget() {
-  const [data, setData] = useState<{
+  const { data } = useQuery<{
     healthScore: number; healthLabel: string; healthLevel: HealthLevel;
     breakdown: { stockoutScore: number; balanceScore: number; turnoverScore: number; diversityScore: number };
-  } | null>(null);
-
-  useEffect(() => {
-    fetch('/api/inventory/analytics?section=health').then(r => r.json()).then(setData).catch(console.error);
-  }, []);
+  }>({
+    queryKey: ['admin-analytics-health'],
+    queryFn: async () => {
+      const res = await fetch('/api/inventory/analytics?section=health');
+      if (!res.ok) throw new Error('Не удалось загрузить здоровье склада');
+      return res.json();
+    },
+  });
 
   if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
 
@@ -77,11 +80,14 @@ export function HealthScoreWidget() {
 // ABC-XYZ Matrix Widget
 // ==========================================
 export function ABCXYZWidget() {
-  const [data, setData] = useState<{ classSummary: Record<string, number>; totalRevenue: number } | null>(null);
-
-  useEffect(() => {
-    fetch('/api/inventory/analytics?section=abcxyz').then(r => r.json()).then(setData).catch(console.error);
-  }, []);
+  const { data } = useQuery<{ classSummary: Record<string, number>; totalRevenue: number }>({
+    queryKey: ['admin-analytics-abcxyz'],
+    queryFn: async () => {
+      const res = await fetch('/api/inventory/analytics?section=abcxyz');
+      if (!res.ok) throw new Error('Не удалось загрузить матрицу ABC-XYZ');
+      return res.json();
+    },
+  });
 
   if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
 

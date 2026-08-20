@@ -6,6 +6,29 @@
 помечается `storefront_id` (cuid товара витрины).
 
 С единой базой обе таблицы рядом — синк через SQL, без HTTP API.
+
+ПОЧЕМУ ЗДЕСЬ НЕТ ЦИКЛА ПО ТОВАРАМ
+
+Был. На каждый товар уходило до трёх round-trip'ов: выбрать slug категории,
+найти зеркальную строку по storefront_id, обновить или вставить. При сотне
+позиций это три сотни последовательных запросов внутри одной длинной
+транзакции — и всё это в петле, которую владелец дёргает кнопкой «Пульт ИИ»
+и потом ждёт.
+
+Теперь тем же занимаются три запроса, и все они множественные: обновить
+существующие, вставить новые, погасить исчезнувшие. Соединение с категорией
+делает сама база (`LEFT JOIN categories`), а не Python.
+
+ПОЧЕМУ ВЫБОРКА-ИСТОЧНИК ВЫПИСАНА ДВАЖДЫ, А НЕ ВЫНЕСЕНА В КОНСТАНТУ
+
+Потому что `scripts/check_schema.py` сверяет весь сырой SQL со `schema.prisma`,
+а читать он умеет только строковые литералы внутри `text(...)`. Стоит собрать
+запрос f-строкой из общего куска — и сверка увидит `WITH src AS ()` с пустыми
+скобками: сам SELECT для неё исчезнет вместе с именами таблиц и колонок.
+Именно эта проверка когда-то поймала `SELECT unit FROM products` (в витринной
+таблице такой колонки нет), из-за чего прайс-лист приходил пустым. Платить
+за краткость слепотой guard'а не стоит: повторяются десять строк, а
+проверяется — вся схема.
 """
 
 from __future__ import annotations
@@ -24,83 +47,82 @@ async def sync_catalog_from_storefront() -> dict:
 
     С единой базой оба каталога рядом — тянем данные прямым SQL вместо HTTP.
     """
-    synced = 0
     async with get_session_ctx() as session:
-        # Берём активные товары из витрины (Prisma products)
-        res = await session.execute(
-            text(
-                "SELECT id, name_uz, name_ru, price, stock, category_id, is_active, unit "
-                "FROM products WHERE is_active = TRUE"
+        # 1. Обновить то, что уже есть в зеркале.
+        #
+        # `unit` приезжает с витрины: здесь стояло жёсткое 'piece', и зеркало
+        # объявляло штуками даже то, что продаётся за килограмм. Обрезка до 20
+        # символов — под `crm_products.unit VARCHAR(20)`.
+        #
+        # Категория витрины — cuid, в зеркале это slug. Товар без категории
+        # попадает в 'microgreens': так было и раньше.
+        updated = (
+            await session.execute(
+                text(
+                    """
+                    WITH src AS (
+                        SELECT p.id AS sid,
+                               COALESCE(NULLIF(p.name_uz, ''), 'Tovar') AS name_uz,
+                               COALESCE(NULLIF(p.name_ru, ''), 'Товар') AS name_ru,
+                               COALESCE(c.slug, 'microgreens') AS category,
+                               COALESCE(p.price, 0) AS price,
+                               LEFT(COALESCE(NULLIF(p.unit, ''), 'шт'), 20) AS unit,
+                               COALESCE(p.stock, 0) AS stock
+                          FROM products p
+                          LEFT JOIN categories c ON c.id = p.category_id
+                         WHERE p.is_active = TRUE
+                    )
+                    UPDATE crm_products m
+                       SET name_uz   = src.name_uz,
+                           name_ru   = src.name_ru,
+                           price     = src.price,
+                           stock_qty = src.stock,
+                           category  = src.category,
+                           unit      = src.unit,
+                           is_active = TRUE
+                      FROM src
+                     WHERE m.storefront_id = src.sid
+                    RETURNING m.id
+                    """
+                )
             )
-        )
-        web_products = res.fetchall()
+        ).fetchall()
 
-        for p in web_products:
-            sid = str(p[0])  # cuid
-            name_uz = p[1] or "Tovar"
-            name_ru = p[2] or "Товар"
-            price = p[3] or 0
-            stock = p[4] or 0
-            # Единица приезжает с витрины. Здесь стояло жёсткое 'piece', и
-            # зеркало объявляло штуками даже то, что продаётся за килограмм.
-            unit = (p[7] or "шт")[:20]
-
-            # Категория витрины — cuid, маппим по имени
-            category = "microgreens"
-            if p[5]:
-                cat_row = await session.execute(
-                    text("SELECT slug FROM categories WHERE id = :cid"),
-                    {"cid": p[5]},
+        # 2. Завести то, чего в зеркале ещё нет.
+        #
+        # `LEFT JOIN ... IS NULL`, а не `ON CONFLICT`: у `crm_products.storefront_id`
+        # нет уникального индекса, и вешать его задним числом на прод, где дубли
+        # уже могли накопиться, значило бы уронить выкатку на создании индекса.
+        inserted = (
+            await session.execute(
+                text(
+                    """
+                    WITH src AS (
+                        SELECT p.id AS sid,
+                               COALESCE(NULLIF(p.name_uz, ''), 'Tovar') AS name_uz,
+                               COALESCE(NULLIF(p.name_ru, ''), 'Товар') AS name_ru,
+                               COALESCE(c.slug, 'microgreens') AS category,
+                               COALESCE(p.price, 0) AS price,
+                               LEFT(COALESCE(NULLIF(p.unit, ''), 'шт'), 20) AS unit,
+                               COALESCE(p.stock, 0) AS stock
+                          FROM products p
+                          LEFT JOIN categories c ON c.id = p.category_id
+                         WHERE p.is_active = TRUE
+                    )
+                    INSERT INTO crm_products
+                        (name_uz, name_ru, category, price, unit, stock_qty, is_active, storefront_id)
+                    SELECT src.name_uz, src.name_ru, src.category, src.price,
+                           src.unit, src.stock, TRUE, src.sid
+                      FROM src
+                      LEFT JOIN crm_products m ON m.storefront_id = src.sid
+                     WHERE m.id IS NULL
+                    RETURNING id
+                    """
                 )
-                cat = cat_row.scalar()
-                if cat:
-                    category = cat
+            )
+        ).fetchall()
 
-            existing = (
-                await session.execute(
-                    text("SELECT id FROM crm_products WHERE storefront_id = :sid"),
-                    {"sid": sid},
-                )
-            ).scalar()
-
-            if existing:
-                await session.execute(
-                    text(
-                        "UPDATE crm_products SET name_uz = :name_uz, name_ru = :name_ru, "
-                        "price = :price, stock_qty = :stock, category = :category, "
-                        "unit = :unit, is_active = TRUE "
-                        "WHERE id = :id"
-                    ),
-                    {
-                        "name_uz": name_uz,
-                        "name_ru": name_ru,
-                        "price": price,
-                        "stock": stock,
-                        "category": category,
-                        "unit": unit,
-                        "id": existing,
-                    },
-                )
-            else:
-                await session.execute(
-                    text(
-                        "INSERT INTO crm_products (name_uz, name_ru, category, price, unit, stock_qty, "
-                        "is_active, storefront_id) VALUES (:name_uz, :name_ru, :category, :price, "
-                        ":unit, :stock, TRUE, :sid)"
-                    ),
-                    {
-                        "name_uz": name_uz,
-                        "name_ru": name_ru,
-                        "category": category,
-                        "price": price,
-                        "unit": unit,
-                        "stock": stock,
-                        "sid": sid,
-                    },
-                )
-            synced += 1
-
-        # Товар ушёл с витрины — гасим и зеркало.
+        # 3. Товар ушёл с витрины — гасим и зеркало.
         #
         # Синхронизация переносила только активные и НИКОГДА не трогала строки
         # исчезнувших товаров. Скрытый на витрине товар оставался живым в
@@ -120,12 +142,15 @@ async def sync_catalog_from_storefront() -> dict:
         ).fetchall()
         await session.commit()
 
+    synced = len(updated) + len(inserted)
     if deactivated:
         logger.info("Catalog sync: погашено в зеркале (нет на витрине): %s", len(deactivated))
-    logger.info("Catalog sync: витрина → CRM, товаров обработано: %s", synced)
+    logger.info(
+        "Catalog sync: витрина → CRM, обновлено %s, заведено %s", len(updated), len(inserted)
+    )
     return {
         "synced": synced,
-        "total": len(web_products),
+        "total": synced,
         "deactivated": len(deactivated),
     }
 
