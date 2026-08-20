@@ -52,10 +52,14 @@ CREATE TABLE IF NOT EXISTS customers (
     customer_type   VARCHAR(10) DEFAULT 'b2c'
                         CHECK (customer_type IN ('b2b', 'b2c')),
     company_name    VARCHAR(255),
-    company_type    VARCHAR(50)
-                        CHECK (company_type IS NULL OR company_type IN (
-                            'restaurant', 'cafe', 'hotel', 'catering', 'retail', 'other'
-                        )),
+    -- CHECK здесь СНЯТ намеренно. Он перечислял шесть типов, справочник
+    -- вырос до девятнадцати (`companyTypes.ts`), а Prisma CHECK-констрейнты
+    -- не ведёт — `db push` его не обновлял. В живой базе он пережил переход
+    -- на Prisma и 20.08.2026 уронил выкатку: 'bakery' в список не входил.
+    -- Список значений живёт в одном месте — `companyTypes.ts`, и проверяет
+    -- его `isCompanyType()` на каждом пути записи. Снятие с уже созданных
+    -- баз делает `migrations/unify_databases.sql`, шаг 5.
+    company_type    VARCHAR(50),
     address         TEXT,
     city            VARCHAR(100) DEFAULT 'Samarqand',
     language        VARCHAR(5) DEFAULT 'ru',
