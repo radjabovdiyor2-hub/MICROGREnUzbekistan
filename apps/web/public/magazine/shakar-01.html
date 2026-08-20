@@ -29,7 +29,17 @@
 <style>
   /* Фирменные цвета номера. Значения — документированные токены бренда:
      --og-bg-deep #064E3B и --editorial-gold #C9A84C из design-system. */
-  :root { --accent: #064E3B; --gold: #C9A84C; }
+  :root { --accent: #064E3B; --gold: #C9A84C; --chart-a: #047857; }
+
+  /* --chart-a — цвет серий на графиках, и он НЕ равен --accent намеренно.
+     Пара посчитана валидатором палитры (skill dataviz) на бумаге --paper:
+     --accent + --gold проверку не проходит, #064E3B выпадает из светлотной
+     полосы и читается серым (насыщенность 0.073). Пара #047857 + #C9A84C
+     проходит все шесть проверок: различимость при протанопии 20.2, при
+     обычном зрении 27.2. Поэтому --accent остаётся линейкам, заголовкам и
+     схемам, а заливку столбиков берёт --chart-a.
+     Значение — токен brand.primary-deep из design-system/tokens/tokens.json,
+     как --gold это editorial.gold. Своих цветов номер не выдумывает. */
 
   /* ── Схемы полос ────────────────────────────────────────────────
      Инлайн-SVG вместо картинок: график и диаграммы должны печататься
@@ -46,6 +56,74 @@
   }
   .fig-tick { font-family: var(--font-ui); font-size: 5.4pt; fill: var(--ink-3); }
   .fig-note { font-family: var(--font-ui); font-size: 5.6pt; fill: var(--ink-2); }
+
+  /* Номер иллюстрации: научная полоса ссылается на схему, а не пересказывает
+     её («см. илл. 2»), и без номера ссылка невозможна. */
+  .fig-no {
+    font-family: var(--font-ui);
+    font-size: 5.4pt;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    fill: var(--gold-ink);
+  }
+
+  /* Столбики. Прямая подпись значением у КАЖДОГО столбика обязательна:
+     контраст золота к бумаге 2.19:1, и валидатор палитры требует за это
+     компенсации — различать серии одним лишь цветом читатель не должен.
+     Вторая компенсация — штриховка (см. <pattern> в самих схемах): номер
+     печатают, и в чёрно-белом тираже цвет исчезает совсем. */
+  .bar-a { fill: var(--chart-a); }
+  .bar-b { fill: var(--gold); }
+  .fig-val {
+    font-family: var(--font-ui);
+    font-size: 6.2pt;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums lining-nums;
+    fill: var(--ink);
+  }
+  /* Тот же смысл, что и .fig-val, только для тесных панелей малых кратных.
+     Класс отдельный не ради размера, а ради машины: scripts/check-magazine-
+     figures.mjs считает утверждением номера ровно то, что помечено
+     .fig-val/.fig-val-s, и сверяет с манифестом публикуемых величин. Подпись
+     оси или ключ панели — не утверждение, поэтому у них класс .fig-tick. */
+  .fig-val-s {
+    font-family: var(--font-ui);
+    font-size: 5.4pt;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums lining-nums;
+    fill: var(--ink);
+  }
+
+  /* ── Скелетные формулы ──────────────────────────────────────────
+     Связи — геометрия, а не типографика, и это не эстетика, а требование
+     шрифта: подмножество (fonts-subset.css) не содержит ни стрелки, ни
+     греческих букв, ни подстрочных цифр. Символ вне диапазона молча уходит
+     в системную подмену, а на чужой машине печатается пустым квадратом.
+     Поэтому индекс формулы — отдельный <text> со сдвигом dy обычной цифрой,
+     стрелка реакции — линия с полигоном. Стережёт это
+     scripts/check-magazine-glyphs.mjs. */
+  .mol-bond {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .mol-atom { font-family: var(--font-ui); font-size: 6.8pt; font-weight: 700; fill: var(--ink); }
+  .mol-sub { font-family: var(--font-ui); font-size: 4.8pt; font-weight: 700; fill: var(--ink); }
+  .mol-formula {
+    font-family: var(--font-ui);
+    font-size: 5.4pt;
+    letter-spacing: 0.06em;
+    fill: var(--ink-3);
+  }
+
+  /* Шаростержневая модель — единственная «популярная» картинка разворота.
+     Каждый шар подписан буквой: в чёрно-белом тираже цвета сливаются, и без
+     подписи модель превращается в набор одинаковых кружков. */
+  .ball-stick { stroke: var(--ink-3); stroke-width: 1.1; }
+  .ball-label { font-family: var(--font-ui); font-size: 5.2pt; font-weight: 700; fill: var(--paper); }
 
   /* Таблица «четырёх скоростей» и таблица состава: газетный набор на
      волосяных линейках, табличные цифры. Рамок нет — как в .stat-row. */
@@ -130,6 +208,14 @@
   .mix-note span { color: var(--ink-3); }
   .mix .menu-price { font-size: 7.6pt; margin-top: 0.9mm; }
 
+  /* Содержание номера на 16 полос. Отбивка строки сжата с 2.9 до 2.2 мм:
+     после двух новых разворотов строк стало десять вместо восьми, и при
+     прежнем ритме содержание уходило под обрез на 9.3 мм — check-magazine-fit
+     ловил это как «РЕЖЕТ». Правило живёт здесь, а не в
+     content/templates/fresh-weekly-a5.design.css: тот файл общий с выпуском
+     jasmin, и правка в нём переверстала бы чужой номер. */
+  .toc-list .toc-row { padding: 2.2mm 0; }
+
   /* Дисклеймер задней обложки */
   .legal {
     font-family: var(--font-ui);
@@ -145,7 +231,7 @@
 
 <!-- ══════════ 1 · ОБЛОЖКА ══════════ -->
 <div class="mag-page">
-  <img class="photo-full" src="../catalog/cover-hero.png" alt="">
+  <img class="photo-full" src="shakar-01/shakar-01-cover.jpg" alt="">
   <div class="cover-scrim"></div>
   <div class="page-inner" style="padding: var(--safe); justify-content: space-between;">
     <div>
@@ -196,7 +282,7 @@
 
       <hr class="rule-gold">
 
-      <div>
+      <div class="toc-list">
         <div class="toc-row">
           <div class="toc-title">
             <div class="h3">Palovdan keyingi og&#39;irlik</div>
@@ -241,17 +327,31 @@
         </div>
         <div class="toc-row">
           <div class="toc-title">
+            <div class="h3">Nega ko&#39;katni kesamiz</div>
+            <div class="caption">Почему режут зелень: строение молекул</div>
+          </div>
+          <div class="toc-page">10</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Norma va sovigan palov</div>
+            <div class="caption">Норма и остывший плов: цифры номера</div>
+          </div>
+          <div class="toc-page">12</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
             <div class="h3">Nega isitmaymiz</div>
             <div class="caption">Почему не греем и жуём тщательно</div>
           </div>
-          <div class="toc-page">10</div>
+          <div class="toc-page">14</div>
         </div>
         <div class="toc-row">
           <div class="toc-title">
             <div class="h3">Palovga salat</div>
             <div class="caption">Рецепт номера: салат к плову</div>
           </div>
-          <div class="toc-page">11</div>
+          <div class="toc-page">15</div>
         </div>
       </div>
     </div>
@@ -268,15 +368,20 @@
     </div>
     <div class="page-body">
       <span class="section-tag filled">Ovqatdan keyin · После еды</span>
-      <h1 class="h1" style="margin-top: 2.2mm;">Palovdan keyingi og&#39;irlik qayerdan keladi</h1>
-      <p class="deck" style="margin-top: 1.8mm;">Откуда берётся тяжесть после плова — и почему дело не только в порции</p>
+      <h1 class="h1" style="margin-top: 1.8mm;">Palovdan keyingi og&#39;irlik qayerdan keladi</h1>
+      <p class="deck" style="margin-top: 1.4mm;">Откуда берётся тяжесть после плова — и почему дело не только в порции</p>
 
-      <div class="lang-pair body" style="margin-top: 2.4mm;">
+      <img class="photo photo-wide" src="shakar-01/plate-order.jpg" alt="" style="margin-top: 1.4mm; height: 24mm;">
+      <p class="photo-caption" style="margin-top: 0.8mm; padding-top: 0.8mm;">
+        Tartib: avval yangi ko&#39;kat, keyin palov · Порядок: сначала свежая зелень, затем плов
+      </p>
+
+      <div class="lang-pair body" style="margin-top: 1.4mm;">
         <div class="uz">Ovqatdan keyin tanadagi jarayon to&#39;rtta tezlikning muvozanati. Har birini taomning o&#39;zi sekinlashtira oladi — dori emas, tarelkadagi narsa.</div>
         <div class="ru"><span class="lang-tag">ru</span>То, что происходит после еды, — баланс четырёх скоростей. Каждую из них способна замедлить сама еда: не таблетка, а то, что лежит на тарелке.</div>
       </div>
 
-      <table class="tbl" style="margin-top: 2.6mm;">
+      <table class="tbl" style="margin-top: 1.8mm;">
         <thead>
           <tr>
             <th style="width: 34%;">Bosqich · Стадия</th>
@@ -308,7 +413,7 @@
         </tbody>
       </table>
 
-      <div class="card-elegant" style="margin-top: 2.8mm;">
+      <div class="card-elegant" style="margin-top: 1.8mm;">
         <div class="lang-pair body">
           <div class="uz">Diqqat qiling: to&#39;rtta ustundan uchtasi — bu <b>tarkib</b>, bittasi esa <b>vaqt</b>. Tola va polifenol ovqat bilan birga kelishi kerak, undan keyin emas.</div>
           <div class="ru"><span class="lang-tag">ru</span>Три столбца из четырёх — это <b>состав</b> еды, и только один — <b>время</b>. Клетчатка и полифенолы должны прийти вместе с едой, а не после неё.</div>
@@ -399,37 +504,10 @@
       <h1 class="h1" style="margin-top: 2.2mm;">Kuniga necha choy qoshiq</h1>
       <p class="deck" style="margin-top: 1.6mm;">Сколько чайных ложек сахара в день допускает Всемирная организация здравоохранения</p>
 
-      <div class="figure" style="margin-top: 2.6mm;">
-        <svg viewBox="0 0 320 96" role="img" aria-label="Lozhki sakhara">
-          <text class="fig-label" x="0" y="8">Erkin shakar · Свободные сахара</text>
-          <!-- 12 ложек -->
-          <g transform="translate(0,16)">
-            <text class="fig-note" x="0" y="9" style="font-weight: 700;">&lt; 10 %</text>
-            <g transform="translate(44,0)">
-              <g fill="var(--gold)">
-                <circle cx="5" cy="6" r="4.6"/><circle cx="19" cy="6" r="4.6"/><circle cx="33" cy="6" r="4.6"/>
-                <circle cx="47" cy="6" r="4.6"/><circle cx="61" cy="6" r="4.6"/><circle cx="75" cy="6" r="4.6"/>
-                <circle cx="89" cy="6" r="4.6"/><circle cx="103" cy="6" r="4.6"/><circle cx="117" cy="6" r="4.6"/>
-                <circle cx="131" cy="6" r="4.6"/><circle cx="145" cy="6" r="4.6"/><circle cx="159" cy="6" r="4.6"/>
-              </g>
-              <text class="fig-note" x="174" y="9">≈ 50 g · 12 qoshiq</text>
-            </g>
-          </g>
-          <line x1="0" y1="40" x2="320" y2="40" stroke="var(--hair)" stroke-width="0.6"/>
-          <!-- 6 ложек -->
-          <g transform="translate(0,52)">
-            <text class="fig-note" x="0" y="9" style="font-weight: 700;">&lt; 5 %</text>
-            <g transform="translate(44,0)">
-              <g fill="var(--accent)">
-                <circle cx="5" cy="6" r="4.6"/><circle cx="19" cy="6" r="4.6"/><circle cx="33" cy="6" r="4.6"/>
-                <circle cx="47" cy="6" r="4.6"/><circle cx="61" cy="6" r="4.6"/><circle cx="75" cy="6" r="4.6"/>
-              </g>
-              <text class="fig-note" x="90" y="9">≈ 25 g · 6 qoshiq</text>
-            </g>
-          </g>
-          <text class="fig-tick" x="0" y="92">Choy qoshiq · Чайные ложки · Доля суточной энергии</text>
-        </svg>
-      </div>
+      <img class="photo photo-wide" src="shakar-01/sugar-spoons.jpg" alt="" style="margin-top: 2.2mm; height: 32mm;">
+      <p class="photo-caption">
+        JSST me&#39;yori: erkin shakar kunlik energiyaning 5–10 % dan oshmasligi kerak · Норма ВОЗ: 6–12 чайных ложек сахара в день
+      </p>
 
       <div class="lang-pair body" style="margin-top: 2.4mm;">
         <div class="uz">JSST erkin shakarni kunlik energiyaning <b>10 foizidan kam</b> qilishni tavsiya etadi — bu taxminan 50 gramm. <b>5 foizdan kam</b> bo&#39;lsa, qo&#39;shimcha foyda bor deb hisoblanadi — taxminan 25 gramm.</div>
@@ -473,7 +551,7 @@
       <h1 class="h1" style="margin-top: 2.2mm;">To&#39;rtta qadam,<br>bitta odat</h1>
       <p class="deck" style="margin-top: 1.8mm;">Четыре шага и одна привычка. Ничего не нужно исключать из меню</p>
 
-      <div class="steps" style="margin-top: 2.8mm;">
+      <div class="steps" style="margin-top: 1.8mm; gap: 1.6mm;">
         <div class="step">
           <div class="step-num">1</div>
           <div class="lang-pair body">
@@ -504,53 +582,40 @@
         </div>
       </div>
 
-      <div class="figure" style="margin-top: 2.6mm;">
-        <svg viewBox="0 0 320 56" role="img" aria-label="Timeline">
-          <line x1="10" y1="30" x2="310" y2="30" stroke="var(--hair)" stroke-width="0.8"/>
-          <circle cx="42" cy="30" r="6" fill="var(--accent)"/>
-          <circle cx="238" cy="30" r="6" fill="var(--gold)"/>
-          <line x1="42" y1="30" x2="238" y2="30" stroke="var(--accent)" stroke-width="2"/>
-          <text class="fig-note" x="42" y="18" text-anchor="middle" font-weight="700">0</text>
-          <text class="fig-note" x="238" y="18" text-anchor="middle" font-weight="700">10–15</text>
-          <text class="fig-tick" x="42" y="46" text-anchor="middle">Yashil · Зелень</text>
-          <text class="fig-tick" x="238" y="46" text-anchor="middle">Palov · Плов</text>
-          <text class="fig-tick" x="316" y="24" text-anchor="end">daq · мин</text>
-        </svg>
-      </div>
+      <img class="photo photo-wide" src="shakar-01/greens-first.jpg" alt="" style="margin-top: 1.6mm; height: 22mm;">
+      <p class="photo-caption" style="margin-top: 0.6mm; padding-top: 0.6mm;">
+        Avval yashil: qadoqni oching va 10–15 daqiqa oldin yeng · Сначала зелень: за 10–15 мин до еды
+      </p>
 
-      <div class="card-elegant" style="margin-top: 1.8mm;">
+      <div class="card-elegant" style="margin-top: 1.2mm;">
         <div class="lang-pair body">
           <div class="uz">Usul mahsulot emas — <b>tartib</b>. Uni bizning miksimizsiz ham bajarish mumkin: har qanday yangi sabzavot ish beradi.</div>
           <div class="ru"><span class="lang-tag">ru</span>Метод — это не продукт, а <b>порядок</b>. Его можно соблюдать и без нашего микса: подойдут любые свежие овощи.</div>
         </div>
       </div>
 
-      <hr class="rule-gold">
+      <hr class="rule-gold" style="margin: 1.2mm 0;">
 
       <div>
         <span class="kicker gold">Tarelka qoidasi · Правило тарелки</span>
-        <h3 class="h3" style="margin-top: 1.6mm;">Yarmi — sabzavot</h3>
-        <div class="figure" style="margin-top: 1.6mm;">
-          <svg viewBox="0 0 320 74" role="img" aria-label="Tarelka">
-            <circle cx="37" cy="37" r="34" fill="none" stroke="var(--hair)" stroke-width="1"/>
-            <path d="M37 3 A34 34 0 0 0 37 71 Z" fill="var(--accent)"/>
-            <path d="M37 3 A34 34 0 0 1 71 37 L37 37 Z" fill="var(--gold)"/>
-            <line x1="37" y1="3" x2="37" y2="71" stroke="var(--paper)" stroke-width="1"/>
-            <line x1="37" y1="37" x2="71" y2="37" stroke="var(--paper)" stroke-width="1"/>
+        <h3 class="h3" style="margin-top: 1.2mm;">Yarmi — sabzavot</h3>
+        <div class="figure" style="margin-top: 1.2mm;">
+          <svg viewBox="0 0 320 60" role="img" aria-label="Tarelka" style="max-height: 16mm;">
+            <circle cx="30" cy="30" r="28" fill="none" stroke="var(--hair)" stroke-width="1"/>
+            <path d="M30 2 A28 28 0 0 0 30 58 Z" fill="var(--accent)"/>
+            <path d="M30 2 A28 28 0 0 1 58 30 L30 30 Z" fill="var(--gold)"/>
+            <line x1="30" y1="2" x2="30" y2="58" stroke="var(--paper)" stroke-width="1"/>
+            <line x1="30" y1="30" x2="58" y2="30" stroke="var(--paper)" stroke-width="1"/>
 
-            <rect x="88" y="10" width="7" height="7" fill="var(--accent)"/>
-            <text class="fig-note" x="101" y="16">Yarmi — kraxmalsiz sabzavot · Половина — некрахмалистые овощи</text>
-            <rect x="88" y="30" width="7" height="7" fill="var(--gold)"/>
-            <text class="fig-note" x="101" y="36">Chorak — oqsil · Четверть — белок</text>
-            <rect x="88" y="50" width="7" height="7" fill="none" stroke="var(--hair)" stroke-width="1"/>
-            <text class="fig-note" x="101" y="56">Chorak — uglevod · Четверть — углеводы</text>
+            <rect x="75" y="8" width="6" height="6" fill="var(--accent)"/>
+            <text class="fig-note" x="87" y="14">Yarmi — kraxmalsiz sabzavot · Половина — некрахмалистые овощи</text>
+            <rect x="75" y="24" width="6" height="6" fill="var(--gold)"/>
+            <text class="fig-note" x="87" y="30">Chorak — oqsil · Четверть — белок</text>
+            <rect x="75" y="40" width="6" height="6" fill="none" stroke="var(--hair)" stroke-width="1"/>
+            <text class="fig-note" x="87" y="46">Chorak — uglevod · Четверть — углеводы</text>
           </svg>
         </div>
-        <!-- Источник назван аббревиатурой ADA намеренно: полное имя организации
-             содержит слово, которого в публичных материалах быть не должно
-             (doc/balans_concept.md §6.2). ADA — общепринятое сокращение, ссылка
-             разрешается однозначно; полное название есть в закрытом досье. -->
-        <p class="src" style="margin-top: 1.6mm;">
+        <p class="src" style="margin-top: 1mm;">
           <b>Manba · Источник:</b> ADA Standards of Care, 2026 — umumiy ovqatlanish tavsiyasi · общая рекомендация по питанию.
         </p>
       </div>
@@ -567,10 +632,9 @@
       <span>Usul · Метод</span>
     </div>
     <div class="page-body">
-      <img class="photo photo-hero" src="shakar-01/plov-jasmin.jpeg" alt="">
+      <img class="photo photo-hero" src="shakar-01/plov-cold.jpg" alt="">
       <p class="photo-caption">
-        Palov o&#39;z o&#39;rnida qoladi — faqat undan oldin tarelka ko&#39;kat paydo bo&#39;ladi ·
-        Плов остаётся на месте — перед ним просто появляется тарелка зелени
+        Sovutilgan palov: rezistent kraxmal darajasi oshadi · Остывший плов: увеличивается доля резистентного крахмала
       </p>
 
       <span class="section-tag gold" style="margin-top: 2.4mm;">Bepul usul · Бесплатный приём</span>
@@ -708,76 +772,555 @@
     </div>
     <div class="page-body">
       <span class="section-tag filled">Olimlar nimani o&#39;rganmoqda · Что изучают учёные</span>
-      <h1 class="h1" style="margin-top: 2.2mm;">Barg ichidagi molekulalar</h1>
-      <p class="deck" style="margin-top: 1.4mm;">Молекулы внутри листа: что о них известно и чего пока не известно</p>
+      <h1 class="h1" style="margin-top: 1.8mm;">Barg ichidagi molekulalar</h1>
+      <p class="deck" style="margin-top: 1.2mm;">Молекулы внутри листа: что о них известно и чего пока не известно</p>
 
-      <div class="card-dark" style="margin-top: 2mm;">
-        <div class="lang-pair body">
+      <div class="card-dark" style="margin-top: 1.4mm; padding: 1.8mm 3.2mm;">
+        <div class="lang-pair body" style="font-size: 7.8pt;">
           <div class="uz">Quyidagi hamma narsa — <b>ilmiy nashrlar haqida</b>, mahsulotimiz haqida emas. Tadqiqotlarda konsentratlar ishlatilgan, bu molekulalar miqdori bizda <b>o&#39;lchanmagan</b>.</div>
           <div class="ru"><span class="lang-tag">ru</span>Всё ниже — <b>о научных публикациях</b>, а не о нашем товаре: в исследованиях применяли концентраты, а содержание этих молекул у нас <b>не измерялось</b>.</div>
         </div>
       </div>
 
-      <div class="figure" style="margin-top: 2mm;">
-        <svg viewBox="0 0 320 58" role="img" aria-label="Glucoraphanin to sulforaphane">
-          <rect x="2" y="16" width="86" height="24" fill="none" stroke="var(--hair)" stroke-width="0.8"/>
-          <text class="fig-note" x="45" y="27" text-anchor="middle" style="font-weight: 700;">Glukorafanin</text>
-          <text class="fig-tick" x="45" y="35" text-anchor="middle">faol emas · неактивен</text>
-
-          <line x1="90" y1="28" x2="126" y2="28" stroke="var(--accent)" stroke-width="1.4"/>
-          <polygon points="126,28 120,25 120,31" fill="var(--accent)"/>
-          <text class="fig-tick" x="108" y="12" text-anchor="middle" style="fill: var(--accent); font-weight: 700;">mirozinaza</text>
-          <text class="fig-tick" x="108" y="52" text-anchor="middle">to&#39;qima buzilganda</text>
-
-          <rect x="128" y="16" width="86" height="24" fill="var(--accent)"/>
-          <text class="fig-note" x="171" y="27" text-anchor="middle" style="fill: #fff; font-weight: 700;">Sulforafan</text>
-          <text class="fig-tick" x="171" y="35" text-anchor="middle" style="fill: rgba(255,255,255,.8);">faol · активен</text>
-
-          <line x1="216" y1="28" x2="248" y2="28" stroke="var(--hair)" stroke-width="1.2" stroke-dasharray="3 2"/>
-          <polygon points="248,28 242,25 242,31" fill="var(--hair)"/>
-          <rect x="250" y="16" width="68" height="24" fill="none" stroke="var(--hair)" stroke-width="0.8" stroke-dasharray="3 2"/>
-          <text class="fig-tick" x="284" y="27" text-anchor="middle">Mikrobiota</text>
-          <text class="fig-tick" x="284" y="35" text-anchor="middle">1–40 %</text>
-        </svg>
-      </div>
-      <div class="mol" style="margin-top: 2mm;">
-        <div class="mol-name">Sulforafan · Сульфорафан</div>
+      <img class="photo photo-wide" src="shakar-01/leaf-macro.jpg" alt="" style="margin-top: 1.2mm; height: 20mm;">
+      <p class="photo-caption" style="margin-top: 0.5mm; padding-top: 0.5mm;">
+        Barg to&#39;qimasi mikroskop ostida · Структура листа: ферментативная активация при разрушении ткани
+      </p>
+      <div class="mol" style="margin-top: 1.2mm; padding: 0.8mm 0 0;">
+        <div class="mol-name" style="font-size: 8.8pt;">Sulforafan · Сульфорафан</div>
         <span class="mol-where">Brokkoli · kolrabi · kress · xantal · turp</span>
-        <p class="mol-text">Ekstrakt bilan tadqiqotlar bor, ammo 2025-yilgi eng yirik ish <b>asosiy maqsadga erishmagan</b>.<br><span style="color:var(--ink-3)">Есть исследования на экстрактах, но самая крупная работа 2025 года <b>не достигла первичной цели</b>.</span></p>
-        <div class="mol-level">Daraja · Уровень: RCT ekstrakt bilan, natijalar qarama-qarshi / РКИ на экстрактах, противоречиво</div>
+        <p class="mol-text" style="font-size: 6.8pt; line-height: 1.22; margin-top: 0.4mm;">Ekstrakt bilan tadqiqotlar bor, ammo 2025-yilgi eng yirik ish <b>asosiy maqsadga erishmagan</b>.<br><span style="color:var(--ink-3)">Есть исследования на экстрактах, но самая крупная работа 2025 года <b>не достигла первичной цели</b>.</span></p>
+        <div class="mol-level" style="margin-top: 0.3mm;">Daraja · Уровень: RCT ekstrakt bilan / РКИ на экстрактах, противоречиво</div>
       </div>
 
-      <div class="mol">
-        <div class="mol-name">Antotsianlar · Антоцианы</div>
+      <div class="mol" style="margin-top: 1mm; padding: 0.8mm 0 0;">
+        <div class="mol-name" style="font-size: 8.8pt;">Antotsianlar · Антоцианы</div>
         <span class="mol-where">Amarant · Sango turpi · qizil mizuna · qizil pakchoy</span>
-        <p class="mol-text">Qizil va binafsha rangni beradigan pigment. Hujayra va hayvon modellarida o&#39;rganilgan.<br><span style="color:var(--ink-3)">Пигмент, дающий красный и фиолетовый цвет. Изучен на клетках и животных моделях.</span></p>
-        <div class="mol-level">Daraja · Уровень: hujayra va hayvonlar, odamda RCT yo&#39;q / клетки и животные, РКИ у людей нет</div>
+        <p class="mol-text" style="font-size: 6.8pt; line-height: 1.22; margin-top: 0.4mm;">Qizil va binafsha rangni beradigan pigment. Hujayra va hayvon modellarida o&#39;rganilgan.<br><span style="color:var(--ink-3)">Пигмент, дающий красный и фиолетовый цвет. Изучен на клетках и животных моделях.</span></p>
+        <div class="mol-level" style="margin-top: 0.3mm;">Daraja · Уровень: hujayra va hayvonlar / клетки и животные, РКИ у людей нет</div>
       </div>
 
-      <div class="mol">
-        <div class="mol-name">Fenol kislotalari · Фенольные кислоты</div>
+      <div class="mol" style="margin-top: 1mm; padding: 0.8mm 0 0;">
+        <div class="mol-name" style="font-size: 8.8pt;">Fenol kislotalari · Фенольные кислоты</div>
         <span class="mol-where">Kungaboqar · no&#39;xat · kolrabi</span>
-        <p class="mol-text">Probirkada kraxmal parchalaydigan fermentlarga ta&#39;sir qilishi ko&#39;rsatilgan.<br><span style="color:var(--ink-3)">В пробирке показано влияние на ферменты, расщепляющие крахмал.</span></p>
-        <div class="mol-level">Daraja · Уровень: in vitro</div>
+        <p class="mol-text" style="font-size: 6.8pt; line-height: 1.22; margin-top: 0.4mm;">Probirkada kraxmal parchalaydigan fermentlarga ta&#39;sir qilishi ko&#39;rsatilgan.<br><span style="color:var(--ink-3)">В пробирке показано влияние на ферменты, расщепляющие крахмал.</span></p>
+        <div class="mol-level" style="margin-top: 0.3mm;">Daraja · Уровень: in vitro</div>
       </div>
 
-      <div class="mol">
-        <div class="mol-name">K vitamini · Витамин K1</div>
+      <div class="mol" style="margin-top: 1mm; padding: 0.8mm 0 0;">
+        <div class="mol-name" style="font-size: 8.8pt;">K vitamini · Витамин K1</div>
         <span class="mol-where">Amarant · barcha bargli ko&#39;katlar</span>
-        <p class="mol-text">Miqdori 8-sahifada. Varfarin qabul qilayotganlar uchun <b>doimiy miqdor</b> muhim — shifokor bilan maslahatlashing.<br><span style="color:var(--ink-3)">Количество — на стр. 8. Тем, кто принимает варфарин, важна <b>постоянная</b> доза: обсудите с врачом.</span></p>
-        <div class="mol-level">Daraja · Уровень: kichik RCT / небольшое РКИ</div>
+        <p class="mol-text" style="font-size: 6.8pt; line-height: 1.22; margin-top: 0.4mm;">Miqdori 8-sahifada. Varfarin qabul qilayotganlar uchun <b>doimiy miqdor</b> muhim — shifokor bilan maslahatlashing.<br><span style="color:var(--ink-3)">Количество — на стр. 8. Тем, кто принимает варфарин, важна <b>постоянная</b> доза: обсудите с врачом.</span></p>
+        <div class="mol-level" style="margin-top: 0.3mm;">Daraja · Уровень: kichik RCT / небольшое РКИ</div>
       </div>
 
-      <p class="src" style="margin-top: auto; padding-top: 1.4mm;">
-        <b>Manba · Источники:</b> Science Translational Medicine, 2017 · Nature Microbiology, 2025 ·
-        J Agric Food Chem · Food Chemistry, 2021 · Eur J Clin Nutr, 2015.
+      <p class="src" style="margin-top: auto; padding-top: 0.8mm;">
+        <b>Manba · Источники:</b> Science Transl Med, 2017 · Nature Microb, 2025 · J Agric Food Chem · Food Chem, 2021 · Eur J Clin Nutr, 2015.
       </p>
     </div>
   </div>
   <div class="page-num page-num-r">9</div>
 </div>
 
-<!-- ══════════ 10 · ПОЧЕМУ НЕ ГРЕЕМ ══════════ -->
+<!-- ══════════ 10 · МОЛЕКУЛЫ: РЕАКЦИЯ ══════════
+     Схема нарисована геометрией целиком: стрелка — линия с полигоном, индексы
+     формул — отдельные <text> со сдвигом. Ни одного символа вне подмножества
+     шрифта, см. scripts/check-magazine-glyphs.mjs.
+     Строение сверено с карточками PubChem: глюкорафанин CID 9548634,
+     сульфорафан CID 5350. Сахарный остаток обозначен сокращением Glc — это
+     принятая в литературе краткая запись, а не упрощение строения. -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Ilm · Наука</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">Molekulalar · Молекулы</span>
+      <h1 class="h1" style="margin-top: 1.8mm;">Nega ko&#39;katni kesamiz</h1>
+      <p class="deck" style="margin-top: 1.2mm;">Почему зелень режут: превращение начинается только тогда, когда разрушена ткань листа</p>
+
+      <div class="card-dark" style="margin-top: 1.4mm; padding: 1.8mm 3.2mm;">
+        <div class="lang-pair body" style="font-size: 7.6pt;">
+          <div class="uz">Bu sahifa — <b>molekulalarning tuzilishi</b> haqida, ularning bizdagi miqdori haqida emas: miqdor <b>o&#39;lchanmagan</b>.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Эта полоса — о <b>строении молекул</b>, а не об их количестве у нас: количество <b>не измерялось</b>.</div>
+        </div>
+      </div>
+
+      <div class="figure">
+        <svg viewBox="0 0 320 214" role="img" aria-label="Glukorafanin va sulforafan tuzilishi">
+          <text class="fig-no" x="0" y="7">Rasm 1 · Илл. 1</text>
+          <text class="fig-label" x="0" y="22">Glukorafanin · глюкорафанин</text>
+
+          <!-- цепь метилсульфинилбутила -->
+          <path class="mol-bond" d="M16 66 L34 56 M34 56 L52 66 L70 56 L88 66 L106 56 L124 66"/>
+          <!-- S=O: две параллельные линии -->
+          <path class="mol-bond" d="M31 52 L31 40 M37 52 L37 40"/>
+          <!-- C=N -->
+          <path class="mol-bond" d="M126 62 L143 53 M123 57 L140 48"/>
+          <!-- N-O-сульфат -->
+          <path class="mol-bond" d="M148 52 L160 46 M166 44 L176 40"/>
+          <!-- C-S-Glc -->
+          <path class="mol-bond" d="M124 72 L124 82 M124 92 L146 98"/>
+
+          <circle cx="34" cy="56" r="6" fill="var(--paper)"/>
+          <circle cx="34" cy="36" r="6" fill="var(--paper)"/>
+          <circle cx="145" cy="50" r="6" fill="var(--paper)"/>
+          <circle cx="163" cy="45" r="6" fill="var(--paper)"/>
+          <circle cx="124" cy="87" r="6" fill="var(--paper)"/>
+          <text class="mol-atom" x="34" y="58.5" text-anchor="middle">S</text>
+          <text class="mol-atom" x="34" y="38.5" text-anchor="middle">O</text>
+          <text class="mol-atom" x="145" y="52.5" text-anchor="middle">N</text>
+          <text class="mol-atom" x="163" y="47.5" text-anchor="middle">O</text>
+          <text class="mol-atom" x="124" y="89.5" text-anchor="middle">S</text>
+          <text class="mol-atom" x="180" y="42" text-anchor="start">SO</text>
+          <text class="mol-sub" x="192" y="44" text-anchor="start">3</text>
+
+          <!-- остаток глюкозы: пиранозное кольцо -->
+          <path class="mol-bond" d="M150 98 L162 88 L178 92 L182 106 L170 116 L154 112 Z"/>
+          <text class="mol-formula" x="166" y="106" text-anchor="middle">Glc</text>
+
+          <!-- стрелка реакции: геометрия, а не символ -->
+          <path class="mol-bond" d="M30 118 L30 138" stroke="var(--accent)"/>
+          <polygon points="30,146 25,134 35,134" fill="var(--accent)"/>
+          <text class="fig-note" x="44" y="128" style="fill: var(--accent); font-weight: 700;">mirozinaza · мирозиназа</text>
+          <text class="fig-tick" x="44" y="138">to&#39;qima kesilganda · при разрезе ткани</text>
+
+          <text class="fig-label" x="0" y="160">Sulforafan · сульфорафан</text>
+          <!-- CH3-S(=O)-CH2CH2CH2CH2-N=C=S. Четыре вершины между S и N — это
+               четыре углерода цепи; средний атом изотиоцианата подписан, потому
+               что группа линейна и вершина в ней не видна. -->
+          <path class="mol-bond" d="M16 202 L34 192 L52 202 L70 192 L88 202 L106 192 L124 202"/>
+          <path class="mol-bond" d="M31 186 L31 178 M37 186 L37 178"/>
+          <path class="mol-bond" d="M130 199 L138 199 M130 205 L138 205 M150 199 L158 199 M150 205 L158 205"/>
+          <circle cx="34" cy="192" r="6" fill="var(--paper)"/>
+          <circle cx="34" cy="174" r="6" fill="var(--paper)"/>
+          <circle cx="124" cy="202" r="6" fill="var(--paper)"/>
+          <circle cx="144" cy="202" r="6" fill="var(--paper)"/>
+          <circle cx="164" cy="202" r="6" fill="var(--paper)"/>
+          <text class="mol-atom" x="34" y="194.5" text-anchor="middle">S</text>
+          <text class="mol-atom" x="34" y="176.5" text-anchor="middle">O</text>
+          <text class="mol-atom" x="124" y="204.5" text-anchor="middle">N</text>
+          <text class="mol-atom" x="144" y="204.5" text-anchor="middle">C</text>
+          <text class="mol-atom" x="164" y="204.5" text-anchor="middle">S</text>
+          <text class="mol-formula" x="182" y="204" text-anchor="start">+ glyukoza · глюкоза</text>
+        </svg>
+      </div>
+      <p class="photo-caption" style="margin-top: 0.6mm; padding-top: 0.6mm;">
+        Tuzilish sxemasi, miqdor emas · Схема строения, а не измерение: фермент и предшественник лежат в разных клетках и встречаются, только когда лист разрезан.
+      </p>
+
+      <p class="src" style="margin-top: auto; padding-top: 0.8mm;">
+        <b>Manba · Источники:</b> PubChem CID 9548634, 5350 · J Agric Food Chem, 2008 · Fahey va boshq., PNAS, 1997.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-l">10</div>
+</div>
+
+<!-- ══════════ 11 · ЧЕТЫРЕ МОЛЕКУЛЫ ══════════
+     Скелетные формулы четырёх соединений со страницы 9 плюс шаростержневая
+     модель. Сахарный остаток антоциана и хвост филлохинона показаны
+     сокращённо — это принятая краткая запись, строение сверено с PubChem:
+     441667, 5284607, 689043, 5350. Кофейная кислота взята представителем
+     фенольных кислот: группа большая, и «фенольная кислота вообще» строения
+     не имеет. -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Ilm · Наука</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Tuzilishi · Строение</span>
+      <h1 class="h1" style="margin-top: 1.8mm;">To&#39;rt molekula</h1>
+      <p class="deck" style="margin-top: 1.2mm;">Четыре молекулы со страницы 9 — как они устроены на самом деле</p>
+
+      <div class="figure">
+        <svg viewBox="0 0 320 232" role="img" aria-label="Skeletnye formuly">
+          <text class="fig-no" x="0" y="7">Rasm 2 · Илл. 2</text>
+
+          <!-- 1. Сульфорафан. Четыре вершины между S и N — четыре углерода. -->
+          <text class="fig-label" x="0" y="22">Sulforafan</text>
+          <path class="mol-bond" d="M10 80 L26 71 L42 80 L58 71 L74 80 L90 71 L106 80"/>
+          <path class="mol-bond" d="M23 65 L23 58 M29 65 L29 58"/>
+          <path class="mol-bond" d="M112 77 L120 77 M112 83 L120 83 M132 77 L140 77 M132 83 L140 83"/>
+          <circle cx="26" cy="71" r="6" fill="var(--paper)"/>
+          <circle cx="26" cy="52" r="6" fill="var(--paper)"/>
+          <circle cx="106" cy="80" r="6" fill="var(--paper)"/>
+          <circle cx="126" cy="80" r="6" fill="var(--paper)"/>
+          <circle cx="146" cy="80" r="6" fill="var(--paper)"/>
+          <text class="mol-atom" x="26" y="73.5" text-anchor="middle">S</text>
+          <text class="mol-atom" x="26" y="54.5" text-anchor="middle">O</text>
+          <text class="mol-atom" x="106" y="82.5" text-anchor="middle">N</text>
+          <text class="mol-atom" x="126" y="82.5" text-anchor="middle">C</text>
+          <text class="mol-atom" x="146" y="82.5" text-anchor="middle">S</text>
+          <text class="mol-formula" x="0" y="104">C</text>
+          <text class="mol-sub" x="6" y="106">6</text>
+          <text class="mol-formula" x="10" y="104">H</text>
+          <text class="mol-sub" x="16" y="106">11</text>
+          <text class="mol-formula" x="24" y="104">NOS</text>
+          <text class="mol-sub" x="43" y="106">2</text>
+
+          <!-- 2. Цианидин-3-O-глюкозид. Флавилий: бензольное кольцо A слито с
+               пирилиевым C, кольцо B присоединено одинарной связью ко второму
+               положению. Кружок внутри кольца — принятое обозначение
+               ароматичности; заряд несёт кислород пирилия. -->
+          <text class="fig-label" x="176" y="22">Antotsian</text>
+          <path class="mol-bond" d="M196 57 L184.7 63.5 L184.7 76.5 L196 83 L207.3 76.5 L207.3 63.5 Z"/>
+          <path class="mol-bond" d="M218.6 57 L207.3 63.5 L207.3 76.5 L218.6 83 L229.9 76.5 L229.9 63.5 Z"/>
+          <path class="mol-bond" d="M256 35 L244.7 41.5 L244.7 54.5 L256 61 L267.3 54.5 L267.3 41.5 Z"/>
+          <path class="mol-bond" d="M229.9 63.5 L244.7 54.5"/>
+          <path class="mol-bond" d="M229.9 76.5 L238 85"/>
+          <circle cx="196" cy="70" r="6.5" fill="none" stroke="var(--ink)" stroke-width="1"/>
+          <circle cx="256" cy="48" r="6.5" fill="none" stroke="var(--ink)" stroke-width="1"/>
+          <circle cx="218.6" cy="70" r="6.5" fill="none" stroke="var(--ink)" stroke-width="1"/>
+          <circle cx="218.6" cy="57" r="6" fill="var(--paper)"/>
+          <text class="mol-atom" x="218.6" y="59.5" text-anchor="middle">O</text>
+          <text class="mol-sub" x="225" y="55" text-anchor="start">+</text>
+          <text class="mol-atom" x="181" y="66" text-anchor="end">HO</text>
+          <text class="mol-atom" x="196" y="95" text-anchor="middle">OH</text>
+          <text class="mol-atom" x="271" y="44" text-anchor="start">OH</text>
+          <text class="mol-atom" x="271" y="58" text-anchor="start">OH</text>
+          <text class="mol-atom" x="240" y="92" text-anchor="start">O-Glc</text>
+          <text class="mol-formula" x="176" y="110">C</text>
+          <text class="mol-sub" x="182" y="112">21</text>
+          <text class="mol-formula" x="190" y="110">H</text>
+          <text class="mol-sub" x="196" y="112">21</text>
+          <text class="mol-formula" x="204" y="110">O</text>
+          <text class="mol-sub" x="210" y="112">11</text>
+          <text class="mol-formula" x="218" y="110">+ · Glc — glyukoza</text>
+
+          <!-- 3. Кофейная кислота — представитель фенольных кислот: у группы
+               в целом строения нет, у каждого её члена оно своё. -->
+          <text class="fig-label" x="0" y="132">Kofein kislotasi</text>
+          <path class="mol-bond" d="M42 167 L30.7 173.5 L30.7 186.5 L42 193 L53.3 186.5 L53.3 173.5 Z"/>
+          <circle cx="42" cy="180" r="6.5" fill="none" stroke="var(--ink)" stroke-width="1"/>
+          <path class="mol-bond" d="M53.3 173.5 L69 166 L85 173.5 L101 166"/>
+          <path class="mol-bond" d="M67.7 169 L83.7 176.5"/>
+          <path class="mol-bond" d="M101 166 L101 152 M107 166 L107 153"/>
+          <path class="mol-bond" d="M101 166 L113 173"/>
+          <circle cx="104" cy="148" r="6" fill="var(--paper)"/>
+          <text class="mol-atom" x="26" y="176" text-anchor="end">HO</text>
+          <text class="mol-atom" x="26" y="190" text-anchor="end">HO</text>
+          <text class="mol-atom" x="104" y="150.5" text-anchor="middle">O</text>
+          <text class="mol-atom" x="116" y="177" text-anchor="start">OH</text>
+          <text class="mol-formula" x="0" y="207">C</text>
+          <text class="mol-sub" x="6" y="209">9</text>
+          <text class="mol-formula" x="10" y="207">H</text>
+          <text class="mol-sub" x="16" y="209">8</text>
+          <text class="mol-formula" x="21" y="207">O</text>
+          <text class="mol-sub" x="27" y="209">4</text>
+
+          <!-- 4. Филлохинон: 1,4-нафтохинон с метилом и длинным
+               углеводородным хвостом. Хвост показан началом и оборван — на
+               полосе он не помещается, а его длина сути не меняет. -->
+          <text class="fig-label" x="176" y="132">K vitamini</text>
+          <path class="mol-bond" d="M196 167 L184.7 173.5 L184.7 186.5 L196 193 L207.3 186.5 L207.3 173.5 Z"/>
+          <circle cx="196" cy="180" r="6.5" fill="none" stroke="var(--ink)" stroke-width="1"/>
+          <path class="mol-bond" d="M218.6 167 L207.3 173.5 L207.3 186.5 L218.6 193 L229.9 186.5 L229.9 173.5 Z"/>
+          <path class="mol-bond" d="M215.6 167 L215.6 155 M221.6 167 L221.6 155"/>
+          <path class="mol-bond" d="M215.6 193 L215.6 205 M221.6 193 L221.6 205"/>
+          <path class="mol-bond" d="M226.9 175 L226.9 185"/>
+          <path class="mol-bond" d="M229.9 173.5 L243 166"/>
+          <path class="mol-bond" d="M229.9 186.5 L243 194 L257 187 L271 194 L285 187"/>
+          <circle cx="218.6" cy="151" r="6" fill="var(--paper)"/>
+          <circle cx="218.6" cy="209" r="6" fill="var(--paper)"/>
+          <text class="mol-atom" x="218.6" y="153.5" text-anchor="middle">O</text>
+          <text class="mol-atom" x="218.6" y="211.5" text-anchor="middle">O</text>
+          <text class="mol-formula" x="246" y="206" text-anchor="start">uglevodorod dumi</text>
+          <text class="mol-formula" x="176" y="226">C</text>
+          <text class="mol-sub" x="182" y="228">31</text>
+          <text class="mol-formula" x="190" y="226">H</text>
+          <text class="mol-sub" x="196" y="228">46</text>
+          <text class="mol-formula" x="204" y="226">O</text>
+          <text class="mol-sub" x="210" y="228">2</text>
+        </svg>
+      </div>
+
+      <p class="photo-caption" style="margin-top: 0.6mm; padding-top: 0.6mm;">
+        K vitaminining dumi qisqartirilgan · Хвост витамина K показан началом и оборван. Кофейная кислота взята представителем: у фенольных кислот как у группы единого строения нет.
+      </p>
+
+      <div class="figure" style="margin-top: 1.4mm;">
+        <svg viewBox="0 0 320 60" role="img" aria-label="Sharli model">
+          <text class="fig-no" x="0" y="7">Rasm 3 · Илл. 3</text>
+          <text class="fig-label" x="0" y="20">Sulforafan · sharli model</text>
+          <!-- Тот же сульфорафан, что и слева вверху, только шарами: девять
+               атомов остова C-S-C-C-C-C-N-C-S и кислород над серой.
+               Водороды не показаны — в шаростержневой записи это обычное дело,
+               иначе остов не виден за ними. -->
+          <path class="ball-stick" d="M28 44 L272 44 M58 44 L58 26"/>
+          <circle cx="28" cy="44" r="8" fill="var(--ink-3)"/>
+          <circle cx="58" cy="44" r="10" fill="var(--gold)"/>
+          <circle cx="58" cy="26" r="8" fill="var(--accent)"/>
+          <circle cx="88" cy="44" r="8" fill="var(--ink-3)"/>
+          <circle cx="118" cy="44" r="8" fill="var(--ink-3)"/>
+          <circle cx="148" cy="44" r="8" fill="var(--ink-3)"/>
+          <circle cx="178" cy="44" r="8" fill="var(--ink-3)"/>
+          <circle cx="208" cy="44" r="9" fill="var(--chart-a)"/>
+          <circle cx="240" cy="44" r="8" fill="var(--ink-3)"/>
+          <circle cx="272" cy="44" r="10" fill="var(--gold)"/>
+          <text class="ball-label" x="28" y="46.5" text-anchor="middle">C</text>
+          <text class="ball-label" x="58" y="46.5" text-anchor="middle">S</text>
+          <text class="ball-label" x="58" y="28.5" text-anchor="middle">O</text>
+          <text class="ball-label" x="88" y="46.5" text-anchor="middle">C</text>
+          <text class="ball-label" x="118" y="46.5" text-anchor="middle">C</text>
+          <text class="ball-label" x="148" y="46.5" text-anchor="middle">C</text>
+          <text class="ball-label" x="178" y="46.5" text-anchor="middle">C</text>
+          <text class="ball-label" x="208" y="46.5" text-anchor="middle">N</text>
+          <text class="ball-label" x="240" y="46.5" text-anchor="middle">C</text>
+          <text class="ball-label" x="272" y="46.5" text-anchor="middle">S</text>
+          <text class="fig-tick" x="0" y="58">Vodorodlar ko&#39;rsatilmagan · Водороды не показаны: за ними не виден остов.</text>
+        </svg>
+      </div>
+      <p class="photo-caption" style="margin-top: 0.6mm; padding-top: 0.6mm;">
+        Har bir shar harf bilan imzolangan · Каждый шар подписан буквой: в чёрно-белой печати цвета сливаются, подпись остаётся.
+      </p>
+
+      <p class="src" style="margin-top: auto; padding-top: 0.8mm;">
+        <b>Manba · Источники:</b> PubChem CID 5350, 441667, 689043, 5284607.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-r">11</div>
+</div>
+
+<!-- ══════════ 12 · ЦИФРЫ: НОРМА И ОСТЫВШИЙ ПЛОВ ══════════
+     Все величины уже напечатаны в номере словами (полосы 5 и 7) и взяты из
+     §7 досье — раздела публикуемого. Новых чисел разворот не вводит.
+     Цвет: один ряд — один цвет. Золотом отмечен тот столбик, о котором
+     спорит текст; значение подписано у КАЖДОГО столбика, поэтому смысл не
+     держится на цвете — в чёрно-белом тираже его не станет. -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Raqamlar · Цифры</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag filled">Raqamlar · Цифры</span>
+      <h1 class="h1" style="margin-top: 1.8mm;">Norma va sovigan palov</h1>
+      <p class="deck" style="margin-top: 1.2mm;">Норма и остывший плов: две величины, которые можно проверить</p>
+
+      <div class="figure">
+        <svg viewBox="0 0 320 82" role="img" aria-label="JSST normasi">
+          <defs>
+            <pattern id="hatch-4" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="4" stroke="var(--gold-ink)" stroke-width="1.1"/>
+            </pattern>
+          </defs>
+          <text class="fig-no" x="0" y="7">Rasm 4 · Илл. 4</text>
+          <text class="fig-label" x="0" y="20">Erkin shakar kuniga, g · Свободный сахар в сутки, г</text>
+
+          <line x1="78" y1="26" x2="78" y2="70" stroke="var(--hair)" stroke-width="0.7"/>
+          <line x1="168" y1="26" x2="168" y2="70" stroke="var(--hair-2)" stroke-width="0.5" stroke-dasharray="2 2"/>
+          <line x1="258" y1="26" x2="258" y2="70" stroke="var(--hair-2)" stroke-width="0.5" stroke-dasharray="2 2"/>
+
+          <rect class="bar-a" x="78" y="29" width="180" height="14" rx="1.6"/>
+          <rect class="bar-b" x="78" y="53" width="90" height="14" rx="1.6"/>
+          <rect x="78" y="53" width="90" height="14" rx="1.6" fill="url(#hatch-4)"/>
+
+          <text class="fig-tick" x="0" y="36">Kunlik energiyaning</text>
+          <text class="fig-tick" x="0" y="43">10%dan kam</text>
+          <text class="fig-tick" x="0" y="60">Kunlik energiyaning</text>
+          <text class="fig-tick" x="0" y="67">5%dan kam</text>
+
+          <text class="fig-val" x="264" y="38">50 g</text>
+          <text class="fig-tick" x="264" y="45">12 choy qoshiq</text>
+          <text class="fig-val" x="174" y="62">25 g</text>
+          <text class="fig-tick" x="174" y="69">6 choy qoshiq</text>
+
+          <text class="fig-tick" x="78" y="78" text-anchor="middle">0</text>
+          <text class="fig-tick" x="168" y="78" text-anchor="middle">25</text>
+          <text class="fig-tick" x="258" y="78" text-anchor="middle">50</text>
+        </svg>
+      </div>
+      <p class="photo-caption" style="margin-top: 0.6mm; padding-top: 0.6mm;">
+        JSST tavsiyasi · Рекомендация ВОЗ: вторая строка — условная рекомендация, она строже первой.
+      </p>
+
+      <div class="figure" style="margin-top: 1.6mm;">
+        <svg viewBox="0 0 320 126" role="img" aria-label="Sovigan palov">
+          <defs>
+            <pattern id="hatch-5" width="4" height="4" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="4" stroke="var(--gold-ink)" stroke-width="1.1"/>
+            </pattern>
+          </defs>
+          <text class="fig-no" x="0" y="7">Rasm 5 · Илл. 5</text>
+
+          <text class="fig-label" x="0" y="22">Rezistent kraxmal</text>
+          <text class="fig-tick" x="0" y="31">g/100 g · г на 100 г</text>
+          <line x1="8" y1="96" x2="140" y2="96" stroke="var(--hair)" stroke-width="0.7"/>
+          <rect class="bar-a" x="30" y="74" width="28" height="22" rx="1.6"/>
+          <rect class="bar-b" x="86" y="39" width="28" height="57" rx="1.6"/>
+          <rect x="86" y="39" width="28" height="57" rx="1.6" fill="url(#hatch-5)"/>
+          <text class="fig-val" x="44" y="70" text-anchor="middle">0,64</text>
+          <text class="fig-val" x="100" y="35" text-anchor="middle">1,65</text>
+          <text class="fig-tick" x="44" y="104" text-anchor="middle">issiq</text>
+          <text class="fig-tick" x="44" y="112" text-anchor="middle">горячий</text>
+          <text class="fig-tick" x="100" y="104" text-anchor="middle">sovigan</text>
+          <text class="fig-tick" x="100" y="112" text-anchor="middle">остывший</text>
+
+          <text class="fig-label" x="176" y="22">Glikemik javob</text>
+          <text class="fig-tick" x="176" y="31">mmol·min/l</text>
+          <line x1="184" y1="96" x2="316" y2="96" stroke="var(--hair)" stroke-width="0.7"/>
+          <rect class="bar-a" x="206" y="39" width="28" height="57" rx="1.6"/>
+          <rect class="bar-b" x="262" y="49" width="28" height="47" rx="1.6"/>
+          <rect x="262" y="49" width="28" height="47" rx="1.6" fill="url(#hatch-5)"/>
+          <text class="fig-val" x="220" y="35" text-anchor="middle">152</text>
+          <text class="fig-val" x="276" y="45" text-anchor="middle">125</text>
+          <text class="fig-tick" x="220" y="104" text-anchor="middle">issiq</text>
+          <text class="fig-tick" x="220" y="112" text-anchor="middle">горячий</text>
+          <text class="fig-tick" x="276" y="104" text-anchor="middle">sovigan</text>
+          <text class="fig-tick" x="276" y="112" text-anchor="middle">остывший</text>
+
+          <text class="fig-tick" x="0" y="124">Ikki o&#39;lchov, ikki o&#39;q · Две величины — две оси: у них разная природа и общей шкалы нет.</text>
+        </svg>
+      </div>
+      <p class="photo-caption" style="margin-top: 0.6mm; padding-top: 0.6mm;">
+        Sovutish 24 soat · Охлаждение сутки при 4 градусах и разогрев: часть крахмала становится резистентной.
+      </p>
+
+      <p class="src" style="margin-top: auto; padding-top: 0.8mm;">
+        <b>Manba · Источники:</b> WHO Guideline: Sugars intake for adults and children · Sonia va boshq., 2015 · Nutrients, 2022.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-l">12</div>
+</div>
+
+<!-- ══════════ 13 · ЦИФРЫ: СОСТАВ МИКСОВ ══════════
+     Малые кратные: у каждого нутриента своя панель и своя шкала, потому что
+     килокалории и микрограммы на одной оси несопоставимы. Значения — те же,
+     что в таблице на полосе 8; второго источника правды в номере нет. -->
+<div class="mag-page">
+  <div class="page-inner">
+    <div class="running-header">
+      <span class="masthead">FRESH WEEKLY</span>
+      <span>Raqamlar · Цифры</span>
+    </div>
+    <div class="page-body">
+      <span class="section-tag">Tarkib · Состав</span>
+      <h1 class="h1" style="margin-top: 1.8mm;">To&#39;rt miks, besh o&#39;lchov</h1>
+      <p class="deck" style="margin-top: 1.2mm;">Четыре микса в пяти измерениях — та же таблица со страницы 8, только видно глазом</p>
+
+      <div class="figure">
+        <svg viewBox="0 0 320 196" role="img" aria-label="Mikslar tarkibi">
+          <text class="fig-no" x="0" y="7">Rasm 6 · Илл. 6</text>
+          <text class="fig-label" x="0" y="20">100 g uchun · На 100 грамм</text>
+
+          <!-- kkal: 25 32 32 24, шкала 0..36 -->
+          <text class="fig-tick" x="0" y="34">kkal</text>
+          <line x1="0" y1="130" x2="55" y2="130" stroke="var(--hair)" stroke-width="0.7"/>
+          <rect class="bar-a" x="2" y="63" width="11" height="67" rx="1.4"/>
+          <rect class="bar-a" x="16" y="44" width="11" height="86" rx="1.4"/>
+          <rect class="bar-a" x="30" y="44" width="11" height="86" rx="1.4"/>
+          <rect class="bar-a" x="44" y="66" width="11" height="64" rx="1.4"/>
+          <text class="fig-val-s" x="7.5" y="59" text-anchor="middle">25</text>
+          <text class="fig-val-s" x="21.5" y="40" text-anchor="middle">32</text>
+          <text class="fig-val-s" x="35.5" y="40" text-anchor="middle">32</text>
+          <text class="fig-val-s" x="49.5" y="62" text-anchor="middle">24</text>
+          <text class="fig-tick" x="7.5" y="140" text-anchor="middle">1</text>
+          <text class="fig-tick" x="21.5" y="140" text-anchor="middle">2</text>
+          <text class="fig-tick" x="35.5" y="140" text-anchor="middle">3</text>
+          <text class="fig-tick" x="49.5" y="140" text-anchor="middle">4</text>
+
+          <!-- Углеводы: 3,3 3,8 4,8 3,6 — шкала 0..5,4 -->
+          <text class="fig-tick" x="64" y="34">Uglevod, g</text>
+          <line x1="64" y1="130" x2="119" y2="130" stroke="var(--hair)" stroke-width="0.7"/>
+          <rect class="bar-a" x="66" y="71" width="11" height="59" rx="1.4"/>
+          <rect class="bar-a" x="80" y="62" width="11" height="68" rx="1.4"/>
+          <rect class="bar-a" x="94" y="44" width="11" height="86" rx="1.4"/>
+          <rect class="bar-a" x="108" y="66" width="11" height="64" rx="1.4"/>
+          <text class="fig-val-s" x="71.5" y="67" text-anchor="middle">3,3</text>
+          <text class="fig-val-s" x="85.5" y="58" text-anchor="middle">3,8</text>
+          <text class="fig-val-s" x="99.5" y="40" text-anchor="middle">4,8</text>
+          <text class="fig-val-s" x="113.5" y="62" text-anchor="middle">3,6</text>
+          <text class="fig-tick" x="71.5" y="140" text-anchor="middle">1</text>
+          <text class="fig-tick" x="85.5" y="140" text-anchor="middle">2</text>
+          <text class="fig-tick" x="99.5" y="140" text-anchor="middle">3</text>
+          <text class="fig-tick" x="113.5" y="140" text-anchor="middle">4</text>
+
+          <!-- Клетчатка: 2,0 1,8 2,0 1,8 — шкала 0..2,25 -->
+          <text class="fig-tick" x="128" y="34">Tola, g</text>
+          <line x1="128" y1="130" x2="183" y2="130" stroke="var(--hair)" stroke-width="0.7"/>
+          <rect class="bar-a" x="130" y="44" width="11" height="86" rx="1.4"/>
+          <rect class="bar-a" x="144" y="53" width="11" height="77" rx="1.4"/>
+          <rect class="bar-a" x="158" y="44" width="11" height="86" rx="1.4"/>
+          <rect class="bar-a" x="172" y="53" width="11" height="77" rx="1.4"/>
+          <text class="fig-val-s" x="135.5" y="40" text-anchor="middle">2,0</text>
+          <text class="fig-val-s" x="149.5" y="49" text-anchor="middle">1,8</text>
+          <text class="fig-val-s" x="163.5" y="40" text-anchor="middle">2,0</text>
+          <text class="fig-val-s" x="177.5" y="49" text-anchor="middle">1,8</text>
+          <text class="fig-tick" x="135.5" y="140" text-anchor="middle">1</text>
+          <text class="fig-tick" x="149.5" y="140" text-anchor="middle">2</text>
+          <text class="fig-tick" x="163.5" y="140" text-anchor="middle">3</text>
+          <text class="fig-tick" x="177.5" y="140" text-anchor="middle">4</text>
+
+          <!-- Белок: 3,2 2,9 2,9 2,5 — шкала 0..3,6 -->
+          <text class="fig-tick" x="192" y="34">Oqsil, g</text>
+          <line x1="192" y1="130" x2="247" y2="130" stroke="var(--hair)" stroke-width="0.7"/>
+          <rect class="bar-a" x="194" y="44" width="11" height="86" rx="1.4"/>
+          <rect class="bar-a" x="208" y="52" width="11" height="78" rx="1.4"/>
+          <rect class="bar-a" x="222" y="52" width="11" height="78" rx="1.4"/>
+          <rect class="bar-a" x="236" y="63" width="11" height="67" rx="1.4"/>
+          <text class="fig-val-s" x="199.5" y="40" text-anchor="middle">3,2</text>
+          <text class="fig-val-s" x="213.5" y="48" text-anchor="middle">2,9</text>
+          <text class="fig-val-s" x="227.5" y="48" text-anchor="middle">2,9</text>
+          <text class="fig-val-s" x="241.5" y="59" text-anchor="middle">2,5</text>
+          <text class="fig-tick" x="199.5" y="140" text-anchor="middle">1</text>
+          <text class="fig-tick" x="213.5" y="140" text-anchor="middle">2</text>
+          <text class="fig-tick" x="227.5" y="140" text-anchor="middle">3</text>
+          <text class="fig-tick" x="241.5" y="140" text-anchor="middle">4</text>
+
+          <!-- Витамин K1: 103 259 194 236 — шкала 0..290 -->
+          <text class="fig-tick" x="256" y="34">K vit., mkg</text>
+          <line x1="256" y1="130" x2="311" y2="130" stroke="var(--hair)" stroke-width="0.7"/>
+          <rect class="bar-a" x="258" y="99" width="11" height="31" rx="1.4"/>
+          <rect class="bar-a" x="272" y="53" width="11" height="77" rx="1.4"/>
+          <rect class="bar-a" x="286" y="72" width="11" height="58" rx="1.4"/>
+          <rect class="bar-a" x="300" y="60" width="11" height="70" rx="1.4"/>
+          <text class="fig-val-s" x="263.5" y="95" text-anchor="middle">103</text>
+          <text class="fig-val-s" x="277.5" y="49" text-anchor="middle">259</text>
+          <text class="fig-val-s" x="291.5" y="68" text-anchor="middle">194</text>
+          <text class="fig-val-s" x="305.5" y="56" text-anchor="middle">236</text>
+          <text class="fig-tick" x="263.5" y="140" text-anchor="middle">1</text>
+          <text class="fig-tick" x="277.5" y="140" text-anchor="middle">2</text>
+          <text class="fig-tick" x="291.5" y="140" text-anchor="middle">3</text>
+          <text class="fig-tick" x="305.5" y="140" text-anchor="middle">4</text>
+
+          <!-- Порядок миксов одинаков во всех панелях: место кодирует микс,
+               поэтому цвет один и легенда нужна только одна. -->
+          <line x1="0" y1="150" x2="311" y2="150" stroke="var(--hair-2)" stroke-width="0.5"/>
+          <text class="fig-tick" x="0" y="162">1 — Yumshoq · Мягкий</text>
+          <text class="fig-tick" x="88" y="162">2 — Palovga · К плову</text>
+          <text class="fig-tick" x="176" y="162">3 — Krestsimon · Крестоцветный</text>
+          <text class="fig-tick" x="0" y="172">4 — Rangli · Цветной</text>
+          <text class="fig-tick" x="0" y="184">Har panelning o&#39;z shkalasi · У каждой панели своя шкала: панели</text>
+          <text class="fig-tick" x="0" y="192">сравнивают миксы между собой, а не нутриенты друг с другом.</text>
+        </svg>
+      </div>
+      <p class="photo-caption" style="margin-top: 0.6mm; padding-top: 0.6mm;">
+        Tarkib, xossa emas · Состав, а не свойство: цифры описывают, что лежит в упаковке.
+      </p>
+
+      <div class="card-dark" style="margin-top: 1.2mm; padding: 1.6mm 3.2mm;">
+        <div class="lang-pair body" style="font-size: 7.2pt;">
+          <div class="uz">K vitamini — <b>ekinlar ulushi bo&#39;yicha hisob</b>, laboratoriya protokoli emas.</div>
+          <div class="ru"><span class="lang-tag">ru</span>Витамин K — <b>расчёт по долям культур</b>, а не лабораторный протокол.</div>
+        </div>
+      </div>
+
+      <p class="src" style="margin-top: auto; padding-top: 0.8mm;">
+        <b>Manba · Источники:</b> tarkib jadvali, 8-sahifa · таблица состава, стр. 8.
+      </p>
+    </div>
+  </div>
+  <div class="page-num page-num-r">13</div>
+</div>
+
+<!-- ══════════ 14 · ПОЧЕМУ НЕ ГРЕЕМ ══════════ -->
 <div class="mag-page">
   <div class="page-inner">
     <div class="running-header">
@@ -840,10 +1383,10 @@
       </p>
     </div>
   </div>
-  <div class="page-num page-num-l">10</div>
+  <div class="page-num page-num-l">14</div>
 </div>
 
-<!-- ══════════ 11 · РЕЦЕПТ ══════════ -->
+<!-- ══════════ 15 · РЕЦЕПТ ══════════ -->
 <div class="mag-page">
   <div class="page-inner">
     <div class="running-header">
@@ -891,10 +1434,10 @@
       </div>
     </div>
   </div>
-  <div class="page-num page-num-r">11</div>
+  <div class="page-num page-num-r">15</div>
 </div>
 
-<!-- ══════════ 12 · ЗАДНЯЯ ОБЛОЖКА ══════════ -->
+<!-- ══════════ 16 · ЗАДНЯЯ ОБЛОЖКА ══════════ -->
 <div class="mag-page back" style="background: var(--ink);">
   <div class="page-inner">
     <div class="page-body no-header">

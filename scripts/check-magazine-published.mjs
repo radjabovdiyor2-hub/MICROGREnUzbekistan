@@ -24,7 +24,7 @@ import { chromium } from 'playwright';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = join(ROOT, 'apps', 'web', 'public');
 const SLUG = process.argv[2] ?? 'shakar-01';
-const EXPECT_PAGES = 12;
+const EXPECT_PAGES = 16;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
