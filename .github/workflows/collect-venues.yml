@@ -1,0 +1,119 @@
+name: Сбор заведений области
+
+# ══════════════════════════════════════════════════════════════════════
+# Полный обход справочника заведений Самаркандской области через 2ГИС.
+#
+# ЗАЧЕМ КНОПКА
+#
+# Ночная задача `collect_leads_nightly` берёт ПО ОДНОЙ категории за ночь
+# (ротация по дню года) и закрывает справочник за 19 ночей. Это правильный
+# режим для поддержания: он не выжигает суточную квоту провайдера. Но для
+# первого наполнения он негоден — владелец открывает раздел «Клиенты» и
+# ждёт три недели.
+#
+# Здесь весь обход идёт разом: 18 категорий × 15 населённых пунктов. Это
+# сотни запросов к 2ГИС с паузами, отсюда и час на выполнение.
+#
+# ПОЧЕМУ НЕ ЛОКАЛЬНО
+#
+# `DGIS_API_KEY` живёт в GitHub Secrets и на сервере, а не в репозитории.
+# Запустить обход с машины разработчика нечем — и не нужно: карточки всё
+# равно должны лечь в продовую базу.
+#
+# ИДЕМПОТЕНТНОСТЬ
+#
+# `import_leads` узнаёт уже известное заведение по (source, source_ref), а
+# одноимённое в другом тумане отличает по координатам (дальше 300 м —
+# другое заведение). Кнопку можно жать сколько угодно: повторный прогон
+# обновляет, а не плодит. Ручной пин, выясненную продавцом аудиторию и
+# статус клиента сбор не трогает.
+# ══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Что собирать"
+        type: choice
+        default: "Вся область, все категории"
+        options:
+          - "Вся область, все категории"
+          - "Только город Самарканд, все категории"
+          - "Вся область, только тойхоны и фитнес"
+      limit:
+        description: "Максимум заведений на один запрос (пусто = по умолчанию)"
+        type: string
+        default: ""
+
+# Не пересекаться с выкаткой: она перезапускает marketing, в котором идёт сбор.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    name: Обход 2ГИС
+    runs-on: ubuntu-latest
+    # Час — по худшему случаю: 18 категорий × 15 пунктов × пауза на запрос.
+    timeout-minutes: 60
+    steps:
+      - name: Сбор на сервере
+        uses: appleboy/ssh-action@v1
+        env:
+          SCOPE: ${{ inputs.scope }}
+          LIMIT: ${{ inputs.limit }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: SCOPE,LIMIT
+          command_timeout: 55m
+          script: |
+            set -e
+            cd /opt/microgreen
+
+            # Ключ проверяем ДО запуска. Без него сбор отработает вхолостую и
+            # отчитается нулями — а это неотличимо от «в области нет заведений».
+            if ! grep -q '^DGIS_API_KEY=.\+' .env; then
+              echo "❌ DGIS_API_KEY пуст в /opt/microgreen/.env"
+              echo "   Задайте его в Settings → Secrets и выкатите заново —"
+              echo "   деплой пишет секреты в серверный .env сам."
+              exit 1
+            fi
+
+            case "$SCOPE" in
+              "Только город Самарканд, все категории")
+                ARGS="--all-categories --place Самарканд" ;;
+              "Вся область, только тойхоны и фитнес")
+                ARGS="--category toyxona --category banquet --category fitness --category sport --all-places" ;;
+              *)
+                ARGS="--all-categories --all-places" ;;
+            esac
+            if [ -n "$LIMIT" ]; then ARGS="$ARGS --limit $LIMIT"; fi
+
+            echo "▶ python -m scripts.collect_restaurants --source api $ARGS"
+
+            # Запускаем в УЖЕ ЗАПУЩЕННОМ marketing: у него в окружении есть
+            # DGIS_API_KEY (docker-compose.prod.yml задаёт его явно) и доступ
+            # к базе. Отдельный контейнер пришлось бы снабжать тем же самым.
+            docker compose -f docker-compose.prod.yml exec -T marketing \
+              python -m scripts.collect_restaurants --source api $ARGS
+
+            echo "▶ геокодирование: раскладываем новые карточки по карте"
+            # Батчами по 50 с паузой ~1 с на адрес. Двадцать проходов — тысяча
+            # адресов; если осталось меньше, geocode_pass вернёт done и выйдет.
+            docker compose -f docker-compose.prod.yml exec -T marketing python -c "
+            import asyncio
+            from shared.geo import geocode_pass
+
+            async def main():
+                for _ in range(20):
+                    r = await geocode_pass(batch=50)
+                    print(r)
+                    if r.get('done') or not r.get('ok'):
+                        break
+
+            asyncio.run(main())
+            "
+
+            echo "✅ сбор завершён"
