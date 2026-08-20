@@ -9,7 +9,7 @@ export const SEO_KEYWORDS = [
   "beda", "arpa ko'kati", "bug'doy ko'kati", "qulupnay",
   // ЗОЖ / Здоровье
   "sog'lom hayot", "sog'lom ovqatlanish", "ZOJ", "PP", "superfud",
-  "ozish", "vazn yo'qotish", "dieta", "detoks", "vitaminlar",
+  "ozish", "vazn yo'qotish", "dieta", "vitaminlar",
   "immunitet", "antioksidantlar", "organik oziq-ovqat",
   "kaloriya kam", "oqsilga boy", "tolaga boy ovqat",
   "nutritsiolog", "sog'lom taomnoma", "fitnes ovqat",
@@ -41,7 +41,7 @@ export const SEO_KEYWORDS = [
   "виграсс", "пшеница для проращивания", "ячмень", "клевер", "люцерна",
   // ЗОЖ / Правильное питание (на русском)
   "здоровое питание", "ЗОЖ", "ПП", "суперфуды", "похудение", "диета",
-  "детокса", "витамины", "иммунитет", "антиоксиданты", "органик продукты",
+  "витамины", "иммунитет", "антиоксиданты", "органик продукты",
   "фитнес питание", "нутрициология", "низкокалорийно", "растительный белок",
   // HoReCa / Рестораны (на русском)
   "микрозелень для ресторанов", "поставки в кафе", "HoReCa Узбекистан",
