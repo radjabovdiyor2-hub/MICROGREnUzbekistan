@@ -23,7 +23,7 @@ The project is a working AgroTech ecosystem with:
 | Prisma models (MagazineIssue, Restaurant) | ✅ Done | `schema.prisma` |
 | Telegram bot `/magazine` command | ✅ Done | `apps/bot/handlers/magazine.py` |
 | Content Bot auto-publish rubrics | ✅ Done | `apps/tgas/bots/content_bot/` |
-| Restaurant seed script (100 restaurants → DB) | ✅ Done | `packages/database/prisma/seed-restaurants.ts` |
+| Справочник заведений области → лиды | ✅ Done | сбор `apps/tgas/scripts/collect_restaurants.py`, загрузка `packages/database/prisma/seed-venues.ts` |
 | PDF generation | ✅ Done | `content/generate_pdf.js` |
 
 ## Phase 3.2 — Magazine Monetization (DONE)

@@ -33,6 +33,10 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
       setEditBonus={s.setEditBonus}
       editNotes={s.editNotes}
       setEditNotes={s.setEditNotes}
+      editCompanyType={s.editCompanyType}
+      setEditCompanyType={s.setEditCompanyType}
+      editAudience={s.editAudience}
+      setEditAudience={s.setEditAudience}
       saving={s.saving}
       handleSaveCustomer={s.handleSaveCustomer}
     />
@@ -45,6 +49,7 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
       <>
         <AdminCustomerCard
           customerId={s.selectedId}
+          lang={lang}
           onBack={() => s.setSelectedId(null)}
           onEdit={(c) => s.handleEditClick({
             id: c.id,
@@ -52,8 +57,11 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
             phone: c.phone,
             telegramUsername: c.telegramUsername,
             customerType: c.customerType,
+            companyType: c.companyType ?? null,
+            audience: c.audience ?? null,
             companyName: c.companyName,
             city: c.city,
+            district: c.district ?? null,
             status: c.status,
             totalSpent: c.totalSpent,
             bonusBalance: c.bonusBalance,
@@ -81,6 +89,10 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
         onRefresh={() => s.refetch()}
         view={s.view}
         onView={s.setView}
+        companyTypeFilter={s.companyTypeFilter}
+        onCompanyType={s.handleCompanyTypeFilter}
+        audienceFilter={s.audienceFilter}
+        onAudience={s.handleAudienceFilter}
       />
 
       {s.view === 'map' ? (

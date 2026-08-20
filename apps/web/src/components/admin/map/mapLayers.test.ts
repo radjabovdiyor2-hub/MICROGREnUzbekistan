@@ -36,6 +36,13 @@ const COLORS: TokenColors = {
   rampLow: '#cccccc',
   rampMid: '#dddddd',
   rampHigh: '#eeeeee',
+  cat1: '#c10001',
+  cat2: '#c20002',
+  cat3: '#c30003',
+  cat4: '#c40004',
+  cat5: '#c50005',
+  cat7: '#c70007',
+  cat9: '#c90009',
 };
 
 const PALETTE = new Set(Object.values(COLORS));

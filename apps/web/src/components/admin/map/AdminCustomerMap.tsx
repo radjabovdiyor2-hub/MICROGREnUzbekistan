@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { AlertCircle, MapPin, RefreshCw } from 'lucide-react';
 
+import { CategoryLegend } from './CategoryLegend';
 import { CustomerMapLegend } from './CustomerMapLegend';
 import { CustomerMapPanel } from './CustomerMapPanel';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
@@ -70,6 +71,10 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
         showDelivery={m.showDelivery}
         onDelivery={m.setShowDelivery}
         routes={m.routes.length}
+        companyType={m.companyType}
+        onCompanyType={m.setCompanyType}
+        audience={m.audience}
+        onAudience={m.setAudience}
       />
 
       {(m.error || m.saveError || m.deliveryError || m.tilesFailed) && (
@@ -160,12 +165,19 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
             />
           )}
 
-          <CustomerMapLegend
-            summary={m.collection.summary}
-            lang={lang}
-            active={m.states}
-            onToggle={m.toggleState}
-          />
+          {/* Легенда объясняет ТЕКУЩУЮ раскраску. Показывать состояния
+              отношений, когда точки покрашены по типу заведения, значит
+              подписывать карту цветами, которых на ней нет. */}
+          {m.mode === 'category' ? (
+            <CategoryLegend features={m.visible.features} lang={lang} />
+          ) : (
+            <CustomerMapLegend
+              summary={m.collection.summary}
+              lang={lang}
+              active={m.states}
+              onToggle={m.toggleState}
+            />
+          )}
 
           <DistrictBreakdown
             districts={m.collection.summary.districts}

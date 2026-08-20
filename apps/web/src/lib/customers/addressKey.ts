@@ -19,6 +19,12 @@ import { CITY_SLUGS, type CitySlug } from './districts';
 /**
  * Написания, которые считаем одним городом. Ключи уже приведены к нижнему
  * регистру и без апострофов — сравнение идёт после `simplify`.
+ *
+ * Города и посёлки Самаркандской области сведены сюда же к 'samarkand'.
+ * Это не небрежность: slug города здесь означает ЗОНУ ОБСЛУЖИВАНИЯ, а не
+ * населённый пункт — точное место живёт в `district`. Без этих строк
+ * заведение с `city='Urgut'` выпадало из фильтра «Самарканд» и не
+ * показывалось на карте вообще ни под одним фильтром, кроме «Все города».
  */
 const CITY_ALIASES: Record<string, CitySlug> = {
   tashkent: 'tashkent',
@@ -30,6 +36,49 @@ const CITY_ALIASES: Record<string, CitySlug> = {
   samarqand: 'samarkand',
   самарканд: 'samarkand',
   самарқанд: 'samarkand',
+  samarqandviloyati: 'samarkand',
+  самаркандскаяобласть: 'samarkand',
+
+  // Районные центры Самаркандской области.
+  bulungur: 'samarkand',
+  булунгур: 'samarkand',
+  ishtixon: 'samarkand',
+  ishtikhan: 'samarkand',
+  иштыхан: 'samarkand',
+  иштихон: 'samarkand',
+  jomboy: 'samarkand',
+  джамбай: 'samarkand',
+  жомбой: 'samarkand',
+  kattaqorgon: 'samarkand',
+  kattakurgan: 'samarkand',
+  каттакурган: 'samarkand',
+  каттақўрғон: 'samarkand',
+  qoshrabot: 'samarkand',
+  koshrabad: 'samarkand',
+  кушработ: 'samarkand',
+  кушрабад: 'samarkand',
+  narpay: 'samarkand',
+  нарпай: 'samarkand',
+  nurobod: 'samarkand',
+  нурабад: 'samarkand',
+  нуробод: 'samarkand',
+  oqdaryo: 'samarkand',
+  akdarya: 'samarkand',
+  акдарья: 'samarkand',
+  pastdargom: 'samarkand',
+  пастдаргом: 'samarkand',
+  paxtachi: 'samarkand',
+  пахтачи: 'samarkand',
+  payariq: 'samarkand',
+  пайарык: 'samarkand',
+  паяриқ: 'samarkand',
+  toyloq: 'samarkand',
+  тайлак: 'samarkand',
+  тайлоқ: 'samarkand',
+  urgut: 'samarkand',
+  ургут: 'samarkand',
+  gulobod: 'samarkand',
+  гулобод: 'samarkand',
 };
 
 /**
@@ -42,8 +91,13 @@ const APOSTROPHES = /[ʻʼ‘’´'`]/g;
  * Служебные слова, которые не различают города: «г.», «sh.», «shahri».
  * Отдельными токенами — иначе `\bg\b` съело бы «g» внутри слова, а «город»
  * не отличилось бы от «Городище».
+ *
+ * «tumani»/«туман»/«район» здесь же: «Urgut tumani» и «Ургут» — одно место.
  */
-const CITY_NOISE = new Set(['g', 'г', 'gor', 'город', 'sh', 'shahri', 'shahar', 'city']);
+const CITY_NOISE = new Set([
+  'g', 'г', 'gor', 'город', 'sh', 'shahri', 'shahar', 'city',
+  'tumani', 'tuman', 'туман', 'район', 'r', 'н',
+]);
 
 function simplify(raw: string): string {
   return raw

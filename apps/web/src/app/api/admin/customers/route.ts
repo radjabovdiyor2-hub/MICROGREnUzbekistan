@@ -4,6 +4,8 @@ import { safeError } from '@/lib/safeError';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { getCustomerCard } from '@/lib/customers/card';
+import { isAudience, isCompanyType } from '@/lib/customers/companyTypes';
+import { isDistrict } from '@/lib/customers/districts';
 import { setCustomerBonus } from '@/lib/customers/bonus';
 import { publish } from '@/lib/realtime/bus';
 
@@ -21,6 +23,14 @@ const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
 export async function GET(request: NextRequest) {
+  // Второй рубеж после middleware — тот же, что стоит у DELETE ниже и у
+  // обоих обработчиков карты. В этом файле его не было у GET и PUT: сам
+  // по себе `/api/admin` закрыт правилом ADMIN в middleware, но полагаться
+  // на один рубеж там, где роут отдаёт телефоны и адреса всей базы и
+  // принимает начисление бонусов, — расчёт на то, что правило никогда не
+  // перепишут.
+  if (!isAuthorized(request)) return unauthorized();
+
   try {
     const { searchParams } = new URL(request.url);
 
@@ -35,7 +45,6 @@ export async function GET(request: NextRequest) {
       if (!card) {
         return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
       }
-      publish('customers');
       return NextResponse.json({ status: 'ok', customer: card });
     }
 
@@ -72,6 +81,25 @@ export async function GET(request: NextRequest) {
       where.status = filter;
     }
 
+    // Тип заведения, аудитория и район — те же фильтры, что у карты. Список
+    // и карта это два вида ОДНОГО раздела, и набор вопросов к ним общий:
+    // выбрать «тойхоны Ургута» на карте и не суметь того же в списке —
+    // ровно та несогласованность, из-за которой люди перестают верить
+    // фильтрам.
+    const companyType = searchParams.get('companyType');
+    const audience = searchParams.get('audience');
+    const district = searchParams.get('district');
+    if (isCompanyType(companyType)) where.companyType = companyType;
+    // 'unknown' — заведения, у которых пол зала ещё не выяснен. Тот же
+    // разбор, что у карты (buildMapWhere): списку и карте нельзя понимать
+    // один и тот же параметр по-разному.
+    if (audience === 'unknown') where.audience = null;
+    else if (isAudience(audience)) where.audience = audience;
+    // Район проверяем справочником, как тип и аудиторию: иначе в запрос
+    // уходит любая строка из адресной строки, и пустой ответ выглядит как
+    // «в этом районе никого нет» вместо «такого района не существует».
+    if (isDistrict(district)) where.district = district;
+
     const [customers, total] = await Promise.all([
       prisma.customer.findMany({
         where,
@@ -94,8 +122,11 @@ export async function GET(request: NextRequest) {
         telegramId: c.telegramId ? c.telegramId.toString() : null,
         telegramUsername: c.telegramUsername || null,
         customerType: c.customerType,
+        companyType: c.companyType || null,
+        audience: c.audience || null,
         companyName: c.companyName || null,
         city: c.city,
+        district: c.district || null,
         status: c.status,
         totalSpent: Number(c.totalSpent || 0),
         bonusBalance: Number(c.bonusBalance || 0),
@@ -114,9 +145,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  if (!isAuthorized(request)) return unauthorized();
+
   try {
     const body = await request.json();
-    const { id, status, bonusBalance, notes, city, companyName } = body;
+    const { id, status, bonusBalance, notes, city, companyName, companyType, audience } =
+      body;
 
     if (!id) {
       return NextResponse.json({ error: 'Customer ID is required' }, { status: 400 });
@@ -139,8 +173,32 @@ export async function PUT(request: NextRequest) {
         notes: notes !== undefined ? notes : undefined,
         city: city !== undefined ? city : undefined,
         companyName: companyName !== undefined ? companyName : undefined,
+        // Тип заведения тоже можно СНЯТЬ: «я ошибся, это не ресторан».
+        // Без этой ветки форма предлагала пункт «Не указан», выбор которого
+        // молча ничего не делал, — то есть врала о том, что произошло.
+        ...(companyType === '' || isCompanyType(companyType)
+          ? { companyType: companyType === '' ? null : companyType }
+          : {}),
+        // Аудиторию человек может и СНЯТЬ — пустая строка означает «не
+        // выяснено», и это осмысленный ответ, а не отсутствие правки.
+        // Проставленное здесь помечается 'manual': ночной сбор такое
+        // значение своей догадкой по названию больше не затрёт.
+        ...(audience === '' || isAudience(audience)
+          ? {
+              audience: audience === '' ? null : audience,
+              audienceSource: audience === '' ? null : 'manual',
+            }
+          : {}),
       },
     });
+
+    // Оповещение — здесь, на записи. Раньше `publish('customers')` стоял в
+    // GET одиночной карточки: чтение рассылало всем клиентам инвалидацию
+    // ключа `admin-customer`, те шли перечитывать карточку, и каждый их GET
+    // рассылал следующую волну. Правка при этом не оповещала никого —
+    // изменённый тип заведения не доезжал ни до карты, ни до списка в
+    // соседней вкладке.
+    publish('customers');
 
     return NextResponse.json({
       status: 'ok',
@@ -151,6 +209,8 @@ export async function PUT(request: NextRequest) {
         notes: updated.notes,
         city: updated.city,
         companyName: updated.companyName,
+        companyType: updated.companyType,
+        audience: updated.audience,
       },
     });
   } catch (error: unknown) {
@@ -210,6 +270,9 @@ export async function DELETE(request: NextRequest) {
         action: 'customer.delete.bulk', actor: 'owner', role: 'ADMIN', ip,
         target: `${count} шт.`, meta: { deleted: count, kept },
       });
+      // Пачка удалений меняет и список, и карту разом — без оповещения
+      // соседняя вкладка продолжила бы показывать удалённые точки.
+      if (count) publish('customers');
 
       return NextResponse.json({
         status: 'ok',
@@ -266,6 +329,7 @@ export async function DELETE(request: NextRequest) {
         followups: customer._count.followups,
       },
     });
+    publish('customers');
 
     return NextResponse.json({
       status: 'ok',

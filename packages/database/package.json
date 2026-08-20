@@ -7,6 +7,7 @@
         "db:push": "prisma db push",
         "db:seed": "npx tsx prisma/seed.ts",
         "db:seed:magazine": "npx tsx prisma/seed-magazine-issue.ts",
+        "db:seed:venues": "npx tsx prisma/seed-venues.ts",
         "db:studio": "prisma studio",
         "db:generate": "prisma generate",
         "build": "tsc"

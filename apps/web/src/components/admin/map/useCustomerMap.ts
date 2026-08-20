@@ -34,6 +34,11 @@ export function useCustomerMap() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showProspects, setShowProspects] = useState(false);
   const [district, setDistrict] = useState<string | null>(null);
+  // Тип заведения и аудитория. 'all' — не фильтровать; аудитория при этом
+  // сбрасывается вместе со сменой типа: «женский» без «фитнеса» — это
+  // вопрос, на который справочник почти всегда отвечает пустотой.
+  const [companyType, setCompanyType] = useState('all');
+  const [audience, setAudience] = useState('all');
   const [showDelivery, setShowDelivery] = useState(false);
   // Режим «подряд»: после каждого пина сам взводит следующего клиента.
   const [chaining, setChaining] = useState(false);
@@ -54,13 +59,23 @@ export function useCustomerMap() {
   });
 
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery<MapCollection, Error>({
-    queryKey: ['admin-customers-map', typeFilter, cityFilter, showProspects, district],
+    queryKey: [
+      'admin-customers-map',
+      typeFilter,
+      cityFilter,
+      showProspects,
+      district,
+      companyType,
+      audience,
+    ],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (typeFilter !== 'all') params.set('type', typeFilter);
       if (cityFilter !== 'all') params.set('city', cityFilter);
       if (showProspects) params.set('prospects', '1');
       if (district) params.set('district', district);
+      if (companyType !== 'all') params.set('companyType', companyType);
+      if (audience !== 'all') params.set('audience', audience);
       const qs = params.toString();
 
       const res = await fetch(`/api/admin/customers/map${qs ? `?${qs}` : ''}`);
@@ -199,6 +214,16 @@ export function useCustomerMap() {
     setShowProspects,
     district,
     setDistrict,
+    companyType,
+    setCompanyType: (value: string) => {
+      setCompanyType(value);
+      // Смена типа снимает аудиторию: лента «женский / мужской» исчезает
+      // вместе с фитнесом, а невидимый включённый фильтр — это карта,
+      // которая необъяснимо пуста.
+      setAudience('all');
+    },
+    audience,
+    setAudience,
     showDelivery,
     setShowDelivery,
     delivery: showDelivery ? (deliveryQuery.data ?? null) : null,

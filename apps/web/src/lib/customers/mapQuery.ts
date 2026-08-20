@@ -1,6 +1,8 @@
 import { prisma, Prisma } from '@repo/database';
 
 import { citySpellings, normalizeCity } from './addressKey';
+import { isAudience, isCompanyType } from './companyTypes';
+import { districtsOfCity, isDistrict } from './districts';
 import {
   SEGMENT_STATES,
   computeSegment,
@@ -50,6 +52,10 @@ export interface MapPointProps {
   vt: ValueTier;
   /** district slug */
   d: string | null;
+  /** companyType — тип заведения: restaurant | cafe | toyxona | fitness | … */
+  ct: string | null;
+  /** audience — female | male | mixed. null = не выяснено */
+  au: string | null;
   /** geoSource — 2gis | google | yandex | manual | seed */
   gs: string | null;
   /** kind — customer | restaurant */
@@ -76,6 +82,8 @@ export interface UnplacedCustomer {
   totalSpent: number;
   lastOrderDate: string | null;
   state: SegmentState;
+  /** Тип заведения: в лотке он подсказывает, где искать адрес. */
+  companyType: string | null;
 }
 
 /**
@@ -95,6 +103,14 @@ export interface DistrictStat {
   atRisk: number;
   /** Заведений-целей, которым ещё не продали. */
   prospects: number;
+  /**
+   * Состав района по типам заведений: {toyxona: 40, fitness: 7, …}.
+   *
+   * Без него разрез отвечает «в Ургуте 47 точек» — число, из которого не
+   * следует ни одного решения. С ним видно, что сорок из них тойхоны, и
+   * ясно, с каким предложением туда ехать.
+   */
+  byCategory: Record<string, number>;
 }
 
 export interface MapCollection {
@@ -123,6 +139,8 @@ export interface MapFilters {
   minSpent?: string | null;
   maxSpent?: string | null;
   source?: string | null;
+  companyType?: string | null;
+  audience?: string | null;
 }
 
 /**
@@ -139,12 +157,36 @@ export function buildMapWhere(filters: MapFilters): Prisma.CustomerWhereInput {
   if (citySlug) {
     // Сравниваем перечислением написаний, а не одним значением: в базе
     // соседствуют "Samarqand", "samarkand" и «Самарканд».
-    where.city = { in: citySpellings(citySlug), mode: 'insensitive' };
+    //
+    // Район добавлен вторым условием вместе с обходом области. Список
+    // написаний перечислить целиком нельзя: заведение из Каттакургана
+    // приходит от провайдера то как «Kattaqoʻrgʻon», то как
+    // «Каттакурганский р-н», и любое пропущенное написание молча роняет
+    // точку из фильтра. Slug района канонический по построению, поэтому
+    // он ловит то, что не поймал город.
+    const districts = districtsOfCity(citySlug).map((d) => d.slug);
+    where.OR = [
+      { city: { in: citySpellings(citySlug), mode: 'insensitive' } },
+      { district: { in: districts } },
+    ];
   }
 
-  if (filters.district) where.district = filters.district;
+  // Тот же справочник, что у списка: карта и список обязаны понимать
+  // параметр одинаково, иначе клик по району в разрезе даёт один набор
+  // точек, а тот же район в списке — другой.
+  if (isDistrict(filters.district)) where.district = filters.district;
   if (filters.type === 'b2b' || filters.type === 'b2c') where.customerType = filters.type;
   if (filters.source) where.source = filters.source;
+
+  // Тип и аудитория сверяются со справочником, а не подставляются как есть:
+  // произвольная строка в фильтре даёт пустую карту, неотличимую от «здесь
+  // никого нет».
+  if (isCompanyType(filters.companyType)) where.companyType = filters.companyType;
+  // 'unknown' — это рабочая очередь продавца: заведения, у которых пол зала
+  // ещё предстоит спросить. Отдельное значение, а не отсутствие фильтра:
+  // «покажи всех» и «покажи тех, кого я не знаю» — разные вопросы.
+  if (filters.audience === 'unknown') where.audience = null;
+  else if (isAudience(filters.audience)) where.audience = filters.audience;
 
   const min = parseAmount(filters.minSpent);
   const max = parseAmount(filters.maxSpent);
@@ -197,6 +239,8 @@ type MapCustomerRow = {
   address: string | null;
   district: string | null;
   customerType: string;
+  companyType: string | null;
+  audience: string | null;
   ordersCount: number;
   totalSpent: Prisma.Decimal | number;
   lastOrderDate: Date | null;
@@ -250,6 +294,7 @@ export function buildMapCollection(
         totalSpent: spent,
         lastOrderDate: c.lastOrderDate ? c.lastOrderDate.toISOString() : null,
         state: segment.state,
+        companyType: c.companyType,
       });
       continue;
     }
@@ -270,6 +315,8 @@ export function buildMapCollection(
         ov: segment.overdueRatio === null ? null : Number(segment.overdueRatio.toFixed(2)),
         vt: valueTier(spent, percentiles),
         d: c.district,
+        ct: c.companyType,
+        au: c.audience,
         gs: c.geoSource,
         k: 'customer',
       },
@@ -313,7 +360,13 @@ export function districtStats(features: MapFeature[]): DistrictStat[] {
       revenue: 0,
       atRisk: 0,
       prospects: 0,
+      byCategory: {},
     };
+
+    // Состав считаем по ВСЕМ точкам района, и клиентам, и целям: вопрос
+    // «чего здесь много» не про то, купили они уже или нет.
+    const category = f.properties.ct;
+    if (category) stat.byCategory[category] = (stat.byCategory[category] ?? 0) + 1;
 
     if (f.properties.k === 'restaurant') {
       stat.prospects += 1;
@@ -376,6 +429,10 @@ export function buildProspectFeatures(rows: ProspectRow[]): MapFeature[] {
         ov: null,
         vt: 'low',
         d: r.district,
+        // Заведения из справочника журнала — всегда рестораны: таблица
+        // `restaurants` заводилась под них и других там не бывает.
+        ct: 'restaurant',
+        au: null,
         gs: r.geoSource,
         k: 'restaurant',
         tr: r.tier,
@@ -396,6 +453,8 @@ export const MAP_CUSTOMER_SELECT = {
   address: true,
   district: true,
   customerType: true,
+  companyType: true,
+  audience: true,
   ordersCount: true,
   totalSpent: true,
   lastOrderDate: true,

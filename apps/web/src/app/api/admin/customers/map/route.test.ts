@@ -16,6 +16,7 @@ const customerFindMany = vi.fn();
 const customerFindUnique = vi.fn();
 const customerUpdate = vi.fn();
 const crmOrderGroupBy = vi.fn();
+const restaurantFindMany = vi.fn();
 
 vi.mock('@repo/database', () => ({
   prisma: {
@@ -26,6 +27,9 @@ vi.mock('@repo/database', () => ({
     },
     crmOrder: {
       groupBy: (...a: unknown[]) => crmOrderGroupBy(...a),
+    },
+    restaurant: {
+      findMany: (...a: unknown[]) => restaurantFindMany(...a),
     },
   },
   Prisma: {},
@@ -124,14 +128,39 @@ describe('GET /api/admin/customers/map', () => {
     expect(crmOrderGroupBy).not.toHaveBeenCalled();
   });
 
-  it('фильтр по городу разворачивается в перечисление написаний', async () => {
+  it('фильтр по городу разворачивается в перечисление написаний и районы', async () => {
     customerFindMany.mockResolvedValue([]);
 
     await GET(getRequest('?city=Ташкент', await adminCookie()));
 
+    // Два условия через OR: написания города плюс слаги его районов.
+    // Одних написаний мало — заведение из области приходит от провайдера
+    // под именем своего тумана, и перечислить все варианты невозможно.
+    const [byCity, byDistrict] = customerFindMany.mock.calls[0][0].where.OR;
+    expect(byCity.city.in).toContain('tashkent');
+    expect(byCity.city.in).toContain('toshkent');
+    expect(byDistrict.district.in).toContain('chilanzar');
+  });
+
+  it('тип заведения и аудитория доезжают из строки запроса до WHERE', async () => {
+    customerFindMany.mockResolvedValue([]);
+
+    await GET(getRequest('?companyType=fitness&audience=female', await adminCookie()));
+
     const where = customerFindMany.mock.calls[0][0].where;
-    expect(where.city.in).toContain('tashkent');
-    expect(where.city.in).toContain('toshkent');
+    expect(where.companyType).toBe('fitness');
+    expect(where.audience).toBe('female');
+  });
+
+  it('слой целей гасится, когда выбран не ресторанный тип', async () => {
+    // `restaurants` — таблица ресторанов журнала. Показывать её поверх
+    // выбранных тойхон значит смешать два разных ответа на одной карте.
+    customerFindMany.mockResolvedValue([]);
+    restaurantFindMany.mockResolvedValue([]);
+
+    await GET(getRequest('?prospects=1&companyType=toyxona', await adminCookie()));
+
+    expect(restaurantFindMany).not.toHaveBeenCalled();
   });
 });
 

@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react';
 
 import { CITY_META, CITY_SLUGS } from '@/lib/customers/districts';
 
+import { CategoryChips } from './CategoryChips';
 import { COLORIZE_LABELS, COLORIZE_MODES, type ColorizeMode } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -33,11 +34,19 @@ interface Props {
   showDelivery: boolean;
   onDelivery: (value: boolean) => void;
   routes: number;
+  companyType: string;
+  onCompanyType: (value: string) => void;
+  audience: string;
+  onAudience: (value: string) => void;
 }
 
+// b2b здесь — это ТИП КЛИЕНТА, а не тип заведения. Чип назывался
+// «Рестораны», и это перестало быть правдой в тот день, когда справочник
+// накрыл тойхоны, фитнес и отели: под ним теперь весь B2B области. Тип
+// заведения спрашивается соседней лентой (CategoryChips).
 const TYPES = [
   { value: 'all', ru: 'Все', uz: 'Barchasi' },
-  { value: 'b2b', ru: 'Рестораны', uz: 'Restoranlar' },
+  { value: 'b2b', ru: 'B2B — заведения', uz: 'B2B — muassasalar' },
   { value: 'b2c', ru: 'Розница', uz: 'Chakana' },
 ];
 
@@ -71,6 +80,10 @@ export function CustomerMapToolbar({
   showDelivery,
   onDelivery,
   routes,
+  companyType,
+  onCompanyType,
+  audience,
+  onAudience,
 }: Props) {
   const stamp = updatedAt
     ? new Date(updatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
@@ -144,6 +157,15 @@ export function CustomerMapToolbar({
           {showDelivery && routes > 0 ? ` · ${routes}` : ''}
         </button>
       </div>
+
+      <CategoryChips
+        lang={lang}
+        companyType={companyType}
+        onCompanyType={onCompanyType}
+        audience={audience}
+        onAudience={onAudience}
+        chip={chip}
+      />
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 2 }}>
         <span

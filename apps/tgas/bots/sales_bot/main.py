@@ -213,7 +213,8 @@ _NOT_PENDING = """
 
 _SEG_SQL = {
     "new_lead": """
-        SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address, 0
+        SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address, 0,
+               c.company_type, c.audience
         FROM customers c
         WHERE c.customer_type = 'b2b' AND c.status = 'lead'
           AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
@@ -228,7 +229,8 @@ _SEG_SQL = {
     "churn": """
         SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address,
                (SELECT COUNT(*) FROM interactions i
-                WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
+                WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent'),
+               c.company_type, c.audience
         FROM customers c
         WHERE c.customer_type = 'b2b'
           AND COALESCE(c.orders_count, 0) > 0
@@ -246,7 +248,8 @@ _SEG_SQL = {
     "no_reply": """
         SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address,
                (SELECT COUNT(*) FROM interactions i
-                WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
+                WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent'),
+               c.company_type, c.audience
         FROM customers c
         WHERE c.customer_type = 'b2b'
           AND COALESCE(c.orders_count, 0) = 0
@@ -268,7 +271,7 @@ _SEG_SQL = {
 }
 
 SEGMENT_REASON = {
-    "new_lead": "новый ресторан — КП ещё не отправляли",
+    "new_lead": "новое заведение — КП ещё не отправляли",
     "churn": "заказывал раньше, но молчит больше 30 дней",
     "no_reply": "КП отправляли, ответа не было",
 }
@@ -276,7 +279,7 @@ SEGMENT_REASON = {
 
 async def bus_get_b2b_targets(params: dict) -> dict:
     """
-    Отдел продаж отдаёт список ресторанов на сегодня — маркетинг сделает им КП.
+    Отдел продаж отдаёт список заведений на сегодня — маркетинг сделает им КП.
     params.limit — сколько всего нужно (по умолчанию B2B_DAILY_LIMIT).
     """
     from shared.database import get_session_ctx
@@ -312,6 +315,8 @@ async def bus_get_b2b_targets(params: dict) -> dict:
                             "review_summary": row[5],
                             "address": row[6],
                             "touches": int(row[7] or 0),
+                            "company_type": row[8],
+                            "audience": row[9],
                             "segment": segment,
                             "reason": SEGMENT_REASON[segment],
                         }

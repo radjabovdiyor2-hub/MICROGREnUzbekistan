@@ -12,14 +12,15 @@ import type { MapCollection, MapFeature, MapPointProps, UnplacedCustomer } from 
 export type { MapCollection, MapFeature, MapPointProps, UnplacedCustomer };
 
 /** Режимы раскраски. Смена перекрашивает слой, но не перезапрашивает данные. */
-export const COLORIZE_MODES = ['state', 'revenue', 'frequency', 'type'] as const;
+export const COLORIZE_MODES = ['state', 'revenue', 'frequency', 'type', 'category'] as const;
 export type ColorizeMode = (typeof COLORIZE_MODES)[number];
 
 export const COLORIZE_LABELS: Record<ColorizeMode, { ru: string; uz: string }> = {
   state: { ru: 'По состоянию', uz: 'Holati boʻyicha' },
   revenue: { ru: 'По выручке', uz: 'Tushum boʻyicha' },
   frequency: { ru: 'По частоте', uz: 'Chastota boʻyicha' },
-  type: { ru: 'По типу', uz: 'Turi boʻyicha' },
+  type: { ru: 'По типу клиента', uz: 'Mijoz turi boʻyicha' },
+  category: { ru: 'По типу заведения', uz: 'Muassasa turi boʻyicha' },
 };
 
 /** Свойства точки под длинными именами — для попапа и списка. */
@@ -34,6 +35,8 @@ export interface PointView {
   overdueRatio: number | null;
   valueTier: MapPointProps['vt'];
   district: string | null;
+  companyType: string | null;
+  audience: string | null;
   geoSource: string | null;
   longitude: number;
   latitude: number;
@@ -52,6 +55,8 @@ export function toPointView(feature: MapFeature): PointView {
     overdueRatio: p.ov,
     valueTier: p.vt,
     district: p.d,
+    companyType: p.ct,
+    audience: p.au,
     geoSource: p.gs,
     longitude: feature.geometry.coordinates[0],
     latitude: feature.geometry.coordinates[1],
