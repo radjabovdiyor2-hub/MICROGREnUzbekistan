@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { UserRound, X } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { ContractPrice, PosCustomer } from './AdminPOSTypes';
@@ -29,30 +30,32 @@ const label = (c: Found | PosCustomer) =>
 
 export function AdminPOSCustomer({ customer, onPick, inputStyle }: Props) {
   const [query, setQuery] = useState('');
-  const [found, setFound] = useState<Found[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [debounced, setDebounced] = useState('');
 
   // Короткий запрос и выбранный покупатель гасят подсказки ВЫЧИСЛЕНИЕМ
   // ниже, а не сбросом состояния из эффекта: сброс вызывает лишний каскад
   // отрисовок и ругается линтер.
   const active = !customer && query.trim().length >= 2;
 
+  // Дебаунс на вводе, запрос — в кэше по строке поиска. Продавец, стирающий
+  // и набирающий то же имя заново, второй раз получает подсказку мгновенно.
   useEffect(() => {
-    if (!active) return;
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/inventory/customers?q=${encodeURIComponent(query.trim())}`);
-        const data = await res.json();
-        setFound(data.customers ?? []);
-      } catch {
-        setFound([]);
-      } finally {
-        setLoading(false);
-      }
-    }, 300);
+    const timer = setTimeout(() => setDebounced(query.trim()), 300);
     return () => clearTimeout(timer);
-  }, [query, active]);
+  }, [query]);
+
+  const { data: found = [], isFetching: loading } = useQuery<Found[]>({
+    queryKey: ['admin-pos-customers', debounced],
+    enabled: active && debounced.length >= 2,
+    queryFn: async () => {
+      const res = await fetch(`/api/inventory/customers?q=${encodeURIComponent(debounced)}`, {
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('Не удалось найти покупателя');
+      const data = await res.json();
+      return (data.customers ?? []) as Found[];
+    },
+  });
 
   const visible = active ? found : [];
 
@@ -71,8 +74,10 @@ export function AdminPOSCustomer({ customer, onPick, inputStyle }: Props) {
     } catch {
       // Цены не доехали — продажа всё равно проходит, просто по прайсу.
     }
+    // Список подсказок гаснет сам: `active` считается из query и customer,
+    // а результат живёт в кэше — руками сбрасывать больше нечего.
     setQuery('');
-    setFound([]);
+    setDebounced('');
     onPick(picked, prices);
   };
 
