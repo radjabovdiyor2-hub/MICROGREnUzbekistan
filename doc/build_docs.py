@@ -465,8 +465,22 @@ def build_ariza(m: dict) -> None:
     age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
 
     last = len(m["labels"]) - 1
+
+    # Горизонт называется по модели, а не вписан словом. Здесь стояло
+    # «birinchi 2 yilda» константой: когда MONTHS стало 12, цифры съехали на
+    # последний месяц ГОДА, а подпись продолжала обещать ДВА — причём со
+    # ссылкой «moliyaviy modelga muvofiq» на модель, которая двух лет больше
+    # не содержит.
+    _years, _rest = divmod(M.MONTHS, 12)
+    if _rest:
+        horizon_uz = f"birinchi {M.MONTHS} oyda"
+    elif _years == 1:
+        horizon_uz = "birinchi yilda"
+    else:
+        horizon_uz = f"birinchi {_years} yilda"
+
     updates = {
-        "7": f"$300 000 — birinchi 2 yilda: {m['restaurants'][last]}+ restoran, "
+        "7": f"$300 000 — {horizon_uz}: {m['restaurants'][last]}+ restoran, "
              f"{m['families'][last]}+ obunachi oila va oyiga "
              f"{m['retail_purchases'][last]}+ chakana xarid (moliyaviy modelga muvofiq)",
         "12": f"24/08/2002 — {age} yosh",

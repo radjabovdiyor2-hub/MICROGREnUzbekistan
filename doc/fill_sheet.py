@@ -89,7 +89,7 @@ def build(m: dict) -> str:
         f"\nТранш приходит одной суммой в **{labels[0]}** (первый месяц модели).\n"
         f"CAPEX (амортизируемая часть) = {num(m['capex_uzs'])} UZS, "
         f"амортизация {num(m['monthly_dep'])} UZS/мес на "
-        f"{M.DEPRECIATION_MONTHS} месяцев, начиная с {labels[M.OPEX_SWITCH_MONTH - 1]}.\n"
+        f"{M.DEPRECIATION_MONTHS} месяцев, начиная с {labels[M.FARM_BUILD_MONTHS]}.\n"
     )
 
     # ── Тарифы ───────────────────────────────────────────────────────────
@@ -164,8 +164,11 @@ def build(m: dict) -> str:
     # ── По годам ─────────────────────────────────────────────────────────
     parts.append("\n## 7. По годам (если форма просит годы)\n")
     rows = []
-    for year in range(2):
-        start, end = year * 12, (year + 1) * 12
+    # Лет столько, сколько их в горизонте: при 12 месяцах год один, и второй
+    # заводить не из чего. Раньше здесь стояла двойка константой — на
+    # 12-месячной модели это падение по индексу, а не «пустая строка».
+    for year in range(max(1, M.MONTHS // 12)):
+        start, end = year * 12, min((year + 1) * 12, M.MONTHS)
         rows.append([
             f"Год {year + 1}",
             f"{labels[start]} – {labels[end - 1]}",
@@ -198,7 +201,7 @@ def build(m: dict) -> str:
             ["ARPU семья (подписка)", num(M.PRICE_FAMILY), "средний пакет"],
             ["Розница — средний чек", num(M.CHECK_RETAIL), "покупка поштучно"],
             ["CAC", num(m["cac"][last]),
-             "(маркетинг + 40% зарплаты директора) / новые клиенты"],
+             "(маркетинг + 40% зарплат директора и водителя-продавца) / новые клиенты"],
             ["LTV", num(m["ltv"][last]),
              f"ARPU × валовая маржа × min(1/churn, {n} мес)"],
             ["LTV/CAC", f"{ratio:.0f}x", "LTV / CAC"],
@@ -208,8 +211,12 @@ def build(m: dict) -> str:
             ["Retention", f"{(1 - M.MONTHLY_CHURN) * 100:.1f}%", "1 − churn"],
             ["Валовая маржа", f"{m['gross_margin'][last] * 100:.0f}%",
              "подписки 70%, клубника 55%"],
+            # Подпись считается, а не вписана. Здесь стояло «прибыльна с
+            # первого месяца» текстом — при расходах 42.7 млн это неправда:
+            # первые месяцы отрицательные, пока не пошла клубника.
             ["Break-even", labels[m["break_even_index"]],
-             "компания прибыльна с первого месяца"],
+             "первый месяц с положительной чистой прибылью"
+             if m["break_even_index"] else "прибыльна с первого месяца"],
             ["ROI за период", f"{sum(m['net']) / M.INVESTMENT_UZS * 100:.0f}%",
              "чистая прибыль / инвестиция"],
         ],
@@ -237,15 +244,20 @@ def build(m: dict) -> str:
     parts.append(table(
         ["Период", "Человек", "Состав"],
         [
-            [f"{labels[0]} – {labels[M.OPEX_SWITCH_MONTH - 2]}", "2",
-             "директор, помощник"],
-            [f"{labels[M.OPEX_SWITCH_MONTH - 1]} – {labels[-1]}", "5",
-             "директор, агроном, помощник, курьер, продавец"],
+            [f"{labels[0]} – {labels[M.SECOND_COURIER_FROM_MONTH - 2]}", "3",
+             "директор, водитель-продавец, гровер"],
+            [f"{labels[M.SECOND_COURIER_FROM_MONTH - 1]} – {labels[-1]}", "4",
+             "директор, водитель-продавец, гровер, второй курьер"],
         ],
     ))
     parts.append(
-        f"\nФонд оплаты труда: {num(M.OPEX_BEFORE['Ish haqi'])} UZS/мес до запуска "
-        f"фермы, {num(M.OPEX_AFTER['Ish haqi'])} UZS/мес после.\n"
+        f"\nФонд оплаты труда: {num(M.OPEX['Ish haqi'])} UZS/мес, "
+        f"с {labels[M.SECOND_COURIER_FROM_MONTH - 1]} — "
+        f"{num(M.OPEX['Ish haqi'] + M.SECOND_COURIER_SALARY)} UZS/мес.\n"
+        f"\nВторой курьер появляется не по желанию, а по нагрузке: "
+        f"{M.deliveries_per_month(0) / 26:.0f} адресов в рабочий день в "
+        f"{labels[0]} против {M.deliveries_per_month(M.MONTHS - 1) / 26:.0f} в "
+        f"{labels[-1]}.\n"
     )
 
     parts.append(

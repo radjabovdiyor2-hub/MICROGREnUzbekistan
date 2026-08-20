@@ -289,22 +289,28 @@ def build_workbook(m: dict) -> Workbook:
          f"${round(sum(m['net']) / M.USD_RATE):,}"),
         ("EBITDA marja (o'rtacha)",
          f"{sum(m['ebitda']) / sum(m['revenue']) * 100:.1f}%", "soliqqacha"),
+        # Подпись считается, а не вписана. Здесь стояло «kompaniya bugun ham
+        # foydali» текстом — при break-even в Jan'27 и четырёх отрицательных
+        # месяцах подряд это неправда, и эксперт фонда видит её первой.
+        # То же исправление уже сделано в fill_sheet.py; формулировки держим
+        # одинаковыми, чтобы Excel и лист заполнения не расходились.
         ("Break-even", m["labels"][m["break_even_index"]],
-         "kompaniya bugun ham foydali — investitsiya o'sish uchun"),
-        ("ROI (24 oy)", f"{sum(m['net']) / M.INVESTMENT_UZS * 100:.0f}%",
+         "birinchi ijobiy sof foydali oy" if m["break_even_index"]
+         else "kompaniya birinchi oydan foydali"),
+        (f"ROI ({M.MONTHS} oy)", f"{sum(m['net']) / M.INVESTMENT_UZS * 100:.0f}%",
          "transh kelgan kundan hisoblanadi"),
         ("", "", ""),
         ("MIJOZLAR", "", ""),
-        ("Doimiy mijozlar (M24)", f"{m['regulars'][-1]}",
+        (f"Doimiy mijozlar (M{M.MONTHS})", f"{m['regulars'][-1]}",
          f"{m['restaurants'][-1]} restoran + {m['families'][-1]} oila obuna"),
-        ("Chakana xaridlar (M24)", f"{m['retail_purchases'][-1]}/oy",
+        (f"Chakana xaridlar (M{M.MONTHS})", f"{m['retail_purchases'][-1]}/oy",
          f"o'rtacha chek {M.CHECK_RETAIL:,} so'm"),
         ("Churn (oylik)", f"{M.MONTHLY_CHURN * 100:.1f}%", ""),
         ("LTV/CAC (o'rtacha)",
          f"{sum(valid_ratio) / len(valid_ratio):.1f}x", "formula 7-varaqda"),
         ("", "", ""),
         ("KASSA", "", ""),
-        ("Kassa qoldig'i (M24)", f"{m['cash'][-1]:,} UZS",
+        (f"Kassa qoldig'i (M{M.MONTHS})", f"{m['cash'][-1]:,} UZS",
          f"${round(m['cash'][-1] / M.USD_RATE):,}"),
     ]
     for i, (name, value, note) in enumerate(items):
@@ -329,8 +335,8 @@ def main() -> int:
     print(f"[OK] {OUT}")
     print(f"     davr: {m['labels'][0]} — {m['labels'][-1]}")
     print(f"     M1 daromad: {m['revenue'][0]:,} (fakt)")
-    print(f"     M24 daromad: {m['revenue'][-1]:,}")
-    print(f"     24 oylik sof foyda: {sum(m['net']):,}")
+    print(f"     M{M.MONTHS} daromad: {m['revenue'][-1]:,}")
+    print(f"     {M.MONTHS} oylik sof foyda: {sum(m['net']):,}")
     return 0
 
 

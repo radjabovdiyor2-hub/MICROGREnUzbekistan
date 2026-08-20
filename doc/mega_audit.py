@@ -433,6 +433,105 @@ def check_kpi(m: dict) -> None:
 
 # ══════════════════════════════════════════════════════════════════════════
 
+# ══════════════════════════════════════════════════════════════════════════
+# 8. Горизонт: длина рядов и сводный лист
+#
+# Слепая зона, из-за которой пакет уехал при смене горизонта 24 -> 12.
+# `model.py` отдавал ряды клиентов целыми кортежами по 24 значения, тогда как
+# все остальные ряды уже были длиной MONTHS. Потребитель, берущий [-1],
+# получал по клиентам месяц 24, а по выручке месяц 12 — и XULOSA печатала
+# «Doimiy mijozlar (M12) = 56» с разбивкой «35 restoran + 60 oila» (= 95),
+# а лист «1. Mijozlar» писал 24 числа под шапкой на 12 колонок.
+#
+# Ни одна из семи проверок выше этого не видела: они сверяют суммы и
+# траекторию, но не сверяют СВОДНЫЙ лист с рядами и не смотрят на длину ряда.
+# ══════════════════════════════════════════════════════════════════════════
+
+def check_horizon(m: dict) -> None:
+    block = "gorizont"
+
+    # 1. Каждый ряд модели заканчивается там же, где горизонт.
+    bad = []
+    for key, value in m.items():
+        if isinstance(value, list) and len(value) != M.MONTHS:
+            bad.append(f"{key}={len(value)}")
+    for key, value in m["opex_rows"].items():
+        if len(value) != M.MONTHS:
+            bad.append(f"opex_rows[{key}]={len(value)}")
+    if bad:
+        fail(block, f"MONTHS={M.MONTHS}, а ряды другой длины: {', '.join(bad)}")
+    else:
+        ok(block, f"barcha qatorlar {M.MONTHS} oy — gorizont bilan bir xil")
+
+    wb = openpyxl.load_workbook(READY / NAMES["excel"])
+
+    # 2. Сводный лист обязан повторять последний месяц, а не чужой.
+    xulosa = {}
+    for row in wb["XULOSA"].iter_rows(values_only=True):
+        if row and row[0]:
+            xulosa[str(row[0]).strip()] = (row[1], row[2] if len(row) > 2 else None)
+
+    key = f"Doimiy mijozlar (M{M.MONTHS})"
+    value, note = xulosa.get(key, (None, None))
+    expected = m["regulars"][-1]
+    parts = f"{m['restaurants'][-1]} restoran + {m['families'][-1]} oila"
+    if value is None:
+        fail(block, f"XULOSA: «{key}» qatori topilmadi")
+    elif str(value).strip() != str(expected):
+        fail(block, f"XULOSA «{key}» = {value}, model = {expected}")
+    elif not str(note or "").startswith(parts):
+        fail(block, f"XULOSA «{key}» izohi «{note}» != «{parts} obuna» — "
+                    f"yig'indi va tarkib bir oyga tegishli bo'lishi shart")
+    else:
+        ok(block, f"XULOSA: {expected} = {parts} — bir oyning o'zi")
+
+    key = f"Chakana xaridlar (M{M.MONTHS})"
+    value, _ = xulosa.get(key, (None, None))
+    expected = m["retail_purchases"][-1]
+    if value is None:
+        fail(block, f"XULOSA: «{key}» qatori topilmadi")
+    elif str(value).strip() != f"{expected}/oy":
+        fail(block, f"XULOSA «{key}» = {value}, model = {expected}/oy")
+    else:
+        ok(block, f"XULOSA: chakana {expected}/oy = model oxirgi oyi")
+
+    # 3. Ни одной заполненной колонки правее «Oxirgi oy».
+    ws = wb["1. Mijozlar"]
+    limit = M.MONTHS + 2          # A = название, B.. = месяцы, затем «Oxirgi oy»
+    spill = []
+    for row in ws.iter_rows(min_col=limit + 1):
+        for cell in row:
+            if cell.value not in (None, ""):
+                spill.append(cell.coordinate)
+    if spill:
+        fail(block, f"«1. Mijozlar»: «Oxirgi oy» ustunidan o'ngda to'ldirilgan "
+                    f"katakchalar bor — {', '.join(spill[:6])}"
+                    + (" ..." if len(spill) > 6 else ""))
+    else:
+        ok(block, "«1. Mijozlar»: sarlavhadan o'ngga chiqib ketgan ustun yo'q")
+
+    # 4. Подпись break-even обязана быть ВЫЧИСЛЕННОЙ, а не любой непротиворечивой.
+    # Сначала здесь стояла проверка «в примечании нет слов о прибыли с первого
+    # месяца» — и она пропустила ровно ту строку, ради которой заводилась:
+    # «kompaniya bugun ham foydali» тех слов не содержит, а обещает то же самое.
+    # Поэтому сверяем не смысл, а равенство: примечание должно совпадать с тем,
+    # что даёт формула в create_fin_model.py. Любая вписанная руками фраза,
+    # какой бы она ни была, теперь красная.
+    value, note = xulosa.get("Break-even", (None, None))
+    expected_note = ("birinchi ijobiy sof foydali oy" if m["break_even_index"]
+                     else "kompaniya birinchi oydan foydali")
+    if value is None:
+        fail(block, "XULOSA: «Break-even» qatori topilmadi")
+    elif str(value).strip() != m["labels"][m["break_even_index"]]:
+        fail(block, f"XULOSA: break-even {value}, model "
+                    f"{m['labels'][m['break_even_index']]}")
+    elif str(note or "").strip() != expected_note:
+        fail(block, f"XULOSA: break-even izohi «{note}» != hisoblangan "
+                    f"«{expected_note}»")
+    else:
+        ok(block, f"XULOSA: break-even {value}, izohi hisoblangan")
+
+
 def main() -> int:
     m = M.build()
     print("СКВОЗНАЯ СВЕРКА ПАКЕТА\n")
@@ -448,6 +547,7 @@ def main() -> int:
     check_trajectory(m)
     check_unit_economics(m)
     check_kpi(m)
+    check_horizon(m)
 
     print(f"\nпроверок пройдено: {checks}")
     if problems:
