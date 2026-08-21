@@ -9,6 +9,7 @@ import {
   companyTypeLabel,
 } from '@/lib/customers/companyTypes';
 import { districtLabel } from '@/lib/customers/districts';
+import { sumLabel } from '@/lib/customers/money';
 import { AdminCustomerOrders } from './AdminCustomerOrders';
 import { AdminCustomerActivity } from './AdminCustomerActivity';
 import { AdminCustomerPrices } from './AdminCustomerPrices';
@@ -154,10 +155,11 @@ export function AdminCustomerCard({ customerId, lang, onBack, onEdit }: {
           borderTop: '1px solid var(--border)',
         }}>
           <Stat label="Заказов" value={String(data.ordersCount)} />
-          <Stat label="Потрачено" value={`${fmtMoney(data.totalSpent)} сум`} color="var(--success)" />
+          {/* Прочерк, а не «0 сум»: продавцу суммы не показываем. */}
+          <Stat label="Потрачено" value={sumLabel(data.totalSpent, 'ru')} color="var(--success)" />
           <Stat
             label="Бонусы"
-            value={fmtMoney(data.bonusBalance)}
+            value={data.bonusBalance === null ? '—' : fmtMoney(data.bonusBalance)}
             color="var(--warning)"
             // Баллы лежат на аккаунте витрины, а не в карточке CRM. Если
             // связки нет, начислить их некуда — и это должно быть видно

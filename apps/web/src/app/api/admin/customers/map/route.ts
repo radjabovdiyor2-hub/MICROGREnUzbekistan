@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 
-import { actorOf, isStaff, unauthorized } from '@/lib/adminAuth';
+import { actorOf, getSession, isStaff, unauthorized } from '@/lib/adminAuth';
+import { hidesMoney } from '@/lib/customers/money';
 import { audit } from '@/lib/audit';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
@@ -76,6 +77,9 @@ export async function GET(request: NextRequest) {
     const collection = buildMapCollection(customers, firstOrders, {
       states: parseStates(searchParams.get('state')),
       visits,
+      // Продавцу открыты адреса и телефоны, но не деньги. Прячем здесь, а
+      // не в разметке: ответ API смотрят в консоли одним движением.
+      hideMoney: hidesMoney(getSession(request)?.role),
     });
 
     // Слой «белых пятен»: заведения из справочника, которые нам ещё не

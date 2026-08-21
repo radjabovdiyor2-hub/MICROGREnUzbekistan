@@ -1,5 +1,7 @@
 import { prisma } from '@repo/database';
 
+import { maskSum } from './money';
+
 // ══════════════════════════════════════════════════════════════════════
 // Карточка клиента для админки: контакты, история заказов, обращения.
 //
@@ -23,7 +25,8 @@ export interface CustomerCardOrder {
   id: number;
   orderNumber: string | null;
   createdAt: string;
-  total: number;
+  /** Итог заказа. null — смотрит не владелец. */
+  total: number | null;
   status: string;
   paymentStatus: string;
   paymentMethod: string | null;
@@ -55,8 +58,10 @@ export interface CustomerCard {
   lastOrderDate: string | null;
   /** Счётчики из карточки CRM — их ведёт зеркало заказов. */
   ordersCount: number;
-  totalSpent: number;
-  bonusBalance: number;
+  /** null — смотрит не владелец: суммы скрыты. */
+  totalSpent: number | null;
+  /** null — смотрит не владелец. */
+  bonusBalance: number | null;
   /** Аккаунт витрины, которому принадлежат бонусы. null — связки нет. */
   webAccount: { id: string; phone: string | null; bonusPoints: number } | null;
   orders: CustomerCardOrder[];
@@ -89,7 +94,15 @@ function itemLine(item: {
 }
 
 /** Карточка клиента целиком. null — клиента с таким id нет. */
-export async function getCustomerCard(id: number): Promise<CustomerCard | null> {
+export async function getCustomerCard(
+  id: number,
+  /**
+   * Прятать суммы: продавцу открыты контакты и история общения, но не
+   * деньги. Значение по умолчанию — «показывать»: карточку зовёт и бот за
+   * отчётами, у него сессии нет вовсе.
+   */
+  hideMoney = false,
+): Promise<CustomerCard | null> {
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
@@ -146,14 +159,14 @@ export async function getCustomerCard(id: number): Promise<CustomerCard | null> 
     createdAt: customer.createdAt.toISOString(),
     lastOrderDate: customer.lastOrderDate ? customer.lastOrderDate.toISOString() : null,
     ordersCount: customer.ordersCount,
-    totalSpent: Number(customer.totalSpent || 0),
-    bonusBalance: Number(customer.bonusBalance || 0),
+    totalSpent: maskSum(Number(customer.totalSpent || 0), hideMoney),
+    bonusBalance: maskSum(Number(customer.bonusBalance || 0), hideMoney),
     webAccount,
     orders: customer.crmOrders.map((o) => ({
       id: o.id,
       orderNumber: o.orderNumber,
       createdAt: o.createdAt.toISOString(),
-      total: Number(o.totalAmount || 0),
+      total: maskSum(Number(o.totalAmount || 0), hideMoney),
       status: o.status,
       paymentStatus: o.paymentStatus,
       paymentMethod: o.paymentMethod,

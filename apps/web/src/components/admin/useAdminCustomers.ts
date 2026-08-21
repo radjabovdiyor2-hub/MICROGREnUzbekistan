@@ -106,7 +106,10 @@ export function useAdminCustomers() {
   const handleEditClick = (c: CustomerItem) => {
     setEditingCustomer(c);
     setEditStatus(c.status);
-    setEditBonus(c.bonusBalance);
+    // Правка открыта только владельцу, а у него суммы не скрыты. Ноль на
+    // случай, если форму всё же откроют без них: пустое поле бонуса
+    // отправило бы NaN.
+    setEditBonus(c.bonusBalance ?? 0);
     setEditNotes(c.notes || '');
     setEditCompanyType(c.companyType || '');
     setEditAudience(c.audience || '');

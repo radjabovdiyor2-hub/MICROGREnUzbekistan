@@ -38,6 +38,8 @@ interface Props {
   onCompanyType: (value: string) => void;
   audience: string;
   onAudience: (value: string) => void;
+  /** Раскраска по выручке — только владельцу: продавцу суммы скрыты. */
+  isOwner: boolean;
 }
 
 // b2b здесь — это ТИП КЛИЕНТА, а не тип заведения. Чип назывался
@@ -84,6 +86,7 @@ export function CustomerMapToolbar({
   onCompanyType,
   audience,
   onAudience,
+  isOwner,
 }: Props) {
   const stamp = updatedAt
     ? new Date(updatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
@@ -178,7 +181,7 @@ export function CustomerMapToolbar({
         >
           {lang === 'ru' ? 'Раскрасить:' : 'Rang:'}
         </span>
-        {COLORIZE_MODES.map((m) => (
+        {COLORIZE_MODES.filter((m) => isOwner || m !== 'revenue').map((m) => (
           <button key={m} type="button" style={chip(mode === m)} onClick={() => onMode(m)}>
             {COLORIZE_LABELS[m][lang]}
           </button>

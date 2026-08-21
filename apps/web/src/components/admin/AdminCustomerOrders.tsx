@@ -97,7 +97,7 @@ export function AdminCustomerOrders({ orders }: { orders: CustomerCardOrder[] })
                   whiteSpace: 'nowrap',
                   textDecoration: cancelled ? 'line-through' : undefined,
                 }}>
-                  {fmtMoney(o.total)} сум
+                  {o.total === null ? '—' : `${fmtMoney(o.total)} сум`}
                 </span>
               </div>
 

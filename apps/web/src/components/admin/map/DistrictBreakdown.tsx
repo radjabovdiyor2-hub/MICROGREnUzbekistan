@@ -141,7 +141,7 @@ export function DistrictBreakdown({ districts, lang, active, onSelect }: Props) 
                   )}
                 </div>
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                  {formatSum(d.revenue)}
+                  {d.revenue === null ? '—' : formatSum(d.revenue)}
                 </span>
               </button>
             );

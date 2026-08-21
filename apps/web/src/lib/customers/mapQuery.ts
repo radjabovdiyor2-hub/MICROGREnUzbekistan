@@ -12,6 +12,7 @@ import {
   type ValueTier,
 } from './segments';
 import { computeCoverage, type Coverage } from './coverage';
+import { maskSum } from './money';
 import { VISIT_TYPES } from './visits';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -48,8 +49,8 @@ export interface MapPointProps {
   t: string;
   /** state — состояние отношений */
   st: SegmentState;
-  /** spent — всего потрачено */
-  sp: number;
+  /** spent — всего потрачено. null — смотрит не владелец */
+  sp: number | null;
   /** ordersCount */
   oc: number;
   /** daysSinceLastOrder, null если заказов не было */
@@ -114,7 +115,8 @@ export interface UnplacedCustomer {
 export interface DistrictStat {
   district: string;
   customers: number;
-  revenue: number;
+  /** null — смотрит не владелец: суммы скрыты. */
+  revenue: number | null;
   /** Клиентов в состоянии at_risk или lost. */
   atRisk: number;
   /** Заведений-целей, которым ещё не продали. */
@@ -283,10 +285,17 @@ type MapCustomerRow = {
 export function buildMapCollection(
   customers: MapCustomerRow[],
   firstOrders: Map<number, Date>,
-  options: { states?: Set<SegmentState> | null; now?: Date; visits?: Map<number, Date> } = {},
+  options: {
+    states?: Set<SegmentState> | null;
+    now?: Date;
+    visits?: Map<number, Date>;
+    /** Прячем суммы: продавцу открыты адреса, но не деньги. */
+    hideMoney?: boolean;
+  } = {},
 ): MapCollection {
   const now = options.now ?? new Date();
   const visits = options.visits ?? new Map<number, Date>();
+  const hideMoney = options.hideMoney ?? false;
   const percentiles = spentPercentiles(customers.map((c) => Number(c.totalSpent || 0)));
 
   const features: MapFeature[] = [];
@@ -336,7 +345,7 @@ export function buildMapCollection(
         n: name,
         t: c.customerType,
         st: segment.state,
-        sp: spent,
+        sp: maskSum(spent, hideMoney),
         oc: c.ordersCount,
         dl: segment.daysSince === null ? null : Math.round(segment.daysSince),
         ov: segment.overdueRatio === null ? null : Number(segment.overdueRatio.toFixed(2)),
@@ -404,15 +413,21 @@ export function districtStats(features: MapFeature[]): DistrictStat[] {
       stat.prospects += 1;
     } else {
       stat.customers += 1;
-      stat.revenue += f.properties.sp;
+      // `sp` уже замаскирован сборкой точки. Складывать null как ноль
+      // нельзя: разрез показал бы «0 сум» там, где на деле миллионы.
+      if (f.properties.sp === null) stat.revenue = null;
+      else if (stat.revenue !== null) stat.revenue += f.properties.sp;
       if (f.properties.st === 'at_risk' || f.properties.st === 'lost') stat.atRisk += 1;
     }
 
     byDistrict.set(key, stat);
   }
 
+  // Скрытая выручка (null) на порядок не влияет: сортируем по риску, а при
+  // равенстве — по выручке там, где она видна. Иначе у продавца районы
+  // выстроились бы в случайном порядке.
   return [...byDistrict.values()].sort(
-    (a, b) => b.atRisk - a.atRisk || a.revenue - b.revenue,
+    (a, b) => b.atRisk - a.atRisk || (a.revenue ?? 0) - (b.revenue ?? 0),
   );
 }
 

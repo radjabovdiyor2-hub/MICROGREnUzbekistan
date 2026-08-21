@@ -13,8 +13,10 @@ export interface CustomerItem {
   /** Slug района (districts.ts). null — геокодер его не назвал */
   district: string | null;
   status: string;
-  totalSpent: number;
-  bonusBalance: number;
+  /** null — смотрит не владелец: суммы скрыты. */
+  totalSpent: number | null;
+  /** null — смотрит не владелец. */
+  bonusBalance: number | null;
   ordersCount: number;
   notes: string;
   createdAt: string;

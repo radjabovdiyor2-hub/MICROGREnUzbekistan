@@ -3,9 +3,10 @@
 import { TrendingDown, TrendingUp } from 'lucide-react';
 
 import { districtLabel } from '@/lib/customers/districts';
+import { sumLabel } from '@/lib/customers/money';
 import { SEGMENT_META, type SegmentTrend } from '@/lib/customers/segments';
 
-import { formatSum, type PointView } from './mapFeature';
+import { type PointView } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
 // Шапка панели клиента: состояние, переход за месяц, три цифры.
@@ -56,7 +57,9 @@ export function CustomerMapPanelStats({ point, trend, lang }: Props) {
 
       <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
         <Stat title={label.orders[lang]} value={String(point.ordersCount)} />
-        <Stat title={label.spent[lang]} value={`${formatSum(point.totalSpent)} сум`} />
+        {/* Прочерк, а не «0 сум»: продавцу суммы не показываем, и ноль
+            означал бы «клиент ничего не покупал». */}
+        <Stat title={label.spent[lang]} value={sumLabel(point.totalSpent, lang)} />
         <Stat title={label.district[lang]} value={districtLabel(point.district, lang)} />
       </div>
     </>

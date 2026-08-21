@@ -20,7 +20,7 @@ const GAP = 1.5;
 
 interface Props {
   /** Заказы клиента: дата и сумма. Порядок не важен. */
-  orders: { createdAt: string; total: number }[];
+  orders: { createdAt: string; total: number | null }[];
   /** Цвет последнего столбика — текущее состояние клиента. */
   stateToken: string;
   now?: Date;
@@ -28,7 +28,7 @@ interface Props {
 
 /** Суммы по неделям, от давних к свежим. Длина всегда WEEKS. */
 export function weeklyTotals(
-  orders: { createdAt: string; total: number }[],
+  orders: { createdAt: string; total: number | null }[],
   now: Date,
 ): number[] {
   const buckets = new Array<number>(WEEKS).fill(0);
@@ -39,7 +39,10 @@ export function weeklyTotals(
     if (Number.isNaN(at)) continue;
     const weeksAgo = Math.floor((now.getTime() - at) / weekMs);
     if (weeksAgo < 0 || weeksAgo >= WEEKS) continue;
-    buckets[WEEKS - 1 - weeksAgo] += order.total;
+    // Суммы могут быть скрыты (смотрит не владелец). Тогда столбик считает
+    // САМИ ЗАКАЗЫ: ритм виден и без денег, а `null` как ноль нарисовал бы
+    // пустую неделю там, где заказы были.
+    buckets[WEEKS - 1 - weeksAgo] += order.total ?? 1;
   }
   return buckets;
 }
