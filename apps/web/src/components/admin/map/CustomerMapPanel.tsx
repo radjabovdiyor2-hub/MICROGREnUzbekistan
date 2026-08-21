@@ -15,6 +15,7 @@ import { CustomerMapPanelHead } from './CustomerMapPanelHead';
 import { CustomerMapPanelStats } from './CustomerMapPanelStats';
 import { CustomerOrdersSparkline } from './CustomerOrdersSparkline';
 import { NavigateButton } from './NavigateButton';
+import { VisitButtons } from './VisitButtons';
 import { type PointView } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -47,20 +48,7 @@ const label = {
   manual: { ru: 'Пин поставлен вручную', uz: 'Pin qoʻlda qoʻyilgan' },
   addRoute: { ru: 'В объезд', uz: 'Yoʻnalishga' },
   inRoute: { ru: 'В объезде', uz: 'Yoʻnalishda' },
-  roughPin: {
-    ru: 'Координата приблизительная — до дома доведёт адрес, не пин',
-    uz: 'Koordinata taxminiy — manzilga qarang',
-  },
 };
-
-/**
- * Точность, при которой пину можно верить как адресу дома.
- *
- * 'street' и грубее — это середина улицы или центр района: навигатор
- * доведёт до квартала, а дальше нужен адрес глазами. Молчать об этом
- * нельзя, иначе курьер стоит у чужих ворот и уверен, что приехал.
- */
-const EXACT_ENOUGH = new Set(['exact', 'manual']);
 
 export function CustomerMapPanel({
   point,
@@ -159,12 +147,6 @@ export function CustomerMapPanel({
           вообще открывают точку. Остальное ниже и мельче. */}
       <NavigateButton latitude={point.latitude} longitude={point.longitude} lang={lang} />
 
-      {!EXACT_ENOUGH.has(point.geoPrecision ?? '') && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)' }}>
-          {label.roughPin[lang]}
-        </div>
-      )}
-
       {/* Телефон берём из точки, а не из карточки: карточка догружается
           отдельным запросом, и в подвале ресторана кнопка «позвонить»
           появлялась через несколько секунд после нажатия. */}
@@ -183,6 +165,12 @@ export function CustomerMapPanel({
         {inRoute ? <Check size={16} /> : <Plus size={16} />}
         {inRoute ? label.inRoute[lang] : label.addRoute[lang]}
       </button>
+
+      <VisitButtons
+        customerId={point.id}
+        lang={lang}
+        lastVisitDays={point.lastVisitDays}
+      />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenCard(point.id)}>

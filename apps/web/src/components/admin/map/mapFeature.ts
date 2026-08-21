@@ -41,6 +41,7 @@ export interface PointView {
   phone: string | null;
   address: string | null;
   geoPrecision: string | null;
+  lastVisitDays: number | null;
   longitude: number;
   latitude: number;
 }
@@ -64,6 +65,7 @@ export function toPointView(feature: MapFeature): PointView {
     phone: p.ph,
     address: p.ad,
     geoPrecision: p.gp,
+    lastVisitDays: p.lv,
     longitude: feature.geometry.coordinates[0],
     latitude: feature.geometry.coordinates[1],
   };

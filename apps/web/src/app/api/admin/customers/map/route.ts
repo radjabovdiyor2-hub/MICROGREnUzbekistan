@@ -13,6 +13,7 @@ import {
   buildProspectFeatures,
   districtStats,
   loadFirstOrderDates,
+  loadLastVisits,
   parseStates,
   validateCoords,
 } from '@/lib/customers/mapQuery';
@@ -65,9 +66,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const firstOrders = await loadFirstOrderDates(customers.map((c) => c.id));
+    const ids = customers.map((c) => c.id);
+    // Два groupBy вместо 2N запросов: даты первых заказов задают ритм,
+    // даты визитов отвечают на «я к ним уже заезжал?».
+    const [firstOrders, visits] = await Promise.all([
+      loadFirstOrderDates(ids),
+      loadLastVisits(ids),
+    ]);
     const collection = buildMapCollection(customers, firstOrders, {
       states: parseStates(searchParams.get('state')),
+      visits,
     });
 
     // Слой «белых пятен»: заведения из справочника, которые нам ещё не

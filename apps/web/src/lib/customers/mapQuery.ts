@@ -11,6 +11,7 @@ import {
   type SegmentState,
   type ValueTier,
 } from './segments';
+import { VISIT_TYPES } from './visits';
 
 // ══════════════════════════════════════════════════════════════════════
 // Данные для карты клиентов: сборка WHERE, расчёт состояний, GeoJSON.
@@ -29,6 +30,12 @@ import {
  * отвечает отказом и просит сузить фильтр.
  */
 export const MAX_FEATURES = 10_000;
+
+/** Целых суток с даты до `now`. undefined остаётся null — «не были ни разу». */
+function daysSince(at: Date | undefined, now: Date): number | null {
+  if (!at) return null;
+  return Math.max(0, Math.floor((now.getTime() - at.getTime()) / 86_400_000));
+}
 
 /** Короткие ключи: свойство повторяется на каждой точке, и на тысячах
  *  штук разница между `totalSpent` и `sp` — сотни килобайт трафика.
@@ -64,6 +71,8 @@ export interface MapPointProps {
   ad: string | null;
   /** geoPrecision — exact | street | district | city. Точность координаты */
   gp: string | null;
+  /** lastVisit — дней с последнего визита. null = не были ни разу */
+  lv: number | null;
   /** kind — customer | restaurant */
   k: 'customer' | 'restaurant';
   /** tier заведения: premium | traditional | cafe | tourist. Только у проспектов. */
@@ -265,9 +274,10 @@ type MapCustomerRow = {
 export function buildMapCollection(
   customers: MapCustomerRow[],
   firstOrders: Map<number, Date>,
-  options: { states?: Set<SegmentState> | null; now?: Date } = {},
+  options: { states?: Set<SegmentState> | null; now?: Date; visits?: Map<number, Date> } = {},
 ): MapCollection {
   const now = options.now ?? new Date();
+  const visits = options.visits ?? new Map<number, Date>();
   const percentiles = spentPercentiles(customers.map((c) => Number(c.totalSpent || 0)));
 
   const features: MapFeature[] = [];
@@ -329,6 +339,7 @@ export function buildMapCollection(
         ph: c.phone,
         ad: c.address,
         gp: c.geoPrecision,
+        lv: daysSince(visits.get(c.id), now),
         k: 'customer',
       },
     });
@@ -450,6 +461,7 @@ export function buildProspectFeatures(rows: ProspectRow[]): MapFeature[] {
         ph: null,
         ad: null,
         gp: null,
+        lv: null,
         k: 'restaurant',
         tr: r.tier,
       },
@@ -499,6 +511,30 @@ export async function loadFirstOrderDates(ids: number[]): Promise<Map<number, Da
   const map = new Map<number, Date>();
   for (const row of rows) {
     if (row._min.createdAt) map.set(row.customerId, row._min.createdAt);
+  }
+  return map;
+}
+
+/**
+ * Дата последнего визита по каждому клиенту — одним запросом.
+ *
+ * Без неё карта показывает, КУДА ехать, но не помнит, что там уже были:
+ * через неделю объезда это вопрос «я к ним заезжал или собирался?», на
+ * который отвечает только память. Тот же приём, что у первых заказов:
+ * groupBy вместо N запросов.
+ */
+export async function loadLastVisits(ids: number[]): Promise<Map<number, Date>> {
+  if (ids.length === 0) return new Map();
+  const rows = await prisma.interaction.groupBy({
+    by: ['customerId'],
+    where: { customerId: { in: ids }, interactionType: { in: VISIT_TYPES } },
+    _max: { createdAt: true },
+  });
+  const map = new Map<number, Date>();
+  for (const row of rows) {
+    if (row.customerId !== null && row._max.createdAt) {
+      map.set(row.customerId, row._max.createdAt);
+    }
   }
   return map;
 }
