@@ -153,16 +153,18 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
 
         <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
           {m.selected && (
-            <CustomerMapPanel
-              point={m.selected}
-              lang={lang}
-              onClose={() => m.setSelectedId(null)}
-              onOpenCard={onOpenCard}
-              onReplacePin={(id) => {
-                m.setPlacingId(id);
-                m.setSelectedId(null);
-              }}
-            />
+            <div className="admin-map-panel">
+              <CustomerMapPanel
+                point={m.selected}
+                lang={lang}
+                onClose={() => m.setSelectedId(null)}
+                onOpenCard={onOpenCard}
+                onReplacePin={(id) => {
+                  m.setPlacingId(id);
+                  m.setSelectedId(null);
+                }}
+              />
+            </div>
           )}
 
           {/* Легенда объясняет ТЕКУЩУЮ раскраску. Показывать состояния

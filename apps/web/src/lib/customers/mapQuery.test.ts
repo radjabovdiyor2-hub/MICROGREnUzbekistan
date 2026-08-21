@@ -47,6 +47,8 @@ function customer(over: Partial<Parameters<typeof buildMapCollection>[0][number]
     latitude: 41.3111,
     longitude: 69.2401,
     geoSource: '2gis',
+    phone: '+998 90 123 45 67' as string | null,
+    geoPrecision: 'exact' as string | null,
     ...over,
   };
 }

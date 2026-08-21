@@ -1,14 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, MapPin, Phone, RefreshCw, X } from 'lucide-react';
+import { MapPin, Phone, RefreshCw } from 'lucide-react';
 
 import type { CustomerCard } from '@/lib/customers/card';
-import {
-  AUDIENCE_RELEVANT,
-  audienceLabel,
-  companyTypeLabel,
-} from '@/lib/customers/companyTypes';
 import {
   SEGMENT_META,
   computeSegment,
@@ -16,8 +11,10 @@ import {
   explainSegment,
 } from '@/lib/customers/segments';
 
+import { CustomerMapPanelHead } from './CustomerMapPanelHead';
 import { CustomerMapPanelStats } from './CustomerMapPanelStats';
 import { CustomerOrdersSparkline } from './CustomerOrdersSparkline';
+import { NavigateButton } from './NavigateButton';
 import { type PointView } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -43,10 +40,22 @@ const label = {
   rhythm: { ru: 'Ритм заказов за полгода', uz: 'Yarim yillik buyurtma ritmi' },
   card: { ru: 'Открыть карточку', uz: 'Kartani ochish' },
   pin: { ru: 'Переставить пин', uz: 'Pinni koʻchirish' },
-  route: { ru: 'Маршрут', uz: 'Marshrut' },
   loading: { ru: 'Загрузка истории…', uz: 'Tarix yuklanmoqda…' },
   manual: { ru: 'Пин поставлен вручную', uz: 'Pin qoʻlda qoʻyilgan' },
+  roughPin: {
+    ru: 'Координата приблизительная — до дома доведёт адрес, не пин',
+    uz: 'Koordinata taxminiy — manzilga qarang',
+  },
 };
+
+/**
+ * Точность, при которой пину можно верить как адресу дома.
+ *
+ * 'street' и грубее — это середина улицы или центр района: навигатор
+ * доведёт до квартала, а дальше нужен адрес глазами. Молчать об этом
+ * нельзя, иначе курьер стоит у чужих ворот и уверен, что приехал.
+ */
+const EXACT_ENOUGH = new Set(['exact', 'manual']);
 
 export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePin }: Props) {
   const { data, isLoading } = useQuery<CustomerCard, Error>({
@@ -59,6 +68,11 @@ export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePi
   });
 
   const meta = SEGMENT_META[point.state];
+
+  // Точка знает телефон сразу; карточка — запасной путь для случая, когда
+  // точка пришла из старого кэша без этого поля.
+  const raw = point.phone ?? data?.phone ?? null;
+  const phone = raw && raw !== '—' ? raw : null;
 
   // Пересчитываем состояние по загруженной истории: у панели есть даты
   // заказов, которых нет у точки, и объяснение получается точнее.
@@ -82,48 +96,7 @@ export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePi
 
   return (
     <div className="card" style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{point.name}</h3>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              marginTop: 4,
-              padding: '2px 10px',
-              borderRadius: 'var(--radius-full)',
-              background: 'var(--bg-tertiary)',
-              fontSize: 'var(--text-xs)',
-            }}
-          >
-            <span
-              aria-hidden
-              style={{ width: 8, height: 8, borderRadius: '50%', background: meta.token }}
-            />
-            {meta[lang]}
-          </div>
-          {/* Тип заведения рядом с состоянием: цвет точки на карте отвечает
-              за корзину («Фитнес и спорт»), а здесь виден точный тип и пол
-              зала — то, чем корзина и отличается от категории. */}
-          {point.companyType && (
-            <div
-              style={{
-                marginTop: 4,
-                fontSize: 'var(--text-xs)',
-                color: 'var(--text-muted)',
-              }}
-            >
-              {companyTypeLabel(point.companyType, lang)}
-              {AUDIENCE_RELEVANT.includes(point.companyType) &&
-                ` · ${audienceLabel(point.audience, lang)}`}
-            </div>
-          )}
-        </div>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={onClose} aria-label="Закрыть">
-          <X size={16} />
-        </button>
-      </div>
+      <CustomerMapPanelHead point={point} lang={lang} onClose={onClose} />
 
       <CustomerMapPanelStats point={point} trend={trend} lang={lang} />
 
@@ -169,26 +142,32 @@ export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePi
         </div>
       )}
 
+      {/* Навигация и звонок — первыми и крупными: это то, ради чего в поле
+          вообще открывают точку. Остальное ниже и мельче. */}
+      <NavigateButton latitude={point.latitude} longitude={point.longitude} lang={lang} />
+
+      {!EXACT_ENOUGH.has(point.geoPrecision ?? '') && (
+        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)' }}>
+          {label.roughPin[lang]}
+        </div>
+      )}
+
+      {/* Телефон берём из точки, а не из карточки: карточка догружается
+          отдельным запросом, и в подвале ресторана кнопка «позвонить»
+          появлялась через несколько секунд после нажатия. */}
+      {phone && (
+        <a className="btn btn-secondary" href={`tel:${phone}`} style={{ minHeight: 44 }}>
+          <Phone size={16} /> {phone}
+        </a>
+      )}
+
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => onOpenCard(point.id)}>
+        <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenCard(point.id)}>
           {label.card[lang]}
         </button>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => onReplacePin(point.id)}>
           <MapPin size={14} /> {label.pin[lang]}
         </button>
-        {data?.phone && data.phone !== '—' && (
-          <a className="btn btn-sm btn-ghost" href={`tel:${data.phone}`}>
-            <Phone size={14} /> {data.phone}
-          </a>
-        )}
-        <a
-          className="btn btn-sm btn-ghost"
-          href={`https://2gis.uz/geo/${point.longitude},${point.latitude}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <ExternalLink size={14} /> {label.route[lang]}
-        </a>
       </div>
     </div>
   );

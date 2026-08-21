@@ -58,6 +58,12 @@ export interface MapPointProps {
   au: string | null;
   /** geoSource — 2gis | google | yandex | manual | seed */
   gs: string | null;
+  /** phone — набрать прямо с карты, без ожидания карточки */
+  ph: string | null;
+  /** address — куда именно ехать; в карточке он есть, а на карте не было */
+  ad: string | null;
+  /** geoPrecision — exact | street | district | city. Точность координаты */
+  gp: string | null;
   /** kind — customer | restaurant */
   k: 'customer' | 'restaurant';
   /** tier заведения: premium | traditional | cafe | tourist. Только у проспектов. */
@@ -247,6 +253,8 @@ type MapCustomerRow = {
   latitude: number | null;
   longitude: number | null;
   geoSource: string | null;
+  phone: string | null;
+  geoPrecision: string | null;
 };
 
 /**
@@ -318,6 +326,9 @@ export function buildMapCollection(
         ct: c.companyType,
         au: c.audience,
         gs: c.geoSource,
+        ph: c.phone,
+        ad: c.address,
+        gp: c.geoPrecision,
         k: 'customer',
       },
     });
@@ -434,6 +445,11 @@ export function buildProspectFeatures(rows: ProspectRow[]): MapFeature[] {
         ct: 'restaurant',
         au: null,
         gs: r.geoSource,
+        // Телефона и адреса у цели нет: справочник журнала их не хранит.
+        // Пустое честнее выдуманного — по такому адресу поехали бы.
+        ph: null,
+        ad: null,
+        gp: null,
         k: 'restaurant',
         tr: r.tier,
       },
@@ -461,6 +477,12 @@ export const MAP_CUSTOMER_SELECT = {
   latitude: true,
   longitude: true,
   geoSource: true,
+  // Телефон и точность координаты — ради поля. Телефон раньше приезжал
+  // отдельным запросом карточки: в подвале ресторана, на плохой связи,
+  // кнопка «позвонить» появлялась через секунды после нажатия на точку.
+  // На тысяче точек это два десятка лишних байт, а не запрос.
+  phone: true,
+  geoPrecision: true,
 } satisfies Prisma.CustomerSelect;
 
 /**

@@ -2,7 +2,12 @@
 
 import { useEffect, useRef } from 'react';
 // MapLibre 6 отказался от default-экспорта — только именованные.
-import { GeoJSONSource, Map as MapLibreMap, NavigationControl } from 'maplibre-gl';
+import {
+  GeoJSONSource,
+  GeolocateControl,
+  Map as MapLibreMap,
+  NavigationControl,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
@@ -102,6 +107,17 @@ export default function CustomerMapCanvas(props: Props) {
     map.current = instance;
 
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+    // «Где я» — для поля. Без него человек с картой в руках не понимает, к
+    // какой из точек он ближе; браузер спросит разрешение сам, а отказ
+    // просто оставит кнопку неактивной и ничего не сломает.
+    instance.addControl(
+      new GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showUserLocation: true,
+      }),
+      'top-right',
+    );
     instance.on('load', () => attach(instance));
     // После смены стиля MapLibre выбрасывает свои слои — навешиваем заново.
     instance.on('styledata', () => {
