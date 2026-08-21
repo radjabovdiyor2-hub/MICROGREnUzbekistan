@@ -1,9 +1,11 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { AlertCircle, MapPin, RefreshCw } from 'lucide-react';
+import { AlertCircle, CloudOff, MapPin, RefreshCw } from 'lucide-react';
 
 import { CustomerMapToolbar } from './CustomerMapToolbar';
+import { snapshotTime } from '@/lib/customers/mapSnapshot';
+
 import { MapSearch } from './MapSearch';
 import { MapSidebar } from './MapSidebar';
 import { useCustomerMap } from './useCustomerMap';
@@ -90,7 +92,31 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
         onStates={m.setStates}
       />
 
-      {(m.error || m.saveError || m.deliveryError || m.tilesFailed) && (
+      {/* Связь пропала, но снимок есть: это не ошибка, а работа без сети.
+          Красная плашка тут сказала бы «сломалось» про карту, по которой
+          человек прямо сейчас едет. */}
+      {m.snapshotAt !== null && (
+        <div
+          className="card"
+          style={{
+            padding: 'var(--space-3)',
+            display: 'flex',
+            gap: 'var(--space-2)',
+            alignItems: 'center',
+            color: 'var(--warning)',
+          }}
+        >
+          <CloudOff size={16} />
+          <span style={{ fontSize: 'var(--text-sm)' }}>
+            {lang === 'ru'
+              ? `Связи нет — карта снята ${snapshotTime(m.snapshotAt)}. Точки, адреса и телефоны на месте; отметить визит получится, когда связь вернётся.`
+              : `Aloqa yoʻq — xarita ${snapshotTime(m.snapshotAt)} olingan. Nuqtalar va telefonlar joyida.`}
+          </span>
+        </div>
+      )}
+
+      {(m.snapshotAt === null &&
+        (m.error || m.saveError || m.deliveryError || m.tilesFailed)) && (
         <div
           className="card"
           style={{
