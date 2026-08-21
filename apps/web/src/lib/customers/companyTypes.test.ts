@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -9,6 +13,7 @@ import {
   COMPANY_TYPES,
   COMPANY_TYPE_GROUPS,
   GROUP_META,
+  RETIRED_COMPANY_TYPES,
   audienceLabel,
   bucketOf,
   bucketPairs,
@@ -90,6 +95,18 @@ describe('подписи', () => {
     expect(companyTypeLabel('вымысел', 'ru')).toBe('вымысел');
   });
 
+  it('выведенный тип сохраняет подпись, но не возвращается в фильтр', () => {
+    // Карточки выведенных типов остаются у тех, за кем есть заказ. Без
+    // подписи в списке появилась бы строка «Плов Центр · clinic», а в
+    // разрезе по районам — «12 school».
+    for (const [slug, meta] of Object.entries(RETIRED_COMPANY_TYPES)) {
+      expect(companyTypeLabel(slug, 'ru'), slug).toBe(meta.ru);
+      expect(companyTypeLabel(slug, 'uz'), slug).toBe(meta.uz);
+      expect(isCompanyType(slug), slug).toBe(false);
+      expect(COMPANY_TYPES, slug).not.toHaveProperty(slug);
+    }
+  });
+
   it('пустой тип — это «не указан», а не пустая строка', () => {
     expect(companyTypeLabel(null, 'ru')).toBe('Тип не указан');
     expect(companyTypeLabel(null, 'uz')).toBeTruthy();
@@ -106,6 +123,54 @@ describe('подписи', () => {
     for (const slug of AUDIENCES) {
       expect(AUDIENCE_META[slug].ru, slug).toBeTruthy();
       expect(AUDIENCE_META[slug].uz, slug).toBeTruthy();
+    }
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Сверка со сборщиком офиса.
+//
+// Таксономия существует ДВАЖДЫ: здесь и в `VENUE_QUERIES` из
+// `apps/tgas/shared/lead_gen.py`. Дублирование намеренное (прямых импортов
+// между модулями нет, см. CLAUDE.md), но расходится оно молча — и уже
+// разошлось: категория «Учебное заведение» жила в обоих списках, ночная
+// ротация исправно собирала вузы и колледжи, и владелец находил их в списке
+// клиентов и на карте. Убрать её из интерфейса, не тронув Python, значило бы
+// продолжать собирать их — только теперь без подписи.
+//
+// Тест читает lead_gen.py файлом, а не импортирует: это Python и другой
+// модуль. Приём тот же, что в `districts.test.ts`.
+// ══════════════════════════════════════════════════════════════════════
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const LEAD_GEN_PY = resolve(HERE, '../../../../../apps/tgas/shared/lead_gen.py');
+
+/** Ключи `VENUE_QUERIES` из lead_gen.py — то, что сбор пишет в базу. */
+function categoriesCollectedByOffice(): string[] {
+  const source = readFileSync(LEAD_GEN_PY, 'utf-8');
+  const block = source.match(/VENUE_QUERIES: dict\[str, list\[str\]\] = \{([\s\S]*?)^\}/m);
+  if (!block) throw new Error('В lead_gen.py не найден словарь VENUE_QUERIES');
+  return [...block[1].matchAll(/^\s{4}"([a-z]+)":/gm)].map((m) => m[1]);
+}
+
+describe('сверка со сборщиком офиса', () => {
+  it('каждая собираемая категория известна справочнику', () => {
+    const collected = categoriesCollectedByOffice();
+    expect(collected.length).toBeGreaterThan(10);
+    for (const slug of collected) {
+      expect(
+        isCompanyType(slug),
+        `lead_gen.py собирает «${slug}», которого нет в COMPANY_TYPES — ` +
+          'заведение ляжет в базу с типом, недоступным ни одному фильтру',
+      ).toBe(true);
+    }
+  });
+
+  it('выведенные типы сбор больше не запрашивает', () => {
+    // Иначе они вернутся той же ночной ротацией, ради которой всё и затевалось.
+    const collected = new Set(categoriesCollectedByOffice());
+    for (const slug of Object.keys(RETIRED_COMPANY_TYPES)) {
+      expect(collected.has(slug), `lead_gen.py всё ещё собирает «${slug}»`).toBe(false);
     }
   });
 });

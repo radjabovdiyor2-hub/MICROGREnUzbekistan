@@ -4,7 +4,11 @@ import { safeError } from '@/lib/safeError';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { getCustomerCard } from '@/lib/customers/card';
-import { isAudience, isCompanyType } from '@/lib/customers/companyTypes';
+import {
+  RETIRED_COMPANY_TYPES,
+  isAudience,
+  isCompanyType,
+} from '@/lib/customers/companyTypes';
 import { isDistrict } from '@/lib/customers/districts';
 import { setCustomerBonus } from '@/lib/customers/bonus';
 import { publish } from '@/lib/realtime/bus';
@@ -21,6 +25,23 @@ import { publish } from '@/lib/realtime/bus';
  *  был недостижим ничем, кроме поиска по имени. */
 const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
+
+/** Сколько карточек показать в ответе чистки: список для глаз, а не выгрузка. */
+const PURGE_PREVIEW = 200;
+
+/**
+ * Приметы учебного заведения в названии — для ПОДСКАЗКИ, не для удаления.
+ *
+ * Вуз приезжает не только под своим типом: «Столовая СамГУ» собирается
+ * запросом «столовая» и ложится в базу как `canteen`, а чистка по типу его
+ * не увидит. Удалять по названию автоматически нельзя — под «универ» подходит
+ * и «Кафе Универсал», — поэтому такие карточки только перечисляются, а
+ * решение принимает владелец поштучно (`DELETE ?id=`).
+ */
+const SCHOOL_HINTS = [
+  'универ', 'институт', 'колледж', 'лицей', 'техникум', 'академи',
+  'universitet', 'kollej', 'litsey', 'texnikum', 'akademiya', 'samdu',
+];
 
 export async function GET(request: NextRequest) {
   // Второй рубеж после middleware — тот же, что стоит у DELETE ниже и у
@@ -223,8 +244,9 @@ export async function PUT(request: NextRequest) {
 }
 
 /**
- * Удалить карточку клиента — одну (`?id=12`) или все без заказов
- * (`?scope=no-orders`).
+ * Удалить карточку клиента — одну (`?id=12`), все без заказов
+ * (`?scope=no-orders`) или выведенные из справочника типы
+ * (`?scope=retired-types`, безопасный просмотр — `&dryRun=1`).
  *
  * Удаления клиентов не было НИГДЕ: ни здесь, ни в боте, ни отдельным SQL.
  * В Telegram на «удали всех клиентов» бот отвечал, что это «серьёзное
@@ -286,10 +308,100 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
+    // ── Пачкой: типы, выведенные из справочника ──────────────────────
+    // Вузы, колледжи, бизнес-центры, супермаркеты и клиники набрал ночной
+    // сбор, пока эти категории были в `VENUE_QUERIES`. Категории убраны, но
+    // собранное само не уходит: без этой ветки владелец видел бы их в списке
+    // и на карте до конца времён, теперь ещё и сырым слагом.
+    //
+    // Условие намеренно у́же, чем «тип совпал»: карточку, которая покупала
+    // или за которой стоит живой человек, чистка не трогает. Клиника,
+    // берущая у нас зелень, остаётся клиентом — просто без места в фильтре.
+    if (scope === 'retired-types') {
+      const dryRun = sp.get('dryRun') === '1';
+      const types = Object.keys(RETIRED_COMPANY_TYPES);
+
+      const where: Prisma.CustomerWhereInput = {
+        companyType: { in: types },
+        crmOrders: { none: {} },
+        status: 'lead',
+        ordersCount: 0,
+        totalSpent: 0,
+        webUserId: null,
+        telegramId: null,
+      };
+      const card = {
+        id: true, name: true, companyName: true,
+        city: true, companyType: true, district: true,
+      } as const;
+
+      const doomed = await prisma.customer.findMany({
+        where, select: card, orderBy: { id: 'asc' },
+      });
+      const inRetired = await prisma.customer.count({
+        where: { companyType: { in: types } },
+      });
+      const kept = inRetired - doomed.length;
+
+      // Подсказка по названию собирается только в просмотре: в боевом
+      // прогоне она никого не удаляет и лишь замедлила бы ответ.
+      const suspects = dryRun
+        ? await prisma.customer.findMany({
+            where: {
+              NOT: { companyType: { in: types } },
+              OR: SCHOOL_HINTS.flatMap((hint) => [
+                { name: { contains: hint, mode: 'insensitive' } },
+                { companyName: { contains: hint, mode: 'insensitive' } },
+              ]) as Prisma.CustomerWhereInput[],
+            },
+            select: card,
+            orderBy: { id: 'asc' },
+            take: PURGE_PREVIEW,
+          })
+        : [];
+
+      const ids = doomed.map((c) => c.id);
+      const { count } = !dryRun && ids.length
+        ? await prisma.customer.deleteMany({ where: { id: { in: ids } } })
+        : { count: 0 };
+
+      if (!dryRun) {
+        audit({
+          action: 'customer.delete.retired', actor: 'owner', role: 'ADMIN', ip,
+          target: `${count} шт.`, meta: { deleted: count, kept, types },
+        });
+        if (count) publish('customers');
+      }
+
+      return NextResponse.json({
+        status: 'ok',
+        dryRun,
+        types,
+        matched: doomed.length,
+        deleted: count,
+        kept,
+        preview: doomed.slice(0, PURGE_PREVIEW),
+        suspects,
+        message:
+          (dryRun
+            ? `Под чистку попадает карточек: ${doomed.length}. Ничего не удалено — это просмотр.`
+            : `Удалено карточек: ${count}.`) +
+          (kept
+            ? ` Ещё ${kept} того же типа оставлены: за ними заказ, аккаунт или работа продавца.`
+            : '') +
+          (suspects.length
+            ? ` Отдельно: ${suspects.length} карточек с учебным словом в названии, но под другим типом — посмотрите глазами, автоматически они не удаляются.`
+            : ''),
+      });
+    }
+
     // ── Одна карточка ────────────────────────────────────────────────
     const id = Number(sp.get('id'));
     if (!Number.isInteger(id) || id <= 0) {
-      return NextResponse.json({ error: 'Нужен числовой id или scope=no-orders' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Нужен числовой id или scope=no-orders / retired-types' },
+        { status: 400 }
+      );
     }
 
     const customer = await prisma.customer.findUnique({

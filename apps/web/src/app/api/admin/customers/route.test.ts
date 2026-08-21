@@ -21,6 +21,7 @@ import { SESSION_COOKIE, createSession } from '@/lib/session';
 const customerFindMany = vi.fn();
 const customerCount = vi.fn();
 const customerUpdate = vi.fn();
+const customerDeleteMany = vi.fn();
 
 vi.mock('@repo/database', () => ({
   prisma: {
@@ -28,6 +29,7 @@ vi.mock('@repo/database', () => ({
       findMany: (...a: unknown[]) => customerFindMany(...a),
       count: (...a: unknown[]) => customerCount(...a),
       update: (...a: unknown[]) => customerUpdate(...a),
+      deleteMany: (...a: unknown[]) => customerDeleteMany(...a),
     },
   },
   Prisma: {},
@@ -49,7 +51,7 @@ vi.mock('@/lib/customers/bonus', () => ({
   setCustomerBonus: vi.fn(async () => ({ ok: true })),
 }));
 
-import { GET, PUT } from './route';
+import { DELETE, GET, PUT } from './route';
 
 async function adminCookie(): Promise<string> {
   const token = await createSession({ role: 'ADMIN', name: 'owner' });
@@ -58,6 +60,13 @@ async function adminCookie(): Promise<string> {
 
 function get(query = '', cookie?: string) {
   return new NextRequest(`http://localhost:3000/api/admin/customers${query}`, {
+    headers: cookie ? { cookie } : {},
+  });
+}
+
+function del(query: string, cookie?: string) {
+  return new NextRequest(`http://localhost:3000/api/admin/customers${query}`, {
+    method: 'DELETE',
     headers: cookie ? { cookie } : {},
   });
 }
@@ -84,6 +93,7 @@ beforeEach(() => {
     id: 7, status: 'lead', bonusBalance: 0, notes: null,
     city: 'Samarqand', companyName: 'X', companyType: 'fitness', audience: 'female',
   });
+  customerDeleteMany.mockResolvedValue({ count: 0 });
 });
 
 describe('GET /api/admin/customers — фильтры', () => {
@@ -192,5 +202,92 @@ describe('PUT /api/admin/customers — правка карточки', () => {
     expect(res.status).toBe(401);
     expect(customerUpdate).not.toHaveBeenCalled();
     expect(publishSpy).not.toHaveBeenCalled();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Чистка выведенных типов (?scope=retired-types).
+//
+// Вузы и колледжи набрал ночной сбор, пока категория `school` была в
+// справочнике. Категорию убрали — собранное осталось. Здесь закрепляется
+// то, из-за чего такая чистка и опасна: она удаляет пачкой.
+// ══════════════════════════════════════════════════════════════════════
+
+const RETIRED_CARD = {
+  id: 41, name: 'SamDU', companyName: 'SamDU', city: 'Samarqand',
+  companyType: 'school', district: 'siyob',
+};
+
+describe('DELETE /api/admin/customers?scope=retired-types', () => {
+  it('удаляет только выведенные типы и только нетронутых лидов', async () => {
+    await DELETE(del('?scope=retired-types&dryRun=1', await adminCookie()));
+
+    const where = customerFindMany.mock.calls[0][0].where;
+    expect(where.companyType).toEqual({ in: ['clinic', 'supermarket', 'school', 'office'] });
+    // Карточка, которая покупала или за которой стоит человек, не уходит:
+    // без этих условий чистка по типу унесла бы и клиента с историей.
+    expect(where.crmOrders).toEqual({ none: {} });
+    expect(where.status).toBe('lead');
+    expect(where.ordersCount).toBe(0);
+    expect(where.totalSpent).toBe(0);
+    expect(where.webUserId).toBeNull();
+    expect(where.telegramId).toBeNull();
+  });
+
+  it('просмотр показывает список и не удаляет ничего', async () => {
+    customerFindMany.mockResolvedValueOnce([RETIRED_CARD]).mockResolvedValueOnce([]);
+    customerCount.mockResolvedValueOnce(3);
+
+    const res = await DELETE(del('?scope=retired-types&dryRun=1', await adminCookie()));
+    const body = await res.json();
+
+    expect(body.dryRun).toBe(true);
+    expect(body.matched).toBe(1);
+    expect(body.deleted).toBe(0);
+    expect(body.preview[0].name).toBe('SamDU');
+    // 3 карточки выведенных типов всего, 1 под чистку → 2 остаются.
+    expect(body.kept).toBe(2);
+    expect(customerDeleteMany).not.toHaveBeenCalled();
+    expect(publishSpy).not.toHaveBeenCalled();
+  });
+
+  it('боевой прогон удаляет по id и оповещает шину', async () => {
+    customerFindMany.mockResolvedValueOnce([RETIRED_CARD]);
+    customerCount.mockResolvedValueOnce(1);
+    customerDeleteMany.mockResolvedValueOnce({ count: 1 });
+
+    const res = await DELETE(del('?scope=retired-types', await adminCookie()));
+    const body = await res.json();
+
+    expect(customerDeleteMany).toHaveBeenCalledWith({ where: { id: { in: [41] } } });
+    expect(body.deleted).toBe(1);
+    expect(publishSpy).toHaveBeenCalledWith('customers');
+  });
+
+  it('подсказка по названию собирается только в просмотре', async () => {
+    // «Столовая СамГУ» лежит как `canteen` и под чистку по типу не подпадает,
+    // но и удалять её автоматически нельзя: под тот же шаблон подходит
+    // «Кафе Универсал». В боевом прогоне запроса нет вовсе.
+    customerFindMany.mockResolvedValueOnce([]);
+    customerCount.mockResolvedValueOnce(0);
+
+    await DELETE(del('?scope=retired-types', await adminCookie()));
+    expect(customerFindMany).toHaveBeenCalledTimes(1);
+
+    vi.clearAllMocks();
+    customerFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    customerCount.mockResolvedValueOnce(0);
+
+    await DELETE(del('?scope=retired-types&dryRun=1', await adminCookie()));
+    const hints = customerFindMany.mock.calls[1][0].where;
+    expect(hints.NOT).toEqual({ companyType: { in: ['clinic', 'supermarket', 'school', 'office'] } });
+    expect(hints.OR.some((c: Record<string, { contains?: string }>) => c.name?.contains === 'колледж')).toBe(true);
+  });
+
+  it('без сессии не удаляет', async () => {
+    const res = await DELETE(del('?scope=retired-types'));
+
+    expect(res.status).toBe(401);
+    expect(customerDeleteMany).not.toHaveBeenCalled();
   });
 });
