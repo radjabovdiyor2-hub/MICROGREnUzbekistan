@@ -67,6 +67,7 @@ function collection(features = 0): MapCollection {
       revenueByState: { prospect: 0, new: 0, healthy: 0, slipping: 0, at_risk: 0, lost: 0 },
       spentPercentiles: { p50: 0, p80: 0 },
       districts: [],
+      coverage: { exact: features, rough: 0, missing: 0, total: features, percent: 100 },
     },
     unplaced: [],
   };

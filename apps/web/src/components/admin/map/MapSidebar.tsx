@@ -5,6 +5,7 @@ import { CustomerMapLegend } from './CustomerMapLegend';
 import { CustomerMapPanel } from './CustomerMapPanel';
 import { DayRoutePanel } from './DayRoutePanel';
 import { DistrictBreakdown } from './DistrictBreakdown';
+import { MapCoverage } from './MapCoverage';
 import { UnplacedTray } from './UnplacedTray';
 import type { useCustomerMap } from './useCustomerMap';
 import type { useDayRoute } from './useDayRoute';
@@ -25,7 +26,6 @@ interface Props {
 }
 
 export function MapSidebar({ lang, m, route, onOpenCard }: Props) {
-  const { placed, total, unplaced } = m.collection.summary;
   const selected = m.selected;
 
   return (
@@ -90,6 +90,8 @@ export function MapSidebar({ lang, m, route, onOpenCard }: Props) {
         onSelect={m.setDistrict}
       />
 
+      <MapCoverage coverage={m.collection.summary.coverage} lang={lang} />
+
       <UnplacedTray
         items={m.queue}
         lang={lang}
@@ -102,11 +104,6 @@ export function MapSidebar({ lang, m, route, onOpenCard }: Props) {
         onStopChain={m.stopChain}
       />
 
-      {unplaced > 0 && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-          {lang === 'ru' ? `На карте ${placed} из ${total}` : `Xaritada ${total} dan ${placed} ta`}
-        </div>
-      )}
     </div>
   );
 }
