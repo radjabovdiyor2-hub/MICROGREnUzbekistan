@@ -8,7 +8,13 @@ import type { SegmentState } from '@/lib/customers/segments';
 
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
 
-import { EMPTY_COLLECTION, toPointView, type ColorizeMode, type MapCollection } from './mapFeature';
+import {
+  EMPTY_COLLECTION,
+  searchPoints,
+  toPointView,
+  type ColorizeMode,
+  type MapCollection,
+} from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
 // Состояние карты клиентов: запрос, фильтры, выбор точки, ручной пин.
@@ -42,6 +48,9 @@ export function useCustomerMap() {
   const [showDelivery, setShowDelivery] = useState(false);
   // Режим «подряд»: после каждого пина сам взводит следующего клиента.
   const [chaining, setChaining] = useState(false);
+  // Поиск по названию и подлёт к найденной точке.
+  const [query, setQuery] = useState('');
+  const [focus, setFocus] = useState<{ lng: number; lat: number; at: number } | null>(null);
 
   // Маршруты живут своей жизнью: клиенты меняются неделями, объезд — в
   // течение дня. Отдельный запрос с частым обновлением вместо одного
@@ -114,6 +123,11 @@ export function useCustomerMap() {
     [collection.unplaced],
   );
 
+  const matches = useMemo(
+    () => searchPoints(collection.features, query),
+    [collection, query],
+  );
+
   const selected = useMemo(() => {
     const feature = collection.features.find((f) => f.id === selectedId);
     return feature ? toPointView(feature) : null;
@@ -171,10 +185,26 @@ export function useCustomerMap() {
     });
   };
 
+  /**
+   * Подлёт к точке: выделяем и просим карту переместиться.
+   *
+   * `at` в метке — не украшение: подлёт к ТОЙ ЖЕ точке второй раз обязан
+   * сработать снова, а по одним координатам эффект не перезапустится.
+   */
+  const focusPoint = (point: { id: number; longitude: number; latitude: number }) => {
+    setSelectedId(point.id);
+    setFocus({ lng: point.longitude, lat: point.latitude, at: Date.now() });
+  };
+
   return {
     collection,
     visible,
     selected,
+    query,
+    setQuery,
+    matches,
+    focus,
+    focusPoint,
     isLoading,
     error,
     refetch,
@@ -187,6 +217,7 @@ export function useCustomerMap() {
     cityFilter,
     setCityFilter,
     states,
+    setStates,
     toggleState,
 
     selectedId,
