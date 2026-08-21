@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { clientErrorMessage } from '@/lib/safeError';
+import { readSnapshot, saveSnapshot } from '@/lib/customers/mapSnapshot';
 import type { SegmentState } from '@/lib/customers/segments';
 
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
@@ -67,6 +68,17 @@ export function useCustomerMap() {
     refetchInterval: showDelivery ? 60_000 : false,
   });
 
+  // Ключ снимка — те же фильтры, что и у запроса. Показать под фильтром
+  // «тойхоны Ургута» точки, снятые по всей области, значит соврать.
+  const snapshotKey = [
+    typeFilter,
+    cityFilter,
+    showProspects ? 'p' : '',
+    district ?? '',
+    companyType,
+    audience,
+  ].join('|');
+
   const { data, isLoading, error, refetch, dataUpdatedAt } = useQuery<MapCollection, Error>({
     queryKey: [
       'admin-customers-map',
@@ -93,13 +105,29 @@ export function useCustomerMap() {
       // клиентов» — осмысленный ответ, и подменять его общей ошибкой
       // значит снова спрятать причину.
       if (!res.ok) throw new Error(body?.error || 'Не удалось загрузить карту');
+      // Снимок на случай обрыва связи. Отказ хранилища не мешает карте:
+      // человек открыл её, а не localStorage.
+      saveSnapshot(body, snapshotKey);
       return body;
     },
     refetchInterval: REFRESH_MS,
     refetchOnWindowFocus: true,
   });
 
-  const collection = data ?? EMPTY_COLLECTION;
+  /**
+   * Что показывать, когда связи нет.
+   *
+   * Раньше первый же обрыв давал пустой экран и красную плашку — карта
+   * переставала работать ровно в тот момент, ради которого её открыли: в
+   * подвале ресторана, в туманах области. Снимок читается ТОЛЬКО при
+   * отказе запроса и только под теми же фильтрами.
+   */
+  const snapshot = useMemo(
+    () => (error && !data ? readSnapshot(snapshotKey) : null),
+    [error, data, snapshotKey],
+  );
+
+  const collection = data ?? snapshot?.collection ?? EMPTY_COLLECTION;
 
   // Фильтр по состоянию применяем на клиенте: данные уже здесь, и гонять
   // запрос ради подсветки легенды незачем. Проспекты фильтру не подчиняются:
@@ -209,6 +237,8 @@ export function useCustomerMap() {
     error,
     refetch,
     dataUpdatedAt,
+    /** Не null — на экране снимок, а не свежие данные. */
+    snapshotAt: snapshot?.at ?? null,
 
     mode,
     setMode,
