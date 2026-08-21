@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 
-import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { actorOf, isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
@@ -23,12 +23,12 @@ import {
 // таблица визитов развела бы историю общения по двум местам, и карточка
 // клиента показывала бы половину.
 //
-// Дверь закрыта дважды: правилом `/api/admin` в middleware и isAuthorized
-// здесь — как у соседних роутов клиентов.
+// Дверь закрыта дважды: правилом в middleware и проверкой здесь. Отмечает
+// тот, кто съездил, — а ездит продавец, поэтому рубеж на STAFF.
 // ══════════════════════════════════════════════════════════════════════
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isStaff(request)) return unauthorized();
 
   try {
     const body = await request.json().catch(() => null);
@@ -76,8 +76,7 @@ export async function POST(request: NextRequest) {
 
     audit({
       action: 'customer.visit',
-      actor: 'owner',
-      role: 'ADMIN',
+      ...actorOf(request),
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: `#${customerId} ${customer.companyName ?? customer.name ?? ''}`.trim(),
       meta: { type },

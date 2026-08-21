@@ -119,6 +119,23 @@ export function isAuthorized(request: Request): boolean {
   return getSession(request)?.role === 'ADMIN';
 }
 
+/**
+ * Кто совершает действие — для журнала аудита.
+ *
+ * До этого роуты клиентов писали `actor: 'owner'` строкой. Пока за ними
+ * стоял только владелец, это было правдой; с приходом продавца журнал
+ * начал бы приписывать владельцу чужие отметки визитов и переставленные
+ * пины — то есть врать ровно в том месте, ради которого его и ведут.
+ *
+ * Бот ходит по заголовку `x-bot-secret`, сессии у него нет.
+ */
+export function actorOf(request: Request): { actor: string; role: string } {
+  const session = getSession(request);
+  if (!session) return { actor: 'bot', role: 'BOT' };
+  if (session.role === 'ADMIN') return { actor: session.name || 'owner', role: 'ADMIN' };
+  return { actor: session.name || session.role.toLowerCase(), role: session.role };
+}
+
 /** Доступ владельца или продавца — кассовые операции. */
 export function isStaff(request: Request): boolean {
   if (isAuthorized(request)) return true;

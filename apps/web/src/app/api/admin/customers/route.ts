@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { safeError } from '@/lib/safeError';
-import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { actorOf, isAuthorized, isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { getCustomerCard } from '@/lib/customers/card';
 import {
@@ -44,13 +44,13 @@ const SCHOOL_HINTS = [
 ];
 
 export async function GET(request: NextRequest) {
-  // Второй рубеж после middleware — тот же, что стоит у DELETE ниже и у
-  // обоих обработчиков карты. В этом файле его не было у GET и PUT: сам
-  // по себе `/api/admin` закрыт правилом ADMIN в middleware, но полагаться
-  // на один рубеж там, где роут отдаёт телефоны и адреса всей базы и
-  // принимает начисление бонусов, — расчёт на то, что правило никогда не
-  // перепишут.
-  if (!isAuthorized(request)) return unauthorized();
+  // Второй рубеж после middleware. Здесь ЧТЕНИЕ, и оно открыто продавцу:
+  // он ездит по этим адресам. Запись — бонусы, статус, удаление — осталась
+  // владельцу и проверяется своим `isAuthorized` в PUT и DELETE ниже.
+  //
+  // Полагаться на один рубеж там, где роут отдаёт телефоны и адреса всей
+  // базы, — расчёт на то, что правило в middleware никогда не перепишут.
+  if (!isStaff(request)) return unauthorized();
 
   try {
     const { searchParams } = new URL(request.url);
@@ -289,7 +289,7 @@ export async function DELETE(request: NextRequest) {
         : { count: 0 };
 
       audit({
-        action: 'customer.delete.bulk', actor: 'owner', role: 'ADMIN', ip,
+        action: 'customer.delete.bulk', ...actorOf(request), ip,
         target: `${count} шт.`, meta: { deleted: count, kept },
       });
       // Пачка удалений меняет и список, и карту разом — без оповещения
@@ -367,7 +367,7 @@ export async function DELETE(request: NextRequest) {
 
       if (!dryRun) {
         audit({
-          action: 'customer.delete.retired', actor: 'owner', role: 'ADMIN', ip,
+          action: 'customer.delete.retired', ...actorOf(request), ip,
           target: `${count} шт.`, meta: { deleted: count, kept, types },
         });
         if (count) publish('customers');
@@ -434,7 +434,7 @@ export async function DELETE(request: NextRequest) {
     await prisma.customer.delete({ where: { id } });
 
     audit({
-      action: 'customer.delete', actor: 'owner', role: 'ADMIN', ip,
+      action: 'customer.delete', ...actorOf(request), ip,
       target: `#${id} ${customer.name ?? ''}`.trim(),
       meta: {
         interactions: customer._count.interactions,

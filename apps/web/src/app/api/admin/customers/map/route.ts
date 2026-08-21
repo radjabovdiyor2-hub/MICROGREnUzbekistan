@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 
-import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { actorOf, isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
@@ -28,13 +28,13 @@ import {
 // сотни килобайт, после сжатия — десятки, и запрос идёт раз в минуту.
 // Порог, за которым понадобится серверная агрегация, — MAX_FEATURES.
 //
-// Доступ уже закрыт правилом `{ prefix: '/api/admin', access: 'ADMIN' }`
-// в middleware, но isAuthorized здесь всё равно вызывается — ровно как в
-// DELETE соседнего роута клиентов. Дверь запирают с обеих сторон.
+// Доступ закрыт правилом в middleware, но проверка здесь всё равно есть —
+// дверь запирают с обеих сторон. Карта открыта и ПРОДАВЦУ: по ней он
+// ездит, и запирать её от того, ради кого она сделана, незачем.
 // ══════════════════════════════════════════════════════════════════════
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  if (!isStaff(request)) return unauthorized();
 
   try {
     const { searchParams } = new URL(request.url);
@@ -130,7 +130,8 @@ export async function GET(request: NextRequest) {
  * обходить стороной. Человек, ткнувший в карту, знает лучше любого провайдера.
  */
 export async function PATCH(request: NextRequest) {
-  if (!isAuthorized(request)) return unauthorized();
+  // Пин переставляет тот, кто стоит у дверей: он видит двор, а геокодер нет.
+  if (!isStaff(request)) return unauthorized();
 
   try {
     const body = await request.json().catch(() => null);
@@ -172,8 +173,7 @@ export async function PATCH(request: NextRequest) {
 
     audit({
       action: clearing ? 'customer.geo.clear' : 'customer.geo.set',
-      actor: 'owner',
-      role: 'ADMIN',
+      ...actorOf(request),
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: `#${id}`,
       meta: clearing ? {} : { latitude: body.latitude, longitude: body.longitude },

@@ -116,7 +116,9 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
     {activeTab === 'revenue' && isOwner && <AdminRevenue />}
     {activeTab === 'growing' && canGrow && <AdminGrowing />}
     {activeTab === 'crop_norms' && isOwner && <AdminCropNorms />}
-    {activeTab === 'customers' && isOwner && <AdminCustomers lang={lang} />}
+    {activeTab === 'customers' && (isOwner || canSell) && (
+      <AdminCustomers lang={lang} isOwner={isOwner} />
+    )}
     {activeTab === 'inventory' && isOwner && <AdminInventory />}
     {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials />}
     {activeTab === 'movements' && isOwner && <AdminMovements />}

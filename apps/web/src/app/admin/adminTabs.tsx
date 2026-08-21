@@ -110,6 +110,9 @@ export const ALL_TABS = TAB_GROUPS.flatMap(g =>
 
 export const SELLER_TABS = [
   { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <ShoppingCart size={16} /> },
+  // Клиенты и карта: продавец по ним ездит. Правка бонусов, статуса и
+  // удаление карточек ему закрыты — и в интерфейсе, и в API.
+  { id: 'customers', ru: 'Клиенты', uz: 'Mijozlar', icon: <Users size={16} /> },
 ];
 
 /** Агроном ведёт теплицу: посадки и ничего больше. Касса ему не нужна. */
