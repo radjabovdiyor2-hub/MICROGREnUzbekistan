@@ -69,6 +69,36 @@ export function toPointView(feature: MapFeature): PointView {
   };
 }
 
+/** Сколько совпадений показываем: список под поиском, а не выгрузка. */
+export const SEARCH_LIMIT = 8;
+
+/** Короче двух букв не ищем: одна буква совпадает почти со всем. */
+export const SEARCH_MIN = 2;
+
+/**
+ * Поиск точки по названию среди уже загруженных.
+ *
+ * На клиенте, а не запросом: коллекция целиком уже здесь, и гонять сервер
+ * ради подстроки незачем. Регистр снимается с обеих сторон — заведения
+ * записаны и латиницей, и кириллицей, и вперемешку («Sam Ped Kolledj»
+ * рядом с «Плов Центр»).
+ *
+ * Цели (`k === 'restaurant'`) ищутся наравне с клиентами: белое пятно на
+ * карте — такой же адрес, куда надо съездить.
+ */
+export function searchPoints(features: MapFeature[], query: string): PointView[] {
+  const needle = query.trim().toLowerCase();
+  if (needle.length < SEARCH_MIN) return [];
+
+  const found: PointView[] = [];
+  for (const f of features) {
+    if (!f.properties.n.toLowerCase().includes(needle)) continue;
+    found.push(toPointView(f));
+    if (found.length >= SEARCH_LIMIT) break;
+  }
+  return found;
+}
+
 /** Пустая коллекция: карта рисуется до первого ответа, а не после. */
 export const EMPTY_COLLECTION: MapCollection = {
   type: 'FeatureCollection',

@@ -8,6 +8,7 @@ import { CustomerMapLegend } from './CustomerMapLegend';
 import { CustomerMapPanel } from './CustomerMapPanel';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
 import { DistrictBreakdown } from './DistrictBreakdown';
+import { MapSearch } from './MapSearch';
 import { UnplacedTray } from './UnplacedTray';
 import { useCustomerMap } from './useCustomerMap';
 
@@ -77,6 +78,19 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
         onAudience={m.setAudience}
       />
 
+      <MapSearch
+        lang={lang}
+        query={m.query}
+        onQuery={m.setQuery}
+        matches={m.matches}
+        onPick={(point) => {
+          m.focusPoint(point);
+          m.setQuery('');
+        }}
+        states={m.states}
+        onStates={m.setStates}
+      />
+
       {(m.error || m.saveError || m.deliveryError || m.tilesFailed) && (
         <div
           className="card"
@@ -138,6 +152,7 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
               onPlace={m.savePin}
               onViewportChange={() => undefined}
               onTilesError={() => m.setTilesFailed(true)}
+              focus={m.focus}
               // Вид подгоняется при смене фильтров и при появлении первых
               // точек — но не на каждом фоновом обновлении.
               fitToken={[

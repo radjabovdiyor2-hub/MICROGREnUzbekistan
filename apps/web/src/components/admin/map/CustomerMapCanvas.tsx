@@ -56,10 +56,12 @@ interface Props {
   onTilesError: () => void;
   /** Меняется при смене фильтров — по нему подгоняется вид. */
   fitToken: string;
+  /** Куда подлететь по выбору из поиска. null — не трогать вид. */
+  focus: { lng: number; lat: number; at: number } | null;
 }
 
 export default function CustomerMapCanvas(props: Props) {
-  const { data, delivery, mode, selectedId, placingId, fitToken } = props;
+  const { data, delivery, mode, selectedId, placingId, fitToken, focus } = props;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
@@ -155,6 +157,17 @@ export default function CustomerMapCanvas(props: Props) {
       animate: false,
     });
   }, [fitToken]);
+
+  // ── Подлёт к точке из поиска ──────────────────────────────────────
+  //
+  // Отдельно от fitBounds: тот показывает ВСЕ точки, а этот ведёт к одной.
+  // Метка времени в зависимостях не украшение — выбрать ту же точку второй
+  // раз обязано снова сработать, а по одним координатам эффект молчал бы.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !focus) return;
+    instance.easeTo({ center: [focus.lng, focus.lat], zoom: 16, duration: 600 });
+  }, [focus]);
 
   // ── Данные ────────────────────────────────────────────────────────
   useEffect(() => {
