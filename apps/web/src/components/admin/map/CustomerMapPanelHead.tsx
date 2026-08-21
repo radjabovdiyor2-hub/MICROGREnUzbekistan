@@ -20,6 +20,20 @@ import { type PointView } from './mapFeature';
 // нужен ровно в тот момент, когда по ней ткнули.
 // ══════════════════════════════════════════════════════════════════════
 
+/**
+ * Точность, при которой пину можно верить как адресу дома.
+ *
+ * 'street' и грубее — это середина улицы или центр района: навигатор
+ * доведёт до квартала, а дальше нужен адрес глазами. Молчать об этом
+ * нельзя, иначе курьер стоит у чужих ворот и уверен, что приехал.
+ */
+const EXACT_ENOUGH = new Set(['exact', 'manual']);
+
+const ROUGH_PIN = {
+  ru: 'Координата приблизительная — до дома доведёт адрес, не пин',
+  uz: 'Koordinata taxminiy — manzilga qarang',
+};
+
 interface Props {
   point: PointView;
   lang: 'ru' | 'uz';
@@ -71,6 +85,12 @@ export function CustomerMapPanelHead({ point, lang, onClose }: Props) {
             style={{ marginTop: 4, fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}
           >
             {point.address}
+          </div>
+        )}
+
+        {!EXACT_ENOUGH.has(point.geoPrecision ?? '') && (
+          <div style={{ marginTop: 4, fontSize: 'var(--text-xs)', color: 'var(--warning)' }}>
+            {ROUGH_PIN[lang]}
           </div>
         )}
       </div>

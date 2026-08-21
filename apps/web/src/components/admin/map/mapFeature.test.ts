@@ -26,7 +26,7 @@ function at(lon: number, lat: number, name = 'x', id = 1): MapFeature {
     properties: {
       n: name, t: 'b2b', st: 'healthy', sp: 0, oc: 0,
       dl: null, ov: null, vt: 'low', d: null, ct: 'restaurant', au: null,
-      gs: null, ph: null, ad: null, gp: null, k: 'customer',
+      gs: null, ph: null, ad: null, gp: null, lv: null, k: 'customer',
     },
   };
 }
