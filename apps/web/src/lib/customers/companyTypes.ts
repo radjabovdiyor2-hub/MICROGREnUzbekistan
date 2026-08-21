@@ -17,13 +17,13 @@
 // ══════════════════════════════════════════════════════════════════════
 
 /** Группы для лент чипов: три вопроса к территории, а не один длинный список. */
-export const COMPANY_TYPE_GROUPS = ['horeca', 'health', 'retail'] as const;
+export const COMPANY_TYPE_GROUPS = ['horeca', 'health', 'misc'] as const;
 export type CompanyTypeGroup = (typeof COMPANY_TYPE_GROUPS)[number];
 
 export const GROUP_META: Record<CompanyTypeGroup, { ru: string; uz: string }> = {
   horeca: { ru: 'Кухня', uz: 'Oshxona' },
   health: { ru: 'Здоровье и спорт', uz: 'Salomatlik va sport' },
-  retail: { ru: 'Розница и прочее', uz: 'Chakana va boshqa' },
+  misc: { ru: 'Прочее', uz: 'Boshqa' },
 };
 
 export interface CompanyTypeMeta {
@@ -50,16 +50,38 @@ export const COMPANY_TYPES: Record<string, CompanyTypeMeta> = {
   fitness: { ru: 'Фитнес-клуб', uz: 'Fitnes klub', group: 'health' },
   sport: { ru: 'Спорткомплекс', uz: 'Sport majmuasi', group: 'health' },
   sanatorium: { ru: 'Санаторий', uz: 'Sanatoriy', group: 'health' },
-  clinic: { ru: 'Клиника', uz: 'Klinika', group: 'health' },
 
-  // ── Розница и прочее ──
-  supermarket: { ru: 'Супермаркет', uz: 'Supermarket', group: 'retail' },
-  school: { ru: 'Учебное заведение', uz: 'Taʼlim muassasasi', group: 'retail' },
-  office: { ru: 'Офис', uz: 'Ofis', group: 'retail' },
-  other: { ru: 'Прочее', uz: 'Boshqa', group: 'retail' },
+  // ── Прочее ──
+  other: { ru: 'Прочее', uz: 'Boshqa', group: 'misc' },
 };
 
 export type CompanyTypeSlug = keyof typeof COMPANY_TYPES;
+
+/**
+ * Типы, выведенные из справочника: их больше не собирают и не предлагают
+ * в фильтрах, но подписи остаются.
+ *
+ * Микрозелень покупает тот, кто сам готовит еду. Вуз, бизнес-центр,
+ * супермаркет и клиника попали в справочник вместе с остальной областью, и
+ * ночной сбор исправно набивал ими список клиентов и карту: ротация
+ * `collect_leads_nightly` перебирает ВСЕ категории по одной за ночь, и в свою
+ * ночь очередь доходила до «университет / колледж».
+ *
+ * Почему подписи всё же нужны. Чистка не трогает карточки, за которыми есть
+ * заказ: клиника, которая у нас покупает, остаётся клиентом. Не будь этой
+ * таблицы, `companyTypeLabel` отдал бы для неё сырой слаг, и в списке
+ * появилась бы строка «Плов Центр · clinic» — ровно тот дефект, который уже
+ * чинили в карточке клиента.
+ *
+ * В фильтры они не возвращаются: `isCompanyType` и `typesOfGroup` читают
+ * только `COMPANY_TYPES`.
+ */
+export const RETIRED_COMPANY_TYPES: Record<string, { ru: string; uz: string }> = {
+  clinic: { ru: 'Клиника', uz: 'Klinika' },
+  supermarket: { ru: 'Супермаркет', uz: 'Supermarket' },
+  school: { ru: 'Учебное заведение', uz: 'Taʼlim muassasasi' },
+  office: { ru: 'Офис', uz: 'Ofis' },
+};
 
 /**
  * Категории, у которых пол аудитории — рабочий вопрос, а не формальность.
@@ -81,13 +103,13 @@ export const AUDIENCE_META: Record<Audience, { ru: string; uz: string }> = {
 // ══════════════════════════════════════════════════════════════════════
 // Цветовые корзины для раскраски карты
 //
-// Категорий девятнадцать, а различимых цветов на карте — восемь, дальше
+// Категорий пятнадцать, а различимых цветов на карте — восемь, дальше
 // читатель перестаёт отличать оттенки друг от друга (и токенов в системе
 // всего двенадцать, часть из которых занята состояниями). Поэтому цвет
 // отвечает не за категорию, а за КОРЗИНУ: «кофейня» и «пекарня» красятся
 // одинаково, потому что решение по ним одно и то же — утренняя выпечка и
 // напитки. Точный тип остаётся в фильтре и в попапе точки, где он не
-// конкурирует за различимость с восемнадцатью соседями.
+// конкурирует за различимость с четырнадцатью соседями.
 // ══════════════════════════════════════════════════════════════════════
 
 export const COLOR_BUCKETS = [
@@ -128,10 +150,6 @@ const BUCKET_OF: Record<string, ColorBucket> = {
   chaikhana: 'canteen',
   fastfood: 'canteen',
   catering: 'canteen',
-  clinic: 'other',
-  supermarket: 'other',
-  school: 'other',
-  office: 'other',
   other: 'other',
 };
 
@@ -153,10 +171,17 @@ export function bucketPairs(): [string, ColorBucket][] {
   return Object.entries(BUCKET_OF) as [string, ColorBucket][];
 }
 
-/** Подпись типа на языке интерфейса. Неизвестный slug показываем как есть. */
+/**
+ * Подпись типа на языке интерфейса. Неизвестный slug показываем как есть.
+ *
+ * Выведенные типы читаются вторым шагом: в базе они остались у карточек с
+ * заказами, и подпись им нужна, а место в фильтре — нет.
+ */
 export function companyTypeLabel(slug: string | null | undefined, lang: 'ru' | 'uz'): string {
   if (!slug) return lang === 'ru' ? 'Тип не указан' : 'Turi koʻrsatilmagan';
-  return Object.hasOwn(COMPANY_TYPES, slug) ? COMPANY_TYPES[slug][lang] : slug;
+  if (Object.hasOwn(COMPANY_TYPES, slug)) return COMPANY_TYPES[slug][lang];
+  if (Object.hasOwn(RETIRED_COMPANY_TYPES, slug)) return RETIRED_COMPANY_TYPES[slug][lang];
+  return slug;
 }
 
 /**
