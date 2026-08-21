@@ -259,4 +259,26 @@
   .admin-map-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
+
+  /* Панель точки перекрывает карту снизу, а не уезжает под неё.
+     В одну колонку она оказывалась НИЖЕ карты: человек жал на точку и
+     видел, что ничего не произошло, — панель ждала его за экраном, и до
+     неё надо было доскроллить. В поле это означало «не работает». */
+  .admin-map-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    max-height: 70vh;
+    overflow-y: auto;
+    padding: var(--space-2);
+    /* Вырез и домашняя полоса на телефоне: без этого нижняя кнопка
+       наполовину уходит под системную панель жестов. */
+    padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-primary);
+    border-top: 1px solid var(--border-primary);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    box-shadow: 0 -8px 24px rgb(0 0 0 / 0.25);
+  }
 }

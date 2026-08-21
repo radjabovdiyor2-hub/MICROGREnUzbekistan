@@ -38,6 +38,9 @@ export interface PointView {
   companyType: string | null;
   audience: string | null;
   geoSource: string | null;
+  phone: string | null;
+  address: string | null;
+  geoPrecision: string | null;
   longitude: number;
   latitude: number;
 }
@@ -58,6 +61,9 @@ export function toPointView(feature: MapFeature): PointView {
     companyType: p.ct,
     audience: p.au,
     geoSource: p.gs,
+    phone: p.ph,
+    address: p.ad,
+    geoPrecision: p.gp,
     longitude: feature.geometry.coordinates[0],
     latitude: feature.geometry.coordinates[1],
   };
