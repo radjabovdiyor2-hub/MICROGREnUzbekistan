@@ -11,6 +11,7 @@ import {
   type SegmentState,
   type ValueTier,
 } from './segments';
+import { computeCoverage, type Coverage } from './coverage';
 import { VISIT_TYPES } from './visits';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -142,6 +143,14 @@ export interface MapCollection {
     prospects?: number;
     /** Разрез по районам, от худшего покрытия к лучшему. */
     districts: DistrictStat[];
+    /**
+     * Готовность карты к поездке: точных / примерных / без координат.
+     *
+     * Считается по ВСЕЙ выборке, включая тех, кто в лоток не попал:
+     * «на карте 812 из 947» отвечает, сколько точек нарисовано, а не по
+     * скольким можно поехать.
+     */
+    coverage: Coverage;
   };
   unplaced: UnplacedCustomer[];
 }
@@ -356,6 +365,7 @@ export function buildMapCollection(
       revenueByState,
       spentPercentiles: percentiles,
       districts: districtStats(features),
+      coverage: computeCoverage(customers),
     },
     unplaced,
   };

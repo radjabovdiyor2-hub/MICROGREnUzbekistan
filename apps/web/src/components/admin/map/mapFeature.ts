@@ -113,6 +113,7 @@ export const EMPTY_COLLECTION: MapCollection = {
     revenueByState: { prospect: 0, new: 0, healthy: 0, slipping: 0, at_risk: 0, lost: 0 },
     spentPercentiles: { p50: 0, p80: 0 },
     districts: [],
+    coverage: { exact: 0, rough: 0, missing: 0, total: 0, percent: 0 },
   },
   unplaced: [],
 };
