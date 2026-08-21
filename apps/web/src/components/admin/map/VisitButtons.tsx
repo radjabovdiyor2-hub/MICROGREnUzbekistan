@@ -4,8 +4,9 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Check, RefreshCw } from 'lucide-react';
 
-import { clientErrorMessage } from '@/lib/safeError';
 import { VISIT_NOTE_MAX, VISIT_OUTCOMES, lastVisitLabel } from '@/lib/customers/visits';
+
+import { useVisitQueue } from './useVisitQueue';
 
 // ══════════════════════════════════════════════════════════════════════
 // «Съездил — отметь»: четыре кнопки прямо в панели точки.
@@ -27,35 +28,56 @@ const text = {
   title: { ru: 'Съездил — отметь', uz: 'Bordim — belgila' },
   note: { ru: 'Заметка (необязательно)', uz: 'Izoh (majburiy emas)' },
   saved: { ru: 'Отмечено', uz: 'Belgilandi' },
+  queued: {
+    ru: 'Отмечено. Связи нет — уйдёт, когда появится',
+    uz: 'Belgilandi. Aloqa yoʻq — paydo boʻlganda yuboriladi',
+  },
+  waiting: { ru: 'ждут связи', uz: 'aloqa kutmoqda' },
 };
 
 export function VisitButtons({ customerId, lang, lastVisitDays }: Props) {
   const queryClient = useQueryClient();
+  const queue = useVisitQueue();
   const [note, setNote] = useState('');
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<'sent' | 'queued' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mark = useMutation({
     mutationFn: async (type: string) => {
-      const res = await fetch('/api/admin/customers/visits', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId, type, note }),
-      });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error || 'Не удалось отметить визит');
-      return body;
+      let res: Response;
+      try {
+        res = await fetch('/api/admin/customers/visits', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customerId, type, note, visitedAt: Date.now() }),
+        });
+      } catch {
+        // Связи нет — не теряем отметку. Человек уже съездил, и терять
+        // именно ту запись, ради которой он ехал, нельзя.
+        queue.remember({ customerId, type, note });
+        return { queued: true } as const;
+      }
+
+      // Отказ сервера (400, 403) — это не «нет связи»: повторять его в
+      // очереди бессмысленно, отметка негодна, и человек должен узнать.
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || 'Не удалось отметить визит');
+      }
+      return { queued: false } as const;
     },
-    onSuccess: () => {
-      setDone(true);
+    onSuccess: (result) => {
+      setDone(result.queued ? 'queued' : 'sent');
       setNote('');
       setError(null);
+      if (result.queued) return;
       // Карта и карточка обязаны увидеть «были сегодня»: без этого точка
       // осталась бы неотмеченной до следующего опроса раз в минуту.
       queryClient.invalidateQueries({ queryKey: ['admin-customers-map'] });
       queryClient.invalidateQueries({ queryKey: ['admin-customer', customerId] });
     },
-    onError: (err: unknown) => setError(clientErrorMessage(err, 'Ошибка при отметке')),
+    onError: (err: unknown) =>
+      setError(err instanceof Error ? err.message : 'Ошибка при отметке'),
   });
 
   const seen = lastVisitLabel(lastVisitDays, lang);
@@ -72,6 +94,11 @@ export function VisitButtons({ customerId, lang, lastVisitDays }: Props) {
         }}
       >
         <span style={{ flex: 1 }}>{text.title[lang]}</span>
+        {queue.pending > 0 && (
+          <span style={{ color: 'var(--warning)' }}>
+            {queue.pending} {text.waiting[lang]}
+          </span>
+        )}
         {seen && <span>{seen}</span>}
       </div>
 
@@ -100,7 +127,7 @@ export function VisitButtons({ customerId, lang, lastVisitDays }: Props) {
         maxLength={VISIT_NOTE_MAX}
         onChange={(e) => {
           setNote(e.target.value);
-          setDone(false);
+          setDone(null);
         }}
         placeholder={text.note[lang]}
         aria-label={text.note[lang]}
@@ -113,8 +140,13 @@ export function VisitButtons({ customerId, lang, lastVisitDays }: Props) {
         </div>
       )}
       {done && !mark.isPending && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--success)' }}>
-          <Check size={12} /> {text.saved[lang]}
+        <div
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: done === 'sent' ? 'var(--success)' : 'var(--warning)',
+          }}
+        >
+          <Check size={12} /> {done === 'sent' ? text.saved[lang] : text.queued[lang]}
         </div>
       )}
       {error && (

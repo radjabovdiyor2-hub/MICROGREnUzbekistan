@@ -114,8 +114,8 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner }: Props) {
           <CloudOff size={16} />
           <span style={{ fontSize: 'var(--text-sm)' }}>
             {lang === 'ru'
-              ? `Связи нет — карта снята ${snapshotTime(m.snapshotAt)}. Точки, адреса и телефоны на месте; отметить визит получится, когда связь вернётся.`
-              : `Aloqa yoʻq — xarita ${snapshotTime(m.snapshotAt)} olingan. Nuqtalar va telefonlar joyida.`}
+              ? `Связи нет — карта снята ${snapshotTime(m.snapshotAt)}. Точки, адреса и телефоны на месте, отметки визитов уйдут сами, когда связь вернётся.`
+              : `Aloqa yoʻq — xarita ${snapshotTime(m.snapshotAt)} olingan. Belgilar aloqa qaytganda yuboriladi.`}
           </span>
         </div>
       )}

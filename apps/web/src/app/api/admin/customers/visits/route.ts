@@ -27,6 +27,20 @@ import {
 // тот, кто съездил, — а ездит продавец, поэтому рубеж на STAFF.
 // ══════════════════════════════════════════════════════════════════════
 
+/** Насколько старую отметку принимаем: столько же держит очередь клиента. */
+const MAX_BACKDATE_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Момент визита: из тела запроса, зажатый в разумное окно.
+ *
+ * Без значения — сейчас: обычная отметка со связью.
+ */
+function clampVisitedAt(raw: unknown): Date {
+  const now = Date.now();
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) return new Date(now);
+  return new Date(Math.min(now, Math.max(now - MAX_BACKDATE_MS, raw)));
+}
+
 export async function POST(request: NextRequest) {
   if (!isStaff(request)) return unauthorized();
 
@@ -48,6 +62,15 @@ export async function POST(request: NextRequest) {
     const note =
       typeof body?.note === 'string' ? body.note.trim().slice(0, VISIT_NOTE_MAX) : '';
 
+    // Время визита приходит от клиента — ради отметок, сделанных без связи:
+    // они уходят на сервер часами позже, и без этого поля вчерашняя поездка
+    // легла бы сегодняшним числом.
+    //
+    // Значение зажато в окно [неделя назад; сейчас]. Не потому, что
+    // сотруднику не доверяем, а потому что сбитые часы телефона — обычное
+    // дело, и отметка «из 2019 года» портит журнал молча.
+    const visitedAt = clampVisitedAt(body?.visitedAt);
+
     // Клиента проверяем ДО вставки: `customer_id` в interactions
     // необязателен, и запись о визите к несуществующему клиенту легла бы
     // в базу молча — висячей строкой, которую никто никогда не увидит.
@@ -63,6 +86,7 @@ export async function POST(request: NextRequest) {
     const interaction = await prisma.interaction.create({
       data: {
         customerId,
+        createdAt: visitedAt,
         channel: VISIT_CHANNEL,
         interactionType: type,
         summary: note || outcome.ru,
