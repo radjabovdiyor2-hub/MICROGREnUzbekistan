@@ -23,11 +23,18 @@ interface Props {
   customers: CustomerItem[];
   loading: boolean;
   lang: 'ru' | 'uz';
-  handleEditClick: (c: CustomerItem) => void;
+  /**
+   * Правка и удаление — только у владельца.
+   *
+   * `undefined` вместо функции, а не отдельный флаг: у продавца этих
+   * действий нет ни в API, ни в интерфейсе, и кнопка, гарантированно
+   * отвечающая 403, обещает то, чего не будет.
+   */
+  handleEditClick?: (c: CustomerItem) => void;
   /** Открыть карточку клиента с историей заказов. */
   onOpen: (c: CustomerItem) => void;
   /** Удалить карточку. Клиента с заказами база не отдаст — сервер ответит 409. */
-  onDelete: (c: CustomerItem) => void;
+  onDelete?: (c: CustomerItem) => void;
 }
 
 const cell: React.CSSProperties = {
@@ -169,15 +176,17 @@ export function AdminCustomerTable({ customers, loading, lang, handleEditClick, 
               </td>
               <td style={{ ...cell, textAlign: 'right' }}>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <button onClick={(e) => { e.stopPropagation(); handleEditClick(c); }} className="btn btn-sm btn-ghost"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-                    <Edit3 size={14} />
-                    Правка
-                  </button>
+                  {handleEditClick && (
+                    <button onClick={(e) => { e.stopPropagation(); handleEditClick(c); }} className="btn btn-sm btn-ghost"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                      <Edit3 size={14} />
+                      Правка
+                    </button>
+                  )}
                   {/* Удаление показываем только там, где оно возможно: клиента
                       с заказами база не отдаст (crm_orders → onDelete: Restrict),
                       и кнопка, которая всегда отвечает отказом, только злит. */}
-                  {c.ordersCount === 0 && (
+                  {onDelete && c.ordersCount === 0 && (
                     <button onClick={(e) => { e.stopPropagation(); onDelete(c); }} className="btn btn-sm btn-ghost"
                       title="Удалить карточку клиента"
                       style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--error)' }}>

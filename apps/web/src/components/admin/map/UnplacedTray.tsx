@@ -31,6 +31,8 @@ interface Props {
   chaining: boolean;
   onStartChain: () => void;
   onStopChain: () => void;
+  /** Пакетный геокодер — только владельцу. */
+  isOwner: boolean;
 }
 
 const label = {
@@ -56,6 +58,7 @@ export function UnplacedTray({
   chaining,
   onStartChain,
   onStopChain,
+  isOwner,
 }: Props) {
   const [open, setOpen] = useState(false);
   const current = items.find((c) => c.id === placingId) ?? null;
@@ -96,7 +99,10 @@ export function UnplacedTray({
         {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
 
-      <GeocodeControls lang={lang} onBatchDone={onRefresh} />
+      {/* Пакетный геокодер жжёт квоту провайдера, и в API он закрыт
+          правилом ADMIN. Кнопка, гарантированно отвечающая 403, обещает
+          то, чего не будет. */}
+      {isOwner && <GeocodeControls lang={lang} onBatchDone={onRefresh} />}
 
       {/* Расстановка подряд: тридцать с лишним точек по одной — это тридцать
           заходов в список. В режиме подряд владелец только кликает по карте,

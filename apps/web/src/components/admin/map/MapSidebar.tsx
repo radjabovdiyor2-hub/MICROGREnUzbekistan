@@ -22,10 +22,11 @@ interface Props {
   lang: 'ru' | 'uz';
   m: ReturnType<typeof useCustomerMap>;
   route: ReturnType<typeof useDayRoute>;
+  isOwner: boolean;
   onOpenCard: (id: number) => void;
 }
 
-export function MapSidebar({ lang, m, route, onOpenCard }: Props) {
+export function MapSidebar({ lang, m, route, onOpenCard, isOwner }: Props) {
   const selected = m.selected;
 
   return (
@@ -102,6 +103,7 @@ export function MapSidebar({ lang, m, route, onOpenCard }: Props) {
         chaining={m.chaining}
         onStartChain={m.startChain}
         onStopChain={m.stopChain}
+        isOwner={isOwner}
       />
 
     </div>

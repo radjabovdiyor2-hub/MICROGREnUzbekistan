@@ -33,6 +33,19 @@ const RULES: Rule[] = [
   // справочника остаются владельцу — это деньги и общие нормативы.
   { prefix: '/api/admin/crop-norms', access: 'PRODUCTION', methods: ['GET'] },
   { prefix: '/api/admin/raw-materials', access: 'PRODUCTION', methods: ['GET'] },
+  // Клиенты и карта открыты продавцу: по ним он и ездит. `findRule` берёт
+  // самый длинный подходящий префикс И сверяет метод, поэтому всё, чего нет
+  // в списке методов, падает обратно на общее правило ADMIN выше.
+  //
+  // Что осталось владельцу и почему:
+  //   PUT   — бонусы и статус клиента, то есть деньги;
+  //   DELETE — удаление карточек, в том числе пачкой;
+  //   POST /geocode — пакетный прогон жжёт квоту провайдера.
+  { prefix: '/api/admin/customers', access: 'STAFF', methods: ['GET'] },
+  // Пин переставляет тот, кто стоит у дверей: он видит двор, а геокодер нет.
+  { prefix: '/api/admin/customers/map', access: 'STAFF', methods: ['GET', 'PATCH'] },
+  // Отметка визита — смысл всей полевой работы, без неё карта пишется в стол.
+  { prefix: '/api/admin/customers/visits', access: 'STAFF', methods: ['POST'] },
   { prefix: '/api/inventory/employees', access: 'ADMIN' },
   { prefix: '/api/inventory/debts', access: 'ADMIN' },
   { prefix: '/api/inventory/suppliers', access: 'ADMIN' },
@@ -67,7 +80,15 @@ const RULES: Rule[] = [
 
 const PUBLIC_EXCEPTIONS = ['/api/inventory/employees/auth'];
 
-function findRule(pathname: string, method: string): Rule | null {
+/**
+ * Правило для пути и метода: самый длинный подходящий префикс.
+ *
+ * Экспортируется ради теста. Таблица `RULES` — это и есть ответ на вопрос
+ * «кому что открыто», и расходится она молча: правило с лишним методом не
+ * падает, оно просто пускает не того. Читать её глазами при каждой правке
+ * ненадёжно, поэтому доступ проверяется по ней напрямую.
+ */
+export function findRule(pathname: string, method: string): Rule | null {
   let best: Rule | null = null;
   for (const rule of RULES) {
     if (pathname !== rule.prefix && !pathname.startsWith(`${rule.prefix}/`)) continue;

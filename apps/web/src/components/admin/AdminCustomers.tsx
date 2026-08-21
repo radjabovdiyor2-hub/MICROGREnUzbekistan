@@ -20,7 +20,20 @@ export type { CustomerItem };
 // одно и то же место.
 // ══════════════════════════════════════════════════════════════════════
 
-export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
+export function AdminCustomers({
+  lang,
+  isOwner = true,
+}: {
+  lang: 'ru' | 'uz';
+  /**
+   * Владелец видит правку и удаление, продавец — нет.
+   *
+   * Это не только про интерфейс: PUT и DELETE закрыты правилом ADMIN в
+   * middleware и вторым рубежом в роуте. Кнопка, которая гарантированно
+   * отвечает 403, хуже отсутствующей — она обещает то, чего не будет.
+   */
+  isOwner?: boolean;
+}) {
   const s = useAdminCustomers();
 
   const editModal = (
@@ -70,7 +83,7 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
             createdAt: c.createdAt,
           })}
         />
-        {editModal}
+        {isOwner && editModal}
       </>
     );
   }
@@ -96,16 +109,16 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
       />
 
       {s.view === 'map' ? (
-        <AdminCustomerMap lang={lang} onOpenCard={s.setSelectedId} />
+        <AdminCustomerMap lang={lang} onOpenCard={s.setSelectedId} isOwner={isOwner} />
       ) : (
         <>
           <AdminCustomerTable
             customers={s.customers}
             loading={s.loading}
             lang={lang}
-            handleEditClick={s.handleEditClick}
+            handleEditClick={isOwner ? s.handleEditClick : undefined}
             onOpen={(c) => s.setSelectedId(c.id)}
-            onDelete={s.handleDeleteCustomer}
+            onDelete={isOwner ? s.handleDeleteCustomer : undefined}
           />
 
           {!s.loading && s.total > 0 && (
@@ -114,7 +127,7 @@ export function AdminCustomers({ lang }: { lang: 'ru' | 'uz' }) {
         </>
       )}
 
-      {editModal}
+      {isOwner && editModal}
     </div>
   );
 }

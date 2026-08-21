@@ -43,9 +43,11 @@ function MapSkeleton() {
 interface Props {
   lang: 'ru' | 'uz';
   onOpenCard: (id: number) => void;
+  /** Пакетный геокодер и правка карточки — только владельцу. */
+  isOwner: boolean;
 }
 
-export function AdminCustomerMap({ lang, onOpenCard }: Props) {
+export function AdminCustomerMap({ lang, onOpenCard, isOwner }: Props) {
   const m = useCustomerMap();
   const route = useDayRoute();
   // `unplaced` уехал в MapSidebar вместе со строкой «на карте N из M».
@@ -191,7 +193,7 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
           )}
         </div>
 
-        <MapSidebar lang={lang} m={m} route={route} onOpenCard={onOpenCard} />
+        <MapSidebar lang={lang} m={m} route={route} onOpenCard={onOpenCard} isOwner={isOwner} />
       </div>
     </div>
   );
