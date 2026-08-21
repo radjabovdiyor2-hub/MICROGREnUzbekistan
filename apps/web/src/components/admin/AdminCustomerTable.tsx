@@ -8,6 +8,7 @@ import {
   companyTypeLabel,
 } from '@/lib/customers/companyTypes';
 import { districtLabel } from '@/lib/customers/districts';
+import { sumLabel } from '@/lib/customers/money';
 
 import type { CustomerItem } from './customerTypes';
 
@@ -166,12 +167,12 @@ export function AdminCustomerTable({ customers, loading, lang, handleEditClick, 
               </td>
               <td style={{ ...cell, fontWeight: 'var(--font-semibold)' }}>{c.ordersCount}</td>
               <td style={{ ...cell, color: 'var(--success)', whiteSpace: 'nowrap' }}>
-                {c.totalSpent.toLocaleString('ru-RU')} сум
+                {sumLabel(c.totalSpent, lang)}
               </td>
               <td style={cell}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'var(--font-bold)', color: 'var(--warning)' }}>
                   <Gift size={14} />
-                  {c.bonusBalance}
+                  {c.bonusBalance === null ? '—' : c.bonusBalance}
                 </span>
               </td>
               <td style={{ ...cell, textAlign: 'right' }}>

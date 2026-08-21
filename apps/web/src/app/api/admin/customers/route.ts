@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { safeError } from '@/lib/safeError';
-import { actorOf, isAuthorized, isStaff, unauthorized } from '@/lib/adminAuth';
+import { actorOf, getSession, isAuthorized, isStaff, unauthorized } from '@/lib/adminAuth';
+import { hidesMoney, maskSum } from '@/lib/customers/money';
 import { audit } from '@/lib/audit';
 import { getCustomerCard } from '@/lib/customers/card';
 import {
@@ -54,6 +55,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
+    const hideMoney = hidesMoney(getSession(request)?.role);
 
     // ── Карточка одного клиента ──────────────────────────────────────
     const idParam = searchParams.get('id');
@@ -62,7 +64,7 @@ export async function GET(request: NextRequest) {
       if (!Number.isInteger(id) || id <= 0) {
         return NextResponse.json({ error: 'Invalid customer id' }, { status: 400 });
       }
-      const card = await getCustomerCard(id);
+      const card = await getCustomerCard(id, hideMoney);
       if (!card) {
         return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
       }
@@ -149,8 +151,8 @@ export async function GET(request: NextRequest) {
         city: c.city,
         district: c.district || null,
         status: c.status,
-        totalSpent: Number(c.totalSpent || 0),
-        bonusBalance: Number(c.bonusBalance || 0),
+        totalSpent: maskSum(Number(c.totalSpent || 0), hideMoney),
+        bonusBalance: maskSum(Number(c.bonusBalance || 0), hideMoney),
         ordersCount: c.ordersCount,
         notes: c.notes || '',
         createdAt: c.createdAt.toISOString(),

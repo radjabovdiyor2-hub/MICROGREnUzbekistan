@@ -58,7 +58,9 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner }: Props) {
     <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
       <CustomerMapToolbar
         lang={lang}
-        mode={m.mode}
+        // Режим «по выручке» продавцу не показывается; если он остался в
+        // состоянии от прошлого владельца вкладки, показываем состояние.
+        mode={!isOwner && m.mode === 'revenue' ? 'state' : m.mode}
         onMode={m.setMode}
         typeFilter={m.typeFilter}
         onType={m.setTypeFilter}
@@ -79,6 +81,7 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner }: Props) {
         onCompanyType={m.setCompanyType}
         audience={m.audience}
         onAudience={m.setAudience}
+        isOwner={isOwner}
       />
 
       <MapSearch

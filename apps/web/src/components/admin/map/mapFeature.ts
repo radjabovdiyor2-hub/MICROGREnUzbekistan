@@ -29,7 +29,8 @@ export interface PointView {
   name: string;
   customerType: string;
   state: MapPointProps['st'];
-  totalSpent: number;
+  /** null — смотрит не владелец. */
+  totalSpent: number | null;
   ordersCount: number;
   daysSinceLastOrder: number | null;
   overdueRatio: number | null;
