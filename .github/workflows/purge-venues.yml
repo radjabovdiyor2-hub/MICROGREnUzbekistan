@@ -1,0 +1,97 @@
+name: Чистка выведенных типов заведений
+
+# ══════════════════════════════════════════════════════════════════════
+# Убирает из базы заведения тех типов, которые выведены из справочника:
+# учебные заведения, офисы, супермаркеты, клиники.
+#
+# ЗАЧЕМ КНОПКА
+#
+# Категории убраны из `VENUE_QUERIES` и `COMPANY_TYPES`, поэтому ночной
+# сбор их больше не приносит. Но собранное РАНЬШЕ само не уходит: вузы,
+# набранные пока категория `school` была в справочнике, остаются в разделе
+# «Клиенты» и на карте. Это разовая уборка после правки справочника, а не
+# шаг деплоя — деплою нечего делать с чужими данными.
+#
+# ЧТО УДАЛЯЕТСЯ, А ЧТО НЕТ
+#
+# Только карточки со `status='lead'`, без единого заказа, без аккаунта
+# витрины и без Telegram — ровно то, что привёз сбор. Клиника, которая у
+# нас покупает, остаётся клиентом: у неё есть заказ, и её защищает и
+# условие роута, и `onDelete: Restrict` на `crm_orders`.
+#
+# По умолчанию ПРОБНЫЙ прогон: показывает список и не удаляет ничего.
+# Он же перечисляет `suspects` — заведения ДРУГОГО типа с учебным словом в
+# названии («Столовая СамГУ» приезжает как `canteen`). Их кнопка не трогает
+# никогда: под тот же шаблон подходит «Кафе Универсал», решение поштучно.
+# ══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Только показать, кто попадёт под чистку"
+        type: boolean
+        default: true
+
+# Не пересекаться с выкаткой: она перезапускает web, в который мы стучимся.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    name: Уборка справочника
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Прогон на сервере
+        uses: appleboy/ssh-action@v1
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: DRY_RUN
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /opt/microgreen
+
+            # Секрет читаем из серверного .env. Эхом его нигде не печатаем,
+            # трассировка здесь не включена.
+            SECRET=$(grep '^BOT_SECRET=' .env | head -1 | cut -d= -f2- || true)
+            if [ -z "$SECRET" ]; then
+              echo "❌ BOT_SECRET пуст в /opt/microgreen/.env — админский роут ответит 401."
+              echo "   Задайте его в Settings → Secrets и выкатите заново."
+              exit 1
+            fi
+
+            QS="scope=retired-types"
+            if [ "$DRY_RUN" = "true" ]; then
+              QS="$QS&dryRun=1"
+              echo "▶ ПРОБНЫЙ прогон — ничего не удаляется"
+            else
+              echo "▶ БОЕВОЙ прогон — карточки будут удалены"
+            fi
+
+            # Витрина опубликована на петле (127.0.0.1:3002), туда же ходит
+            # системный nginx. Отдельный контейнер с curl заводить незачем.
+            BODY=$(curl -sS --fail-with-body -X DELETE -H "x-bot-secret: $SECRET" "http://127.0.0.1:3002/api/admin/customers?$QS")
+
+            echo "$BODY" | python3 -c "
+            import json, sys
+            r = json.load(sys.stdin)
+            print()
+            print(r.get('message', ''))
+            print()
+            print('под чистку:', r.get('matched', 0), '| удалено:', r.get('deleted', 0), '| оставлено:', r.get('kept', 0))
+            for c in r.get('preview', []):
+                print('  -', c.get('companyName') or c.get('name'), '·', c.get('city'), '·', c.get('companyType'))
+            s = r.get('suspects', [])
+            if s:
+                print()
+                print('Похожи на учебные, но под другим типом — НЕ удаляются, посмотрите глазами:')
+                for c in s:
+                    print('  ?', c.get('companyName') or c.get('name'), '·', c.get('city'), '·', c.get('companyType'))
+            "
