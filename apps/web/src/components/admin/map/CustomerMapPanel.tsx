@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Phone, RefreshCw } from 'lucide-react';
+import { Check, MapPin, Phone, Plus, RefreshCw } from 'lucide-react';
 
 import type { CustomerCard } from '@/lib/customers/card';
 import {
@@ -32,6 +32,9 @@ interface Props {
   onClose: () => void;
   onOpenCard: (id: number) => void;
   onReplacePin: (id: number) => void;
+  /** Уже в объезде на сегодня. */
+  inRoute: boolean;
+  onToggleRoute: () => void;
 }
 
 const label = {
@@ -42,6 +45,8 @@ const label = {
   pin: { ru: 'Переставить пин', uz: 'Pinni koʻchirish' },
   loading: { ru: 'Загрузка истории…', uz: 'Tarix yuklanmoqda…' },
   manual: { ru: 'Пин поставлен вручную', uz: 'Pin qoʻlda qoʻyilgan' },
+  addRoute: { ru: 'В объезд', uz: 'Yoʻnalishga' },
+  inRoute: { ru: 'В объезде', uz: 'Yoʻnalishda' },
   roughPin: {
     ru: 'Координата приблизительная — до дома доведёт адрес, не пин',
     uz: 'Koordinata taxminiy — manzilga qarang',
@@ -57,7 +62,15 @@ const label = {
  */
 const EXACT_ENOUGH = new Set(['exact', 'manual']);
 
-export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePin }: Props) {
+export function CustomerMapPanel({
+  point,
+  lang,
+  onClose,
+  onOpenCard,
+  onReplacePin,
+  inRoute,
+  onToggleRoute,
+}: Props) {
   const { data, isLoading } = useQuery<CustomerCard, Error>({
     queryKey: ['admin-customer', point.id],
     queryFn: async () => {
@@ -160,6 +173,16 @@ export function CustomerMapPanel({ point, lang, onClose, onOpenCard, onReplacePi
           <Phone size={16} /> {phone}
         </a>
       )}
+
+      <button
+        type="button"
+        className={inRoute ? 'btn btn-secondary' : 'btn btn-ghost'}
+        onClick={onToggleRoute}
+        style={{ minHeight: 44 }}
+      >
+        {inRoute ? <Check size={16} /> : <Plus size={16} />}
+        {inRoute ? label.inRoute[lang] : label.addRoute[lang]}
+      </button>
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenCard(point.id)}>

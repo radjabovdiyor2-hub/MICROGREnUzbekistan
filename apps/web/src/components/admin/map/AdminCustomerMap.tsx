@@ -3,14 +3,11 @@
 import dynamic from 'next/dynamic';
 import { AlertCircle, MapPin, RefreshCw } from 'lucide-react';
 
-import { CategoryLegend } from './CategoryLegend';
-import { CustomerMapLegend } from './CustomerMapLegend';
-import { CustomerMapPanel } from './CustomerMapPanel';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
-import { DistrictBreakdown } from './DistrictBreakdown';
 import { MapSearch } from './MapSearch';
-import { UnplacedTray } from './UnplacedTray';
+import { MapSidebar } from './MapSidebar';
 import { useCustomerMap } from './useCustomerMap';
+import { useDayRoute } from './useDayRoute';
 
 // maplibre-gl трогает window прямо на импорте: без ssr:false падает сборка,
 // а не страница. Тот же приём, что у LottieAnimation и ArViewer.
@@ -48,7 +45,9 @@ interface Props {
 
 export function AdminCustomerMap({ lang, onOpenCard }: Props) {
   const m = useCustomerMap();
-  const { placed, total, unplaced } = m.collection.summary;
+  const route = useDayRoute();
+  // `unplaced` уехал в MapSidebar вместе со строкой «на карте N из M».
+  const { placed, total } = m.collection.summary;
   const nothingPlaced = !m.isLoading && placed === 0 && total > 0;
 
   return (
@@ -166,61 +165,7 @@ export function AdminCustomerMap({ lang, onOpenCard }: Props) {
           )}
         </div>
 
-        <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-          {m.selected && (
-            <div className="admin-map-panel">
-              <CustomerMapPanel
-                point={m.selected}
-                lang={lang}
-                onClose={() => m.setSelectedId(null)}
-                onOpenCard={onOpenCard}
-                onReplacePin={(id) => {
-                  m.setPlacingId(id);
-                  m.setSelectedId(null);
-                }}
-              />
-            </div>
-          )}
-
-          {/* Легенда объясняет ТЕКУЩУЮ раскраску. Показывать состояния
-              отношений, когда точки покрашены по типу заведения, значит
-              подписывать карту цветами, которых на ней нет. */}
-          {m.mode === 'category' ? (
-            <CategoryLegend features={m.visible.features} lang={lang} />
-          ) : (
-            <CustomerMapLegend
-              summary={m.collection.summary}
-              lang={lang}
-              active={m.states}
-              onToggle={m.toggleState}
-            />
-          )}
-
-          <DistrictBreakdown
-            districts={m.collection.summary.districts}
-            lang={lang}
-            active={m.district}
-            onSelect={m.setDistrict}
-          />
-
-          <UnplacedTray
-            items={m.queue}
-            lang={lang}
-            placingId={m.placingId}
-            onPlace={m.setPlacingId}
-            onCancelPlacing={() => m.setPlacingId(null)}
-            onRefresh={() => m.refetch()}
-            chaining={m.chaining}
-            onStartChain={m.startChain}
-            onStopChain={m.stopChain}
-          />
-
-          {unplaced > 0 && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-              {lang === 'ru' ? `На карте ${placed} из ${total}` : `Xaritada ${total} dan ${placed} ta`}
-            </div>
-          )}
-        </div>
+        <MapSidebar lang={lang} m={m} route={route} onOpenCard={onOpenCard} />
       </div>
     </div>
   );
