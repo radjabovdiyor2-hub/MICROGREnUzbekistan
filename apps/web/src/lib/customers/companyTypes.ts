@@ -214,6 +214,26 @@ export function isCompanyType(value: string | null | undefined): value is Compan
   return typeof value === 'string' && Object.hasOwn(COMPANY_TYPES, value);
 }
 
+/**
+ * Разбор параметра `companyType` — ОДИН на карту и на список.
+ *
+ * Приходит через запятую: `restaurant,cafe`. Каждое значение сверяется со
+ * справочником, а мусор отсеивается ПООДИНОЧКЕ: половина неверных значений
+ * не должна ронять весь фильтр, иначе человек видит пустой экран,
+ * неотличимый от «таких заведений нет».
+ *
+ * Живёт здесь, а не в двух местах: список и карта — два вида одного
+ * раздела, и понимать один и тот же параметр по-разному им нельзя. Ровно
+ * это и случилось, когда карта научилась читать список, а список остался
+ * с одним значением.
+ */
+export function parseCompanyTypes(raw: string | null | undefined): CompanyTypeSlug[] {
+  return (raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(isCompanyType);
+}
+
 export function isAudience(value: string | null | undefined): value is Audience {
   return typeof value === 'string' && (AUDIENCES as readonly string[]).includes(value);
 }

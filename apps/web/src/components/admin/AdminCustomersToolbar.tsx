@@ -14,13 +14,31 @@ import { CustomerFilterSelects } from './CustomerFilterSelects';
 //
 // `churned` добавлен последним: этот статус можно было поставить в правке
 // клиента, но нельзя отфильтровать — единственное состояние без своей кнопки.
-export const FILTERS = [
-  { value: 'all', ru: 'Все', uz: 'Barchasi' },
+// ── Две РАЗНЫЕ оси, а не один ряд ───────────────────────────────────
+//
+// Раньше здесь лежало вперемешку: «Все, Лиды, Активные, VIP, B2B, Ушедшие».
+// B2B — это не статус, а тип клиента, и подстановка его в `where.status`
+// давала пустой список: статуса «b2b» в базе не бывает. Дефект чинили
+// заменой на сервере, но причина оставалась — одна ось на два вопроса.
+//
+// Пока выбор был одиночным, путаница была терпимой. Множественный выбор
+// её обнажает: «VIP + B2B» — это «VIP и B2B» или «VIP или B2B»? Пока оси
+// разделены, ответ очевиден: статусы складываются через ИЛИ, а между собой
+// оси — через И. «Активные B2B» — обычный вопрос, на который прежний
+// фильтр не мог ответить вовсе.
+
+/** Статусы отношений. Пустой набор = все. */
+export const STATUS_FILTERS = [
   { value: 'lead', ru: 'Лиды', uz: 'Lidlar' },
   { value: 'active', ru: 'Активные', uz: 'Faol' },
   { value: 'vip', ru: 'VIP', uz: 'VIP' },
-  { value: 'b2b', ru: 'B2B', uz: 'B2B' },
   { value: 'churned', ru: 'Ушедшие', uz: 'Ketganlar' },
+] as const;
+
+/** Тип клиента — вторая ось. Оба выбранных = не фильтровать вовсе. */
+export const TYPE_FILTERS = [
+  { value: 'b2b', ru: 'B2B — заведения', uz: 'B2B — muassasa' },
+  { value: 'b2c', ru: 'Розница', uz: 'Chakana' },
 ] as const;
 
 interface Props {
@@ -30,8 +48,14 @@ interface Props {
   searchInput: string;
   setSearchInput: (v: string) => void;
   onSearch: (e: React.FormEvent) => void;
-  statusFilter: string;
-  onFilter: (value: string) => void;
+  /** Выбранные статусы. Пустой набор — все. */
+  statuses: Set<string>;
+  onToggleStatus: (value: string) => void;
+  onClearStatuses: () => void;
+  /** Выбранные типы клиента. Пустой набор — все. */
+  types: Set<string>;
+  onToggleType: (value: string) => void;
+  onClearTypes: () => void;
   onRefresh: () => void;
   view: 'list' | 'map';
   onView: (view: 'list' | 'map') => void;
@@ -43,7 +67,8 @@ interface Props {
 
 export function AdminCustomersToolbar({
   lang, loading, error, searchInput, setSearchInput,
-  onSearch, statusFilter, onFilter, onRefresh, view, onView,
+  onSearch, statuses, onToggleStatus, onClearStatuses,
+  types, onToggleType, onClearTypes, onRefresh, view, onView,
   companyTypeFilter, onCompanyType, audienceFilter, onAudience,
 }: Props) {
   return (
@@ -154,12 +179,51 @@ export function AdminCustomersToolbar({
           onAudience={onAudience}
         />
 
-        <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 2 }}>
-          {FILTERS.map((f) => (
+        {/* Статусы: несколько разом. «Лиды + активные» — обычный вопрос,
+            на который прежний одиночный фильтр ответить не мог. */}
+        <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 2, alignItems: 'center' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {lang === 'ru' ? 'Статус:' : 'Holat:'}
+          </span>
+          <button
+            onClick={onClearStatuses}
+            className={`btn btn-sm ${statuses.size === 0 ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {lang === 'ru' ? 'Все' : 'Barchasi'}
+          </button>
+          {STATUS_FILTERS.map((f) => (
             <button
               key={f.value}
-              onClick={() => onFilter(f.value)}
-              className={`btn btn-sm ${statusFilter === f.value ? 'btn-primary' : 'btn-ghost'}`}
+              onClick={() => onToggleStatus(f.value)}
+              aria-pressed={statuses.has(f.value)}
+              className={`btn btn-sm ${statuses.has(f.value) ? 'btn-primary' : 'btn-ghost'}`}
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              {f[lang]}
+            </button>
+          ))}
+        </div>
+
+        {/* Тип клиента — вторая ось. Складывается со статусом через И:
+            «активные B2B» это статус И тип, а не «или». */}
+        <div style={{ display: 'flex', gap: 'var(--space-2)', overflowX: 'auto', paddingBottom: 2, alignItems: 'center' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {lang === 'ru' ? 'Кто:' : 'Kim:'}
+          </span>
+          <button
+            onClick={onClearTypes}
+            className={`btn btn-sm ${types.size === 0 ? 'btn-primary' : 'btn-ghost'}`}
+            style={{ whiteSpace: 'nowrap' }}
+          >
+            {lang === 'ru' ? 'Все' : 'Barchasi'}
+          </button>
+          {TYPE_FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => onToggleType(f.value)}
+              aria-pressed={types.has(f.value)}
+              className={`btn btn-sm ${types.has(f.value) ? 'btn-primary' : 'btn-ghost'}`}
               style={{ whiteSpace: 'nowrap' }}
             >
               {f[lang]}

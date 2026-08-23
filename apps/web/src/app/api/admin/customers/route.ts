@@ -9,6 +9,7 @@ import {
   RETIRED_COMPANY_TYPES,
   isAudience,
   isCompanyType,
+  parseCompanyTypes,
 } from '@/lib/customers/companyTypes';
 import { isDistrict } from '@/lib/customers/districts';
 import { setCustomerBonus } from '@/lib/customers/bonus';
@@ -24,6 +25,14 @@ import { publish } from '@/lib/realtime/bus';
 
 /** Страница списка. Раньше стояло `take: 100` без сдвига — 101-й клиент
  *  был недостижим ничем, кроме поиска по имени. */
+/**
+ * Статусы отношений с клиентом — закрытый список.
+ *
+ * Сверяется со справочником, а не подставляется как есть: произвольная
+ * строка даёт пустой список, неотличимый от «таких клиентов нет».
+ */
+const CUSTOMER_STATUSES = ['lead', 'active', 'vip', 'churned'];
+
 const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
@@ -94,25 +103,49 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // b2b — это ТИП клиента (customer_type), а не статус. Раньше значение
-    // подставлялось в `where.status` как есть, поэтому кнопка «B2B» всегда
-    // возвращала пустой список: статуса «b2b» в базе не бывает. Та же история
-    // была с «client» — такого статуса нет вовсе (есть lead/active/vip/churned).
-    if (filter === 'b2b' || filter === 'b2c') {
-      where.customerType = filter;
-    } else if (filter && filter !== 'all') {
-      where.status = filter;
-    }
+    // ── Две РАЗНЫЕ оси, а не один ряд кнопок ─────────────────────────
+    //
+    // Раньше статус и тип клиента лежали в одном фильтре: «Лиды, Активные,
+    // VIP, B2B, Ушедшие». B2B — это не статус, и подстановка его в
+    // `where.status` давала пустой список (статуса «b2b» в базе не бывает).
+    // Тот дефект чинили заменой в этой же ветке, но причина осталась:
+    // ось была одна на два разных вопроса.
+    //
+    // Разделив их, получаем осмысленный множественный выбор. «VIP + активные»
+    // — это статусы через ИЛИ; «B2B» — тип. Между собой оси складываются
+    // через И: «активные B2B» — обычный вопрос, на который прежний фильтр
+    // ответить не мог вовсе.
+    const statuses = filter
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => CUSTOMER_STATUSES.includes(s));
+
+    if (statuses.length === 1) where.status = statuses[0];
+    else if (statuses.length > 1) where.status = { in: statuses };
+
+    const types = (searchParams.get('customerType') || '')
+      .toLowerCase()
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s === 'b2b' || s === 'b2c');
+
+    // Оба типа выбраны — это то же самое, что не фильтровать вовсе.
+    if (types.length === 1) where.customerType = types[0];
 
     // Тип заведения, аудитория и район — те же фильтры, что у карты. Список
     // и карта это два вида ОДНОГО раздела, и набор вопросов к ним общий:
     // выбрать «тойхоны Ургута» на карте и не суметь того же в списке —
     // ровно та несогласованность, из-за которой люди перестают верить
     // фильтрам.
-    const companyType = searchParams.get('companyType');
     const audience = searchParams.get('audience');
     const district = searchParams.get('district');
-    if (isCompanyType(companyType)) where.companyType = companyType;
+
+    // Тот же разбор, что у карты: список приходит через запятую. Держать
+    // здесь вторую реализацию значило бы, что «тойхоны и чайханы» на карте
+    // работает, а в списке — нет.
+    const venueTypes = parseCompanyTypes(searchParams.get('companyType'));
+    if (venueTypes.length === 1) where.companyType = venueTypes[0];
+    else if (venueTypes.length > 1) where.companyType = { in: venueTypes };
     // 'unknown' — заведения, у которых пол зала ещё не выяснен. Тот же
     // разбор, что у карты (buildMapWhere): списку и карте нельзя понимать
     // один и тот же параметр по-разному.

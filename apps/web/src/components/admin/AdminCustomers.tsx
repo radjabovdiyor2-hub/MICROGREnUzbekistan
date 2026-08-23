@@ -122,8 +122,12 @@ export function AdminCustomers({
         searchInput={s.searchInput}
         setSearchInput={s.setSearchInput}
         onSearch={s.handleSearch}
-        statusFilter={s.statusFilter}
-        onFilter={s.handleFilter}
+        statuses={s.statuses}
+        onToggleStatus={s.toggleStatus}
+        onClearStatuses={s.clearStatuses}
+        types={s.types}
+        onToggleType={s.toggleType}
+        onClearTypes={s.clearTypes}
         onRefresh={() => s.refetch()}
         view={s.view}
         onView={s.setView}

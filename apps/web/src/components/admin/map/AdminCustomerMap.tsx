@@ -79,8 +79,9 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
         showDelivery={m.showDelivery}
         onDelivery={m.setShowDelivery}
         routes={m.routes.length}
-        companyType={m.companyType}
-        onCompanyType={m.setCompanyType}
+        companyTypes={m.companyTypes}
+        onToggleType={m.toggleCompanyType}
+        onClearTypes={m.clearCompanyTypes}
         audience={m.audience}
         onAudience={m.setAudience}
         isOwner={isOwner}

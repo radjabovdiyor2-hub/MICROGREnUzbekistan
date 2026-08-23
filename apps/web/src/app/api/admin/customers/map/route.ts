@@ -89,7 +89,11 @@ export async function GET(request: NextRequest) {
     // Слой целей — таблица `restaurants`, а там только рестораны. Когда
     // выбран любой другой тип, показывать её поверх выбранных тойхон
     // значит смешать два разных ответа на карте.
-    const prospectsFit = !companyTypeFilter || companyTypeFilter === 'restaurant';
+    // Тип теперь приходит списком, поэтому «рестораны выбраны» значит «в
+    // списке есть restaurant». Если выбраны рестораны И кафе — цели
+    // показываем: ресторанная часть выбора никуда не делась.
+    const selectedTypes = (companyTypeFilter ?? '').split(',').filter(Boolean);
+    const prospectsFit = selectedTypes.length === 0 || selectedTypes.includes('restaurant');
     if (searchParams.get('prospects') === '1' && prospectsFit) {
       const districtFilter = searchParams.get('district');
       const prospects = await prisma.restaurant.findMany({

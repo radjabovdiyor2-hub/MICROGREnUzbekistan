@@ -133,11 +133,65 @@ describe('GET /api/admin/customers — фильтры', () => {
     expect(lastWhere().district).toBe('urgut');
   });
 
-  it('b2b кладётся в customerType, а не в status', async () => {
-    await GET(get('?status=b2b', await adminCookie()));
+  // ── Статус и тип клиента — РАЗНЫЕ оси ────────────────────────────
+  //
+  // Раньше они лежали в одном ряду кнопок, и «b2b» подставлялся в
+  // `where.status`: статуса «b2b» в базе не бывает, поэтому кнопка всегда
+  // возвращала пустой список. Дефект чинили подменой — если пришёл b2b,
+  // класть его в customerType. Пока выбор был одиночным, это работало.
+  //
+  // Множественный выбор подмену ломает: «vip,b2b» одной строкой уже не
+  // разложить, и вопрос «VIP и B2B» или «VIP или B2B» ответа не имеет.
+  // Поэтому оси разделены на два параметра.
+  it('тип клиента приходит своим параметром, а не через статус', async () => {
+    await GET(get('?customerType=b2b', await adminCookie()));
 
     expect(lastWhere().customerType).toBe('b2b');
     expect(lastWhere().status).toBeUndefined();
+  });
+
+  it('«b2b» в статусе больше не значит ничего — это не статус', async () => {
+    // Ни подмены, ни пустого списка: несуществующий статус просто
+    // отсеивается, и человек видит всех, а не «никого».
+    await GET(get('?status=b2b', await adminCookie()));
+
+    expect(lastWhere().status).toBeUndefined();
+    expect(lastWhere().customerType).toBeUndefined();
+  });
+
+  it('несколько статусов дают IN', async () => {
+    await GET(get('?status=lead,active', await adminCookie()));
+
+    expect(lastWhere().status).toEqual({ in: ['lead', 'active'] });
+  });
+
+  it('один статус остаётся равенством, а не списком из одного', async () => {
+    // Не косметика: планы запроса у `=` и `IN (…)` разные.
+    await GET(get('?status=vip', await adminCookie()));
+
+    expect(lastWhere().status).toBe('vip');
+  });
+
+  it('оси складываются через И: активные B2B', async () => {
+    // Вопрос, на который прежний одноосный фильтр ответить не мог вовсе.
+    await GET(get('?status=active&customerType=b2b', await adminCookie()));
+
+    expect(lastWhere().status).toBe('active');
+    expect(lastWhere().customerType).toBe('b2b');
+  });
+
+  it('оба типа сразу — то же, что не фильтровать', async () => {
+    await GET(get('?customerType=b2b,b2c', await adminCookie()));
+
+    expect(lastWhere().customerType).toBeUndefined();
+  });
+
+  it('несколько типов заведений дают IN — как на карте', async () => {
+    // Список и карта — два вида одного раздела, и понимать параметр
+    // по-разному им нельзя.
+    await GET(get('?companyType=restaurant,cafe', await adminCookie()));
+
+    expect(lastWhere().companyType).toEqual({ in: ['restaurant', 'cafe'] });
   });
 
   it('чтение карточки НЕ трогает шину', async () => {

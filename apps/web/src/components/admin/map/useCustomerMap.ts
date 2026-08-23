@@ -44,7 +44,17 @@ export function useCustomerMap() {
   // Тип заведения и аудитория. 'all' — не фильтровать; аудитория при этом
   // сбрасывается вместе со сменой типа: «женский» без «фитнеса» — это
   // вопрос, на который справочник почти всегда отвечает пустотой.
-  const [companyType, setCompanyType] = useState('all');
+  // Типы заведений — НАБОР, а не одно значение: рестораны, кафе и чайханы
+  // это один разговор с одним предложением, а смотреть их приходилось по
+  // очереди, держа картину в голове.
+  //
+  // Пустой набор означает «все» — так же, как `states === null` у легенды.
+  // Отдельного значения 'all' в наборе нет: оно превратилось бы в
+  // шестнадцатый тип, который надо не забыть исключить в четырёх местах.
+  const [companyTypes, setCompanyTypes] = useState<Set<string>>(new Set());
+
+  /** Устойчивое представление набора: порядок не зависит от порядка нажатий. */
+  const typesKey = [...companyTypes].sort().join(',');
   const [audience, setAudience] = useState('all');
   const [showDelivery, setShowDelivery] = useState(false);
   // Режим «подряд»: после каждого пина сам взводит следующего клиента.
@@ -75,7 +85,9 @@ export function useCustomerMap() {
     cityFilter,
     showProspects ? 'p' : '',
     district ?? '',
-    companyType,
+    // Набор в ключе — строкой и в устойчивом порядке: иначе один и тот же
+    // выбор давал бы разные ключи и снимок карты не находился бы.
+    typesKey,
     audience,
   ].join('|');
 
@@ -86,7 +98,7 @@ export function useCustomerMap() {
       cityFilter,
       showProspects,
       district,
-      companyType,
+      typesKey,
       audience,
     ],
     queryFn: async () => {
@@ -95,7 +107,7 @@ export function useCustomerMap() {
       if (cityFilter !== 'all') params.set('city', cityFilter);
       if (showProspects) params.set('prospects', '1');
       if (district) params.set('district', district);
-      if (companyType !== 'all') params.set('companyType', companyType);
+      if (companyTypes.size > 0) params.set('companyType', [...companyTypes].join(','));
       if (audience !== 'all') params.set('audience', audience);
       const qs = params.toString();
 
@@ -275,12 +287,23 @@ export function useCustomerMap() {
     setShowProspects,
     district,
     setDistrict,
-    companyType,
-    setCompanyType: (value: string) => {
-      setCompanyType(value);
+    companyTypes,
+    /** Включить или выключить тип. Пустой набор = все. */
+    toggleCompanyType: (value: string) => {
+      setCompanyTypes((prev) => {
+        const next = new Set(prev);
+        if (next.has(value)) next.delete(value);
+        else next.add(value);
+        return next;
+      });
       // Смена типа снимает аудиторию: лента «женский / мужской» исчезает
       // вместе с фитнесом, а невидимый включённый фильтр — это карта,
       // которая необъяснимо пуста.
+      setAudience('all');
+    },
+    /** «Все типы»: снять выбор целиком. */
+    clearCompanyTypes: () => {
+      setCompanyTypes(new Set());
       setAudience('all');
     },
     audience,

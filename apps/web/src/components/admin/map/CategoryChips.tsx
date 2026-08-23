@@ -24,8 +24,10 @@ import {
 
 interface Props {
   lang: 'ru' | 'uz';
-  companyType: string;
-  onCompanyType: (value: string) => void;
+  /** Выбранные типы. Пустой набор — все. */
+  companyTypes: Set<string>;
+  onToggleType: (value: string) => void;
+  onClearTypes: () => void;
   audience: string;
   onAudience: (value: string) => void;
   /** Стиль чипа — тот же, что у остальных лент тулбара. */
@@ -49,19 +51,27 @@ const caption: React.CSSProperties = {
 
 export function CategoryChips({
   lang,
-  companyType,
-  onCompanyType,
+  companyTypes,
+  onToggleType,
+  onClearTypes,
   audience,
   onAudience,
   chip,
 }: Props) {
-  const showAudience = AUDIENCE_RELEVANT.includes(companyType);
+  // Аудиторию показываем, когда выбран РОВНО один подходящий тип. При
+  // нескольких вопрос «женский зал или мужской» теряет смысл: он про
+  // фитнес, а не про кафе, попавшее в тот же выбор.
+  const only = companyTypes.size === 1 ? [...companyTypes][0] : '';
+  const showAudience = AUDIENCE_RELEVANT.includes(only);
 
   return (
     <>
       <div style={ribbon}>
         <span style={caption}>{lang === 'ru' ? 'Тип:' : 'Turi:'}</span>
-        <button type="button" style={chip(companyType === 'all')} onClick={() => onCompanyType('all')}>
+        {/* «Все типы» — не шестнадцатый тип, а снятие выбора: пустой набор
+            и означает «все». Иначе его пришлось бы исключать вручную в
+            каждом месте, где набор читается. */}
+        <button type="button" style={chip(companyTypes.size === 0)} onClick={onClearTypes}>
           {lang === 'ru' ? 'Все типы' : 'Barcha turlar'}
         </button>
         {COMPANY_TYPE_GROUPS.map((group) => (
@@ -79,8 +89,11 @@ export function CategoryChips({
               <button
                 key={slug}
                 type="button"
-                style={chip(companyType === slug)}
-                onClick={() => onCompanyType(slug)}
+                // Выбор нескольких: рестораны, кафе и чайханы — один
+                // разговор, а смотреть их приходилось по очереди.
+                aria-pressed={companyTypes.has(slug)}
+                style={chip(companyTypes.has(slug))}
+                onClick={() => onToggleType(slug)}
               >
                 {meta[lang]}
               </button>

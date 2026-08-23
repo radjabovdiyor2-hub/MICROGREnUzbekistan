@@ -34,8 +34,9 @@ interface Props {
   showDelivery: boolean;
   onDelivery: (value: boolean) => void;
   routes: number;
-  companyType: string;
-  onCompanyType: (value: string) => void;
+  companyTypes: Set<string>;
+  onToggleType: (value: string) => void;
+  onClearTypes: () => void;
   audience: string;
   onAudience: (value: string) => void;
   /** Раскраска по выручке — только владельцу: продавцу суммы скрыты. */
@@ -82,8 +83,9 @@ export function CustomerMapToolbar({
   showDelivery,
   onDelivery,
   routes,
-  companyType,
-  onCompanyType,
+  companyTypes,
+  onToggleType,
+  onClearTypes,
   audience,
   onAudience,
   isOwner,
@@ -163,8 +165,9 @@ export function CustomerMapToolbar({
 
       <CategoryChips
         lang={lang}
-        companyType={companyType}
-        onCompanyType={onCompanyType}
+        companyTypes={companyTypes}
+        onToggleType={onToggleType}
+        onClearTypes={onClearTypes}
         audience={audience}
         onAudience={onAudience}
         chip={chip}

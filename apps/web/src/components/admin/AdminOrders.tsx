@@ -1,15 +1,18 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronRight, ClipboardList, Clock, Folder } from 'lucide-react';
+import { ClipboardList, Clock, Folder } from 'lucide-react';
 import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
 import { AdminNotice } from './AdminNotice';
 import { useAdminBack } from './useAdminBack';
 import { AdminOrderDetail } from './AdminOrderDetail';
 import type { Order } from './adminOrderTypes';
 import { AdminPager } from './AdminPager';
-import { tint } from '@/lib/tint';
+
+import { AdminOrderRow } from './AdminOrderRow';
+import { AdminOrdersBulk } from './AdminOrdersBulk';
+import { useSelection } from './useSelection';
 
 interface OrdersPage {
   orders: Order[];
@@ -22,6 +25,7 @@ interface OrdersPage {
 const PAGE_SIZE = 50;
 
 export function AdminOrders({ focus = '' }: { focus?: string }) {
+  const pick = useSelection<string>();
   const [activeTab, setActiveTab] = useState('ALL');
   const [selected, setSelected] = useState<Order | null>(null);
   const [phoneInput, setPhoneInput] = useState('');
@@ -49,6 +53,19 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
   });
 
   const orders = data?.orders ?? [];
+  const visibleIds = orders.map((o: Order) => o.id);
+
+  // Ключ состава, а не сам массив: список пересоздаётся каждым обновлением
+  // запроса, и зависимость от ссылки дала бы вызов на каждый тик опроса.
+  const visibleKey = visibleIds.join(',');
+  const { keepOnly } = pick;
+
+  // Смена вкладки или страницы не должна оставлять в выборе то, чего уже
+  // не видно: иначе массовое действие уходит на заказы, которых нет на
+  // экране.
+  useEffect(() => {
+    keepOnly(visibleKey ? visibleKey.split(',') : []);
+  }, [visibleKey, keepOnly]);
 
   // Пришли по ссылке из Telegram (`?focus=`) — сразу раскрываем этот заказ.
   // Выводим из данных, а не эффектом: заказ появляется вместе со страницей
@@ -178,39 +195,24 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {orders.map(order => {
-            const st = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
-            return (
-              <div key={order.id} className="card" onClick={() => setSelected(order)}
-                style={{ padding: 'var(--space-4)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 'var(--space-4)', transition: 'all var(--transition-fast)' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 2 }}>
-                    <span style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }}>#{order.orderNumber}</span>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                      background: tint(st.color), color: st.color,
-                      fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)',
-                      display: 'inline-flex', alignItems: 'center', gap: '4px',
-                    }}>
-                      {st.icon} {st.label}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                    {order.user?.firstName || 'Mijoz'} · {order.phone} · {fmtDate(order.createdAt)}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', color: 'var(--brand-primary)' }}>
-                    {fmt(order.total)} so&apos;m
-                  </div>
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                    {order.items.length} ta mahsulot
-                  </div>
-                </div>
-                <ChevronRight size={20} style={{ color: 'var(--text-muted)' }} />
-              </div>
-            );
-          })}
+          <AdminOrdersBulk
+            pick={pick}
+            visibleIds={visibleIds}
+            total={orders.length}
+            onDone={fetchOrders}
+          />
+
+          {orders.map((order: Order) => (
+            <AdminOrderRow
+              key={order.id}
+              order={order}
+              picked={pick.has(order.id)}
+              onPick={() => pick.toggle(order.id)}
+              onOpen={() => setSelected(order)}
+              fmt={fmt}
+              fmtDate={fmtDate}
+            />
+          ))}
         </div>
       )}
 
