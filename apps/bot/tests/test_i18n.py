@@ -103,3 +103,71 @@ def test_каждый_использованный_ключ_есть_в_слов
                 missing.append(f"{path.name}: {first.value}")
 
     assert not missing, "ключи, которых нет в словаре:\n  " + "\n  ".join(missing)
+
+def test_каждый_вызов_передаёт_ровно_те_подстановки_что_нужны_ключу():
+    """
+    `t("checkout.success", lang, number=n)` при ключе, который ждёт ещё
+    `items`, `totals` и `phone`, поднимает `KeyError` — но не при загрузке
+    модуля, а В МОМЕНТ, когда клиент нажал «подтвердить заказ». Компиляция
+    чиста, `ruff` молчит, тест на существование ключа зелёный: расхождение
+    видно только на живом нажатии.
+
+    Ключи ищем в обоих направлениях: недостающий параметр роняет обработчик,
+    лишний — тихо игнорируется `format`, но означает, что текст ключа уже не
+    тот, под который писался вызов.
+
+    Каталог и клавиатуры разбираем вместе: подпись кнопки с подстановкой
+    (цена печатного номера) живёт именно в `keyboards/`.
+    """
+    import ast
+    from pathlib import Path
+
+    bot = Path(__file__).resolve().parent.parent
+    problems = []
+    files = sorted((bot / "handlers").glob("*.py")) + sorted((bot / "keyboards").glob("*.py"))
+    for path in files:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)):
+                continue
+            if node.func.id != "t" or not node.args:
+                continue
+            first = node.args[0]
+            if not (isinstance(first, ast.Constant) and first.value in STRINGS):
+                continue
+            passed = {kw.arg for kw in node.keywords if kw.arg}
+            needed = set(re.findall(r"{(\w+)}", STRINGS[first.value][0]))
+            if passed != needed:
+                where = f"{path.name}:{node.lineno} {first.value}"
+                if needed - passed:
+                    problems.append(f"{where} — не передано: {sorted(needed - passed)}")
+                if passed - needed:
+                    problems.append(f"{where} — лишнее: {sorted(passed - needed)}")
+
+    assert not problems, "подстановки разошлись с ключом:\n  " + "\n  ".join(problems)
+
+def test_html_разметка_парная_в_обоих_языках():
+    """
+    Телеграм разбирает `parse_mode="HTML"` строго: непарный `<b>` — это не
+    кривой шрифт, а `Bad Request: can't parse entities`, то есть экран,
+    который у клиента НЕ ПОЯВИТСЯ вовсе. Перевод — ровно тот момент, когда
+    тег теряется: закрывающий остаётся в русской половине, а в узбекской нет.
+    """
+    allowed = {"b", "i", "u", "s", "code", "pre", "a", "tg-spoiler", "blockquote"}
+    broken = []
+    for key, pair in STRINGS.items():
+        for lang, text in zip(LANGS, pair):
+            stack = []
+            for raw in re.findall(r"<(/?)(\w[\w-]*)[^>]*>", text):
+                closing, tag = raw
+                if tag not in allowed:
+                    broken.append(f"{key}/{lang}: неизвестный тег <{tag}>")
+                elif closing:
+                    if not stack or stack.pop() != tag:
+                        broken.append(f"{key}/{lang}: лишний </{tag}>")
+                else:
+                    stack.append(tag)
+            if stack:
+                broken.append(f"{key}/{lang}: не закрыт <{stack[-1]}>")
+
+    assert not broken, "разметка сломана:\n  " + "\n  ".join(broken)

@@ -23,26 +23,12 @@ import logging
 import math
 
 from services.ecosystem_bridge import bridge
-from services.lang_storage import lang_storage
+from services.lang_storage import lang_of
 from shared.i18n import DEFAULT_LANG, t
 from services.cart_storage import cart_storage
 from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_TUPLES as CATEGORIES, format_price
 from shared.api import api_headers as _api_headers
-
-def lang_of(event) -> str:
-    """
-    Язык собеседника.
-
-    Сначала сохранённый выбор, иначе — язык клиента Telegram. Второе важнее,
-    чем кажется: узбекоязычный покупатель видит узбекский с первого экрана,
-    не заходя в настройки, а до этого весь бот был русским независимо от
-    того, на каком языке человек вообще говорит.
-    """
-    user = getattr(event, "from_user", None)
-    if user is None:
-        return DEFAULT_LANG
-    return lang_storage.get(user.id, getattr(user, "language_code", None))
 
 
 router = Router()
@@ -298,7 +284,7 @@ async def show_categories(message: Message):
     ])
     
     await message.answer(
-        "🛒 <b>Магазин Microgreen Uzbekistan</b>\nКоснитесь категории:",
+        t("shop.pick_category", lang),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML"
     )
@@ -336,7 +322,7 @@ async def cb_grid_view(callback: CallbackQuery):
     
     products = await fetch_products(category)
     if not products:
-        await callback.answer("Нет товаров", show_alert=True)
+        await callback.answer(t("shop.empty_category", lang), show_alert=True)
         return
 
     # Pagination logic
@@ -390,7 +376,7 @@ async def cb_product_view(callback: CallbackQuery):
     if len(parts) == 3:
         product = await bridge.get_product(parts[2])
         if not product:
-            await callback.answer("Товар не найден", show_alert=True)
+            await callback.answer(t("product.not_found", lang), show_alert=True)
             return
         category = product.get("category") or ""
         products = await fetch_products(category) if category else []
@@ -406,7 +392,7 @@ async def cb_product_view(callback: CallbackQuery):
 
         products = await fetch_products(category)
         if not products or idx >= len(products):
-            await callback.answer("Товар не найден", show_alert=True)
+            await callback.answer(t("product.not_found", lang), show_alert=True)
             return
 
         product = products[idx]
@@ -453,6 +439,7 @@ async def cb_product_view(callback: CallbackQuery):
 # CART HANDLERS
 @router.callback_query(F.data.startswith("cart:add:"))
 async def cb_add_cart(callback: CallbackQuery):
+    lang = lang_of(callback)
     prod_id = callback.data.split(":")[2]
     user_id = callback.from_user.id
     
@@ -463,7 +450,7 @@ async def cb_add_cart(callback: CallbackQuery):
         product = None
     
     if not product:
-        await callback.answer("Ошибка — товар не найден", show_alert=True)
+        await callback.answer(t("product.not_found", lang), show_alert=True)
         return
 
     # Остаток спрашиваем ЗДЕСЬ, а не при оформлении.
@@ -475,14 +462,13 @@ async def cb_add_cart(callback: CallbackQuery):
     # «не получилось оформить» — худший момент из возможных.
     if not product.get("in_stock", True):
         await callback.answer(
-            f"{product.get('title', 'Товар')} сейчас нет в наличии.\n"
-            "Мы пополняем каждый день — загляните завтра.",
+            t("product.out_of_stock", lang, title=product.get("title", "")),
             show_alert=True,
         )
         return
 
     cart_storage.add_to_cart(user_id, product)
-    await callback.answer("✅ Добавлено в корзину!", show_alert=True)
+    await callback.answer(t("product.added", lang), show_alert=True)
 
 @router.callback_query(F.data == "cart:view")
 async def cb_view_cart(callback: CallbackQuery):
@@ -518,18 +504,18 @@ async def cb_clear_cart(callback: CallbackQuery):
     ])
     try:
         await callback.message.edit_text(
-            "🛒 <b>Корзина очищена</b>\n\nДобавьте товары из каталога!",
+            t("cart.cleared_screen", lang),
             reply_markup=kb,
             parse_mode="HTML"
         )
     except Exception:
         await callback.message.delete()
         await callback.message.answer(
-            "🛒 <b>Корзина очищена</b>\n\nДобавьте товары из каталога!",
+            t("cart.cleared_screen", lang),
             reply_markup=kb,
             parse_mode="HTML"
         )
-    await callback.answer("Очищено")
+    await callback.answer(t("cart.cleared", lang))
 
 @router.callback_query(F.data == "cart:checkout")
 async def cb_checkout(callback: CallbackQuery):
@@ -560,14 +546,15 @@ async def cb_checkout(callback: CallbackQuery):
     
     try:
         await callback.message.edit_text(
-            f"📋 <b>Подтвердите заказ</b>\n\n"
-            f"<b>Товары:</b>\n{items_text}\n\n"
-            f"{totals_text(subtotal, delivery, total, lang)}\n\n"
-            f"👤 {user.full_name}\n"
-            f"📱 {contact_info}\n"
-            f"📍 Адрес уточним при звонке\n\n"
-            f"🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\n"
-            f"💳 Оплата: {(await fetch_site_config()).payment_text}",
+            t(
+                "checkout.confirm",
+                lang,
+                items=items_text,
+                totals=totals_text(subtotal, delivery, total, lang),
+                name=user.full_name,
+                contact=contact_info,
+                payment=(await fetch_site_config()).payment_text,
+            ),
             reply_markup=kb,
             parse_mode="HTML"
         )
@@ -575,9 +562,12 @@ async def cb_checkout(callback: CallbackQuery):
         logger.warning(f"checkout edit_text failed: {e}")
         await callback.message.delete()
         await callback.message.answer(
-            f"📋 <b>Подтвердите заказ</b>\n\n"
-            f"{totals_text(subtotal, delivery, total, lang)}\n({len(cart)} поз.)\n\n"
-            f"Нажмите ✅ для подтверждения",
+            t(
+                "checkout.confirm_short",
+                lang,
+                totals=totals_text(subtotal, delivery, total, lang),
+                count=len(cart),
+            ),
             reply_markup=kb,
             parse_mode="HTML"
         )
@@ -614,15 +604,14 @@ async def cb_quick_confirm(callback: CallbackQuery):
     
     try:
         await callback.message.edit_text(
-            "📱 <b>Для оформления заказа нужен ваш номер телефона</b>\n\n"
-            "Нажмите кнопку «📱 Поделиться номером» внизу экрана 👇",
+            t("checkout.need_phone_screen", lang),
             parse_mode="HTML"
         )
     except Exception:
         pass
     
     await callback.message.answer(
-        "👇 Нажмите кнопку ниже:",
+        t("checkout.tap_below", lang),
         reply_markup=contact_kb
     )
     await callback.answer()
@@ -641,7 +630,7 @@ async def handle_contact_for_order(message: Message):
     if not state or state.get("step") != "awaiting_phone":
         # Not in checkout flow — just acknowledge
         await message.answer(
-            "✅ Спасибо! Номер сохранён.",
+            t("checkout.phone_saved", lang),
             reply_markup=ReplyKeyboardRemove()
         )
         return
@@ -653,7 +642,7 @@ async def handle_contact_for_order(message: Message):
     
     cart = state.get("cart", [])
     if not cart:
-        await message.answer("Корзина пуста. Начните заново.", reply_markup=ReplyKeyboardRemove())
+        await message.answer(t("cart.empty_restart", lang), reply_markup=ReplyKeyboardRemove())
         cart_storage.clear_checkout_state(user_id)
         return
     
@@ -784,12 +773,14 @@ async def handle_contact_for_order(message: Message):
         cart_storage.clear_checkout_state(user_id)
         config = await fetch_site_config()
         await message.answer(
-            "⚠️ <b>Не получилось оформить заказ автоматически</b>\n\n"
-            f"<b>Товары:</b>\n{items_text}\n\n"
-            f"{totals_text(subtotal, delivery, total, lang)}\n\n"
-            "Корзина сохранена — можно попробовать ещё раз.\n"
-            f"Мы уже видим вашу заявку и перезвоним на {phone}.\n"
-            f"Если удобнее сразу — {config.contact_phone}",
+            t(
+                "checkout.failed_screen",
+                lang,
+                items=items_text,
+                totals=totals_text(subtotal, delivery, total, lang),
+                phone=phone,
+                contact_phone=config.contact_phone,
+            ),
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )
@@ -800,12 +791,14 @@ async def handle_contact_for_order(message: Message):
     cart_storage.clear_checkout_state(user_id)
 
     await message.answer(
-        f"✅ <b>Заказ #{order_id} оформлен!</b>\n\n"
-        f"<b>Товары:</b>\n{items_text}\n\n"
-        f"{totals_text(subtotal, delivery, total, lang)}\n\n"
-        f"📱 Номер: {phone}\n"
-        f"⏰ Мы свяжемся с вами в течение 30 минут\n\n"
-        f"🌱 Спасибо за заказ!",
+        t(
+            "checkout.success",
+            lang,
+            number=order_id,
+            items=items_text,
+            totals=totals_text(subtotal, delivery, total, lang),
+            phone=phone,
+        ),
         parse_mode="HTML",
         reply_markup=ReplyKeyboardRemove()
     )

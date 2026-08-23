@@ -257,6 +257,372 @@ STRINGS: dict[str, tuple[str, str]] = {
         "Savolingizni boshqacha yozib koʻring — men tushunmadim.",
         "Попробуйте сформулировать иначе — я не понял вопроса.",
     ),
+
+    # ── Рецепты ──
+    "btn.buy_ingredients": ("🛒 Masalliq sotib olish", "🛒 Купить ингредиенты"),
+    "btn.all_recipes": ("📖 Barcha retseptlar", "📖 Все рецепты"),
+    "btn.recipes_on_site": ("📖 Saytdagi retseptlar", "📖 Рецепты на сайте"),
+    "recipes.body": (
+        "🍽️ <b>Mikro-koʻkatli retseptlar</b>\n\n"
+        "Sogʻlom ovqatlanish retseptlari — saytimizda!\n"
+        "Salat, smuzi, sendvich — 15 daqiqada.\n\n"
+        "Yoki AI dan soʻrang: «rukola bilan retsept oʻylab top» 🤖",
+        "🍽️ <b>Рецепты с микрозеленью</b>\n\n"
+        "ПП и ЗОЖ рецепты — на нашем сайте!\n"
+        "Салаты, смузи, сэндвичи — за 15 минут.\n\n"
+        "Или спросите AI: «придумай рецепт с рукколой» 🤖",
+    ),
+    "recipes.unavailable": (
+        "🍽️ Retseptlar vaqtincha ishlamayapti.\nSaytda koʻring: {url}",
+        "🍽️ Рецепты временно недоступны.\nСмотрите на сайте: {url}",
+    ),
+
+    # ── Избранное ──
+    "favorites.empty_screen": (
+        "❤️ <b>Sevimlilar boʻsh</b>\n\n"
+        "Mahsulotlarni sevimlilarga qoʻshing — keyin tez topasiz!\n\n"
+        "💡 Katalogdagi kartochkada ❤️ ni bosing.",
+        "❤️ <b>Избранное пусто</b>\n\n"
+        "Добавляйте товары в избранное, чтобы быстро находить их потом!\n\n"
+        "💡 Нажмите ❤️ на карточке товара в каталоге.",
+    ),
+    "favorites.already": ("Allaqachon sevimlilarda ❤️", "Уже в избранном ❤️"),
+    "favorites.cleared": ("🗑 Sevimlilar tozalandi", "🗑 Избранное очищено"),
+
+    # ── Повтор заказа ──
+    "reorder.no_orders": (
+        "🔄 <b>Buyurtmani takrorlash</b>\n\n"
+        "Sizda hali buyurtma yoʻq.\nBirinchi buyurtmani katalogdan bering!",
+        "🔄 <b>Повторить заказ</b>\n\n"
+        "У вас пока нет заказов.\nОформите первый заказ через каталог!",
+    ),
+    "reorder.no_previous": (
+        "🔄 <b>Buyurtmani takrorlash</b>\n\nOldingi buyurtmalar yoʻq.",
+        "🔄 <b>Повторить заказ</b>\n\nНет предыдущих заказов.",
+    ),
+    "btn.repeat_this": ("✅ Shu buyurtmani takrorlash", "✅ Повторить этот заказ"),
+    "reorder.order_gone": (
+        "Buyurtma topilmadi — ehtimol oʻchirilgan",
+        "Заказ не найден — возможно, он уже удалён",
+    ),
+    "reorder.out_of_stock": (
+        "Oʻsha buyurtmadagi hech bir mahsulot hozir mavjud emas.",
+        "Ни одной позиции из того заказа сейчас нет в наличии.",
+    ),
+
+    # ── Поиск ──
+    "search.hint": (
+        "🔍 <b>Qidiruv</b>\n\n"
+        "Yozing: /search <i>nima qidiryapsiz</i>\nMasalan: /search rukola",
+        "🔍 <b>Поиск</b>\n\n"
+        "Напишите: /search <i>что ищете</i>\nНапример: /search руккола",
+    ),
+    "search.not_found": (
+        "🔍 «{query}» boʻyicha hech narsa topilmadi.\n\n"
+        "💡 Boshqa soʻrov kiriting yoki AI dan soʻrang:\n"
+        "Erkin matn yozing, masalan: «qaysi mikro-koʻkat achchiq?»",
+        "🔍 По запросу «{query}» ничего не найдено.\n\n"
+        "💡 Попробуйте другой запрос или спросите AI:\n"
+        "Напишите свободным текстом, например: «какая микрозелень острая?»",
+    ),
+
+    # ── Отзыв ──
+    "btn.skip": ("Oʻtkazib yuborish", "Пропустить"),
+    "review.ask": (
+        "⭐ <b>Fikringizni qoldiring!</b>\n\nMahsulotimiz yoqdimi?\nBaho tanlang:",
+        "⭐ <b>Оставьте отзыв!</b>\n\nКак вам наша продукция?\nВыберите оценку:",
+    ),
+
+    # ── Приветствие, помощь, контакты ──
+    "btn.open_shop": ("⚡ Doʻkonni ochish", "⚡ Открыть магазин"),
+    "btn.channel": ("📢 Kanal", "📢 Канал"),
+    "btn.chat": ("💬 Chat", "💬 Чат"),
+    "btn.group": ("👥 Guruh", "👥 Группа"),
+    "btn.call": ("📞 Qoʻngʻiroq qilish", "📞 Позвонить"),
+    "btn.play_now": ("🎮 Hozir oʻynash", "🎮 Играть сейчас"),
+    "start.greeting": (
+        "🌱 <b>Salom! Men {title} AI yordamchisiman!</b>\n\n"
+        "Sizga yangi mikro-koʻkat tanlash va buyurtma berishda yordam beraman.\n\n"
+        "<b>Bizda nima bor:</b>\n"
+        "• 🌿 <b>Doʻkon</b> — mikro-koʻkat, beybi-list, salatlar\n"
+        "• 🤖 <b>AI yordamchi</b> — tanlash, retseptlar, buyurtma\n"
+        "• 🎮 <b>Farm Simulator</b> — oʻynang va chegirma oling!\n\n"
+        "🎁 <i>{threshold} soʻmdan bepul yetkazib berish!</i>\n\n"
+        "👇 <b>Nimadan boshlaymiz?</b>",
+        "🌱 <b>Привет! Я AI-помощник {title}!</b>\n\n"
+        "Помогу выбрать свежую микрозелень и оформить заказ.\n\n"
+        "<b>Что у нас есть:</b>\n"
+        "• 🌿 <b>Магазин</b> — микрозелень, бейби-лист, салаты\n"
+        "• 🤖 <b>AI-помощник</b> — выбор, рецепты, заказ\n"
+        "• 🎮 <b>Farm Simulator</b> — играй и получай скидки!\n\n"
+        "🎁 <i>Бесплатная доставка от {threshold} сум!</i>\n\n"
+        "👇 <b>С чего начнём?</b>",
+    ),
+    "help.body": (
+        "📖 <b>Bot buyruqlari:</b>\n\n"
+        "/start — Bosh menyu\n"
+        "/catalog — Mahsulotlar katalogi\n"
+        "/search — Mahsulot qidirish\n"
+        "/orders — Mening buyurtmalarim\n"
+        "/ai — AI yordamchidan soʻrash\n"
+        "/game — Farm Simulator\n"
+        "/magazine — FRESH WEEKLY jurnali\n"
+        "/delivery — Yetkazish shartlari\n"
+        "/contacts — Aloqa\n"
+        "/help — Yordam\n\n"
+        "📞 Telefon: {phone}\n"
+        "📧 Email: {email}\n\n"
+        "📢 Kanal: {channel}\n"
+        "👥 Guruh: {group}",
+        "📖 <b>Команды бота:</b>\n\n"
+        "/start — Главное меню\n"
+        "/catalog — Каталог товаров\n"
+        "/search — Поиск товаров\n"
+        "/orders — Мои заказы\n"
+        "/ai — Спросить AI-помощника\n"
+        "/game — Farm Simulator\n"
+        "/magazine — Журнал FRESH WEEKLY\n"
+        "/delivery — Условия доставки\n"
+        "/contacts — Контакты\n"
+        "/help — Помощь\n\n"
+        "📞 Телефон: {phone}\n"
+        "📧 Email: {email}\n\n"
+        "📢 Канал: {channel}\n"
+        "👥 Группа: {group}",
+    ),
+    "contacts.body": (
+        "📞 <b>{title} aloqa</b>\n\n"
+        "📱 Telefon: {phone}\n"
+        "📧 Email: {email}\n\n"
+        "🚚 Yetkazish: {fee} soʻm\n"
+        "🎁 {threshold} soʻmdan bepul",
+        "📞 <b>Контакты {title}</b>\n\n"
+        "📱 Телефон: {phone}\n"
+        "📧 Email: {email}\n\n"
+        "🚚 Доставка: {fee} сум\n"
+        "🎁 Бесплатно от: {threshold} сум",
+    ),
+    "game.intro": (
+        "🎮 <b>Farm Simulator</b>\n\n"
+        "Virtual oʻsimliklar yetishtiring va GreenCoins ishlang!\n\n"
+        "🔥 Streak bonusi uchun har kuni kiring!\n\n"
+        "👇 Oʻynash uchun bosing:",
+        "🎮 <b>Farm Simulator</b>\n\n"
+        "Выращивай виртуальные растения и зарабатывай GreenCoins!\n\n"
+        "🔥 Заходи каждый день для бонуса streak!\n\n"
+        "👇 Нажми чтобы играть:",
+    ),
+    "admin.only": ("⛔ Faqat administratorlar uchun.", "⛔ Только для администраторов."),
+
+    # ── Группа ──
+    "group.photo_hint": (
+        "📸 Yordam kerakmi?\n\n"
+        "@Microgreenuzbekistan_bot ga yozing\n"
+        "AI yordamchi mikro-koʻkat tanlab, buyurtma rasmiylashtiradi! 🌱",
+        "📸 Нужна помощь?\n\n"
+        "Напишите боту @Microgreenuzbekistan_bot\n"
+        "AI-помощник подберёт микрозелень и оформит заказ! 🌱",
+    ),
+    "group.ai_reply": (
+        "🤖 <b>AI yordamchi:</b>\n\n{answer}\n\n"
+        "💬 Yana savol bormi? @Microgreenuzbekistan_bot",
+        "🤖 <b>AI-помощник:</b>\n\n{answer}\n\n"
+        "💬 Больше вопросов? @Microgreenuzbekistan_bot",
+    ),
+    "group.ai_unavailable": (
+        "🤖 AI yordamchi vaqtincha ishlamayapti.\n"
+        "Botga toʻgʻridan-toʻgʻri yozing: @Microgreenuzbekistan_bot",
+        "🤖 AI-помощник временно недоступен.\n"
+        "Напишите напрямую боту: @Microgreenuzbekistan_bot",
+    ),
+
+    # ── ИИ-продавец ──
+    "ai.listening": (
+        "🤖 <b>Sizni tinglayapman!</b>\n\n"
+        "Menga istalgan narsani yozing. Men:\n"
+        "• 🥗 Ta'm va taomga qarab mikro-koʻkat tanlayman\n"
+        "• 🛒 Shu yerda buyurtma rasmiylashtira olaman\n"
+        "• 🍽️ Mikro-koʻkatli retsept aytaman\n"
+        "• 📸 Taomingiz suratini tahlil qilaman\n\n"
+        "<i>Bugun nimada yordam beray?</i>",
+        "🤖 <b>Слушаю вас!</b>\n\n"
+        "Пишите мне всё, что угодно. Я могу:\n"
+        "• 🥗 Подобрать микрозелень по вкусу и блюду\n"
+        "• 🛒 Оформить заказ прямо здесь\n"
+        "• 🍽️ Подсказать рецепт с микрозеленью\n"
+        "• 📸 Проанализировать фото вашего блюда\n\n"
+        "<i>Чем могу помочь сегодня?</i>",
+    ),
+    "ai.history_cleared": ("🧹 Suhbat tarixi tozalandi!", "🧹 История разговора очищена!"),
+    "ai.photo_analyzing": (
+        "⏳ <i>Neyroset suratingizni oʻrganyapti… Bir necha soniya</i> ✨",
+        "⏳ <i>Нейросеть изучает ваше фото… Это займёт пару секунд</i> ✨",
+    ),
+    "ai.voice_listening": (
+        "🎧 <i>Tinglayapman va matnga oʻgiryapman…</i> ⏳",
+        "🎧 <i>Слушаю и перевожу в текст…</i> ⏳",
+    ),
+    "ai.voice_recording": (
+        "🗣 <i>Ovozli javob yozyapman…</i> 🎙",
+        "🗣 <i>Записываю голосовой ответ…</i> 🎙",
+    ),
+    "ai.photo_error": (
+        "❌ Suratni tahlil qilishda xatolik. Keyinroq urinib koʻring.",
+        "❌ Ошибка при анализе фото. Попробуйте позже.",
+    ),
+    "ai.voice_error": (
+        "❌ Ovozli xabarni qayta ishlashda xatolik. Keyinroq urinib koʻring.",
+        "❌ Ошибка обработки голосового. Попробуйте позже.",
+    ),
+    "ai.prices": (
+        "💰 Dolzarb narxlar saytda:\n🌐 microgreenuzbekistan.com/catalog",
+        "💰 Актуальные цены на сайте:\n🌐 microgreenuzbekistan.com/catalog",
+    ),
+    "ai.order_help": (
+        "🛒 <b>Buyurtma berish</b>\n\n"
+        "Nima buyurtma qilmoqchisiz va telefon raqamingizni yozing. Masalan:\n\n"
+        "<i>«2 lotok kungaboqar va 1 no'xat kerak. Telefon: +998901234567»</i>\n\n"
+        "Qolganini oʻzim qilaman! Manzil va tafsilotlarni telefon orqali aniqlaymiz 📞\n\n"
+        "👨‍🌾 Ro'yxatingizni kutyapman!",
+        "🛒 <b>Оформление заказа</b>\n\n"
+        "Просто напишите мне, что хотите заказать, и номер телефона. Например:\n\n"
+        "<i>«Хочу 2 лотка подсолнечника и 1 горох. Телефон: +998901234567»</i>\n\n"
+        "Дальше я сделаю всё сам! Адрес и детали мы уточним по телефону 📞\n\n"
+        "👨‍🌾 Жду список ваших пожеланий!",
+    ),
+
+    "ai.delivery": (
+        "🚚 <b>Yetkazish</b>\n\n"
+        "📍 Samarqand — <b>buyurtma kuni</b>\n"
+        "📍 Toshkent — <b>ertasi kuni</b>\n"
+        "⏰ Minimal buyurtma: yoʻq\n\n"
+        "💳 <b>Toʻlov:</b> {payment}",
+        "🚚 <b>Доставка</b>\n\n"
+        "📍 Самарканд — <b>в день заказа</b>\n"
+        "📍 Ташкент — <b>на следующий день</b>\n"
+        "⏰ Минимальный заказ: нет\n\n"
+        "💳 <b>Оплата:</b> {payment}",
+    ),
+
+    # ── Магазин: оформление ──
+    "cart.cleared_screen": (
+        "🛒 <b>Savat tozalandi</b>\n\nKatalogdan mahsulot qoʻshing!",
+        "🛒 <b>Корзина очищена</b>\n\nДобавьте товары из каталога!",
+    ),
+    "cart.empty_restart": (
+        "Savat boʻsh. Boshidan boshlang.",
+        "Корзина пуста. Начните заново.",
+    ),
+    "checkout.tap_below": ("👇 Quyidagi tugmani bosing:", "👇 Нажмите кнопку ниже:"),
+    "checkout.phone_saved": ("✅ Rahmat! Raqam saqlandi.", "✅ Спасибо! Номер сохранён."),
+    "checkout.need_phone_screen": (
+        "📱 <b>Buyurtma uchun telefon raqamingiz kerak</b>\n\n"
+        "Ekran pastidagi «📱 Raqamni yuborish» tugmasini bosing 👇",
+        "📱 <b>Для оформления заказа нужен ваш номер телефона</b>\n\n"
+        "Нажмите кнопку «📱 Поделиться номером» внизу экрана 👇",
+    ),
+    "checkout.confirm": (
+        "📋 <b>Buyurtmani tasdiqlang</b>\n\n"
+        "<b>Mahsulotlar:</b>\n{items}\n\n"
+        "{totals}\n\n"
+        "👤 {name}\n"
+        "📱 {contact}\n"
+        "📍 Manzilni qoʻngʻiroqda aniqlaymiz\n\n"
+        "🚚 Yetkazish: Samarqand — buyurtma kuni, Toshkent — ertasi kuni\n"
+        "💳 Toʻlov: {payment}",
+        "📋 <b>Подтвердите заказ</b>\n\n"
+        "<b>Товары:</b>\n{items}\n\n"
+        "{totals}\n\n"
+        "👤 {name}\n"
+        "📱 {contact}\n"
+        "📍 Адрес уточним при звонке\n\n"
+        "🚚 Доставка: Самарканд — в день заказа, Ташкент — на следующий день\n"
+        "💳 Оплата: {payment}",
+    ),
+    "checkout.confirm_short": (
+        "📋 <b>Buyurtmani tasdiqlang</b>\n\n{totals}\n({count} ta)\n\nTasdiqlash uchun ✅ bosing",
+        "📋 <b>Подтвердите заказ</b>\n\n{totals}\n({count} поз.)\n\nНажмите ✅ для подтверждения",
+    ),
+    "checkout.failed_screen": (
+        "⚠️ <b>Buyurtmani avtomatik rasmiylashtira olmadik</b>\n\n"
+        "<b>Mahsulotlar:</b>\n{items}\n\n"
+        "{totals}\n\n"
+        "Savat saqlandi — yana urinib koʻrishingiz mumkin.\n"
+        "Arizangizni koʻrdik va {phone} raqamiga qoʻngʻiroq qilamiz.\n"
+        "Tezroq boʻlsa — {contact_phone}",
+        "⚠️ <b>Не получилось оформить заказ автоматически</b>\n\n"
+        "<b>Товары:</b>\n{items}\n\n"
+        "{totals}\n\n"
+        "Корзина сохранена — можно попробовать ещё раз.\n"
+        "Мы уже видим вашу заявку и перезвоним на {phone}.\n"
+        "Если удобнее сразу — {contact_phone}",
+    ),
+    "checkout.success": (
+        "✅ <b>Buyurtma #{number} qabul qilindi!</b>\n\n"
+        "<b>Mahsulotlar:</b>\n{items}\n\n"
+        "{totals}\n\n"
+        "📱 Raqam: {phone}\n"
+        "⏰ 30 daqiqa ichida bogʻlanamiz\n\n"
+        "🌱 Buyurtmangiz uchun rahmat!",
+        "✅ <b>Заказ #{number} оформлен!</b>\n\n"
+        "<b>Товары:</b>\n{items}\n\n"
+        "{totals}\n\n"
+        "📱 Номер: {phone}\n"
+        "⏰ Мы свяжемся с вами в течение 30 минут\n\n"
+        "🌱 Спасибо за заказ!",
+    ),
+
+    # ── Главное меню ──
+    "catalog.empty": (
+        "📦 <b>Katalog boʻsh</b>\n\nMahsulotlar tez orada paydo boʻladi!",
+        "📦 <b>Каталог пуст</b>\n\nТовары скоро появятся!",
+    ),
+    "orders.empty_screen": (
+        "📦 <b>Mening buyurtmalarim</b>\n\n"
+        "Sizda hali buyurtma yoʻq.\n\n"
+        "💡 Buyurtmalarni koʻrish uchun katalogdan birinchi buyurtmani bering.",
+        "📦 <b>Мои заказы</b>\n\n"
+        "У вас пока нет заказов.\n\n"
+        "💡 Чтобы видеть заказы, оформите первый заказ через каталог.",
+    ),
+    "btn.send_food_photo": ("📸 Taom suratini yuborish", "📸 Отправить фото еды"),
+    "btn.pick_greens": ("🛒 Mikro-koʻkat tanlash", "🛒 Подобрать микрозелень"),
+    "btn.website": ("🌐 Sayt", "🌐 Сайт"),
+
+    # ── Журнал FRESH WEEKLY ──
+    "magazine.sending_pdf": ("📄 PDF yuborilyapti…", "📄 Отправляю PDF..."),
+    "magazine.pdf_caption": (
+        "📖 <b>FRESH WEEKLY — {number}-son</b>\n"
+        "Mikro-koʻkat, restoranlar va retseptlar haqida 12 sahifa!",
+        "📖 <b>FRESH WEEKLY — Выпуск #{number}</b>\n"
+        "12 страниц о микрозелени, ресторанах и рецептах!",
+    ),
+    "magazine.pdf_failed": (
+        "PDF yuborilmadi. Sonni toʻliq onlayn oʻqing: {url}",
+        "PDF не отдался. Номер целиком открыт онлайн: {url}",
+    ),
+    "magazine.print_request": (
+        "📝 <b>Bosma nusxaga ariza ({number}-son)</b>\n\n"
+        "Narxi: {price} soʻm (Samarqand boʻylab yetkazish bilan).\n\n"
+        "📞 Rasmiylashtirish uchun bogʻlaning:\n"
+        "• Telegram: @microgreen_uz\n"
+        "• Telefon: {phone}\n\n"
+        "<i>Arizangiz qayd etildi. Menejerimiz tez orada bogʻlanadi! Ism: {name}</i>",
+        "📝 <b>Заявка на печатную версию (Выпуск #{number})</b>\n\n"
+        "Стоимость: {price} сум (включает доставку по Самарканду).\n\n"
+        "📞 Для оформления свяжитесь с нами:\n"
+        "• Telegram: @microgreen_uz\n"
+        "• Телефон: {phone}\n\n"
+        "<i>Ваша заявка зафиксирована. Наш менеджер скоро с вами свяжется! Имя: {name}</i>",
+    ),
+
+    "magazine.btn_pdf": ("📄 PDF yuklab olish", "📄 Скачать PDF"),
+    "magazine.btn_online": ("📖 Onlayn oʻqish", "📖 Читать онлайн"),
+    "magazine.btn_print": (
+        "🖨 Bosma nusxa buyurtma qilish ({price} soʻm)",
+        "🖨 Заказать печатную копию ({price} сум)",
+    ),
+    "magazine.btn_share": ("📤 Jurnalni doʻstga yuborish", "📤 Переслать журнал другу"),
 }
 
 

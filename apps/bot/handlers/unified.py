@@ -14,15 +14,8 @@ from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_LABELS_LOWER, CATEGORY_LABELS, format_price
 from shared.offers import balance_text, referral_text
 from shared.i18n import DEFAULT_LANG, t
-from services.lang_storage import lang_storage
+from services.lang_storage import lang_of
 from shared.screen import render
-
-def lang_of(event) -> str:
-    """Язык собеседника: сохранённый выбор, иначе язык клиента Telegram."""
-    user = getattr(event, "from_user", None)
-    if user is None:
-        return DEFAULT_LANG
-    return lang_storage.get(user.id, getattr(user, "language_code", None))
 
 
 router = Router()
@@ -74,6 +67,7 @@ def get_main_menu_kb(lang: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
 @router.message(Command("orders"))
 async def cmd_orders(message: Message):
     """Мои заказы"""
+    lang = lang_of(message)
     user = message.from_user
     
     # Look up user phone from profile via ecosystem bridge
@@ -81,16 +75,16 @@ async def cmd_orders(message: Message):
     phone = user_data.get("phone") if user_data else None
     
     if not phone:
-        text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов.\n\n💡 Чтобы видеть заказы, оформите первый заказ через каталог."
+        text = t("orders.empty_screen", lang)
         await message.answer(text)
         return
     
     orders = await bridge.get_orders_by_phone(phone)
     
     if not orders:
-        text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов."
+        text = t("orders.empty_screen", lang)
     else:
-        text = "📦 <b>Мои заказы</b>\n\n"
+        text = t("orders.title", lang) + "\n\n"
         for order in orders[:5]:
             text += f"• #{order['id'][-6:]} — {order['status']}\n"
     
@@ -157,7 +151,7 @@ async def cb_pricelist(callback: CallbackQuery):
     
     if not all_products:
         try:
-            await render(callback, "📦 <b>Каталог пуст</b>\n\nТовары скоро появятся!",
+            await render(callback, t("catalog.empty", lang),
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
                 ]),
@@ -255,7 +249,7 @@ async def cb_category(callback: CallbackQuery):
             text += f"• {title} — <b>{format_price(price)}</b> сум\n"
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 На сайте", url=f"https://microgreenuzbekistan.com/catalog?category={category}")],
+        [InlineKeyboardButton(text=t("btn.on_site", lang), url=f"https://microgreenuzbekistan.com/catalog?category={category}")],
         [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="catalog:pricelist"),
          InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
@@ -283,7 +277,7 @@ async def cb_orders(callback: CallbackQuery):
     
     if not phone:
         try:
-            await render(callback, "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов.\n\n💡 Чтобы видеть заказы, оформите первый заказ через каталог.", keyboard)
+            await render(callback, t("orders.empty_screen", lang), keyboard)
         except Exception:
             pass
         return
@@ -291,9 +285,9 @@ async def cb_orders(callback: CallbackQuery):
     orders = await bridge.get_orders_by_phone(phone)
     
     if not orders:
-        text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов."
+        text = t("orders.empty_screen", lang)
     else:
-        text = "📦 <b>Мои заказы</b>\n\n"
+        text = t("orders.title", lang) + "\n\n"
         for order in orders[:5]:
             status_map = {
                 "PENDING": "⏳ Ожидает",
@@ -353,8 +347,8 @@ async def cb_ai_seller(callback: CallbackQuery):
     """
     lang = lang_of(callback)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📸 Отправить фото еды", callback_data="agronomist:photo_hint")],
-        [InlineKeyboardButton(text="🛒 Подобрать микрозелень", callback_data="agronomist:shop_hint")],
+        [InlineKeyboardButton(text=t("btn.send_food_photo", lang), callback_data="agronomist:photo_hint")],
+        [InlineKeyboardButton(text=t("btn.pick_greens", lang), callback_data="agronomist:shop_hint")],
         [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
     
@@ -418,12 +412,12 @@ async def cb_about(callback: CallbackQuery):
     lang = lang_of(callback)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📢 Канал", url="https://t.me/MicrogreenUzbekistan"),
-            InlineKeyboardButton(text="👥 Группа", url="https://t.me/Microgreen_Uzbekistan"),
+            InlineKeyboardButton(text=t("btn.channel", lang), url="https://t.me/MicrogreenUzbekistan"),
+            InlineKeyboardButton(text=t("btn.group", lang), url="https://t.me/Microgreen_Uzbekistan"),
         ],
         [
             InlineKeyboardButton(text="📸 Instagram", url="https://www.instagram.com/microgreenuzbekistan"),
-            InlineKeyboardButton(text="🌐 Сайт", url="https://microgreenuzbekistan.com"),
+            InlineKeyboardButton(text=t("btn.website", lang), url="https://microgreenuzbekistan.com"),
         ],
         [
             InlineKeyboardButton(text="🎮 Farm Simulator", url="https://t.me/Microgreenuzbekistan_bot/game"),

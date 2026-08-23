@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.types import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 from keyboards.magazine import magazine_keyboard
 from services.config_service import fetch_site_config
+from services.lang_storage import lang_of
 
 router = Router()
 
@@ -12,6 +13,7 @@ async def inline_magazine_query(inline_query: InlineQuery):
     Обработчик inline-запросов для пересылки журнала.
     Запрос имеет вид: "magazine {issue_number}"
     """
+    lang = lang_of(inline_query)
     try:
         parts = inline_query.query.split(" ")
         issue_number = int(parts[1]) if len(parts) > 1 else 2
@@ -40,7 +42,7 @@ async def inline_magazine_query(inline_query: InlineQuery):
             parse_mode="HTML",
             disable_web_page_preview=False
         ),
-        reply_markup=magazine_keyboard(issue_number, config.magazine_print_price)
+        reply_markup=magazine_keyboard(issue_number, config.magazine_print_price, lang)
     )
 
     try:

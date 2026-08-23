@@ -25,18 +25,11 @@ from services.config_service import fetch_site_config
 from shared.constants import format_price
 from shared.offers import referral_text
 from shared.api import api_headers
-from shared.i18n import DEFAULT_LANG, t
-from services.lang_storage import lang_storage
+from shared.i18n import t
+from services.lang_storage import lang_of, lang_storage
 from services.cart_storage import cart_storage
 from handlers.shop import cart_line, cart_totals, totals_text
 from shared.screen import render
-
-def lang_of(event) -> str:
-    """Язык собеседника: сохранённый выбор, иначе язык клиента Telegram."""
-    user = getattr(event, "from_user", None)
-    if user is None:
-        return DEFAULT_LANG
-    return lang_storage.get(user.id, getattr(user, "language_code", None))
 
 
 router = Router()
@@ -82,11 +75,11 @@ async def cb_recipes(callback: CallbackQuery):
 
                     kb = InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(
-                            text="🛒 Купить ингредиенты",
+                            text=t("btn.buy_ingredients", lang),
                             url=f"{WEB_APP_URL}/catalog"
                         )],
                         [InlineKeyboardButton(
-                            text="📖 Все рецепты",
+                            text=t("btn.all_recipes", lang),
                             url=f"{WEB_APP_URL}/recipe"
                         )],
                         [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
@@ -97,17 +90,13 @@ async def cb_recipes(callback: CallbackQuery):
 
         # Fallback — API не вернул рецепт
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📖 Рецепты на сайте", url=f"{WEB_APP_URL}/recipe")],
+            [InlineKeyboardButton(text=t("btn.recipes_on_site", lang), url=f"{WEB_APP_URL}/recipe")],
             [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
         ])
-        await render(callback, "🍽️ <b>Рецепты с микрозеленью</b>\n\n"
-            "ПП и ЗОЖ рецепты — на нашем сайте!\n"
-            "Салаты, смузи, сэндвичи — за 15 минут.\n\n"
-            "Или спросите AI: «придумай рецепт с рукколой» 🤖", kb)
+        await render(callback, t("recipes.body", lang), kb)
     except Exception as e:
         logger.error("Ошибка рецептов: %s", e)
-        await render(callback, "🍽️ Рецепты временно недоступны.\n"
-            f"Смотрите на сайте: {WEB_APP_URL}/recipe",
+        await render(callback, t("recipes.unavailable", lang, url=f"{WEB_APP_URL}/recipe"),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
             ])
@@ -155,7 +144,7 @@ async def cb_profile(callback: CallbackQuery):
             InlineKeyboardButton(text="🇷🇺 Русский", callback_data="profile:lang:ru"),
             InlineKeyboardButton(text="🇺🇿 O'zbekcha", callback_data="profile:lang:uz"),
         ],
-        [InlineKeyboardButton(text="👥 Реферальная ссылка", callback_data="profile:referral")],
+        [InlineKeyboardButton(text=t("btn.referral", lang), callback_data="profile:referral")],
         [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
 
@@ -257,10 +246,7 @@ async def cb_favorites(callback: CallbackQuery):
             [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
             [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
         ])
-        await render(callback, "❤️ <b>Избранное пусто</b>\n\n"
-            "Добавляйте товары в избранное, чтобы быстро\n"
-            "находить их потом!\n\n"
-            "💡 Нажмите ❤️ на карточке товара в каталоге.", kb)
+        await render(callback, t("favorites.empty_screen", lang), kb)
         return
 
     text = f"❤️ <b>Избранное ({len(favs)})</b>\n\n"
@@ -273,7 +259,7 @@ async def cb_favorites(callback: CallbackQuery):
             callback_data=f"shop:product:{item['id']}"
         )])
 
-    buttons.append([InlineKeyboardButton(text="🗑 Очистить", callback_data="fav:clear")])
+    buttons.append([InlineKeyboardButton(text=t("btn.clear", lang), callback_data="fav:clear")])
     buttons.append([InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")])
 
     await render(callback, text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
@@ -284,11 +270,12 @@ async def cb_favorites(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("fav:add:"))
 async def cb_fav_add(callback: CallbackQuery):
     """Добавить в избранное"""
+    lang = lang_of(callback)
     product_id = callback.data.split(":", 2)[-1]
     favs = _load_favs(callback.from_user.id)
 
     if any(f.get("id") == product_id for f in favs):
-        await callback.answer("Уже в избранном ❤️")
+        await callback.answer(t("favorites.already", lang))
         return
 
     product = await bridge.get_product(product_id)
@@ -299,26 +286,28 @@ async def cb_fav_add(callback: CallbackQuery):
             "price": product.get("price", 0),
         })
         _save_favs(callback.from_user.id, favs)
-        await callback.answer(f"❤️ {product.get('title', '')} добавлен в избранное!")
+        await callback.answer(t("favorites.added", lang, title=product.get("title", "")))
     else:
-        await callback.answer("Товар не найден")
+        await callback.answer(t("product.not_found", lang))
 
 
 @router.callback_query(F.data.startswith("fav:remove:"))
 async def cb_fav_remove(callback: CallbackQuery):
     """Убрать из избранного"""
+    lang = lang_of(callback)
     product_id = callback.data.split(":", 2)[-1]
     favs = _load_favs(callback.from_user.id)
     favs = [f for f in favs if f.get("id") != product_id]
     _save_favs(callback.from_user.id, favs)
-    await callback.answer("💔 Удалено из избранного")
+    await callback.answer(t("favorites.removed", lang))
 
 
 @router.callback_query(F.data == "fav:clear")
 async def cb_fav_clear(callback: CallbackQuery):
     """Очистить избранное"""
+    lang = lang_of(callback)
     _save_favs(callback.from_user.id, [])
-    await callback.answer("🗑 Избранное очищено")
+    await callback.answer(t("favorites.cleared", lang))
     await cb_favorites(callback)
 
 
@@ -333,9 +322,7 @@ async def cb_reorder(callback: CallbackQuery):
     phone = user_data.get("phone") if user_data else None
 
     if not phone:
-        await render(callback, "🔄 <b>Повторить заказ</b>\n\n"
-            "У вас пока нет заказов.\n"
-            "Оформите первый заказ через каталог!", InlineKeyboardMarkup(inline_keyboard=[
+        await render(callback, t("reorder.no_orders", lang), InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
                 [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
             ]))
@@ -343,7 +330,7 @@ async def cb_reorder(callback: CallbackQuery):
 
     orders = await bridge.get_orders_by_phone(phone)
     if not orders:
-        await render(callback, "🔄 <b>Повторить заказ</b>\n\nНет предыдущих заказов.", InlineKeyboardMarkup(inline_keyboard=[
+        await render(callback, t("reorder.no_previous", lang), InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
                 [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
             ]))
@@ -367,7 +354,7 @@ async def cb_reorder(callback: CallbackQuery):
     text += f"\n💰 <b>Итого: {format_price(total)} сум</b>"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Повторить этот заказ", callback_data=f"reorder:confirm:{last['id']}")],
+        [InlineKeyboardButton(text=t("btn.repeat_this", lang), callback_data=f"reorder:confirm:{last['id']}")],
         [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
         [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
@@ -384,9 +371,7 @@ async def cmd_search(message: Message):
     query = message.text.split(maxsplit=1)
     if len(query) < 2:
         await message.answer(
-            "🔍 <b>Поиск</b>\n\n"
-            "Напишите: /search <i>что ищете</i>\n"
-            "Например: /search руккола",
+            t("search.hint", lang),
             parse_mode="HTML"
         )
         return
@@ -402,9 +387,7 @@ async def cmd_search(message: Message):
 
     if not found:
         await message.answer(
-            f"🔍 По запросу «{search_term}» ничего не найдено.\n\n"
-            "💡 Попробуйте другой запрос или спросите AI:\n"
-            "Напишите свободным текстом, например: «какая микрозелень острая?»"
+            t("search.not_found", lang, query=search_term)
         )
         return
 
@@ -432,6 +415,7 @@ async def cmd_search(message: Message):
 @router.callback_query(F.data.startswith("review:start:"))
 async def cb_review_start(callback: CallbackQuery):
     """Начало отзыва — выбор оценки"""
+    lang = lang_of(callback)
     order_id = callback.data.split(":", 2)[-1]
 
     stars = []
@@ -445,14 +429,12 @@ async def cb_review_start(callback: CallbackQuery):
         [stars[0], stars[1]],
         [stars[2], stars[3]],
         [stars[4]],
-        [InlineKeyboardButton(text="Пропустить", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t("btn.skip", lang), callback_data="menu:main")],
     ])
 
     # Обещания «+50 бонусов за отзыв» здесь больше нет: начисления за отзыв
     # не существует ни в одном роуте витрины — баллы не приходили никогда.
-    await render(callback, "⭐ <b>Оставьте отзыв!</b>\n\n"
-        "Как вам наша продукция?\n"
-        "Выберите оценку:", kb)
+    await render(callback, t("review.ask", lang), kb)
 
 
 async def _save_order_review(telegram_id: int, order_id: str, rating: int) -> int:
@@ -587,7 +569,7 @@ async def cb_reorder_confirm(callback: CallbackQuery):
 
     order = next((o for o in orders if str(o.get("id")) == order_id), None)
     if not order:
-        await callback.answer("Заказ не найден — возможно, он уже удалён", show_alert=True)
+        await callback.answer(t("reorder.order_gone", lang), show_alert=True)
         return
 
     added, missing = [], []
@@ -604,7 +586,7 @@ async def cb_reorder_confirm(callback: CallbackQuery):
 
     if not added:
         await callback.answer(
-            "Ни одной позиции из того заказа сейчас нет в наличии.",
+            t("reorder.out_of_stock", lang),
             show_alert=True,
         )
         return
@@ -619,8 +601,8 @@ async def cb_reorder_confirm(callback: CallbackQuery):
     text += "\n" + totals_text(subtotal, delivery, total)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✅ Оформить", callback_data="cart:checkout")],
-        [InlineKeyboardButton(text="🛒 Корзина", callback_data="cart:view")],
+        [InlineKeyboardButton(text=t("btn.checkout", lang), callback_data="cart:checkout")],
+        [InlineKeyboardButton(text=t("btn.cart", lang), callback_data="cart:view")],
         [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
 
