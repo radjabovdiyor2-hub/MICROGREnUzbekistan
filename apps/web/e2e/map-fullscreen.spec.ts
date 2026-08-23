@@ -159,6 +159,48 @@ test.describe("Полноэкранный режим карты", () => {
     // Класс на корне гасит прокрутку .admin-main: в админке скроллит она,
     // а не body.
     await expect(page.locator("html.map-fullscreen")).toHaveCount(1);
+
+    // ── ПРИЧИНА, А НЕ СЛЕДСТВИЕ ────────────────────────────────────────
+    //
+    // Классы выше стояли и в тот день, когда владелец прислал снимок
+    // «полного экрана» размером в треть экрана. Полный экран сделан через
+    // `position: fixed`, а он отсчитывается не от экрана, если у любого
+    // предка есть transform/filter/perspective.
+    //
+    // Именно это и случилось: `main, [data-page]` получает `animation:
+    // page-enter … both`, и fill-mode навсегда оставляет на каждом <main>
+    // ЕДИНИЧНЫЙ `transform: matrix(1,0,0,1,0,0)` — ничего не двигающий и
+    // оттого невидимый глазом. Сцена начиналась под шапкой, на её высоту
+    // свисала за нижний край, полоса дока вставала посреди экрана.
+    //
+    // Проверяем отсутствие таких предков, а не совпадение прямоугольника:
+    // прямоугольник совпадает и случайно — когда предок-«якорь» сам занял
+    // весь экран. Инвариант же нарушить незаметно нельзя.
+    const anchors = await page.evaluate(() => {
+      const stage = document.querySelector(".admin-map-stage");
+      const bad: string[] = [];
+      let el = stage?.parentElement ?? null;
+      while (el && el !== document.documentElement) {
+        const cs = getComputedStyle(el);
+        if (cs.transform !== "none" || cs.filter !== "none" || cs.perspective !== "none") {
+          bad.push(`${el.tagName.toLowerCase()}.${el.className} → ${cs.transform}`);
+        }
+        el = el.parentElement;
+      }
+      return bad;
+    });
+    expect(anchors).toEqual([]);
+
+    const viewport = page.viewportSize();
+    if (viewport) {
+      const box = await page.locator(".admin-map-stage.is-full").boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBe(0);
+      expect(box!.y).toBe(0);
+      expect(Math.round(box!.width)).toBe(viewport.width);
+      // Допуск в пиксель: dvh на дробном масштабе округляется.
+      expect(Math.abs(box!.height - viewport.height)).toBeLessThanOrEqual(1);
+    }
   });
 
   test("панели в режиме доступны — ради этого док и появился", async ({ page }) => {

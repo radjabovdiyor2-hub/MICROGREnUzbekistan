@@ -1,14 +1,14 @@
 'use client';
 
 import { useCallback, useEffect } from 'react';
-import { Layers, MapPinOff, Route, SlidersHorizontal, X } from 'lucide-react';
+import { ChevronDown, Layers, MapPinOff, Route, SlidersHorizontal } from 'lucide-react';
 
 import { useAdminBack } from '../useAdminBack';
-import { MapFilterRibbons } from './MapFilterRibbons';
-import { activeFilterCount, chipStyle } from './mapChrome';
-import { DistrictsPanel, LegendPanel, PointPanel, RoutePanel, TrayPanel } from './mapPanels';
+import { activeFilterCount } from './mapChrome';
+import { MapDockSheet } from './MapDockSheet';
 import type { useCustomerMap } from './useCustomerMap';
 import type { useDayRoute } from './useDayRoute';
+import { useSwipeDown } from './useSwipeDown';
 
 // ══════════════════════════════════════════════════════════════════════
 // Док полноэкранного режима.
@@ -27,6 +27,12 @@ import type { useDayRoute } from './useDayRoute';
 // точки НЕ снимает: её кольцо остаётся на карте, и закрытие вкладки
 // возвращает карточку. Иначе взгляд на легенду стоил бы потери выбранного
 // клиента — а выбирают его пальцем по шестипиксельной точке.
+//
+// ВЫХОД ИЗ РЕЖИМА ЖИВЁТ ЗДЕСЬ, А НЕ ТОЛЬКО В УГЛУ ХОЛСТА. Кнопка MapLibre
+// стоит справа сверху — на телефоне туда большой палец не достаёт, и
+// владелец сказал об этом прямо: «нет кнопок назад». Поэтому «Свернуть»
+// стоит первым в полосе, у самого низа экрана, и то же делает смахивание
+// вниз по полосе.
 // ══════════════════════════════════════════════════════════════════════
 
 export type DockTab = 'filters' | 'legend' | 'route' | 'tray';
@@ -40,6 +46,8 @@ interface Props {
   sellerName: string;
   tab: DockTab | null;
   onTab: (tab: DockTab | null) => void;
+  /** Выйти из полноэкранного режима. */
+  onExit: () => void;
 }
 
 const LABEL: Record<DockTab, { ru: string; uz: string }> = {
@@ -69,6 +77,7 @@ export function MapDock({
   sellerName,
   tab,
   onTab,
+  onExit,
 }: Props) {
   // Стабильная ссылка обязательна: useAdminBack пересоздаёт запись в
   // стопке возвратов при каждой смене обработчика, а стопка — порядок
@@ -96,6 +105,11 @@ export function MapDock({
     return () => window.removeEventListener('keydown', onKey);
   }, [tab, close]);
 
+  // Смахивание вниз по полосе выходит из режима — тем же движением, каким
+  // закрывается лист. Один жест на оба уровня: человек не обязан помнить,
+  // что сейчас открыто.
+  const swipeBar = useSwipeDown(onExit);
+
   const counts: Record<DockTab, number> = {
     filters: activeFilterCount(m),
     legend: 0,
@@ -103,51 +117,36 @@ export function MapDock({
     tray: m.queue.length,
   };
 
-  const sheet = tab ?? (m.selected ? 'point' : null);
+  const sheetOpen = tab !== null || m.selected !== null;
 
   return (
     <div className="admin-map-dock">
-      {sheet !== null && (
-        <div className="admin-map-dock-sheet">
-          <div className="admin-map-dock-sheet-head">
-            <span style={{ flex: 1, fontWeight: 'var(--font-semibold)' }}>
-              {tab ? LABEL[tab][lang] : (m.selected?.name ?? '')}
-            </span>
-            <button
-              type="button"
-              className="btn btn-sm btn-ghost"
-              onClick={() => (tab ? onTab(null) : m.setSelectedId(null))}
-              aria-label={lang === 'ru' ? 'Закрыть' : 'Yopish'}
-              style={{ minWidth: 44 }}
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-          <div className="admin-map-dock-sheet-body">
-            {tab === 'filters' && (
-              <>
-                <MapFilterRibbons lang={lang} m={m} isOwner={isOwner} chip={chipStyle} />
-                <DistrictsPanel lang={lang} m={m} />
-              </>
-            )}
-            {tab === 'legend' && <LegendPanel lang={lang} m={m} />}
-            {tab === 'route' && <RoutePanel lang={lang} m={m} route={route} />}
-            {tab === 'tray' && <TrayPanel lang={lang} m={m} isOwner={isOwner} />}
-            {tab === null && (
-              <PointPanel
-                lang={lang}
-                m={m}
-                route={route}
-                onOpenCard={onOpenCard}
-                sellerName={sellerName}
-              />
-            )}
-          </div>
-        </div>
+      {sheetOpen && (
+        <MapDockSheet
+          lang={lang}
+          m={m}
+          route={route}
+          isOwner={isOwner}
+          onOpenCard={onOpenCard}
+          sellerName={sellerName}
+          tab={tab}
+          title={tab ? LABEL[tab][lang] : (m.selected?.name ?? '')}
+          onClose={() => (tab ? onTab(null) : m.setSelectedId(null))}
+        />
       )}
 
-      <div className="admin-map-dock-bar">
+      <div className="admin-map-dock-bar" {...swipeBar}>
+        <button
+          type="button"
+          className="admin-map-dock-btn"
+          onClick={onExit}
+          aria-label={lang === 'ru' ? 'Выйти из полноэкранного режима' : 'Toʻliq ekrandan chiqish'}
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <ChevronDown size={18} />
+          <span>{lang === 'ru' ? 'Свернуть' : 'Yigʻish'}</span>
+        </button>
+
         {TABS.map((id) => {
           const Icon = ICON[id];
           const active = tab === id;
