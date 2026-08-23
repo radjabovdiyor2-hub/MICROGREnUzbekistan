@@ -30,7 +30,18 @@ import { ALL_TABS, TAB_GROUPS } from './adminTabs';
 // ══════════════════════════════════════════════════════════════════════
 
 const RECENT_KEY = 'mg-admin-recent-tabs';
-const OPEN_KEY = 'mg-admin-open-groups';
+
+//: Свёрнутые группы, а НЕ раскрытые.
+//
+// Сначала было наоборот: хранились раскрытые, всё остальное свёрнуто по
+// умолчанию. Это чинило стену из пятидесяти вкладок и ломало обычную
+// работу — каждый переход становился двумя нажатиями, и надо было помнить,
+// в какой группе что лежит. Собственный сквозной сценарий это и поймал:
+// кнопка «Клиенты» просто отсутствовала в разметке.
+//
+// Теперь свернуть — осознанное действие человека, который убирает лишнее,
+// а не обряд при каждом открытии админки. Стену разбирает раздел «Часто».
+const COLLAPSED_KEY = 'mg-admin-collapsed-groups';
 
 /**
  * Сколько вкладок держим в «Часто».
@@ -68,7 +79,7 @@ export function groupOf(tabId: string): string {
 
 export function useTabNavigation(activeTab: string, isOwner: boolean) {
   const [recent, setRecent] = useState<string[]>([]);
-  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const [collapsed, setCollapsed] = useState<string[]>([]);
   /** Прочитали ли хранилище. До этого момента писать в него нельзя. */
   const [ready, setReady] = useState(false);
 
@@ -81,7 +92,7 @@ export function useTabNavigation(activeTab: string, isOwner: boolean) {
   useEffect(() => {
     const kick = window.setTimeout(() => {
       setRecent(read(RECENT_KEY));
-      setOpenGroups(read(OPEN_KEY));
+      setCollapsed(read(COLLAPSED_KEY));
       setReady(true);
     }, 0);
     return () => window.clearTimeout(kick);
@@ -103,9 +114,9 @@ export function useTabNavigation(activeTab: string, isOwner: boolean) {
   }, [activeTab, isOwner, ready]);
 
   const toggleGroup = useCallback((title: string) => {
-    setOpenGroups((prev) => {
+    setCollapsed((prev) => {
       const next = prev.includes(title) ? prev.filter((g) => g !== title) : [...prev, title];
-      write(OPEN_KEY, next);
+      write(COLLAPSED_KEY, next);
       return next;
     });
   }, []);
@@ -113,13 +124,14 @@ export function useTabNavigation(activeTab: string, isOwner: boolean) {
   /**
    * Раскрыта ли группа.
    *
-   * Группа с открытой вкладкой раскрыта ВСЕГДА, даже если человек свернул
-   * её раньше: иначе активный экран прятался бы сам от себя, и было бы
-   * непонятно, где ты находишься.
+   * По умолчанию — да: свернуть можно, но это выбор человека, а не
+   * умолчание. Группа с открытой вкладкой раскрыта ВСЕГДА, даже если её
+   * свернули раньше: иначе активный экран прятался бы сам от себя, и было
+   * бы непонятно, где ты находишься.
    */
   const isGroupOpen = useCallback(
-    (title: string) => openGroups.includes(title) || groupOf(activeTab) === title,
-    [openGroups, activeTab],
+    (title: string) => !collapsed.includes(title) || groupOf(activeTab) === title,
+    [collapsed, activeTab],
   );
 
   /** Вкладки «Часто» — в порядке последнего использования. */
