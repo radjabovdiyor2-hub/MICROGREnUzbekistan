@@ -29,6 +29,7 @@ import {
   type MapCollection,
 } from './mapFeature';
 import { attachMapEvents, attachMapLayers, type MapLatest } from './mapEvents';
+import { FullscreenToggleControl } from './mapFullscreenControl';
 import {
   LAYER_HEAT,
   LAYER_SELECTED,
@@ -72,6 +73,10 @@ interface Props {
   routeStops?: RoutePoint[];
   /** Подробная подложка: названия улиц и здания вместо схемы. */
   detailedBase?: boolean;
+  /** Полноэкранный режим — им управляет родитель, кнопка живёт здесь. */
+  isFull?: boolean;
+  onToggleFull?: () => void;
+  lang?: 'ru' | 'uz';
   onPlace: (lngLat: { lng: number; lat: number }) => void;
   onViewportChange: (visibleIds: number[]) => void;
   onTilesError: () => void;
@@ -93,10 +98,12 @@ export default function CustomerMapCanvas(props: Props) {
     heat,
     routeStops,
     detailedBase,
+    isFull,
   } = props;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
+  const fullscreenControl = useRef<FullscreenToggleControl | null>(null);
   const { theme } = useTheme();
   const colors = useTokenColors();
 
@@ -152,6 +159,24 @@ export default function CustomerMapCanvas(props: Props) {
       }),
       'top-right',
     );
+    // Кнопка режима — в общей стопке справа сверху, третьей после зума и
+    // «где я». Состояние и обработчик читаются из ref: контрол живёт вне
+    // React и переживает все перерисовки холста.
+    const fullscreen = new FullscreenToggleControl({
+      onToggle: () => latest.current.onToggleFull?.(),
+      isFull: () => latest.current.isFull === true,
+      label: (full) =>
+        latest.current.lang === 'uz'
+          ? full
+            ? 'Toʻliq ekrandan chiqish'
+            : 'Toʻliq ekran'
+          : full
+            ? 'Выйти из полного экрана'
+            : 'На весь экран',
+    });
+    instance.addControl(fullscreen, 'top-right');
+    fullscreenControl.current = fullscreen;
+
     instance.on('load', () => attach(instance));
     // После смены стиля MapLibre выбрасывает свои слои — навешиваем заново.
     instance.on('styledata', () => {
@@ -165,6 +190,7 @@ export default function CustomerMapCanvas(props: Props) {
       instance.remove();
       map.current = null;
       ready.current = false;
+      fullscreenControl.current = null;
     };
   }, []);
 
@@ -277,6 +303,13 @@ export default function CustomerMapCanvas(props: Props) {
     if (!instance || !instance.getLayer(LAYER_SELECTED)) return;
     instance.setFilter(LAYER_SELECTED, ['==', ['id'], selectedId ?? -1]);
   }, [selectedId, data]);
+
+  // ── Иконка кнопки полного экрана ──────────────────────────────────
+  //
+  // Контрол о смене состояния сам не узнает: он вне React.
+  useEffect(() => {
+    fullscreenControl.current?.sync();
+  }, [isFull]);
 
   // ── Курсор в режиме простановки пина ──────────────────────────────
   useEffect(() => {

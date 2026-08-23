@@ -312,10 +312,27 @@
   height: 100dvh;
   max-height: none;
   border-radius: 0;
-  /* Вырез сверху: без этого кнопка выхода ложится под чёлку. */
-  padding-top: env(safe-area-inset-top, 0px);
   /* Прокрутка не уходит на страницу под картой. */
   overscroll-behavior: contain;
+}
+
+/* Вырез и «чёлка» отодвигают КОНТРОЛЫ, а не холст.
+   Отступ на самой сцене оставлял сверху пустую полосу цвета подложки:
+   карта переставала доходить до края ровно в том режиме, который для
+   края и включают. */
+html.map-fullscreen .maplibregl-ctrl-top-right,
+html.map-fullscreen .maplibregl-ctrl-top-left {
+  top: env(safe-area-inset-top, 0px);
+}
+
+/* Нижние контролы поднимаются НАД полосой дока.
+   Справа снизу у MapLibre живёт атрибуция — «© OpenStreetMap»
+   и «OpenFreeMap». Полоса дока накрывала её целиком, а это не
+   косметика: тайлы под ODbL, и указание источника обязательно.
+   52px — высота кнопок полосы, ниже вырез добавляет своё. */
+html.map-fullscreen .maplibregl-ctrl-bottom-right,
+html.map-fullscreen .maplibregl-ctrl-bottom-left {
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Скроллит .admin-main, а не body: идиома с body.style.overflow из Drawer
@@ -366,21 +383,91 @@ html.map-fullscreen .admin-main {
   }
 }
 
-/* Панель точки листом снизу — и на телефоне, и в полноэкранном режиме на
-   любом экране. Правила те же, что ниже 1024px: в полный экран уходят
-   ради карты, и колонка сбоку съела бы треть того, что человек открывал. */
+/* В полноэкранном режиме карточку точки показывает док (MapDock), а не
+   боковая колонка: иначе на телефоне их было бы две — колонка ниже 1024px
+   тоже делает панель фиксированным листом. */
 html.map-fullscreen .admin-map-panel {
+  display: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Док полноэкранного режима: полоса кнопок снизу и лист над ней.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.admin-map-dock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+  /* Над сценой: сцена накрывает страницу, док должен накрывать сцену. */
   z-index: calc(var(--z-drawer) + 1);
-  max-height: 70dvh;
-  overflow-y: auto;
-  padding: var(--space-2);
-  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+}
+
+.admin-map-dock > * {
+  pointer-events: auto;
+}
+
+.admin-map-dock-sheet {
+  display: flex;
+  flex-direction: column;
+  /* Лист вместе с полосой не съедает больше половины экрана: под ним
+     карта, ради которой режим и включён, а полностью закрытая карта —
+     это уже не карта. */
+  max-height: 46dvh;
   background: var(--bg-primary);
   border-top: 1px solid var(--border);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   box-shadow: var(--shadow-xl);
+}
+
+.admin-map-dock-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-1) var(--space-3);
+  flex-shrink: 0;
+}
+
+.admin-map-dock-sheet-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--space-2) var(--space-2);
+  display: grid;
+  gap: var(--space-3);
+}
+
+.admin-map-dock-bar {
+  display: flex;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  /* Домашняя полоса iPhone: без этого нижний ряд кнопок наполовину уходит
+     под системную панель жестов. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.admin-map-dock-btn {
+  flex: 1;
+  min-width: 0;
+  /* 52 под палец: это самый нижний ряд, по нему промахиваются чаще всего. */
+  min-height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-1) 2px;
+  border: none;
+  background: transparent;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+
+.admin-map-dock-btn > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

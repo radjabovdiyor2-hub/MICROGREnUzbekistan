@@ -1,22 +1,15 @@
 'use client';
 
-import { CategoryLegend } from './CategoryLegend';
-import { CustomerMapLegend } from './CustomerMapLegend';
-import { CustomerMapPanel } from './CustomerMapPanel';
-import { DayRoutePanel } from './DayRoutePanel';
-import { DistrictBreakdown } from './DistrictBreakdown';
-import { MapCoverage } from './MapCoverage';
-import { NearbyList } from './NearbyList';
-import { UnplacedTray } from './UnplacedTray';
+import { DistrictsPanel, LegendPanel, PointPanel, RoutePanel, TrayPanel } from './mapPanels';
 import type { useCustomerMap } from './useCustomerMap';
 import type { useDayRoute } from './useDayRoute';
 
 // ══════════════════════════════════════════════════════════════════════
 // Боковая колонка карты: панель точки, легенда, объезд, районы, лоток.
 //
-// Вынесена из AdminCustomerMap, когда та перешагнула 200 строк. Здесь
-// только разметка и связывание двух состояний — карты и объезда; ни одно
-// решение не принимается.
+// Сами панели и их связывание — в mapPanels.tsx: те же самые показывает
+// док в полноэкранном режиме, и держать их в двух местах значило бы
+// однажды поправить только одно.
 // ══════════════════════════════════════════════════════════════════════
 
 interface Props {
@@ -30,105 +23,24 @@ interface Props {
 }
 
 export function MapSidebar({ lang, m, route, onOpenCard, isOwner, sellerName }: Props) {
-  const selected = m.selected;
-
   return (
     <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
-      {selected && (
+      {m.selected && (
         <div className="admin-map-panel">
-          <CustomerMapPanel
-            point={selected}
+          <PointPanel
             lang={lang}
-            sellerName={sellerName}
-            onClose={() => m.setSelectedId(null)}
+            m={m}
+            route={route}
             onOpenCard={onOpenCard}
-            onReplacePin={(id) => {
-              m.setPlacingId(id);
-              m.setSelectedId(null);
-            }}
-            inRoute={route.has(selected.id)}
-            onToggleRoute={() => {
-              if (route.has(selected.id)) route.remove(selected.id);
-              else
-                route.add({
-                  id: selected.id,
-                  name: selected.name,
-                  latitude: selected.latitude,
-                  longitude: selected.longitude,
-                });
-            }}
-          />
-
-          {/* Соседи — отдельным блоком под карточкой, а не внутри неё:
-              это разговор уже не про выбранного клиента, а про то, что
-              вокруг него. */}
-          <NearbyList
-            lang={lang}
-            origin={selected}
-            features={m.visible.features}
-            inRoute={route.has}
-            onAddRoute={(point) =>
-              route.add({
-                id: point.id,
-                name: point.name,
-                latitude: point.latitude,
-                longitude: point.longitude,
-              })
-            }
-            onPick={(id) => m.setSelectedId(id)}
+            sellerName={sellerName}
           />
         </div>
       )}
 
-      {/* Легенда объясняет ТЕКУЩУЮ раскраску. Показывать состояния отношений,
-          когда точки покрашены по типу заведения, значит подписывать карту
-          цветами, которых на ней нет. */}
-      {m.mode === 'category' ? (
-        <CategoryLegend features={m.visible.features} lang={lang} />
-      ) : (
-        <CustomerMapLegend
-          summary={m.collection.summary}
-          lang={lang}
-          active={m.states}
-          onToggle={m.toggleState}
-        />
-      )}
-
-      <DayRoutePanel
-        lang={lang}
-        stops={route.stops}
-        from={route.from}
-        onRemove={route.remove}
-        onMove={route.move}
-        onSort={route.sort}
-        onClear={route.clear}
-        onPick={(stop) =>
-          m.focusPoint({ id: stop.id, longitude: stop.longitude, latitude: stop.latitude })
-        }
-      />
-
-      <DistrictBreakdown
-        districts={m.collection.summary.districts}
-        lang={lang}
-        active={m.district}
-        onSelect={m.setDistrict}
-      />
-
-      <MapCoverage coverage={m.collection.summary.coverage} lang={lang} />
-
-      <UnplacedTray
-        items={m.queue}
-        lang={lang}
-        placingId={m.placingId}
-        onPlace={m.setPlacingId}
-        onCancelPlacing={() => m.setPlacingId(null)}
-        onRefresh={() => m.refetch()}
-        chaining={m.chaining}
-        onStartChain={m.startChain}
-        onStopChain={m.stopChain}
-        isOwner={isOwner}
-      />
-
+      <LegendPanel lang={lang} m={m} />
+      <RoutePanel lang={lang} m={m} route={route} />
+      <DistrictsPanel lang={lang} m={m} />
+      <TrayPanel lang={lang} m={m} isOwner={isOwner} />
     </div>
   );
 }

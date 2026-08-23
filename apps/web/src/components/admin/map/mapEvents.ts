@@ -61,6 +61,10 @@ export interface MapLatest {
   routeStops?: RoutePoint[];
   /** Подробная подложка: названия улиц и здания вместо схемы. */
   detailedBase?: boolean;
+  /** Полноэкранный режим: читает кнопка-контрол, живущая вне React. */
+  isFull?: boolean;
+  onToggleFull?: () => void;
+  lang?: 'ru' | 'uz';
   onPlace: (lngLat: { lng: number; lat: number }) => void;
   onViewportChange: (visibleIds: number[]) => void;
   onTilesError: () => void;

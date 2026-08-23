@@ -3,6 +3,7 @@
 import { ChevronDown, ChevronUp, RefreshCw, SlidersHorizontal } from 'lucide-react';
 
 import { MapFilterRibbons } from './MapFilterRibbons';
+import { activeFilterCount, chipStyle } from './mapChrome';
 import type { useCustomerMap } from './useCustomerMap';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -19,6 +20,9 @@ import type { useCustomerMap } from './useCustomerMap';
 // Состояние карты приходит одним объектом, как и в MapSidebar: два
 // десятка пропсов по одному — это два десятка мест, где их можно
 // перепутать местами, и ни одного, где это заметит компилятор.
+//
+// Чип и счётчик активных фильтров — в mapChrome.ts: те же самые нужны
+// доку полноэкранного режима.
 // ══════════════════════════════════════════════════════════════════════
 
 interface Props {
@@ -31,43 +35,12 @@ interface Props {
   onToggleOpen: () => void;
 }
 
-const chip = (active: boolean): React.CSSProperties => ({
-  padding: '4px 12px',
-  borderRadius: 'var(--radius-full)',
-  border: `1px solid ${active ? 'var(--brand-primary)' : 'var(--border)'}`,
-  background: active ? 'var(--brand-primary)' : 'transparent',
-  color: active ? 'var(--text-inverse)' : 'var(--text-secondary)',
-  fontSize: 'var(--text-xs)',
-  cursor: 'pointer',
-  whiteSpace: 'nowrap',
-});
-
-/**
- * Сколько фильтров сейчас сужают карту.
- *
- * Свёрнутая лента обязана сказать, что под ней что-то включено: невидимый
- * работающий фильтр — это карта, которая необъяснимо пуста, и человек
- * ищет поломку там, где её нет.
- */
-function activeCount(m: ReturnType<typeof useCustomerMap>): number {
-  return (
-    (m.typeFilter === 'all' ? 0 : 1) +
-    (m.cityFilter === 'all' ? 0 : 1) +
-    m.companyTypes.size +
-    (m.audience === 'all' ? 0 : 1) +
-    (m.district ? 1 : 0) +
-    (m.showProspects ? 1 : 0) +
-    (m.showDelivery ? 1 : 0) +
-    (m.showHeat ? 1 : 0)
-  );
-}
-
 export function CustomerMapToolbar({ lang, m, isOwner, open, onToggleOpen }: Props) {
   const { placed, total } = m.collection.summary;
   const stamp = m.dataUpdatedAt
     ? new Date(m.dataUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
     : '—';
-  const active = activeCount(m);
+  const active = activeFilterCount(m);
 
   return (
     <div className="card" style={{ padding: 'var(--space-3)', display: 'grid', gap: 'var(--space-3)' }}>
@@ -113,7 +86,7 @@ export function CustomerMapToolbar({ lang, m, isOwner, open, onToggleOpen }: Pro
         </button>
       </div>
 
-      {open && <MapFilterRibbons lang={lang} m={m} isOwner={isOwner} chip={chip} />}
+      {open && <MapFilterRibbons lang={lang} m={m} isOwner={isOwner} chip={chipStyle} />}
     </div>
   );
 }
