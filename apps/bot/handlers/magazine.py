@@ -41,6 +41,16 @@ ISSUE_SLUG = os.getenv("MAGAZINE_ISSUE_SLUG", "shakar-01")
 def get_issue_pdf_url() -> str:
     return f"{SITE_URL}/magazine/{ISSUE_SLUG}.pdf"
 
+
+def get_issue_cover_url() -> str:
+    """Обложка номера — рядом с его вёрсткой, по тому же слагу.
+
+    В `inline.py` стоял адрес `/magazine/img/cover.png`. Этой картинки в
+    репозитории нет: каталог `magazine/img/` пуст. Телеграм не показывает
+    превью, которое не смог забрать, — карточка пересылки выходила голой.
+    """
+    return f"{SITE_URL}/magazine/{ISSUE_SLUG}/{ISSUE_SLUG}-cover.jpg"
+
 @router.message(Command("magazine"))
 async def cmd_magazine(message: types.Message):
     """Handler for the /magazine command."""

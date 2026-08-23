@@ -36,6 +36,14 @@ logger = logging.getLogger(__name__)
 
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 WEB_URL = os.getenv("WEB_URL", "https://microgreenuzbekistan.com")
+
+# Запасная картинка для товара без фото.
+#
+# Стояли два разных адреса: `{WEB_URL}/images/logo.jpg` и он же строкой
+# захардкоженный. Обоих файлов в `public/` больше нет — их убрала чистка
+# дубликатов, а бот об этом узнать не мог. Телеграм на недоступную ссылку
+# отвечает отказом, и карточка товара без своего фото не отправлялась вовсе.
+FALLBACK_IMAGE = f"{WEB_URL}/logo.jpg"
 ITEMS_PER_PAGE = 4
 
 # CATEGORIES imported from shared.constants as CATEGORY_TUPLES
@@ -140,7 +148,7 @@ def get_product_images(product: dict, category: str) -> list[str]:
     `normalize_product` уже отдаёт абсолютную ссылку или None, поэтому
     достраивать путь второй раз не нужно — нужен только запасной вариант.
     """
-    return [product.get("image") or f"{WEB_URL}/images/logo.jpg"]
+    return [product.get("image") or FALLBACK_IMAGE]
 
 
 # ==================== KEYBOARDS & LAYOUTS ====================
@@ -347,7 +355,7 @@ async def cb_grid_view(callback: CallbackQuery):
     # Image
     cover_image = page_products[0].get("image") if page_products else None
     if cover_image and cover_image.startswith("/"): cover_image = f"{WEB_URL}{cover_image}"
-    if not cover_image: cover_image = "https://microgreenuzbekistan.com/images/logo.jpg"
+    if not cover_image: cover_image = FALLBACK_IMAGE
 
     kb = get_grid_keyboard(category, page, total_pages, len(page_products), lang)
     

@@ -2,6 +2,7 @@ import logging
 from aiogram import Router, F
 from aiogram.types import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 from keyboards.magazine import magazine_keyboard
+from handlers.magazine import get_issue_cover_url
 from services.config_service import fetch_site_config
 from services.lang_storage import lang_of
 
@@ -27,7 +28,7 @@ async def inline_magazine_query(inline_query: InlineQuery):
         "👉 <a href='https://microgreenuzbekistan.com/magazine'>Читать выпуск онлайн</a>"
     )
 
-    thumb_url = "https://microgreenuzbekistan.com/magazine/img/cover.png"
+    thumb_url = get_issue_cover_url()
 
     # Цена печатного выпуска — из настроек: она стоит на кнопке клавиатуры.
     config = await fetch_site_config()
