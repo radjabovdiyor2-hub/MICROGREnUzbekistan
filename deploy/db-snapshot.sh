@@ -36,8 +36,56 @@ PG_DB="${PG_DB:-microgreen}"
 # Сколько снимков держим. Хватает, чтобы отступить на несколько выкаток
 # назад, и не хватает, чтобы забить диск.
 KEEP="${KEEP:-5}"
+# Запасной каталог — там, где пользователь выкатки хозяин заведомо.
+FALLBACK_DIR="${FALLBACK_DIR:-$HOME/microgreen-backups/predeploy}"
 
-mkdir -p "$SNAP_DIR"
+# ── Каталог для снимков выбираем, а не назначаем ──────────────────────
+#
+# ПРОВЕРЕНО БОЕМ, а не рассуждением: первая же выкатка с этим скриптом
+# встала на `mkdir: cannot create directory '/opt/microgreen/backups/
+# predeploy': Permission denied`. Причина — `backups/` на сервере создаёт
+# Docker под bind-mount девопс-бота, то есть от root, и пользователь
+# выкатки внутрь писать не может.
+#
+# Встала БЕЗОПАСНО: до unify_databases.sql и до db-push, схема не тронута,
+# прод остался на прежнем образе. Но выкатка не состоялась, а «нет снимка —
+# нет выкатки» не должно означать «нет выкатки никогда».
+#
+# Поэтому три попытки по убыванию удобства, и выбранный путь печатается:
+# молча падать нельзя, молча уезжать в другое место — тоже.
+choose_snap_dir() {
+  if mkdir -p "$SNAP_DIR" 2>/dev/null && [ -w "$SNAP_DIR" ]; then
+    return 0
+  fi
+
+  # `sudo -n` — без пароля и без ожидания ввода: сессия выкатки
+  # неинтерактивна, и обычный `sudo` в ней просто повис бы до таймаута.
+  if sudo -n mkdir -p "$SNAP_DIR" 2>/dev/null &&
+    sudo -n chown "$(id -u):$(id -g)" "$SNAP_DIR" 2>/dev/null &&
+    [ -w "$SNAP_DIR" ]; then
+    echo "снимки: каталог создан через sudo — $SNAP_DIR"
+    return 0
+  fi
+
+  SNAP_DIR="$FALLBACK_DIR"
+  if mkdir -p "$SNAP_DIR" 2>/dev/null && [ -w "$SNAP_DIR" ]; then
+    echo "⚠️  Штатный каталог недоступен на запись — снимки идут в $SNAP_DIR"
+    echo "   Чтобы вернуть их к остальным копиям, на сервере однократно:"
+    echo "   sudo mkdir -p /opt/microgreen/backups/predeploy && sudo chown \$USER: /opt/microgreen/backups/predeploy"
+    return 0
+  fi
+
+  return 1
+}
+
+# Штатный путь запоминаем ДО выбора: третья попытка уже переписала
+# SNAP_DIR запасным, и сообщение об отказе назвало бы один и тот же
+# каталог дважды — человек пошёл бы чинить не то место.
+WANTED_DIR="$SNAP_DIR"
+if ! choose_snap_dir; then
+  echo "❌ Некуда положить снимок: ни $WANTED_DIR, ни $FALLBACK_DIR не пишутся."
+  exit 1
+fi
 
 # ── Место проверяем ТАМ, ГДЕ ЛЯЖЕТ ДАМП ───────────────────────────────
 # `df -h /var/lib/docker` в выкатке меряет диск под образы — другой раздел
