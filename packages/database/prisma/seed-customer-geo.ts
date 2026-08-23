@@ -91,8 +91,24 @@ async function main(): Promise<void> {
   }
 
   // Ручные пины не трогаем никогда — это правило важнее удобства сидера.
+  //
+  // NULL-БЕЗОПАСНО, И ЭТО НЕ ПРИДИРКА.
+  // `geoSource: { not: 'manual' }` превращается в SQL `geo_source <> 'manual'`,
+  // а для NULL это не «истина», а NULL — строка не проходит. У свежей базы
+  // `geo_source` пуст РОВНО У ВСЕХ: сидер заведений его не ставит. Значит
+  // выборка возвращала ноль строк, скрипт печатал «Клиентов без координат
+  // нет — ставить нечего» и выходил успешно. Сообщение успокаивающее и
+  // ложное: координат не было ни у кого, и карта на стенде оставалась
+  // пустой — поэтому её с настоящими данными никто ни разу и не увидел.
+  //
+  // Офисный геокодер тот же инвариант держит верно —
+  // `shared/geo.py` пишет `geo_source IS DISTINCT FROM 'manual'`. Здесь
+  // тот же смысл выражен средствами Prisma.
   const customers = await prisma.customer.findMany({
-    where: { latitude: null, geoSource: { not: 'manual' } },
+    where: {
+      latitude: null,
+      OR: [{ geoSource: null }, { geoSource: { not: 'manual' } }],
+    },
     select: { id: true, city: true },
   });
 
