@@ -105,17 +105,26 @@ async function openMap(page: Page) {
   await page.locator("#admin-password").fill("e2e");
   await page.getByRole("button", { name: /Войти|Kirish/ }).click();
 
-  // На телефоне список вкладок — выдвижная панель: кнопка в разметке есть,
-  // но лежит за краем экрана. Ждём именно РАСКРЫТИЯ панели, а не просто
-  // нажатия по бургеру: без этого клик уходил в кнопку вне вьюпорта.
+  // Сначала дожидаемся самой оболочки. Сразу после входа её ещё нет, и
+  // проверка «виден ли бургер» отвечала «нет» — на телефоне мы шли кликать
+  // вкладку, которая в этот момент лежит за краем экрана (x = -264).
+  await page.locator(".admin-tab").first().waitFor({ timeout: 15000 });
+
+  // На телефоне список вкладок — выдвижная панель. Ждём не класс `open`,
+  // а фактическое положение: элемент, уехавший за край через translateX,
+  // Playwright по-прежнему считает видимым, и клик уходил в кнопку с
+  // отрицательным x — «element is outside of the viewport», по кругу до
+  // таймаута. Панель выезжает анимацией, поэтому опрашиваем рамку.
   const burger = page.locator(".mobile-menu-btn");
   if (await burger.isVisible().catch(() => false)) {
     await burger.click();
-    await page.locator(".admin-sidebar.open").waitFor({ timeout: 5000 }).catch(() => undefined);
+    await expect
+      .poll(async () => (await page.locator(".admin-sidebar").boundingBox())?.x ?? -1, {
+        timeout: 5000,
+      })
+      .toBeGreaterThanOrEqual(0);
   }
-  const tab = page.getByRole("button", { name: "Клиенты" }).first();
-  await tab.scrollIntoViewIfNeeded();
-  await tab.click();
+  await page.getByRole("button", { name: "Клиенты" }).first().click();
   await page.getByRole("button", { name: "Карта" }).first().click();
   await expect(page.locator(".admin-map-stage")).toBeVisible();
 }
