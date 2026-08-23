@@ -24,9 +24,15 @@ interface Props {
   newDebt: DebtDraft;
   setNewDebt: Dispatch<SetStateAction<DebtDraft>>;
   handleAddDebt: () => void;
+  /** Запрос в пути: кнопка блокируется, чтобы долг не завёлся дважды. */
+  saving: boolean;
+  /** Отказ сервера. Пустая строка — показывать нечего. */
+  error: string;
 }
 
-export function AdminDebtForm({ showAdd, setShowAdd, activeTab, newDebt, setNewDebt, handleAddDebt }: Props) {
+export function AdminDebtForm({
+  showAdd, setShowAdd, activeTab, newDebt, setNewDebt, handleAddDebt, saving, error,
+}: Props) {
   // Долг перед поставщиком выбирается из справочника: в базе для этого есть
   // связь `Debt.supplierId`, и API её принимает — а форма имя поставщика
   // спрашивала текстом, из-за чего долги оставались без привязки и свод по
@@ -78,8 +84,15 @@ export function AdminDebtForm({ showAdd, setShowAdd, activeTab, newDebt, setNewD
         style={{ gridColumn: '1/-1', padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
     </div>
     <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-      <button onClick={handleAddDebt} className="btn btn-primary btn-sm">Saqlash</button>
+      <button onClick={handleAddDebt} disabled={saving} className="btn btn-primary btn-sm">
+        {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+      </button>
       <button onClick={() => setShowAdd(false)} className="btn btn-ghost btn-sm">Bekor</button>
+      {error && (
+        <span style={{ color: 'var(--error)', fontSize: 'var(--text-sm)', alignSelf: 'center' }}>
+          {error}
+        </span>
+      )}
     </div>
   </div>
 )}

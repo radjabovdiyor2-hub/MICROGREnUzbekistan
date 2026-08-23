@@ -3,6 +3,7 @@
 import { adminFetch } from '@/lib/adminClient';
 import { captureLastFrame } from '@/lib/magazine/videoPoster';
 import { clientErrorMessage } from '@/lib/safeError';
+import { useFeedback } from './AdminFeedback';
 import type { MagazineRestaurant } from './magazineTypes';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -22,6 +23,8 @@ export function useMagazineVideo(
   ensureRestaurant: () => Promise<MagazineRestaurant | null>,
   quickName: string,
 ) {
+  const notify = useFeedback();
+
   const quickAddVideo = async (file: File) => {
     let targetResto = restaurant;
     if (!targetResto?.id) {
@@ -39,7 +42,7 @@ export function useMagazineVideo(
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.url) {
           const err = data?.error || (res.status === 413 ? 'Файл слишком большой (максимум 100МБ)' : `Ошибка сервера (${res.status})`);
-          alert(err);
+          notify.error(err);
           return { url: null };
         }
         return data;
@@ -75,7 +78,7 @@ export function useMagazineVideo(
       });
       const dish = await res.json().catch(() => null);
       if (!dish || dish.error) {
-        alert(`Ошибка создания блюда: ${dish?.error || res.statusText || 'Сервер не вернул данные'}`);
+        notify.error(`Блюдо не создано: ${dish?.error || res.statusText || 'сервер не вернул данные'}`);
         return;
       }
       const slug = dish.restaurant?.slug || targetResto?.slug || 'fresh';
@@ -83,7 +86,7 @@ export function useMagazineVideo(
       setQuickName('');
       if (dish.restaurantId) await reload(dish.restaurantId);
     } catch (err: unknown) {
-      alert(`Ошибка: ${clientErrorMessage(err, 'Не удалось загрузить видео')}`);
+      notify.error(clientErrorMessage(err, 'Не удалось загрузить видео'));
     } finally { setUploading(''); }
   };
 
@@ -98,7 +101,7 @@ export function useMagazineVideo(
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.url) {
           const err = data?.error || (res.status === 413 ? 'Файл слишком большой (максимум 100МБ)' : `Ошибка сервера (${res.status})`);
-          alert(err);
+          notify.error(err);
           return { url: null };
         }
         return data;
@@ -129,7 +132,7 @@ export function useMagazineVideo(
       });
       await reload(restaurant.id);
     } catch (err: unknown) {
-      alert(`Ошибка: ${clientErrorMessage(err, 'Не удалось прикрепить видео')}`);
+      notify.error(clientErrorMessage(err, 'Не удалось прикрепить видео'));
     } finally { setUploading(''); }
   };
 

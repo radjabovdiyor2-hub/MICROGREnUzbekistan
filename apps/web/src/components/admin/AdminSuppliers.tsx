@@ -6,6 +6,8 @@ import {
   Clock, Edit, Plus, Trash, Truck,
 } from 'lucide-react';
 
+import { useFeedback } from './AdminFeedback';
+
 interface Supplier {
   id: string;
   name: string;
@@ -20,6 +22,7 @@ interface Supplier {
 }
 
 export function AdminSuppliers() {
+  const notify = useFeedback();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', phone: '', address: '', note: '' });
@@ -60,9 +63,24 @@ export function AdminSuppliers() {
     } catch (err) { console.error(err); }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
-    await fetch(`/api/inventory/suppliers?id=${id}`, { method: 'DELETE' });
+  const handleDelete = async (supplier: Supplier) => {
+    // Вопрос называет поставщика: кнопки удаления и правки стоят в четырёх
+    // пикселях друг от друга, а «O'chirishni tasdiqlaysizmi?» не говорил,
+    // что именно исчезнет.
+    const ok = await notify.confirm({
+      title: `«${supplier.name}» o'chirilsinmi?`,
+      detail: "Yetkazib beruvchi ro'yxatdan yo'qoladi. Xaridlar tarixi saqlanadi.",
+      confirmText: "O'chirish",
+      danger: true,
+    });
+    if (!ok) return;
+
+    const res = await fetch(`/api/inventory/suppliers?id=${supplier.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      notify.error(body?.error || "O'chirib bo'lmadi");
+      return;
+    }
     fetch_();
   };
 
@@ -137,7 +155,8 @@ export function AdminSuppliers() {
                   <button onClick={() => startEdit(s)} className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0 }}>
                     <Edit size={14} />
                   </button>
-                  <button onClick={() => handleDelete(s.id)} className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0, color: 'var(--error)' }}>
+                  <button onClick={() => handleDelete(s)} aria-label={`O'chirish: ${s.name}`}
+                    className="btn btn-ghost btn-sm" style={{ width: 44, height: 44, padding: 0, color: 'var(--error)' }}>
                     <Trash size={14} />
                   </button>
                 </div>

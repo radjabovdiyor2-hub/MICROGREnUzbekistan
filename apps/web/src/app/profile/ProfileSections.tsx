@@ -2,78 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingCart, User } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
 
 const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useLang } from '@/components/providers/LangProvider';
-
-// Блоки личного кабинета: форма быстрой регистрации и список заказов.
-// Вынесены из profile/page.tsx — самостоятельные компоненты, которые жили
-// в одном файле со страницей просто потому, что там были объявлены.
-
-
-export function SimpleRegisterForm() {
-  const { simpleLogin } = useAuth();
-  const { t } = useLang();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('+998 ');
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
-
-  const formatPhone = (v: string) => {
-    const d = v.replace(/\D/g, '');
-    if (d.length <= 3) return '+' + d;
-    if (d.length <= 5) return '+' + d.slice(0,3) + ' ' + d.slice(3);
-    if (d.length <= 8) return '+' + d.slice(0,3) + ' ' + d.slice(3,5) + ' ' + d.slice(5);
-    if (d.length <= 10) return '+' + d.slice(0,3) + ' ' + d.slice(3,5) + ' ' + d.slice(5,8) + ' ' + d.slice(8);
-    return '+' + d.slice(0,3) + ' ' + d.slice(3,5) + ' ' + d.slice(5,8) + ' ' + d.slice(8,10) + ' ' + d.slice(10,12);
-  };
-
-  const submit = async () => {
-    if (!name.trim()) { setErr(t('Ismingizni kiriting', 'Введите имя')); return; }
-    const digits = phone.replace(/\D/g, '');
-    if (digits.length < 12) { setErr(t('Telefon raqamni kiriting', 'Введите номер телефона')); return; }
-    setLoading(true); setErr('');
-    await simpleLogin(name.trim(), phone.trim());
-    setLoading(false);
-  };
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%', padding: '12px 16px', borderRadius: 'var(--radius-md)',
-    border: '1.5px solid var(--border)', background: 'var(--bg-primary)',
-    color: 'var(--text-primary)', fontSize: 'var(--text-sm)', outline: 'none',
-    transition: 'border-color 0.2s',
-  };
-
-  return (
-    <div style={{ marginTop: 'var(--space-4)' }}>
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4, display: 'block' }}>
-          {t('Ism Familiya', 'Имя Фамилия')}
-        </label>
-        <input type="text" value={name} onChange={e => setName(e.target.value)}
-          placeholder={t('Masalan: Ali Karimov', 'Например: Али Каримов')}
-          style={inputStyle} />
-      </div>
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: 4, display: 'block' }}>
-          {t('Telefon raqam', 'Номер телефона')}
-        </label>
-        <input type="tel" value={phone} onChange={e => setPhone(formatPhone(e.target.value))}
-          placeholder="+998 90 123 45 67" style={inputStyle} />
-      </div>
-      {err && <p style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginBottom: 8 }}>{err}</p>}
-      <button onClick={submit} disabled={loading} className="btn btn-primary" style={{
-        width: '100%', padding: '12px', fontWeight: 700, opacity: loading ? 0.6 : 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-      }}>
-        <User size={16} /> {loading ? '...' : t("Ro'yxatdan o'tish", 'Зарегистрироваться')}
-      </button>
-    </div>
-  );
-}
-
 /** Заказ в списке личного кабинета — из GET /api/orders. */
 interface ProfileOrder {
   orderNumber: string;

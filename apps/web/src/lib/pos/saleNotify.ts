@@ -1,4 +1,5 @@
 import { formatQtyWithUnit, lineTotal } from '@/lib/qty';
+import { openKeyboard } from '@/lib/telegram/adminLinks';
 import { formatLocalDate } from '@/lib/revenue/salesLedger';
 
 // Уведомление владельцу о продаже. Вынесено из sale.ts: там осталась
@@ -74,8 +75,19 @@ export function buildSaleMessage(sale: NotifySale): string {
   return msg;
 }
 
-/** Отправка best-effort: недоступный Telegram не должен ломать продажу. */
-export function notifyOwner(message: string): void {
+/**
+ * Отправка best-effort: недоступный Telegram не должен ломать продажу.
+ *
+ * Экран задаётся вызывающим: у чека это выручка, а у того же чека с
+ * предупреждением об остатке — склад. Сообщение об уходящем в ноль товаре
+ * без кнопки «Склад» заставляло владельца искать вкладку глазами ровно
+ * тогда, когда решение нужно принять сегодня.
+ */
+export function notifyOwner(
+  message: string,
+  tab: string = 'revenue',
+  buttonText: string = '💵 Доход',
+): void {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.ADMIN_CHAT_ID;
   if (!token || !chatId) return;
@@ -83,6 +95,12 @@ export function notifyOwner(message: string): void {
   fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' }),
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: message,
+      parse_mode: 'Markdown',
+      reply_markup: openKeyboard(chatId, tab, null, buttonText),
+      disable_web_page_preview: true,
+    }),
   }).catch(() => {});
 }

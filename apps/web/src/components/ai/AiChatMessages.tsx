@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { RefObject } from 'react';
 import { SUGGESTIONS, TypingIndicator, renderMarkdown } from './aiChatParts';
 import { QUICK_ACTIONS, type QuickActionId, type Message } from './aiChatConfig';
+import { tint } from '@/lib/tint';
 
 // Лента сообщений ИИ-чата: ответы, потоковый текст, быстрые действия и
 // подсказки. Вынесено из AiChatWidget: файл перерос 200 строк.
@@ -114,7 +115,7 @@ export function AiChatMessages({
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
                 padding: '12px 4px', borderRadius: 12, cursor: 'pointer',
-                background: `${qa.color}10`, border: `1.5px solid ${qa.color}25`,
+                background: `${tint(qa.color, 6)}`, border: `1.5px solid ${tint(qa.color, 15)}`,
                 color: qa.color, fontSize: 10, fontWeight: 700,
                 transition: 'all 0.2s',
               }}>

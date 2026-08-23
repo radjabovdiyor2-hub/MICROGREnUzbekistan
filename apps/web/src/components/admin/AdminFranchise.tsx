@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Network } from 'lucide-react';
 
+import { useFeedback } from './AdminFeedback';
+
 interface FranchiseJournal {
   id: string;
   city: string;
@@ -15,6 +17,7 @@ interface FranchiseJournal {
 }
 
 export function AdminFranchise() {
+  const notify = useFeedback();
   const [cityFilter, setCityFilter] = useState('');
 
   // Отмена «устаревшего» ответа флагом `active` больше не нужна: гонку между
@@ -53,19 +56,30 @@ export function AdminFranchise() {
             className="btn btn-outline btn-sm"
             onClick={async () => {
               if (!cityFilter) {
-                alert('Выберите город для анализа');
+                notify.toast('Выберите город для анализа', 'warning');
                 return;
               }
-              await fetch('/api/admin/bot-action', {
+              // Ответ сервера ЧИТАЕМ. Прежний код его игнорировал и всегда
+              // говорил «отправлено» — при том, что `analyze_franchise` нет
+              // в белом списке офиса (`ADMIN_BOT_ACTIONS`), а franchise_bot
+              // задач вообще не принимает: он планировщик сводок. Кнопка
+              // год обещала анализ, которого не было.
+              const res = await fetch('/api/admin/bot-action', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
                 body: JSON.stringify({
                   bot: 'franchise_bot',
                   action: 'analyze_franchise',
-                  params: { city: cityFilter }
-                })
+                  params: { city: cityFilter },
+                }),
               });
-              alert('Задача на анализ отправлена ИИ');
+              const data = await res.json().catch(() => null);
+              if (res.ok && data?.status !== 'error') {
+                notify.success('Задача на анализ отправлена ИИ');
+              } else {
+                notify.error(data?.error || `Офис не принял задачу (${res.status})`);
+              }
             }}
           >
             Анализ ИИ

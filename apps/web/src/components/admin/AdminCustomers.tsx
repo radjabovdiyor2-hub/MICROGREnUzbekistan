@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import { AdminCustomerTable } from './AdminCustomerTable';
 import { AdminCustomerEdit } from './AdminCustomerEdit';
 import { AdminCustomerCard } from './AdminCustomerCard';
@@ -23,8 +25,20 @@ export type { CustomerItem };
 export function AdminCustomers({
   lang,
   isOwner = true,
+  sellerName = 'Egasi',
+  focus = '',
 }: {
   lang: 'ru' | 'uz';
+  /** Кем подписывать чек, пробитый с точки на карте или из карточки. */
+  sellerName?: string;
+  /**
+   * Клиент из ссылки офиса (`?focus=`).
+   *
+   * Ссылки на него строят пять инструментов — от `add_customer` до
+   * `notify_customers`. Открываем его карточку сразу: человек пришёл по
+   * ссылке про конкретное заведение, а не «посмотреть список».
+   */
+  focus?: string;
   /**
    * Владелец видит правку и удаление, продавец — нет.
    *
@@ -35,6 +49,13 @@ export function AdminCustomers({
   isOwner?: boolean;
 }) {
   const s = useAdminCustomers();
+
+  // Ссылка привела к конкретному клиенту — открываем его карточку, а не
+  // список, в котором его ещё надо найти. До первого «назад»: дальше
+  // работает обычный выбор строкой.
+  const [dismissedFocus, setDismissedFocus] = useState('');
+  const focusedId = focus && focus !== dismissedFocus ? Number(focus) : NaN;
+  const openId = s.selectedId ?? (Number.isInteger(focusedId) ? focusedId : null);
 
   const editModal = (
     <AdminCustomerEdit
@@ -57,13 +78,17 @@ export function AdminCustomers({
 
   // Открыт клиент — показываем его карточку вместо списка. Тот же приём,
   // что у карточки заказа в AdminOrders.
-  if (s.selectedId !== null) {
+  if (openId !== null) {
     return (
       <>
         <AdminCustomerCard
-          customerId={s.selectedId}
+          customerId={openId}
           lang={lang}
-          onBack={() => s.setSelectedId(null)}
+          sellerName={sellerName}
+          onBack={() => {
+            s.setSelectedId(null);
+            if (focus) setDismissedFocus(focus);
+          }}
           onEdit={(c) => s.handleEditClick({
             id: c.id,
             name: c.name,
@@ -109,12 +134,18 @@ export function AdminCustomers({
       />
 
       {s.view === 'map' ? (
-        <AdminCustomerMap lang={lang} onOpenCard={s.setSelectedId} isOwner={isOwner} />
+        <AdminCustomerMap
+          lang={lang}
+          onOpenCard={s.setSelectedId}
+          isOwner={isOwner}
+          sellerName={sellerName}
+        />
       ) : (
         <>
           <AdminCustomerTable
             customers={s.customers}
             loading={s.loading}
+            focus={focus}
             lang={lang}
             handleEditClick={isOwner ? s.handleEditClick : undefined}
             onOpen={(c) => s.setSelectedId(c.id)}

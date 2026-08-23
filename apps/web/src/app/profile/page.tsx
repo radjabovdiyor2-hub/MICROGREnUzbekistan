@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useAuth } from '@/components/providers/AuthProvider';
@@ -11,7 +10,7 @@ import {
 import { motion } from 'framer-motion';
 
 const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
-import { SimpleRegisterForm, UserOrders } from './ProfileSections';
+import { UserOrders } from './ProfileSections';
 import { ReferralSection } from './ReferralSection';
 import { ProfileSettingsCard } from './ProfileSettingsCard';
 
@@ -19,7 +18,6 @@ export default function ProfilePage() {
   const { theme, toggleTheme } = useTheme();
   const { lang, setLang, t } = useLang();
   const { user, dbUser, isLoggedIn, logout, isLoading } = useAuth();
-  const [authTab, setAuthTab] = useState<'simple'|'telegram'>('simple');
 
   const memberSince = dbUser?.createdAt
     ? new Date(dbUser.createdAt).toLocaleDateString(lang === 'uz' ? 'uz-UZ' : 'ru-RU', { year: 'numeric', month: 'long' })
@@ -54,7 +52,7 @@ export default function ProfilePage() {
                   width: 72, height: 72, borderRadius: 'var(--radius-full)',
                   background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-accent))',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '28px', color: 'white', fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
+                  fontSize: '28px', color: 'var(--text-inverse)', fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)',
                 }}>
                   {user.first_name.charAt(0).toUpperCase()}
                 </div>
@@ -63,7 +61,7 @@ export default function ProfilePage() {
                 <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
                   {user.first_name} {user.last_name}
                   {dbUser?.role === 'ADMIN' && (
-                    <span style={{ fontSize: 10, background: 'var(--brand-primary)', color: 'white', padding: '2px 6px', borderRadius: 12, fontWeight: 800 }}>ADMIN</span>
+                    <span style={{ fontSize: 10, background: 'var(--brand-primary)', color: 'var(--text-inverse)', padding: '2px 6px', borderRadius: 12, fontWeight: 800 }}>ADMIN</span>
                   )}
                 </h2>
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
@@ -105,35 +103,29 @@ export default function ProfilePage() {
                 {t('Xush kelibsiz', 'Добро пожаловать')}
               </h2>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                {t('Kirish yoki ro\'yxatdan o\'tish', 'Войдите или зарегистрируйтесь')}
+                {t('Telegram orqali kiring', 'Войдите через Telegram')}
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-tertiary)', padding: '4px', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-4)' }}>
-              <button onClick={() => setAuthTab('simple')} style={{
-                flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
-                background: authTab === 'simple' ? 'var(--bg-card)' : 'transparent',
-                color: authTab === 'simple' ? 'var(--text-primary)' : 'var(--text-muted)',
-                boxShadow: authTab === 'simple' ? '0 1px 3px rgba(var(--overlay-dark-rgb), 0.1)' : 'none', transition: 'all 0.2s',
-              }}>{t("Tezkor", "Быстро")}</button>
-              <button onClick={() => setAuthTab('telegram')} style={{
-                flex: 1, padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: 'var(--text-xs)', fontWeight: 700,
-                background: authTab === 'telegram' ? 'var(--bg-card)' : 'transparent',
-                color: authTab === 'telegram' ? 'var(--text-primary)' : 'var(--text-muted)',
-                boxShadow: authTab === 'telegram' ? '0 1px 3px rgba(var(--overlay-dark-rgb), 0.1)' : 'none', transition: 'all 0.2s',
-              }}>Telegram</button>
+            {/* Дверь одна — Telegram.
+                Вкладка «Быстро» просила имя и телефон, но пароля и кода к
+                ним не было: зарегистрировавшись, человек НЕ МОГ войти
+                обратно никогда — сервер на знакомый телефон отвечал отказом.
+                Хуже того, экран всё равно показывал «вы вошли», подставляя
+                выдуманный id, и каждый следующий запрос получал 401.
+                Заказ при этом можно оформить и без аккаунта — об этом ниже. */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) 0' }}>
+              <TelegramLoginButton botName="Microgreenuzbekistan_bot" />
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center' }}>
+                {t("Telegram orqali xavfsiz kirish", "Безопасный вход через Telegram")}
+              </p>
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center' }}>
+                {t(
+                  "Buyurtma berish uchun ro'yxatdan o'tish shart emas. Kirish bonuslar va buyurtmalar tarixini saqlaydi.",
+                  'Чтобы заказать, регистрироваться не нужно. Вход сохраняет бонусы и историю заказов.',
+                )}
+              </p>
             </div>
-
-            {authTab === 'simple' ? (
-              <SimpleRegisterForm />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-3)', padding: 'var(--space-3) 0' }}>
-                <TelegramLoginButton botName="Microgreenuzbekistan_bot" />
-                <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', textAlign: 'center' }}>
-                  {t("Telegram orqali xavfsiz kirish", "Безопасный вход через Telegram")}
-                </p>
-              </div>
-            )}
           </>
         )}
       </motion.div>

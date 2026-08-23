@@ -6,7 +6,7 @@ import { AdminGrowingForm } from './AdminGrowingForm';
 import { AdminGrowingCards } from './AdminGrowingCards';
 import { useAdminGrowing } from './useAdminGrowing';
 
-export function AdminGrowing() {
+export function AdminGrowing({ focus = '' }: { focus?: string }) {
   const {
     showForm, setShowForm, cropType, setCropType, trays, setTrays, seedDate, setSeedDate,
     note, setNote, filter, setFilter, products, selectedProductId, setSelectedProductId, harvestQty,
@@ -119,6 +119,7 @@ export function AdminGrowing() {
       </div>
 
       <AdminGrowingCards
+        focus={focus}
         filtered={filtered}
         enriched={enriched}
         statusColors={statusColors}

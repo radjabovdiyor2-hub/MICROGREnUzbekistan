@@ -61,7 +61,7 @@ export function ResultCard({ result, onSend }: { result: CalcResult; onSend: (te
         )}
         <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
           <button onClick={() => onSend(`${text}\n\nMicrogreen katalogidan mos mahsulotlarni narxlari bilan tavsiya eting.`)}
-            style={{ flex: 1, padding: 9, borderRadius: 10, background: 'var(--brand-primary)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            style={{ flex: 1, padding: 9, borderRadius: 10, background: 'var(--brand-primary)', color: 'var(--text-inverse)', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
             <Sparkles size={12} /> AI maslahat
           </button>
           <button onClick={save} style={{ padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-secondary)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: saved ? 'var(--success)' : 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 
 import { useCart } from '@/components/providers/CartProvider';
@@ -22,7 +23,29 @@ export default function CartPage() {
   const { t } = useLang();
   const cart = useCart();
   const { city } = useCity();
-  const [step, setStep] = useState<Step>('cart');
+  // Шаг живёт в адресе, а не только в состоянии.
+  //
+  // Пока это было `useState`, «Назад» в браузере (на телефоне — смахивание,
+  // самый частый жест) уводил не на шаг назад, а со страницы целиком, теряя
+  // заполненную форму. А экран успеха нельзя было обновить: F5 показывал
+  // пустую корзину вместо номера заказа.
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const stepParam = searchParams.get('step');
+  const step: Step =
+    stepParam === 'checkout' || stepParam === 'success' ? stepParam : 'cart';
+
+  const setStep = useCallback(
+    (next: Step) => {
+      // `replace` для успеха, `push` для остальных: с экрана успеха «назад»
+      // должен уводить из оформления, а не возвращать в форму уже
+      // оплаченного заказа.
+      const url = next === 'cart' ? '/cart' : `/cart?step=${next}`;
+      if (next === 'success') router.replace(url);
+      else router.push(url);
+    },
+    [router],
+  );
   const [orderNumber, setOrderNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { dbUser } = useAuth();

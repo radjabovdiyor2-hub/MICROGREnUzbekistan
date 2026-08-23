@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { STATUS_CONFIG } from './adminInventoryConfig';
+import { tint } from '@/lib/tint';
 
 export function AdminInventory() {
   const [filter, setFilter] = useState('all');
@@ -49,7 +50,7 @@ export function AdminInventory() {
               { label: 'Qarzlar', value: `${fmt(summary.debtsOwedToUs)}`, icon: <CreditCard size={16} />, color: 'var(--info)' },
             ].map((stat, i) => (
               <div key={i} className="card" style={{ padding: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: `${stat.color}15`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: tint(stat.color), color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {stat.icon}
                 </div>
                 <div style={{ minWidth: 0 }}>

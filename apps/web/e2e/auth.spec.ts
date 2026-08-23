@@ -16,7 +16,15 @@ test.describe("Доступ в админку", () => {
     });
 
     test("API админки без сессии отвечает 401", async ({ request }) => {
-        for (const path of ["/api/admin/bots", "/api/admin/customers", "/api/admin/orders"]) {
+        for (const path of [
+            "/api/admin/bots",
+            "/api/admin/customers",
+            "/api/admin/orders",
+            // Разбор очереди зеркала в CRM: дверь для планировщика, но
+            // ходить в неё анониму нельзя — она шлёт данные о продажах
+            // наружу, в AI-офис.
+            "/api/inventory/cron/office-sync",
+        ]) {
             const res = await request.get(path);
             expect(res.status(), `${path} должен требовать авторизацию`).toBe(401);
         }

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Tag, Trash } from 'lucide-react';
 
+import { useFeedback } from './AdminFeedback';
+
 // Договорные цены клиента: то, по чём этот ресторан берёт товар.
 //
 // Раньше договорённость жила в памяти продавца — он правил цену в чеке при
@@ -29,6 +31,7 @@ interface ProductRow {
 const fmt = (n: number) => n.toLocaleString('ru-RU');
 
 export function AdminCustomerPrices({ customerId }: { customerId: number }) {
+  const notify = useFeedback();
   const qc = useQueryClient();
   const [productId, setProductId] = useState('');
   const [price, setPrice] = useState('');
@@ -80,6 +83,26 @@ export function AdminCustomerPrices({ customerId }: { customerId: number }) {
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
   });
 
+  /**
+   * Снять договорную цену. Спрашиваем: это молчаливое подорожание.
+   *
+   * Кнопка — иконка 14px в 30-пиксельном кружке, вплотную к строке цены.
+   * Промах убирал договорённость без единого слова, и следующая продажа
+   * этому ресторану уходила по прайсу — расхождение, которое всплывает
+   * через недели, когда клиент спросит, почему стало дороже.
+   */
+  const confirmRemove = async (row: {
+    id: string; price: number; product: { nameRu: string; price: number };
+  }) => {
+    const ok = await notify.confirm({
+      title: `Убрать договорную цену на «${row.product.nameRu}»?`,
+      detail: `Было ${fmt(row.price)}, станет ${fmt(row.product.price)} — клиенту начнут продавать по прайсу.`,
+      confirmText: 'Убрать',
+      danger: true,
+    });
+    if (ok) remove.mutate(row.id);
+  };
+
   const inputStyle = {
     padding: '8px 10px', border: '1.5px solid var(--border)', borderRadius: '8px',
     background: 'var(--bg-primary)', color: 'var(--text-primary)',
@@ -123,7 +146,7 @@ export function AdminCustomerPrices({ customerId }: { customerId: number }) {
                   {fmt(row.product.price)}
                 </div>
               </div>
-              <button onClick={() => remove.mutate(row.id)} className="btn btn-ghost btn-sm"
+              <button onClick={() => confirmRemove(row)} className="btn btn-ghost btn-sm"
                 style={{ color: 'var(--error)', width: 30, height: 30, padding: 0 }}>
                 <Trash size={14} />
               </button>

@@ -22,12 +22,11 @@ from aiogram.types import (
     CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    WebAppInfo,
 )
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
-from shared import approvals, tasks_repo
+from shared import admin_links, approvals, tasks_repo
 from shared import tools as tool_registry
 from shared.config import settings
 from shared.database import get_session_ctx
@@ -160,14 +159,16 @@ async def cmd_start(message: Message):
         await message.answer("⛔ Степан работает только с руководителем.")
         return
 
+    # Кнопка ведёт в АДМИНКУ, а не на корень магазина.
+    #
+    # Здесь стоял литерал "https://microgreenuzbekistan.com": владелец,
+    # нажав «Открыть офис», попадал на витрину для покупателей — и дальше
+    # искал вход в админку сам. Адрес теперь берётся из настроек тем же
+    # `admin_links`, что строит все остальные ссылки офиса, а вкладка
+    # «Сводка» — то, ради чего офис открывают с утра.
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🏢 Открыть офис (Web)",
-                    web_app=WebAppInfo(url="https://microgreenuzbekistan.com"),
-                ),
-            ],
+            [admin_links.tab_button("🏢 Открыть офис", "stats", message.chat.id)],
             [
                 InlineKeyboardButton(
                     text="📊 Отчёт за день", callback_data="st:report_daily"
@@ -538,12 +539,8 @@ async def back_to_menu(cb: CallbackQuery):
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🏢 Открыть офис (Web)",
-                    web_app=WebAppInfo(url="https://microgreenuzbekistan.com"),
-                ),
-            ],
+            # Тот же адрес, что и у /start: админка, а не витрина.
+            [admin_links.tab_button("🏢 Открыть офис", "stats", cb.message.chat.id)],
             [
                 InlineKeyboardButton(
                     text="📊 Отчёт за день", callback_data="st:report_daily"

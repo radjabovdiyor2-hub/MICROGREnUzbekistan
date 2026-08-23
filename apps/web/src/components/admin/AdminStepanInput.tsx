@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Mic, Send } from 'lucide-react';
 
+import { useFeedback } from './AdminFeedback';
+
 interface Props {
   input: string;
   setInput: (v: string | ((p: string) => string)) => void;
@@ -12,13 +14,17 @@ interface Props {
 }
 
 export function AdminStepanInput({ input, setInput, busy, send, t }: Props) {
+  const notify = useFeedback();
   const [isListening, setIsListening] = useState(false);
 
   const toggleListening = () => {
     if (isListening) { setIsListening(false); return; }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      alert(t('Ваш браузер не поддерживает голосовой ввод', "Brauzeringiz ovozli kiritishni qo'llab-quvvatlamaydi"));
+      notify.toast(
+        t('Ваш браузер не поддерживает голосовой ввод', "Brauzeringiz ovozli kiritishni qo'llab-quvvatlamaydi"),
+        'warning',
+      );
       return;
     }
     const r = new SR(); r.lang = 'ru-RU'; r.interimResults = false;

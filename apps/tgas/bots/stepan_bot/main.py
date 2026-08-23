@@ -28,7 +28,7 @@ from shared.database import get_session_ctx
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat, check_all_bots, format_health_report
-from shared.notifications import alert_admins
+from shared.notifications import alert_admins, send_report
 
 logging.basicConfig(
     level=logging.INFO,
@@ -566,6 +566,8 @@ async def bot_health_check(force: bool = False):
             await alert_admins(
                 _bot,
                 f"🚨 <b>АЛЕРТ: боты не отвечают!</b>\n\n{report}\n\n⚠️ Проверьте работу ботов!",
+                admin_tab="bot_health",
+                button_text="🩺 Здоровье ботов",
             )
             logger.warning("Боты не отвечают: %s", ", ".join(sorted(down)))
             # Второй канал: владелец мог сидеть в админке, а не в Telegram.
@@ -581,8 +583,21 @@ async def bot_health_check(force: bool = False):
                     message=report,
                     source="stepan_bot",
                 )
+                # Тема `bots` в перечислении витрины была объявлена и не
+                # публиковалась НИКЕМ: экран «Здоровье ботов» опрашивал
+                # сервер раз в две минуты, потому что сказать ему было
+                # некому. Падение бота — ровно тот случай, когда две минуты
+                # ожидания это много.
+                from shared import storefront_realtime
+
+                storefront_realtime.notify_later("bots")
         elif recovered and not down:
-            await alert_admins(_bot, f"✅ <b>Все боты снова онлайн</b>\n\n{report}")
+            await alert_admins(
+                _bot,
+                f"✅ <b>Все боты снова онлайн</b>\n\n{report}",
+                admin_tab="bot_health",
+                button_text="🩺 Здоровье ботов",
+            )
             from shared.owner_alerts import raise_alert, SEVERITY_INFO
 
             await raise_alert(
@@ -593,7 +608,7 @@ async def bot_health_check(force: bool = False):
                 source="stepan_bot",
             )
         elif force:
-            await alert_admins(_bot, report)
+            await alert_admins(_bot, report, admin_tab="bot_health", button_text="🩺 Здоровье ботов")
     except Exception as e:
         logger.warning(f"Ошибка проверки здоровья: {e}")
 
@@ -929,12 +944,14 @@ async def retry_stuck_tasks():
         # Молчать нельзя: если отдел не берёт задачу и со второго раза,
         # проблема не в доставке, и владелец должен об этом узнать.
         if admin_id and _bot and len(stuck) >= 5:
-            await _bot.send_message(
+            await send_report(
+                _bot,
                 admin_id,
                 f"🔁 <b>Переотправил {len(stuck)} зависших задач.</b>\n"
                 f"Если они повиснут снова — отдел их не берёт по существу, "
                 f"а не из-за доставки.",
-                parse_mode="HTML",
+                admin_tab="tasks",
+                button_text="📋 Задачи отделам",
             )
 
         # Исчерпавшие попытки надо назвать поимённо. Иначе задача просто
@@ -942,12 +959,18 @@ async def retry_stuck_tasks():
         # не обозначив: молчание тут неотличимо от «всё в порядке».
         if admin_id and _bot and exhausted:
             names = "\n".join(f"• #{t['id']} {t['title'][:60]}" for t in exhausted[:10])
-            await _bot.send_message(
+            # «Решите сами или удалите» — прямое требование действия, и до
+            # сих пор оно приходило без единого способа его выполнить:
+            # номера задач напечатаны, а открыть их нечем.
+            await send_report(
+                _bot,
                 admin_id,
                 f"🛑 <b>Больше не переотправляю ({len(exhausted)}):</b>\n{names}\n\n"
                 f"Попытки исчерпаны — отдел не берёт их по существу. "
                 f"Решите сами или удалите.",
-                parse_mode="HTML",
+                admin_tab="tasks",
+                focus=str(exhausted[0]["id"]) if len(exhausted) == 1 else None,
+                button_text="📋 Разобрать задачи",
             )
     except Exception as exc:
         logger.warning("Не смог переотправить зависшие задачи: %s", exc)
@@ -1552,6 +1575,13 @@ async def main():
     # scheduler.add_cron(name="daily_report", func=daily_report, hour=9, minute=30)  # Убрано в пользу n8n
     await scheduler.start()
     asyncio.create_task(start_heartbeat("stepan_bot"))
+
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "stepan_bot"))
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
 
     async def bus_get_tasks(params: dict) -> dict:
@@ -1705,6 +1735,10 @@ async def main():
         bus_listen(
             "stepan_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("stepan_bot"),
                 "get_tasks": bus_get_tasks,
                 "get_deadlines": bus_get_deadlines,
                 "force_learning_cycle": bus_force_learning_cycle,

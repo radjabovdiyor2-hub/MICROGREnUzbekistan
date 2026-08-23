@@ -17,19 +17,31 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const tx = {
   stockMovement: { create: vi.fn() },
   product: { update: vi.fn() },
-  posSale: { create: vi.fn(), findUnique: vi.fn() },
+  posSale: { create: vi.fn() },
+  officeOutbox: { upsert: vi.fn() },
 };
 
 const findMany = vi.fn();
+const originalSale = vi.fn();
 
 vi.mock('@repo/database', () => ({
   prisma: {
     stockMovement: { findMany: (...args: unknown[]) => findMany(...args) },
     product: { findMany: vi.fn(async () => [PRODUCT]) },
+    posSale: { findUnique: (...args: unknown[]) => originalSale(...args) },
     $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
   },
 }));
 
+// Тело зеркала собирается настоящее, отправка глушится — как в sale.test.
+vi.mock('@/lib/office/outbox', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/office/outbox')>()),
+  drainOffice: vi.fn(async () => ({ sent: 0, pending: 0 })),
+}));
+
+vi.mock('@/lib/audit', () => ({ audit: vi.fn() }));
+
+import { audit } from '@/lib/audit';
 import { processRefund } from './refund';
 
 const PRODUCT = { id: 'p1', nameUz: 'Frize', unit: 'кг', stock: 0, price: 15_000 };
@@ -56,8 +68,12 @@ beforeEach(() => {
   tx.stockMovement.create.mockResolvedValue({});
   tx.product.update.mockResolvedValue({});
   tx.posSale.create.mockResolvedValue({ id: 'refund-1' });
-  tx.posSale.findUnique.mockResolvedValue({ id: 'sale-1' });
+  tx.officeOutbox.upsert.mockResolvedValue({});
+  originalSale.mockResolvedValue({ id: 'sale-1', customerId: null, customer: null });
 });
+
+/** Тело, которое уедет в CRM офиса. */
+const mirror = () => tx.officeOutbox.upsert.mock.calls[0][0].create.payload;
 
 describe('дробный возврат', () => {
   it('возврат ровно проданного количества проходит', async () => {
@@ -138,5 +154,71 @@ describe('поиск исходной продажи', () => {
     // Ссылка внешним ключом, а не вхождением номера в текст причины.
     expect(head.refundOfId).toBe('sale-1');
     expect(tx.stockMovement.create.mock.calls[0][0].data.saleId).toBe('refund-1');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Возврат и клиент.
+//
+// Возврат не знал покупателя вовсе: шапка писалась без `customer_id`, а в
+// CRM офиса не уходила ни строкой. Деньги возвращали, товар принимали — а
+// в «Потрачено» клиента возврат оставался навсегда: счётчики карточки
+// считаются офисом по `crm_orders`, и там про возврат ничего не было.
+// ══════════════════════════════════════════════════════════════════════
+
+const RESTAURANT = {
+  id: 'sale-1',
+  customerId: 42,
+  customer: {
+    id: 42,
+    name: 'Азиз Каримов',
+    companyName: 'Плов Центр',
+    phone: '+998901234567',
+    address: 'ул. Регистан, 5',
+  },
+};
+
+describe('возврат помнит клиента', () => {
+  it('покупатель переносится из исходного чека в шапку возврата', async () => {
+    originalSale.mockResolvedValue(RESTAURANT);
+    ledger(2, 0);
+    await processRefund(request([{ productId: 'p1', quantity: 1, price: 15_000 }]));
+    expect(tx.posSale.create.mock.calls[0][0].data.customerId).toBe(42);
+  });
+
+  it('уходит в CRM отрицательной суммой и с id клиента', async () => {
+    originalSale.mockResolvedValue(RESTAURANT);
+    ledger(2, 0);
+    await processRefund(request([{ productId: 'p1', quantity: 1, price: 15_000 }]));
+
+    const body = mirror() as Record<string, unknown>;
+    expect(body.total_amount).toBe(-15_000);
+    expect((body.customer as Record<string, unknown>).customer_id).toBe(42);
+    // Количество тоже с минусом: иначе позиции возврата сложились бы в
+    // аналитике как проданные.
+    expect((body.items as { quantity: number }[])[0].quantity).toBe(-1);
+  });
+
+  it('частичный возврат вычитает только возвращённое', async () => {
+    originalSale.mockResolvedValue(RESTAURANT);
+    ledger(5, 0);
+    await processRefund(request([{ productId: 'p1', quantity: 2, price: 15_000 }]));
+    expect((mirror() as Record<string, unknown>).total_amount).toBe(-30_000);
+  });
+
+  it('пишется в журнал действий — он двигает и склад, и деньги', async () => {
+    ledger(2, 0);
+    await processRefund(request([{ productId: 'p1', quantity: 1, price: 15_000 }]));
+    const entry = (audit as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(entry.action).toBe('pos.refund');
+    expect(entry.meta.saleNumber).toBe(SALE);
+  });
+
+  it('обещание отзеркалить пишется в той же транзакции', async () => {
+    ledger(2, 0);
+    await processRefund(request([{ productId: 'p1', quantity: 1, price: 15_000 }]));
+    const call = tx.officeOutbox.upsert.mock.calls[0][0];
+    expect(call.where.refKey).toMatch(/^R-/);
+    expect(call.create.topic).toBe('order');
   });
 });

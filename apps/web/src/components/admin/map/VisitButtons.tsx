@@ -6,7 +6,8 @@ import { Check, RefreshCw } from 'lucide-react';
 
 import { VISIT_NOTE_MAX, VISIT_OUTCOMES, lastVisitLabel } from '@/lib/customers/visits';
 
-import { useVisitQueue } from './useVisitQueue';
+import { markVisit } from './markVisit';
+import type { useVisitQueue } from './useVisitQueue';
 
 // ══════════════════════════════════════════════════════════════════════
 // «Съездил — отметь»: четыре кнопки прямо в панели точки.
@@ -22,6 +23,15 @@ interface Props {
   lang: 'ru' | 'uz';
   /** Дней с прошлого визита. null — не были ни разу. */
   lastVisitDays: number | null;
+  /**
+   * Очередь отметок — ОДНА на панель.
+   *
+   * Раньше хук поднимался здесь. После появления продажи с точки отметок
+   * стало две (кнопка и автоматическая после чека), и два экземпляра
+   * очереди начали бы разбирать одно хранилище наперегонки — то есть
+   * отправлять одну и ту же отметку дважды.
+   */
+  queue: ReturnType<typeof useVisitQueue>;
 }
 
 const text = {
@@ -35,42 +45,21 @@ const text = {
   waiting: { ru: 'ждут связи', uz: 'aloqa kutmoqda' },
 };
 
-export function VisitButtons({ customerId, lang, lastVisitDays }: Props) {
+export function VisitButtons({ customerId, lang, lastVisitDays, queue }: Props) {
   const queryClient = useQueryClient();
-  const queue = useVisitQueue();
   const [note, setNote] = useState('');
   const [done, setDone] = useState<'sent' | 'queued' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const mark = useMutation({
-    mutationFn: async (type: string) => {
-      let res: Response;
-      try {
-        res = await fetch('/api/admin/customers/visits', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ customerId, type, note, visitedAt: Date.now() }),
-        });
-      } catch {
-        // Связи нет — не теряем отметку. Человек уже съездил, и терять
-        // именно ту запись, ради которой он ехал, нельзя.
-        queue.remember({ customerId, type, note });
-        return { queued: true } as const;
-      }
-
-      // Отказ сервера (400, 403) — это не «нет связи»: повторять его в
-      // очереди бессмысленно, отметка негодна, и человек должен узнать.
-      if (!res.ok) {
-        const body = await res.json().catch(() => null);
-        throw new Error(body?.error || 'Не удалось отметить визит');
-      }
-      return { queued: false } as const;
-    },
-    onSuccess: (result) => {
-      setDone(result.queued ? 'queued' : 'sent');
+    // Отправка и правило «связи нет — запомнить, отказ — сказать» общие с
+    // автоматической отметкой после продажи (markVisit).
+    mutationFn: (type: string) => markVisit({ customerId, type, note }, queue),
+    onSuccess: (state) => {
+      setDone(state);
       setNote('');
       setError(null);
-      if (result.queued) return;
+      if (state === 'queued') return;
       // Карта и карточка обязаны увидеть «были сегодня»: без этого точка
       // осталась бы неотмеченной до следующего опроса раз в минуту.
       queryClient.invalidateQueries({ queryKey: ['admin-customers-map'] });

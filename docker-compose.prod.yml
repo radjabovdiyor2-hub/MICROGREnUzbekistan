@@ -377,6 +377,15 @@ services:
       BOT_SECRET: ${BOT_SECRET:-}
       # Степан-менеджер (@MG_PM1_bot) — для уведомлений о заказах
       STEPAN_BOT_TOKEN: ${STEPAN_BOT_TOKEN:-}
+    volumes:
+      # Всё, что бот хранит файлами: избранное и запасная копия корзин.
+      #
+      # Тома не было, и `apps/bot/data/` жил внутри контейнера — то есть
+      # избранное пропадало при КАЖДОМ деплое. Про корзины это уже знали
+      # (комментарий про REDIS_URL выше), но лечили только их: Redis корзину
+      # спас, а избранное файловое, и его никто не спасал. Клиент собирал
+      # список любимых товаров и терял его на следующий push в main.
+      - bot_data:/app/data
     depends_on:
       web:
         condition: service_started
@@ -531,6 +540,7 @@ services:
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
 
 volumes:
+  bot_data:
   pg_data:
   redis_data:
   bus_tasks:

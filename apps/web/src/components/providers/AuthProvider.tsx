@@ -31,9 +31,8 @@ interface AuthState {
   dbUser: { id: string; bonusPoints: number; role: string; createdAt: string; referralCode?: string; phone?: string } | null;
   isLoading: boolean;
   login: (tgUser: TelegramUser) => Promise<boolean>;
-  simpleLogin: (name: string, phone: string) => Promise<boolean>;
   webAppLogin: (initData: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoggedIn: boolean;
 }
 
@@ -42,9 +41,8 @@ const AuthContext = createContext<AuthState>({
   dbUser: null,
   isLoading: true,
   login: async () => false,
-  simpleLogin: async () => false,
   webAppLogin: async () => false,
-  logout: () => {},
+  logout: async () => {},
   isLoggedIn: false,
 });
 
@@ -108,46 +106,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
 
-  // Simple registration (name + phone, no verification)
-  const simpleLogin = useCallback(async (name: string, phone: string): Promise<boolean> => {
-    const nameParts = name.trim().split(' ');
-    const simpleUser: SimpleUser = {
-      id: `local-${Date.now()}`,
-      first_name: nameParts[0] || name,
-      last_name: nameParts.slice(1).join(' ') || undefined,
-      phone,
-      auth_date: Math.floor(Date.now() / 1000),
-      hash: 'simple-auth',
-      isSimple: true,
-    };
-
-    try {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), phone: phone.trim() }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          simpleUser.id = data.user?.id || simpleUser.id;
-          setUser(simpleUser);
-          setDbUser(data.user || null);
-          localStorage.setItem('Microgreen-user', JSON.stringify(simpleUser));
-          if (data.user) localStorage.setItem('Microgreen-db-user', JSON.stringify(data.user));
-          return true;
-        }
-      }
-    } catch {
-      // fallback — save locally
-    }
-
-    setUser(simpleUser);
-    localStorage.setItem('Microgreen-user', JSON.stringify(simpleUser));
-    return true;
-  }, []);
-
   // Telegram Mini App login — validate WebApp.initData server-side.
   const webAppLogin = useCallback(async (initData: string): Promise<boolean> => {
     try {
@@ -181,7 +139,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return false;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Куки гасит СЕРВЕР: она httpOnly, из JS её не достать. Раньше выход
+    // чистил только localStorage — экран показывал «вы вышли», а сессия
+    // на тридцать суток продолжала жить, и следующий заказ уходил на тот
+    // же аккаунт.
+    try {
+      await fetch('/api/auth/session', { method: 'DELETE' });
+    } catch {
+      // Сеть отвалилась — локальное состояние всё равно чистим, иначе
+      // человек останется на экране, который врёт, что он внутри.
+    }
     setUser(null);
     setDbUser(null);
     localStorage.removeItem('Microgreen-user');
@@ -189,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, dbUser, isLoading, login, simpleLogin, webAppLogin, logout, isLoggedIn: !!user }}>
+    <AuthContext.Provider value={{ user, dbUser, isLoading, login, webAppLogin, logout, isLoggedIn: !!user }}>
       {children}
     </AuthContext.Provider>
   );

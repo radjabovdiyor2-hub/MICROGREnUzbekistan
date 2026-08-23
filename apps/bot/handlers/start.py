@@ -7,6 +7,9 @@ import logging
 import httpx
 
 from services.config_service import fetch_site_config
+from shared.i18n import t
+from services.lang_storage import lang_of
+
 
 router = Router()
 
@@ -47,91 +50,99 @@ async def cmd_start(message: Message):
             logging.debug(f"Referral processing failed: {e}")
     
     # Fetch dynamic config from API
+    lang = lang_of(message)
     config = await fetch_site_config()
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="⚡ Do'konni ochish / Открыть магазин", web_app=WebAppInfo(url=WEB_APP_URL)),
+            InlineKeyboardButton(text=t("btn.open_shop", lang), web_app=WebAppInfo(url=WEB_APP_URL)),
         ],
         [
-            InlineKeyboardButton(text="🤖 AI yordamchi / Спросить AI", callback_data="agronomist"),
-            InlineKeyboardButton(text="🍽️ Retseptlar / Рецепты", callback_data="menu:recipes"),
+            # Каталог ВНУТРИ бота.
+            #
+            # Из `/start` в него было не попасть: единственной дверью в
+            # покупку стояла кнопка WebApp, то есть мини-приложение сайта.
+            # Весь магазин на кнопках — сетка, карточки, корзина — открывался
+            # только если знать команду `/shop`, о которой нигде не сказано.
+            # Клиент без желания открывать веб-вью просто не находил, где
+            # купить.
+            InlineKeyboardButton(text=t("btn.catalog", lang), callback_data="shop:categories"),
+            InlineKeyboardButton(text=t("btn.cart", lang), callback_data="cart:view"),
         ],
         [
-            InlineKeyboardButton(text="📋 Buyurtmalar / Заказы", callback_data="menu:orders"),
-            InlineKeyboardButton(text="❤️ Sevimlilar / Избранное", callback_data="menu:favorites"),
+            InlineKeyboardButton(text=t("btn.ai", lang), callback_data="agronomist"),
+            InlineKeyboardButton(text=t("btn.recipes", lang), callback_data="menu:recipes"),
         ],
         [
-            InlineKeyboardButton(text="🎁 Bonuslar / Бонусы", callback_data="menu:bonuses"),
-            InlineKeyboardButton(text="🎮 O'ynash / Играть", url=f"https://t.me/{config.social.telegram_bot.rstrip('/').split('/')[-1]}/game"),
+            InlineKeyboardButton(text=t("btn.orders", lang), callback_data="menu:orders"),
+            InlineKeyboardButton(text=t("btn.favorites", lang), callback_data="menu:favorites"),
         ],
         [
-            InlineKeyboardButton(text="📢 Kanal / Канал", url=config.social.telegram_channel),
-            InlineKeyboardButton(text="💬 Chat / Чат", url=config.social.telegram_group),
+            InlineKeyboardButton(text=t("btn.bonuses", lang), callback_data="menu:bonuses"),
+            InlineKeyboardButton(text=t("btn.game", lang), url=f"https://t.me/{config.social.telegram_bot.rstrip('/').split('/')[-1]}/game"),
+        ],
+        [
+            InlineKeyboardButton(text=t("btn.channel", lang), url=config.social.telegram_channel),
+            InlineKeyboardButton(text=t("btn.chat", lang), url=config.social.telegram_group),
         ]
     ])
     
     await message.answer(
-        f"🌱 <b>Salom! Men {config.hero_title} AI yordamchisiman!</b>\n"
-        f"🇷🇺 <b>Привет! Я AI-помощник {config.hero_title}!</b>\n\n"
-        f"Sizga yangi mikroko'katlar tanlash va buyurtma berishda yordam beraman. "
-        f"(Помогу выбрать свежую микрозелень и оформить заказ)\n\n"
-        f"<b>Bizda nima bor (Что у нас есть):</b>\n"
-        "• 🌿 <b>Do'kon / Магазин</b> — mikroko'katlar, beybi-list, salatlar\n"
-        "• 🤖 <b>AI yordamchi</b> — tanlash, retseptlar, buyurtma / выбор, рецепты, заказ\n"
-        "• 🎮 <b>Farm Simulator</b> — o'ynang va chegirmalar oling! / играй и получай скидки!\n\n"
-        f"🎁 <i>Bepul yetkazib berish / Бесплатная доставка от {config.free_delivery_threshold:,} so'm!</i>\n\n"
-        "👇 <b>Nimadan boshlaymiz? / С чего начнём?</b>",
+        t(
+            "start.greeting",
+            lang,
+            title=config.hero_title,
+            threshold=f"{config.free_delivery_threshold:,}",
+        ),
         reply_markup=keyboard
     )
 
 
 @router.message(Command("help"))
 async def cmd_help(message: Message):
+    lang = lang_of(message)
     config = await fetch_site_config()
     
     await message.answer(
-        "📖 <b>Команды бота:</b>\n\n"
-        "/start — Главное меню\n"
-        "/catalog — Каталог товаров\n"
-        "/search — Поиск товаров\n"
-        "/orders — Мои заказы\n"
-        "/ai — Спросить AI-помощника\n"
-        "/game — Farm Simulator\n"
-        "/magazine — Журнал FRESH WEEKLY\n"
-        "/delivery — Условия доставки\n"
-        "/contacts — Контакты\n"
-        "/help — Помощь\n\n"
-        f"📞 Телефон: {config.contact_phone}\n"
-        f"📧 Email: {config.contact_email}\n\n"
-        f"📢 Канал: {config.social.telegram_channel}\n"
-        f"👥 Группа: {config.social.telegram_group}"
+        t(
+            "help.body",
+            lang,
+            phone=config.contact_phone,
+            email=config.contact_email,
+            channel=config.social.telegram_channel,
+            group=config.social.telegram_group,
+        )
     )
 
 
 @router.message(Command("contacts"))
 async def cmd_contacts(message: Message):
+    lang = lang_of(message)
     config = await fetch_site_config()
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📢 Канал", url=config.social.telegram_channel),
-            InlineKeyboardButton(text="👥 Группа", url=config.social.telegram_group),
+            InlineKeyboardButton(text=t("btn.channel", lang), url=config.social.telegram_channel),
+            InlineKeyboardButton(text=t("btn.group", lang), url=config.social.telegram_group),
         ],
         [
             InlineKeyboardButton(text="📸 Instagram", url=config.social.instagram),
         ],
         [
-            InlineKeyboardButton(text="📞 Позвонить", url=f"tel:{config.contact_phone.replace(' ', '')}"),
+            InlineKeyboardButton(text=t("btn.call", lang), url=f"tel:{config.contact_phone.replace(' ', '')}"),
         ],
     ])
     
     await message.answer(
-        f"📞 <b>Контакты {config.hero_title}</b>\n\n"
-        f"📱 Телефон: {config.contact_phone}\n"
-        f"📧 Email: {config.contact_email}\n\n"
-        f"🚚 Доставка: {config.delivery_fee:,} сум\n"
-        f"🎁 Бесплатно от: {config.free_delivery_threshold:,} сум",
+        t(
+            "contacts.body",
+            lang,
+            title=config.hero_title,
+            phone=config.contact_phone,
+            email=config.contact_email,
+            fee=f"{config.delivery_fee:,}",
+            threshold=f"{config.free_delivery_threshold:,}",
+        ),
         reply_markup=keyboard
     )
 
@@ -139,15 +150,16 @@ async def cmd_contacts(message: Message):
 @router.message(Command("game"))
 async def cmd_game(message: Message):
     """Open Farm Simulator — listed in BotFather commands"""
+    lang = lang_of(message)
     config = await fetch_site_config()
     bot_username = config.social.telegram_bot.rstrip('/').split('/')[-1]
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🎮 Играть сейчас", url=f"https://t.me/{bot_username}/game"),
+            InlineKeyboardButton(text=t("btn.play_now", lang), url=f"https://t.me/{bot_username}/game"),
         ],
         [
-            InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main"),
+            InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main"),
         ],
     ])
     
@@ -155,10 +167,7 @@ async def cmd_game(message: Message):
         # Курса GreenCoins к скидке нет ни в одном роуте: обмена монет на
         # баллы в коде не существует. Обещание «1000 = 10 000 сум» держалось
         # только на этой строке, поэтому цифры убраны.
-        "🎮 <b>Farm Simulator</b>\n\n"
-        "Выращивай виртуальные растения и зарабатывай GreenCoins!\n\n"
-        "🔥 Заходи каждый день для бонуса streak!\n\n"
-        "👇 Нажми чтобы играть:",
+        t("game.intro", lang),
         reply_markup=keyboard
     )
 
@@ -166,8 +175,9 @@ async def cmd_game(message: Message):
 @router.message(Command("health"))
 async def cmd_health(message: Message):
     """Quick health check — reports bot uptime, API status, menu button URL."""
+    lang = lang_of(message)
     if message.from_user.id not in ADMIN_IDS:
-        await message.answer("⛔ Только для администраторов.")
+        await message.answer(t("admin.only", lang))
         return
 
     uptime_sec = int(time.time() - _start_time)

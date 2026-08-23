@@ -7,6 +7,8 @@ from aiogram.types import URLInputFile
 
 from keyboards.magazine import magazine_keyboard
 from services.config_service import fetch_site_config
+from services.lang_storage import lang_of
+from shared.i18n import t
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -39,9 +41,20 @@ ISSUE_SLUG = os.getenv("MAGAZINE_ISSUE_SLUG", "shakar-01")
 def get_issue_pdf_url() -> str:
     return f"{SITE_URL}/magazine/{ISSUE_SLUG}.pdf"
 
+
+def get_issue_cover_url() -> str:
+    """Обложка номера — рядом с его вёрсткой, по тому же слагу.
+
+    В `inline.py` стоял адрес `/magazine/img/cover.png`. Этой картинки в
+    репозитории нет: каталог `magazine/img/` пуст. Телеграм не показывает
+    превью, которое не смог забрать, — карточка пересылки выходила голой.
+    """
+    return f"{SITE_URL}/magazine/{ISSUE_SLUG}/{ISSUE_SLUG}-cover.jpg"
+
 @router.message(Command("magazine"))
 async def cmd_magazine(message: types.Message):
     """Handler for the /magazine command."""
+    lang = lang_of(message)
     issue_number = 2
     text = (
         f"🌟 <b>FRESH WEEKLY — Выпуск #{issue_number}</b>\n\n"
@@ -54,7 +67,7 @@ async def cmd_magazine(message: types.Message):
     )
     
     config = await fetch_site_config()
-    keyboard = magazine_keyboard(issue_number, config.magazine_print_price)
+    keyboard = magazine_keyboard(issue_number, config.magazine_print_price, lang)
 
     # Обложка отдельным файлом не носится по той же причине, что и PDF: в
     # образе бота её нет. Текст с кнопками — это ровно то, что владелец видел
@@ -65,14 +78,15 @@ async def cmd_magazine(message: types.Message):
 @router.callback_query(F.data.startswith("mag_pdf_"))
 async def handle_magazine_pdf(callback: types.CallbackQuery):
     """Отправляет PDF-файл журнала."""
+    lang = lang_of(callback)
     issue_number = int(callback.data.split("_")[-1])
     pdf_url = get_issue_pdf_url()
 
-    await callback.answer("📄 Отправляю PDF...")
+    await callback.answer(t("magazine.sending_pdf", lang))
     try:
         await callback.message.answer_document(
             document=URLInputFile(pdf_url, filename=f"FRESH_WEEKLY_0{issue_number}.pdf"),
-            caption=f"📖 <b>FRESH WEEKLY — Выпуск #{issue_number}</b>\n12 страниц о микрозелени, ресторанах и рецептах!",
+            caption=t("magazine.pdf_caption", lang, number=issue_number),
         )
     except TelegramAPIError:
         # Telegram не смог забрать файл (лимит 20 МБ, сайт недоступен, 404).
@@ -80,13 +94,14 @@ async def handle_magazine_pdf(callback: types.CallbackQuery):
         # должно быть видно в логе, а не превращаться в «читайте онлайн».
         logger.exception("Не удалось отправить PDF номера: %s", pdf_url)
         await callback.message.answer(
-            f"PDF не отдался. Номер целиком открыт онлайн: {SITE_URL}/magazine"
+            t("magazine.pdf_failed", lang, url=f"{SITE_URL}/magazine")
         )
 
 
 @router.callback_query(F.data.startswith("mag_print_"))
 async def handle_magazine_print_order(callback: types.CallbackQuery):
     """Заказ печатной версии → создаёт заявку через EventBus."""
+    lang = lang_of(callback)
     issue_number = callback.data.split("_")[-1]
     user = callback.from_user
     
@@ -96,12 +111,14 @@ async def handle_magazine_print_order(callback: types.CallbackQuery):
     price = f"{config.magazine_print_price:,}".replace(",", " ")
 
     await callback.message.answer(
-        f"📝 <b>Заявка на печатную версию (Выпуск #{issue_number})</b>\n\n"
-        f"Стоимость: {price} сум (включает доставку по Самарканду).\n\n"
-        "📞 Для оформления свяжитесь с нами:\n"
-        "• Telegram: @microgreen_uz\n"
-        f"• Телефон: {config.contact_phone}\n\n"
-        f"<i>Ваша заявка зафиксирована. Наш менеджер скоро с вами свяжется! Имя: {user.full_name}</i>"
+        t(
+            "magazine.print_request",
+            lang,
+            number=issue_number,
+            price=price,
+            phone=config.contact_phone,
+            name=user.full_name,
+        )
     )
     await callback.answer()
     

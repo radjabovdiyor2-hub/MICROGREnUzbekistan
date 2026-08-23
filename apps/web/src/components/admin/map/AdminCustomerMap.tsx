@@ -45,9 +45,11 @@ interface Props {
   onOpenCard: (id: number) => void;
   /** Пакетный геокодер и правка карточки — только владельцу. */
   isOwner: boolean;
+  /** Кем подписывать чек, пробитый прямо с точки. */
+  sellerName: string;
 }
 
-export function AdminCustomerMap({ lang, onOpenCard, isOwner }: Props) {
+export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Props) {
   const m = useCustomerMap();
   const route = useDayRoute();
   // `unplaced` уехал в MapSidebar вместе со строкой «на карте N из M».
@@ -196,7 +198,14 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner }: Props) {
           )}
         </div>
 
-        <MapSidebar lang={lang} m={m} route={route} onOpenCard={onOpenCard} isOwner={isOwner} />
+        <MapSidebar
+          lang={lang}
+          m={m}
+          route={route}
+          onOpenCard={onOpenCard}
+          isOwner={isOwner}
+          sellerName={sellerName}
+        />
       </div>
     </div>
   );

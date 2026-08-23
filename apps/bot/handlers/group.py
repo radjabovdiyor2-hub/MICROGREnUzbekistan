@@ -16,6 +16,8 @@ import re
 from services.crosspost_service import welcome_to_group
 from services.ai_service import get_ai_response
 from services.config_service import fetch_site_config
+from services.lang_storage import lang_of
+from shared.i18n import t
 import logging
 
 router = Router()
@@ -45,6 +47,7 @@ async def cmd_chatid(message: Message):
 @router.message(F.chat.type.in_({"group", "supergroup"}), F.photo)
 async def handle_group_photo(message: Message):
     """Encourage plant photo diagnosis"""
+    lang = lang_of(message)
     
     # Check if photo has plant-related caption
     caption = (message.caption or "").lower()
@@ -52,9 +55,7 @@ async def handle_group_photo(message: Message):
     
     if any(word in caption for word in plant_words):
         await message.reply(
-            "📸 Нужна помощь?\n\n"
-            "Напишите боту @Microgreenuzbekistan_bot\n"
-            "AI-помощник подберёт микрозелень и оформит заказ! 🌱"
+            t("group.photo_hint", lang)
         )
 
 
@@ -132,6 +133,7 @@ async def _is_addressed(message: Message) -> bool:
 @router.message(F.chat.type.in_({"group", "supergroup"}))
 async def handle_group_message(message: Message):
     """Handle messages in group - FAQ and AI routing (только по прямому обращению)."""
+    lang = lang_of(message)
     # Log group message for debugging
     logger.info(f"📢 GROUP: chat_id={message.chat.id}, title='{message.chat.title}', from={message.from_user.id}")
 
@@ -171,8 +173,7 @@ async def handle_group_message(message: Message):
             
             if response:
                 await message.reply(
-                    f"🤖 <b>AI-помощник:</b>\n\n{response}\n\n"
-                    f"💬 Больше вопросов? @Microgreenuzbekistan_bot"
+                    t("group.ai_reply", lang, answer=response)
                 )
         except Exception as e:
             # Fallback if AI fails. Пользователю — честное «недоступен», но и
@@ -180,7 +181,6 @@ async def handle_group_message(message: Message):
             # клиент просто перестаёт получать ответы.
             logger.error("AI-помощник не ответил в группе: %s", e, exc_info=True)
             await message.reply(
-                "🤖 AI-помощник временно недоступен.\n"
-                "Напишите напрямую боту: @Microgreenuzbekistan_bot"
+                t("group.ai_unavailable", lang)
             )
 

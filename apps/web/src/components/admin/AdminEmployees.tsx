@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Clock, Edit, Plus, Trash, User,
+  Clock, Edit, Plus, Send, Trash, User,
 } from 'lucide-react';
+import { AdminNotice } from './AdminNotice';
+import { useFeedback } from './AdminFeedback';
 import { CITIES, DEPARTMENTS, EMPLOYEE_ROLES, employeeRoleLabel } from './employeeOptions';
 
 interface Employee {
@@ -14,6 +16,8 @@ interface Employee {
   role: string;
   department: string | null;
   city: string | null;
+  /** Строкой, а не числом: BigInt не переживает JSON. */
+  telegramId: string | null;
   isActive: boolean;
   todaySalesCount: number;
   todayRevenue: number;
@@ -21,6 +25,7 @@ interface Employee {
 
 const EMPTY_EMPLOYEE = {
   name: '', pin: '', phone: '', role: 'seller', department: '', city: 'samarqand',
+  telegramId: '',
 };
 
 /** Цвет плашки должности. Агроном — зелёный теплицы, а не кассы. */
@@ -30,10 +35,13 @@ const ROLE_TONE: Record<string, { bg: string; fg: string }> = {
 };
 
 export function AdminEmployees() {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_EMPLOYEE);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   const { data: employees = [], isLoading: loading } = useQuery<Employee[]>({
     queryKey: ['admin-employees'],
@@ -50,6 +58,9 @@ export function AdminEmployees() {
 
   const handleSave = async () => {
     if (!form.name || (!editId && !form.pin)) return;
+    if (saving) return;
+    setSaving(true);
+    setError('');
     try {
       const method = editId ? 'PUT' : 'POST';
       const body = editId ? { id: editId, ...form } : form;
@@ -58,21 +69,47 @@ export function AdminEmployees() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
         setShowAdd(false);
         setEditId(null);
         setForm(EMPTY_EMPLOYEE);
         fetch_();
-      } else {
-        alert(data.error || 'Xatolik');
+        return;
       }
-    } catch (err) { console.error(err); }
+      setError(data?.error || `Server ${res.status}`);
+    } catch {
+      // Сетевой отказ уходил в консоль, и форма просто оставалась открытой:
+      // человек не знал, сохранилось или нет, и жал «Сохранить» ещё раз.
+      setError("Tarmoq xatosi — qayta urinib ko'ring");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
-    await fetch(`/api/inventory/employees?id=${id}`, { method: 'DELETE' });
+  /**
+   * Увольнение. Вопрос называет человека и последствие.
+   *
+   * Было «O'chirishni tasdiqlaysizmi?» — ни имени, ни того, что уходит
+   * вместе с карточкой. Две кнопки по 28 пикселей стоят в четырёх
+   * пикселях друг от друга, и правая из них — эта.
+   */
+  const handleDelete = async (emp: Employee) => {
+    const ok = await notify.confirm({
+      title: `«${emp.name}» ro'yxatdan o'chirilsinmi?`,
+      detail: "Uning PIN kodi ishlamay qoladi. Smenalar va sotuvlar tarixi saqlanadi.",
+      confirmText: "O'chirish",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setError('');
+    const res = await fetch(`/api/inventory/employees?id=${emp.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setError(body?.error || `Server ${res.status}`);
+      return;
+    }
     fetch_();
   };
 
@@ -88,6 +125,8 @@ export function AdminEmployees() {
           <Plus size={14} /> Yangi xodim
         </button>
       </div>
+
+      <AdminNotice>{error}</AdminNotice>
 
       {/* Add/Edit Form */}
       {showAdd && (
@@ -117,9 +156,19 @@ export function AdminEmployees() {
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>
               {CITIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
+            {/* Telegram ID: по нему сотрудник входит в кассу из бота одним
+                касанием, без PIN. Колонка была в базе с самого начала и
+                оставалась пустой — заполнить её было негде. */}
+            <input placeholder="Telegram ID (kassaga PINsiz kirish)"
+              value={form.telegramId}
+              onChange={e => setForm(f => ({ ...f, telegramId: e.target.value.replace(/\D/g, '') }))}
+              inputMode="numeric"
+              style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-            <button onClick={handleSave} className="btn btn-primary btn-sm">Saqlash</button>
+            <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
+              {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+            </button>
             <button onClick={() => { setShowAdd(false); setEditId(null); }} className="btn btn-ghost btn-sm">Bekor</button>
           </div>
         </div>
@@ -153,14 +202,21 @@ export function AdminEmployees() {
                       {employeeRoleLabel(emp.role)}
                     </span>
                     {emp.phone && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{emp.phone}</span>}
+                    {/* Видно сразу, кому не надо вбивать PIN на морозе. */}
+                    {emp.telegramId && (
+                      <span title="Входит из Telegram без PIN"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: '10px', fontWeight: 'var(--font-bold)', color: 'var(--info)' }}>
+                        <Send size={10} /> Telegram
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => { setEditId(emp.id); setForm({ name: emp.name, pin: '', phone: emp.phone || '', role: emp.role, department: emp.department || '', city: emp.city || 'samarqand' }); setShowAdd(true); }}
+                  <button onClick={() => { setEditId(emp.id); setForm({ name: emp.name, pin: '', phone: emp.phone || '', role: emp.role, department: emp.department || '', city: emp.city || 'samarqand', telegramId: emp.telegramId || '' }); setShowAdd(true); }}
                     className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0 }}>
                     <Edit size={14} />
                   </button>
-                  <button onClick={() => handleDelete(emp.id)}
+                  <button onClick={() => handleDelete(emp)}
                     className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0, color: 'var(--error)' }}>
                     <Trash size={14} />
                   </button>

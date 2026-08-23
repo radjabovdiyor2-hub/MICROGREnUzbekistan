@@ -1,8 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@repo/database';
+import { audit } from '@/lib/audit';
+import { detach } from '@/lib/background';
+import { drainOffice, enqueueOffice } from '@/lib/office/outbox';
+import { posRefundIngestBody } from '@/lib/orders/notify';
 import { cartTotal, formatQty, formatQtyWithUnit, isValidQty, lineTotal, normalizeQty } from '@/lib/qty';
 import { formatLocalDate } from '@/lib/revenue/salesLedger';
+import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 /**
  * Допуск при сверке количеств.
@@ -105,6 +110,22 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
   }
   const alreadyReturned = await refundedQuantities(saleNumber);
 
+  // ── Чей это был чек ────────────────────────────────────────────────
+  //
+  // Возврат не знал покупателя вовсе: шапка писалась без `customer_id`, а в
+  // CRM не уходила ни строкой. Деньги возвращали, но в «Потрачено» клиента
+  // они оставались навсегда — карточка показывала покупки, которых нет.
+  const original = await prisma.posSale.findUnique({
+    where: { number: saleNumber },
+    select: {
+      id: true,
+      customerId: true,
+      customer: {
+        select: { id: true, name: true, companyName: true, phone: true, address: true },
+      },
+    },
+  });
+
   // Validate products exist
   const productIds = items.map((i: { productId: string }) => i.productId);
   const products = await prisma.product.findMany({
@@ -151,10 +172,6 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
     // Шапка возврата. Ссылка на исходную продажу — внешним ключом, а не
     // вхождением номера в текст: сверка «вернули не больше проданного»
     // держалась на подстроке.
-    const original = await tx.posSale.findUnique({
-      where: { number: saleNumber },
-      select: { id: true },
-    });
     const refundSale = await tx.posSale.create({
       data: {
         number: returnNumber,
@@ -166,6 +183,9 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
         total: totalRefund,
         reason: reason || null,
         refundOfId: original?.id ?? null,
+        // Покупатель переносится из исходного чека: возврат касается того же
+        // клиента, и спрашивать его заново незачем.
+        customerId: original?.customerId ?? null,
       },
     });
 
@@ -199,7 +219,48 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
         data: { stock: { increment: Math.abs(item.quantity) } },
       });
     }
+
+    // Зеркало возврата — в той же транзакции, что и сам возврат. Уходит
+    // ОТРИЦАТЕЛЬНОЙ суммой, а не отменой исходного чека: возврат бывает
+    // частичным, и отмена вычла бы у клиента всю покупку целиком.
+    await enqueueOffice(tx, {
+      topic: 'order',
+      refKey: returnNumber,
+      payload: posRefundIngestBody({
+        returnNumber,
+        saleNumber,
+        totalRefund,
+        refundedAt: now.toISOString(),
+        reason: reason || null,
+        customer: {
+          id: original?.customer?.id ?? null,
+          name: original?.customer
+            ? original.customer.companyName || original.customer.name
+            : null,
+          phone: original?.customer?.phone ?? null,
+          address: original?.customer?.address ?? null,
+        },
+        items: (items as { productId: string; quantity: number; price: number }[]).map((i) => ({
+          productId: i.productId,
+          name: productMap.get(i.productId)?.nameUz ?? 'Tovar',
+          quantity: Math.abs(i.quantity),
+          price: i.price,
+        })),
+      }),
+    });
   });
+
+  // Возврат двигает и склад, и деньги — след в журнале действий обязателен.
+  // Его не было вовсе: у продажи аудит есть, у возврата не было.
+  audit({
+    action: 'pos.refund',
+    actor: performedBy || 'Egasi',
+    target: returnNumber,
+    meta: { saleNumber, totalRefund, itemCount: items.length, customerId: original?.customerId ?? null },
+  });
+
+  // Отправка зеркала — в фоне: кассу у прилавка держать нельзя.
+  detach('зеркало возврата в офис', drainOffice());
 
   // Send Telegram notification to admin (fire-and-forget)
   const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
@@ -222,7 +283,15 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
     fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: msg, parse_mode: 'Markdown' }),
+      body: JSON.stringify({
+        chat_id: ADMIN_CHAT_ID,
+        text: msg,
+        parse_mode: 'Markdown',
+        // Возврат разбирают в журнале движений: там видно, что вернулось
+        // на склад и по какому чеку.
+        reply_markup: openKeyboard(ADMIN_CHAT_ID, 'movements', returnNumber, '📋 Движения'),
+        disable_web_page_preview: true,
+      }),
     }).catch(() => {});
   }
 

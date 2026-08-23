@@ -67,7 +67,7 @@ export function NutritionistPanel() {
             width: 36, height: 36, borderRadius: 10,
             background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'white', boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)',
+            color: 'var(--text-inverse)', boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)',
           }}>
             <Heart size={18} />
           </div>

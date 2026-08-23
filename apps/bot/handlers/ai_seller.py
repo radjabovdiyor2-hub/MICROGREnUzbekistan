@@ -28,6 +28,9 @@ import re
 from services.ecosystem_bridge import bridge
 from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_LABELS, format_price
+from shared.i18n import t
+from services.lang_storage import lang_of
+
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -87,22 +90,18 @@ from services.chat_history import add_to_history, clear_history, get_history  # 
 @router.message(Command("ai"))
 async def cmd_ai(message: Message):
     """Команда /ai — начать разговор с AI"""
+    lang = lang_of(message)
     await message.answer(
-        "🤖 <b>Слушаю вас!</b>\n\n"
-        "Пишите мне всё, что угодно. Я могу:\n"
-        "• 🥗 Подобрать микрозелень по вкусу и блюду\n"
-        "• 🛒 Оформить заказ прямо здесь\n"
-        "• 🍽️ Подсказать рецепт с микрозеленью\n"
-        "• 📸 Проанализировать фото вашего блюда\n\n"
-        "<i>Чем могу помочь сегодня?</i>"
+        t("ai.listening", lang)
     )
 
 
 @router.message(Command("clear"))
 async def cmd_clear(message: Message):
     """Очистить историю разговора"""
+    lang = lang_of(message)
     clear_history(message.from_user.id)
-    await message.answer("🧹 История разговора очищена!")
+    await message.answer(t("ai.history_cleared", lang))
 
 
 from services.ai_service import analyze_image, transcribe_audio
@@ -110,12 +109,13 @@ from services.ai_service import analyze_image, transcribe_audio
 @router.message(F.chat.type == "private", F.photo)
 async def handle_photo(message: Message):
     """Diagnose plant or analyze image"""
+    lang = lang_of(message)
     
     # 1. Download photo
     photo = message.photo[-1] # Highest resolution
     file_id = photo.file_id
     
-    status_msg = await message.answer("⏳ <i>Нейросеть изучает ваше фото... Это займет пару секунд</i> ✨")
+    status_msg = await message.answer(t("ai.photo_analyzing", lang))
     await message.bot.send_chat_action(message.chat.id, "upload_photo")
     
     try:
@@ -145,22 +145,40 @@ async def handle_photo(message: Message):
             else:
                 buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
                 
-        markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        # Кнопка «Главное меню» — на КАЖДОМ ответе.
+        #
+        # ИИ перехватывает любой текст в личке, и выйти из разговора можно
+        # было только командой /start, про которую он сам никогда не
+        # говорит. Человек писал «меню», «назад», «стоп» — и получал
+        # очередной ответ ИИ.
+        buttons.append([
+            InlineKeyboardButton(text=t("btn.home", lang), callback_data="menu:main")
+        ])
+        markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         
-        await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
+        # Пустой ответ бывает: модель вернула только теги кнопок, и после
+        # их вырезания не осталось ничего. `answer("")` — это
+        # TelegramBadRequest, а заглушку «Думаю…» к этому моменту уже
+        # удалили: клиент получал полную тишину.
+        await message.answer(
+            clean_response or t("ai.empty", lang),
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
         
     except Exception as e:
         logger.error(f"Photo analysis failed: {e}")
-        await status_msg.edit_text("❌ Ошибка при анализе фото. Попробуйте позже.")
+        await status_msg.edit_text(t("ai.photo_error", lang))
 
 
 @router.message(F.chat.type == "private", F.voice | F.audio)
 async def handle_voice(message: Message):
     """Transcribe and answer voice message, then reply with Voice (TTS)"""
+    lang = lang_of(message)
     from aiogram.types import BufferedInputFile
     from services.tts_service import generate_speech
     
-    status_msg = await message.answer("🎧 <i>Слушаю и перевожу в текст...</i> ⏳")
+    status_msg = await message.answer(t("ai.voice_listening", lang))
     await message.bot.send_chat_action(message.chat.id, "record_voice")
     
     try:
@@ -178,7 +196,7 @@ async def handle_voice(message: Message):
         response_text = await transcribe_audio(voice_bytes)
         
         # 3. Text to Speech
-        await status_msg.edit_text("🗣 <i>Записываю голосовой ответ...</i> 🎙")
+        await status_msg.edit_text(t("ai.voice_recording", lang))
         await message.bot.send_chat_action(message.chat.id, "record_voice")
         
         audio_bytes = await generate_speech(response_text)
@@ -197,10 +215,27 @@ async def handle_voice(message: Message):
             else:
                 buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
                 
-        markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        # Кнопка «Главное меню» — на КАЖДОМ ответе.
+        #
+        # ИИ перехватывает любой текст в личке, и выйти из разговора можно
+        # было только командой /start, про которую он сам никогда не
+        # говорит. Человек писал «меню», «назад», «стоп» — и получал
+        # очередной ответ ИИ.
+        buttons.append([
+            InlineKeyboardButton(text=t("btn.home", lang), callback_data="menu:main")
+        ])
+        markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         
         # Send text
-        await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
+        # Пустой ответ бывает: модель вернула только теги кнопок, и после
+        # их вырезания не осталось ничего. `answer("")` — это
+        # TelegramBadRequest, а заглушку «Думаю…» к этому моменту уже
+        # удалили: клиент получал полную тишину.
+        await message.answer(
+            clean_response or t("ai.empty", lang),
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
         
         # Send voice if generated successfully
         if audio_bytes:
@@ -209,21 +244,20 @@ async def handle_voice(message: Message):
             
     except Exception as e:
         logger.error(f"Voice analysis failed: {e}")
-        await status_msg.edit_text("❌ Ошибка обработки голосового. Попробуйте позже.")
-
-
+        await status_msg.edit_text(t("ai.voice_error", lang))
 
 
 @router.message(F.chat.type == "private", F.text & ~F.text.startswith("/"))
 async def handle_ai_message(message: Message):
     """Обработка всех текстовых сообщений через AI"""
+    lang = lang_of(message)
     user_id = message.from_user.id
     user_text = message.text.strip()
     
     if not user_text:
         return
     
-    status_msg = await message.answer("🧠 <i>Думаю над ответом...</i> ✨")
+    status_msg = await message.answer(t("ai.thinking", lang))
     await message.bot.send_chat_action(message.chat.id, "typing")
     
     # 1. Get AI Response via Web API (includes weather, currency, order context)
@@ -300,9 +334,26 @@ async def handle_ai_message(message: Message):
         else:
             buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
             
-    markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    # Кнопка «Главное меню» — на КАЖДОМ ответе.
+    #
+    # ИИ перехватывает любой текст в личке, и выйти из разговора можно
+    # было только командой /start, про которую он сам никогда не
+    # говорит. Человек писал «меню», «назад», «стоп» — и получал
+    # очередной ответ ИИ.
+    buttons.append([
+        InlineKeyboardButton(text=t("btn.home", lang), callback_data="menu:main")
+    ])
+    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
     
-    await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
+    # Пустой ответ бывает: модель вернула только теги кнопок, и после
+    # их вырезания не осталось ничего. `answer("")` — это
+    # TelegramBadRequest, а заглушку «Думаю…» к этому моменту уже
+    # удалили: клиент получал полную тишину.
+    await message.answer(
+        clean_response or t("ai.empty", lang),
+        parse_mode="HTML",
+        reply_markup=markup,
+    )
     
     if order_created:
         phone_info = ""
@@ -320,12 +371,12 @@ async def handle_ai_message(message: Message):
         )
 
 
-
 # ==================== QUICK COMMANDS ====================
 
 @router.message(Command("price", "prices", "цены"))
 async def cmd_prices(message: Message):
     """Цены из каталога — динамический fetch"""
+    lang = lang_of(message)
     try:
         products = await bridge.get_products(limit=50)
         
@@ -357,35 +408,27 @@ async def cmd_prices(message: Message):
     except Exception as e:
         logger.error(f"Price fetch failed: {e}")
         await message.answer(
-            "💰 Актуальные цены на сайте:\n"
-            "🌐 microgreenuzbekistan.com/catalog"
+            t("ai.prices", lang)
         )
 
 
 @router.message(Command("order", "заказать"))
 async def cmd_order(message: Message):
     """Начать оформление заказа"""
+    lang = lang_of(message)
     await message.answer(
         # prompt-ok: образец формата телефона для клиента, а не контакт компании
-        "🛒 <b>Оформление заказа</b>\n\n"
-        "Просто напишите мне, что хотите заказать, и номер телефона. Например:\n\n"
-        "<i>«Хочу 2 лотка подсолнечника и 1 горох. "
-        "Телефон: +998901234567»</i>\n\n"
-        "Дальше я сделаю всё сам! Адрес и детали мы уточним по телефону 📞\n\n"
-        "👨‍🌾 Жду список ваших пожеланий!"
+        t("ai.order_help", lang)
     )
 
 
 @router.message(Command("delivery", "доставка"))
 async def cmd_delivery(message: Message):
     """Информация о доставке"""
+    lang = lang_of(message)
     # Способы оплаты — из настроек витрины: перечислять их литералами значило
     # обещать то, что владелец мог отключить в админке час назад.
     config = await fetch_site_config()
     await message.answer(
-        "🚚 <b>Доставка</b>\n\n"
-        "📍 Самарканд — <b>в день заказа</b>\n"
-        "📍 Ташкент — <b>на следующий день</b>\n"
-        "⏰ Минимальный заказ: нет\n\n"
-        f"💳 <b>Оплата:</b> {config.payment_text}"
+        t("ai.delivery", lang, payment=config.payment_text)
     )

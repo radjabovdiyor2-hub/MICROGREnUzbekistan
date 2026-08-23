@@ -26,6 +26,7 @@ interface RevenueData {
 
 import { AdminRevenueDailyChart } from './AdminRevenueDailyChart';
 import { AdminRevenueTopProducts } from './AdminRevenueTopProducts';
+import { tint } from '@/lib/tint';
 
 export function AdminRevenue() {
   const [period, setPeriod] = useState<'week' | 'month'>('week');
@@ -90,7 +91,7 @@ export function AdminRevenue() {
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-3)', borderTop: `3px solid ${stat.color}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-              <div style={{ width: 34, height: 34, borderRadius: '10px', background: `${stat.color}15`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 34, height: 34, borderRadius: '10px', background: tint(stat.color), color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {stat.icon}
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1.2 }}>{stat.label}</div>

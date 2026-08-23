@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { generateJSON, aiProvider } from '@/lib/magazine/ai';
+import { officeFetch } from '@/lib/office/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,8 @@ export const dynamic = 'force-dynamic';
 // отказ одного не роняет ответ (graceful degradation).
 // ════════════════════════════════════════════════════════════
 
-const WEB_OFFICE_URL = process.env.WEB_OFFICE_URL || 'http://localhost:8050';
+// Адрес офиса больше не нужен: единственный поход туда идёт через
+// officeFetch, а он знает адрес сам.
 
 // Проверены на реальную отдачу <item> (parity с apps/tgas/shared/trends.py)
 const RSS_FEEDS = [
@@ -61,14 +63,15 @@ function getSeason(): string {
 
 // Реальные Google Trends из tgas (опц., graceful fallback)
 async function fetchTgasTrends(): Promise<string[]> {
-  try {
-    const res = await fetch(`${WEB_OFFICE_URL}/api/magazine/brief`, { signal: AbortSignal.timeout(3000) });
-    if (!res.ok) return [];
-    const d = await res.json();
-    return Array.isArray(d.google_trends) ? d.google_trends.slice(0, 10) : [];
-  } catch {
-    return [];
-  }
+  // Через единый клиент офиса, а не сырым `fetch`: он ставит
+  // `X-Ingest-Secret` и держит общий таймаут. Своя копия обходилась без
+  // заголовка — и дверь на той стороне пришлось бы держать открытой.
+  const res = await officeFetch<{ google_trends?: unknown }>('/api/magazine/brief', {
+    timeoutMs: 3000,
+  });
+  if (!res.ok) return [];
+  const trends = res.data?.google_trends;
+  return Array.isArray(trends) ? trends.slice(0, 10) : [];
 }
 
 // Идеи тем по секциям от ИИ (OpenAI-first) на базе новостей/сезона

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { cartTotal, isValidQty, normalizeQty, stepFor } from '@/lib/qty';
 import type { CartItem, ContractPrice, Product } from './AdminPOSTypes';
 
@@ -118,7 +118,11 @@ export function usePosCart() {
    * чека по прайсу — ровно та ошибка, ради которой договорная цена и заводится.
    * Ручную уступку не трогаем: её продавец поставил осознанно.
    */
-  const applyContract = (prices: Map<string, ContractPrice>) => {
+  //
+  // Ссылка стабильна намеренно: касса на карте подтягивает договорные цены
+  // эффектом по id покупателя, и пересоздаваемая функция в зависимостях
+  // дёргала бы сервер бесконечно.
+  const applyContract = useCallback((prices: Map<string, ContractPrice>) => {
     setContract(prices);
     setCart(prev => prev.map(item => {
       const agreed = prices.get(item.product.id);
@@ -129,10 +133,12 @@ export function usePosCart() {
       if (manual) return item;
       return { ...item, customPrice: agreed.price, priceReason: contractReason(agreed) };
     }));
-  };
+  }, []);
 
   return {
     cart, setCart, addToCart, updatePrice, setPriceReason, applyContract,
     updateQuantity, setQuantity, removeFromCart, total,
+    /** Сколько договорных цен подставлено — касса на карте это показывает. */
+    contractCount: contract.size,
   };
 }

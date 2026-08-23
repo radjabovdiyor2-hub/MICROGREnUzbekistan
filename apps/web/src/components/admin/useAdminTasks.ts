@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useFeedback } from './AdminFeedback';
 import type { Task } from './AdminTaskRow';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -22,6 +23,7 @@ interface NewTask {
 }
 
 export function useAdminTasks(filter: string, t: (ru: string, uz: string) => string) {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [msg, setMsg] = useState<Banner>(null);
   const [selected, setSelected] = useState<number[]>([]);
@@ -93,7 +95,14 @@ export function useAdminTasks(filter: string, t: (ru: string, uz: string) => str
     setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
 
   const remove = async (ids: number[], question: string) => {
-    if (!ids.length || !confirm(question)) return;
+    if (!ids.length) return;
+    const agreed = await notify.confirm({
+      title: question,
+      detail: ids.length > 1 ? `Задач к удалению: ${ids.length}.` : undefined,
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!agreed) return;
     setMsg(null);
     try {
       const res = await fetch(`/api/admin/tasks?ids=${ids.join(',')}`, {

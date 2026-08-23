@@ -5,6 +5,7 @@ import { Calendar, Clock, Plus } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminShiftForm } from './AdminShiftForm';
 import { AdminShiftCard } from './AdminShiftCard';
+import { useFeedback } from './AdminFeedback';
 import { EMPTY_SHIFT_FORM, type Employee, type Shift, type ShiftForm } from './shiftTypes';
 
 // График смен. Форма и карточка вынесены в соседние файлы: раньше всё жило
@@ -18,6 +19,7 @@ function toTimeInput(iso: string | null): string {
 }
 
 export function AdminShifts() {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -50,7 +52,9 @@ export function AdminShifts() {
   };
 
   const handleSave = async () => {
-    if (!form.employeeId || !form.date) return alert('Iltimos, xodim va sanani kiriting');
+    if (!form.employeeId || !form.date) {
+      return notify.toast('Xodim va sanani kiriting', 'warning');
+    }
 
     try {
       const payload: Record<string, unknown> = {
@@ -73,18 +77,33 @@ export function AdminShifts() {
       if (data.success) {
         closeForm();
         reload();
+        notify.success(editId ? 'Smena yangilandi' : "Smena qo'shildi");
       } else {
-        alert(data.error || 'Xatolik');
+        notify.error(data.error || 'Smena saqlanmadi');
       }
     } catch (err) {
       console.error(err);
-      alert('Xatolik yuz berdi');
+      notify.error("Aloqa yo'q — smena saqlanmadi");
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("O'chirishni tasdiqlaysizmi?")) return;
-    await fetch(`/api/admin/shifts?id=${id}`, { method: 'DELETE' });
+  const handleDelete = async (shift: Shift) => {
+    const ok = await notify.confirm({
+      // Вопрос называет смену: в графике их десятки, и безымянное
+      // «O'chirishni tasdiqlaysizmi?» не говорит, какую именно уберут.
+      title: `${shift.employee?.name ?? 'Smena'} — ${shift.date?.slice(0, 10) ?? ''} o'chirilsinmi?`,
+      detail: 'Smena jadvaldan yo\'qoladi.',
+      confirmText: "O'chirish",
+      danger: true,
+    });
+    if (!ok) return;
+
+    const res = await fetch(`/api/admin/shifts?id=${shift.id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      notify.error(body?.error || "O'chirib bo'lmadi");
+      return;
+    }
     reload();
   };
 

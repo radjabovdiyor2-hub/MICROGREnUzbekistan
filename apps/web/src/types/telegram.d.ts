@@ -12,6 +12,13 @@ interface TelegramWebApp {
   ready?: () => void;
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
+  /** Аппаратная кнопка «назад» внутри Mini App. */
+  BackButton?: {
+    show: () => void;
+    hide: () => void;
+    onClick: (handler: () => void) => void;
+    offClick: (handler: () => void) => void;
+  };
 }
 
 // PWA install prompt — fired by browser when app is installable.

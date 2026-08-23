@@ -1,7 +1,8 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { Check, MapPin, Phone, Plus, RefreshCw } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { RefreshCw } from 'lucide-react';
 
 import type { CustomerCard } from '@/lib/customers/card';
 import {
@@ -11,11 +12,14 @@ import {
   explainSegment,
 } from '@/lib/customers/segments';
 
+import { CustomerMapActions } from './CustomerMapActions';
 import { CustomerMapPanelHead } from './CustomerMapPanelHead';
 import { CustomerMapPanelStats } from './CustomerMapPanelStats';
 import { CustomerOrdersSparkline } from './CustomerOrdersSparkline';
-import { NavigateButton } from './NavigateButton';
-import { VisitButtons } from './VisitButtons';
+import { PosSaleSheet } from '../PosSaleSheet';
+import { useAdminBack } from '../useAdminBack';
+import { markVisit } from './markVisit';
+import { useVisitQueue } from './useVisitQueue';
 import { type PointView } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -25,11 +29,17 @@ import { type PointView } from './mapFeature';
 // лениво тем же запросом, что и карточка клиента в списке, и с тем же
 // ключом кэша. Открыть клиента с карты и из таблицы — это один запрос,
 // а не два одинаковых.
+//
+// У панели два состояния: сама точка и касса на ней. Касса открывается
+// прямо здесь, а не на вкладке «Продажи»: уход туда стоил бы карты с
+// маршрутом и повторного поиска уже выбранного клиента.
 // ══════════════════════════════════════════════════════════════════════
 
 interface Props {
   point: PointView;
   lang: 'ru' | 'uz';
+  /** Кем подписывать чек, пробитый с этой точки. */
+  sellerName: string;
   onClose: () => void;
   onOpenCard: (id: number) => void;
   onReplacePin: (id: number) => void;
@@ -39,26 +49,34 @@ interface Props {
 }
 
 const label = {
-  orders: { ru: 'Заказов', uz: 'Buyurtmalar' },
-  spent: { ru: 'Потрачено', uz: 'Sarflangan' },
   rhythm: { ru: 'Ритм заказов за полгода', uz: 'Yarim yillik buyurtma ritmi' },
-  card: { ru: 'Открыть карточку', uz: 'Kartani ochish' },
-  pin: { ru: 'Переставить пин', uz: 'Pinni koʻchirish' },
   loading: { ru: 'Загрузка истории…', uz: 'Tarix yuklanmoqda…' },
-  manual: { ru: 'Пин поставлен вручную', uz: 'Pin qoʻlda qoʻyilgan' },
-  addRoute: { ru: 'В объезд', uz: 'Yoʻnalishga' },
-  inRoute: { ru: 'В объезде', uz: 'Yoʻnalishda' },
 };
 
 export function CustomerMapPanel({
   point,
   lang,
+  sellerName,
   onClose,
   onOpenCard,
   onReplacePin,
   inRoute,
   onToggleRoute,
 }: Props) {
+  const queryClient = useQueryClient();
+  const [selling, setSelling] = useState(false);
+
+  // Аппаратное «назад» в Telegram: из кассы — к точке, с точки — к карте.
+  // Без перехвата первое же нажатие закрывало приложение целиком, и это
+  // ровно тот экран, где им пользуются одной рукой на ходу.
+  useAdminBack(useCallback(() => setSelling(false), []), selling);
+  useAdminBack(onClose, !selling);
+
+  // Очередь отметок одна на панель: её делят кнопки «Съездил — отметь» и
+  // автоматическая отметка после продажи. Два экземпляра разбирали бы одно
+  // хранилище наперегонки и отправили бы отметку дважды.
+  const visitQueue = useVisitQueue();
+
   const { data, isLoading } = useQuery<CustomerCard, Error>({
     queryKey: ['admin-customer', point.id],
     queryFn: async () => {
@@ -94,6 +112,32 @@ export function CustomerMapPanel({
         customerType: data.customerType,
       })
     : null;
+
+  if (selling) {
+    return (
+      <PosSaleSheet
+        customer={{ id: point.id, name: point.name, phone }}
+        lang={lang}
+        sellerName={sellerName}
+        origin="field"
+        onClose={() => setSelling(false)}
+        onSold={(result) => {
+          // Продажа — это и есть визит с исходом «договорились». Требовать
+          // после чека ещё одно нажатие значило бы терять историю поездок
+          // ровно на самых удачных заездах.
+          //
+          // В заметке НЕТ суммы: ленту обращений продавец видит целиком, и
+          // сумма в ней обошла бы маскировку денег на карте.
+          const note = result.saleNumber ? `Продажа ${result.saleNumber}` : 'Продажа (без связи)';
+          void markVisit({ customerId: point.id, type: 'visit_deal', note }, visitQueue).catch(
+            (err) => console.error('Визит после продажи не отмечен:', err),
+          );
+          queryClient.invalidateQueries({ queryKey: ['admin-customers-map'] });
+          queryClient.invalidateQueries({ queryKey: ['admin-customer', point.id] });
+        }}
+      />
+    );
+  }
 
   return (
     <div className="card" style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
@@ -137,49 +181,17 @@ export function CustomerMapPanel({
         )}
       </div>
 
-      {point.geoSource === 'manual' && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--brand-accent)' }}>
-          {label.manual[lang]}
-        </div>
-      )}
-
-      {/* Навигация и звонок — первыми и крупными: это то, ради чего в поле
-          вообще открывают точку. Остальное ниже и мельче. */}
-      <NavigateButton latitude={point.latitude} longitude={point.longitude} lang={lang} />
-
-      {/* Телефон берём из точки, а не из карточки: карточка догружается
-          отдельным запросом, и в подвале ресторана кнопка «позвонить»
-          появлялась через несколько секунд после нажатия. */}
-      {phone && (
-        <a className="btn btn-secondary" href={`tel:${phone}`} style={{ minHeight: 44 }}>
-          <Phone size={16} /> {phone}
-        </a>
-      )}
-
-      <button
-        type="button"
-        className={inRoute ? 'btn btn-secondary' : 'btn btn-ghost'}
-        onClick={onToggleRoute}
-        style={{ minHeight: 44 }}
-      >
-        {inRoute ? <Check size={16} /> : <Plus size={16} />}
-        {inRoute ? label.inRoute[lang] : label.addRoute[lang]}
-      </button>
-
-      <VisitButtons
-        customerId={point.id}
+      <CustomerMapActions
+        point={point}
         lang={lang}
-        lastVisitDays={point.lastVisitDays}
+        phone={phone}
+        inRoute={inRoute}
+        visitQueue={visitQueue}
+        onToggleRoute={onToggleRoute}
+        onSell={() => setSelling(true)}
+        onOpenCard={onOpenCard}
+        onReplacePin={onReplacePin}
       />
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenCard(point.id)}>
-          {label.card[lang]}
-        </button>
-        <button type="button" className="btn btn-sm btn-ghost" onClick={() => onReplacePin(point.id)}>
-          <MapPin size={14} /> {label.pin[lang]}
-        </button>
-      </div>
     </div>
   );
 }

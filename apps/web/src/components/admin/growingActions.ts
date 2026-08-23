@@ -1,4 +1,22 @@
 import { type Batch } from './growingData';
+import { type ConfirmOptions } from './AdminFeedback';
+
+/**
+ * Как модуль разговаривает с человеком.
+ *
+ * Передаётся снаружи, а не берётся хуком: это обычный модуль, а не
+ * компонент, и хуки в нём вызывать нельзя. Заодно его можно проверить
+ * тестом, подсунув заглушку вместо экрана.
+ *
+ * Раньше здесь стояли семь `alert()` и два `confirm()` — нативные окна
+ * браузера. Это самый частый поток агронома: теплица, телефон, одна рука.
+ * В Telegram Mini App такое окно выезжает системным листом поверх
+ * приложения и сбивает его хром.
+ */
+export interface GrowingNotify {
+  toast: (text: string, variant?: 'success' | 'error' | 'warning' | 'info') => void;
+  confirm: (options: ConfirmOptions) => Promise<boolean>;
+}
 
 // ══════════════════════════════════════════════════════════════════════
 // Сбор и списание партии.
@@ -32,6 +50,7 @@ export async function harvestBatchApi(
   batch: Batch,
   refresh: () => void | Promise<void>,
   fmt: (n: number) => string,
+  notify: GrowingNotify,
 ) {
   const qty = batch.harvestQty || batch.trays;
   const result = await patchBatchOperation({
@@ -42,16 +61,18 @@ export async function harvestBatchApi(
   });
 
   if (!result.ok) {
-    alert(`❌ ${result.message}`);
+    notify.toast(result.message, 'error');
     return;
   }
 
   const saved = (result as { batch?: { costPrice?: number } }).batch;
   const unitCost = saved?.costPrice ?? 0;
-  alert(
+  notify.toast(
     batch.productId
-      ? `✅ Собрано ${qty} «${batch.productName}». Себестоимость единицы: ${fmt(Math.round(unitCost))} сум`
-      : `✅ Урожай зафиксирован (${qty}). Товар не привязан — на склад ничего не оприходовано.`,
+      ? `Собрано ${qty} «${batch.productName}». Себестоимость единицы: ${fmt(Math.round(unitCost))} сум`
+      : `Урожай зафиксирован (${qty}). Товар не привязан — на склад ничего не оприходовано.`,
+    // Урожай без привязанного товара — не успех: он никуда не попал.
+    batch.productId ? 'success' : 'warning',
   );
   await refresh();
 }
@@ -68,13 +89,14 @@ export async function setDarkPhaseApi(
   batch: Batch,
   mode: 'open' | 'extend',
   refresh: () => void | Promise<void>,
+  notify: GrowingNotify,
 ) {
   const result = await patchBatchOperation({
     id: batch.id,
     action: mode === 'extend' ? 'extend_dark' : 'open_dark',
   });
   if (!result.ok) {
-    alert(`❌ ${result.message}`);
+    notify.toast(result.message, 'error');
     return;
   }
 
@@ -90,10 +112,13 @@ export async function setDarkPhaseApi(
   const norm = data.normDarkDays;
   if (typeof actual !== 'number' || typeof norm !== 'number' || actual === norm) return;
 
-  const agreed = confirm(
-    `Партия вышла из темноты за ${actual} дн., а в норме культуры «${data.cropNameRu}» стоит ${norm}.\n\n` +
-      `Поставить ${actual} дн. нормой — чтобы следующие посадки считались правильно?`,
-  );
+  const agreed = await notify.confirm({
+    title: `Поставить ${actual} дн. нормой культуры «${data.cropNameRu}»?`,
+    detail:
+      `Партия вышла из темноты за ${actual} дн., а в норме стоит ${norm}.\n` +
+      `Изменится расчёт следующих посадок этой культуры.`,
+    confirmText: 'Поставить нормой',
+  });
   if (!agreed) return;
 
   // PATCH, а не POST: POST — полный upsert справочника, и запрос из двух
@@ -107,28 +132,35 @@ export async function setDarkPhaseApi(
   if (!res.ok) {
     const body = await res.json().catch(() => null);
     // Норму правит только владелец: агроному сюда закрыто, и это не ошибка.
-    alert(`⚠️ Норму не изменил: ${body?.error || 'нет доступа'}`);
+    notify.toast(`Норму не изменил: ${body?.error || 'нет доступа'}`, 'warning');
     return;
   }
-  alert(`✅ Норма культуры «${data.cropNameRu}»: ${actual} дн. в темноте.`);
+  notify.toast(`Норма культуры «${data.cropNameRu}»: ${actual} дн. в темноте.`, 'success');
 }
 
 export async function writeOffBatchApi(
   batch: Batch,
   refresh: () => void | Promise<void>,
   fmt: (n: number) => string,
+  notify: GrowingNotify,
 ) {
   // Убыток — настоящий: это всё, что вложено в партию (семена + расходники).
   // Раньше он считался как costPrice × количество, а costPrice при посадке не
   // сохранялся — поэтому на экране всегда стоял «убыток 0 сум».
   const loss = batch.batchCost ?? 0;
-  if (!confirm(`Списать партию? Убыток: ${fmt(Math.round(loss))} сум`)) return;
+  const agreed = await notify.confirm({
+    title: `Списать партию «${batch.productName || batch.cropType}»?`,
+    detail: `Убыток: ${fmt(Math.round(loss))} сум. Вернуть партию нельзя.`,
+    confirmText: 'Списать',
+    danger: true,
+  });
+  if (!agreed) return;
 
   const result = await patchBatchOperation({ id: batch.id, action: 'write_off' });
   if (!result.ok) {
-    alert(`❌ ${result.message}`);
+    notify.toast(result.message, 'error');
     return;
   }
-  alert(`❌ Списано. Убыток: ${fmt(Math.round(loss))} сум`);
+  notify.toast(`Списано. Убыток: ${fmt(Math.round(loss))} сум`, 'warning');
   await refresh();
 }

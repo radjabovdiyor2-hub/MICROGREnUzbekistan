@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock, CheckCircle2, XCircle, Inbox, Bell, Trash2 } from 'lucide-react';
+import { Bell, Check, CheckCircle2, Clock, Inbox, Trash2, X, XCircle } from 'lucide-react';
+
+import { AdminNotice, type NoticeTone } from './AdminNotice';
+import { useFeedback } from './AdminFeedback';
 
 // ══════════════════════════════════════════════════════════════════════
 // Очередь «Ждёт вашего решения».
@@ -44,7 +47,9 @@ function waitedFor(iso: string): string {
 export function AdminApprovals({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const [showAll, setShowAll] = useState(false);
+  const notify = useFeedback();
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ tone: NoticeTone; text: string } | null>(null);
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['admin-approvals', showAll],
@@ -61,8 +66,18 @@ export function AdminApprovals({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const items = data?.approvals ?? [];
 
   const drop = async (item: ApprovalItem) => {
-    if (!confirm(t(`Снять заявку «${item.summary.slice(0, 60)}»?`, 'Bekor qilinsinmi?'))) return;
+    const what = item.summary.slice(0, 60);
+    const ok = await notify.confirm({
+      title: t(`Снять заявку «${what}»?`, `«${what}» olib tashlansinmi?`),
+      detail: t(
+        'Действие НЕ выполнится, заявка просто уйдёт из очереди.',
+        'Amal BAJARILMAYDI, faqat navbatdan chiqadi.',
+      ),
+      confirmText: t('Снять', 'Olib tashlash'),
+    });
+    if (!ok) return;
     setBusyId(item.id);
+    setNotice(null);
     try {
       await fetch(`/api/admin/approvals?id=${item.id}`, {
         method: 'DELETE',
@@ -71,6 +86,71 @@ export function AdminApprovals({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       await refetch();
     } finally {
       setBusyId(null);
+    }
+  };
+
+  /**
+   * Решить заявку: выполнить или отказать.
+   *
+   * Работу делает офис — у витрины нет ни инструментов, ни шины. Здесь
+   * только передача решения и честный показ того, чем оно закончилось:
+   * заявка может быть одобрена, а действие всё равно не выполниться
+   * (витрина не ответила, данных не хватило), и рапортовать об успехе в
+   * этом случае значит записать несделанное в сделанное.
+   */
+  const decide = async (item: ApprovalItem, decision: 'approved' | 'rejected') => {
+    if (decision === 'approved') {
+      const ok = await notify.confirm({
+        title: t(
+          `Выполнить «${item.summary.slice(0, 80)}»?`,
+          `«${item.summary.slice(0, 80)}» bajarilsinmi?`,
+        ),
+        detail: t(
+          'Действие произойдёт по-настоящему: бот сделает то, о чём спрашивает.',
+          'Amal haqiqatdan ham bajariladi.',
+        ),
+        confirmText: t('Выполнить', 'Bajarish'),
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
+    setBusyId(item.id);
+    setNotice(null);
+    try {
+      const res = await fetch('/api/admin/approvals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id: item.id, decision }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        setNotice({
+          tone: data?.already ? 'warning' : 'error',
+          text: data?.error || t('Не удалось передать решение', "Qaror yuborilmadi"),
+        });
+        return;
+      }
+
+      setNotice({
+        tone: data?.acted ? 'success' : 'warning',
+        text:
+          decision === 'rejected'
+            ? t('Отклонено. Ничего не изменилось.', 'Rad etildi.')
+            : data?.acted
+              ? t(`Выполнено. ${data?.message ?? ''}`.trim(), `Bajarildi. ${data?.message ?? ''}`.trim())
+              : t(
+                  `Одобрено, но не выполнено: ${data?.message ?? ''}`.trim(),
+                  `Tasdiqlandi, lekin bajarilmadi: ${data?.message ?? ''}`.trim(),
+                ),
+      });
+    } catch {
+      setNotice({ tone: 'error', text: t('Нет связи с сервером', "Server bilan aloqa yo'q") });
+    } finally {
+      setBusyId(null);
+      await refetch();
     }
   };
 
@@ -89,10 +169,12 @@ export function AdminApprovals({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         </button>
       </div>
 
+      {notice && <AdminNotice tone={notice.tone}>{notice.text}</AdminNotice>}
+
       <div className="card" style={{ padding: 'var(--space-3)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
         {t(
-          'Одобрять — кнопками под карточкой в Telegram: выполняет заявку офис. Здесь видно, что висит и как давно; отсюда можно снять неактуальное.',
-          'Tasdiqlash — Telegramdagi tugmalar orqali.',
+          'Решение принимается здесь или кнопками в Telegram — одно и то же действие выполнится ровно раз. «Снять» убирает заявку из очереди, НЕ выполняя её.',
+          'Qaror shu yerda yoki Telegramda qabul qilinadi — amal bir marta bajariladi.',
         )}
       </div>
 
@@ -131,11 +213,23 @@ export function AdminApprovals({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
                   </div>
                 </div>
                 {item.status === 'pending' && (
-                  <button className="btn btn-sm btn-ghost" style={{ color: 'var(--error)' }}
-                    disabled={busyId === item.id} onClick={() => drop(item)}
-                    title={t('Снять заявку', 'Bekor qilish')}>
-                    <Trash2 size={15} />
-                  </button>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Решение принимается здесь же. Раньше кнопка была
+                        только в Telegram, и без телефона работа стояла. */}
+                    <button className="btn btn-sm btn-primary" style={{ minHeight: 36 }}
+                      disabled={busyId === item.id} onClick={() => decide(item, 'approved')}>
+                      <Check size={14} /> {t('Выполнить', 'Bajarish')}
+                    </button>
+                    <button className="btn btn-sm btn-ghost" style={{ minHeight: 36 }}
+                      disabled={busyId === item.id} onClick={() => decide(item, 'rejected')}>
+                      <X size={14} /> {t('Отклонить', 'Rad etish')}
+                    </button>
+                    <button className="btn btn-sm btn-ghost" style={{ color: 'var(--text-muted)', minHeight: 36 }}
+                      disabled={busyId === item.id} onClick={() => drop(item)}
+                      title={t('Снять из очереди, не выполняя', 'Bajarmasdan navbatdan olish')}>
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 )}
               </div>
             );

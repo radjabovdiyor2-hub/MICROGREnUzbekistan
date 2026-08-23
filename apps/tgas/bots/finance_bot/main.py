@@ -11,7 +11,7 @@ from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import init_db
 from shared.event_bus import event_bus
-from shared.notifications import register_finance_handlers
+from shared.notifications import register_finance_handlers, send_report
 from bots.finance_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
 from shared import group_reply
@@ -139,7 +139,13 @@ async def overdue_payments():
                     lines.append(
                         f"\n💰 Итого задолженность: {'{:,.0f}'.format(total)} сум"
                     )
-                    await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+                    await send_report(
+                        bot,
+                        admin_id,
+                        "\n".join(lines),
+                        admin_tab="debts",
+                        button_text="💳 Долги",
+                    )
                 logger.info("overdue_payments: %d заказов", len(rows))
             else:
                 alert_once.resolved(key)
@@ -196,7 +202,13 @@ async def large_expense_check():
                         lines.append(
                             f"• #{fid} [{category}]: {'{:,.0f}'.format(amount)} сум — {desc}"
                         )
-                    await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+                    await send_report(
+                        bot,
+                        admin_id,
+                        "\n".join(lines),
+                        admin_tab="finance",
+                        button_text="💼 Финансы",
+                    )
                 logger.info("large_expense_check: %d записей", len(rows))
             else:
                 alert_once.resolved(key)
@@ -326,13 +338,17 @@ async def salary_reminder():
                 row = result.fetchone()
             count = row[0] if row else 0
             total = row[1] if row else 0
-            await bot.send_message(
+            # «Убедитесь, что на счету достаточно» — проверить это можно
+            # только в балансе, и дорогу туда человек до сих пор искал сам.
+            await send_report(
+                bot,
                 admin_id,
                 f"💰 <b>Напоминание: послезавтра зарплата!</b>\n\n"
                 f"👥 Сотрудников: {count}\n"
                 f"💵 Фонд ЗП: {'{:,.0f}'.format(total)} сум\n\n"
                 f"Убедитесь, что на счету достаточно средств.",
-                parse_mode="HTML",
+                admin_tab="finance",
+                button_text="💼 Проверить баланс",
             )
             logger.info(
                 "salary_reminder: %d сотрудников, фонд %s", count, f"{total:,.0f}"
@@ -602,15 +618,26 @@ async def main():
 
     # Heartbeat + Scheduler
     asyncio.create_task(start_heartbeat("finance_bot"))
+
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "finance_bot"))
     await scheduler.start()
 
     # ── Bot Bus: слушаем задачи от Степана ──
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
 
     asyncio.create_task(
         bus_listen(
             "finance_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("finance_bot"),
                 "get_balance": bus_get_balance,
                 "add_expense": bus_add_expense,
             },

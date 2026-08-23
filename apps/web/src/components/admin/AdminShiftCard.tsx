@@ -8,7 +8,8 @@ import { type Shift, shiftType } from './shiftTypes';
 interface Props {
   shift: Shift;
   onEdit: (shift: Shift) => void;
-  onDelete: (id: string) => void;
+  /** Смену передаём целиком: вопрос об удалении обязан её назвать. */
+  onDelete: (shift: Shift) => void;
 }
 
 function hhmm(value: string | null): string {
@@ -46,7 +47,7 @@ export function AdminShiftCard({ shift, onEdit, onDelete }: Props) {
               style={{ padding: 4 }} aria-label="Изменить">
               <Edit size={16} />
             </button>
-            <button onClick={() => onDelete(shift.id)} className="btn btn-ghost btn-sm"
+            <button onClick={() => onDelete(shift)} className="btn btn-ghost btn-sm"
               style={{ padding: 4, color: 'var(--error)' }} aria-label="Удалить">
               <Trash size={16} />
             </button>

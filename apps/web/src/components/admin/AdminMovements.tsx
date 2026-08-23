@@ -9,9 +9,11 @@ export type { Movement, Product, Sale };
 export { TYPE_CONFIG };
 
 import { AdminSalesTab } from './AdminSalesTab';
+import { useFeedback } from './AdminFeedback';
 import { AdminMovementsTab } from './AdminMovementsTab';
 
 export function AdminMovements() {
+  const notify = useFeedback();
   const [typeFilter, setTypeFilter] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
@@ -77,28 +79,46 @@ export function AdminMovements() {
         setForm({ productId: '', type: 'IN', quantity: '', reason: '', costPrice: '', performedBy: '', supplierId: '' });
         setProdSearch('');
         fetchMovements();
-        if (data.alert) alert(`⚠️ ${data.alert.message}`);
+        notify.success('Harakat yozildi');
+        // Предупреждение об остатке приходит вместе с ответом: показываем
+        // его отдельным сообщением, чтобы «записано» и «мало осталось» не
+        // слиплись в одну строку.
+        if (data.alert) notify.toast(data.alert.message, 'warning');
       } else {
-        alert(data.error || 'Xatolik');
+        notify.error(data.error || 'Harakat yozilmadi');
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      notify.error('Aloqa yo‘q — harakat yozilmadi');
+    }
   };
 
   const handleDelete = async (id: string) => {
     // Текст говорит правду: с тех пор как удаление заменено обратной
     // проводкой, остаток КАК РАЗ меняется — движение сторнируется, а запись
     // остаётся в журнале. Прежняя формулировка обещала обратное.
-    if (!confirm("Provesti storno? Harakat jurnalda qoladi, ombor soni tiklanadi.")) return;
+    const agreed = await notify.confirm({
+      title: 'Storno qilinsinmi?',
+      detail: 'Harakat jurnalda qoladi, ombor soni tiklanadi.',
+      confirmText: 'Storno',
+      danger: true,
+    });
+    if (!agreed) return;
+
     setDeleting(id);
     try {
       const res = await fetch(`/api/inventory/movements?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         fetchMovements();
+        notify.success('Storno o‘tkazildi');
       } else {
-        alert(data.error || 'Xatolik');
+        notify.error(data.error || 'Storno o‘tmadi');
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      notify.error('Aloqa yo‘q — storno o‘tmadi');
+    }
     finally { setDeleting(null); }
   };
 

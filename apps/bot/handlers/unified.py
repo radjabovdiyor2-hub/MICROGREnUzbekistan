@@ -13,61 +13,50 @@ from services.ecosystem_bridge import bridge
 from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_LABELS_LOWER, CATEGORY_LABELS, format_price
 from shared.offers import balance_text, referral_text
+from shared.i18n import DEFAULT_LANG, t
+from services.lang_storage import lang_of
+from shared.screen import render
+
 
 router = Router()
 
 
 # ==================== INLINE KEYBOARDS ====================
 
-def get_main_menu_kb() -> InlineKeyboardMarkup:
+def get_main_menu_kb(lang: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
     """Главное меню"""
     return InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="🛒 Каталог", callback_data="catalog:pricelist"),
-            InlineKeyboardButton(text="🛍️ Корзина", callback_data="cart:view"),
+            InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="catalog:pricelist"),
+            InlineKeyboardButton(text=t('btn.cart', lang), callback_data="cart:view"),
         ],
         [
-            InlineKeyboardButton(text="📦 Мои заказы", callback_data="menu:orders"),
-            InlineKeyboardButton(text="🔄 Повторить заказ", callback_data="menu:reorder"),
+            InlineKeyboardButton(text=t('btn.orders', lang), callback_data="menu:orders"),
+            InlineKeyboardButton(text=t('btn.reorder', lang), callback_data="menu:reorder"),
         ],
         [
-            InlineKeyboardButton(text="🍽️ Рецепты", callback_data="menu:recipes"),
-            InlineKeyboardButton(text="❤️ Избранное", callback_data="menu:favorites"),
+            InlineKeyboardButton(text=t('btn.recipes', lang), callback_data="menu:recipes"),
+            InlineKeyboardButton(text=t('btn.favorites', lang), callback_data="menu:favorites"),
         ],
         [
-            InlineKeyboardButton(text="💰 Бонусы", callback_data="menu:bonuses"),
-            InlineKeyboardButton(text="👤 Профиль", callback_data="menu:profile"),
+            InlineKeyboardButton(text=t('btn.bonuses', lang), callback_data="menu:bonuses"),
+            InlineKeyboardButton(text=t('btn.profile', lang), callback_data="menu:profile"),
         ],
         [
-            InlineKeyboardButton(text="🎮 Играть", callback_data="menu:game"),
-            InlineKeyboardButton(text="ℹ️ О нас", callback_data="menu:about"),
+            InlineKeyboardButton(text=t('btn.game', lang), callback_data="menu:game"),
+            InlineKeyboardButton(text=t('btn.about', lang), callback_data="menu:about"),
         ],
     ])
 
 
-def get_catalog_kb() -> InlineKeyboardMarkup:
-    """Меню каталога"""
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [
-            InlineKeyboardButton(text="🌱 Микрозелень", callback_data="catalog:microgreens"),
-            InlineKeyboardButton(text="🥬 Бейби-лист", callback_data="catalog:baby_leaf"),
-        ],
-        [
-            InlineKeyboardButton(text="🥗 Салаты", callback_data="catalog:salads"),
-            InlineKeyboardButton(text="🥙 BALANS", callback_data="catalog:balans"),
-        ],
-        [
-            InlineKeyboardButton(text="🌸 Цветы", callback_data="catalog:flowers"),
-            InlineKeyboardButton(text="🌾 Семена", callback_data="catalog:seeds"),
-        ],
-        [
-            InlineKeyboardButton(text="⚙️ Оборудование", callback_data="catalog:equipment"),
-        ],
-        [
-            InlineKeyboardButton(text="📦 Наборы", callback_data="catalog:sets"),
-        ],
-        [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
-    ])
+# `get_catalog_kb()` удалена.
+#
+# Её не вызывал никто, поэтому девять её кнопок (`catalog:microgreens`,
+# `catalog:salads`, …) были недостижимы. И даже стань они достижимы, одна
+# из них не сработала бы: слаг стоял `baby_leaf`, а настоящий —
+# `baby-leaf` (`shared/constants.py`), то есть кнопка отвечала бы
+# «нет товаров». Категории выбираются в `shop.py::show_categories`,
+# который берёт их из того же `constants` и разойтись с ним не может.
 
 
 # ==================== COMMAND HANDLERS ====================
@@ -78,6 +67,7 @@ def get_catalog_kb() -> InlineKeyboardMarkup:
 @router.message(Command("orders"))
 async def cmd_orders(message: Message):
     """Мои заказы"""
+    lang = lang_of(message)
     user = message.from_user
     
     # Look up user phone from profile via ecosystem bridge
@@ -85,16 +75,16 @@ async def cmd_orders(message: Message):
     phone = user_data.get("phone") if user_data else None
     
     if not phone:
-        text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов.\n\n💡 Чтобы видеть заказы, оформите первый заказ через каталог."
+        text = t("orders.empty_screen", lang)
         await message.answer(text)
         return
     
     orders = await bridge.get_orders_by_phone(phone)
     
     if not orders:
-        text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов."
+        text = t("orders.empty_screen", lang)
     else:
-        text = "📦 <b>Мои заказы</b>\n\n"
+        text = t("orders.title", lang) + "\n\n"
         for order in orders[:5]:
             text += f"• #{order['id'][-6:]} — {order['status']}\n"
     
@@ -120,12 +110,13 @@ async def cmd_bonuses(message: Message):
 @router.callback_query(F.data == "menu:main")
 async def cb_main_menu(callback: CallbackQuery):
     """Главное меню"""
+    lang = lang_of(callback)
     text = "🌱 <b>Главное меню</b>\n\nВыберите действие:"
-    kb = get_main_menu_kb()
+    kb = get_main_menu_kb(lang)
     
     try:
         # Try to edit text (works for text messages)
-        await callback.message.edit_text(text, reply_markup=kb)
+        await render(callback, text, reply_markup=kb)
     except Exception:
         # If it fails (photo message), delete and send new
         try:
@@ -137,15 +128,15 @@ async def cb_main_menu(callback: CallbackQuery):
     await callback.answer()
 
 
-@router.callback_query(F.data == "menu:catalog")
-async def cb_catalog(callback: CallbackQuery):
-    """Каталог — redirect to pricelist"""
-    await cb_pricelist(callback)
+# `menu:catalog` убран: кнопки с таким значением не существовало, а сам
+# обработчик просто перенаправлял на `catalog:pricelist`, который меню и
+# шлёт напрямую.
 
 
 @router.callback_query(F.data == "catalog:pricelist")
 async def cb_pricelist(callback: CallbackQuery):
     """Полный прайс-лист по всем категориям"""
+    lang = lang_of(callback)
     import logging
     _log = logging.getLogger(__name__)
     
@@ -160,16 +151,14 @@ async def cb_pricelist(callback: CallbackQuery):
     
     if not all_products:
         try:
-            await callback.message.edit_text(
-                "📦 <b>Каталог пуст</b>\n\nТовары скоро появятся!",
+            await render(callback, t("catalog.empty", lang),
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")],
+                    [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
                 ]),
                 parse_mode="HTML"
             )
         except Exception:
             pass
-        await callback.answer()
         return
     
     # Group by category
@@ -215,8 +204,8 @@ async def cb_pricelist(callback: CallbackQuery):
         buttons.append(row)
     
     buttons.append([
-        InlineKeyboardButton(text="🛍️ Корзина", callback_data="cart:view"),
-        InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main"),
+        InlineKeyboardButton(text=t('btn.cart', lang), callback_data="cart:view"),
+        InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main"),
     ])
     
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -226,19 +215,19 @@ async def cb_pricelist(callback: CallbackQuery):
         text = text[:3950] + "\n\n<i>...полный список на сайте</i>"
     
     try:
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        await render(callback, text, kb)
     except Exception:
         try:
             await callback.message.delete()
         except Exception:
             pass
         await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("catalog:"))
 async def cb_category(callback: CallbackQuery):
     """Категория каталога — fallback для старых кнопок"""
+    lang = lang_of(callback)
     category = callback.data.split(":")[1]
     if category == "pricelist":
         return  # Already handled above
@@ -260,21 +249,21 @@ async def cb_category(callback: CallbackQuery):
             text += f"• {title} — <b>{format_price(price)}</b> сум\n"
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🌐 На сайте", url=f"https://microgreenuzbekistan.com/catalog?category={category}")],
-        [InlineKeyboardButton(text="« Каталог", callback_data="catalog:pricelist"),
-         InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t("btn.on_site", lang), url=f"https://microgreenuzbekistan.com/catalog?category={category}")],
+        [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="catalog:pricelist"),
+         InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
     
     try:
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        await render(callback, text, kb)
     except Exception:
         pass
-    await callback.answer()
 
 
 @router.callback_query(F.data == "menu:orders")
 async def cb_orders(callback: CallbackQuery):
     """Мои заказы"""
+    lang = lang_of(callback)
     user = callback.from_user
     
     # Look up user phone from profile via ecosystem bridge
@@ -282,28 +271,23 @@ async def cb_orders(callback: CallbackQuery):
     phone = user_data.get("phone") if user_data else None
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 Каталог", callback_data="shop:categories")],
-        [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
+        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
     
     if not phone:
         try:
-            await callback.message.edit_text(
-                "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов.\n\n💡 Чтобы видеть заказы, оформите первый заказ через каталог.",
-                reply_markup=keyboard,
-                parse_mode="HTML"
-            )
+            await render(callback, t("orders.empty_screen", lang), keyboard)
         except Exception:
             pass
-        await callback.answer()
         return
     
     orders = await bridge.get_orders_by_phone(phone)
     
     if not orders:
-        text = "📦 <b>Мои заказы</b>\n\nУ вас пока нет заказов."
+        text = t("orders.empty_screen", lang)
     else:
-        text = "📦 <b>Мои заказы</b>\n\n"
+        text = t("orders.title", lang) + "\n\n"
         for order in orders[:5]:
             status_map = {
                 "PENDING": "⏳ Ожидает",
@@ -318,44 +302,37 @@ async def cb_orders(callback: CallbackQuery):
             text += f"• <b>#{order['id'][-6:]}</b> — {status} — {total:,} сум\n"
     
     try:
-        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+        await render(callback, text, keyboard)
     except Exception:
         pass
-    await callback.answer()
 
 
 @router.callback_query(F.data == "menu:bonuses")
 async def cb_bonuses(callback: CallbackQuery):
     """Бонусы"""
+    lang = lang_of(callback)
     user = callback.from_user
     bonuses = await bridge.get_user_bonuses(user.id)
     
     config = await fetch_site_config()
-    await callback.message.edit_text(
-        balance_text(config, bonuses),
+    await render(callback, balance_text(config, bonuses),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
+            [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
         ])
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data == "menu:game")
 async def cb_game(callback: CallbackQuery):
     """Игра"""
+    lang = lang_of(callback)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Играть", url="https://t.me/Microgreenuzbekistan_bot/game")],
-        [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t('btn.game', lang), url="https://t.me/Microgreenuzbekistan_bot/game")],
+        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
     
-    await callback.message.edit_text(
-        "🎮 <b>Farm Simulator</b>\n\n"
-        "Нажимай на растения, зарабатывай GreenCoins!\n"
-        "Монеты можно обменять на скидки.",
-        reply_markup=kb
-    )
-    await callback.answer()
+    await render(callback, t("game.body", lang), kb)
 
 
 @router.callback_query(F.data == "agronomist")
@@ -368,36 +345,22 @@ async def cb_ai_seller(callback: CallbackQuery):
     клиент получит молчание вместо помощника. Имя обработчика при этом
     честное: продаёт продавец.
     """
+    lang = lang_of(callback)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📸 Отправить фото еды", callback_data="agronomist:photo_hint")],
-        [InlineKeyboardButton(text="🛒 Подобрать микрозелень", callback_data="agronomist:shop_hint")],
-        [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t("btn.send_food_photo", lang), callback_data="agronomist:photo_hint")],
+        [InlineKeyboardButton(text=t("btn.pick_greens", lang), callback_data="agronomist:shop_hint")],
+        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
     
     try:
-        await callback.message.edit_text(
-            "🤖 <b>AI-помощник готов!</b>\n\n"
-            "Просто напишите мне любой вопрос, и я помогу:\n\n"
-            "🥗 <b>Подбор по вкусу</b> — какая микрозелень к какому блюду\n"
-            "🍽️ <b>Рецепты</b> — ПП и ЗОЖ рецепты с микрозеленью\n"
-            "📸 <b>Фото еды</b> — пришлите фото блюда, подскажу чем дополнить\n"
-            "🛒 <b>Заказ</b> — оформлю покупку прямо здесь\n"
-            "🚚 <b>Доставка</b> — расскажу условия и сроки\n"
-            "🎤 <b>Голосовые</b> — отправьте голосовое, я расшифрую и отвечу\n\n"
-            "👇 <i>Или выберите действие ниже:</i>",
-            reply_markup=kb,
-            parse_mode="HTML"
-        )
+        await render(callback, t("ai.splash", lang), kb)
     except Exception:
         try:
             await callback.message.delete()
         except Exception:
             pass
         await callback.message.answer(
-            "🤖 <b>AI-помощник готов!</b>\n\n"
-            "Напишите любой вопрос!\n"
-            "📸 Пришлите фото еды — подскажу чем дополнить\n"
-            "🎤 Отправьте голосовое — я расшифрую",
+            t("ai.ready", lang),
             reply_markup=kb,
             parse_mode="HTML"
         )
@@ -407,9 +370,9 @@ async def cb_ai_seller(callback: CallbackQuery):
 @router.callback_query(F.data == "agronomist:photo_hint")
 async def cb_ai_seller_photo(callback: CallbackQuery):
     """Подсказка: как прислать фото блюда (не растения — мы не диагностируем)"""
+    lang = lang_of(callback)
     await callback.answer(
-        "📸 Просто отправьте фото вашего блюда в этот чат!\n"
-        "Я подскажу, какая микрозелень его дополнит.",
+        t("ai.photo_hint", lang),
         show_alert=True
     )
 
@@ -417,19 +380,14 @@ async def cb_ai_seller_photo(callback: CallbackQuery):
 @router.callback_query(F.data == "agronomist:shop_hint")
 async def cb_ai_seller_shop(callback: CallbackQuery):
     """Подсказка: как попросить AI-продавца подобрать зелень"""
+    lang = lang_of(callback)
     try:
         await callback.message.edit_text(
             # prompt-ok: obrazec formata telefona dlya klienta, a ne kontakt kompanii
-            "🛒 <b>Подбор микрозелени</b>\n\n"
-            "Напишите мне, что вам нужно, например:\n\n"
-            "• <i>«Какая микрозелень самая вкусная?»</i>\n"
-            "• <i>«Что добавить в салат?»</i>\n"
-            "• <i>«Хочу попробовать что-нибудь острое»</i>\n"
-            "• <i>«Закажи 2 лотка подсолнечника, тел +998901234567»</i>\n\n"
-            "Подберу по вкусу и назову цены! 🌱",
+            t("ai.shop_hint", lang),
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🛒 Открыть каталог", callback_data="shop:categories")],
-                [InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main")],
+                [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
+                [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
             ]),
             parse_mode="HTML"
         )
@@ -451,29 +409,20 @@ async def cmd_referral(message: Message):
 @router.callback_query(F.data == "menu:about")
 async def cb_about(callback: CallbackQuery):
     """О нас — Полная экосистема"""
+    lang = lang_of(callback)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
-            InlineKeyboardButton(text="📢 Канал", url="https://t.me/MicrogreenUzbekistan"),
-            InlineKeyboardButton(text="👥 Группа", url="https://t.me/Microgreen_Uzbekistan"),
+            InlineKeyboardButton(text=t("btn.channel", lang), url="https://t.me/MicrogreenUzbekistan"),
+            InlineKeyboardButton(text=t("btn.group", lang), url="https://t.me/Microgreen_Uzbekistan"),
         ],
         [
             InlineKeyboardButton(text="📸 Instagram", url="https://www.instagram.com/microgreenuzbekistan"),
-            InlineKeyboardButton(text="🌐 Сайт", url="https://microgreenuzbekistan.com"),
+            InlineKeyboardButton(text=t("btn.website", lang), url="https://microgreenuzbekistan.com"),
         ],
         [
             InlineKeyboardButton(text="🎮 Farm Simulator", url="https://t.me/Microgreenuzbekistan_bot/game"),
         ],
-        [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
     
-    await callback.message.edit_text(
-        "🌱 <b>Microgreen Uzbekistan</b>\n"
-        "Свежая микрозелень • Бейби-лист • Салаты 🥗\n\n"
-        "• 🌿 Микрозелень, бейби-лист, салаты\n"
-        "• 🤖 AI-помощник для подбора и заказа\n"
-        "• 🎮 Farm Simulator — играй и получай бонусы!\n"
-        "• 🚚 Доставка: Самарканд + Ташкент\n\n"
-        "<b>Наши ресурсы:</b>",
-        reply_markup=kb
-    )
-    await callback.answer()
+    await render(callback, t("about.body", lang), kb)

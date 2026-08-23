@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
+import { useFeedback } from './AdminFeedback';
 import { useMagazineVideo } from './useMagazineVideo';
 import type { MagazineRestaurant, MagazineDish } from './magazineTypes';
 
@@ -16,6 +17,7 @@ import type { MagazineRestaurant, MagazineDish } from './magazineTypes';
 // ══════════════════════════════════════════════════════════════════════
 
 export function useMagazineAdmin() {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState('');
   const [quickName, setQuickName] = useState('');
@@ -99,7 +101,7 @@ export function useMagazineAdmin() {
       fd.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json().catch(() => null);
-      if (!data?.url) { alert(data?.error || 'Ошибка загрузки файла'); return; }
+      if (!data?.url) { notify.error(data?.error || 'Файл не загрузился'); return; }
       await adminFetch('/api/admin/magazine/restaurants', {
         method: 'PATCH',
         body: JSON.stringify({ id: restaurant.id, [field]: data.url }),
@@ -132,7 +134,14 @@ export function useMagazineAdmin() {
 
   const removeDish = async (id: string, name: string) => {
     if (!restaurant) return;
-    if (!window.confirm(`Удалить «${name}»? QR-код перестанет работать.`)) return;
+    const agreed = await notify.confirm({
+      title: `Удалить «${name}»?`,
+      // Напечатанный QR уже у клиентов на столах — последствие снаружи.
+      detail: 'QR-код перестанет работать.',
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!agreed) return;
     await adminFetch(`/api/admin/magazine/dishes?id=${id}`, { method: 'DELETE' });
     await loadDishes(restaurant.id);
   };

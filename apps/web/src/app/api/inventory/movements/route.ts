@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isValidQty, normalizeQty } from '@/lib/qty';
 import { publish } from '@/lib/realtime/bus';
+import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 // ==========================================
 // Stock Movements API — Inventory Operations
@@ -177,7 +178,13 @@ export async function POST(request: NextRequest) {
         fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chat_id: ADMIN_CHAT_ID, text: msg, parse_mode: 'Markdown' }),
+          body: JSON.stringify({
+            chat_id: ADMIN_CHAT_ID,
+            text: msg,
+            parse_mode: 'Markdown',
+            reply_markup: openKeyboard(ADMIN_CHAT_ID, 'inventory', null, '📦 Склад'),
+            disable_web_page_preview: true,
+          }),
         }).catch(() => {});
       }
     }

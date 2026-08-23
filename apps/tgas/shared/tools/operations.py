@@ -534,6 +534,7 @@ async def create_delivery_route(
 register(
     Tool(
         name="get_inventory",
+        admin_tab="inventory",
         description=(
             "Остатки СЫРЬЯ на складе (семена, субстрат, лотки, упаковка): "
             "сколько осталось, средняя себестоимость, что ниже минимума. "
@@ -556,6 +557,7 @@ register(
 register(
     Tool(
         name="list_staff",
+        admin_tab="employees",
         description=(
             "Сотрудники и их id. Вызывай ПЕРЕД assign_shift и "
             "create_delivery_route: они работают по id, а не по имени."
@@ -568,6 +570,7 @@ register(
 register(
     Tool(
         name="list_suppliers",
+        admin_tab="suppliers",
         description=(
             "Поставщики и их id. Вызывай перед receive_material, если приход "
             "нужно привязать к поставщику."
@@ -580,6 +583,7 @@ register(
 register(
     Tool(
         name="get_grow_batches",
+        admin_tab="growing",
         description=(
             "Посадки: id партии, культура, фаза, что готово к продаже и что "
             "просрочено. Вызывай на «что на выращивании», «что созрело», "
@@ -676,6 +680,7 @@ register(
 register(
     Tool(
         name="open_batch",
+        admin_tab="growing",
         description=(
             "ОТКРЫТЬ ПАРТИЮ раньше срока — вывести из тёмной фазы на свет. "
             "Вызывай на «открой партию», «вышла раньше», «уже проросла», "
@@ -797,6 +802,7 @@ register(
 register(
     Tool(
         name="assign_shift",
+        admin_tab="shifts",
         description=(
             "Поставить сотруднику СМЕНУ в график. Это график работы, а не "
             "поручение — для поручения есть create_task. Тип: work, sick, vacation."
@@ -822,6 +828,7 @@ register(
 register(
     Tool(
         name="create_delivery_route",
+        admin_tab="deliveries",
         description=(
             "Собрать МАРШРУТ курьера на дату из списка адресов. "
             "stops — массив объектов {address, phone, orderId, note}."

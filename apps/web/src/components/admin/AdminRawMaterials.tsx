@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, PackagePlus, Sprout } from 'lucide-react';
 import { AdminRawMaterialForm } from './AdminRawMaterialForm';
+import { useFeedback } from './AdminFeedback';
 import { AdminRawMaterialTable } from './AdminRawMaterialTable';
 import type { RawMaterial } from './rawMaterialTypes';
 
@@ -14,7 +15,8 @@ import type { RawMaterial } from './rawMaterialTypes';
 // ничего не списывала, а себестоимость выращенного не бралась ниоткуда.
 // ══════════════════════════════════════════════════════════════════════
 
-export function AdminRawMaterials() {
+export function AdminRawMaterials({ focus = '' }: { focus?: string }) {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [receiptFor, setReceiptFor] = useState<RawMaterial | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -62,12 +64,15 @@ export function AdminRawMaterials() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-raw-materials'] }),
   });
 
-  const handleDelete = (m: RawMaterial) => {
-    const question = m.stock > 0
-      ? `Скрыть «${m.name}»? На складе ещё ${m.stock} ${m.unit}.\nПриходы и себестоимость сохранятся.`
-      : `Скрыть «${m.name}»?\nПриходы и себестоимость сохранятся.`;
-    if (!confirm(question)) return;
-    remove.mutate(m);
+  const handleDelete = async (m: RawMaterial) => {
+    const agreed = await notify.confirm({
+      title: `Скрыть «${m.name}»?`,
+      detail: m.stock > 0
+        ? `На складе ещё ${m.stock} ${m.unit}. Приходы и себестоимость сохранятся.`
+        : 'Приходы и себестоимость сохранятся.',
+      confirmText: 'Скрыть',
+    });
+    if (agreed) remove.mutate(m);
   };
 
   const save = useMutation({
@@ -144,6 +149,7 @@ export function AdminRawMaterials() {
         <div className="card" style={{ padding: 'var(--space-4)' }}>Загрузка…</div>
       ) : (
         <AdminRawMaterialTable
+          focus={focus}
           materials={materials}
           fmt={fmt}
           onReceipt={(m) => { setShowNew(false); setReceiptFor(m); }}

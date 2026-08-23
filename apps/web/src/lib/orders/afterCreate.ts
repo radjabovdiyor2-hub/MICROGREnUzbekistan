@@ -3,6 +3,7 @@ import { soldProductName } from '@/lib/products/sold';
 import { getNumber } from '@/lib/settings/store';
 import { notifyTelegram, notifyOffice } from './notify';
 import { detach } from '@/lib/background';
+import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 // ══════════════════════════════════════════════════════════════════════
 // Побочные эффекты после создания заказа. Вынесено из api/orders/route.ts.
@@ -116,7 +117,13 @@ if (lowStockAlerts.length > 0) {
       fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: adminChatId, text: alertMsg, parse_mode: 'HTML' }),
+        body: JSON.stringify({
+          chat_id: adminChatId,
+          text: alertMsg,
+          parse_mode: 'HTML',
+          reply_markup: openKeyboard(adminChatId, 'inventory', null, '📦 Склад'),
+          disable_web_page_preview: true,
+        }),
       }),
     );
   }
@@ -127,7 +134,27 @@ detach(`заказ #${order.orderNumber} в Telegram`, notifyTelegram(order, cus
 
 // Mirror into the AI-office CRM + fire ORDER_CREATED so Stepan and the
 // department bots (Finance/PM/Analytics) actually see this order.
-detach(`заказ #${order.orderNumber} в офис`, notifyOffice(order, user));
+//
+// Баланс перечитываем ЗДЕСЬ, а не берём из `user`.
+//
+// `user` прочитан в `createOrder` ДО транзакции, внутри которой баллы
+// списываются. Отправляя его как есть, мы сообщали офису баланс ДО
+// списания — и карточка в CRM показывала продавцу больше баллов, чем у
+// клиента осталось. Ошибка всегда в пользу клиента и всплывает при
+// следующем разговоре: «у вас 5 000 баллов» — «нет, 1 200».
+//
+// `customer_repo` бонусы именно ПЕРЕЗАПИСЫВАЕТ (единственное поле с такой
+// политикой — «бонусами владеет витрина»), поэтому неверное число не
+// смешается со старым, а заменит его.
+const freshBalance = await prisma.user
+  .findUnique({ where: { id: user.id }, select: { bonusPoints: true } })
+  .then((row) => row?.bonusPoints ?? user.bonusPoints)
+  .catch(() => user.bonusPoints);
+
+detach(
+  `заказ #${order.orderNumber} в офис`,
+  notifyOffice(order, { ...user, bonusPoints: freshBalance }),
+);
 
 
 // Кэшбэк пригласившему. Процент задаётся в админке (bonus.referralPercent):

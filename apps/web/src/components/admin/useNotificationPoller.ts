@@ -14,6 +14,15 @@ export interface OfficeAlert {
   title: string;
   message: string;
   source: string;
+  /**
+   * «Что с этим делать» в терминах пульта: `{action, bot}`.
+   *
+   * Офис кладёт сюда готовую команду (`shared/owner_alerts.raise_alert`),
+   * форма совпадает с телом `/api/admin/bot-action`. Поле доезжало до
+   * браузера и терялось здесь: колокольчик показывал «бэкап не удался» и
+   * не давал его перезапустить.
+   */
+  suggestedAction?: { action?: string; bot?: string } | null;
   createdAt: string;
 }
 
@@ -136,12 +145,19 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
           for (const a of alertData.alerts as OfficeAlert[]) {
             const alertId = `office_${a.id}`;
             if (seen.has(alertId)) continue;
+            const suggested = a.suggestedAction;
             newNotifs.push({
               id: alertId,
               type: 'office',
               message: `${a.title} — ${a.message}`.slice(0, 300),
               time: new Date(a.createdAt),
               read: false,
+              // Команду проносим дальше: без неё сигнал остаётся рассказом
+              // о проблеме, а не способом её решить.
+              action:
+                suggested?.action && suggested?.bot
+                  ? { action: suggested.action, bot: suggested.bot }
+                  : undefined,
             });
           }
           // Пометку «прочитано» не ждём: она ничего не даёт этому тику, а

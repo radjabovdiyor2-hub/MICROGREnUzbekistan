@@ -13,6 +13,7 @@ import { AdminAuthScreens } from './AdminAuthScreens';
 import { useAdminAuth, type StaffRole } from './useAdminAuth';
 import { useAdminTab } from './useAdminTab';
 import { AdminTelegramInit } from './AdminTelegramInit';
+import { AdminFeedbackProvider } from '@/components/admin/AdminFeedback';
 import { useRealtime } from '@/components/admin/useRealtime';
 
 interface AdminShellProps {
@@ -135,6 +136,10 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
 
   // === MAIN ADMIN PANEL ===
   return (
+    // Тост и подтверждение — на всю админку. Родными окнами браузера
+    // (`alert`/`confirm`) пользоваться нельзя: в Telegram Mini App они
+    // выезжают системным листом поверх приложения и сбивают его хром.
+    <AdminFeedbackProvider>
     <div className="admin-layout" style={{ minHeight: '100vh', background: 'var(--bg-primary)' }}>
       <AdminTelegramInit isAuthenticated />
 
@@ -167,5 +172,6 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
         t={t}
       />
     </div>
+    </AdminFeedbackProvider>
   );
 }

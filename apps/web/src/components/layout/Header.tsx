@@ -7,10 +7,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/components/providers/ThemeProvider';
 import { useCart } from '@/components/providers/CartProvider';
+import { useFavorites } from '@/components/providers/FavoritesProvider';
 import { useLang } from '@/components/providers/LangProvider';
 import { useCity } from '@/components/providers/CityProvider';
-import { ShoppingCart, User, Moon, Sun, ArrowDown } from 'lucide-react';
+import { ShoppingCart, User, Moon, Sun, ArrowDown, Heart } from 'lucide-react';
 import { LogoIcon } from '@/components/ui/Logo';
+import { Toast } from '@/components/ui/Toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const spring = { type: 'spring' as const, damping: 20, stiffness: 300 };
@@ -21,7 +23,11 @@ export function Header() {
   const { lang, toggleLang, t } = useLang();
   const { city, setCity } = useCity();
   const router = useRouter();
+  const { count: favoritesCount } = useFavorites();
   const [searchVal, setSearchVal] = useState('');
+  // Сообщение вместо alert(): нативный диалог блокирует страницу и в
+  // телеграм-обёртке выглядит поломкой приложения, а не подсказкой.
+  const [notice, setNotice] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -36,7 +42,10 @@ export function Header() {
     
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert(t('Овозли qidiruv qollab quvvatlanmaydi', 'Голосовой поиск не поддерживается вашим браузером.'));
+      setNotice(t(
+        "Ovozli qidiruv bu brauzerda ishlamaydi",
+        'Голосовой поиск не поддерживается вашим браузером',
+      ));
       return;
     }
 
@@ -155,6 +164,36 @@ export function Header() {
             </AnimatePresence>
           </motion.button>
 
+          {/* Избранное.
+              На телефоне до него было НЕ ДОБРАТЬСЯ: ссылка жила только в
+              десктопном меню шапки, которое скрыто ниже 769px, а в нижней
+              панели слота для избранного нет. Карточка товара при этом
+              позволяет добавлять в избранное — то есть список копился на
+              странице, открыть которую с телефона можно было лишь набрав
+              адрес вручную. */}
+          <Link
+            href="/favorites"
+            className="header__action-btn"
+            id="favorites-btn"
+            aria-label={t('nav.favorites')}
+          >
+            <Heart size={22} />
+            <AnimatePresence>
+              {favoritesCount > 0 && (
+                <motion.span
+                  className="header__cart-badge"
+                  key={favoritesCount}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  transition={spring}
+                >
+                  {favoritesCount > 99 ? '99+' : favoritesCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </Link>
+
           {/* Cart */}
           <Link href="/cart" className="header__action-btn" id="cart-btn">
             <ShoppingCart size={22} />
@@ -181,6 +220,23 @@ export function Header() {
           </Link>
         </div>
       </div>
+
+      {/* Подсказка вместо alert(). Нативный диалог блокирует поток и требует
+          нажатия «ОК»; в Telegram Mini App он к тому же выглядит так, будто
+          сломалось приложение, а не браузер не умеет распознавать речь. */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            <Toast variant="info" onClose={() => setNotice(null)}>
+              {notice}
+            </Toast>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

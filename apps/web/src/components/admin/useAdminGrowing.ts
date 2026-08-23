@@ -7,8 +7,13 @@ import {
   type Batch, type PlantingRequirement, type ProductOption,
 } from './growingData';
 import { harvestBatchApi, setDarkPhaseApi, writeOffBatchApi } from './growingActions';
+import { useFeedback } from './AdminFeedback';
 
 export function useAdminGrowing() {
+  // Тост и подтверждение вместо нативных окон браузера: агроном работает
+  // с телефона в теплице, а `alert()` в Telegram Mini App выезжает
+  // системным листом поверх приложения.
+  const notify = useFeedback();
   const [batches, setBatches] = useState<Batch[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [cropType, setCropType] = useState('radish');
@@ -153,18 +158,40 @@ export function useAdminGrowing() {
     if (!batch) return;
     setHarvesting(id);
     try {
-      await harvestBatchApi({ ...batch, harvestQty, productId: selectedProductId || batch.productId }, reload, fmt);
+      await harvestBatchApi(
+        { ...batch, harvestQty, productId: selectedProductId || batch.productId },
+        reload,
+        fmt,
+        notify,
+      );
     } catch (err) {
       console.error(err);
-      alert('Ошибка при добавлении на склад');
+      notify.error('Не удалось оприходовать урожай на склад');
     } finally {
       setHarvesting(null);
     }
   };
 
   const deleteBatch = async (id: string) => {
-    if (!confirm('Удалить эту посадку?')) return;
-    await fetch(`/api/admin/grow-batches?id=${id}`, { method: 'DELETE', credentials: 'same-origin' });
+    const batch = batches.find(b => b.id === id);
+    const agreed = await notify.confirm({
+      title: `Удалить посадку «${batch?.productName || batch?.cropType || id}»?`,
+      // Раньше вопрос был безымянный: «Удалить эту посадку?». На экране
+      // с десятком карточек это вопрос без предмета.
+      detail: 'Запись исчезнет из журнала выращивания. Вернуть нельзя.',
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!agreed) return;
+
+    const res = await fetch(`/api/admin/grow-batches?id=${id}`, {
+      method: 'DELETE', credentials: 'same-origin',
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      notify.error(body?.error || 'Не удалось удалить посадку');
+      return;
+    }
     await reload();
   };
 
@@ -175,10 +202,10 @@ export function useAdminGrowing() {
     if (!batch) return;
     setHarvesting(id);
     try {
-      await writeOffBatchApi(batch, reload, fmt);
+      await writeOffBatchApi(batch, reload, fmt, notify);
     } catch (err) {
       console.error(err);
-      alert('Ошибка при списании');
+      notify.error('Не удалось списать партию');
     } finally {
       setHarvesting(null);
     }
@@ -191,10 +218,10 @@ export function useAdminGrowing() {
     if (!batch) return;
     setHarvesting(id);
     try {
-      await setDarkPhaseApi(batch, mode, reload);
+      await setDarkPhaseApi(batch, mode, reload, notify);
     } catch (err) {
       console.error(err);
-      alert('Ошибка при изменении тёмной фазы');
+      notify.error('Не удалось изменить тёмную фазу');
     } finally {
       setHarvesting(null);
     }

@@ -9,6 +9,7 @@ import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
 
 import { CATEGORY_ICONS, type Recipe } from './recipeOfDayData';
+import { tint } from '@/lib/tint';
 
 export function RecipeOfDay() {
   const { t, lang } = useLang();
@@ -45,7 +46,7 @@ export function RecipeOfDay() {
             width: 36, height: 36, borderRadius: 10,
             background: `linear-gradient(135deg, ${cat.colorFrom}, ${cat.colorTo})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: `0 4px 12px ${cat.colorFrom}40`, color: 'white',
+            boxShadow: `0 4px 12px ${tint(cat.colorFrom, 25)}`, color: 'var(--text-inverse)',
           }}><Leaf size={18} /></div>
           <div>
             <h2 style={{ fontSize: 'var(--text-lg)', fontWeight: 800, fontFamily: 'var(--font-display)' }}>
@@ -79,7 +80,7 @@ export function RecipeOfDay() {
           {/* Gradient header */}
           <div style={{
             background: `linear-gradient(135deg, ${cat.colorFrom}, ${cat.colorTo})`,
-            padding: '20px 24px', color: 'white', position: 'relative', overflow: 'hidden',
+            padding: '20px 24px', color: 'var(--text-inverse)', position: 'relative', overflow: 'hidden',
           }}>
             <div style={{ position: 'absolute', top: -30, right: -20, width: 100, height: 100, borderRadius: '50%', background: 'rgba(var(--overlay-light-rgb), 0.08)' }} />
             {/* salad leaves grow along the header bottom — recipes are salads */}
@@ -117,8 +118,8 @@ export function RecipeOfDay() {
             ].map((n, i) => (
               <div key={i} style={{
                 padding: '6px 12px', borderRadius: 10, fontSize: 11, fontWeight: 700,
-                background: `${n.color}12`, color: n.color, whiteSpace: 'nowrap',
-                border: `1px solid ${n.color}20`,
+                background: `${tint(n.color, 7)}`, color: n.color, whiteSpace: 'nowrap',
+                border: `1px solid ${tint(n.color, 13)}`,
               }}>
                 {n.label}: {n.value}
               </div>
@@ -169,7 +170,7 @@ export function RecipeOfDay() {
                     <div style={{
                       width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
                       background: `linear-gradient(135deg, ${cat.colorFrom}, ${cat.colorTo})`,
-                      color: 'white', fontSize: 11, fontWeight: 800,
+                      color: 'var(--text-inverse)', fontSize: 11, fontWeight: 800,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>{i + 1}</div>
                     <span style={{ paddingTop: 2 }}>{step}</span>
@@ -180,7 +181,7 @@ export function RecipeOfDay() {
               {/* Pro tip */}
               <div style={{
                 padding: '12px 16px', borderRadius: 12,
-                background: `${cat.colorFrom}10`, border: `1px solid ${cat.colorFrom}20`,
+                background: `${tint(cat.colorFrom, 6)}`, border: `1px solid ${tint(cat.colorFrom, 13)}`,
                 fontSize: 12, fontWeight: 600, color: cat.colorFrom,
                 display: 'flex', alignItems: 'flex-start', gap: 8,
               }}>

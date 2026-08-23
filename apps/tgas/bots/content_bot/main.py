@@ -21,6 +21,7 @@ from shared.brand import BRAND_TEXT_STYLE
 from shared.prompts import TEAM_CONTEXT, role_prompt
 from shared import catalog_repo
 from shared.config import settings
+from shared.notifications import send_report
 from shared.content_archive import (
     get_last_publications_async as get_last_publications,
     get_publications_async as get_publications,
@@ -1066,12 +1067,16 @@ async def check_and_refresh_token_job():
             settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
         )
         if admin_id and _bot:
-            await _bot.send_message(
+            # «Потребуется ручной перезапуск» — это работа DevOps, и делают
+            # её с «Пульта ИИ». Раньше сообщение обрывалось на требовании.
+            await send_report(
+                _bot,
                 admin_id,
                 f"⚠️ <b>Критическая ошибка:</b> Не удалось автоматически обновить Instagram Access Token.\n"
                 f"Детали ошибки: <code>{e}</code>\n"
                 f"Потребуется ручной перезапуск обмена токенов.",
-                parse_mode="HTML",
+                admin_tab="bot_control",
+                button_text="⚙️ Пульт ИИ",
             )
 
 
@@ -1679,6 +1684,7 @@ async def main():
     await event_bus.start_listening(8089)
 
     # ── Bot Bus: слушаем задачи от Степана ──
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
 
@@ -1686,6 +1692,10 @@ async def main():
         bus_listen(
             "content_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("content_bot"),
                 "publish_story": bus_publish_story,
                 "publish_post": bus_publish_story,  # same handler, posts to Stories
                 "generate_meme": bus_generate_meme,
@@ -1702,6 +1712,12 @@ async def main():
     # ── Запуск планировщика и heartbeat ──
     await scheduler.start()
     asyncio.create_task(start_heartbeat("content_bot"))
+
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "content_bot"))
 
     try:
         await bot.delete_webhook(drop_pending_updates=True)

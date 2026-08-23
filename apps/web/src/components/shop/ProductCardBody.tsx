@@ -3,8 +3,9 @@
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle, Minus, Plus, ShoppingCart, Star } from 'lucide-react';
+import { CheckCircle, ShoppingCart, Star } from 'lucide-react';
 import { MicrogreensCanvas, seedFromString } from '@/components/ui/MicrogreensCanvas';
+import { QuantityStepper } from '@/components/ui/QuantityStepper';
 import { formatPrice } from '@repo/shared';
 import { useLang } from '@/components/providers/LangProvider';
 import type { useCart } from '@/components/providers/CartProvider';
@@ -103,43 +104,31 @@ export function ProductCardBody({
           borderRadius: 'var(--radius-sm)', overflow: 'hidden',
           background: 'var(--brand-primary)', color: 'var(--text-inverse)',
         }}>
-        <button
-          aria-label="−"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty - 1); }}
-          style={{
-            width: 36, height: 32, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: 'var(--text-inverse)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-          <Minus size={14} />
-        </button>
-        <AnimatePresence mode="popLayout">
-          <motion.span
-            key={inCartQty}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15 }}
-            style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}
-          >
-            {inCartQty}
-          </motion.span>
-        </AnimatePresence>
-        <button
-          aria-label="+"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty + 1); }}
-          style={{
-            width: 36, height: 32, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: 'var(--text-inverse)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-          <Plus size={14} />
-        </button>
+        {/* Счётчик — один на всё приложение.
+
+            Здесь лежала ЧЕТВЁРТАЯ копия: своя высота, свои подписи, своя
+            остановка нажатия внутри ссылки на товар. Три предыдущие уже
+            сведены в `ui/QuantityStepper`, эта оставалась в стороне —
+            и правка размера касания до карточки каталога не доходила.
+
+            `min={0}`: в карточке «минус» на единице означает «убрать
+            совсем» — корзина сама выкидывает позицию при нуле. */}
+        <QuantityStepper
+          value={inCartQty}
+          onChange={(next) => cart.updateQuantity(product.id, next)}
+          min={0}
+          inverted
+          block
+          labels={{
+            less: t('Kamaytirish', 'Уменьшить количество'),
+            more: t("Ko'paytirish", 'Увеличить количество'),
+          }}
+        />
       </motion.div>
     ) : (
       <motion.button
         key={added ? 'added' : 'add'}
-        className="btn btn-sm btn-block"
+        className={`btn btn-sm btn-block ${added ? 'btn-success' : 'btn-primary'}`}
         onClick={handleAddToCart}
         aria-label={t('product.add_to_cart')}
         initial={{ opacity: 0, scale: 0.9 }}
@@ -147,11 +136,11 @@ export function ProductCardBody({
         exit={{ opacity: 0, scale: 0.9 }}
         whileTap={{ scale: 0.93 }}
         transition={spring}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-          border: 'none', color: 'var(--text-inverse)', fontWeight: 'var(--font-semibold)',
-          background: added ? 'var(--success)' : 'var(--brand-primary)',
-        }}
+        // Вид кнопки задаётся КЛАССОМ. Раньше здесь заново объявлялся
+        // вариант — фон, цвет текста, рамка, — и правка `.btn-primary` в
+        // дизайн-системе до главной кнопки каталога не доходила. Раскладка
+        // тоже лишняя: `.btn` уже flex с нужным зазором.
+        style={{ fontWeight: 'var(--font-semibold)' }}
       >
         {added
           ? <><CheckCircle size={14} /> {t("Qo'shildi", 'Добавлено')}</>

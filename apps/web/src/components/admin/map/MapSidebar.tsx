@@ -24,9 +24,11 @@ interface Props {
   route: ReturnType<typeof useDayRoute>;
   isOwner: boolean;
   onOpenCard: (id: number) => void;
+  /** Кем подписывать чек, пробитый прямо с точки. */
+  sellerName: string;
 }
 
-export function MapSidebar({ lang, m, route, onOpenCard, isOwner }: Props) {
+export function MapSidebar({ lang, m, route, onOpenCard, isOwner, sellerName }: Props) {
   const selected = m.selected;
 
   return (
@@ -36,6 +38,7 @@ export function MapSidebar({ lang, m, route, onOpenCard, isOwner }: Props) {
           <CustomerMapPanel
             point={selected}
             lang={lang}
+            sellerName={sellerName}
             onClose={() => m.setSelectedId(null)}
             onOpenCard={onOpenCard}
             onReplacePin={(id) => {

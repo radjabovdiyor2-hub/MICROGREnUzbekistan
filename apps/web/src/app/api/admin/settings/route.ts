@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
+import { detach } from '@/lib/background';
+import { officeFetch } from '@/lib/office/client';
 import { getSettings, setSettings } from '@/lib/settings/store';
 import {
   SETTINGS, SETTING_CATEGORIES, CATEGORY_LABELS, type SettingDef,
@@ -73,6 +75,25 @@ export async function PUT(request: NextRequest) {
       target: Object.keys(applied).join(','),
       meta: { applied },
     });
+
+    // Сказать офису, что настройки изменились.
+    //
+    // Боты держат настройки в кэше на минуту, и до сих пор им об этом не
+    // сообщал никто: дверь `/api/admin/config-updated` в офисе была, и её
+    // не звали ниоткуда. Владелец менял телефон компании или порог
+    // бесплатной доставки — и следующую минуту бот отвечал клиентам
+    // старым значением, ничем себя не выдавая.
+    //
+    // В фоне: сигнал — довесок к сохранению, а не его часть. Недоступный
+    // офис не повод отказать в записи настройки.
+    detach(
+      'сигнал офису о смене настроек',
+      officeFetch('/api/admin/config-updated', { method: 'POST', timeoutMs: 4000 }).then(
+        (res) => {
+          if (!res.ok) console.error('[settings] офис не принял сигнал:', res.error);
+        },
+      ),
+    );
   }
 
   // Частичный успех — 200 с разбором по ключам: UI подсветит проблемные

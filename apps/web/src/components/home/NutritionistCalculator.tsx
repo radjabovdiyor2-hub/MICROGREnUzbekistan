@@ -4,6 +4,7 @@ import { CheckCircle, Leaf, Lightbulb, Plus, X, Zap } from 'lucide-react';
 import {
   DvBar, inputStyle, type NutrientDetail, type NutrientResult,
 } from './nutritionistTypes';
+import { tint } from '@/lib/tint';
 
 // Калькулятор порции: выбор культур, граммовка и разбор по нутриентам.
 // Вынесен из NutritionistPanel — это вся содержательная часть блока,
@@ -87,7 +88,7 @@ export function NutritionistCalculator({
         </button>
         <button onClick={calculate} disabled={loading} style={{
           flex: 2, padding: 10, borderRadius: 12, fontSize: 13, fontWeight: 700,
-          background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))', color: 'white',
+          background: 'linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover))', color: 'var(--text-inverse)',
           border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center',
           justifyContent: 'center', gap: 6, opacity: loading ? 0.6 : 1,
           boxShadow: '0 4px 12px rgba(var(--brand-primary-rgb), 0.3)', transition: 'all 0.2s',
@@ -113,7 +114,7 @@ export function NutritionistCalculator({
           ].map((m, i) => (
             <div key={i} style={{
               textAlign: 'center', padding: '14px 8px', borderRadius: 14,
-              background: `${m.color}08`, border: `1.5px solid ${m.color}18`,
+              background: `${tint(m.color, 3)}`, border: `1.5px solid ${tint(m.color, 9)}`,
             }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: 'var(--font-display)' }}>
                 {m.value}

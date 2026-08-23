@@ -761,3 +761,49 @@ async def orders(customer_id: int, limit: int = 10) -> List[Dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+async def recalc_stats(session, customer_id: int) -> None:
+    """Пересчитать счётчики клиента по фактическим заказам.
+
+    Здесь стоял инкремент: `orders_count = orders_count + 1,
+    total_spent = total_spent + :amount`. Уменьшения не было НИГДЕ — при
+    отмене заказа и счётчик, и сумма оставались прежними. На этих числах
+    держатся статус VIP, сортировка «лучшие клиенты» (`ORDER BY total_spent`
+    в sales_bot) и сегменты рассылок, то есть завышение расходилось по всему
+    офису.
+
+    Пересчёт вместо декремента выбран по двум причинам: он самоисцеляющийся
+    (уже накопленное искажение уходит при первом же касании клиента) и
+    снимает риск двойного счёта, о котором предупреждает комментарий в
+    sales_bot/handlers/order.py.
+
+    Статус только повышается. Понижать его нельзя: `churned` и `vip`
+    проставляет отдел продаж, и отмена одного заказа не повод откатывать
+    наработанное — то же правило, что и в `customer_repo.upsert`.
+    """
+    await session.execute(
+        text(
+            "UPDATE customers c SET "
+            "  orders_count = s.cnt, "
+            "  total_spent = s.total, "
+            "  last_order_date = s.last_at, "
+            "  status = CASE "
+            "             WHEN s.cnt >= 5 THEN 'vip' "
+            "             WHEN s.cnt >= 1 AND c.status = 'lead' THEN 'active' "
+            "             ELSE c.status END "
+            "FROM ("
+            # Считаем ЗАКАЗЫ, а суммируем ВСЁ. Возврат приходит зеркалом
+            # витрины отдельной строкой с отрицательной суммой (см.
+            # posRefundIngestBody): он обязан уменьшить «Потрачено», но не
+            # имеет права увеличить «Заказов» — иначе у клиента, вернувшего
+            # покупку, покупок становится больше.
+            "  SELECT COUNT(*) FILTER (WHERE total_amount >= 0) AS cnt, "
+            "         COALESCE(SUM(total_amount), 0) AS total, "
+            "         MAX(created_at) FILTER (WHERE total_amount >= 0) AS last_at "
+            "  FROM crm_orders WHERE customer_id = :cid AND status <> 'cancelled'"
+            ") s "
+            "WHERE c.id = :cid"
+        ),
+        {"cid": int(customer_id)},
+    )
