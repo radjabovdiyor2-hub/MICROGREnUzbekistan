@@ -9,12 +9,15 @@ import type { SegmentState } from '@/lib/customers/segments';
 
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
 
+import { DETAILED_BASE_KEY, useRememberedFlag } from './useMapPrefs';
+
 import {
   EMPTY_COLLECTION,
   searchPoints,
   toPointView,
   type ColorizeMode,
   type MapCollection,
+  type MapFeature,
 } from './mapFeature';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -57,6 +60,15 @@ export function useCustomerMap() {
   const typesKey = [...companyTypes].sort().join(',');
   const [audience, setAudience] = useState('all');
   const [showDelivery, setShowDelivery] = useState(false);
+  // Тепло и подробная подложка — вид карты, а не фильтр: данные они не
+  // перезапрашивают, поэтому и в ключ запроса не входят.
+  const [showHeat, setShowHeat] = useState(false);
+  // Подложка запоминается: её выбирают под свою местность и под своё
+  // зрение, а не заново каждое утро.
+  const [detailedBase, setDetailedBase] = useRememberedFlag(DETAILED_BASE_KEY, false);
+  // Несколько точек под пальцем: выбирает человек. Пустой массив — стопки
+  // нет; см. mapHit.stackedHits.
+  const [stackIds, setStackIds] = useState<number[]>([]);
   // Режим «подряд»: после каждого пина сам взводит следующего клиента.
   const [chaining, setChaining] = useState(false);
   // Поиск по названию и подлёт к найденной точке.
@@ -173,20 +185,35 @@ export function useCustomerMap() {
     return feature ? toPointView(feature) : null;
   }, [collection, selectedId]);
 
-  // Esc выходит из режима простановки пина — иначе отменить его можно
-  // только случайным кликом по карте, то есть поставив пин не туда.
+  // Esc — лестница выхода, а не одна ступень.
+  //
+  // Раньше обработчик висел ТОЛЬКО в режиме простановки пина, и панель
+  // выбранной точки закрывалась исключительно крестиком. Порядок здесь
+  // от самого узкого к самому широкому; полный экран стоит следующей
+  // ступенью и слушает Esc только когда всё это уже закрыто (см.
+  // useMapFullscreen).
   useEffect(() => {
-    if (placingId === null) return;
+    const open = placingId !== null || stackIds.length > 0 || selectedId !== null;
+    if (!open) return;
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      // Esc выходит из режима целиком, а не только из текущего пина:
-      // иначе цепочка молча продолжилась бы со следующего клиента.
-      setPlacingId(null);
-      setChaining(false);
+      if (placingId !== null) {
+        // Esc выходит из режима целиком, а не только из текущего пина:
+        // иначе цепочка молча продолжилась бы со следующего клиента.
+        setPlacingId(null);
+        setChaining(false);
+        return;
+      }
+      if (stackIds.length > 0) {
+        setStackIds([]);
+        return;
+      }
+      setSelectedId(null);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [placingId]);
+  }, [placingId, stackIds, selectedId]);
 
   const savePin = async (lngLat: { lng: number; lat: number }) => {
     if (placingId === null) return;
@@ -310,6 +337,23 @@ export function useCustomerMap() {
     setAudience,
     showDelivery,
     setShowDelivery,
+    showHeat,
+    setShowHeat,
+    detailedBase,
+    setDetailedBase,
+    stackIds,
+    /** Точки стопки в развёрнутом виде — для списка выбора. */
+    stack: stackIds
+      .map((id) => collection.features.find((f) => f.id === id))
+      .filter((f): f is MapFeature => f !== undefined)
+      .map(toPointView),
+    /** Показать выбор из нескольких точек под пальцем. */
+    setStackIds,
+    /** Выбрать точку из стопки: список закрывается, панель открывается. */
+    pickFromStack: (id: number) => {
+      setStackIds([]);
+      setSelectedId(id);
+    },
     delivery: showDelivery ? (deliveryQuery.data ?? null) : null,
     deliveryError: deliveryQuery.error,
     routes: deliveryQuery.data?.routes ?? [],

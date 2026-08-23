@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 
 import {
   DEFAULT_BOUNDS,
+  EMPTY_ROUTE,
   SAMARKAND,
   SEARCH_LIMIT,
   TASHKENT,
   boundsOfFeatures,
+  routeCollection,
   searchPoints,
 } from './mapFeature';
 import type { MapFeature } from './mapFeature';
@@ -105,5 +107,51 @@ describe('поиск по карте', () => {
     expect(found.longitude).toBe(66.98);
     expect(found.latitude).toBe(39.66);
     expect(found.name).toBe('Sam Ped Kolledj');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Объезд дня на карте.
+//
+// До этого список из десяти остановок жил только в панели: карта про
+// объезд не знала, и сверять «что я набрал» с «где это» приходилось
+// глазами, переводя взгляд туда-сюда.
+// ══════════════════════════════════════════════════════════════════════
+
+describe('routeCollection', () => {
+  const stops = [
+    { id: 7, name: 'Плов Центр', latitude: 39.65, longitude: 66.96 },
+    { id: 9, name: 'Registon Cafe', latitude: 39.66, longitude: 66.97 },
+  ];
+
+  it('пустой объезд — пустая коллекция, а не отсутствие источника', () => {
+    expect(routeCollection([])).toEqual(EMPTY_ROUTE);
+  });
+
+  // Тот же порядок координат, что у всей остальной карты. Перепутанные
+  // местами lat/lon — ошибка, которая молчит: точка просто уезжает в
+  // другую страну, и на нашем зуме её не видно вовсе.
+  it('координаты идут долготой вперёд, как в GeoJSON', () => {
+    const [first] = routeCollection(stops).features;
+    expect(first.geometry).toEqual({ type: 'Point', coordinates: [66.96, 39.65] });
+  });
+
+  it('id остановки остаётся id клиента — по нему точка и находится', () => {
+    expect(routeCollection(stops).features.map((f) => f.id)).toEqual([7, 9]);
+  });
+
+  // Номер — тот же, что человек видит в панели объезда. Считается от
+  // позиции в списке, а не от id: порядок назначает человек, и после
+  // «поднять на строку выше» номера обязаны съехать вместе с ним.
+  it('нумерует по порядку в списке, начиная с единицы', () => {
+    expect(routeCollection(stops).features.map((f) => f.properties?.seq)).toEqual([1, 2]);
+  });
+
+  it('порядок переставленных остановок отражается в номерах', () => {
+    const swapped = [stops[1], stops[0]];
+    const seqById = Object.fromEntries(
+      routeCollection(swapped).features.map((f) => [f.id, f.properties?.seq]),
+    );
+    expect(seqById).toEqual({ 9: 1, 7: 2 });
   });
 });

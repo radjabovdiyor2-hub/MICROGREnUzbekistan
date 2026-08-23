@@ -1,15 +1,19 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { AlertCircle, CloudOff, MapPin, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 import { CustomerMapToolbar } from './CustomerMapToolbar';
-import { snapshotTime } from '@/lib/customers/mapSnapshot';
 
+import { MapBanners } from './MapBanners';
+import { MapPointsHere } from './MapPointsHere';
 import { MapSearch } from './MapSearch';
 import { MapSidebar } from './MapSidebar';
+import { MapStage } from './MapStage';
 import { useCustomerMap } from './useCustomerMap';
 import { useDayRoute } from './useDayRoute';
+import { useMapFullscreen } from './useMapFullscreen';
+import { FILTERS_OPEN_KEY, useRememberedFlag } from './useMapPrefs';
 
 // maplibre-gl трогает window прямо на импорте: без ssr:false падает сборка,
 // а не страница. Тот же приём, что у LottieAnimation и ArViewer.
@@ -20,6 +24,12 @@ const CustomerMapCanvas = dynamic(() => import('./CustomerMapCanvas'), {
 
 // ══════════════════════════════════════════════════════════════════════
 // Карта клиентов: разметка. Вся механика — в useCustomerMap.
+//
+// Обвязка (шапка, плашки, боковая колонка) лежит в обычном потоке
+// страницы, а сцена карты в полноэкранном режиме становится
+// `position: fixed` поверх неё — то есть накрывает её сама, без условного
+// рендера. Исключение одно: поиск, который в полноэкранном режиме обязан
+// оказаться ПОВЕРХ карты, а не под ней.
 // ══════════════════════════════════════════════════════════════════════
 
 function MapSkeleton() {
@@ -52,115 +62,47 @@ interface Props {
 export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Props) {
   const m = useCustomerMap();
   const route = useDayRoute();
-  // `unplaced` уехал в MapSidebar вместе со строкой «на карте N из M».
-  const { placed, total } = m.collection.summary;
-  const nothingPlaced = !m.isLoading && placed === 0 && total > 0;
+  const [filtersOpen, setFiltersOpen] = useRememberedFlag(FILTERS_OPEN_KEY, true);
+
+  // Полный экран выходит по Escape только когда поверх карты не открыто
+  // ничего своего: иначе одно нажатие закрывало бы сразу две вещи, и
+  // человек терял бы не то, что собирался. Лестницу держит useCustomerMap.
+  const full = useMapFullscreen(
+    m.placingId === null && m.selectedId === null && m.stackIds.length === 0,
+  );
+
+  const search = (
+    <MapSearch
+      lang={lang}
+      query={m.query}
+      onQuery={m.setQuery}
+      matches={m.matches}
+      onPick={(point) => {
+        m.focusPoint(point);
+        m.setQuery('');
+      }}
+      states={m.states}
+      onStates={m.setStates}
+    />
+  );
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
       <CustomerMapToolbar
         lang={lang}
-        // Режим «по выручке» продавцу не показывается; если он остался в
-        // состоянии от прошлого владельца вкладки, показываем состояние.
-        mode={!isOwner && m.mode === 'revenue' ? 'state' : m.mode}
-        onMode={m.setMode}
-        typeFilter={m.typeFilter}
-        onType={m.setTypeFilter}
-        cityFilter={m.cityFilter}
-        onCity={m.setCityFilter}
-        loading={m.isLoading}
-        onRefresh={() => m.refetch()}
-        placed={placed}
-        total={total}
-        updatedAt={m.dataUpdatedAt}
-        showProspects={m.showProspects}
-        onProspects={m.setShowProspects}
-        prospects={m.collection.summary.prospects}
-        showDelivery={m.showDelivery}
-        onDelivery={m.setShowDelivery}
-        routes={m.routes.length}
-        companyTypes={m.companyTypes}
-        onToggleType={m.toggleCompanyType}
-        onClearTypes={m.clearCompanyTypes}
-        audience={m.audience}
-        onAudience={m.setAudience}
+        m={m}
         isOwner={isOwner}
+        open={filtersOpen}
+        onToggleOpen={() => setFiltersOpen(!filtersOpen)}
       />
 
-      <MapSearch
-        lang={lang}
-        query={m.query}
-        onQuery={m.setQuery}
-        matches={m.matches}
-        onPick={(point) => {
-          m.focusPoint(point);
-          m.setQuery('');
-        }}
-        states={m.states}
-        onStates={m.setStates}
-      />
+      {/* В обычном режиме поиск стоит в потоке, как и стоял. Оверлеем он
+          закрывал бы треть карты на телефоне — то есть отнимал бы ровно
+          столько же, сколько занимал, только у самой карты. А вот в
+          полноэкранном режиме потока нет, и там он уходит поверх. */}
+      {!full.isFull && search}
 
-      {/* Связь пропала, но снимок есть: это не ошибка, а работа без сети.
-          Красная плашка тут сказала бы «сломалось» про карту, по которой
-          человек прямо сейчас едет. */}
-      {m.snapshotAt !== null && (
-        <div
-          className="card"
-          style={{
-            padding: 'var(--space-3)',
-            display: 'flex',
-            gap: 'var(--space-2)',
-            alignItems: 'center',
-            color: 'var(--warning)',
-          }}
-        >
-          <CloudOff size={16} />
-          <span style={{ fontSize: 'var(--text-sm)' }}>
-            {lang === 'ru'
-              ? `Связи нет — карта снята ${snapshotTime(m.snapshotAt)}. Точки, адреса и телефоны на месте, отметки визитов уйдут сами, когда связь вернётся.`
-              : `Aloqa yoʻq — xarita ${snapshotTime(m.snapshotAt)} olingan. Belgilar aloqa qaytganda yuboriladi.`}
-          </span>
-        </div>
-      )}
-
-      {(m.snapshotAt === null &&
-        (m.error || m.saveError || m.deliveryError || m.tilesFailed)) && (
-        <div
-          className="card"
-          style={{
-            padding: 'var(--space-3)',
-            background: 'var(--error-bg)',
-            color: 'var(--error)',
-            display: 'flex',
-            gap: 'var(--space-2)',
-            alignItems: 'center',
-          }}
-        >
-          <AlertCircle size={16} />
-          <span style={{ fontSize: 'var(--text-sm)' }}>
-            {m.saveError ||
-              m.error?.message ||
-              m.deliveryError?.message ||
-              'Карта недоступна — тайлы не загрузились. Клиенты показаны списком ниже.'}
-          </span>
-        </div>
-      )}
-
-      {/* Не «пусто», а «координат нет ни у кого»: без этого экрана первый
-          запуск неотличим от поломки. */}
-      {nothingPlaced && (
-        <div className="card" style={{ padding: 'var(--space-4)', textAlign: 'center' }}>
-          <MapPin size={28} style={{ color: 'var(--text-muted)' }} />
-          <h4 style={{ marginTop: 'var(--space-2)', fontWeight: 'var(--font-semibold)' }}>
-            {lang === 'ru' ? 'Ни у одного клиента нет координат' : 'Hech kimda koordinata yoʻq'}
-          </h4>
-          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
-            {lang === 'ru'
-              ? 'Откройте список «Без координат» и поставьте пины вручную — начните с тех, кто платит больше.'
-              : '«Koordinatasiz» roʻyxatini oching va pinlarni qoʻlda qoʻying.'}
-          </p>
-        </div>
-      )}
+      <MapBanners lang={lang} m={m} />
 
       <div
         className="admin-map-grid"
@@ -171,7 +113,33 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
           alignItems: 'start',
         }}
       >
-        <div style={{ height: 'min(70vh, 640px)', minHeight: 320 }}>
+        <MapStage
+          lang={lang}
+          isFull={full.isFull}
+          onToggleFull={full.toggle}
+          overlayTop={
+            full.isFull ? (
+              <div
+                className="card"
+                style={{
+                  padding: 'var(--space-2)',
+                  width: 'min(360px, 100%)',
+                  boxShadow: 'var(--shadow-lg)',
+                }}
+              >
+                {search}
+              </div>
+            ) : null
+          }
+          overlayBottom={
+            <MapPointsHere
+              lang={lang}
+              points={m.stack}
+              onPick={m.pickFromStack}
+              onClose={() => m.setStackIds([])}
+            />
+          }
+        >
           {m.tilesFailed ? (
             <MapSkeleton />
           ) : (
@@ -182,6 +150,10 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
               selectedId={m.selectedId}
               placingId={m.placingId}
               onPickPoint={m.setSelectedId}
+              onPickStack={m.setStackIds}
+              heat={m.showHeat}
+              routeStops={route.stops}
+              detailedBase={m.detailedBase}
               onPlace={m.savePin}
               onViewportChange={() => undefined}
               onTilesError={() => m.setTilesFailed(true)}
@@ -197,16 +169,18 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
               ].join('|')}
             />
           )}
-        </div>
+        </MapStage>
 
-        <MapSidebar
-          lang={lang}
-          m={m}
-          route={route}
-          onOpenCard={onOpenCard}
-          isOwner={isOwner}
-          sellerName={sellerName}
-        />
+        <div className="admin-map-aside">
+          <MapSidebar
+            lang={lang}
+            m={m}
+            route={route}
+            onOpenCard={onOpenCard}
+            isOwner={isOwner}
+            sellerName={sellerName}
+          />
+        </div>
       </div>
     </div>
   );

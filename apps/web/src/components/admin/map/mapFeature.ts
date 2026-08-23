@@ -1,3 +1,4 @@
+import type { RoutePoint } from '@/lib/customers/dayRoute';
 import type { MapCollection, MapFeature, MapPointProps, UnplacedCustomer } from '@/lib/customers/mapQuery';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -163,6 +164,38 @@ export function boundsOfFeatures(
   }
   return [[minLon, minLat], [maxLon, maxLat]];
 }
+
+/**
+ * Остановки сегодняшнего объезда — в коллекцию для своего слоя.
+ *
+ * Объезд набирают утром и правят весь день, а на карте он до сих пор
+ * никак не отмечался: список в панели знал про десять точек, карта — нет,
+ * и сверять их приходилось глазами.
+ *
+ * Отдельная коллекция, а не свойство на клиентах: объезд живёт в
+ * localStorage и меняется без всякого запроса к серверу, а точки клиентов
+ * приезжают с него. Смешать два разных источника правды в одной фиче
+ * значило бы перерисовывать всю карту на каждое нажатие «в объезд».
+ */
+export function routeCollection(stops: RoutePoint[]): GeoJSON.FeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: stops.map((stop, index) => ({
+      type: 'Feature' as const,
+      id: stop.id,
+      geometry: { type: 'Point' as const, coordinates: [stop.longitude, stop.latitude] },
+      // Номер по порядку — тот же, что видно в панели объезда. Держать
+      // его здесь дешевле, чем сверять два списка при отрисовке.
+      properties: { seq: index + 1, name: stop.name },
+    })),
+  };
+}
+
+/** Пустой объезд: слой существует, но ничего не рисует. */
+export const EMPTY_ROUTE: GeoJSON.FeatureCollection = {
+  type: 'FeatureCollection',
+  features: [],
+};
 
 export function formatSum(value: number): string {
   return new Intl.NumberFormat('ru-RU').format(Math.round(value));

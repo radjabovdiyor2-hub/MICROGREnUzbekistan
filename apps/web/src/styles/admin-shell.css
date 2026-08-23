@@ -277,8 +277,110 @@
        наполовину уходит под системную панель жестов. */
     padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
     background: var(--bg-primary);
-    border-top: 1px solid var(--border-primary);
+    /* --border, а не --border-primary: второй переменной в токенах нет,
+       и граница красилась currentColor. */
+    border-top: 1px solid var(--border);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     box-shadow: 0 -8px 24px rgb(0 0 0 / 0.25);
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Сцена карты: холст плюс всё, что лежит поверх него.
+   ══════════════════════════════════════════════════════════════════════ */
+
+.admin-map-stage {
+  position: relative;
+  /* dvh, а не vh: на телефоне адресная строка выезжает и уезжает, и на
+     vh карта то теряет полосу снизу, то получает лишнюю. */
+  height: min(70dvh, 640px);
+  min-height: 320px;
+}
+
+/* Полный экран сделан вёрсткой, а не Fullscreen API: iOS Safari не умеет
+   его ни на чём, кроме <video>, а в поле админку открывают в Telegram —
+   то есть ровно там, где нативный путь и не работает.
+
+   position: fixed выбирается из .admin-main несмотря на её overflow: auto —
+   это уже доказано работающей .admin-map-panel. Ни один предок не ставит
+   transform/filter/contain, и в globals.css на этот счёт стоит явное
+   предупреждение: нарушить его — значит уронить и эту сцену тоже. */
+.admin-map-stage.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-drawer);
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  /* Вырез сверху: без этого кнопка выхода ложится под чёлку. */
+  padding-top: env(safe-area-inset-top, 0px);
+  /* Прокрутка не уходит на страницу под картой. */
+  overscroll-behavior: contain;
+}
+
+/* Скроллит .admin-main, а не body: идиома с body.style.overflow из Drawer
+   здесь была бы пустышкой. */
+html.map-fullscreen .admin-main {
+  overflow: hidden;
+}
+
+/* Плавающая обвязка карты. Ленты фильтров и легенда в полноэкранном режиме
+   ложатся ПОВЕРХ холста, а не над ним: иначе карта опять теряет высоту,
+   ради которой режим и включали. */
+.admin-map-overlay {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+/* Оверлей — рамка для кнопок, а не кликабельный прямоугольник поверх
+   карты: без этого он съедал бы перетаскивание по всей своей ширине. */
+.admin-map-overlay > * {
+  pointer-events: auto;
+}
+
+.admin-map-overlay--top {
+  top: calc(var(--space-2) + env(safe-area-inset-top, 0px));
+  left: var(--space-2);
+  /* Правый край свободен: там стоят зум и «где я» от MapLibre. */
+  right: 56px;
+}
+
+.admin-map-overlay--bottom {
+  left: var(--space-2);
+  bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Боковая колонка не тянет страницу вдвое выше карты: у неё своя
+   прокрутка, а сама она остаётся на виду при скролле. */
+@media (min-width: 1024px) {
+  .admin-map-aside {
+    position: sticky;
+    top: 0;
+    max-height: min(70dvh, 640px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Панель точки листом снизу — и на телефоне, и в полноэкранном режиме на
+   любом экране. Правила те же, что ниже 1024px: в полный экран уходят
+   ради карты, и колонка сбоку съела бы треть того, что человек открывал. */
+html.map-fullscreen .admin-map-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: calc(var(--z-drawer) + 1);
+  max-height: 70dvh;
+  overflow-y: auto;
+  padding: var(--space-2);
+  padding-bottom: calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: var(--shadow-xl);
 }
