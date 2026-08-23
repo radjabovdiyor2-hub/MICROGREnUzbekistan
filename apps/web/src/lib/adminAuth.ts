@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { SESSION_COOKIE, type SessionRole } from './session';
+import { CUSTOMER_COOKIE, SESSION_COOKIE, type SessionRole } from './session';
 
 // ══════════════════════════════════════════════════════════════════════
 // Проверка доступа внутри admin-роутов — второй рубеж после middleware.
@@ -90,16 +90,21 @@ function verifySessionSync(token: string | undefined): VerifiedSession | null {
   return { role: payload.role, userId: payload.userId, name: payload.name };
 }
 
-/** Достаёт cookie сессии из заголовка Cookie. */
-function readSessionCookie(request: Request): string | undefined {
+/** Достаёт названную cookie из заголовка Cookie. */
+function readCookie(request: Request, wanted: string): string | undefined {
   const header = request.headers.get('cookie');
   if (!header) return undefined;
 
   for (const chunk of header.split(';')) {
     const [name, ...rest] = chunk.trim().split('=');
-    if (name === SESSION_COOKIE) return rest.join('=');
+    if (name === wanted) return rest.join('=');
   }
   return undefined;
+}
+
+/** Сотрудническая cookie. */
+function readSessionCookie(request: Request): string | undefined {
+  return readCookie(request, SESSION_COOKIE);
 }
 
 /** Сессия запроса — null, если её нет или подпись невалидна. */
@@ -168,9 +173,29 @@ export function isProduction(request: Request): boolean {
  * явной выборкой по клиенту, и подмешивать её в кабинет незачем.
  */
 export function getCustomerId(request: Request): string | null {
-  const session = getSession(request);
-  if (!session || session.role !== 'CUSTOMER') return null;
-  return session.userId ?? null;
+  // Новая cookie — основная. Старая общая читается как ЗАПАСНАЯ и только
+  // для роли CUSTOMER: иначе в момент выкатки разом вылетели бы все, кто
+  // сейчас в кабинете. Запасную ветку можно убрать через месяц — к тому
+  // времени тридцатидневные сессии на старом имени истекут сами.
+  const fresh = verifySessionSync(readCookie(request, CUSTOMER_COOKIE));
+  if (fresh?.role === 'CUSTOMER') return fresh.userId ?? null;
+
+  const legacy = verifySessionSync(readCookie(request, SESSION_COOKIE));
+  if (legacy?.role === 'CUSTOMER') return legacy.userId ?? null;
+
+  return null;
+}
+
+/**
+ * Лежит ли ПОКУПАТЕЛЬ в старой общей cookie.
+ *
+ * Нужно ровно одному месту — выходу из кабинета: старую cookie гасить
+ * можно, только если в ней покупатель. Гасить её вслепую значит выбивать
+ * владельца из админки, то есть ту самую болезнь, ради которой cookie и
+ * разделили.
+ */
+export function hasLegacyCustomerSession(request: Request): boolean {
+  return verifySessionSync(readCookie(request, SESSION_COOKIE))?.role === 'CUSTOMER';
 }
 
 export function unauthorized() {

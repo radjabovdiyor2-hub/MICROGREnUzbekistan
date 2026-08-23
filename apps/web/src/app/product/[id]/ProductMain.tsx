@@ -1,14 +1,12 @@
 'use client';
 
 import Image from 'next/image';
-import {
-  CheckCircle, Flame, Heart, Leaf, Minus, Phone, Plus, ShoppingCart, Sprout,
-  Truck, Zap,
-} from 'lucide-react';
+import { CheckCircle, Flame, Heart, Leaf, Phone, ShoppingCart, Sprout, Truck, Zap } from 'lucide-react';
 import { StarRow } from './productPageParts';
 import type { Product } from './productDetailTypes';
 import { useLang } from '@/components/providers/LangProvider';
 import { CONTACT, DELIVERY, GROW_TO_ORDER_DAYS } from '@/lib/site';
+import { QuantityStepper } from '@/components/ui/QuantityStepper';
 
 // Верх карточки товара: изображение, цена, наличие, количество и покупка.
 // Вкладки и отзывы лежат ниже в общем контейнере, поэтому их отсюда
@@ -40,7 +38,7 @@ export function ProductMain({ product, catIcon, discount, fav, quantity, setQuan
   {/* Image */}
   <div className="card" style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', position: 'relative', overflow: 'hidden' }}>
     {discount > 0 && (
-      <span style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, padding: '6px 12px', background: 'var(--error)', color: 'white', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+      <span style={{ position: 'absolute', top: 12, left: 12, zIndex: 2, padding: '6px 12px', background: 'var(--error)', color: 'var(--text-inverse)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
         <Flame size={14} /> -{discount}%
       </span>
     )}
@@ -101,12 +99,20 @@ export function ProductMain({ product, catIcon, discount, fav, quantity, setQuan
     {/* Qty + Cart */}
     <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
       <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-        <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Minus size={16} /></button>
-        <span style={{ width: 44, textAlign: 'center', fontWeight: 'var(--font-bold)' }}>{quantity}</span>
-        <button onClick={() => setQuantity(quantity + 1)} className="btn btn-ghost" style={{ width: 44, height: 44, borderRadius: 0 }}><Plus size={16} /></button>
+        <QuantityStepper
+          value={quantity}
+          onChange={setQuantity}
+          valueWidth={44}
+          labels={{
+            less: t('Kamaytirish', 'Уменьшить количество'),
+            more: t("Ko'paytirish", 'Увеличить количество'),
+          }}
+        />
       </div>
-      <button className="btn btn-lg" onClick={handleAddToCart}
-        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', border: 'none', color: 'var(--text-inverse)', fontWeight: 'var(--font-bold)', background: added ? 'var(--success)' : 'var(--brand-primary)', transform: added ? 'scale(1.02)' : 'scale(1)', transition: 'transform .25s cubic-bezier(.16,1,.3,1), background .25s ease' }}>
+      {/* Вид — классом, а не инлайном: иначе правка `.btn-primary` в
+          дизайн-системе не доходит до кнопки покупки на странице товара. */}
+      <button className={`btn btn-lg ${added ? 'btn-success' : 'btn-primary'}`} onClick={handleAddToCart}
+        style={{ flex: 1, fontWeight: 'var(--font-bold)', transform: added ? 'scale(1.02)' : 'scale(1)' }}>
         {added ? <><CheckCircle size={20} /> {t("Savatga qo'shildi", "Добавлено в корзину")}</> : <><ShoppingCart size={20} /> {t("Savatga qo'shish", "В корзину")}</>}
       </button>
     </div>

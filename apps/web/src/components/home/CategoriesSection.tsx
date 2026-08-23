@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { motion } from 'framer-motion';
+import { tint } from '@/lib/tint';
 
 const spring = { type: 'spring' as const, damping: 20, stiffness: 300 };
 
@@ -51,7 +52,7 @@ export function CategoriesSection() {
               >
                 <span className="category-pill__icon" style={{
                   color: cat.color,
-                  background: `${cat.color}12`,
+                  background: `${tint(cat.color, 7)}`,
                 }}>
                   {cat.icon}
                 </span>

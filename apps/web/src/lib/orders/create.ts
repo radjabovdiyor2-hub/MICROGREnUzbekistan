@@ -1,5 +1,6 @@
 import { prisma } from '@repo/database';
 import { deliveryFeeForSubtotal, getNumber } from '@/lib/settings/store';
+import { linkTelegram } from '@/lib/customers/mergeUsers';
 import { validatePromo, consumePromo } from '@/lib/promo';
 import { generateOrderNumber } from './notify';
 import { normalizePhone } from '@/lib/phone';
@@ -53,6 +54,15 @@ export interface OrderIdentity {
 }
 
 const ANONYMOUS: OrderIdentity = { customerId: null, trusted: false };
+
+/**
+ * Источники, которым разрешена договорная цена.
+ *
+ * Офис продаёт ресторанам по согласованной цене — это суть его работы.
+ * Витринный бот (`telegram_bot`) торгует в розницу по прайсу, и его цена
+ * берётся из каталога, даже когда запрос подписан общим секретом.
+ */
+const NEGOTIATING_SOURCES = new Set(['ai_office']);
 
 export async function createOrder(
   body: OrderBody,
@@ -143,18 +153,35 @@ export async function createOrder(
     }
     const catalogPrice = card.price;
 
-    // Договорная цена — только от доверенного вызывающего.
+    // Договорная цена — право ОФИСА, а не любого владельца секрета.
     //
     // Офис регистрирует продажи ресторанам по согласованной цене, и подменять
     // её прайсовой нельзя: `storefront_orders.create_order` передаёт цену
-    // намеренно (см. его докстринг). Но доверять цене из БРАУЗЕРА нельзя тем
-    // более — именно так покупатель назначал себе сумму заказа. Разделяем по
-    // подписи: общий секрет бот/офис → цена принимается, аноним и покупатель
-    // → всегда каталог.
+    // намеренно (см. его докстринг). Доверять цене из БРАУЗЕРА нельзя тем
+    // более — именно так покупатель назначал себе сумму заказа.
+    //
+    // Но `BOT_SECRET` один на офис и на витринный бот, а корзина бота живёт
+    // в Redis семь суток (`cart_storage.REDIS_TTL`). Пока «доверенный» значило
+    // «любой предъявитель секрета», недельная цена из корзины становилась
+    // договорной и заказ уходил дешевле прайса. Поэтому решает не подпись, а
+    // ИСТОЧНИК: список ниже — те, кто торгуется по существу дела. Незнакомый
+    // источник получает каталожную цену, то есть новый интегратор безопасен
+    // по умолчанию.
+    const negotiable = identity.trusted && NEGOTIATING_SOURCES.has(body.source || '');
     const negotiated =
-      identity.trusted && typeof item.price === 'number' && item.price >= 0
+      negotiable && typeof item.price === 'number' && item.price >= 0
         ? item.price
         : catalogPrice;
+
+    // Розничный канал прислал свою цену и она разошлась с прайсом — значит
+    // клиент видел на экране не то, что попадёт в заказ. Это чинится на
+    // стороне канала, но знать об этом надо здесь и сразу.
+    if (!negotiable && typeof item.price === 'number' && item.price !== catalogPrice) {
+      console.warn(
+        `[orders] цена из канала «${body.source || 'web'}» разошлась с прайсом: ` +
+          `${card.nameUz} — прислано ${item.price}, в каталоге ${catalogPrice}`,
+      );
+    }
 
     pricedItems.push({ productId, productName: card.nameUz, quantity: item.quantity, price: negotiated });
   }
@@ -185,6 +212,31 @@ export async function createOrder(
         lastName: customer.lastName || null,
       },
     });
+  }
+
+  // Заказ из бота ПРИВЯЗЫВАЕТ Telegram к аккаунту.
+  //
+  // Раньше поиск по `telegramId` был односторонним: если такого пользователя
+  // ещё нет, заказ создавался по телефону — и `telegramId` не записывался
+  // никогда. Следствие било по клиенту бота каждый день: «Мои заказы»,
+  // «Профиль» и «Повторить заказ» отвечали «у вас пока нет заказов» через
+  // минуту после покупки, потому что бот ищет себя именно по `telegramId`.
+  // Отзывы по той же причине не сохранялись вовсе.
+  //
+  // Если этот Telegram уже занят другим аккаунтом — это тот самый дубль
+  // «телефон отдельно, Telegram отдельно»: `linkTelegram` сливает их и
+  // возвращает выжившего.
+  if (identity.trusted && body.telegramId) {
+    try {
+      const keptId = await linkTelegram(user.id, BigInt(body.telegramId));
+      if (keptId !== user.id) {
+        const kept = await prisma.user.findUnique({ where: { id: keptId } });
+        if (kept) user = kept;
+      }
+    } catch (error) {
+      // Привязка не должна ронять заказ: заказ важнее, чем связка личностей.
+      console.error('[orders] не удалось привязать Telegram к аккаунту:', error);
+    }
   }
 
   // Bonus redemption — only for the authenticated account, capped by the

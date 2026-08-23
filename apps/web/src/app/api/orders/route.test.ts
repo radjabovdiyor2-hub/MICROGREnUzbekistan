@@ -136,6 +136,7 @@ describe('POST /api/orders', () => {
       method: 'POST',
       headers: { authorization: 'Bearer test-bot-secret-value' },
       body: JSON.stringify({
+        source: 'ai_office',
         customer: { firstName: 'Жасмин', phone: '+998901234567', address: 'Самарканд' },
         items: [{ productId: 'p1', price: 12000, quantity: 10 }],
       }),
@@ -224,6 +225,60 @@ describe('POST /api/orders', () => {
     expect(response.status).toBe(400);
     const data = await response.json();
     expect(data.error).toBe("Savat bo'sh");
+  });
+
+  it('витринному боту договорную цену НЕ отдаёт, хотя секрет тот же', async () => {
+    // `BOT_SECRET` один на офис и на витринный бот, но корзина бота живёт в
+    // Redis семь суток. Пока «доверенный» значило «любой предъявитель
+    // секрета», недельная цена из корзины уходила в заказ как согласованная —
+    // товар продавался дешевле прайса, и никто этого не видел.
+    productFindMany.mockResolvedValueOnce([{ id: 'p1', price: 15000 }]);
+    const created = vi.fn().mockResolvedValue({ id: 'o3', orderNumber: 'M-3', items: [] });
+    await stubPrisma(created);
+
+    const req = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test-bot-secret-value',
+        // Свой адрес: ограничитель частоты считает по IP, и к этому тесту
+        // общий счётчик уже исчерпан предыдущими семнадцатью запросами.
+        'x-forwarded-for': '10.0.0.77',
+      },
+      body: JSON.stringify({
+        source: 'telegram_bot',
+        customer: { firstName: 'Азиз', phone: '+998901234500', address: 'Самарканд' },
+        items: [{ productId: 'p1', price: 9000, quantity: 2 }],
+      }),
+    });
+    await POST(req);
+
+    const data = created.mock.calls[0][0].data;
+    expect(data.items.create[0].price).toBe(15000);
+    expect(data.subtotal).toBe(30000);
+  });
+
+  it('незнакомый источник получает каталожную цену', async () => {
+    // Новый интегратор безопасен по умолчанию: чтобы торговаться, источник
+    // нужно назвать явно в NEGOTIATING_SOURCES.
+    productFindMany.mockResolvedValueOnce([{ id: 'p1', price: 15000 }]);
+    const created = vi.fn().mockResolvedValue({ id: 'o4', orderNumber: 'M-4', items: [] });
+    await stubPrisma(created);
+
+    const req = new NextRequest('http://localhost:3000/api/orders', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer test-bot-secret-value',
+        'x-forwarded-for': '10.0.0.78',
+      },
+      body: JSON.stringify({
+        source: 'partner_widget',
+        customer: { firstName: 'Нодира', phone: '+998901234501', address: 'Самарканд' },
+        items: [{ productId: 'p1', price: 1, quantity: 1 }],
+      }),
+    });
+    await POST(req);
+
+    expect(created.mock.calls[0][0].data.items.create[0].price).toBe(15000);
   });
 });
 

@@ -5,6 +5,7 @@ import { Instagram, Leaf, ShoppingCart, Sparkles, Zap } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { FALLBACK_COLORS, INSTAGRAM_URL, type InstaPost } from './instagramFeedData';
 import type { ShopProduct } from './instagramFeedData';
+import { tint } from '@/lib/tint';
 
 // Сетка постов Instagram: настоящие из API либо заглушки.
 // Вынесено из InstagramFeed: файл перерос 200 строк.
@@ -45,7 +46,7 @@ export function InstagramGrid({ posts, loading, addedId, findProduct, onBuy }: {
               display: 'block',
               background: post.mediaUrl
                 ? 'var(--bg-tertiary)'
-                : `linear-gradient(135deg, ${FALLBACK_COLORS[i % FALLBACK_COLORS.length]}18, ${FALLBACK_COLORS[i % FALLBACK_COLORS.length]}08)`,
+                : `linear-gradient(135deg, ${tint(FALLBACK_COLORS[i % FALLBACK_COLORS.length], 9)}, ${tint(FALLBACK_COLORS[i % FALLBACK_COLORS.length], 3)})`,
               border: '1px solid var(--border)',
             }}
           >
@@ -73,7 +74,7 @@ export function InstagramGrid({ posts, loading, addedId, findProduct, onBuy }: {
               }}>
                 <div style={{
                   width: 44, height: 44, borderRadius: 'var(--radius-full)',
-                  background: `${FALLBACK_COLORS[i % FALLBACK_COLORS.length]}20`,
+                  background: `${tint(FALLBACK_COLORS[i % FALLBACK_COLORS.length], 13)}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: FALLBACK_COLORS[i % FALLBACK_COLORS.length],
                   marginBottom: '8px',

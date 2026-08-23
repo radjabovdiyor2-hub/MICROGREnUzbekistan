@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { getSessionId } from '@/lib/magazine/track';
 import Link from 'next/link';
+import { tint } from '@/lib/tint';
 
 /* ─────────────────────────────────────────────
    Карта лояльности на витрине ресторана.
@@ -36,7 +37,7 @@ export function LoyaltyCard({ slug, accent }: { slug: string; accent: string }) 
     <section style={{
       marginTop: 28, padding: 20, borderRadius: 20,
       background: 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
-      border: `1px solid ${accent}33`,
+      border: `1px solid ${tint(accent, 20)}`,
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: 'var(--text-primary)' }}>
@@ -69,7 +70,7 @@ export function LoyaltyCard({ slug, accent }: { slug: string; accent: string }) 
       {done ? (
         <div style={{
           marginTop: 16, padding: 14, borderRadius: 14,
-          background: `${accent}18`, border: `1px dashed ${accent}`,
+          background: `${tint(accent, 9)}`, border: `1px dashed ${accent}`,
         }}>
           <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-secondary)', marginBottom: 6 }}>
             🎉 Карта заполнена! Промокод −{card.rewardPercent}% на микрозелень:

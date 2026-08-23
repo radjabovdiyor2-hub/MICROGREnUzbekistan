@@ -167,9 +167,9 @@ export function CartView({ cart, recos, recosLoading, fmt, setStep }: Props) {
                           {fmt2(p.price)} {t("so'm", "сум")}
                         </div>
                         <button
-                          className="btn btn-sm"
+                          className="btn btn-sm btn-primary btn-block"
                           onClick={() => cart.addItem({ id: p.id, nameUz: p.nameUz, nameRu: p.nameRu, price: p.price, oldPrice: p.oldPrice, unit: p.unit, slug: p.slug, images: p.images, category: p.category } as CartProduct)}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', border: 'none', color: 'var(--text-inverse)', background: 'var(--brand-primary)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)' }}
+                          style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-xs)' }}
                           id={`reco-add2-${p.id}`}
                         >
                           <Plus size={12} /> {t("Qo'shish", "Добавить")}

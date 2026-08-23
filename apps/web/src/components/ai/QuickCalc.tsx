@@ -12,6 +12,7 @@ export { inputStyle, CROP_DATA };
 import {
   YieldCalc, LightCalc, WaterCalc, ProfitCalc, ResultCard, type CalcType,
 } from './quickCalcForms';
+import { tint } from '@/lib/tint';
 
 export const CALC_TABS: { key: CalcType; labelUz: string; labelRu: string; icon: React.ReactNode; color: string }[] = [
   { key: 'yield', labelUz: 'Hosil', labelRu: 'Урожай', icon: <Leaf size={16} />, color: 'var(--brand-primary)' },
@@ -37,9 +38,9 @@ export function QuickCalcPanel({ onSendToChat }: { onSendToChat: (text: string) 
             style={{
               flex: 1, padding: '8px 4px', borderRadius: 10, fontSize: 11, fontWeight: 700,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-              background: activeCalc === tab.key ? `${tab.color}18` : 'var(--bg-card)',
+              background: activeCalc === tab.key ? `${tint(tab.color, 9)}` : 'var(--bg-card)',
               color: activeCalc === tab.key ? tab.color : 'var(--text-muted)',
-              border: activeCalc === tab.key ? `1.5px solid ${tab.color}40` : '1.5px solid var(--border)',
+              border: activeCalc === tab.key ? `1.5px solid ${tint(tab.color, 25)}` : '1.5px solid var(--border)',
               cursor: 'pointer', transition: 'all 0.15s',
             }}>
             {tab.icon} {t(tab.labelUz, tab.labelRu)}

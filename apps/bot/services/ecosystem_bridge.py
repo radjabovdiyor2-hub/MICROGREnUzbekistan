@@ -96,13 +96,27 @@ class EcosystemBridge:
 
     # ==================== USER ====================
 
-    async def get_or_create_user(self, telegram_id: int, name: str, phone: Optional[str] = None) -> Dict[str, Any]:
-        """Получить или создать пользователя"""
-        return await self._api_call("users/telegram", "POST", {
+    async def get_or_create_user(
+        self,
+        telegram_id: int,
+        name: str,
+        phone: Optional[str] = None,
+        language: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Получить или создать пользователя витрины.
+
+        `language` передаётся, только если его выбрали ЯВНО: иначе каждый
+        вызов затирал бы выбор пользователя умолчанием.
+        """
+        payload: Dict[str, Any] = {
             "telegramId": telegram_id,
             "name": name,
-            "phone": phone
-        })
+            "phone": phone,
+        }
+        if language:
+            payload["language"] = language
+        return await self._api_call("users/telegram", "POST", payload)
 
     async def get_user_bonuses(self, telegram_id: int) -> int:
         """Получить бонусы пользователя"""

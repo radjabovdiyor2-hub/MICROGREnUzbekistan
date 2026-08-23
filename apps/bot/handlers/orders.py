@@ -1,5 +1,4 @@
-from aiogram import Router, F
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram import Router
 import os
 import logging
 
@@ -30,102 +29,13 @@ async def notify_admin_new_order(order_id: str, customer_name: str, phone: str, 
         logger.error(f"OrderNotify: Failed to send: {e}")
 
 
-# ==================== USER ORDER COMMANDS ====================
-
-@router.callback_query(F.data == "my_orders")
-async def show_orders(callback: CallbackQuery):
-    """Show user's orders"""
-    from services.ecosystem_bridge import bridge
-
-    try:
-        orders = await bridge.get_orders_by_telegram_id(callback.from_user.id)
-    except Exception as e:
-        logger.error(f"Failed to fetch orders: {e}")
-        await callback.message.edit_text(
-            "❌ <b>Сервис временно недоступен</b>\n\n"
-            "Не удалось загрузить историю заказов. Пожалуйста, попробуйте позже.",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="« Назад", callback_data="menu:main")]]),
-            parse_mode="HTML"
-        )
-        await callback.answer()
-        return
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 Сделать заказ", web_app=WebAppInfo(url=WEB_APP_URL))],
-        [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
-    ])
-
-    if not orders:
-        await callback.message.edit_text(
-            "📦 <b>Мои заказы</b>\n\n"
-            "У вас пока нет активных заказов.\n"
-            "Нажмите кнопку ниже чтобы сделать первый заказ!",
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
-        await callback.answer()
-        return
-
-    # Show last 5 orders
-    text = "📦 <b>Мои последние заказы</b>\n\n"
-    for order in orders[:5]:
-        status_map = {
-            "PENDING": "⏳ Ожидает",
-            "CONFIRMED": "✅ Подтверждён",
-            "PROCESSING": "📦 Собирается",
-            "SHIPPED": "🚚 В пути",
-            "DELIVERED": "🎉 Доставлен",
-            "CANCELLED": "❌ Отменён"
-        }
-        status = status_map.get(order.get("status"), order.get("status"))
-        total = int(order.get("total", 0))
-        items_count = len(order.get("items", []))
-        
-        text += (
-            f"<b>Заказ #{order.get('id')[-6:]}</b>\n"
-            f"Статус: {status}\n"
-            f"Сумма: {total:,.0f} сум ({items_count} поз.)\n"
-            f"───────────────\n"
-        )
-
-    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    await callback.answer()
-
-
-
-
-
-@router.callback_query(F.data == "bonuses")
-async def show_bonuses(callback: CallbackQuery):
-    """Show user's bonuses"""
-    from services.ecosystem_bridge import bridge
-    
-    from services.config_service import fetch_site_config
-
-    config = await fetch_site_config()
-    bonuses = await bridge.get_user_bonuses(callback.from_user.id)
-    bonus_value = f"{bonuses:,}".replace(",", " ")
-    # Балл равен суму — ровно как списывает корзина (`Math.min(balance, subtotal)`).
-    # Раньше здесь стояло `(bonuses // 100) * 1000`, и бот обещал вдесятеро
-    # больше, чем клиент получал на оформлении.
-    discount = f"{bonuses:,}".replace(",", " ")
-    min_cashout = f"{config.bonus.min_cashout:,}".replace(",", " ")
-
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Farm Simulator", url="https://t.me/Microgreenuzbekistan_bot/game")],
-        [InlineKeyboardButton(text="« Назад", callback_data="menu:main")],
-    ])
-
-    await callback.message.edit_text(
-        "💎 <b>Мои бонусы</b>\n\n"
-        f"🎁 Баланс: <b>{bonus_value} баллов</b>\n"
-        f"= {discount} сум скидки\n\n"
-        "📈 <b>Как заработать:</b>\n"
-        f"• +{config.bonus.referral_percent}% от заказа приглашённого друга\n"
-        f"• +{config.bonus.referrer_reward:,} за приглашённого друга\n".replace(",", " ")
-        + "• 🎮 Играйте в Farm Simulator!\n\n"
-        f"<i>Списать баллы можно, когда на балансе от {min_cashout}.</i>",
-        reply_markup=keyboard,
-        parse_mode="HTML"
-    )
-    await callback.answer()
+# Экраны «мои заказы» и «бонусы» отсюда убраны.
+#
+# Это были НЕДОСТИЖИМЫЕ близнецы: обработчики ждали `my_orders` и
+# `bonuses`, а такие кнопки не рисовала ни одна клавиатура — меню шлёт
+# `menu:orders` и `menu:bonuses`, и их обслуживает `unified.py`. Два
+# экрана про одно и то же расходились текстом и клавиатурой, и правка
+# живого всегда обходила мёртвого стороной.
+#
+# В файле остаётся то, ради чего он и нужен, — уведомление менеджеру
+# о новом заказе.

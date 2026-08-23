@@ -28,6 +28,16 @@ import re
 from services.ecosystem_bridge import bridge
 from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_LABELS, format_price
+from shared.i18n import DEFAULT_LANG, t
+from services.lang_storage import lang_storage
+
+def lang_of(event) -> str:
+    """Язык собеседника: сохранённый выбор, иначе язык клиента Telegram."""
+    user = getattr(event, "from_user", None)
+    if user is None:
+        return DEFAULT_LANG
+    return lang_storage.get(user.id, getattr(user, "language_code", None))
+
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -145,9 +155,27 @@ async def handle_photo(message: Message):
             else:
                 buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
                 
-        markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        # Кнопка «Главное меню» — на КАЖДОМ ответе.
+        #
+        # ИИ перехватывает любой текст в личке, и выйти из разговора можно
+        # было только командой /start, про которую он сам никогда не
+        # говорит. Человек писал «меню», «назад», «стоп» — и получал
+        # очередной ответ ИИ.
+        lang = lang_of(message)
+        buttons.append([
+            InlineKeyboardButton(text=t("btn.home", lang), callback_data="menu:main")
+        ])
+        markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         
-        await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
+        # Пустой ответ бывает: модель вернула только теги кнопок, и после
+        # их вырезания не осталось ничего. `answer("")` — это
+        # TelegramBadRequest, а заглушку «Думаю…» к этому моменту уже
+        # удалили: клиент получал полную тишину.
+        await message.answer(
+            clean_response or t("ai.empty", lang),
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
         
     except Exception as e:
         logger.error(f"Photo analysis failed: {e}")
@@ -197,10 +225,28 @@ async def handle_voice(message: Message):
             else:
                 buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
                 
-        markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+        # Кнопка «Главное меню» — на КАЖДОМ ответе.
+        #
+        # ИИ перехватывает любой текст в личке, и выйти из разговора можно
+        # было только командой /start, про которую он сам никогда не
+        # говорит. Человек писал «меню», «назад», «стоп» — и получал
+        # очередной ответ ИИ.
+        lang = lang_of(message)
+        buttons.append([
+            InlineKeyboardButton(text=t("btn.home", lang), callback_data="menu:main")
+        ])
+        markup = InlineKeyboardMarkup(inline_keyboard=buttons)
         
         # Send text
-        await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
+        # Пустой ответ бывает: модель вернула только теги кнопок, и после
+        # их вырезания не осталось ничего. `answer("")` — это
+        # TelegramBadRequest, а заглушку «Думаю…» к этому моменту уже
+        # удалили: клиент получал полную тишину.
+        await message.answer(
+            clean_response or t("ai.empty", lang),
+            parse_mode="HTML",
+            reply_markup=markup,
+        )
         
         # Send voice if generated successfully
         if audio_bytes:
@@ -300,9 +346,27 @@ async def handle_ai_message(message: Message):
         else:
             buttons.append([InlineKeyboardButton(text=name.strip(), url=url.strip())])
             
-    markup = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+    # Кнопка «Главное меню» — на КАЖДОМ ответе.
+    #
+    # ИИ перехватывает любой текст в личке, и выйти из разговора можно
+    # было только командой /start, про которую он сам никогда не
+    # говорит. Человек писал «меню», «назад», «стоп» — и получал
+    # очередной ответ ИИ.
+    lang = lang_of(message)
+    buttons.append([
+        InlineKeyboardButton(text=t("btn.home", lang), callback_data="menu:main")
+    ])
+    markup = InlineKeyboardMarkup(inline_keyboard=buttons)
     
-    await message.answer(clean_response, parse_mode="HTML", reply_markup=markup)
+    # Пустой ответ бывает: модель вернула только теги кнопок, и после
+    # их вырезания не осталось ничего. `answer("")` — это
+    # TelegramBadRequest, а заглушку «Думаю…» к этому моменту уже
+    # удалили: клиент получал полную тишину.
+    await message.answer(
+        clean_response or t("ai.empty", lang),
+        parse_mode="HTML",
+        reply_markup=markup,
+    )
     
     if order_created:
         phone_info = ""

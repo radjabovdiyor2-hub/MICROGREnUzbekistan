@@ -3,8 +3,9 @@
 import React from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Minus, Package, Plus, Trash } from 'lucide-react';
+import { Package, Trash } from 'lucide-react';
 import type { useCart } from '@/components/providers/CartProvider';
+import { QuantityStepper } from '@/components/ui/QuantityStepper';
 
 const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 
@@ -52,22 +53,28 @@ export function CartItemList({ cart, fmt, t }: Props) {
               )}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <button className="btn btn-ghost btn-sm" onClick={() => cart.updateQuantity(item.product.id, item.quantity - 1)}
-              style={{ width: 36, height: 36, borderRadius: 'var(--radius-full)', border: '1px solid var(--border)' }}>
-              <Minus size={16} />
-            </button>
-            <span style={{ fontWeight: 'var(--font-bold)', width: 28, textAlign: 'center' }}>{item.quantity}</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => cart.updateQuantity(item.product.id, item.quantity + 1)}
-              style={{ width: 36, height: 36, borderRadius: 'var(--radius-full)', border: '1px solid var(--border)' }}>
-              <Plus size={16} />
-            </button>
-          </div>
+          <QuantityStepper
+            value={item.quantity}
+            onChange={(next) => cart.updateQuantity(item.product.id, next)}
+            bordered
+            valueWidth={28}
+            labels={{
+              less: t('Kamaytirish', 'Уменьшить количество'),
+              more: t("Ko'paytirish", 'Увеличить количество'),
+            }}
+          />
           <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', textAlign: 'right' }}>
             {fmt(item.product.price * item.quantity)} {t("so'm", "сум")}
           </div>
-          <button className="btn btn-ghost btn-sm" onClick={() => cart.removeItem(item.product.id)}
-            style={{ color: 'var(--error)' }}>
+          {/* Иконка без подписи — для диктора просто «кнопка». Плюс размер:
+              44 пикселя, ниже которых палец начинает промахиваться, а рядом
+              стоит «минус» количества. */}
+          <button
+            className="btn btn-ghost btn-sm"
+            aria-label={t("Savatdan o'chirish", 'Убрать из корзины')}
+            onClick={() => cart.removeItem(item.product.id)}
+            style={{ color: 'var(--error)', width: 44, height: 44, flexShrink: 0 }}
+          >
             <Trash size={18} />
           </button>
         </motion.div>

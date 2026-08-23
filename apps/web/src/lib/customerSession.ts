@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import {
+  CUSTOMER_COOKIE,
   CUSTOMER_TTL_SECONDS,
-  SESSION_COOKIE,
   createSession,
   sessionCookieOptions,
 } from './session';
@@ -9,8 +9,8 @@ import {
 // ══════════════════════════════════════════════════════════════════════
 // Выдача сессии покупателя после успешного входа.
 //
-// Дверей входа три (auth/telegram, auth/telegram-webapp, auth/register), и
-// каждая уже установила личность своим способом. Общего у них — то, что
+// Дверей входа две (auth/telegram и auth/telegram-webapp), и обе уже
+// установили личность подписью Telegram. Общего у них — то, что
 // происходит дальше: выпустить подписанную httpOnly-cookie с userId, чтобы
 // личный кабинет перестал спрашивать «а ты кто?» у самого клиента.
 //
@@ -41,6 +41,6 @@ export async function respondWithCustomerSession(
   }
 
   const res = NextResponse.json(body);
-  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions(CUSTOMER_TTL_SECONDS));
+  res.cookies.set(CUSTOMER_COOKIE, token, sessionCookieOptions(CUSTOMER_TTL_SECONDS));
   return res;
 }

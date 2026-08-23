@@ -4,6 +4,7 @@ import { CollectSetButton } from '@/components/recipe/CollectSetButton';
 import { formatPrice } from '@/lib/magazine/menu';
 
 import type { RecipeCartProduct } from '@/lib/recipes';
+import { tint } from '@/lib/tint';
 
 interface Ingredient {
   id: string;
@@ -37,8 +38,8 @@ export function RecipeIngredientsSection({ ingredients, cartProducts, slug, acce
           const rowStyle = {
             display: 'flex', alignItems: 'center', gap: 12,
             padding: '10px 12px', borderRadius: 14,
-            background: ing.product ? `${accent}0f` : 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
-            border: `1px solid ${ing.product ? `${accent}33` : 'var(--border, rgba(var(--overlay-light-rgb), 0.06))'}`,
+            background: ing.product ? tint(accent, 6) : 'var(--bg-elevated, rgba(var(--overlay-light-rgb), 0.03))',
+            border: `1px solid ${ing.product ? tint(accent, 20) : 'var(--border, rgba(var(--overlay-light-rgb), 0.06))'}`,
             color: 'inherit', textDecoration: 'none',
           };
           const inner = (

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { requireBotAuth } from '@/lib/botAuth';
 import { unauthorized } from '@/lib/adminAuth';
+import { normalizePhone } from '@/lib/phone';
+import { linkTelegram } from '@/lib/customers/mergeUsers';
 
 // ══════════════════════════════════════════════════════════════════════
 // Users Telegram API — Create/Update & Get by telegramId
@@ -41,25 +43,55 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { telegramId, name, phone } = body;
+    const { telegramId, name, phone, language } = body;
 
     if (!telegramId) {
       return NextResponse.json({ error: 'telegramId is required' }, { status: 400 });
     }
 
-    const user = await prisma.user.upsert({
-      where: { telegramId: BigInt(telegramId) },
-      update: {
-        ...(name ? { firstName: name } : {}),
-        ...(phone ? { phone } : {}),
-      },
-      create: {
-        telegramId: BigInt(telegramId),
-        firstName: name || null,
-        phone: phone || null,
-        language: 'uz',
-      },
-    });
+    // Телефон — в единый вид. Это был единственный путь записи в обход
+    // `normalizePhone`: на уникальном индексе `users.phone` «901234567» и
+    // «+998901234567» — две разные записи, то есть два аккаунта на человека.
+    const normalizedPhone = phone ? normalizePhone(phone) || phone : null;
+
+    // Язык принимаем только известный: колонка узкая, а мусор в ней
+    // сломает выбор языка и на сайте, и в боте.
+    const lang = language === 'uz' || language === 'ru' ? language : null;
+
+    let user = await prisma.user.findUnique({ where: { telegramId: BigInt(telegramId) } });
+
+    if (!user && normalizedPhone) {
+      // Этот телефон мог уже завестись при гостевом заказе. Тогда это тот же
+      // человек — привязываем Telegram к существующему аккаунту, а не создаём
+      // второй с половиной истории.
+      const byPhone = await prisma.user.findUnique({ where: { phone: normalizedPhone } });
+      if (byPhone) {
+        const keptId = await linkTelegram(byPhone.id, BigInt(telegramId));
+        user = await prisma.user.findUnique({ where: { id: keptId } });
+      }
+    }
+
+    if (user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...(name ? { firstName: name } : {}),
+          ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+          // Только при ЯВНОМ выборе: иначе каждый заход бота затирал бы
+          // язык, который человек выставил на сайте.
+          ...(lang ? { language: lang } : {}),
+        },
+      });
+    } else {
+      user = await prisma.user.create({
+        data: {
+          telegramId: BigInt(telegramId),
+          firstName: name || null,
+          phone: normalizedPhone,
+          language: lang ?? 'uz',
+        },
+      });
+    }
 
     return NextResponse.json({ user: serializeUser(user) });
   } catch (error) {

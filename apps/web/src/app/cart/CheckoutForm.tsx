@@ -9,6 +9,7 @@ import { useLang } from '@/components/providers/LangProvider';
 import type { useCart } from '@/components/providers/CartProvider';
 import { CheckoutSummary } from './CheckoutSummary';
 import { PAYMENT_METHODS, PaymentMethodPicker } from './paymentMethods';
+import { Input } from '@/components/ui/Input';
 
 // Форма оформления заказа — второй шаг. Рендерится вместо корзины и экрана
 // успеха, поэтому вынесена так же, как CartView.
@@ -103,20 +104,27 @@ export function CheckoutForm(props: Props) {
             <User size={18} /> {t("Shaxsiy ma'lumotlar", "Личные данные")}
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)', color: 'var(--text-primary)' }}>{t("Ism *", "Имя *")}</label>
-              <input type="text" placeholder={t("Ismingizni kiriting", "Введите ваше имя")} value={form.firstName} onChange={e => setForm(p => ({ ...p, firstName: e.target.value }))}
-                style={{ width: '100%', padding: 'var(--space-3)', border: `1px solid ${errors.firstName ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}
-                id="checkout-name" />
-              {errors.firstName && <span style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginTop: 4 }}>{errors.firstName}</span>}
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)', color: 'var(--text-primary)' }}>{t("Telefon *", "Телефон *")}</label>
-              <input type="tel" placeholder="+998 99 123 45 67" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-                style={{ width: '100%', padding: 'var(--space-3)', border: `1px solid ${errors.phone ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}
-                id="checkout-phone" />
-              {errors.phone && <span style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginTop: 4 }}>{errors.phone}</span>}
-            </div>
+            <Input
+              id="checkout-name"
+              type="text"
+              required
+              label={t("Ism", "Имя")}
+              placeholder={t("Ismingizni kiriting", "Введите ваше имя")}
+              value={form.firstName}
+              error={errors.firstName}
+              onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))}
+            />
+            <Input
+              id="checkout-phone"
+              type="tel"
+              required
+              inputMode="tel"
+              label={t("Telefon", "Телефон")}
+              placeholder="+998 99 123 45 67"
+              value={form.phone}
+              error={errors.phone}
+              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+            />
           </div>
         </div>
 
@@ -133,12 +141,14 @@ export function CheckoutForm(props: Props) {
                 id="checkout-address" />
               {errors.address && <span style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginTop: 4 }}>{errors.address}</span>}
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', marginBottom: 'var(--space-1)', color: 'var(--text-secondary)' }}>{t("Izoh (ixtiyoriy)", "Комментарий (необязательно)")}</label>
-              <input type="text" placeholder={t("Masalan: 2-qavatga olib chiqing", "Например: поднимите на 2 этаж")} value={form.note} onChange={e => setForm(p => ({ ...p, note: e.target.value }))}
-                style={{ width: '100%', padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}
-                id="checkout-note" />
-            </div>
+            <Input
+              id="checkout-note"
+              type="text"
+              label={t("Izoh (ixtiyoriy)", "Комментарий (необязательно)")}
+              placeholder={t("Masalan: 2-qavatga olib chiqing", "Например: поднимите на 2 этаж")}
+              value={form.note}
+              onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+            />
           </div>
         </div>
 

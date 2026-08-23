@@ -7,6 +7,16 @@ import logging
 import httpx
 
 from services.config_service import fetch_site_config
+from shared.i18n import DEFAULT_LANG, t
+from services.lang_storage import lang_storage
+
+def lang_of(event) -> str:
+    """Язык собеседника: сохранённый выбор, иначе язык клиента Telegram."""
+    user = getattr(event, "from_user", None)
+    if user is None:
+        return DEFAULT_LANG
+    return lang_storage.get(user.id, getattr(user, "language_code", None))
+
 
 router = Router()
 
@@ -47,11 +57,24 @@ async def cmd_start(message: Message):
             logging.debug(f"Referral processing failed: {e}")
     
     # Fetch dynamic config from API
+    lang = lang_of(message)
     config = await fetch_site_config()
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="⚡ Do'konni ochish / Открыть магазин", web_app=WebAppInfo(url=WEB_APP_URL)),
+        ],
+        [
+            # Каталог ВНУТРИ бота.
+            #
+            # Из `/start` в него было не попасть: единственной дверью в
+            # покупку стояла кнопка WebApp, то есть мини-приложение сайта.
+            # Весь магазин на кнопках — сетка, карточки, корзина — открывался
+            # только если знать команду `/shop`, о которой нигде не сказано.
+            # Клиент без желания открывать веб-вью просто не находил, где
+            # купить.
+            InlineKeyboardButton(text=t("btn.catalog", lang), callback_data="shop:categories"),
+            InlineKeyboardButton(text=t("btn.cart", lang), callback_data="cart:view"),
         ],
         [
             InlineKeyboardButton(text="🤖 AI yordamchi / Спросить AI", callback_data="agronomist"),
@@ -139,6 +162,7 @@ async def cmd_contacts(message: Message):
 @router.message(Command("game"))
 async def cmd_game(message: Message):
     """Open Farm Simulator — listed in BotFather commands"""
+    lang = lang_of(message)
     config = await fetch_site_config()
     bot_username = config.social.telegram_bot.rstrip('/').split('/')[-1]
     
@@ -147,7 +171,7 @@ async def cmd_game(message: Message):
             InlineKeyboardButton(text="🎮 Играть сейчас", url=f"https://t.me/{bot_username}/game"),
         ],
         [
-            InlineKeyboardButton(text="🏠 Главное меню", callback_data="menu:main"),
+            InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main"),
         ],
     ])
     

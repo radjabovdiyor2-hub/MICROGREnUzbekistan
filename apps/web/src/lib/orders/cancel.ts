@@ -1,4 +1,5 @@
 import { prisma } from '@repo/database';
+import { notifyOfficeCustomer } from '@/lib/office/client';
 
 // ══════════════════════════════════════════════════════════════════════
 // Возврат товара на склад при отмене заказа.
@@ -50,12 +51,28 @@ async function refundOrderDiscounts(order: {
   promoCode: string | null;
 }): Promise<void> {
   if (order.bonusUsed > 0) {
-    await prisma.user
+    const refunded = await prisma.user
       .update({
         where: { id: order.userId },
         data: { bonusPoints: { increment: order.bonusUsed } },
       })
-      .catch((err) => console.error('Bonus refund failed:', err));
+      .catch((err) => {
+        console.error('Bonus refund failed:', err);
+        return null;
+      });
+
+    // Возврат баллов НЕ доезжал до CRM.
+    //
+    // Зеркало обновлялось только при оформлении заказа и при регистрации.
+    // После отмены у клиента на витрине баллы уже вернулись, а карточка в
+    // офисе показывала продавцу старое, заниженное число — и разговор шёл
+    // от неверной цифры. Отправляем сразу, ждать незачем: это уведомление,
+    // а не часть отмены.
+    if (refunded) {
+      void notifyOfficeCustomer(refunded).catch((err) =>
+        console.error('Bonus mirror after cancel failed:', err),
+      );
+    }
   }
 
   if (order.promoCode) {
@@ -190,6 +207,18 @@ export async function reapplyStockForRevivedOrder(orderId: string): Promise<numb
       console.error(
         `Revive #${order.orderNumber}: не хватило баллов, чтобы забрать ${order.bonusUsed}`,
       );
+    } else {
+      // Зеркало CRM — как и при возврате. Пара операций должна быть
+      // симметричной: иначе снятие отмены оставляло бы в офисе завышенный
+      // баланс, то есть ту же ошибку, только в другую сторону.
+      const after = await prisma.user
+        .findUnique({ where: { id: order.userId } })
+        .catch(() => null);
+      if (after) {
+        void notifyOfficeCustomer(after).catch((err) =>
+          console.error('Bonus mirror after revive failed:', err),
+        );
+      }
     }
   }
 

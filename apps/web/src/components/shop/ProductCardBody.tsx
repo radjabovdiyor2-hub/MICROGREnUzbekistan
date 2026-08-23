@@ -103,11 +103,18 @@ export function ProductCardBody({
           borderRadius: 'var(--radius-sm)', overflow: 'hidden',
           background: 'var(--brand-primary)', color: 'var(--text-inverse)',
         }}>
+        {/* 44 пикселя, а не 32.
+            Дизайн-система поднимает `.btn-sm` до 44 на тач-устройствах
+            (globals.css, @media (pointer: coarse)), но здесь высота прибита
+            инлайном на сыром <button> — правило до неё не доставало. Палец
+            промахивался мимо «минуса», стоящего вплотную к «плюсу».
+            Подпись — словом: диктор читал «минус кнопка» и «плюс кнопка»,
+            не называя, чего именно меньше. */}
         <button
-          aria-label="−"
+          aria-label={t("Kamaytirish", "Уменьшить количество")}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty - 1); }}
           style={{
-            width: 36, height: 32, border: 'none', cursor: 'pointer',
+            width: 44, height: 44, border: 'none', cursor: 'pointer',
             background: 'transparent', color: 'var(--text-inverse)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -126,10 +133,10 @@ export function ProductCardBody({
           </motion.span>
         </AnimatePresence>
         <button
-          aria-label="+"
+          aria-label={t("Ko'paytirish", "Увеличить количество")}
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty + 1); }}
           style={{
-            width: 36, height: 32, border: 'none', cursor: 'pointer',
+            width: 44, height: 44, border: 'none', cursor: 'pointer',
             background: 'transparent', color: 'var(--text-inverse)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
@@ -139,7 +146,7 @@ export function ProductCardBody({
     ) : (
       <motion.button
         key={added ? 'added' : 'add'}
-        className="btn btn-sm btn-block"
+        className={`btn btn-sm btn-block ${added ? 'btn-success' : 'btn-primary'}`}
         onClick={handleAddToCart}
         aria-label={t('product.add_to_cart')}
         initial={{ opacity: 0, scale: 0.9 }}
@@ -147,11 +154,11 @@ export function ProductCardBody({
         exit={{ opacity: 0, scale: 0.9 }}
         whileTap={{ scale: 0.93 }}
         transition={spring}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-          border: 'none', color: 'var(--text-inverse)', fontWeight: 'var(--font-semibold)',
-          background: added ? 'var(--success)' : 'var(--brand-primary)',
-        }}
+        // Вид кнопки задаётся КЛАССОМ. Раньше здесь заново объявлялся
+        // вариант — фон, цвет текста, рамка, — и правка `.btn-primary` в
+        // дизайн-системе до главной кнопки каталога не доходила. Раскладка
+        // тоже лишняя: `.btn` уже flex с нужным зазором.
+        style={{ fontWeight: 'var(--font-semibold)' }}
       >
         {added
           ? <><CheckCircle size={14} /> {t("Qo'shildi", 'Добавлено')}</>

@@ -3,6 +3,7 @@
 import { useLang } from '@/components/providers/LangProvider';
 import { Clock } from 'lucide-react';
 import { GROW_STAGES, StageIcon } from './instagramFeedData';
+import { tint } from '@/lib/tint';
 
 // Полоса стадий выращивания. Вынесено из InstagramFeed: файл перерос
 // 200 строк, а к самой ленте Instagram этот блок отношения не имеет.
@@ -53,12 +54,12 @@ export function GrowingTimeline({ activeStage, setActiveStage }: {
             <div style={{
               width: 40, height: 40, borderRadius: 'var(--radius-full)',
               background: i <= activeStage
-                ? `linear-gradient(135deg, ${stage.color}, ${stage.color}DD)`
+                ? `linear-gradient(135deg, ${stage.color}, ${tint(stage.color, 87)})`
                 : 'var(--bg-tertiary)',
               color: i <= activeStage ? 'white' : 'var(--text-muted)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.3s ease',
-              boxShadow: i === activeStage ? `0 4px 16px ${stage.color}40` : 'none',
+              boxShadow: i === activeStage ? `0 4px 16px ${tint(stage.color, 25)}` : 'none',
               transform: i === activeStage ? 'scale(1.15)' : 'scale(1)',
             }}>
               <StageIcon type={stage.icon} size={18} />
@@ -77,9 +78,9 @@ export function GrowingTimeline({ activeStage, setActiveStage }: {
       {/* Active Stage Info */}
       <div style={{
         marginTop: 'var(--space-4)', padding: 'var(--space-4)',
-        background: `${GROW_STAGES[activeStage].color}0A`,
+        background: `${tint(GROW_STAGES[activeStage].color, 4)}`,
         borderRadius: 'var(--radius-lg)',
-        border: `1px solid ${GROW_STAGES[activeStage].color}20`,
+        border: `1px solid ${tint(GROW_STAGES[activeStage].color, 13)}`,
         transition: 'all 0.3s ease',
       }}>
         <div style={{

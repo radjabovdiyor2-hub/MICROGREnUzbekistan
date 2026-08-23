@@ -25,6 +25,19 @@ from services.config_service import fetch_site_config
 from shared.constants import format_price
 from shared.offers import referral_text
 from shared.api import api_headers
+from shared.i18n import DEFAULT_LANG, t
+from services.lang_storage import lang_storage
+from services.cart_storage import cart_storage
+from handlers.shop import cart_line, cart_totals, totals_text
+from shared.screen import render
+
+def lang_of(event) -> str:
+    """Язык собеседника: сохранённый выбор, иначе язык клиента Telegram."""
+    user = getattr(event, "from_user", None)
+    if user is None:
+        return DEFAULT_LANG
+    return lang_storage.get(user.id, getattr(user, "language_code", None))
+
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -37,6 +50,7 @@ WEB_APP_URL = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com")
 @router.callback_query(F.data == "menu:recipes")
 async def cb_recipes(callback: CallbackQuery):
     """Рецепт дня из веб-API"""
+    lang = lang_of(callback)
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             resp = await client.get(f"{WEB_API_URL}/ai/nutrition?type=recipe")
@@ -75,36 +89,29 @@ async def cb_recipes(callback: CallbackQuery):
                             text="📖 Все рецепты",
                             url=f"{WEB_APP_URL}/recipe"
                         )],
-                        [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+                        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
                     ])
 
-                    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-                    await callback.answer()
+                    await render(callback, text, kb)
                     return
 
         # Fallback — API не вернул рецепт
         kb = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="📖 Рецепты на сайте", url=f"{WEB_APP_URL}/recipe")],
-            [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+            [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
         ])
-        await callback.message.edit_text(
-            "🍽️ <b>Рецепты с микрозеленью</b>\n\n"
+        await render(callback, "🍽️ <b>Рецепты с микрозеленью</b>\n\n"
             "ПП и ЗОЖ рецепты — на нашем сайте!\n"
             "Салаты, смузи, сэндвичи — за 15 минут.\n\n"
-            "Или спросите AI: «придумай рецепт с рукколой» 🤖",
-            reply_markup=kb,
-            parse_mode="HTML"
-        )
+            "Или спросите AI: «придумай рецепт с рукколой» 🤖", kb)
     except Exception as e:
         logger.error("Ошибка рецептов: %s", e)
-        await callback.message.edit_text(
-            "🍽️ Рецепты временно недоступны.\n"
+        await render(callback, "🍽️ Рецепты временно недоступны.\n"
             f"Смотрите на сайте: {WEB_APP_URL}/recipe",
             reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+                [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
             ])
         )
-    await callback.answer()
 
 
 # ==================== ПРОФИЛЬ ====================
@@ -149,37 +156,56 @@ async def cb_profile(callback: CallbackQuery):
             InlineKeyboardButton(text="🇺🇿 O'zbekcha", callback_data="profile:lang:uz"),
         ],
         [InlineKeyboardButton(text="👥 Реферальная ссылка", callback_data="profile:referral")],
-        [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
 
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()
+    await render(callback, text, kb)
 
 
 @router.callback_query(F.data == "profile:referral")
 async def cb_profile_referral(callback: CallbackQuery):
     """Реферальная ссылка из профиля"""
+    lang = lang_of(callback)
     user_id = callback.from_user.id
     ref_link = f"https://t.me/Microgreenuzbekistan_bot?start=ref_{user_id}"
 
     config = await fetch_site_config()
-    await callback.message.edit_text(
-        referral_text(config, ref_link),
+    await render(callback, referral_text(config, ref_link),
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="« Назад", callback_data="menu:profile")],
+            [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:profile")],
         ]),
         parse_mode="HTML"
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("profile:lang:"))
 async def cb_profile_lang(callback: CallbackQuery):
-    """Смена языка"""
-    lang = callback.data.split(":")[-1]
+    """
+    Смена языка — с сохранением.
+
+    Раньше обработчик показывал тост «✅ Язык изменён» и заканчивался: ни
+    записи, ни запроса. Профиль при этом читал `language` с витрины, куда
+    бот его никогда не писал, а новые пользователи заводятся с `uz` — и
+    экран честно сообщал «Oʻzbekcha» посреди русского интерфейса.
+
+    Пишем в двух местах: локально (нужно на каждое сообщение) и на витрину
+    (чтобы сайт говорил с человеком так же). Сбой витрины выбор не отменяет —
+    зеркало не должно решать за источник.
+    """
+    lang = lang_storage.set(callback.from_user.id, callback.data.split(":")[-1])
+
+    try:
+        await bridge.get_or_create_user(
+            callback.from_user.id,
+            name=callback.from_user.full_name,
+            language=lang,
+        )
+    except Exception as exc:  # noqa: BLE001 — язык уже сохранён локально
+        logger.warning("Язык не доехал до витрины: %s", exc)
+
     await callback.answer(
-        f"✅ Язык изменён на {'Русский' if lang == 'ru' else 'Oʻzbekcha'}",
-        show_alert=True
+        f"{t('lang.saved', lang)} — {t(f'lang.{lang}', lang)}",
+        show_alert=True,
     )
 
 
@@ -202,6 +228,17 @@ def _load_favs(user_id: int) -> list:
     return []
 
 
+def is_favorite(user_id: int, product_id: str) -> bool:
+    """
+    Лежит ли товар в избранном.
+
+    Нужна карточке товара в `shop.py`, чтобы сердечко показывало настоящее
+    состояние, а не одну и ту же картинку всегда. Хранение остаётся здесь:
+    один владелец файла — один способ его читать.
+    """
+    return any(str(item.get("id")) == str(product_id) for item in _load_favs(user_id))
+
+
 def _save_favs(user_id: int, favs: list) -> None:
     _FAV_DIR.mkdir(parents=True, exist_ok=True)
     _fav_path(user_id).write_text(
@@ -212,22 +249,18 @@ def _save_favs(user_id: int, favs: list) -> None:
 @router.callback_query(F.data == "menu:favorites")
 async def cb_favorites(callback: CallbackQuery):
     """Показать избранное"""
+    lang = lang_of(callback)
     favs = _load_favs(callback.from_user.id)
 
     if not favs:
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🛒 Открыть каталог", callback_data="shop:categories")],
-            [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+            [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
+            [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
         ])
-        await callback.message.edit_text(
-            "❤️ <b>Избранное пусто</b>\n\n"
+        await render(callback, "❤️ <b>Избранное пусто</b>\n\n"
             "Добавляйте товары в избранное, чтобы быстро\n"
             "находить их потом!\n\n"
-            "💡 Нажмите ❤️ на карточке товара в каталоге.",
-            reply_markup=kb,
-            parse_mode="HTML"
-        )
-        await callback.answer()
+            "💡 Нажмите ❤️ на карточке товара в каталоге.", kb)
         return
 
     text = f"❤️ <b>Избранное ({len(favs)})</b>\n\n"
@@ -241,13 +274,11 @@ async def cb_favorites(callback: CallbackQuery):
         )])
 
     buttons.append([InlineKeyboardButton(text="🗑 Очистить", callback_data="fav:clear")])
-    buttons.append([InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")])
+    buttons.append([InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")])
 
-    await callback.message.edit_text(
-        text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+    await render(callback, text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
         parse_mode="HTML"
     )
-    await callback.answer()
 
 
 @router.callback_query(F.data.startswith("fav:add:"))
@@ -296,35 +327,26 @@ async def cb_fav_clear(callback: CallbackQuery):
 @router.callback_query(F.data == "menu:reorder")
 async def cb_reorder(callback: CallbackQuery):
     """Повторить последний заказ"""
+    lang = lang_of(callback)
     user = callback.from_user
     user_data = await bridge.get_user_by_telegram_id(user.id)
     phone = user_data.get("phone") if user_data else None
 
     if not phone:
-        await callback.message.edit_text(
-            "🔄 <b>Повторить заказ</b>\n\n"
+        await render(callback, "🔄 <b>Повторить заказ</b>\n\n"
             "У вас пока нет заказов.\n"
-            "Оформите первый заказ через каталог!",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🛒 Каталог", callback_data="shop:categories")],
-                [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
-            ]),
-            parse_mode="HTML"
-        )
-        await callback.answer()
+            "Оформите первый заказ через каталог!", InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
+                [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
+            ]))
         return
 
     orders = await bridge.get_orders_by_phone(phone)
     if not orders:
-        await callback.message.edit_text(
-            "🔄 <b>Повторить заказ</b>\n\nНет предыдущих заказов.",
-            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🛒 Каталог", callback_data="shop:categories")],
-                [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
-            ]),
-            parse_mode="HTML"
-        )
-        await callback.answer()
+        await render(callback, "🔄 <b>Повторить заказ</b>\n\nНет предыдущих заказов.", InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
+                [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
+            ]))
         return
 
     last = orders[0]
@@ -346,12 +368,11 @@ async def cb_reorder(callback: CallbackQuery):
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Повторить этот заказ", callback_data=f"reorder:confirm:{last['id']}")],
-        [InlineKeyboardButton(text="🛒 Лучше выберу сам", callback_data="shop:categories")],
-        [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+        [InlineKeyboardButton(text=t('btn.catalog', lang), callback_data="shop:categories")],
+        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
 
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-    await callback.answer()
+    await render(callback, text, kb)
 
 
 # ==================== ПОИСК ====================
@@ -359,6 +380,7 @@ async def cb_reorder(callback: CallbackQuery):
 @router.message(Command("search"))
 async def cmd_search(message: Message):
     """Поиск товаров: /search руккола"""
+    lang = lang_of(message)
     query = message.text.split(maxsplit=1)
     if len(query) < 2:
         await message.answer(
@@ -397,7 +419,7 @@ async def cmd_search(message: Message):
             callback_data=f"shop:product:{p['id']}"
         )])
 
-    buttons.append([InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")])
+    buttons.append([InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")])
     await message.answer(
         text,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
@@ -428,14 +450,9 @@ async def cb_review_start(callback: CallbackQuery):
 
     # Обещания «+50 бонусов за отзыв» здесь больше нет: начисления за отзыв
     # не существует ни в одном роуте витрины — баллы не приходили никогда.
-    await callback.message.edit_text(
-        "⭐ <b>Оставьте отзыв!</b>\n\n"
+    await render(callback, "⭐ <b>Оставьте отзыв!</b>\n\n"
         "Как вам наша продукция?\n"
-        "Выберите оценку:",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
-    await callback.answer()
+        "Выберите оценку:", kb)
 
 
 async def _save_order_review(telegram_id: int, order_id: str, rating: int) -> int:
@@ -495,6 +512,7 @@ async def _save_order_review(telegram_id: int, order_id: str, rating: int) -> in
 @router.callback_query(F.data.startswith("review:rate:"))
 async def cb_review_rate(callback: CallbackQuery):
     """Оценка выставлена — запрос текста"""
+    lang = lang_of(callback)
     parts = callback.data.split(":")
     order_id = parts[2]
     rating = int(parts[3])
@@ -518,10 +536,9 @@ async def cb_review_rate(callback: CallbackQuery):
         )
         toast = "Не удалось сохранить отзыв"
 
-    await callback.message.edit_text(
-        body,
+    await render(callback, body,
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+            [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
         ]),
         parse_mode="HTML"
     )
@@ -530,23 +547,85 @@ async def cb_review_rate(callback: CallbackQuery):
 
 # ==================== ПОДПИСКИ ====================
 
-@router.callback_query(F.data == "menu:subscription")
-async def cb_subscription(callback: CallbackQuery):
-    """Подписки на регулярную доставку"""
+# Экран подписки убран.
+#
+# Он был недостижим — ни одна кнопка не вела на `menu:subscription`, —
+# и все три кнопки частоты (`sub:interval:*`) не имели обработчика: нажатие
+# крутило спиннер. При этом экран обещал «−10% на каждую доставку».
+#
+# Реализовать его в боте сейчас НЕЛЬЗЯ: `/api/subscriptions` берёт владельца
+# из клиентской cookie (`getCustomerId`), а бот ходит по общему секрету и
+# cookie не имеет. Нужна отдельная дверь, как у заказов, где доверенный
+# вызывающий передаёт `telegramId`. Это функция, а не починка кнопки.
+#
+# Подписка — основной канал в финмодели, так что вернуть её стоит; пока
+# оформить регулярную доставку можно на сайте.
+
+
+@router.callback_query(F.data.startswith("reorder:confirm:"))
+async def cb_reorder_confirm(callback: CallbackQuery):
+    """
+    Повторить заказ: перенести его позиции в корзину.
+
+    Кнопка существовала с самого начала и была ГЛАВНОЙ на своём экране, но
+    обработчика к ней не было ни одного: нажатие крутило спиннер и не делало
+    ничего. Заодно и сам экран до недавнего времени был недостижим — бот не
+    находил заказы клиента, потому что витрина не записывала `telegramId`.
+
+    Цену берём из КАТАЛОГА, а не из старого заказа: между покупками она
+    могла измениться, и подставлять прошлую значит показать человеку сумму,
+    которой при оформлении не будет. Товар, которого больше нет в продаже,
+    честно называем — молча пропустить его хуже, чем сказать.
+    """
+    lang = lang_of(callback)
+    order_id = callback.data.split(":", 2)[2]
+    user_id = callback.from_user.id
+
+    user_data = await bridge.get_user_by_telegram_id(user_id)
+    phone = user_data.get("phone") if user_data else None
+    orders = await bridge.get_orders_by_phone(phone) if phone else []
+
+    order = next((o for o in orders if str(o.get("id")) == order_id), None)
+    if not order:
+        await callback.answer("Заказ не найден — возможно, он уже удалён", show_alert=True)
+        return
+
+    added, missing = [], []
+    for item in order.get("items", []):
+        product_id = item.get("productId") or item.get("id")
+        product = await bridge.get_product(product_id) if product_id else None
+        if not product or not product.get("in_stock", True):
+            missing.append(item.get("productName") or item.get("title") or "товар")
+            continue
+        product = dict(product)
+        product["quantity"] = max(1, int(item.get("quantity", 1) or 1))
+        cart_storage.add_to_cart(user_id, product)
+        added.append(product)
+
+    if not added:
+        await callback.answer(
+            "Ни одной позиции из того заказа сейчас нет в наличии.",
+            show_alert=True,
+        )
+        return
+
+    text = "🔄 <b>Позиции добавлены в корзину</b>\n\n"
+    for n, product in enumerate(added, start=1):
+        text += cart_line(n, product) + "\n"
+    if missing:
+        text += "\n⚠️ Сейчас нет в наличии: " + ", ".join(missing) + "\n"
+
+    subtotal, delivery, total = await cart_totals(cart_storage.get_cart(user_id))
+    text += "\n" + totals_text(subtotal, delivery, total)
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📅 Каждую неделю", callback_data="sub:interval:WEEKLY")],
-        [InlineKeyboardButton(text="📅 Каждые 2 недели", callback_data="sub:interval:BIWEEKLY")],
-        [InlineKeyboardButton(text="📅 Раз в месяц", callback_data="sub:interval:MONTHLY")],
-        [InlineKeyboardButton(text="🏠 Меню", callback_data="menu:main")],
+        [InlineKeyboardButton(text="✅ Оформить", callback_data="cart:checkout")],
+        [InlineKeyboardButton(text="🛒 Корзина", callback_data="cart:view")],
+        [InlineKeyboardButton(text=t('btn.home', lang), callback_data="menu:main")],
     ])
 
-    await callback.message.edit_text(
-        "📅 <b>Подписка на доставку</b>\n\n"
-        "Получайте свежую микрозелень регулярно!\n\n"
-        "🎁 <b>Бонус подписки:</b> -10% на каждую доставку\n"
-        "🔄 Можно приостановить или отменить в любой момент\n\n"
-        "Выберите частоту доставки:",
-        reply_markup=kb,
-        parse_mode="HTML"
-    )
-    await callback.answer()
+    # Экран мог прийти как фото (из карточки товара) — тогда edit_text падает.
+    try:
+        await render(callback, text, kb)
+    except Exception:
+        await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")

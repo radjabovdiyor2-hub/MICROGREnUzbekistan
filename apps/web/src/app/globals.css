@@ -213,20 +213,40 @@ input, textarea, select {
   opacity: 0.1;
 }
 
+/* Главная кнопка. ЕДИНСТВЕННОЕ объявление — раньше их было три, и
+   выяснить настоящий вид можно было только по порядку в файле: градиентный
+   вариант из середины перебивался нижним целиком и на экран не попадал. */
 .btn-primary {
   background: var(--brand-primary);
   color: var(--text-inverse);
-  box-shadow: var(--shadow-button);
+  box-shadow: none;
+  transition: transform var(--transition-spring),
+    box-shadow var(--transition-normal), filter var(--transition-fast);
 }
 
 .btn-primary:hover {
   background: var(--brand-primary-hover);
+  filter: brightness(1.04);
+  box-shadow: 0 6px 20px -6px rgba(var(--brand-primary-rgb), 0.45);
   transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
 }
 
 .btn-primary:active {
   transform: translateY(0);
+}
+
+/* «Добавлено в корзину» — подтверждение действия, а не отдельный вид кнопки.
+   Жило инлайном в трёх файлах: карточка каталога, страница товара и полоса
+   рекомендаций в корзине. Правка дизайна ни до одного не доходила. */
+.btn-success {
+  background: var(--success);
+  color: var(--text-inverse);
+  box-shadow: none;
+}
+
+.btn-success:hover {
+  background: var(--success);
+  filter: brightness(1.04);
 }
 
 .btn-accent {
@@ -271,6 +291,21 @@ input, textarea, select {
   font-size: var(--text-xs);
   border-radius: var(--radius-sm);
   min-height: 36px;
+}
+
+/* Палец — не мышь.
+ *
+ * 36px хватает курсору, но не пальцу: рекомендация и Apple, и WCAG 2.5.8 —
+ * 44px. Малых кнопок в админке больше сотни, и это ровно те кнопки, по
+ * которым продавец бьёт на ходу: «+», «−», «удалить», «правка».
+ *
+ * Условие по типу указателя, а не по ширине экрана: планшет с мышью не
+ * должен терять плотность, а телефон в альбомной ориентации — получать
+ * мелкие кнопки только потому, что стал «широким». */
+@media (pointer: coarse) {
+  .btn-sm {
+    min-height: 44px;
+  }
 }
 
 .btn-icon {
@@ -959,6 +994,9 @@ input, textarea, select {
 
 .toast--success { border-left: 4px solid var(--success); }
 .toast--error { border-left: 4px solid var(--error); }
+/* Предупреждение объявлено в Toast.tsx как вариант, а правила для него не
+   было: полоска слева не рисовалась, и «внимание» выглядело как «к сведению». */
+.toast--warning { border-left: 4px solid var(--warning); }
 .toast--info { border-left: 4px solid var(--info); }
 
 /* === Animations === */
@@ -1728,7 +1766,12 @@ body:has(#sticky-cart-bar) .main-content {
     left: 50%;
     right: auto;
     transform: translateX(-50%);
-    width: 480px;
+    /* min(), а не 480px: правило живёт внутри @media (max-width: 640px), то
+       есть срабатывает ровно там, где экран УЖЕ 480px. На iPhone SE (375),
+       iPhone 15 (390) и Pixel (412) панель вылезала за экран на 50-100px, а
+       `body{overflow-x:hidden}` это молча срезало — вместе с крайними
+       пунктами «Главная» слева и «Профиль» справа. */
+    width: min(480px, 100%);
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     box-shadow: var(--shadow-lg);
     border: 1px solid var(--border);
@@ -2354,8 +2397,30 @@ main, [data-page] {
 /* ============================================
    POS PREMIUM ENHANCEMENTS
    ============================================ */
+/* Касса: две колонки на столе, одна в руке.
+ *
+ * Раскладка задавалась ИНЛАЙНОМ в AdminPOS (`1fr 1fr`) и не имела ни
+ * одного правила под узкий экран. На телефоне 390px это давало две
+ * колонки по 195 пикселей: слева сетка товаров, справа корзина — то есть
+ * самый частый экран продавца был непригоден ровно там, где им и
+ * пользуются. Ни один медиазапрос его не трогал: `grep` по всем CSS
+ * находил `.pos-grid` единственный раз — здесь, с одной анимацией.
+ *
+ * Теперь раскладка живёт в классе, а не в разметке: инлайновый стиль
+ * перебил бы любой медиазапрос, и починить это из CSS было бы нельзя. */
 .pos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  min-height: calc(100vh - 200px);
   animation: fadeIn 0.3s ease;
+}
+
+@media (max-width: 1024px) {
+  .pos-grid {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
 }
 
 .pos-products,
@@ -2504,19 +2569,6 @@ textarea:focus-visible,
   border-radius: 6px;
 }
 
-/* Primary CTA — gradient depth + branded glow like premium DTC checkouts. */
-.btn-primary {
-  background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-hover));
-  box-shadow: 0 6px 18px -6px rgba(var(--brand-primary-rgb), 0.55);
-  transition: transform var(--transition-spring), box-shadow var(--transition-normal), filter var(--transition-fast);
-}
-
-.btn-primary:hover {
-  background: linear-gradient(135deg, var(--brand-primary-hover), var(--brand-primary));
-  filter: brightness(1.03);
-  box-shadow: 0 12px 28px -8px rgba(var(--brand-primary-rgb), 0.6);
-  transform: translateY(-2px);
-}
 
 .btn-primary:active {
   transform: translateY(0) scale(0.99);
@@ -2663,16 +2715,6 @@ button:active, .btn:active {
   letter-spacing: -0.01em;
 }
 
-.btn-primary {
-  background: var(--brand-primary);
-  box-shadow: none;
-}
-.btn-primary:hover {
-  background: var(--brand-primary-hover);
-  filter: brightness(1.04);
-  box-shadow: 0 6px 20px -6px rgba(var(--brand-primary-rgb), 0.45);
-  transform: translateY(-1px);
-}
 
 .card,
 .product-card {
