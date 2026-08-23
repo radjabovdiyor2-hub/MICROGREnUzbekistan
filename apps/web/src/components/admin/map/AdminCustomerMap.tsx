@@ -1,15 +1,18 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { RefreshCw } from 'lucide-react';
 
 import { CustomerMapToolbar } from './CustomerMapToolbar';
 
 import { MapBanners } from './MapBanners';
+import { MapDock, type DockTab } from './MapDock';
+import { MapSkeleton } from './MapSkeleton';
 import { MapPointsHere } from './MapPointsHere';
 import { MapSearch } from './MapSearch';
 import { MapSidebar } from './MapSidebar';
 import { MapStage } from './MapStage';
+import { useState } from 'react';
+
 import { useCustomerMap } from './useCustomerMap';
 import { useDayRoute } from './useDayRoute';
 import { useMapFullscreen } from './useMapFullscreen';
@@ -32,24 +35,6 @@ const CustomerMapCanvas = dynamic(() => import('./CustomerMapCanvas'), {
 // оказаться ПОВЕРХ карты, а не под ней.
 // ══════════════════════════════════════════════════════════════════════
 
-function MapSkeleton() {
-  return (
-    <div
-      style={{
-        height: '100%',
-        minHeight: 320,
-        borderRadius: 'var(--radius-lg)',
-        background: 'var(--bg-tertiary)',
-        display: 'grid',
-        placeItems: 'center',
-        color: 'var(--text-muted)',
-      }}
-    >
-      <RefreshCw size={20} className="animate-spin" />
-    </div>
-  );
-}
-
 interface Props {
   lang: 'ru' | 'uz';
   onOpenCard: (id: number) => void;
@@ -63,12 +48,18 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
   const m = useCustomerMap();
   const route = useDayRoute();
   const [filtersOpen, setFiltersOpen] = useRememberedFlag(FILTERS_OPEN_KEY, true);
+  // Открытая вкладка дока. Живёт здесь, а не в самом доке: от неё зависит,
+  // выходит ли Escape из полноэкранного режима.
+  const [dockTab, setDockTab] = useState<DockTab | null>(null);
 
   // Полный экран выходит по Escape только когда поверх карты не открыто
   // ничего своего: иначе одно нажатие закрывало бы сразу две вещи, и
   // человек терял бы не то, что собирался. Лестницу держит useCustomerMap.
   const full = useMapFullscreen(
-    m.placingId === null && m.selectedId === null && m.stackIds.length === 0,
+    m.placingId === null &&
+      m.selectedId === null &&
+      m.stackIds.length === 0 &&
+      dockTab === null,
   );
 
   const search = (
@@ -86,6 +77,13 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
     />
   );
 
+  // В полноэкранном режиме поиск уходит поверх карты — потока там нет.
+  const searchOverlay = full.isFull ? (
+    <div className="card" style={{ padding: 'var(--space-2)', width: 'min(360px, 100%)' }}>
+      {search}
+    </div>
+  ) : null;
+
   return (
     <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
       <CustomerMapToolbar
@@ -96,10 +94,8 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
         onToggleOpen={() => setFiltersOpen(!filtersOpen)}
       />
 
-      {/* В обычном режиме поиск стоит в потоке, как и стоял. Оверлеем он
-          закрывал бы треть карты на телефоне — то есть отнимал бы ровно
-          столько же, сколько занимал, только у самой карты. А вот в
-          полноэкранном режиме потока нет, и там он уходит поверх. */}
+      {/* В обычном режиме поиск стоит в потоке, как и стоял: оверлеем он
+          закрывал бы треть карты на телефоне. */}
       {!full.isFull && search}
 
       <MapBanners lang={lang} m={m} />
@@ -114,23 +110,8 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
         }}
       >
         <MapStage
-          lang={lang}
           isFull={full.isFull}
-          onToggleFull={full.toggle}
-          overlayTop={
-            full.isFull ? (
-              <div
-                className="card"
-                style={{
-                  padding: 'var(--space-2)',
-                  width: 'min(360px, 100%)',
-                  boxShadow: 'var(--shadow-lg)',
-                }}
-              >
-                {search}
-              </div>
-            ) : null
-          }
+          overlayTop={searchOverlay}
           overlayBottom={
             <MapPointsHere
               lang={lang}
@@ -151,6 +132,9 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
               placingId={m.placingId}
               onPickPoint={m.setSelectedId}
               onPickStack={m.setStackIds}
+              isFull={full.isFull}
+              onToggleFull={full.toggle}
+              lang={lang}
               heat={m.showHeat}
               routeStops={route.stops}
               detailedBase={m.detailedBase}
@@ -182,6 +166,21 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
           />
         </div>
       </div>
+
+      {/* Док — только в полноэкранном режиме: в обычном те же панели стоят
+          в боковой колонке, и вторая их копия внизу спорила бы с первой. */}
+      {full.isFull && (
+        <MapDock
+          lang={lang}
+          m={m}
+          route={route}
+          isOwner={isOwner}
+          onOpenCard={onOpenCard}
+          sellerName={sellerName}
+          tab={dockTab}
+          onTab={setDockTab}
+        />
+      )}
     </div>
   );
 }
