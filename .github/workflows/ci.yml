@@ -398,6 +398,20 @@ jobs:
               echo "Waiting for postgres… ($i/15)"
               sleep 2
             done
+            # ── Снимок базы перед необратимыми шагами ─────────────────────
+            #
+            # Ниже два шага меняют СХЕМУ боевой базы без участия человека:
+            # unify_databases.sql переименовывает таблицы, а db-push идёт с
+            # `--accept-data-loss`. Почему снимок обязателен и почему его
+            # отказ обрывает выкатку — в самом скрипте.
+            #
+            # Скрипт, а не двадцать строк здесь: тот же снимок нужен перед
+            # `relink_pos_sales --apply` (workflow relink-pos-sales.yml), а
+            # вторая копия проверки целостности разошлась бы с первой молча.
+            #
+            # Файл на месте: выше уже прошёл `git reset --hard origin/main`.
+            sh deploy/db-snapshot.sh "$(echo "${MG_TAG#sha-}" | cut -c1-7)"
+
             # Unified DB migration: rename conflicting CRM tables → crm_* and
             # clean up constraints so Prisma db-push can run cleanly.
             MIGRATION_SQL="packages/database/prisma/migrations/unify_databases.sql"
