@@ -15,7 +15,9 @@
 
 import { notifyCustomer } from './notify';
 import { restoreStockForCancelledOrder, reapplyStockForRevivedOrder } from './orders/cancel';
-import { ingestUrl } from './office/client';
+import { prisma } from '@repo/database';
+
+import { drainOffice, enqueueOffice } from './office/outbox';
 import { detach } from '@/lib/background';
 
 // Storefront status (Prisma OrderStatus) -> customer-facing bilingual message.
@@ -71,18 +73,16 @@ export async function pushStatusToOffice(params: {
   // теряло ВСЮ синхронизацию статусов заказов в CRM — при том, что соседний
   // `ingestUrl` эту ступень уже имеет, и добавлена она была ровно по этой
   // причине.
-  const url = process.env.OFFICE_STATUS_URL || ingestUrl('order-status');
-
-  const maxRetries = 3;
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(process.env.INGEST_SECRET ? { 'X-Ingest-Secret': process.env.INGEST_SECRET } : {}),
-        },
-        body: JSON.stringify({
+  // Через очередь, а не тремя попытками подряд.
+  //
+  // Прежние три попытки покрывали моргнувшую сеть; офис, лежащий десять
+  // минут, означал заказ, который на сайте «доставлен», а в CRM навсегда
+  // «новый». Для финансов это неучтённый доход, для Стёпана — висящая
+  // задача, для клиента — звонок «а где мой заказ».
+  //
+  // Ключ очереди — номер заказа И статус: два разных перехода одного
+  // заказа это два события, и второй не должен затирать первый.
+  const payload = {
           order_number: params.orderNumber,
           // Возврат для офиса — это отменённая продажа. Своего значения
           // `refunded` у него нет: CHECK на `crm_orders.payment_status`
@@ -96,19 +96,22 @@ export async function pushStatusToOffice(params: {
                 ? STATUS_TO_OFFICE[params.status] ?? null
                 : null,
           payment_status: params.paymentStatus ? PAYMENT_TO_OFFICE[params.paymentStatus] ?? null : null,
-        }),
-        signal: AbortSignal.timeout(4000),
-      });
-      if (!response.ok) throw new Error(`Office returned ${response.status}`);
-      return;
-    } catch (err) {
-      if (attempt === maxRetries) {
-        console.error('Office status sync failed after 3 attempts (order still updated):', err);
-      } else {
-        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
-      }
-    }
+  };
+
+  try {
+    await enqueueOffice(prisma, {
+      topic: 'order-status',
+      refKey: `${params.orderNumber}:${params.status ?? ''}:${params.paymentStatus ?? ''}`,
+      payload,
+    });
+  } catch (err) {
+    // Отказ базы, а не офиса. Статус на сайте уже изменён — ронять ответ
+    // нельзя, но потеря синхронизации обязана быть видимой.
+    console.error('Office status sync not queued (order still updated):', err);
+    return;
   }
+
+  await drainOffice();
 }
 
 // One call for a storefront-side status change: notify the customer + sync office.

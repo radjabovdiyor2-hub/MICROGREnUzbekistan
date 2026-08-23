@@ -192,6 +192,7 @@ async def get_employee_kpi(
 register(
     Tool(
         name="list_employees",
+        admin_tab="employees",
         description="Состав команды: имена, роли, статусы.",
         run=list_employees,
         departments=DEPTS,
@@ -202,6 +203,7 @@ register(
 register(
     Tool(
         name="get_payroll",
+        admin_tab="employees",
         description="Фонд оплаты труда: кто сколько получает, итог по активным.",
         run=get_payroll,
         departments=DEPTS,
@@ -211,6 +213,7 @@ register(
 register(
     Tool(
         name="create_shift_task",
+        admin_tab="tasks",
         # Раньше описание гласило «смену или поручение», и модель выбирала
         # этот инструмент для назначения смены — а он пишет задачу в `tasks`,
         # и в графике смен она не появлялась. График ставит assign_shift.
@@ -233,6 +236,7 @@ register(
 register(
     Tool(
         name="log_employee_kpi",
+        admin_tab="employees",
         description="Зафиксировать показатель сотрудника (выработка, качество, продажи).",
         run=log_employee_kpi,
         departments=DEPTS,
@@ -252,6 +256,7 @@ register(
 register(
     Tool(
         name="get_employee_kpi",
+        admin_tab="employees",
         description=(
             "Показатели сотрудников за период: что записывали через "
             "log_employee_kpi. Без него журнал KPI был бы только на запись — "

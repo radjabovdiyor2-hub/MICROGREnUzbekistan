@@ -13,6 +13,7 @@ from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
 from bots.support_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
+from shared.notifications import send_report
 from shared import group_reply
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
@@ -123,7 +124,16 @@ async def complaint_followup():
                         f"(от {c.created_at.strftime('%d.%m %H:%M')})"
                     )
                 lines.append(f"\nВсего: <b>{len(unresolved)}</b> — требуется внимание!")
-                await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+                # «Требуется внимание» без кнопки — требование без способа
+                # его выполнить: номера жалоб напечатаны, а открыть их
+                # можно было только зайдя на сайт и найдя вкладку глазами.
+                await send_report(
+                    bot,
+                    admin_id,
+                    "\n".join(lines),
+                    admin_tab="dept_support",
+                    button_text="🆘 Поддержка",
+                )
         else:
             alert_once.resolved("support.complaints")
         await bot.session.close()
@@ -428,6 +438,12 @@ async def main():
     await scheduler.start()
     asyncio.create_task(start_heartbeat("support_bot"))
 
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "support_bot"))
+
     # ── Webhook Server для n8n ──
     from aiohttp import web
 
@@ -460,12 +476,17 @@ async def main():
     )  # mg_support — порт из карты доставки event_bus
 
     # ── Bot Bus: слушаем задачи от Степана ──
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
 
     asyncio.create_task(
         bus_listen(
             "support_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("support_bot"),
                 "handle_complaint": bus_handle_complaint,
                 "check_instagram_dm": bus_check_instagram_dm,
             },

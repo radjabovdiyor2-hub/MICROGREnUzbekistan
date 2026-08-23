@@ -53,7 +53,7 @@ export function BottomNav() {
                   style={{
                     position: 'absolute', top: -6, right: -10,
                     minWidth: 16, height: 16, borderRadius: 8,
-                    background: 'var(--error)', color: 'white',
+                    background: 'var(--error)', color: 'var(--text-inverse)',
                     fontSize: '9px', fontWeight: 'bold',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     padding: '0 3px',

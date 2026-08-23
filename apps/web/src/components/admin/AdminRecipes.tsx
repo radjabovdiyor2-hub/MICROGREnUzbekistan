@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
+import { useFeedback } from './AdminFeedback';
 import { AdminRecipeEditor, type Recipe } from './AdminRecipeEditor';
 
 export function AdminRecipes() {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Recipe | null>(null);
   const [busy, setBusy] = useState(false);
@@ -81,7 +83,15 @@ export function AdminRecipes() {
   };
 
   const remove = async (id: string, title: string) => {
-    if (!window.confirm(`Удалить «${title}»? QR, который ведёт на этот рецепт, перестанет работать.`)) return;
+    const agreed = await notify.confirm({
+      title: `Удалить «${title}»?`,
+      // Последствие снаружи системы: напечатанный QR на упаковке уже ушёл
+      // к клиентам, и вернуть его нельзя.
+      detail: 'QR, который ведёт на этот рецепт, перестанет работать.',
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!agreed) return;
     const res = await adminFetch(`/api/admin/magazine/recipes?id=${id}`, { method: 'DELETE' });
     if (!res.ok) { setNote('Не удалось удалить'); return; }
     await load();

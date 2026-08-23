@@ -117,6 +117,7 @@ async def instagram_stats() -> Dict[str, Any]:
 register(
     Tool(
         name="top_products",
+        admin_tab="analytics",
         description="Топ товаров по выручке за период: что продаётся лучше всего.",
         run=top_products,
         departments=DEPTS,
@@ -130,6 +131,7 @@ register(
 register(
     Tool(
         name="abc_analysis",
+        admin_tab="analytics",
         description="ABC-анализ ассортимента: какие товары дают основную выручку.",
         run=abc_analysis,
         departments=DEPTS,
@@ -140,6 +142,7 @@ register(
 register(
     Tool(
         name="get_sales_trend",
+        admin_tab="analytics",
         description="Динамика заказов и выручки по дням за период.",
         run=get_sales_trend,
         departments=DEPTS,
@@ -150,6 +153,7 @@ register(
 register(
     Tool(
         name="build_report",
+        admin_tab="analytics",
         # `kind` убран: обработчик шины (analytics_bot.bus_get_report) его не
         # читал никогда и на любой запрос отдавал одну и ту же сводку дня.
         # Обещать четыре вида отчёта, выдавая один, — это ложь инструмента.
@@ -167,6 +171,7 @@ register(
 register(
     Tool(
         name="instagram_stats",
+        admin_tab="dept_marketing",
         description="Статистика Instagram: охваты, вовлечённость, рост подписчиков.",
         run=instagram_stats,
         departments=DEPTS,

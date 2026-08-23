@@ -5,6 +5,7 @@ import type { CSSProperties } from 'react';
 import { AdminMovementSummary } from './AdminMovementSummary';
 import { AdminMovementForm, type MovementDraft } from './AdminMovementForm';
 import { TYPE_CONFIG, type Movement, type Product } from './movementTypes';
+import { tint } from '@/lib/tint';
 
 // Вкладка «Движения» склада. Вынесено из AdminMovements: файл перерос
 // 200 строк, а две его вкладки друг о друге ничего не знают.
@@ -97,13 +98,13 @@ export function AdminMovementsTab({
           const totalValue = m.costPrice ? Math.abs(m.quantity) * m.costPrice : Math.abs(m.quantity) * m.product.price;
           return (
             <div key={m.id} className="card" style={{ padding: 'var(--space-3)', display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: `${cfg.color}15`, color: cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: tint(cfg.color), color: cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {cfg.icon}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                   <span style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{m.product.nameUz}</span>
-                  <span style={{ padding: '1px 6px', borderRadius: 'var(--radius-full)', background: `${cfg.color}15`, color: cfg.color, fontSize: '10px', fontWeight: 700 }}>{cfg.label}</span>
+                  <span style={{ padding: '1px 6px', borderRadius: 'var(--radius-full)', background: tint(cfg.color), color: cfg.color, fontSize: '10px', fontWeight: 700 }}>{cfg.label}</span>
                 </div>
                 {/* Detail line 1: reason + who */}
                 <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 2 }}>

@@ -363,6 +363,7 @@ EVERY_DEPARTMENT = _all_departments()
 register(
     Tool(
         name="get_price_list",
+        admin_tab="products",
         description=(
             "Актуальный прайс-лист по товарам компании из каталога. "
             "Вызывай ВСЕГДА, когда нужны цены, ассортимент, прайс, коммерческое "
@@ -383,6 +384,7 @@ register(
 register(
     Tool(
         name="find_product",
+        admin_tab="products",
         description="Найти товар в каталоге по названию: цена, единица, остаток, id.",
         run=find_product,
         departments=EVERY_DEPARTMENT,
@@ -394,6 +396,7 @@ register(
 register(
     Tool(
         name="get_orders",
+        admin_tab="orders",
         description="Последние заказы магазина: номер, сумма, статус, клиент.",
         run=get_orders,
         departments=EVERY_DEPARTMENT,
@@ -407,6 +410,7 @@ register(
 register(
     Tool(
         name="get_tasks",
+        admin_tab="tasks",
         description="Открытые задачи — все или конкретного отдела.",
         run=get_tasks,
         departments=EVERY_DEPARTMENT,
@@ -417,6 +421,7 @@ register(
 register(
     Tool(
         name="create_task",
+        admin_tab="tasks",
         description=(
             "Завести НОВУЮ задачу отделу. Не для передачи текущей задачи — "
             "для этого есть delegate_to_department."
@@ -471,6 +476,7 @@ register(
 register(
     Tool(
         name="delegate_to_department",
+        admin_tab="tasks",
         description=(
             "Передать ТЕКУЩУЮ задачу другому отделу, если она не входит в твои "
             "обязанности. Отдел укажи по-английски: "
@@ -492,6 +498,7 @@ register(
 register(
     Tool(
         name="human_task",
+        admin_tab="tasks",
         description=(
             "Передать дело человеку, когда бот физически не может его сделать: "
             "встреча, переговоры, звонок, производство, закупка, найм. "
@@ -511,6 +518,7 @@ register(
 register(
     Tool(
         name="get_business_summary",
+        admin_tab="stats",
         description="Сводка за сегодня: заказы, выручка, открытые задачи, новые клиенты.",
         run=get_business_summary,
         departments=EVERY_DEPARTMENT,

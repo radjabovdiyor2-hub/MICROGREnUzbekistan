@@ -22,16 +22,105 @@ def _admin_chat_id():
     return settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
 
 
-async def notify_admin(bot: Bot, admin_ids: list, text_msg: str):
+# ─── Кнопка под сообщением ──────────────────────────────────
+#
+# ПОЧЕМУ ЭТО ЗДЕСЬ, А НЕ У КАЖДОГО ВЫЗЫВАЮЩЕГО
+#
+# Через эти две функции проходят почти все доклады офиса владельцу, и ни
+# одна из них не умела нести клавиатуру: в сигнатуре не было `reply_markup`
+# вовсе. Поэтому «бот не запущен», «жалоба», «крупный расход» приходили
+# плоским текстом — человеку сообщали о проблеме и не давали ничего, чем
+# на неё ответить. Открыть нужный экран значило уйти на сайт, вспомнить
+# пароль и найти вкладку глазами среди полусотни.
+#
+# Вкладка задаётся строкой (`admin_tab="bot_health"`), а не готовой
+# клавиатурой, намеренно: рассылка идёт нескольким получателям, и кнопка
+# для каждого собирается своя. Mini App законен только в личной переписке,
+# и клавиатура, собранная для владельца, в группе отклонит всё сообщение.
+
+
+def _markup_for(admin_id: int, admin_tab: str | None, focus: str | None, button_text: str):
+    """Клавиатура для конкретного получателя. `None` — вкладку не назвали."""
+    if not admin_tab:
+        return None
+    try:
+        from shared import admin_links
+
+        return admin_links.tab_markup(admin_tab, admin_id, text=button_text, focus=focus)
+    except Exception as exc:
+        # Кнопка — украшение доклада, а не сам доклад: не построилась —
+        # отправляем текст. Молчать об этом всё же нельзя.
+        logger.warning("Кнопка в админку не собралась (%s): %s", admin_tab, exc)
+        return None
+
+
+async def notify_admin(
+    bot: Bot,
+    admin_ids: list,
+    text_msg: str,
+    admin_tab: str | None = None,
+    focus: str | None = None,
+    button_text: str = "🏢 Открыть в админке",
+):
     """Отправить уведомление всем админам."""
     for admin_id in admin_ids:
         try:
-            await bot.send_message(admin_id, text_msg)
+            await bot.send_message(
+                admin_id,
+                text_msg,
+                reply_markup=_markup_for(admin_id, admin_tab, focus, button_text),
+            )
         except Exception as e:
             logger.error(f"Не удалось отправить уведомление админу {admin_id}: {e}")
 
 
-async def alert_admins(bot: Bot, text_msg: str, parse_mode: str | None = "HTML") -> int:
+async def send_report(
+    bot: Bot,
+    chat_id: int,
+    text_msg: str,
+    admin_tab: str | None = None,
+    focus: str | None = None,
+    button_text: str = "🏢 Открыть в админке",
+    parse_mode: str | None = "HTML",
+) -> bool:
+    """Доклад в один чат — с кнопкой на экран, где с ним разберутся.
+
+    ЗАЧЕМ ОТДЕЛЬНАЯ ДВЕРЬ
+
+    Расписаний в офисе шестьдесят пять, и каждое звало `bot.send_message`
+    напрямую. Из-за этого доклады разошлись во всём: у одних есть разметка,
+    у других нет, превью страницы то включено, то выключено, а кнопки не
+    было ни у одного. Хуже того, часть докладов прямо требует действия —
+    «решите сами или удалите», «требуется внимание», «убедитесь, что на
+    счету достаточно», — и не даёт ничего, чем ответить.
+
+    Возвращает True, если доставлено: у доклада по расписанию нет второго
+    шанса, и потерю надо хотя бы записать.
+    """
+    try:
+        await bot.send_message(
+            chat_id,
+            text_msg,
+            parse_mode=parse_mode,
+            reply_markup=_markup_for(chat_id, admin_tab, focus, button_text),
+            # Доклады часто длинные и со ссылками: карточка сайта под
+            # каждым из них съедала бы пол-экрана телефона.
+            disable_web_page_preview=True,
+        )
+        return True
+    except Exception as exc:
+        logger.error("Доклад не доставлен в чат %s: %s", chat_id, exc)
+        return False
+
+
+async def alert_admins(
+    bot: Bot,
+    text_msg: str,
+    parse_mode: str | None = "HTML",
+    admin_tab: str | None = None,
+    focus: str | None = None,
+    button_text: str = "🏢 Открыть в админке",
+) -> int:
     """
     Разослать АВАРИЙНОЕ сообщение всем администраторам из ADMIN_TELEGRAM_IDS.
 
@@ -56,7 +145,16 @@ async def alert_admins(bot: Bot, text_msg: str, parse_mode: str | None = "HTML")
     delivered = 0
     for admin_id in admin_ids:
         try:
-            await bot.send_message(admin_id, text_msg, parse_mode=parse_mode)
+            await bot.send_message(
+                admin_id,
+                text_msg,
+                parse_mode=parse_mode,
+                reply_markup=_markup_for(admin_id, admin_tab, focus, button_text),
+                # Ссылка в кнопке ведёт на сайт, и Telegram по умолчанию
+                # подрисовывает под сообщением карточку страницы. У аварии
+                # она занимает пол-экрана и ничего не сообщает.
+                disable_web_page_preview=True,
+            )
             delivered += 1
         except Exception as e:
             # Один недоступный получатель не должен блокировать остальных.

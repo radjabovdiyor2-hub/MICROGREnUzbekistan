@@ -3,6 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Lightbulb, Play } from 'lucide-react';
 
+import { useFeedback } from './AdminFeedback';
+
 interface Experiment {
   id: string;
   batchId: string | null;
@@ -17,6 +19,7 @@ interface Experiment {
 }
 
 export function AdminExperiments() {
+  const notify = useFeedback();
   const { data: experiments = [], isPending: loading } = useQuery<Experiment[]>({
     queryKey: ['admin-experiments'],
     queryFn: async () => {
@@ -38,7 +41,7 @@ export function AdminExperiments() {
         params: { experimentId: id }
       })
     });
-    alert('Задача отправлена R&D боту. Результат появится позже.');
+    notify.success('Задача отправлена R&D боту — результат появится позже');
   };
 
   if (loading) return <div>Загрузка экспериментов...</div>;

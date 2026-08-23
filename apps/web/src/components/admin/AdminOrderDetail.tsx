@@ -3,6 +3,7 @@
 import { ArrowLeft, Package, Settings } from 'lucide-react';
 import { STATUS_CONFIG } from './adminOrdersConfig';
 import type { Order } from './adminOrderTypes';
+import { tint } from '@/lib/tint';
 
 // Карточка одного заказа: кто, что, на сколько и смена статуса.
 // Вынесена из AdminOrders — там осталась выборка списка, поиск и страницы.
@@ -24,7 +25,7 @@ export function AdminOrderDetail({ order, onBack, onStatus, fmt, fmtDate }: {
       <div className="card" style={{ padding: 'var(--space-6)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }}>#{order.orderNumber}</h3>
-          <span style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', background: `${st.color}15`, color: st.color, fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', background: tint(st.color), color: st.color, fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             {st.icon} {st.label}
           </span>
         </div>

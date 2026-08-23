@@ -139,6 +139,13 @@ async def send_hitl_approval_request(workflow_name: str, step_name: str, context
         cb_base = f"hitl:{workflow_name}:{step_name}"
         builder.button(text="✅ Одобрить", callback_data=f"{cb_base}:approve")
         builder.button(text="❌ Отклонить", callback_data=f"{cb_base}:reject")
+        # Решение о шаге процесса принимают, посмотрев на сам процесс.
+        # Без этой кнопки карточка была тупиком: названы имя процесса и
+        # шага, а увидеть их можно было только зайдя на сайт.
+        from shared import admin_links
+
+        builder.add(admin_links.tab_button("🏢 Процессы", "workflow_studio", admin_id))
+        builder.adjust(2, 1)
         
         text = (
             f"⚠️ <b>Требуется ваше решение (Human-in-the-Loop)</b>\n\n"

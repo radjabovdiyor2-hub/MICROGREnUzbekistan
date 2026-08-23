@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { loadSalesLedger } from '@/lib/revenue/salesLedger';
 import { summarize } from '@/lib/revenue/summary';
 import { scanGrowBatches, raiseGrowAlerts, growReportLines } from '@/lib/production/growWatch';
+import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 // ==========================================
 // Daily Telegram Report — Cron Endpoint
@@ -122,7 +123,15 @@ export async function GET() {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: adminChatId, text: message, parse_mode: 'HTML' }),
+      body: JSON.stringify({
+        chat_id: adminChatId,
+        text: message,
+        parse_mode: 'HTML',
+        // Дневной отчёт — это разговор про деньги: ведём в «Доход», а не
+        // в общую сводку, где цифру ещё надо найти.
+        reply_markup: openKeyboard(adminChatId, 'revenue', null, '💵 Доход за день'),
+        disable_web_page_preview: true,
+      }),
     });
 
     return NextResponse.json({ success: true, message: 'Daily report sent' });

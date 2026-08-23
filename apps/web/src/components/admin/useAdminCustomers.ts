@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clientErrorMessage } from '@/lib/safeError';
 import { confirmDeleteText, deleteCustomer } from '@/lib/customers/remove';
 
+import { useFeedback } from './AdminFeedback';
 import { type CustomerItem } from './customerTypes';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -31,6 +32,7 @@ interface CustomerPage {
 }
 
 export function useAdminCustomers() {
+  const notify = useFeedback();
   const [searchInput, setSearchInput] = useState('');
   // Отправленный запрос отделён от того, что человек печатает: он входит в
   // queryKey, поэтому кэш и содержимое поля больше не расходятся. Раньше
@@ -118,13 +120,23 @@ export function useAdminCustomers() {
   // Клиента с заказами база не отдаёт (crm_orders на onDelete: Restrict) —
   // сервер отвечает 409 с числом заказов, и причину показываем как есть.
   const handleDeleteCustomer = async (c: CustomerItem) => {
-    if (!window.confirm(confirmDeleteText(c.name))) return;
+    const agreed = await notify.confirm({
+      title: `Удалить клиента «${c.name}» безвозвратно?`,
+      // Текст последствий один на все места удаления клиента — он живёт в
+      // `lib/customers/remove`, чтобы веб и бот обещали одно и то же.
+      detail: confirmDeleteText(c.name).split('\n\n')[1],
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!agreed) return;
+
     try {
       await deleteCustomer(c.id);
       refetch();
       queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
+      notify.success(`Клиент «${c.name}» удалён`);
     } catch (err: unknown) {
-      alert(clientErrorMessage(err, 'Ошибка при удалении'));
+      notify.error(clientErrorMessage(err, 'Не удалось удалить клиента'));
     }
   };
 
@@ -158,8 +170,9 @@ export function useAdminCustomers() {
       refetch();
       // Карточка открыта — её данные тоже устарели.
       queryClient.invalidateQueries({ queryKey: ['admin-customer'] });
+      notify.success('Сохранено');
     } catch (err: unknown) {
-      alert(clientErrorMessage(err, 'Ошибка при сохранении'));
+      notify.error(clientErrorMessage(err, 'Не удалось сохранить клиента'));
     } finally {
       setSaving(false);
     }

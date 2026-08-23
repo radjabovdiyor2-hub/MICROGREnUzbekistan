@@ -1,6 +1,7 @@
 'use client';
 
 import { AdminDebtForm } from './AdminDebtForm';
+import { AdminNotice } from './AdminNotice';
 
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -25,6 +26,7 @@ interface Debt {
 
 
 import { AdminDebtList } from './AdminDebtList';
+import { tint } from '@/lib/tint';
 
 export function AdminDebts() {
   const [activeTab, setActiveTab] = useState<'WHO_OWES_US' | 'WE_OWE'>('WHO_OWES_US');
@@ -54,12 +56,45 @@ export function AdminDebts() {
 
   const isOverdue = (debt: Debt): boolean => Boolean(!debt.isPaid && debt.dueDate && new Date(debt.dueDate) < new Date());
 
+  // ── Деньги: отказ обязан быть виден, а кнопка — заблокирована ────────
+  //
+  // Обе операции уходили запросом, ответ которого никто не читал: `res.ok`
+  // не проверялся вовсе, отказ падал в `console.error`. На слабой сети это
+  // выглядело так: модалка закрылась, список прежний, человеку не сказали
+  // ничего — и он нажимал ещё раз. Кнопка при этом оставалась активной всё
+  // время запроса, поэтому второе нажатие проводило ВТОРОЙ платёж.
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  /** Общая часть: разбор ответа и внятный текст отказа. */
+  const send = async (init: RequestInit, onDone: () => void) => {
+    if (saving) return;
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/inventory/debts', {
+        headers: { 'Content-Type': 'application/json' },
+        ...init,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(body?.error || `Server ${res.status}`);
+        return;
+      }
+      onDone();
+      fetchDebts();
+    } catch {
+      setError("Tarmoq xatosi — qayta urinib ko'ring");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleAddDebt = async () => {
     if (!newDebt.personName || !newDebt.amount) return;
-    try {
-      await fetch('/api/inventory/debts', {
+    await send(
+      {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newDebt,
           amount: parseInt(newDebt.amount),
@@ -67,25 +102,26 @@ export function AdminDebts() {
           // Пустую строку API принял бы за id и не нашёл поставщика.
           supplierId: newDebt.supplierId || null,
         }),
-      });
-      setShowAdd(false);
-      setNewDebt({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '' });
-      fetchDebts();
-    } catch (err) { console.error('Add debt error:', err); }
+      },
+      () => {
+        setShowAdd(false);
+        setNewDebt({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '' });
+      },
+    );
   };
 
   const handlePayment = async () => {
     if (!paymentModal || !paymentAmount) return;
-    try {
-      await fetch('/api/inventory/debts', {
+    await send(
+      {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: paymentModal.id, payment: parseInt(paymentAmount) }),
-      });
-      setPaymentModal(null);
-      setPaymentAmount('');
-      fetchDebts();
-    } catch (err) { console.error('Payment error:', err); }
+      },
+      () => {
+        setPaymentModal(null);
+        setPaymentAmount('');
+      },
+    );
   };
 
   return (
@@ -99,7 +135,7 @@ export function AdminDebts() {
           { label: "Muddati o'tgan", value: summary.overdue, color: 'var(--warning)', icon: <AlertTriangle size={20} /> },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: `${stat.color}15`, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: tint(stat.color), color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {stat.icon}
             </div>
             <div>
@@ -138,6 +174,8 @@ export function AdminDebts() {
         newDebt={newDebt}
         setNewDebt={setNewDebt}
         handleAddDebt={handleAddDebt}
+        saving={saving}
+        error={error}
       />
       <AdminDebtList
         debts={debts}
@@ -161,13 +199,16 @@ export function AdminDebts() {
             <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: 'var(--space-4)' }}>
               Qoldiq: {fmt(paymentModal.amount - paymentModal.paidAmount)} so&apos;m
             </p>
+            <AdminNotice>{error}</AdminNotice>
             <input type="number" placeholder="Summa" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)}
               style={{ width: '100%', padding: 'var(--space-3)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-lg)', marginBottom: 'var(--space-3)', fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }} />
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
               <button onClick={() => setPaymentAmount(String(paymentModal.amount - paymentModal.paidAmount))} className="btn btn-ghost btn-sm">To&apos;liq</button>
               <div style={{ flex: 1 }} />
               <button onClick={() => setPaymentModal(null)} className="btn btn-ghost btn-sm">Bekor</button>
-              <button onClick={handlePayment} className="btn btn-primary btn-sm">Tasdiqlash</button>
+              <button onClick={handlePayment} disabled={saving} className="btn btn-primary btn-sm">
+                {saving ? 'Yuborilmoqda…' : 'Tasdiqlash'}
+              </button>
             </div>
           </div>
         </div>

@@ -287,7 +287,14 @@ async def daily_backup_task(bot=None):
             try:
                 from shared.notifications import alert_admins
 
-                await alert_admins(bot, f"<b>Бэкап БД</b>\n\n{result['message']}")
+                await alert_admins(
+                    bot,
+                    f"<b>Бэкап БД</b>\n\n{result['message']}",
+                    # Бэкап — работа DevOps: с «Пульта ИИ» его можно
+                    # запустить повторно, не заходя на сервер.
+                    admin_tab="bot_control",
+                    button_text="⚙️ Пульт ИИ",
+                )
             except Exception as e:
                 logger.error("Не удалось разослать алерт о бэкапе: %s", e)
 

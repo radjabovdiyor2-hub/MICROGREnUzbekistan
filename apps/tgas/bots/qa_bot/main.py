@@ -184,6 +184,7 @@ async def main():
     # Bot bus: слушателя не было. Пока его нет, любая адресная задача QA
     # (в том числе делегированная Стёпаном) трижды пробуется и уходит в
     # failed — отправитель получает таймаут без объяснения.
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
 
     async def bus_analyze_photo(params: dict) -> dict:
@@ -196,6 +197,10 @@ async def main():
         bus_listen(
             "qa_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("qa_bot"),
                 "analyze_photo": bus_analyze_photo,
             },
         )

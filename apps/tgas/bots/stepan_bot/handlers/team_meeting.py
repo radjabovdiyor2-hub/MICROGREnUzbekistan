@@ -1031,6 +1031,11 @@ async def _finish_meeting(
         return
 
     token = uuid.uuid4().hex[:8]
+    # Вторая кнопка — задачи. Совещание заканчивается планом работ, и
+    # «участие» владельца обычно означает посмотреть, что команда уже
+    # наметила. Раньше карточка предлагала решить это вслепую.
+    from shared import admin_links
+
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -1038,7 +1043,8 @@ async def _finish_meeting(
                     text="🤝 Доверяю, решайте сами",
                     callback_data=f"meet:decide:{token}",
                 )
-            ]
+            ],
+            [admin_links.tab_button("📋 Задачи отделам", "tasks", chat_id)],
         ]
     )
     body = (

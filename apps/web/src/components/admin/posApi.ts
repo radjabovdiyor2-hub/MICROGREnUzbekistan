@@ -1,4 +1,4 @@
-import type { CartDiscount, CartItem, DebtInfo, SaleDate } from './AdminPOSTypes';
+import type { CartDiscount, CartItem, ContractPrice, DebtInfo, SaleDate } from './AdminPOSTypes';
 
 // Обращения кассы к /api/inventory/pos. Вынесено из AdminPOS: файл перерос
 // 200 строк. Здесь только запрос и разбор ответа — что делать с результатом,
@@ -41,6 +41,8 @@ export interface PosResponse {
   discount?: number;
   backdated?: boolean;
   soldAt?: string;
+  /** Сервер узнал чек по `clientKey` и вернул уже пробитый, а не создал второй. */
+  duplicate?: boolean;
 }
 
 export interface SaleExtras {
@@ -50,6 +52,42 @@ export interface SaleExtras {
   seller: string;
   /** Покупатель — ради договорной цены и истории продаж по клиенту. */
   customerId: number | null;
+  /** Где продали: за прилавком или с выезда по карте. */
+  origin: 'counter' | 'field';
+  /**
+   * Ключ идемпотентности. Один на попытку продажи и НЕ меняется при повторе:
+   * по нему сервер отличает «тот же чек» от «второго чека».
+   */
+  clientKey: string;
+}
+
+/**
+ * Договорные цены покупателя: id товара → цена.
+ *
+ * Тянутся один раз при выборе покупателя, а не при каждом добавлении товара:
+ * иначе сервер дёргался бы на каждое нажатие.
+ *
+ * `null` — цены НЕ доехали, и это не то же самое, что «их нет»: пустая
+ * карта означала бы «продавать по прайсу», а на самом деле у ресторана
+ * договорная цена есть и просто не загрузилась. Вызывающий по `null`
+ * достаёт цены из офлайн-снимка.
+ */
+export async function fetchContractPrices(
+  customerId: number,
+): Promise<Map<string, ContractPrice> | null> {
+  try {
+    const res = await fetch(`/api/inventory/customers/prices?customerId=${customerId}`, {
+      credentials: 'same-origin',
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return new Map(
+      (data.prices ?? []).map((p: { productId: string; price: number; note: string | null }) =>
+        [p.productId, { price: p.price, note: p.note }] as const),
+    );
+  } catch {
+    return null;
+  }
 }
 
 export async function submitSale(
@@ -69,6 +107,8 @@ export async function submitSale(
       items: toPayloadItems(cart),
       paymentMethod,
       customerId: extras.customerId,
+      origin: extras.origin,
+      clientKey: extras.clientKey,
       // Автора чека сервер берёт из сессии и принимает из тела только у
       // владельца — здесь это режим «владелец заносит за продавца».
       performedBy: extras.seller.trim() || performedBy,

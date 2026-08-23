@@ -7,7 +7,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
-from shared import catalog_repo
+from shared import admin_links, catalog_repo
 from shared.utils import format_price
 from shared.config import settings
 from shared.database import init_db, get_session_ctx
@@ -407,6 +407,10 @@ async def b2b_outreach():
                 cb_data_approve = f"b2b_approve:{cid}:{channel}"
                 cb_data_reject = f"b2b_reject:{cid}"
 
+                # Третья кнопка — карточка заведения в админке. Решение
+                # «слать или не слать» КП принимают, посмотрев на клиента:
+                # что заказывал, когда последний раз, есть ли долг. Раньше
+                # карточка предлагала решить это по одному превью текста.
                 kb = InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
@@ -417,7 +421,8 @@ async def b2b_outreach():
                             InlineKeyboardButton(
                                 text="❌ Отклонить", callback_data=cb_data_reject
                             ),
-                        ]
+                        ],
+                        [admin_links.tab_button("🏢 Карточка клиента", "customers", admin_id)],
                     ]
                 )
 
@@ -945,6 +950,12 @@ async def main():
     await scheduler.start()
     asyncio.create_task(start_heartbeat("marketing_bot"))
 
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "marketing_bot"))
+
     async def followups_worker(bot: Bot):
         """Фоновый воркер для проверки таблицы followups и рассылки уведомлений."""
         while True:
@@ -983,6 +994,7 @@ async def main():
     asyncio.create_task(followups_worker(bot))
 
     # ── Bot Bus: слушаем задачи от Степана ──
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
 
@@ -990,6 +1002,10 @@ async def main():
         bus_listen(
             "marketing_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("marketing_bot"),
                 "send_broadcast": bus_send_broadcast,
                 "b2b_outreach": bus_b2b_outreach,
                 "collect_leads": bus_collect_leads,

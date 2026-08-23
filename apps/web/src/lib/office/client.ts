@@ -86,8 +86,24 @@ export async function officeFetch<T = unknown>(
  * добавлена при слиянии: раньше при заданном только WEB_OFFICE_URL
  * сигналы молча никуда не уходили.
  */
+/**
+ * Исторические имена переменных.
+ *
+ * Общее правило даёт `OFFICE_ORDER_STATUS_URL`, а на проде переменная
+ * называется `OFFICE_STATUS_URL` — без «ORDER». Пока статусы уходили
+ * собственным кодом, это было его личным делом; после переезда на общую
+ * очередь правило перестало бы её видеть, и явно заданный адрес молча
+ * заменился бы выведенным. На проде они совпадают, но полагаться на такое
+ * совпадение — значит однажды получить синхронизацию не туда.
+ */
+const LEGACY_ENV: Record<string, string> = {
+  'order-status': 'OFFICE_STATUS_URL',
+};
+
 export function ingestUrl(suffix: string): string {
-  const explicit = process.env[`OFFICE_${suffix.toUpperCase().replace(/-/g, '_')}_URL`];
+  const explicit =
+    process.env[`OFFICE_${suffix.toUpperCase().replace(/-/g, '_')}_URL`] ||
+    process.env[LEGACY_ENV[suffix] ?? ''];
   if (explicit) return explicit;
 
   const derived = process.env.OFFICE_INGEST_URL?.replace(/\/order$/, `/${suffix}`);

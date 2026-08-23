@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Sprout } from 'lucide-react';
+import { useFeedback } from './AdminFeedback';
 import { AdminCropNormForm } from './AdminCropNormForm';
 import type { CropNorm, SubstrateOption } from './growingData';
 
@@ -19,6 +20,7 @@ import type { CropNorm, SubstrateOption } from './growingData';
 // ══════════════════════════════════════════════════════════════════════
 
 export function AdminCropNorms() {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<CropNorm | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -157,8 +159,13 @@ export function AdminCropNorms() {
                         Правка
                       </button>
                       <button className="btn btn-sm btn-ghost" style={{ color: 'var(--error)' }}
-                        onClick={() => {
-                          if (confirm(`Скрыть культуру «${n.nameRu}»? Посадки, где она уже использована, не изменятся.`)) {
+                        onClick={async () => {
+                          const agreed = await notify.confirm({
+                            title: `Скрыть культуру «${n.nameRu}»?`,
+                            detail: 'Посадки, где она уже использована, не изменятся.',
+                            confirmText: 'Скрыть',
+                          });
+                          if (agreed) {
                             remove.mutate(n);
                           }
                         }}>

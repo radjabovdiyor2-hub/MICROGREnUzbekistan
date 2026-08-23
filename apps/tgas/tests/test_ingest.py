@@ -257,3 +257,77 @@ def test_business_date_absent_or_broken_falls_back_to_now():
     assert _parse_business_date("") is None
     # Мусор не должен ронять приём заказа: дата важна, но заказ важнее.
     assert _parse_business_date("вчера вечером") is None
+
+
+@pytest.mark.asyncio
+async def test_mirror_uses_explicit_customer_id_when_given(office, monkeypatch):
+    """Выбранная человеком карточка — самый надёжный ключ, и он обязан доехать.
+
+    Касса витрины давала выбрать покупателя, но в зеркало его не передавала:
+    имя было захардкожено строкой «Покупатель в магазине», офис по нему
+    находил одну и ту же фиктивную карточку, и ВСЕ продажи за прилавком
+    копились на ней. У настоящего ресторана `crm_orders` не появлялось —
+    то есть счётчики карточки не двигались, а история оставалась пустой.
+    """
+    office_main, _, _ = office
+
+    captured: dict = {}
+
+    async def fake_upsert(**kwargs):
+        captured.update(kwargs)
+        return {"id": 42, "created": False, "phone": None, "name": "Плов Центр"}
+
+    monkeypatch.setattr(office_main.customer_repo, "upsert", fake_upsert)
+
+    body = dict(ORDER)
+    body["order_number"] = "S-20260822-AAAA"
+    body["customer"] = {"name": "Плов Центр", "phone": None, "customer_id": 42}
+    await office_main.ingest_order(FakeRequest(body))
+
+    assert captured.get("customer_id") == 42, "id карточки не доехал до upsert"
+
+
+@pytest.mark.asyncio
+async def test_mirror_ignores_broken_customer_id(office, monkeypatch):
+    """Мусор в `customer_id` не должен ронять зеркало — оно ищет по остальному."""
+    office_main, _, _ = office
+
+    captured: dict = {}
+
+    async def fake_upsert(**kwargs):
+        captured.update(kwargs)
+        return {"id": 77, "created": True, "phone": None, "name": "Клиент"}
+
+    monkeypatch.setattr(office_main.customer_repo, "upsert", fake_upsert)
+
+    body = dict(ORDER)
+    body["customer"] = {"name": "Zarra Resort", "customer_id": "не число"}
+    response = await office_main.ingest_order(FakeRequest(body))
+
+    assert response.status_code == 200
+    assert captured.get("customer_id") is None
+
+
+@pytest.mark.asyncio
+async def test_refund_lowers_spent_but_not_order_count(office):
+    """Возврат уменьшает «Потрачено» и НЕ увеличивает «Заказов».
+
+    Возврат приходит зеркалом витрины отдельной строкой с отрицательной
+    суммой: частичный возврат иначе не выразить — отмена вычла бы у клиента
+    весь чек целиком. Значит, сумма обязана складываться со знаком, а число
+    заказов — считаться только по неотрицательным строкам.
+    """
+    office_main, recorder, _ = office
+    await office_main.ingest_order(FakeRequest(dict(ORDER)))
+
+    stats = " ".join(
+        q for q in recorder.sql if "orders_count" in q and "UPDATE customers" in q
+    )
+    assert "COUNT(*) FILTER (WHERE total_amount >= 0)" in stats, (
+        "возврат увеличит число заказов у клиента, который вернул покупку"
+    )
+    # Сумма — по всем строкам, вместе с минусами: в этом весь смысл.
+    assert "SUM(total_amount)" in stats
+    assert "MAX(created_at) FILTER (WHERE total_amount >= 0)" in stats, (
+        "дата последнего заказа съедет на дату возврата"
+    )

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import html2canvas from 'html2canvas';
 
+import { useFeedback } from './AdminFeedback';
+
 // ══════════════════════════════════════════════════════════════════════
 // Выдача чека: печать, снимок в буфер, системный шаринг.
 // Вынесено из AdminPOS — файл перерос 200 строк.
@@ -22,6 +24,9 @@ interface SaleResult {
 }
 
 export function usePosReceipt(saleResult: SaleResult | null, fmt: (n: number) => string) {
+  // Выдача чека — момент, когда покупатель стоит и ждёт. Нативное окно
+  // здесь особенно неуместно: оно перекрывает сам чек, который показывают.
+  const notify = useFeedback();
   const [copied, setCopied] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -91,7 +96,7 @@ export function usePosReceipt(saleResult: SaleResult | null, fmt: (n: number) =>
 
   const handleShareImage = async () => {
     const blob = await captureReceiptImage();
-    if (!blob) return alert('Ошибка создания картинки');
+    if (!blob) return notify.error('Не получилось собрать картинку чека');
     
     const file = new File([blob], `receipt_${saleResult?.saleNumber}.png`, { type: 'image/png' });
     if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -111,15 +116,17 @@ export function usePosReceipt(saleResult: SaleResult | null, fmt: (n: number) =>
 
   const handleCopyImage = async (preCapturedBlob?: Blob) => {
     const blob = preCapturedBlob || await captureReceiptImage();
-    if (!blob) return alert('Ошибка создания картинки');
+    if (!blob) return notify.error('Не получилось собрать картинку чека');
     try {
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      alert('✅ Картинка чека скопирована! Вставьте (Ctrl+V) в Telegram или WhatsApp.');
+      // Тост, а не окно: продавец уже нажал «копировать» и хочет вставить
+      // картинку, а не закрывать диалог, который встал поверх чека.
+      notify.success('Чек скопирован — вставьте в Telegram или WhatsApp');
     } catch (e) {
       console.error('Copy failed', e);
-      alert('Ошибка копирования. Используйте Печать.');
+      notify.error('Скопировать не вышло — используйте «Печать»');
     }
   };
 

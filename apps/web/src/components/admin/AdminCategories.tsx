@@ -1,9 +1,11 @@
 'use client';
 
 import { AdminCategoryForm } from './AdminCategoryForm';
+import { AdminNotice } from './AdminNotice';
+import { useFeedback } from './AdminFeedback';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Layers, Plus, Trash } from 'lucide-react';
+import { Layers, Plus, Trash } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
 // Категории каталога.
@@ -23,6 +25,7 @@ interface Category {
 }
 
 export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+  const notify = useFeedback();
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const queryClient = useQueryClient();
 
@@ -80,7 +83,26 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     await load();
   };
 
+  /**
+   * Удаление рубрики. Спрашиваем, хотя сервер и подстрахован.
+   *
+   * Роут откажет, если внутри есть товары (`/api/admin/categories` DELETE),
+   * — но пустую рубрику он удалит молча и сразу, а восстановить её нельзя:
+   * вместе с ней уходят порядок в каталоге и SEO-слаг.
+   */
   const remove = async (cat: Category) => {
+    const name = cat.nameRu || cat.nameUz;
+    const ok = await notify.confirm({
+      title: t(`Удалить категорию «${name}»?`, `«${name}» kategoriyasi o'chirilsinmi?`),
+      detail: t(
+        'Если в ней есть товары — удаление не пройдёт, сначала перенесите их. Пустая исчезнет без возможности вернуть.',
+        "Ichida tovarlar bo'lsa — o'chmaydi, avval ko'chiring. Bo'sh bo'lsa qaytarib bo'lmaydi.",
+      ),
+      confirmText: t('Удалить', "O'chirish"),
+      danger: true,
+    });
+    if (!ok) return;
+
     setError('');
     const res = await fetch(`/api/admin/categories?id=${cat.id}`, {
       method: 'DELETE', credentials: 'same-origin',
@@ -103,15 +125,7 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         <Plus size={16} /> {t('Новая категория', 'Yangi kategoriya')}
       </button>
 
-      {error && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 10, background: 'var(--error-bg)',
-          color: 'var(--error)', fontSize: 'var(--text-sm)', fontWeight: 600,
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <AlertTriangle size={16} /> {error}
-        </div>
-      )}
+      <AdminNotice>{error}</AdminNotice>
       {warning && (
         <div style={{
           padding: '10px 14px', borderRadius: 10, background: 'var(--warning-bg)',

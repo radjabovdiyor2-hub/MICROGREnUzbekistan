@@ -25,9 +25,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 
 
+import { useFeedback } from './AdminFeedback';
 import { TABS, type Photo, type Status } from './adminGuestPhotosConfig';
 
 export function AdminGuestPhotos() {
+  const notify = useFeedback();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>('pending');
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -63,7 +65,13 @@ export function AdminGuestPhotos() {
   };
 
   const remove = async (id: string) => {
-    if (!window.confirm('Удалить кадр навсегда? Отменить будет нельзя.')) return;
+    const agreed = await notify.confirm({
+      title: 'Удалить кадр навсегда?',
+      detail: 'Отменить будет нельзя.',
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!agreed) return;
     setBusyId(id);
     setNote('');
     try {

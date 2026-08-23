@@ -136,19 +136,177 @@ def check_risky_have_admin_screen() -> None:
         )
         return
 
+    # Экран обязан знать КАЖДЫЙ инструмент, а не только рискованный.
+    #
+    # Сначала правило касалось карточек подтверждения, то есть write-действий.
+    # Теперь по `admin_tab` строится и кнопка под ответом отдела в групповом
+    # чате (`shared/group_reply._open_button`): спросили «что с заказом» —
+    # под ответом кнопка на заказы. Инструмент без экрана такой кнопки не
+    # даёт, и ответ снова становится тупиком — молча, потому что отсутствие
+    # кнопки ничем не отличается от «нечего показывать».
     for tool in tool_registry.all_tools():
-        if not tool.risky:
-            continue
         if not tool.admin_tab:
             problems.append(
-                f"«{tool.name}» помечен risky, но не говорит, на какой экран "
-                f"админки вести владельца (Tool.admin_tab пуст)"
+                f"«{tool.name}» не говорит, на какой экран админки вести "
+                f"человека (Tool.admin_tab пуст): ответ с этим инструментом "
+                f"останется без кнопки"
             )
         elif tool.admin_tab not in known:
             problems.append(
                 f"«{tool.name}» ведёт на вкладку «{tool.admin_tab}», которой нет "
                 f"в adminTabs.tsx — ссылка откроет админку не там"
             )
+
+
+#: Кто на витрине раздаёт `focus` экранам. Другого способа узнать нет: это
+#: TypeScript, и связь «вкладка умеет подсветить запись» видна только здесь.
+ADMIN_ROUTER_TSX = ROOT.parent / "web" / "src" / "app" / "admin" / "AdminTabRouter.tsx"
+
+
+def tabs_honouring_focus() -> set[str]:
+    """Вкладки, которым маршрутизатор передаёт `focus`."""
+    if not ADMIN_ROUTER_TSX.exists():
+        return set()
+    source = ADMIN_ROUTER_TSX.read_text(encoding="utf-8")
+
+    honoured: set[str] = set()
+    # Блок вкладки — от `activeTab === 'x'` до следующего такого же.
+    parts = re.split(r"activeTab === '([a-z_]+)'", source)
+    # parts: [до, имя1, тело1, имя2, тело2, ...]
+    for name, body in zip(parts[1::2], parts[2::2]):
+        if "focus={focus}" in body or "focus={focus}" in body.replace("\n", ""):
+            honoured.add(name)
+    return honoured
+
+
+def check_focus_lands_on_the_record() -> None:
+    """Ссылка на ЗАПИСЬ должна открывать запись, а не просто экран.
+
+    `Tool.admin_focus_arg` означает: у этого действия есть предмет, и офис
+    подставит его в `?focus=`. Но подсвечивать запись умеют не все экраны —
+    и расхождение невидимо: ссылка открывается, ошибок нет, просто «не
+    пригодилось». Человек приходит по ссылке про партию #57 и дальше ищет
+    её глазами, то есть ссылка экономит один шаг из двух.
+
+    Проверяем именно пару «инструмент с предметом → экран, который умеет
+    его показать». Инструменты без `admin_focus_arg` сюда не попадают: им
+    достаточно открыть вкладку.
+    """
+    honoured = tabs_honouring_focus()
+    if not honoured:
+        problems.append(
+            f"не читается маршрутизатор админки ({ADMIN_ROUTER_TSX}): "
+            f"проверить подсветку записей нечем"
+        )
+        return
+
+    for tool in tool_registry.all_tools():
+        if not tool.admin_focus_arg or not tool.admin_tab:
+            continue
+        if tool.admin_tab not in honoured:
+            problems.append(
+                f"«{tool.name}» строит ссылку на запись (focus={tool.admin_focus_arg}), "
+                f"но вкладка «{tool.admin_tab}» её не подсвечивает — человек "
+                f"придёт на экран и будет искать запись глазами"
+            )
+
+
+#: Реестр кнопок «Пульта ИИ» на витрине.
+BOT_ACTIONS_TSX = ROOT.parent / "web" / "src" / "components" / "admin" / "botActions.tsx"
+
+
+def check_pult_actions_are_allowed() -> None:
+    """Кнопка пульта должна вести к действию, которое офис разрешает.
+
+    Это две копии одного знания: белый список `ADMIN_BOT_ACTIONS` в
+    `web_office/main.py` и реестр кнопок в `botActions.tsx`. Разойдись они —
+    и кнопка отвечает «действие не разрешено» на нажатие, а понять это можно
+    только нажав. Ровно так расходились юзернеймы ботов.
+
+    Обратную сторону (разрешено, но кнопки нет) НЕ проверяем: три действия
+    там отсутствуют намеренно — рассылка и публикации необратимы и требуют
+    формы с текстом, а не кнопки (см. шапку `botActions.tsx`).
+    """
+    office = ROOT / "web_office" / "main.py"
+    if not office.exists() or not BOT_ACTIONS_TSX.exists():
+        problems.append("не читается пара «белый список офиса ↔ кнопки пульта»")
+        return
+
+    block = re.search(
+        r"ADMIN_BOT_ACTIONS:\s*dict\[str,\s*str\]\s*=\s*\{(.*?)\}",
+        office.read_text(encoding="utf-8"),
+        re.S,
+    )
+    if not block:
+        problems.append("не нашёл ADMIN_BOT_ACTIONS в web_office/main.py")
+        return
+
+    allowed = dict(re.findall(r'"([a-z_]+)":\s*"([a-z_]+)"', block.group(1)))
+    tsx = BOT_ACTIONS_TSX.read_text(encoding="utf-8")
+
+    # Пары «бот → действие» из реестра кнопок, в порядке объявления.
+    for bot, action in re.findall(
+        r"bot:\s*'([a-z_]+)',[\s\S]{0,200}?action:\s*'([a-z_]+)'", tsx
+    ):
+        target = allowed.get(action)
+        if target is None:
+            problems.append(
+                f"кнопка пульта «{action}» не разрешена офисом — нажатие "
+                f"вернёт «действие не разрешено»"
+            )
+        elif target != bot:
+            problems.append(
+                f"кнопка пульта «{action}» подписана ботом {bot}, а офис "
+                f"отправит её {target} — подпись врёт о том, кто работает"
+            )
+
+
+#: Перечисление тем живых обновлений на витрине.
+REALTIME_BUS_TS = ROOT.parent / "web" / "src" / "lib" / "realtime" / "bus.ts"
+
+
+def check_realtime_topics_match() -> None:
+    """Темы живых обновлений одинаковы у офиса и витрины.
+
+    Офис говорит витрине «этот срез изменился» именем темы
+    (`shared/storefront_realtime.TOPICS`), а витрина знает свой список
+    (`Topic` в lib/realtime/bus.ts). Импорта между приложениями нет, значит
+    это две копии — и расхождение проявится молчащим экраном: сигнал уйдёт,
+    витрина ответит 400, а человек будет смотреть на неизменившийся список
+    и считать, что ничего не произошло.
+    """
+    if not REALTIME_BUS_TS.exists():
+        problems.append(f"не читается перечисление тем витрины ({REALTIME_BUS_TS})")
+        return
+
+    source = REALTIME_BUS_TS.read_text(encoding="utf-8")
+    block = re.search(r"export type Topic\s*=(.*?);", source, re.S)
+    if not block:
+        problems.append("не нашёл `export type Topic` в lib/realtime/bus.ts")
+        return
+
+    web = set(re.findall(r"'([a-z_]+)'", block.group(1)))
+
+    try:
+        from shared import storefront_realtime
+    except Exception as exc:
+        problems.append(f"не импортируется shared/storefront_realtime: {exc}")
+        return
+
+    office = set(storefront_realtime.TOPICS)
+
+    only_office = office - web
+    only_web = web - office
+    if only_office:
+        problems.append(
+            f"офис шлёт темы, которых нет у витрины: {', '.join(sorted(only_office))} — "
+            f"сигнал вернётся 400, экран не обновится"
+        )
+    if only_web:
+        problems.append(
+            f"витрина знает темы, которых офис не умеет слать: "
+            f"{', '.join(sorted(only_web))} — экран будет ждать сигнала, которого нет"
+        )
 
 
 def check_delegation_targets() -> None:
@@ -360,6 +518,9 @@ def main() -> int:
     check_unique_names()
     check_risky_have_confirmation()
     check_risky_have_admin_screen()
+    check_focus_lands_on_the_record()
+    check_pult_actions_are_allowed()
+    check_realtime_topics_match()
     check_delegation_targets()
     check_executor_wired()
     check_tool_arguments_are_obtainable()

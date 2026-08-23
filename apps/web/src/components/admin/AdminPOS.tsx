@@ -1,85 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { AdminPOSReceipt } from './AdminPOSReceipt';
 import { AdminPOSProducts } from './AdminPOSProducts';
 import { AdminPOSCart } from './AdminPOSCart';
-import type { ContractPrice, PosCustomer, Product } from './AdminPOSTypes';
-import { usePosReceipt } from './usePosReceipt';
-import { usePosCart } from './usePosCart';
-import { usePosSubmit } from './usePosSubmit';
 import { AdminPOSChrome } from './AdminPOSChrome';
+import { PosQueueBanner } from './PosQueueBanner';
+import { usePosReceipt } from './usePosReceipt';
+import { usePosSession } from './usePosSession';
 
+// Касса за прилавком. Механика — в usePosSession: прайс, корзина,
+// покупатель и оформление чека общие с кассой на точке карты, а здесь
+// осталась разметка.
 
 export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string; isOwner?: boolean }) {
-  const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [returnMode, setReturnMode] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editPriceValue, setEditPriceValue] = useState('');
 
-  const [customer, setCustomer] = useState<PosCustomer | null>(null);
-  const {
-    cart, setCart, addToCart, updatePrice, setPriceReason, applyContract,
-    updateQuantity, setQuantity, removeFromCart, total,
-  } = usePosCart();
-
-  const onPickCustomer = (picked: PosCustomer | null, prices: Map<string, ContractPrice>) => {
-    setCustomer(picked);
-    applyContract(prices);
-  };
-
-  const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
-
-  // Дебаунс — на ВВОД, а не на запрос. Прежний таймер стоял на самом
-  // `fetchProducts`, поэтому касса ждала 300 мс даже при первом открытии,
-  // когда искать ещё нечего.
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Тот же ключ, что у экрана «Товары»: продажа и правка карточки
-  // инвалидируют его одинаково, и касса подхватывает новую цену сразу.
-  const { data: products = [], isPending: loading } = useQuery<Product[]>({
-    queryKey: ['admin-products', 'pos', debouncedSearch],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      params.set('limit', '50');
-      const res = await fetch(`/api/products?${params}`, { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('Не удалось загрузить товары');
-      const data = await res.json();
-      return (data.items || []) as Product[];
-    },
-  });
-
-  // Оформление чека вынесено в хук: вместе с уступкой, деловой датой и
-  // автором продажи оно перестало помещаться в этот файл.
-  const submit = usePosSubmit({
-    cart,
-    customerId: customer?.id ?? null,
-    clearCart: () => setCart([]),
-    sellerName: sellerName || 'Egasi',
-    fmt,
-    // После чека остатки изменились — сбрасываем ВЕСЬ куст `admin-products`,
-    // а не только список кассы: тот же товар открыт на «Товарах» и на складе.
-    onDone: () => queryClient.invalidateQueries({ queryKey: ['admin-products'] }),
-  });
+  const s = usePosSession({ origin: 'counter', sellerName: sellerName || 'Egasi' });
+  const submit = s.submit;
 
   const { copied, isCapturing, handlePrint, handleCopyImage, handleShareImage } =
-    usePosReceipt(submit.saleResult, fmt);
+    usePosReceipt(submit.saleResult, s.fmt);
 
   // Sale/Return success screen with PREMIUM receipt
   if (submit.saleResult) {
     return (
       <AdminPOSReceipt
         saleResult={submit.saleResult}
-        fmt={fmt}
+        fmt={s.fmt}
         copied={copied}
         isCapturing={isCapturing}
         onPrint={handlePrint}
@@ -100,32 +52,35 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
   return (
     <>
       <AdminPOSChrome
-        returnMode={returnMode} setReturnMode={setReturnMode} clearCart={() => setCart([])}
+        returnMode={returnMode} setReturnMode={setReturnMode} clearCart={() => s.setCart([])}
         showCart={showCart} setShowCart={setShowCart}
-        productCount={products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length}
-        cartCount={cart.length}
-        total={total} fmt={fmt} />
+        productCount={s.products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length}
+        cartCount={s.cart.length}
+        total={s.total} fmt={s.fmt} />
 
+      {/* Отложенные чеки — над кассой, а не в тишине: продавец должен
+          видеть их до того, как закроет смену. */}
+      <PosQueueBanner queue={submit.queue} />
 
-      <div className="pos-grid" style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)',
-        minHeight: 'calc(100vh - 200px)',
-      }}>
+      {/* Раскладка — в классе `.pos-grid` (globals.css), а не здесь:
+          инлайновый стиль перебивает медиазапросы, и на телефоне касса
+          оставалась бы двумя колонками по 195 пикселей. */}
+      <div className="pos-grid">
         <AdminPOSProducts
-          products={products}
-          cart={cart}
-          loading={loading}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
+          products={s.products}
+          cart={s.cart}
+          loading={s.loading}
+          searchQuery={s.searchQuery}
+          setSearchQuery={s.setSearchQuery}
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
-          addToCart={addToCart}
-          fmt={fmt}
+          addToCart={s.addToCart}
+          fmt={s.fmt}
           inputStyle={inputStyle}
         />
 
         <AdminPOSCart
-          cart={cart}
+          cart={s.cart}
           returnMode={returnMode}
           processing={submit.processing}
           paymentMethod={submit.paymentMethod}
@@ -140,10 +95,10 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
           setEditingPriceId={setEditingPriceId}
           editPriceValue={editPriceValue}
           setEditPriceValue={setEditPriceValue}
-          updateQuantity={updateQuantity}
-          setQuantity={setQuantity}
-          updatePrice={updatePrice}
-          setPriceReason={setPriceReason}
+          updateQuantity={s.updateQuantity}
+          setQuantity={s.setQuantity}
+          updatePrice={s.updatePrice}
+          setPriceReason={s.setPriceReason}
           isOwner={isOwner}
           discount={submit.discount}
           setDiscount={submit.setDiscount}
@@ -151,13 +106,13 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
           setSaleDate={submit.setSaleDate}
           seller={submit.seller}
           setSeller={submit.setSeller}
-          customer={customer}
-          onPickCustomer={onPickCustomer}
-          removeFromCart={removeFromCart}
+          customer={s.customer}
+          onPickCustomer={s.pickCustomer}
+          removeFromCart={s.removeFromCart}
           processSale={submit.processSale}
           processReturn={submit.processReturn}
-          total={total}
-          fmt={fmt}
+          total={s.total}
+          fmt={s.fmt}
           inputStyle={inputStyle}
         />
       </div>

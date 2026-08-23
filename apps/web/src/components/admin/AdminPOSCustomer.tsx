@@ -4,13 +4,19 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { UserRound, X } from 'lucide-react';
 import type { CSSProperties } from 'react';
+import { fetchContractPrices } from './posApi';
 import type { ContractPrice, PosCustomer } from './AdminPOSTypes';
 
-// Выбор покупателя в чеке — ради договорных цен.
+// Выбор покупателя в чеке: договорные цены И история продаж по клиенту.
 //
 // Раньше покупателя в чеке не было вовсе (только имя должника), и цену
 // ресторану продавец правил руками при каждой продаже. Договорённость жила
 // в его памяти: из данных нельзя было отличить её от разовой уступки.
+//
+// Второй половины — истории — долго не было, хотя подпись поля её обещала:
+// выбранный покупатель ложился в `pos_sales.customer_id` и не читался
+// НИКЕМ, а в CRM офиса чек уходил с захардкоженным именем «Покупатель в
+// магазине». Продажа ресторану не отражалась на его карточке вовсе.
 
 interface Props {
   customer: PosCustomer | null;
@@ -61,19 +67,11 @@ export function AdminPOSCustomer({ customer, onPick, inputStyle }: Props) {
 
   const pick = async (row: Found) => {
     const picked: PosCustomer = { id: row.id, name: label(row), phone: row.phone };
-    // Цены тянем сразу при выборе: подставлять их при каждом добавлении
-    // товара значило бы дёргать сервер на каждое нажатие.
-    let prices = new Map<string, ContractPrice>();
-    try {
-      const res = await fetch(`/api/inventory/customers/prices?customerId=${row.id}`);
-      const data = await res.json();
-      prices = new Map(
-        (data.prices ?? []).map((p: { productId: string; price: number; note: string | null }) =>
-          [p.productId, { price: p.price, note: p.note }] as const),
-      );
-    } catch {
-      // Цены не доехали — продажа всё равно проходит, просто по прайсу.
-    }
+    // Цены тянем сразу при выборе — тем же помощником, что и касса на карте:
+    // у продажи с выезда покупатель известен заранее, и две копии этого
+    // запроса разошлись бы на первой же правке.
+    // Не доехали — продажа всё равно проходит, просто по прайсу.
+    const prices = (await fetchContractPrices(row.id)) ?? new Map<string, ContractPrice>();
     // Список подсказок гаснет сам: `active` считается из query и customer,
     // а результат живёт в кэше — руками сбрасывать больше нечего.
     setQuery('');
@@ -102,7 +100,7 @@ export function AdminPOSCustomer({ customer, onPick, inputStyle }: Props) {
 
   return (
     <div style={{ marginBottom: 'var(--space-3)' }}>
-      <input type="text" placeholder="Покупатель (для договорной цены)..."
+      <input type="text" placeholder="Покупатель — цены и история..."
         value={query} onChange={e => setQuery(e.target.value)} style={inputStyle} />
       {loading && active && (
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: 4 }}>Поиск...</div>

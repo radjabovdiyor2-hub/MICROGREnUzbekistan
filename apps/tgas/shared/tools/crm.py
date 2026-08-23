@@ -484,6 +484,7 @@ async def get_sales_today(date: Optional[str] = None) -> Dict[str, Any]:
 register(
     Tool(
         name="resolve_complaint",
+        admin_tab="dept_support",
         description=(
             "Закрыть жалобу: «жалоба #12 решена», «разобрались с претензией». "
             "Номер берётся из напоминания о нерешённых жалобах. Без этого "
@@ -502,6 +503,7 @@ register(
 register(
     Tool(
         name="add_customer",
+        admin_tab="customers",
         description=(
             "Завести клиента в CRM: «зарегистрируй клиента», «запиши клиента», "
             "«добавь ресторан», «новый клиент». Вызывай ВСЕГДА, когда просят "
@@ -539,6 +541,7 @@ register(
 register(
     Tool(
         name="find_customer",
+        admin_tab="customers",
         description=(
             "Найти клиента в CRM по имени, названию заведения или телефону. "
             "Вызывай ВСЕГДА перед регистрацией продажи и перед тем, как сказать "
@@ -561,6 +564,7 @@ register(
 register(
     Tool(
         name="get_customer_orders",
+        admin_tab="customers",
         description=(
             "Прошлые заказы клиента: что брал, когда, на какую сумму. "
             "Вызывай на вопросы «что он обычно берёт», «когда покупал в прошлый раз», "
@@ -586,6 +590,7 @@ register(
 register(
     Tool(
         name="get_order",
+        admin_tab="orders",
         description=(
             "Всё про конкретный заказ: КТО его взял, что в нём, сумма, статус, оплата. "
             "Вызывай на «кто взял заказ M-…», «что было в заказе», «оплачен ли заказ». "
@@ -606,6 +611,7 @@ register(
 register(
     Tool(
         name="get_sales_today",
+        admin_tab="revenue",
         description=(
             "Продажи за день: сколько заказов, на какую сумму, средний чек, "
             "сколько единиц товара и кто покупал. Отменённые заказы не считаются. "

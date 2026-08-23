@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { goBack, onBackDepth } from '@/lib/adminBack';
 import { token } from '@/lib/canvasTokens';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -22,6 +23,9 @@ export function AdminTelegramInit({ isAuthenticated }: { isAuthenticated: boolea
   // Одна попытка на открытие: отказ (чужой аккаунт, не задан список
   // владельцев) не должен превращаться в бесконечный цикл запросов.
   const tried = useRef(false);
+  /** Отписки от кнопки «назад»: эффект уходит вместе с оболочкой админки. */
+  const unsubscribe = useRef<(() => void) | null>(null);
+  const offClick = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const wa = window.Telegram?.WebApp;
@@ -39,24 +43,66 @@ export function AdminTelegramInit({ isAuthenticated }: { isAuthenticated: boolea
       /* старые клиенты Telegram — не мешает входу */
     }
 
+    // «Назад» возвращает к списку, а не закрывает приложение.
+    //
+    // Переходы «список → карточка» живут в состоянии экрана и в историю
+    // браузера не попадают, поэтому аппаратная кнопка выходила из Mini App
+    // прямо из открытого заказа. Показываем кнопку Telegram, пока открыт
+    // вложенный экран, и прячем на верхнем уровне — там «выйти» и верно.
+    const back = wa.BackButton;
+    if (back) {
+      const onClick = () => goBack();
+      back.onClick(onClick);
+      unsubscribe.current = onBackDepth((depth) => {
+        if (depth > 0) back.show();
+        else back.hide();
+      });
+      offClick.current = () => back.offClick(onClick);
+    }
+
     if (isAuthenticated) return;
 
     void (async () => {
-      try {
-        const res = await fetch('/api/auth/telegram-admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ initData: wa.initData }),
-        });
-        // Роль приходит из cookie, которую читает серверный admin/page.tsx —
-        // поэтому обновляем страницу, а не поднимаем состояние на клиенте.
-        if (res.ok) router.refresh();
-      } catch {
-        /* сети нет — остаётся обычный вход по паролю */
+      // Две двери по очереди: сначала владелец, потом сотрудник.
+      //
+      // Отличить их заранее нельзя — обе решаются по подписи на сервере, и
+      // спрашивать у человека «вы владелец?» перед входом бессмысленно.
+      // Порядок такой: владельцев единицы, и у них первая же попытка
+      // заканчивается успехом, а 403 у сотрудника — это не ошибка, а
+      // «дверь не та», и стоит она один запрос.
+      const doors = ['/api/auth/telegram-admin', '/api/auth/telegram-staff'];
+
+      for (const door of doors) {
+        try {
+          const res = await fetch(door, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ initData: wa.initData }),
+          });
+          // Роль приходит из cookie, которую читает серверный admin/page.tsx —
+          // поэтому обновляем страницу, а не поднимаем состояние на клиенте.
+          if (res.ok) {
+            router.refresh();
+            return;
+          }
+          // 429 — перебор попыток: вторая дверь упрётся в тот же лимит.
+          if (res.status === 429) return;
+        } catch {
+          /* сети нет — остаётся обычный вход по паролю */
+          return;
+        }
       }
     })();
   }, [isAuthenticated, router]);
+
+  // Отписка отдельным эффектом: основной срабатывает один раз за открытие
+  // (сторож `tried`), и вешать на него очистку значило бы снимать кнопку
+  // «назад» при первой же смене `isAuthenticated`.
+  useEffect(() => () => {
+    unsubscribe.current?.();
+    offClick.current?.();
+  }, []);
 
   return null;
 }

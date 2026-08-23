@@ -12,6 +12,7 @@ from shared.event_bus import event_bus
 from bots.hr_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
 from shared import group_reply
+from shared.notifications import send_report
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
 
@@ -153,7 +154,13 @@ async def new_applications_check():
                     lines.append(f"• [{itype}] {name}: {notes}")
                 if len(rows) > 15:
                     lines.append(f"\n... и ещё {len(rows) - 15}")
-                await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+                await send_report(
+                    bot,
+                    admin_id,
+                    "\n".join(lines),
+                    admin_tab="employees",
+                    button_text="👥 Сотрудники",
+                )
                 logger.info("new_applications_check: %d обращений", len(rows))
             else:
                 logger.info("new_applications_check: всё обработано")
@@ -172,11 +179,15 @@ async def training_reminder():
         )
         admin_id = settings.admin_telegram_ids[0]
         try:
-            await bot.send_message(
+            # «Запланируйте тренинг» — это задача. Кнопка ведёт туда, где её
+            # заводят, а не оставляет напоминание висеть в переписке.
+            await send_report(
+                bot,
                 admin_id,
                 "📚 <b>Понедельник — день обучения.</b>\n"
                 "Запланируйте тренинг для команды на эту неделю.",
-                parse_mode="HTML",
+                admin_tab="tasks",
+                button_text="📋 Завести задачу",
             )
             logger.info("training_reminder: отправлено")
         finally:
@@ -329,15 +340,26 @@ async def main():
 
     # Heartbeat + Scheduler
     asyncio.create_task(start_heartbeat("hr_bot"))
+
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "hr_bot"))
     await scheduler.start()
 
     # ── Bot Bus: слушаем задачи от Степана ──
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
 
     asyncio.create_task(
         bus_listen(
             "hr_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("hr_bot"),
                 "get_employees": bus_get_employees,
             },
         )

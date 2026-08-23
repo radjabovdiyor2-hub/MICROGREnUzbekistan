@@ -1,7 +1,10 @@
 'use client';
 
-import React from 'react';
-import { Clock, Pause, Play } from 'lucide-react';
+import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Clock, Pause, Play, RefreshCw, RotateCcw } from 'lucide-react';
+
+import { useFeedback } from './AdminFeedback';
 
 export interface Bot {
   name: string; title: string; container: string; port: number | null;
@@ -49,6 +52,51 @@ export function AdminBotCard({
   onToggleExpanded: () => void;
   onPatchJob: (job: Job, patch: Record<string, unknown>) => void;
 }) {
+  const notify = useFeedback();
+  const queryClient = useQueryClient();
+  const [restarting, setRestarting] = useState(false);
+
+  const restart = async () => {
+    const agreed = await notify.confirm({
+      title: t(`Перезапустить «${bot.title || bot.name}»?`, `«${bot.title || bot.name}» qayta ishga tushirilsinmi?`),
+      detail: t(
+        'Бот прервёт текущую работу и поднимется заново через несколько секунд. Незавершённые задачи вернутся в очередь.',
+        'Bot ishini toʻxtatib, bir necha soniyada qaytadan ishga tushadi.',
+      ),
+      confirmText: t('Перезапустить', 'Qayta ishga tushirish'),
+      danger: true,
+    });
+    if (!agreed) return;
+
+    setRestarting(true);
+    try {
+      const res = await fetch('/api/admin/bot-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ bot: bot.name, action: 'restart_self' }),
+      });
+      const data = await res.json().catch(() => null);
+
+      // `pending` — задача принята, но ответа не дождались: бот как раз
+      // выходит, и это ожидаемый исход, а не отказ.
+      if (res.ok && data?.status !== 'error') {
+        notify.success(t('Команда принята — бот перезапускается', 'Buyruq qabul qilindi'));
+        // Пульс обновится не сразу: даём боту подняться.
+        window.setTimeout(
+          () => queryClient.invalidateQueries({ queryKey: ['admin-bot-health'] }),
+          8000,
+        );
+      } else {
+        notify.error(data?.error || t('Перезапустить не вышло', 'Qayta ishga tushmadi'));
+      }
+    } catch {
+      notify.error(t('Нет связи с сервером', "Server bilan aloqa yo'q"));
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   return (
     <div className="card" style={{
       padding: 'var(--space-4)', borderRadius: 14,
@@ -84,6 +132,23 @@ export function AdminBotCard({
           )}
         </div>
       )}
+
+      {/* Перезапуск: бот выходит сам, Docker поднимает его обратно
+          (`restart: unless-stopped`). Доступа к сокету Docker для этого не
+          нужно — он равносилен root на хосте, и выдавать его боту ради
+          кнопки незачем.
+
+          Мёртвого бота так не поднять: команду принимает живой процесс. Но
+          упавший контейнер Docker перезапускает и без нас; польза здесь в
+          другом — перечитать настройки и оживить зависший цикл. */}
+      <button
+        onClick={restart}
+        disabled={restarting}
+        className="btn btn-ghost btn-sm"
+        style={{ marginTop: 10, width: '100%', fontSize: '11px', color: 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        {restarting ? <RefreshCw size={12} className="animate-spin" /> : <RotateCcw size={12} />}
+        {t('Перезапустить', 'Qayta ishga tushirish')}
+      </button>
 
       {jobs.length > 0 && (
         <button

@@ -114,13 +114,20 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
     {activeTab === 'stepan' && isOwner && <AdminStepan lang={lang} />}
     {activeTab === 'stats' && isOwner && <AdminStats />}
     {activeTab === 'revenue' && isOwner && <AdminRevenue />}
-    {activeTab === 'growing' && canGrow && <AdminGrowing />}
+    {activeTab === 'growing' && canGrow && <AdminGrowing focus={focus} />}
     {activeTab === 'crop_norms' && isOwner && <AdminCropNorms />}
     {activeTab === 'customers' && (isOwner || canSell) && (
-      <AdminCustomers lang={lang} isOwner={isOwner} />
+      // Имя автора чека — то же, что у кассы: продать теперь можно и с
+      // точки на карте, и подписан такой чек должен быть одинаково.
+      <AdminCustomers
+        lang={lang}
+        isOwner={isOwner}
+        sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName}
+        focus={focus}
+      />
     )}
     {activeTab === 'inventory' && isOwner && <AdminInventory />}
-    {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials />}
+    {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials focus={focus} />}
     {activeTab === 'movements' && isOwner && <AdminMovements />}
     {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} />}
     {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}

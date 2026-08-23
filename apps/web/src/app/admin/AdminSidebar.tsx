@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Command, Home, LogOut, Settings, Tag, Menu, X } from 'lucide-react';
+import { ChevronRight, Command, Home, LogOut, Menu, Settings, Tag, X } from 'lucide-react';
 import { AdminNotifications } from '@/components/admin/AdminNotifications';
 import { TAB_GROUPS } from './adminTabs';
+import { useTabNavigation } from './useTabNavigation';
 import { useState } from 'react';
 import type { RealtimeState } from '@/components/admin/useRealtime';
 
@@ -34,7 +35,15 @@ interface Props {
 }
 
 export function AdminSidebar({ realtime, activeTab, setActiveTab, isOwner, sellerName, staffTabs, lang, toggleLang, handleLogout, setPaletteOpen, setPaletteQuery, t }: Props) {
+  const nav = useTabNavigation(activeTab, isOwner);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  // Общий вид заголовка группы — и у «Часто», и у сворачиваемых.
+  const GROUP_TITLE = {
+    fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)',
+    textTransform: 'uppercase' as const, letterSpacing: '0.05em',
+    marginBottom: '8px', paddingLeft: '8px',
+  };
 
   const handleTabClick = (id: string) => {
     setActiveTab(id);
@@ -124,21 +133,52 @@ export function AdminSidebar({ realtime, activeTab, setActiveTab, isOwner, selle
 
         <nav className="admin-tabs-container" style={{ padding: '0 var(--space-4)', overflowY: 'auto', flex: 1 }}>
           {isOwner ? (
-            TAB_GROUPS.map((group, idx) => (
-              <div key={idx} style={{ marginBottom: 'var(--space-4)' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', paddingLeft: '8px' }}>
-                  {group.title[lang]}
+            <>
+              {/* «Часто» — дневной круг владельца. Пятьдесят вкладок в
+                  двенадцати группах листались целиком ради тех пяти, куда
+                  он заходит каждый день. */}
+              {nav.recentTabs.length > 1 && (
+                <div style={{ marginBottom: 'var(--space-4)' }}>
+                  <div style={GROUP_TITLE}>{lang === 'ru' ? 'Часто' : 'Tez-tez'}</div>
+                  <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {nav.recentTabs.map(tab => (
+                      <button key={`recent-${tab.id}`} onClick={() => handleTabClick(tab.id)}
+                        className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
+                        {tab.icon} {tab[lang]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {group.tabs.map(tab => (
-                    <button key={tab.id} onClick={() => handleTabClick(tab.id)}
-                      className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
-                      {tab.icon} {tab[lang]}
+              )}
+
+              {TAB_GROUPS.map((group, idx) => {
+                const open = nav.isGroupOpen(group.title.ru);
+                return (
+                  <div key={idx} style={{ marginBottom: open ? 'var(--space-4)' : 'var(--space-1)' }}>
+                    {/* Заголовок стал кнопкой: группа сворачивается и
+                        запоминает это. Группа с открытой вкладкой раскрыта
+                        всегда — иначе активный экран прятался бы сам. */}
+                    <button type="button" onClick={() => nav.toggleGroup(group.title.ru)}
+                      aria-expanded={open}
+                      style={{ ...GROUP_TITLE, display: 'flex', alignItems: 'center', gap: 6, width: '100%', background: 'none', border: 'none', cursor: 'pointer', minHeight: 32, textAlign: 'left' }}>
+                      <ChevronRight size={12} style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+                      <span style={{ flex: 1 }}>{group.title[lang]}</span>
+                      {!open && <span style={{ opacity: 0.6 }}>{nav.groupSize(group.title.ru)}</span>}
                     </button>
-                  ))}
-                </div>
-              </div>
-            ))
+                    {open && (
+                      <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {group.tabs.map(tab => (
+                          <button key={tab.id} onClick={() => handleTabClick(tab.id)}
+                            className={`admin-tab ${activeTab === tab.id ? 'active' : ''}`}>
+                            {tab.icon} {tab[lang]}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </>
           ) : (
             <div className="admin-tabs-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {staffTabs.map(tab => (

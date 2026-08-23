@@ -139,6 +139,7 @@ async def check_dm() -> Dict[str, Any]:
 register(
     Tool(
         name="get_order_status",
+        admin_tab="orders",
         description="Найти заказ клиента по номеру или телефону и показать его статус.",
         run=get_order_status,
         departments=DEPTS,
@@ -152,6 +153,7 @@ register(
 register(
     Tool(
         name="create_followup",
+        admin_tab="customers",
         description="Поставить напоминание связаться с клиентом через N дней.",
         run=create_followup,
         departments=DEPTS,
@@ -167,6 +169,7 @@ register(
 register(
     Tool(
         name="escalate",
+        admin_tab="tasks",
         description=(
             "Передать обращение ответственному отделу со срочным приоритетом. "
             "Вызывай при жалобе, браке, срыве сроков."
@@ -184,6 +187,7 @@ register(
 register(
     Tool(
         name="check_dm",
+        admin_tab="dept_support",
         description="Проверить непрочитанные сообщения в Instagram Direct.",
         run=check_dm,
         departments=DEPTS,

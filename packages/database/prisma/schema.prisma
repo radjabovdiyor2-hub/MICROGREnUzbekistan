@@ -536,7 +536,21 @@ model PosSale {
 
   paymentMethod String @default("cash") @map("payment_method") @db.VarChar(20)
 
-  /// Покупатель — если его назвали ради договорной цены.
+  /// Где продали: `counter` — за прилавком, `field` — с выезда по карте.
+  ///
+  /// Выездная продажа отличается не только местом: в зеркале CRM у неё стоит
+  /// адрес клиента, а не «Продажа в магазине», и отчёты могут отделить
+  /// выручку разъезда от выручки точки, не гадая по примечаниям.
+  origin String @default("counter") @db.VarChar(10)
+
+  /// Ключ идемпотентности от браузера. NULL — чек пришёл без него.
+  ///
+  /// Без него повтор запроса создаёт ВТОРОЙ чек и списывает товар дважды:
+  /// двойное нажатие «Продать» на плохой сети и повторная отправка из
+  /// офлайн-очереди — это один и тот же чек, а не два.
+  clientKey String? @unique @map("client_key") @db.VarChar(64)
+
+  /// Покупатель чека: договорная цена, история продаж и связь с карточкой CRM.
   customerId Int?      @map("customer_id")
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
@@ -1714,6 +1728,43 @@ model StorefrontOutbox {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   @@map("storefront_outbox")
+}
+
+/// Очередь «витрина → AI-офис»: зеркальное отражение `storefront_outbox`.
+///
+/// Обратное направление очередь имело, а прямое — нет: `notifyOfficePosSale`
+/// вызывался с `.catch(() => {})`, и недоступный офис означал НАВСЕГДА
+/// потерянную привязку продажи к клиенту. Счётчики карточки считаются по
+/// `crm_orders`, поэтому непрошедшее зеркало — это не «отложенный отчёт», а
+/// ресторан, у которого покупки нет вовсе.
+///
+/// Строка пишется В ТОЙ ЖЕ ТРАНЗАКЦИИ, что и чек: либо продажа и обещание
+/// её отзеркалить появляются вместе, либо не появляется ни то, ни другое.
+/// Отправленное удаляется — как в `storefront_outbox`, чтобы очередь не
+/// превращалась во второй журнал продаж.
+model OfficeOutbox {
+  id Int @id @default(autoincrement())
+
+  /// Дверь офиса: `order` — /ingest/order, `order-status` — /ingest/order-status.
+  topic String @db.VarChar(20)
+
+  /// Готовое тело запроса. Хранится целиком: пересобирать его при повторе
+  /// значило бы отправить в офис сегодняшнее состояние вместо того, что
+  /// произошло тогда.
+  payload Json
+
+  /// Ключ идемпотентности — номер чека или заказа. Повторная постановка того
+  /// же события в очередь не создаёт второй строки.
+  refKey String @unique @map("ref_key") @db.VarChar(64)
+
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at")
+  lastError     String?   @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([nextAttemptAt])
+  @@map("office_outbox")
 }
 
 model KnowledgeBase {

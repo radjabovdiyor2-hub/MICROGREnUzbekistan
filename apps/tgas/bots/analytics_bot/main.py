@@ -11,7 +11,7 @@ from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
-from shared.notifications import register_analytics_handlers
+from shared.notifications import register_analytics_handlers, send_report
 from bots.analytics_bot.handlers import all_routers
 from shared.group_orchestrator import create_group_router
 from shared import group_reply
@@ -284,7 +284,16 @@ async def sales_anomaly():
                 f"Отклонение: <b>{ratio * 100:.0f}%</b> от среднего\n\n"
                 "🚀 Выручка выше 200% от среднего!"
             )
-        await _bot.send_message(admin_id, alert, parse_mode="HTML")
+        # Аномалия выручки — повод немедленно посмотреть, из чего она
+        # сложилась. Раньше сообщение заканчивалось восклицательным знаком
+        # и ничем больше.
+        await send_report(
+            _bot,
+            admin_id,
+            alert,
+            admin_tab="revenue",
+            button_text="💵 Разобрать доход",
+        )
     except Exception as e:
         logging.error(f"sales_anomaly error: {e}", exc_info=True)
 
@@ -722,6 +731,12 @@ async def main():
     # «Analytics — НЕ ЗАПУЩЕН». Сверка реестра — scripts/check_bot_roster.py.
     asyncio.create_task(start_heartbeat("analytics_bot"))
 
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "analytics_bot"))
+
     # Планировщик тоже не запускался: задача monthly_executive была
     # зарегистрирована, в finally стоял scheduler.stop(), а start() не вызывался
     # ни разу — то есть месячный отчёт не выходил никогда. Второй дефект того же
@@ -730,6 +745,7 @@ async def main():
     await scheduler.start()
 
     # ── Bot Bus: слушаем задачи от Степана ──
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
 
@@ -737,6 +753,10 @@ async def main():
         bus_listen(
             "analytics_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("analytics_bot"),
                 "get_report": bus_get_report,
                 "get_instagram_stats": bus_get_instagram_stats,
                 BotBusActions.GET_TOP_PRODUCTS: _get_top_products,

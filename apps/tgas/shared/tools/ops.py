@@ -163,6 +163,7 @@ async def run_backup() -> Dict[str, Any]:
 register(
     Tool(
         name="log_quality_check",
+        admin_tab="qa",
         description=(
             "Записать результат проверки партии урожая в журнал ОТК. Сначала "
             "возьми id партии через get_grow_batches — запись идёт по нему. "
@@ -186,6 +187,7 @@ register(
 register(
     Tool(
         name="log_experiment",
+        admin_tab="experiments",
         description="Записать опыт R&D: гипотеза, культура, результат, показатель.",
         run=log_experiment,
         departments=RND,
@@ -202,6 +204,7 @@ register(
 register(
     Tool(
         name="get_bot_health",
+        admin_tab="bot_health",
         description="Кто из ботов офиса на связи, а кто молчит.",
         run=get_bot_health,
         departments=DEVOPS,

@@ -171,6 +171,7 @@ async def main():
     )
     await scheduler.start()
 
+    from shared import self_restart
     from shared.bot_bus import start_listener
     from shared.event_bus import BotBusActions
 
@@ -201,6 +202,10 @@ async def main():
         start_listener(
             "rnd_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("rnd_bot"),
                 BotBusActions.GENERATE_MAGAZINE_FACTS: bus_generate_magazine_facts,
                 "weekly_trend_report": bus_weekly_trend_report,
             },

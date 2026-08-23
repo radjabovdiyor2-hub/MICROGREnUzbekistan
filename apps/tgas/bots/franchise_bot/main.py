@@ -201,6 +201,7 @@ async def start_server():
     await scheduler.start()
 
     # Bot bus: ручная пересборка сводок из админки.
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
 
     async def bus_generate_journals(params: dict) -> dict:
@@ -211,6 +212,10 @@ async def start_server():
         bus_listen(
             "franchise_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("franchise_bot"),
                 "generate_franchise_journals": bus_generate_journals,
             },
         )

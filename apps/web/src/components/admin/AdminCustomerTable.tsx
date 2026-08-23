@@ -11,6 +11,7 @@ import { districtLabel } from '@/lib/customers/districts';
 import { sumLabel } from '@/lib/customers/money';
 
 import type { CustomerItem } from './customerTypes';
+import { focusOutline, isFocused, useScrollToFocused } from './useFocusedRow';
 
 // Таблица клиентов: контакты, тип, суммы, бонусы.
 //
@@ -34,6 +35,8 @@ interface Props {
   handleEditClick?: (c: CustomerItem) => void;
   /** Открыть карточку клиента с историей заказов. */
   onOpen: (c: CustomerItem) => void;
+  /** Клиент, ради которого пришли по ссылке из Telegram (`?focus=`). */
+  focus?: string;
   /** Удалить карточку. Клиента с заказами база не отдаст — сервер ответит 409. */
   onDelete?: (c: CustomerItem) => void;
 }
@@ -63,7 +66,10 @@ function statusColor(status: string): string {
   return 'var(--text-muted)';
 }
 
-export function AdminCustomerTable({ customers, loading, lang, handleEditClick, onOpen, onDelete }: Props) {
+export function AdminCustomerTable({
+  customers, loading, lang, handleEditClick, onOpen, onDelete, focus = '',
+}: Props) {
+  const scrollToFocused = useScrollToFocused<HTMLTableRowElement>();
   if (loading) {
     return (
       <div className="card" style={{ padding: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)' }}>
@@ -105,7 +111,13 @@ export function AdminCustomerTable({ customers, loading, lang, handleEditClick, 
           {customers.map((c) => (
             // Строка открывает карточку с историей заказов. Кнопка «Правка»
             // ниже останавливает всплытие, иначе она открывала бы и карточку.
-            <tr key={c.id} onClick={() => onOpen(c)} style={{ borderBottom: '1px solid var(--border-secondary, var(--border))', cursor: 'pointer' }}>
+            <tr key={c.id} onClick={() => onOpen(c)}
+              ref={isFocused(focus, c.id) ? scrollToFocused : undefined}
+              style={{
+                borderBottom: '1px solid var(--border-secondary, var(--border))',
+                cursor: 'pointer',
+                ...focusOutline(isFocused(focus, c.id)),
+              }}>
               <td style={cell}>
                 <div style={{ fontWeight: 'var(--font-semibold)' }}>{c.name}</div>
                 {c.companyName && (

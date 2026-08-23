@@ -62,13 +62,13 @@ export function SmartSubscriptionWidget({ active, onToggle, config, onConfigChan
     }} onClick={toggleSub}>
 
       {active && (
-        <div style={{ position: 'absolute', right: -20, top: -20, background: 'var(--brand-primary)', color: 'white', padding: '20px', borderRadius: '50%' }}>
+        <div style={{ position: 'absolute', right: -20, top: -20, background: 'var(--brand-primary)', color: 'var(--text-inverse)', padding: '20px', borderRadius: '50%' }}>
           <CheckCircle size={24} style={{ position: 'relative', top: 5, right: 5 }} />
         </div>
       )}
 
       <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-        <div style={{ background: 'var(--brand-primary)', padding: '10px', borderRadius: '12px', color: 'white', flexShrink: 0 }}>
+        <div style={{ background: 'var(--brand-primary)', padding: '10px', borderRadius: '12px', color: 'var(--text-inverse)', flexShrink: 0 }}>
           <CalendarClock size={24} />
         </div>
         <div>

@@ -29,17 +29,24 @@ const tx = {
   stockMovement: { create: vi.fn() },
   debt: { create: vi.fn() },
   posSale: { create: vi.fn() },
+  officeOutbox: { upsert: vi.fn() },
 };
 
 vi.mock('@repo/database', () => ({
   prisma: {
     product: { findMany: vi.fn() },
+    posSale: { findUnique: vi.fn() },
+    customer: { findUnique: vi.fn() },
     $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
   },
 }));
 
-vi.mock('@/lib/orders/notify', () => ({
-  notifyOfficePosSale: vi.fn(async () => undefined),
+// Тело зеркала собирается НАСТОЯЩЕЕ (posSaleIngestBody — чистая функция),
+// а отправка глушится: очередь проверяется своими тестами, и лезть отсюда
+// в сеть незачем.
+vi.mock('@/lib/office/outbox', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/office/outbox')>()),
+  drainOffice: vi.fn(async () => ({ sent: 0, pending: 0 })),
 }));
 
 vi.mock('@/lib/audit', () => ({ audit: vi.fn() }));
@@ -66,6 +73,9 @@ interface Body {
   soldAt?: string;
   backdateReason?: string;
   discount?: { type: string; value: number; reason: string };
+  customerId?: number;
+  origin?: string;
+  clientKey?: string;
 }
 
 /** Запрос от сотрудника с подписанной сессией — как приходит из админки. */
@@ -85,6 +95,8 @@ const daysAgoIso = (days: number) => {
 
 const movements = () => tx.stockMovement.create.mock.calls.map((c) => c[0].data);
 const header = () => tx.posSale.create.mock.calls[0][0].data;
+/** Тело, которое уедет в CRM офиса: оно и решает, чей это чек. */
+const mirror = () => tx.officeOutbox.upsert.mock.calls[0][0].create.payload;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -95,6 +107,9 @@ beforeEach(() => {
   tx.product.findUnique.mockResolvedValue({ stock: 0 });
   tx.stockMovement.create.mockResolvedValue({});
   tx.posSale.create.mockResolvedValue({ id: 'sale-1' });
+  tx.officeOutbox.upsert.mockResolvedValue({});
+  (prisma.posSale.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+  (prisma.customer.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 });
 
 describe('касса при нулевом остатке', () => {
@@ -322,5 +337,198 @@ describe('кто провёл продажу', () => {
       await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }], performedBy: 'Aziz' }, 'ADMIN'),
     );
     expect(movements()[0].performedBy).toBe('Aziz');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Покупатель чека.
+//
+// Он выбирался в кассе, честно ложился в `pos_sales.customer_id` — и на
+// этом всё. В зеркало CRM уходило захардкоженное имя «Покупатель в
+// магазине», офис по нему находил одну и ту же фиктивную карточку, и ВСЕ
+// продажи за прилавком копились на ней. У настоящего ресторана при этом не
+// появлялось ни заказа, ни движения счётчиков: они считаются офисом по
+// `crm_orders`.
+//
+// Слова `customer` в этом файле не было ни разу — контракт зеркала по
+// клиенту не был покрыт вовсе.
+// ══════════════════════════════════════════════════════════════════════
+
+const RESTAURANT = {
+  id: 42,
+  name: 'Азиз Каримов',
+  companyName: 'Плов Центр',
+  phone: '+998901234567',
+  address: 'ул. Регистан, 5',
+};
+
+describe('покупатель чека', () => {
+  it('уходит в зеркало CRM своим id, а не именем-заглушкой', async () => {
+    (prisma.customer.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(RESTAURANT);
+
+    await processSale(
+      await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }], customerId: 42 }),
+    );
+
+    const customer = (mirror() as { customer: Record<string, unknown> }).customer;
+    expect(customer.customer_id).toBe(42);
+    // Заведение узнают по вывеске, а не по имени контактного лица.
+    expect(customer.name).toBe('Плов Центр');
+    expect(customer.phone).toBe('+998901234567');
+  });
+
+  it('попадает в шапку чека', async () => {
+    (prisma.customer.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(RESTAURANT);
+    await processSale(
+      await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }], customerId: 42 }),
+    );
+    expect(header().customerId).toBe(42);
+  });
+
+  it('несуществующий отклоняется 404, а не роняет вставку', async () => {
+    (prisma.customer.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    const res = await processSale(
+      await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }], customerId: 999 }),
+    );
+    expect(res.status).toBe(404);
+    expect(tx.posSale.create).not.toHaveBeenCalled();
+  });
+
+  it('без покупателя зеркало получает заглушку розницы', async () => {
+    await processSale(await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }] }));
+    const customer = (mirror() as { customer: Record<string, unknown> }).customer;
+    expect(customer.customer_id).toBeNull();
+    expect(customer.name).toBe('Покупатель в магазине');
+  });
+
+  it('в долг без карточки — имя должника, а не заглушка', async () => {
+    await processSale(
+      await request({
+        items: [{ productId: 'p1', quantity: 1, price: 15_000 }],
+        paymentMethod: 'debt',
+        debtInfo: { personName: 'Дилшод', phone: '+998900000000' },
+      } as Body & { debtInfo: unknown }),
+    );
+    const customer = (mirror() as { customer: Record<string, unknown> }).customer;
+    expect(customer.name).toBe('Дилшод');
+  });
+});
+
+describe('место продажи', () => {
+  it('выезд по карте пишет адрес клиента, а не «продажу в магазине»', async () => {
+    (prisma.customer.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(RESTAURANT);
+
+    await processSale(
+      await request({
+        items: [{ productId: 'p1', quantity: 1, price: 15_000 }],
+        customerId: 42,
+        origin: 'field',
+      }),
+    );
+
+    const body = mirror() as Record<string, unknown>;
+    expect(body.delivery_address).toBe('ул. Регистан, 5');
+    expect(header().origin).toBe('field');
+  });
+
+  it('за прилавком остаётся «продажей в магазине»', async () => {
+    await processSale(await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }] }));
+    expect((mirror() as Record<string, unknown>).delivery_address).toBe('Продажа в магазине');
+    expect(header().origin).toBe('counter');
+  });
+
+  it('неизвестное значение отвергается', async () => {
+    const res = await processSale(
+      await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }], origin: 'moon' }),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('повторный чек', () => {
+  it('тот же clientKey возвращает пробитый чек, а не второй', async () => {
+    (prisma.posSale.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue({
+      number: 'S-20260822-AAAA',
+      gross: 15_000,
+      discount: 0,
+      total: 15_000,
+      soldAt: new Date('2026-08-22T10:00:00Z'),
+      paymentMethod: 'cash',
+      performedBy: 'Egasi',
+      backdated: false,
+    });
+
+    const res = await processSale(
+      await request({
+        items: [{ productId: 'p1', quantity: 1, price: 15_000 }],
+        clientKey: 'key-1',
+      }),
+    );
+
+    const body = await res.json();
+    expect(body.saleNumber).toBe('S-20260822-AAAA');
+    expect(body.duplicate).toBe(true);
+    // Ни второго чека, ни второго списания товара.
+    expect(tx.posSale.create).not.toHaveBeenCalled();
+    expect(tx.stockMovement.create).not.toHaveBeenCalled();
+  });
+
+  it('без ключа проверка не делается — чек обычный', async () => {
+    await processSale(await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }] }));
+    expect(prisma.posSale.findUnique).not.toHaveBeenCalled();
+    expect(tx.posSale.create).toHaveBeenCalled();
+  });
+});
+
+describe('очередь зеркала', () => {
+  it('обещание отзеркалить пишется В ТОЙ ЖЕ транзакции, что и чек', async () => {
+    await processSale(await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }] }));
+    // upsert по номеру чека: повторная постановка не создаёт вторую строку.
+    const call = tx.officeOutbox.upsert.mock.calls[0][0];
+    expect(call.where.refKey).toBe(header().number);
+    expect(call.create.topic).toBe('order');
+  });
+});
+
+describe('гонка одинаковых отправок', () => {
+  it('уникальность ключа даёт тот же чек, а не пятисотку', async () => {
+    // Первая проверка ничего не нашла, вставка упёрлась в уникальность —
+    // значит, параллельная отправка успела раньше. Это тот же чек.
+    (prisma.posSale.findUnique as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        number: 'S-20260822-RACE',
+        gross: 15_000,
+        discount: 0,
+        total: 15_000,
+        soldAt: new Date('2026-08-22T10:00:00Z'),
+        paymentMethod: 'cash',
+        performedBy: 'Egasi',
+        backdated: false,
+      });
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }),
+    );
+
+    const res = await processSale(
+      await request({
+        items: [{ productId: 'p1', quantity: 1, price: 15_000 }],
+        clientKey: 'key-race',
+      }),
+    );
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.saleNumber).toBe('S-20260822-RACE');
+    expect(body.duplicate).toBe(true);
+  });
+
+  it('прочие сбои базы наружу не глотаются', async () => {
+    (prisma.$transaction as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error('база недоступна'),
+    );
+    await expect(
+      processSale(await request({ items: [{ productId: 'p1', quantity: 1, price: 15_000 }] })),
+    ).rejects.toThrow('база недоступна');
   });
 });

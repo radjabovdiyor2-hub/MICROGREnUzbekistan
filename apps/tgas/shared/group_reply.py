@@ -55,6 +55,41 @@ def _prompt(persona: str, message: Message) -> str:
     return prompt
 
 
+def _open_button(result, message: Message):
+    """Кнопка «посмотреть в админке» под ответом отдела.
+
+    ЗАЧЕМ
+    Группа — то место, где команда реально работает, и до сих пор в ней не
+    было ни одной кликабельной строки: отдел отвечал `message.reply(text)`
+    голым текстом. Спросил «что с заказом M-…» — получил ответ и тупик.
+
+    КУДА ВЕДЁТ
+    Не в общую админку, а на экран того, ЧЕМ отдел смотрел: у инструмента
+    рядом с ним записана своя вкладка (`Tool.admin_tab`). Берём последний
+    сработавший вызов — он и есть предмет разговора. Инструменты без
+    экрана кнопки не дают: обещать показать и привести не туда хуже, чем
+    не обещать.
+
+    В группе кнопка обычная (`url`): Mini App Telegram разрешает только в
+    личной переписке и иначе отклоняет сообщение целиком. Разделение живёт
+    в `admin_links`, здесь о нём знать не надо.
+    """
+    try:
+        from shared import admin_links
+
+        for call in reversed(getattr(result, "calls", []) or []):
+            if getattr(call, "pending_approval", False):
+                continue
+            markup = admin_links.tool_markup(call.name, call.args, message.chat.id)
+            if markup:
+                return markup
+    except Exception as exc:
+        # Кнопка — довесок к ответу, а не ответ: не собралась — отвечаем
+        # текстом. Но в лог это обязано попасть.
+        logger.warning("GROUP_REPLY: кнопка не собралась: %s", exc)
+    return None
+
+
 async def answer(
     message: Message,
     *,
@@ -98,7 +133,7 @@ async def answer(
     if not answer_text:
         return False
 
-    await message.reply(answer_text)
+    await message.reply(answer_text, reply_markup=_open_button(result, message))
     if remember:
         await chat_memory.remember(bot_name, message.chat.id, text, answer_text)
     return True

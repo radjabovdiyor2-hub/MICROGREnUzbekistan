@@ -169,6 +169,15 @@ async def create(
             "office",
         )
         dispatched = True
+
+        # Сказать открытым вкладкам админки, что список изменился.
+        #
+        # Задача, заведённая в Telegram, до сих пор не обновляла экран
+        # «Задачи отделам»: шина офиса и SSE витрины не знали друг о друге.
+        # Владелец смотрел на список, в котором её нет.
+        from shared import storefront_realtime
+
+        storefront_realtime.notify_later("tasks")
     except Exception as exc:
         logger.warning(
             "tasks_repo.create: событие не ушло, задача #%s без исполнителя: %s",

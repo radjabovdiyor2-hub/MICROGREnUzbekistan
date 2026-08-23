@@ -240,6 +240,7 @@ register(
 register(
     Tool(
         name="get_finance_summary",
+        admin_tab="finance",
         description="Доходы, расходы и прибыль по категориям за период.",
         run=get_finance_summary,
         departments=DEPTS,
@@ -250,6 +251,7 @@ register(
 register(
     Tool(
         name="get_pnl",
+        admin_tab="finance",
         description=(
             "P&L за месяц: доходы, расходы, прибыль, маржа. "
             "Выручка по заказам возвращается справочно — она уже входит в income, "
@@ -267,6 +269,7 @@ register(
 register(
     Tool(
         name="get_ai_spend",
+        admin_tab="ai_spend",
         description="Сколько потрачено на ИИ в этом месяце, по ботам.",
         run=get_ai_spend,
         departments=DEPTS,

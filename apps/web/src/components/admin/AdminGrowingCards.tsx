@@ -4,6 +4,8 @@ import {
   BarChart, CheckCircle, Edit, Leaf, Moon, Package, Sun, Trash,
 } from 'lucide-react';
 import { CROP_DB, getBatchStatus, type Batch } from './growingData';
+import { tint } from '@/lib/tint';
+import { focusOutline, isFocused, useScrollToFocused } from './useFocusedRow';
 
 // Карточки партий выращивания: таймлайн фаз, прогресс, действия.
 // Вынесено из AdminGrowing — самая объёмная часть экрана.
@@ -26,10 +28,19 @@ interface Props {
   /** Досрочно вывести партию на свет / подержать в темноте ещё сутки. */
   openDark: (id: string) => void;
   extendDark: (id: string) => void;
+  /**
+   * Партия, ради которой пришли по ссылке из Telegram (`?focus=`).
+   *
+   * Ссылки на неё строят три инструмента офиса (`plant_batch`,
+   * `harvest_batch`, `write_off_batch`), и до сих пор они открывали вкладку,
+   * а саму партию человек искал глазами в списке.
+   */
+  focus?: string;
 }
 
 export function AdminGrowingCards({ filtered, enriched, statusColors, statusIcons, harvesting, fmt, handleEdit,
-  harvestBatch, writeOffBatch, deleteBatch, openDark, extendDark }: Props) {
+  harvestBatch, writeOffBatch, deleteBatch, openDark, extendDark, focus = '' }: Props) {
+  const scrollToFocused = useScrollToFocused<HTMLDivElement>();
   return (
     <>
 {/* Batch cards */}
@@ -50,17 +61,22 @@ export function AdminGrowingCards({ filtered, enriched, statusColors, statusIcon
       const readyDate = new Date(new Date(batch.seedDate).getTime() + (batch.darkDays + batch.lightDays) * 86400000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
       const expDate = new Date(new Date(batch.seedDate).getTime() + total * 86400000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
 
+      const focused = isFocused(focus, batch.id);
+
       return (
-        <div key={batch.id} className="card" style={{
-          padding: '14px 16px', borderRadius: '14px',
-          borderLeft: `4px solid ${sc}`,
-          animation: info.alert ? 'pulse 2s infinite' : undefined,
-        }}>
+        <div key={batch.id} className="card"
+          ref={focused ? scrollToFocused : undefined}
+          style={{
+            padding: '14px 16px', borderRadius: '14px',
+            borderLeft: `4px solid ${sc}`,
+            animation: info.alert ? 'pulse 2s infinite' : undefined,
+            ...focusOutline(focused),
+          }}>
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
             <div style={{
               width: 36, height: 36, borderRadius: '10px', flexShrink: 0,
-              background: `${crop.color}15`, color: crop.color,
+              background: tint(crop.color), color: crop.color,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <Leaf size={18} />
@@ -84,7 +100,7 @@ export function AdminGrowingCards({ filtered, enriched, statusColors, statusIcon
             <span style={{
               display: 'flex', alignItems: 'center', gap: '4px',
               padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: 700,
-              background: `${sc}15`, color: sc,
+              background: tint(sc), color: sc,
             }}>
               {statusIcons[info.status]} {info.phase}
             </span>
@@ -196,7 +212,7 @@ export function AdminGrowingCards({ filtered, enriched, statusColors, statusIcon
         { label: 'Готовы', count: enriched.filter(b => b.info.status === 'ready').length, color: 'var(--success)', icon: <CheckCircle size={14} /> },
         { label: 'Лотков', count: enriched.filter(b => b.info.status !== 'harvested').reduce((s, b) => s + b.trays, 0), color: 'var(--brand-primary)', icon: <Package size={14} /> },
       ].map((s, i) => (
-        <div key={i} style={{ textAlign: 'center', padding: '8px', borderRadius: '10px', background: `${s.color}08` }}>
+        <div key={i} style={{ textAlign: 'center', padding: '8px', borderRadius: '10px', background: tint(s.color, 8) }}>
           <div style={{ color: s.color, marginBottom: 4 }}>{s.icon}</div>
           <div style={{ fontWeight: 800, fontSize: '16px', fontFamily: 'var(--font-display)' }}>{fmt(s.count)}</div>
           <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{s.label}</div>

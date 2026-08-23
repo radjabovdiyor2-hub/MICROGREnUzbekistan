@@ -51,8 +51,18 @@ export interface ParsedSale {
   backdateReason: string | null;
   discount: PosDiscountInput | null;
   debtInfo: PosDebtInfo | null;
-  /** Покупатель — если его назвали ради договорной цены. */
+  /** Покупатель чека: договорная цена, история продаж и связь с CRM. */
   customerId: number | null;
+  /** Где продали: за прилавком или с выезда по карте. */
+  origin: 'counter' | 'field';
+  /**
+   * Ключ идемпотентности от браузера. `null` — чек пришёл без него.
+   *
+   * Тот же ключ на повторе означает ТОТ ЖЕ чек, а не второй: двойное
+   * нажатие «Продать» на плохой сети и повторная отправка из офлайн-очереди
+   * раньше списывали товар дважды.
+   */
+  clientKey: string | null;
 }
 
 export type ParseResult =
@@ -190,11 +200,28 @@ export function parseSale(request: Request, body: unknown): ParseResult {
   const customerIdRaw = Number(raw.customerId);
   const customerId = Number.isInteger(customerIdRaw) && customerIdRaw > 0 ? customerIdRaw : null;
 
+  // Место продажи — закрытый список из двух значений. Неизвестное отвергаем,
+  // а не приводим к прилавку молча: `origin` уходит в адрес зеркала CRM, и
+  // выезд к ресторану, записанный «продажей в магазине», врёт дважды.
+  const originRaw = asString(raw.origin);
+  if (originRaw && originRaw !== 'counter' && originRaw !== 'field') {
+    return fail(`Sotuv joyi noto'g'ri: ${originRaw}`);
+  }
+  const origin = originRaw === 'field' ? 'field' : 'counter';
+
+  // Ключ идемпотентности. Длину режем: он идёт в уникальную колонку
+  // VarChar(64), и строка длиннее уронила бы вставку самого чека.
+  const clientKeyRaw = asString(raw.clientKey);
+  if (clientKeyRaw.length > 64) return fail('clientKey juda uzun');
+  const clientKey = clientKeyRaw || null;
+
   return {
     ok: true,
     sale: {
       items,
       customerId,
+      origin,
+      clientKey,
       paymentMethod,
       performedBy,
       role,

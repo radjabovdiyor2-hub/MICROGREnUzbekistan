@@ -21,6 +21,7 @@ import os
 
 import aiohttp
 
+from shared import self_restart
 from shared.bot_bus import start_listener, cleanup_old_tasks
 
 logging.basicConfig(
@@ -113,6 +114,10 @@ async def main():
     listener = start_listener(
         "n8n_bridge",
         {
+            # Перезапуск по команде из админки: мост выходит сам, контейнер
+            # поднимает `restart: unless-stopped`. Карточка в «Здоровье
+            # ботов» у него есть — значит и кнопка должна работать.
+            "restart_self": self_restart.handler("n8n_bridge"),
             "email": handle_email,
             "calendar": handle_calendar,
             "contacts": handle_contacts,

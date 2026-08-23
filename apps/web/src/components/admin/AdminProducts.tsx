@@ -9,6 +9,7 @@ import { AdminProductFilters } from './AdminProductFilters';
 import { uploadImage } from './productImages';
 import { useProductForm } from './useProductForm';
 import { useAdminProducts } from './useAdminProducts';
+import { useFeedback } from './AdminFeedback';
 
 import { type Product, type Category, EMPTY_FORM, type ProductForm } from './productTypes';
 export type { Product, Category, ProductForm };
@@ -18,6 +19,7 @@ export { EMPTY_FORM };
 // раскладка и диалоги подтверждения.
 
 export function AdminProducts() {
+  const notify = useFeedback();
   const [lang, setLang] = useState<'ru' | 'uz'>('ru');
   const [uploading, setUploading] = useState(false);
 
@@ -49,13 +51,15 @@ export function AdminProducts() {
    * покажет тостом. Раньше здесь стояло «o'chirmoqchimisiz?» — и владелец,
    * подтвердив удаление, видел товар на прежнем месте.
    */
-  const deleteProduct = (id: string) => {
-    const ok = window.confirm(
-      t(
-        'Снять товар с продажи и убрать в архив? Если по нему не было продаж — он удалится сразу.',
-        "Tovarni sotuvdan olib, arxivga o'tkazamizmi? Sotuvlari bo'lmasa — butunlay o'chadi.",
+  const deleteProduct = async (id: string) => {
+    const ok = await notify.confirm({
+      title: t('Снять товар с продажи?', "Tovarni sotuvdan olamizmi?"),
+      detail: t(
+        'Уйдёт в архив. Если по нему не было продаж — удалится сразу.',
+        "Arxivga o'tadi. Sotuvlari bo'lmasa — butunlay o'chadi.",
       ),
-    );
+      confirmText: t('В архив', 'Arxivga'),
+    });
     if (ok) remove.mutate({ id, force: false });
   };
 
@@ -64,15 +68,18 @@ export function AdminProducts() {
    * заказов и движения склада сохраняют название в снимке (см. схему,
    * `OrderItem.productName`), поэтому выручка прошлых месяцев не меняется.
    */
-  const deleteForever = (product: Product) => {
-    const ok = window.confirm(
-      t(
-        `Удалить «${product.nameUz}» НАВСЕГДА?\n\nТовар исчезнет из каталога без возможности восстановить. ` +
-          `История продаж сохранится: в отчётах он останется под этим названием.`,
-        `«${product.nameUz}» BUTUNLAY o'chirilsinmi?\n\nTovar katalogdan qaytarib bo'lmaydigan tarzda yo'qoladi. ` +
-          `Sotuvlar tarixi saqlanadi: hisobotlarda shu nom bilan qoladi.`,
+  const deleteForever = async (product: Product) => {
+    const ok = await notify.confirm({
+      title: t(`Удалить «${product.nameUz}» НАВСЕГДА?`, `«${product.nameUz}» BUTUNLAY o'chirilsinmi?`),
+      detail: t(
+        'Товар исчезнет из каталога без возможности восстановить. ' +
+          'История продаж сохранится: в отчётах он останется под этим названием.',
+        "Tovar katalogdan qaytarib bo'lmaydigan tarzda yo'qoladi. " +
+          "Sotuvlar tarixi saqlanadi: hisobotlarda shu nom bilan qoladi.",
       ),
-    );
+      confirmText: t('Удалить навсегда', "Butunlay o'chirish"),
+      danger: true,
+    });
     if (ok) remove.mutate({ id: product.id, force: true });
   };
 

@@ -2,6 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Clock } from 'lucide-react';
+import { tint } from '@/lib/tint';
 
 // Два самостоятельных виджета аналитики: здоровье склада и матрица ABC-XYZ.
 // Каждый сам ходит за своими данными, поэтому в теле экрана им делать нечего.
@@ -129,9 +130,9 @@ export function ABCXYZWidget() {
               const count = classSummary[cls] || 0;
               return (
                 <div key={cls} style={{
-                  background: count > 0 ? `${matrixColors[cls]}20` : 'var(--bg-secondary)',
+                  background: count > 0 ? tint(matrixColors[cls]) : 'var(--bg-secondary)',
                   borderRadius: 'var(--radius-sm)', padding: 'var(--space-2)',
-                  textAlign: 'center', border: count > 0 ? `1px solid ${matrixColors[cls]}40` : '1px solid transparent',
+                  textAlign: 'center', border: count > 0 ? `1px solid ${tint(matrixColors[cls], 28)}` : '1px solid transparent',
                 }}>
                   <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)', color: matrixColors[cls] }}>{count}</div>
                   <div style={{ fontSize: '8px', color: 'var(--text-muted)' }}>{matrixLabels[cls]}</div>

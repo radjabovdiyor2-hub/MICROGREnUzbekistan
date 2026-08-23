@@ -35,7 +35,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 from urllib.parse import quote
 
-from aiogram.types import InlineKeyboardButton, WebAppInfo
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from shared.config import settings
 
@@ -149,3 +149,52 @@ def tab_button(text: str, tab: str, chat_id: Optional[int]) -> InlineKeyboardBut
     if is_private_owner_chat(chat_id):
         return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))
     return InlineKeyboardButton(text=text, url=url)
+
+
+#: Подпись кнопки по умолчанию. Одна на весь офис: человек привыкает к
+#: месту и виду кнопки, а не читает каждый раз новую формулировку.
+OPEN_TEXT = "🏢 Открыть в админке"
+
+
+def tool_markup(
+    tool_name: str,
+    args: Optional[Dict[str, Any]],
+    chat_id: Optional[int],
+    text: str = "🏢 Открыть в админке",
+) -> Optional[InlineKeyboardMarkup]:
+    """Кнопка на экран, где лежит предмет ВЫЗВАННОГО инструмента.
+
+    `None`, если у инструмента экрана нет. Это не то же самое, что
+    `target_for`: та никогда не возвращает пусто и на неизвестном имени
+    ведёт в общую очередь заявок. Под ответом в чате такая кнопка была бы
+    хуже отсутствующей — она обещает показать то, о чём шла речь, а
+    приводит в список чужих заявок.
+    """
+    tab, focus_arg = _tool_target(tool_name)
+    if not tab:
+        return None
+    raw = (args or {}).get(focus_arg) if focus_arg else None
+    focus = str(raw) if raw not in (None, "") else None
+    return tab_markup(tab, chat_id, text=text, focus=focus)
+
+
+def tab_markup(
+    tab: str,
+    chat_id: Optional[int],
+    text: str = OPEN_TEXT,
+    focus: Optional[str] = None,
+) -> InlineKeyboardMarkup:
+    """Клавиатура из одной кнопки «открыть экран».
+
+    СТРОИТСЯ ДЛЯ КОНКРЕТНОГО ЧАТА, а не один раз на рассылку. Bot API
+    разрешает `web_app` только в личной переписке: клавиатура, собранная
+    для владельца и отправленная заодно в групповой чат, будет отклонена
+    вместе со всем сообщением — то есть авария не дойдёт вообще никуда.
+    """
+    url = admin_url(tab, focus)
+    button = (
+        InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))
+        if is_private_owner_chat(chat_id)
+        else InlineKeyboardButton(text=text, url=url)
+    )
+    return InlineKeyboardMarkup(inline_keyboard=[[button]])

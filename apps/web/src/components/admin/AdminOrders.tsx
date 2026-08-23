@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronRight, ClipboardList, Clock, Folder } from 'lucide-react';
 import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
+import { AdminNotice } from './AdminNotice';
+import { useAdminBack } from './useAdminBack';
 import { AdminOrderDetail } from './AdminOrderDetail';
 import type { Order } from './adminOrderTypes';
 import { AdminPager } from './AdminPager';
+import { tint } from '@/lib/tint';
 
 interface OrdersPage {
   orders: Order[];
@@ -26,6 +29,8 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
   const [page, setPage] = useState(1);
   /** Заказ из ссылки открыт до первого «назад», дальше работает список. */
   const [dismissedFocus, setDismissedFocus] = useState('');
+  const [statusError, setStatusError] = useState('');
+  const [savingStatus, setSavingStatus] = useState(false);
 
   // Раньше запрос шёл без параметров, а API по умолчанию отдаёт 20 записей:
   // экран показывал последние двадцать заказов и молчал об остальных. Найти
@@ -62,39 +67,67 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
   };
 
   /** Закрыть карточку — и ту, что открыла ссылка из Telegram, тоже. */
-  const closeDetail = () => {
+  const closeDetail = useCallback(() => {
     setSelected(null);
     if (focused) setDismissedFocus(focus);
-  };
+  }, [focused, focus]);
 
+  // «Назад» в Telegram возвращает к списку заказов, а не выходит из
+  // приложения: переход в карточку живёт в состоянии, а не в истории.
+  useAdminBack(closeDetail, Boolean(current));
+
+  /**
+   * Смена статуса заказа.
+   *
+   * Ответ сервера раньше не читался вовсе: отказ падал в `console.error`,
+   * список перезагружался прежним, и владелец считал, что заказ уехал в
+   * доставку. Статус при этом тянет за собой уведомление клиенту, возврат
+   * товара на склад и зеркало в CRM — молчать о том, что он не сменился,
+   * нельзя.
+   */
   const updateStatus = async (orderId: string, newStatus: string) => {
+    if (savingStatus) return;
+    setSavingStatus(true);
+    setStatusError('');
     try {
-      await fetch('/api/orders', {
+      const res = await fetch('/api/orders', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: orderId, status: newStatus }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setStatusError(body?.error || `Статус не сменился: сервер ответил ${res.status}`);
+        return;
+      }
       fetchOrders();
       if (current?.id === orderId) closeDetail();
-    } catch (err) {
-      console.error('Status update error:', err);
+    } catch {
+      setStatusError('Статус не сменился: нет связи с сервером');
+    } finally {
+      setSavingStatus(false);
     }
   };
 
   if (current) {
     return (
-      <AdminOrderDetail
-        order={current}
-        onBack={closeDetail}
-        onStatus={(status) => updateStatus(current.id, status)}
-        fmt={fmt}
-        fmtDate={fmtDate}
-      />
+      <>
+        <AdminNotice>{statusError}</AdminNotice>
+        <AdminOrderDetail
+          order={current}
+          onBack={closeDetail}
+          onStatus={(status) => updateStatus(current.id, status)}
+          fmt={fmt}
+          fmtDate={fmtDate}
+        />
+      </>
     );
   }
 
   return (
     <div>
+      <AdminNotice>{statusError}</AdminNotice>
+
       {/* Status tabs */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', overflowX: 'auto', paddingBottom: 4 }}>
         {STATUS_TABS.map(tab => (
@@ -155,7 +188,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
                     <span style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)' }}>#{order.orderNumber}</span>
                     <span style={{
                       padding: '2px 8px', borderRadius: 'var(--radius-full)',
-                      background: `${st.color}15`, color: st.color,
+                      background: tint(st.color), color: st.color,
                       fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)',
                       display: 'inline-flex', alignItems: 'center', gap: '4px',
                     }}>

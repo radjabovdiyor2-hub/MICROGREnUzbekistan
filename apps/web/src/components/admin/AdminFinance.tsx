@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Plus, Trash } from 'lucide-react';
+import { Plus, Trash } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
 // Доходы, расходы и P&L.
@@ -25,10 +25,13 @@ interface Summary { income: number; expense: number; profit: number; margin: num
 
 const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
 
+import { AdminNotice } from './AdminNotice';
+import { useFeedback } from './AdminFeedback';
 import { AdminFinanceForm } from './AdminFinanceForm';
 import { AdminFinanceSummary } from './AdminFinanceSummary';
 
 export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+  const notify = useFeedback();
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
   const queryClient = useQueryClient();
@@ -78,8 +81,39 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     }
   };
 
-  const remove = async (id: number) => {
-    await fetch(`/api/admin/finance?id=${id}`, { method: 'DELETE', credentials: 'same-origin' });
+  /**
+   * Удаление операции. Спрашиваем ОБЯЗАТЕЛЬНО и с суммой в вопросе.
+   *
+   * Кнопка — иконка в 14 пикселей без подписи, соседствующая со строкой
+   * дохода. Промах пальцем стирал денежную запись молча и мгновенно, а
+   * пересчитанная прибыль выглядела просто другой цифрой: ни следа, ни
+   * возможности вернуть. Остальные четырнадцать путей удаления в админке
+   * подтверждение спрашивают — этот был исключением.
+   */
+  const remove = async (entry: Entry) => {
+    const what = `${entry.category}${entry.description ? ` — ${entry.description}` : ''}`;
+    const sum = `${entry.type === 'income' ? '+' : '−'}${money(entry.amount)}`;
+    const ok = await notify.confirm({
+      title: t(`Удалить операцию «${what}» на ${sum}?`, `«${what}» (${sum}) o'chirilsinmi?`),
+      detail: t(
+        'Она исчезнет из отчёта за период, и прибыль пересчитается. Вернуть нельзя.',
+        "U davr hisobotidan yo'qoladi va foyda qayta hisoblanadi. Qaytarib bo'lmaydi.",
+      ),
+      confirmText: t('Удалить', "O'chirish"),
+      danger: true,
+    });
+    if (!ok) return;
+
+    setError('');
+    const res = await fetch(`/api/admin/finance?id=${entry.id}`, {
+      method: 'DELETE', credentials: 'same-origin',
+    });
+    // Отказ сервера был не виден вовсе: запрос уходил, ответ никто не читал,
+    // список перезагружался прежним — и человек считал, что удалил.
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error || t('Не удалось удалить', "O'chirib bo'lmadi"));
+    }
     await load();
   };
 
@@ -104,15 +138,7 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         </button>
       </div>
 
-      {error && (
-        <div style={{
-          padding: '10px 14px', borderRadius: 10, background: 'var(--error-bg)',
-          color: 'var(--error)', fontSize: 'var(--text-sm)', fontWeight: 600,
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <AlertTriangle size={16} /> {error}
-        </div>
-      )}
+      <AdminNotice>{error}</AdminNotice>
 
       {summary && <AdminFinanceSummary summary={summary} byCategory={byCategory} t={t} />}
 
@@ -142,7 +168,7 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
             <b style={{ color: e.type === 'income' ? 'var(--success)' : 'var(--error)' }}>
               {e.type === 'income' ? '+' : '−'}{money(e.amount)}
             </b>
-            <button onClick={() => remove(e.id)} title={t('Удалить', "O'chirish")}
+            <button onClick={() => remove(e)} title={t('Удалить', "O'chirish")}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
               <Trash size={14} />
             </button>

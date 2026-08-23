@@ -32,6 +32,7 @@ interface Props {
 }
 
 import { AdminDepartmentTable, type Task } from './AdminDepartmentTable';
+import { AdminDepartmentTaskForm } from './AdminDepartmentTaskForm';
 
 export function AdminDepartment({ departmentId, departmentName, lang }: Props) {
   const [filter, setFilter] = useState<string>('all');
@@ -111,6 +112,12 @@ export function AdminDepartment({ departmentId, departmentName, lang }: Props) {
               : t('Без Telegram-интерфейса — задачи ставит Стёпан',
                   "Telegram interfeysi yo'q — vazifalarni Stepan qo'yadi")}
           </p>
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          {/* Экран отдела был только чтением: владелец смотрел на
+              «просрочено: 3» и уходил в общий раздел задач выбирать этот
+              же отдел из списка заново. */}
+          <AdminDepartmentTaskForm departmentId={departmentId} lang={lang} />
         </div>
         {botUsername && (
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>

@@ -642,44 +642,12 @@ a{{color:#58a6ff;text-decoration:none}}</style></head><body><div class=wrap>
     return HTMLResponse(html)
 
 
-async def recalc_customer_stats(session, customer_id: int) -> None:
-    """Пересчитать счётчики клиента по фактическим заказам.
-
-    Здесь стоял инкремент: `orders_count = orders_count + 1,
-    total_spent = total_spent + :amount`. Уменьшения не было НИГДЕ — при
-    отмене заказа и счётчик, и сумма оставались прежними. На этих числах
-    держатся статус VIP, сортировка «лучшие клиенты» (`ORDER BY total_spent`
-    в sales_bot) и сегменты рассылок, то есть завышение расходилось по всему
-    офису.
-
-    Пересчёт вместо декремента выбран по двум причинам: он самоисцеляющийся
-    (уже накопленное искажение уходит при первом же касании клиента) и
-    снимает риск двойного счёта, о котором предупреждает комментарий в
-    sales_bot/handlers/order.py.
-
-    Статус только повышается. Понижать его нельзя: `churned` и `vip`
-    проставляет отдел продаж, и отмена одного заказа не повод откатывать
-    наработанное — то же правило, что и в `customer_repo.upsert`.
-    """
-    await session.execute(
-        text(
-            "UPDATE customers c SET "
-            "  orders_count = s.cnt, "
-            "  total_spent = s.total, "
-            "  last_order_date = s.last_at, "
-            "  status = CASE "
-            "             WHEN s.cnt >= 5 THEN 'vip' "
-            "             WHEN s.cnt >= 1 AND c.status = 'lead' THEN 'active' "
-            "             ELSE c.status END "
-            "FROM ("
-            "  SELECT COUNT(*) AS cnt, COALESCE(SUM(total_amount), 0) AS total, "
-            "         MAX(created_at) AS last_at "
-            "  FROM crm_orders WHERE customer_id = :cid AND status <> 'cancelled'"
-            ") s "
-            "WHERE c.id = :cid"
-        ),
-        {"cid": int(customer_id)},
-    )
+# `recalc_customer_stats` переехал в `shared/customer_repo.recalc_stats`.
+#
+# Счётчики карточки — это запись в `customers`, а её единственный писатель
+# по уговору один: customer_repo. Пока формула жила здесь, дотянуться до неё
+# мог только веб-дашборд, и разовому скрипту перепривязки пришлось бы
+# завести ВТОРУЮ копию того же UPDATE.
 
 
 # ─── Мост «витрина → AI-офис» ────────────────────────────────
@@ -723,6 +691,21 @@ async def ingest_order(request: Request):
         tid = None
     bonus_balance = _safe_float(customer.get("bonus_balance"))
     web_user_id = str(customer.get("web_user_id") or "").strip() or None
+
+    # Карточка, ВЫБРАННАЯ человеком. Самый надёжный ключ из всех: у него
+    # наивысший приоритет в `customer_repo.upsert`, и искать заново не надо.
+    #
+    # Без него касса витрины не могла назвать покупателя вовсе: имя было
+    # захардкожено строкой «Покупатель в магазине», и по нему сюда приходило
+    # совпадение с одной и той же фиктивной карточкой. Все продажи за
+    # прилавком — включая продажи конкретному ресторану — копились на ней,
+    # а у настоящего клиента `crm_orders` не появлялось, то есть счётчики
+    # `orders_count` / `total_spent` / `last_order_date` не двигались.
+    try:
+        raw_cid = customer.get("customer_id")
+        known_customer_id = int(raw_cid) if raw_cid not in (None, "", 0, "0") else None
+    except (TypeError, ValueError):
+        known_customer_id = None
 
     total = _safe_float(body.get("total_amount"))
     delivery_fee = _safe_float(body.get("delivery_fee"))
@@ -771,6 +754,7 @@ async def ingest_order(request: Request):
             # появиться или исчезнуть разом.
             saved = await customer_repo.upsert(
                 session=session,
+                customer_id=known_customer_id,
                 name=name,
                 raw_phone=phone,
                 telegram_id=tid,
@@ -872,7 +856,7 @@ async def ingest_order(request: Request):
                 )
 
             # Статистика клиента + журнал взаимодействия (как это делает sales_bot).
-            await recalc_customer_stats(session, customer_id)
+            await customer_repo.recalc_stats(session, customer_id)
             await session.execute(
                 text(
                     "INSERT INTO interactions (customer_id, order_id, channel, interaction_type, "
@@ -959,7 +943,7 @@ async def ingest_order_status(request: Request):
             # возвращает. Пересчёт идёт в той же транзакции, что и смена
             # статуса: разъехавшись, они дали бы «Потрачено» из воздуха.
             if row:
-                await recalc_customer_stats(session, row[3])
+                await customer_repo.recalc_stats(session, row[3])
     except Exception as exc:
         logger.exception(
             "Ingest-status: не удалось обновить заказ %s: %s", ext_number, exc
@@ -1030,7 +1014,7 @@ async def change_order_status(order_id: int, request: Request):
             # Отмена из дашборда тоже обязана убрать заказ из счётчиков —
             # иначе «Потрачено» у клиента остаётся завышенным навсегда.
             if row:
-                await recalc_customer_stats(session, row[2])
+                await customer_repo.recalc_stats(session, row[2])
     except Exception as exc:
         logger.exception(
             "Order-status: не удалось обновить заказ #%s: %s", order_id, exc
@@ -1727,8 +1711,11 @@ DEPARTMENT_META: dict[str, dict[str, str]] = {
 
 
 @app.get("/api/departments/summary")
-async def departments_summary():
+async def departments_summary(request: Request):
     """Сводка по всем отделам: кол-во задач и статусы."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     departments = []
     try:
         async with get_session_ctx() as session:
@@ -1971,8 +1958,11 @@ async def bots_kanban():
 
 
 @app.get("/api/health/bots")
-async def api_health_bots():
+async def api_health_bots(request: Request):
     """JSON-статус всех ботов (heartbeat) — надзор за работой ботов не только в Telegram."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     from shared.health import check_all_bots
 
     statuses = await check_all_bots()
@@ -2002,6 +1992,14 @@ async def api_health_bots():
 #: Что владелец может запускать из админки: действие -> бот-исполнитель.
 #: Белый список, а не свободный ввод: /api/admin/* закрыт сессией, но
 #: команда уходит в шину, которая ботами не перепроверяется.
+#: Перезапуск бота. Стоит отдельно от белого списка: у него исполнитель не
+#: фиксирован, а равен тому, кого перезапускают (см. `admin_bot_action`).
+#:
+#: Делается БЕЗ доступа к Docker: бот выходит сам, а контейнер поднимает
+#: политика `restart: unless-stopped` (см. `shared/self_restart`). Сокет
+#: Docker — root на хосте, и выдавать его боту ради кнопки незачем.
+RESTART_ACTION = "restart_self"
+
 ADMIN_BOT_ACTIONS: dict[str, str] = {
     "daily_backup": "devops_bot",
     "daily_kpi_snapshot": "analytics_bot",
@@ -2019,6 +2017,65 @@ ADMIN_BOT_ACTIONS: dict[str, str] = {
     "publish_story": "content_bot",
     "draft_magazine": "content_bot",
 }
+
+
+@app.post("/api/admin/approvals/decide")
+async def admin_approvals_decide(request: Request):
+    """Решить заявку из веб-админки: одобрить или отклонить.
+
+    ЗАЧЕМ ЭТА ДВЕРЬ
+
+    Одобрять можно было ТОЛЬКО в Telegram: выполнение заявки живёт в офисе
+    (`shared/approvals._HANDLERS`), у витрины нет ни инструментов, ни шины.
+    Владелец, работающий в админке, видел очередь «Ждёт решения» и мог лишь
+    снять заявку — то есть весь цикл подтверждений упирался в мессенджер, и
+    без телефона под рукой работа стояла.
+
+    Путь общий с кнопкой в чате (`approvals.decide`), включая одноразовость:
+    одновременное нажатие здесь и там выполнит действие ровно раз.
+    """
+    if not _check_ingest_secret(request):
+        return JSONResponse(
+            {"status": "error", "error": "unauthorized"}, status_code=401
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"status": "error", "error": "bad json"}, status_code=400)
+
+    try:
+        approval_id = int(body.get("id"))
+    except (TypeError, ValueError):
+        return JSONResponse(
+            {"status": "error", "error": "id required"}, status_code=400
+        )
+
+    decision = str(body.get("decision") or "").strip()
+    if decision not in ("approved", "rejected"):
+        return JSONResponse(
+            {"status": "error", "error": "decision: approved | rejected"},
+            status_code=400,
+        )
+
+    from shared import approvals
+
+    result = await approvals.decide(approval_id, decision)
+
+    if not result["ok"]:
+        # «Уже обработана» — не ошибка сервера: ровно это видит и второй
+        # нажавший в Telegram. Отвечаем 409, чтобы админка сказала об этом
+        # словами, а не показала пятисотку.
+        return JSONResponse(
+            {"status": "error", "error": result["message"]}, status_code=409
+        )
+
+    return {
+        "status": "ok",
+        "acted": result["acted"],
+        "message": result["message"],
+        "kind": result["kind"],
+    }
 
 
 @app.post("/api/admin/bot-action")
@@ -2048,14 +2105,35 @@ async def admin_bot_action(request: Request):
             {"status": "error", "error": "action required"}, status_code=400
         )
 
-    target = ADMIN_BOT_ACTIONS.get(action)
+    # ── Перезапуск адресуется КОНКРЕТНОМУ боту ────────────────────────
+    #
+    # У остальных действий исполнитель один и известен заранее: бэкап
+    # делает devops, отчёт — analytics. У перезапуска исполнитель — тот,
+    # кого перезапускают, поэтому имя берётся из запроса.
+    #
+    # Список закрытый: только боты реестра. Иначе через эту дверь можно
+    # было бы адресовать что угодно, а имя бота уходит в путь файла
+    # очереди задач.
+    if action == RESTART_ACTION:
+        from shared.bot_registry import BOTS
+
+        known = {b.name for b in BOTS}
+        if bot not in known:
+            return JSONResponse(
+                {"status": "error", "error": f"неизвестный бот '{bot}'"},
+                status_code=400,
+            )
+        target = bot
+    else:
+        target = ADMIN_BOT_ACTIONS.get(action)
+
     if not target:
         return JSONResponse(
             {"status": "error", "error": f"действие '{action}' не разрешено"},
             status_code=400,
         )
     # Бот из запроса — подсказка UI; исполнителя выбирает белый список.
-    if bot and bot != target and bot != "web_office":
+    if action != RESTART_ACTION and bot and bot != target and bot != "web_office":
         logger.warning(
             "bot-action: %s просили у %s, отправляю профильному %s", action, bot, target
         )
@@ -2111,8 +2189,11 @@ async def admin_bot_action(request: Request):
 
 
 @app.get("/api/admin/bots")
-async def admin_bots():
+async def admin_bots(request: Request):
     """Состав команды и живость каждого бота — для вкладки «Здоровье ботов»."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     from shared.bot_registry import BOTS
     from shared.health import check_all_bots
 
@@ -2148,8 +2229,11 @@ async def admin_bots():
 
 
 @app.get("/api/admin/bot-jobs")
-async def admin_bot_jobs():
+async def admin_bot_jobs(request: Request):
     """Расписания всех задач: что, когда и чем закончилось в прошлый раз."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     try:
         async with get_session_ctx() as session:
             res = await session.execute(
@@ -2380,13 +2464,19 @@ async def ai_office_dashboard(request: Request):
 
 
 @app.get("/api/magazine/brief")
-async def get_magazine_brief():
+async def get_magazine_brief(request: Request):
     """Возвращает Google Trends для брифинга журнала."""
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     trends = await fetch_google_trends(geo="UZ", limit=10)
     return JSONResponse({"google_trends": trends})
 
 
 @app.get("/api/workflow/state")
-async def get_workflow_state():
+async def get_workflow_state(request: Request):
+    if not _check_ingest_secret(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
     from shared.workflow_manager import workflow_manager
     return {"success": True, "workflows": workflow_manager.workflows}

@@ -1,9 +1,85 @@
 'use client';
 
-import { Clock } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Clock, Play, RefreshCw } from 'lucide-react';
 import { typeConfig, type Notification } from './notificationTypes';
+import { tint } from '@/lib/tint';
 
+// ══════════════════════════════════════════════════════════════════════
 // Выпадающий список уведомлений админки.
+//
+// КНОПКА «ВЫПОЛНИТЬ»
+//
+// Офис кладёт в сигнал не только факт, но и что с ним делать:
+// `suggested_action = {"action": "daily_backup", "bot": "devops_bot"}`
+// (`shared/owner_alerts.raise_alert`). Поле доезжало до базы и до браузера
+// и терялось на последнем шаге — колокольчик показывал «бэкап не удался»
+// и не давал его перезапустить.
+//
+// Кнопка ничего не переводит и не додумывает: форма команды совпадает с
+// телом `/api/admin/bot-action`, поэтому она отправляет ровно то, что
+// предложил офис. Рискованное там по-прежнему уходит на подтверждение.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Состояние одной команды: не запускали / в пути / чем закончилась. */
+type RunState = 'idle' | 'running' | 'done' | 'failed';
+
+function SuggestedAction({ action, bot }: { action: string; bot: string }) {
+  const [state, setState] = useState<RunState>('idle');
+  const [error, setError] = useState('');
+
+  const run = async () => {
+    if (state === 'running') return;
+    setState('running');
+    setError('');
+    try {
+      const res = await fetch('/api/admin/bot-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ action, bot }),
+      });
+      const data = await res.json().catch(() => null);
+      // `pending` — офис принял задачу, но ещё не доделал. Это успех:
+      // бэкап и синк каталога идут дольше запроса.
+      if (res.ok && data?.status !== 'error') {
+        setState('done');
+        return;
+      }
+      setError(data?.error || `Сервер ответил ${res.status}`);
+      setState('failed');
+    } catch {
+      setError('Нет связи с сервером');
+      setState('failed');
+    }
+  };
+
+  if (state === 'done') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '11px', color: 'var(--success)' }}>
+        <Check size={12} /> Запущено
+      </span>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <button
+        type="button"
+        onClick={run}
+        disabled={state === 'running'}
+        className="btn btn-sm btn-primary"
+        style={{ minHeight: 32, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+      >
+        {state === 'running' ? <RefreshCw size={12} className="animate-spin" /> : <Play size={12} />}
+        {state === 'running' ? 'Запускаю…' : 'Выполнить'}
+      </button>
+      {/* Что именно запустится — видно до нажатия, а не после. */}
+      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{action}</span>
+      {error && <span style={{ fontSize: '10px', color: 'var(--error)' }}>{error}</span>}
+    </div>
+  );
+}
 
 
 interface Props {
@@ -55,11 +131,11 @@ export function AdminNotificationsList({ open, notifications, clearAll, fmtTime 
             <div key={n.id} style={{
               padding: 'var(--space-3)', borderBottom: '1px solid var(--border)',
               display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-start',
-              background: n.read ? 'transparent' : `${cfg.color}08`,
+              background: n.read ? 'transparent' : tint(cfg.color, 8),
             }}>
               <div style={{
                 width: 28, height: 28, borderRadius: 'var(--radius-sm)',
-                background: `${cfg.color}15`, color: cfg.color,
+                background: tint(cfg.color), color: cfg.color,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
                 {cfg.icon}
@@ -67,6 +143,11 @@ export function AdminNotificationsList({ open, notifications, clearAll, fmtTime 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 'var(--text-xs)', lineHeight: 1.4 }}>{n.message}</div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: 2 }}>{fmtTime(n.time)}</div>
+                {n.action && (
+                  <div style={{ marginTop: 'var(--space-2)' }}>
+                    <SuggestedAction action={n.action.action} bot={n.action.bot} />
+                  </div>
+                )}
               </div>
             </div>
           );

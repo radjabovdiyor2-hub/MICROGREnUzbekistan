@@ -552,6 +552,132 @@ async def _take(token: str, decision: str) -> Optional[Dict[str, Any]]:
         return None
 
 
+async def _take_by_id(approval_id: int, decision: str) -> Optional[Dict[str, Any]]:
+    """То же, что `_take`, но по номеру строки — так заявку видит админка.
+
+    В Telegram заявка адресуется токеном (он влезает в `callback_data`), а в
+    вебе — обычным `id` из списка. Условие `status = 'pending'` то же самое,
+    поэтому одновременное нажатие в двух местах даёт ровно одно выполнение.
+    """
+    from sqlalchemy import text as sa_text
+
+    from shared.database import get_session_ctx
+
+    try:
+        async with get_session_ctx() as session:
+            row = (
+                await session.execute(
+                    sa_text(
+                        "UPDATE owner_approvals SET status = :st, decided_at = NOW() "
+                        "WHERE id = :aid AND status = 'pending' "
+                        "RETURNING kind, payload, bot_name, chat_id, task_id"
+                    ),
+                    {"aid": int(approval_id), "st": decision},
+                )
+            ).fetchone()
+            await session.commit()
+        if not row:
+            return None
+        payload = row[1]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return {
+            "kind": row[0],
+            "payload": payload or {},
+            "bot": row[2],
+            "chat_id": row[3],
+            "task_id": row[4],
+        }
+    except Exception as exc:
+        logger.warning("APPROVALS: не смог прочитать заявку #%s: %s", approval_id, exc)
+        return None
+
+
+class _WebDecision:
+    """Заглушка `CallbackQuery` для решения, принятого НЕ в Telegram.
+
+    Обработчики заявок объявлены как `(payload, callback)` и почти все
+    аргумент игнорируют — им нужен только `payload`. Исключение одно:
+    запуск плана совещания зовёт `cb.bot`, чтобы написать в чат.
+    Поэтому здесь ровно то, чем пользуются, и ничего больше.
+    """
+
+    def __init__(self, bot: Optional[Bot]):
+        self.bot = bot
+        self.message = None
+        self.from_user = None
+
+    async def answer(self, *args, **kwargs) -> None:
+        """Всплывающего ответа в вебе нет — результат вернётся в HTTP."""
+        return None
+
+
+async def decide(
+    approval_id: int,
+    decision: str,
+    bot: Optional[Bot] = None,
+) -> Dict[str, Any]:
+    """Решить заявку по её номеру. Возвращает результат для показа человеку.
+
+    ЗАЧЕМ ЭТО ЕСТЬ
+
+    Одобрить заявку можно было ТОЛЬКО в Telegram: выполнение живёт здесь, в
+    `_HANDLERS`, а у витрины нет ни инструментов, ни шины. Владелец, сидящий
+    в админке, видел очередь «Ждёт решения» и мог лишь снять заявку — то
+    есть весь цикл подтверждений упирался в мессенджер.
+
+    Функция общая: кнопка в Telegram и админка проходят один и тот же путь,
+    включая одноразовость (`status = 'pending'` в UPDATE) и закрытие задачи,
+    из которой заявка выросла.
+
+    Ключи ответа: `ok` (решение принято), `acted` (действие получилось),
+    `message` (что сказать человеку), `kind`.
+    """
+    if decision not in ("approved", "rejected"):
+        return {"ok": False, "acted": False, "message": "Неизвестное решение", "kind": ""}
+
+    request_data = await _take_by_id(approval_id, decision)
+    if not request_data:
+        # Не «ошибка», а «уже решено»: то же самое видит второй нажавший.
+        return {"ok": False, "acted": False, "message": "Заявка уже обработана", "kind": ""}
+
+    kind = request_data.get("kind", "")
+    context = _WebDecision(bot or _fallback_bot())
+
+    if decision == "rejected":
+        handler = _REJECT_HANDLERS.get(kind)
+        note = ""
+        if handler is not None:
+            try:
+                note = await handler(request_data.get("payload") or {}, context) or ""
+            except Exception as exc:
+                logger.exception("APPROVALS: обработчик отказа %s упал: %s", kind, exc)
+        await _close_task(request_data.get("task_id"), "cancelled")
+        return {"ok": True, "acted": True, "message": note or "Отклонено.", "kind": kind}
+
+    handler = _HANDLERS.get(kind)
+    if handler is None:
+        logger.error("APPROVALS: нет обработчика для типа %r — заявка потеряна", kind)
+        return {"ok": True, "acted": False, "message": "Некому выполнить это действие", "kind": kind}
+
+    acted = True
+    try:
+        outcome = await handler(request_data.get("payload") or {}, context)
+        if isinstance(outcome, tuple):
+            message, acted = outcome
+        else:
+            message = outcome
+    except Exception as exc:
+        logger.exception("APPROVALS: обработчик %s упал: %s", kind, exc)
+        message = f"Не выполнено: {exc}"
+        acted = False
+
+    # Получилось — задача закрыта. Нет — возвращаем в работу, чтобы она не
+    # считалась выполненной и осталась на виду.
+    await _close_task(request_data.get("task_id"), "done" if acted else "todo")
+    return {"ok": True, "acted": acted, "message": message or "", "kind": kind}
+
+
 async def _run_tool(payload: Dict[str, Any], callback: CallbackQuery):
     result = await tool_registry.call(payload["tool"], payload.get("args") or {})
     normalized = tool_registry.normalize_result(result)

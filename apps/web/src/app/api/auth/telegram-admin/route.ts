@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateInitData, getBotToken } from '@/lib/telegramAuth';
+import { validateInitData } from '@/lib/telegramAuth';
+import { trustedBotTokens } from '@/lib/telegram/botTokens';
 import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { audit } from '@/lib/audit';
@@ -44,12 +45,8 @@ function ownerIds(): Set<string> {
   );
 }
 
-/** Токены ботов, чью подпись принимаем. Стёпан первый — карточки шлёт он. */
-function botTokens(): string[] {
-  return [process.env.STEPAN_BOT_TOKEN, getBotToken()].filter(
-    (token): token is string => Boolean(token),
-  );
-}
+/** Токены ботов, чью подпись принимаем. Список общий с входом сотрудника. */
+const botTokens = trustedBotTokens;
 
 export async function POST(request: NextRequest) {
   const ip = clientIp(request);

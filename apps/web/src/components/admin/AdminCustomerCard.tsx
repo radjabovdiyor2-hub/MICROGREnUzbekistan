@@ -1,61 +1,41 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { AlertCircle, ArrowLeft, Edit3, Gift, Phone, RefreshCw } from 'lucide-react';
+import { useCallback, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import type { CustomerCard } from '@/lib/customers/card';
-import {
-  AUDIENCE_RELEVANT,
-  audienceLabel,
-  companyTypeLabel,
-} from '@/lib/customers/companyTypes';
-import { districtLabel } from '@/lib/customers/districts';
-import { sumLabel } from '@/lib/customers/money';
+import { AdminCustomerCardHead } from './AdminCustomerCardHead';
 import { AdminCustomerOrders } from './AdminCustomerOrders';
 import { AdminCustomerActivity } from './AdminCustomerActivity';
-import { AdminCustomerPrices } from './AdminCustomerPrices';
+import { PosSaleSheet } from './PosSaleSheet';
+import { useAdminBack } from './useAdminBack';
 
 // Экран одного клиента: контакты, сводка, история заказов, обращения.
 // Открывается кликом по строке в таблице — так же, как карточка заказа
 // в AdminOrders. Правка полей осталась в модалке AdminCustomerEdit.
+//
+// Продать можно прямо отсюда — тем же листом, что и с точки на карте.
+// Открыть клиента и не иметь возможности провести ему продажу значило
+// заставлять продавца искать его в кассе поиском заново.
 
-const STATUS_LABELS: Record<string, string> = {
-  lead: 'Лид',
-  active: 'Активный',
-  vip: 'VIP',
-  churned: 'Ушедший',
-};
-
-const fmtMoney = (n: number) => n.toLocaleString('ru-RU');
-const fmtDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-
-function Stat({ label, value, hint, color }: {
-  label: string;
-  value: string;
-  hint?: string;
-  color?: string;
-}) {
-  return (
-    <div>
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 'var(--text-lg)', fontWeight: 'var(--font-bold)', color: color || 'var(--text-primary)' }}>
-        {value}
-      </div>
-      {hint && (
-        <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{hint}</div>
-      )}
-    </div>
-  );
-}
-
-export function AdminCustomerCard({ customerId, lang, onBack, onEdit }: {
+export function AdminCustomerCard({ customerId, lang, sellerName, onBack, onEdit }: {
   customerId: number;
   lang: 'ru' | 'uz';
+  /** Кем подписывать чек, пробитый из карточки. */
+  sellerName: string;
   onBack: () => void;
   onEdit: (c: CustomerCard) => void;
 }) {
+  const queryClient = useQueryClient();
+  const [selling, setSelling] = useState(false);
+
+  // Аппаратное «назад» в Telegram закрывает карточку, а не приложение.
+  // Порядок важен: открытая касса перехватывает кнопку поверх карточки, и
+  // первое нажатие закрывает её, второе — возвращает к списку.
+  const closeSale = useCallback(() => setSelling(false), []);
+  useAdminBack(onBack, !selling);
+  useAdminBack(closeSale, selling);
+
   const { data, isLoading, error } = useQuery<CustomerCard, Error>({
     queryKey: ['admin-customer', customerId],
     queryFn: async () => {
@@ -99,97 +79,49 @@ export function AdminCustomerCard({ customerId, lang, onBack, onEdit }: {
     <div>
       {back}
 
-      {/* Шапка: кто это и чем закончились отношения с ним */}
-      <div className="card" style={{ padding: 'var(--space-5)', marginBottom: 'var(--space-3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <div style={{ minWidth: 0 }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xl)' }}>
-              {data.name}
-            </h2>
-            {data.companyName && (
-              <div style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>
-                🏢 {data.companyName}
-                {/* Подпись, а не слаг. Здесь стояло сырое значение колонки,
-                    и владелец читал «Плов Центр · toyxona» — то же самое
-                    место, где во всех остальных экранах уже стоит перевод. */}
-                {data.companyType ? ` · ${companyTypeLabel(data.companyType, lang)}` : ''}
-                {data.companyType && AUDIENCE_RELEVANT.includes(data.companyType) && (
-                  <span style={{ color: data.audience ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
-                    {' · '}
-                    {audienceLabel(data.audience, lang)}
-                  </span>
-                )}
-                {data.district && (
-                  <span style={{ color: 'var(--text-muted)' }}>
-                    {' · '}
-                    {districtLabel(data.district, lang)}
-                  </span>
-                )}
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 'var(--text-sm)' }}>
-              <Phone size={13} style={{ color: 'var(--text-muted)' }} />
-              {data.phone}
-              {data.telegramUsername && (
-                <span style={{ color: 'var(--brand-primary)' }}>@{data.telegramUsername}</span>
-              )}
-            </div>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 4 }}>
-              {data.customerType.toUpperCase()} · {STATUS_LABELS[data.status] || data.status} · {data.city}
-              {data.source ? ` · источник: ${data.source}` : ''} · с {fmtDate(data.createdAt)}
-            </div>
-          </div>
-
-          <button onClick={() => onEdit(data)} className="btn btn-primary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
-            <Edit3 size={14} /> Правка
-          </button>
-        </div>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-          gap: 'var(--space-3)',
-          marginTop: 'var(--space-4)',
-          paddingTop: 'var(--space-3)',
-          borderTop: '1px solid var(--border)',
-        }}>
-          <Stat label="Заказов" value={String(data.ordersCount)} />
-          {/* Прочерк, а не «0 сум»: продавцу суммы не показываем. */}
-          <Stat label="Потрачено" value={sumLabel(data.totalSpent, 'ru')} color="var(--success)" />
-          <Stat
-            label="Бонусы"
-            value={data.bonusBalance === null ? '—' : fmtMoney(data.bonusBalance)}
-            color="var(--warning)"
-            // Баллы лежат на аккаунте витрины, а не в карточке CRM. Если
-            // связки нет, начислить их некуда — и это должно быть видно
-            // здесь, а не выясняться отказом при сохранении.
-            hint={data.webAccount ? 'счёт витрины привязан' : 'нет связки с витриной'}
-          />
-          <Stat label="Последний заказ" value={fmtDate(data.lastOrderDate)} />
-        </div>
-
-        {!data.webAccount && (
-          <div style={{ marginTop: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
-            <Gift size={14} />
-            Карточка не связана с аккаунтом витрины: начислить баллы нельзя, пока
-            клиент не оформит заказ через сайт или бота.
-          </div>
-        )}
-
-        {data.notes && (
-          <div style={{ marginTop: 'var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Заметки: </span>{data.notes}
-          </div>
-        )}
-
-        <AdminCustomerPrices customerId={customerId} />
-      </div>
+      <AdminCustomerCardHead
+        data={data}
+        lang={lang}
+        onEdit={onEdit}
+        onSell={() => setSelling(true)}
+      />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         <AdminCustomerOrders orders={data.orders} />
         <AdminCustomerActivity interactions={data.interactions} followups={data.followups} />
       </div>
+
+      {/* Продажа — модалкой поверх карточки, как правка: уходить с экрана
+          клиента ради его же продажи незачем. Визит отсюда НЕ отмечается —
+          это работа за столом, а не поездка (для неё есть точка на карте). */}
+      {selling && (
+        <div
+          onClick={() => setSelling(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 50,
+            background: 'var(--bg-overlay)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 'var(--space-4)',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: '100%', maxWidth: 480, maxHeight: '90dvh', overflowY: 'auto' }}
+          >
+            <PosSaleSheet
+              customer={{ id: data.id, name: data.companyName || data.name, phone: data.phone === '—' ? null : data.phone }}
+              lang={lang}
+              sellerName={sellerName}
+              origin="counter"
+              onClose={() => setSelling(false)}
+              onSold={() => {
+                queryClient.invalidateQueries({ queryKey: ['admin-customer', customerId] });
+                queryClient.invalidateQueries({ queryKey: ['admin-customers-map'] });
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

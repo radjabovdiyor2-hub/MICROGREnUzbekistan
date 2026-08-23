@@ -7,6 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
 from shared import catalog_repo, customer_repo, group_reply, storefront_orders
+from shared.notifications import send_report
 from shared.utils import format_price
 from shared.prompts import role_prompt
 from shared.config import settings
@@ -798,11 +799,17 @@ async def handle_task_created(payload: dict):
                             getattr(settings, "sales_group_id", None) or chat_id
                         )
                         if sales_group:
-                            await bot.send_message(
+                            # «Оформите вручную» — прямое поручение: кнопка
+                            # ведёт на заказы, где его и оформляют. В группе
+                            # это обычная ссылка (Mini App там запрещён).
+                            await send_report(
+                                bot,
                                 sales_group,
                                 f"🔔 Новый IG-заказ, сумма не определена — уточните у клиента и оформите вручную:\n"
                                 f"Заказ: {order_number}\nКлиент: {customer_name}\nДетали: {desc}",
-                                parse_mode="HTML",
+                                admin_tab="orders",
+                                focus=order_number,
+                                button_text="📦 Оформить заказ",
                             )
 
         else:
@@ -1170,9 +1177,16 @@ async def main():
 
     # Heartbeat + Scheduler
     asyncio.create_task(start_heartbeat("sales_bot"))
+
+    # Постоянная дверь в свой раздел админки: кнопка рядом с полем ввода.
+    # Кнопки под сообщениями уезжают вверх за день переписки, эта — нет.
+    from shared import menu_button
+
+    asyncio.create_task(menu_button.install(bot, "sales_bot"))
     await scheduler.start()
 
     # ── Bot Bus: слушаем задачи от Степана ──
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
     from shared.event_bus import BotBusActions
 
@@ -1180,6 +1194,10 @@ async def main():
         bus_listen(
             "sales_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("sales_bot"),
                 "get_orders": bus_get_orders,
                 "get_clients": bus_get_clients,
                 "process_ig_order": bus_process_ig_order,

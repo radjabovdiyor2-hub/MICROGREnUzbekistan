@@ -8,10 +8,12 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw, Search, AlertCircle, Bot } from 'lucide-react';
 
+import { useFeedback } from './AdminFeedback';
 import { AdminLearningCard } from './AdminLearningCard';
 import { BOT_EMOJIS } from './adminLearningsConfig';
 
 export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
+  const notify = useFeedback();
   const [selectedBot, setSelectedBot] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -41,10 +43,17 @@ export function AdminLearnings({ lang }: { lang: 'ru' | 'uz' }) {
   };
 
   const remove = async (item: BotLearningItem) => {
-    const question = lang === 'ru'
-      ? `Удалить вывод «${item.metric}» для ${item.bot}?`
-      : `${item.bot} uchun «${item.metric}» xulosasi o'chirilsinmi?`;
-    if (!confirm(question)) return;
+    const agreed = await notify.confirm({
+      title: lang === 'ru'
+        ? `Удалить вывод «${item.metric}» для ${item.bot}?`
+        : `${item.bot} uchun «${item.metric}» xulosasi o'chirilsinmi?`,
+      detail: lang === 'ru'
+        ? 'Бот перестанет опираться на этот вывод в решениях.'
+        : "Bot bu xulosaga tayanmay qoladi.",
+      confirmText: lang === 'ru' ? 'Удалить' : "O'chirish",
+      danger: true,
+    });
+    if (!agreed) return;
     setBusyId(item.id);
     try {
       await fetch(`/api/admin/learnings?id=${item.id}`, {

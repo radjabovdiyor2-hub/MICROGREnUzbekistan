@@ -359,6 +359,7 @@ async def get_followups(status: str = "pending") -> Dict[str, Any]:
 register(
     Tool(
         name="get_debts",
+        admin_tab="debts",
         description=(
             "Долги: кто должен нам и кому должны мы, сколько осталось и до какого числа. "
             "Вызывай на «сколько мне должны», «кому мы должны», «какие долги»."
@@ -381,6 +382,7 @@ register(
 register(
     Tool(
         name="get_shifts",
+        admin_tab="shifts",
         description=(
             "Кто сегодня в смене, кто на больничном или в отпуске. "
             "Вызывай на «кто работает», «кто в смене», «кто сегодня на ферме»."
@@ -399,6 +401,7 @@ register(
 register(
     Tool(
         name="get_supplier_prices",
+        admin_tab="suppliers",
         description=(
             "Почём и у кого закупаем сырьё: семена, субстрат, лотки, упаковку. "
             "Вызывай на «почём семена», «у кого дешевле», «цены поставщиков»."
@@ -421,6 +424,7 @@ register(
 register(
     Tool(
         name="get_quality_report",
+        admin_tab="qa",
         description=(
             "Контроль качества за период: сколько партий годно, сколько брака и какого. "
             "Вызывай на «что с браком», «качество урожая», «сколько плесени»."
@@ -439,6 +443,7 @@ register(
 register(
     Tool(
         name="get_followups",
+        admin_tab="customers",
         description=(
             "Кому обещали перезвонить и когда, что просрочено. "
             "Вызывай на «кому перезвонить», «какие касания», «что просрочено»."

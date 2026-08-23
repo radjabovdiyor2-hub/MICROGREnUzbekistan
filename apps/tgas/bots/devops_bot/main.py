@@ -163,12 +163,17 @@ async def main():
     # Словарь обработчиков был пустым: любая адресная задача (в том числе
     # «Бекап БД» из админки) отклонялась как «неизвестное действие» и
     # после трёх попыток уходила в failed.
+    from shared import self_restart
     from shared.bot_bus import start_listener as bus_listen
 
     asyncio.create_task(
         bus_listen(
             "devops_bot",
             {
+                # Перезапуск по команде из админки. Бот выходит сам,
+                # Docker поднимает его обратно (restart: unless-stopped) —
+                # доступ к сокету Docker для этого не нужен.
+                "restart_self": self_restart.handler("devops_bot"),
                 "daily_backup": bus_daily_backup,
             },
         )

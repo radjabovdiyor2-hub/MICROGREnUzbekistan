@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'crypto';
 import { prisma } from '@repo/database';
-import { notifyOfficePosSale } from '@/lib/orders/notify';
+import { detach } from '@/lib/background';
+import { drainOffice, enqueueOffice } from '@/lib/office/outbox';
+import { posSaleIngestBody } from '@/lib/orders/notify';
 import { formatQty, formatQtyWithUnit, normalizeQty } from '@/lib/qty';
 import { formatLocalDate } from '@/lib/revenue/salesLedger';
 import { allocateDiscount } from './discount';
@@ -22,6 +24,46 @@ const stockLevel = (stock: number): 'CRITICAL' | 'WARNING' | null =>
 // в discount.ts, сборка уведомления владельцу — в saleNotify.ts.
 // ══════════════════════════════════════════════════════════════════════
 
+/**
+ * Уже пробитый чек по ключу идемпотентности. `null` — такого нет.
+ *
+ * Ответ повторяет форму обычного успеха: касса не должна отличать «прошло
+ * сейчас» от «прошло на прошлой попытке» ничем, кроме признака `duplicate`.
+ */
+async function existingSale(clientKey: string, itemCount: number): Promise<NextResponse | null> {
+  const already = await prisma.posSale.findUnique({
+    where: { clientKey },
+    select: {
+      number: true, gross: true, discount: true, total: true, soldAt: true,
+      paymentMethod: true, performedBy: true, backdated: true,
+    },
+  });
+  if (!already) return null;
+
+  return NextResponse.json({
+    success: true,
+    saleNumber: already.number,
+    total: already.total,
+    gross: already.gross,
+    discount: already.discount,
+    itemCount,
+    paymentMethod: already.paymentMethod,
+    performedBy: already.performedBy,
+    backdated: already.backdated,
+    alerts: [],
+    soldAt: already.soldAt.toISOString(),
+    createdAt: new Date().toISOString(),
+    // Повтор, а не новая продажа: касса по этому признаку не печатает
+    // второй чек и не поздравляет продавца дважды.
+    duplicate: true,
+  });
+}
+
+/** Похоже ли исключение на нарушение уникальности ключа идемпотентности. */
+function isDuplicateKey(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002';
+}
+
 /** Возвращает готовый ответ: коды статусов у отказов различаются по причине. */
 export async function processSale(request: NextRequest): Promise<NextResponse> {
   const parsed = parseSale(request, await request.json());
@@ -29,9 +71,36 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: parsed.error }, { status: parsed.status });
   }
   const {
-    items, paymentMethod, performedBy, role, customerId,
+    items, paymentMethod, performedBy, role, customerId, origin, clientKey,
     soldAt, backdated, backdateReason, discount, debtInfo,
   } = parsed.sale;
+
+  // ── Тот же чек, а не второй ────────────────────────────────────────
+  //
+  // Повтор запроса с тем же ключом возвращает УЖЕ пробитый чек. Без этого
+  // двойное нажатие «Продать» на плохой сети и повторная отправка из
+  // офлайн-очереди списывали товар дважды и дважды писали выручку.
+  const duplicate = clientKey ? await existingSale(clientKey, items.length) : null;
+  if (duplicate) return duplicate;
+
+  // ── Покупатель ─────────────────────────────────────────────────────
+  //
+  // Читаем карточку ДО транзакции по двум причинам. Во-первых, несуществующий
+  // id иначе ронял бы вставку внешним ключом, и продавец получал 500 вместо
+  // внятного отказа. Во-вторых, имя, телефон и адрес нужны зеркалу CRM: без
+  // них офис не находит карточку и сваливает чек на фиктивного «Покупателя
+  // в магазине» — ровно та причина, по которой продажа не отражалась на
+  // клиенте.
+  const customer = customerId
+    ? await prisma.customer.findUnique({
+        where: { id: customerId },
+        select: { id: true, name: true, companyName: true, phone: true, address: true },
+      })
+    : null;
+
+  if (customerId && !customer) {
+    return NextResponse.json({ error: `Mijoz topilmadi: ${customerId}` }, { status: 404 });
+  }
 
   const products = await prisma.product.findMany({
     where: { id: { in: items.map((i) => i.productId) } },
@@ -67,6 +136,12 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
   // Скидка на чек разносится по позициям: у чека нет строки-шапки в базе, а
   // выручка кассы считается как `quantity × salePrice`. Не разнести — значит
   // показать в отчётах сумму до скидки, то есть деньги, которых не было.
+  // Долговая продажа без выбранной карточки: имя и телефон должника — всё,
+  // что о покупателе известно. Раньше это был ЕДИНСТВЕННЫЙ случай, когда
+  // зеркало CRM получало хоть какое-то имя.
+  const debtName = paymentMethod === 'debt' ? debtInfo?.personName || null : null;
+  const debtPhone = paymentMethod === 'debt' ? debtInfo?.phone || null : null;
+
   const allocation = allocateDiscount(items, discount);
   const effectivePrice = new Map<string, number>();
   items.forEach((item, i) => effectivePrice.set(item.productId, allocation.lines[i].price));
@@ -123,6 +198,8 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
         role,
         paymentMethod,
         customerId,
+        origin,
+        clientKey,
         gross: allocation.gross,
         discount: allocation.applied,
         discountType: discount?.type ?? null,
@@ -217,8 +294,53 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // ── Обещание отзеркалить чек в CRM — в ТОЙ ЖЕ транзакции ──────────
+    //
+    // Либо есть и продажа, и обещание, либо нет ни того, ни другого. Раньше
+    // зеркало вызывалось после транзакции с `.catch(() => {})`: лежащий офис
+    // означал навсегда потерянную привязку чека к клиенту, а счётчики
+    // карточки считаются офисом именно по `crm_orders`.
+    await enqueueOffice(tx, {
+      topic: 'order',
+      refKey: saleNumber,
+      payload: posSaleIngestBody({
+        saleNumber,
+        total,
+        soldAt: soldAt.toISOString(),
+        paymentMethod,
+        origin,
+        customer: {
+          id: customer?.id ?? null,
+          // Заведение узнают по вывеске, а не по имени контактного лица.
+          name: customer ? customer.companyName || customer.name : debtName,
+          phone: customer?.phone ?? debtPhone,
+          address: customer?.address ?? null,
+        },
+        items: items.map((i) => ({
+          productId: i.productId,
+          name: productMap.get(i.productId)?.nameUz ?? 'Tovar',
+          quantity: i.quantity,
+          price: effectivePrice.get(i.productId) ?? i.price,
+        })),
+      }),
+    });
+
     return after;
+  }).catch((err: unknown) => {
+    // Гонка двух одинаковых отправок: первая успела вставить чек с этим
+    // ключом, вторая упёрлась в уникальность колонки. Это не отказ — это
+    // ТОТ ЖЕ чек, и отвечать на него надо им, а не пятисоткой.
+    if (clientKey && isDuplicateKey(err)) return null;
+    throw err;
   });
+
+  if (stockAfter === null) {
+    const raced = clientKey ? await existingSale(clientKey, items.length) : null;
+    if (raced) return raced;
+    // Ключ занят, а чека по нему нет: такого быть не должно, и молча
+    // притворяться успехом здесь нельзя.
+    return NextResponse.json({ error: 'Chek takrorlandi' }, { status: 409 });
+  }
 
   // Предупреждения считаем по РЕАЛЬНОМУ остатку после транзакции, а не по
   // значению, прочитанному до неё. И только если стало ХУЖЕ: товар, который
@@ -251,36 +373,29 @@ export async function processSale(request: NextRequest): Promise<NextResponse> {
     discount: discount ? { ...discount, applied: allocation.applied } : null,
   });
 
-  // Зеркало в CRM офиса. Без него продажа за прилавком оставалась невидимой:
-  // ни Стёпан, ни финансы, ни аналитика отделов её не видели, и в P&L выручка
-  // магазина не попадала. Не ждём ответа — недоступный офис не должен
-  // задерживать покупателя у кассы.
-  notifyOfficePosSale({
-    saleNumber,
-    total,
-    soldAt: soldAt.toISOString(),
-    paymentMethod,
-    customerName: paymentMethod === 'debt' ? debtInfo?.personName ?? null : null,
-    customerPhone: paymentMethod === 'debt' ? debtInfo?.phone ?? null : null,
-    items: items.map((i) => ({
-      productId: i.productId,
-      name: productMap.get(i.productId)?.nameUz ?? 'Tovar',
-      quantity: i.quantity,
-      price: effectivePrice.get(i.productId) ?? i.price,
-    })),
-  }).catch(() => {});
+  // Зеркало в CRM офиса уже обещано транзакцией — здесь только отправка.
+  // В фоне и без ожидания: недоступный офис не должен задерживать
+  // покупателя у кассы, а не отправленное подберёт следующий проход.
+  // Заодно уходит всё, что накопилось, пока офис лежал.
+  detach('зеркало продажи в офис', drainOffice());
 
-  notifyOwner(buildSaleMessage({
-    saleNumber, total, discountApplied: allocation.applied, paymentMethod,
-    performedBy, soldAt, backdated, backdateReason,
-    lines: items.map((i) => ({
-      name: productMap.get(i.productId)?.nameUz ?? 'Tovar',
-      unit: productMap.get(i.productId)?.unit ?? null,
-      quantity: i.quantity,
-      price: effectivePrice.get(i.productId) ?? i.price,
-    })),
-    alerts,
-  }));
+  notifyOwner(
+    buildSaleMessage({
+      saleNumber, total, discountApplied: allocation.applied, paymentMethod,
+      performedBy, soldAt, backdated, backdateReason,
+      lines: items.map((i) => ({
+        name: productMap.get(i.productId)?.nameUz ?? 'Tovar',
+        unit: productMap.get(i.productId)?.unit ?? null,
+        quantity: i.quantity,
+        price: effectivePrice.get(i.productId) ?? i.price,
+      })),
+      alerts,
+    }),
+    // Чек с предупреждением об остатке — это разговор про склад, а не про
+    // выручку: кнопка ведёт туда, где товар можно дозаказать.
+    alerts.length > 0 ? 'inventory' : 'revenue',
+    alerts.length > 0 ? '📦 Склад' : '💵 Доход',
+  );
 
   return NextResponse.json({
     success: true,

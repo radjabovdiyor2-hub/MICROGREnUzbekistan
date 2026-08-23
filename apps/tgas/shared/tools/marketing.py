@@ -116,6 +116,7 @@ register(
 register(
     Tool(
         name="collect_leads",
+        admin_tab="customers",
         description="Собрать новых B2B-лидов (рестораны, кафе) из внешних справочников.",
         run=collect_leads,
         departments=DEPTS,
@@ -126,6 +127,7 @@ register(
 register(
     Tool(
         name="get_funnel",
+        admin_tab="analytics",
         description="Состояние B2B-воронки: лиды, контакты, активные клиенты.",
         run=get_funnel,
         departments=DEPTS,

@@ -38,7 +38,7 @@ export function YieldCalc({ onResult }: { onResult: (r: CalcResult) => void }) {
         ))}
       </select>
       <input type="number" min="1" placeholder="Lotoklar soni" value={trays} onChange={e => setTrays(e.target.value)} style={inputStyle} />
-      <button onClick={calc} disabled={!trays} style={{ padding: 11, borderRadius: 10, background: 'var(--brand-primary)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !trays ? 0.5 : 1 }}>
+      <button onClick={calc} disabled={!trays} style={{ padding: 11, borderRadius: 10, background: 'var(--brand-primary)', color: 'var(--text-inverse)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !trays ? 0.5 : 1 }}>
         Hisoblash
       </button>
     </div>
@@ -79,7 +79,7 @@ export function LightCalc({ onResult }: { onResult: (r: CalcResult) => void }) {
         <option value="led">LED Fitolampa (tejamkor)</option>
         <option value="lum">Lyuminessent (oddiy)</option>
       </select>
-      <button onClick={calc} disabled={!area} style={{ padding: 11, borderRadius: 10, background: 'var(--warning)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !area ? 0.5 : 1 }}>
+      <button onClick={calc} disabled={!area} style={{ padding: 11, borderRadius: 10, background: 'var(--warning)', color: 'var(--text-inverse)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !area ? 0.5 : 1 }}>
         Hisoblash
       </button>
     </div>
@@ -121,7 +121,7 @@ export function WaterCalc({ onResult }: { onResult: (r: CalcResult) => void }) {
         <option value="veg">O&#39;sish bosqichi (3-7 kun)</option>
         <option value="bloom">Hosil bosqichi (7+ kun)</option>
       </select>
-      <button onClick={calc} disabled={!volume} style={{ padding: 11, borderRadius: 10, background: 'var(--info)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !volume ? 0.5 : 1 }}>
+      <button onClick={calc} disabled={!volume} style={{ padding: 11, borderRadius: 10, background: 'var(--info)', color: 'var(--text-inverse)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !volume ? 0.5 : 1 }}>
         Hisoblash
       </button>
     </div>
@@ -172,7 +172,7 @@ export function ProfitCalc({ onResult }: { onResult: (r: CalcResult) => void }) 
       </select>
       <input type="number" min="1" placeholder="Sotiladigan lotoklar soni" value={trays} onChange={e => setTrays(e.target.value)} style={inputStyle} />
       <input type="number" placeholder="1 lotok narxi (so'm)" value={sellPrice} onChange={e => setSellPrice(e.target.value)} style={inputStyle} />
-      <button onClick={calc} disabled={!trays} style={{ padding: 11, borderRadius: 10, background: 'var(--brand-primary)', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !trays ? 0.5 : 1 }}>
+      <button onClick={calc} disabled={!trays} style={{ padding: 11, borderRadius: 10, background: 'var(--brand-primary)', color: 'var(--text-inverse)', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 13, opacity: !trays ? 0.5 : 1 }}>
         Hisoblash
       </button>
     </div>

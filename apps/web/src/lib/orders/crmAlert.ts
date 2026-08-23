@@ -38,8 +38,13 @@ const KIND = 'crm_sync_failed';
 export async function alertCrmSyncFailed(input: {
   /** Номер заказа или чека — чтобы владелец мог показать конкретную запись. */
   target: string;
-  /** `order` — заказ с сайта, `pos` — продажа за прилавком. */
-  channel: 'order' | 'pos';
+  /**
+   * `order` — заказ с сайта, `pos` — продажа за прилавком или с выезда,
+   * `refund` — возврат. Возврат стоит отдельно намеренно: непрошедший
+   * возврат оставляет клиенту ЗАВЫШЕННУЮ сумму покупок, и владельцу важно
+   * прочитать в сигнале именно это, а не «продажа не доехала».
+   */
+  channel: 'order' | 'pos' | 'refund';
   /** Что именно ответил офис, если это известно. */
   reason?: string;
 }): Promise<void> {
@@ -51,7 +56,12 @@ export async function alertCrmSyncFailed(input: {
     });
     if (already) return;
 
-    const what = input.channel === 'pos' ? 'Продажа за прилавком' : 'Заказ с сайта';
+    const what =
+      input.channel === 'pos'
+        ? 'Продажа за прилавком'
+        : input.channel === 'refund'
+          ? 'Возврат за прилавком'
+          : 'Заказ с сайта';
 
     await prisma.ownerAlert.create({
       data: {

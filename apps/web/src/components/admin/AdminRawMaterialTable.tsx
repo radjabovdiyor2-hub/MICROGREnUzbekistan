@@ -2,6 +2,7 @@
 
 import { PackagePlus, RotateCcw, Trash2 } from 'lucide-react';
 import { KIND_LABELS, type RawMaterial } from './rawMaterialTypes';
+import { focusOutline, isFocused, useScrollToFocused } from './useFocusedRow';
 
 // Таблица остатков сырья. Вынесена из AdminRawMaterials, чтобы каждый файл
 // оставался в пределах 200 строк.
@@ -12,6 +13,8 @@ interface Props {
   onReceipt: (material: RawMaterial) => void;
   onDelete: (material: RawMaterial) => void;
   onRestore: (material: RawMaterial) => void;
+  /** Сырьё, ради которого пришли по ссылке (`?focus=`, `receive_material`). */
+  focus?: string;
 }
 
 const cell: React.CSSProperties = {
@@ -20,7 +23,10 @@ const cell: React.CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
-export function AdminRawMaterialTable({ materials, fmt, onReceipt, onDelete, onRestore }: Props) {
+export function AdminRawMaterialTable({
+  materials, fmt, onReceipt, onDelete, onRestore, focus = '',
+}: Props) {
+  const scrollToFocused = useScrollToFocused<HTMLTableRowElement>();
   if (materials.length === 0) {
     return (
       <div className="card" style={{ padding: 'var(--space-4)', color: 'var(--text-muted)' }}>
@@ -48,7 +54,13 @@ export function AdminRawMaterialTable({ materials, fmt, onReceipt, onDelete, onR
         </thead>
         <tbody>
           {materials.map((m) => (
-            <tr key={m.id} style={{ borderBottom: '1px solid var(--border-secondary)', opacity: m.isActive === false ? 0.5 : 1 }}>
+            <tr key={m.id}
+              ref={isFocused(focus, m.id) ? scrollToFocused : undefined}
+              style={{
+                borderBottom: '1px solid var(--border-secondary)',
+                opacity: m.isActive === false ? 0.5 : 1,
+                ...focusOutline(isFocused(focus, m.id)),
+              }}>
               <td style={{ ...cell, fontWeight: 'var(--font-semibold)' }}>
                 {m.name}
                 {m.cropType && (

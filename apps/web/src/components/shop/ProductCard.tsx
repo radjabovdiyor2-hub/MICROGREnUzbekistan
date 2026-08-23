@@ -75,7 +75,7 @@ export function ProductCard({ product }: { product: Product }) {
       {discount > 0 && (
         <span style={{
           position: 'absolute', top: 8, left: 8, zIndex: 2,
-          padding: '4px 8px', background: 'var(--error)', color: 'white',
+          padding: '4px 8px', background: 'var(--error)', color: 'var(--text-inverse)',
           borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)', fontWeight: 'var(--font-bold)',
           display: 'flex', alignItems: 'center', gap: '4px',
         }}>
