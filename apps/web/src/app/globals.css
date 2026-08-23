@@ -232,7 +232,13 @@ input, textarea, select {
 }
 
 .btn-primary:active {
-  transform: translateY(0);
+  /* Нажатие снимает подъём hover и слегка утапливает кнопку.
+
+     Объявлений `:active` было два — здесь и ещё раз строкой 2573. Нижнее
+     перебивало верхнее, поэтому `scale` работал, а `translateY(0)` отсюда
+     не рисовался никогда. Правка любого из них давала эффект в половине
+     случаев, и понять в какой — только чтением всего файла. */
+  transform: translateY(0) scale(0.99);
 }
 
 /* «Добавлено в корзину» — подтверждение действия, а не отдельный вид кнопки.
@@ -2569,10 +2575,6 @@ textarea:focus-visible,
   border-radius: 6px;
 }
 
-
-.btn-primary:active {
-  transform: translateY(0) scale(0.99);
-}
 
 /* Deeper, softer elevation on card hover — more tactile / premium. */
 @media (hover: hover) {

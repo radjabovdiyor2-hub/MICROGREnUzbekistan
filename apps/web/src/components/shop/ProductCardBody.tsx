@@ -3,8 +3,9 @@
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle, Minus, Plus, ShoppingCart, Star } from 'lucide-react';
+import { CheckCircle, ShoppingCart, Star } from 'lucide-react';
 import { MicrogreensCanvas, seedFromString } from '@/components/ui/MicrogreensCanvas';
+import { QuantityStepper } from '@/components/ui/QuantityStepper';
 import { formatPrice } from '@repo/shared';
 import { useLang } from '@/components/providers/LangProvider';
 import type { useCart } from '@/components/providers/CartProvider';
@@ -103,45 +104,26 @@ export function ProductCardBody({
           borderRadius: 'var(--radius-sm)', overflow: 'hidden',
           background: 'var(--brand-primary)', color: 'var(--text-inverse)',
         }}>
-        {/* 44 пикселя, а не 32.
-            Дизайн-система поднимает `.btn-sm` до 44 на тач-устройствах
-            (globals.css, @media (pointer: coarse)), но здесь высота прибита
-            инлайном на сыром <button> — правило до неё не доставало. Палец
-            промахивался мимо «минуса», стоящего вплотную к «плюсу».
-            Подпись — словом: диктор читал «минус кнопка» и «плюс кнопка»,
-            не называя, чего именно меньше. */}
-        <button
-          aria-label={t("Kamaytirish", "Уменьшить количество")}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty - 1); }}
-          style={{
-            width: 44, height: 44, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: 'var(--text-inverse)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-          <Minus size={14} />
-        </button>
-        <AnimatePresence mode="popLayout">
-          <motion.span
-            key={inCartQty}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.15 }}
-            style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}
-          >
-            {inCartQty}
-          </motion.span>
-        </AnimatePresence>
-        <button
-          aria-label={t("Ko'paytirish", "Увеличить количество")}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); cart.updateQuantity(product.id, inCartQty + 1); }}
-          style={{
-            width: 44, height: 44, border: 'none', cursor: 'pointer',
-            background: 'transparent', color: 'var(--text-inverse)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-          <Plus size={14} />
-        </button>
+        {/* Счётчик — один на всё приложение.
+
+            Здесь лежала ЧЕТВЁРТАЯ копия: своя высота, свои подписи, своя
+            остановка нажатия внутри ссылки на товар. Три предыдущие уже
+            сведены в `ui/QuantityStepper`, эта оставалась в стороне —
+            и правка размера касания до карточки каталога не доходила.
+
+            `min={0}`: в карточке «минус» на единице означает «убрать
+            совсем» — корзина сама выкидывает позицию при нуле. */}
+        <QuantityStepper
+          value={inCartQty}
+          onChange={(next) => cart.updateQuantity(product.id, next)}
+          min={0}
+          inverted
+          block
+          labels={{
+            less: t('Kamaytirish', 'Уменьшить количество'),
+            more: t("Ko'paytirish", 'Увеличить количество'),
+          }}
+        />
       </motion.div>
     ) : (
       <motion.button

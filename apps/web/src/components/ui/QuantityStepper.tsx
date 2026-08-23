@@ -26,6 +26,10 @@ interface Props {
   valueWidth?: number;
   /** Круглая рамка — вид строки корзины. */
   bordered?: boolean;
+  /** Кнопки на цветной подложке: белые иконки, прозрачный фон. */
+  inverted?: boolean;
+  /** Растянуть на всю ширину, число посередине — вид карточки каталога. */
+  block?: boolean;
   labels?: { less: string; more: string };
 }
 
@@ -36,6 +40,8 @@ export function QuantityStepper({
   size = 44,
   valueWidth = 32,
   bordered = false,
+  inverted = false,
+  block = false,
   labels = { less: 'Меньше', more: 'Больше' },
 }: Props) {
   const button: React.CSSProperties = {
@@ -45,10 +51,19 @@ export function QuantityStepper({
     ...(bordered
       ? { borderRadius: 'var(--radius-full)', border: '1px solid var(--border)' }
       : {}),
+    ...(inverted ? { background: 'transparent', color: 'var(--text-inverse)' } : {}),
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        ...(block
+          ? { width: '100%', justifyContent: 'space-between' }
+          : { gap: 'var(--space-2)' }),
+      }}
+    >
       <button
         type="button"
         className="btn btn-ghost btn-sm"
