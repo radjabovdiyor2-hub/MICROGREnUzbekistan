@@ -91,6 +91,45 @@ export function useAdminTasks(filter: string, t: (ru: string, uz: string) => str
     await load();
   };
 
+  /**
+   * Сменить статус пачке задач.
+   *
+   * По одной и последовательно, а не пачкой параллельных запросов: сервер
+   * тот же, и десяток одновременных PATCH на слабой сети даёт половину
+   * отказов. Сообщение — одно на всю операцию, с числом неудач: тридцать
+   * подряд «не удалось» человек всё равно не прочитает.
+   */
+  const bulkStatus = async (ids: number[], status: string) => {
+    if (!ids.length) return;
+    setMsg(null);
+    let failed = 0;
+
+    for (const id of ids) {
+      const res = await fetch('/api/admin/tasks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id, status }),
+      });
+      if (!res.ok) failed += 1;
+    }
+
+    setSelected([]);
+    await load();
+
+    if (failed) {
+      setMsg({
+        type: 'error',
+        text: t(`Не удалось изменить: ${failed} из ${ids.length}`, `O'zgartirilmadi: ${ids.length} dan ${failed}`),
+      });
+    } else {
+      setMsg({
+        type: 'ok',
+        text: t(`Готово: ${ids.length}`, `Tayyor: ${ids.length}`),
+      });
+    }
+  };
+
   const toggle = (id: number) =>
     setSelected(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
 
@@ -130,6 +169,6 @@ export function useAdminTasks(filter: string, t: (ru: string, uz: string) => str
     tasks: data?.tasks || [],
     departments: data?.departments || [],
     loading, msg, setMsg, selected, setSelected,
-    create, setStatus, toggle, remove,
+    create, setStatus, toggle, remove, bulkStatus,
   };
 }

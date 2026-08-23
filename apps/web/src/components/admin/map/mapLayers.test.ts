@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { COLORIZE_MODES } from './mapFeature';
+import { MAP_FONT } from './mapFont';
+import { buildDeliveryLayers } from './mapLayersDelivery';
 import {
   buildLayers,
   clusterColor,
@@ -118,6 +120,35 @@ describe('кластеры', () => {
     // max(...,1) страхует от деления на ноль в пустом кластере.
     expect(expr).toContain('max');
   });
+});
+
+// ── Шрифт подписей ───────────────────────────────────────────────────
+//
+// Symbol-слой без `text-font` получает умолчательный стек MapLibre
+// (`Open Sans Regular, …`), которого наш хост глифов не отдаёт: запрос
+// уходит в 404. Подпись при этом НЕ пропадает — MapLibre молча
+// откатывается на системный шрифт клиента, — но мы получаем заведомо
+// обречённый запрос на каждой загрузке и типографику, которая зависит от
+// устройства. Подробности и замеры — в mapFont.ts.
+//
+// Тест держит правило для всех symbol-слоёв разом, включая те, которых
+// ещё нет.
+describe('подписи привязаны к шрифту, который хост действительно отдаёт', () => {
+  const symbolLayers = [
+    ...COLORIZE_MODES.flatMap((mode) => buildLayers(mode, COLORS, 1_000_000)),
+    ...buildDeliveryLayers(COLORS),
+  ].filter((layer) => layer.type === 'symbol');
+
+  it('symbol-слои вообще есть — иначе тест ниже проверяет пустоту', () => {
+    expect(symbolLayers.length).toBeGreaterThan(0);
+  });
+
+  for (const layer of symbolLayers) {
+    it(`«${layer.id}» задаёт text-font явно`, () => {
+      const layout = layer.layout as Record<string, unknown> | undefined;
+      expect(layout?.['text-font'], `у слоя ${layer.id} нет text-font`).toEqual(MAP_FONT);
+    });
+  }
 });
 
 describe('styleUrl', () => {

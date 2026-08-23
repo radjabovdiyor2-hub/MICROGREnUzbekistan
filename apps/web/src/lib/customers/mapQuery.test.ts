@@ -85,6 +85,38 @@ describe('buildMapWhere', () => {
     expect(where.audience).toBe('female');
   });
 
+  // ── Несколько типов разом ────────────────────────────────────────
+  //
+  // Было «один из пятнадцати»: чтобы увидеть рестораны и кафе вместе,
+  // приходилось смотреть их по очереди и держать картину в голове. А это
+  // один разговор с одним предложением.
+  it('несколько типов дают IN, а не последний из списка', () => {
+    const where = buildMapWhere({ companyType: 'restaurant,cafe,chaikhana' });
+    expect(where.companyType).toEqual({ in: ['restaurant', 'cafe', 'chaikhana'] });
+  });
+
+  it('один тип остаётся простым равенством, а не списком из одного', () => {
+    // Не косметика: `{ in: ['restaurant'] }` и `'restaurant'` дают разные
+    // планы запроса, и на нескольких тысячах строк это заметно.
+    expect(buildMapWhere({ companyType: 'restaurant' }).companyType).toBe('restaurant');
+  });
+
+  it('выдуманные значения отсеиваются, настоящие остаются', () => {
+    // Половина мусора не должна ронять весь фильтр: человек увидел бы
+    // пустую карту, неотличимую от «здесь никого нет».
+    const where = buildMapWhere({ companyType: 'restaurant,выдумка,cafe' });
+    expect(where.companyType).toEqual({ in: ['restaurant', 'cafe'] });
+  });
+
+  it('список из одного мусора фильтр не ставит вовсе', () => {
+    expect(buildMapWhere({ companyType: 'выдумка,ещё-выдумка' }).companyType).toBeUndefined();
+  });
+
+  it('пробелы вокруг значений не мешают', () => {
+    const where = buildMapWhere({ companyType: ' restaurant , cafe ' });
+    expect(where.companyType).toEqual({ in: ['restaurant', 'cafe'] });
+  });
+
   it('выдуманный тип и выдуманная аудитория в WHERE не попадают', () => {
     // Иначе карта пуста и неотличима от «здесь никого нет», а причина —
     // опечатка в адресной строке.

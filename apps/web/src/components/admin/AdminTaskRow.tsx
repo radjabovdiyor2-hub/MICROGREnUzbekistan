@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 
+import { AdminCheckbox } from './AdminCheckbox';
 import { DEPT_LABELS, PRIORITY_COLOR } from './adminTasksConfig';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -51,12 +52,13 @@ export function AdminTaskRow({
       outline: highlight ? '2px solid var(--brand-primary)' : 'none',
       display: 'flex', gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap',
     }}>
-      <input
-        type="checkbox"
+      {/* Область нажатия 44px вместо флажка 16px: в прежний нельзя было
+          попасть пальцем, и множественный выбор существовал только на
+          бумаге. */}
+      <AdminCheckbox
         checked={selected}
         onChange={() => onToggle(task.id)}
-        aria-label={t(`Выбрать задачу №${task.id}`, `№${task.id} vazifani tanlash`)}
-        style={{ width: 16, height: 16, accentColor: 'var(--brand-primary)', cursor: 'pointer' }}
+        label={t(`Выбрать задачу №${task.id}`, `№${task.id} vazifani tanlash`)}
       />
 
       <div style={{ flex: 1, minWidth: 200 }}>

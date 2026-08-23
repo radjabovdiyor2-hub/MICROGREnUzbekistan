@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
-import { AlertTriangle, CheckCircle2, ClipboardList, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { AlertTriangle, CheckCircle, CheckCircle2, ClipboardList, Plus, Trash2 } from 'lucide-react';
+
+import { AdminCheckbox } from './AdminCheckbox';
+import { AdminSelectionBar } from './AdminSelectionBar';
 
 // ══════════════════════════════════════════════════════════════════════
 // Задачи отделам.
@@ -37,8 +40,22 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
 
   const {
     tasks, departments, loading, msg, selected, setSelected,
-    create, setStatus, toggle, remove,
+    create, setStatus, toggle, remove, bulkStatus,
   } = useAdminTasks(filter, t);
+
+  // Выбрано ли всё ВИДИМОЕ. Считается по текущему списку, а не по всей
+  // базе: фильтр меняет то, что перед человеком, и «выбрать всё» обязано
+  // означать «всё, что я вижу».
+  const allVisibleSelected = tasks.length > 0 && tasks.every(x => selected.includes(x.id));
+
+  // Смена фильтра не должна оставлять в выборе то, чего уже не видно:
+  // иначе «Удалить выбранные» уносит записи, которых нет на экране.
+  useEffect(() => {
+    setSelected(prev => {
+      const next = prev.filter(id => tasks.some(x => x.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [tasks, setSelected]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,28 +98,44 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
         </div>
       )}
 
-      {selected.length > 0 && (
-        <div className="card" style={{
-          padding: '10px 14px', borderRadius: 10, display: 'flex', gap: 12,
-          alignItems: 'center', flexWrap: 'wrap', fontSize: 'var(--text-sm)',
+      {/* «Выбрать всё» — то, чего не было: тридцать просроченных задач
+          закрывались тридцатью нажатиями. Выбирается ВИДИМОЕ, то есть с
+          учётом фильтра: человек нажимает, глядя на список перед собой. */}
+      {tasks.length > 0 && (
+        <label style={{
+          display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 14,
+          fontSize: 'var(--text-xs)', color: 'var(--text-muted)', cursor: 'pointer',
         }}>
-          <span style={{ fontWeight: 600 }}>
-            {t(`Выбрано: ${selected.length}`, `Tanlandi: ${selected.length}`)}
-          </span>
-          <button className="btn btn-sm btn-ghost" onClick={() => setSelected([])}>
-            {t('Снять выбор', 'Bekor qilish')}
-          </button>
-          <button
-            className="btn btn-sm btn-ghost"
-            style={{ color: 'var(--error)', marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}
-            onClick={() => remove(
-              selected,
-              t(`Удалить ${selected.length} задач(и) безвозвратно?`, `${selected.length} ta vazifa butunlay o'chirilsinmi?`),
-            )}>
-            <Trash2 size={15} /> {t('Удалить выбранные', "Tanlanganlarni o'chirish")}
-          </button>
-        </div>
+          <AdminCheckbox
+            checked={allVisibleSelected}
+            indeterminate={selected.length > 0}
+            onChange={() => setSelected(allVisibleSelected ? [] : tasks.map(x => x.id))}
+            label={t('Выбрать все видимые задачи', "Barcha ko'rinadigan vazifalarni tanlash")}
+          />
+          {allVisibleSelected
+            ? t('Снять выбор со всех', 'Barchasidan olib tashlash')
+            : t(`Выбрать все (${tasks.length})`, `Barchasini tanlash (${tasks.length})`)}
+        </label>
       )}
+
+      <AdminSelectionBar count={selected.length} onClear={() => setSelected([])} lang={lang}>
+        {/* Массовая смена статуса: раньше тридцать задач закрывались
+            тридцатью нажатиями по одной. */}
+        <button className="btn btn-sm btn-ghost"
+          style={{ color: 'var(--success)', display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => bulkStatus(selected, 'done')}>
+          <CheckCircle size={15} /> {t('Выполнено', 'Bajarildi')}
+        </button>
+        <button
+          className="btn btn-sm btn-ghost"
+          style={{ color: 'var(--error)', display: 'flex', alignItems: 'center', gap: 6 }}
+          onClick={() => remove(
+            selected,
+            t(`Удалить ${selected.length} задач(и) безвозвратно?`, `${selected.length} ta vazifa butunlay o'chirilsinmi?`),
+          )}>
+          <Trash2 size={15} /> {t('Удалить', "O'chirish")}
+        </button>
+      </AdminSelectionBar>
 
       {showForm && (
         <AdminTaskForm

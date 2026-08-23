@@ -1,7 +1,7 @@
 import { prisma, Prisma } from '@repo/database';
 
 import { citySpellings, normalizeCity } from './addressKey';
-import { isAudience, isCompanyType } from './companyTypes';
+import { isAudience, parseCompanyTypes } from './companyTypes';
 import { districtsOfCity, isDistrict } from './districts';
 import {
   SEGMENT_STATES,
@@ -207,7 +207,19 @@ export function buildMapWhere(filters: MapFilters): Prisma.CustomerWhereInput {
   // Тип и аудитория сверяются со справочником, а не подставляются как есть:
   // произвольная строка в фильтре даёт пустую карту, неотличимую от «здесь
   // никого нет».
-  if (isCompanyType(filters.companyType)) where.companyType = filters.companyType;
+  // ── Тип заведения: СПИСОК, а не одно значение ──────────────────────
+  //
+  // Было «один из пятнадцати»: чтобы посмотреть рестораны и кафе вместе,
+  // приходилось смотреть их по очереди и держать картину в голове. А
+  // рестораны, кафе и чайханы — это один разговор с одним предложением.
+  //
+  // Приходит через запятую (`companyType=restaurant,cafe`). Каждое значение
+  // сверяется со справочником: произвольная строка в фильтре даёт пустую
+  // карту, неотличимую от «здесь никого нет».
+  const companyTypes = parseCompanyTypes(filters.companyType);
+
+  if (companyTypes.length === 1) where.companyType = companyTypes[0];
+  else if (companyTypes.length > 1) where.companyType = { in: companyTypes };
   // 'unknown' — это рабочая очередь продавца: заведения, у которых пол зала
   // ещё предстоит спросить. Отдельное значение, а не отсутствие фильтра:
   // «покажи всех» и «покажи тех, кого я не знаю» — разные вопросы.

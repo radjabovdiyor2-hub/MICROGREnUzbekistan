@@ -6,6 +6,7 @@ import { CustomerMapPanel } from './CustomerMapPanel';
 import { DayRoutePanel } from './DayRoutePanel';
 import { DistrictBreakdown } from './DistrictBreakdown';
 import { MapCoverage } from './MapCoverage';
+import { NearbyList } from './NearbyList';
 import { UnplacedTray } from './UnplacedTray';
 import type { useCustomerMap } from './useCustomerMap';
 import type { useDayRoute } from './useDayRoute';
@@ -56,6 +57,25 @@ export function MapSidebar({ lang, m, route, onOpenCard, isOwner, sellerName }: 
                   longitude: selected.longitude,
                 });
             }}
+          />
+
+          {/* Соседи — отдельным блоком под карточкой, а не внутри неё:
+              это разговор уже не про выбранного клиента, а про то, что
+              вокруг него. */}
+          <NearbyList
+            lang={lang}
+            origin={selected}
+            features={m.visible.features}
+            inRoute={route.has}
+            onAddRoute={(point) =>
+              route.add({
+                id: point.id,
+                name: point.name,
+                latitude: point.latitude,
+                longitude: point.longitude,
+              })
+            }
+            onPick={(id) => m.setSelectedId(id)}
           />
         </div>
       )}

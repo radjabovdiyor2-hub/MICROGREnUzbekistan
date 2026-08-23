@@ -10,6 +10,7 @@ import {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import type { RoutePoint } from '@/lib/customers/dayRoute';
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
 // Импорт обязателен ДО создания карты: модуль сообщает MapLibre, где лежит
 // воркер. Без него бандлер уводит воркер в 404, и карта показывает только
@@ -19,6 +20,8 @@ import '@/lib/map/worker';
 import {
   DEFAULT_BOUNDS,
   EMPTY_DELIVERY,
+  EMPTY_ROUTE,
+  routeCollection,
   FIT_MAX_ZOOM,
   FIT_PADDING,
   boundsOfFeatures,
@@ -26,7 +29,16 @@ import {
   type MapCollection,
 } from './mapFeature';
 import { attachMapEvents, attachMapLayers, type MapLatest } from './mapEvents';
-import { LAYER_SELECTED, SOURCE_DELIVERY, SOURCE_ID, buildLayers, styleUrl } from './mapLayers';
+import {
+  LAYER_HEAT,
+  LAYER_SELECTED,
+  SOURCE_HEAT,
+  SOURCE_ID,
+  SOURCE_ROUTE,
+  buildLayers,
+  styleUrl,
+} from './mapLayers';
+import { SOURCE_DELIVERY } from './mapLayersDelivery';
 import { useTokenColors } from './useTokenColors';
 import { useTheme } from '@/components/providers/ThemeProvider';
 
@@ -50,7 +62,16 @@ interface Props {
   selectedId: number | null;
   /** Режим простановки пина: следующий клик по карте станет координатой. */
   placingId: number | null;
-  onPickPoint: (id: number) => void;
+  /** null — человек ткнул мимо всех точек и снял выбор. */
+  onPickPoint: (id: number | null) => void;
+  /** Несколько точек в одном месте: выбирает человек, а не мы за него. */
+  onPickStack?: (ids: number[]) => void;
+  /** Тепловая карта поверх подложки и под точками. */
+  heat?: boolean;
+  /** Остановки сегодняшнего объезда — их обводит свой слой. */
+  routeStops?: RoutePoint[];
+  /** Подробная подложка: названия улиц и здания вместо схемы. */
+  detailedBase?: boolean;
   onPlace: (lngLat: { lng: number; lat: number }) => void;
   onViewportChange: (visibleIds: number[]) => void;
   onTilesError: () => void;
@@ -61,7 +82,18 @@ interface Props {
 }
 
 export default function CustomerMapCanvas(props: Props) {
-  const { data, delivery, mode, selectedId, placingId, fitToken, focus } = props;
+  const {
+    data,
+    delivery,
+    mode,
+    selectedId,
+    placingId,
+    fitToken,
+    focus,
+    heat,
+    routeStops,
+    detailedBase,
+  } = props;
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
@@ -90,7 +122,7 @@ export default function CustomerMapCanvas(props: Props) {
     try {
       instance = new MapLibreMap({
         container: node,
-        style: styleUrl(latest.current.theme),
+        style: styleUrl(latest.current.theme, latest.current.detailedBase),
         // Рамкой, а не центром с зумом: пока точек нет, показываем оба
         // города сразу — ферма в Самарканде, заведения и там, и в Ташкенте.
         bounds: DEFAULT_BOUNDS,
@@ -173,9 +205,27 @@ export default function CustomerMapCanvas(props: Props) {
   useEffect(() => {
     const instance = map.current;
     if (!instance || !ready.current) return;
-    const source = instance.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-    source?.setData(data as unknown as GeoJSON.FeatureCollection);
+    const collection = data as unknown as GeoJSON.FeatureCollection;
+    (instance.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(collection);
+    // Тот же массив в оба источника: тепло не может показывать не то, что
+    // показывают точки, иначе заливка и россыпь начнут спорить друг с другом.
+    (instance.getSource(SOURCE_HEAT) as GeoJSONSource | undefined)?.setData(collection);
   }, [data]);
+
+  // ── Тепловая карта: гасим слой, а не выбрасываем источник ──────────
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !ready.current || !instance.getLayer(LAYER_HEAT)) return;
+    instance.setLayoutProperty(LAYER_HEAT, 'visibility', heat ? 'visible' : 'none');
+  }, [heat]);
+
+  // ── Объезд дня ────────────────────────────────────────────────────
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !ready.current) return;
+    const source = instance.getSource(SOURCE_ROUTE) as GeoJSONSource | undefined;
+    source?.setData(routeStops ? routeCollection(routeStops) : EMPTY_ROUTE);
+  }, [routeStops]);
 
   // ── Слой доставки ─────────────────────────────────────────────────
   useEffect(() => {
@@ -210,13 +260,16 @@ export default function CustomerMapCanvas(props: Props) {
     }
   }, [mode, colors, p80]);
 
-  // ── Тема: меняем подложку, слои вернёт обработчик styledata ────────
+  // ── Подложка: тема и подробность ──────────────────────────────────
+  //
+  // Слои после смены стиля вернёт обработчик styledata: setStyle
+  // выбрасывает всё, что мы добавили поверх.
   useEffect(() => {
     const instance = map.current;
     if (!instance) return;
     ready.current = false;
-    instance.setStyle(styleUrl(theme));
-  }, [theme]);
+    instance.setStyle(styleUrl(theme, detailedBase));
+  }, [theme, detailedBase]);
 
   // ── Выделение ─────────────────────────────────────────────────────
   useEffect(() => {

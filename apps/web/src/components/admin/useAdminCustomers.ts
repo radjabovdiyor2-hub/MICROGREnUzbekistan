@@ -39,7 +39,16 @@ export function useAdminCustomers() {
   // ключом был только фильтр, и переключение вкладки отдавало сохранённый
   // результат ПРОШЛОГО поиска.
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  // Две оси вместо одного смешанного ряда: статус отношений и тип клиента.
+  // Пустой набор означает «все» — отдельного значения 'all' в наборе нет,
+  // иначе его пришлось бы исключать в каждом месте, где набор читается.
+  const [statuses, setStatuses] = useState<Set<string>>(new Set());
+  const [types, setTypes] = useState<Set<string>>(new Set());
+
+  /** Устойчивые представления наборов: ключ кэша не должен зависеть от
+   *  порядка нажатий, иначе один и тот же выбор даёт разные ключи. */
+  const statusKey = [...statuses].sort().join(',');
+  const typeKey = [...types].sort().join(',');
   // Тип заведения и аудитория — те же фильтры, что у карты. Список и карта
   // это два вида ОДНОГО раздела, и уметь на карте то, чего нельзя в
   // списке, — верный способ отучить людей верить фильтрам.
@@ -61,7 +70,8 @@ export function useAdminCustomers() {
   const { data, isLoading: loading, error, refetch } = useQuery<CustomerPage, Error>({
     queryKey: [
       'admin-customers',
-      statusFilter,
+      statusKey,
+      typeKey,
       searchQuery,
       page,
       companyTypeFilter,
@@ -69,11 +79,12 @@ export function useAdminCustomers() {
     ],
     queryFn: async () => {
       const query = searchQuery ? `&q=${encodeURIComponent(searchQuery)}` : '';
-      const status = statusFilter !== 'all' ? `&status=${statusFilter}` : '';
+      const status = statusKey ? `&status=${statusKey}` : '';
+      const who = typeKey ? `&customerType=${typeKey}` : '';
       const type = companyTypeFilter !== 'all' ? `&companyType=${companyTypeFilter}` : '';
       const aud = audienceFilter !== 'all' ? `&audience=${audienceFilter}` : '';
       const res = await fetch(
-        `/api/admin/customers?limit=${PAGE_SIZE}&page=${page}${query}${status}${type}${aud}`,
+        `/api/admin/customers?limit=${PAGE_SIZE}&page=${page}${query}${status}${who}${type}${aud}`,
       );
       if (!res.ok) throw new Error('Failed to fetch customers');
       const body = await res.json();
@@ -87,10 +98,23 @@ export function useAdminCustomers() {
     setSearchQuery(searchInput);
   };
 
-  const handleFilter = (value: string) => {
-    setStatusFilter(value);
+  /** Переключить одно значение набора и вернуться на первую страницу. */
+  const flip = (set: (fn: (prev: Set<string>) => Set<string>) => void) => (value: string) => {
+    set((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+    // Иначе человек остаётся на пятой странице выборки, которой больше нет.
     setPage(1);
   };
+
+  const toggleStatus = flip(setStatuses);
+  const toggleType = flip(setTypes);
+
+  const clearStatuses = () => { setStatuses(new Set()); setPage(1); };
+  const clearTypes = () => { setTypes(new Set()); setPage(1); };
 
   const handleCompanyTypeFilter = (value: string) => {
     setCompanyTypeFilter(value);
@@ -188,8 +212,12 @@ export function useAdminCustomers() {
     searchInput,
     setSearchInput,
     handleSearch,
-    statusFilter,
-    handleFilter,
+    statuses,
+    toggleStatus,
+    clearStatuses,
+    types,
+    toggleType,
+    clearTypes,
     companyTypeFilter,
     handleCompanyTypeFilter,
     audienceFilter,
