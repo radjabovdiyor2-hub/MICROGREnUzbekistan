@@ -210,14 +210,14 @@ STRINGS: dict[str, tuple[str, str]] = {
         "• <i>«Qaysi mikro-koʻkat eng mazali?»</i>\n"
         "• <i>«Salatga nima qoʻshsam boʻladi?»</i>\n"
         "• <i>«Achchiqroq narsa sinab koʻrmoqchiman»</i>\n"
-        "• <i>«2 lotok kungaboqar buyurtma qiling, tel +998901234567»</i>\n\n"
+        "• <i>«2 lotok kungaboqar buyurtma qiling, tel +998 XX XXX XX XX»</i>\n\n"
         "Ta'mga qarab tanlab, narxlarini aytaman! 🌱",
         "🛒 <b>Подбор микрозелени</b>\n\n"
         "Напишите мне, что вам нужно, например:\n\n"
         "• <i>«Какая микрозелень самая вкусная?»</i>\n"
         "• <i>«Что добавить в салат?»</i>\n"
         "• <i>«Хочу попробовать что-нибудь острое»</i>\n"
-        "• <i>«Закажи 2 лотка подсолнечника, тел +998901234567»</i>\n\n"
+        "• <i>«Закажи 2 лотка подсолнечника, тел +998 XX XXX XX XX»</i>\n\n"
         "Подберу по вкусу и назову цены! 🌱",
     ),
 
@@ -481,12 +481,12 @@ STRINGS: dict[str, tuple[str, str]] = {
     "ai.order_help": (
         "🛒 <b>Buyurtma berish</b>\n\n"
         "Nima buyurtma qilmoqchisiz va telefon raqamingizni yozing. Masalan:\n\n"
-        "<i>«2 lotok kungaboqar va 1 no'xat kerak. Telefon: +998901234567»</i>\n\n"
+        "<i>«2 lotok kungaboqar va 1 no'xat kerak. Telefon: +998 XX XXX XX XX»</i>\n\n"
         "Qolganini oʻzim qilaman! Manzil va tafsilotlarni telefon orqali aniqlaymiz 📞\n\n"
         "👨‍🌾 Ro'yxatingizni kutyapman!",
         "🛒 <b>Оформление заказа</b>\n\n"
         "Просто напишите мне, что хотите заказать, и номер телефона. Например:\n\n"
-        "<i>«Хочу 2 лотка подсолнечника и 1 горох. Телефон: +998901234567»</i>\n\n"
+        "<i>«Хочу 2 лотка подсолнечника и 1 горох. Телефон: +998 XX XXX XX XX»</i>\n\n"
         "Дальше я сделаю всё сам! Адрес и детали мы уточним по телефону 📞\n\n"
         "👨‍🌾 Жду список ваших пожеланий!",
     ),
