@@ -32,6 +32,14 @@ export async function GET() {
       weekday: s['content.workHoursWeekday'],
       sunday: s['content.workHoursSunday'],
     },
+    // Рубильник ИИ. Здесь он потому, что магазинный бот — другой модуль
+    // и ходит в витрину только по HTTP: другого пути узнать о
+    // выключении у него нет, а второй выключатель «для бота» означал
+    // бы, что один из них однажды забудут переключить.
+    //
+    // Публичность безвредна: это не секрет, а состояние, которое любой
+    // и так узнаёт, написав боту.
+    aiEnabled: s['ai.enabled'],
     bannerEnabled: s['content.bannerEnabled'],
     bannerText: s['content.bannerText'],
     paymentMethods: s['payment.methods'],

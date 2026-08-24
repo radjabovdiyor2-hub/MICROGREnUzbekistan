@@ -1,5 +1,6 @@
 import { OPENAI_MODEL, tokenLimitParams } from './models';
 import { recordAiUsage } from './usage';
+import { getSetting } from '@/lib/settings/store';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
@@ -74,6 +75,20 @@ export async function callOpenAI(
   userInfo?: string,
   image?: { data: string; mimeType: string }
 ): Promise<string> {
+  // ── Рубильник ИИ ──────────────────────────────────────────────────
+  //
+  // Владелец выключил ИИ в настройках — не идём в модель вовсе. Бросаем,
+  // а не возвращаем пустую строку: вызывающий (api/ai/chat) уже умеет
+  // ловить отказ и подставлять `fallbackResponse`, то есть честный
+  // ответ с телефоном менеджера.
+  //
+  // Флаг тот же, что читают боты офиса, и лежит в той же таблице
+  // app_settings: выключатель обязан быть ОДИН, иначе выключенный в
+  // админке ИИ продолжал бы отвечать с витрины.
+  if (!(await getSetting('ai.enabled'))) {
+    throw new Error('AI disabled by owner');
+  }
+
   if (!OPENAI_API_KEY) throw new Error('No OPENAI_API_KEY');
 
   const messages: OpenAIMessage[] = [
