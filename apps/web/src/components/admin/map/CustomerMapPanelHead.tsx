@@ -38,15 +38,26 @@ interface Props {
   point: PointView;
   lang: 'ru' | 'uz';
   onClose: () => void;
+  /** Карточка внутри листа дока: заголовок и крестик там уже свои. */
+  embedded?: boolean;
 }
 
-export function CustomerMapPanelHead({ point, lang, onClose }: Props) {
+export function CustomerMapPanelHead({ point, lang, onClose, embedded = false }: Props) {
   const meta = SEGMENT_META[point.state];
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-2)' }}>
       <div style={{ flex: 1 }}>
-        <h3 style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>{point.name}</h3>
+        {/* Имя и крестик — только когда карточка стоит сама по себе.
+            В листе дока заголовок с крестиком уже есть свой, и на
+            телефоне выходило имя заведения ДВАЖДЫ подряд, а под ним
+            второй крестик. Остальное — состояние, тип, адрес, отметка
+            о неточном пине — нужно в обоих случаях. */}
+        {!embedded && (
+          <h3 style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-lg)' }}>
+            {point.name}
+          </h3>
+        )}
 
         <div
           style={{
@@ -95,15 +106,17 @@ export function CustomerMapPanelHead({ point, lang, onClose }: Props) {
         )}
       </div>
 
-      <button
-        type="button"
-        className="btn btn-sm btn-ghost"
-        onClick={onClose}
-        aria-label={lang === 'ru' ? 'Закрыть' : 'Yopish'}
-        style={{ minHeight: 44, minWidth: 44 }}
-      >
-        <X size={16} />
-      </button>
+      {!embedded && (
+        <button
+          type="button"
+          className="btn btn-sm btn-ghost"
+          onClick={onClose}
+          aria-label={lang === 'ru' ? 'Закрыть' : 'Yopish'}
+          style={{ minHeight: 44, minWidth: 44 }}
+        >
+          <X size={16} />
+        </button>
+      )}
     </div>
   );
 }
