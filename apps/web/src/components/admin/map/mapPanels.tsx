@@ -1,11 +1,13 @@
 'use client';
 
+import { BuildDayPlanButton } from './BuildDayPlanButton';
 import { CategoryLegend } from './CategoryLegend';
 import { CustomerMapLegend } from './CustomerMapLegend';
 import { CustomerMapPanel } from './CustomerMapPanel';
 import { DayRoutePanel } from './DayRoutePanel';
 import { DistrictBreakdown } from './DistrictBreakdown';
 import { MapCoverage } from './MapCoverage';
+import { toPointView } from './mapFeature';
 import { NearbyList } from './NearbyList';
 import { UnplacedTray } from './UnplacedTray';
 import type { useCustomerMap } from './useCustomerMap';
@@ -48,6 +50,16 @@ export function LegendPanel({ lang, m }: Omit<PanelDeps, 'route'>) {
 
 export function RoutePanel({ lang, m, route }: PanelDeps) {
   return (
+    <>
+      {/* План собирается по ТЕМ ЖЕ точкам, что видны на карте: если
+          человек отфильтровал по типу или району, план обязан идти по
+          его выбору, а не по всей базе за его спиной. */}
+      <BuildDayPlanButton
+        lang={lang}
+        points={m.visible.features.map(toPointView)}
+        hasStops={route.stops.length > 0}
+        onPlan={route.setAll}
+      />
     <DayRoutePanel
       lang={lang}
       stops={route.stops}
@@ -60,6 +72,7 @@ export function RoutePanel({ lang, m, route }: PanelDeps) {
         m.focusPoint({ id: stop.id, longitude: stop.longitude, latitude: stop.latitude })
       }
     />
+    </>
   );
 }
 

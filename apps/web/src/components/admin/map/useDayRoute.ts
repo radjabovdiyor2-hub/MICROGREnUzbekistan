@@ -4,6 +4,7 @@ import { useCallback, useState, useSyncExternalStore } from 'react';
 
 import {
   DAY_ROUTE_KEY,
+  MAX_STOPS,
   addStop,
   moveStop,
   orderByProximity,
@@ -77,5 +78,13 @@ export function useDayRoute() {
     move: (id: number, delta: -1 | 1) => write(moveStop(stops, id, delta)),
     sort: () => write(orderByProximity(stops, from)),
     clear: () => write([]),
+    /**
+     * Заменить весь объезд целиком — этим кладётся собранный план дня.
+     *
+     * Именно ЗАМЕНИТЬ, а не добавить: план на сегодня — это ответ на
+     * вопрос «куда ехать», и дописывать его к вчерашним остаткам
+     * значило бы выдать смесь за план.
+     */
+    setAll: (next: RoutePoint[]) => write(next.slice(0, MAX_STOPS)),
   };
 }
