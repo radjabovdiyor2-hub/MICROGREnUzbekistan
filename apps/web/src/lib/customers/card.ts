@@ -1,6 +1,7 @@
 import { prisma } from '@repo/database';
 
 import { maskSum } from './money';
+import { VISIT_TYPES } from './visits';
 
 // ══════════════════════════════════════════════════════════════════════
 // Карточка клиента для админки: контакты, история заказов, обращения.
@@ -35,6 +36,22 @@ export interface CustomerCardOrder {
   items: string[];
 }
 
+/**
+ * Последняя поездка к клиенту и чем она подтверждена.
+ *
+ * Отдельно от списка обращений: там отметка визита лежит наравне с
+ * письмами бота, а вопрос «был ли человек на месте» задают не к ленте,
+ * а к самой поездке.
+ */
+export interface CustomerLastVisit {
+  at: string;
+  type: string;
+  /** Расстояние до пина в метрах. null — место не подтверждено. */
+  distanceM: number | null;
+  /** Круг неопределённости, метры. Без него расстояние толкуется наугад. */
+  accuracyM: number | null;
+}
+
 export interface CustomerCard {
   id: number;
   name: string;
@@ -65,6 +82,8 @@ export interface CustomerCard {
   /** Аккаунт витрины, которому принадлежат бонусы. null — связки нет. */
   webAccount: { id: string; phone: string | null; bonusPoints: number } | null;
   orders: CustomerCardOrder[];
+  /** Последняя поездка и чем подтверждена. null — не ездили. */
+  lastVisit: CustomerLastVisit | null;
   interactions: {
     id: number;
     createdAt: string;
@@ -173,6 +192,19 @@ export async function getCustomerCard(
       deliveryAddress: o.deliveryAddress,
       items: o.items.map(itemLine),
     })),
+    // Первая по времени отметка визита среди обращений. Отдельного
+    // запроса не делаем: обращения уже выбраны, и визит почти всегда
+    // среди свежих. Если он старше выборки — честно скажем «нет»,
+    // а не покажем позавчерашнюю поездку как последнюю.
+    lastVisit:
+      customer.interactions
+        .filter((i) => VISIT_TYPES.includes(i.interactionType))
+        .map((i) => ({
+          at: i.createdAt.toISOString(),
+          type: i.interactionType,
+          distanceM: i.distanceM ?? null,
+          accuracyM: i.accuracyM ?? null,
+        }))[0] ?? null,
     interactions: customer.interactions.map((i) => ({
       id: i.id,
       createdAt: i.createdAt.toISOString(),

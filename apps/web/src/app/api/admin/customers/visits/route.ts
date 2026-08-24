@@ -11,6 +11,7 @@ import {
   isVisitType,
   visitOutcome,
 } from '@/lib/customers/visits';
+import { metersBetween } from '@/lib/customers/visitProof';
 
 // ══════════════════════════════════════════════════════════════════════
 // Отметка визита с карты.
@@ -26,6 +27,36 @@ import {
 // Дверь закрыта дважды: правилом в middleware и проверкой здесь. Отмечает
 // тот, кто съездил, — а ездит продавец, поэтому рубеж на STAFF.
 // ══════════════════════════════════════════════════════════════════════
+
+/**
+ * Позиция телефона из тела запроса.
+ *
+ * Необязательна и остаётся такой: GPS в подвале ресторана не берётся,
+ * а отказать честному продавцу в отметке дороже, чем записать её без
+ * подтверждения места. Пусто здесь значит «не подтверждено», а не
+ * «визита не было».
+ *
+ * Мусор молча отбрасываем: кривая координата хуже отсутствующей —
+ * она нарисует «в 5000 км от клиента» и обвинит человека числом.
+ */
+function readCoords(body: Record<string, unknown> | null): {
+  latitude: number;
+  longitude: number;
+  accuracyM: number | null;
+} | null {
+  const lat = Number(body?.latitude);
+  const lon = Number(body?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  if (lat === 0 && lon === 0) return null;
+
+  const acc = Number(body?.accuracyM);
+  return {
+    latitude: lat,
+    longitude: lon,
+    accuracyM: Number.isFinite(acc) && acc >= 0 ? Math.round(acc) : null,
+  };
+}
 
 /** Насколько старую отметку принимаем: столько же держит очередь клиента. */
 const MAX_BACKDATE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -76,11 +107,34 @@ export async function POST(request: NextRequest) {
     // в базу молча — висячей строкой, которую никто никогда не увидит.
     const customer = await prisma.customer.findUnique({
       where: { id: customerId },
-      select: { id: true, name: true, companyName: true },
+      select: {
+        id: true,
+        name: true,
+        companyName: true,
+        latitude: true,
+        longitude: true,
+      },
     });
     if (!customer) {
       return NextResponse.json({ error: 'Клиент не найден' }, { status: 404 });
     }
+
+    // ── Подтверждение места ───────────────────────────────────────────
+    //
+    // Расстояние считает СЕРВЕР, а не телефон. Присланному «я был в 12
+    // метрах» верить нельзя по определению: тело запроса пишет тот, чью
+    // добросовестность мы и проверяем.
+    //
+    // Без пина у клиента расстояние не от чего считать — тогда пишем
+    // только позицию: она пригодится, когда пин наконец поставят.
+    const at = readCoords(body as Record<string, unknown> | null);
+    const distanceM =
+      at && customer.latitude !== null && customer.longitude !== null
+        ? metersBetween(at, {
+            latitude: customer.latitude,
+            longitude: customer.longitude,
+          })
+        : null;
 
     const outcome = visitOutcome(type)!;
     const interaction = await prisma.interaction.create({
@@ -94,6 +148,10 @@ export async function POST(request: NextRequest) {
         // застал» ждут продолжения, и отмечать их решёнными значило бы
         // спрятать хвост работы.
         resolved: type === 'visit_deal' || type === 'visit_refused',
+        latitude: at?.latitude ?? null,
+        longitude: at?.longitude ?? null,
+        accuracyM: at?.accuracyM ?? null,
+        distanceM,
       },
       select: { id: true, createdAt: true },
     });
@@ -103,7 +161,10 @@ export async function POST(request: NextRequest) {
       ...actorOf(request),
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: `#${customerId} ${customer.companyName ?? customer.name ?? ''}`.trim(),
-      meta: { type },
+      // Расстояние в журнале аудита намеренно: именно по нему владелец
+      // однажды спросит «а был ли», и ответ должен лежать рядом с
+      // действием, а не собираться выборкой по таблице.
+      meta: { type, distanceM, accuracyM: at?.accuracyM ?? null },
     });
 
     // Отметка меняет и карточку, и карту: соседняя вкладка обязана увидеть

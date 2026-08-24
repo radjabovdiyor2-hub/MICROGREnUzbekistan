@@ -1,3 +1,5 @@
+import { readPosition } from '@/lib/geo/position';
+
 // ══════════════════════════════════════════════════════════════════════
 // Отметка визита одним вызовом: отправить, а без связи — запомнить.
 //
@@ -8,7 +10,14 @@
 // ══════════════════════════════════════════════════════════════════════
 
 export interface VisitQueueLike {
-  remember: (visit: { customerId: number; type: string; note: string }) => void;
+  remember: (visit: {
+    customerId: number;
+    type: string;
+    note: string;
+    latitude?: number;
+    longitude?: number;
+    accuracyM?: number | null;
+  }) => void;
 }
 
 export interface VisitInput {
@@ -32,15 +41,30 @@ export async function markVisit(
   input: VisitInput,
   queue: VisitQueueLike,
 ): Promise<VisitOutcomeState> {
+  // Место спрашиваем ЗДЕСЬ, а не у каждого вызывающего: отметок две —
+  // кнопки «съездил» и автоматическая после продажи, — и подтверждение
+  // должно быть у обеих одинаковым. Ровно тот же довод, по которому
+  // здесь живёт правило про 4xx.
+  //
+  // `readPosition` не бросает и не виснет: не вышло — уходим без места,
+  // и отметка остаётся отметкой.
+  const at = await readPosition();
+  const proof = at
+    ? { latitude: at.latitude, longitude: at.longitude, accuracyM: at.accuracyM }
+    : {};
+
   let res: Response;
   try {
     res = await fetch('/api/admin/customers/visits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...input, visitedAt: Date.now() }),
+      body: JSON.stringify({ ...input, ...proof, visitedAt: Date.now() }),
     });
   } catch {
-    queue.remember(input);
+    // В очередь кладём ВМЕСТЕ с местом: отметка пролежит до появления
+    // связи, и позиция телефона в тот момент к этой поездке отношения
+    // иметь уже не будет.
+    queue.remember({ ...input, ...proof });
     return 'queued';
   }
 
