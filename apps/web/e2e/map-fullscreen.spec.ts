@@ -279,5 +279,27 @@ test.describe("Полноэкранный режим карты", () => {
     const sheet = page.locator(".admin-map-dock-sheet");
     await expect(sheet.getByRole("button", { name: /Продать|Sotish/ })).toHaveCount(1);
     await expect(sheet.getByRole("button", { name: /объезд|Yoʻnalish/i })).not.toHaveCount(0);
+
+    // ── КАССА С ТОЧКИ ──────────────────────────────────────────────────
+    //
+    // «Продать» заменяет карточку кассовым листом, а у него внутри две
+    // свои прокручиваемые области — список товаров и корзина, по 38 и
+    // 30 процентов высоты экрана. В листе высотой 62dvh они не
+    // помещаются, и чек набирается в щель: две строки товара и никакого
+    // итога. Поэтому лист обязан подрасти, когда касса внутри.
+    await sheet.getByRole("button", { name: /Продать|Sotish/ }).click();
+    await expect(page.locator(".pos-sale-sheet")).toBeVisible();
+
+    const grown = await page.evaluate(() => {
+      const el = document.querySelector(".admin-map-dock-sheet");
+      if (!el) return null;
+      return {
+        высота: Math.round(el.getBoundingClientRect().height),
+        экран: window.innerHeight,
+      };
+    });
+    expect(grown).not.toBeNull();
+    // Больше прежнего потолка в 62% — значит правило `:has()` сработало.
+    expect(grown!.высота).toBeGreaterThan(grown!.экран * 0.62);
   });
 });
