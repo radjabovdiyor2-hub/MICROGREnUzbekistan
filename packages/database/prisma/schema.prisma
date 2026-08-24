@@ -1302,6 +1302,7 @@ model Customer {
   restaurant   Restaurant?
   prices       CustomerPrice[]
   posSales     PosSale[]
+  planStops    VisitPlanStop[]
 
   @@index([telegramId])
   @@index([phone])
@@ -1507,6 +1508,66 @@ model Interaction {
   @@index([createdAt])
   @@index([botName])
   @@map("interactions")
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// План объезда на день.
+//
+// ЗАЧЕМ НА СЕРВЕРЕ, А НЕ В ТЕЛЕФОНЕ. Первая версия плана жила в
+// localStorage: продавец собирал его себе сам, владелец не видел и не мог
+// назначить. Такой план — помощь памяти, но не инструмент: составляет и
+// отчитывается один человек.
+//
+// СОТРУДНИК ОПОЗНАЁТСЯ ИМЕНЕМ, как и в `Task.assignee`, и по той же
+// причине: в сессии есть `name`, а связи с `Employee` у неё нет. Заводить
+// её ради плана значило бы менять вход в админку.
+//
+// ИСПОЛНЕНИЕ ЗДЕСЬ НЕ ХРАНИТСЯ. Отметки визитов уже лежат в
+// `interactions` — вторая копия «выполнено» разошлась бы с ними на первом
+// же визите, сделанном без плана. Выполненность считается на чтении:
+// «была ли отметка к этому клиенту в этот день».
+// ══════════════════════════════════════════════════════════════════════
+model VisitPlan {
+  id       Int      @id @default(autoincrement())
+  planDate DateTime @map("plan_date") @db.Date
+  /// Кому объезжать. Пустая строка — план ничей, черновик владельца.
+  ///
+  /// НЕ nullable, и это не мелочь. Уникальность ниже стоит по паре
+  /// (дата, сотрудник), а в SQL NULL не равен NULL — значит на
+  /// nullable-колонке индекс НЕ помешал бы завести два ничьих плана на
+  /// одну дату, и «выполнено 6 из 8» считалось бы неизвестно по
+  /// какому. Та же ловушка трёхзначной логики, что съела сидер
+  /// координат: там `not: manual` молча не находил ни одной строки.
+  assignee String   @default("") @db.VarChar(255)
+  /// Кто составил: имя владельца или самого продавца.
+  author   String   @db.VarChar(255)
+  /// `self` — собрал себе сам, `owner` — назначен сверху.
+  source   String   @default("self") @db.VarChar(10)
+  stops    VisitPlanStop[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Один план на человека в день: пересборка заменяет, а не плодит.
+  // Без этого за день накапливалась бы стопка планов, и «выполнено 6 из 8»
+  // считалось бы неизвестно по какому.
+  @@unique([planDate, assignee])
+  @@index([planDate])
+  @@map("visit_plans")
+}
+
+model VisitPlanStop {
+  id         Int       @id @default(autoincrement())
+  planId     Int       @map("plan_id")
+  plan       VisitPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  customerId Int       @map("customer_id")
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  /// Порядок объезда, как его собрали.
+  orderIndex Int       @map("order_index")
+
+  @@unique([planId, customerId])
+  @@index([planId])
+  @@map("visit_plan_stops")
 }
 
 model Task {
