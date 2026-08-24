@@ -85,6 +85,35 @@ export function BuildDayPlanButton({
       }
 
       onPlan(plan);
+
+      // ── План уходит на сервер ─────────────────────────────────────
+      //
+      // Ради этого он вообще перестал быть локальным списком: пока план
+      // жил только в телефоне, владелец не видел ни его, ни того, что
+      // из него выполнено. Составлял и отчитывался один человек.
+      //
+      // ОТКАЗ СОХРАНЕНИЯ НЕ ОТМЕНЯЕТ ПЛАН. Человек уже собрался ехать,
+      // список у него перед глазами, и отбирать его из-за упавшей сети
+      // значило бы наказать за отсутствие связи. Говорим вслух и
+      // работаем дальше — не молчим: неотправленный план владелец не
+      // увидит, и знать об этом должны оба.
+      try {
+        const res = await fetch('/api/admin/visit-plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ customerIds: plan.map((p) => p.id) }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+      } catch {
+        notify.toast(
+          lang === 'ru'
+            ? 'План собран, но не ушёл владельцу — нет связи'
+            : 'Reja tuzildi, lekin yuborilmadi',
+          'warning',
+        );
+      }
+
       notify.success(
         lang === 'ru'
           ? at
