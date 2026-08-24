@@ -39,14 +39,24 @@ function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
+/** Пара координат — всё, что нужно расстоянию. */
+export interface Coords {
+  latitude: number;
+  longitude: number;
+}
+
 /**
  * Расстояние по большому кругу, километры.
  *
  * Гаверсинус, а не разница координат: на широте Самарканда градус долготы
  * короче градуса широты почти на четверть, и «ближайшая» точка по сырой
  * дельте регулярно оказывалась бы не ближайшей.
+ *
+ * Принимает ЛЮБУЮ пару координат, а не только остановку объезда:
+ * расстояние понадобилось ещё и подтверждению визита, где у точки нет
+ * ни id, ни имени — там это позиция телефона.
  */
-export function distanceKm(a: RoutePoint, b: RoutePoint): number {
+export function distanceKm(a: Coords, b: Coords): number {
   const dLat = toRad(b.latitude - a.latitude);
   const dLon = toRad(b.longitude - a.longitude);
   const lat1 = toRad(a.latitude);

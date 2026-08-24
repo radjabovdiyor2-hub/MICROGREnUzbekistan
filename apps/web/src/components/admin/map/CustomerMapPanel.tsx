@@ -1,24 +1,23 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 
 import type { CustomerCard } from '@/lib/customers/card';
 import {
   SEGMENT_META,
-  computeSegment,
-  computeTrend,
   explainSegment,
 } from '@/lib/customers/segments';
 
 import { CustomerMapActions } from './CustomerMapActions';
+import { pointInsights } from './pointInsights';
+import { PointSale } from './PointSale';
+import { VisitProofLine } from './VisitProofLine';
 import { CustomerMapPanelHead } from './CustomerMapPanelHead';
 import { CustomerMapPanelStats } from './CustomerMapPanelStats';
 import { CustomerOrdersSparkline } from './CustomerOrdersSparkline';
-import { PosSaleSheet } from '../PosSaleSheet';
 import { useAdminBack } from '../useAdminBack';
-import { markVisit } from './markVisit';
 import { useVisitQueue } from './useVisitQueue';
 import { type PointView } from './mapFeature';
 
@@ -73,7 +72,6 @@ export function CustomerMapPanel({
   inRoute,
   onToggleRoute,
 }: Props) {
-  const queryClient = useQueryClient();
   const [selling, setSelling] = useState(false);
 
   // Аппаратное «назад» в Telegram: из кассы — к точке, с точки — к карте.
@@ -103,48 +101,19 @@ export function CustomerMapPanel({
   const raw = point.phone ?? data?.phone ?? null;
   const phone = raw && raw !== '—' ? raw : null;
 
-  // Пересчитываем состояние по загруженной истории: у панели есть даты
-  // заказов, которых нет у точки, и объяснение получается точнее.
-  const segment = data
-    ? computeSegment({
-        lastOrderDate: data.lastOrderDate,
-        firstOrderDate: data.orders.at(-1)?.createdAt ?? null,
-        ordersCount: data.ordersCount,
-        customerType: data.customerType,
-      })
-    : null;
+  // Уточнённое состояние и переход за месяц — см. pointInsights.
+  const { segment, trend } = pointInsights(data);
 
-  // Переход за последний месяц. Считается только здесь: нужны даты всех
-  // заказов, которых у точки на карте нет.
-  const trend = data
-    ? computeTrend({
-        orderDates: data.orders.map((o) => o.createdAt),
-        customerType: data.customerType,
-      })
-    : null;
-
+  // Касса с точки живёт отдельно — см. PointSale.
   if (selling) {
     return (
-      <PosSaleSheet
-        customer={{ id: point.id, name: point.name, phone }}
+      <PointSale
+        point={point}
+        phone={phone}
         lang={lang}
         sellerName={sellerName}
-        origin="field"
+        visitQueue={visitQueue}
         onClose={() => setSelling(false)}
-        onSold={(result) => {
-          // Продажа — это и есть визит с исходом «договорились». Требовать
-          // после чека ещё одно нажатие значило бы терять историю поездок
-          // ровно на самых удачных заездах.
-          //
-          // В заметке НЕТ суммы: ленту обращений продавец видит целиком, и
-          // сумма в ней обошла бы маскировку денег на карте.
-          const note = result.saleNumber ? `Продажа ${result.saleNumber}` : 'Продажа (без связи)';
-          void markVisit({ customerId: point.id, type: 'visit_deal', note }, visitQueue).catch(
-            (err) => console.error('Визит после продажи не отмечен:', err),
-          );
-          queryClient.invalidateQueries({ queryKey: ['admin-customers-map'] });
-          queryClient.invalidateQueries({ queryKey: ['admin-customer', point.id] });
-        }}
       />
     );
   }
@@ -197,6 +166,9 @@ export function CustomerMapPanel({
           />
         )}
       </div>
+
+      {/* Чем подтверждена последняя поездка — см. VisitProofLine. */}
+      {data?.lastVisit && <VisitProofLine visit={data.lastVisit} lang={lang} />}
 
       <CustomerMapActions
         point={point}

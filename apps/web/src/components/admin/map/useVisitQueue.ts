@@ -69,6 +69,12 @@ export function useVisitQueue() {
             type: item.type,
             note: item.note,
             visitedAt: item.visitedAt,
+            // Место едет вместе с отметкой: она могла пролежать в
+            // очереди сутки, и позиция телефона СЕЙЧАС не имеет
+            // отношения к тому, где человек был вчера.
+            latitude: item.latitude,
+            longitude: item.longitude,
+            accuracyM: item.accuracyM,
           }),
         });
         // 4xx — запись негодна и в очереди застрянет навсегда: сервер уже
