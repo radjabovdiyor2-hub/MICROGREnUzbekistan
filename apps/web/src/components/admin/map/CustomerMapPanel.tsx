@@ -45,6 +45,8 @@ interface Props {
   /** Уже в объезде на сегодня. */
   inRoute: boolean;
   onToggleRoute: () => void;
+  /** Удаление точки — только владельцу. */
+  isOwner?: boolean;
   /**
    * Карточка уже лежит внутри чужой обёртки со своим заголовком —
    * в листе дока полноэкранного режима.
@@ -67,6 +69,7 @@ export function CustomerMapPanel({
   sellerName,
   onClose,
   embedded = false,
+  isOwner = false,
   onOpenCard,
   onReplacePin,
   inRoute,
@@ -180,6 +183,8 @@ export function CustomerMapPanel({
         onSell={() => setSelling(true)}
         onOpenCard={onOpenCard}
         onReplacePin={onReplacePin}
+        isOwner={isOwner}
+        onDeleted={onClose}
       />
     </div>
   );

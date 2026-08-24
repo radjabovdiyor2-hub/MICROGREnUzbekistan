@@ -85,6 +85,7 @@ export function MapDockSheet({
         {tab === 'tray' && <TrayPanel lang={lang} m={m} isOwner={isOwner} />}
         {tab === null && (
           <PointPanel
+            isOwner={isOwner}
             embedded
             lang={lang}
             m={m}
