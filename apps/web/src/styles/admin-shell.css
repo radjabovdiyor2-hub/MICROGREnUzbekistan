@@ -424,11 +424,37 @@ html.map-fullscreen .admin-map-panel {
 }
 
 .admin-map-dock-sheet-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-2) var(--space-1) var(--space-3);
+  /* Сверху с запасом: там лежит ухватка (.admin-map-dock-grab), и без
+     запаса она наезжала бы на заголовок листа. */
+  padding: 14px var(--space-2) var(--space-1) var(--space-3);
   flex-shrink: 0;
+}
+
+/* Ухватка листа: единственная подсказка, что лист можно смахнуть вниз.
+   Жест без неё существует и остаётся никем не найденным — владелец так и
+   сказал: «нет свайпов и жестов». Четыре пикселя высоты против режима,
+   из которого «не выйти». */
+.admin-map-dock-grab {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+}
+
+/* В полноэкранном режиме боковая колонка не нужна: её панели уже в доке,
+   и вторая их копия за сценой — лишние узлы, лишние подписки и лишний
+   риск. Если что-то в раскладке поедет, именно она вылезет из-под карты
+   и превратит «полный экран» в полосу с хвостом панелей. */
+html.map-fullscreen .admin-map-aside {
+  display: none;
 }
 
 .admin-map-dock-sheet-body {

@@ -179,6 +179,7 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
           sellerName={sellerName}
           tab={dockTab}
           onTab={setDockTab}
+          onExit={full.exit}
         />
       )}
     </div>
