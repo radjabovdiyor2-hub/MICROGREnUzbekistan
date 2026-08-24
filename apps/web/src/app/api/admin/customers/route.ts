@@ -12,6 +12,11 @@ import {
   parseCompanyTypes,
 } from '@/lib/customers/companyTypes';
 import { isDistrict } from '@/lib/customers/districts';
+import {
+  fieldCustomerData,
+  findNearbyCustomer,
+  parseFieldCustomer,
+} from '@/lib/customers/createFromField';
 import { setCustomerBonus } from '@/lib/customers/bonus';
 import { publish } from '@/lib/realtime/bus';
 
@@ -197,6 +202,66 @@ export async function GET(request: NextRequest) {
       { error: safeError(error) },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Завести клиента прямо с карты.
+ *
+ * Рубеж на STAFF, а не на владельце, и это осознанно: заведение видит
+ * тот, кто мимо него идёт. Заводить вечером со слов продавца — значит
+ * терять адрес, координату и половину самих заведений.
+ *
+ * Дубль не запрещаем, а показываем: 409 с уже найденным клиентом рядом.
+ * Запрет был бы неверен — в одном торговом центре двери стоят в
+ * тридцати метрах друг от друга, и это разные заведения. Решает человек,
+ * который там стоит; повторный запрос с `force: true` заводит всё равно.
+ */
+export async function POST(request: NextRequest) {
+  if (!isStaff(request)) return unauthorized();
+
+  try {
+    const body = await request.json().catch(() => null);
+    const parsed = parseFieldCustomer(body);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+    const input = parsed.value;
+
+    const force = (body as { force?: unknown } | null)?.force === true;
+    if (!force && input.latitude !== null && input.longitude !== null) {
+      const near = await findNearbyCustomer(input.latitude, input.longitude);
+      if (near) {
+        return NextResponse.json(
+          {
+            error: `В ${near.distanceM} м уже есть «${near.name}»`,
+            duplicate: near,
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    const created = await prisma.customer.create({
+      data: fieldCustomerData(input),
+      select: { id: true, name: true, latitude: true, longitude: true },
+    });
+
+    audit({
+      action: 'customer.create.field',
+      ...actorOf(request),
+      ip: request.headers.get('x-forwarded-for') ?? undefined,
+      target: `#${created.id} ${created.name ?? ''}`.trim(),
+      // Точность пина в журнале: по ней потом видно, поставлен он
+      // человеком у дверей или взят из позиции с погрешностью в квартал.
+      meta: { accuracyM: input.accuracyM, forced: force },
+    });
+
+    publish('customers');
+    return NextResponse.json({ status: 'ok', customer: created }, { status: 201 });
+  } catch (error: unknown) {
+    console.error('API Admin Customers POST Error:', error);
+    return NextResponse.json({ error: safeError(error) }, { status: 500 });
   }
 }
 

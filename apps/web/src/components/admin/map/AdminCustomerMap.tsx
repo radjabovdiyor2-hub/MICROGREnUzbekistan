@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
 
 import { MapBanners } from './MapBanners';
+import { AddCustomerHere } from './AddCustomerHere';
 import { MapDock, type DockTab } from './MapDock';
 import { MapSkeleton } from './MapSkeleton';
 import { MapPointsHere } from './MapPointsHere';
@@ -113,12 +114,19 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
           isFull={full.isFull}
           overlayTop={searchOverlay}
           overlayBottom={
-            <MapPointsHere
-              lang={lang}
-              points={m.stack}
-              onPick={m.pickFromStack}
-              onClose={() => m.setStackIds([])}
-            />
+            <div style={{ display: 'grid', gap: 'var(--space-2)', justifyItems: 'start' }}>
+              <MapPointsHere
+                lang={lang}
+                points={m.stack}
+                onPick={m.pickFromStack}
+                onClose={() => m.setStackIds([])}
+              />
+              {/* Завести заведение — там же, где палец, и в обоих
+                  режимах. В поле это делают, стоя у дверей, а не
+                  вечером по памяти, поэтому кнопка живёт на карте, а
+                  не в списке клиентов. */}
+              <AddCustomerHere lang={lang} />
+            </div>
           }
         >
           {m.tilesFailed ? (
