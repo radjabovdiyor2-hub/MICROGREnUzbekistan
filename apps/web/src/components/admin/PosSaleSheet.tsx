@@ -114,8 +114,17 @@ export function PosSaleSheet({ customer, lang, sellerName, origin, onClose, onSo
   }
 
   // ── Набор чека ─────────────────────────────────────────────────────
+  //
+  // Класс `pos-sale-sheet` нужен не для оформления, а как признак для
+  // родителя: когда касса открывается ВНУТРИ листа дока на карте, лист
+  // обязан подрасти. Иначе внутренние области набора (список товаров и
+  // корзина, по 38 и 30 процентов высоты) не помещаются в лист, и чек
+  // набирается в щель. Правило — в admin-shell.css.
   return (
-    <div className="card" style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
+    <div
+      className="card pos-sale-sheet"
+      style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}
+    >
       {header}
 
       {s.contractCount > 0 && (
