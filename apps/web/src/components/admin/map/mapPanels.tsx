@@ -111,11 +111,14 @@ export function PointPanel({
   onOpenCard,
   sellerName,
   embedded = false,
+  isOwner = false,
 }: PanelDeps & {
   onOpenCard: (id: number) => void;
   sellerName: string;
   /** Внутри листа дока: заголовок и крестик там уже свои. */
   embedded?: boolean;
+  /** Удаление точки — только владельцу. */
+  isOwner?: boolean;
 }) {
   const selected = m.selected;
   if (!selected) return null;
@@ -125,6 +128,7 @@ export function PointPanel({
       <CustomerMapPanel
         point={selected}
         embedded={embedded}
+        isOwner={isOwner}
         lang={lang}
         sellerName={sellerName}
         onClose={() => m.setSelectedId(null)}

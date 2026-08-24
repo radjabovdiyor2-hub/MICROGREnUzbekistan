@@ -3,6 +3,7 @@
 import { Check, MapPin, Phone, Plus, ShoppingCart } from 'lucide-react';
 
 import { NavigateButton } from './NavigateButton';
+import { DeletePointButton } from './DeletePointButton';
 import { VisitButtons } from './VisitButtons';
 import type { useVisitQueue } from './useVisitQueue';
 import { type PointView } from './mapFeature';
@@ -30,6 +31,7 @@ const label = {
 
 export function CustomerMapActions({
   point, lang, phone, inRoute, visitQueue, onToggleRoute, onSell, onOpenCard, onReplacePin,
+  isOwner, onDeleted,
 }: {
   point: PointView;
   lang: 'ru' | 'uz';
@@ -41,6 +43,9 @@ export function CustomerMapActions({
   onSell: () => void;
   onOpenCard: (id: number) => void;
   onReplacePin: (id: number) => void;
+  /** Удаление — только владельцу: единственное необратимое здесь. */
+  isOwner: boolean;
+  onDeleted: () => void;
 }) {
   return (
     <>
@@ -94,6 +99,17 @@ export function CustomerMapActions({
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => onReplacePin(point.id)}>
           <MapPin size={14} /> {label.pin[lang]}
         </button>
+        {/* Закрылось, переехало или завелось дважды — видно только
+            здесь, на карте. Продавцу вместо удаления доступна
+            перестановка пина: она обратима. */}
+        {isOwner && (
+          <DeletePointButton
+            id={point.id}
+            name={point.name}
+            lang={lang}
+            onDeleted={onDeleted}
+          />
+        )}
       </div>
     </>
   );
