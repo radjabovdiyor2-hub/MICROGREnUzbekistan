@@ -110,7 +110,13 @@ export function PointPanel({
   route,
   onOpenCard,
   sellerName,
-}: PanelDeps & { onOpenCard: (id: number) => void; sellerName: string }) {
+  embedded = false,
+}: PanelDeps & {
+  onOpenCard: (id: number) => void;
+  sellerName: string;
+  /** Внутри листа дока: заголовок и крестик там уже свои. */
+  embedded?: boolean;
+}) {
   const selected = m.selected;
   if (!selected) return null;
 
@@ -118,6 +124,7 @@ export function PointPanel({
     <>
       <CustomerMapPanel
         point={selected}
+        embedded={embedded}
         lang={lang}
         sellerName={sellerName}
         onClose={() => m.setSelectedId(null)}

@@ -231,4 +231,53 @@ test.describe("Полноэкранный режим карты", () => {
     await expect(page.locator(".admin-map-dock")).toBeVisible();
     await expect(page.locator(".admin-map-dock-sheet")).toHaveCount(0);
   });
+
+  test("карточка точки: один заголовок и достижимые действия", async ({ page }) => {
+    // ── ЧТО СЛОМАЛОСЬ НА БОЮ ───────────────────────────────────────────
+    //
+    // Владелец прислал снимок с телефона: в листе дока имя заведения
+    // напечатано ДВАЖДЫ подряд, каждое со своим крестиком, рамка внутри
+    // рамки, а «Продать» и «В объезд» недостижимы — «пролистать карточку
+    // невозможно».
+    //
+    // Две причины. Первая: лист рисует свой заголовок, а карточка внутри —
+    // свой. Вторая, и она тише: тело листа — flex-ребёнок колонки, а у
+    // flex-элемента min-height по умолчанию auto, то есть он отказывается
+    // сжиматься ниже содержимого и `overflow-y: auto` не включается
+    // никогда. Низ карточки просто уезжал за нижний край экрана.
+    await stubAdmin(page);
+    await openMap(page);
+    await fullscreenButton(page).click();
+
+    // Точку выбираем поиском: тот же путь к карточке, что у человека, и
+    // он не требует попадания пальцем по холсту.
+    await page.getByPlaceholder(/Найти заведение|Joy topish/).first().fill("Плов");
+    await page.getByText("Плов Центр").last().click();
+    await expect(page.locator(".admin-map-dock-sheet")).toBeVisible();
+
+    // Имя — ровно один раз. Дубль ловим счётом, а не глазами.
+    const titles = await page
+      .locator(".admin-map-dock-sheet")
+      .getByText("Плов Центр", { exact: true })
+      .count();
+    expect(titles).toBe(1);
+
+    // Тело листа обязано УМЕТЬ прокручиваться: иначе всё, что ниже,
+    // недостижимо в принципе — ни пальцем, ни жестом.
+    const scrollable = await page.evaluate(() => {
+      const body = document.querySelector(".admin-map-dock-sheet-body");
+      if (!body) return null;
+      const style = getComputedStyle(body);
+      return { minHeight: style.minHeight, overflowY: style.overflowY };
+    });
+    expect(scrollable).not.toBeNull();
+    expect(scrollable!.overflowY).toBe("auto");
+    // `auto` здесь и есть поломка: она запрещает flex-элементу сжиматься.
+    expect(scrollable!.minHeight).not.toBe("auto");
+
+    // И главное — ради чего карточку вообще открывают.
+    const sheet = page.locator(".admin-map-dock-sheet");
+    await expect(sheet.getByRole("button", { name: /Продать|Sotish/ })).toHaveCount(1);
+    await expect(sheet.getByRole("button", { name: /объезд|Yoʻnalish/i })).not.toHaveCount(0);
+  });
 });

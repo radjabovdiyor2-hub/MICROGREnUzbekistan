@@ -46,6 +46,15 @@ interface Props {
   /** Уже в объезде на сегодня. */
   inRoute: boolean;
   onToggleRoute: () => void;
+  /**
+   * Карточка уже лежит внутри чужой обёртки со своим заголовком —
+   * в листе дока полноэкранного режима.
+   *
+   * Тогда своя шапка и своя плашка лишние: на телефоне выходило имя
+   * заведения с крестиком ДВАЖДЫ подряд и рамка внутри рамки. Владелец
+   * прислал снимок именно с этим.
+   */
+  embedded?: boolean;
 }
 
 const label = {
@@ -58,6 +67,7 @@ export function CustomerMapPanel({
   lang,
   sellerName,
   onClose,
+  embedded = false,
   onOpenCard,
   onReplacePin,
   inRoute,
@@ -140,8 +150,15 @@ export function CustomerMapPanel({
   }
 
   return (
-    <div className="card" style={{ padding: 'var(--space-4)', display: 'grid', gap: 'var(--space-3)' }}>
-      <CustomerMapPanelHead point={point} lang={lang} onClose={onClose} />
+    <div
+      className={embedded ? undefined : 'card'}
+      style={{
+        padding: embedded ? 0 : 'var(--space-4)',
+        display: 'grid',
+        gap: 'var(--space-3)',
+      }}
+    >
+      <CustomerMapPanelHead point={point} lang={lang} onClose={onClose} embedded={embedded} />
 
       <CustomerMapPanelStats point={point} trend={trend} lang={lang} />
 
