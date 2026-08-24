@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { loginAsOwner, openAdminTab } from "./adminNav";
 
 /**
  * Продажа с точки на карте — сквозным сценарием.
@@ -180,43 +181,7 @@ async function stubAdmin(page: import("@playwright/test").Page, captured: Captur
     });
 }
 
-/**
- * Перейти на вкладку админки.
- *
- * На телефоне список вкладок — выдвижная панель: сама кнопка в разметке
- * есть, но лежит за краем экрана. Открываем ящик, если он есть, — иначе
- * сценарий проходил бы только на широком окне, то есть ровно не там, где
- * этой кассой пользуются.
- *
- * ПОЧЕМУ ЖДЁМ ПОЯВЛЕНИЯ В РАЗМЕТКЕ, А НЕ СПРАШИВАЕМ ВИДИМОСТЬ СРАЗУ.
- *
- * `loginAsOwner` возвращает управление, нажав «Войти», — оболочка админки
- * к этому моменту ещё не смонтирована. Прежний `isVisible()` в этот
- * момент честно отвечал «нет»: кнопки просто не было. Ящик не открывался,
- * и нажатие уходило во вкладку, лежащую за левым краем экрана.
- *
- * Падало это НЕ там, где ломалось: Playwright считает уехавший за край
- * элемент видимым и честно жмёт по нему, а рвётся сценарий позже — на
- * шаге, который к ящику отношения не имеет.
- *
- * Сама кнопка есть в разметке ВСЕГДА: `.admin-mobile-topbar` прячет не
- * условие в JSX, а медиазапрос (`display: none` до 1024px включительно
- * наоборот — flex). Поэтому ждём появления в DOM на обоих профилях, и
- * только потом спрашиваем видимость — тогда ответ осмысленный.
- */
-async function openTab(page: import("@playwright/test").Page, name: string) {
-    const burger = page.locator(".mobile-menu-btn");
-    await burger.waitFor({ state: "attached", timeout: 30_000 });
-    if (await burger.isVisible().catch(() => false)) await burger.click();
-    await page.getByRole("button", { name }).first().click();
-}
 
-async function loginAsOwner(page: import("@playwright/test").Page) {
-    await page.goto("/admin");
-    await page.getByText("Владелец", { exact: true }).first().click();
-    await page.locator("#admin-password").fill("e2e");
-    await page.getByRole("button", { name: /Войти|Kirish/ }).click();
-}
 
 test.describe("Продажа с точки на карте", () => {
     test("клик по точке → продать → чек, и клиент уходит на сервер", async ({ page }) => {
@@ -225,7 +190,7 @@ test.describe("Продажа с точки на карте", () => {
         await loginAsOwner(page);
 
         // Раздел «Клиенты» → вид «Карта».
-        await openTab(page, "Клиенты");
+        await openAdminTab(page, "Клиенты");
         await page.getByRole("button", { name: "Карта" }).first().click();
 
         // Точку берём поиском, а не кликом по канвасу: путь к панели тот же.

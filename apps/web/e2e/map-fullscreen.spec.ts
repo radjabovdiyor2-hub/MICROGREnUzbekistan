@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures";
+import { openMap } from "./adminNav";
 import type { Page } from "@playwright/test";
 
 /**
@@ -97,36 +98,6 @@ async function stubAdmin(page: Page) {
     route.fulfill({ json: { routes: [] } }),
   );
   await page.route("**/api/admin/customers/map**", (route) => route.fulfill({ json: COLLECTION }));
-}
-
-async function openMap(page: Page) {
-  await page.goto("/admin");
-  await page.getByText("Владелец", { exact: true }).first().click();
-  await page.locator("#admin-password").fill("e2e");
-  await page.getByRole("button", { name: /Войти|Kirish/ }).click();
-
-  // Сначала дожидаемся самой оболочки. Сразу после входа её ещё нет, и
-  // проверка «виден ли бургер» отвечала «нет» — на телефоне мы шли кликать
-  // вкладку, которая в этот момент лежит за краем экрана (x = -264).
-  await page.locator(".admin-tab").first().waitFor({ timeout: 15000 });
-
-  // На телефоне список вкладок — выдвижная панель. Ждём не класс `open`,
-  // а фактическое положение: элемент, уехавший за край через translateX,
-  // Playwright по-прежнему считает видимым, и клик уходил в кнопку с
-  // отрицательным x — «element is outside of the viewport», по кругу до
-  // таймаута. Панель выезжает анимацией, поэтому опрашиваем рамку.
-  const burger = page.locator(".mobile-menu-btn");
-  if (await burger.isVisible().catch(() => false)) {
-    await burger.click();
-    await expect
-      .poll(async () => (await page.locator(".admin-sidebar").boundingBox())?.x ?? -1, {
-        timeout: 5000,
-      })
-      .toBeGreaterThanOrEqual(0);
-  }
-  await page.getByRole("button", { name: "Клиенты" }).first().click();
-  await page.getByRole("button", { name: "Карта" }).first().click();
-  await expect(page.locator(".admin-map-stage")).toBeVisible();
 }
 
 /** Кнопка режима — родной контрол MapLibre, ищем по её подписи. */
