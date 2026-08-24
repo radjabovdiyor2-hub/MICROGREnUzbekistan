@@ -64,6 +64,10 @@ class SiteConfig:
     contact_email: str
     banner_enabled: bool
     banner_text: str
+    # Рубильник ИИ владельца. По умолчанию True: недоступная витрина не
+    # должна выключать помощника — выключение это решение человека, а не
+    # следствие сетевой ошибки.
+    ai_enabled: bool = True
     social: SocialLinks
     payment_methods: list[str]
     bonus: BonusConfig
@@ -120,6 +124,7 @@ async def fetch_site_config() -> SiteConfig:
                 contact_phone=data.get("contactPhone", fallback.contact_phone),
                 contact_email=data.get("contactEmail", fallback.contact_email),
                 banner_enabled=data.get("bannerEnabled", fallback.banner_enabled),
+                ai_enabled=bool(data.get("aiEnabled", True)),
                 banner_text=data.get("bannerText", fallback.banner_text),
                 social=social,
                 payment_methods=data.get("paymentMethods") or fallback.payment_methods,
@@ -161,6 +166,7 @@ def get_default_config() -> SiteConfig:
         contact_phone="+998 98 007 20 20",
         contact_email="hello@microgreenuzbekistan.com",
         banner_enabled=False,
+        ai_enabled=True,
         banner_text="",
         social=SocialLinks(
             telegram_channel="https://t.me/MicrogreenUzbekistan",

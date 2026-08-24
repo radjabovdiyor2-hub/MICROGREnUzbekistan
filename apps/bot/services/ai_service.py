@@ -234,6 +234,51 @@ def _get_engine() -> AIEngine:
     return _engine
 
 
+async def _ai_enabled() -> bool:
+    """Включён ли ИИ по решению владельца.
+
+    Флаг приходит из публичного конфига витрины (`/api/config`, поле
+    `aiEnabled`) — другого пути у бота нет и быть не должно: он отдельный
+    модуль и ходит в витрину только по HTTP. Конфиг уже кэшируется на пять
+    минут, так что проверка ничего не стоит.
+
+    Любая заминка чтения — считаем включённым. Осторожность именно в эту
+    сторону: недоступная витрина не должна выключать помощника, выключение
+    это решение человека, а не следствие сетевой ошибки.
+    """
+    try:
+        cfg = await fetch_site_config()
+        return bool(getattr(cfg, "ai_enabled", True))
+    except Exception as e:  # noqa: BLE001 — причина не важна, важен ответ
+        logger.debug("Не прочитан флаг aiEnabled (%s) — считаем включённым", e)
+        return True
+
+
+def _ai_off_reply() -> str:
+    """Что отвечаем, когда ИИ выключен.
+
+    Честно и с выходом: покупатель не должен упереться в молчание или в
+    «ошибка сервера». Он пришёл с вопросом, и вопрос никуда не делся.
+    """
+    return (
+        "Сейчас я отвечаю без ИИ-помощника 🙂\n"
+        "Напишите вопрос — им займётся менеджер, или посмотрите каталог: /catalog"
+    )
+
+
+async def _chat(**kwargs) -> str:
+    """Единственная дверь бота в модель.
+
+    Все три места — картинка, голос и текст — идут через неё, поэтому
+    рубильник проверяется один раз. Три отдельные проверки означали бы, что
+    однажды добавят четвёртый вызов и забудут четвёртую.
+    """
+    if not await _ai_enabled():
+        logger.info("ИИ выключен владельцем — вызов не отправлен")
+        return _ai_off_reply()
+    return await _get_engine().chat_completion(**kwargs)
+
+
 async def analyze_image(image_bytes: bytes, user_question: str = "") -> str:
     """Разобрать изображение: растение, документ, что угодно."""
     prompt = await _get_system_prompt()
@@ -245,7 +290,7 @@ async def analyze_image(image_bytes: bytes, user_question: str = "") -> str:
     )
 
     encoded = base64.b64encode(image_bytes).decode("utf-8")
-    res = await _get_engine().chat_completion(
+    res = await _chat(
         system_prompt=prompt,
         user_message=user_question or "Что на изображении?",
         image_base64=encoded,
@@ -282,7 +327,10 @@ async def transcribe_audio(audio_bytes: bytes, user_question: str = "") -> str:
     if user_question:
         prompt += f"\n\nКонтекст от пользователя: {user_question}"
 
-    res = await engine.chat_completion(
+    # Через ту же дверь, что картинка и текст: расшифровка голоса уже
+    # состоялась, но ОТВЕТ на неё — обычный вызов модели, и рубильник
+    # обязан гасить и его.
+    res = await _chat(
         system_prompt=prompt,
         user_message=text,
         max_tokens=1024,
@@ -302,7 +350,7 @@ async def get_ai_response(user_message: str, system_context: str = "") -> str:
     system = await _get_system_prompt()
     if system_context:
         system = f"{system}\n\n{system_context}"
-    res = await _get_engine().chat_completion(
+    res = await _chat(
         system_prompt=system,
         user_message=user_message,
         max_tokens=1000,
