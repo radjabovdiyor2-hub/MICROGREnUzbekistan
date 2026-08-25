@@ -81,6 +81,7 @@ const AdminFinance = dynamic(() => import('@/components/admin/AdminFinance').the
 const AdminAudit = dynamic(() => import('@/components/admin/AdminAudit').then((m) => m.AdminAudit), { ssr: false, loading: TabLoading });
 const AdminAiSpend = dynamic(() => import('@/components/admin/AdminAiSpend').then((m) => m.AdminAiSpend), { ssr: false, loading: TabLoading });
 const AdminApprovals = dynamic(() => import('@/components/admin/AdminApprovals').then((m) => m.AdminApprovals), { ssr: false, loading: TabLoading });
+const AdminVisitPlans = dynamic(() => import('@/components/admin/AdminVisitPlans').then((m) => m.AdminVisitPlans), { ssr: false, loading: TabLoading });
 const AdminTasks = dynamic(() => import('@/components/admin/AdminTasks').then((m) => m.AdminTasks), { ssr: false, loading: TabLoading });
 const AdminCategories = dynamic(() => import('@/components/admin/AdminCategories').then((m) => m.AdminCategories), { ssr: false, loading: TabLoading });
 const AdminDeliveries = dynamic(() => import('@/components/admin/AdminDeliveries').then((m) => m.AdminDeliveries), { ssr: false, loading: TabLoading });
@@ -145,6 +146,9 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
     {activeTab === 'bot_health' && isOwner && <AdminBotHealth lang={lang} />}
     {activeTab === 'tasks' && isOwner && <AdminTasks lang={lang} focus={focus} />}
     {activeTab === 'approvals' && isOwner && <AdminApprovals lang={lang} />}
+    {/* Объезды — владельцу: это взгляд на чужую работу. Продавец свой
+        план видит на карте, и второй экран ему незачем. */}
+    {activeTab === 'visit_plans' && isOwner && <AdminVisitPlans lang={lang} />}
     {activeTab === 'learnings' && isOwner && <AdminLearnings lang={lang} />}
     {activeTab === 'ai_spend' && isOwner && <AdminAiSpend lang={lang} />}
 

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Route,
   Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
@@ -54,6 +55,7 @@ export const TAB_GROUPS = [
       { id: 'bot_health', ru: 'Здоровье ботов', uz: 'Botlar holati', icon: <Activity size={16} /> },
       { id: 'tasks', ru: 'Задачи отделам', uz: 'Vazifalar', icon: <ClipboardList size={16} /> },
       { id: 'approvals', ru: 'Ждёт решения', uz: 'Qaror kutmoqda', icon: <Clock size={16} /> },
+      { id: 'visit_plans', ru: 'Объезды за день', uz: 'Kunlik yoʻnalishlar', icon: <Route size={16} /> },
       { id: 'learnings', ru: 'Обучение ИИ', uz: "AI O'rgatish", icon: <Brain size={16} /> },
       { id: 'ai_spend', ru: 'Расходы ИИ', uz: 'AI xarajatlari', icon: <Cpu size={16} /> },
     ]
