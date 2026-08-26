@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AdminSearch, matchesQuery } from './AdminSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Edit, Plus, Send, Trash, User,
@@ -42,6 +43,8 @@ export function AdminEmployees() {
   const [form, setForm] = useState(EMPTY_EMPLOYEE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Поиска здесь не было: сотрудников ищут по имени и телефону.
+  const [query, setQuery] = useState('');
 
   const { data: employees = [], isLoading: loading } = useQuery<Employee[]>({
     queryKey: ['admin-employees'],
@@ -113,13 +116,17 @@ export function AdminEmployees() {
     fetch_();
   };
 
+  const visible = employees.filter((e) =>
+    matchesQuery(query, e.name, e.phone, e.role, e.department, e.city));
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <User size={20} /> Xodimlar
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({employees.length})</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({visible.length})</span>
         </h3>
+        <AdminSearch value={query} onChange={setQuery} placeholder="Поиск сотрудника" width={180} />
         <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm(EMPTY_EMPLOYEE); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Plus size={14} /> Yangi xodim
@@ -179,14 +186,14 @@ export function AdminEmployees() {
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
           <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
-      ) : employees.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
           <User size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
           <p>Xodimlar yo&apos;q. Yangi xodim qo&apos;shing.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {employees.map(emp => (
+          {visible.map(emp => (
             <div key={emp.id} className="card" style={{ padding: 'var(--space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-full)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', fontFamily: 'var(--font-display)' }}>

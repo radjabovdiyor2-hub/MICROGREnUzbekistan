@@ -4,6 +4,7 @@ import type { Promo } from './adminPromoTypes';
 
 import { AdminPromoForm } from './AdminPromoForm';
 import { useState } from 'react';
+import { AdminSearch, matchesQuery } from './AdminSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Plus } from 'lucide-react';
 
@@ -23,6 +24,8 @@ export function AdminPromo({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const queryClient = useQueryClient();
 
   const [error, setError] = useState('');
+  // Поиска не было: промокоды копятся, а найти нужный можно было лишь глазами.
+  const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -75,6 +78,8 @@ export function AdminPromo({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     }
   };
 
+  const visible = codes.filter((c) => matchesQuery(query, c.code));
+
   const toggle = async (promo: Promo) => {
     await fetch('/api/admin/promo', {
       method: 'PATCH',
@@ -99,8 +104,9 @@ export function AdminPromo({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           <Plus size={16} /> {t('Новый промокод', 'Yangi promokod')}
         </button>
         <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-          {t(`Всего: ${codes.length}`, `Jami: ${codes.length}`)}
+          {t(`Всего: ${visible.length}`, `Jami: ${visible.length}`)}
         </span>
+        <AdminSearch value={query} onChange={setQuery} placeholder={t('Поиск кода', 'Kod qidirish')} width={170} />
       </div>
 
       {error && (
@@ -134,7 +140,7 @@ export function AdminPromo({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         />
       )}
 
-      <AdminPromoList codes={codes} loading={loading} t={t} toggle={toggle} />
+      <AdminPromoList codes={visible} loading={loading} t={t} toggle={toggle} />
     </div>
   );
 }

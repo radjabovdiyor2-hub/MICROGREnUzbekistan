@@ -2,6 +2,7 @@
 
 import { AdminCategoryForm } from './AdminCategoryForm';
 import { AdminNotice } from './AdminNotice';
+import { AdminSearch, matchesQuery } from './AdminSearch';
 import { useFeedback } from './AdminFeedback';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -30,6 +31,9 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const queryClient = useQueryClient();
 
   const [error, setError] = useState('');
+  // Поиска не было: категорий немного, но со временем их становится больше,
+  // а порядок в каталоге задан вручную — прокрутка глазами тут дороже всего.
+  const [query, setQuery] = useState('');
   const [warning, setWarning] = useState('');
   const [showForm, setShowForm] = useState(false);
 
@@ -112,6 +116,8 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     await load();
   };
 
+  const visible = categories.filter((c) => matchesQuery(query, c.nameRu, c.nameUz, c.slug));
+
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '10px 12px', border: '1.5px solid var(--border)',
     borderRadius: 10, background: 'var(--bg-primary)', color: 'var(--text-primary)',
@@ -124,6 +130,11 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8 }}>
         <Plus size={16} /> {t('Новая категория', 'Yangi kategoriya')}
       </button>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <AdminSearch value={query} onChange={setQuery}
+          placeholder={t('Поиск категории', 'Kategoriya qidirish')} width={200} />
+      </div>
 
       <AdminNotice>{error}</AdminNotice>
       {warning && (
@@ -156,7 +167,7 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-6)' }}>
             {t('Загрузка…', 'Yuklanmoqda…')}
           </div>
-        ) : categories.map(cat => (
+        ) : visible.map(cat => (
           <div key={cat.id} className="card" style={{
             padding: 'var(--space-4)', borderRadius: 12,
             display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap',
@@ -196,7 +207,7 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           </div>
         ))}
 
-        {!loading && !categories.length && (
+        {!loading && !visible.length && (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
             <Layers size={28} style={{ marginBottom: 8 }} />
             <div>{t('Категорий нет', 'Kategoriyalar yo\'q')}</div>

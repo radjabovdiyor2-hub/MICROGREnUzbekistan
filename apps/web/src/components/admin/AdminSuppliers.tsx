@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AdminSearch, matchesQuery } from './AdminSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Edit, Plus, Trash, Truck,
@@ -37,6 +38,10 @@ export function AdminSuppliers() {
   });
 
   const fetch_ = () => queryClient.invalidateQueries({ queryKey: ['admin-suppliers'] });
+
+  // Поиска здесь не было: найти поставщика можно было только глазами.
+  const [query, setQuery] = useState('');
+  const visible = suppliers.filter((s) => matchesQuery(query, s.name, s.phone, s.address, s.note));
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
@@ -96,8 +101,9 @@ export function AdminSuppliers() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Truck size={20} /> Yetkazuvchilar
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({suppliers.length})</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({visible.length})</span>
         </h3>
+        <AdminSearch value={query} onChange={setQuery} placeholder="Поиск поставщика" width={200} />
         <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm({ name: '', phone: '', address: '', note: '' }); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <Plus size={14} /> Yangi
@@ -132,14 +138,14 @@ export function AdminSuppliers() {
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
           <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
-      ) : suppliers.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
           <Truck size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
           <p>Yetkazuvchilar yo&apos;q</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {suppliers.map(s => (
+          {visible.map(s => (
             <div key={s.id} className="card" style={{ padding: 'var(--space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 <div style={{ width: 44, height: 44, borderRadius: 'var(--radius-lg)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

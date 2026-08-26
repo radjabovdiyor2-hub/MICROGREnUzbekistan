@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle, CheckCircle2, ClipboardList, Plus, Trash2 }
 
 import { AdminCheckbox } from './AdminCheckbox';
 import { AdminSelectionBar } from './AdminSelectionBar';
+import { AdminSearch, matchesQuery } from './AdminSearch';
 
 // ══════════════════════════════════════════════════════════════════════
 // Задачи отделам.
@@ -30,6 +31,7 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
   const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -43,19 +45,24 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
     create, setStatus, toggle, remove, bulkStatus,
   } = useAdminTasks(filter, t);
 
+  // Поиска по задачам не было — только фильтр по отделу. Тридцать открытых
+  // задач ищутся глазами, и «где та про субстрат» стоит прокрутки.
+  const visible = tasks.filter(x => matchesQuery(query, x.title, x.description, x.department, x.assignee));
+
   // Выбрано ли всё ВИДИМОЕ. Считается по текущему списку, а не по всей
   // базе: фильтр меняет то, что перед человеком, и «выбрать всё» обязано
   // означать «всё, что я вижу».
-  const allVisibleSelected = tasks.length > 0 && tasks.every(x => selected.includes(x.id));
+  const allVisibleSelected = visible.length > 0 && visible.every(x => selected.includes(x.id));
 
-  // Смена фильтра не должна оставлять в выборе то, чего уже не видно:
-  // иначе «Удалить выбранные» уносит записи, которых нет на экране.
+  // Смена фильтра или поиска не должна оставлять в выборе то, чего уже не
+  // видно: иначе «Удалить выбранные» уносит записи, которых нет на экране.
   useEffect(() => {
     setSelected(prev => {
-      const next = prev.filter(id => tasks.some(x => x.id === id));
+      const next = prev.filter(id => visible.some(x => x.id === id));
       return next.length === prev.length ? prev : next;
     });
-  }, [tasks, setSelected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks, query, setSelected]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +88,9 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
           {departments.map(d => <option key={d} value={d}>{DEPT_LABELS[d] ?? d}</option>)}
         </select>
 
+        <AdminSearch value={query} onChange={setQuery}
+          placeholder={t('Поиск задачи', 'Vazifa qidirish')} width={200} />
+
         <button onClick={() => setShowForm(!showForm)} className="btn btn-primary"
           style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           <Plus size={16} /> {t('Поставить задачу', 'Vazifa qo\'yish')}
@@ -101,7 +111,7 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
       {/* «Выбрать всё» — то, чего не было: тридцать просроченных задач
           закрывались тридцатью нажатиями. Выбирается ВИДИМОЕ, то есть с
           учётом фильтра: человек нажимает, глядя на список перед собой. */}
-      {tasks.length > 0 && (
+      {visible.length > 0 && (
         <label style={{
           display: 'flex', alignItems: 'center', gap: 10, paddingLeft: 14,
           fontSize: 'var(--text-xs)', color: 'var(--text-muted)', cursor: 'pointer',
@@ -109,12 +119,12 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
           <AdminCheckbox
             checked={allVisibleSelected}
             indeterminate={selected.length > 0}
-            onChange={() => setSelected(allVisibleSelected ? [] : tasks.map(x => x.id))}
+            onChange={() => setSelected(allVisibleSelected ? [] : visible.map(x => x.id))}
             label={t('Выбрать все видимые задачи', "Barcha ko'rinadigan vazifalarni tanlash")}
           />
           {allVisibleSelected
             ? t('Снять выбор со всех', 'Barchasidan olib tashlash')
-            : t(`Выбрать все (${tasks.length})`, `Barchasini tanlash (${tasks.length})`)}
+            : t(`Выбрать все (${visible.length})`, `Barchasini tanlash (${visible.length})`)}
         </label>
       )}
 
@@ -151,7 +161,7 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 'var(--space-6)' }}>
             {t('Загрузка…', 'Yuklanmoqda…')}
           </div>
-        ) : tasks.map(task => (
+        ) : visible.map(task => (
           <AdminTaskRow
             key={task.id} task={task} today={today} inputStyle={inputStyle} t={t}
             selected={selected.includes(task.id)}
@@ -165,7 +175,7 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
           />
         ))}
 
-        {!loading && !tasks.length && (
+        {!loading && !visible.length && (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
             <ClipboardList size={28} style={{ marginBottom: 8 }} />
             <div>{t('Активных задач нет', 'Faol vazifalar yo\'q')}</div>

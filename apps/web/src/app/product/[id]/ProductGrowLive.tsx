@@ -46,7 +46,8 @@ function humanDate(iso: string, lang: 'ru' | 'uz'): string {
 }
 
 export function ProductGrowLive({ productId }: { productId: string }) {
-  const { t, lang } = useLang();
+  // Язык подставляет сам `t`; даты форматируем на обеих ветках отдельно.
+  const { t } = useLang();
   const [batch, setBatch] = useState<LiveBatch | null>(null);
 
   useEffect(() => {

@@ -26,11 +26,13 @@ interface Debt {
 
 
 import { AdminDebtList } from './AdminDebtList';
+import { AdminSearch, matchesQuery } from './AdminSearch';
 import { tint } from '@/lib/tint';
 
 export function AdminDebts() {
   const [activeTab, setActiveTab] = useState<'WHO_OWES_US' | 'WE_OWE'>('WHO_OWES_US');
   const [statusFilter, setStatusFilter] = useState('unpaid');
+  const [query, setQuery] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [paymentModal, setPaymentModal] = useState<Debt | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -49,6 +51,10 @@ export function AdminDebts() {
   });
 
   const debts = data?.debts || [];
+
+  // Поиска не было: долг искали глазами по списку.
+  const visibleDebts = debts.filter((d: Debt) =>
+    matchesQuery(query, d.personName, d.phone, d.description, d.supplier?.name));
   const summary = data?.summary || { theyOweUs: 0, weOwe: 0, overdue: 0, totalCount: 0 };
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
@@ -177,8 +183,11 @@ export function AdminDebts() {
         saving={saving}
         error={error}
       />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-3)' }}>
+        <AdminSearch value={query} onChange={setQuery} placeholder="Кто должен / за что" width={240} />
+      </div>
       <AdminDebtList
-        debts={debts}
+        debts={visibleDebts}
         loading={loading}
         fmt={fmt}
         fmtDate={fmtDate}

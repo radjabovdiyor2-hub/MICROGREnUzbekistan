@@ -6,6 +6,7 @@ import { AdminCustomerTable } from './AdminCustomerTable';
 import { AdminCustomerEdit } from './AdminCustomerEdit';
 import { AdminCustomerCard } from './AdminCustomerCard';
 import { AdminCustomersToolbar } from './AdminCustomersToolbar';
+import { AdminCustomerPurge } from './AdminCustomerPurge';
 import { AdminPager } from './AdminPager';
 import { AdminCustomerMap } from './map/AdminCustomerMap';
 import { PAGE_SIZE, useAdminCustomers } from './useAdminCustomers';
@@ -136,6 +137,15 @@ export function AdminCustomers({
         audienceFilter={s.audienceFilter}
         onAudience={s.handleAudienceFilter}
       />
+
+      {/* Чистка базы: у пакетного удаления с предпросмотром не было кнопки,
+          хотя ночной сбор заведений приносит карточки сотнями. Только
+          владельцу — продавцу удаление закрыто и в API. */}
+      {isOwner && s.view !== 'map' && (
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <AdminCustomerPurge onDone={() => s.refetch()} />
+        </div>
+      )}
 
       {s.view === 'map' ? (
         <AdminCustomerMap
