@@ -25,6 +25,8 @@ from aiogram.fsm.storage.redis import RedisStorage
 from shared.prompts import role_prompt
 from shared.config import settings
 from shared.database import get_session_ctx
+# Одна формула выручки на весь офис: отменённый заказ не продажа.
+from shared.tools.crm import NOT_A_SALE
 from shared.event_bus import event_bus
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat, check_all_bots, format_health_report
@@ -153,7 +155,8 @@ async def daily_report():
             res = await session.execute(
                 sa_text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE"
+                    "WHERE DATE(created_at) = CURRENT_DATE "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
             today_orders, today_revenue = res.fetchone()
@@ -162,7 +165,8 @@ async def daily_report():
             res = await session.execute(
                 sa_text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE - INTERVAL '1 day'"
+                    "WHERE DATE(created_at) = CURRENT_DATE - INTERVAL '1 day' "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
             yesterday_orders, yesterday_revenue = res.fetchone()
@@ -309,11 +313,19 @@ async def evening_summary():
             )
             tasks_remaining = res.scalar() or 0
 
-            # Новые заказы сегодня
+            # Новые заказы сегодня.
+            #
+            # Фильтр отмен здесь отсутствовал, и вечерняя сводка была
+            # единственным местом в офисе, где отменённый заказ считался
+            # выручкой: `get_business_summary`, `get_pnl`, `top_products` и
+            # `get_sales_trend` исключают его через тот же `NOT_A_SALE`.
+            # Владелец в 20:00 получал одно число, а отчёт аналитики в тот же
+            # час — другое, и расхождение выглядело ошибкой аналитики.
             res = await session.execute(
                 sa_text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE"
+                    "WHERE DATE(created_at) = CURRENT_DATE "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
             new_orders, revenue = res.fetchone()
@@ -383,7 +395,8 @@ async def weekly_report():
             res = await session.execute(
                 sa_text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
-                    "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                    "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
             week_orders, week_revenue = res.fetchone()

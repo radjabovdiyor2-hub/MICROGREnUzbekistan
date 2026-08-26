@@ -36,6 +36,8 @@ from aiogram.types import (
 from sqlalchemy import text
 
 from shared import approvals
+# Одна формула выручки на весь офис: отменённый заказ не продажа.
+from shared.tools.crm import NOT_A_SALE
 from shared import tools as tool_registry
 from shared.config import settings
 from shared.database import get_session_ctx
@@ -450,17 +452,23 @@ async def _collect_data() -> str:
         # ── Заказы ──
         try:
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE DATE(created_at)=CURRENT_DATE"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
+                "WHERE DATE(created_at)=CURRENT_DATE "
+                f"AND LOWER(status) NOT IN {NOT_A_SALE}"
             )
             c, s = r.fetchone()
             lines.append(f"📦 Заказы сегодня: {c} на {format_price(s)}")
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
+                "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' "
+                f"AND LOWER(status) NOT IN {NOT_A_SALE}"
             )
             c, s = r.fetchone()
             lines.append(f"📦 Заказы за неделю: {c} на {format_price(s)}")
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) FROM crm_orders WHERE EXTRACT(MONTH FROM created_at)=EXTRACT(MONTH FROM CURRENT_DATE)"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0), COALESCE(AVG(total_amount),0) FROM crm_orders "
+                "WHERE EXTRACT(MONTH FROM created_at)=EXTRACT(MONTH FROM CURRENT_DATE) "
+                f"AND LOWER(status) NOT IN {NOT_A_SALE}"
             )
             c, s, a = r.fetchone()
             lines.append(
@@ -525,7 +533,9 @@ async def _collect_data() -> str:
                 f"прибыль {format_price(profit)} (маржа {margin:.0f}%)"
             )
             r = await q(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE payment_status='pending'"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
+                "WHERE payment_status='pending' "
+                f"AND LOWER(status) NOT IN {NOT_A_SALE}"
             )
             dc, ds = r.fetchone()
             lines.append(
@@ -1734,7 +1744,8 @@ async def _collect_kpi_drops():
                 await s.execute(
                     text(
                         "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
-                        "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                        "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' "
+                        f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                     )
                 )
             ).fetchone()
@@ -1743,7 +1754,8 @@ async def _collect_kpi_drops():
                     text(
                         "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
                         "WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' "
-                        "AND created_at < CURRENT_DATE - INTERVAL '7 days'"
+                        "AND created_at < CURRENT_DATE - INTERVAL '7 days' "
+                        f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                     )
                 )
             ).fetchone()

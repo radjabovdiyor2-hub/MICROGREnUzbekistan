@@ -21,8 +21,10 @@ from services.ecosystem_bridge import bridge
 router = Router()
 logger = logging.getLogger(__name__)
 
-# Admin User IDs — from .env (comma-separated)
-ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_CHAT_ID", "847872669").split(",") if x.strip()]
+# Кто владелец — один список на весь бот (shared/admins.py). Здесь стоял
+# разбор ADMIN_CHAT_ID с вписанным в код id: пустая переменная окружения
+# отдавала админку конкретному аккаунту.
+from shared.admins import ADMIN_IDS, is_admin  # noqa: E402,F401
 ORDER_GROUP_ID = os.getenv("ORDER_GROUP_ID", "@mcgprdj")
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 BOT_SECRET = os.getenv("BOT_SECRET", "")
@@ -33,11 +35,6 @@ def _api_headers() -> dict:
     if BOT_SECRET:
         headers["Authorization"] = f"Bearer {BOT_SECRET}"
     return headers
-
-
-def is_admin(user_id: int) -> bool:
-    """Check if user is admin"""
-    return user_id in ADMIN_IDS
 
 
 def get_admin_keyboard() -> InlineKeyboardMarkup:
@@ -419,7 +416,7 @@ async def admin_settings(callback: CallbackQuery):
     
     await callback.message.edit_text(
         "⚙️ <b>Настройки</b>\n\n"
-        f"👤 Admin ID: <code>847872669</code>\n"
+        f"👤 Admin ID: <code>{', '.join(str(i) for i in ADMIN_IDS) or 'не задан'}</code>\n"
         f"📢 Группа заказов: <code>{ORDER_GROUP_ID}</code>\n\n"
         "Основные настройки в веб-админке.",
         reply_markup=keyboard

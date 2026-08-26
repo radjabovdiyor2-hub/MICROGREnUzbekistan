@@ -10,10 +10,15 @@ import { Banknote, CreditCard, Smartphone } from 'lucide-react';
 // (CartOrderSuccess): тот импортировал константу из компонента формы, хотя
 // формы на экране успеха уже нет.
 
+// Click и Payme отсюда убраны намеренно. Кнопки рисовались, клиент выбирал
+// способ — и ничего не происходило: платёжную ссылку не создаёт ни один
+// участок кода, а вебхуки /api/payment/* ждут рабочих merchant-контрактов.
+// Оплата фактически идёт при получении, и список теперь говорит именно это.
+// Вернуть строку сюда без создания платежа — значит вернуть ложное обещание.
 export const PAYMENT_METHODS = [
   { id: 'cash', labelUz: 'Naqd pul', labelRu: 'Наличные', icon: <Banknote size={18} />, descUz: "Yetkazib berishda to'lang", descRu: "Оплата при доставке" },
-  { id: 'click', labelUz: 'Click', labelRu: 'Click', icon: <Smartphone size={18} />, descUz: "Click ilovasi orqali", descRu: "Через приложение Click" },
-  { id: 'payme', labelUz: 'Payme', labelRu: 'Payme', icon: <CreditCard size={18} />, descUz: "Payme ilovasi orqali", descRu: "Через приложение Payme" },
+  { id: 'card', labelUz: 'Karta', labelRu: 'Карта', icon: <CreditCard size={18} />, descUz: "Yetkazib berishda terminal orqali", descRu: "Терминалом при доставке" },
+  { id: 'transfer', labelUz: "O'tkazma", labelRu: 'Перевод', icon: <Smartphone size={18} />, descUz: "Karta raqamiga o'tkazma", descRu: "Переводом на карту" },
 ];
 
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];

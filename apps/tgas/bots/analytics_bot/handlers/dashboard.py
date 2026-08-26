@@ -4,6 +4,8 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from sqlalchemy import text
 from shared.database import get_session_ctx
+# Одна формула выручки на весь офис: отменённый заказ не продажа.
+from shared.tools.crm import NOT_A_SALE
 from shared.utils import format_price
 from bots.analytics_bot.keyboards.inline import back_kb
 
@@ -16,7 +18,8 @@ async def dashboard(cb: CallbackQuery):
         r = await session.execute(
             text(
                 "SELECT COALESCE(SUM(total_amount),0) as rev, COUNT(*) as cnt "
-                "FROM crm_orders WHERE created_at >= date_trunc('month', CURRENT_DATE)"
+                "FROM crm_orders WHERE created_at >= date_trunc('month', CURRENT_DATE) "
+                f"AND LOWER(status) NOT IN {NOT_A_SALE}"
             )
         )
         d = r.fetchone()

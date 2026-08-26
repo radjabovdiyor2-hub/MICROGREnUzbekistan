@@ -801,7 +801,13 @@ async def recalc_stats(session, customer_id: int) -> None:
             "  SELECT COUNT(*) FILTER (WHERE total_amount >= 0) AS cnt, "
             "         COALESCE(SUM(total_amount), 0) AS total, "
             "         MAX(created_at) FILTER (WHERE total_amount >= 0) AS last_at "
-            "  FROM crm_orders WHERE customer_id = :cid AND status <> 'cancelled'"
+            # Написаний у отмены два: витрина пишет `cancelled`, часть
+            # источников — `canceled`. Сравнение с одним из них пропускало
+            # второе, и отменённый заказ оставался в «Потрачено» клиента.
+            # `refunded` здесь намеренно НЕ исключён: возврат приходит
+            # отдельной строкой с отрицательной суммой (см. выше).
+            "  FROM crm_orders WHERE customer_id = :cid "
+            "  AND LOWER(status) NOT IN ('cancelled', 'canceled')"
             ") s "
             "WHERE c.id = :cid"
         ),

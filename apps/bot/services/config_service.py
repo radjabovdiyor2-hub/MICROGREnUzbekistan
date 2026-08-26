@@ -38,10 +38,10 @@ class BonusConfig:
 
 # Названия способов оплаты для клиента. Ключи приходят из настроек витрины
 # (`payment.methods`), чтобы бот не обещал того, что не подключено.
+# Click и Payme убраны: онлайн-оплаты в проекте нет, платёжную ссылку никто
+# не создаёт. Неизвестный ключ пропускаем, а не показываем клиенту сырым.
 PAYMENT_LABELS = {
     "cash": "наличные",
-    "click": "Click",
-    "payme": "Payme",
     "card": "карта",
     "transfer": "перевод",
     "contract": "договор (юр. лица)",
@@ -50,7 +50,7 @@ PAYMENT_LABELS = {
 
 def payment_text(methods: list[str]) -> str:
     """`['cash', 'click']` → `наличные, Click`."""
-    named = [PAYMENT_LABELS.get(m, m) for m in methods if m]
+    named = [PAYMENT_LABELS[m] for m in methods if m in PAYMENT_LABELS]
     return ", ".join(named) if named else "уточните у менеджера"
 
 
@@ -174,7 +174,7 @@ def get_default_config() -> SiteConfig:
             telegram_bot="https://t.me/Microgreenuzbekistan_bot",
             instagram="https://instagram.com/microgreenuzbekistan",
         ),
-        payment_methods=["cash", "click", "payme"],
+        payment_methods=["cash", "card", "transfer"],
         magazine_print_price=30000,
         bonus=BonusConfig(
             referrer_reward=5000,

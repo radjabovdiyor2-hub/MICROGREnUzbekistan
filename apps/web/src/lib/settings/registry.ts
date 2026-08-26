@@ -59,6 +59,12 @@ export function coerceSetting(
         : String(raw).split(',').map(v => v.trim());
       const clean = arr.filter(Boolean);
       if (!clean.length) return { ok: false, error: 'Список не может быть пустым' };
+      if (def.allowed) {
+        const unknown = clean.filter(v => !def.allowed!.includes(v));
+        if (unknown.length) {
+          return { ok: false, error: `Недопустимо: ${unknown.join(', ')}. Можно: ${def.allowed.join(', ')}` };
+        }
+      }
       return { ok: true, value: clean };
     }
     case 'string':

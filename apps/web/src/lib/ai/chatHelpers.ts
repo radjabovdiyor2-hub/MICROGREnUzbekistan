@@ -2,9 +2,11 @@ import { prisma } from '@repo/database';
 import { getRecipeForDay } from '@/lib/nutrition/recipes';
 import { getSettings } from '@/lib/settings/store';
 
+// Click и Payme убраны: онлайн-оплаты нет, и ассистент не должен её называть.
+// Неизвестный ключ ассистент теперь пропускает молча, а не диктует клиенту
+// сырой идентификатор из базы.
 const PAYMENT_LABELS: Record<string, string> = {
-  cash: 'naqd', click: 'Click', payme: 'Payme',
-  card: 'karta', transfer: "o'tkazma", contract: 'shartnoma (yuridik)',
+  cash: 'naqd', card: 'karta', transfer: "o'tkazma", contract: 'shartnoma (yuridik)',
 };
 
 /**
@@ -19,7 +21,7 @@ export async function buildConditions(): Promise<string> {
     const s = await getSettings();
     const fmt = (n: unknown) => Number(n || 0).toLocaleString('ru-RU').replace(/,/g, ' ');
     const methods = (s['payment.methods'] as string[] | undefined) || [];
-    const payment = methods.map(m => PAYMENT_LABELS[m] || m).join(', ');
+    const payment = methods.map(m => PAYMENT_LABELS[m]).filter(Boolean).join(', ');
 
     const lines = [
       `📞 ${s['contacts.phonePrimary']}`,

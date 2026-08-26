@@ -189,6 +189,15 @@ def _notify_ai_failure(where: str, model: str, error: str) -> None:
     loop.create_task(_raise())
 
 
+class AIUnavailable(RuntimeError):
+    """Модель не звалась по решению владельца: рубильник или бюджет.
+
+    Отдельный тип, а не общее исключение: у отказа движка причина внешняя
+    («кончилась квота»), а здесь — внутренняя, и человеку надо сказать разное.
+    Текст исключения уже человеческий, `_ai_error_reason` печатает его как есть.
+    """
+
+
 async def _ai_enabled() -> bool:
     """Включён ли ИИ. Любая заминка чтения — считаем, что включён.
 
@@ -203,6 +212,65 @@ async def _ai_enabled() -> bool:
     except Exception as e:  # noqa: BLE001 — причина не важна, важен ответ
         logger.debug("Не прочитан флаг ai.enabled (%s) — считаем включённым", e)
         return True
+
+
+async def _ai_block_reason() -> Optional[str]:
+    """Почему звать модель сейчас нельзя, либо None.
+
+    Две причины и один вход: рубильник владельца и исчерпанный бюджет.
+    Разводить их по разным местам значило бы получить ровно то, что уже
+    случилось с рубильником, — закрытым оказался один путь из двух.
+    """
+    if not await _ai_enabled():
+        return "ИИ выключен владельцем (Настройки → ИИ)"
+
+    try:
+        from shared.ai_usage import budget_block_reason
+
+        return await budget_block_reason()
+    except Exception as exc:  # noqa: BLE001 — недоступный учёт не выключает офис
+        logger.debug("Бюджет ИИ не проверен (%s) — вызов разрешаем", exc)
+        return None
+
+
+def _notify_budget_stop(reason: str) -> None:
+    """Сказать владельцу, что офис остановился на бюджете. Раз в сутки.
+
+    Без этого сигнала остановка неотличима от поломки: боты просто перестают
+    отвечать, и причину знает только лог.
+    """
+    try:
+        import asyncio
+
+        from shared import alert_once
+
+        if not alert_once.should_send("ai_budget", reason[:120]):
+            return
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("budget alert skip: %s", exc)
+        return
+
+    async def _raise() -> None:
+        try:
+            from shared.owner_alerts import SEVERITY_CRITICAL, raise_alert
+
+            await raise_alert(
+                kind="ai_budget",
+                severity=SEVERITY_CRITICAL,
+                title="Бюджет ИИ исчерпан — офис думать перестал",
+                message=(
+                    f"{reason}\n\nПока предел не поднят, боты отвечают заглушкой, "
+                    "а задачи остаются невыполненными."
+                ),
+                source="ai_engine",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Не смог сообщить об исчерпанном бюджете: %s", exc)
+
+    loop.create_task(_raise())
 
 
 class AIEngine(_BaseAIEngine):
@@ -265,8 +333,11 @@ class AIEngine(_BaseAIEngine):
         # ОТКАЗ ВИДЕН, а не притворяется ответом: возвращаем ту же
         # честную заглушку, что и при отказе модели. Молчаливое пустое
         # значение читалось бы как «ИИ подумал и ничего не сказал».
-        if not await _ai_enabled():
-            logger.info("ИИ выключен владельцем — вызов не отправлен")
+        blocked = await _ai_block_reason()
+        if blocked:
+            logger.info("Вызов модели не отправлен: %s", blocked)
+            if "бюджет" in blocked:
+                _notify_budget_stop(blocked)
             return FALLBACK_RESPONSES.get(language, FALLBACK_RESPONSES["ru"]).format(
                 phone=getattr(settings, "company_phone", "") or ""
             )
@@ -292,4 +363,47 @@ class AIEngine(_BaseAIEngine):
             language=language,
             image_base64=image_base64,
             effort=effort
+        )
+
+    async def chat_with_tools(
+        self,
+        system_prompt: str,
+        user_message: str,
+        tools: list[dict],
+        conversation_history: Optional[list[dict[str, str]]] = None,
+        temperature: float = 0.7,
+        effort: str = "high",
+        max_tokens: int = 2000,
+    ):
+        """Тот же рубильник и тот же бюджет, что и у обычного ответа.
+
+        ЗАЧЕМ ЭТО ЗДЕСЬ. Проверка стояла только в `chat_completion`, а этот
+        метод наследовался из `mg_ai` как есть — то есть выключатель гасил
+        второстепенный путь и не трогал основной. Через `chat_with_tools`
+        ходят все отделы (`tool_runtime.run_tool_loop`), исполнитель задач и
+        главный диалог владельца со Стёпаном, причём с `effort="high"` и по
+        `/v1/responses`: это самый дорогой вызов в проекте. Владелец выключал
+        ИИ, видел честную заглушку в переписке — и продолжал платить.
+
+        ОТКАЗ — ИСКЛЮЧЕНИЕМ, а не заглушкой, и это не выбор стиля: контракт
+        метода такой у самого движка (см. `mg_ai/engine.py`). Вызывающие
+        разбирают причину и показывают её человеку; строка-заглушка вместо
+        объекта с `tool_calls` упала бы у них при разборе где-то дальше и
+        совсем не там, где случилась.
+        """
+        blocked = await _ai_block_reason()
+        if blocked:
+            logger.info("Вызов модели с инструментами не отправлен: %s", blocked)
+            if "бюджет" in blocked:
+                _notify_budget_stop(blocked)
+            raise AIUnavailable(blocked)
+
+        return await super().chat_with_tools(
+            system_prompt=system_prompt,
+            user_message=user_message,
+            tools=tools,
+            conversation_history=conversation_history,
+            temperature=temperature,
+            effort=effort,
+            max_tokens=max_tokens,
         )

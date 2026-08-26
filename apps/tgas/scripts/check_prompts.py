@@ -504,7 +504,13 @@ for path in TS_SCOPE:
 
 # Та же форма на Python: `os.getenv("META_VERIFY_TOKEN", "microgreen_secure_token_2026")`
 # — вебхук Meta в web_office проходил верификацию по значению из исходников.
-PY_SECRET_ARG = re.compile(r"(?:SECRET|TOKEN|KEY|PASSWORD)", re.I)
+#
+# CHAT_ID и ADMIN добавлены сюда после `os.getenv("ADMIN_CHAT_ID", "847872669")`
+# в двух файлах витринного бота. Формально это не секрет, и правило по словам
+# SECRET|TOKEN|KEY|PASSWORD его пропускало — а по смыслу это ПРАВА: пустая
+# переменная окружения отдавала админку бота одному конкретному аккаунту,
+# чей id остался в исходниках.
+PY_SECRET_ARG = re.compile(r"(?:SECRET|TOKEN|KEY|PASSWORD|CHAT_ID|ADMIN)", re.I)
 
 for path in PY_SCOPE + py_files(TGAS / "web_office"):
     try:
@@ -526,8 +532,8 @@ for path in PY_SCOPE + py_files(TGAS / "web_office"):
         if not PY_SECRET_ARG.search(var.value) or not default.value:
             continue
         problems.append(
-            f"{rel(path)}:{node.lineno} — секрет с запасным значением в коде: "
-            f"{var.value} по умолчанию «{default.value[:24]}»"
+            f"{rel(path)}:{node.lineno} — секрет или права с запасным значением "
+            f"в коде: {var.value} по умолчанию «{default.value[:24]}»"
         )
 
 if not any("секрет с запасным значением" in p for p in problems):
