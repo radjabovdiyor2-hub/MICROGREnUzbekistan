@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, Megaphone, Printer } from 'lucide-react';
 import { useState } from 'react';
 
+import { AdminMagazinePrintLeads } from './AdminMagazinePrintLeads';
 import { AdminNotice } from './AdminNotice';
 import { AdminSearch, matchesQuery } from './AdminSearch';
 import { useFeedback } from './AdminFeedback';
@@ -139,7 +140,7 @@ export function AdminMagazineMoney({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           <Banknote size={24} /> {t('Тираж и реклама', 'Tiraj va reklama')}
         </h2>
         <AdminSearch value={query} onChange={setQuery}
-          placeholder={t('Поиск по заведению', 'Muassasa boʻyicha')} width={220} />
+          placeholder={t('Поиск по заведению и телефону', 'Muassasa yoki telefon')} width={220} />
       </div>
 
       <AdminNotice>{error}</AdminNotice>
@@ -192,6 +193,9 @@ export function AdminMagazineMoney({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           />
         ))}
       </Section>
+
+      {/* ── Заявки на печатный номер ──────────────────────────────── */}
+      <AdminMagazinePrintLeads query={query} lang={lang} />
 
       {/* ── Рекламодатели ─────────────────────────────────────────── */}
       <Section icon={<Megaphone size={16} />} title={t('Рекламодатели', 'Reklama beruvchilar')} count={adRows.length}>
