@@ -28,6 +28,7 @@ export function MapSidebar({ lang, m, route, onOpenCard, isOwner, sellerName }: 
       {m.selected && (
         <div className="admin-map-panel">
           <PointPanel
+            isOwner={isOwner}
             lang={lang}
             m={m}
             route={route}
