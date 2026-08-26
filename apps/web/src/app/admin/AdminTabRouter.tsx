@@ -91,7 +91,7 @@ const AdminExperiments = dynamic(() => import('@/components/admin/AdminExperimen
 const AdminFranchise = dynamic(() => import('@/components/admin/AdminFranchise').then((m) => m.AdminFranchise), { ssr: false, loading: TabLoading });
 const AdminWorkflowStudio = dynamic(() => import('@/components/admin/AdminWorkflowStudio').then((m) => m.AdminWorkflowStudio), { ssr: false, loading: TabLoading });
 
-export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, sellerName, lang, t }: {
+export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canSell, sellerName, lang, t }: {
   activeTab: string;
   /**
    * Запись, ради которой пришли по ссылке из Telegram (`?focus=`).
@@ -101,6 +101,8 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
    * просто не берут — вкладка всё равно открыта правильная.
    */
   focus: string;
+  /** Что положить в поиск раздела при открытии (`?q=`). */
+  query?: string;
   isOwner: boolean;
   /** Владелец или агроном — теплица открыта обоим. */
   canGrow: boolean;
@@ -126,6 +128,7 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
         isOwner={isOwner}
         sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName}
         focus={focus}
+        initialQuery={query}
       />
     )}
     {activeTab === 'inventory' && isOwner && <AdminInventory />}

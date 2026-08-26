@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, MapPinOff, RefreshCw } from 'lucide-react';
 
 import { AdminVisitPlanRow, type PlanRow } from './AdminVisitPlanRow';
+import { AdminDayFacts, type DaySale, type DayVisit } from './AdminDayFacts';
 
 // ══════════════════════════════════════════════════════════════════════
 // «Объезды за день» — экран владельца.
@@ -38,23 +39,38 @@ function today(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+interface DayData {
+  plans: PlanRow[];
+  visits: DayVisit[];
+  sales: DaySale[];
+}
+
 export function AdminVisitPlans({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const router = useRouter();
   const [date, setDate] = useState(today());
 
-  const { data, isLoading, refetch, isFetching } = useQuery<PlanRow[], Error>({
+  // Один запрос на весь день: план, отметки и чеки приходят вместе — иначе
+  // экран собирался бы из трёх ответов, которые могут разойтись по времени.
+  const { data, isLoading, refetch, isFetching } = useQuery<DayData, Error>({
     queryKey: ['admin-visit-plans', date],
     queryFn: async () => {
       const res = await fetch(`/api/admin/visit-plans?date=${date}`, {
         credentials: 'same-origin',
       });
       if (!res.ok) throw new Error(t('Не удалось загрузить планы', 'Rejalar yuklanmadi'));
-      return (await res.json()).plans as PlanRow[];
+      const json = await res.json();
+      return {
+        plans: (json.plans ?? []) as PlanRow[],
+        visits: (json.visits ?? []) as DayVisit[],
+        sales: (json.sales ?? []) as DaySale[],
+      };
     },
   });
 
-  const plans = data ?? [];
+  const plans = data?.plans ?? [];
+  const visits = data?.visits ?? [];
+  const sales = data?.sales ?? [];
   const totalStops = plans.reduce((n, p) => n + p.stops.length, 0);
   const totalDone = plans.reduce((n, p) => n + p.doneCount, 0);
 
@@ -93,7 +109,17 @@ export function AdminVisitPlans({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         <div style={{ color: 'var(--text-muted)' }}>{t('Загрузка…', 'Yuklanmoqda…')}</div>
       )}
 
-      {!isLoading && plans.length === 0 && (
+      {/* Сделанное показываем ВЫШЕ плана: план — намерение, а это факт. */}
+      {!isLoading && (
+        <AdminDayFacts
+          visits={visits}
+          sales={sales}
+          lang={lang}
+          onOpenCustomer={(id) => router.push(`/admin?tab=customers&focus=${id}`)}
+        />
+      )}
+
+      {!isLoading && plans.length === 0 && visits.length === 0 && sales.length === 0 && (
         // Пустой день — это ответ, а не сбой. Прямо говорим, откуда план
         // берётся: иначе экран выглядит сломанным.
         <div

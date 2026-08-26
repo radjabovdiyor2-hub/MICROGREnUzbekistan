@@ -28,8 +28,15 @@ export function AdminCustomers({
   isOwner = true,
   sellerName = 'Egasi',
   focus = '',
+  initialQuery = '',
 }: {
   lang: 'ru' | 'uz';
+  /**
+   * С чем открыли раздел (`?q=`). Так сюда приходят «за конкретным
+   * человеком» из карточки заказа: у заказа есть телефон, а id клиента
+   * CRM — нет, и до этого номер переносили в поиск руками.
+   */
+  initialQuery?: string;
   /** Кем подписывать чек, пробитый с точки на карте или из карточки. */
   sellerName?: string;
   /**
@@ -49,7 +56,7 @@ export function AdminCustomers({
    */
   isOwner?: boolean;
 }) {
-  const s = useAdminCustomers();
+  const s = useAdminCustomers(initialQuery);
 
   // Ссылка привела к конкретному клиенту — открываем его карточку, а не
   // список, в котором его ещё надо найти. До первого «назад»: дальше

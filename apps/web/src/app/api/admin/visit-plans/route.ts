@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { actorOf, getSession, isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { planSource, resolveReadAssignee, resolveSaveAssignee } from '@/lib/customers/planAssignee';
-import { readDayPlans, saveDayPlan } from '@/lib/customers/visitPlanStore';
+import { readDayFacts, readDayPlans, saveDayPlan } from '@/lib/customers/visitPlanStore';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
 
@@ -71,7 +71,13 @@ export async function GET(request: NextRequest) {
     });
 
     const plans = await readDayPlans({ planDate, assignee });
-    return NextResponse.json({ status: 'ok', plans });
+
+    // День целиком, а не только план: визит без плана и чек с выезда — это
+    // и есть работа, и до сих пор их не было видно ни на одном экране.
+    // Отдаём той же дверью: второй адрес пришлось бы держать в согласии.
+    const facts = await readDayFacts({ planDate, assignee });
+
+    return NextResponse.json({ status: 'ok', plans, ...facts });
   } catch (error: unknown) {
     console.error('API Admin Visit Plans GET Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });

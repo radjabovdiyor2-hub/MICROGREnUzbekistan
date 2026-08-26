@@ -192,3 +192,119 @@ export async function readDayPlans(params: {
     };
   });
 }
+
+
+// ══════════════════════════════════════════════════════════════════════
+// День целиком: не только план, но и то, что произошло на самом деле.
+//
+// План отвечал на вопрос «куда собирались» и «сколько из этого объехали».
+// Двух вещей в нём не было, и обе — это и есть работа:
+//
+//   • визит, сделанный БЕЗ плана. Продавец заехал по дороге, отметился —
+//     и в отчёте дня этого не видно вовсе, потому что смотрели только на
+//     остановки плана. Отсутствие такой поездки в отчёте читается как
+//     безделье, а её наличие — как перевыполнение;
+//
+//   • чек с выезда. Смысл поездки — продажа, а она лежала в кассе отдельно
+//     и с днём объезда не сходилась ничем, кроме даты.
+//
+// Считаем одним походом в базу на каждый источник, а не по записи.
+// ══════════════════════════════════════════════════════════════════════
+
+export interface DayVisit {
+  customerId: number | null;
+  name: string;
+  /** Кто отметил. Пусто — отметка старая, автора тогда не записывали. */
+  actor: string;
+  type: string;
+  at: string;
+  distanceM: number | null;
+  accuracyM: number | null;
+  /** Была ли эта точка в чьём-то плане на этот день. */
+  planned: boolean;
+}
+
+export interface DaySale {
+  number: string;
+  actor: string;
+  customerName: string | null;
+  total: number;
+  at: string;
+}
+
+export interface DayFacts {
+  visits: DayVisit[];
+  sales: DaySale[];
+}
+
+export async function readDayFacts(params: {
+  planDate: Date;
+  /** Чьи дела. Не задан — все, то есть взгляд владельца. */
+  assignee?: string;
+}): Promise<DayFacts> {
+  const { from, to } = dayBounds(params.planDate);
+
+  const [rawVisits, rawSales, plannedStops] = await Promise.all([
+    prisma.interaction.findMany({
+      where: {
+        interactionType: { in: VISIT_TYPES },
+        createdAt: { gte: from, lt: to },
+        ...(params.assignee ? { botName: params.assignee } : {}),
+      },
+      select: {
+        customerId: true,
+        botName: true,
+        interactionType: true,
+        createdAt: true,
+        distanceM: true,
+        accuracyM: true,
+        customer: { select: { name: true, companyName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    }),
+    // Только выездные чеки: продажа за прилавком к объезду отношения не
+    // имеет, и мешать их значило бы приписывать разъезду выручку точки.
+    prisma.posSale.findMany({
+      where: {
+        kind: 'sale',
+        origin: 'field',
+        soldAt: { gte: from, lt: to },
+        ...(params.assignee ? { performedBy: params.assignee } : {}),
+      },
+      select: {
+        number: true,
+        performedBy: true,
+        total: true,
+        soldAt: true,
+        customer: { select: { name: true, companyName: true } },
+      },
+      orderBy: { soldAt: 'asc' },
+    }),
+    prisma.visitPlanStop.findMany({
+      where: { plan: { planDate: from, ...(params.assignee ? { assignee: params.assignee } : {}) } },
+      select: { customerId: true },
+    }),
+  ]);
+
+  const planned = new Set(plannedStops.map((s) => s.customerId));
+
+  return {
+    visits: rawVisits.map((v) => ({
+      customerId: v.customerId,
+      name: v.customer?.companyName || v.customer?.name || `#${v.customerId ?? '—'}`,
+      actor: v.botName ?? '',
+      type: v.interactionType,
+      at: v.createdAt.toISOString(),
+      distanceM: v.distanceM,
+      accuracyM: v.accuracyM,
+      planned: v.customerId !== null && planned.has(v.customerId),
+    })),
+    sales: rawSales.map((s) => ({
+      number: s.number,
+      actor: s.performedBy,
+      customerName: s.customer?.companyName || s.customer?.name || null,
+      total: s.total,
+      at: s.soldAt.toISOString(),
+    })),
+  };
+}

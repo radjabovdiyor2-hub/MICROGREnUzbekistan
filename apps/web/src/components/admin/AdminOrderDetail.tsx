@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft, Package, Settings, Wallet } from 'lucide-react';
+import { ArrowLeft, Package, Settings, User, Wallet } from 'lucide-react';
 import { PAYMENT_STATUS_CONFIG, STATUS_CONFIG } from './adminOrdersConfig';
 import type { Order } from './adminOrderTypes';
 import { tint } from '@/lib/tint';
@@ -34,7 +34,19 @@ export function AdminOrderDetail({ order, onBack, onStatus, onPaymentStatus, fmt
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)' }}>
           <div><span style={{ color: 'var(--text-muted)' }}>Mijoz:</span> <strong>{order.user?.firstName || 'Noma\'lum'}</strong></div>
-          <div><span style={{ color: 'var(--text-muted)' }}>Telefon:</span> <strong>{order.phone}</strong></div>
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>Telefon:</span> <strong>{order.phone}</strong>
+            {/* Из заказа — сразу в карточку клиента. Раньше эти два экрана
+                не были связаны ничем: номер запоминали и вставляли в поиск
+                руками, а по дороге успевали забыть, зачем шли. */}
+            {order.phone && (
+              <a href={`/admin?tab=customers&q=${encodeURIComponent(order.phone)}`}
+                className="btn btn-ghost btn-sm"
+                style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4, verticalAlign: 'middle' }}>
+                <User size={14} /> Клиент
+              </a>
+            )}
+          </div>
           <div><span style={{ color: 'var(--text-muted)' }}>Manzil:</span> <strong>{order.address}</strong></div>
           <div><span style={{ color: 'var(--text-muted)' }}>Sana:</span> <strong>{fmtDate(order.createdAt)}</strong></div>
           <div>
