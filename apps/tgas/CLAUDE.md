@@ -138,7 +138,7 @@ webhook-приёмники.
 - `database.py` — асинхронный движок/сессии SQLAlchemy 2.0 (asyncpg). Бизнес-логика почти всегда работает
   через сырые запросы `sqlalchemy.text()` через `get_session_ctx()`, а не через ORM-модели — `Base`/
   `init_db()` существуют, но схемой владеет Prisma (`packages/database/prisma/schema.prisma`).
-- **`tools/` — инструменты отделов (67 штук, 17 рискованных).** То, чем бот ДЕЛАЕТ работу,
+- **`tools/` — инструменты отделов (70 штук, 17 рискованных).** То, чем бот ДЕЛАЕТ работу,
   а не рассказывает о ней.
   `tools/registry.py` — дата-класс `Tool` и функции `tools_for(department)` / `schemas_for(...)` /
   `catalog_text(...)` (для планировщика совещаний) / `normalize_result(...)`;
