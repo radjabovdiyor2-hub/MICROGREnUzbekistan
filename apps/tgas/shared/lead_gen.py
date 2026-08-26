@@ -351,8 +351,8 @@ async def collect_from_2gis(
                     "q": f"{query} {city}",
                     "key": settings.dgis_api_key,
                     "fields": "items.point,items.contact_groups,items.reviews,items.address_name",
-                    "page_size": page_size,
-                    "page": page,
+                    "page_size": str(page_size),
+                    "page": str(page),
                 }
                 async with session.get(DGIS_CATALOG_URL, params=params) as resp:
                     if resp.status != 200:
@@ -570,8 +570,8 @@ async def collect_from_yandex_maps(
                     "text": f"{query} {city}",
                     "type": "biz",
                     "lang": "ru_RU",
-                    "results": page_size,
-                    "skip": page * page_size,
+                    "results": str(page_size),
+                    "skip": str(page * page_size),
                     "apikey": settings.yandex_maps_api_key,
                 }
                 async with session.get(url, params=params) as resp:

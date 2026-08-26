@@ -300,11 +300,14 @@ async def _geocode_dgis(session: aiohttp.ClientSession, query: str) -> Optional[
     """2ГИС: лучшее покрытие Узбекистана, ключ у нас уже есть."""
     if not settings.dgis_api_key:
         return None
+    # Значения строками, все до одного: в строке запроса они всё равно
+    # станут строками, а смешанный словарь `{str: str|int}` выводится как
+    # `dict[str, object]` и типу `params` у aiohttp не подходит.
     params = {
         "q": query,
         "key": settings.dgis_api_key,
         "fields": "items.point,items.address_name",
-        "page_size": 1,
+        "page_size": "1",
     }
     async with session.get("https://catalog.api.2gis.com/3.0/items/geocode", params=params) as resp:
         if resp.status != 200:
@@ -332,7 +335,7 @@ async def _geocode_yandex(session: aiohttp.ClientSession, query: str) -> Optiona
     key = settings.yandex_geocoder_api_key
     if not key:
         return None
-    params = {"apikey": key, "geocode": query, "format": "json", "results": 1, "lang": "ru_RU"}
+    params = {"apikey": key, "geocode": query, "format": "json", "results": "1", "lang": "ru_RU"}
     async with session.get("https://geocode-maps.yandex.ru/1.x/", params=params) as resp:
         if resp.status != 200:
             logger.warning("Яндекс геокодер HTTP %s", resp.status)
@@ -380,7 +383,7 @@ async def _geocode_nominatim(session: aiohttp.ClientSession, query: str) -> Opti
     публичного Nominatim, поэтому в проде провайдер выключен и включается
     явным GEOCODER_ALLOW_NOMINATIM=1.
     """
-    params = {"q": query, "format": "jsonv2", "limit": 1, "countrycodes": "uz"}
+    params = {"q": query, "format": "jsonv2", "limit": "1", "countrycodes": "uz"}
     headers = {"User-Agent": "MicrogreenUzbekistan/1.0 (admin customer map)"}
     async with session.get(
         "https://nominatim.openstreetmap.org/search", params=params, headers=headers
