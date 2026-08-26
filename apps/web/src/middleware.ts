@@ -64,6 +64,10 @@ const RULES: Rule[] = [
   { prefix: '/api/admin/customers/map', access: 'STAFF', methods: ['GET', 'PATCH'] },
   // Отметка визита — смысл всей полевой работы, без неё карта пишется в стол.
   { prefix: '/api/admin/customers/visits', access: 'STAFF', methods: ['POST'] },
+  // Доставка. Курьер видит СВОЙ рейс и закрывает точки; собирать рейсы,
+  // менять их и удалять остаётся владельцу. Чей это рейс, решает сам роут
+  // по имени из сессии — middleware владельца записи знать не может.
+  { prefix: '/api/admin/deliveries', access: 'STAFF', methods: ['GET', 'PATCH'] },
   { prefix: '/api/inventory/employees', access: 'ADMIN' },
   { prefix: '/api/inventory/debts', access: 'ADMIN' },
   { prefix: '/api/inventory/suppliers', access: 'ADMIN' },
@@ -76,6 +80,10 @@ const RULES: Rule[] = [
   { prefix: '/api/products', access: 'ADMIN', methods: ['POST', 'PUT', 'PATCH', 'DELETE'] },
   { prefix: '/api/orders', access: 'ADMIN', methods: ['PUT', 'PATCH', 'DELETE'] },
   { prefix: '/api/upload', access: 'ADMIN' },
+  // Директивы поведения ботов из петли обучения. Правила здесь не было
+  // вовсе: роут отдавал анониму внутренние указания, по которым бот
+  // разговаривает с клиентом. Бот проходит выше по общему секрету.
+  { prefix: '/api/ai/behavior', access: 'ADMIN' },
   // Дайджест и аналитика журнала считались «внутренними», но в RULES их не
   // было вовсе: middleware сюда не заходил, и обе двери отвечали анониму.
   { prefix: '/api/marketing', access: 'ADMIN' },

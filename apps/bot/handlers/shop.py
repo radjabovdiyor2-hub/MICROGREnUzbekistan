@@ -284,7 +284,8 @@ async def show_categories(message: Message):
         if len(row) == 2:
             buttons.append(row)
             row = []
-    if row: buttons.append(row)
+    if row:
+        buttons.append(row)
     
     buttons.append([
         InlineKeyboardButton(text=t("btn.cart", lang), callback_data="cart:view"),
@@ -354,8 +355,10 @@ async def cb_grid_view(callback: CallbackQuery):
 
     # Image
     cover_image = page_products[0].get("image") if page_products else None
-    if cover_image and cover_image.startswith("/"): cover_image = f"{WEB_URL}{cover_image}"
-    if not cover_image: cover_image = FALLBACK_IMAGE
+    if cover_image and cover_image.startswith("/"):
+        cover_image = f"{WEB_URL}{cover_image}"
+    if not cover_image:
+        cover_image = FALLBACK_IMAGE
 
     kb = get_grid_keyboard(category, page, total_pages, len(page_products), lang)
     
@@ -495,8 +498,12 @@ async def cb_view_cart(callback: CallbackQuery):
     
     kb = InlineKeyboardMarkup(inline_keyboard=cart_rows(cart, lang))
     
-    try: await callback.message.delete()
-    except Exception: pass
+    try:
+        await callback.message.delete()
+    except Exception:
+        # Сообщение могло быть уже удалено или слишком старым для правки —
+        # корзину это не касается, показываем её следующим сообщением.
+        pass
     await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
 
 @router.callback_query(F.data == "cart:clear")

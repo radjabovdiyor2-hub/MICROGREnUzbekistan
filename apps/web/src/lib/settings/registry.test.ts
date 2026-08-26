@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { coerceSetting, defaultSettings, PUBLIC_SETTING_KEYS } from './registry';
+import { coerceSetting, defaultSettings, PUBLIC_SETTING_KEYS, SETTINGS } from './registry';
 
 // Настройки читают и витрина, и боты, поэтому в базу не должно попадать
 // ничего, что потом сломает расчёт заказа или сообщение бота.
@@ -30,8 +30,21 @@ describe('coerceSetting', () => {
   });
 
   it('разбирает список способов оплаты из строки', () => {
-    const res = coerceSetting('payment.methods', 'cash, click ,payme');
-    expect(res).toEqual({ ok: true, value: ['cash', 'click', 'payme'] });
+    const res = coerceSetting('payment.methods', 'cash, card ,transfer');
+    expect(res).toEqual({ ok: true, value: ['cash', 'card', 'transfer'] });
+  });
+
+  it('не пускает обратно Click и Payme: платёж по ним не создаётся', () => {
+    // Кнопки рисовались, клиент выбирал способ — и оставался должен
+    // наличными. Пока нет merchant-контрактов, обещание не должно
+    // возвращаться ни правкой кода, ни правкой настройки в админке.
+    const res = coerceSetting('payment.methods', 'cash, click, payme');
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toContain('click');
+  });
+
+  it('по умолчанию на оформлении только то, что действительно работает', () => {
+    expect(SETTINGS['payment.methods'].default).toEqual(['cash', 'card', 'transfer']);
   });
 
   it('не даёт сохранить пустой список способов оплаты', () => {

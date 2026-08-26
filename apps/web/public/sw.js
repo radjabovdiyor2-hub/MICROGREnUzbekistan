@@ -167,3 +167,84 @@ async function syncOfflineOrders() {
         console.log("[SW] Sync failed, will retry:", err);
     }
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// Push-уведомления о заказе.
+//
+// ЧЕГО НЕ БЫЛО. Обработчиков `push` и `notificationclick` не существовало
+// вовсе: у покупателя БЕЗ Telegram канала не было никакого, и о доставке он
+// узнавал, когда курьер звонил в дверь.
+//
+// УВЕДОМЛЕНИЕ ПРИХОДИТ БЕЗ ТЕКСТА, и это осознанно. Шифрование полезной
+// нагрузки требует отдельной криптографии на каждое сообщение; вместо этого
+// сервер будит страницу, а текст она дочитывает сама — тем же запросом и с
+// той же сессией, что и обычный экран. Через службу доставки Google или
+// Apple не проходит ничего, кроме факта «что-то произошло».
+//
+// Если дочитать не удалось (нет сети, вышел из аккаунта) — показываем общее
+// сообщение. Промолчать нельзя: браузер требует показать уведомление после
+// `push`, иначе следующие он может перестать доставлять вовсе.
+// ══════════════════════════════════════════════════════════════════════
+
+const ORDER_STATUS_TEXT = {
+    PENDING: "Заказ принят",
+    CONFIRMED: "Заказ подтверждён",
+    PREPARING: "Заказ собирается",
+    DELIVERING: "Заказ в пути",
+    DELIVERED: "Заказ доставлен",
+    CANCELLED: "Заказ отменён",
+};
+
+async function buildOrderNotification() {
+    try {
+        const res = await fetch("/api/orders?limit=1", { credentials: "same-origin" });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const order = (data.orders || [])[0];
+        if (!order) return null;
+        const status = ORDER_STATUS_TEXT[order.status] || "Статус заказа изменился";
+        return { title: status, body: `Заказ №${order.orderNumber}` };
+    } catch (err) {
+        console.log("[SW] Не дочитал статус заказа:", err);
+        return null;
+    }
+}
+
+self.addEventListener("push", (event) => {
+    event.waitUntil(
+        (async () => {
+            const built = await buildOrderNotification();
+            const title = built ? built.title : "Microgreen Uzbekistan";
+            const body = built ? built.body : "Статус заказа изменился";
+            await self.registration.showNotification(title, {
+                body,
+                icon: "/icons/icon-192.png",
+                badge: "/icons/icon-192.png",
+                // Одно уведомление о заказе, а не лента: следующий статус
+                // заменяет предыдущее, иначе за день их накопится пять.
+                tag: "mg-order-status",
+                renotify: true,
+                data: { url: "/profile" },
+            });
+        })(),
+    );
+});
+
+self.addEventListener("notificationclick", (event) => {
+    event.notification.close();
+    const url = (event.notification.data && event.notification.data.url) || "/profile";
+    event.waitUntil(
+        (async () => {
+            const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+            // Уже открытую вкладку не дублируем — переводим на нужный экран.
+            for (const client of all) {
+                if ("focus" in client) {
+                    await client.focus();
+                    if ("navigate" in client) await client.navigate(url);
+                    return;
+                }
+            }
+            await self.clients.openWindow(url);
+        })(),
+    );
+});

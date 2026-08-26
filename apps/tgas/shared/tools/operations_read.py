@@ -286,7 +286,7 @@ async def get_quality_report(days: str = "7") -> Dict[str, Any]:
         "summary": (
             f"За {window} дн. проверок {len(rows)}: годно {len(passed)}, "
             f"брак {len(failed)}."
-            + (f" Чаще всего: {max(defects, key=defects.get)}." if defects else "")
+            + (f" Чаще всего: {max(defects, key=lambda d: defects[d])}." if defects else "")
         ),
         "checks": [
             {
@@ -315,7 +315,7 @@ async def get_followups(status: str = "pending") -> Dict[str, Any]:
                 SELECT f.scheduled_at, f.message, f.status,
                        c.name AS customer_name, c.phone, c.customer_type
                 FROM followups f
-                JOIN customers c ON c.id = f.customer_id
+                JOIN customers c ON c.id = f.customer_id AND c.deleted_at IS NULL
                 WHERE LOWER(f.status) = :status
                 ORDER BY f.scheduled_at
                 LIMIT 40

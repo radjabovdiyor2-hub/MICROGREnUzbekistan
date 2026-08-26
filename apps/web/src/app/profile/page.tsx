@@ -13,6 +13,8 @@ const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 import { UserOrders } from './ProfileSections';
 import { ReferralSection } from './ReferralSection';
 import { ProfileSettingsCard } from './ProfileSettingsCard';
+import { ProfilePushCard } from './ProfilePushCard';
+import { ProfileSupportCard } from './ProfileSupportCard';
 
 export default function ProfilePage() {
   const { theme, toggleTheme } = useTheme();
@@ -145,6 +147,14 @@ export default function ProfilePage() {
         isLoggedIn={isLoggedIn}
         logout={logout}
       />
+
+      {/* Уведомления о заказе: у покупателя без Telegram канала не было
+          вовсе. Карточка появляется, только если возможность реально есть. */}
+      <ProfilePushCard t={t} />
+
+      {/* Поддержка и права на свои данные: оба API существовали и не имели
+          ни одной кнопки. */}
+      <ProfileSupportCard t={t} />
 
       {/* Social Links */}
       <div style={{

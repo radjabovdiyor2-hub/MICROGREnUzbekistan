@@ -15,7 +15,8 @@ router = Router()
 
 WEB_APP_URL = os.getenv("WEB_APP_URL", "https://microgreenuzbekistan.com")
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
-ADMIN_IDS = [int(x.strip()) for x in os.getenv("ADMIN_CHAT_ID", "847872669").split(",") if x.strip()]
+# Кто владелец — один список на весь бот (shared/admins.py).
+from shared.admins import ADMIN_IDS  # noqa: E402
 BOT_SECRET = os.getenv("BOT_SECRET", "")
 _start_time = time.time()
 

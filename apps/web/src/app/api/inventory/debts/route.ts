@@ -1,9 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@repo/database';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
+import { parseBody } from '@/lib/api/parseBody';
 
-// ==========================================
-// Debts API — Track who owes whom
-// ==========================================
+// ══════════════════════════════════════════════════════════════════════
+// Долги: кто кому должен.
+//
+// ⚠️ ЗДЕСЬ ЛЕЖАЛИ ДВА ДЕНЕЖНЫХ ДЕФЕКТА, и оба тихие.
+//
+// 1. Правка долга принимала тело ЦЕЛИКОМ: `const { id, payment, ...other }`
+//    и `data: other` прямо в `prisma.debt.update`. То есть кто угодно с
+//    доступом мог прислать `{ id, isPaid: true }` или `{ id, paidAmount: 0 }`
+//    и пометить любой долг закрытым, не заплатив ничего. В журнале это
+//    выглядит как обычная правка.
+//
+// 2. Ни сумма долга, ни сумма платежа не проверялись: строка вместо числа
+//    роняла запрос в 500 из глубины Prisma, отрицательный платёж УМЕНЬШАЛ
+//    выплаченное, а платёж больше долга уводил остаток в минус.
+//
+// Теперь тело разбирается схемой, а на правку допущен закрытый список
+// полей. Деньги меняются ровно одним способом — платежом.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Сумма в сумах: целая, больше нуля и в пределах разумного. */
+const money = z.number().int().positive().max(1_000_000_000);
+
+const createSchema = z.object({
+  type: z.enum(['WHO_OWES_US', 'WE_OWE']),
+  personName: z.string().trim().min(1).max(200),
+  amount: money,
+  phone: z.string().trim().max(20).optional().nullable(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  dueDate: z.string().optional().nullable(),
+  supplierId: z.string().optional().nullable(),
+});
+
+/**
+ * Правка. `payment` — единственный способ изменить деньги; остальные поля
+ * описательные. `isPaid` и `paidAmount` сюда не входят НАМЕРЕННО: они
+ * следствие платежей, а не то, что назначают снаружи.
+ */
+const updateSchema = z.object({
+  id: z.string().min(1),
+  payment: money.optional(),
+  personName: z.string().trim().min(1).max(200).optional(),
+  phone: z.string().trim().max(20).optional().nullable(),
+  description: z.string().trim().max(2000).optional().nullable(),
+  dueDate: z.string().optional().nullable(),
+});
 
 // GET — List debts with filters
 export async function GET(request: NextRequest) {
@@ -27,6 +72,7 @@ export async function GET(request: NextRequest) {
       supplier: { select: { name: true, phone: true } },
     },
     orderBy: [{ isPaid: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+    take: LIST_LIMIT,
   });
 
   // Calculate summaries
@@ -48,11 +94,13 @@ export async function GET(request: NextRequest) {
 // POST — Create a new debt
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { type, personName, phone, amount, description, dueDate, supplierId } = body;
+    const parsed = await parseBody(request, createSchema);
+    if (!parsed.ok) return parsed.response;
+    const { type, personName, phone, amount, description, dueDate, supplierId } = parsed.data;
 
-    if (!type || !personName || !amount) {
-      return NextResponse.json({ error: "type, personName, amount majburiy" }, { status: 400 });
+    const due = dueDate ? new Date(dueDate) : null;
+    if (due && Number.isNaN(due.getTime())) {
+      return NextResponse.json({ error: 'Некорректный срок' }, { status: 400 });
     }
 
     const debt = await prisma.debt.create({
@@ -63,7 +111,7 @@ export async function POST(request: NextRequest) {
         amount,
         paidAmount: 0,
         description: description || null,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        dueDate: due,
         supplierId: supplierId || null,
         isPaid: false,
       },
@@ -79,18 +127,28 @@ export async function POST(request: NextRequest) {
 // PUT — Update debt or make a payment
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id, payment, ...otherData } = body;
+    const parsed = await parseBody(request, updateSchema);
+    if (!parsed.ok) return parsed.response;
+    const { id, payment, ...fields } = parsed.data;
 
-    if (!id) {
-      return NextResponse.json({ error: 'Debt ID majburiy' }, { status: 400 });
+    const debt = await prisma.debt.findUnique({ where: { id } });
+    if (!debt) {
+      return NextResponse.json({ error: 'Qarz topilmadi' }, { status: 404 });
     }
 
-    // If payment — add to paidAmount
-    if (payment && payment > 0) {
-      const debt = await prisma.debt.findUnique({ where: { id } });
-      if (!debt) {
-        return NextResponse.json({ error: 'Qarz topilmadi' }, { status: 404 });
+    // ── Платёж ────────────────────────────────────────────────────────
+    if (payment) {
+      const remainingBefore = debt.amount - debt.paidAmount;
+      if (remainingBefore <= 0) {
+        return NextResponse.json({ error: 'Долг уже закрыт' }, { status: 409 });
+      }
+      // Переплату не принимаем: лишние деньги в `paidAmount` уводят остаток
+      // в минус, и «сколько нам должны» перестаёт сходиться по всей базе.
+      if (payment > remainingBefore) {
+        return NextResponse.json(
+          { error: `Платёж больше остатка. Осталось: ${remainingBefore}` },
+          { status: 400 },
+        );
       }
 
       const newPaidAmount = debt.paidAmount + payment;
@@ -98,10 +156,7 @@ export async function PUT(request: NextRequest) {
 
       const updated = await prisma.debt.update({
         where: { id },
-        data: {
-          paidAmount: newPaidAmount,
-          isPaid,
-        },
+        data: { paidAmount: newPaidAmount, isPaid },
       });
 
       return NextResponse.json({
@@ -112,8 +167,27 @@ export async function PUT(request: NextRequest) {
       });
     }
 
-    // Otherwise — general update
-    const updated = await prisma.debt.update({ where: { id }, data: otherData });
+    // ── Правка описательных полей ─────────────────────────────────────
+    //
+    // Только то, что перечислено в схеме. Раньше сюда уходило тело
+    // целиком, и `{ id, isPaid: true }` закрывал долг без единого сума.
+    const data: Record<string, unknown> = {};
+    if (fields.personName !== undefined) data.personName = fields.personName;
+    if (fields.phone !== undefined) data.phone = fields.phone || null;
+    if (fields.description !== undefined) data.description = fields.description || null;
+    if (fields.dueDate !== undefined) {
+      const due = fields.dueDate ? new Date(fields.dueDate) : null;
+      if (due && Number.isNaN(due.getTime())) {
+        return NextResponse.json({ error: 'Некорректный срок' }, { status: 400 });
+      }
+      data.dueDate = due;
+    }
+
+    if (Object.keys(data).length === 0) {
+      return NextResponse.json({ error: 'Нечего менять' }, { status: 400 });
+    }
+
+    const updated = await prisma.debt.update({ where: { id }, data });
     return NextResponse.json({ success: true, debt: updated });
   } catch (error) {
     console.error('Debt update error:', error);

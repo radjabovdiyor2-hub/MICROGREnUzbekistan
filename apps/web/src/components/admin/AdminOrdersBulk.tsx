@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { STATUS_CONFIG } from './adminOrdersConfig';
+import { STATUS_CONFIG, statusLabel } from './adminOrdersConfig';
 import { AdminCheckbox } from './AdminCheckbox';
 import { AdminSelectionBar } from './AdminSelectionBar';
 import { useFeedback } from './AdminFeedback';
@@ -27,20 +27,22 @@ import type { Selection } from './useSelection';
  * встречается, а промахом стоит уведомлений клиентам, которые не отозвать.
  */
 const BULK_STATUSES = [
-  { id: 'CONFIRMED', label: 'Подтвердить' },
-  { id: 'PREPARING', label: 'Готовится' },
-  { id: 'DELIVERING', label: 'В пути' },
-  { id: 'DELIVERED', label: 'Доставлен' },
-  { id: 'CANCELLED', label: 'Отменить' },
+  { id: 'CONFIRMED', ru: 'Подтвердить', uz: 'Tasdiqlash' },
+  { id: 'PREPARING', ru: 'Готовится', uz: 'Tayyorlanmoqda' },
+  { id: 'DELIVERING', ru: 'В пути', uz: "Yo'lda" },
+  { id: 'DELIVERED', ru: 'Доставлен', uz: 'Yetkazildi' },
+  { id: 'CANCELLED', ru: 'Отменить', uz: 'Bekor qilish' },
 ];
 
-export function AdminOrdersBulk({ pick, visibleIds, total, onDone }: {
+export function AdminOrdersBulk({ pick, visibleIds, total, onDone, lang = 'ru' }: {
   pick: Selection<string>;
   /** Заказы, видимые сейчас — с учётом вкладки статуса и страницы. */
   visibleIds: string[];
   total: number;
   onDone: () => void;
+  lang?: 'ru' | 'uz';
 }) {
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const notify = useFeedback();
   const [busy, setBusy] = useState(false);
 
@@ -55,11 +57,16 @@ export function AdminOrdersBulk({ pick, visibleIds, total, onDone }: {
   const run = async (newStatus: string) => {
     if (!pick.count || busy) return;
 
-    const label = STATUS_CONFIG[newStatus]?.label ?? newStatus;
+    const label = statusLabel(newStatus, lang);
     const agreed = await notify.confirm({
-      title: `Сменить статус на «${label}» у ${pick.count} заказ(ов)?`,
-      detail: 'Каждому клиенту уйдёт сообщение о новом статусе. Отменить отправку нельзя.',
-      confirmText: 'Сменить',
+      title: lang === 'ru'
+        ? `Сменить статус на «${label}» у ${pick.count} заказ(ов)?`
+        : `${pick.count} ta buyurtma statusi «${label}» ga o'zgartirilsinmi?`,
+      detail: t(
+        'Каждому клиенту уйдёт сообщение о новом статусе. Отменить отправку нельзя.',
+        "Har bir mijozga yangi status haqida xabar ketadi. Yuborishni bekor qilib bo'lmaydi.",
+      ),
+      confirmText: t('Сменить', "O'zgartirish"),
       danger: newStatus === 'CANCELLED',
     });
     if (!agreed) return;
@@ -89,9 +96,13 @@ export function AdminOrdersBulk({ pick, visibleIds, total, onDone }: {
     // Число неудач, а не «что-то пошло не так»: владелец должен знать,
     // сколько заказов осталось со старым статусом.
     if (failed) {
-      notify.error(`Не сменился статус у ${failed} из ${count} — остальные обновлены`);
+      notify.error(lang === 'ru'
+        ? `Не сменился статус у ${failed} из ${count} — остальные обновлены`
+        : `${count} tadan ${failed} tasida status o'zgarmadi — qolganlari yangilandi`);
     } else {
-      notify.success(`Статус «${label}» у ${count} заказ(ов)`);
+      notify.success(lang === 'ru'
+        ? `Статус «${label}» у ${count} заказ(ов)`
+        : `${count} ta buyurtmada «${label}»`);
     }
   };
 
@@ -109,12 +120,14 @@ export function AdminOrdersBulk({ pick, visibleIds, total, onDone }: {
           checked={allSelected}
           indeterminate={pick.count > 0}
           onChange={() => pick.toggleAll(visibleIds)}
-          label="Выбрать все видимые заказы"
+          label={t('Выбрать все видимые заказы', "Barcha koʻrinayotgan buyurtmalarni tanlash")}
         />
-        {allSelected ? 'Снять выбор со всех' : `Выбрать все (${total})`}
+        {allSelected
+          ? t('Снять выбор со всех', 'Tanlovni bekor qilish')
+          : t(`Выбрать все (${total})`, `Barchasini tanlash (${total})`)}
       </label>
 
-      <AdminSelectionBar count={pick.count} onClear={pick.clear}>
+      <AdminSelectionBar count={pick.count} onClear={pick.clear} lang={lang}>
         {BULK_STATUSES.map((s) => (
           <button
             key={s.id}
@@ -124,7 +137,7 @@ export function AdminOrdersBulk({ pick, visibleIds, total, onDone }: {
             style={{ color: STATUS_CONFIG[s.id]?.color, display: 'flex', alignItems: 'center', gap: 6 }}
             onClick={() => run(s.id)}
           >
-            {STATUS_CONFIG[s.id]?.icon} {s.label}
+            {STATUS_CONFIG[s.id]?.icon} {t(s.ru, s.uz)}
           </button>
         ))}
       </AdminSelectionBar>

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized } from '@/lib/adminAuth';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
@@ -24,7 +25,8 @@ export async function GET(request: Request) {
       },
       orderBy: {
         createdAt: 'desc'
-      }
+      },
+      take: LIST_LIMIT,
     });
     return NextResponse.json(qcs);
   } catch (error: unknown) {

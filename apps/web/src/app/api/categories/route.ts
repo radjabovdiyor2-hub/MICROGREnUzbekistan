@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ==========================================
 // Categories API — Prisma-backed
@@ -12,6 +13,7 @@ export async function GET() {
       include: {
         children: {
           orderBy: { order: 'asc' },
+          take: LIST_LIMIT,
           include: {
             _count: { select: { products: true } },
           },
@@ -19,6 +21,7 @@ export async function GET() {
         _count: { select: { products: true } },
       },
       orderBy: { order: 'asc' },
+      take: LIST_LIMIT,
     });
 
     return NextResponse.json({ categories });

@@ -7,7 +7,7 @@ from sqlalchemy import text
 from shared.database import get_session_ctx
 from shared.config import settings
 from bots.sales_bot.states import B2BStates
-from bots.sales_bot.keyboards.inline import main_menu_kb
+from bots.sales_bot.keyboards.inline import main_menu
 
 router = Router()
 
@@ -99,4 +99,4 @@ async def process_contact(message: Message, state: FSMContext):
             f"Yoki qo'ng'iroq qiling: {settings.company_phone}"
         )
     )
-    await message.answer(success, reply_markup=main_menu_kb(lang))
+    await message.answer(success, reply_markup=await main_menu(lang))

@@ -4,6 +4,7 @@ import { processSale } from '@/lib/pos/sale';
 import { processRefund } from '@/lib/pos/refund';
 import { publish } from '@/lib/realtime/bus';
 import { byBusinessDate, localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ==========================================
 // POS (Point of Sale) — Quick Store Sales
@@ -70,6 +71,7 @@ export async function GET(request: NextRequest) {
       sale: { select: { number: true } },
     },
     orderBy: { soldAt: 'desc' },
+    take: LIST_LIMIT,
   });
 
   // Get returns for same period
@@ -89,6 +91,7 @@ export async function GET(request: NextRequest) {
       sale: { select: { number: true } },
     },
     orderBy: { soldAt: 'desc' },
+    take: LIST_LIMIT,
   });
 
   // Group sales by sale number

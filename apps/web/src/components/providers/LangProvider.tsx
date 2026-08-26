@@ -48,7 +48,7 @@ const translations: Record<string, Record<Lang, string>> = {
   'cart.delivery_hint': { uz: "so'm — bepul yetkazish!", ru: 'сум — бесплатная доставка!' },
   'cart.total': { uz: 'Jami', ru: 'Итого' },
   'cart.checkout': { uz: 'Buyurtma berish', ru: 'Оформить заказ' },
-  'cart.payment_methods': { uz: 'Click · Payme · Naqd pul', ru: 'Click · Payme · Наличные' },
+  'cart.payment_methods': { uz: "Naqd pul · Karta · O'tkazma", ru: 'Наличные · Карта · Перевод' },
 
   // === Checkout ===
   'checkout.title': { uz: 'Buyurtma rasmiylashtirish', ru: 'Оформление заказа' },

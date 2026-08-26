@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { slugify as makeSlug } from '@/lib/slug';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
   }
   const list = await prisma.recipe.findMany({
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    take: LIST_LIMIT,
     include: { _count: { select: { steps: true, ingredients: true } } },
   });
   return NextResponse.json(list);

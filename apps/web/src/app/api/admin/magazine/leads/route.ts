@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,6 +9,7 @@ export async function GET() {
     const leads = await prisma.magazineSubscriber.findMany({
       where: { type: 'print' },
       orderBy: { createdAt: 'desc' },
+      take: LIST_LIMIT,
     });
     return NextResponse.json(leads);
   } catch (error: unknown) {

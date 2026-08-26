@@ -30,6 +30,8 @@ from shared import admin_links, approvals, tasks_repo
 from shared import tools as tool_registry
 from shared.config import settings
 from shared.database import get_session_ctx
+# Одна формула выручки на весь офис: отменённый заказ не продажа.
+from shared.tools.crm import NOT_A_SALE
 from sqlalchemy import text
 from shared.ai_engine import AIEngine
 from shared.tool_runtime import dump_result
@@ -220,7 +222,9 @@ async def report_daily(cb: CallbackQuery):
         # Заказы за сегодня
         res = await session.execute(
             text(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE DATE(created_at) = CURRENT_DATE"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
+                "WHERE DATE(created_at) = CURRENT_DATE "
+                f"AND LOWER(status) NOT IN {NOT_A_SALE}"
             )
         )
         orders_count, orders_sum = res.fetchone()
@@ -334,7 +338,9 @@ async def show_finance(cb: CallbackQuery):
         # Неоплаченные заказы
         res = await session.execute(
             text(
-                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders WHERE payment_status = 'pending'"
+                "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
+                "WHERE payment_status = 'pending' "
+                f"AND LOWER(status) NOT IN {NOT_A_SALE}"
             )
         )
         debt_count, debt_sum = res.fetchone()
@@ -1765,7 +1771,8 @@ async def _get_db_context() -> str:
             res = await session.execute(
                 text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE"
+                    "WHERE DATE(created_at) = CURRENT_DATE "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
             cnt, total = res.fetchone()
@@ -1775,7 +1782,8 @@ async def _get_db_context() -> str:
             res = await session.execute(
                 text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
-                    "WHERE DATE(created_at) = CURRENT_DATE AND order_number LIKE 'IG-%'"
+                    "WHERE DATE(created_at) = CURRENT_DATE AND order_number LIKE 'IG-%' "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
             ig_cnt, ig_total = res.fetchone()
@@ -1786,7 +1794,8 @@ async def _get_db_context() -> str:
             res = await session.execute(
                 text(
                     "SELECT COUNT(*), COALESCE(SUM(total_amount),0) FROM crm_orders "
-                    "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                    "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' "
+                    f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
             week_cnt, week_total = res.fetchone()
@@ -1895,6 +1904,12 @@ def _ai_error_reason(exc: Exception) -> str:
     name = type(exc).__name__
     text_l = str(exc).lower()
 
+    # Отказ по решению владельца, а не по вине OpenAI: рубильник или
+    # исчерпанный бюджет. Причина уже написана по-человечески — печатаем как
+    # есть, иначе владелец увидел бы «AIUnavailable: ...» и пошёл проверять
+    # ключ, которым всё в порядке.
+    if name == "AIUnavailable":
+        return str(exc)
     if "insufficient_quota" in text_l or "exceeded your current quota" in text_l:
         return (
             "на счёте OpenAI закончились деньги (insufficient_quota). "

@@ -62,8 +62,17 @@ export function useAdminTab(initialRole: StaffRole | null) {
     // и в Telegram Mini App отматывал бы по одной вкладке за нажатие.
     // `focus` снимаем: он относился к прошлому экрану.
     next.delete('focus');
+    next.delete('q');
     window.history.replaceState(null, '', `/admin?${next.toString()}`);
   }, []);
 
-  return { activeTab, focus: params.get('focus') ?? '', openTab };
+  // `q` — «открой раздел с этим в поиске». Так работает переход
+  // «заказ → его клиент»: у заказа есть телефон, а id клиента CRM нет.
+  // Снимается вместе с `focus` при смене вкладки: он тоже про прошлый экран.
+  return {
+    activeTab,
+    focus: params.get('focus') ?? '',
+    query: params.get('q') ?? '',
+    openTab,
+  };
 }

@@ -31,14 +31,22 @@ interface CustomerPage {
   total: number;
 }
 
-export function useAdminCustomers() {
+/**
+ * @param initialQuery — с чем открыли раздел. Приходит из адреса
+ * (`/admin?tab=customers&q=+998…`), и это единственный способ прийти сюда
+ * «за конкретным человеком» из другого экрана: у карточки заказа есть
+ * телефон, а id клиента CRM — нет, связь между ними живёт в базе офиса.
+ * До этого путь «заказ → его клиент» приходилось проходить руками:
+ * запомнить номер, открыть вкладку, вставить в поиск.
+ */
+export function useAdminCustomers(initialQuery = '') {
   const notify = useFeedback();
-  const [searchInput, setSearchInput] = useState('');
+  const [searchInput, setSearchInput] = useState(initialQuery);
   // Отправленный запрос отделён от того, что человек печатает: он входит в
   // queryKey, поэтому кэш и содержимое поля больше не расходятся. Раньше
   // ключом был только фильтр, и переключение вкладки отдавало сохранённый
   // результат ПРОШЛОГО поиска.
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
   // Две оси вместо одного смешанного ряда: статус отношений и тип клиента.
   // Пустой набор означает «все» — отдельного значения 'all' в наборе нет,
   // иначе его пришлось бы исключать в каждом месте, где набор читается.

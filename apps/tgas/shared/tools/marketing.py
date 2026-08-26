@@ -46,7 +46,8 @@ async def get_funnel() -> Dict[str, Any]:
             await session.execute(
                 text(
                     "SELECT status, COUNT(*) FROM customers "
-                    "WHERE customer_type = 'b2b' GROUP BY status"
+                    "WHERE deleted_at IS NULL AND customer_type = 'b2b' "
+                    "GROUP BY status"
                 )
             )
         ).fetchall()

@@ -8,10 +8,10 @@ Guidance для Claude Code при работе в этом репозитори
 
 | Модуль | Стек | Роль |
 |--------|------|------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 29 API-групп, 107 роутов |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 30 API-групп, 120 роутов |
 | `apps/bot` | Python, aiogram 3, OpenAI | Telegram-бот витрины: AI-продавец, ходит в `apps/web/api/*` по HTTP |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
-| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 71 модель, единый источник DDL |
+| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 79 моделей, единый источник DDL |
 
 Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 
@@ -28,7 +28,7 @@ Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 - **Нет секретов в выводе.** `.env`, токены и ключи не печатать, не логировать, не коммитить.
 - **Нет git side effects** без явного запроса в этом же ходе.
 
-Перед созданием нового API-роута — прочитать `apps/web/src/app/api/` (29 групп). Дублирование роута — дефект.
+Перед созданием нового API-роута — прочитать `apps/web/src/app/api/` (30 групп). Дублирование роута — дефект.
 
 ## Команды
 
@@ -53,12 +53,22 @@ python scripts/check_tools.py    # инструменты отделов и де
 python scripts/check_bot_roster.py
 python scripts/check_prompts.py
 python scripts/check_imports.py  # `from shared.X import Y` — Y существует
+python scripts/check_types.py    # mypy по «дверям к данным», блокирующая
+python scripts/check_soft_delete.py  # удалённый клиент не всплывает в офисе
 ```
 
 Подробности — в [apps/tgas/CLAUDE.md](apps/tgas/CLAUDE.md).
 
+Из корня репозитория:
+
+```bash
+python scripts/check_compose.py        # инварианты развёртывания
+python scripts/check_env_declared.py   # переменная, которую код читает, объявлена
+python scripts/check_docs_numbers.py   # числа в документах совпадают с кодом
+```
+
 Верификация до заявления «готово»: `npm run lint` + `npm run build` для TS, `python -m py_compile`
-плюс тесты и четыре сверки выше для Python.
+плюс тесты и сверки выше для Python.
 
 ## Языки
 

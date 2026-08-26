@@ -5,7 +5,7 @@ from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from shared.ai_engine import AIEngine
 from shared.utils import simulate_typing
-from bots.sales_bot.keyboards.inline import main_menu_kb, back_menu_kb
+from bots.sales_bot.keyboards.inline import main_menu, back_menu_kb
 from shared.prompts import TEAM_CONTEXT
 
 router = Router()
@@ -48,7 +48,7 @@ async def show_orders(cb: CallbackQuery, state: FSMContext):
             "📦 У вас пока нет заказов"
             if lang == "ru"
             else "📦 Sizda hali buyurtmalar yo'q",
-            reply_markup=main_menu_kb(lang),
+            reply_markup=await main_menu(lang),
         )
     else:
         from shared.utils import format_price
@@ -62,7 +62,7 @@ async def show_orders(cb: CallbackQuery, state: FSMContext):
             lines.append(
                 f"#{o.order_number} — {format_price(o.total_amount)} ({o.status})"
             )
-        await cb.message.edit_text("\n".join(lines), reply_markup=main_menu_kb(lang))
+        await cb.message.edit_text("\n".join(lines), reply_markup=await main_menu(lang))
     await cb.answer()
 
 

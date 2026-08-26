@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized } from '@/lib/adminAuth';
 import { computeOrder } from '@/lib/magazine/printPricing';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // Ссылки на онлайн-оплату тиража (Click/Payme). Референс print_<id> — колбэки
 // оплаты (payments.ts findPayableByRef) распознают его и помечают PrintOrder оплаченным.
@@ -47,7 +48,8 @@ export async function GET(req: NextRequest) {
         },
         subscription: true
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: LIST_LIMIT,
     });
     // К неоплаченным тиражам прикладываем ссылки на онлайн-оплату
     const withLinks = orders.map((o) => ({
@@ -93,15 +95,33 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const data = await req.json();
-    const { id, ...updateData } = data;
-    
-    if (updateData.status === 'paid' && !updateData.paidAt) {
-      updateData.paidAt = new Date();
+    const id = String(data?.id ?? '');
+    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+
+    // Закрытый список полей. Здесь стояло `data: updateData` — тело уходило
+    // в базу целиком, и присланное `revenue` или `cost` переписывало
+    // посчитанные суммы тиража. Менять у счёта можно ровно две вещи:
+    // состояние и адрес готового файла.
+    const status = ['pending', 'printing', 'delivered', 'paid', 'cancelled'];
+    const update: Record<string, unknown> = {};
+    if (typeof data.status === 'string') {
+      if (!status.includes(data.status)) {
+        return NextResponse.json({ error: 'Неизвестный статус тиража' }, { status: 400 });
+      }
+      update.status = data.status;
+      // Дата оплаты ставится ЗДЕСЬ, а не присылается: иначе счёт можно
+      // отметить оплаченным задним числом любым днём.
+      if (data.status === 'paid') update.paidAt = new Date();
+    }
+    if (typeof data.pdfUrl === 'string') update.pdfUrl = data.pdfUrl.slice(0, 500);
+
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: 'Нечего менять' }, { status: 400 });
     }
 
     const order = await prisma.printOrder.update({
       where: { id },
-      data: updateData
+      data: update,
     });
     return NextResponse.json(order);
   } catch (e: unknown) {

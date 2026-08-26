@@ -60,7 +60,7 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
   // что пришла с сервера: у агронома, вошедшего по PIN в свежей вкладке,
   // роли в cookie ещё нет, и он попадал на кассу — экран, которого ему не
   // положено видеть. Отдел показывался пустым, пока он не ткнёт «Посадки».
-  const { activeTab, focus, openTab: setActiveTab } = useAdminTab(staffRole ?? initialRole);
+  const { activeTab, focus, query, openTab: setActiveTab } = useAdminTab(staffRole ?? initialRole);
 
   // Живой поток изменений. Одно подключение на всю админку, а не по одному
   // на экран: событие приходит темой, и кэш React Query устаревает сразу у
@@ -158,7 +158,7 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
         t={t}
       />
       {/* Main Content */}
-      <AdminTabRouter activeTab={activeTab} focus={focus} isOwner={isOwner} canGrow={canGrow} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
+      <AdminTabRouter activeTab={activeTab} focus={focus} query={query} isOwner={isOwner} canGrow={canGrow} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
 
       <AdminCommandPalette
         paletteOpen={paletteOpen}

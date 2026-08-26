@@ -307,6 +307,47 @@ if not any("способ оплаты строкой" in p for p in problems):
     notes.append("  ok  онлайн-оплата строкой не обещана")
 
 
+# ═══ Запреты продукта — в ОБОИХ системных промптах ══════════════════════
+#
+# Промптов, разговаривающих с клиентом, два и они в разных приложениях:
+# офисный `shared/ai_engine.py` и витринного бота
+# `apps/bot/services/ai_service.py`. Импортировать один из другого нельзя
+# (жёсткая граница модулей), поэтому текст живёт двумя копиями — и они
+# разошлись: у витринного бота не было НИ ОДНОГО из двух запретов.
+#
+# Цена расхождения не косметическая. «BALANS снижает сахар» — заявление о
+# лечебных свойствах, на которое нужно разрешение Минздрава; совет вырастить
+# зелень дома продаёт вместо нас чужие семена, которых у нас и нет.
+#
+# Сверяем не дословный текст, а наличие ключевых слов запрета: формулировки
+# правятся, суть — нет.
+PRODUCT_BANS = {
+    "лечебные заявления BALANS": ("минздрав", "лечит"),
+    "домашнее выращивание": ("дома", "семена"),
+}
+
+CUSTOMER_PROMPTS = [
+    TGAS / "shared" / "ai_engine.py",
+    REPO / "apps" / "bot" / "services" / "ai_service.py",
+]
+
+for path in CUSTOMER_PROMPTS:
+    if not path.is_file():
+        problems.append(f"{rel(path)} — файл системного промпта исчез")
+        continue
+    body = path.read_text(encoding="utf-8", errors="replace").lower()
+    for ban, words in PRODUCT_BANS.items():
+        if not all(w in body for w in words):
+            problems.append(
+                f"{rel(path)} — в системном промпте нет запрета «{ban}». "
+                f"Он есть во втором промпте, и разойтись им нельзя: "
+                f"это обещания клиенту, а не стиль"
+            )
+
+if not any("нет запрета" in p for p in problems):
+    notes.append("  ok  запреты продукта есть в обоих клиентских промптах")
+
+
 # ═══ 6. TEAM_CONTEXT знает про всех ботов ═══════════════════════════════
 from shared.health import ALL_BOTS  # noqa: E402
 from shared.prompts import TEAM_CONTEXT  # noqa: E402
@@ -504,7 +545,13 @@ for path in TS_SCOPE:
 
 # Та же форма на Python: `os.getenv("META_VERIFY_TOKEN", "microgreen_secure_token_2026")`
 # — вебхук Meta в web_office проходил верификацию по значению из исходников.
-PY_SECRET_ARG = re.compile(r"(?:SECRET|TOKEN|KEY|PASSWORD)", re.I)
+#
+# CHAT_ID и ADMIN добавлены сюда после `os.getenv("ADMIN_CHAT_ID", "847872669")`
+# в двух файлах витринного бота. Формально это не секрет, и правило по словам
+# SECRET|TOKEN|KEY|PASSWORD его пропускало — а по смыслу это ПРАВА: пустая
+# переменная окружения отдавала админку бота одному конкретному аккаунту,
+# чей id остался в исходниках.
+PY_SECRET_ARG = re.compile(r"(?:SECRET|TOKEN|KEY|PASSWORD|CHAT_ID|ADMIN)", re.I)
 
 for path in PY_SCOPE + py_files(TGAS / "web_office"):
     try:
@@ -526,8 +573,8 @@ for path in PY_SCOPE + py_files(TGAS / "web_office"):
         if not PY_SECRET_ARG.search(var.value) or not default.value:
             continue
         problems.append(
-            f"{rel(path)}:{node.lineno} — секрет с запасным значением в коде: "
-            f"{var.value} по умолчанию «{default.value[:24]}»"
+            f"{rel(path)}:{node.lineno} — секрет или права с запасным значением "
+            f"в коде: {var.value} по умолчанию «{default.value[:24]}»"
         )
 
 if not any("секрет с запасным значением" in p for p in problems):

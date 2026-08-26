@@ -1,66 +1,60 @@
 # Roadmap — Microgreen Uzbekistan
 
-## Current Status: Phase 3 — System Integration
+Обновлён 26.08.2026 по итогам сплошной ревизии (см. [docs/AUDIT-2026-08.md](docs/AUDIT-2026-08.md)).
 
-The project is a working AgroTech ecosystem with:
-- ✅ Next.js PWA storefront (live at microgreenuzbekistan.com)
-- ✅ Telegram storefront bot (orders, AI agronomist)
-- ✅ Farm Simulator game (Telegram Mini App)
-- ✅ AI Office (11 autonomous bots: sales, content, finance, etc.)
-- ✅ FRESH WEEKLY magazine (Issue №1 — 12 pages, AR viewer)
-- ✅ 12 Pixar-quality 3D characters ("Агро Друзья")
-- ✅ Restaurant database (100 restaurants: Tashkent + Samarkand)
+Прошлая версия этого файла состояла из галочек: все пункты ✅, блок
+«Priorities (RIGHT NOW)» продублирован дважды, а актуальных приоритетов в
+документе не осталось вовсе — он фиксировал прошлое и не вёл вперёд.
+Здесь наоборот: сделанное ушло в раздел «Что уже работает» одной строкой,
+а дальше только то, чего ещё нет.
 
 ---
 
-## Phase 3.1 — Magazine Integration (DONE)
+## Что уже работает
 
-| Task | Status | Files |
-|------|--------|-------|
-| Magazine page on website (`/magazine`) | ✅ Done | `apps/web/src/app/magazine/` |
-| AR Viewer on website (`/magazine/ar`) | ✅ Done | `apps/web/src/app/magazine/ar/` |
-| Companions in Farm Simulator | ✅ Done | `apps/game/src/App.tsx` |
-| Prisma models (MagazineIssue, Restaurant) | ✅ Done | `schema.prisma` |
-| Telegram bot `/magazine` command | ✅ Done | `apps/bot/handlers/magazine.py` |
-| Content Bot auto-publish rubrics | ✅ Done | `apps/tgas/bots/content_bot/` |
-| Справочник заведений области → лиды | ✅ Done | сбор `apps/tgas/scripts/collect_restaurants.py`, загрузка `packages/database/prisma/seed-venues.ts` |
-| PDF generation | ✅ Done | `content/generate_pdf.js` |
-
-## Phase 3.2 — Magazine Monetization (DONE)
-
-| Task | Status |
-|------|--------|
-| Print-on-demand order flow (Telegram → Order) | ✅ Done |
-| Media Kit for advertisers (PDF) | ✅ Done |
-| Magazine subscription pricing | ✅ Done |
-| Advertiser dashboard in admin | ✅ Done |
-
-## Phase 4 — Growth
-
-| Task | Priority |
-|------|----------|
-| Telegram channel auto-posting (weekly rubrics) | ✅ Done |
-| Issue №2 (Korean cuisine theme) | ✅ Done |
-| Landing page for magazine (SEO) | ✅ Done |
-| AR with real 3D models (.glb) instead of planes | ✅ Done |
-| Weekly email digest | Low |
-| WhatsApp bot integration | Low |
-
-## Phase 5 — Scale
-
-| Task | Priority |
-|------|----------|
-| Multi-city expansion (Bukhara, Fergana) | High |
-| Franchise module (white-label for other farms) | Medium |
-| NFT character collection from game | Low |
-| International version (English, Turkish) | Low |
+Витрина на Next.js (microgreenuzbekistan.com) с каталогом, корзиной,
+кабинетом и админкой из 49 экранов; Telegram-бот витрины с ИИ-продавцом;
+AI-офис из 12 ботов и моста; журнал FRESH WEEKLY с персональными выпусками
+ресторанов и «живым меню» по QR; касса с офлайн-очередью; карта клиентов с
+объездами, отметками визитов и продажей с выезда; учёт теплицы от посева до
+себестоимости единицы.
 
 ---
 
-## Priorities (RIGHT NOW)
+## Ближайшее: закрыть хвосты ревизии
 
-## Priorities (RIGHT NOW)
+Порядок — по остроте, а не по размеру.
 
-1. Franchise module (white-label for other farms) - ✅ Done
-2. Telegram channel auto-posting - ✅ Done
-3. AR with real 3D models - ✅ Done
+| Что | Почему это важно | Размер |
+|---|---|---|
+| Онлайн-оплата Click/Payme | Способы убраны с оформления, потому что платёж не создавался. Возвращать вместе с рабочими merchant-контрактами — и только вместе с ними | Средний, упирается в договор |
+| Остальные экраны журнала | Выпуски и персональные номера ресторанов интерфейс получили. Без экранов остались `advertisers`, `subscriptions`, `print-orders`, `leads`, `ai-draft`, `brief` — то есть рекламодатели, подписки на тираж, счета за печать и ИИ-черновик слота | Средний |
+| Soft-delete в отчётах офиса | Удаление стало мягким, фильтр закрыт в двери офиса, исходящих и инструментах отделов. Остались отчёты и дашборды: там удалённая карточка портит цифру, а не действие. Список охраняемых путей в `check_soft_delete.py` растёт | Средний |
+| Ключи VAPID | Механизм push сделан целиком; без ключей в окружении возможность не подключена и кнопка не показывается. Сгенерировать пару и положить в `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Малый |
+| Снизить поток сообщений владельцу | ~15–20 плановых докладов в сутки, шесть отчётов аналитики «только шлют сообщение». Нужен сводный дайджест и пакетные подтверждения вместо карточки на каждое действие | Средний |
+
+---
+
+## Дальше: рост
+
+| Что | Приоритет |
+|---|---|
+| Мультигород (Бухара, Фергана) | Высокий |
+| Еженедельный email-дайджест (`/api/marketing/digest` отвечает 501) | Низкий |
+| WhatsApp-бот (вебхук принимает, сценариев нет) | Низкий |
+| Международная версия (EN/TR) | Низкий |
+
+---
+
+## Решено НЕ делать
+
+| Что | Почему |
+|---|---|
+| Двуязычность остальной админки | Решение владельца 26.08.2026: не нужно. Переведено то, где язык МЕШАЛ — экраны, на которых русский интерфейс соседствовал с узбекскими подписями статусов (заказы, остатки), и те, что каждый день открывает продавец (поставщики, смены, сотрудники, движения). Остальные экраны одноязычны последовательно: там язык не путает, а просто не переключается, и это никому не мешает |
+
+---
+
+## Правило этого файла
+
+Пункт уходит отсюда, когда он сделан, — а не превращается в галочку.
+История сделанного живёт в git и в `docs/`, здесь только то, чего ещё нет.

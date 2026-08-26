@@ -26,6 +26,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
+      // Поставки заведениям: страница, с которой ресторан может о себе
+      // сказать. Без неё весь B2B-контур офиса работал только «наружу».
+      url: `${BASE}/b2b`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.85,
+    },
+    {
       url: `${BASE}/cart`,
       lastModified: new Date(),
       changeFrequency: 'weekly',

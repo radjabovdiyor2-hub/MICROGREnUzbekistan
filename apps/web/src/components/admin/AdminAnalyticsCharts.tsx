@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { BarChart, AlertTriangle, Download, Package, CreditCard, ClipboardList } from 'lucide-react';
+import { BarChart, AlertTriangle, Download, Package, CreditCard, ClipboardList, ShoppingCart, Sprout, Users, Wallet } from 'lucide-react';
 
 export interface MonthData { month: string; orders: number; revenue: number; posRevenue: number; posSales: number; }
 export interface Warning { level: string; message: string; action: string; }
@@ -78,6 +78,12 @@ export function ExportWidget() {
           { type: 'debts', label: 'Qarzlar hisoboti', icon: <CreditCard size={14} /> },
           { type: 'movements', label: 'Harakatlar tarixi', icon: <ClipboardList size={14} /> },
           { type: 'sales', label: 'Sotishlar (30 kun)', icon: <BarChart size={14} /> },
+          // Четырёх выгрузок не хватало ровно того, что чаще всего просят
+          // унести в таблицу: клиентской базы, заказов, денег и посадок.
+          { type: 'customers', label: 'Mijozlar bazasi', icon: <Users size={14} /> },
+          { type: 'orders', label: 'Buyurtmalar', icon: <ShoppingCart size={14} /> },
+          { type: 'finance', label: 'Moliya', icon: <Wallet size={14} /> },
+          { type: 'growing', label: 'Ekishlar', icon: <Sprout size={14} /> },
         ].map(exp => (
           <a key={exp.type} href={`/api/inventory/export?type=${exp.type}`} download
             className="btn btn-outline btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

@@ -85,7 +85,8 @@ def target_for(kind: str, payload: Optional[Dict[str, Any]]) -> Tuple[str, Optio
     """Вкладка и предмет действия для заявки. Пустого ответа не бывает."""
     data = payload or {}
     tool_name = str(data.get("tool") or "")
-    args = data.get("args") if isinstance(data.get("args"), dict) else {}
+    raw_args = data.get("args")
+    args: Dict[str, Any] = raw_args if isinstance(raw_args, dict) else {}
 
     if tool_name:
         tab, focus_arg = _tool_target(tool_name)

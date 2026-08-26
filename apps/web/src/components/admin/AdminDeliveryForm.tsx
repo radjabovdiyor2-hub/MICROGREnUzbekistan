@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useEmployees } from './useAdminReferences';
+import { useEmployees, usePendingOrders } from './useAdminReferences';
 import { Plus, X } from 'lucide-react';
 
 // Форма создания маршрута доставки.
@@ -9,8 +9,23 @@ import { Plus, X } from 'lucide-react';
 // Раздел был только для чтения: API умеет создавать маршруты со списком
 // точек, а в компоненте не было ни одного POST. Экран показывал пустой
 // список — и выглядело это как отсутствующая функция при готовом бэкенде.
+//
+// Второй разрыв, который здесь закрыт: точка маршрута не знала о заказе.
+// `POST /api/admin/deliveries` принимает `orderId` с первого дня, а форма
+// его не отправляла НИКОГДА — менеджер перепечатывал адрес и телефон из
+// карточки заказа руками. Отсюда две беды сразу: опечатка в адресе, которую
+// не с чем сверить, и невозможность потом ответить, какой заказ уехал на
+// этой машине. Теперь точка добавляется выбором заказа; ручной ввод остался
+// для того, что заказом не является, — забрать тару, заехать на склад.
 
-interface Stop { address: string; phone: string; note: string }
+interface Stop {
+  address: string;
+  phone: string;
+  note: string;
+  /** Заказ, ради которого едем. Именно его принимает API — и принимал всегда. */
+  orderId?: string;
+  orderNumber?: string;
+}
 
 interface Props {
   saving: boolean;
@@ -37,6 +52,29 @@ export function AdminDeliveryForm({ saving, error, onCancel, onSubmit }: Props) 
   const [stops, setStops] = useState<Stop[]>([{ ...EMPTY_STOP }]);
   // Курьер выбирается из сотрудников, а не вводится текстом.
   const drivers = useEmployees();
+  const orders = usePendingOrders();
+
+  const takenOrderIds = new Set(stops.map((s) => s.orderId).filter(Boolean));
+  const available = orders.filter((o) => !takenOrderIds.has(o.id));
+
+  /** Заказ → точка маршрута: адрес и телефон берём из него, не из памяти. */
+  const addFromOrder = (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (!order) return;
+    const stop: Stop = {
+      address: order.address || '',
+      phone: order.phone || '',
+      note: '',
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+    };
+    // Первая строка пустая — занимаем её, иначе в маршруте останется дыра.
+    setStops((prev) => {
+      const empty = prev.findIndex((p) => !p.address.trim() && !p.orderId);
+      if (empty === -1) return [...prev, stop];
+      return prev.map((p, i) => (i === empty ? stop : p));
+    });
+  };
 
   const setStop = (index: number, patch: Partial<Stop>) =>
     setStops((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -64,12 +102,35 @@ export function AdminDeliveryForm({ saving, error, onCancel, onSubmit }: Props) 
         </div>
       </div>
 
+      <div style={{ marginBottom: 'var(--space-3)' }}>
+        <label style={label} htmlFor="route-order">Добавить точку из заказа</label>
+        <select id="route-order" style={field} value=""
+          disabled={available.length === 0}
+          onChange={(e) => { addFromOrder(e.target.value); e.currentTarget.value = ''; }}>
+          <option value="">
+            {available.length === 0 ? '— неотвезённых заказов нет —' : '— выберите заказ —'}
+          </option>
+          {available.map((o) => (
+            <option key={o.id} value={o.id}>
+              #{o.orderNumber} · {o.address || 'без адреса'} · {o.phone}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 6 }}>
         Точки маршрута — в порядке объезда
       </div>
 
       {stops.map((stop, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+          {stop.orderNumber && (
+            <span style={{
+              padding: '2px 8px', borderRadius: 'var(--radius-full)',
+              background: 'var(--info-bg)', color: 'var(--info)',
+              fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)', whiteSpace: 'nowrap',
+            }}>#{stop.orderNumber}</span>
+          )}
           <input style={{ ...field, flex: '2 1 200px' }} placeholder={`Адрес ${i + 1}`}
             value={stop.address} onChange={(e) => setStop(i, { address: e.target.value })} />
           <input style={{ ...field, flex: '1 1 120px' }} placeholder="Телефон"
@@ -104,6 +165,8 @@ export function AdminDeliveryForm({ saving, error, onCancel, onSubmit }: Props) 
                 address: s.address.trim(),
                 phone: s.phone.trim() || undefined,
                 note: s.note.trim() || undefined,
+                // Связь с заказом — то, ради чего всё и затевалось.
+                orderId: s.orderId,
                 orderIndex: index,
               })),
             })

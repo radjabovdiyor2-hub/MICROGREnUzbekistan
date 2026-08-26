@@ -171,7 +171,13 @@ async def test_mirror_updates_customer_stats(office):
     assert "orders_count + 1" not in sql, "счётчик снова приращивается вместо пересчёта"
     assert "COUNT(*)" in sql and "SUM(total_amount)" in sql
     # Отменённые в счётчики не входят — иначе отмена ничего не меняла бы.
-    assert "status <> 'cancelled'" in sql
+    #
+    # Сверяем смысл, а не написание: раньше здесь стояло `status <> 'cancelled'`,
+    # и это пропускало второе написание, `canceled` с одной «l», которым
+    # пользуется часть источников. Заказ с ним оставался в «Потрачено».
+    assert "cancelled" in sql and "canceled" in sql, (
+        "счётчики клиента считают отменённые заказы (или знают лишь одно написание отмены)"
+    )
 
 
 @pytest.mark.asyncio
@@ -188,7 +194,8 @@ async def test_cancelling_order_recalculates_customer_stats(office):
     )
 
     assert any(
-        "UPDATE customers" in q and "status <> 'cancelled'" in q for q in recorder.sql
+        "UPDATE customers" in q and "cancelled" in q and "canceled" in q
+        for q in recorder.sql
     ), "смена статуса не пересчитала счётчики клиента"
 
 

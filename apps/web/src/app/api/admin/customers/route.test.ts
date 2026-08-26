@@ -21,15 +21,20 @@ import { SESSION_COOKIE, createSession } from '@/lib/session';
 const customerFindMany = vi.fn();
 const customerCount = vi.fn();
 const customerUpdate = vi.fn();
-const customerDeleteMany = vi.fn();
+// Удаление МЯГКОЕ: карточка помечается `deletedAt`, а не стирается.
+// Раньше здесь ждали `deleteMany` — теперь ждём пометку, иначе тест
+// зеленел бы на физическом удалении, которое вернуть нечем.
+const customerUpdateMany = vi.fn();
+const customerFindUnique = vi.fn();
 
 vi.mock('@repo/database', () => ({
   prisma: {
     customer: {
       findMany: (...a: unknown[]) => customerFindMany(...a),
       count: (...a: unknown[]) => customerCount(...a),
+      findUnique: (...a: unknown[]) => customerFindUnique(...a),
       update: (...a: unknown[]) => customerUpdate(...a),
-      deleteMany: (...a: unknown[]) => customerDeleteMany(...a),
+      updateMany: (...a: unknown[]) => customerUpdateMany(...a),
     },
   },
   Prisma: {},
@@ -93,7 +98,7 @@ beforeEach(() => {
     id: 7, status: 'lead', bonusBalance: 0, notes: null,
     city: 'Samarqand', companyName: 'X', companyType: 'fitness', audience: 'female',
   });
-  customerDeleteMany.mockResolvedValue({ count: 0 });
+  customerUpdateMany.mockResolvedValue({ count: 0 });
 });
 
 describe('GET /api/admin/customers — фильтры', () => {
@@ -301,19 +306,22 @@ describe('DELETE /api/admin/customers?scope=retired-types', () => {
     expect(body.preview[0].name).toBe('SamDU');
     // 3 карточки выведенных типов всего, 1 под чистку → 2 остаются.
     expect(body.kept).toBe(2);
-    expect(customerDeleteMany).not.toHaveBeenCalled();
+    expect(customerUpdateMany).not.toHaveBeenCalled();
     expect(publishSpy).not.toHaveBeenCalled();
   });
 
-  it('боевой прогон удаляет по id и оповещает шину', async () => {
+  it('боевой прогон помечает по id и оповещает шину', async () => {
     customerFindMany.mockResolvedValueOnce([RETIRED_CARD]);
     customerCount.mockResolvedValueOnce(1);
-    customerDeleteMany.mockResolvedValueOnce({ count: 1 });
+    customerUpdateMany.mockResolvedValueOnce({ count: 1 });
 
     const res = await DELETE(del('?scope=retired-types', await adminCookie()));
     const body = await res.json();
 
-    expect(customerDeleteMany).toHaveBeenCalledWith({ where: { id: { in: [41] } } });
+    // Метка, а не удаление: строка остаётся, читатели её больше не видят.
+    expect(customerUpdateMany).toHaveBeenCalledTimes(1);
+    expect(customerUpdateMany.mock.calls[0][0].where).toEqual({ id: { in: [41] } });
+    expect(customerUpdateMany.mock.calls[0][0].data.deletedAt).toBeInstanceOf(Date);
     expect(body.deleted).toBe(1);
     expect(publishSpy).toHaveBeenCalledWith('customers');
   });
@@ -342,6 +350,45 @@ describe('DELETE /api/admin/customers?scope=retired-types', () => {
     const res = await DELETE(del('?scope=retired-types'));
 
     expect(res.status).toBe(401);
-    expect(customerDeleteMany).not.toHaveBeenCalled();
+    expect(customerUpdateMany).not.toHaveBeenCalled();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// Удаление одной карточки: пометка, а не стирание.
+//
+// Физически удалённую карточку вернуть нечем, а ошибиться легко — вместе с
+// ней уходили пины на карте, договорные цены и заметки продавца. Проверяем
+// не текст ответа, а то, ЧТО именно уходит в базу.
+// ══════════════════════════════════════════════════════════════════════
+describe('DELETE /api/admin/customers?id=', () => {
+  it('помечает карточку, а не стирает строку', async () => {
+    customerFindUnique.mockResolvedValueOnce({
+      id: 7,
+      name: 'Плов Центр',
+      _count: { crmOrders: 0, interactions: 3, followups: 1 },
+    });
+    customerUpdate.mockResolvedValueOnce({ id: 7 });
+
+    const res = await DELETE(del('?id=7', await adminCookie()));
+
+    expect(res.status).toBe(200);
+    expect(customerUpdate).toHaveBeenCalledTimes(1);
+    expect(customerUpdate.mock.calls[0][0].where).toEqual({ id: 7 });
+    expect(customerUpdate.mock.calls[0][0].data.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('клиента с заказами по-прежнему не трогает', async () => {
+    // История продаж дороже порядка в списке: отвечаем 409 с числом.
+    customerFindUnique.mockResolvedValueOnce({
+      id: 8,
+      name: 'Дом Плова',
+      _count: { crmOrders: 4, interactions: 0, followups: 0 },
+    });
+
+    const res = await DELETE(del('?id=8', await adminCookie()));
+
+    expect(res.status).toBe(409);
+    expect(customerUpdate).not.toHaveBeenCalled();
   });
 });

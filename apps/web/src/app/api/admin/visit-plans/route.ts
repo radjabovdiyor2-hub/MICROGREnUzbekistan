@@ -3,7 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { actorOf, getSession, isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { planSource, resolveReadAssignee, resolveSaveAssignee } from '@/lib/customers/planAssignee';
-import { readDayPlans, saveDayPlan } from '@/lib/customers/visitPlanStore';
+import { readDayFacts, readDayPlans, saveDayPlan } from '@/lib/customers/visitPlanStore';
+import { prisma } from '@repo/database';
+
+import { notifyCustomer } from '@/lib/notify';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
 
@@ -71,7 +74,13 @@ export async function GET(request: NextRequest) {
     });
 
     const plans = await readDayPlans({ planDate, assignee });
-    return NextResponse.json({ status: 'ok', plans });
+
+    // День целиком, а не только план: визит без плана и чек с выезда — это
+    // и есть работа, и до сих пор их не было видно ни на одном экране.
+    // Отдаём той же дверью: второй адрес пришлось бы держать в согласии.
+    const facts = await readDayFacts({ planDate, assignee });
+
+    return NextResponse.json({ status: 'ok', plans, ...facts });
   } catch (error: unknown) {
     console.error('API Admin Visit Plans GET Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });
@@ -125,6 +134,36 @@ export async function POST(request: NextRequest) {
 
     // Соседняя вкладка владельца обязана увидеть новый план, а не вчерашний.
     publish('customers');
+
+    // ── Назначенный НЕ СЕБЕ план надо кому-то сообщить ────────────────
+    //
+    // План на сервере появился, а продавец о нём не узнавал ничем: чтобы
+    // увидеть свой день, надо было самому открыть админку и догадаться
+    // туда заглянуть. Владелец при этом считал, что поручил работу.
+    //
+    // Сотрудник опознаётся именем — так же, как в самом плане и в
+    // `Task.assignee`; Telegram берём из карточки сотрудника. Нет связки с
+    // Telegram — молчим: отправить некуда, а падать из-за этого запрос не
+    // должен, план уже сохранён.
+    if (owner && assignee && assignee !== author) {
+      void (async () => {
+        try {
+          const employee = await prisma.employee.findFirst({
+            where: { name: assignee, isActive: true },
+            select: { telegramId: true },
+          });
+          if (!employee?.telegramId) return;
+          const day = planDate.toLocaleDateString('ru-RU');
+          await notifyCustomer(
+            employee.telegramId,
+            `🗺 Вам назначен объезд на ${day}: ${saved.stops} точек.\n`
+            + 'Откройте «Клиенты» → карта, план уже там.',
+          );
+        } catch (err) {
+          console.error('[visit-plans] не сказали продавцу о плане:', err);
+        }
+      })();
+    }
 
     return NextResponse.json({ status: 'ok', plan: saved }, { status: 201 });
   } catch (error: unknown) {

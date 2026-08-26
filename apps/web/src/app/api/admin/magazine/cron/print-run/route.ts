@@ -22,42 +22,56 @@ export async function POST(req: Request) {
       where: { status: 'active' }
     });
 
+    // ── Три запроса вместо трёх НА КАЖДУЮ ПОДПИСКУ ────────────────────
+    //
+    // Здесь стоял цикл, и в нём поиск выпуска, поиск существующего счёта и
+    // создание нового — то есть до трёх походов в базу на подписчика, все
+    // последовательные. Это был худший N+1 в проекте: тираж считают раз в
+    // неделю по всей базе подписок сразу.
+    //
+    // Порядок тот же, что и был: берём готовые выпуски, отсеиваем те, по
+    // которым счёт уже выставлен, и создаём остальные одной вставкой.
+    const issues = await prisma.restaurantIssue.findMany({
+      where: {
+        editionId: edition.id,
+        restaurantId: { in: subscriptions.map((s) => s.restaurantId) },
+        status: { in: ['ready', 'published'] },
+      },
+      select: { id: true, restaurantId: true, webSlug: true },
+    });
+    const issueByRestaurant = new Map(issues.map((i) => [i.restaurantId, i]));
+
+    const billed = await prisma.printOrder.findMany({
+      where: { restaurantIssueId: { in: issues.map((i) => i.id) } },
+      select: { restaurantIssueId: true },
+    });
+    const alreadyBilled = new Set(billed.map((b) => b.restaurantIssueId));
+
     const slugsToPrint: string[] = [];
-    let ordersCreated = 0;
+    const newOrders: Parameters<typeof prisma.printOrder.createMany>[0]['data'] = [];
 
     for (const sub of subscriptions) {
-      // 2. Find the ready issue for this restaurant
-      const issue = await prisma.restaurantIssue.findUnique({
-        where: { editionId_restaurantId: { editionId: edition.id, restaurantId: sub.restaurantId } }
-      });
+      const issue = issueByRestaurant.get(sub.restaurantId);
+      if (!issue) continue;
 
-      if (issue && (issue.status === 'ready' || issue.status === 'published')) {
-        // Prevent duplicate order
-        const existingOrder = await prisma.printOrder.findFirst({
-          where: { restaurantIssueId: issue.id }
+      if (!alreadyBilled.has(issue.id)) {
+        newOrders.push({
+          restaurantIssueId: issue.id,
+          subscriptionId: sub.id,
+          copies: sub.copiesPerIssue,
+          unitPrice: sub.pricePerCopy,
+          unitCost: sub.unitCost,
+          ...computeOrder(sub.copiesPerIssue, sub.pricePerCopy, sub.unitCost),
+          status: 'pending',
         });
-
-        if (!existingOrder) {
-          const pricing = computeOrder(sub.copiesPerIssue, sub.pricePerCopy, sub.unitCost);
-          
-          await prisma.printOrder.create({
-            data: {
-              restaurantIssueId: issue.id,
-              subscriptionId: sub.id,
-              copies: sub.copiesPerIssue,
-              unitPrice: sub.pricePerCopy,
-              unitCost: sub.unitCost,
-              ...pricing,
-              status: 'pending'
-            }
-          });
-          
-          ordersCreated++;
-        }
-
-        slugsToPrint.push(issue.webSlug);
       }
+
+      slugsToPrint.push(issue.webSlug);
     }
+
+    const { count: ordersCreated } = Array.isArray(newOrders) && newOrders.length
+      ? await prisma.printOrder.createMany({ data: newOrders })
+      : { count: 0 };
 
     return NextResponse.json({ 
       success: true, 

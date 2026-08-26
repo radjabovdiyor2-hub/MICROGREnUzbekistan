@@ -2,7 +2,7 @@
 
 import {
   Route,
-  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, Tag, TrendingUp, Truck, Users, Wallet, Network
+  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -81,6 +81,14 @@ export const TAB_GROUPS = [
     title: { ru: 'Контент и журнал', uz: 'Kontent va jurnal' },
     tabs: [
       { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <FileText size={16} /> },
+      // Выпусками журнал не управлялся вовсе: восемь групп API без
+      // единого экрана, всё делал крон, а владелец узнавал результат из
+      // готового PDF.
+      { id: 'magazine_editions', ru: 'Выпуски', uz: 'Sonlar', icon: <BookOpen size={16} /> },
+      // Подписки на тираж, счета за печать и рекламодатели: три группы
+      // API без единого экрана. Печать — прямой расход, реклама и
+      // подписка — прямая выручка, а увидеть их было негде.
+      { id: 'magazine_money', ru: 'Тираж и реклама', uz: 'Tiraj va reklama', icon: <Banknote size={16} /> },
       { id: 'guest_photos', ru: 'Кадры гостей', uz: 'Mehmon kadrlari', icon: <Camera size={16} /> },
       { id: 'recipes', ru: 'Рецепты', uz: 'Retseptlar', icon: <Leaf size={16} /> },
     ]
@@ -98,6 +106,9 @@ export const TAB_GROUPS = [
     title: { ru: 'Производство и Сеть', uz: 'Ishlab chiqarish va Tarmoq' },
     tabs: [
       { id: 'deliveries', ru: 'Логистика', uz: 'Logistika', icon: <Truck size={16} /> },
+      // Рейс глазами того, кто его едет. Владельцу тоже открыт: иначе
+      // проверить, что видит курьер, можно было бы только его телефоном.
+      { id: 'my_route', ru: 'Мой рейс', uz: 'Mening reysim', icon: <Navigation size={16} /> },
       { id: 'qa', ru: 'Контроль Качества', uz: 'Sifat nazorati', icon: <Eye size={16} /> },
       { id: 'experiments', ru: 'R&D Эксперименты', uz: 'R&D Tajribalar', icon: <Lightbulb size={16} /> },
       { id: 'franchise', ru: 'Франшиза', uz: 'Franshiza', icon: <Network size={16} /> },
@@ -115,6 +126,9 @@ export const SELLER_TABS = [
   // Клиенты и карта: продавец по ним ездит. Правка бонусов, статуса и
   // удаление карточек ему закрыты — и в интерфейсе, и в API.
   { id: 'customers', ru: 'Клиенты', uz: 'Mijozlar', icon: <Users size={16} /> },
+  // Развозит тот же человек. Маршрут ему назначает владелец, а закрывает
+  // точки он сам — до этого отметить доставку было нечем вовсе.
+  { id: 'my_route', ru: 'Мой рейс', uz: 'Mening reysim', icon: <Navigation size={16} /> },
 ];
 
 /** Агроном ведёт теплицу: посадки и ничего больше. Касса ему не нужна. */

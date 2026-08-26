@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AdminSearch, matchesQuery } from './AdminSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Clock, Edit, Plus, Send, Trash, User,
@@ -34,7 +35,10 @@ const ROLE_TONE: Record<string, { bg: string; fg: string }> = {
   grower: { bg: 'var(--brand-primary-light)', fg: 'var(--brand-primary)' },
 };
 
-export function AdminEmployees() {
+export function AdminEmployees({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+  // Экран был одноязычным, при том что соседние разделы админки написаны
+  // по-русски, а кнопка переключения языка в сайдбаре есть.
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const notify = useFeedback();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
@@ -42,6 +46,8 @@ export function AdminEmployees() {
   const [form, setForm] = useState(EMPTY_EMPLOYEE);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Поиска здесь не было: сотрудников ищут по имени и телефону.
+  const [query, setQuery] = useState('');
 
   const { data: employees = [], isLoading: loading } = useQuery<Employee[]>({
     queryKey: ['admin-employees'],
@@ -96,9 +102,14 @@ export function AdminEmployees() {
    */
   const handleDelete = async (emp: Employee) => {
     const ok = await notify.confirm({
-      title: `«${emp.name}» ro'yxatdan o'chirilsinmi?`,
-      detail: "Uning PIN kodi ishlamay qoladi. Smenalar va sotuvlar tarixi saqlanadi.",
-      confirmText: "O'chirish",
+      title: lang === 'ru'
+        ? `Удалить «${emp.name}» из списка?`
+        : `«${emp.name}» ro'yxatdan o'chirilsinmi?`,
+      detail: t(
+        'Его PIN перестанет работать. История смен и продаж сохранится.',
+        "Uning PIN kodi ishlamay qoladi. Smenalar va sotuvlar tarixi saqlanadi.",
+      ),
+      confirmText: t('Удалить', "O'chirish"),
       danger: true,
     });
     if (!ok) return;
@@ -113,16 +124,20 @@ export function AdminEmployees() {
     fetch_();
   };
 
+  const visible = employees.filter((e) =>
+    matchesQuery(query, e.name, e.phone, e.role, e.department, e.city));
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <User size={20} /> Xodimlar
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({employees.length})</span>
+          <User size={20} /> {t('Сотрудники', 'Xodimlar')}
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({visible.length})</span>
         </h3>
+        <AdminSearch value={query} onChange={setQuery} placeholder={t('Поиск сотрудника', 'Xodim qidirish')} width={180} />
         <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm(EMPTY_EMPLOYEE); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Plus size={14} /> Yangi xodim
+          <Plus size={14} /> {t('Новый сотрудник', 'Yangi xodim')}
         </button>
       </div>
 
@@ -132,14 +147,14 @@ export function AdminEmployees() {
       {showAdd && (
         <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)' }}>
-            {editId ? 'Tahrirlash' : 'Yangi xodim'}
+            {editId ? t('Правка', 'Tahrirlash') : t('Новый сотрудник', 'Yangi xodim')}
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
-            <input placeholder="Ism *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            <input placeholder={t('Имя *', 'Ism *')} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
-            <input placeholder="PIN (4 raqam) *" value={form.pin} onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} maxLength={4}
+            <input placeholder={t('PIN (4 цифры) *', 'PIN (4 raqam) *')} value={form.pin} onChange={e => setForm(f => ({ ...f, pin: e.target.value.replace(/\D/g, '').slice(0, 4) }))} maxLength={4}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-display)', letterSpacing: 8 }} />
-            <input placeholder="Telefon" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+            <input placeholder={t('Телефон', 'Telefon')} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
             <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }}>
@@ -159,7 +174,7 @@ export function AdminEmployees() {
             {/* Telegram ID: по нему сотрудник входит в кассу из бота одним
                 касанием, без PIN. Колонка была в базе с самого начала и
                 оставалась пустой — заполнить её было негде. */}
-            <input placeholder="Telegram ID (kassaga PINsiz kirish)"
+            <input placeholder={t('Telegram ID (вход в кассу без PIN)', 'Telegram ID (kassaga PINsiz kirish)')}
               value={form.telegramId}
               onChange={e => setForm(f => ({ ...f, telegramId: e.target.value.replace(/\D/g, '') }))}
               inputMode="numeric"
@@ -167,9 +182,9 @@ export function AdminEmployees() {
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
-              {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+              {saving ? t('Сохраняю…', 'Saqlanmoqda…') : t('Сохранить', 'Saqlash')}
             </button>
-            <button onClick={() => { setShowAdd(false); setEditId(null); }} className="btn btn-ghost btn-sm">Bekor</button>
+            <button onClick={() => { setShowAdd(false); setEditId(null); }} className="btn btn-ghost btn-sm">{t('Отмена', 'Bekor')}</button>
           </div>
         </div>
       )}
@@ -179,14 +194,14 @@ export function AdminEmployees() {
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
           <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
         </div>
-      ) : employees.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
           <User size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
-          <p>Xodimlar yo&apos;q. Yangi xodim qo&apos;shing.</p>
+          <p>{t('Сотрудников нет. Добавьте нового.', "Xodimlar yo'q. Yangi xodim qo'shing.")}</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-          {employees.map(emp => (
+          {visible.map(emp => (
             <div key={emp.id} className="card" style={{ padding: 'var(--space-4)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                 <div style={{ width: 48, height: 48, borderRadius: 'var(--radius-full)', background: 'var(--brand-primary-light)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-lg)', fontFamily: 'var(--font-display)' }}>
@@ -224,11 +239,11 @@ export function AdminEmployees() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
                 <div style={{ textAlign: 'center', padding: 'var(--space-2)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Bugungi sotish</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Продаж сегодня', 'Bugungi sotish')}</div>
                   <div style={{ fontWeight: 'var(--font-bold)' }}>{emp.todaySalesCount} ta</div>
                 </div>
                 <div style={{ textAlign: 'center', padding: 'var(--space-2)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Bugungi tushum</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Выручка сегодня', 'Bugungi tushum')}</div>
                   <div style={{ fontWeight: 'var(--font-bold)', color: 'var(--success)' }}>{fmt(emp.todayRevenue)}</div>
                 </div>
               </div>

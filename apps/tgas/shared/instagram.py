@@ -86,7 +86,7 @@ async def _upload_image_to_facebook(local_path: str) -> Optional[str]:
 
 async def post_to_instagram(
     image_url: str, caption: str, post_type: str = "story"
-) -> bool:
+) -> Optional[str]:
     """
     Публикация фото в Instagram через Facebook Graph API.
 
@@ -98,7 +98,7 @@ async def post_to_instagram(
         logger.info(
             f"🧪 DRY-RUN: публикация в Instagram пропущена (post_type={post_type})."
         )
-        return False
+        return None
 
     ig_account_id = getattr(settings, "instagram_account_id", None)
     access_token = getattr(settings, "instagram_access_token", None)
@@ -107,7 +107,7 @@ async def post_to_instagram(
         logger.warning(
             "Instagram Graph API не настроен. Пропущена реальная публикация."
         )
-        return False
+        return None
 
     # Если передан локальный файл — загружаем на Facebook
     if os.path.isfile(image_url):
@@ -115,7 +115,7 @@ async def post_to_instagram(
         public_url = await _upload_image_to_facebook(image_url)
         if not public_url:
             logger.error("Не удалось загрузить изображение на Facebook.")
-            return False
+            return None
         image_url = public_url
 
     api_version = "v18.0"
@@ -141,7 +141,7 @@ async def post_to_instagram(
                 data = await resp.json()
                 if "id" not in data:
                     logger.error(f"Ошибка создания контейнера: {data}")
-                    return False
+                    return None
                 creation_id = data["id"]
                 logger.info(f"Контейнер создан: {creation_id}")
 
@@ -275,10 +275,10 @@ async def post_reel(
                         break
                     if status == "ERROR":
                         logger.error("Reel-контейнер завершился с ошибкой")
-                        return False
+                        return None
             else:
                 logger.error("Таймаут обработки Reel-контейнера")
-                return False
+                return None
 
             # Шаг 3: публикация
             async with session.post(
@@ -288,12 +288,18 @@ async def post_reel(
                 pub = await resp.json()
                 if "id" not in pub:
                     logger.error(f"Ошибка публикации Reel: {pub}")
-                    return False
+                    return None
                 logger.info(f"✅ Reel опубликован! ID: {pub['id']}")
-                return True
+                # ВОЗВРАЩАЕМ ID, а не True. Функция всегда обещала
+                # `Optional[str]`, а отдавала булево — и вызывающий
+                # (`content_bot`, публикация reels) писал это булево в поле
+                # `media_id` опубликованного контента. То есть в журнале
+                # публикаций вместо идентификатора Instagram лежало `True`,
+                # и найти по нему пост было нельзя.
+                return str(pub["id"])
     except Exception as e:
         logger.error(f"Сбой при публикации Reel: {e}", exc_info=True)
-        return False
+        return None
 
 
 async def post_story_with_text(
@@ -301,7 +307,7 @@ async def post_story_with_text(
     headline: str = "",
     caption: str = "",
     cta: str = "ПОДРОБНЕЕ →",
-) -> bool:
+) -> Optional[str]:
     """
     Публикует СТОРИС с впечатанным текстом (заголовок + хэштеги + @упоминание + CTA),
     т.к. Instagram Stories API не поддерживает подписи/стикеры/музыку.
@@ -337,9 +343,12 @@ async def publish_daily_and_grid(
     Единая точка публикации по контент-стратегии:
       • всегда → СТОРИС с впечатанным текстом (ежедневный охват);
       • если to_grid=True → ещё и ПОСТ В СЕТКУ (feed) с полной подписью (раз в неделю).
-    Возвращает {'story': bool, 'grid': bool|None}.
+    Возвращает {'story': id|None, 'grid': id|None} — идентификаторы
+    публикаций Instagram. Раньше здесь объявлялось булево, а лежали id:
+    по такому значению пост не найти, а проверка `if result['story']`
+    работает одинаково в обоих случаях, поэтому расхождение не всплывало.
     """
-    result = {"story": False, "grid": None}
+    result: dict[str, Optional[str]] = {"story": None, "grid": None}
     result["story"] = await post_story_with_text(image_path, headline, caption)
     if to_grid:
         result["grid"] = await post_to_instagram(image_path, caption, post_type="feed")

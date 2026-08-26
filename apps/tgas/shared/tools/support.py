@@ -44,6 +44,8 @@ async def get_order_status(
                 text(
                     "SELECT o.order_number, o.total_amount, o.status, o.payment_status, "
                     "o.created_at, c.name "
+                    # видим-удалённых-намеренно: ищут статус ЗАКАЗА, и он
+                    # существует независимо от карточки покупателя.
                     "FROM crm_orders o LEFT JOIN customers c ON c.id = o.customer_id "
                     f"WHERE {where} ORDER BY o.id DESC LIMIT 5"
                 ),
@@ -92,7 +94,7 @@ async def create_followup(
                     "INSERT INTO followups (customer_id, scheduled_at, message, status) "
                     "SELECT id, NOW() + (INTERVAL '1 day' * :days), :msg, 'pending' "
                     "FROM customers "
-                    "WHERE phone IS NOT NULL AND "
+                    "WHERE deleted_at IS NULL AND phone IS NOT NULL AND "
                     + phone_utils.SQL_PHONE_TAIL
                     + " = :tail LIMIT 1 RETURNING id"
                 ),

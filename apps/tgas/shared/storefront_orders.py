@@ -201,3 +201,45 @@ async def list_orders(
     except Exception as exc:
         logger.warning("STOREFRONT_ORDERS: список заказов недоступен: %s", exc)
         return None
+
+
+async def drain_office_queue() -> Dict[str, Any]:
+    """Попросить витрину разобрать очередь «витрина → офис».
+
+    ЗАЧЕМ ЭТО ЗДЕСЬ. Очередь `office_outbox` на витрине хранит обещание
+    отзеркалить заказ или чек и повторяет попытки — но толкает её только
+    новая операция: каждая продажа после ответа зовёт `drainOffice`.
+    Роут по расписанию (`/api/inventory/cron/office-sync`) для этого и
+    написан, и не звал его НИКТО — ни рабочий процесс GitHub, ни офис.
+
+    Из-за этого оставался ровно тот случай, который в самом роуте и описан:
+    офис лёг под вечер, следующий чек будет утром — привязка чека к клиенту
+    и заказ в CRM проваляются всю ночь, хотя чинить нечего, надо повторить.
+
+    Ходим со стороны офиса, потому что расписание в проекте живёт здесь
+    (`BotScheduler`), а на витрине планировщика нет вовсе.
+    """
+    url = _url("/inventory/cron/office-sync")
+    try:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers=_headers()) as resp:
+                if resp.status != 200:
+                    body = (await resp.text())[:200]
+                    logger.warning(
+                        "Очередь зеркала не разобрана: витрина ответила %s (%s)",
+                        resp.status,
+                        body,
+                    )
+                    return {"ok": False, "status": resp.status}
+                data = await resp.json()
+                if data.get("sent"):
+                    logger.info(
+                        "Очередь зеркала: доставлено %s, осталось %s",
+                        data.get("sent"),
+                        data.get("pending"),
+                    )
+                return {"ok": True, **data}
+    except Exception as exc:  # noqa: BLE001 — недоступная витрина не роняет офис
+        logger.warning("Очередь зеркала не разобрана: %s", exc)
+        return {"ok": False, "error": str(exc)}

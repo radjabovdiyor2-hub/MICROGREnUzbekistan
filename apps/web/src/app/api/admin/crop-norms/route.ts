@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ══════════════════════════════════════════════════════════════════════
 // Нормы культур: сколько сырья уходит на лоток и сколько с него снимают.
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
   const norms = await prisma.cropNorm.findMany({
     where: { isActive: true },
     orderBy: { nameRu: 'asc' },
+    take: LIST_LIMIT,
     include: { substrateMaterial: { select: { id: true, name: true, unit: true } } },
   });
 
@@ -29,6 +31,7 @@ export async function GET(request: NextRequest) {
     where: { kind: 'SUBSTRATE', isActive: true },
     select: { id: true, name: true, unit: true },
     orderBy: { name: 'asc' },
+    take: LIST_LIMIT,
   });
 
   return NextResponse.json({

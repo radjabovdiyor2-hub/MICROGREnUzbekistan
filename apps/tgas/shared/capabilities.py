@@ -86,8 +86,12 @@ async def _pick_customers(segment: str, limit: int) -> list:
     async with get_session_ctx() as s:
         res = await s.execute(
             text(
+                # `deleted_at IS NULL` — удалённому клиенту писать нельзя:
+                # это худшее место для воскрешения карточки, потому что
+                # отправленное сообщение не отзывается.
                 f"SELECT id, name, telegram_id, email, phone FROM customers "
-                f"WHERE {where} ORDER BY COALESCE(total_spent, 0) DESC LIMIT :lim"
+                f"WHERE deleted_at IS NULL AND ({where}) "
+                f"ORDER BY COALESCE(total_spent, 0) DESC LIMIT :lim"
             ),
             {"lim": limit},
         )
@@ -226,7 +230,11 @@ async def cap_notify_customers(params: dict) -> Result:
         return Result(False, "Нет токена sales_bot — не могу писать клиентам.")
 
     bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    tg, mail, calls = [], [], []
+    # Три корзины исхода рассылки. `calls` хранит КАРТОЧКИ клиентов
+    # (имя и телефон уходят в задачу на обзвон), остальные — только имена.
+    tg: list[str] = []
+    mail: list[str] = []
+    calls: list[dict] = []
     try:
         for c in customers:
             ch = await _reach(bot, c, message)

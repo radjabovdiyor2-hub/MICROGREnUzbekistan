@@ -4,6 +4,7 @@ import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { ALL_CATEGORY_SLUGS } from '@/lib/seo/categories';
 import { productsChanged } from '@/lib/products/changed';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ══════════════════════════════════════════════════════════════════════
 // Категории каталога.
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
 
   const categories = await prisma.category.findMany({
     orderBy: { order: 'asc' },
+    take: LIST_LIMIT,
     include: { _count: { select: { products: true } } },
   });
 

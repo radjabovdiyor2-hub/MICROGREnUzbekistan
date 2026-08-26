@@ -11,13 +11,15 @@ from pathlib import Path
 
 from mg_ai.engine import AIEngine
 
+import logging
+
 from services.config_service import fetch_site_config
+from shared.constants import CATEGORY_LABELS
 
 # Load env
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path, override=True)
 
-import logging
 logger = logging.getLogger(__name__)
 
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
@@ -26,8 +28,6 @@ WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 
 _catalog_cache = {"text": "", "timestamp": 0}
 CATALOG_TTL = 300  # 5 minutes
-
-from shared.constants import CATEGORY_LABELS
 
 # Расширения списка здесь больше нет. Оно добавляло `VEGETABLES`, `FRUITS`,
 # `HERBS`, `MUSHROOMS`, `SPROUTS`, `BERRIES` — категорий с такими слагами в
@@ -116,6 +116,18 @@ SYSTEM_PROMPT_BASE = """Ты — AI-помощник бренда Microgreen Uzb
   - Руккола, базилик, мята, шпинат, кейл, мангольд, татсой, мизуна, щавель
 • Салаты (1 кг)
   - Aveleda, айсберг, романо, лоло росса, радичио, фризе
+• BALANS — готовые миксы 100 г и киты с заправкой
+
+⛔ ЛИНЕЙКА BALANS — это метод подачи, а не медицинский продукт: зелень съедают
+за 10–15 минут ДО основного блюда. ЗАПРЕЩЕНО говорить, что продукт снижает
+сахар, лечит, заменяет лекарства или предназначен для больных. Заявления о
+лечебных свойствах требуют разрешения Минздрава, которого у нас нет. Можно
+называть только состав, вес, калорийность и способ подачи.
+
+⛔ МЫ ПРОДАЁМ ГОТОВЫЙ ПРОДУКТ. Не советуй выращивать зелень дома (замачивание
+семян, грунт, лотки на подоконнике) и не предлагай семена, оборудование и
+наборы для домашнего выращивания — они сняты с продажи. Съедобных цветов в
+продаже тоже нет.
 
 ПРАВИЛА РАБОТЫ С КАТАЛОГОМ:
 - Цену бери ТОЛЬКО из каталога ниже. Своих цифр не придумывай и не округляй.

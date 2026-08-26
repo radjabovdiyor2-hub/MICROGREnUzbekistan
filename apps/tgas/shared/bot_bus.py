@@ -31,6 +31,54 @@ for d in (TASKS_DIR, PENDING_DIR, PROCESSING_DIR, TMP_DIR, FAILED_DIR, COMPLETED
     d.mkdir(parents=True, exist_ok=True)
 
 
+def _alert_failed(task_id: str, task: dict) -> None:
+    """Сказать владельцу, что задача шины окончательно провалилась.
+
+    Через `alert_once`, как и остальные оповещения офиса: одна и та же
+    поломка не должна писать владельцу на каждую задачу. Отпечаток — пара
+    «кому» и «что», поэтому падающее действие видно один раз, а новое
+    падение — новым сообщением.
+
+    Ошибка здесь не имеет права уронить саму шину: не смогли сказать —
+    записали в лог и поехали дальше.
+    """
+    try:
+        import asyncio
+
+        from shared import alert_once
+
+        to_bot = str(task.get("to_bot") or "?")
+        action = str(task.get("action") or task.get("task_type") or "?")
+        if not alert_once.should_send("bus_failed", f"{to_bot}|{action}"):
+            return
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("[BUS] сигнал о провале не отправлен: %s", exc)
+        return
+
+    async def _raise() -> None:
+        try:
+            from shared.owner_alerts import SEVERITY_WARNING, raise_alert
+
+            await raise_alert(
+                kind="bus_failed",
+                severity=SEVERITY_WARNING,
+                title=f"Делегирование не сработало: {task.get('to_bot')}",
+                message=(
+                    f"Задача {task_id} ({task.get('action') or task.get('task_type')}) "
+                    f"три раза не выполнилась и убрана в failed.\n"
+                    f"Последняя ошибка: {str(task.get('error'))[:300]}"
+                ),
+                source="bot_bus",
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[BUS] не смог сообщить о провале задачи: %s", exc)
+
+    loop.create_task(_raise())
+
+
 def _pending_path(task_id: str) -> Path:
     return PENDING_DIR / f"{task_id}.json"
 
@@ -51,7 +99,7 @@ async def send_task(
     from_bot: str,
     to_bot: str,
     action: str,
-    params: Dict[str, Any] = None,
+    params: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Отправить задачу другому боту атомарно.
@@ -152,7 +200,9 @@ async def claim_task(task_id: str) -> bool:
         return False
 
 
-async def complete_task(task_id: str, result: Any = None, error: str = None):
+async def complete_task(
+    task_id: str, result: Any = None, error: Optional[str] = None
+):
     """Пометить задачу как выполненную или вернуть в очередь при ошибке."""
     processing_path = _processing_path(task_id)
     if not processing_path.exists():
@@ -189,6 +239,15 @@ async def complete_task(task_id: str, result: Any = None, error: str = None):
                 logger.error(
                     f"[BUS] Задача {task_id} перемещена в failed (превышен лимит)"
                 )
+                # Провал доходит до владельца, а не остаётся строкой в логе.
+                #
+                # Файловая очередь молчалива по устройству: задача три раза не
+                # выполнилась, легла в `failed` — и об этом не узнавал никто.
+                # В `pending` при этом с 14.08.2026 лежала задача с пустыми
+                # параметрами, а `cleanup_old_tasks` через сутки просто удалил
+                # бы её. Делегирование между ботами так превращалось в
+                # «отправил и надейся».
+                _alert_failed(task_id, task)
 
             try:
                 processing_path.unlink()

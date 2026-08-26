@@ -68,6 +68,8 @@ const AdminGrowing = dynamic(() => import('@/components/admin/AdminGrowing').the
 const AdminRawMaterials = dynamic(() => import('@/components/admin/AdminRawMaterials').then((m) => m.AdminRawMaterials), { ssr: false, loading: TabLoading });
 const AdminCropNorms = dynamic(() => import('@/components/admin/AdminCropNorms').then((m) => m.AdminCropNorms), { ssr: false, loading: TabLoading });
 const AdminMagazine = dynamic(() => import('@/components/admin/AdminMagazine').then((m) => m.AdminMagazine), { ssr: false, loading: TabLoading });
+const AdminMagazineEditions = dynamic(() => import('@/components/admin/AdminMagazineEditions').then((m) => m.AdminMagazineEditions), { ssr: false, loading: TabLoading });
+const AdminMagazineMoney = dynamic(() => import('@/components/admin/AdminMagazineMoney').then((m) => m.AdminMagazineMoney), { ssr: false, loading: TabLoading });
 const AdminGuestPhotos = dynamic(() => import('@/components/admin/AdminGuestPhotos').then((m) => m.AdminGuestPhotos), { ssr: false, loading: TabLoading });
 const AdminRecipes = dynamic(() => import('@/components/admin/AdminRecipes').then((m) => m.AdminRecipes), { ssr: false, loading: TabLoading });
 const AdminDepartment = dynamic(() => import('@/components/admin/AdminDepartment').then((m) => m.AdminDepartment), { ssr: false, loading: TabLoading });
@@ -85,12 +87,13 @@ const AdminVisitPlans = dynamic(() => import('@/components/admin/AdminVisitPlans
 const AdminTasks = dynamic(() => import('@/components/admin/AdminTasks').then((m) => m.AdminTasks), { ssr: false, loading: TabLoading });
 const AdminCategories = dynamic(() => import('@/components/admin/AdminCategories').then((m) => m.AdminCategories), { ssr: false, loading: TabLoading });
 const AdminDeliveries = dynamic(() => import('@/components/admin/AdminDeliveries').then((m) => m.AdminDeliveries), { ssr: false, loading: TabLoading });
+const AdminMyRoute = dynamic(() => import('@/components/admin/AdminMyRoute').then((m) => m.AdminMyRoute), { ssr: false, loading: TabLoading });
 const AdminQA = dynamic(() => import('@/components/admin/AdminQA').then((m) => m.AdminQA), { ssr: false, loading: TabLoading });
 const AdminExperiments = dynamic(() => import('@/components/admin/AdminExperiments').then((m) => m.AdminExperiments), { ssr: false, loading: TabLoading });
 const AdminFranchise = dynamic(() => import('@/components/admin/AdminFranchise').then((m) => m.AdminFranchise), { ssr: false, loading: TabLoading });
 const AdminWorkflowStudio = dynamic(() => import('@/components/admin/AdminWorkflowStudio').then((m) => m.AdminWorkflowStudio), { ssr: false, loading: TabLoading });
 
-export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, sellerName, lang, t }: {
+export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canSell, sellerName, lang, t }: {
   activeTab: string;
   /**
    * Запись, ради которой пришли по ссылке из Telegram (`?focus=`).
@@ -100,6 +103,8 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
    * просто не берут — вкладка всё равно открыта правильная.
    */
   focus: string;
+  /** Что положить в поиск раздела при открытии (`?q=`). */
+  query?: string;
   isOwner: boolean;
   /** Владелец или агроном — теплица открыта обоим. */
   canGrow: boolean;
@@ -125,20 +130,21 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
         isOwner={isOwner}
         sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName}
         focus={focus}
+        initialQuery={query}
       />
     )}
-    {activeTab === 'inventory' && isOwner && <AdminInventory />}
+    {activeTab === 'inventory' && isOwner && <AdminInventory lang={lang} />}
     {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials focus={focus} />}
-    {activeTab === 'movements' && isOwner && <AdminMovements />}
-    {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} />}
-    {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}
+    {activeTab === 'movements' && isOwner && <AdminMovements lang={lang} />}
+    {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} lang={lang} />}
+    {activeTab === 'suppliers' && isOwner && <AdminSuppliers lang={lang} />}
     {activeTab === 'debts' && isOwner && <AdminDebts />}
     {activeTab === 'products' && isOwner && <AdminProducts />}
     {activeTab === 'categories' && isOwner && <AdminCategories lang={lang} />}
     {activeTab === 'promo' && isOwner && <AdminPromo lang={lang} />}
     {activeTab === 'finance' && isOwner && <AdminFinance lang={lang} />}
-    {activeTab === 'employees' && isOwner && <AdminEmployees />}
-    {activeTab === 'shifts' && isOwner && <AdminShifts />}
+    {activeTab === 'employees' && isOwner && <AdminEmployees lang={lang} />}
+    {activeTab === 'shifts' && isOwner && <AdminShifts lang={lang} />}
 
     {/* ИИ-офис */}
     {activeTab === 'workflow_studio' && isOwner && <AdminWorkflowStudio />}
@@ -170,6 +176,8 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
 
     {/* Контент и журнал */}
     {activeTab === 'magazine' && isOwner && <AdminMagazine />}
+    {activeTab === 'magazine_editions' && isOwner && <AdminMagazineEditions lang={lang} />}
+    {activeTab === 'magazine_money' && isOwner && <AdminMagazineMoney lang={lang} />}
     {activeTab === 'guest_photos' && isOwner && <AdminGuestPhotos />}
     {activeTab === 'recipes' && isOwner && <AdminRecipes />}
 
@@ -181,6 +189,9 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
     
     {/* Производство и Сеть */}
     {activeTab === 'deliveries' && isOwner && <AdminDeliveries />}
+    {/* Свой рейс открыт и курьеру (canSell), и владельцу: рейс отбирается
+        по имени в самом роуте, поэтому чужого здесь не покажут. */}
+    {activeTab === 'my_route' && (isOwner || canSell) && <AdminMyRoute lang={lang} />}
     {activeTab === 'qa' && isOwner && <AdminQA />}
     {activeTab === 'experiments' && isOwner && <AdminExperiments />}
     {activeTab === 'franchise' && isOwner && <AdminFranchise />}

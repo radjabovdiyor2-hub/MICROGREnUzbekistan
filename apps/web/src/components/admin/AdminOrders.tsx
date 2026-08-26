@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Clock, Folder } from 'lucide-react';
-import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
+import { ClipboardList, Clock, Folder, Printer } from 'lucide-react';
+import { STATUS_CONFIG, STATUS_TABS, statusLabel } from './adminOrdersConfig';
 import { AdminNotice } from './AdminNotice';
 import { useAdminBack } from './useAdminBack';
 import { AdminOrderDetail } from './AdminOrderDetail';
@@ -24,7 +24,10 @@ interface OrdersPage {
  *  и накопительная кнопка молча перестала бы догружать. */
 const PAGE_SIZE = 50;
 
-export function AdminOrders({ focus = '' }: { focus?: string }) {
+export function AdminOrders({ focus = '', lang = 'ru' }: { focus?: string; lang?: 'ru' | 'uz' }) {
+  // Экран написан по-русски, а подписи статусов в нём были только
+  // узбекскими: «Заказы» и «Kutilmoqda» в одной строке.
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const pick = useSelection<string>();
   const [activeTab, setActiveTab] = useState('ALL');
   const [selected, setSelected] = useState<Order | null>(null);
@@ -102,25 +105,33 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
    * товара на склад и зеркало в CRM — молчать о том, что он не сменился,
    * нельзя.
    */
-  const updateStatus = async (orderId: string, newStatus: string) => {
+  const patchOrder = async (
+    orderId: string,
+    patch: { status?: string; paymentStatus?: string },
+  ) => {
     if (savingStatus) return;
     setSavingStatus(true);
     setStatusError('');
+    // Смена статуса ЗАКАЗА уводит из карточки: следующий шаг владельца —
+    // другой заказ. Смена статуса ОПЛАТЫ оставляет на месте: деньги отмечают
+    // не вместо работы с заказом, а по ходу неё.
+    const leaveCard = patch.status !== undefined;
+    const what = leaveCard ? 'Статус' : 'Статус оплаты';
     try {
       const res = await fetch('/api/orders', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: orderId, status: newStatus }),
+        body: JSON.stringify({ id: orderId, ...patch }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setStatusError(body?.error || `Статус не сменился: сервер ответил ${res.status}`);
+        setStatusError(body?.error || `${what} не сменился: сервер ответил ${res.status}`);
         return;
       }
       fetchOrders();
-      if (current?.id === orderId) closeDetail();
+      if (leaveCard && current?.id === orderId) closeDetail();
     } catch {
-      setStatusError('Статус не сменился: нет связи с сервером');
+      setStatusError(`${what} не сменился: нет связи с сервером`);
     } finally {
       setSavingStatus(false);
     }
@@ -133,24 +144,42 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
         <AdminOrderDetail
           order={current}
           onBack={closeDetail}
-          onStatus={(status) => updateStatus(current.id, status)}
+          onStatus={(status) => patchOrder(current.id, { status })}
+          onPaymentStatus={(paymentStatus) => patchOrder(current.id, { paymentStatus })}
           fmt={fmt}
           fmtDate={fmtDate}
+          lang={lang}
         />
       </>
     );
   }
 
+  // Сегодняшняя дата по МЕСТНОМУ времени: лист сборки печатают утром, и
+  // UTC до пяти утра отдаёт вчерашнее число.
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
+
   return (
     <div>
       <AdminNotice>{statusError}</AdminNotice>
+
+      {/* Печатных форм в проекте не было ни одной: утром зелень собирают,
+          листая заказы по одному в телефоне. */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-2)' }}>
+        <a href={`/admin/print/picklist?date=${todayLocal}`} target="_blank" rel="noopener noreferrer"
+          className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Printer size={14} /> {t('Лист сборки на сегодня', "Bugungi yigʻish varaqasi")}
+        </a>
+      </div>
 
       {/* Status tabs */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', overflowX: 'auto', paddingBottom: 4 }}>
         {STATUS_TABS.map(tab => (
           <button key={tab} onClick={() => { setActiveTab(tab); setPage(1); }} className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-ghost'}`}
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {tab === 'ALL' ? <><ClipboardList size={14} /> Barchasi</> : <>{STATUS_CONFIG[tab]?.icon} {STATUS_CONFIG[tab]?.label}</>}
+            {tab === 'ALL'
+              ? <><ClipboardList size={14} /> {t('Все', 'Barchasi')}</>
+              : <>{STATUS_CONFIG[tab]?.icon} {statusLabel(tab, lang)}</>}
           </button>
         ))}
       </div>
@@ -163,7 +192,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
           type="text"
           value={phoneInput}
           onChange={(e) => setPhoneInput(e.target.value)}
-          placeholder="Поиск по телефону клиента"
+          placeholder={t('Поиск по телефону клиента', "Mijoz telefoni bo'yicha qidirish")}
           style={{
             flex: '1 1 220px', minWidth: 0,
             padding: 'var(--space-2) var(--space-3)',
@@ -200,6 +229,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
             visibleIds={visibleIds}
             total={orders.length}
             onDone={fetchOrders}
+            lang={lang}
           />
 
           {orders.map((order: Order) => (
@@ -211,6 +241,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
               onOpen={() => setSelected(order)}
               fmt={fmt}
               fmtDate={fmtDate}
+              lang={lang}
             />
           ))}
         </div>

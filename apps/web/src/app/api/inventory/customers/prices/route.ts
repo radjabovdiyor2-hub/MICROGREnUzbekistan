@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { audit } from '@/lib/audit';
 import { isAuthorized, isStaff, forbidden, unauthorized } from '@/lib/adminAuth';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ══════════════════════════════════════════════════════════════════════
 // Договорные цены клиента.
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
       validFrom: true, validTo: true,
       product: { select: { nameUz: true, nameRu: true, unit: true, price: true } },
     },
+    take: LIST_LIMIT,
   });
 
   return NextResponse.json({ prices });

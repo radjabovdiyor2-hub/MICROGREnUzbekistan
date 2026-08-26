@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,97 @@ async def record_ai_usage(
             )
     except Exception as e:  # noqa: BLE001
         logger.debug("record_ai_usage skip: %s", e)
+
+
+# ── Бюджет как ограничитель, а не надпись ────────────────────────────────
+#
+# Бюджеты существовали только для отчёта finance-бота в 23:30: до этой правки
+# ни один вызов модели с ними не сверялся. Потолок, о котором узнаёшь на
+# следующий день, потолком не является.
+#
+# Второе, что здесь чинится, — источник числа. Владелец правит «Дневной бюджет
+# ИИ» в админке, и это пишется в `app_settings`; боты же читали
+# `settings.ai_daily_budget_usd` из окружения. Поле в админке до офиса не
+# доезжало вовсе. Теперь порядок такой же, как у рубильника `ai.enabled`:
+# сначала настройка из общей таблицы, окружение — запасной вариант.
+#
+# Ноль = без предела. Это соглашение уже действует в `build_cost_report`
+# (`bool(daily_budget) and ...`), и второе прочтение того же нуля означало бы,
+# что одна и та же цифра в админке для отчёта — «безлимит», а для вызова —
+# «запрещено всё».
+
+_BUDGET_TTL_SECONDS = 60.0
+_budget_cache: tuple[float, Optional[str]] = (0.0, None)
+
+
+async def budget_block_reason() -> Optional[str]:
+    """Причина отказа, если бюджет ИИ исчерпан, иначе None.
+
+    Проверка стоит перед КАЖДЫМ вызовом модели, поэтому она обязана быть
+    дешёвой: результат держится минуту, как и у `settings_store`. Минута —
+    это верхняя граница перерасхода, а не окно, в котором ограничения нет.
+
+    Ошибка чтения — считаем, что предел не достигнут: недоступная база не
+    должна выключать офис. Осторожность в ту же сторону, что и у рубильника.
+    """
+    import time
+
+    global _budget_cache
+    now = time.monotonic()
+    cached_at, cached_reason = _budget_cache
+    if cached_at and now - cached_at < _BUDGET_TTL_SECONDS:
+        return cached_reason
+
+    reason: Optional[str] = None
+    try:
+        from shared import settings_store
+        from shared.config import settings
+        from shared.database import get_session_ctx
+        from sqlalchemy import text
+
+        daily_budget = await settings_store.get_float(
+            "ai.dailyBudgetUsd", float(getattr(settings, "ai_daily_budget_usd", 0.0) or 0.0)
+        )
+        monthly_budget = await settings_store.get_float(
+            "ai.monthlyBudgetUsd", float(getattr(settings, "ai_monthly_budget_usd", 0.0) or 0.0)
+        )
+
+        if daily_budget or monthly_budget:
+            async with get_session_ctx() as session:
+                row = (
+                    await session.execute(
+                        text(
+                            "SELECT COALESCE(SUM(cost_usd) FILTER (WHERE created_at::date = CURRENT_DATE), 0), "
+                            "COALESCE(SUM(cost_usd) FILTER (WHERE date_trunc('month', created_at) "
+                            "= date_trunc('month', CURRENT_DATE)), 0) FROM ai_usage"
+                        )
+                    )
+                ).first()
+            today_cost = float(row[0]) if row else 0.0
+            month_cost = float(row[1]) if row else 0.0
+
+            if daily_budget and today_cost > daily_budget:
+                reason = (
+                    f"дневной бюджет ИИ исчерпан: ${today_cost:.2f} из ${daily_budget:.2f}. "
+                    "Поднимите предел в админке (Настройки → ИИ) или дождитесь завтра."
+                )
+            elif monthly_budget and month_cost > monthly_budget:
+                reason = (
+                    f"месячный бюджет ИИ исчерпан: ${month_cost:.2f} из ${monthly_budget:.2f}. "
+                    "Поднимите предел в админке (Настройки → ИИ)."
+                )
+    except Exception as exc:  # noqa: BLE001 — причина не важна, важен ответ
+        logger.debug("Бюджет ИИ не проверен (%s) — считаем, что предел не достигнут", exc)
+        reason = None
+
+    _budget_cache = (now, reason)
+    return reason
+
+
+def reset_budget_cache() -> None:
+    """Забыть последний ответ — для тестов и для правки бюджета «сейчас»."""
+    global _budget_cache
+    _budget_cache = (0.0, None)
 
 
 async def build_cost_report() -> dict:

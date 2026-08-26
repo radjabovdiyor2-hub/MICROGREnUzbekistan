@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 _bot: Bot = None
 scheduler = BotScheduler("analytics_bot")
 
+# Части вечернего дайджеста. Живёт ровно один вызов `daily_digest`:
+# три отчёта складывают сюда текст, дайджест забирает и очищает.
+_daily_parts: list[str] = []
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 # ФОНОВЫЕ ЗАДАЧИ
@@ -36,7 +40,6 @@ async def daily_kpi_snapshot():
     try:
         from sqlalchemy import text
 
-        admin_id = settings.admin_telegram_ids[0]
         async with get_session_ctx() as session:
             # Выручка за сегодня
             res = await session.execute(
@@ -76,7 +79,7 @@ async def daily_kpi_snapshot():
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "📈 <i>Analytics Bot — ежедневный снимок</i>"
         )
-        await _bot.send_message(admin_id, report, parse_mode="HTML")
+        _daily_parts.append(report)
 
         # Замыкаем петлю рассуждений для аналитики
         try:
@@ -416,7 +419,6 @@ async def conversion_funnel():
     try:
         from sqlalchemy import text
 
-        admin_id = settings.admin_telegram_ids[0]
         async with get_session_ctx() as session:
             res = await session.execute(
                 text(
@@ -450,7 +452,7 @@ async def conversion_funnel():
         lines.append(f"👥 Всего клиентов: <b>{total}</b>")
         lines.append("\n📊 <i>Analytics Bot — конверсия</i>")
 
-        await _bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
+        _daily_parts.append("\n".join(lines))
     except Exception as e:
         logging.error(f"conversion_funnel error: {e}", exc_info=True)
 
@@ -460,7 +462,6 @@ async def b2b_funnel_report():
     try:
         from sqlalchemy import text
 
-        admin_id = settings.admin_telegram_ids[0]
         async with get_session_ctx() as session:
             # Всего B2B-лидов и сколько собрано сегодня
             total_b2b = (
@@ -532,16 +533,59 @@ async def b2b_funnel_report():
             f"<b>По источникам:</b>\n{src_lines}\n\n"
             "📊 <i>Analytics Bot — B2B воронка</i>"
         )
-        await _bot.send_message(admin_id, report, parse_mode="HTML")
+        _daily_parts.append(report)
     except Exception as e:
         logging.error(f"b2b_funnel_report error: {e}", exc_info=True)
 
 
+async def daily_digest():
+    """Один вечерний отчёт вместо трёх сообщений в разное время.
+
+    ЧТО БЫЛО. Аналитика слала владельцу три ПЛАНОВЫХ отчёта в сутки в
+    разное время: воронка конверсии в 15:00, воронка B2B в 16:00, KPI дня
+    в 20:00. Каждый — отдельное сообщение, и ни одно из них не требовало
+    действия прямо сейчас: это картина дня, а не сигнал.
+
+    Владелец уже жаловался на лавину сообщений (см. `shared/alert_once.py`),
+    и три отчёта из пятнадцати-двадцати — заметная часть этой лавины.
+    Приучившись пролистывать плановое, человек пролистывает и тревожное.
+
+    ПОЧЕМУ СЧИТАЕМ В 20:00, А НЕ КОПИМ С 15:00. Копилка в памяти процесса
+    теряется при выкате — а выкатов бывает несколько в день, и тогда часть
+    отчёта пропадала бы молча. Здесь три расчёта идут подряд, и цифры
+    получаются одного момента, а не трёх разных.
+
+    Аномалия выручки (`sales_anomaly`, раз в 6 часов) сюда НЕ входит
+    намеренно: это сигнал, а не отчёт, и ждать до вечера ему нельзя.
+    """
+    _daily_parts.clear()
+    for build in (conversion_funnel, b2b_funnel_report, daily_kpi_snapshot):
+        try:
+            await build()
+        except Exception as e:  # noqa: BLE001 — один отчёт не роняет остальные
+            logging.error("daily_digest: %s не собрался: %s", build.__name__, e)
+
+    if not _daily_parts:
+        return
+    try:
+        admin_id = settings.admin_telegram_ids[0]
+        await _bot.send_message(
+            admin_id,
+            "\n\n".join(_daily_parts),
+            parse_mode="HTML",
+        )
+    except Exception as e:  # noqa: BLE001
+        logging.error("daily_digest: не отправился: %s", e)
+    finally:
+        _daily_parts.clear()
+
+
 # ── Регистрация задач аналитики ──────────────────────────────────────────
-scheduler.add_cron(
-    name="daily_kpi_snapshot", func=daily_kpi_snapshot, hour=20, minute=0
-)
-scheduler.add_cron(name="b2b_funnel_report", func=b2b_funnel_report, hour=16, minute=0)
+#
+# Три плановых отчёта сведены в один вечерний (`daily_digest`). Отдельными
+# задачами они больше не стоят: каждая из них теперь ВОЗВРАЩАЕТ текст, а не
+# шлёт его, и вызывается только отсюда.
+scheduler.add_cron(name="daily_digest", func=daily_digest, hour=20, minute=0)
 scheduler.add_cron(
     name="weekly_trends", func=weekly_trends, hour=9, minute=0, day_of_week=0
 )
@@ -549,7 +593,6 @@ scheduler.add_interval(name="sales_anomaly", func=sales_anomaly, seconds=6 * 360
 scheduler.add_cron(
     name="monthly_executive", func=monthly_executive, hour=10, minute=0, day_of_month=1
 )
-scheduler.add_cron(name="conversion_funnel", func=conversion_funnel, hour=15, minute=0)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

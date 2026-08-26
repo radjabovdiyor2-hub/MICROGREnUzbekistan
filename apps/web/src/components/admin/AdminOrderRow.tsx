@@ -2,7 +2,7 @@
 
 import { ChevronRight } from 'lucide-react';
 
-import { STATUS_CONFIG } from './adminOrdersConfig';
+import { STATUS_CONFIG, statusLabel } from './adminOrdersConfig';
 import { AdminCheckbox } from './AdminCheckbox';
 import type { Order } from './adminOrderTypes';
 import { tint } from '@/lib/tint';
@@ -10,13 +10,14 @@ import { tint } from '@/lib/tint';
 // Строка списка заказов. Вынесена из AdminOrders: с флажком выбора экран
 // перерос 200 строк — а он и до того был 227.
 
-export function AdminOrderRow({ order, picked, onPick, onOpen, fmt, fmtDate }: {
+export function AdminOrderRow({ order, picked, onPick, onOpen, fmt, fmtDate, lang = 'ru' }: {
   order: Order;
   picked: boolean;
   onPick: () => void;
   onOpen: () => void;
   fmt: (n: number) => string;
   fmtDate: (iso: string) => string;
+  lang?: 'ru' | 'uz';
 }) {
   const st = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
 
@@ -41,7 +42,9 @@ export function AdminOrderRow({ order, picked, onPick, onOpen, fmt, fmtDate }: {
       <AdminCheckbox
         checked={picked}
         onChange={onPick}
-        label={`Выбрать заказ ${order.orderNumber}`}
+        label={lang === 'ru'
+          ? `Выбрать заказ ${order.orderNumber}`
+          : `${order.orderNumber} buyurtmasini tanlash`}
       />
 
       <div style={{ flex: 1 }}>
@@ -55,7 +58,7 @@ export function AdminOrderRow({ order, picked, onPick, onOpen, fmt, fmtDate }: {
             fontSize: 'var(--text-xs)', fontWeight: 'var(--font-semibold)',
             display: 'inline-flex', alignItems: 'center', gap: '4px',
           }}>
-            {st.icon} {st.label}
+            {st.icon} {statusLabel(order.status, lang)}
           </span>
         </div>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ==========================================
 // Suppliers API — CRUD
@@ -25,6 +26,7 @@ export async function GET(request: NextRequest) {
       },
     },
     orderBy: { createdAt: 'desc' },
+    take: LIST_LIMIT,
   });
 
   const result = suppliers.map(s => {

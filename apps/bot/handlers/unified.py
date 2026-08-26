@@ -66,28 +66,38 @@ def get_main_menu_kb(lang: str = DEFAULT_LANG) -> InlineKeyboardMarkup:
 
 @router.message(Command("orders"))
 async def cmd_orders(message: Message):
-    """Мои заказы"""
+    """Мои заказы.
+
+    Опознаём человека по Telegram ID, а телефон — только запасным путём.
+
+    Раньше здесь был ТОЛЬКО телефон из профиля витрины: нет телефона —
+    «заказов нет», и это неправда. Заказ, оформленный в этом же боте, к
+    аккаунту привязан (`telegramId` уходит в POST /orders), а мост уже
+    умел спрашивать по нему — метод `get_orders_by_telegram_id` был
+    написан и не вызывался ниоткуда.
+    """
     lang = lang_of(message)
     user = message.from_user
-    
-    # Look up user phone from profile via ecosystem bridge
-    user_data = await bridge.get_user_by_telegram_id(user.id)
-    phone = user_data.get("phone") if user_data else None
-    
-    if not phone:
-        text = t("orders.empty_screen", lang)
-        await message.answer(text)
-        return
-    
-    orders = await bridge.get_orders_by_phone(phone)
-    
+
+    orders = await bridge.get_orders_by_telegram_id(user.id)
+
     if not orders:
-        text = t("orders.empty_screen", lang)
-    else:
-        text = t("orders.title", lang) + "\n\n"
-        for order in orders[:5]:
-            text += f"• #{order['id'][-6:]} — {order['status']}\n"
-    
+        # Телефон остаётся запасным ключом: заказ мог быть оформлен на
+        # сайте без входа, и тогда связывает его именно номер.
+        user_data = await bridge.get_user_by_telegram_id(user.id)
+        phone = user_data.get("phone") if user_data else None
+        if phone:
+            orders = await bridge.get_orders_by_phone(phone)
+
+    if not orders:
+        await message.answer(t("orders.empty_screen", lang))
+        return
+
+    text = t("orders.title", lang) + "\n\n"
+    for order in orders[:5]:
+        number = order.get("orderNumber") or str(order.get("id", ""))[-6:]
+        text += f"• #{number} — {order.get('status', '')}" + "\n"
+
     await message.answer(text)
 
 

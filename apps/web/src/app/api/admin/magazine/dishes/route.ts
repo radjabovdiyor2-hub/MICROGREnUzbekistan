@@ -11,6 +11,7 @@ import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { buildTemplate, parseDishCsv } from '@/lib/magazine/dishCsv';
 import { prismaErrorCode } from '@/lib/safeError';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
   const dishes = await prisma.dish.findMany({
     where: { restaurantId },
     orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    take: LIST_LIMIT,
   });
   return NextResponse.json(dishes);
 }
