@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Eye, EyeOff, Play, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
+import { AdminMagazineBrief } from './AdminMagazineBrief';
 import { AdminNotice } from './AdminNotice';
 import { useFeedback } from './AdminFeedback';
 import { AdminMagazineIssues } from './AdminMagazineIssues';
@@ -147,6 +148,10 @@ export function AdminMagazineEditions({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       </div>
 
       <AdminNotice>{error}</AdminNotice>
+
+      {/* Сводка недели стоит ПЕРЕД конвейером: её читают, чтобы решить, о
+          чём номер, а конвейер этот номер уже собирает. */}
+      <AdminMagazineBrief lang={lang} />
 
       {/* Те же три задачи, что работают по расписанию. Запуск руками нужен
           не вместо расписания, а рядом: «подготовить следующий» не должно

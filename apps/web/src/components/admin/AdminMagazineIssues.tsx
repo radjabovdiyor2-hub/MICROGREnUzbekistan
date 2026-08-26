@@ -1,9 +1,10 @@
 'use client';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink, LayoutList } from 'lucide-react';
 import { useState } from 'react';
 
+import { AdminMagazineBlocks } from './AdminMagazineBlocks';
 import { AdminNotice } from './AdminNotice';
 import { useFeedback } from './AdminFeedback';
 
@@ -25,6 +26,9 @@ interface Issue {
   status: string;
   webSlug: string;
   pdfUrl: string | null;
+  // `spec` приходит вместе со списком: он и есть содержимое номера
+  // (`{ blocks: Block[] }`), отдельного роута под него нет.
+  spec?: { blocks?: Record<string, unknown>[] } | null;
   restaurant?: { name: string | null } | null;
 }
 
@@ -52,6 +56,7 @@ export function AdminMagazineIssues({ editionId, title, onBack, lang = 'ru' }: {
   const notify = useFeedback();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
+  const [openIssue, setOpenIssue] = useState<Issue | null>(null);
 
   const { data: issues = [], isPending } = useQuery<Issue[]>({
     queryKey: ['admin-magazine-issues', editionId],
@@ -84,6 +89,19 @@ export function AdminMagazineIssues({ editionId, title, onBack, lang = 'ru' }: {
       setBusy('');
     }
   };
+
+  if (openIssue) {
+    return (
+      <AdminMagazineBlocks
+        issueId={openIssue.id}
+        editionId={editionId}
+        title={openIssue.restaurant?.name || openIssue.webSlug}
+        spec={openIssue.spec ?? null}
+        onBack={() => setOpenIssue(null)}
+        lang={lang}
+      />
+    );
+  }
 
   return (
     <div>
@@ -133,6 +151,13 @@ export function AdminMagazineIssues({ editionId, title, onBack, lang = 'ru' }: {
                 style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <ExternalLink size={14} /> {t('Открыть', 'Ochish')}
               </a>
+
+              {/* Содержимое номера: из чего он собран и что можно
+                  переписать. До этого правки не было вовсе. */}
+              <button className="btn btn-ghost btn-sm" onClick={() => setOpenIssue(i)}
+                style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <LayoutList size={14} /> {t('Блоки', 'Bloklar')}
+              </button>
 
               {(NEXT[i.status] ?? []).map((next) => (
                 <button key={next} className="btn btn-sm" disabled={busy === i.id}
