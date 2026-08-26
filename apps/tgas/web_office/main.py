@@ -201,6 +201,7 @@ async def dashboard(request: Request):
                     "SELECT o.id, o.order_number, c.name AS customer_name, "
                     "o.total_amount, o.status, o.created_at "
                     "FROM crm_orders o "
+                    # видим-удалённых-намеренно: имя у состоявшегося заказа.
                     "LEFT JOIN customers c ON o.customer_id = c.id "
                     "ORDER BY o.created_at DESC LIMIT 20"
                 )
@@ -219,7 +220,9 @@ async def dashboard(request: Request):
             ]
 
             # ── Customers ────────────────────────────────────
-            result = await session.execute(text("SELECT COUNT(*) FROM customers"))
+            result = await session.execute(
+                text("SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL")
+            )
             stats["total_customers"] = _safe_int(result.scalar())
 
             # ── Employees ────────────────────────────────────
@@ -250,7 +253,8 @@ async def dashboard(request: Request):
                 text(
                     "SELECT id, name, phone, telegram_username, customer_type, "
                     "company_name, status, total_spent, orders_count, city, created_at, bonus_balance "
-                    "FROM customers ORDER BY created_at DESC LIMIT 50"
+                    "FROM customers WHERE deleted_at IS NULL "
+                    "ORDER BY created_at DESC LIMIT 50"
                 )
             )
             rows = result.fetchall()
@@ -300,7 +304,10 @@ async def dashboard(request: Request):
 
             # ── Funnel ───────────────────────────────────────
             result = await session.execute(
-                text("SELECT status, COUNT(*) FROM customers GROUP BY status")
+                text(
+                    "SELECT status, COUNT(*) FROM customers "
+                    "WHERE deleted_at IS NULL GROUP BY status"
+                )
             )
             for status, cnt in result.fetchall():
                 funnel[status] = cnt
@@ -312,6 +319,8 @@ async def dashboard(request: Request):
                     "i.summary, i.created_at "
                     "FROM interactions i "
                     "LEFT JOIN customers c ON i.customer_id = c.id "
+                    "  AND c.deleted_at IS NULL "
+                    "WHERE i.customer_id IS NULL OR c.id IS NOT NULL "
                     "ORDER BY i.created_at DESC LIMIT 30"
                 )
             )
@@ -535,7 +544,8 @@ async def b2b_funnel(request: Request):
                 (
                     await session.execute(
                         text(
-                            "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b'"
+                            "SELECT COUNT(*) FROM customers "
+                            "WHERE deleted_at IS NULL AND customer_type = 'b2b'"
                         )
                     )
                 ).scalar()
@@ -544,7 +554,8 @@ async def b2b_funnel(request: Request):
                 (
                     await session.execute(
                         text(
-                            "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
+                            "SELECT COUNT(*) FROM customers "
+                            "WHERE deleted_at IS NULL AND customer_type = 'b2b' "
                             "AND DATE(created_at) = CURRENT_DATE"
                         )
                     )
@@ -564,7 +575,8 @@ async def b2b_funnel(request: Request):
                 (
                     await session.execute(
                         text(
-                            "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
+                            "SELECT COUNT(*) FROM customers "
+                            "WHERE deleted_at IS NULL AND customer_type = 'b2b' "
                             "AND status IN ('active','vip')"
                         )
                     )
@@ -582,7 +594,7 @@ async def b2b_funnel(request: Request):
                 await session.execute(
                     text(
                         "SELECT COALESCE(source,'не указан'), COUNT(*) FROM customers "
-                        "WHERE customer_type = 'b2b' GROUP BY source ORDER BY COUNT(*) DESC"
+                        "WHERE deleted_at IS NULL AND customer_type = 'b2b' GROUP BY source ORDER BY COUNT(*) DESC"
                     )
                 )
             ).fetchall()
@@ -1230,7 +1242,10 @@ async def _find_customer(session, tid, phone):
     if tid:
         cid = (
             await session.execute(
-                text("SELECT id FROM customers WHERE telegram_id = :tid"),
+                text(
+                    "SELECT id FROM customers "
+                    "WHERE deleted_at IS NULL AND telegram_id = :tid"
+                ),
                 {"tid": tid},
             )
         ).scalar()
@@ -1241,7 +1256,8 @@ async def _find_customer(session, tid, phone):
         return (
             await session.execute(
                 text(
-                    "SELECT id FROM customers WHERE phone IS NOT NULL "
+                    "SELECT id FROM customers "
+                    "WHERE deleted_at IS NULL AND phone IS NOT NULL "
                     f"AND {phone_utils.SQL_PHONE_TAIL} = :tail "
                     "ORDER BY orders_count DESC, id LIMIT 1"
                 ),

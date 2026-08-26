@@ -139,7 +139,13 @@ async def new_applications_check():
                         "SELECT i.id, i.interaction_type, i.summary, c.name "
                         "FROM interactions i "
                         "LEFT JOIN customers c ON c.id = i.customer_id "
-                        "WHERE i.interaction_type IN ('b2b_lead', 'inquiry') "
+                        "  AND c.deleted_at IS NULL "
+                        # Обращение без карточки (customer_id IS NULL) остаётся:
+                        # это заявка соискателя, её обработать нужно. А вот
+                        # обращение удалённой карточки уходит — владелец её
+                        # вычистил, значит работать по ней не собирался.
+                        "WHERE (i.customer_id IS NULL OR c.id IS NOT NULL) "
+                        "AND i.interaction_type IN ('b2b_lead', 'inquiry') "
                         "AND i.created_at > NOW() - INTERVAL '24 hours' "
                         "ORDER BY i.created_at DESC"
                     )

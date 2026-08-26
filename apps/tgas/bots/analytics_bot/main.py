@@ -61,7 +61,8 @@ async def daily_kpi_snapshot():
             # Новые клиенты за сегодня
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM customers WHERE DATE(created_at) = CURRENT_DATE"
+                    "SELECT COUNT(*) FROM customers "
+                    "WHERE deleted_at IS NULL AND DATE(created_at) = CURRENT_DATE"
                 )
             )
             new_customers = res.scalar() or 0
@@ -151,7 +152,7 @@ async def weekly_trends():
             res = await session.execute(
                 text(
                     "SELECT COUNT(*) FROM customers "
-                    "WHERE created_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days' "
+                    "WHERE deleted_at IS NULL AND created_at >= date_trunc('week', CURRENT_DATE) - INTERVAL '7 days' "
                     "AND created_at < date_trunc('week', CURRENT_DATE)"
                 )
             )
@@ -160,7 +161,7 @@ async def weekly_trends():
             res = await session.execute(
                 text(
                     "SELECT COUNT(*) FROM customers "
-                    "WHERE created_at >= date_trunc('week', CURRENT_DATE)"
+                    "WHERE deleted_at IS NULL AND created_at >= date_trunc('week', CURRENT_DATE)"
                 )
             )
             this_week_customers = res.scalar() or 0
@@ -345,7 +346,7 @@ async def monthly_executive():
             res = await session.execute(
                 text(
                     "SELECT COUNT(*) FROM customers "
-                    "WHERE created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' "
+                    "WHERE deleted_at IS NULL AND created_at >= date_trunc('month', CURRENT_DATE) - INTERVAL '1 month' "
                     "AND created_at < date_trunc('month', CURRENT_DATE)"
                 )
             )
@@ -354,7 +355,7 @@ async def monthly_executive():
             res = await session.execute(
                 text(
                     "SELECT COUNT(*) FROM customers "
-                    "WHERE created_at < date_trunc('month', CURRENT_DATE)"
+                    "WHERE deleted_at IS NULL AND created_at < date_trunc('month', CURRENT_DATE)"
                 )
             )
             total_customers = res.scalar() or 0
@@ -422,12 +423,15 @@ async def conversion_funnel():
         async with get_session_ctx() as session:
             res = await session.execute(
                 text(
-                    "SELECT COALESCE(status, 'unknown'), COUNT(*) FROM customers GROUP BY status ORDER BY COUNT(*) DESC"
+                    "SELECT COALESCE(status, 'unknown'), COUNT(*) FROM customers "
+                    "WHERE deleted_at IS NULL GROUP BY status ORDER BY COUNT(*) DESC"
                 )
             )
             statuses = res.fetchall()
 
-            res = await session.execute(text("SELECT COUNT(*) FROM customers"))
+            res = await session.execute(
+                text("SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL")
+            )
             total = res.scalar() or 0
 
         if total == 0:
@@ -466,13 +470,17 @@ async def b2b_funnel_report():
             # Всего B2B-лидов и сколько собрано сегодня
             total_b2b = (
                 await session.execute(
-                    text("SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b'")
+                    text(
+                        "SELECT COUNT(*) FROM customers "
+                        "WHERE deleted_at IS NULL AND customer_type = 'b2b'"
+                    )
                 )
             ).scalar() or 0
             new_today = (
                 await session.execute(
                     text(
-                        "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
+                        "SELECT COUNT(*) FROM customers "
+                        "WHERE deleted_at IS NULL AND customer_type = 'b2b' "
                         "AND DATE(created_at AT TIME ZONE 'Asia/Samarkand') = "
                         "    (NOW() AT TIME ZONE 'Asia/Samarkand')::date"
                     )
@@ -499,7 +507,8 @@ async def b2b_funnel_report():
             converted = (
                 await session.execute(
                     text(
-                        "SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b' "
+                        "SELECT COUNT(*) FROM customers "
+                        "WHERE deleted_at IS NULL AND customer_type = 'b2b' "
                         "AND status IN ('active', 'vip')"
                     )
                 )
@@ -509,7 +518,7 @@ async def b2b_funnel_report():
                 await session.execute(
                     text(
                         "SELECT COALESCE(source, 'не указан'), COUNT(*) FROM customers "
-                        "WHERE customer_type = 'b2b' GROUP BY source ORDER BY COUNT(*) DESC"
+                        "WHERE deleted_at IS NULL AND customer_type = 'b2b' GROUP BY source ORDER BY COUNT(*) DESC"
                     )
                 )
             ).fetchall()
@@ -632,7 +641,8 @@ async def bus_get_report(params: dict) -> dict:
             order_count = res.scalar() or 0
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM customers WHERE DATE(created_at) = CURRENT_DATE"
+                    "SELECT COUNT(*) FROM customers "
+                    "WHERE deleted_at IS NULL AND DATE(created_at) = CURRENT_DATE"
                 )
             )
             new_customers = res.scalar() or 0

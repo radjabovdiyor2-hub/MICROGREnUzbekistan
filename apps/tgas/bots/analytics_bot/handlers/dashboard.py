@@ -67,7 +67,7 @@ async def customers(cb: CallbackQuery):
                 "COUNT(*) FILTER (WHERE status = 'vip') as vip, "
                 "COUNT(*) FILTER (WHERE status = 'active') as active, "
                 "COUNT(*) FILTER (WHERE status = 'churned') as churned "
-                "FROM customers"
+                "FROM customers WHERE deleted_at IS NULL"
             )
         )
         c = r.fetchone()

@@ -44,7 +44,9 @@ async def order_status(cb: CallbackQuery):
         r = await session.execute(
             text(
                 "SELECT order_number, total_amount, status FROM crm_orders "
-                "WHERE customer_id=(SELECT id FROM customers WHERE telegram_id=:tid) ORDER BY created_at DESC LIMIT 3"
+                "WHERE customer_id=(SELECT id FROM customers "
+                "WHERE deleted_at IS NULL AND telegram_id=:tid) "
+                "ORDER BY created_at DESC LIMIT 3"
             ),
             {"tid": cb.from_user.id},
         )
@@ -91,13 +93,26 @@ async def complaint(cb: CallbackQuery, state: FSMContext):
 
 @router.message(ComplaintStates.entering_text)
 async def complaint_text(msg: Message, state: FSMContext):
+    # Жалоба ничьей быть не может: подзапрос давал NULL для незнакомого
+    # человека и id удалённой карточки для вычищенного — в обоих случаях
+    # обращение переставало быть видимым. `upsert` заводит карточку и
+    # воскрешает удалённую.
+    from shared import customer_repo
+
+    customer = await customer_repo.upsert(
+        telegram_id=msg.from_user.id,
+        telegram_username=msg.from_user.username,
+        name=msg.from_user.full_name,
+        source="telegram",
+    )
+
     async with get_session_ctx() as session:
         await session.execute(
             text(
                 "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
-                "VALUES ((SELECT id FROM customers WHERE telegram_id=:tid), 'telegram', 'complaint', 'support_bot', :s, NOW())"
+                "VALUES (:cid, 'telegram', 'complaint', 'support_bot', :s, NOW())"
             ),
-            {"tid": msg.from_user.id, "s": msg.text},
+            {"cid": customer["id"], "s": msg.text},
         )
     # 🔗 EventBus: уведомляем PM бота о жалобе
     from shared.event_bus import event_bus, Events

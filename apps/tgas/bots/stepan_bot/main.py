@@ -257,7 +257,7 @@ async def check_followups():
                     "SELECT f.id, f.message, f.customer_id, c.telegram_id, c.email, "
                     "       c.name, c.phone "
                     "FROM followups f "
-                    "JOIN customers c ON f.customer_id = c.id "
+                    "JOIN customers c ON f.customer_id = c.id AND c.deleted_at IS NULL "
                     "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() "
                     "LIMIT 10"
                 )
@@ -451,7 +451,8 @@ async def weekly_report():
             res = await session.execute(
                 sa_text(
                     "SELECT COUNT(*) FROM customers "
-                    "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                    "WHERE deleted_at IS NULL "
+                    "AND created_at >= CURRENT_DATE - INTERVAL '7 days'"
                 )
             )
             new_customers = res.scalar() or 0

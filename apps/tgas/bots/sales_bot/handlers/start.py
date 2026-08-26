@@ -36,7 +36,10 @@ async def cmd_start(message: Message, state: FSMContext):
     # Save customer to DB
     async with get_session_ctx() as session:
         row = await session.execute(
-            text("SELECT id, language FROM customers WHERE telegram_id = :tid"),
+            text(
+                "SELECT id, language FROM customers "
+                "WHERE deleted_at IS NULL AND telegram_id = :tid"
+            ),
             {"tid": message.from_user.id},
         )
         customer = row.fetchone()

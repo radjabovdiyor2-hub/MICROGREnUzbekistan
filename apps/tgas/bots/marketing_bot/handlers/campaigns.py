@@ -61,7 +61,12 @@ async def send_campaign(cb: CallbackQuery, state: FSMContext):
     await state.clear()
     await cb.message.edit_text("⏳ Рассылка началась...", reply_markup=None)
 
-    query_str = "SELECT telegram_id FROM customers WHERE telegram_id IS NOT NULL"
+    # `deleted_at IS NULL` — рассылка худшее место для воскресшей карточки:
+    # отправленное сообщение не отзывается.
+    query_str = (
+        "SELECT telegram_id FROM customers "
+        "WHERE deleted_at IS NULL AND telegram_id IS NOT NULL"
+    )
     if segment == "b2b":
         query_str += " AND customer_type = 'b2b'"
     elif segment == "b2c":
@@ -110,7 +115,7 @@ async def show_segments(cb: CallbackQuery):
                 "COUNT(*) FILTER (WHERE status='vip') as vip, "
                 "COUNT(*) FILTER (WHERE status='active') as active, "
                 "COUNT(*) FILTER (WHERE status='churned') as churned "
-                "FROM customers"
+                "FROM customers WHERE deleted_at IS NULL"
             )
         )
         c = r.fetchone()
