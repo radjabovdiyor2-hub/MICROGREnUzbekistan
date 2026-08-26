@@ -74,6 +74,17 @@ CHECKED = [
     "shared/geo.py",
     "shared/lead_gen.py",
     "bots/marketing_bot/b2b_offer.py",
+    # Третий слой: общая машинерия, которой пользуются все двенадцать
+    # ботов — ответ отдела в группе, уведомления, ссылки в админку,
+    # фирменный стиль, телефоны, промпты, условия витрины.
+    "shared/group_reply.py",
+    "shared/notifications.py",
+    "shared/storefront_config.py",
+    "shared/admin_links.py",
+    "shared/brand.py",
+    "shared/phone.py",
+    "shared/utils.py",
+    "shared/prompts.py",
 ]
 
 

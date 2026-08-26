@@ -307,6 +307,51 @@ if not any("способ оплаты строкой" in p for p in problems):
     notes.append("  ok  онлайн-оплата строкой не обещана")
 
 
+# ═══ 5б. Ключи `click`/`payme` в СПИСКЕ доступных способов ══════════════
+#
+# Правило выше искало НАЗВАНИЯ («Click», «Payme») и не могло поймать то,
+# что нашлось в `shared/storefront_config.py`: запасные значения витрины
+# перечисляли методы КЛЮЧАМИ — `["cash", "click", "payme"]`. Файл был
+# целиком в списке исключений из-за таблицы подписей, а рядом с ней лежал
+# список активных способов, и срабатывал он ровно тогда, когда витрина
+# недоступна: база знаний собиралась на запасных значениях, и бот начинал
+# предлагать клиенту оплату, которой нет.
+#
+# Ключ в ЗНАЧЕНИИ словаря подписей — это перевод, он разрешён:
+# `{"click": "Click"}` не обещает способ, а называет его, если он придёт
+# из настроек. Ключ в СПИСКЕ — это утверждение «способ доступен».
+PAY_KEYS = {"click", "payme"}
+
+
+def _payment_keys_in_lists(tree: ast.AST) -> list[tuple[int, str]]:
+    """Ключи отключённых способов внутри списков — то есть в перечне доступных."""
+    found: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            continue
+        for item in node.elts:
+            if isinstance(item, ast.Constant) and item.value in PAY_KEYS:
+                found.append((item.lineno, str(item.value)))
+    return found
+
+
+for path in PY_SCOPE:
+    text = path.read_text(encoding="utf-8", errors="replace")
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        continue
+    for line, key in _payment_keys_in_lists(tree):
+        problems.append(
+            f"{rel(path)}:{line} — «{key}» в перечне доступных способов оплаты: "
+            f"онлайн-оплаты нет, платёж не создаётся. Список берите из "
+            f"настроек `payment.methods`, запасной — cash/card/transfer"
+        )
+
+if not any("в перечне доступных способов" in p for p in problems):
+    notes.append("  ok  отключённых способов оплаты в перечнях нет")
+
+
 # ═══ Запреты продукта — в ОБОИХ системных промптах ══════════════════════
 #
 # Промптов, разговаривающих с клиентом, два и они в разных приложениях:
