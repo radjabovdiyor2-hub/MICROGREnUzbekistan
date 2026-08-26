@@ -9,7 +9,7 @@ from sqlalchemy import text
 from shared.config import settings
 from shared.database import get_session_ctx
 from shared.utils import simulate_typing, get_greeting, format_price
-from bots.sales_bot.keyboards.inline import main_menu_kb, language_kb
+from bots.sales_bot.keyboards.inline import main_menu, language_kb
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ async def cmd_start(message: Message, state: FSMContext):
             text_msg = WELCOME_RU
 
     await state.update_data(lang=lang, cart={})
-    await message.answer(text_msg, reply_markup=main_menu_kb(lang))
+    await message.answer(text_msg, reply_markup=await main_menu(lang))
 
 
 @router.message(Command("help"))
@@ -99,7 +99,7 @@ async def cmd_help(message: Message, state: FSMContext):
             "/language — Tilni o'zgartirish"
         )
     )
-    await message.answer(help_text, reply_markup=main_menu_kb(lang))
+    await message.answer(help_text, reply_markup=await main_menu(lang))
 
 
 @router.message(Command("contacts"))
@@ -125,7 +125,7 @@ async def cmd_contacts(message: Message, state: FSMContext):
             f"🌐 microgreenuzbekistan.com"
         )
     )
-    await message.answer(contacts, reply_markup=main_menu_kb(lang))
+    await message.answer(contacts, reply_markup=await main_menu(lang))
 
 
 @router.callback_query(F.data == "menu:contacts")
@@ -134,7 +134,7 @@ async def on_contacts(cb: CallbackQuery, state: FSMContext):
     lang = data.get("lang", "ru")
     await cb.message.edit_text(
         f"📞 Телефон: {settings.company_phone}\n📍 Самарканд\n🌐 microgreenuzbekistan.com",
-        reply_markup=main_menu_kb(lang),
+        reply_markup=await main_menu(lang),
     )
     await cb.answer()
 
@@ -161,7 +161,7 @@ async def on_lang_set(cb: CallbackQuery, state: FSMContext):
         if lang == "ru"
         else "✅ Til o'zbekchaga o'zgartirildi!"
     )
-    await cb.message.edit_text(msg, reply_markup=main_menu_kb(lang))
+    await cb.message.edit_text(msg, reply_markup=await main_menu(lang))
     await cb.answer()
 
 
@@ -173,5 +173,5 @@ async def on_main_menu(cb: CallbackQuery, state: FSMContext):
     greeting = get_greeting(lang)
     name = cb.from_user.first_name or "друг"
     text_msg = f"{greeting}, {name}! 👋" if lang == "ru" else f"{greeting}, {name}! 👋"
-    await cb.message.edit_text(text_msg, reply_markup=main_menu_kb(lang))
+    await cb.message.edit_text(text_msg, reply_markup=await main_menu(lang))
     await cb.answer()

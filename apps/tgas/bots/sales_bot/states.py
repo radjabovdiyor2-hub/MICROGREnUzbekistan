@@ -3,15 +3,8 @@
 from aiogram.fsm.state import State, StatesGroup
 
 
-class OrderStates(StatesGroup):
-    choosing_category = State()
-    choosing_product = State()
-    entering_quantity = State()
-    confirming_cart = State()
-    entering_address = State()
-    entering_delivery_time = State()
-    entering_notes = State()
-    confirming_order = State()
+# OrderStates убраны вместе с клиентской витриной: каталог, корзина и чекаут
+# живут в витринном боте (apps/bot), и магазин у покупателя один.
 
 
 class B2BStates(StatesGroup):

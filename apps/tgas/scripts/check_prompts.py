@@ -307,6 +307,47 @@ if not any("способ оплаты строкой" in p for p in problems):
     notes.append("  ok  онлайн-оплата строкой не обещана")
 
 
+# ═══ Запреты продукта — в ОБОИХ системных промптах ══════════════════════
+#
+# Промптов, разговаривающих с клиентом, два и они в разных приложениях:
+# офисный `shared/ai_engine.py` и витринного бота
+# `apps/bot/services/ai_service.py`. Импортировать один из другого нельзя
+# (жёсткая граница модулей), поэтому текст живёт двумя копиями — и они
+# разошлись: у витринного бота не было НИ ОДНОГО из двух запретов.
+#
+# Цена расхождения не косметическая. «BALANS снижает сахар» — заявление о
+# лечебных свойствах, на которое нужно разрешение Минздрава; совет вырастить
+# зелень дома продаёт вместо нас чужие семена, которых у нас и нет.
+#
+# Сверяем не дословный текст, а наличие ключевых слов запрета: формулировки
+# правятся, суть — нет.
+PRODUCT_BANS = {
+    "лечебные заявления BALANS": ("минздрав", "лечит"),
+    "домашнее выращивание": ("дома", "семена"),
+}
+
+CUSTOMER_PROMPTS = [
+    TGAS / "shared" / "ai_engine.py",
+    REPO / "apps" / "bot" / "services" / "ai_service.py",
+]
+
+for path in CUSTOMER_PROMPTS:
+    if not path.is_file():
+        problems.append(f"{rel(path)} — файл системного промпта исчез")
+        continue
+    body = path.read_text(encoding="utf-8", errors="replace").lower()
+    for ban, words in PRODUCT_BANS.items():
+        if not all(w in body for w in words):
+            problems.append(
+                f"{rel(path)} — в системном промпте нет запрета «{ban}». "
+                f"Он есть во втором промпте, и разойтись им нельзя: "
+                f"это обещания клиенту, а не стиль"
+            )
+
+if not any("нет запрета" in p for p in problems):
+    notes.append("  ok  запреты продукта есть в обоих клиентских промптах")
+
+
 # ═══ 6. TEAM_CONTEXT знает про всех ботов ═══════════════════════════════
 from shared.health import ALL_BOTS  # noqa: E402
 from shared.prompts import TEAM_CONTEXT  # noqa: E402
