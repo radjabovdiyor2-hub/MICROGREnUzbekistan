@@ -135,14 +135,14 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
     {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials focus={focus} />}
     {activeTab === 'movements' && isOwner && <AdminMovements />}
     {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} lang={lang} />}
-    {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}
+    {activeTab === 'suppliers' && isOwner && <AdminSuppliers lang={lang} />}
     {activeTab === 'debts' && isOwner && <AdminDebts />}
     {activeTab === 'products' && isOwner && <AdminProducts />}
     {activeTab === 'categories' && isOwner && <AdminCategories lang={lang} />}
     {activeTab === 'promo' && isOwner && <AdminPromo lang={lang} />}
     {activeTab === 'finance' && isOwner && <AdminFinance lang={lang} />}
-    {activeTab === 'employees' && isOwner && <AdminEmployees />}
-    {activeTab === 'shifts' && isOwner && <AdminShifts />}
+    {activeTab === 'employees' && isOwner && <AdminEmployees lang={lang} />}
+    {activeTab === 'shifts' && isOwner && <AdminShifts lang={lang} />}
 
     {/* ИИ-офис */}
     {activeTab === 'workflow_studio' && isOwner && <AdminWorkflowStudio />}

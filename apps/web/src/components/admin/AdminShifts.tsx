@@ -18,7 +18,10 @@ function toTimeInput(iso: string | null): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export function AdminShifts() {
+export function AdminShifts({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+  // Экран был одноязычным, при том что соседние разделы админки написаны
+  // по-русски, а кнопка переключения языка в сайдбаре есть.
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const notify = useFeedback();
   const queryClient = useQueryClient();
   const [showAdd, setShowAdd] = useState(false);
@@ -53,7 +56,7 @@ export function AdminShifts() {
 
   const handleSave = async () => {
     if (!form.employeeId || !form.date) {
-      return notify.toast('Xodim va sanani kiriting', 'warning');
+      return notify.toast(t('Укажите сотрудника и дату', 'Xodim va sanani kiriting'), 'warning');
     }
 
     try {
@@ -83,7 +86,7 @@ export function AdminShifts() {
       }
     } catch (err) {
       console.error(err);
-      notify.error("Aloqa yo'q — smena saqlanmadi");
+      notify.error(t('Нет связи — смена не сохранена', "Aloqa yo'q — smena saqlanmadi"));
     }
   };
 
@@ -91,9 +94,11 @@ export function AdminShifts() {
     const ok = await notify.confirm({
       // Вопрос называет смену: в графике их десятки, и безымянное
       // «O'chirishni tasdiqlaysizmi?» не говорит, какую именно уберут.
-      title: `${shift.employee?.name ?? 'Smena'} — ${shift.date?.slice(0, 10) ?? ''} o'chirilsinmi?`,
-      detail: 'Smena jadvaldan yo\'qoladi.',
-      confirmText: "O'chirish",
+      title: lang === 'ru'
+        ? `Удалить смену: ${shift.employee?.name ?? '—'} — ${shift.date?.slice(0, 10) ?? ''}?`
+        : `${shift.employee?.name ?? 'Smena'} — ${shift.date?.slice(0, 10) ?? ''} o'chirilsinmi?`,
+      detail: t('Смена исчезнет из графика.', "Smena jadvaldan yo'qoladi."),
+      confirmText: t('Удалить', "O'chirish"),
       danger: true,
     });
     if (!ok) return;
@@ -124,7 +129,7 @@ export function AdminShifts() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h2 style={{ fontSize: 'var(--text-xl)', fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Calendar size={24} /> Grafika (Smenalar)
+          <Calendar size={24} /> {t('График смен', 'Grafika (Smenalar)')}
         </h2>
         <button
           onClick={() => {
@@ -136,7 +141,7 @@ export function AdminShifts() {
           className="btn btn-primary btn-sm"
           style={{ display: 'flex', gap: 4, alignItems: 'center', whiteSpace: 'nowrap' }}
         >
-          <Plus size={16} /> Smena qo&apos;shish
+          <Plus size={16} /> {t('Добавить смену', "Smena qo'shish")}
         </button>
       </div>
 
@@ -158,7 +163,7 @@ export function AdminShifts() {
           </div>
         ) : shifts.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-            Smenalar topilmadi
+            {t('Смен не найдено', 'Smenalar topilmadi')}
           </div>
         ) : (
           shifts.map((shift) => (

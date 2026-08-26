@@ -22,7 +22,10 @@ interface Supplier {
   createdAt: string;
 }
 
-export function AdminSuppliers() {
+export function AdminSuppliers({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+  // Экран был одноязычным: все подписи только на узбекском, при том что
+  // соседние разделы админки написаны по-русски.
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const notify = useFeedback();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -73,9 +76,14 @@ export function AdminSuppliers() {
     // пикселях друг от друга, а «O'chirishni tasdiqlaysizmi?» не говорил,
     // что именно исчезнет.
     const ok = await notify.confirm({
-      title: `«${supplier.name}» o'chirilsinmi?`,
-      detail: "Yetkazib beruvchi ro'yxatdan yo'qoladi. Xaridlar tarixi saqlanadi.",
-      confirmText: "O'chirish",
+      title: lang === 'ru'
+        ? `Удалить «${supplier.name}»?`
+        : `«${supplier.name}» o'chirilsinmi?`,
+      detail: t(
+        'Поставщик исчезнет из списка. История закупок сохранится.',
+        "Yetkazib beruvchi ro'yxatdan yo'qoladi. Xaridlar tarixi saqlanadi.",
+      ),
+      confirmText: t('Удалить', "O'chirish"),
       danger: true,
     });
     if (!ok) return;
@@ -83,7 +91,7 @@ export function AdminSuppliers() {
     const res = await fetch(`/api/inventory/suppliers?id=${supplier.id}`, { method: 'DELETE' });
     if (!res.ok) {
       const body = await res.json().catch(() => null);
-      notify.error(body?.error || "O'chirib bo'lmadi");
+      notify.error(body?.error || t('Не удалось удалить', "O'chirib bo'lmadi"));
       return;
     }
     fetch_();
@@ -100,13 +108,13 @@ export function AdminSuppliers() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Truck size={20} /> Yetkazuvchilar
+          <Truck size={20} /> {t('Поставщики', 'Yetkazuvchilar')}
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>({visible.length})</span>
         </h3>
-        <AdminSearch value={query} onChange={setQuery} placeholder="Поиск поставщика" width={200} />
+        <AdminSearch value={query} onChange={setQuery} placeholder={t('Поиск поставщика', 'Yetkazuvchi qidirish')} width={200} />
         <button onClick={() => { setShowAdd(!showAdd); setEditId(null); setForm({ name: '', phone: '', address: '', note: '' }); }}
           className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Plus size={14} /> Yangi
+          <Plus size={14} /> {t('Новый', 'Yangi')}
         </button>
       </div>
 
@@ -114,21 +122,21 @@ export function AdminSuppliers() {
       {showAdd && (
         <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)' }}>
-            {editId ? 'Tahrirlash' : 'Yangi yetkazuvchi'}
+            {editId ? t('Правка', 'Tahrirlash') : t('Новый поставщик', 'Yangi yetkazuvchi')}
           </h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
-            <input placeholder="Nom *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            <input placeholder={t('Название *', 'Nom *')} value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
-            <input placeholder="Telefon" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+            <input placeholder={t('Телефон', 'Telefon')} value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
-            <input placeholder="Manzil" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+            <input placeholder={t('Адрес', 'Manzil')} value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
-            <input placeholder="Izoh" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
+            <input placeholder={t('Заметка', 'Izoh')} value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))}
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-            <button onClick={handleSave} className="btn btn-primary btn-sm">Saqlash</button>
-            <button onClick={() => { setShowAdd(false); setEditId(null); }} className="btn btn-ghost btn-sm">Bekor</button>
+            <button onClick={handleSave} className="btn btn-primary btn-sm">{t('Сохранить', 'Saqlash')}</button>
+            <button onClick={() => { setShowAdd(false); setEditId(null); }} className="btn btn-ghost btn-sm">{t('Отмена', 'Bekor')}</button>
           </div>
         </div>
       )}
@@ -141,7 +149,7 @@ export function AdminSuppliers() {
       ) : visible.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
           <Truck size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
-          <p>Yetkazuvchilar yo&apos;q</p>
+          <p>{t('Поставщиков нет', "Yetkazuvchilar yo'q")}</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -169,15 +177,15 @@ export function AdminSuppliers() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)' }}>
                 <div style={{ textAlign: 'center', padding: 'var(--space-2)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Yetkazishlar</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Поставок', 'Yetkazishlar')}</div>
                   <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{s.totalDeliveries}</div>
                 </div>
                 <div style={{ textAlign: 'center', padding: 'var(--space-2)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Xaridlar</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Закуплено', 'Xaridlar')}</div>
                   <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)' }}>{fmt(s.totalPurchased)}</div>
                 </div>
                 <div style={{ textAlign: 'center', padding: 'var(--space-2)', background: s.currentDebt > 0 ? 'var(--error-bg)' : 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Qarz</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Долг', 'Qarz')}</div>
                   <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)', color: s.currentDebt > 0 ? 'var(--error)' : 'var(--success)' }}>
                     {s.currentDebt > 0 ? fmt(s.currentDebt) : '0'}
                   </div>
