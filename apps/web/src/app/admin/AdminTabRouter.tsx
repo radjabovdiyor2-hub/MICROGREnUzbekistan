@@ -131,10 +131,10 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
         initialQuery={query}
       />
     )}
-    {activeTab === 'inventory' && isOwner && <AdminInventory />}
+    {activeTab === 'inventory' && isOwner && <AdminInventory lang={lang} />}
     {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials focus={focus} />}
     {activeTab === 'movements' && isOwner && <AdminMovements />}
-    {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} />}
+    {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} lang={lang} />}
     {activeTab === 'suppliers' && isOwner && <AdminSuppliers />}
     {activeTab === 'debts' && isOwner && <AdminDebts />}
     {activeTab === 'products' && isOwner && <AdminProducts />}

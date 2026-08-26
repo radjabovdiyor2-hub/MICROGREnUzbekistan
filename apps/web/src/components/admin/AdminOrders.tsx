@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ClipboardList, Clock, Folder, Printer } from 'lucide-react';
-import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
+import { STATUS_CONFIG, STATUS_TABS, statusLabel } from './adminOrdersConfig';
 import { AdminNotice } from './AdminNotice';
 import { useAdminBack } from './useAdminBack';
 import { AdminOrderDetail } from './AdminOrderDetail';
@@ -24,7 +24,10 @@ interface OrdersPage {
  *  и накопительная кнопка молча перестала бы догружать. */
 const PAGE_SIZE = 50;
 
-export function AdminOrders({ focus = '' }: { focus?: string }) {
+export function AdminOrders({ focus = '', lang = 'ru' }: { focus?: string; lang?: 'ru' | 'uz' }) {
+  // Экран написан по-русски, а подписи статусов в нём были только
+  // узбекскими: «Заказы» и «Kutilmoqda» в одной строке.
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const pick = useSelection<string>();
   const [activeTab, setActiveTab] = useState('ALL');
   const [selected, setSelected] = useState<Order | null>(null);
@@ -145,6 +148,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
           onPaymentStatus={(paymentStatus) => patchOrder(current.id, { paymentStatus })}
           fmt={fmt}
           fmtDate={fmtDate}
+          lang={lang}
         />
       </>
     );
@@ -164,7 +168,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-2)' }}>
         <a href={`/admin/print/picklist?date=${todayLocal}`} target="_blank" rel="noopener noreferrer"
           className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Printer size={14} /> Лист сборки на сегодня
+          <Printer size={14} /> {t('Лист сборки на сегодня', "Bugungi yigʻish varaqasi")}
         </a>
       </div>
 
@@ -173,7 +177,9 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
         {STATUS_TABS.map(tab => (
           <button key={tab} onClick={() => { setActiveTab(tab); setPage(1); }} className={`btn btn-sm ${activeTab === tab ? 'btn-primary' : 'btn-ghost'}`}
             style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {tab === 'ALL' ? <><ClipboardList size={14} /> Barchasi</> : <>{STATUS_CONFIG[tab]?.icon} {STATUS_CONFIG[tab]?.label}</>}
+            {tab === 'ALL'
+              ? <><ClipboardList size={14} /> {t('Все', 'Barchasi')}</>
+              : <>{STATUS_CONFIG[tab]?.icon} {statusLabel(tab, lang)}</>}
           </button>
         ))}
       </div>
@@ -186,7 +192,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
           type="text"
           value={phoneInput}
           onChange={(e) => setPhoneInput(e.target.value)}
-          placeholder="Поиск по телефону клиента"
+          placeholder={t('Поиск по телефону клиента', "Mijoz telefoni bo'yicha qidirish")}
           style={{
             flex: '1 1 220px', minWidth: 0,
             padding: 'var(--space-2) var(--space-3)',
@@ -223,6 +229,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
             visibleIds={visibleIds}
             total={orders.length}
             onDone={fetchOrders}
+            lang={lang}
           />
 
           {orders.map((order: Order) => (
@@ -234,6 +241,7 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
               onOpen={() => setSelected(order)}
               fmt={fmt}
               fmtDate={fmtDate}
+              lang={lang}
             />
           ))}
         </div>

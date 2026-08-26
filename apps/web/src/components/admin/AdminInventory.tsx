@@ -8,10 +8,13 @@ import {
   AlertTriangle, Banknote, BarChart, Clock, CreditCard, Search,
 } from 'lucide-react';
 
-import { STATUS_CONFIG } from './adminInventoryConfig';
+import { STATUS_CONFIG, stockLabel } from './adminInventoryConfig';
 import { tint } from '@/lib/tint';
 
-export function AdminInventory() {
+export function AdminInventory({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+  // Экран был одноязычным: подписи только на узбекском, при том что
+  // кнопка переключения языка в сайдбаре есть и здесь ничего не меняла.
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -45,9 +48,9 @@ export function AdminInventory() {
         <div style={{ marginBottom: 'var(--space-3)' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
             {[
-              { label: 'Ombor qiymati', value: `${fmt(summary.totalStockValue)}`, icon: <Banknote size={16} />, color: 'var(--brand-primary)' },
-              { label: 'Bugungi savdo', value: `${fmt(summary.todayRevenue)}`, icon: <BarChart size={16} />, color: 'var(--success)' },
-              { label: 'Qarzlar', value: `${fmt(summary.debtsOwedToUs)}`, icon: <CreditCard size={16} />, color: 'var(--info)' },
+              { label: t('Стоимость склада', 'Ombor qiymati'), value: `${fmt(summary.totalStockValue)}`, icon: <Banknote size={16} />, color: 'var(--brand-primary)' },
+              { label: t('Продажи сегодня', 'Bugungi savdo'), value: `${fmt(summary.todayRevenue)}`, icon: <BarChart size={16} />, color: 'var(--success)' },
+              { label: t('Долги', 'Qarzlar'), value: `${fmt(summary.debtsOwedToUs)}`, icon: <CreditCard size={16} />, color: 'var(--info)' },
             ].map((stat, i) => (
               <div key={i} className="card" style={{ padding: 'var(--space-2)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                 <div style={{ width: 32, height: 32, borderRadius: 'var(--radius-sm)', background: tint(stat.color), color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -66,7 +69,7 @@ export function AdminInventory() {
                 <AlertTriangle size={16} />
               </div>
               <div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Kritik</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Критично', 'Kritik')}</div>
                 <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)', color: 'var(--error)' }}>{summary.criticalCount}</div>
               </div>
             </div>
@@ -75,7 +78,7 @@ export function AdminInventory() {
                 <AlertTriangle size={16} />
               </div>
               <div>
-                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Kam qolgan</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{t('Мало осталось', 'Kam qolgan')}</div>
                 <div style={{ fontWeight: 'var(--font-bold)', fontSize: 'var(--text-sm)', color: 'var(--warning)' }}>{summary.lowCount}</div>
               </div>
             </div>
@@ -86,9 +89,9 @@ export function AdminInventory() {
       {/* Filters */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center' }}>
         {[
-          { id: 'all', label: 'Barchasi', count: summary?.totalProducts },
-          { id: 'low', label: 'Kam', count: (summary?.criticalCount || 0) + (summary?.lowCount || 0) },
-          { id: 'excess', label: 'Ortiqcha', count: summary?.excessCount },
+          { id: 'all', label: t('Все', 'Barchasi'), count: summary?.totalProducts },
+          { id: 'low', label: t('Мало', 'Kam'), count: (summary?.criticalCount || 0) + (summary?.lowCount || 0) },
+          { id: 'excess', label: t('Избыток', 'Ortiqcha'), count: summary?.excessCount },
         ].map(f => (
           <button key={f.id} onClick={() => setFilter(f.id)}
             className={`btn btn-sm ${filter === f.id ? 'btn-primary' : 'btn-ghost'}`}
@@ -99,7 +102,7 @@ export function AdminInventory() {
         <div style={{ flex: '1 1 100%', marginTop: 'var(--space-1)' }}>
           <div style={{ position: 'relative' }}>
             <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input type="text" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)}
+            <input type="text" placeholder={t('Поиск…', 'Qidirish…')} value={search} onChange={e => setSearch(e.target.value)}
               style={{ width: '100%', padding: 'var(--space-2) var(--space-2) var(--space-2) 32px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
           </div>
         </div>
@@ -127,12 +130,12 @@ export function AdminInventory() {
             <table className="inv-table">
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                  <th>Tovar</th>
-                  <th className="inv-table-stock">Ombor</th>
-                  <th className="inv-hide-mobile inv-table-stock">Kunlik</th>
-                  <th className="inv-table-stock">Qolgan</th>
-                  <th className="inv-table-stock">Holat</th>
-                  <th className="inv-hide-mobile inv-table-val">Qiymat</th>
+                  <th>{t('Товар', 'Tovar')}</th>
+                  <th className="inv-table-stock">{t('Склад', 'Ombor')}</th>
+                  <th className="inv-hide-mobile inv-table-stock">{t('В день', 'Kunlik')}</th>
+                  <th className="inv-table-stock">{t('Хватит на', 'Qolgan')}</th>
+                  <th className="inv-table-stock">{t('Состояние', 'Holat')}</th>
+                  <th className="inv-hide-mobile inv-table-val">{t('Сумма', 'Qiymat')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,7 +162,7 @@ export function AdminInventory() {
                       </td>
                       <td className="inv-table-stock">
                         <span style={{ padding: '2px 6px', borderRadius: 'var(--radius-full)', background: st.bg, color: st.color, fontSize: '10px', fontWeight: 'var(--font-bold)' }}>
-                          {st.label}
+                          {stockLabel(p.status, lang)}
                         </span>
                       </td>
                       <td className="inv-hide-mobile inv-table-val" style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
