@@ -61,16 +61,25 @@ export type RealtimeState = 'connecting' | 'live' | 'polling';
 
 export function useRealtime(enabled: boolean): RealtimeState {
   const queryClient = useQueryClient();
-  // Начальное значение считаем СРАЗУ, а не в эффекте: браузер без
-  // `EventSource` живёт опросом с первой отрисовки, и лишний проход
-  // рендера ради этого не нужен.
-  const [state, setState] = useState<RealtimeState>(() =>
-    typeof window === 'undefined' || !('EventSource' in window) ? 'polling' : 'connecting',
-  );
+  // Начальное значение ОДИНАКОВО на сервере и в браузере, и это не
+  // придирка к чистоте.
+  //
+  // Раньше здесь стояло `typeof window === 'undefined' ? 'polling' :
+  // 'connecting'` — то есть сервер отдавал одно, клиент другое. Это
+  // расхождение гидратации, и React ругался на КАЖДУЮ загрузку админки:
+  // в разработке оверлей на весь экран, в проде предупреждение в
+  // консоли и перерисовка поддерева. Именно эту ветку React и называет
+  // первой в своём сообщении об ошибке.
+  //
+  // Сервер всё равно НЕ ЗНАЕТ, есть ли у браузера EventSource, — он
+  // угадывал. Честное начальное значение одно: «подключаемся».
+  // Браузер без EventSource поправит его в эффекте ниже, и лишний
+  // проход рендера случится только у него, а не у всех.
+  const [state, setState] = useState<RealtimeState>('connecting');
   const failures = useRef(0);
 
   useEffect(() => {
-    if (!enabled || typeof window === 'undefined' || !('EventSource' in window)) return;
+    if (!enabled) return;
 
     let source: EventSource | null = null;
     let fallback: ReturnType<typeof setInterval> | null = null;
@@ -90,6 +99,16 @@ export function useRealtime(enabled: boolean): RealtimeState {
 
     const connect = () => {
       if (closed) return;
+
+      // Браузер без EventSource — тот же случай, что оборванный
+      // поток: живём опросом. Отдельной ветки с собственным
+      // интервалом здесь быть не должно — две реализации опроса
+      // разошлись бы на первой правке периода.
+      if (!('EventSource' in window)) {
+        startFallback();
+        return;
+      }
+
       source = new EventSource('/api/events');
 
       source.onopen = () => {
