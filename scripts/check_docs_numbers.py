@@ -94,13 +94,23 @@ def count_tools() -> int:
 # Шаблон намеренно широкий: числа пишут по-разному («71 модель», «71
 # Prisma-модель», «моделей: 71»), и проверка обязана ловить их все, а не
 # одну удобную формулировку.
-CHECKS: list[tuple[str, int, str]] = [
-    ("моделей Prisma", count_models(), r"(\d+)\s*(?:Prisma-)?модел"),
-    ("строк schema.prisma", count_schema_lines(), r"schema\.prisma[^\n]*?(\d{3,5})\s*(?:строк|lines)"),
-    ("route-файлов", count_routes(), r"(\d+)\s*route-файл"),
-    ("компонентов", count_components(), r"(\d+)\s*компонент"),
-    ("shared-модулей офиса", count_shared_modules(), r"(\d+)\s*shared-модул"),
-    ("инструментов отделов", count_tools(), r"(\d+)\s*инструмент"),
+# ДОПУСК — ключевое решение этого файла. Часть чисел СТРУКТУРНЫЕ: модель,
+# роут, группа API появляются осознанно и редко, и расхождение здесь
+# означает, что документ отстал. Другая часть РАСТЁТ сама собой: число
+# компонентов меняется от любого выделенного файла, число строк схемы — от
+# добавленного комментария. Требовать от них точности значит краснеть на
+# каждом коммите, а сторож, который краснеет всегда, перестаёт что-либо
+# значить — этим уже обжигались на `npm audit --audit-level=high`.
+#
+# Поэтому у растущих чисел допуск 10 %: документ обязан называть порядок
+# величины, а не вести счёт файлам.
+CHECKS: list[tuple[str, int, str, float]] = [
+    ("моделей Prisma", count_models(), r"(\d+)\s*(?:Prisma-)?модел", 0.0),
+    ("route-файлов", count_routes(), r"(\d+)\s*route-файл", 0.0),
+    ("инструментов отделов", count_tools(), r"(\d+)\s*инструмент", 0.0),
+    ("shared-модулей офиса", count_shared_modules(), r"(\d+)\s*shared-модул", 0.10),
+    ("компонентов", count_components(), r"(\d+)\s*компонент", 0.10),
+    ("строк schema.prisma", count_schema_lines(), r"schema\.prisma[^\n]*?(\d{3,5})\s*(?:строк|lines)", 0.10),
 ]
 
 
@@ -115,14 +125,17 @@ def main() -> int:
             continue
         text = path.read_text(encoding="utf-8")
 
-        for name, actual, pattern in CHECKS:
+        for name, actual, pattern, tolerance in CHECKS:
+            allowed = max(1, round(actual * tolerance)) if tolerance else 0
             for m in re.finditer(pattern, text, re.I):
                 claimed = int(m.group(1))
-                if claimed != actual:
+                if abs(claimed - actual) > allowed:
                     line = text[: m.start()].count("\n") + 1
+                    hint = f" (допуск ±{allowed})" if allowed else ""
                     problems.append(
-                        f"{doc}:{line} — заявлено {claimed} {name}, фактически {actual}"
+                        f"{doc}:{line} — заявлено {claimed} {name}, фактически {actual}{hint}"
                     )
+
 
     # Состав групп API: правило «сначала прочитай список» отправляет читать
     # именно его, поэтому лишняя или пропущенная группа хуже неверного числа.
