@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Awaitable, Dict, List, Optional, cast
 
 import redis.asyncio as redis
 
@@ -64,7 +64,11 @@ async def load(bot_name: str, chat_id: int, limit: int = MAX_TURNS) -> List[Dict
     """
     client = _client()
     try:
-        raw = await client.lrange(_key(bot_name, chat_id), -limit, -1)
+        # `cast` вместо подавления: у redis-py один класс на синхронный и
+        # асинхронный клиент, поэтому в типах `lrange` объявлен как
+        # «список ИЛИ ожидаемое». Клиент здесь асинхронный — `redis.asyncio`
+        # в импортах, — и вторая половина союза недостижима.
+        raw = await cast(Awaitable[List[Any]], client.lrange(_key(bot_name, chat_id), -limit, -1))
     except Exception as exc:
         logger.warning("CHAT_MEMORY: история недоступна (%s)", exc)
         return []

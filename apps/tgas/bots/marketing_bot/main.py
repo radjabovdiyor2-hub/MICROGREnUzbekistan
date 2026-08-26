@@ -7,8 +7,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.enums import ParseMode
-from shared import admin_links, catalog_repo
-from shared.utils import format_price
+from shared import admin_links
 from shared.config import settings
 from shared.database import init_db, get_session_ctx
 from shared.event_bus import event_bus
@@ -446,10 +445,27 @@ async def b2b_outreach():
                 # Не спамим — пауза между карточками
                 await asyncio.sleep(1)
 
+                        # Пакетное решение — под ИТОГОВЫМ сообщением, а не над
+            # карточками: к этому месту владелец их уже пролистал.
+            batch_kb = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=f"✅ Одобрить все ({len(leads)})",
+                            callback_data="b2b_all:approve",
+                        ),
+                        InlineKeyboardButton(
+                            text="❌ Отклонить все", callback_data="b2b_all:reject"
+                        ),
+                    ]
+                ]
+            )
             await bot.send_message(
                 admin_id,
                 "⏳ <b>Все карточки отправлены.</b>\n"
-                "Нажимайте ✅ или ❌ под каждой. Бот отправит КП только после вашего одобрения.",
+                "Нажимайте ✅ или ❌ под каждой — или решите разом кнопкой ниже. "
+                "Уже разобранные карточки повторное решение не тронет.",
+                reply_markup=batch_kb,
             )
         finally:
             await bot.session.close()
@@ -463,161 +479,82 @@ async def b2b_outreach():
 
 
 async def handle_b2b_approval(callback_query):
-    """Обработчик кнопок Одобрить/Отклонить B2B-рассылку."""
-    from shared.pdf_generator import generate_commercial_offer_pdf
-    from shared.email_sender import send_b2b_offer_email
-    from shared.event_bus import event_bus
-    import os
+    """Кнопки ✅/❌ под карточкой одного заведения."""
+    from bots.marketing_bot import b2b_offer
 
-    data = callback_query.data  # "b2b_approve:123:email" или "b2b_reject:123"
-    parts = data.split(":")
-    action = parts[0]  # b2b_approve или b2b_reject
-    cid = int(parts[1])
+    parts = callback_query.data.split(":")  # b2b_approve:123:email | b2b_reject:123
+    action, cid = parts[0], int(parts[1])
 
     if action == "b2b_reject":
-        # Помечаем что отклонено
-        async with get_session_ctx() as session:
-            await session.execute(
-                text(
-                    "UPDATE interactions SET interaction_type = 'b2b_offer_rejected' "
-                    "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
-                ),
-                {"cid": cid},
-            )
-            await session.commit()
-        await callback_query.message.edit_text(
-            callback_query.message.text + "\n\n❌ <b>Отклонено администратором</b>",
-            parse_mode="HTML",
-        )
+        if not await b2b_offer.reject(cid):
+            await callback_query.answer("Уже обработано")
+            return
+        await _mark_card(callback_query, "❌ <b>Отклонено администратором</b>")
         await callback_query.answer("Отклонено ❌")
         return
 
-    # ── ОДОБРЕНИЕ ──
     channel = parts[2] if len(parts) > 2 else "skip"
-
-    async with get_session_ctx() as session:
-        # Получаем данные клиента и сохранённый текст КП
-        res = await session.execute(
-            text(
-                "SELECT c.id, c.name, c.company_name, c.email, c.phone, c.address, i.summary "
-                "FROM customers c "
-                "JOIN interactions i ON i.customer_id = c.id AND i.interaction_type = 'b2b_offer_pending' "
-                "WHERE c.deleted_at IS NULL AND c.id = :cid LIMIT 1"
-            ),
-            {"cid": cid},
-        )
-        row = res.fetchone()
-        if not row:
-            await callback_query.answer("Лид не найден или уже обработан")
-            return
-
-        _, name, company, email, phone, address, ai_text = row
-        chef_name = name or "Шеф-повар"
-        comp_name = company or "Ресторан"
-
-        # Продукты для PDF — из каталога-мастера, а не своим SQL.
-        products = [
-            {"name": item["name"], "price": format_price(item["price"])}
-            for item in (await catalog_repo.list_active())[:5]
-        ]
-
-        success = False
-
-        if channel == "email" and email:
-            # Генерируем PDF и отправляем на почту
-            pdf_path = generate_commercial_offer_pdf(
-                client_name=comp_name,
-                ai_text=ai_text,
-                prices=products,
-                output_filename=f"КП_Microgreen_{cid}.pdf",
-            )
-            subject = f"Свежая микрозелень для {comp_name} от Microgreen Uzbekistan"
-            email_text = (
-                f"Здравствуйте, {chef_name}!\n\nНаправляем коммерческое предложение "
-                f"с нашими ценами. Будем рады сотрудничеству!\n\n"
-                f"С уважением, ИИ-менеджер Microgreen Uzbekistan."
-            )
-            success = await send_b2b_offer_email(email, subject, email_text, pdf_path)
-            try:
-                os.remove(pdf_path)
-            except Exception:
-                pass
-
-            if success:
-                await session.execute(
-                    text(
-                        "UPDATE interactions SET interaction_type = 'b2b_offer_sent', channel = 'email' "
-                        "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
-                    ),
-                    {"cid": cid},
-                )
-                await session.commit()
-                await event_bus.publish(
-                    "b2b_outreach_completed",
-                    {"company": comp_name, "channel": "email", "status": "success"},
-                    "marketing_bot",
-                )
-
-        elif channel == "phone" and phone:
-            # Создаём задачу на обзвон
-            title = f"Обзвонить ресторан: {comp_name}"
-            desc = (
-                f"Холодный B2B-контакт. Ресторан: {comp_name}. Тел: {phone}. "
-                f"Адрес: {address or '—'}. "
-                f"Цель: предложить свежую микрозелень/салаты, договориться о пробной поставке."
-            )
-            res_t = await session.execute(
-                text(
-                    "INSERT INTO tasks (title, description, department, status, priority, created_at) "
-                    "VALUES (:t, :d, 'sales', 'todo', 'high', NOW()) RETURNING id"
-                ),
-                {"t": title, "d": desc},
-            )
-            task_id = res_t.scalar()
-            await session.execute(
-                text(
-                    "UPDATE interactions SET interaction_type = 'b2b_offer_sent', channel = 'phone_task', "
-                    "summary = :s WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
-                ),
-                {"cid": cid, "s": f"Создана задача обзвона #{task_id}"},
-            )
-            await session.commit()
-            success = True
-
-            admin_id = (
-                settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
-            )
-            if admin_id:
-                await event_bus.publish(
-                    "TASK_CREATED",
-                    {
-                        "task_id": task_id,
-                        "title": title,
-                        "description": desc,
-                        "department": "sales",
-                        "chat_id": admin_id,
-                        "priority": "high",
-                    },
-                    "marketing_bot",
-                )
-
-    if success:
-        status_text = (
-            "📧 КП отправлено на email!"
-            if channel == "email"
-            else "📞 Задача на обзвон создана!"
-        )
-        await callback_query.message.edit_text(
-            callback_query.message.text + f"\n\n✅ <b>ОДОБРЕНО</b> — {status_text}",
-            parse_mode="HTML",
-        )
+    ok, note = await b2b_offer.deliver(cid, channel)
+    if ok:
+        await _mark_card(callback_query, f"✅ <b>ОДОБРЕНО</b> — {note}")
         await callback_query.answer("Отправлено ✅")
     else:
+        await _mark_card(callback_query, f"⚠️ <b>{note}</b>")
+        await callback_query.answer(note[:200])
+
+
+async def _mark_card(callback_query, verdict: str) -> None:
+    """Дописать решение в карточку. Кнопки убираем — решение принято."""
+    try:
         await callback_query.message.edit_text(
-            callback_query.message.text + "\n\n⚠️ <b>Ошибка при отправке</b>",
+            f"{callback_query.message.text}\n\n{verdict}",
             parse_mode="HTML",
         )
-        await callback_query.answer("Ошибка ⚠️")
+    except Exception as exc:  # noqa: BLE001
+        # Telegram отказывает, если текст не изменился или сообщение старое.
+        # Само решение уже применено к базе, поэтому падать здесь нельзя —
+        # но и молчать нельзя: владелец увидит карточку без отметки.
+        logger.warning("карточка КП не обновилась: %s", exc)
+
+
+async def handle_b2b_batch(callback_query):
+    """
+    Одно решение на всю утреннюю пачку.
+
+    ЗАЧЕМ. Карточек до пятнадцати, и почти всегда владелец согласен со
+    всеми: список отобрал отдел продаж, тексты он пролистал. Пятнадцать
+    одинаковых нажатий — это не контроль, это налог на внимание, из-за
+    которого пачка неделями висела неразобранной, а лиды отбирались
+    заново каждое утро.
+
+    Карточки при этом ОСТАЮТСЯ поштучными: письмо ресторану не
+    отзывается, и увидеть, что именно уйдёт, владелец должен до отправки,
+    а не после. Пакетная кнопка сокращает нажатия, а не показ.
+    """
+    from bots.marketing_bot import b2b_offer
+
+    decision = callback_query.data.split(":")[1]  # approve | reject
+    waiting = await b2b_offer.pending()
+    if not waiting:
+        await callback_query.answer("Нечего решать — пачка уже разобрана")
+        return
+
+    await callback_query.answer(f"Обрабатываю {len(waiting)}…")
+
+    done, failed = [], []
+    for lead in waiting:
+        if decision == "reject":
+            ok, note = await b2b_offer.reject(lead["id"]), "отклонено"
+        else:
+            ok, note = await b2b_offer.deliver(lead["id"], lead["channel"])
+        (done if ok else failed).append(f"{lead['company']} — {note}")
+
+    verb = "Отклонено" if decision == "reject" else "Отправлено"
+    lines = [f"<b>{verb}: {len(done)}</b>"]
+    if failed:
+        lines.append(f"<b>Не получилось: {len(failed)}</b>")
+        lines.extend(f"  · {row}" for row in failed[:10])
+    await _mark_card(callback_query, "\n".join(lines))
 
 
 async def collect_leads_nightly():
@@ -861,6 +798,10 @@ async def main():
     )
     async def _b2b_cb(cq: CallbackQuery):
         await handle_b2b_approval(cq)
+
+    @b2b_router.callback_query(F.data.startswith("b2b_all:"))
+    async def _b2b_batch_cb(cq: CallbackQuery):
+        await handle_b2b_batch(cq)
 
     dp.include_router(b2b_router)
 

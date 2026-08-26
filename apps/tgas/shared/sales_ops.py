@@ -374,6 +374,43 @@ def _clarify_needs(
     return "product"
 
 
+def _also_needed(items: List[Dict[str, Any]], phone: Optional[str]) -> str:
+    """
+    Что понадобится СЛЕДУЮЩИМ вопросом — назвать сразу, одной строкой.
+
+    ЗАЧЕМ. Проверки шли лесенкой и каждая обрывала работу своим вопросом:
+    не назвали клиента — круг, не опознался товар — круг, не назвали
+    количество — круг, нет телефона — круг. Четыре сообщения владельцу,
+    четыре ответа и четыре вызова модели на ОДНУ продажу, притом что все
+    пробелы видны сразу.
+
+    Порядок вопросов не меняем: товар выбирают кнопкой, и спросить про
+    него нужно первым. Но пробелы, которые уже видно, называем в том же
+    сообщении — ответить на всё одной репликой владелец может, а модель
+    соберёт из неё параметры и вызовет `register_sale` один раз.
+
+    Ключ `needs` при этом остаётся ОДНИМ: по нему клавиатура понимает, что
+    показывать, и разбирается короткий ответ числом. Здесь только текст.
+    """
+    gaps = []
+
+    nameless = [i for i in items if i.get("product") and i.get("quantity") is None]
+    if nameless:
+        names = ", ".join(str(i["product"]) for i in nameless)
+        gaps.append(f"количество ({names})")
+
+    if not phone:
+        gaps.append("телефон клиента, если его ещё нет в карточке")
+
+    if not gaps:
+        return ""
+    return (
+        "\n\nЗаодно понадобится: "
+        + "; ".join(gaps)
+        + ". Можно ответить всё одним сообщением."
+    )
+
+
 def _clarify_message(
     ambiguous: List[Dict[str, Any]], missing: List[Dict[str, Any]]
 ) -> str:
@@ -420,14 +457,18 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
                                         товары, которых нет в каталоге
         {"status": "error",     ...}
     """
+    phone = normalize_phone(params.get("phone"))
+
     customer_name = str(params.get("customer_name") or "").strip()
     if not customer_name:
         return {
             "status": "clarify",
-            "message": "Не понял, кому продали. Назовите клиента (ресторан/человека).",
+            "message": (
+                "Не понял, кому продали. Назовите клиента (ресторан/человека)."
+                + _also_needed(_normalize_items(params), phone)
+            ),
         }
 
-    phone = normalize_phone(params.get("phone"))
     customer_type = (
         "b2b" if str(params.get("customer_type") or "").lower() == "b2b" else "b2c"
     )
@@ -461,7 +502,10 @@ async def register_sale(params: Dict[str, Any]) -> Dict[str, Any]:
             # и после ответа руководителя вызовет register_sale снова.
             return {
                 "status": "clarify",
-                "message": _clarify_message(outcome["ambiguous"], outcome["missing"]),
+                "message": (
+                    _clarify_message(outcome["ambiguous"], outcome["missing"])
+                    + _also_needed(items, phone)
+                ),
                 "data": {
                     "needs": _clarify_needs(outcome["ambiguous"], outcome["missing"]),
                     "ambiguous": outcome["ambiguous"],

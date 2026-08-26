@@ -555,3 +555,71 @@ async def test_ambiguous_product_needs_a_product_not_a_price(monkeypatch):
     )
     assert result["status"] == "clarify"
     assert result["data"]["needs"] == "product"
+
+
+@pytest.mark.asyncio
+async def test_one_question_names_every_gap_at_once(monkeypatch):
+    """
+    Пробелы, которые уже видно, называются В ТОМ ЖЕ сообщении.
+
+    Проверки шли лесенкой, и каждая обрывала работу своим вопросом: не
+    опознался товар — круг, не назвали количество — круг, нет телефона —
+    круг. Три сообщения владельцу, три ответа и три вызова модели на ОДНУ
+    продажу, притом что все пробелы видны сразу.
+
+    Порядок вопросов не меняется: товар выбирают кнопкой, и `needs`
+    остаётся одним — по нему клавиатура понимает, что показывать. Меняется
+    только текст: ответить на всё одной репликой владелец может.
+    """
+
+    async def two_candidates(name):
+        return {
+            "candidates": [
+                {"id": "p_m", "name": "Руккола", "price": 15000, "unit": "лоток"},
+                {"id": "p_b", "name": "Руккола", "price": 25000, "unit": "100 г"},
+            ]
+        }
+
+    monkeypatch.setattr(sales_ops.catalog_repo, "resolve", two_candidates)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Ресторан Жасмин",
+            "items": [{"product": "руккола"}],
+        }
+    )
+    assert result["status"] == "clarify"
+    # Первый вопрос — про товар, он с кнопками.
+    assert result["data"]["needs"] == "product"
+    # …и в том же сообщении названо всё остальное.
+    assert "количество" in result["message"], (
+        "про количество спросят следующим кругом, хотя пробел виден уже сейчас"
+    )
+    assert "телефон" in result["message"], (
+        "про телефон спросят ещё одним кругом, хотя его тоже не назвали"
+    )
+    assert "одним сообщением" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_nothing_extra_is_asked_when_nothing_is_missing(monkeypatch):
+    """Названы и количество, и телефон — лишней строки в вопросе нет.
+
+    Иначе подсказка превратилась бы в шум: её дописывали бы к каждому
+    вопросу независимо от того, есть ли пробел.
+    """
+
+    async def nothing_found(name):
+        return {}
+
+    monkeypatch.setattr(sales_ops.catalog_repo, "resolve", nothing_found)
+
+    result = await sales_ops.register_sale(
+        {
+            "customer_name": "Ресторан Жасмин",
+            "phone": "998901234567",
+            "items": [{"product": "санго-2", "quantity": 5, "unit_price": 15000}],
+        }
+    )
+    assert result["status"] == "clarify"
+    assert "Заодно понадобится" not in result["message"]
