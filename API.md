@@ -2,7 +2,7 @@
 
 Base URL: `https://microgreenuzbekistan.com/api`
 
-**29 групп, 120 route-файлов.** Список ниже сверен с каталогом
+**30 групп, 120 route-файлов.** Список ниже сверен с каталогом
 `apps/web/src/app/api/`, а не дописан по памяти. Раньше здесь значились восемь
 эндпоинтов, которых нет и не было, — в том числе `POST /api/sms`, из-за
 которого витринный бот месяцами получал 404 (этот случай конституция
@@ -81,7 +81,7 @@ Base URL: `https://microgreenuzbekistan.com/api`
 | Method | Endpoint | Описание |
 |--------|----------|----------|
 | GET | `/api/admin/stats` | Сводка для Telegram-панели (выручка без отменённых и возвращённых) |
-| GET | `/api/admin/analytics`, `/api/admin/finance` | Аналитика и P&L |
+| GET | `/api/admin/finance` | Доходы, расходы и P&L по деловой дате. Аналитика — `/api/inventory/analytics`: дубль `/api/admin/analytics` удалён, его не звал никто |
 | GET/POST | `/api/inventory`, `/api/inventory/movements` | Склад: остатки и движения. Количество дробное (два знака) |
 | POST/PUT/GET | `/api/inventory/pos` | Касса (STAFF). POST — продажа, PUT — возврат, GET — отчёт смены. Тело продажи: `items[{productId, quantity, price, priceReason}]`, `paymentMethod`, `customerId?`, `discount?{type,value,reason}`, `soldAt?` + `backdateReason?`, `performedBy?` (только у ADMIN). Цена не по прайсу требует `priceReason`; продавец проводит задним числом не глубже 7 суток, владелец — без предела, будущее закрыто всем |
 | GET | `/api/inventory/customers` | Поиск покупателя для кассы по имени и телефону (STAFF). Отдаёт только имя, компанию и телефон — карточка целиком остаётся под ADMIN |
