@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { prisma, Prisma } from '@repo/database';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 const isValidDate = (d: unknown) => d instanceof Date && !isNaN(d.getTime());
 
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     const shifts = await prisma.shift.findMany({
       where,
       orderBy: { date: 'desc' },
+      take: LIST_LIMIT,
       include: { employee: { select: { name: true, department: true } } }
     });
 

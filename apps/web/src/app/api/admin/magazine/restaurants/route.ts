@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { slugify as makeSlug } from '@/lib/slug';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
     const restaurants = await prisma.restaurant.findMany({
       where: { isMagazinePartner: true },
       orderBy: { createdAt: 'desc' },
+      take: LIST_LIMIT,
     });
     return NextResponse.json(restaurants);
   } catch (error: unknown) {

@@ -3,6 +3,7 @@ import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { defaultPersonalSpec } from '@/lib/magazine/defaults';
 import { prismaErrorCode } from '@/lib/safeError';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
       where: editionId ? { editionId } : undefined,
       include: { restaurant: true, edition: true },
       orderBy: { createdAt: 'desc' },
+      take: LIST_LIMIT,
     });
     return NextResponse.json(issues);
   } catch (error: unknown) {

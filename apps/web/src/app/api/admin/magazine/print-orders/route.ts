@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized } from '@/lib/adminAuth';
 import { computeOrder } from '@/lib/magazine/printPricing';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // Ссылки на онлайн-оплату тиража (Click/Payme). Референс print_<id> — колбэки
 // оплаты (payments.ts findPayableByRef) распознают его и помечают PrintOrder оплаченным.
@@ -47,7 +48,8 @@ export async function GET(req: NextRequest) {
         },
         subscription: true
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: LIST_LIMIT,
     });
     // К неоплаченным тиражам прикладываем ссылки на онлайн-оплату
     const withLinks = orders.map((o) => ({

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ==========================================
 // Debts API — Track who owes whom
@@ -27,6 +28,7 @@ export async function GET(request: NextRequest) {
       supplier: { select: { name: true, phone: true } },
     },
     orderBy: [{ isPaid: 'asc' }, { dueDate: 'asc' }, { createdAt: 'desc' }],
+    take: LIST_LIMIT,
   });
 
   // Calculate summaries

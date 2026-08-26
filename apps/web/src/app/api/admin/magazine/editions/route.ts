@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, Prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { defaultSharedSpec } from '@/lib/magazine/defaults';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,7 @@ export async function GET(request: Request) {
   try {
     const editions = await prisma.magazineEdition.findMany({
       orderBy: { weekNumber: 'desc' },
+      take: LIST_LIMIT,
       include: { _count: { select: { issues: true } } },
     });
     return NextResponse.json(editions);

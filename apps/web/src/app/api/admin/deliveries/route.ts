@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getSession, isAuthorized, isStaff } from '@/lib/adminAuth';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ══════════════════════════════════════════════════════════════════════
 // Маршруты доставки.
@@ -61,7 +62,8 @@ export async function GET(request: Request) {
       },
       orderBy: {
         date: 'desc'
-      }
+      },
+      take: LIST_LIMIT,
     });
     return NextResponse.json(routes);
   } catch (error: unknown) {

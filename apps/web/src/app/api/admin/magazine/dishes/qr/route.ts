@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { qrPng, qrSvg, dishUrl, menuUrl } from '@/lib/magazine/qr';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,6 +101,7 @@ export async function GET(req: NextRequest) {
     const dishes = await prisma.dish.findMany({
       where: { restaurantId, isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      take: LIST_LIMIT,
     });
     if (!dishes.length) return NextResponse.json({ error: 'No dishes' }, { status: 404 });
     const cells = await Promise.all(dishes.map(async (d) => ({

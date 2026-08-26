@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { isAuthorized } from '@/lib/adminAuth';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -8,7 +9,8 @@ export async function GET(req: NextRequest) {
   try {
     const subscriptions = await prisma.printSubscription.findMany({
       include: { restaurant: true },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: LIST_LIMIT,
     });
     return NextResponse.json(subscriptions);
   } catch (e: unknown) {

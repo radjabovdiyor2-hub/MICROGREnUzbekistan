@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { byBusinessDate } from '@/lib/revenue/salesLedger';
 import { EMPLOYEE_ROLE_VALUES } from '@/components/admin/employeeOptions';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ==========================================
 // Employees API — Seller Management
@@ -79,6 +80,7 @@ export async function GET() {
   const employees = await prisma.employee.findMany({
     where: { isActive: true },
     orderBy: { name: 'asc' },
+    take: LIST_LIMIT,
   });
 
   const today = new Date();

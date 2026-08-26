@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { z } from 'zod';
 import { getCustomerId, unauthorized, forbidden } from '@/lib/adminAuth';
 import { PLAN_CODES, applyPlanDiscount } from '@/lib/subscriptions/plans';
+import { LIST_LIMIT } from '@/lib/api/listLimit';
 
 // ══════════════════════════════════════════════════════════════════
 // API: /api/subscriptions
@@ -95,6 +96,7 @@ export async function GET(req: NextRequest) {
       },
     },
     orderBy: { createdAt: 'desc' },
+    take: LIST_LIMIT,
   });
 
   return NextResponse.json({ subscriptions });
