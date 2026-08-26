@@ -283,7 +283,10 @@ def render_story_text(
                 )
                 y += int(f_sec.size * 1.7)
             f_pt = _load_font(int(W * 0.041))
-            for pt in [p for p in points if str(p).strip()][:3]:
+            # `points` объявлен необязательным и здесь уже проверен
+            # через `has_points`, но проверка стоит выше по коду —
+            # берём `or []`, чтобы это читалось на месте.
+            for pt in [p for p in (points or []) if str(p).strip()][:3]:
                 for j, line in enumerate(
                     _wrap(
                         draw, _clean_text(str(pt)), f_pt, W - 2 * margin - int(W * 0.02)
@@ -514,7 +517,7 @@ def overlay_logo(image_path: str, scale: float = 0.14, opacity: float = 0.92) ->
 
         # Белый фон логотипа → прозрачность
         px = []
-        for r, g, b, a in logo.getdata():
+        for r, g, b, a in list(logo.getdata()):
             if r > 236 and g > 236 and b > 236:
                 px.append((r, g, b, 0))
             else:
@@ -524,7 +527,7 @@ def overlay_logo(image_path: str, scale: float = 0.14, opacity: float = 0.92) ->
         # Масштабируем логотип под ширину картинки
         w = max(1, int(base.width * scale))
         h = max(1, int(logo.height * (w / logo.width)))
-        logo = logo.resize((w, h), Image.LANCZOS)
+        logo = logo.resize((w, h), Image.Resampling.LANCZOS)
 
         margin = int(base.width * 0.03)
         pos = (base.width - w - margin, base.height - h - margin)

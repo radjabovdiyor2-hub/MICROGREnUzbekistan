@@ -114,7 +114,8 @@ async def get_bot_health() -> Dict[str, Any]:
         from shared.config import settings
 
         client = aioredis.from_url(settings.redis_url, decode_responses=True)
-        alive, silent = [], []
+        alive: list[str] = []
+        silent: list[str] = []
         for bot in bot_registry.BOTS:
             beat = await client.hget(f"bot:heartbeat:{bot.name}", "ts")
             (alive if beat else silent).append(bot.name)

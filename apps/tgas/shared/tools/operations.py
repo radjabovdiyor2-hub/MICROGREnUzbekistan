@@ -326,8 +326,22 @@ async def plant_batch(
     партия заведена, семена списаны, себестоимость посчитана — всё на числе,
     которого никто не называл.
     """
+    # `quantity` приходит от модели и бывает None: инструмент вызывают
+    # фразой «посади горох» без числа. Приводим в ОТДЕЛЬНУЮ переменную, а не
+    # переприсваиваем аргумент: у него тип `Optional[int]`, и переприсваивание
+    # результатом `int(...)` пришлось бы глушить подавлением — тем самым
+    # `@ts-ignore`, который на стороне TypeScript запрещён прямо.
+    if quantity is None:
+        return {
+            "ok": False,
+            "needs": ["quantity"],
+            "error": (
+                f"Не назвали, сколько сажаем «{crop_type}». Скажите число единиц "
+                f"(лотков для микрозелени, стаканчиков для салата) — тогда посажу."
+            ),
+        }
     try:
-        quantity = int(quantity)
+        count = int(quantity)
     except (TypeError, ValueError):
         return {
             "ok": False,
@@ -337,7 +351,7 @@ async def plant_batch(
                 f"(лотков для микрозелени, стаканчиков для салата) — тогда посажу."
             ),
         }
-    if quantity <= 0:
+    if count <= 0:
         return {
             "ok": False,
             "needs": ["quantity"],
@@ -346,7 +360,7 @@ async def plant_batch(
 
     # Сначала спрашиваем расход. Витрина откажет и сама, но тогда владелец
     # увидит «не смог» вместо «не хватает 300 г семян гороха, есть 120».
-    preview = await production_repo.plant_requirements(crop_type, quantity)
+    preview = await production_repo.plant_requirements(crop_type, count)
     if not preview.get("ok"):
         details = preview.get("details") or {}
         return {
@@ -373,7 +387,7 @@ async def plant_batch(
             "note": "Посадка НЕ выполнена. Назови, чего и сколько не хватает.",
         }
 
-    planted = await production_repo.plant(crop_type, quantity, seed_date, note)
+    planted = await production_repo.plant(crop_type, count, seed_date, note)
     if not planted.get("ok"):
         return _fail(planted, "Посадка")
 
@@ -386,11 +400,11 @@ async def plant_batch(
         "ok": True,
         "batch_id": batch.get("id"),
         "crop": crop_type,
-        "quantity": quantity,
+        "quantity": count,
         "unit": unit_word,
         "consumed": short,
         "estimated_cost": data.get("estimatedCost"),
-        "summary": f"Посажено {quantity} {unit_word} «{crop_type}».",
+        "summary": f"Посажено {count} {unit_word} «{crop_type}».",
     }
 
 

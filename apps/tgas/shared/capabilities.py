@@ -226,7 +226,11 @@ async def cap_notify_customers(params: dict) -> Result:
         return Result(False, "Нет токена sales_bot — не могу писать клиентам.")
 
     bot = Bot(token=token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-    tg, mail, calls = [], [], []
+    # Три корзины исхода рассылки. `calls` хранит КАРТОЧКИ клиентов
+    # (имя и телефон уходят в задачу на обзвон), остальные — только имена.
+    tg: list[str] = []
+    mail: list[str] = []
+    calls: list[dict] = []
     try:
         for c in customers:
             ch = await _reach(bot, c, message)

@@ -99,7 +99,7 @@ async def send_task(
     from_bot: str,
     to_bot: str,
     action: str,
-    params: Dict[str, Any] = None,
+    params: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Отправить задачу другому боту атомарно.
@@ -200,7 +200,9 @@ async def claim_task(task_id: str) -> bool:
         return False
 
 
-async def complete_task(task_id: str, result: Any = None, error: str = None):
+async def complete_task(
+    task_id: str, result: Any = None, error: Optional[str] = None
+):
     """Пометить задачу как выполненную или вернуть в очередь при ошибке."""
     processing_path = _processing_path(task_id)
     if not processing_path.exists():

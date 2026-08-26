@@ -286,7 +286,7 @@ async def get_quality_report(days: str = "7") -> Dict[str, Any]:
         "summary": (
             f"За {window} дн. проверок {len(rows)}: годно {len(passed)}, "
             f"брак {len(failed)}."
-            + (f" Чаще всего: {max(defects, key=defects.get)}." if defects else "")
+            + (f" Чаще всего: {max(defects, key=lambda d: defects[d])}." if defects else "")
         ),
         "checks": [
             {

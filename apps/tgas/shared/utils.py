@@ -99,9 +99,9 @@ def generate_order_number(last_number: Optional[str] = None) -> str:
 
 async def simulate_typing(
     bot_or_message,
-    chat_id: int = None,
+    chat_id: Optional[int] = None,
     seconds: float = 1.5,
-    delay: float = None,
+    delay: Optional[float] = None,
 ) -> None:
     """
     Имитация набора текста в Telegram.

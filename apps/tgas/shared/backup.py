@@ -5,6 +5,7 @@
 """
 
 import asyncio
+from typing import Optional
 import logging
 import os
 from datetime import datetime
@@ -19,7 +20,7 @@ BACKUP_DIR.mkdir(exist_ok=True)
 MAX_BACKUPS = 7  # Хранить последние 7 бэкапов
 
 
-async def create_backup() -> str:
+async def create_backup() -> Optional[str]:
     """
     Создаёт бэкап PostgreSQL через pg_dump.
     Возвращает путь к файлу бэкапа.

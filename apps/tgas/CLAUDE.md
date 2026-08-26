@@ -33,6 +33,7 @@ python scripts/check_tools.py        # инструменты, достижим�
 python scripts/check_bot_roster.py   # состав 12 ботов + моста во всех шести местах
 python scripts/check_prompts.py      # контакты и промпты
 python scripts/check_imports.py      # `from shared.X import Y` — Y там есть
+python scripts/check_types.py        # типы в дверях к данным (mypy по списку)
 ```
 
 `check_imports.py` появился после 10.08.2026: `shared/feedback_loop.py`

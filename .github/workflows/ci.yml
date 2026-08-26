@@ -100,8 +100,14 @@ jobs:
       # строкой — то, из-за чего ошибку не видно при чтении.
       - name: Run Ruff (storefront bot)
         run: ruff check apps/bot
-      - name: Run Mypy
-        run: mypy apps/tgas --ignore-missing-imports || true
+      # Стояло `mypy apps/tgas || true`, то есть не значило ничего.
+      # Прогон по всему офису даёт 573 ошибки — почти все в обработчиках
+      # aiogram; включить это целиком значит сделать CI вечно красным.
+      # Поэтому проверка блокирующая, но по списку: единственные двери к
+      # данным и машинерия вокруг них. Список растёт в check_types.py.
+      - name: Run Mypy (двери к данным — блокирующая)
+        run: python scripts/check_types.py
+        working-directory: apps/tgas
       - name: Run compose invariant watchdog
         run: python scripts/check_compose.py
       # Переменная, которую код читает, но никто не объявил, — это функция,
