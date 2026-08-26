@@ -1,21 +1,23 @@
 'use client';
 
-import { ArrowLeft, Package, Settings } from 'lucide-react';
-import { STATUS_CONFIG } from './adminOrdersConfig';
+import { ArrowLeft, Package, Settings, Wallet } from 'lucide-react';
+import { PAYMENT_STATUS_CONFIG, STATUS_CONFIG } from './adminOrdersConfig';
 import type { Order } from './adminOrderTypes';
 import { tint } from '@/lib/tint';
 
 // Карточка одного заказа: кто, что, на сколько и смена статуса.
 // Вынесена из AdminOrders — там осталась выборка списка, поиск и страницы.
 
-export function AdminOrderDetail({ order, onBack, onStatus, fmt, fmtDate }: {
+export function AdminOrderDetail({ order, onBack, onStatus, onPaymentStatus, fmt, fmtDate }: {
   order: Order;
   onBack: () => void;
   onStatus: (status: string) => void;
+  onPaymentStatus: (paymentStatus: string) => void;
   fmt: (n: number) => string;
   fmtDate: (d: string) => string;
 }) {
   const st = STATUS_CONFIG[order.status] || STATUS_CONFIG.PENDING;
+  const pay = PAYMENT_STATUS_CONFIG[order.paymentStatus] || PAYMENT_STATUS_CONFIG.PENDING;
 
   return (
     <div>
@@ -35,7 +37,11 @@ export function AdminOrderDetail({ order, onBack, onStatus, fmt, fmtDate }: {
           <div><span style={{ color: 'var(--text-muted)' }}>Telefon:</span> <strong>{order.phone}</strong></div>
           <div><span style={{ color: 'var(--text-muted)' }}>Manzil:</span> <strong>{order.address}</strong></div>
           <div><span style={{ color: 'var(--text-muted)' }}>Sana:</span> <strong>{fmtDate(order.createdAt)}</strong></div>
-          <div><span style={{ color: 'var(--text-muted)' }}>To&apos;lov:</span> <strong>{order.paymentMethod}</strong></div>
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>To&apos;lov:</span>{' '}
+            <strong>{order.paymentMethod}</strong>{' '}
+            <span style={{ color: pay.color, fontWeight: 'var(--font-semibold)' }}>· {pay.label}</span>
+          </div>
           {order.note && <div style={{ gridColumn: '1/-1' }}><span style={{ color: 'var(--text-muted)' }}>Izoh:</span> <strong>{order.note}</strong></div>}
         </div>
 
@@ -62,6 +68,21 @@ export function AdminOrderDetail({ order, onBack, onStatus, fmt, fmtDate }: {
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           {Object.entries(STATUS_CONFIG).filter(([k]) => k !== order.status).map(([key, cfg]) => (
             <button key={key} onClick={() => onStatus(key)} className="btn btn-sm"
+              style={{ border: `1px solid ${cfg.color}`, color: cfg.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {cfg.icon} {cfg.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Оплата. Отдельная ось: заказ доставлен — ещё не значит оплачен, и
+            наоборот. Раньше это состояние было видно, но не менялось ничем:
+            ручка в API была, кнопки не было. */}
+        <h4 style={{ fontWeight: 'var(--font-semibold)', margin: 'var(--space-4) 0 var(--space-2)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Wallet size={16} /> To&apos;lov holati
+        </h4>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          {Object.entries(PAYMENT_STATUS_CONFIG).filter(([k]) => k !== order.paymentStatus).map(([key, cfg]) => (
+            <button key={key} onClick={() => onPaymentStatus(key)} className="btn btn-sm"
               style={{ border: `1px solid ${cfg.color}`, color: cfg.color, display: 'flex', alignItems: 'center', gap: '4px' }}>
               {cfg.icon} {cfg.label}
             </button>

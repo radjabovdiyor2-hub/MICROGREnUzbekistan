@@ -28,13 +28,34 @@ async def on_task_done(callback: CallbackQuery):
         if not is_owner(callback.from_user.id):
             return await callback.answer("⛔ Только владелец", show_alert=True)
 
-        task_id = callback.data.split(":")[1]
+        task_id = int(callback.data.split(":")[1])
 
         bot_info = await callback.bot.get_me()
         bot_name = bot_info.username or "unknown_bot"
 
         username = callback.from_user.username or callback.from_user.first_name
 
+        # ── Статус пишем ЗДЕСЬ, а не надеемся на событие ─────────────────
+        #
+        # Раньше нажатие только публиковало `TASK_COMPLETED`, а статус в базе
+        # менял единственный обработчик — у Стёпана. Стёпан лежит (выкат,
+        # перезапуск, падение) — нажатие пропадает молча: Redis Pub/Sub не
+        # переигрывает пропущенное, а `retry_stuck_tasks` берёт только `todo`.
+        # Владелец видел «✅ Отмечено как выполненное», а закрытой задачу не
+        # считал никто.
+        #
+        # Кнопка подключена к восьми ботам, и каждый из них умеет сходить в
+        # ту же базу через единственную дверь `tasks_repo`.
+        from shared import tasks_repo
+
+        closed = await tasks_repo.set_status(task_id, "done")
+        if not closed:
+            return await callback.answer(
+                f"Задача #{task_id} не найдена — статус не изменён", show_alert=True
+            )
+
+        # Событие остаётся, но теперь оно ИЗВЕЩЕНИЕ, а не способ записи:
+        # на нём висят доклад в чат и учёт у аналитики.
         from shared.event_bus import event_bus
 
         await event_bus.publish(
@@ -166,6 +187,13 @@ async def send_hitl_approval_request(workflow_name: str, step_name: str, context
 @task_ui_router.callback_query(F.data.startswith("hitl:"))
 async def on_hitl_response(callback: CallbackQuery):
     try:
+        # Проверки прав здесь не было, а `task_ui_router` подключён к восьми
+        # ботам, часть которых работает в групповых чатах: одобрить шаг
+        # процесса — например, выпуск нового товара — мог любой участник
+        # группы. Ровно та же дыра, что была у кнопки «Выполнено» рядом.
+        if not is_owner(callback.from_user.id):
+            return await callback.answer("⛔ Только владелец", show_alert=True)
+
         _, workflow_name, step_name, decision = callback.data.split(":")
         
         is_approved = (decision == "approve")

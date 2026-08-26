@@ -35,6 +35,15 @@ export interface RefEmployee {
   name: string;
 }
 
+export interface RefOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+  phone: string;
+  address: string;
+  total: number;
+}
+
 async function getJson(url: string): Promise<Record<string, unknown>> {
   const res = await fetch(url, { credentials: 'same-origin' });
   if (!res.ok) throw new Error(`Справочник недоступен: ${url}`);
@@ -55,6 +64,29 @@ export function useEmployees() {
   const { data } = useQuery<RefEmployee[]>({
     queryKey: ['admin-employees-list'],
     queryFn: async () => ((await getJson('/api/inventory/employees')).employees ?? []) as RefEmployee[],
+  });
+  return data ?? [];
+}
+
+/**
+ * Заказы, которые ещё надо отвезти, — для формы маршрута.
+ *
+ * До этого точку маршрута собирали, перепечатывая адрес и телефон из
+ * карточки заказа руками, хотя `POST /api/admin/deliveries` принимает
+ * `orderId` с первого дня. Перепечатанный адрес расходится с заказом при
+ * первой же опечатке, и найти потом, какой заказ уехал на этой машине,
+ * нельзя вовсе: связи между ними не оставалось.
+ *
+ * Доставленные и отменённые сюда не попадают: везти их незачем.
+ */
+export function usePendingOrders() {
+  const { data } = useQuery<RefOrder[]>({
+    queryKey: ['admin-orders-pending-delivery'],
+    queryFn: async () => {
+      const json = await getJson('/api/orders?limit=100');
+      const orders = (json.orders ?? []) as RefOrder[];
+      return orders.filter((o) => !['DELIVERED', 'CANCELLED'].includes(o.status));
+    },
   });
   return data ?? [];
 }

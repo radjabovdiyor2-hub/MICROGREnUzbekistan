@@ -229,19 +229,33 @@ async def daily_report():
 
 
 async def check_followups():
-    """Каждые 30 минут проверяем pending follow-ups и делегируем отправку Sales боту.
+    """Каждые 30 минут: довести до клиента запланированное касание.
 
     Раньше здесь создавался второй Bot(token=sales_bot_token) — это приводило
     к конфликту polling («terminated by other getUpdates request»).
-    Теперь follow-ups отправляются самим Степаном (это его задача как координатора).
+    Теперь follow-ups отправляются самим Стёпаном (это его задача как координатора).
+
+    ⚠️ ГЛАВНОЕ, ЧТО ЗДЕСЬ ЧИНИЛОСЬ. Строка `if not tg_id: continue` означала,
+    что клиент без Telegram не получает НИЧЕГО и никогда: запись остаётся
+    `pending`, выбирается каждые полчаса вечно, и никто об этом не узнаёт.
+    При этом `create_followup` ищет клиента по ТЕЛЕФОНУ — то есть штатно
+    заводит касания тем, у кого Telegram и нет.
+
+    Теперь путь тот же, что у рассылок: лестница `capabilities._reach`
+    (Telegram → email → задача живому человеку на звонок). Недостижимый
+    клиент — это не «пропустить», а «позвонить»: касание либо случилось,
+    либо стало чьей-то работой, и в обоих случаях перестало быть `pending`.
     """
     try:
         from sqlalchemy import text as sa_text
 
+        from shared.capabilities import _create_human_task, _reach
+
         async with get_session_ctx() as session:
             res = await session.execute(
                 sa_text(
-                    "SELECT f.id, f.message, c.telegram_id "
+                    "SELECT f.id, f.message, f.customer_id, c.telegram_id, c.email, "
+                    "       c.name, c.phone "
                     "FROM followups f "
                     "JOIN customers c ON f.customer_id = c.id "
                     "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() "
@@ -253,25 +267,45 @@ async def check_followups():
         if not followups:
             return
 
-        for fid, msg, tg_id in followups:
-            if not tg_id:
-                continue
+        for fid, msg, cust_id, tg_id, email, name, phone in followups:
+            cust = {
+                "id": cust_id,
+                "telegram_id": tg_id,
+                "email": email,
+                "name": name,
+                "phone": phone,
+            }
             try:
-                await _bot.send_message(tg_id, f"🌱 {msg}")
+                channel = await _reach(_bot, cust, f"🌱 {msg}")
+
+                if channel == "need_call":
+                    # Ни Telegram, ни почты. Это остаток для человека, а не
+                    # повод молча выбрать ту же строку через полчаса.
+                    await _create_human_task(
+                        f"Позвонить клиенту {name or phone or cust_id}",
+                        f"Написать не получилось (ни Telegram, ни email). Текст касания: {msg}",
+                    )
+                    status = "need_call"
+                else:
+                    status = "sent"
+
                 async with get_session_ctx() as session:
                     await session.execute(
-                        sa_text("UPDATE followups SET status = 'sent' WHERE id = :fid"),
-                        {"fid": fid},
+                        sa_text("UPDATE followups SET status = :st WHERE id = :fid"),
+                        {"fid": fid, "st": status},
                     )
-                    await session.execute(
-                        sa_text(
-                            "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
-                            "VALUES ((SELECT customer_id FROM followups WHERE id = :fid), "
-                            "'telegram', 'followup', 'stepan_bot', :summary)"
-                        ),
-                        {"fid": fid, "summary": msg[:200]},
-                    )
-                logger.info(f"Follow-up #{fid} отправлен клиенту {tg_id}")
+                    # Запись о самом касании ведёт `_reach`; здесь остаётся
+                    # только пометка типа «followup», по которой его отличают
+                    # от рассылки в истории клиента.
+                    if status == "sent":
+                        await session.execute(
+                            sa_text(
+                                "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary) "
+                                "VALUES (:cid, :ch, 'followup', 'stepan_bot', :summary)"
+                            ),
+                            {"cid": cust_id, "ch": channel, "summary": msg[:200]},
+                        )
+                logger.info("Follow-up #%s: %s (клиент %s)", fid, status, cust_id)
             except Exception as e:
                 logger.warning(f"Follow-up #{fid} ошибка: {e}")
     except Exception as e:
@@ -1051,6 +1085,25 @@ scheduler.add_cron(name="daily_backup", func=_daily_backup, hour=3, minute=0)
 scheduler.add_interval(
     name="token_refresh", func=_token_refresh, seconds=86400 * 7
 )  # раз в неделю
+
+
+# ── Очередь зеркала «витрина → офис» ────────────────────────────────────
+#
+# Витрина складывает заказы и чеки в `office_outbox` и повторяет доставку,
+# но толкает очередь только НОВАЯ операция. Роут по расписанию на витрине
+# написан и не вызывался никем: офис лёг под вечер, следующий чек утром —
+# и заказ проваляется в очереди всю ночь, хотя чинить нечего.
+#
+# Планировщик в проекте один и живёт здесь, поэтому стучится офис.
+async def _drain_office_queue():
+    from shared.storefront_orders import drain_office_queue
+
+    await drain_office_queue()
+
+
+scheduler.add_interval(
+    name="office_queue_drain", func=_drain_office_queue, seconds=900
+)
 
 
 # ── KPI-watchdog: при падении показателей автоматически созывает совещание отделов ──

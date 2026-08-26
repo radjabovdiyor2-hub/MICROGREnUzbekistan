@@ -64,6 +64,10 @@ const RULES: Rule[] = [
   { prefix: '/api/admin/customers/map', access: 'STAFF', methods: ['GET', 'PATCH'] },
   // Отметка визита — смысл всей полевой работы, без неё карта пишется в стол.
   { prefix: '/api/admin/customers/visits', access: 'STAFF', methods: ['POST'] },
+  // Доставка. Курьер видит СВОЙ рейс и закрывает точки; собирать рейсы,
+  // менять их и удалять остаётся владельцу. Чей это рейс, решает сам роут
+  // по имени из сессии — middleware владельца записи знать не может.
+  { prefix: '/api/admin/deliveries', access: 'STAFF', methods: ['GET', 'PATCH'] },
   { prefix: '/api/inventory/employees', access: 'ADMIN' },
   { prefix: '/api/inventory/debts', access: 'ADMIN' },
   { prefix: '/api/inventory/suppliers', access: 'ADMIN' },

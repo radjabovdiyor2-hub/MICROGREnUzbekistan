@@ -4,8 +4,8 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import text
+from shared import tasks_repo
 from shared.database import get_session_ctx
-from shared.event_bus import event_bus
 from bots.stepan_bot.states import TaskStates
 from bots.stepan_bot.keyboards.inline import (
     priority_kb,
@@ -55,37 +55,52 @@ async def task_desc(msg: Message, state: FSMContext):
     )
 
 
+# Сколько дней даётся задаче в зависимости от того, как её назвали срочной.
+#
+# Дедлайн здесь не спрашивается отдельным шагом намеренно: создание задачи
+# и так идёт в четыре экрана, а пятый ради числа, которое почти всегда
+# выводится из приоритета, — это лишняя работа владельцу. Нужен другой срок —
+# он ставится одной фразой Стёпану, там дедлайн есть в явном виде.
+DEADLINE_DAYS = {"urgent": 1, "high": 2, "medium": 3, "low": 7}
+
+
 @router.callback_query(TaskStates.confirming, F.data == "pm:yes")
 async def confirm_task(cb: CallbackQuery, state: FSMContext):
     d = await state.get_data()
-    async with get_session_ctx() as session:
-        res = await session.execute(
-            text(
-                "INSERT INTO tasks (title, description, priority, department, status, created_at) "
-                "VALUES (:t, :desc, :p, 'pm', 'todo', NOW()) RETURNING id"
-            ),
-            {"t": d["title"], "desc": d["description"], "p": d["priority"]},
-        )
-        task_id = res.scalar()
-        await session.commit()
 
-    # Без этого события строка в базе появлялась, а исполнителя у неё не было:
-    # задачи из PM-меню не брал никто и никогда. Payload — ПЛОСКИЙ, publish()
-    # сам оборачивает его в {"event", "data", ...} (см. shared/event_bus.py).
-    await event_bus.publish(
-        "TASK_CREATED",
-        {
-            "task_id": task_id,
-            "title": d["title"],
-            "description": d["description"],
-            "department": "pm",
-            "priority": d["priority"],
-            "chat_id": cb.message.chat.id,
-        },
-        "stepan_bot",
+    # ── Через tasks_repo, а не сырым INSERT ──────────────────────────────
+    #
+    # Здесь стоял свой `INSERT INTO tasks` без `deadline`. Дайджест
+    # просрочки (`list_overdue`) ключуется по `deadline < CURRENT_DATE`,
+    # поэтому задача из PM-меню не попадала в него НИКОГДА: заводили её
+    # руками в четыре шага — и о ней больше не напоминал никто.
+    #
+    # Заодно возвращаются вещи, которые репозиторий делает сам и о которых
+    # копия не знала: `updated_at`, дедуп по недавним задачам и пинг SSE,
+    # без которого экран «Задачи отделам» в админке оставался прежним.
+    priority = d.get("priority", "medium")
+    created = await tasks_repo.create(
+        title=d["title"],
+        department="pm",
+        description=d.get("description", ""),
+        priority=priority,
+        deadline_days=DEADLINE_DAYS.get(priority, 3),
+        chat_id=cb.message.chat.id,
     )
+    task_id = created.get("task_id")
 
     await state.set_state(None)
+    if not created.get("dispatched"):
+        # Строка есть, исполнителя нет — молчать об этом нельзя: владелец
+        # уйдёт в уверенности, что работа передана.
+        await cb.message.edit_text(
+            f"⚠️ Задача #{task_id} создана, но отдел о ней не узнал — "
+            "проверьте шину событий. Она видна в списке задач.",
+            reply_markup=pm_menu_kb(d.get("lang", "ru")),
+        )
+        await cb.answer()
+        return
+
     await cb.message.edit_text(
         f"✅ Задача #{task_id} создана и передана в работу!",
         reply_markup=pm_menu_kb(d.get("lang", "ru")),

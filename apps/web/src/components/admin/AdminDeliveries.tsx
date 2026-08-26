@@ -4,26 +4,13 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Truck } from 'lucide-react';
 import { AdminDeliveryForm } from './AdminDeliveryForm';
-
-interface DeliveryRoute {
-  id: string;
-  driverId: string;
-  driver?: { name: string; phone: string };
-  date: string;
-  status: string;
-  stops: DeliveryStop[];
-}
-
-interface DeliveryStop {
-  id: string;
-  address: string;
-  phone: string | null;
-  status: string;
-  orderIndex: number;
-}
+import { AdminDeliveryRouteCard, type DeliveryRoute } from './AdminDeliveryRoute';
+import { useFeedback } from './AdminFeedback';
+import { AdminNotice } from './AdminNotice';
 
 export function AdminDeliveries() {
   const queryClient = useQueryClient();
+  const notify = useFeedback();
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -60,6 +47,59 @@ export function AdminDeliveries() {
     }
   };
 
+  /** Маршрут закрыт: машина вернулась. Раньше закрыть его было нечем. */
+  const complete = async (id: string) => {
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/deliveries', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ id, status: 'completed' }),
+      });
+      if (!res.ok) throw new Error('Не удалось завершить маршрут');
+      notify.success('Маршрут завершён');
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /**
+   * Удаление маршрута. Точки уходят вместе с ним (каскад в схеме), поэтому
+   * спрашиваем: вернуть порядок объезда, собранный руками, будет нечем.
+   * Сами заказы при этом остаются — удаляется рейс, а не работа.
+   */
+  const remove = async (route: DeliveryRoute) => {
+    const day = new Date(route.date).toLocaleDateString('ru-RU');
+    const ok = await notify.confirm({
+      title: `Удалить маршрут на ${day}?`,
+      detail: `Вместе с ним исчезнут ${route.stops.length} точек и порядок объезда. Заказы останутся — удаляется рейс, а не работа.`,
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/deliveries?id=${route.id}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      });
+      if (!res.ok) throw new Error('Не удалось удалить маршрут');
+      notify.success('Маршрут удалён');
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) return <div>Загрузка маршрутов...</div>;
 
   return (
@@ -79,6 +119,10 @@ export function AdminDeliveries() {
           onCancel={() => setShowAdd(false)} onSubmit={create} />
       )}
 
+      {/* Отказ завершения или удаления виден и при закрытой форме: раньше
+          текст ошибки существовал только внутри неё. */}
+      {!showAdd && <AdminNotice>{error}</AdminNotice>}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {routes.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -86,42 +130,8 @@ export function AdminDeliveries() {
           </div>
         ) : (
           routes.map(route => (
-            <div key={route.id} className="card" style={{ padding: 'var(--space-4)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-3)' }}>
-                <div>
-                  <h3 style={{ fontWeight: 'bold' }}>Курьер: {route.driver?.name || route.driverId}</h3>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                    Дата: {new Date(route.date).toLocaleDateString('ru-RU')}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ 
-                    padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold',
-                    background: route.status === 'COMPLETED' ? 'var(--success-bg)' : 'var(--info-bg)',
-                    color: route.status === 'COMPLETED' ? 'var(--success)' : 'var(--info)'
-                  }}>
-                    {route.status}
-                  </span>
-                </div>
-              </div>
-              
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-2)' }}>
-                <h4 style={{ fontSize: '14px', marginBottom: 'var(--space-2)' }}>Точки доставки ({route.stops.length}):</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                  {route.stops.map((stop, i) => (
-                    <div key={stop.id} style={{ display: 'flex', gap: 'var(--space-2)', fontSize: '13px', alignItems: 'flex-start' }}>
-                      <div style={{ background: 'var(--bg-secondary)', width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 'bold' }}>
-                        {i + 1}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: '500' }}>{stop.address}</div>
-                        {stop.phone && <div style={{ color: 'var(--text-muted)' }}>{stop.phone}</div>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <AdminDeliveryRouteCard key={route.id} route={route}
+              onComplete={complete} onDelete={remove} busy={saving} />
           ))
         )}
       </div>

@@ -2,7 +2,7 @@
 
 import {
   Route,
-  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, Tag, TrendingUp, Truck, Users, Wallet, Network
+  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -98,6 +98,9 @@ export const TAB_GROUPS = [
     title: { ru: 'Производство и Сеть', uz: 'Ishlab chiqarish va Tarmoq' },
     tabs: [
       { id: 'deliveries', ru: 'Логистика', uz: 'Logistika', icon: <Truck size={16} /> },
+      // Рейс глазами того, кто его едет. Владельцу тоже открыт: иначе
+      // проверить, что видит курьер, можно было бы только его телефоном.
+      { id: 'my_route', ru: 'Мой рейс', uz: 'Mening reysim', icon: <Navigation size={16} /> },
       { id: 'qa', ru: 'Контроль Качества', uz: 'Sifat nazorati', icon: <Eye size={16} /> },
       { id: 'experiments', ru: 'R&D Эксперименты', uz: 'R&D Tajribalar', icon: <Lightbulb size={16} /> },
       { id: 'franchise', ru: 'Франшиза', uz: 'Franshiza', icon: <Network size={16} /> },
@@ -115,6 +118,9 @@ export const SELLER_TABS = [
   // Клиенты и карта: продавец по ним ездит. Правка бонусов, статуса и
   // удаление карточек ему закрыты — и в интерфейсе, и в API.
   { id: 'customers', ru: 'Клиенты', uz: 'Mijozlar', icon: <Users size={16} /> },
+  // Развозит тот же человек. Маршрут ему назначает владелец, а закрывает
+  // точки он сам — до этого отметить доставку было нечем вовсе.
+  { id: 'my_route', ru: 'Мой рейс', uz: 'Mening reysim', icon: <Navigation size={16} /> },
 ];
 
 /** Агроном ведёт теплицу: посадки и ничего больше. Касса ему не нужна. */

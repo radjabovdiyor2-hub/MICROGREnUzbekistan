@@ -102,25 +102,33 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
    * товара на склад и зеркало в CRM — молчать о том, что он не сменился,
    * нельзя.
    */
-  const updateStatus = async (orderId: string, newStatus: string) => {
+  const patchOrder = async (
+    orderId: string,
+    patch: { status?: string; paymentStatus?: string },
+  ) => {
     if (savingStatus) return;
     setSavingStatus(true);
     setStatusError('');
+    // Смена статуса ЗАКАЗА уводит из карточки: следующий шаг владельца —
+    // другой заказ. Смена статуса ОПЛАТЫ оставляет на месте: деньги отмечают
+    // не вместо работы с заказом, а по ходу неё.
+    const leaveCard = patch.status !== undefined;
+    const what = leaveCard ? 'Статус' : 'Статус оплаты';
     try {
       const res = await fetch('/api/orders', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: orderId, status: newStatus }),
+        body: JSON.stringify({ id: orderId, ...patch }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        setStatusError(body?.error || `Статус не сменился: сервер ответил ${res.status}`);
+        setStatusError(body?.error || `${what} не сменился: сервер ответил ${res.status}`);
         return;
       }
       fetchOrders();
-      if (current?.id === orderId) closeDetail();
+      if (leaveCard && current?.id === orderId) closeDetail();
     } catch {
-      setStatusError('Статус не сменился: нет связи с сервером');
+      setStatusError(`${what} не сменился: нет связи с сервером`);
     } finally {
       setSavingStatus(false);
     }
@@ -133,7 +141,8 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
         <AdminOrderDetail
           order={current}
           onBack={closeDetail}
-          onStatus={(status) => updateStatus(current.id, status)}
+          onStatus={(status) => patchOrder(current.id, { status })}
+          onPaymentStatus={(paymentStatus) => patchOrder(current.id, { paymentStatus })}
           fmt={fmt}
           fmtDate={fmtDate}
         />

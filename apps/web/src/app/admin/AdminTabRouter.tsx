@@ -85,6 +85,7 @@ const AdminVisitPlans = dynamic(() => import('@/components/admin/AdminVisitPlans
 const AdminTasks = dynamic(() => import('@/components/admin/AdminTasks').then((m) => m.AdminTasks), { ssr: false, loading: TabLoading });
 const AdminCategories = dynamic(() => import('@/components/admin/AdminCategories').then((m) => m.AdminCategories), { ssr: false, loading: TabLoading });
 const AdminDeliveries = dynamic(() => import('@/components/admin/AdminDeliveries').then((m) => m.AdminDeliveries), { ssr: false, loading: TabLoading });
+const AdminMyRoute = dynamic(() => import('@/components/admin/AdminMyRoute').then((m) => m.AdminMyRoute), { ssr: false, loading: TabLoading });
 const AdminQA = dynamic(() => import('@/components/admin/AdminQA').then((m) => m.AdminQA), { ssr: false, loading: TabLoading });
 const AdminExperiments = dynamic(() => import('@/components/admin/AdminExperiments').then((m) => m.AdminExperiments), { ssr: false, loading: TabLoading });
 const AdminFranchise = dynamic(() => import('@/components/admin/AdminFranchise').then((m) => m.AdminFranchise), { ssr: false, loading: TabLoading });
@@ -181,6 +182,9 @@ export function AdminTabRouter({ activeTab, focus, isOwner, canGrow, canSell, se
     
     {/* Производство и Сеть */}
     {activeTab === 'deliveries' && isOwner && <AdminDeliveries />}
+    {/* Свой рейс открыт и курьеру (canSell), и владельцу: рейс отбирается
+        по имени в самом роуте, поэтому чужого здесь не покажут. */}
+    {activeTab === 'my_route' && (isOwner || canSell) && <AdminMyRoute lang={lang} />}
     {activeTab === 'qa' && isOwner && <AdminQA />}
     {activeTab === 'experiments' && isOwner && <AdminExperiments />}
     {activeTab === 'franchise' && isOwner && <AdminFranchise />}
