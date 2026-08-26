@@ -12,7 +12,11 @@ import { AdminSalesTab } from './AdminSalesTab';
 import { useFeedback } from './AdminFeedback';
 import { AdminMovementsTab } from './AdminMovementsTab';
 
-export function AdminMovements() {
+export function AdminMovements({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+  // Экран был одноязычным. Здесь это особенно дорого: сторно — операция,
+  // которая меняет остаток и деньги, и подтверждение к ней должно читаться
+  // на языке того, кто нажимает.
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const notify = useFeedback();
   const [typeFilter, setTypeFilter] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -79,17 +83,17 @@ export function AdminMovements() {
         setForm({ productId: '', type: 'IN', quantity: '', reason: '', costPrice: '', performedBy: '', supplierId: '' });
         setProdSearch('');
         fetchMovements();
-        notify.success('Harakat yozildi');
+        notify.success(t('Движение записано', 'Harakat yozildi'));
         // Предупреждение об остатке приходит вместе с ответом: показываем
         // его отдельным сообщением, чтобы «записано» и «мало осталось» не
         // слиплись в одну строку.
         if (data.alert) notify.toast(data.alert.message, 'warning');
       } else {
-        notify.error(data.error || 'Harakat yozilmadi');
+        notify.error(data.error || t('Движение не записано', 'Harakat yozilmadi'));
       }
     } catch (err) {
       console.error(err);
-      notify.error('Aloqa yo‘q — harakat yozilmadi');
+      notify.error(t('Нет связи — движение не записано', 'Aloqa yo‘q — harakat yozilmadi'));
     }
   };
 
@@ -98,9 +102,9 @@ export function AdminMovements() {
     // проводкой, остаток КАК РАЗ меняется — движение сторнируется, а запись
     // остаётся в журнале. Прежняя формулировка обещала обратное.
     const agreed = await notify.confirm({
-      title: 'Storno qilinsinmi?',
-      detail: 'Harakat jurnalda qoladi, ombor soni tiklanadi.',
-      confirmText: 'Storno',
+      title: t('Сделать сторно?', 'Storno qilinsinmi?'),
+      detail: t('Движение останется в журнале, остаток вернётся.', 'Harakat jurnalda qoladi, ombor soni tiklanadi.'),
+      confirmText: t('Сторно', 'Storno'),
       danger: true,
     });
     if (!agreed) return;
@@ -111,13 +115,13 @@ export function AdminMovements() {
       const data = await res.json();
       if (data.success) {
         fetchMovements();
-        notify.success('Storno o‘tkazildi');
+        notify.success(t('Сторно проведено', 'Storno o‘tkazildi'));
       } else {
-        notify.error(data.error || 'Storno o‘tmadi');
+        notify.error(data.error || t('Сторно не прошло', 'Storno o‘tmadi'));
       }
     } catch (err) {
       console.error(err);
-      notify.error('Aloqa yo‘q — storno o‘tmadi');
+      notify.error(t('Нет связи — сторно не прошло', 'Aloqa yo‘q — storno o‘tmadi'));
     }
     finally { setDeleting(null); }
   };
@@ -152,8 +156,8 @@ export function AdminMovements() {
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-3)', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: 2 }}>
         {[
-          { id: 'movements' as const, label: 'Harakatlar', icon: <ClipboardList size={14} /> },
-          { id: 'sales' as const, label: 'Sotishlar tarixi', icon: <BarChart size={14} /> },
+          { id: 'movements' as const, label: t('Движения', 'Harakatlar'), icon: <ClipboardList size={14} /> },
+          { id: 'sales' as const, label: t('История продаж', 'Sotishlar tarixi'), icon: <BarChart size={14} /> },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             style={{
