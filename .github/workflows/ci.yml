@@ -309,11 +309,19 @@ jobs:
           # офис для витрины целиком, включая зеркало заказов.
           INGEST_SECRET: ${{ secrets.INGEST_SECRET }}
           DGIS_API_KEY: ${{ secrets.DGIS_API_KEY }}
+          # Ключи push-уведомлений. Пусто — возможность просто не подключена:
+          # кнопка в кабинете не показывается, отправка молчит.
+          #
+          # Менять пару без нужды нельзя: смена ключей обнуляет ВСЕ
+          # существующие подписки браузеров, и людям придётся включать
+          # уведомления заново — молча, они об этом не узнают.
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: MG_TAG,GHCR_OWNER,INGEST_SECRET,DGIS_API_KEY
+          envs: MG_TAG,GHCR_OWNER,INGEST_SECRET,DGIS_API_KEY,VAPID_PUBLIC_KEY,VAPID_PRIVATE_KEY
           command_timeout: 50m
           script: |
             set -ex
@@ -347,6 +355,8 @@ jobs:
             }
             upsert_env INGEST_SECRET "$INGEST_SECRET"
             upsert_env DGIS_API_KEY "$DGIS_API_KEY"
+            upsert_env VAPID_PUBLIC_KEY "$VAPID_PUBLIC_KEY"
+            upsert_env VAPID_PRIVATE_KEY "$VAPID_PRIVATE_KEY"
             chmod 600 .env
             set -x
 
