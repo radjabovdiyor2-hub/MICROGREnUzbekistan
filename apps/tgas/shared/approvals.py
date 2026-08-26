@@ -57,6 +57,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from shared import admin_links
+from shared import tg_cards
 from shared import tools as tool_registry
 from shared.config import settings
 
@@ -846,43 +847,11 @@ async def _finish(callback: CallbackQuery, tail: str, token: str = "") -> None:
     норма: заявка ждёт решения сколько угодно (см. «ЗАЯВКА НЕ ИСТЕКАЕТ»
     выше), а сообщение старше 48 часов Telegram отдаёт как
     `InaccessibleMessage` — у него нет ни текста, ни `edit_text`, ни
-    `answer`. Прежний код звал их прямо, ловил падение и в запасном пути
-    звал `answer` у того же недоступного объекта: действие к этому моменту
-    УЖЕ выполнено, а владелец не видел ни подтверждения, ни ошибки.
-
-    Поэтому доступность проверяется явно, а последний рубеж — отправка
-    нового сообщения ботом: чат известен даже у недоступной карточки.
+    `answer`. Как это разбирается — в `shared/tg_cards.py`; там же вторая
+    такая карточка, задача, и там же записано, почему это важно: действие
+    к моменту падения УЖЕ выполнено.
     """
-    message = callback.message
-
-    if isinstance(message, Message):
-        keyboard = _keyboard_without(message.reply_markup, token) if token else None
-        try:
-            await message.edit_text(
-                message.html_text + "\n\n" + tail,
-                parse_mode="HTML",
-                reply_markup=keyboard,
-                # Ссылки в строках дайджеста ведут в админку; превью сайта под
-                # каждым решением превратило бы сообщение в ленту картинок.
-                disable_web_page_preview=True,
-            )
-            return
-        except Exception as exc:
-            logger.warning("APPROVALS: карточка не обновилась (%s) — пишу отдельно", exc)
-            try:
-                await message.answer(tail, parse_mode="HTML")
-                return
-            except Exception as exc2:
-                logger.warning("APPROVALS: ответ в карточку не ушёл: %s", exc2)
-
-    # Карточка недоступна: пишем в тот же чат новым сообщением.
-    chat_id = message.chat.id if message else (
-        callback.from_user.id if callback.from_user else None
-    )
-    if callback.bot is None or chat_id is None:
-        logger.error("APPROVALS: решение принято, но сообщить о нём некуда")
-        return
-    try:
-        await callback.bot.send_message(chat_id, tail, parse_mode="HTML")
-    except Exception as exc:
-        logger.error("APPROVALS: решение принято, но доложить не удалось: %s", exc)
+    keyboard = None
+    if token and isinstance(callback.message, Message):
+        keyboard = _keyboard_without(callback.message.reply_markup, token)
+    await tg_cards.append(callback, tail, keyboard)

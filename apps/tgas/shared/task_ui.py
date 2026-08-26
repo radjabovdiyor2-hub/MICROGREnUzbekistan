@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
+from shared import tg_cards
 from shared.approvals import is_owner
 
 logger = logging.getLogger(__name__)
@@ -28,10 +29,10 @@ async def on_task_done(callback: CallbackQuery):
         if not is_owner(callback.from_user.id):
             return await callback.answer("⛔ Только владелец", show_alert=True)
 
-        task_id = int(callback.data.split(":")[1])
+        task_id = int((callback.data or "").split(":")[-1])
 
-        bot_info = await callback.bot.get_me()
-        bot_name = bot_info.username or "unknown_bot"
+        bot_info = await callback.bot.get_me() if callback.bot else None
+        bot_name = (bot_info.username if bot_info else None) or "unknown_bot"
 
         username = callback.from_user.username or callback.from_user.first_name
 
@@ -63,19 +64,20 @@ async def on_task_done(callback: CallbackQuery):
             {
                 "task_id": task_id,
                 "completed_by": bot_name,
-                "chat_id": callback.message.chat.id,
+                # ⚠️ Не `callback.message.chat.id` напрямую. Карточка
+                # задачи живёт столько же, сколько сама задача, а
+                # сообщение старше 48 часов Telegram отдаёт
+                # недоступным — обращение к `.chat` роняло обработчик
+                # ЗДЕСЬ, то есть уже ПОСЛЕ смены статуса на `done`.
+                # Владелец получал «Ошибка при закрытии задачи» на
+                # закрытую задачу и нажимал второй раз.
+                "chat_id": tg_cards.chat_id_of(callback),
                 "text": f"Сотрудник @{username} вручную закрыл задачу.",
             },
             bot_name,
         )
 
-        new_text = (
-            callback.message.html_text + "\n\n<i>✅ Отмечено как выполненное.</i>"
-        )
-        try:
-            await callback.message.edit_text(new_text, parse_mode="HTML")
-        except Exception as e:
-            logger.warning(f"Could not edit message: {e}")
+        await tg_cards.append(callback, "<i>✅ Отмечено как выполненное.</i>")
 
         await callback.answer(
             "Задача отправлена в статус 'выполнено'!", show_alert=True
@@ -92,12 +94,18 @@ async def on_task_delete(callback: CallbackQuery):
         if not is_owner(callback.from_user.id):
             return await callback.answer("⛔ Только владелец", show_alert=True)
 
-        task_id = int(callback.data.split(":")[1])
+        task_id = int((callback.data or "").split(":")[-1])
         builder = InlineKeyboardBuilder()
         builder.button(text="🗑 Да, удалить", callback_data=f"task_delok:{task_id}")
         builder.button(text="◀️ Не надо", callback_data=f"task_delno:{task_id}")
         builder.adjust(2)
-        await callback.message.reply(
+        # Спрашиваем в тот же чат, а не реплаем на карточку: у карточки
+        # старше 48 часов `reply` нет, и подтверждение не показалось бы.
+        chat_id = tg_cards.chat_id_of(callback)
+        if callback.bot is None or chat_id is None:
+            return await callback.answer("Некуда спросить подтверждение", show_alert=True)
+        await callback.bot.send_message(
+            chat_id,
             f"🗑 Удалить задачу #{task_id} безвозвратно?\n"
             f"Если она просто потеряла смысл — закройте её как выполненную.",
             reply_markup=builder.as_markup(),
@@ -116,13 +124,15 @@ async def on_task_delete_confirmed(callback: CallbackQuery):
 
         from shared import tasks_repo
 
-        task_id = int(callback.data.split(":")[1])
+        task_id = int((callback.data or "").split(":")[-1])
         removed = await tasks_repo.delete(task_id)
         if not removed:
             return await callback.answer("Задачи уже нет", show_alert=True)
 
-        await callback.message.edit_text(
-            f"🗑 Задача #{task_id} удалена: {removed['title'][:150]}"
+        # Задача уже удалена — сообщить об этом обязаны, даже если карточку
+        # редактировать нельзя.
+        await tg_cards.append(
+            callback, f"🗑 Задача #{task_id} удалена: {removed['title'][:150]}"
         )
         await callback.answer("Удалено")
     except Exception as e:
@@ -132,7 +142,7 @@ async def on_task_delete_confirmed(callback: CallbackQuery):
 
 @task_ui_router.callback_query(F.data.startswith("task_delno:"))
 async def on_task_delete_declined(callback: CallbackQuery):
-    await callback.message.edit_text("◀️ Удаление отменено — задача на месте.")
+    await tg_cards.append(callback, "◀️ Удаление отменено — задача на месте.")
     await callback.answer()
 
 
@@ -147,13 +157,26 @@ async def send_hitl_approval_request(workflow_name: str, step_name: str, context
         from aiogram.enums import ParseMode
         from aiogram.client.default import DefaultBotProperties
         
+        # Без токена или без владельца спрашивать некому и нечем. Молчать
+        # тут нельзя: шаг процесса остановлен и ждёт решения, которого не
+        # будет, — а раньше это выглядело как обычный `Bot(token=None)` и
+        # падало внутри aiogram, теряясь в общем `except`.
+        if not settings.stepan_bot_token or not settings.admin_telegram_ids:
+            logger.error(
+                "HITL: шаг %s/%s ждёт решения, но спросить некому: "
+                "нет токена бота или ADMIN_TELEGRAM_IDS",
+                workflow_name,
+                step_name,
+            )
+            return
+
         bot = Bot(
             token=settings.stepan_bot_token,
             default=DefaultBotProperties(parse_mode=ParseMode.HTML)
         )
-        
+
         admin_id = settings.admin_telegram_ids[0]
-        
+
         builder = InlineKeyboardBuilder()
         
         # Данные слишком большие для callback_data, поэтому сохраняем минимальный контекст
@@ -194,7 +217,10 @@ async def on_hitl_response(callback: CallbackQuery):
         if not is_owner(callback.from_user.id):
             return await callback.answer("⛔ Только владелец", show_alert=True)
 
-        _, workflow_name, step_name, decision = callback.data.split(":")
+        parts = (callback.data or "").split(":")
+        if len(parts) != 4:
+            return await callback.answer("Решение не опознано", show_alert=True)
+        _, workflow_name, step_name, decision = parts
         
         is_approved = (decision == "approve")
         
@@ -213,9 +239,7 @@ async def on_hitl_response(callback: CallbackQuery):
         )
 
         status_text = "✅ Одобрено" if is_approved else "❌ Отклонено (возврат)"
-        new_text = callback.message.html_text + f"\n\n<i>{status_text}</i>"
-        
-        await callback.message.edit_text(new_text, parse_mode="HTML")
+        await tg_cards.append(callback, f"<i>{status_text}</i>")
         await callback.answer(f"Вы {status_text.lower()} этот шаг.", show_alert=True)
     except Exception as e:
         logger.error(f"Error handling HITL callback: {e}", exc_info=True)
