@@ -46,10 +46,26 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const data = await req.json();
-    const { id, ...updateData } = data;
+    const id = String(data?.id ?? '');
+    if (!id) return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+
+    // Закрытый список полей: тело уходило в базу целиком, и присланный
+    // `restaurantId` переписывал, чьей вообще была подписка.
+    const update: Record<string, unknown> = {};
+    if (['weekly', 'biweekly', 'monthly'].includes(data.plan)) update.plan = data.plan;
+    if (['active', 'paused', 'cancelled'].includes(data.status)) update.status = data.status;
+    for (const field of ['copiesPerIssue', 'pricePerCopy', 'unitCost'] as const) {
+      const value = Number(data[field]);
+      if (Number.isInteger(value) && value >= 0) update[field] = value;
+    }
+
+    if (Object.keys(update).length === 0) {
+      return NextResponse.json({ error: 'Нечего менять' }, { status: 400 });
+    }
+
     const sub = await prisma.printSubscription.update({
       where: { id },
-      data: updateData
+      data: update,
     });
     return NextResponse.json(sub);
   } catch (e: unknown) {

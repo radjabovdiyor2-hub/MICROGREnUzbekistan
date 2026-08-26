@@ -2,7 +2,7 @@
 
 import {
   Route,
-  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
+  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -85,6 +85,10 @@ export const TAB_GROUPS = [
       // единого экрана, всё делал крон, а владелец узнавал результат из
       // готового PDF.
       { id: 'magazine_editions', ru: 'Выпуски', uz: 'Sonlar', icon: <BookOpen size={16} /> },
+      // Подписки на тираж, счета за печать и рекламодатели: три группы
+      // API без единого экрана. Печать — прямой расход, реклама и
+      // подписка — прямая выручка, а увидеть их было негде.
+      { id: 'magazine_money', ru: 'Тираж и реклама', uz: 'Tiraj va reklama', icon: <Banknote size={16} /> },
       { id: 'guest_photos', ru: 'Кадры гостей', uz: 'Mehmon kadrlari', icon: <Camera size={16} /> },
       { id: 'recipes', ru: 'Рецепты', uz: 'Retseptlar', icon: <Leaf size={16} /> },
     ]
