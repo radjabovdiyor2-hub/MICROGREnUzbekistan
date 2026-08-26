@@ -139,6 +139,7 @@ jobs:
           python scripts/check_bot_roster.py
           python scripts/check_prompts.py
           python scripts/check_imports.py
+          python scripts/check_soft_delete.py
 
   # ─────────────────────────── E2E ───────────────────────────
   # Шесть сценариев Playwright (auth, checkout, homepage, profile, shop) и

@@ -360,16 +360,17 @@ export async function PUT(request: NextRequest) {
  * вся история продаж, по которой считаются все отчёты офиса. Отвечаем 409
  * с числом заказов, а не даём базе упасть с 500.
  *
- * ⚠️ Что происходит с историей. Взаимодействия (`interactions`) ПЕРЕЖИВАЮТ
- * удаление: связь переведена на `SetNull`, и строка остаётся с текстом
- * касания и датой, теряя только ссылку на карточку. Раньше каскад уносил
- * их вместе с клиентом — при пакетной чистке лидов так исчезал целый пласт
- * работы: кому звонили, кому возили пробник, кому уже отправляли КП.
+ * ⚠️ УДАЛЕНИЕ МЯГКОЕ. Карточка помечается `deletedAt`, а не стирается:
+ * физическое удаление вернуть нечем, а карточки чистят пачками. Читатели
+ * её больше не видят — фильтр подставляет расширение клиента Prisma
+ * (packages/database), в офисе то же условие сторожит check_soft_delete.
  *
- * Напоминания (`followups`) уходят каскадом намеренно: напомнить позвонить
- * тому, чьей карточки больше нет, — работа, которую некому сделать.
+ * Клиент, вернувшийся с заказом, оживляет свою карточку сам:
+ * `customer_repo.upsert` ищет среди помеченных по `web_user_id` и
+ * `telegram_id` и снимает метку. Вторая карточка не заводится — и не могла
+ * бы: `web_user_id` уникален.
  *
- * В ответе честно возвращаем оба числа: что осталось и что ушло.
+ * Взаимодействия и напоминания остаются на месте: строки никто не трогает.
  */
 export async function DELETE(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
@@ -391,7 +392,10 @@ export async function DELETE(request: NextRequest) {
       const kept = await prisma.customer.count({ where: { crmOrders: { some: {} } } });
 
       const { count } = ids.length
-        ? await prisma.customer.deleteMany({ where: { id: { in: ids } } })
+        ? await prisma.customer.updateMany({
+            where: { id: { in: ids } },
+            data: { deletedAt: new Date() },
+          })
         : { count: 0 };
 
       audit({
@@ -468,7 +472,10 @@ export async function DELETE(request: NextRequest) {
 
       const ids = doomed.map((c) => c.id);
       const { count } = !dryRun && ids.length
-        ? await prisma.customer.deleteMany({ where: { id: { in: ids } } })
+        ? await prisma.customer.updateMany({
+            where: { id: { in: ids } },
+            data: { deletedAt: new Date() },
+          })
         : { count: 0 };
 
       if (!dryRun) {
@@ -537,7 +544,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await prisma.customer.delete({ where: { id } });
+    // Помечаем, а не стираем: физическое удаление вернуть нечем, а ошибиться
+    // тут легко — карточки чистят пачками. Читатели её больше не увидят:
+    // фильтр подставляет расширение клиента Prisma.
+    await prisma.customer.update({ where: { id }, data: { deletedAt: new Date() } });
 
     audit({
       action: 'customer.delete', ...actorOf(request), ip,
@@ -558,11 +568,9 @@ export async function DELETE(request: NextRequest) {
       },
       message:
         `Клиент «${customer.name ?? id}» удалён.` +
+        ' Карточка скрыта, но не стёрта: клиент вернётся с заказом — оживит её сам.' +
         (customer._count.interactions
-          ? ` История касаний сохранена: ${customer._count.interactions} записей остались без карточки.`
-          : '') +
-        (customer._count.followups
-          ? ` Напоминаний удалено: ${customer._count.followups}.`
+          ? ` История касаний на месте: ${customer._count.interactions} записей.`
           : ''),
     });
   } catch (error: unknown) {

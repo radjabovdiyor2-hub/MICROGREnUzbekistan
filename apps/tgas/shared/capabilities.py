@@ -86,8 +86,12 @@ async def _pick_customers(segment: str, limit: int) -> list:
     async with get_session_ctx() as s:
         res = await s.execute(
             text(
+                # `deleted_at IS NULL` — удалённому клиенту писать нельзя:
+                # это худшее место для воскрешения карточки, потому что
+                # отправленное сообщение не отзывается.
                 f"SELECT id, name, telegram_id, email, phone FROM customers "
-                f"WHERE {where} ORDER BY COALESCE(total_spent, 0) DESC LIMIT :lim"
+                f"WHERE deleted_at IS NULL AND ({where}) "
+                f"ORDER BY COALESCE(total_spent, 0) DESC LIMIT :lim"
             ),
             {"lim": limit},
         )

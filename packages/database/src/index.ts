@@ -61,6 +61,17 @@ async function fillProductName(
   if (card) data.productName = card.nameUz;
 }
 
+/**
+ * Условие «клиент жив» поверх запрошенного.
+ *
+ * Не трогаем, если про `deletedAt` спросили явно: удалённых иногда нужно
+ * увидеть — например, чтобы вернуть.
+ */
+function withAlive(where: Record<string, unknown> | undefined): Record<string, unknown> {
+  if (where && 'deletedAt' in where) return where;
+  return { ...(where ?? {}), deletedAt: null };
+}
+
 function createPrismaClient() {
   const base = new PrismaClient();
   return base.$extends({
@@ -77,6 +88,46 @@ function createPrismaClient() {
     // Дефолт живёт здесь: в приложении, а не в DDL. Явное значение всегда
     // побеждает — касса ставит дату продажи, заказ время оформления.
     query: {
+      // ── Удалённый клиент не виден никому ─────────────────────────
+      //
+      // `Customer.deletedAt` — мягкое удаление, и фильтр по нему подставлен
+      // ЗДЕСЬ, а не в двадцати пяти местах чтения. Причина ровно та же, по
+      // которой здесь живёт деловая дата движения: колонка нулевая,
+      // компилятор молчит, и забытый фильтр — не ошибка сборки, а удалённый
+      // клиент, который снова попал в рассылку.
+      //
+      // Явное всегда побеждает: запрос, который САМ спрашивает про
+      // `deletedAt` (например, экран корзины удалённых), получает ровно то,
+      // что просил.
+      customer: {
+        async findMany({ args, query }) {
+          args.where = withAlive(args.where);
+          return query(args);
+        },
+        async findFirst({ args, query }) {
+          args.where = withAlive(args.where);
+          return query(args);
+        },
+        async count({ args, query }) {
+          args.where = withAlive(args.where);
+          return query(args);
+        },
+        async aggregate({ args, query }) {
+          args.where = withAlive(args.where);
+          return query(args);
+        },
+        async groupBy({ args, query }) {
+          args.where = withAlive(args.where);
+          return query(args);
+        },
+        // `findUnique` не принимает произвольных условий: ключ обязан быть
+        // уникальным. Поэтому отсеиваем ПОСЛЕ выборки — снаружи разницы нет,
+        // удалённая карточка не находится ни по id, ни по telegram_id.
+        async findUnique({ args, query }) {
+          const found = await query(args);
+          return found && (found as { deletedAt?: Date | null }).deletedAt ? null : found;
+        },
+      },
       stockMovement: {
         async create({ args, query }) {
           if (args.data && !Array.isArray(args.data)) {

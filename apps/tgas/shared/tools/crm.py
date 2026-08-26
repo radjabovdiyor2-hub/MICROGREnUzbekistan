@@ -343,6 +343,10 @@ async def get_order(order_number: str) -> Dict[str, Any]:
                         "       o.payment_status, o.payment_method, o.created_at, "
                         "       o.delivery_address, o.notes, "
                         "       c.id, c.name, c.phone, c.customer_type, c.orders_count "
+                        # видим-удалённых-намеренно: это карточка ЗАКАЗА.
+                        # Клиента могли удалить, а заказ остался и его ищут
+                        # по номеру — прятать его вместе с карточкой значило
+                        # бы потерять продажу из виду.
                         "FROM crm_orders o LEFT JOIN customers c ON c.id = o.customer_id "
                         "WHERE o.order_number = :p OR o.order_number ILIKE :p "
                         "ORDER BY o.id DESC LIMIT 1"
@@ -424,6 +428,9 @@ async def get_sales_today(date: Optional[str] = None) -> Dict[str, Any]:
                 text(
                     "SELECT COALESCE(c.name, 'без карточки'), COUNT(*), "
                     "       COALESCE(SUM(o.total_amount), 0) "
+                    # видим-удалённых-намеренно: это отчёт о ПРОДАЖАХ за
+                    # день. Выручка не исчезает от того, что карточку
+                    # покупателя убрали, — имя просто станет «без карточки».
                     "FROM crm_orders o LEFT JOIN customers c ON c.id = o.customer_id "
                     "WHERE DATE(o.created_at) = COALESCE(CAST(:d AS date), CURRENT_DATE) "
                     f"AND LOWER(o.status) NOT IN {NOT_A_SALE} "

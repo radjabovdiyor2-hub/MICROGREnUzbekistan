@@ -90,8 +90,13 @@ _FIELDS = (
     "c.bonus_balance, c.orders_count, c.last_order_date, c.source, "
     "c.web_user_id, c.notes"
 )
+# Удалённая карточка (мягкое удаление, `deleted_at`) не существует для
+# офиса: она не найдётся ни поиском, ни списком, ни дедупом. Условие стоит
+# в самом `_FROM`, поэтому его нельзя забыть ни в одном из запросов,
+# собираемых ниже, — а собираются они в десяти местах этого файла.
 _FROM = "FROM customers c "
-_SELECT = f"SELECT {_FIELDS} {_FROM}"
+_ALIVE = "c.deleted_at IS NULL"
+_SELECT = f"SELECT {_FIELDS} {_FROM}WHERE {_ALIVE} "
 
 
 def _row(row) -> Dict[str, Any]:
@@ -147,7 +152,7 @@ async def by_id(customer_id: int) -> Optional[Dict[str, Any]]:
     async with get_session_ctx() as session:
         row = (
             await session.execute(
-                text(_SELECT + "WHERE c.id = :cid"), {"cid": int(customer_id)}
+                text(_SELECT + "AND c.id = :cid"), {"cid": int(customer_id)}
             )
         ).fetchone()
     return _row(row) if row else None
@@ -174,7 +179,7 @@ async def _by_phone(session, tail: str):
         await session.execute(
             text(
                 _SELECT
-                + f"WHERE c.phone IS NOT NULL AND {phone_utils.SQL_PHONE_TAIL} = :tail "
+                + f"AND c.phone IS NOT NULL AND {phone_utils.SQL_PHONE_TAIL} = :tail "
                 "ORDER BY c.orders_count DESC, c.id LIMIT 1"
             ),
             {"tail": tail},
@@ -222,7 +227,7 @@ async def _search_like(session, patterns: List[str], limit: int) -> List[Any]:
     if not patterns:
         return []
     stmt = text(
-        _SELECT + "WHERE c.name ILIKE ANY(:pats) OR c.company_name ILIKE ANY(:pats) "
+        _SELECT + "AND (c.name ILIKE ANY(:pats) OR c.company_name ILIKE ANY(:pats)) "
         "ORDER BY c.orders_count DESC, c.id LIMIT :limit"
     ).bindparams(bindparam("pats", value=patterns, type_=ARRAY(String)))
     return (await session.execute(stmt, {"limit": limit})).fetchall()
@@ -247,7 +252,7 @@ def _fuzzy_sql(function: str) -> Any:
         "      FROM unnest(:vars) AS v) AS sim_name, "
         f"    (SELECT MAX({function}(v, lower(COALESCE(c.company_name, '')))) "
         "      FROM unnest(:vars) AS v) AS sim_company "
-        f"  {_FROM}"
+        f"  {_FROM}WHERE {_ALIVE}"
         ") s "
         "ORDER BY GREATEST(COALESCE(sim_name, 0), COALESCE(sim_company, 0)) DESC "
         "LIMIT :limit"
@@ -559,7 +564,7 @@ async def _upsert_in(
     if customer_id:
         found = (
             await session.execute(
-                text(_SELECT + "WHERE c.id = :cid LIMIT 1"),
+                text(_SELECT + "AND c.id = :cid LIMIT 1"),
                 {"cid": int(customer_id)},
             )
         ).fetchone()
@@ -568,7 +573,7 @@ async def _upsert_in(
     if not found and web_user_id:
         found = (
             await session.execute(
-                text(_SELECT + "WHERE c.web_user_id = :wid LIMIT 1"),
+                text(_SELECT + "AND c.web_user_id = :wid LIMIT 1"),
                 {"wid": str(web_user_id)},
             )
         ).fetchone()
@@ -577,7 +582,7 @@ async def _upsert_in(
     if not found and telegram_id:
         found = (
             await session.execute(
-                text(_SELECT + "WHERE c.telegram_id = :tid LIMIT 1"),
+                text(_SELECT + "AND c.telegram_id = :tid LIMIT 1"),
                 {"tid": int(telegram_id)},
             )
         ).fetchone()
@@ -597,6 +602,38 @@ async def _upsert_in(
         # спросит вызывающий через resolve(), иначе продажа уйдёт не тому.
         if len(rows) == 1:
             found, matched_by = rows[0], "name"
+
+    # ── Удалённый клиент вернулся ─────────────────────────────────────
+    #
+    # Среди живых его не нашли — но карточка могла быть помечена удалённой
+    # (мягкое удаление). Заводить рядом вторую значило бы потерять историю
+    # заказов и, что важнее, разойтись с витриной по `web_user_id`, который
+    # уникален: вторая карточка с тем же значением просто не вставится.
+    #
+    # Поэтому возвращаем прежнюю: человек снова покупает, и это ровно тот
+    # случай, ради которого удаление сделали обратимым.
+    if not found:
+        revived = (
+            await session.execute(
+                text(
+                    f"SELECT {_FIELDS} {_FROM}"
+                    "WHERE c.deleted_at IS NOT NULL AND ("
+                    "  (:wid IS NOT NULL AND c.web_user_id = :wid) OR "
+                    "  (:tid IS NOT NULL AND c.telegram_id = :tid)"
+                    ") LIMIT 1"
+                ),
+                {
+                    "wid": str(web_user_id) if web_user_id else None,
+                    "tid": int(telegram_id) if telegram_id else None,
+                },
+            )
+        ).fetchone()
+        if revived:
+            await session.execute(
+                text("UPDATE customers SET deleted_at = NULL WHERE id = :cid"),
+                {"cid": _row(revived)["id"]},
+            )
+            found, matched_by = revived, "revived"
 
     if found:
         current = _row(found)

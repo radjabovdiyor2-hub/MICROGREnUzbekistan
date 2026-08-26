@@ -342,7 +342,10 @@ async def get_business_summary() -> Dict[str, Any]:
         ).scalar()
         new_customers = (
             await session.execute(
-                text("SELECT COUNT(*) FROM customers WHERE DATE(created_at) = CURRENT_DATE")
+                text(
+                    "SELECT COUNT(*) FROM customers "
+                    "WHERE deleted_at IS NULL AND DATE(created_at) = CURRENT_DATE"
+                )
             )
         ).scalar()
     return {
