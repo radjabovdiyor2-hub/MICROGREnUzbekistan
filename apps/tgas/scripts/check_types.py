@@ -63,6 +63,17 @@ CHECKED = [
     "shared/bot_registry.py",
     "shared/event_bus.py",
     "shared/bot_bus.py",
+    # Второй слой: то, что решает и действует рядом с дверями к данным —
+    # подтверждения владельца, исходящие клиентам, исполнитель задач,
+    # каталожные операции, гео, ночной сбор лидов, память разговора и
+    # доставка одобренного КП.
+    "shared/approvals.py",
+    "shared/capabilities.py",
+    "shared/catalog_ops.py",
+    "shared/chat_memory.py",
+    "shared/geo.py",
+    "shared/lead_gen.py",
+    "bots/marketing_bot/b2b_offer.py",
 ]
 
 

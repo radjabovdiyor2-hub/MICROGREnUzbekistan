@@ -50,10 +50,10 @@ import hashlib
 import json
 import logging
 import uuid
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional, Protocol
 
 from aiogram import Bot, F, Router
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from shared import admin_links
@@ -69,8 +69,33 @@ approvals_router = Router()
 #: но и не дать заявке потеряться.
 REMIND_AFTER_HOURS = (1, 4, 12, 24)
 
+class Decision(Protocol):
+    """
+    Чем обработчик заявки пользуется на самом деле.
+
+    Решение приходит двумя путями: нажатием кнопки в Telegram
+    (`CallbackQuery`) и из веб-админки (`_WebDecision`). Тип был объявлен
+    как `CallbackQuery` — то есть веб-путь описывался типом, которому он
+    не соответствует, и проверка типов на этом спотыкалась справедливо.
+
+    Обработчикам нужны ровно две вещи: `bot`, чтобы написать в чат, и
+    `answer`, чтобы показать всплывающий ответ. Протокол называет это
+    честно и оставляет оба пути равноправными.
+    """
+
+    # Свойство, а не поле: у `CallbackQuery` это свойство aiogram, и
+    # изменяемым полем оно не описывается — типы разошлись бы на ровном месте.
+    @property
+    def bot(self) -> Optional[Bot]: ...
+
+    # Не `async def`: у `CallbackQuery` это обычный метод, возвращающий
+    # ожидаемый объект aiogram, а у веб-заглушки — корутина. Общее у них —
+    # «результат можно await», и протокол говорит ровно это.
+    def answer(self, text: Optional[str] = None, **kwargs: Any) -> Any: ...
+
+
 #: Тип заявки → что сделать после «Одобрить». Возвращает текст для карточки.
-Handler = Callable[[Dict[str, Any], CallbackQuery], Awaitable[str]]
+Handler = Callable[[Dict[str, Any], Decision], Awaitable[str]]
 _HANDLERS: Dict[str, Handler] = {}
 
 #: Тип заявки → что прибрать после «Отклонить». Нужен не всем: у отказа обычно
@@ -105,7 +130,8 @@ def fingerprint(kind: str, payload: Dict[str, Any], bot_name: str) -> str:
     исключён намеренно: переформулированная причина не делает действие другим.
     """
     data = payload or {}
-    args = data.get("args") if isinstance(data.get("args"), dict) else {}
+    raw_args = data.get("args")
+    args: Dict[str, Any] = raw_args if isinstance(raw_args, dict) else {}
     stable = {k: v for k, v in args.items() if k not in _VOLATILE_ARGS}
     material = json.dumps(
         {
@@ -678,7 +704,7 @@ async def decide(
     return {"ok": True, "acted": acted, "message": message or "", "kind": kind}
 
 
-async def _run_tool(payload: Dict[str, Any], callback: CallbackQuery):
+async def _run_tool(payload: Dict[str, Any], callback: Decision):
     result = await tool_registry.call(payload["tool"], payload.get("args") or {})
     normalized = tool_registry.normalize_result(result)
     # Возвращаем и признак успеха: по нему решается судьба задачи. Инструмент
@@ -716,7 +742,10 @@ async def on_approve(callback: CallbackQuery):
         await callback.answer("⛔ Только для руководителя", show_alert=True)
         return
 
-    token = callback.data.split(":", 1)[1]
+    token = (callback.data or "").split(":", 1)[-1]
+    if not token:
+        await callback.answer("Заявка не опознана", show_alert=True)
+        return
     request_data = await _take(token, "approved")
     if not request_data:
         await callback.answer("Заявка истекла или уже обработана", show_alert=True)
@@ -761,7 +790,10 @@ async def on_reject(callback: CallbackQuery):
         await callback.answer("⛔ Только для руководителя", show_alert=True)
         return
 
-    token = callback.data.split(":", 1)[1]
+    token = (callback.data or "").split(":", 1)[-1]
+    if not token:
+        await callback.answer("Заявка не опознана", show_alert=True)
+        return
     request_data = await _take(token, "rejected")
     if not request_data:
         await callback.answer("Заявка истекла или уже обработана", show_alert=True)
@@ -807,15 +839,50 @@ def _keyboard_without(
 
 
 async def _finish(callback: CallbackQuery, tail: str, token: str = "") -> None:
-    keyboard = _keyboard_without(callback.message.reply_markup, token) if token else None
+    """
+    Дописать решение в карточку.
+
+    ⚠️ КАРТОЧКА МОЖЕТ БЫТЬ НЕРЕДАКТИРУЕМОЙ, и здесь это не редкость, а
+    норма: заявка ждёт решения сколько угодно (см. «ЗАЯВКА НЕ ИСТЕКАЕТ»
+    выше), а сообщение старше 48 часов Telegram отдаёт как
+    `InaccessibleMessage` — у него нет ни текста, ни `edit_text`, ни
+    `answer`. Прежний код звал их прямо, ловил падение и в запасном пути
+    звал `answer` у того же недоступного объекта: действие к этому моменту
+    УЖЕ выполнено, а владелец не видел ни подтверждения, ни ошибки.
+
+    Поэтому доступность проверяется явно, а последний рубеж — отправка
+    нового сообщения ботом: чат известен даже у недоступной карточки.
+    """
+    message = callback.message
+
+    if isinstance(message, Message):
+        keyboard = _keyboard_without(message.reply_markup, token) if token else None
+        try:
+            await message.edit_text(
+                message.html_text + "\n\n" + tail,
+                parse_mode="HTML",
+                reply_markup=keyboard,
+                # Ссылки в строках дайджеста ведут в админку; превью сайта под
+                # каждым решением превратило бы сообщение в ленту картинок.
+                disable_web_page_preview=True,
+            )
+            return
+        except Exception as exc:
+            logger.warning("APPROVALS: карточка не обновилась (%s) — пишу отдельно", exc)
+            try:
+                await message.answer(tail, parse_mode="HTML")
+                return
+            except Exception as exc2:
+                logger.warning("APPROVALS: ответ в карточку не ушёл: %s", exc2)
+
+    # Карточка недоступна: пишем в тот же чат новым сообщением.
+    chat_id = message.chat.id if message else (
+        callback.from_user.id if callback.from_user else None
+    )
+    if callback.bot is None or chat_id is None:
+        logger.error("APPROVALS: решение принято, но сообщить о нём некуда")
+        return
     try:
-        await callback.message.edit_text(
-            callback.message.html_text + "\n\n" + tail,
-            parse_mode="HTML",
-            reply_markup=keyboard,
-            # Ссылки в строках дайджеста ведут в админку; превью сайта под
-            # каждым решением превратило бы сообщение в ленту картинок.
-            disable_web_page_preview=True,
-        )
-    except Exception:
-        await callback.message.answer(tail, parse_mode="HTML")
+        await callback.bot.send_message(chat_id, tail, parse_mode="HTML")
+    except Exception as exc:
+        logger.error("APPROVALS: решение принято, но доложить не удалось: %s", exc)

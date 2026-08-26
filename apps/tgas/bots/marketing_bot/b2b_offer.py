@@ -60,15 +60,20 @@ async def pending() -> List[Dict[str, Any]]:
 async def reject(cid: int) -> bool:
     """Отклонить подготовленное КП. False — отклонять уже нечего."""
     async with get_session_ctx() as session:
+        # RETURNING, а не `rowcount`: в типах SQLAlchemy `rowcount` есть у
+        # курсорного результата, а `execute` объявлен шире — и вопрос
+        # «отклонили или отклонять было нечего» отвечается тут же данными.
         res = await session.execute(
             text(
                 "UPDATE interactions SET interaction_type = 'b2b_offer_rejected' "
-                "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending'"
+                "WHERE customer_id = :cid AND interaction_type = 'b2b_offer_pending' "
+                "RETURNING id"
             ),
             {"cid": cid},
         )
+        touched = res.fetchall()
         await session.commit()
-        return bool(res.rowcount)
+        return bool(touched)
 
 
 async def deliver(cid: int, channel: str) -> Tuple[bool, str]:

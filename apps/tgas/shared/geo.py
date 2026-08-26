@@ -640,9 +640,15 @@ async def geocode_status() -> dict[str, Any]:
             )
         ).first()
 
+    # `COUNT(*)` без GROUP BY всегда даёт строку, но пустой ответ здесь
+    # обошёлся бы падением сводки на ровном месте — считаем нулями.
+    counts = row or (0, 0, 0, 0)
+    cache_counts = cache or (0, 0)
+
     return {
         "ok": True,
-        "total": row[0], "placed": row[1], "pending": row[2], "manual": row[3],
-        "cache_entries": cache[0], "cache_misses": cache[1],
+        "total": counts[0], "placed": counts[1],
+        "pending": counts[2], "manual": counts[3],
+        "cache_entries": cache_counts[0], "cache_misses": cache_counts[1],
         "providers": [name for name, _ in _providers()],
     }
