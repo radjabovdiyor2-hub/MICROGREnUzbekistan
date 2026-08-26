@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ClipboardList, Clock, Folder } from 'lucide-react';
+import { ClipboardList, Clock, Folder, Printer } from 'lucide-react';
 import { STATUS_CONFIG, STATUS_TABS } from './adminOrdersConfig';
 import { AdminNotice } from './AdminNotice';
 import { useAdminBack } from './useAdminBack';
@@ -150,9 +150,23 @@ export function AdminOrders({ focus = '' }: { focus?: string }) {
     );
   }
 
+  // Сегодняшняя дата по МЕСТНОМУ времени: лист сборки печатают утром, и
+  // UTC до пяти утра отдаёт вчерашнее число.
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, '0')}-${`${now.getDate()}`.padStart(2, '0')}`;
+
   return (
     <div>
       <AdminNotice>{statusError}</AdminNotice>
+
+      {/* Печатных форм в проекте не было ни одной: утром зелень собирают,
+          листая заказы по одному в телефоне. */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-2)' }}>
+        <a href={`/admin/print/picklist?date=${todayLocal}`} target="_blank" rel="noopener noreferrer"
+          className="btn btn-ghost btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Printer size={14} /> Лист сборки на сегодня
+        </a>
+      </div>
 
       {/* Status tabs */}
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-4)', overflowX: 'auto', paddingBottom: 4 }}>

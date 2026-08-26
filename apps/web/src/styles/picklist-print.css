@@ -1,0 +1,126 @@
+/* ════════════════════════════════════════════
+   Лист сборки заказов — печать на A4.
+
+   Первая печатная форма проекта. Вёрстка отдельная и намеренно скучная:
+   лист лежит на столе в холодной комнате, его читают на расстоянии
+   вытянутой руки и вычёркивают карандашом. Ни теней, ни скруглений,
+   ни фирменных цветов — только контраст и размер.
+
+   Цвета здесь чёрно-белые ЗАЩИТИМО: это не интерфейс, а бумага, и
+   переменные темы на ней означали бы серый текст при печати светлой темы
+   и чёрный лист при печати тёмной.
+   ════════════════════════════════════════════ */
+
+.picklist {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #000;
+  background: #fff;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.picklist__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
+}
+
+.picklist h1 {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.picklist h2 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 22px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.picklist__date {
+  font-size: 14px;
+  color: #333;
+}
+
+.picklist__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.picklist__table td {
+  padding: 5px 0;
+  border-bottom: 1px dashed #bbb;
+  vertical-align: top;
+}
+
+/* Количество — то, ради чего лист и печатают: крупно и справа. */
+.picklist__qty {
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 700;
+  font-size: 16px;
+  padding-left: 12px;
+}
+
+.picklist__order {
+  border: 1px solid #000;
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  /* Заказ не должен разрываться между страницами: половина списка на
+     одном листе, половина на другом — верный способ собрать не то. */
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.picklist__order-head {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.picklist__status {
+  margin-left: auto;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #444;
+}
+
+.picklist__addr {
+  font-size: 14px;
+  color: #222;
+  margin-bottom: 4px;
+}
+
+.picklist__note {
+  font-size: 14px;
+  font-style: italic;
+  margin-bottom: 4px;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .picklist {
+    padding: 0;
+    font-size: 13px;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}
