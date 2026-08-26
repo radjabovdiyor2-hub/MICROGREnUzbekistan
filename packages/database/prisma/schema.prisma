@@ -1516,8 +1516,24 @@ model CrmOrderItem {
 
 model Interaction {
   id              Int       @id @default(autoincrement())
+  // ── Удаление карточки НЕ стирает историю касаний ──────────────────
+  //
+  // Связь была `Cascade`: удалили клиента — вместе с ним исчезли все
+  // взаимодействия. Пока карточки удаляли по одной, это была потеря
+  // истории одного заведения; с пакетной чисткой лидов (сотни карточек за
+  // раз) так уходит целый пласт работы: кому звонили, кому возили пробник,
+  // кому уже отправляли коммерческое предложение.
+  //
+  // `SetNull` работает потому, что колонка изначально NULLABLE: строка
+  // остаётся с текстом касания и датой, теряя только ссылку на карточку.
+  // Это ровно тот размен, который нужен: карточку удаляют осознанно, а
+  // факт «мы туда обращались» стирать никто не собирался.
+  //
+  // У `followups` каскад ОСТАЁТСЯ намеренно: напоминание позвонить тому,
+  // чьей карточки больше нет, — это работа, которую некому и некуда
+  // сделать, а колонка там не nullable и по смыслу.
   customerId      Int?      @map("customer_id")
-  customer        Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customer        Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
   orderId         Int?      @map("order_id")
   order           CrmOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
   channel         String    @default("telegram") @db.VarChar(20)

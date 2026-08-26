@@ -360,10 +360,16 @@ export async function PUT(request: NextRequest) {
  * вся история продаж, по которой считаются все отчёты офиса. Отвечаем 409
  * с числом заказов, а не даём базе упасть с 500.
  *
- * ⚠️ У клиента БЕЗ заказов каскадом уходят `interactions` и `followups`
- * (обе связи `onDelete: Cascade`). Среди них — метки `b2b_offer_sent`, по
- * которым рассылка не пишет ресторану второй раз. Поэтому в ответе честно
- * возвращаем, сколько записей уйдёт вместе с карточкой.
+ * ⚠️ Что происходит с историей. Взаимодействия (`interactions`) ПЕРЕЖИВАЮТ
+ * удаление: связь переведена на `SetNull`, и строка остаётся с текстом
+ * касания и датой, теряя только ссылку на карточку. Раньше каскад уносил
+ * их вместе с клиентом — при пакетной чистке лидов так исчезал целый пласт
+ * работы: кому звонили, кому возили пробник, кому уже отправляли КП.
+ *
+ * Напоминания (`followups`) уходят каскадом намеренно: напомнить позвонить
+ * тому, чьей карточки больше нет, — работа, которую некому сделать.
+ *
+ * В ответе честно возвращаем оба числа: что осталось и что ушло.
  */
 export async function DELETE(request: NextRequest) {
   if (!isAuthorized(request)) return unauthorized();
@@ -552,8 +558,11 @@ export async function DELETE(request: NextRequest) {
       },
       message:
         `Клиент «${customer.name ?? id}» удалён.` +
-        (customer._count.interactions || customer._count.followups
-          ? ` Вместе с ним удалено обращений: ${customer._count.interactions}, напоминаний: ${customer._count.followups}.`
+        (customer._count.interactions
+          ? ` История касаний сохранена: ${customer._count.interactions} записей остались без карточки.`
+          : '') +
+        (customer._count.followups
+          ? ` Напоминаний удалено: ${customer._count.followups}.`
           : ''),
     });
   } catch (error: unknown) {
