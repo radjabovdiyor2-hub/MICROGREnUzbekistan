@@ -70,6 +70,7 @@ const SELF_GUARDED = [
   '/api/payment/click',      // подпись провайдера
   '/api/payment/payme',      // Basic-авторизация провайдера
   '/api/products/export',    // requireBotAuth — зеркало каталога для офиса
+  '/api/push',               // GET — публичный ключ VAPID; POST требует сессию покупателя
   '/api/users/data',         // подписанный Telegram initData (права субъекта ПДн)
   '/api/users/inactive',     // requireBotAuth
   '/api/whatsapp/webhook',   // verify token + x-hub-signature-256

@@ -19,6 +19,7 @@ import { prisma } from '@repo/database';
 
 import { drainOffice, enqueueOffice } from './office/outbox';
 import { detach } from '@/lib/background';
+import { pushToUser } from './push/send';
 
 // Storefront status (Prisma OrderStatus) -> customer-facing bilingual message.
 const STATUS_MESSAGE: Record<string, { uz: string; ru: string }> = {
@@ -125,6 +126,7 @@ export async function syncOrderStatus(order: {
   orderNumber: string;
   status: string;
   paymentStatus?: string | null;
+  userId?: string | null;
   user?: { telegramId: bigint | null; language: string | null } | null;
 }): Promise<void> {
   // Уведомления — В ФОНЕ, склад — в запросе.
@@ -142,6 +144,17 @@ export async function syncOrderStatus(order: {
       notifyCustomer(order.user.telegramId, customerStatusText(order.orderNumber, order.status, order.user.language)),
     );
   }
+  // Браузер покупателя — второй канал, и для многих единственный: без
+  // Telegram человек узнавал о доставке, когда курьер звонил в дверь.
+  // В фоне и по той же причине, что и остальные уведомления: осведомлённость
+  // не должна держать ответ.
+  if (order.userId) {
+    detach(
+      `push ${order.orderNumber} клиенту`,
+      pushToUser(order.userId).then(() => undefined),
+    );
+  }
+
   detach(
     `статус ${order.orderNumber} в офис`,
     pushStatusToOffice({

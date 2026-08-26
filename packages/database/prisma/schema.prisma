@@ -129,6 +129,8 @@ model User {
   aiChats               AiChat[]
   greenBoxSubscriptions GreenBoxSubscription[]
 
+  pushSubscriptions PushSubscription[]
+
   @@map("users")
 }
 
@@ -1988,6 +1990,40 @@ model AppSetting {
 /// Журнал действий для просмотра в админке. Дублирует JSONL-файл из
 /// lib/audit.ts: файл остаётся доказательством неподделываемости (цепочка
 /// HMAC), а таблица нужна, чтобы журнал можно было листать и фильтровать.
+/// Подписка браузера на push-уведомления.
+///
+/// ЗАЧЕМ. У покупателя БЕЗ Telegram не было канала вовсе: статус заказа
+/// уходил только личным сообщением бота, и человек, оформивший заказ на
+/// сайте, узнавал о доставке, когда курьер звонил в дверь.
+///
+/// Подписка принадлежит браузеру, а не человеку: у одного покупателя их
+/// столько, сколькими устройствами он пользуется. `endpoint` уникален —
+/// это и есть адрес, по которому служба доставки браузера принимает
+/// уведомление; повторная подписка того же браузера обновляет строку, а не
+/// плодит вторую.
+///
+/// Ключи (`p256dh`, `auth`) хранятся, потому что они нужны для шифрования
+/// полезной нагрузки. Сейчас мы шлём уведомление БЕЗ неё — текст страница
+/// дочитывает сама, — но выбрасывать ключи значило бы закрыть себе этот
+/// путь навсегда: повторно их выдаёт только браузер, при новой подписке.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique @db.Text
+  p256dh    String   @db.Text
+  auth      String   @db.Text
+  /// Кому принадлежит браузер. NULL — подписался гость, ещё не вошедший.
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent String?  @map("user_agent") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at")
+  /// Когда по этому адресу в последний раз удалось достучаться. Служба
+  /// доставки отвечает 404/410 на протухшую подписку — такие удаляем.
+  lastSeenAt DateTime? @map("last_seen_at")
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
 model AuditLog {
   id     BigInt   @id @default(autoincrement())
   ts     DateTime @default(now()) @db.Timestamptz
