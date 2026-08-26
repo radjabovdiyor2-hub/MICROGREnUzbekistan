@@ -94,9 +94,13 @@ export function Footer() {
         <div>
           <h4 className="footer__section-title">{t("Ma'lumot", 'Информация')}</h4>
           <ul className="footer__links">
-            <li><Link href="/#location-section">{t('Biz haqimizda', 'О нас')}</Link></li>
-            <li><Link href="/#location-section">{t('Yetkazib berish', 'Доставка')}</Link></li>
-            <li><Link href="/#location-section">{t('Aloqa', 'Контакты')}</Link></li>
+            {/* Здесь три ссылки вели на ОДИН и тот же якорь «где мы» —
+                то есть «О нас», «Доставка» и «Контакты» открывали карту.
+                Разводим по назначению; отдельная страница пока одна — B2B,
+                и выдумывать ещё две ради пункта меню незачем. */}
+            <li><Link href="/b2b">{t('Restoranlarga', 'Ресторанам')}</Link></li>
+            <li><Link href="/balans">{t('BALANS usuli', 'Метод BALANS')}</Link></li>
+            <li><Link href="/#location-section">{t('Aloqa va yetkazish', 'Контакты и доставка')}</Link></li>
             <li><Link href="/catalog">{t('Barcha mahsulotlar', 'Все товары')}</Link></li>
             <li><Link href="/recipe">{t('Retseptlar', 'Рецепты')}</Link></li>
           </ul>

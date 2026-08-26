@@ -13,6 +13,7 @@ const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 import { UserOrders } from './ProfileSections';
 import { ReferralSection } from './ReferralSection';
 import { ProfileSettingsCard } from './ProfileSettingsCard';
+import { ProfileSupportCard } from './ProfileSupportCard';
 
 export default function ProfilePage() {
   const { theme, toggleTheme } = useTheme();
@@ -145,6 +146,10 @@ export default function ProfilePage() {
         isLoggedIn={isLoggedIn}
         logout={logout}
       />
+
+      {/* Поддержка и права на свои данные: оба API существовали и не имели
+          ни одной кнопки. */}
+      <ProfileSupportCard t={t} />
 
       {/* Social Links */}
       <div style={{

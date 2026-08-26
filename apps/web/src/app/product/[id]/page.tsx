@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { prisma } from '@repo/database';
 import { ProductPageClient } from './ProductPageClient';
+import { ProductGrowLive } from './ProductGrowLive';
 import { PUBLIC_PRODUCT_SELECT } from '@/lib/products/fields';
 import type { Product as PublicProduct } from './productDetailTypes';
 import { recipesForProduct, type RecipeCardView } from '@/lib/recipes';
@@ -189,6 +190,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         />
       )}
       <ProductPageClient id={id} initialProduct={initialProduct} />
+
+      {/* Живая партия этого товара. Модуль «жизнь лотка глазами клиента»
+          написан и покрыт тестом, а показывать его было негде. */}
+      <ProductGrowLive productId={id} />
 
       {recipes.length > 0 && (
         <section className="container" style={{ paddingBottom: 'var(--space-8)' }}>
