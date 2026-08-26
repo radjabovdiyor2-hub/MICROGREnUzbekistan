@@ -11,13 +11,15 @@ from pathlib import Path
 
 from mg_ai.engine import AIEngine
 
+import logging
+
 from services.config_service import fetch_site_config
+from shared.constants import CATEGORY_LABELS
 
 # Load env
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path, override=True)
 
-import logging
 logger = logging.getLogger(__name__)
 
 WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
@@ -26,8 +28,6 @@ WEB_API_URL = os.getenv("WEB_API_URL", "https://microgreenuzbekistan.com/api")
 
 _catalog_cache = {"text": "", "timestamp": 0}
 CATALOG_TTL = 300  # 5 minutes
-
-from shared.constants import CATEGORY_LABELS
 
 # Расширения списка здесь больше нет. Оно добавляло `VEGETABLES`, `FRUITS`,
 # `HERBS`, `MUSHROOMS`, `SPROUTS`, `BERRIES` — категорий с такими слагами в

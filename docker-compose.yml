@@ -1,45 +1,83 @@
-services:
-  # Next.js Web App (deploy to Vercel instead)
-  # web:
-  #   build:
-  #     context: .
-  #     dockerfile: apps/web/Dockerfile
-  #   ports:
-  #     - "3000:3000"
+# ══════════════════════════════════════════════════════════════════════
+# Локальный стенд: база и Redis для разработки.
+#
+# ЧТО ЗДЕСЬ ЧИНИЛОСЬ. Файл разошёлся с продом по трём пунктам, и каждый
+# ломал работу молча:
+#
+#   • образ был `postgres:15-alpine`, без расширения pgvector. В схеме есть
+#     колонка `Unsupported("vector(1536)")` (база знаний поддержки), и
+#     `prisma db push` на такой базе падает — то есть поднять локальный
+#     стенд по инструкции из README было нельзя;
+#   • часовой пояс не задавался. Прод живёт в Asia/Samarkand и задаёт его
+#     АРГУМЕНТОМ ЗАПУСКА (на созданном томе переменные окружения его уже не
+#     перебивают). Локально база оставалась в UTC, и операции с полуночи до
+#     пяти утра получали вчерашнюю дату — расхождение, которое ищут неделю;
+#   • пароль по умолчанию `secret123` был вписан прямо здесь.
+#
+# Имена пользователя и базы приведены к прод-значениям: DATABASE_URL из
+# .env.example подходит к обоим контурам без правки.
+#
+# Витрины здесь нет намеренно: `npm run dev` поднимает её быстрее и с
+# горячей перезагрузкой. Комментарий «deploy to Vercel instead» устарел —
+# прод давно на своём сервере (docker-compose.prod.yml).
+# ══════════════════════════════════════════════════════════════════════
 
-  # Telegram Bot
+services:
+  # Telegram-бот витрины
   bot:
     build:
       context: .
       dockerfile: apps/bot/Dockerfile
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - WEB_APP_URL=${WEB_APP_URL}
+      - WEB_API_URL=${WEB_API_URL}
+      - BOT_SECRET=${BOT_SECRET}
       - ADMIN_CHAT_ID=${ADMIN_CHAT_ID}
-    restart: always
+    restart: unless-stopped
 
-  # PostgreSQL Database
+  # PostgreSQL с pgvector — тот же образ, что в проде.
   postgres:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_USER: microgreen
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secret123}
-      POSTGRES_DB: microgreen_db
+      POSTGRES_USER: mg_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан в .env}
+      POSTGRES_DB: microgreen
+      TZ: Asia/Samarkand
+      PGTZ: Asia/Samarkand
+    # Пояс — аргументом запуска, как в проде: на уже созданном томе
+    # переменные окружения timezone не перебивают.
+    command:
+      - postgres
+      - -c
+      - timezone=Asia/Samarkand
+      - -c
+      - log_timezone=Asia/Samarkand
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
-    restart: always
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mg_user -d microgreen"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
-  # Redis (for caching and sessions)
+  # Redis: очереди, кэш настроек, ограничение частоты запросов.
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis_data:/data
-    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
 
 volumes:
   postgres_data:

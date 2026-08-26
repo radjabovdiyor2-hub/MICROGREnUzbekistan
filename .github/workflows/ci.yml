@@ -48,9 +48,13 @@ jobs:
       # Scan only commits in this push (not entire history).
       # Historical leaks are a known issue (SECURITY.md) requiring key rotation,
       # not blocking new deploys.
+      # Блокирующий НАМЕРЕННО. Стояло `continue-on-error: true`, то есть
+      # свежий токен, попавший в коммит, уезжал в прод вместе с ним, а
+      # сканер лишь оставлял красную галочку, которую никто не открывает.
+      # Историю он не смотрит (только коммиты этого пуша), поэтому старые
+      # утечки из SECURITY.md выкатку не ломают: их чинит ротация ключей.
       - name: Secret scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
@@ -90,9 +94,12 @@ jobs:
       - name: Run Ruff
         run: ruff check apps/tgas
       # Витринный бот раньше не проверялся вовсе — там накопился 21 мёртвый
-      # импорт, и «ruff чисто» относилось только к офису.
+      # импорт, и «ruff чисто» относилось только к офису. Теперь набор
+      # правил полный, как у офиса: `--select F` ловил только мёртвые имена
+      # и пропускал импорты посреди файла и `try: ... except: pass` одной
+      # строкой — то, из-за чего ошибку не видно при чтении.
       - name: Run Ruff (storefront bot)
-        run: ruff check --select F apps/bot
+        run: ruff check apps/bot
       - name: Run Mypy
         run: mypy apps/tgas --ignore-missing-imports || true
       - name: Run compose invariant watchdog
@@ -260,7 +267,10 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [quality, python-quality, security, build-images]
+    # E2E ЗДЕСЬ НАМЕРЕННО. Он не входил в зависимости выкатки, то есть
+    # сценарии оформления заказа и входа могли падать, а прод обновлялся:
+    # проверка, которая ничего не останавливает, — это отчёт, а не гейт.
+    needs: [quality, python-quality, security, e2e, build-images]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     environment: production
     # Час, а не полчаса: бюджет считается от худшего канала (см. pull ниже),
@@ -463,6 +473,33 @@ jobs:
             sudo systemctl reload nginx 2>/dev/null || true
             sudo service nginx reload 2>/dev/null || true
             docker compose -f docker-compose.prod.yml ps
+            # ── Дым: сайт действительно поднялся ───────────────────────
+            #
+            # Успехом выкатки считался вывод `docker compose ps` — то есть
+            # «контейнеры запущены». Контейнер, который поднялся и падает на
+            # каждом запросе, выглядит там точно так же, и владелец узнавал
+            # о поломке от клиента.
+            #
+            # `?ready=1` — это не пинг: роут ходит в базу и отвечает 503,
+            # если её нет. Двенадцать попыток по 5 секунд: столько нужно
+            # Next на прогрев после старта.
+            #
+            # Порт 3002, а не 3000: на этой машине 3000 и 3001 заняты чужими
+            # проектами, и web опубликован как 127.0.0.1:3002 (см.
+            # docker-compose.prod.yml). Проверка на 3000 молча стучалась бы
+            # в соседний проект и зеленела бы независимо от нашей выкатки.
+            ok=""
+            for i in $(seq 1 12); do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5                 http://127.0.0.1:3002/api/health?ready=1 || true)
+              if [ "$code" = "200" ]; then ok="yes"; break; fi
+              sleep 5
+            done
+            if [ -z "$ok" ]; then
+              echo "::error::Витрина не отвечает готовностью после выкатки (последний код: $code)"
+              docker compose -f docker-compose.prod.yml logs --tail=50 web
+              exit 1
+            fi
+            echo "Витрина готова: /api/health?ready=1 → 200"
             # Наши образы помечены постоянным тегом sha-<коммит>, поэтому при
             # следующем деплое они НЕ становятся dangling и `image prune -f` их
             # не видит: без явного rmi поколения копятся, и диск кончится так

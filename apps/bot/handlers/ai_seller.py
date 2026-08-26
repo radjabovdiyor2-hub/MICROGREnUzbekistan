@@ -26,6 +26,7 @@ import json
 import re
 
 from services.ecosystem_bridge import bridge
+from services.ai_service import analyze_image, transcribe_audio
 from services.config_service import fetch_site_config
 from shared.constants import CATEGORY_LABELS, format_price
 from shared.i18n import t
@@ -103,8 +104,6 @@ async def cmd_clear(message: Message):
     clear_history(message.from_user.id)
     await message.answer(t("ai.history_cleared", lang))
 
-
-from services.ai_service import analyze_image, transcribe_audio
 
 @router.message(F.chat.type == "private", F.photo)
 async def handle_photo(message: Message):
