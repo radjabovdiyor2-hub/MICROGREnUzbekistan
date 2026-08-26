@@ -66,15 +66,33 @@ async def process_contact(message: Message, state: FSMContext):
     lang = data.get("lang", "ru")
     await state.update_data(contact=message.text)
 
+    # Карточку заводим через единственного писателя `customers`, а не
+    # подзапросом внутри INSERT. Подзапрос давал NULL, если человек пишет
+    # впервые, и id удалённой карточки, если её вычистили, — заявка в обоих
+    # случаях оказывалась ничьей и до менеджера не доходила. `upsert`
+    # заводит карточку и воскрешает удалённую.
+    from shared import customer_repo
+
+    customer = await customer_repo.upsert(
+        telegram_id=message.from_user.id,
+        telegram_username=message.from_user.username,
+        name=message.from_user.full_name,
+        company_name=data.get("company") or None,
+        raw_phone=message.text,
+        customer_type="b2b",
+        status="lead",
+        source="telegram",
+        language=lang,
+    )
+
     async with get_session_ctx() as session:
         await session.execute(
             text(
                 "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
-                "VALUES ((SELECT id FROM customers WHERE telegram_id = :tid), 'telegram', 'b2b_lead', 'sales_bot', "
-                ":summary, NOW())"
+                "VALUES (:cid, 'telegram', 'b2b_lead', 'sales_bot', :summary, NOW())"
             ),
             {
-                "tid": message.from_user.id,
+                "cid": customer["id"],
                 "summary": f"B2B: {data.get('company', '')} | Объём: {data.get('volume', '')} | Тел: {message.text}",
             },
         )

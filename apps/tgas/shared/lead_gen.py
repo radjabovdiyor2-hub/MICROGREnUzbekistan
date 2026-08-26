@@ -774,6 +774,10 @@ async def import_leads(leads: list[dict[str, Any]]) -> dict[str, int]:
     async with get_session_ctx() as session:
         # In-memory индексы: пачка бывает в сотни лидов, и три селекта на
         # каждого превратили бы ночную задачу в тысячи запросов.
+        # видим-удалённых-намеренно: это ДЕДУП, и удалённые карточки он
+        # обязан видеть. Иначе ночной сбор заведёт заново ровно то, что
+        # владелец только что вычистил, — и так каждую ночь, пока он не
+        # решит, что чистка не работает.
         res = await session.execute(
             text(
                 "SELECT source, source_ref, phone, name, company_name, city, "

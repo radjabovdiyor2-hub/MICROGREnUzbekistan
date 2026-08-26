@@ -180,6 +180,8 @@ async def bus_get_orders(params: dict) -> dict:
             res = await session.execute(
                 text(
                     "SELECT o.id, o.order_number, o.total_amount, o.status, o.payment_status, "
+                    # видим-удалённых-намеренно: заказ состоялся и выручку
+                    # дал; убрать имя значит показать его ничьим.
                     "c.name FROM crm_orders o LEFT JOIN customers c ON o.customer_id = c.id "
                     "ORDER BY o.created_at DESC LIMIT :lim"
                 ),
@@ -238,7 +240,7 @@ _SEG_SQL = {
         SELECT c.id, c.name, c.company_name, c.email, c.phone, c.review_summary, c.address, 0,
                c.company_type, c.audience
         FROM customers c
-        WHERE c.customer_type = 'b2b' AND c.status = 'lead'
+        WHERE c.deleted_at IS NULL AND c.customer_type = 'b2b' AND c.status = 'lead'
           AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
           AND NOT EXISTS (SELECT 1 FROM interactions i
                           WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent')
@@ -254,7 +256,7 @@ _SEG_SQL = {
                 WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent'),
                c.company_type, c.audience
         FROM customers c
-        WHERE c.customer_type = 'b2b'
+        WHERE c.deleted_at IS NULL AND c.customer_type = 'b2b'
           AND COALESCE(c.orders_count, 0) > 0
           AND (c.last_order_date IS NULL OR c.last_order_date < CURRENT_DATE - INTERVAL '30 days')
           AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
@@ -273,7 +275,7 @@ _SEG_SQL = {
                 WHERE i.customer_id = c.id AND i.interaction_type = 'b2b_offer_sent'),
                c.company_type, c.audience
         FROM customers c
-        WHERE c.customer_type = 'b2b'
+        WHERE c.deleted_at IS NULL AND c.customer_type = 'b2b'
           AND COALESCE(c.orders_count, 0) = 0
           AND (c.email IS NOT NULL OR c.phone IS NOT NULL)
           AND EXISTS (SELECT 1 FROM interactions i
@@ -370,11 +372,14 @@ async def bus_get_clients(params: dict) -> dict:
         from sqlalchemy import text
 
         async with get_session_ctx() as session:
-            res = await session.execute(text("SELECT COUNT(*) FROM customers"))
+            res = await session.execute(
+                text("SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL")
+            )
             total = res.scalar() or 0
             res = await session.execute(
                 text(
                     "SELECT id, name, phone, status FROM customers "
+                    "WHERE deleted_at IS NULL "
                     "ORDER BY created_at DESC LIMIT 20"
                 )
             )

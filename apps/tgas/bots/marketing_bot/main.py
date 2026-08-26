@@ -82,7 +82,11 @@ async def bus_send_broadcast(params: dict) -> dict:
 
     try:
         async with get_session_ctx() as session:
-            query = "SELECT telegram_id FROM customers WHERE telegram_id IS NOT NULL AND COALESCE(status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
+            query = (
+                "SELECT telegram_id FROM customers "
+                "WHERE deleted_at IS NULL AND telegram_id IS NOT NULL "
+                "AND COALESCE(status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
+            )
             if target == "b2b":
                 query += " AND customer_type = 'b2b'"
             elif target == "b2c":
@@ -263,7 +267,7 @@ async def _fetch_b2b_targets(limit: int) -> list:
                 "SELECT id, name, company_name, email, phone, review_summary, address, "
                 "       company_type, audience "
                 "FROM customers "
-                "WHERE customer_type = 'b2b' AND status = 'lead' "
+                "WHERE deleted_at IS NULL AND customer_type = 'b2b' AND status = 'lead' "
                 "AND NOT EXISTS (SELECT 1 FROM interactions i "
                 "                WHERE i.customer_id = customers.id "
                 "                AND i.interaction_type IN ('b2b_offer_sent', 'b2b_offer_pending')) "
@@ -498,7 +502,7 @@ async def handle_b2b_approval(callback_query):
                 "SELECT c.id, c.name, c.company_name, c.email, c.phone, c.address, i.summary "
                 "FROM customers c "
                 "JOIN interactions i ON i.customer_id = c.id AND i.interaction_type = 'b2b_offer_pending' "
-                "WHERE c.id = :cid LIMIT 1"
+                "WHERE c.deleted_at IS NULL AND c.id = :cid LIMIT 1"
             ),
             {"cid": cid},
         )
@@ -683,7 +687,8 @@ async def bus_trigger_lead_audit(params: dict) -> dict:
             res = await session.execute(
                 text(
                     "SELECT LOWER(COALESCE(status, 'unknown')) AS st, COUNT(*) "
-                    "FROM customers WHERE customer_type = 'b2b' GROUP BY st"
+                    "FROM customers "
+                    "WHERE deleted_at IS NULL AND customer_type = 'b2b' GROUP BY st"
                 )
             )
             by_status = {row[0]: row[1] for row in res.fetchall()}
@@ -691,7 +696,8 @@ async def bus_trigger_lead_audit(params: dict) -> dict:
             res = await session.execute(
                 text(
                     "SELECT COUNT(*) FROM customers "
-                    "WHERE customer_type = 'b2b' AND created_at >= NOW() - INTERVAL '7 days'"
+                    "WHERE deleted_at IS NULL AND customer_type = 'b2b' "
+                    "AND created_at >= NOW() - INTERVAL '7 days'"
                 )
             )
             fresh_week = res.scalar() or 0
@@ -964,7 +970,7 @@ async def main():
                     res = await session.execute(
                         text(
                             "SELECT f.id, c.telegram_id, f.message FROM followups f "
-                            "JOIN customers c ON f.customer_id = c.id "
+                            "JOIN customers c ON f.customer_id = c.id AND c.deleted_at IS NULL "
                             "WHERE f.status = 'pending' AND f.scheduled_at <= NOW() AND c.telegram_id IS NOT NULL "
                             "AND COALESCE(c.status, '') NOT IN ('unsubscribed', 'blocked', 'do_not_contact')"
                         )
@@ -1036,7 +1042,7 @@ async def _pick_restaurant(params: dict) -> str:
                 text(
                     "SELECT name, review_score, review_summary "
                     "FROM customers "
-                    "WHERE customer_type = 'b2b' AND review_score >= 4.5 "
+                    "WHERE deleted_at IS NULL AND customer_type = 'b2b' AND review_score >= 4.5 "
                     "ORDER BY random() LIMIT 1"
                 )
             )

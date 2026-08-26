@@ -505,11 +505,13 @@ async def _collect_data() -> str:
             r = await q(
                 "SELECT COUNT(*), "
                 "SUM(CASE WHEN customer_type='b2b' THEN 1 ELSE 0 END), "
-                "SUM(CASE WHEN status='lead' THEN 1 ELSE 0 END) FROM customers"
+                "SUM(CASE WHEN status='lead' THEN 1 ELSE 0 END) "
+                "FROM customers WHERE deleted_at IS NULL"
             )
             total, b2b, leads = r.fetchone()
             r = await q(
-                "SELECT COUNT(*) FROM customers WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                "SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL "
+                "AND created_at >= CURRENT_DATE - INTERVAL '7 days'"
             )
             new_c = r.scalar() or 0
             lines.append(
@@ -1765,7 +1767,8 @@ async def _collect_kpi_drops():
                 await s.execute(
                     text(
                         "SELECT COUNT(*) FROM customers "
-                        "WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'"
+                        "WHERE deleted_at IS NULL "
+                        "AND created_at >= CURRENT_DATE - INTERVAL '7 days'"
                     )
                 )
             ).scalar() or 0
@@ -1773,7 +1776,8 @@ async def _collect_kpi_drops():
                 await s.execute(
                     text(
                         "SELECT COUNT(*) FROM customers "
-                        "WHERE created_at >= CURRENT_DATE - INTERVAL '14 days' "
+                        "WHERE deleted_at IS NULL "
+                        "AND created_at >= CURRENT_DATE - INTERVAL '14 days' "
                         "AND created_at < CURRENT_DATE - INTERVAL '7 days'"
                     )
                 )

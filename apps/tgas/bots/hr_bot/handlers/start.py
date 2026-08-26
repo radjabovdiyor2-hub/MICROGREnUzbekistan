@@ -83,12 +83,15 @@ async def app_position(msg: Message, state: FSMContext):
     d = await state.get_data()
     async with get_session_ctx() as session:
         await session.execute(
+                # customer_id NULL, а НЕ COALESCE(..., 1): соискатель —
+                # не клиент, и раньше его заявка приклеивалась к карточке
+                # клиента с id=1, кем бы тот ни оказался. Колонка
+                # nullable именно для таких касаний.
             text(
                 "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
-                "VALUES (COALESCE((SELECT id FROM customers WHERE telegram_id = :tid), 1), 'telegram', 'hr_application', 'hr_bot', :s, NOW())"
+                "VALUES (NULL, 'telegram', 'hr_application', 'hr_bot', :s, NOW())"
             ),
             {
-                "tid": msg.from_user.id,
                 "s": f"HR Заявка: {d['name']} | Тел: {d['phone']} | Должность: {msg.text}",
             },
         )
@@ -165,12 +168,12 @@ async def leave_reason(msg: Message, state: FSMContext):
     d = await state.get_data()
     async with get_session_ctx() as session:
         await session.execute(
+            # То же, что и у заявки: отпуск сотрудника — не касание клиента.
             text(
                 "INSERT INTO interactions (customer_id, channel, interaction_type, bot_name, summary, created_at) "
-                "VALUES (COALESCE((SELECT id FROM customers WHERE telegram_id = :tid), 1), 'telegram', 'hr_leave', 'hr_bot', :s, NOW())"
+                "VALUES (NULL, 'telegram', 'hr_leave', 'hr_bot', :s, NOW())"
             ),
             {
-                "tid": msg.from_user.id,
                 "s": f"Отпуск/Больничный: {d['leave_type']} | С: {d['start_date']} По: {d['end_date']} | Причина: {msg.text}",
             },
         )

@@ -520,7 +520,8 @@ async def geocode_pass(batch: int = 25, city: Optional[str] = None) -> dict[str,
                     "           AND o.delivery_address <> '' "
                     "         ORDER BY o.created_at DESC LIMIT 1) AS delivery_address "
                     "  FROM customers c "
-                    " WHERE c.latitude IS NULL "
+                    " WHERE c.deleted_at IS NULL "
+                    "   AND c.latitude IS NULL "
                     "   AND c.geo_source IS DISTINCT FROM 'manual' "
                     + ("   AND lower(c.city) LIKE :city " if city else "")
                     + " ORDER BY c.total_spent DESC NULLS LAST "
@@ -625,7 +626,7 @@ async def geocode_status() -> dict[str, Any]:
                     "       COUNT(*) FILTER (WHERE latitude IS NULL "
                     "                          AND geo_source IS DISTINCT FROM 'manual') AS pending, "
                     "       COUNT(*) FILTER (WHERE geo_source = 'manual') AS manual "
-                    "  FROM customers"
+                    "  FROM customers WHERE deleted_at IS NULL"
                 )
             )
         ).first()

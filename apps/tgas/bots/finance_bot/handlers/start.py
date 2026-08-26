@@ -186,6 +186,9 @@ async def debts(cb: CallbackQuery):
     async with get_session_ctx() as session:
         r = await session.execute(
             text(
+                # видим-удалённых-намеренно: это ДЕБИТОРКА. Долг не
+                # исчезает оттого, что карточку прибрали, а JOIN здесь
+                # внутренний — фильтр убрал бы саму строку долга, а не имя.
                 "SELECT o.order_number, o.total_amount, c.name FROM crm_orders o "
                 "JOIN customers c ON c.id = o.customer_id "
                 "WHERE o.payment_status = 'pending' ORDER BY o.created_at LIMIT 10"

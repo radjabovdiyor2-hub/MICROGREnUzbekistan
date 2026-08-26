@@ -63,6 +63,9 @@ async def generate_daily_franchise_journals():
                     text(
                         "SELECT COUNT(o.id) AS cnt, COALESCE(SUM(o.total_amount), 0) AS total_rev "
                         "FROM crm_orders o "
+                        # видим-удалённых-намеренно: JOIN здесь только ради
+                        # города. Отсечь удалённые карточки значит уменьшить
+                        # выручку филиала оттого, что владелец прибрался в базе.
                         "JOIN customers c ON c.id = o.customer_id "
                         "WHERE LOWER(c.city) = ANY(:names) "
                         # created_at — timestamp без пояса, NOW() — с поясом. Прежнее
@@ -81,7 +84,8 @@ async def generate_daily_franchise_journals():
                     text(
                         "SELECT COUNT(id) as cnt "
                         "FROM customers "
-                        "WHERE LOWER(city) = ANY(:names) AND customer_type = 'b2b' "
+                        "WHERE deleted_at IS NULL "
+                        "AND LOWER(city) = ANY(:names) AND customer_type = 'b2b' "
                         "AND DATE(created_at) = CURRENT_DATE"
                     ),
                     {"names": names},

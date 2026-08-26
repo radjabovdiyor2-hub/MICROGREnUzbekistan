@@ -247,7 +247,10 @@ async def report_daily(cb: CallbackQuery):
 
         # Клиенты новые
         res = await session.execute(
-            text("SELECT COUNT(*) FROM customers WHERE DATE(created_at) = CURRENT_DATE")
+            text(
+                "SELECT COUNT(*) FROM customers "
+                "WHERE deleted_at IS NULL AND DATE(created_at) = CURRENT_DATE"
+            )
         )
         new_customers = res.scalar()
 
@@ -376,6 +379,7 @@ async def show_orders(cb: CallbackQuery):
         res = await session.execute(
             text(
                 "SELECT o.id, o.order_number, o.total_amount, o.status, o.payment_status, "
+                # видим-удалённых-намеренно: имя у состоявшегося заказа.
                 "c.name FROM crm_orders o LEFT JOIN customers c ON o.customer_id = c.id "
                 "ORDER BY o.created_at DESC LIMIT 10"
             )
@@ -465,11 +469,16 @@ async def show_analytics(cb: CallbackQuery):
         cats = res.fetchall()
 
         # Общие метрики
-        res = await session.execute(text("SELECT COUNT(*) FROM customers"))
+        res = await session.execute(
+            text("SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL")
+        )
         total_customers = res.scalar()
 
         res = await session.execute(
-            text("SELECT COUNT(*) FROM customers WHERE customer_type = 'b2b'")
+            text(
+                "SELECT COUNT(*) FROM customers "
+                "WHERE deleted_at IS NULL AND customer_type = 'b2b'"
+            )
         )
         b2b = res.scalar()
 
@@ -1850,11 +1859,14 @@ async def _get_db_context() -> str:
             lines.append(f"💸 Расходы за месяц: {format_price(exp)}")
 
             # ═══ КЛИЕНТЫ ═══
-            res = await session.execute(text("SELECT COUNT(*) FROM customers"))
+            res = await session.execute(
+                text("SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL")
+            )
             cust = res.scalar()
             res = await session.execute(
                 text(
-                    "SELECT COUNT(*) FROM customers WHERE notes LIKE '%instagram%' OR notes LIKE '%Instagram%'"
+                    "SELECT COUNT(*) FROM customers WHERE deleted_at IS NULL "
+                    "AND (notes LIKE '%instagram%' OR notes LIKE '%Instagram%')"
                 )
             )
             ig_cust = res.scalar() or 0

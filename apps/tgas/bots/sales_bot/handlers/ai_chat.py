@@ -36,7 +36,8 @@ async def show_orders(cb: CallbackQuery, state: FSMContext):
         res = await session.execute(
             sqt(
                 "SELECT order_number, total_amount, status, created_at FROM crm_orders "
-                "WHERE customer_id = (SELECT id FROM customers WHERE telegram_id = :tid) "
+                "WHERE customer_id = (SELECT id FROM customers "
+                "WHERE deleted_at IS NULL AND telegram_id = :tid) "
                 "ORDER BY created_at DESC LIMIT 5"
             ),
             {"tid": cb.from_user.id},
