@@ -68,6 +68,7 @@ const AdminGrowing = dynamic(() => import('@/components/admin/AdminGrowing').the
 const AdminRawMaterials = dynamic(() => import('@/components/admin/AdminRawMaterials').then((m) => m.AdminRawMaterials), { ssr: false, loading: TabLoading });
 const AdminCropNorms = dynamic(() => import('@/components/admin/AdminCropNorms').then((m) => m.AdminCropNorms), { ssr: false, loading: TabLoading });
 const AdminMagazine = dynamic(() => import('@/components/admin/AdminMagazine').then((m) => m.AdminMagazine), { ssr: false, loading: TabLoading });
+const AdminMagazineEditions = dynamic(() => import('@/components/admin/AdminMagazineEditions').then((m) => m.AdminMagazineEditions), { ssr: false, loading: TabLoading });
 const AdminGuestPhotos = dynamic(() => import('@/components/admin/AdminGuestPhotos').then((m) => m.AdminGuestPhotos), { ssr: false, loading: TabLoading });
 const AdminRecipes = dynamic(() => import('@/components/admin/AdminRecipes').then((m) => m.AdminRecipes), { ssr: false, loading: TabLoading });
 const AdminDepartment = dynamic(() => import('@/components/admin/AdminDepartment').then((m) => m.AdminDepartment), { ssr: false, loading: TabLoading });
@@ -174,6 +175,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
 
     {/* Контент и журнал */}
     {activeTab === 'magazine' && isOwner && <AdminMagazine />}
+    {activeTab === 'magazine_editions' && isOwner && <AdminMagazineEditions lang={lang} />}
     {activeTab === 'guest_photos' && isOwner && <AdminGuestPhotos />}
     {activeTab === 'recipes' && isOwner && <AdminRecipes />}
 

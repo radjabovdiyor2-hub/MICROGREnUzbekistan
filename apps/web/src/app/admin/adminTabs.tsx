@@ -2,7 +2,7 @@
 
 import {
   Route,
-  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
+  Activity, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -81,6 +81,10 @@ export const TAB_GROUPS = [
     title: { ru: 'Контент и журнал', uz: 'Kontent va jurnal' },
     tabs: [
       { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <FileText size={16} /> },
+      // Выпусками журнал не управлялся вовсе: восемь групп API без
+      // единого экрана, всё делал крон, а владелец узнавал результат из
+      // готового PDF.
+      { id: 'magazine_editions', ru: 'Выпуски', uz: 'Sonlar', icon: <BookOpen size={16} /> },
       { id: 'guest_photos', ru: 'Кадры гостей', uz: 'Mehmon kadrlari', icon: <Camera size={16} /> },
       { id: 'recipes', ru: 'Рецепты', uz: 'Retseptlar', icon: <Leaf size={16} /> },
     ]
