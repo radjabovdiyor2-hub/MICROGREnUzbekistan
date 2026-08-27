@@ -453,6 +453,18 @@ jobs:
               docker cp "$MIGRATION_SQL" mg_postgres:/tmp/unify_databases.sql
               docker exec mg_postgres psql -U mg_user -d microgreen -f /tmp/unify_databases.sql
             fi
+            # ── Что db-push сделает со схемой ────────────────────────────
+            #
+            # `--accept-data-loss` стоит всегда и потому ничего не значит:
+            # переименовали поле в schema.prisma — Prisma видит «одной
+            # колонки не стало, другая появилась» и молча удаляет первую
+            # вместе с данными. Снимок выше — это путь НАЗАД, а чтобы им
+            # воспользоваться, потерю надо сначала заметить.
+            #
+            # Скрипт печатает SQL до его применения и останавливает выкатку
+            # на DROP TABLE / DROP COLUMN. Намеренное удаление разрешается
+            # переменной ALLOW_SCHEMA_DATA_LOSS=1 — на один раз и осознанно.
+            ALLOW_SCHEMA_DATA_LOSS="${{ vars.ALLOW_SCHEMA_DATA_LOSS }}"               sh deploy/schema-diff.sh
             # Run db-push: --no-deps prevents compose from recreating the
             # already-running postgres (which races on port 5432).
             docker compose -f docker-compose.prod.yml run --rm --no-deps db-push 2>&1 || {
