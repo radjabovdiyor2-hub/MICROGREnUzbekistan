@@ -54,19 +54,49 @@ async def daily_finance_report():
                         "WHERE date = CURRENT_DATE"
                     )
                 )
-                row = result.fetchone()
+                    # Куда именно ушли деньги. Строка «расход столько-то» без
+                # разбивки не отвечает на единственный вопрос, который к ней
+                # возникает, и владельцу приходилось идти в админку.
+                by_category = (
+                    await session.execute(
+                        text(
+                            "SELECT COALESCE(category, 'без категории'), SUM(amount) "
+                            "FROM finances "
+                            "WHERE type = 'expense' AND date = CURRENT_DATE "
+                            "GROUP BY 1 ORDER BY SUM(amount) DESC LIMIT 5"
+                        )
+                    )
+                ).fetchall()
+
+            row = result.fetchone()
             income = row[0] if row else 0
             expense = row[1] if row else 0
             profit = income - expense
             emoji = "📈" if profit >= 0 else "📉"
-            await bot.send_message(
-                admin_id,
-                f"{emoji} <b>Финансы за сегодня:</b>\n\n"
-                f"💵 Доход: {'{:,.0f}'.format(income)} сум\n"
-                f"💸 Расход: {'{:,.0f}'.format(expense)} сум\n"
+
+            # ── Единственный отчёт про ДЕНЬГИ за день ─────────────────────
+            #
+            # Раньше выручку дня докладывали двое: финансы в 18:00 и
+            # вечерняя сводка Стёпана в 20:00. Одно и то же число приходило
+            # дважды за вечер, а разница между ними (пока сводка не
+            # фильтровала отмены) читалась как ошибка отчёта.
+            #
+            # Решением владельца (27.08.2026) деньги остались здесь и стали
+            # подробнее, а сводка Стёпана — про работу.
+            lines = [
+                f"{emoji} <b>Финансы за сегодня:</b>\n",
+                f"💵 Доход: {'{:,.0f}'.format(income)} сум",
+                f"💸 Расход: {'{:,.0f}'.format(expense)} сум",
                 f"{'✅' if profit >= 0 else '🔴'} Прибыль: {'{:,.0f}'.format(profit)} сум",
-                parse_mode="HTML",
-            )
+            ]
+            if by_category:
+                lines.append("\n<b>Расход по статьям:</b>")
+                lines.extend(
+                    f"  • {name}: {'{:,.0f}'.format(total or 0)} сум"
+                    for name, total in by_category
+                )
+
+            await bot.send_message(admin_id, "\n".join(lines), parse_mode="HTML")
             logger.info(
                 "daily_finance_report: income=%s expense=%s profit=%s",
                 income,

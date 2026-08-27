@@ -1,12 +1,13 @@
 """
 🌱 MICROGREEN UZBEKISTAN — CROSS-POST SERVICE
 
-Unified content publishing across all platforms:
-- Telegram Channel
-- Telegram Group  
-- Instagram (via Graph API)
+Публикация витринного бота в его собственные каналы:
+- Telegram-канал
+- Telegram-группа
 
-All content passes through here for consistent branding.
+Instagram здесь НЕ публикуется — им владеет офис
+(`apps/tgas/shared/instagram.py`, расписания content_bot). Здесь была
+вторая реализация без единого вызывающего; подробности — в `Platform`.
 """
 
 import os
@@ -30,9 +31,19 @@ GROUP_ID = os.getenv("GROUP_ID", "@Microgreen_Uzbekistan")
 
 
 class Platform(Enum):
+    """
+    Куда публикует ВИТРИННЫЙ бот.
+
+    Instagram сюда не входит намеренно. Публикацией в Instagram владеет
+    офис (`apps/tgas/shared/instagram.py` плюс расписания content_bot):
+    там обновление долгоживущих токенов, разбор ответов Graph API и учёт
+    опубликованного. Вторая реализация жила здесь без единого
+    вызывающего — `Platform.INSTAGRAM` не передавал никто — и разошлась
+    бы с первой молча, как это уже случалось с промптами и каталогом.
+    """
+
     CHANNEL = "channel"
     GROUP = "group"
-    INSTAGRAM = "instagram"
     ALL = "all"
 
 
@@ -94,20 +105,6 @@ class CrossPostService:
         text += "\n📸 Instagram: @microgreenuzbekistan"
         return text
     
-    def _format_for_instagram(self, post: CrossPost) -> str:
-        """Format content for Instagram (plain text + hashtags)"""
-        text = f"{post.title}\n\n{post.body}"
-        text += "\n\n🛒 Заказать: microgreenuzbekistan.com"
-        text += "\n📱 Telegram: @Microgreenuzbekistan_bot"
-        text += "\n📢 Канал: @MicrogreenUzbekistan"
-        
-        # Add hashtags
-        if post.hashtags:
-            tags = " ".join(f"#{tag}" for tag in post.hashtags)
-            text += f"\n\n{tags}"
-        
-        return text
-    
     async def publish(self, post: CrossPost) -> Dict[str, Dict]:
         """Publish content to specified platforms"""
         results = {}
@@ -121,19 +118,9 @@ class CrossPostService:
                 text = self._format_for_telegram(post)
                 results["group"] = await self._send_telegram(GROUP_ID, text, post.image_url)
                 
-            elif platform == Platform.INSTAGRAM:
-                # Instagram posting would go through Graph API
-                # For now, just log (requires instagram_service.py)
-                from services.instagram_service import create_instagram_post
-                text = self._format_for_instagram(post)
-                if post.image_url:
-                    results["instagram"] = await create_instagram_post(post.image_url, text)
-                else:
-                    results["instagram"] = {"error": "Image required for Instagram"}
-                    
             elif platform == Platform.ALL:
                 # Recursive call for all platforms
-                post.platforms = [Platform.CHANNEL, Platform.GROUP, Platform.INSTAGRAM]
+                post.platforms = [Platform.CHANNEL, Platform.GROUP]
                 return await self.publish(post)
         
         return results

@@ -47,33 +47,76 @@ const BUTTON: Record<NotifyType, string> = {
   info: '📊 Сводка',
 };
 
-export async function notifyAdmin(opts: NotifyOptions): Promise<boolean> {
-  if (!BOT_TOKEN || !ADMIN_CHAT_ID) return false;
-
-  const text = `${ICON[opts.type] ?? 'ℹ️'} *Microgreen Admin*\n\n${opts.message}`;
-
+/**
+ * Отправка владельцу. Возвращает, дошло ли.
+ *
+ * ⚠️ ПОЧЕМУ ЗДЕСЬ ПРОВЕРЯЕТСЯ `res.ok`, А НЕ ТОЛЬКО `catch`.
+ *
+ * `fetch` не отклоняется на HTTP-ответе: 400 и 401 приходят как обычный
+ * успешный ответ, и `.catch()` на них не срабатывает НИКОГДА. То есть
+ * отозванный токен бота — а его уже приходилось менять — выглядит как
+ * доставленное сообщение. Уведомления просто перестают приходить, и
+ * узнать об этом неоткуда: в логе тихо, в коде видно `catch`.
+ *
+ * Описание ошибки Telegram кладём в лог целиком: «chat not found» и
+ * «Unauthorized» лечатся по-разному, а без текста они неразличимы.
+ * Токен в лог не попадает — он только в URL, который мы не печатаем.
+ */
+async function send(
+  text: string,
+  parseMode: 'Markdown' | 'HTML',
+  chatId: string,
+  replyMarkup?: unknown,
+): Promise<boolean> {
   try {
     const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        chat_id: ADMIN_CHAT_ID,
+        chat_id: chatId,
         text,
-        parse_mode: 'Markdown',
-        reply_markup: openKeyboard(
-          ADMIN_CHAT_ID,
-          TAB[opts.type],
-          opts.focus,
-          BUTTON[opts.type],
-        ),
+        parse_mode: parseMode,
+        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
         disable_web_page_preview: true,
       }),
     });
-    return res.ok;
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error(`[Notify] Telegram ответил ${res.status}: ${body.slice(0, 300)}`);
+      return false;
+    }
+    return true;
   } catch (e) {
     console.error('[Notify] Telegram send failed:', e);
     return false;
   }
+}
+
+/** Сообщение владельцу с кнопкой на нужный экран админки. */
+export async function notifyAdmin(opts: NotifyOptions): Promise<boolean> {
+  if (!BOT_TOKEN || !ADMIN_CHAT_ID) return false;
+
+  return send(
+    `${ICON[opts.type] ?? 'ℹ️'} *Microgreen Admin*\n\n${opts.message}`,
+    'Markdown',
+    ADMIN_CHAT_ID,
+    openKeyboard(ADMIN_CHAT_ID, TAB[opts.type], opts.focus, BUTTON[opts.type]),
+  );
+}
+
+/**
+ * Готовое сообщение владельцу — для касс и возвратов.
+ *
+ * Экран и подпись кнопки они задают сами: у чека это выручка, у возврата —
+ * журнал движений, и загонять это в `NotifyType` значило бы придумывать
+ * тип под каждую кнопку.
+ */
+export async function notifyAdminRaw(
+  text: string,
+  replyMarkup?: unknown,
+): Promise<boolean> {
+  if (!BOT_TOKEN || !ADMIN_CHAT_ID) return false;
+  return send(text, 'Markdown', ADMIN_CHAT_ID, replyMarkup);
 }
 
 // Notify the CUSTOMER (not the admin) via the storefront bot they already talk
@@ -84,19 +127,5 @@ export async function notifyCustomer(
   message: string,
 ): Promise<boolean> {
   if (!BOT_TOKEN || !telegramId) return false;
-  try {
-    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: telegramId.toString(),
-        text: message,
-        parse_mode: 'HTML',
-      }),
-    });
-    return res.ok;
-  } catch (e) {
-    console.error('[Notify] Customer send failed:', e);
-    return false;
-  }
+  return send(message, 'HTML', telegramId.toString());
 }

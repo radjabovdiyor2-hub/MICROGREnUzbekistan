@@ -8,7 +8,7 @@
 
 | Модуль | Стек | Роль | Размер |
 |--------|------|------|--------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 30 API-групп, 120 route-файлов, 275 компонентов | ~66KB globals.css, 79 Prisma-моделей |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 29 API-групп, 119 route-файлов, 275 компонентов | ~66KB globals.css, 79 Prisma-моделей |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 64 shared-модулей, ~400KB main.py суммарно |
 | `packages/database` | Prisma ORM, PostgreSQL | Схема (79 моделей, 2381 строки), миграции, сиды | schema.prisma — единый источник DDL |
@@ -112,9 +112,9 @@
 8. **No git side effects.** Commit/push — только по явному запросу.
 9. **No secrets.** Никогда не печатать/логировать/коммитить `.env`, токены, ключи.
 
-### VII. API — 30 групп, 120 роутов
+### VII. API — 29 групп, 119 роутов
 
-Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, config, content, ecosystem, events, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, push, referral, reviews, subscriptions, support, telegram, upload, users, whatsapp.
+Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, config, content, events, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, push, referral, reviews, subscriptions, support, telegram, upload, users, whatsapp.
 
 Здесь значилась ещё и `sms` — группы с таким именем нет и не было, а витринный
 бот слал в неё `POST /api/sms` и получал 404. Список сверять с каталогом, а не

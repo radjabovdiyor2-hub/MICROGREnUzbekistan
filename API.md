@@ -2,17 +2,17 @@
 
 Base URL: `https://microgreenuzbekistan.com/api`
 
-**30 групп, 120 route-файлов.** Список ниже сверен с каталогом
+**29 групп, 119 route-файлов.** Список ниже сверен с каталогом
 `apps/web/src/app/api/`, а не дописан по памяти. Раньше здесь значились восемь
 эндпоинтов, которых нет и не было, — в том числе `POST /api/sms`, из-за
 которого витринный бот месяцами получал 404 (этот случай конституция
 специально занесла в память как урок «список сверять с каталогом»).
 
-Полный перечень групп: `admin`, `ai`, `auth`, `categories`, `config`,
-`content`, `ecosystem`, `game`, `health`, `instagram`, `inventory`, `leads`,
-`magazine`, `marketing`, `menu`, `metrics`, `notify`, `orders`, `payment`,
-`products`, `promo`, `referral`, `reviews`, `subscriptions`, `support`,
-`telegram`, `upload`, `users`, `whatsapp`.
+Полный перечень групп: `admin`, `ai`, `auth`, `categories`, `config`, `content`,
+`events`, `health`, `instagram`, `inventory`, `leads`, `magazine`,
+`marketing`, `menu`, `metrics`, `notify`, `orders`, `payment`,
+`products`, `promo`, `push`, `referral`, `reviews`, `subscriptions`,
+`support`, `telegram`, `upload`, `users`, `whatsapp`.
 
 ## Авторизация
 
@@ -98,11 +98,17 @@ Base URL: `https://microgreenuzbekistan.com/api`
 | POST | `/api/support` | Обращение в поддержку |
 | POST | `/api/reviews` | Отзыв (автор — из сессии, бота или гостевого хеша) |
 | GET | `/api/health`, `/api/metrics` | Здоровье и метрики |
-| POST | `/api/whatsapp/webhook`, `/api/telegram/*` | Вебхуки мессенджеров |
-| POST | `/api/game/nft/mint` | Farm Simulator (отвечает 501 — не реализовано) |
+| POST | `/api/whatsapp/webhook` | Сообщение клиента → касание в CRM + сигнал владельцу |
+| POST | `/api/telegram/*` | Вебхуки Telegram |
 
 SMS-группы нет. `/api/marketing/digest` существует, но отвечает 501: рассылки
 не реализовано — ни выборки подписчиков, ни транспорта.
+
+Группы `game` нет: приложение игры удалено вместе с каталогом `apps/game`,
+и строка `/api/game/nft/mint` в этой таблице описывала маршрут, которого не
+существует. Группы `ecosystem` тоже нет: её единственный роут принимал
+событие, писал строку в лог и отвечал `{"received": true}` — дверь
+выглядела рабочей, ничего не делая, и звал её метод без вызывающих.
 
 ## AI Office API (apps/tgas/web_office)
 

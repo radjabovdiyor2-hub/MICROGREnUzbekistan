@@ -8,7 +8,7 @@ Guidance для Claude Code при работе в этом репозитори
 
 | Модуль | Стек | Роль |
 |--------|------|------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 30 API-групп, 120 роутов |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 29 API-групп, 119 роутов |
 | `apps/bot` | Python, aiogram 3, OpenAI | Telegram-бот витрины: AI-продавец, ходит в `apps/web/api/*` по HTTP |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
 | `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 79 моделей, единый источник DDL |
@@ -28,7 +28,7 @@ Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 - **Нет секретов в выводе.** `.env`, токены и ключи не печатать, не логировать, не коммитить.
 - **Нет git side effects** без явного запроса в этом же ходе.
 
-Перед созданием нового API-роута — прочитать `apps/web/src/app/api/` (30 групп). Дублирование роута — дефект.
+Перед созданием нового API-роута — прочитать `apps/web/src/app/api/` (29 групп). Дублирование роута — дефект.
 
 ## Команды
 

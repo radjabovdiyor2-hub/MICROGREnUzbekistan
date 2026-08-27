@@ -326,7 +326,6 @@ async def evening_summary():
         if not admin_id:
             return
         from sqlalchemy import text as sa_text
-        from shared.utils import format_price
 
         async with get_session_ctx() as session:
             # Задачи завершённые сегодня
@@ -347,22 +346,24 @@ async def evening_summary():
             )
             tasks_remaining = res.scalar() or 0
 
-            # Новые заказы сегодня.
+            # Сколько заказов состоялось сегодня.
             #
-            # Фильтр отмен здесь отсутствовал, и вечерняя сводка была
-            # единственным местом в офисе, где отменённый заказ считался
-            # выручкой: `get_business_summary`, `get_pnl`, `top_products` и
-            # `get_sales_trend` исключают его через тот же `NOT_A_SALE`.
-            # Владелец в 20:00 получал одно число, а отчёт аналитики в тот же
-            # час — другое, и расхождение выглядело ошибкой аналитики.
+            # Суммы здесь больше нет: деньги дня докладывают финансы в 18:00,
+            # и вторая копия того же числа за вечер только вызывала вопрос,
+            # какому из двух верить. Осталось количество — это про работу.
+            #
+            # `NOT_A_SALE` остаётся: отменённый заказ не «состоялся». Раньше
+            # фильтра не было вовсе, и сводка была единственным местом в
+            # офисе, где отмена шла в счёт, — `get_business_summary`,
+            # `get_pnl`, `top_products` и `get_sales_trend` исключают её.
             res = await session.execute(
                 sa_text(
-                    "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM crm_orders "
+                    "SELECT COUNT(*) FROM crm_orders "
                     "WHERE DATE(created_at) = CURRENT_DATE "
                     f"AND LOWER(status) NOT IN {NOT_A_SALE}"
                 )
             )
-            new_orders, revenue = res.fetchone()
+            new_orders = res.scalar()
 
             # Задачи на завтра (с дедлайном завтра)
             res = await session.execute(
@@ -375,12 +376,22 @@ async def evening_summary():
             )
             tomorrow_tasks = res.fetchall()
 
+        # ── Про РАБОТУ, а не про деньги ───────────────────────────────────
+        #
+        # Строка выручки отсюда убрана осознанно, решением владельца
+        # (27.08.2026). Деньги дня подробно докладывают финансы в 18:00:
+        # доход, расход, прибыль. Здесь она повторялась вторым сообщением
+        # за вечер — то есть одно и то же число приходило дважды, и разница
+        # между ними (а она была, пока вечерняя сводка не фильтровала
+        # отмены) читалась как ошибка отчёта, а не как разные срезы.
+        #
+        # Число заказов ОСТАЁТСЯ: это про работу — сколько сделали, а не
+        # сколько заработали.
         lines = [
             "🌆 <b>Итоги дня</b>\n",
             "━━━━━━━━━━━━━━━━━━━━━━\n",
             f"✅ Задач завершено: <b>{tasks_completed}</b>",
             f"📦 Новых заказов: <b>{new_orders or 0}</b>",
-            f"💰 Выручка: <b>{format_price(revenue or 0)}</b>",
             f"📋 Осталось задач: <b>{tasks_remaining}</b>",
         ]
 
@@ -1267,6 +1278,18 @@ async def _cron_magazine_prepare():
                 headers={"x-bot-secret": secret},
             ) as resp:
                 data = await resp.json()
+                # Код ответа, а не только тело: при 401 (разошёлся
+                # BOT_SECRET) или 500 строка лога выглядела бы точно так
+                # же, как при успехе, — «Cron Prepare: {...}». Владелец
+                # узнавал, что подготовка выпуска не случилась, по отсутствию
+                # готового журнала.
+                if resp.status != 200:
+                    logger.error(
+                        "Cron Prepare: витрина ответила %s — %s",
+                        resp.status,
+                        str(data)[:300],
+                    )
+                    return
                 logger.info(f"Cron Prepare: {data}")
     except Exception as e:
         logger.error(f"Cron Prepare error: {e}")
@@ -1285,6 +1308,18 @@ async def _cron_magazine_finalize():
                 headers={"x-bot-secret": secret},
             ) as resp:
                 data = await resp.json()
+                # Код ответа, а не только тело: при 401 (разошёлся
+                # BOT_SECRET) или 500 строка лога выглядела бы точно так
+                # же, как при успехе, — «Cron Finalize: {...}». Владелец
+                # узнавал, что публикация выпуска не случилась, по отсутствию
+                # готового журнала.
+                if resp.status != 200:
+                    logger.error(
+                        "Cron Finalize: витрина ответила %s — %s",
+                        resp.status,
+                        str(data)[:300],
+                    )
+                    return
                 logger.info(f"Cron Finalize: {data}")
     except Exception as e:
         logger.error(f"Cron Finalize error: {e}")
@@ -1307,6 +1342,17 @@ async def _cron_magazine_print_run():
                 headers={"x-bot-secret": secret},
             ) as resp:
                 data = await resp.json()
+                # Тот же разбор, что у Prepare и Finalize. Здесь цена выше:
+                # ниже по коду из ответа берутся `slugs`, и при отказе их
+                # просто нет — печать тиража тихо не происходит, а в логе
+                # остаётся обычная строка «Cron Print-Run: {...}».
+                if resp.status != 200:
+                    logger.error(
+                        "Cron Print-Run: витрина ответила %s — %s",
+                        resp.status,
+                        str(data)[:300],
+                    )
+                    return
                 logger.info(f"Cron Print-Run: {data}")
 
                 slugs = data.get("slugs", [])
