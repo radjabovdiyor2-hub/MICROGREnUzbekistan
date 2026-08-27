@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { prisma } from '@repo/database';
 import { audit } from '@/lib/audit';
 import { detach } from '@/lib/background';
+import { notifyAdminRaw } from '@/lib/notify';
 import { drainOffice, enqueueOffice } from '@/lib/office/outbox';
 import { posRefundIngestBody } from '@/lib/orders/notify';
 import { cartTotal, formatQty, formatQtyWithUnit, isValidQty, lineTotal, normalizeQty } from '@/lib/qty';
@@ -262,10 +263,10 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
   // Отправка зеркала — в фоне: кассу у прилавка держать нельзя.
   detach('зеркало возврата в офис', drainOffice());
 
-  // Send Telegram notification to admin (fire-and-forget)
-  const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+  // Уведомление владельцу — не задерживая кассу. Наличие токена проверяет
+  // сам отправитель; здесь нужен только чат для кнопки на экран.
   const ADMIN_CHAT_ID = process.env.ADMIN_CHAT_ID;
-  if (BOT_TOKEN && ADMIN_CHAT_ID) {
+  if (ADMIN_CHAT_ID) {
     const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
     let msg = `🔄 *QAYTARISH #${returnNumber}*\n\n`;
@@ -280,19 +281,16 @@ export async function processRefund(request: NextRequest): Promise<NextResponse>
 
     msg += `\n*QAYTARILDI: ${fmt(totalRefund)} so'm*`;
 
-    fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: ADMIN_CHAT_ID,
-        text: msg,
-        parse_mode: 'Markdown',
-        // Возврат разбирают в журнале движений: там видно, что вернулось
-        // на склад и по какому чеку.
-        reply_markup: openKeyboard(ADMIN_CHAT_ID, 'movements', returnNumber, '📋 Движения'),
-        disable_web_page_preview: true,
-      }),
-    }).catch(() => {});
+    // Через общий отправитель: свой `fetch(...).catch(() => {})` не
+    // срабатывал на отказе Telegram — `fetch` не отклоняется на
+    // HTTP-ответе, и 401 выглядел как доставленное сообщение.
+    //
+    // Возврат разбирают в журнале движений: там видно, что вернулось
+    // на склад и по какому чеку.
+    void notifyAdminRaw(
+      msg,
+      openKeyboard(ADMIN_CHAT_ID, 'movements', returnNumber, '📋 Движения'),
+    );
   }
 
   return NextResponse.json({

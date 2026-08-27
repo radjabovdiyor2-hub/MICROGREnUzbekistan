@@ -1,4 +1,5 @@
 import { formatQtyWithUnit, lineTotal } from '@/lib/qty';
+import { notifyAdminRaw } from '@/lib/notify';
 import { openKeyboard } from '@/lib/telegram/adminLinks';
 import { formatLocalDate } from '@/lib/revenue/salesLedger';
 
@@ -88,19 +89,13 @@ export function notifyOwner(
   tab: string = 'revenue',
   buttonText: string = '💵 Доход',
 ): void {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.ADMIN_CHAT_ID;
-  if (!token || !chatId) return;
+  if (!chatId) return;
 
-  fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: message,
-      parse_mode: 'Markdown',
-      reply_markup: openKeyboard(chatId, tab, null, buttonText),
-      disable_web_page_preview: true,
-    }),
-  }).catch(() => {});
+  // Через общий отправитель, а не своим `fetch(...).catch(() => {})`.
+  // Тот `catch` не срабатывал на отказе Telegram вообще: `fetch` не
+  // отклоняется на HTTP-ответе, и 401 с отозванным токеном выглядел как
+  // доставленный чек. Уведомления о продажах могли не приходить месяцами,
+  // и узнать об этом было неоткуда.
+  void notifyAdminRaw(message, openKeyboard(chatId, tab, null, buttonText));
 }
