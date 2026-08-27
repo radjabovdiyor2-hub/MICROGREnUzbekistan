@@ -1267,6 +1267,18 @@ async def _cron_magazine_prepare():
                 headers={"x-bot-secret": secret},
             ) as resp:
                 data = await resp.json()
+                # Код ответа, а не только тело: при 401 (разошёлся
+                # BOT_SECRET) или 500 строка лога выглядела бы точно так
+                # же, как при успехе, — «Cron Prepare: {...}». Владелец
+                # узнавал, что подготовка выпуска не случилась, по отсутствию
+                # готового журнала.
+                if resp.status != 200:
+                    logger.error(
+                        "Cron Prepare: витрина ответила %s — %s",
+                        resp.status,
+                        str(data)[:300],
+                    )
+                    return
                 logger.info(f"Cron Prepare: {data}")
     except Exception as e:
         logger.error(f"Cron Prepare error: {e}")
@@ -1285,6 +1297,18 @@ async def _cron_magazine_finalize():
                 headers={"x-bot-secret": secret},
             ) as resp:
                 data = await resp.json()
+                # Код ответа, а не только тело: при 401 (разошёлся
+                # BOT_SECRET) или 500 строка лога выглядела бы точно так
+                # же, как при успехе, — «Cron Finalize: {...}». Владелец
+                # узнавал, что публикация выпуска не случилась, по отсутствию
+                # готового журнала.
+                if resp.status != 200:
+                    logger.error(
+                        "Cron Finalize: витрина ответила %s — %s",
+                        resp.status,
+                        str(data)[:300],
+                    )
+                    return
                 logger.info(f"Cron Finalize: {data}")
     except Exception as e:
         logger.error(f"Cron Finalize error: {e}")
@@ -1307,6 +1331,17 @@ async def _cron_magazine_print_run():
                 headers={"x-bot-secret": secret},
             ) as resp:
                 data = await resp.json()
+                # Тот же разбор, что у Prepare и Finalize. Здесь цена выше:
+                # ниже по коду из ответа берутся `slugs`, и при отказе их
+                # просто нет — печать тиража тихо не происходит, а в логе
+                # остаётся обычная строка «Cron Print-Run: {...}».
+                if resp.status != 200:
+                    logger.error(
+                        "Cron Print-Run: витрина ответила %s — %s",
+                        resp.status,
+                        str(data)[:300],
+                    )
+                    return
                 logger.info(f"Cron Print-Run: {data}")
 
                 slugs = data.get("slugs", [])
