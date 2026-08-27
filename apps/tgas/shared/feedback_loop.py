@@ -114,7 +114,10 @@ class FeedbackLoopEngine:
                 )
         except Exception as exc:
             # Замер — телеметрия: его потеря не должна ронять задачу бота.
-            logger.debug("[%s] Замер %s не сохранён: %s", bot, metric, exc)
+            # Но и молчать нельзя: `debug` при `level=INFO` в лог не идёт, а
+            # на этих замерах держится весь слой самообучения — без них он
+            # просто перестаёт работать, ничем этого не показывая.
+            logger.warning("[%s] Замер %s не сохранён: %s", bot, metric, exc)
 
     async def recent_measurements(
         self, bot: str, metric: str, limit: int = 10

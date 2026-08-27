@@ -221,7 +221,10 @@ async def register_job(bot: str, name: str, kind: str, **fields: Any) -> None:
                 },
             )
     except Exception as exc:
-        logger.debug(
+        # `warning`: не зарегистрировалась — значит, в админке этой задачи
+        # нет, и владелец не может ни увидеть её, ни выключить. `debug` при
+        # `level=INFO` в лог не попадает.
+        logger.warning(
             "settings_store: задача %s/%s не зарегистрирована (%s)", bot, name, exc
         )
 
@@ -260,7 +263,7 @@ async def prune_jobs(bot: str, live_names: list[str]) -> int:
             )
         return len(removed)
     except Exception as exc:
-        logger.debug("settings_store: уборка задач %s не выполнена (%s)", bot, exc)
+        logger.warning("settings_store: уборка задач %s не выполнена (%s)", bot, exc)
         return 0
 
 
@@ -283,6 +286,9 @@ async def record_job_run(
                 },
             )
     except Exception as exc:
-        logger.debug(
+        # Не записали — админка показывает задачу как ни разу не
+        # запускавшуюся, то есть как сломанную. Это ровно тот случай, когда
+        # молчание выглядит поломкой в другом месте.
+        logger.warning(
             "settings_store: факт запуска %s/%s не записан (%s)", bot, name, exc
         )
