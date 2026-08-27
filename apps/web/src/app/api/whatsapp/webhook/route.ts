@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
+import { notifyAdmin } from '@/lib/notify';
+import { notifyOfficeSupport } from '@/lib/office/client';
+
 // ══════════════════════════════════════════════════════════════════════
 // Вебхук WhatsApp (Meta).
 //
@@ -60,6 +63,14 @@ function signatureOk(rawBody: string, header: string | null): boolean {
   return safeEq(header.slice('sha256='.length), expected);
 }
 
+/** Текст сообщения. Вложение текстом не описывается — говорим об этом прямо. */
+function readMessage(message: Record<string, unknown>): string {
+  const text = (message.text as { body?: string } | undefined)?.body;
+  if (text && text.trim()) return text.trim();
+  const kind = typeof message.type === 'string' ? message.type : 'вложение';
+  return `[${kind} без текста — откройте переписку в WhatsApp]`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const rawBody = await request.text();
@@ -68,32 +79,49 @@ export async function POST(request: NextRequest) {
     }
 
     const body = JSON.parse(rawBody);
-
-    // Check if it's a WhatsApp status update or message
-    if (body.object === 'whatsapp_business_account') {
-      for (const entry of body.entry) {
-        for (const change of entry.changes) {
-          if (change.field === 'messages') {
-            const value = change.value;
-
-            // Log messages (to be forwarded to Support Bot)
-            if (value.messages && value.messages.length > 0) {
-              const message = value.messages[0];
-              const phone = value.contacts[0].wa_id;
-
-              console.log(`[WhatsApp] New message from ${phone}: ${message.text?.body || 'Attachment'}`);
-
-              // Future: Event bus publish to 'support' bot for processing
-              // await event_bus.publish('whatsapp_message', { phone, message });
-            }
-          }
-        }
-      }
-      return NextResponse.json({ status: 'ok' }, { status: 200 });
+    if (body.object !== 'whatsapp_business_account') {
+      return new NextResponse('Not Found', { status: 404 });
     }
 
-    return new NextResponse('Not Found', { status: 404 });
+    for (const entry of body.entry ?? []) {
+      for (const change of entry.changes ?? []) {
+        if (change.field !== 'messages') continue;
+        const value = change.value ?? {};
+        const message = value.messages?.[0];
+        if (!message) continue;
+
+        const phone = value.contacts?.[0]?.wa_id ?? null;
+        const name = value.contacts?.[0]?.profile?.name ?? null;
+        const text = readMessage(message);
+
+        // ⚠️ ЗДЕСЬ БЫЛ `console.log` И КОММЕНТАРИЙ «Future: Event bus».
+        //
+        // Ссылка на WhatsApp стоит в подвале сайта, то есть клиенты по ней
+        // пишут. Их сообщение доходило до сервера, проходило проверку
+        // подписи — и оставалось строкой в логе контейнера. Ни ответа, ни
+        // записи в CRM, ни сигнала владельцу: обращение существовало ровно
+        // до следующего перезапуска.
+        //
+        // Дверь для этого уже есть и ею пользуется форма поддержки сайта:
+        // офис заводит касание в `interactions` и поднимает
+        // COMPLAINT_RECEIVED, по которому PM ставит срочную задачу.
+        await notifyOfficeSupport({
+          name,
+          phone,
+          message: `WhatsApp: ${text}`,
+        });
+        await notifyAdmin({
+          type: 'info',
+          message: `💬 WhatsApp${name ? ` от ${name}` : ''}${phone ? ` (+${phone})` : ''}:\n${text}`,
+        });
+      }
+    }
+
+    return NextResponse.json({ status: 'ok' }, { status: 200 });
   } catch (error) {
+    // Meta повторяет доставку, если ответ не 200. Но своё падение мы
+    // обязаны видеть: молчаливая пятисотка здесь означает потерянного
+    // клиента, который написал и не получил ответа.
     console.error('WhatsApp Webhook error:', error);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
