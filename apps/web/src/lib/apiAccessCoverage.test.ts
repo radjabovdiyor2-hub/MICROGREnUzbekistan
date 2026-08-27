@@ -63,7 +63,6 @@ const PUBLIC_BY_DESIGN = [
  */
 const SELF_GUARDED = [
   '/api/ai/usage',           // requireBotAuth — расход витринного бота
-  '/api/ecosystem/event',    // requireBotAuth
   '/api/events',             // SSE админки: сверяет роль сессии внутри
   '/api/metrics',            // METRICS_TOKEN или сессия ADMIN
   '/api/orders/status',      // INGEST_SECRET — обратная синхронизация из офиса

@@ -171,46 +171,23 @@ class EcosystemBridge:
         """Закрыть HTTP клиент"""
         await self.client.aclose()
 
-    # ==================== GAME ====================
-
-    async def get_game_state(self, telegram_id: int) -> Dict[str, Any]:
-        """Получить состояние игры"""
-        result = await self._api_call(f"game/save?telegramId={telegram_id}")
-        if isinstance(result, dict) and "error" not in result:
-            return result.get("gameState", {})
-        return {
-            "ecoPoints": 0,
-            "level": 1,
-            "energy": 100,
-            "streak": 0
-        }
-
-    async def save_game_progress(self, telegram_id: int, points: int, energy: int) -> bool:
-        """Сохранить прогресс игры"""
-        result = await self._api_call("game/save", "POST", {
-            "telegramId": telegram_id,
-            "points": points,
-            "energy": energy
-        })
-        return "error" not in result
-
-    async def get_leaderboard(self, limit: int = 10) -> list:
-        """Получить таблицу лидеров"""
-        result = await self._api_call(f"game/leaderboard?limit={limit}")
-        if isinstance(result, dict) and "leaderboard" in result:
-            return result["leaderboard"]
-        return result if isinstance(result, list) else []
-
     # ==================== NOTIFICATIONS ====================
 
-    async def trigger_event(self, event_type: str, payload: Dict[str, Any]) -> bool:
-        """Отправить событие в экосистему"""
-        result = await self._api_call("ecosystem/event", "POST", {
-            "type": event_type,
-            "payload": payload,
-            "source": "telegram_bot"
-        })
-        return "error" not in result
+    # Здесь были три метода игры — `get_game_state`, `save_game_progress`,
+    # `get_leaderboard` — и `trigger_event`.
+    #
+    # Игра ходила в `/api/game/save` и `/api/game/leaderboard`. Такой
+    # группы маршрутов на витрине НЕТ и не было: приложение игры удалено,
+    # каталога `apps/game` не существует. То есть любой вызов возвращал
+    # 404, а `get_game_state` молча отдавал нули — «ноль очков, уровень
+    # один» выглядит как честный ответ новому игроку, а не как отказ.
+    #
+    # `trigger_event` слал события в `/api/ecosystem/event`, который их
+    # только писал в лог и отвечал `{"received": true}`. То есть дверь
+    # выглядела рабочей, ничего при этом не делая. Роут удалён вместе с
+    # методом: пустая дверь хуже её отсутствия — на неё полагаются.
+    #
+    # Вызывающих не было ни у одного из четырёх.
 
     async def notify_admins(self, message: str) -> bool:
         """Уведомить администраторов"""
@@ -255,10 +232,12 @@ bridge = EcosystemBridge()
 
 # ==================== CONVENIENCE FUNCTIONS ====================
 
-async def sync_order_from_web(order_id: str) -> Optional[Dict]:
-    """Синхронизировать заказ с веб-платформы"""
-    # Используется когда заказ создан на сайте
-    return await bridge._api_call(f"orders/{order_id}")
+# Здесь была `sync_order_from_web()` — чтение заказа с витрины по id.
+#
+# Вызывающих у неё не было ни одного, а заказы бот и так читает через
+# `get_orders_by_telegram_id` и `get_user_orders`. Отдельная функция,
+# лезущая в приватный `_api_call` мимо публичных методов моста, только
+# предлагала второй способ делать то же самое.
 
 
 # Здесь была `notify_order_status()` — рассылка статуса заказа по SMS.
