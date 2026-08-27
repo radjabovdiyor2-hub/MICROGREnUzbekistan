@@ -324,7 +324,11 @@ async def bus_handle_complaint(params: dict) -> dict:
             "message": f"Жалоба зарегистрирована: {complaint_text[:80]}{tail}",
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        # Жалоба, не попавшая в журнал, — это недовольный клиент, о котором
+        # никто не узнает. В лог обязательно, и без внутреннего текста
+        # ошибки в ответе: он уходит в переписку.
+        logging.error("Жалоба не зарегистрирована: %s", e)
+        return {"status": "error", "message": "Не удалось зарегистрировать жалобу"}
 
 
 async def bus_check_instagram_dm(params: dict) -> dict:
