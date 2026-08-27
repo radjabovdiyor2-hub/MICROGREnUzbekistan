@@ -247,7 +247,10 @@ async def mark_published(
     try:
         now = tz_now()
         day = now.strftime("%Y-%m-%d")
-        archived = _archive_image(image, day, slot)
+        # Картинки может не быть вовсе (текстовый слот) — тогда и
+        # архивировать нечего. Раньше `None` уходил в функцию, объявленную
+        # для `str`, и разбирался уже внутри, по случайности.
+        archived = _archive_image(image, day, slot) if image else None
 
         async with get_session_ctx() as session:
             await session.execute(

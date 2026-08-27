@@ -359,7 +359,11 @@ async def _publish_order_to_stepan(order: Dict, from_name: str, from_id: str):
             # путь ВСЕГДА сваливался в локальный черновик.
             real_order_number = None
 
-            if total_amount > 0 and storefront_id:
+            # `price is not None` названо явно, хотя и следует из
+            # `total_amount > 0`: обе переменные ставятся в одной ветке, и
+            # эта связь держалась только на том, что её никто не разорвал.
+            # Разорвать её — значит получить `int(None)` в позиции заказа.
+            if price is not None and total_amount > 0 and storefront_id:
                 created = await storefront_orders.create_order(
                     customer_name=from_name,
                     phone=norm_phone or phone or "",
@@ -536,6 +540,16 @@ async def _notify_admin_telegram(
         )
 
         if not target_id:
+            return
+
+        if not settings.stepan_bot_token:
+            # Заказ из Instagram уже создан; молча не доложить о нём —
+            # худший исход. Раньше это был `Bot(token=None)`, падавший
+            # внутри aiogram и терявшийся в общем `except`.
+            logger.error(
+                "IG DM: заказ от %s создан, но доложить нечем — нет токена бота",
+                from_name,
+            )
             return
 
         _tg_bot = _Bot(

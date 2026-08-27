@@ -100,6 +100,19 @@ CHECKED = [
     # выполнялось, а владельцу докладывали об ошибке.
     "shared/tg_cards.py",
     "shared/task_ui.py",
+    # Четвёртый слой: исполнитель задач отдела, цикл вызова инструментов,
+    # групповые упоминания, Instagram целиком, архив контента, письма,
+    # PDF, бэкапы и тренды. Расширение нашло здесь `int(None)` в позиции
+    # заказа из Instagram и второй `Bot(token=None)`.
+    "shared/task_executor.py",
+    "shared/group_orchestrator.py",
+    "shared/instagram.py",
+    "shared/instagram_dm.py",
+    "shared/content_archive.py",
+    "shared/pdf_generator.py",
+    "shared/email_sender.py",
+    "shared/backup.py",
+    "shared/trends.py",
 ]
 
 

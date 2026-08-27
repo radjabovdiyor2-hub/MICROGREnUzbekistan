@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from aiogram import Bot
 
@@ -368,6 +368,10 @@ async def _send_with_image(
 ) -> None:
     """Отправить результат картинкой; не вышло — отправить текстом."""
     from aiogram.types import FSInputFile, URLInputFile
+
+    # Тип объявлен объединением: без него он выводится по ПЕРВОЙ ветке
+    # (`URLInputFile`), и локальный файл во второй становится ошибкой типа.
+    photo: Optional[Union[URLInputFile, FSInputFile]]
 
     try:
         if image.startswith("http"):
