@@ -61,9 +61,26 @@ async def payroll_reminder():
         logger.exception("payroll_reminder error: %s", e)
 
 
+#: Как часто подтверждать неизменившийся состав. Изменение уходит владельцу
+#: в тот же день, а «всё как вчера» — раз в неделю: сводка по сотрудникам
+#: меняется от найма и увольнения, то есть несколько раз в год.
+STAFF_REMIND_HOURS = 24 * 7
+
+
 async def employee_report():
-    """Ежедневная сводка по сотрудникам."""
+    """Сводка по сотрудникам — при изменении состава, а не каждый день.
+
+    Задача ежедневная, но сообщение уходило тоже ежедневно и говорило
+    одно и то же двадцать девять дней из тридцати. Это ровно тот случай,
+    ради которого в проекте есть `alert_once`: пишем при изменении, а не
+    каждый прогон (образец — `bot_health_check`, он бегает каждые пять
+    минут и пишет при смене состава упавших ботов).
+
+    Замер для слоя самообучения снимается ВСЕГДА: он не сообщение, а
+    данные, и пропуск дня испортил бы ряд.
+    """
     try:
+        from shared import alert_once
         from shared.database import get_session_ctx
         from sqlalchemy import text
 
@@ -83,15 +100,21 @@ async def employee_report():
             inactive = status_map.get("inactive", 0)
             on_leave = status_map.get("on_leave", 0)
             total = sum(status_map.values())
-            await bot.send_message(
-                admin_id,
-                f"👥 <b>Сводка по сотрудникам:</b>\n\n"
-                f"✅ Активных: {active}\n"
-                f"❌ Неактивных: {inactive}\n"
-                f"🏖 В отпуске: {on_leave}\n"
-                f"\nВсего: {total}",
-                parse_mode="HTML",
-            )
+
+            if alert_once.should_send(
+                "hr:staff",
+                f"{active}/{inactive}/{on_leave}/{total}",
+                remind_after_hours=STAFF_REMIND_HOURS,
+            ):
+                await bot.send_message(
+                    admin_id,
+                    f"👥 <b>Сводка по сотрудникам:</b>\n\n"
+                    f"✅ Активных: {active}\n"
+                    f"❌ Неактивных: {inactive}\n"
+                    f"🏖 В отпуске: {on_leave}\n"
+                    f"\nВсего: {total}",
+                    parse_mode="HTML",
+                )
             logger.info(
                 "employee_report: active=%d inactive=%d on_leave=%d",
                 active,
