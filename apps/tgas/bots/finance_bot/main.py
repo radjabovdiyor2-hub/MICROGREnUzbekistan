@@ -479,7 +479,11 @@ async def bus_add_expense(params: dict) -> dict:
             await session.commit()
         return {"status": "ok", "message": f"Расход {amount} сум ({category}) записан"}
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        # В лог ТОЖЕ, а не только в ответ модели: незаписанный расход
+        # существовал бы одной строкой в переписке, которую модель может
+        # пересказать своими словами или не пересказать вовсе.
+        logging.error("Расход %s (%s) не записан: %s", amount, category, e)
+        return {"status": "error", "message": "Не удалось записать расход"}
 
 
 async def handle_task_created(payload: dict):
