@@ -382,6 +382,7 @@ async def request(
     details: str = "",
     task_id: Optional[int] = None,
     outcome: Optional[Dict[str, Any]] = None,
+    photo: Optional[str] = None,
 ) -> Optional[str]:
     """
     Показать владельцу карточку и запомнить заявку. Возвращает токен или None.
@@ -396,6 +397,13 @@ async def request(
     такая же заявка уже висела и новой карточки не было. Нужен вызывающему,
     чтобы сказать модели «ты уже просила об этом», а не делать вид, что
     отправлена новая просьба.
+
+    `photo` — путь или URL картинки, которую надо показать ДО карточки.
+    Нужен там, где решение принимают, глядя на изображение: пост в
+    Instagram одобряют по картинке, а не по её описанию. Отдельным
+    сообщением, а не подписью: подпись у фото ограничена 1024 символами,
+    а текст поста с шапкой заявки в неё не помещается — и обрезался бы
+    ровно там, где владелец должен прочитать, что именно уйдёт.
     """
     target = chat_id or _owner_chat_id()
 
@@ -454,6 +462,20 @@ async def request(
     body += "\n<i>В базе пока ничего не изменилось. Заявка ждёт вашего решения.</i>"
 
     try:
+        if photo:
+            # Картинка сама по себе не решение: не дошла — карточку всё
+            # равно показываем, но говорим об этом в лог. Молча одобрять
+            # пост вслепую нельзя.
+            try:
+                from aiogram.types import FSInputFile
+
+                source: Any = (
+                    photo if photo.startswith("http") else FSInputFile(photo)
+                )
+                await bot.send_photo(target, source)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("APPROVALS: превью не доставлено: %s", exc)
+
         await bot.send_message(
             target, body, parse_mode="HTML", reply_markup=builder.as_markup()
         )
