@@ -30,18 +30,39 @@ export function AdminExperiments() {
     },
   });
 
+  /**
+   * Отдать анализ опыта боту R&D.
+   *
+   * ⚠️ Ответ проверяется, и это не формальность. Раньше `await fetch(...)`
+   * стоял без единой проверки, а сразу за ним — «Задача отправлена R&D
+   * боту». Отказ 401 или 500 выглядел успехом: владелец ждал результата,
+   * которого не будет, и списывал молчание на «бот думает».
+   *
+   * Образец — `AdminBotCard`: смотрим и на код ответа, и на `status` в
+   * теле, потому что мост офиса отвечает 200 с `{"status": "error"}`.
+   */
   const handleRunAiAnalysis = async (id: string) => {
-    // Вызов действия бота R&D для анализа эксперимента
-    await fetch('/api/admin/bot-action', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        bot: 'rnd_bot',
-        action: 'analyze_experiment',
-        params: { experimentId: id }
-      })
-    });
-    notify.success('Задача отправлена R&D боту — результат появится позже');
+    try {
+      const res = await fetch('/api/admin/bot-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          bot: 'rnd_bot',
+          action: 'analyze_experiment',
+          params: { experimentId: id },
+        }),
+      });
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.status !== 'error') {
+        notify.success('Задача отправлена R&D боту — результат появится позже');
+      } else {
+        notify.error(data?.error || 'R&D бот не принял задачу');
+      }
+    } catch {
+      notify.error('R&D бот недоступен — задача не отправлена');
+    }
   };
 
   if (loading) return <div>Загрузка экспериментов...</div>;

@@ -104,6 +104,15 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     });
     if (!ok) return;
 
+    notify.undoable({
+      text: t('Удаляю запись…', 'Yozuv oʻchirilmoqda…'),
+      undoneText: t('Отменено — запись на месте', 'Bekor qilindi'),
+      run: () => void removeEntry(entry),
+    });
+  };
+
+  /** Само удаление. Вынесено, чтобы отсчёт отмены обёртывал его целиком. */
+  const removeEntry = async (entry: Entry) => {
     setError('');
     const res = await fetch(`/api/admin/finance?id=${entry.id}`, {
       method: 'DELETE', credentials: 'same-origin',

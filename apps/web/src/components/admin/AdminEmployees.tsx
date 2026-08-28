@@ -114,14 +114,20 @@ export function AdminEmployees({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     });
     if (!ok) return;
 
-    setError('');
-    const res = await fetch(`/api/inventory/employees?id=${emp.id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      setError(body?.error || `Server ${res.status}`);
-      return;
-    }
-    fetch_();
+    notify.undoable({
+      text: t(`Удаляю «${emp.name}»…`, `«${emp.name}» o'chirilmoqda…`),
+      undoneText: t('Отменено — сотрудник на месте', 'Bekor qilindi'),
+      run: async () => {
+        setError('');
+        const res = await fetch(`/api/inventory/employees?id=${emp.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          setError(body?.error || `Server ${res.status}`);
+          return;
+        }
+        fetch_();
+      },
+    });
   };
 
   const visible = employees.filter((e) =>

@@ -83,21 +83,27 @@ export function AdminDeliveries() {
     });
     if (!ok) return;
 
-    setSaving(true);
-    setError('');
-    try {
-      const res = await fetch(`/api/admin/deliveries?id=${route.id}`, {
-        method: 'DELETE',
-        credentials: 'same-origin',
-      });
-      if (!res.ok) throw new Error('Не удалось удалить маршрут');
-      notify.success('Маршрут удалён');
-      reload();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
-    } finally {
-      setSaving(false);
-    }
+    notify.undoable({
+      text: 'Удаляю маршрут…',
+      undoneText: 'Отменено — маршрут на месте',
+      run: async () => {
+        setSaving(true);
+        setError('');
+        try {
+          const res = await fetch(`/api/admin/deliveries?id=${route.id}`, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+          });
+          if (!res.ok) throw new Error('Не удалось удалить маршрут');
+          notify.success('Маршрут удалён');
+          reload();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Ошибка');
+        } finally {
+          setSaving(false);
+        }
+      },
+    });
   };
 
   if (loading) return <div>Загрузка маршрутов...</div>;

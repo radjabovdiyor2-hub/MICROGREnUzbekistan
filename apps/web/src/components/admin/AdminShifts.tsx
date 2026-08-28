@@ -103,13 +103,21 @@ export function AdminShifts({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     });
     if (!ok) return;
 
-    const res = await fetch(`/api/admin/shifts?id=${shift.id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      notify.error(body?.error || "O'chirib bo'lmadi");
-      return;
-    }
-    reload();
+    // Отложенно: пока идёт отсчёт, запрос не уходит — смену можно вернуть
+    // одним нажатием, а не заводить заново по памяти.
+    notify.undoable({
+      text: t('Удаляю смену…', "Smena o'chirilmoqda…"),
+      undoneText: t('Отменено — смена на месте', 'Bekor qilindi'),
+      run: async () => {
+        const res = await fetch(`/api/admin/shifts?id=${shift.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          notify.error(body?.error || "O'chirib bo'lmadi");
+          return;
+        }
+        reload();
+      },
+    });
   };
 
   const startEdit = (shift: Shift) => {

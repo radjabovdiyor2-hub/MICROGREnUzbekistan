@@ -100,7 +100,12 @@ export function AdminCustomerPrices({ customerId }: { customerId: number }) {
       confirmText: 'Убрать',
       danger: true,
     });
-    if (ok) remove.mutate(row.id);
+    if (!ok) return;
+    notify.undoable({
+      text: `Убираю договорную цену на «${row.product.nameRu}»…`,
+      run: () => remove.mutate(row.id),
+      undoneText: 'Отменено — цена осталась договорной',
+    });
   };
 
   const inputStyle = {

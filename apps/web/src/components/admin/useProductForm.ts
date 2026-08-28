@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+
+import { useFormDraft } from '@/lib/admin/formDraft';
 import { EMPTY_FORM, type Product } from './productTypes';
 
 // Форма товара: открытие, заполнение из карточки, сохранение, удаление.
@@ -22,6 +24,22 @@ export function useProductForm(refresh: () => void) {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [images, setImages] = useState<string[]>([]);
+
+  // Черновик. Форма товара это полтора десятка полей, и до сих пор
+  // случайное закрытие стирало их все. Ключ включает правимый товар:
+  // черновик правки одного не должен подставиться в форму другого.
+  const [draftRestored, setDraftRestored] = useState(false);
+  const forgetDraft = useFormDraft({
+    name: 'product',
+    recordId: editingId,
+    open: showForm,
+    value: form,
+    onRestore: (saved) => {
+      setForm(saved);
+      setDraftRestored(true);
+    },
+    isEmpty: (f) => !f.nameUz && !f.price && !f.descriptionUz,
+  });
 
   const handleNameChange = (val: string) => {
     setForm(f => ({ ...f, nameUz: val, slug: editingId ? f.slug : autoSlug(val) }));
@@ -105,6 +123,8 @@ export function useProductForm(refresh: () => void) {
         return;
       }
 
+      forgetDraft();
+      setDraftRestored(false);
       setShowForm(false);
       setForm(EMPTY_FORM);
       refresh();
@@ -119,5 +139,11 @@ export function useProductForm(refresh: () => void) {
   return {
     showForm, setShowForm, editingId, form, setForm, saving, formError, setFormError,
     images, setImages, handleNameChange, removeImage, openAdd, openEdit, handleSubmit,
+    draftRestored,
+    discardDraft: () => {
+      forgetDraft();
+      setDraftRestored(false);
+      setForm(EMPTY_FORM);
+    },
   };
 }

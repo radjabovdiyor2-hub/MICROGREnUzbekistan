@@ -107,13 +107,19 @@ export function AdminCategories({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     });
     if (!ok) return;
 
-    setError('');
-    const res = await fetch(`/api/admin/categories?id=${cat.id}`, {
-      method: 'DELETE', credentials: 'same-origin',
+    notify.undoable({
+      text: t(`Удаляю «${cat.nameRu}»…`, `«${cat.nameRu}» o'chirilmoqda…`),
+      undoneText: t('Отменено — категория на месте', 'Bekor qilindi'),
+      run: async () => {
+        setError('');
+        const res = await fetch(`/api/admin/categories?id=${cat.id}`, {
+          method: 'DELETE', credentials: 'same-origin',
+        });
+        const data = await res.json();
+        if (!res.ok) setError(data.error || t('Не удалось удалить', "O'chirib bo'lmadi"));
+        await load();
+      },
     });
-    const data = await res.json();
-    if (!res.ok) setError(data.error || t('Не удалось удалить', "O'chirib bo'lmadi"));
-    await load();
   };
 
   const visible = categories.filter((c) => matchesQuery(query, c.nameRu, c.nameUz, c.slug));

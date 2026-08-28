@@ -141,6 +141,37 @@ async def test_call_unknown_tool_is_reported_not_raised():
     assert "error" in result
 
 
+@pytest.mark.asyncio
+async def test_falling_tool_becomes_error_not_exception(monkeypatch):
+    """
+    Упавший инструмент возвращает отказ, а не пробрасывает исключение.
+
+    Это НЕ мелочь и не удобство: именно на этом свойстве держится то, что
+    семьдесят инструментов не пишут собственный `try/except`. Сверка по
+    `shared/tools` показывает четыре из них без единой ветки отказа —
+    `create_task`, `human_task`, `create_shift_task`, `log_employee_kpi`, —
+    и это правильно ровно до тех пор, пока отказ ловится здесь.
+
+    Пробросьте исключение выше — и цикл вызова инструментов оборвётся
+    посреди задачи: модель не получит ни результата, ни отказа, а
+    исполнитель отдела запишет задачу невыполненной без объяснения.
+    """
+    tool = tool_registry.by_name("get_content_schedule")
+    assert tool is not None, "инструмент для проверки исчез — тест ослеп"
+
+    async def explode(**kwargs):
+        raise RuntimeError("база недоступна")
+
+    monkeypatch.setattr(tool, "run", explode)
+
+    result = await tool_registry.call("get_content_schedule", {})
+
+    assert isinstance(result, dict), "результат обязан остаться словарём"
+    assert "error" in result, "падение инструмента не превратилось в отказ"
+    # Причина названа: без неё в логе и в ответе модели остаётся «не вышло».
+    assert "база недоступна" in result["error"]
+
+
 def test_hops_limit_is_small():
     """Предел передач нужен, чтобы отделы не гоняли задачу по кругу."""
     assert 1 <= MAX_DELEGATION_HOPS <= 3
