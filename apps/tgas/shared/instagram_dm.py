@@ -27,8 +27,26 @@ logger = logging.getLogger(__name__)
 API_VERSION = "v19.0"
 GRAPH_BASE_URL = f"https://graph.facebook.com/{API_VERSION}"
 
-# Хранилище уже обработанных сообщений (в рамках одного процесса)
+# ── Уже обработанные сообщения ───────────────────────────────────────────
+#
+# ⚠️ ЖИЛИ ТОЛЬКО В ПАМЯТИ ПРОЦЕССА, и это было видно из комментария
+# «в рамках одного процесса» — но не видно, чем это оборачивается.
+#
+# Опрос директа идёт каждые три минуты и берёт сообщения за последние
+# десять. Выкатка внутри этого окна — а мержей в main бывает по четыре за
+# сутки — стирала отметки, и те же сообщения обрабатывались заново:
+# клиент получал второй ответ, а если в сообщении был заказ, заказ
+# создавался ВТОРОЙ РАЗ.
+#
+# Теперь отметка ставится в Redis атомарно (`SET NX EX`): она переживает
+# рестарт и заодно не даёт двум опросам разобрать одно сообщение. Память
+# процесса осталась запасным путём — Redis лёг, работаем как раньше.
 _processed_message_ids: set = set()
+
+#: Сколько помним обработанное. С запасом больше окна опроса в 10 минут:
+#: меньше — и отметка истечёт раньше, чем сообщение перестанет попадать
+#: в выборку.
+_SEEN_TTL_S = 3600
 
 # Хранилище истории диалогов по каждому клиенту (IGSID -> history)
 _conversation_histories: Dict[str, List[Dict[str, str]]] = {}
@@ -102,6 +120,60 @@ IG_SALES_SYSTEM_PROMPT = (
 )
 
 
+def _seen_key(message_id: str) -> str:
+    return f"ig:dm:seen:{message_id}"
+
+
+async def _mark_seen(message_id: str) -> bool:
+    """
+    Отметить сообщение обработанным. `True` — отметили мы, работать можно.
+
+    `False` — отметка уже стояла: сообщение разобрали раньше, второй раз
+    отвечать клиенту и заводить заказ нельзя.
+
+    Redis недоступен — полагаемся на память процесса: повторный ответ
+    неприятен, но молчание в директе хуже.
+    """
+    if not message_id:
+        return False
+
+    if message_id in _processed_message_ids:
+        return False
+    _processed_message_ids.add(message_id)
+
+    try:
+        import redis.asyncio as redis
+
+        client = redis.from_url(settings.redis_url, decode_responses=True)
+        try:
+            first = await client.set(_seen_key(message_id), "1", nx=True, ex=_SEEN_TTL_S)
+        finally:
+            await client.aclose()
+        return bool(first)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("IG DM: отметка «обработано» не сохранена (%s)", exc)
+        return True
+
+
+async def _already_seen(message_id: str) -> bool:
+    """Обрабатывали ли это сообщение раньше — в том числе до перезапуска."""
+    if not message_id:
+        return False
+    if message_id in _processed_message_ids:
+        return True
+    try:
+        import redis.asyncio as redis
+
+        client = redis.from_url(settings.redis_url, decode_responses=True)
+        try:
+            return bool(await client.exists(_seen_key(message_id)))
+        finally:
+            await client.aclose()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("IG DM: проверка «обработано» не удалась (%s)", exc)
+        return False
+
+
 async def check_new_messages() -> list:
     """
     Проверяет новые входящие сообщения в Instagram DM через Messenger API.
@@ -159,8 +231,9 @@ async def check_new_messages() -> list:
                         for msg in messages_data:
                             msg_id = msg.get("id", "")
 
-                            # Пропускаем уже обработанные сообщения
-                            if msg_id in _processed_message_ids:
+                            # Пропускаем уже обработанные — в том числе те,
+                            # что разобрали до перезапуска процесса.
+                            if await _already_seen(msg_id):
                                 continue
 
                             from_data = msg.get("from", {})
@@ -610,7 +683,7 @@ async def auto_reply_to_new_messages():
                         created_str.replace("+0000", "+00:00")
                     )
                     if created < cutoff:
-                        _processed_message_ids.add(msg.get("message_id", ""))
+                        await _mark_seen(msg.get("message_id", ""))
                         continue
                 except (ValueError, TypeError):
                     pass
@@ -631,9 +704,15 @@ async def auto_reply_to_new_messages():
 
         for from_id, msgs in grouped.items():
             try:
-                # Помечаем ВСЕ ID как обработанные СРАЗУ (чтобы следующий цикл не подхватил)
+                # Помечаем ВСЕ ID как обработанные СРАЗУ — до ответа и до
+                # создания заказа. Отметка атомарная: если её поставил
+                # другой опрос, эту пачку разбирает он, а не мы.
+                claimed = False
                 for m in msgs:
-                    _processed_message_ids.add(m.get("message_id", ""))
+                    if await _mark_seen(m.get("message_id", "")):
+                        claimed = True
+                if not claimed:
+                    continue
 
                 # Берём данные из последнего сообщения
                 last_msg = msgs[-1]
