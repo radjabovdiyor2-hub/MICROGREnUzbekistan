@@ -5,7 +5,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Target } from 'lucide-react';
 import type { BreakEven } from '@/lib/finance/breakEven';
 import type { MarginBreakdown } from '@/lib/finance/margin';
+import type { Unearned } from '@/lib/finance/unearned';
+import type { PaymentCalendar } from '@/lib/finance/paymentCalendar';
 import { AdminMarginTable } from './AdminMarginTable';
+import { AdminPaymentCalendar } from './AdminPaymentCalendar';
+import { BreakEvenVerdict, Cell } from './AdminBreakEvenVerdict';
 
 // ══════════════════════════════════════════════════════════════════════
 // Точка безубыточности и разрезы маржинальности.
@@ -34,7 +38,13 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
         credentials: 'same-origin',
       });
       const json = await res.json();
-      if (json.status === 'ok') return json as { breakEven: BreakEven; margin: MarginBreakdown };
+      if (json.status === 'ok')
+        return json as {
+          breakEven: BreakEven;
+          margin: MarginBreakdown;
+          unearned: Unearned;
+          paymentCalendar: PaymentCalendar;
+        };
       throw new Error(json.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
     },
   });
@@ -49,7 +59,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
 
   if (!data) return null;
 
-  const { breakEven: be, margin } = data;
+  const { breakEven: be, margin, unearned, paymentCalendar } = data;
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
@@ -88,6 +98,28 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
         </div>
       </div>
 
+      <AdminPaymentCalendar calendar={paymentCalendar} t={t} />
+
+      {unearned.count > 0 && (
+        <div
+          className="card"
+          style={{ padding: 'var(--space-4)', borderRadius: 14, borderLeft: '3px solid var(--warning)' }}
+        >
+          <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 6 }}>
+            {t('Получено, но не отработано', "Olingan, lekin bajarilmagan")}
+          </div>
+          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning)', fontWeight: 600 }}>
+            {money(unearned.total)} · {unearned.count} {t('заказов', 'buyurtma')}
+          </div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.45 }}>
+            {t(
+              'Эти деньги на счету, но они не ваши: за ними стоит обязательство привезти товар. Потратив их, окажетесь должны продукт, на который уже нет семян.',
+              "Bu pul hisobda, lekin sizniki emas: ortida mahsulot yetkazish majburiyati turibdi.",
+            )}
+          </div>
+        </div>
+      )}
+
       <AdminMarginTable
         title={t('Маржа по культурам', "Ekinlar bo'yicha marja")}
         rows={margin.byProduct}
@@ -103,70 +135,6 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
         rows={margin.byChannel}
         emptyHint={t('Продаж за период не было', "Davrda sotuv bo'lmagan")}
       />
-    </div>
-  );
-}
-
-function Cell({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 2 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 'var(--text-base)', fontWeight: 700 }}>{value}</div>
-    </div>
-  );
-}
-
-/** Словесный ответ. Числа под ним — подтверждение, а не сам ответ. */
-function BreakEvenVerdict({ be, t }: { be: BreakEven; t: Props['t'] }) {
-  if (be.marginRate === null) {
-    return (
-      <Verdict color="var(--text-muted)">
-        {t(
-          'Выручки за период не было — считать не из чего.',
-          "Davrda tushum bo'lmagan — hisoblash uchun ma'lumot yo'q.",
-        )}
-      </Verdict>
-    );
-  }
-
-  if (be.revenueNeeded === null) {
-    return (
-      <Verdict color="var(--error)">
-        {t(
-          'Точка недостижима: продаём не дороже себестоимости. Рост оборота увеличит убыток, а не покроет расходы.',
-          "Nuqtaga erishib bo'lmaydi: tannarxdan qimmat sotilmayapti. Aylanma o'sishi zararni oshiradi.",
-        )}
-      </Verdict>
-    );
-  }
-
-  if (be.covered) {
-    return (
-      <Verdict color="var(--success)">
-        {t(
-          `Точка пройдена. Запас сверх неё — ${money(-(be.gap ?? 0))}.`,
-          `Nuqta o'tildi. Zaxira — ${money(-(be.gap ?? 0))}.`,
-        )}
-      </Verdict>
-    );
-  }
-
-  return (
-    <Verdict color="var(--error)">
-      {t(
-        `Не хватает ${money(be.gap ?? 0)}. Чтобы выйти в ноль, нужна выручка ${money(be.revenueNeeded)}.`,
-        `${money(be.gap ?? 0)} yetishmayapti. Nolga chiqish uchun ${money(be.revenueNeeded)} kerak.`,
-      )}
-    </Verdict>
-  );
-}
-
-function Verdict({ color, children }: { color: string; children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color, lineHeight: 1.45 }}>
-      {children}
     </div>
   );
 }

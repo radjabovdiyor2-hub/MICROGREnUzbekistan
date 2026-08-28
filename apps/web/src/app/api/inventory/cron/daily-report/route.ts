@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { loadSalesLedger } from '@/lib/revenue/salesLedger';
 import { summarize } from '@/lib/revenue/summary';
 import { scanGrowBatches, raiseGrowAlerts, growReportLines } from '@/lib/production/growWatch';
+import { alertOverdueDebts } from '@/lib/finance/debtWatch';
 import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 // ==========================================
@@ -92,6 +93,13 @@ export async function GET() {
     message += growReportLines(growState);
     await raiseGrowAlerts(growState).catch((err) =>
       console.error('Grow alerts failed (report still sent):', err),
+    );
+
+    // Просрочка по дебиторке уходит в это же сообщение ниже, но сообщение
+    // пролистывается, а сигнал в колокольчике дожидается владельца — та же
+    // причина, по которой рядом стоит raiseGrowAlerts.
+    await alertOverdueDebts().catch((err) =>
+      console.error('Debt alerts failed (report still sent):', err),
     );
 
     // Critical stock

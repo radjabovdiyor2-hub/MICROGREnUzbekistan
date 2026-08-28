@@ -6,6 +6,8 @@ import { audit } from '@/lib/audit';
 import { categoriesFor, isKnownCategory } from '@/lib/finance/categories';
 import { loadBreakEven } from '@/lib/finance/breakEven';
 import { loadMargin } from '@/lib/finance/margin';
+import { loadUnearned } from '@/lib/finance/unearned';
+import { loadPaymentCalendar } from '@/lib/finance/paymentCalendar';
 
 // ══════════════════════════════════════════════════════════════════════
 // Доходы, расходы и P&L.
@@ -65,9 +67,9 @@ export async function GET(request: NextRequest) {
   // Разбор считается по отдельной просьбе: он поднимает весь реестр продаж
   // за период, и вешать это на каждое открытие вкладки незачем.
   const wantsAnalysis = sp.get('analysis') === '1';
-  const [breakEven, margin] = wantsAnalysis
-    ? await Promise.all([loadBreakEven(from), loadMargin(from)])
-    : [undefined, undefined];
+  const [breakEven, margin, unearned, paymentCalendar] = wantsAnalysis
+    ? await Promise.all([loadBreakEven(from), loadMargin(from), loadUnearned(), loadPaymentCalendar()])
+    : [undefined, undefined, undefined, undefined];
 
   return NextResponse.json({
     status: 'ok',
@@ -82,6 +84,8 @@ export async function GET(request: NextRequest) {
     byProduct: breakdown === 'product' ? await getProductBreakdown(from) : undefined,
     breakEven,
     margin,
+    unearned,
+    paymentCalendar,
     entries: rows.map(r => ({
       id: r.id,
       type: r.type,
