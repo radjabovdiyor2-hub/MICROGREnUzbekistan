@@ -44,8 +44,17 @@ logger = logging.getLogger(__name__)
 #: Куда вести заявки, у которых нет инструмента офиса.
 #: `storefront_write` разбирается отдельно — у него есть имя инструмента витрины.
 KIND_TABS: Dict[str, str] = {
-    "content_publish": "dept_content",
+    "content_publish": "departments",
     "meeting_plan": "tasks",
+}
+
+#: Отдел, на котором открыть экран «Отделы».
+#:
+#: Десять вкладок dept_* свернулись в один экран с переключателем. Без
+#: этой подсказки заявка отдела контента открывала бы продажи — первый
+#: отдел в списке.
+KIND_FOCUS: Dict[str, str] = {
+    "content_publish": "content",
 }
 
 #: Write-инструменты витрины (`apps/web/src/lib/stepan/writeTools*.ts`).
@@ -94,7 +103,8 @@ def target_for(kind: str, payload: Optional[Dict[str, Any]]) -> Tuple[str, Optio
             focus = args.get(focus_arg) if focus_arg else None
             return tab, (str(focus) if focus not in (None, "") else None)
 
-    return KIND_TABS.get(str(kind or ""), FALLBACK_TAB), None
+    key = str(kind or "")
+    return KIND_TABS.get(key, FALLBACK_TAB), KIND_FOCUS.get(key)
 
 
 def _tool_target(tool_name: str) -> Tuple[str, str]:

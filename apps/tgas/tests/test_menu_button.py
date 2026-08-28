@@ -75,13 +75,31 @@ def test_guard_can_go_red():
 
 
 def test_doors_are_distinct_enough():
-    """Разделы не сведены в один общий: иначе кнопка теряет смысл.
+    """Двери не сведены в одну общую: иначе кнопка теряет смысл.
 
-    Если все восемь ботов ведут на одну вкладку, человек снова ищет нужный
+    Если все восемь ботов ведут в одно место, человек снова ищет нужный
     экран глазами — ровно то, ради устранения чего кнопка и заводилась.
+
+    СЧИТАЕТСЯ НАЗНАЧЕНИЕ ЦЕЛИКОМ, А НЕ ОДНА ВКЛАДКА. Десять экранов
+    отделов свернулись в один с переключателем: три бота ведут теперь на
+    вкладку `departments`, но каждый — на свой отдел. По вкладке это
+    выглядит как «все в одно место», по адресу — нет. Меряя только
+    вкладку, сторож краснел бы на верной правке и молчал бы, если бы
+    отделы у этих трёх однажды совпали.
     """
-    tabs = list(menu_button.BOT_TABS.values())
-    assert len(set(tabs)) >= len(tabs) - 1, "почти все боты ведут в одно место"
+    doors = [
+        (tab, menu_button.BOT_DEPARTMENTS.get(bot))
+        for bot, tab in menu_button.BOT_TABS.items()
+    ]
+    assert len(set(doors)) >= len(doors) - 1, "почти все боты ведут в одно место"
+
+
+def test_department_hint_only_where_screen_takes_it():
+    """Подсказка отдела бессмысленна на вкладке, которая её не читает."""
+    for bot, dept in menu_button.BOT_DEPARTMENTS.items():
+        assert menu_button.BOT_TABS.get(bot) == "departments", (
+            f"{bot}: отдел «{dept}» указан, а вкладка не «departments»"
+        )
 
 
 def test_tab_of_returns_none_for_unknown():

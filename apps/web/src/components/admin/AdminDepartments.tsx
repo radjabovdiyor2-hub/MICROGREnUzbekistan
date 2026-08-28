@@ -37,8 +37,12 @@ export const DEPARTMENTS: Dept[] = [
   { id: 'rnd', ru: 'R&D', uz: 'R&D' },
 ];
 
-export function AdminDepartments({ lang }: { lang: 'ru' | 'uz' }) {
-  const [active, setActive] = useState('sales');
+export function AdminDepartments({ lang, focus = '' }: { lang: 'ru' | 'uz'; focus?: string }) {
+  // Отдел из ссылки. Кнопка бота маркетинга обязана открывать маркетинг, а
+  // не первый отдел в списке: иначе владелец жмёт её и переключается сам
+  // каждый раз — то есть кнопка не работает, хотя и открывается.
+  const fromLink = DEPARTMENTS.some((d) => d.id === focus) ? focus : 'sales';
+  const [active, setActive] = useState(fromLink);
   const dept = DEPARTMENTS.find((d) => d.id === active) ?? DEPARTMENTS[0];
 
   return (

@@ -170,7 +170,13 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
         компонент с разным идентификатором. Старые адреса `dept_*`
         остаются живыми — по ним приходят ссылки из ИИ-офиса. */}
     {(activeTab === 'departments' || activeTab.startsWith('dept_')) && isOwner && (
-      <AdminDepartments lang={lang} />
+      // Отдел берётся из `focus` — так его передаёт офис. Старая ссылка
+      // вида `dept_content` тоже открывает свой отдел: имя после префикса
+      // и есть идентификатор, и терять его при переезде было бы обидно.
+      <AdminDepartments
+        lang={lang}
+        focus={activeTab.startsWith('dept_') ? activeTab.slice(5) : focus}
+      />
     )}
 
     {/* Контент и журнал */}
