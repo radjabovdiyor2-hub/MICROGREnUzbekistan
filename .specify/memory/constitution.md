@@ -8,10 +8,10 @@
 
 | Модуль | Стек | Роль | Размер |
 |--------|------|------|--------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 29 API-групп, 119 route-файлов, 275 компонентов | ~66KB globals.css, 79 Prisma-моделей |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 29 API-групп, 119 route-файлов, 275 компонентов | ~66KB globals.css, 80 Prisma-моделей |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 64 shared-модулей, ~400KB main.py суммарно |
-| `packages/database` | Prisma ORM, PostgreSQL | Схема (79 моделей, 2381 строки), миграции, сиды | schema.prisma — единый источник DDL |
+| `packages/database` | Prisma ORM, PostgreSQL | Схема (80 моделей, 2467 строк), миграции, сиды | schema.prisma — единый источник DDL |
 
 **Запреты:**
 - Прямой импорт между модулями запрещён. Всё через HTTP API или Event Bus.
@@ -134,7 +134,7 @@
 
 | Файл | Что содержит |
 |------|-------------|
-| `packages/database/prisma/schema.prisma` | 79 моделей, 2381 строки — полная схема БД |
+| `packages/database/prisma/schema.prisma` | 80 моделей, 2467 строк — полная схема БД |
 | `apps/web/src/app/globals.css` | Design System v1.0 (2696 строк) |
 | `apps/web/design-system/tokens/tokens.json` | Дизайн-токены W3C DTCG |
 | `apps/tgas/shared/bot_registry.py` | Реестр всех 12 ботов и моста (порты, имена, отделы) |
