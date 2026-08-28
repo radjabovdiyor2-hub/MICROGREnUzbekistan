@@ -4,6 +4,8 @@ import { soldProductKey, soldProductName } from '@/lib/products/sold';
 import { isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { categoriesFor, isKnownCategory } from '@/lib/finance/categories';
+import { loadBreakEven } from '@/lib/finance/breakEven';
+import { loadMargin } from '@/lib/finance/margin';
 
 // ══════════════════════════════════════════════════════════════════════
 // Доходы, расходы и P&L.
@@ -60,6 +62,13 @@ export async function GET(request: NextRequest) {
 
   const breakdown = sp.get('breakdown');
 
+  // Разбор считается по отдельной просьбе: он поднимает весь реестр продаж
+  // за период, и вешать это на каждое открытие вкладки незачем.
+  const wantsAnalysis = sp.get('analysis') === '1';
+  const [breakEven, margin] = wantsAnalysis
+    ? await Promise.all([loadBreakEven(from), loadMargin(from)])
+    : [undefined, undefined];
+
   return NextResponse.json({
     status: 'ok',
     period: { days, from: from.toISOString().slice(0, 10) },
@@ -71,6 +80,8 @@ export async function GET(request: NextRequest) {
     },
     byCategory: Object.values(byCategory).sort((a, b) => b.total - a.total),
     byProduct: breakdown === 'product' ? await getProductBreakdown(from) : undefined,
+    breakEven,
+    margin,
     entries: rows.map(r => ({
       id: r.id,
       type: r.type,
