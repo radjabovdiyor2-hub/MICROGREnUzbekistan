@@ -2,7 +2,7 @@
 
 import {
   Route,
-  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
+  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Compass, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -13,6 +13,9 @@ export const TAB_GROUPS = [
     title: { ru: 'Главное', uz: 'Asosiy' },
     tabs: [
       { id: 'stepan', ru: 'Стёпан (ИИ)', uz: 'Stepan (AI)', icon: <Brain size={16} /> },
+      // Владелец — про человека, а не про товар: приоритеты, состояние,
+      // личные деньги, решения. В «Главном», потому что открывают утром.
+      { id: 'owner', ru: 'Владелец', uz: 'Egasi', icon: <Compass size={16} /> },
       { id: 'pos', ru: 'Продажи', uz: 'Sotish', icon: <ShoppingCart size={16} /> },
       { id: 'stats', ru: 'Сводка', uz: 'Svodka', icon: <BarChart size={16} /> },
       { id: 'revenue', ru: 'Доход', uz: 'Tushum', icon: <DollarSign size={16} /> },

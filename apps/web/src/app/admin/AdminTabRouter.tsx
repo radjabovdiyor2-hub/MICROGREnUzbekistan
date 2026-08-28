@@ -77,6 +77,7 @@ const AdminLearnings = dynamic(() => import('@/components/admin/AdminLearnings')
 const AdminCustomers = dynamic(() => import('@/components/admin/AdminCustomers').then((m) => m.AdminCustomers), { ssr: false, loading: TabLoading });
 const AdminBotControl = dynamic(() => import('@/components/admin/AdminBotControl').then((m) => m.AdminBotControl), { ssr: false, loading: TabLoading });
 const AdminStepan = dynamic(() => import('@/components/admin/AdminStepan').then((m) => m.AdminStepan), { ssr: false, loading: TabLoading });
+const AdminOwner = dynamic(() => import('@/components/admin/AdminOwner').then((m) => m.AdminOwner), { ssr: false, loading: TabLoading });
 const AdminBotHealth = dynamic(() => import('@/components/admin/AdminBotHealth').then((m) => m.AdminBotHealth), { ssr: false, loading: TabLoading });
 const AdminPromo = dynamic(() => import('@/components/admin/AdminPromo').then((m) => m.AdminPromo), { ssr: false, loading: TabLoading });
 const AdminFinance = dynamic(() => import('@/components/admin/AdminFinance').then((m) => m.AdminFinance), { ssr: false, loading: TabLoading });
@@ -118,6 +119,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
   <main className="admin-main">
     {activeTab === 'pos' && canSell && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} isOwner={isOwner} />}
     {activeTab === 'stepan' && isOwner && <AdminStepan lang={lang} />}
+    {activeTab === 'owner' && isOwner && <AdminOwner lang={lang} />}
     {activeTab === 'stats' && isOwner && <AdminStats />}
     {activeTab === 'revenue' && isOwner && <AdminRevenue />}
     {activeTab === 'growing' && canGrow && <AdminGrowing focus={focus} />}
