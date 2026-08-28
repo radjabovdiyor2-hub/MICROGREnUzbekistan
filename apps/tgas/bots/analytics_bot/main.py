@@ -295,7 +295,7 @@ async def sales_anomaly():
             _bot,
             admin_id,
             alert,
-            admin_tab="revenue",
+            admin_tab="stats",
             button_text="💵 Разобрать доход",
         )
     except Exception as e:

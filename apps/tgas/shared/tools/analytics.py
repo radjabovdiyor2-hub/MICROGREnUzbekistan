@@ -171,7 +171,8 @@ register(
 register(
     Tool(
         name="instagram_stats",
-        admin_tab="dept_marketing",
+        admin_tab="departments",
+        admin_focus_const="marketing",
         description="Статистика Instagram: охваты, вовлечённость, рост подписчиков.",
         run=instagram_stats,
         departments=DEPTS,

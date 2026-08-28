@@ -131,7 +131,8 @@ async def complaint_followup():
                     bot,
                     admin_id,
                     "\n".join(lines),
-                    admin_tab="dept_support",
+                    admin_tab="departments",
+                    admin_focus_const="support",
                     button_text="🆘 Поддержка",
                 )
         else:

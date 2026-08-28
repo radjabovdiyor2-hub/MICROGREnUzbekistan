@@ -491,7 +491,8 @@ async def get_sales_today(date: Optional[str] = None) -> Dict[str, Any]:
 register(
     Tool(
         name="resolve_complaint",
-        admin_tab="dept_support",
+        admin_tab="departments",
+        admin_focus_const="support",
         description=(
             "Закрыть жалобу: «жалоба #12 решена», «разобрались с претензией». "
             "Номер берётся из напоминания о нерешённых жалобах. Без этого "
@@ -618,7 +619,7 @@ register(
 register(
     Tool(
         name="get_sales_today",
-        admin_tab="revenue",
+        admin_tab="stats",
         description=(
             "Продажи за день: сколько заказов, на какую сумму, средний чек, "
             "сколько единиц товара и кто покупал. Отменённые заказы не считаются. "

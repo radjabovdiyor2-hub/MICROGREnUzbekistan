@@ -43,12 +43,23 @@ logger = logging.getLogger(__name__)
 BOT_TABS: dict[str, str] = {
     "stepan_bot": "stats",
     "sales_bot": "orders",
-    "support_bot": "dept_support",
+    "support_bot": "departments",
     "hr_bot": "employees",
     "finance_bot": "finance",
-    "marketing_bot": "dept_marketing",
+    "marketing_bot": "departments",
     "analytics_bot": "analytics",
-    "content_bot": "dept_content",
+    "content_bot": "departments",
+}
+
+#: На каком отделе открыть экран «Отделы».
+#:
+#: Десять вкладок dept_* свернулись в один экран с переключателем, и без
+#: этой подсказки кнопка бота маркетинга открывала бы отдел продаж —
+#: первый в списке. Владелец жал бы её и переключался вручную каждый раз.
+BOT_DEPARTMENTS: dict[str, str] = {
+    "support_bot": "support",
+    "marketing_bot": "marketing",
+    "content_bot": "content",
 }
 
 #: Подпись кнопки. Короткая: Telegram обрезает длинную без предупреждения.
@@ -72,7 +83,7 @@ async def install(bot: Bot, bot_name: str, text: str = BUTTON_TEXT) -> int:
         logger.warning("MENU: ADMIN_TELEGRAM_IDS пуст — кнопку меню ставить некому")
         return 0
 
-    url = admin_links.admin_url(tab)
+    url = admin_links.admin_url(tab, BOT_DEPARTMENTS.get(bot_name))
     installed = 0
     for chat_id in owners:
         try:
