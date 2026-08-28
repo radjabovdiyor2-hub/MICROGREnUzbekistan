@@ -1,7 +1,12 @@
-// Microgreen Uzbekistan — Service Worker v7
+// Microgreen Uzbekistan — Service Worker v8
 // Strategy: Network-first, minimal caching, instant updates
 
-const CACHE_NAME = "microgreen-v7";
+const CACHE_NAME = "microgreen-v8";
+
+//: Кэш очереди офлайн-заказов. Живёт ОТДЕЛЬНО от версионного и переживает
+//: обновление воркера: в нём лежат заказы, которые человек оформил без
+//: сети, и стереть их — значит потерять покупку, а не кэш.
+const OFFLINE_QUEUE = "microgreen-offline-data";
 
 // Only cache truly static assets (images, icons)
 const STATIC_ASSETS = [
@@ -14,7 +19,7 @@ const STATIC_ASSETS = [
 self.addEventListener("install", (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            console.log("[SW] Installing v7 — minimal cache strategy");
+            console.log("[SW] Installing v8 — minimal cache strategy");
             return cache.addAll(STATIC_ASSETS);
         })
     );
@@ -28,7 +33,12 @@ self.addEventListener("activate", (event) => {
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames
-                    .filter((name) => name !== CACHE_NAME)
+                    // Очередь офлайн-заказов НЕ трогаем. Она попадала под
+                    // эту чистку и уходила при каждом обновлении воркера —
+                    // вместе с заказами, которые ждали появления сети.
+                    // Фоновая синхронизация после этого отправляла пустоту,
+                    // и покупка исчезала молча, без единой ошибки.
+                    .filter((name) => name !== CACHE_NAME && name !== OFFLINE_QUEUE)
                     .map((name) => {
                         console.log("[SW] Deleting old cache:", name);
                         return caches.delete(name);
@@ -110,33 +120,13 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(fetch(request));
 });
 
-// Handle push notifications
-self.addEventListener("push", (event) => {
-    const data = event.data
-        ? event.data.json()
-        : { title: "Microgreen Uzbekistan", body: "Yangi xabar" };
-
-    const options = {
-        body: data.body || data.message,
-        icon: "/icons/icon-192.svg",
-        badge: "/icons/icon-192.svg",
-        vibrate: [100, 50, 100],
-        data: { url: data.url || "/" },
-        actions: data.actions || [
-            { action: "open", title: "Ochish" },
-            { action: "close", title: "Yopish" },
-        ],
-    };
-
-    event.waitUntil(self.registration.showNotification(data.title || "Microgreen", options));
-});
-
-// Handle push notification clicks
-self.addEventListener("notificationclick", (event) => {
-    event.notification.close();
-    const url = event.notification.data?.url || "/";
-    event.waitUntil(clients.openWindow(url));
-});
+// Обработчики `push` и `notificationclick` — НИЖЕ, в одном экземпляре.
+//
+// Здесь их было по второму: пара, читавшая текст прямо из полезной
+// нагрузки. Браузер вызывает ВСЕ обработчики события, поэтому на каждый
+// push показывалось два уведомления, а клик по одному открывал новое окно
+// и одновременно переводил старое. Дублей не видно при чтении файла
+// сверху вниз — второй набор лежит через сотню строк.
 
 // Background sync for offline orders
 self.addEventListener("sync", (event) => {
@@ -147,7 +137,7 @@ self.addEventListener("sync", (event) => {
 
 async function syncOfflineOrders() {
     try {
-        const cache = await caches.open("microgreen-offline-data");
+        const cache = await caches.open(OFFLINE_QUEUE);
         const keys = await cache.keys();
         for (const request of keys) {
             if (request.url.includes("/api/orders")) {
@@ -171,9 +161,10 @@ async function syncOfflineOrders() {
 // ══════════════════════════════════════════════════════════════════════
 // Push-уведомления о заказе.
 //
-// ЧЕГО НЕ БЫЛО. Обработчиков `push` и `notificationclick` не существовало
-// вовсе: у покупателя БЕЗ Telegram канала не было никакого, и о доставке он
-// узнавал, когда курьер звонил в дверь.
+// ЧЕГО НЕ БЫЛО. Канала для покупателя БЕЗ Telegram: о доставке он узнавал,
+// когда курьер звонил в дверь. Обработчики тут были — общие, читавшие текст
+// из полезной нагрузки, — но их не заметили, и какое-то время в файле жили
+// два набора сразу: каждый push показывался дважды. Второй набор удалён.
 //
 // УВЕДОМЛЕНИЕ ПРИХОДИТ БЕЗ ТЕКСТА, и это осознанно. Шифрование полезной
 // нагрузки требует отдельной криптографии на каждое сообщение; вместо этого
@@ -218,8 +209,8 @@ self.addEventListener("push", (event) => {
             const body = built ? built.body : "Статус заказа изменился";
             await self.registration.showNotification(title, {
                 body,
-                icon: "/icons/icon-192.png",
-                badge: "/icons/icon-192.png",
+                icon: "/icons/icon-192.svg",
+                badge: "/icons/icon-192.svg",
                 // Одно уведомление о заказе, а не лента: следующий статус
                 // заменяет предыдущее, иначе за день их накопится пять.
                 tag: "mg-order-status",
