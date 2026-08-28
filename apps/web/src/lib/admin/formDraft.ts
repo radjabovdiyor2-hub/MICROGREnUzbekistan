@@ -150,17 +150,43 @@ export function useFormDraft<T>({
     isEmptyRef.current = isEmpty;
   });
 
+  /**
+   * Значение, с которым форму открыли.
+   *
+   * ⚠️ Без него правка существующей записи заводила черновик сама собой:
+   * форма открывается, заполняется данными с сервера, и через 400 мс они
+   * же ложатся в хранилище. В следующий раз человек видит «восстановлен
+   * незаконченный черновик», хотя ничего не менял, — а ложное
+   * предупреждение хуже отсутствующего: его перестают читать.
+   */
+  const opening = useRef<string | null>(null);
+
   // ── Восстановление: один раз на открытие ──────────────────────────
   useEffect(() => {
-    if (!open || typeof window === 'undefined') return;
+    if (!open || typeof window === 'undefined') {
+      opening.current = null;
+      return;
+    }
     const saved = readDraft<T>(window.localStorage, key);
-    if (saved && !isEmptyRef.current(saved)) onRestoreRef.current(saved);
+    if (saved && !isEmptyRef.current(saved)) {
+      opening.current = JSON.stringify(saved);
+      onRestoreRef.current(saved);
+    }
   }, [open, key]);
 
   // ── Запись: с паузой, и только когда есть что писать ──────────────
   useEffect(() => {
     if (!open || typeof window === 'undefined') return;
     if (isEmptyRef.current(value)) return;
+
+    const snapshot = JSON.stringify(value);
+    // Первое значение после открытия — это то, что показала форма, а не
+    // то, что набрал человек. Запоминаем и не пишем.
+    if (opening.current === null) {
+      opening.current = snapshot;
+      return;
+    }
+    if (opening.current === snapshot) return;
 
     const timer = window.setTimeout(() => {
       writeDraft(window.localStorage, key, value);
