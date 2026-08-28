@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { deferAction } from '@/lib/admin/deferredAction';
 import { Modal } from '@/components/ui/Modal';
 import { Toast, type ToastVariant } from '@/components/ui/Toast';
 
@@ -34,6 +35,19 @@ import { useAdminBack } from './useAdminBack';
 // Оба нужны там же, где раньше стояли нативные окна, и часто подряд:
 // «удалить?» → «удалено». Разведя их по двум контекстам, пришлось бы
 // таскать оба хука в каждый экран.
+//
+// ОТМЕНА ДЕЙСТВИЯ (`undoable`)
+//
+// Подтверждение спрашивает ДО, отмена даёт передумать ПОСЛЕ. Нужны оба:
+// диалог ловит промах мышью, но не ловит «нажал правильно и сразу понял,
+// что не тот».
+//
+// Отмена здесь настоящая, а не косметическая: действие не выполняется,
+// пока идёт отсчёт. Поэтому и текст «Удаляю…», а не «Удалено» — строка
+// пропадёт из списка через несколько секунд, и обещать иное нельзя.
+// Косметическая отмена, которая на самом деле удаляет сразу и потом
+// «восстанавливает», была бы хуже её отсутствия: восстановить получится
+// не всё и не всегда, а полагаться на неё начнут.
 // ══════════════════════════════════════════════════════════════════════
 
 /** Сколько живёт сообщение. Ошибку держим дольше: её читают. */
@@ -48,6 +62,20 @@ interface ToastItem {
   id: number;
   variant: ToastVariant;
   text: ReactNode;
+  /** Отменить отложенное действие. Есть только у `undoable`. */
+  undo?: () => void;
+}
+
+/** Сколько времени на «передумал». Меньше — не успеть, больше — забыть. */
+const UNDO_MS = 6000;
+
+export interface UndoableOptions {
+  /** Что происходит. «Удаляю товар», а не «Удалено»: ещё не удалено. */
+  text: ReactNode;
+  /** Выполнить, если не отменили. */
+  run: () => void;
+  /** Что сказать, когда отменили. По умолчанию «Отменено». */
+  undoneText?: ReactNode;
 }
 
 export interface ConfirmOptions {
@@ -67,6 +95,12 @@ interface FeedbackApi {
   error: (text: ReactNode) => void;
   /** `true` — человек согласился. Промис, а не блокировка потока. */
   confirm: (options: ConfirmOptions) => Promise<boolean>;
+  /**
+   * Выполнить действие через несколько секунд, дав возможность передумать.
+   *
+   * Действие НЕ выполняется, пока идёт отсчёт: отмена настоящая.
+   */
+  undoable: (options: UndoableOptions) => void;
 }
 
 const FeedbackContext = createContext<FeedbackApi | null>(null);
@@ -89,6 +123,14 @@ export function AdminFeedbackProvider({ children }: { children: ReactNode }) {
   const nextId = useRef(1);
   /** Чем ответить ожидающему `confirm`. Живёт вне состояния: его не рисуют. */
   const answer = useRef<((ok: boolean) => void) | null>(null);
+  /**
+   * Отложенные действия: id тоста → «выполнить сейчас». Не рисуется.
+   *
+   * Нужны, чтобы довести их до конца при уходе с экрана: человеку сказано
+   * «удаляю», и молча не удалить — значит соврать. Отсчёт даёт передумать,
+   * а не отменяет намерение по умолчанию.
+   */
+  const pending = useRef(new Map<number, () => void>());
 
   const drop = useCallback((id: number) => {
     setToasts((list) => list.filter((t) => t.id !== id));
@@ -102,6 +144,52 @@ export function AdminFeedbackProvider({ children }: { children: ReactNode }) {
     },
     [drop],
   );
+
+  /**
+   * Отложить действие и показать «Отменить».
+   *
+   * Взаимоисключение трёх исходов — «выполнено», «отменено», «доведено при
+   * уходе» — живёт в `lib/admin/deferredAction`: внутри компонента его
+   * нечем проверить, а ошибка там означает удаление после нажатия
+   * «Отменить» либо удаление дважды.
+   */
+  const undoable = useCallback(
+    ({ text, run, undoneText }: UndoableOptions) => {
+      const id = nextId.current++;
+
+      const task = deferAction(run, {
+        delayMs: UNDO_MS,
+        onDone: () => {
+          pending.current.delete(id);
+          drop(id);
+        },
+        onCancelled: () => {
+          pending.current.delete(id);
+          drop(id);
+          toast(undoneText ?? 'Отменено', 'info');
+        },
+      });
+
+      pending.current.set(id, task.flush);
+      setToasts((list) => [
+        ...list,
+        { id, variant: 'warning', text, undo: task.cancel },
+      ]);
+    },
+    [drop, toast],
+  );
+
+  // Уходим с экрана — доводим отложенное до конца. Иначе «удаляю…»
+  // осталось бы обещанием: человек считает строку удалённой, а она на
+  // месте, и узнает об этом при следующем открытии списка. Отсчёт даёт
+  // передумать, а не отменяет намерение по умолчанию.
+  useEffect(() => {
+    const map = pending.current;
+    return () => {
+      for (const flush of Array.from(map.values())) flush();
+      map.clear();
+    };
+  }, []);
 
   const confirm = useCallback((options: ConfirmOptions) => {
     setAsk(options);
@@ -129,8 +217,9 @@ export function AdminFeedbackProvider({ children }: { children: ReactNode }) {
       success: (text) => toast(text, 'success'),
       error: (text) => toast(text, 'error'),
       confirm,
+      undoable,
     }),
-    [toast, confirm],
+    [toast, confirm, undoable],
   );
 
   return (
@@ -155,8 +244,24 @@ export function AdminFeedbackProvider({ children }: { children: ReactNode }) {
       >
         {toasts.map((item) => (
           <div key={item.id} style={{ pointerEvents: 'auto' }}>
-            <Toast inline variant={item.variant} onClose={() => drop(item.id)}>
-              {item.text}
+            <Toast
+              inline
+              variant={item.variant}
+              onClose={() => (item.undo ? item.undo() : drop(item.id))}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                {item.text}
+                {item.undo && (
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={item.undo}
+                    style={{ minHeight: 32 }}
+                  >
+                    Отменить
+                  </button>
+                )}
+              </span>
             </Toast>
           </div>
         ))}

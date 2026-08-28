@@ -81,7 +81,15 @@ export function AdminProducts() {
       confirmText: t('Удалить навсегда', "Butunlay o'chirish"),
       danger: true,
     });
-    if (ok) remove.mutate({ id: product.id, force: true });
+    if (!ok) return;
+    // Отложенно: подтверждение ловит промах мышью, но не ловит «нажал
+    // правильно и сразу понял, что не тот товар». Пока идёт отсчёт,
+    // запрос не уходит — отмена настоящая.
+    notify.undoable({
+      text: t(`Удаляю «${product.nameUz}»…`, `«${product.nameUz}» o'chirilmoqda…`),
+      run: () => remove.mutate({ id: product.id, force: true }),
+      undoneText: t('Удаление отменено — товар на месте', "O'chirish bekor qilindi"),
+    });
   };
 
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');

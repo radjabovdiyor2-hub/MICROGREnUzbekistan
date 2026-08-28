@@ -92,9 +92,15 @@ export function AdminRecipes() {
       danger: true,
     });
     if (!agreed) return;
-    const res = await adminFetch(`/api/admin/magazine/recipes?id=${id}`, { method: 'DELETE' });
-    if (!res.ok) { setNote('Не удалось удалить'); return; }
-    await load();
+    notify.undoable({
+      text: 'Удаляю рецепт…',
+      undoneText: 'Отменено — рецепт на месте',
+      run: async () => {
+        const res = await adminFetch(`/api/admin/magazine/recipes?id=${id}`, { method: 'DELETE' });
+        if (!res.ok) { setNote('Не удалось удалить'); return; }
+        await load();
+      },
+    });
   };
 
   const uploadHero = async (file: File) => {

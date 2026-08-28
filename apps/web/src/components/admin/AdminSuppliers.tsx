@@ -88,13 +88,19 @@ export function AdminSuppliers({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     });
     if (!ok) return;
 
-    const res = await fetch(`/api/inventory/suppliers?id=${supplier.id}`, { method: 'DELETE' });
-    if (!res.ok) {
-      const body = await res.json().catch(() => null);
-      notify.error(body?.error || t('Не удалось удалить', "O'chirib bo'lmadi"));
-      return;
-    }
-    fetch_();
+    notify.undoable({
+      text: t(`Удаляю «${supplier.name}»…`, `«${supplier.name}» o'chirilmoqda…`),
+      undoneText: t('Отменено — поставщик на месте', 'Bekor qilindi'),
+      run: async () => {
+        const res = await fetch(`/api/inventory/suppliers?id=${supplier.id}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          notify.error(body?.error || t('Не удалось удалить', "O'chirib bo'lmadi"));
+          return;
+        }
+        fetch_();
+      },
+    });
   };
 
   const startEdit = (s: Supplier) => {
