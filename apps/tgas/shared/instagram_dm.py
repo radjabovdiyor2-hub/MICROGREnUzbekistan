@@ -10,10 +10,11 @@ Microgreen Uzbekistan — Instagram DM Sales Bot
 
 import logging
 import aiohttp
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 from datetime import datetime, timezone, timedelta
 from shared import customer_repo, storefront_orders
 from shared import phone as phone_utils
+from shared import chat_memory
 from shared.config import settings
 from shared.ai_engine import AIEngine
 
@@ -48,17 +49,26 @@ _processed_message_ids: set = set()
 #: в выборку.
 _SEEN_TTL_S = 3600
 
-# Хранилище истории диалогов по каждому клиенту (IGSID -> history)
-_conversation_histories: Dict[str, List[Dict[str, str]]] = {}
-
-# Хранилище информации о собранных заказах
-_pending_orders: Dict[str, Dict] = {}
+# История диалога живёт в `shared/chat_memory` (Redis), а не здесь.
+#
+# ⚠️ БЫЛ СЛОВАРЬ В ПАМЯТИ ПРОЦЕССА — тот самый антипаттерн, который в
+# проекте уже разбирали у витринного бота: каждая выкатка обнуляла все
+# диалоги, и клиент, писавший минуту назад, получал ответ «с чистого
+# листа». В директе это заметнее, чем где-либо: разговор там растянут на
+# часы, и человек продолжает начатое, а бот его не помнит.
+#
+# `_pending_orders` убран: он был объявлен и не использовался ни разу.
 
 # Блокировка параллельных запусков
 _is_processing: bool = False
 
 # Максимум сообщений в истории (чтобы не раздуть контекст)
 MAX_HISTORY_LENGTH = 20
+
+#: Под каким именем разговор лежит в общей памяти. Своё, а не «bot»:
+#: ключ разводит каналы, и переписка в директе не должна смешиваться с
+#: групповой у того же человека.
+_MEMORY_BOT = "instagram_dm"
 
 # Системный промпт для Instagram-менеджера
 IG_SALES_SYSTEM_PROMPT = (
@@ -311,22 +321,6 @@ async def send_dm_reply(recipient_id: str, message: str) -> bool:
     except Exception as e:
         logger.error(f"Ошибка при отправке DM: {e}", exc_info=True)
         return False
-
-
-def _get_conversation_history(igsid: str) -> List[Dict[str, str]]:
-    """Получить историю диалога для клиента."""
-    if igsid not in _conversation_histories:
-        _conversation_histories[igsid] = []
-    return _conversation_histories[igsid]
-
-
-def _add_to_history(igsid: str, role: str, content: str):
-    """Добавить сообщение в историю диалога."""
-    history = _get_conversation_history(igsid)
-    history.append({"role": role, "content": content})
-    # Обрезаем историю если слишком длинная
-    if len(history) > MAX_HISTORY_LENGTH:
-        _conversation_histories[igsid] = history[-MAX_HISTORY_LENGTH:]
 
 
 def _extract_order(reply_text: str) -> Optional[Dict]:
@@ -731,11 +725,16 @@ async def auto_reply_to_new_messages():
                     f"📩 DM от {from_name} ({len(msgs)} сообщ.): {combined_text[:80]}..."
                 )
 
-                # Добавляем сообщение клиента в историю
-                _add_to_history(from_id, "user", combined_text)
-
-                # Получаем полную историю для AI
-                history = _get_conversation_history(from_id)
+                # История разговора — из общей памяти (Redis), а не из
+                # словаря процесса: разговор в директе растянут на часы, и
+                # выкатка посреди него не должна начинать его заново.
+                #
+                # Текущее сообщение дописываем к истории здесь, а в память
+                # кладём ОБА хода разом — после ответа. Половина обмена в
+                # истории хуже целого отсутствия: модель видит вопрос без
+                # ответа и отвечает на него второй раз.
+                past = await chat_memory.load(_MEMORY_BOT, from_id, limit=MAX_HISTORY_LENGTH)
+                history = past + [{"role": "user", "content": combined_text}]
 
                 # Генерируем ответ через AI с историей диалога
                 reply_text = await ai.chat_completion(
@@ -771,7 +770,13 @@ async def auto_reply_to_new_messages():
                     logger.info(
                         f"✅ Автоответ отправлен {from_name}: {reply_for_customer[:60]}..."
                     )
-                    _add_to_history(from_id, "assistant", reply_for_customer)
+                    await chat_memory.remember(
+                        _MEMORY_BOT,
+                        from_id,
+                        combined_text,
+                        reply_for_customer,
+                        limit=MAX_HISTORY_LENGTH,
+                    )
                 else:
                     logger.warning(f"⚠️ Не удалось отправить автоответ {from_name}.")
 
