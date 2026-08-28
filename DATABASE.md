@@ -18,7 +18,7 @@ products` с офисными колонками проходил проверк
 | Витрина | `apps/web` (Prisma) | `products`, `categories`, `orders`, `order_items`, `users`, `employees` | cuid-строки |
 | CRM офиса | `apps/tgas` (raw SQL) | `crm_products`, `crm_orders`, `crm_order_items`, `crm_employees`, `customers`, `interactions`, `tasks`, `finances`, `followups`, `inventory`, `ai_usage` | `serial` |
 
-**Схемой владеет Prisma** — `packages/database/prisma/schema.prisma`, 80 моделей.
+**Схемой владеет Prisma** — `packages/database/prisma/schema.prisma`, 82 моделей.
 `apps/tgas/database/init.sql` — исторический файл: он описывает состояние ДО
 переименования и в прод не монтируется.
 
@@ -83,6 +83,7 @@ Prisma отдаёт `Decimal` объектом, а `NextResponse.json` сери�
 | `PosSale` | Шапка чека кассы: номер, деловая дата, автор, покупатель, скидка, причина проводки задним числом. `kind = sale \| refund`, возврат ссылается на продажу через `refundOfId`. До неё чек существовал только как набор движений, связанных номером внутри текста `reason` |
 | `CustomerPrice` | Договорная цена товара для клиента. Отдельной таблицей, потому что `import-catalog.ts` переимпортирует прайс на каждом деплое и затирает правки цен |
 | `CustomerContact` | Контактные лица заведения (`customer_contacts`): имя, роль, телефон, `decides` — утверждает ли закупку. Связь на `Customer`, а не на `Restaurant`: переговоры ведутся по базе CRM, справочник партнёров журнала здесь ни при чём. Старые `Customer.contactName` / `phone` остаются — это первый контакт, а не весь список |
+| `OwnerPracticeTick` · `OwnerPracticeState` | Экран владельца: отметки практик и решения по ним (`owner_practice_ticks`, `owner_practice_states`). Сам каталог практик лежит В КОДЕ (`apps/web/src/lib/owner/catalog-*.ts`) — это содержимое разбора, оно едет вместе с кодом, а не отдельной строкой в базе, которую на новом стенде забудут засеять |
 | `StockMovement` | Inventory tracking (IN/OUT/ADJUSTMENT/RETURN/WRITE_OFF). `soldAt` — деловая дата операции, отдельно от `createdAt` (времени записи), как у `Finance.date`; по ней считают отчёты. `listPrice` и `priceReason` — прайс на момент продажи и объяснение уступки |
 | `Supplier` | Vendor management |
 | `Debt` | Accounts payable/receivable |
