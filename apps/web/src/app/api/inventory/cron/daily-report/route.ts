@@ -4,6 +4,7 @@ import { loadSalesLedger } from '@/lib/revenue/salesLedger';
 import { summarize } from '@/lib/revenue/summary';
 import { scanGrowBatches, raiseGrowAlerts, growReportLines } from '@/lib/production/growWatch';
 import { alertOverdueDebts } from '@/lib/finance/debtWatch';
+import { alertDropouts } from '@/lib/customers/rhythm';
 import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 // ==========================================
@@ -100,6 +101,12 @@ export async function GET() {
     // причина, по которой рядом стоит raiseGrowAlerts.
     await alertOverdueDebts().catch((err) =>
       console.error('Debt alerts failed (report still sent):', err),
+    );
+
+    // Выпадение клиента из ритма нигде больше не всплывает: в списках он
+    // остаётся активным, а заказы просто перестают приходить.
+    await alertDropouts().catch((err) =>
+      console.error('Dropout alerts failed (report still sent):', err),
     );
 
     // Critical stock
