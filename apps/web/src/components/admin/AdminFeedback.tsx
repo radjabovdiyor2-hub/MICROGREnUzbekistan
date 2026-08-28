@@ -64,6 +64,13 @@ interface ToastItem {
   text: ReactNode;
   /** Отменить отложенное действие. Есть только у `undoable`. */
   undo?: () => void;
+  /**
+   * Выполнить отложенное немедленно. Крестик на таком тосте означает «мне
+   * не нужна отмена», а не «передумал»: намерение человек уже высказал,
+   * и закрытие сообщения его не отменяет. Тот же принцип, что при уходе
+   * с экрана.
+   */
+  proceed?: () => void;
 }
 
 /** Сколько времени на «передумал». Меньше — не успеть, больше — забыть. */
@@ -173,7 +180,7 @@ export function AdminFeedbackProvider({ children }: { children: ReactNode }) {
       pending.current.set(id, task.flush);
       setToasts((list) => [
         ...list,
-        { id, variant: 'warning', text, undo: task.cancel },
+        { id, variant: 'warning', text, undo: task.cancel, proceed: task.flush },
       ]);
     },
     [drop, toast],
@@ -247,7 +254,7 @@ export function AdminFeedbackProvider({ children }: { children: ReactNode }) {
             <Toast
               inline
               variant={item.variant}
-              onClose={() => (item.undo ? item.undo() : drop(item.id))}
+              onClose={() => (item.proceed ? item.proceed() : drop(item.id))}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
                 {item.text}
