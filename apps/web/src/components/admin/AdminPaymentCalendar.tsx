@@ -19,7 +19,8 @@ interface Props {
  * плюс, пройдя через провал двадцатого числа.
  */
 export function AdminPaymentCalendar({ calendar, t }: Props) {
-  const { days, undated, worstBalance, overdueIncoming, overdueOutgoing } = calendar;
+  const { days, undated, worstBalance, overdueIncoming, overdueOutgoing, criticalOutgoing } =
+    calendar;
 
   if (days.length === 0 && undated.length === 0) {
     return null;
@@ -51,6 +52,19 @@ export function AdminPaymentCalendar({ calendar, t }: Props) {
         </div>
       )}
 
+      {/* Очередь важнее суммы. Заплатить всем сразу в разрыв не выйдет, и
+          решение принимается не по общему долгу, а по этой части: семена
+          и субстрат двигать нельзя — посев не наверстать, цикл занимает
+          недели, и потерянная неделя это пустые полки через месяц. */}
+      {criticalOutgoing > 0 && (
+        <div style={{ fontSize: 'var(--text-xs)', marginBottom: 8, lineHeight: 1.45 }}>
+          {t(
+            `Двигать нельзя: ${money(criticalOutgoing)} — семена и субстрат. Задержка здесь останавливает посев, остальное можно передоговорить.`,
+            `Surib bo'lmaydi: ${money(criticalOutgoing)} — urug' va substrat. Bu yerdagi kechikish ekishni to'xtatadi.`,
+          )}
+        </div>
+      )}
+
       {(overdueIncoming > 0 || overdueOutgoing > 0) && (
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', marginBottom: 8 }}>
           {t('Просрочено: получить', "Muddati o'tgan: olish")} {money(overdueIncoming)} ·{' '}
@@ -70,7 +84,14 @@ export function AdminPaymentCalendar({ calendar, t }: Props) {
               fontSize: 'var(--text-xs)',
             }}
           >
-            <span style={{ color: 'var(--text-muted)' }}>{day.date}</span>
+            <span style={{ color: 'var(--text-muted)' }}>
+              {day.date}
+              {day.items.some((i) => i.critical) && (
+                <span style={{ color: 'var(--error)' }} title={t('Есть платёж, который двигать нельзя', "Surib bo'lmaydigan to'lov bor")}>
+                  {' •'}
+                </span>
+              )}
+            </span>
             <span style={{ color: day.net < 0 ? 'var(--error)' : 'var(--success)' }}>
               {day.net >= 0 ? '+' : ''}
               {money(day.net)}
