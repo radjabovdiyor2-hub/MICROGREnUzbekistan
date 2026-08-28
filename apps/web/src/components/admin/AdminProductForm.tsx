@@ -26,12 +26,17 @@ interface Props {
   uploadImage: (file: File) => void;
   removeImage: (index: number) => void;
   setShowForm: (v: boolean) => void;
+  /** Форма открылась с сохранённым черновиком. */
+  draftRestored: boolean;
+  /** Выбросить черновик и очистить форму. */
+  discardDraft: () => void;
 }
 
 export function AdminProductForm({
   form, setForm, editingId, formError, saving, uploading, images,
   allCategories, lang, t, inputStyle,
   handleNameChange, handleSubmit, uploadImage, removeImage, setShowForm,
+  draftRestored, discardDraft,
 }: Props) {
   return (
     <div>
@@ -42,6 +47,18 @@ export function AdminProductForm({
         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Plus size={18} /> {editingId ? t('Редактирование', 'Tahrirlash') : t('Добавить товар', "Yangi tovar qo'shish")}
         </h3>
+
+        {/* Черновик подставлен — молчать об этом нельзя: человек открыл
+            «добавить товар», видит заполненные поля и не понимает, откуда
+            они. Поэтому строка видна и её можно выбросить одним нажатием. */}
+        {draftRestored && (
+          <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <span>{t('Восстановлен незаконченный черновик', 'Tugallanmagan qoralama tiklandi')}</span>
+            <button type="button" className="btn btn-sm" onClick={discardDraft}>
+              {t('Начать заново', 'Boshidan')}
+            </button>
+          </div>
+        )}
 
         {formError && <div style={{ padding: 'var(--space-2) var(--space-3)', background: 'var(--error-bg)', color: 'var(--error)', borderRadius: 'var(--radius-sm)', marginBottom: 'var(--space-3)', fontSize: 'var(--text-sm)' }}>{formError}</div>}
 

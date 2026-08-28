@@ -32,6 +32,7 @@ export function AdminProducts() {
   const {
     showForm, setShowForm, editingId, form, setForm, saving, formError, setFormError,
     images, setImages, handleNameChange, removeImage, openAdd, openEdit, handleSubmit,
+    draftRestored, discardDraft,
   } = useProductForm(refreshAll);
 
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
@@ -102,6 +103,7 @@ export function AdminProducts() {
     return (
       <AdminProductForm
         form={form} setForm={setForm} editingId={editingId} formError={formError}
+        draftRestored={draftRestored} discardDraft={discardDraft}
         saving={saving} uploading={uploading} images={images} allCategories={allCategories}
         lang={lang} t={t} inputStyle={inputStyle} handleNameChange={handleNameChange}
         handleSubmit={handleSubmit} uploadImage={uploadImageFile} removeImage={removeImage}
