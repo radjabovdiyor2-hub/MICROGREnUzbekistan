@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle, Leaf, Moon, Package, Plus, Sun } from 'luci
 import { AdminGrowingForm } from './AdminGrowingForm';
 import { AdminGrowingCards } from './AdminGrowingCards';
 import { useAdminGrowing } from './useAdminGrowing';
+import { AdminSowingForecast } from './AdminSowingForecast';
 
 export function AdminGrowing({ focus = '' }: { focus?: string }) {
   const {
@@ -31,6 +32,10 @@ export function AdminGrowing({ focus = '' }: { focus?: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      {/* Сколько сеять под ожидаемый спрос — до списка партий: решение о
+          посеве принимается раньше, чем приходит заказ. */}
+      <AdminSowingForecast />
+
       {/* Alerts banner */}
       {alerts.length > 0 && (
         <div style={{
