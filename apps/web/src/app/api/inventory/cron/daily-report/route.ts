@@ -5,6 +5,7 @@ import { summarize } from '@/lib/revenue/summary';
 import { scanGrowBatches, raiseGrowAlerts, growReportLines } from '@/lib/production/growWatch';
 import { alertOverdueDebts } from '@/lib/finance/debtWatch';
 import { alertDropouts } from '@/lib/customers/rhythm';
+import { alertKpiBreaches } from '@/lib/kpi/watch';
 import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 // ==========================================
@@ -107,6 +108,12 @@ export async function GET() {
     // остаётся активным, а заказы просто перестают приходить.
     await alertDropouts().catch((err) =>
       console.error('Dropout alerts failed (report still sent):', err),
+    );
+
+    // Коридоры нормы: само число в отчёте ничего не говорит, пока не
+    // задана граница, за которой пора что-то делать.
+    await alertKpiBreaches().catch((err) =>
+      console.error('KPI alerts failed (report still sent):', err),
     );
 
     // Critical stock

@@ -1,5 +1,6 @@
 import { prisma } from '@repo/database';
 import { loadSalesLedger, type SaleLine } from '@/lib/revenue/salesLedger';
+import { loadDeliveryAllocation, type DeliveryAllocation } from './deliveryCost';
 
 // ══════════════════════════════════════════════════════════════════════
 // Маржинальность в разрезах: по культуре, по заведению, по каналу.
@@ -14,10 +15,11 @@ import { loadSalesLedger, type SaleLine } from '@/lib/revenue/salesLedger';
 // а убыточное в списке, отсортированном по выручке, оказывается внизу и не
 // попадается на глаза. Поэтому первым идёт худшее.
 //
-// ЧТО НЕ ДЕЛАЕТСЯ ЗДЕСЬ. Доставка в себестоимость пока не входит: у выезда
-// нет собственной цены, её ещё предстоит завести. Пока этого нет, разрез по
-// каналу показывает валовую маржу, а не полную — и об этом честнее сказать
-// в интерфейсе, чем подставить выдуманную стоимость выезда.
+// ДОРОГА. Если задана стоимость выезда (`delivery.tripCost`), она
+// разносится по заведениям через маршруты и попадает в их себестоимость —
+// иначе дальняя точка с мелким заказом выглядит прибыльной. Пока цена не
+// задана, разрез показывает ВАЛОВУЮ маржу, и это сказано в интерфейсе, а
+// не спрятано за числом.
 // ══════════════════════════════════════════════════════════════════════
 
 export interface MarginRow {
@@ -40,6 +42,8 @@ export interface MarginBreakdown {
   byProduct: MarginRow[];
   byCustomer: MarginRow[];
   byChannel: MarginRow[];
+  /** Разнесение дороги. `trips: 0` — стоимость выезда не задана. */
+  delivery: DeliveryAllocation;
 }
 
 /** Как называется группа, если ключа нет. */
@@ -88,8 +92,30 @@ function group(
 export function summarizeMargin(
   sales: SaleLine[],
   customerNames: Map<number, string>,
+  delivery: DeliveryAllocation = { byCustomer: new Map(), unattributed: 0, trips: 0, tripCost: 0 },
 ): MarginBreakdown {
+  const byCustomer = group(
+    sales,
+    (s) => (s.customerId === null ? 'unknown' : String(s.customerId)),
+    (s) =>
+      s.customerId === null
+        ? UNKNOWN_CUSTOMER
+        : customerNames.get(s.customerId) ?? `Клиент №${s.customerId}`,
+  );
+
+  // Дорога ложится в себестоимость заведения: без неё дальняя точка с
+  // мелким заказом остаётся «прибыльной» на бумаге.
+  for (const row of byCustomer) {
+    const road = delivery.byCustomer.get(Number(row.key));
+    if (!road) continue;
+    row.cost += road;
+    row.margin = row.revenue - row.cost;
+    row.marginRate = row.revenue > 0 ? row.margin / row.revenue : null;
+  }
+  byCustomer.sort((a, b) => a.margin - b.margin);
+
   return {
+    delivery,
     byProduct: group(
       sales,
       (s) => s.productId ?? `name:${s.productName}`,
@@ -97,14 +123,7 @@ export function summarizeMargin(
     ),
     // Продажи без опознанного покупателя не выбрасываются: иначе сумма по
     // разрезу разошлась бы с общей выручкой, и разрезу нельзя было бы верить.
-    byCustomer: group(
-      sales,
-      (s) => (s.customerId === null ? 'unknown' : String(s.customerId)),
-      (s) =>
-        s.customerId === null
-          ? UNKNOWN_CUSTOMER
-          : customerNames.get(s.customerId) ?? `Клиент №${s.customerId}`,
-    ),
+    byCustomer,
     byChannel: group(
       sales,
       (s) => s.channel,
@@ -115,7 +134,10 @@ export function summarizeMargin(
 
 /** Собрать разрезы за период. */
 export async function loadMargin(from: Date, to?: Date): Promise<MarginBreakdown> {
-  const ledger = await loadSalesLedger(from, to);
+  const [ledger, delivery] = await Promise.all([
+    loadSalesLedger(from, to),
+    loadDeliveryAllocation(from, to),
+  ]);
 
   const ids = [...new Set(ledger.sales.map((s) => s.customerId).filter((id): id is number => id !== null))];
   const customerNames = new Map<number, string>();
@@ -130,5 +152,5 @@ export async function loadMargin(from: Date, to?: Date): Promise<MarginBreakdown
     }
   }
 
-  return summarizeMargin(ledger.sales, customerNames);
+  return summarizeMargin(ledger.sales, customerNames, delivery);
 }
