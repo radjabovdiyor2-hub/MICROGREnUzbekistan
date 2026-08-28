@@ -29,6 +29,7 @@ import { AdminNotice } from './AdminNotice';
 import { useFeedback } from './AdminFeedback';
 import { AdminFinanceForm } from './AdminFinanceForm';
 import { AdminFinanceSummary } from './AdminFinanceSummary';
+import { AdminFinanceBreakEven } from './AdminFinanceBreakEven';
 
 export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const notify = useFeedback();
@@ -150,6 +151,8 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       <AdminNotice>{error}</AdminNotice>
 
       {summary && <AdminFinanceSummary summary={summary} byCategory={byCategory} t={t} />}
+
+      <AdminFinanceBreakEven days={days} t={t} />
 
       {showForm && (
         <AdminFinanceForm

@@ -6,6 +6,7 @@ import {
   planScore,
   COOLDOWN_DAYS,
   MAX_REACH_KM,
+  planMix,
   type PlanCandidate,
 } from './dayPlan';
 
@@ -131,3 +132,46 @@ describe('сборка плана', () => {
     expect(plan).toHaveLength(2);
   });
 });
+
+describe('planMix', () => {
+  const point = (id: number) => ({ id, name: `точка ${id}`, latitude: 39.65, longitude: 66.97 });
+  const candidate = (id: number, state: string) => ({
+    ...point(id),
+    state,
+    overdueRatio: null,
+    lastVisitDays: null,
+  });
+
+  it('считает новые двери и обслуживание раздельно', () => {
+    const mix = planMix(
+      [point(1), point(2), point(3)],
+      [candidate(1, 'prospect'), candidate(2, 'healthy'), candidate(3, 'prospect')],
+    );
+
+    expect(mix.fresh).toBe(2);
+    expect(mix.existing).toBe(1);
+  });
+
+  // «Новый» — это уже состоявшийся клиент с заказами, а не новая дверь.
+  // Счесть его поиском значило бы отчитаться о росте, которого не было.
+  it('не считает поиском заход к состоявшемуся клиенту', () => {
+    const mix = planMix([point(1)], [candidate(1, 'new')]);
+
+    expect(mix.fresh).toBe(0);
+    expect(mix.existing).toBe(1);
+  });
+
+  // Точка, о которой карта ничего не знает, не может быть записана в
+  // новые двери: иначе счётчик поиска раздувается неизвестностью.
+  it('точку без состояния относит к обслуживанию, а не к поиску', () => {
+    const mix = planMix([point(1)], []);
+
+    expect(mix.fresh).toBe(0);
+    expect(mix.existing).toBe(1);
+  });
+
+  it('на пустом плане отдаёт нули', () => {
+    expect(planMix([], [])).toEqual({ fresh: 0, existing: 0 });
+  });
+});
+

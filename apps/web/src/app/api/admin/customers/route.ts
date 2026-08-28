@@ -4,6 +4,7 @@ import { safeError } from '@/lib/safeError';
 import { actorOf, getSession, isAuthorized, isStaff, unauthorized } from '@/lib/adminAuth';
 import { hidesMoney, maskSum } from '@/lib/customers/money';
 import { audit } from '@/lib/audit';
+import { isCustomerStatus, summarizeFunnel } from '@/lib/customers/statuses';
 import { getCustomerCard } from '@/lib/customers/card';
 import {
   RETIRED_COMPANY_TYPES,
@@ -171,10 +172,25 @@ export async function GET(request: NextRequest) {
       prisma.customer.count({ where }),
     ]);
 
+    // Воронка считается по отдельной просьбе: это отдельный запрос к базе,
+    // а список клиентов открывают чаще, чем смотрят на этапы.
+    let funnel;
+    if (searchParams.get('funnel') === '1') {
+      const grouped = await prisma.customer.groupBy({
+        by: ['status'],
+        where: { deletedAt: null },
+        _count: { _all: true },
+      });
+      const counts: Record<string, number> = {};
+      for (const row of grouped) counts[row.status] = row._count._all;
+      funnel = summarizeFunnel(counts);
+    }
+
     return NextResponse.json({
       status: 'ok',
       total,
       page,
+      funnel,
       hasMore: page * limit < total,
       customers: customers.map((c) => ({
         id: c.id,
@@ -278,6 +294,24 @@ export async function PUT(request: NextRequest) {
     }
     const customerId = Number(id);
 
+    // Статус принимался как есть — любая строка попадала в базу. Опечатка
+    // или чужое слово создавали этап, которого нет ни в одном фильтре, и
+    // карточка молча выпадала из списков. Словарь общий с офисом, поэтому
+    // выдумывать значения нельзя ни здесь, ни там.
+    if (status !== undefined && !isCustomerStatus(status)) {
+      return NextResponse.json({ error: 'Неизвестный статус клиента' }, { status: 400 });
+    }
+
+    // Прошлый статус нужен для записи перехода: истории смен в базе не
+    // велось, и без неё воронку можно показать только срезом на сегодня.
+    const before =
+      status !== undefined
+        ? await prisma.customer.findUnique({
+            where: { id: customerId },
+            select: { status: true },
+          })
+        : null;
+
     // Баллы — отдельным путём: они лежат на аккаунте витрины, а не в карточке
     // CRM, и запись «как есть» в customers.bonus_balance ничего не начисляла.
     if (bonusBalance !== undefined) {
@@ -320,6 +354,18 @@ export async function PUT(request: NextRequest) {
     // изменённый тип заведения не доезжал ни до карты, ни до списка в
     // соседней вкладке.
     publish('customers');
+
+    // Переход по воронке — событие, а не свойство карточки. Без записи
+    // видно только, где клиент СЕЙЧАС, но не сколько лидов дошло до заказа.
+    if (before && before.status !== updated.status) {
+      audit({
+        action: 'customer.status',
+        ...actorOf(request),
+        ip: request.headers.get('x-forwarded-for') ?? undefined,
+        target: `#${customerId}`,
+        meta: { from: before.status, to: updated.status },
+      });
+    }
 
     return NextResponse.json({
       status: 'ok',

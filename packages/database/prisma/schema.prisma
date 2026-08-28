@@ -37,15 +37,15 @@ model Category {
 }
 
 model Product {
-  id            String   @id @default(cuid())
-  nameUz        String   @map("name_uz")
-  nameRu        String   @map("name_ru")
-  slug          String   @unique
-  descriptionUz String?  @map("description_uz") @db.Text
-  descriptionRu String?  @map("description_ru") @db.Text
+  id            String  @id @default(cuid())
+  nameUz        String  @map("name_uz")
+  nameRu        String  @map("name_ru")
+  slug          String  @unique
+  descriptionUz String? @map("description_uz") @db.Text
+  descriptionRu String? @map("description_ru") @db.Text
   price         Int // Цена в сумах
-  oldPrice      Int?     @map("old_price")
-  costPrice     Int?     @map("cost_price") // Закупочная цена (от поставщика)
+  oldPrice      Int?    @map("old_price")
+  costPrice     Int?    @map("cost_price") // Закупочная цена (от поставщика)
 
   /// За что назначена цена: «лоток», «100 г», «кг», «шт».
   ///
@@ -58,26 +58,26 @@ model Product {
   /// До этого единицу тянул подзапросом офисный `catalog_repo` из зеркала
   /// `crm_products` по `storefront_id`, а без зеркальной строки честно отдавал
   /// `piece`. Витрина владеет своим товаром — единица живёт здесь.
-  unit          String   @default("шт") @db.VarChar(20)
-  images        String[] // URLs
-  categoryId    String   @map("category_id")
-  category      Category @relation(fields: [categoryId], references: [id])
+  unit        String   @default("шт") @db.VarChar(20)
+  images      String[] // URLs
+  categoryId  String   @map("category_id")
+  category    Category @relation(fields: [categoryId], references: [id])
   /// Остаток в единицах `unit` — дробный.
   ///
   /// Был `Int`, и это упиралось в весовой товар: салаты продаются за
   /// килограмм, а продать 1.3 кг было нельзя ни на кассе, ни через офис.
   /// Точность (10, 2) — та же, что у зеркала `crm_products.stock_qty`:
   /// при разной количество округлялось бы на переходе в CRM.
-  stock         Decimal  @default(0) @db.Decimal(10, 2)
-  sku           String?  @unique
-  brand         String?
-  specs         Json? // Характеристики
-  rating        Float    @default(0)
-  reviewCount   Int      @default(0) @map("review_count")
-  isActive      Boolean  @default(true) @map("is_active")
-  isFeatured    Boolean  @default(false) @map("is_featured")
-  isOnSale      Boolean  @default(false) @map("is_on_sale")
-  viewCount     Int      @default(0) @map("view_count")
+  stock       Decimal  @default(0) @db.Decimal(10, 2)
+  sku         String?  @unique
+  brand       String?
+  specs       Json? // Характеристики
+  rating      Float    @default(0)
+  reviewCount Int      @default(0) @map("review_count")
+  isActive    Boolean  @default(true) @map("is_active")
+  isFeatured  Boolean  @default(false) @map("is_featured")
+  isOnSale    Boolean  @default(false) @map("is_on_sale")
+  viewCount   Int      @default(0) @map("view_count")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -198,15 +198,15 @@ model Favorite {
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  orderNumber   String        @unique @map("order_number")
-  userId        String        @map("user_id")
-  user          User          @relation(fields: [userId], references: [id])
-  status        OrderStatus   @default(PENDING)
-  total         Int           @map("total_amount")
-  subtotal      Int
-  deliveryFee   Int           @default(0) @map("delivery_fee")
-  discount      Int           @default(0)
+  id          String      @id @default(cuid())
+  orderNumber String      @unique @map("order_number")
+  userId      String      @map("user_id")
+  user        User        @relation(fields: [userId], references: [id])
+  status      OrderStatus @default(PENDING)
+  total       Int         @map("total_amount")
+  subtotal    Int
+  deliveryFee Int         @default(0) @map("delivery_fee")
+  discount    Int         @default(0)
 
   // ── Из чего сложилась скидка ──
   // `discount` — СУММА бонусов и промокода, и разделить её обратно нельзя.
@@ -217,10 +217,10 @@ model Order {
   /// Применённый промокод — чтобы при отмене освободить его использование.
   promoCode String? @map("promo_code")
 
-  city          String        @default("tashkent")
-  address       String
-  phone         String
-  note          String?       @db.Text
+  city    String  @default("tashkent")
+  address String
+  phone   String
+  note    String? @db.Text
   /// Откуда пришёл заказ: `web` | `telegram_bot` | `ai_office` | `subscription`.
   ///
   /// Поля не было, а передавали его честно все три клиента — витринный бот
@@ -228,7 +228,7 @@ model Order {
   /// и сайт. Zod пропускал, `createOrder` не записывал, и отличить заказ с
   /// сайта от заказа из бота было нечем: атрибуция каналов продаж не
   /// существовала.
-  source        String        @default("web")
+  source  String  @default("web")
 
   /// Кто оформил заказ, если это сделал человек, а не покупатель.
   ///
@@ -237,7 +237,7 @@ model Order {
   /// `registered_by="sales_bot"` во всех трёх точках вызова, и какой именно
   /// менеджер продал ресторану, из данных было не видно. Пусто — заказ
   /// оформил сам покупатель через сайт или бота.
-  performedBy   String?       @map("performed_by")
+  performedBy String? @map("performed_by")
 
   paymentMethod String        @map("payment_method") // click | payme | cash
   paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
@@ -281,9 +281,9 @@ enum PaymentStatus {
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String   @map("order_id")
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  orderId String @map("order_id")
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   /// Товар может быть удалён из каталога окончательно — позиция остаётся.
   ///
@@ -307,8 +307,8 @@ model OrderItem {
   /// Цена остаётся целой (сумы); сумма позиции округляется РОВНО ОДИН РАЗ,
   /// в `lib/qty.ts#lineTotal` — иначе сохранённый `Order.total` разойдётся
   /// с суммой, которую пересчитывают отчёты.
-  quantity  Decimal @db.Decimal(10, 2)
-  price     Int // Цена на момент заказа
+  quantity    Decimal @db.Decimal(10, 2)
+  price       Int // Цена на момент заказа
 
   /// Индексов не было ни одного, а Postgres не индексирует внешние ключи сам.
   /// Из-за этого `count(where: productId)` в обработчике удаления товара и
@@ -385,7 +385,7 @@ model Promotion {
 // ==========================================
 
 model Employee {
-  city        String    @default("tashkent")
+  city       String    @default("tashkent")
   id         String    @id @default(cuid())
   name       String
   pin        String    @unique // 4-digit PIN for POS login
@@ -430,7 +430,7 @@ model Shift {
 // ==========================================
 
 model StockMovement {
-  id          String       @id @default(cuid())
+  id String @id @default(cuid())
 
   /// БЫЛО `onDelete: Cascade` — и это стирало книгу продаж молча.
   ///
@@ -439,11 +439,11 @@ model StockMovement {
   /// означал: удалили товар — выручка за прошлые месяцы уменьшилась, без
   /// единой ошибки в логе. Единственным, что этого не допускало, был запрет
   /// на удаление в API; запрет снят осознанно, поэтому защиту держит схема.
-  productId   String?      @map("product_id")
-  product     Product?     @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productId String?  @map("product_id")
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
 
   /// Название товара на момент движения — см. `OrderItem.productName`.
-  productName String?      @map("product_name")
+  productName String? @map("product_name")
 
   type        MovementType
   quantity    Decimal      @db.Decimal(10, 2) // Positive for IN, negative for OUT
@@ -461,14 +461,14 @@ model StockMovement {
   /// `salePrice` говорит, ПО ЧЁМ продали, но не от чего отступили. Без этой
   /// колонки уступка не измерима: на вопрос «сколько мы уступили за месяц»
   /// пришлось бы сравнивать с сегодняшним прайсом, а он с тех пор менялся.
-  listPrice   Int?         @map("list_price")
+  listPrice Int? @map("list_price")
 
   /// Почему цена этой позиции отличается от прайсовой.
   ///
   /// Отдельной колонкой, а не строкой в `note`: `note` занят нехваткой
   /// остатка, и складывать туда обе причины через разделитель значило бы
   /// читать их глазами. Вопрос «почему уступили» задают запросом.
-  priceReason String?      @map("price_reason")
+  priceReason String? @map("price_reason")
 
   /// Чек, в который входит движение.
   ///
@@ -477,8 +477,8 @@ model StockMovement {
   /// и номер вытаскивался регулярками в трёх местах. Всё, что относится
   /// к чеку целиком — покупатель, скидка, причина уступки, деловая дата, —
   /// приходилось складывать в текстовое примечание каждой позиции.
-  saleId      String?      @map("sale_id")
-  sale        PosSale?     @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  saleId String?  @map("sale_id")
+  sale   PosSale? @relation(fields: [saleId], references: [id], onDelete: SetNull)
 
   /// Деловая дата операции — отдельно от `createdAt` (времени записи).
   ///
@@ -506,7 +506,7 @@ model StockMovement {
   /// Поэтому все, кто пишет движения, задают `soldAt` ЯВНО — дефолта нет.
   /// Читатели на всякий случай откатываются к `createdAt`: у строк, не
   /// доживших до заполнителя, деловой даты просто не было.
-  soldAt      DateTime?    @map("sold_at")
+  soldAt DateTime? @map("sold_at")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -577,14 +577,14 @@ model PosSale {
   customer   Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   /// Сумма до скидки на чек.
-  gross Int
+  gross          Int
   /// Фактическая скидка. Может отличаться от запрошенной: цена за единицу
   /// целая, а количество дробное (см. lib/pos/discount.ts).
   discount       Int     @default(0)
   discountType   String? @map("discount_type") @db.VarChar(10)
   discountReason String? @map("discount_reason")
   /// Сумма к оплате: `gross - discount`.
-  total Int
+  total          Int
 
   backdated      Boolean @default(false)
   backdateReason String? @map("backdate_reason")
@@ -715,10 +715,10 @@ model RawMaterialMovement {
   unitCost  Decimal? @map("unit_cost") @db.Decimal(12, 2)
   totalCost Decimal? @map("total_cost") @db.Decimal(14, 2)
 
-  supplierId String?    @map("supplier_id")
-  supplier   Supplier?  @relation(fields: [supplierId], references: [id])
+  supplierId  String?    @map("supplier_id")
+  supplier    Supplier?  @relation(fields: [supplierId], references: [id])
   /// Расход привязан к партии — по нему считается её себестоимость.
-  growBatchId String?   @map("grow_batch_id")
+  growBatchId String?    @map("grow_batch_id")
   growBatch   GrowBatch? @relation(fields: [growBatchId], references: [id])
 
   reason      String?
@@ -801,8 +801,8 @@ model CropNorm {
   /// неразличимы, и при двух позициях любая посадка списывала бы ту, что
   /// заведена раньше: у салата неверная себестоимость, вата вечно в остатке,
   /// и ни ошибки, ни предупреждения.
-  substrateMaterialId String?       @map("substrate_material_id")
-  substrateMaterial   RawMaterial?  @relation("CropNormSubstrate", fields: [substrateMaterialId], references: [id])
+  substrateMaterialId String?      @map("substrate_material_id")
+  substrateMaterial   RawMaterial? @relation("CropNormSubstrate", fields: [substrateMaterialId], references: [id])
 
   /// Сколько лотков уходит на одну единицу посадки. Лотки одноразовые, поэтому
   /// по умолчанию 1. Раньше тип «Лотки» существовал в справочнике сырья, но
@@ -917,6 +917,8 @@ model Restaurant {
   magazineHtmlUrl String? @map("magazine_html_url")
 
   // Карта лояльности: N штампов (за кадры) → промокод в магазин микрозелени
+  contacts RestaurantContact[]
+
   loyaltyGoal          Int? @default(5) @map("loyalty_goal")
   loyaltyRewardPercent Int? @default(15) @map("loyalty_reward_percent")
 
@@ -1021,6 +1023,40 @@ model RestaurantIssue {
 // ==========================================
 // ADVERTISERS (B2B Sponsors & Partners)
 // ==========================================
+
+/// Контактные лица заведения.
+///
+/// ЗАЧЕМ ОТДЕЛЬНАЯ ТАБЛИЦА, А НЕ ПОЛЕ В КАРТОЧКЕ. У заведения контакт почти
+/// никогда не один, и роли у них разные: продукт выбирает шеф, а закупку
+/// утверждает управляющий или владелец. Одно поле `contact_name` заставляло
+/// выбирать, чьё имя записать, — и переговоры уходили не к тому человеку.
+///
+/// Старые `contact_name` и `phone` в карточке остаются: они наполнены, и
+/// сносить их ради стройности значило бы потерять данные. Новые контакты
+/// добавляются рядом.
+model RestaurantContact {
+  id           String     @id @default(cuid())
+  restaurantId String     @map("restaurant_id")
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  name  String  @db.VarChar(255)
+  /// Роль: chef | manager | owner | purchaser | other. Словарь — в
+  /// apps/web/src/lib/customers/contactRoles.ts.
+  role  String  @default("other") @db.VarChar(20)
+  phone String? @db.VarChar(20)
+
+  /// Утверждает ли этот человек закупку. Шеф выбирает продукт, но платит
+  /// не всегда он — переговоры с тем, кто не решает, это потраченное время.
+  decides Boolean @default(false)
+
+  note String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([restaurantId])
+  @@map("restaurant_contacts")
+}
 
 model Advertiser {
   id            String  @id @default(cuid())
@@ -1309,7 +1345,7 @@ model Customer {
   // Заполнено — карточки для системы не существует. Фильтр не забывается:
   // в вебе его подставляет расширение клиента Prisma (packages/database),
   // в офисе сырой SQL сторожит `scripts/check_soft_delete.py`.
-  deletedAt        DateTime? @map("deleted_at")
+  deletedAt DateTime? @map("deleted_at")
 
   // ── География: карта клиентов в админке ──
   // Координаты живут здесь, а не в `addresses`: та таблица требует
@@ -1424,16 +1460,16 @@ model CustomerPrice {
 // по Text произвольной длины упрётся в лимит индекса. `queryText` лежит рядом
 // ради отладки — по хешу не понять, что именно спрашивали.
 model GeocodeCache {
-  id        Int      @id @default(autoincrement())
-  queryHash String   @unique @map("query_hash") @db.VarChar(64)
-  queryText String   @map("query_text") @db.Text
+  id        Int     @id @default(autoincrement())
+  queryHash String  @unique @map("query_hash") @db.VarChar(64)
+  queryText String  @map("query_text") @db.Text
   latitude  Float?
   longitude Float?
-  precision String?  @db.VarChar(20)
-  provider  String   @db.VarChar(20)
-  district  String?  @db.VarChar(80)
-  attempts  Int      @default(1)
-  lastError String?  @map("last_error") @db.Text
+  precision String? @db.VarChar(20)
+  provider  String  @db.VarChar(20)
+  district  String? @db.VarChar(80)
+  attempts  Int     @default(1)
+  lastError String? @map("last_error") @db.Text
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
@@ -1570,14 +1606,14 @@ model Interaction {
   // потерянная отметка — потерянная история поездок. Поэтому пусто
   // здесь значит «место не подтверждено», а не «визита не было»,
   // и видно это владельцу, а не выключает работу.
-  latitude   Float?
-  longitude  Float?
+  latitude  Float?
+  longitude Float?
   // Точность позиции по данным браузера, метры. Без неё «в 300 м от
   // клиента» неотличимо от «GPS дал круг радиусом 300 м».
-  accuracyM  Int?   @map("accuracy_m")
+  accuracyM Int?   @map("accuracy_m")
   // Расстояние до пина клиента, метры. Считает сервер: клиент мог бы
   // прислать любое.
-  distanceM  Int?   @map("distance_m")
+  distanceM Int?   @map("distance_m")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -1609,8 +1645,8 @@ model Interaction {
 // «была ли отметка к этому клиенту в этот день».
 // ══════════════════════════════════════════════════════════════════════
 model VisitPlan {
-  id       Int      @id @default(autoincrement())
-  planDate DateTime @map("plan_date") @db.Date
+  id       Int             @id @default(autoincrement())
+  planDate DateTime        @map("plan_date") @db.Date
   /// Кому объезжать. Пустая строка — план ничей, черновик владельца.
   ///
   /// НЕ nullable, и это не мелочь. Уникальность ниже стоит по паре
@@ -1619,11 +1655,11 @@ model VisitPlan {
   /// одну дату, и «выполнено 6 из 8» считалось бы неизвестно по
   /// какому. Та же ловушка трёхзначной логики, что съела сидер
   /// координат: там `not: manual` молча не находил ни одной строки.
-  assignee String   @default("") @db.VarChar(255)
+  assignee String          @default("") @db.VarChar(255)
   /// Кто составил: имя владельца или самого продавца.
-  author   String   @db.VarChar(255)
+  author   String          @db.VarChar(255)
   /// `self` — собрал себе сам, `owner` — назначен сверху.
-  source   String   @default("self") @db.VarChar(10)
+  source   String          @default("self") @db.VarChar(10)
   stops    VisitPlanStop[]
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -1924,9 +1960,9 @@ model OfficeOutbox {
   /// же события в очередь не создаёт второй строки.
   refKey String @unique @map("ref_key") @db.VarChar(64)
 
-  attempts      Int       @default(0)
-  nextAttemptAt DateTime  @default(now()) @map("next_attempt_at")
-  lastError     String?   @map("last_error")
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at")
+  lastError     String?  @map("last_error")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -2007,15 +2043,15 @@ model AppSetting {
 /// дочитывает сама, — но выбрасывать ключи значило бы закрыть себе этот
 /// путь навсегда: повторно их выдаёт только браузер, при новой подписке.
 model PushSubscription {
-  id        String   @id @default(cuid())
-  endpoint  String   @unique @db.Text
-  p256dh    String   @db.Text
-  auth      String   @db.Text
+  id         String    @id @default(cuid())
+  endpoint   String    @unique @db.Text
+  p256dh     String    @db.Text
+  auth       String    @db.Text
   /// Кому принадлежит браузер. NULL — подписался гость, ещё не вошедший.
-  userId    String?  @map("user_id")
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userAgent String?  @map("user_agent") @db.VarChar(255)
-  createdAt DateTime @default(now()) @map("created_at")
+  userId     String?   @map("user_id")
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userAgent  String?   @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime  @default(now()) @map("created_at")
   /// Когда по этому адресу в последний раз удалось достучаться. Служба
   /// доставки отвечает 404/410 на протухшую подписку — такие удаляем.
   lastSeenAt DateTime? @map("last_seen_at")
@@ -2105,7 +2141,7 @@ model BotMeasurement {
 /// партии в localStorage браузера: смена устройства или очистка кэша
 /// стирала весь производственный план, и с телефона его не было видно.
 model GrowBatch {
-  city        String    @default("tashkent")
+  city     String @default("tashkent")
   id       String @id @default(cuid())
   cropType String @map("crop_type") @db.VarChar(50)
   trays    Int    @default(1)
@@ -2347,7 +2383,7 @@ model GreenBoxItem {
 // --- PHASE 4: PRODUCTION & LOGISTICS ---
 
 model DeliveryRoute {
-  city        String    @default("tashkent")
+  city      String         @default("tashkent")
   id        String         @id @default(cuid())
   driverId  String?        @map("driver_id")
   driver    Employee?      @relation(fields: [driverId], references: [id])
@@ -2380,9 +2416,9 @@ model DeliveryStop {
   // геокодер. Порядок объезда задаёт orderIndex: линия на карте рисуется
   // по нему, а не по расстоянию, — маршрут строит человек, и карта обязана
   // показывать его замысел, а не свою догадку о лучшем пути.
-  latitude   Float?
-  longitude  Float?
-  geoSource  String?       @map("geo_source") @db.VarChar(20)
+  latitude  Float?
+  longitude Float?
+  geoSource String? @map("geo_source") @db.VarChar(20)
 
   @@index([routeId])
   // Индекс на внешний ключ. Postgres НЕ создаёт его сам: сама связь

@@ -127,6 +127,39 @@ export const SETTINGS = {
     category: 'stock', type: 'number', default: 3,
     labelRu: 'Избыток: месячных продаж ×', labelUz: 'Ortiqcha: oylik sotuv ×', min: 1,
   },
+  // ── Коридоры нормы ────────────────────────────────────────────────
+  //
+  // Само число ничего не говорит, пока не задана граница «всё хорошо» и
+  // «пора реагировать». Отчёты показывали выход с лотка и долю брака, но
+  // выход этих величин за разумные пределы никто не подсвечивал — заметить
+  // его можно было, только сравнив две сводки глазами.
+  //
+  // Значения по умолчанию намеренно мягкие: сигнал, срабатывающий каждый
+  // день, перестают читать через неделю.
+  'kpi.defectSharePct': {
+    category: 'stock', type: 'number', default: 15,
+    labelRu: 'Доля брака, тревога от %', labelUz: 'Brak ulushi, ogohlantirish %',
+    hintRu: 'Выше этой доли списаний за неделю — сигнал владельцу', min: 1, max: 100,
+  },
+  'kpi.minActiveCustomers': {
+    category: 'stock', type: 'number', default: 5,
+    labelRu: 'Активных заведений, тревога ниже', labelUz: 'Faol mijozlar, ogohlantirish',
+    hintRu: 'Меньше этого числа покупавших за месяц — сигнал', min: 0,
+  },
+  // Правило из разбора: не более трети выручки от одного клиента. Одно
+  // заведение, дающее половину оборота, — риск, о котором узнают поздно.
+  'kpi.maxClientSharePct': {
+    category: 'stock', type: 'number', default: 33,
+    labelRu: 'Доля одного клиента, тревога от %', labelUz: 'Bitta mijoz ulushi, ogohlantirish %',
+    hintRu: 'Выше этой доли выручки от одного заведения — сигнал', min: 10, max: 100,
+  },
+  // Себестоимость выезда: без неё дальняя точка с мелким заказом выглядит
+  // прибыльной, потому что дорога в расчёт не входит.
+  'delivery.tripCost': {
+    category: 'delivery', type: 'money', default: 0,
+    labelRu: 'Себестоимость одного выезда', labelUz: 'Bitta chiqishning tannarxi',
+    hintRu: 'Топливо и время. Ноль — доставка в рентабельность канала не войдёт', min: 0,
+  },
   'stock.reorderLeadDays': {
     category: 'stock', type: 'number', default: 14,
     labelRu: 'Точка дозаказа (дней)', labelUz: 'Qayta buyurtma (kun)',

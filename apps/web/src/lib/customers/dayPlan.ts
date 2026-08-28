@@ -145,3 +145,35 @@ export function buildDayPlan(
 
   return ordered;
 }
+
+/** Из чего состоит день: сколько новых дверей, сколько своих. */
+export interface PlanMix {
+  /** Заходы к тем, кто ещё ни разу не заказывал. */
+  fresh: number;
+  /** Обслуживание тех, кто уже покупал. */
+  existing: number;
+}
+
+/**
+ * Разделить план на новые заходы и обслуживание.
+ *
+ * ЗАЧЕМ. Это разная работа, и смешивать их в одном счётчике — значит не
+ * заметить, как день целиком уходит на своих. Обслуживать привычнее и
+ * приятнее: там ждут, там не отказывают. Но новых заведений от этого не
+ * прибавляется, а именно они определяют рост.
+ *
+ * `prospect` — тот, кто ещё ни разу не заказывал (см. `segments.ts`).
+ * Остальные состояния, включая «нового», означают уже состоявшегося
+ * клиента: у него есть заказы, и заход к нему — удержание, а не поиск.
+ */
+export function planMix(plan: RoutePoint[], candidates: PlanCandidate[]): PlanMix {
+  const stateById = new Map(candidates.map((c) => [c.id, c.state]));
+
+  let fresh = 0;
+  for (const point of plan) {
+    if (stateById.get(point.id) === 'prospect') fresh += 1;
+  }
+
+  return { fresh, existing: plan.length - fresh };
+}
+
