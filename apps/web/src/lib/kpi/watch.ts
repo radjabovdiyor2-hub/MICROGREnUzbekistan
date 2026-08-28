@@ -2,6 +2,7 @@ import { prisma } from '@repo/database';
 import { loadMargin } from '@/lib/finance/margin';
 import { byBusinessDate } from '@/lib/revenue/salesLedger';
 import { getNumber } from '@/lib/settings/store';
+import { VISIT_TYPES } from '@/lib/customers/visits';
 import { collectBreaches, defectShare, largestClientShare, type Breach } from './thresholds';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -24,7 +25,23 @@ export async function collectKpiBreaches(today = new Date()): Promise<Breach[]> 
   from.setDate(from.getDate() - WINDOW_DAYS);
   from.setHours(0, 0, 0, 0);
 
-  const [margin, movements, defectLimitPct, concentrationLimitPct, minCustomers] = await Promise.all([
+  // Норма заходов меряется НЕДЕЛЕЙ, а не месячным окном остальных
+  // показателей: пять новых дверей в неделю — это про ритм работы, и
+  // растянув счёт на месяц, три пустые недели спрячутся за одной удачной.
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  weekAgo.setHours(0, 0, 0, 0);
+
+  const [
+    margin,
+    movements,
+    visits,
+    intake,
+    defectLimitPct,
+    concentrationLimitPct,
+    minCustomers,
+    visitNorm,
+  ] = await Promise.all([
     loadMargin(from, today),
     // Списание — это уход со склада без продажи: ни заказа, ни цены.
     // Определение то же, что в salesLedger, где такие движения намеренно
@@ -33,9 +50,26 @@ export async function collectKpiBreaches(today = new Date()): Promise<Breach[]> 
       where: { type: 'OUT', ...byBusinessDate({ gte: from, lte: today }) },
       select: { quantity: true, salePrice: true, orderId: true },
     }),
+    // Заходы за неделю. Считаем РАЗНЫЕ заведения, а не касания: три
+    // визита в одно и то же кафе — это одна дверь, а не три.
+    prisma.interaction.findMany({
+      where: {
+        interactionType: { in: VISIT_TYPES },
+        createdAt: { gte: weekAgo },
+        customerId: { not: null },
+      },
+      select: { customerId: true },
+      distinct: ['customerId'],
+    }),
+    // Кто и что возил: по этому видно позиции с единственным поставщиком.
+    prisma.rawMaterialMovement.findMany({
+      where: { type: 'IN', supplierId: { not: null } },
+      select: { supplierId: true, material: { select: { name: true } } },
+    }),
     getNumber('kpi.defectSharePct'),
     getNumber('kpi.maxClientSharePct'),
     getNumber('kpi.minActiveCustomers'),
+    getNumber('kpi.weeklyNewVisits'),
   ]);
 
   let writtenOff = 0;
@@ -50,6 +84,21 @@ export async function collectKpiBreaches(today = new Date()): Promise<Breach[]> 
   // входит: у неё нет карточки, и «потерять» её как клиента нельзя.
   const activeCustomers = margin.byCustomer.filter((r) => r.key !== 'unknown' && r.revenue > 0).length;
 
+  // Позиция с единственным поставщиком. Сырьё, которое не возил никто,
+  // сюда НЕ попадает: там не «один поставщик», а ни одного — это другой
+  // разговор, и путать их значит поднимать тревогу о том, чего не закупают.
+  const suppliersOf = new Map<string, Set<string>>();
+  for (const row of intake) {
+    if (!row.supplierId) continue;
+    const set = suppliersOf.get(row.material.name) ?? new Set<string>();
+    set.add(row.supplierId);
+    suppliersOf.set(row.material.name, set);
+  }
+  const soleSourced = [...suppliersOf.entries()]
+    .filter(([, set]) => set.size === 1)
+    .map(([name]) => name)
+    .sort();
+
   return collectBreaches({
     defect: defectShare(writtenOff, sold),
     defectLimit: defectLimitPct / 100,
@@ -57,6 +106,9 @@ export async function collectKpiBreaches(today = new Date()): Promise<Breach[]> 
     concentrationLimit: concentrationLimitPct / 100,
     activeCustomers,
     minCustomers,
+    newVisits: visits.length,
+    visitNorm,
+    soleSourced,
   });
 }
 

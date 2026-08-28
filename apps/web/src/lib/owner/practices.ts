@@ -22,7 +22,7 @@ export const RHYTHMS = ['daily', 'weekly', 'monthly', 'quarterly', 'setup', 'pri
 
 export type Rhythm = (typeof RHYTHMS)[number];
 
-export const PRACTICE_AREAS = ['time', 'money', 'mind', 'team'] as const;
+export const PRACTICE_AREAS = ['time', 'money', 'mind', 'team', 'business'] as const;
 
 export type PracticeArea = (typeof PRACTICE_AREAS)[number];
 
@@ -41,6 +41,7 @@ export const AREA_LABELS: Record<PracticeArea, { ru: string; uz: string }> = {
   money: { ru: 'Личные деньги', uz: 'Shaxsiy pul' },
   mind: { ru: 'Мышление и решения', uz: 'Tafakkur va qarorlar' },
   team: { ru: 'Команда и делегирование', uz: 'Jamoa va topshiriq' },
+  business: { ru: 'Дело', uz: 'Ish' },
 };
 
 export const RHYTHM_LABELS: Record<Rhythm, { ru: string; uz: string }> = {
