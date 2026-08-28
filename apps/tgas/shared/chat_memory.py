@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Awaitable, Dict, List, Optional, cast
+from typing import Any, Awaitable, Dict, List, Optional, Union, cast
 
 import redis.asyncio as redis
 
@@ -47,15 +47,26 @@ MAX_TURNS = 10
 TTL_SECONDS = 86_400
 
 
-def _key(bot_name: str, chat_id: int) -> str:
-    return f"chat:hist:{bot_name}:{int(chat_id)}"
+def _key(bot_name: str, chat_id: Union[int, str]) -> str:
+    """
+    Ключ разговора. Идентификатор чата — не только телеграмный.
+
+    Раньше здесь стояло `int(chat_id)`: Telegram даёт число, и приведение
+    выглядело безобидным. Instagram даёт IGSID строкой, и на нём это
+    падало бы — поэтому берём строковую форму.
+
+    Приводить числовые строки обратно к `int` НЕ нужно, и это проверено:
+    `str(123)` и `str(int("123"))` дают одно и то же. Лишнее приведение
+    только меняло бы ключ у идентификатора с ведущим нулём.
+    """
+    return f"chat:hist:{bot_name}:{str(chat_id).strip()}"
 
 
 def _client() -> redis.Redis:
     return redis.from_url(settings.redis_url, decode_responses=True)
 
 
-async def load(bot_name: str, chat_id: int, limit: int = MAX_TURNS) -> List[Dict[str, str]]:
+async def load(bot_name: str, chat_id: Union[int, str], limit: int = MAX_TURNS) -> List[Dict[str, str]]:
     """Последние реплики чата в виде [{role, content}, ...].
 
     Пустой список и при пустой истории, и при недоступном Redis: короткий
@@ -93,7 +104,7 @@ async def load(bot_name: str, chat_id: int, limit: int = MAX_TURNS) -> List[Dict
 
 async def remember(
     bot_name: str,
-    chat_id: int,
+    chat_id: Union[int, str],
     user_text: str,
     assistant_text: str,
     limit: int = MAX_TURNS,
@@ -124,7 +135,7 @@ async def remember(
         await client.aclose()
 
 
-async def forget(bot_name: str, chat_id: int) -> None:
+async def forget(bot_name: str, chat_id: Union[int, str]) -> None:
     """Забыть разговор — «начнём заново» должно что-то менять."""
     client = _client()
     try:

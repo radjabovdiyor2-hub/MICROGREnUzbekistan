@@ -10,10 +10,11 @@ Microgreen Uzbekistan — Instagram DM Sales Bot
 
 import logging
 import aiohttp
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 from datetime import datetime, timezone, timedelta
 from shared import customer_repo, storefront_orders
 from shared import phone as phone_utils
+from shared import chat_memory
 from shared.config import settings
 from shared.ai_engine import AIEngine
 
@@ -27,20 +28,47 @@ logger = logging.getLogger(__name__)
 API_VERSION = "v19.0"
 GRAPH_BASE_URL = f"https://graph.facebook.com/{API_VERSION}"
 
-# Хранилище уже обработанных сообщений (в рамках одного процесса)
+# ── Уже обработанные сообщения ───────────────────────────────────────────
+#
+# ⚠️ ЖИЛИ ТОЛЬКО В ПАМЯТИ ПРОЦЕССА, и это было видно из комментария
+# «в рамках одного процесса» — но не видно, чем это оборачивается.
+#
+# Опрос директа идёт каждые три минуты и берёт сообщения за последние
+# десять. Выкатка внутри этого окна — а мержей в main бывает по четыре за
+# сутки — стирала отметки, и те же сообщения обрабатывались заново:
+# клиент получал второй ответ, а если в сообщении был заказ, заказ
+# создавался ВТОРОЙ РАЗ.
+#
+# Теперь отметка ставится в Redis атомарно (`SET NX EX`): она переживает
+# рестарт и заодно не даёт двум опросам разобрать одно сообщение. Память
+# процесса осталась запасным путём — Redis лёг, работаем как раньше.
 _processed_message_ids: set = set()
 
-# Хранилище истории диалогов по каждому клиенту (IGSID -> history)
-_conversation_histories: Dict[str, List[Dict[str, str]]] = {}
+#: Сколько помним обработанное. С запасом больше окна опроса в 10 минут:
+#: меньше — и отметка истечёт раньше, чем сообщение перестанет попадать
+#: в выборку.
+_SEEN_TTL_S = 3600
 
-# Хранилище информации о собранных заказах
-_pending_orders: Dict[str, Dict] = {}
+# История диалога живёт в `shared/chat_memory` (Redis), а не здесь.
+#
+# ⚠️ БЫЛ СЛОВАРЬ В ПАМЯТИ ПРОЦЕССА — тот самый антипаттерн, который в
+# проекте уже разбирали у витринного бота: каждая выкатка обнуляла все
+# диалоги, и клиент, писавший минуту назад, получал ответ «с чистого
+# листа». В директе это заметнее, чем где-либо: разговор там растянут на
+# часы, и человек продолжает начатое, а бот его не помнит.
+#
+# `_pending_orders` убран: он был объявлен и не использовался ни разу.
 
 # Блокировка параллельных запусков
 _is_processing: bool = False
 
 # Максимум сообщений в истории (чтобы не раздуть контекст)
 MAX_HISTORY_LENGTH = 20
+
+#: Под каким именем разговор лежит в общей памяти. Своё, а не «bot»:
+#: ключ разводит каналы, и переписка в директе не должна смешиваться с
+#: групповой у того же человека.
+_MEMORY_BOT = "instagram_dm"
 
 # Системный промпт для Instagram-менеджера
 IG_SALES_SYSTEM_PROMPT = (
@@ -102,6 +130,60 @@ IG_SALES_SYSTEM_PROMPT = (
 )
 
 
+def _seen_key(message_id: str) -> str:
+    return f"ig:dm:seen:{message_id}"
+
+
+async def _mark_seen(message_id: str) -> bool:
+    """
+    Отметить сообщение обработанным. `True` — отметили мы, работать можно.
+
+    `False` — отметка уже стояла: сообщение разобрали раньше, второй раз
+    отвечать клиенту и заводить заказ нельзя.
+
+    Redis недоступен — полагаемся на память процесса: повторный ответ
+    неприятен, но молчание в директе хуже.
+    """
+    if not message_id:
+        return False
+
+    if message_id in _processed_message_ids:
+        return False
+    _processed_message_ids.add(message_id)
+
+    try:
+        import redis.asyncio as redis
+
+        client = redis.from_url(settings.redis_url, decode_responses=True)
+        try:
+            first = await client.set(_seen_key(message_id), "1", nx=True, ex=_SEEN_TTL_S)
+        finally:
+            await client.aclose()
+        return bool(first)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("IG DM: отметка «обработано» не сохранена (%s)", exc)
+        return True
+
+
+async def _already_seen(message_id: str) -> bool:
+    """Обрабатывали ли это сообщение раньше — в том числе до перезапуска."""
+    if not message_id:
+        return False
+    if message_id in _processed_message_ids:
+        return True
+    try:
+        import redis.asyncio as redis
+
+        client = redis.from_url(settings.redis_url, decode_responses=True)
+        try:
+            return bool(await client.exists(_seen_key(message_id)))
+        finally:
+            await client.aclose()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("IG DM: проверка «обработано» не удалась (%s)", exc)
+        return False
+
+
 async def check_new_messages() -> list:
     """
     Проверяет новые входящие сообщения в Instagram DM через Messenger API.
@@ -159,8 +241,9 @@ async def check_new_messages() -> list:
                         for msg in messages_data:
                             msg_id = msg.get("id", "")
 
-                            # Пропускаем уже обработанные сообщения
-                            if msg_id in _processed_message_ids:
+                            # Пропускаем уже обработанные — в том числе те,
+                            # что разобрали до перезапуска процесса.
+                            if await _already_seen(msg_id):
                                 continue
 
                             from_data = msg.get("from", {})
@@ -238,22 +321,6 @@ async def send_dm_reply(recipient_id: str, message: str) -> bool:
     except Exception as e:
         logger.error(f"Ошибка при отправке DM: {e}", exc_info=True)
         return False
-
-
-def _get_conversation_history(igsid: str) -> List[Dict[str, str]]:
-    """Получить историю диалога для клиента."""
-    if igsid not in _conversation_histories:
-        _conversation_histories[igsid] = []
-    return _conversation_histories[igsid]
-
-
-def _add_to_history(igsid: str, role: str, content: str):
-    """Добавить сообщение в историю диалога."""
-    history = _get_conversation_history(igsid)
-    history.append({"role": role, "content": content})
-    # Обрезаем историю если слишком длинная
-    if len(history) > MAX_HISTORY_LENGTH:
-        _conversation_histories[igsid] = history[-MAX_HISTORY_LENGTH:]
 
 
 def _extract_order(reply_text: str) -> Optional[Dict]:
@@ -610,7 +677,7 @@ async def auto_reply_to_new_messages():
                         created_str.replace("+0000", "+00:00")
                     )
                     if created < cutoff:
-                        _processed_message_ids.add(msg.get("message_id", ""))
+                        await _mark_seen(msg.get("message_id", ""))
                         continue
                 except (ValueError, TypeError):
                     pass
@@ -631,9 +698,15 @@ async def auto_reply_to_new_messages():
 
         for from_id, msgs in grouped.items():
             try:
-                # Помечаем ВСЕ ID как обработанные СРАЗУ (чтобы следующий цикл не подхватил)
+                # Помечаем ВСЕ ID как обработанные СРАЗУ — до ответа и до
+                # создания заказа. Отметка атомарная: если её поставил
+                # другой опрос, эту пачку разбирает он, а не мы.
+                claimed = False
                 for m in msgs:
-                    _processed_message_ids.add(m.get("message_id", ""))
+                    if await _mark_seen(m.get("message_id", "")):
+                        claimed = True
+                if not claimed:
+                    continue
 
                 # Берём данные из последнего сообщения
                 last_msg = msgs[-1]
@@ -652,11 +725,16 @@ async def auto_reply_to_new_messages():
                     f"📩 DM от {from_name} ({len(msgs)} сообщ.): {combined_text[:80]}..."
                 )
 
-                # Добавляем сообщение клиента в историю
-                _add_to_history(from_id, "user", combined_text)
-
-                # Получаем полную историю для AI
-                history = _get_conversation_history(from_id)
+                # История разговора — из общей памяти (Redis), а не из
+                # словаря процесса: разговор в директе растянут на часы, и
+                # выкатка посреди него не должна начинать его заново.
+                #
+                # Текущее сообщение дописываем к истории здесь, а в память
+                # кладём ОБА хода разом — после ответа. Половина обмена в
+                # истории хуже целого отсутствия: модель видит вопрос без
+                # ответа и отвечает на него второй раз.
+                past = await chat_memory.load(_MEMORY_BOT, from_id, limit=MAX_HISTORY_LENGTH)
+                history = past + [{"role": "user", "content": combined_text}]
 
                 # Генерируем ответ через AI с историей диалога
                 reply_text = await ai.chat_completion(
@@ -692,7 +770,13 @@ async def auto_reply_to_new_messages():
                     logger.info(
                         f"✅ Автоответ отправлен {from_name}: {reply_for_customer[:60]}..."
                     )
-                    _add_to_history(from_id, "assistant", reply_for_customer)
+                    await chat_memory.remember(
+                        _MEMORY_BOT,
+                        from_id,
+                        combined_text,
+                        reply_for_customer,
+                        limit=MAX_HISTORY_LENGTH,
+                    )
                 else:
                     logger.warning(f"⚠️ Не удалось отправить автоответ {from_name}.")
 
