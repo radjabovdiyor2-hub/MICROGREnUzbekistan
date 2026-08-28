@@ -13,7 +13,7 @@ import type { MarginRow } from '@/lib/finance/margin';
 // ══════════════════════════════════════════════════════════════════════
 
 export interface Breach {
-  metric: 'defect' | 'concentration' | 'customers';
+  metric: 'defect' | 'concentration' | 'customers' | 'visits' | 'supplier';
   title: string;
   detail: string;
 }
@@ -64,6 +64,11 @@ export function collectBreaches(input: {
   concentrationLimit: number;
   activeCustomers: number;
   minCustomers: number;
+  /** Новых заведений, куда заходили за последнюю неделю. */
+  newVisits: number;
+  visitNorm: number;
+  /** Виды сырья, которые возит ровно один поставщик. */
+  soleSourced: string[];
 }): Breach[] {
   const breaches: Breach[] = [];
 
@@ -96,6 +101,33 @@ export function collectBreaches(input: {
       detail:
         `Меньше порога в ${input.minCustomers}. Пока точек мало, любая ` +
         'потеря весит непропорционально много — обходы важнее производства.',
+    });
+  }
+
+  // Норма заходов. Сбыт из настроения превращается в задачу только тогда,
+  // когда у него есть число: без него неделя без единой новой двери
+  // выглядит так же, как неделя с пятью, — обе «работали».
+  if (input.newVisits < input.visitNorm) {
+    breaches.push({
+      metric: 'visits',
+      title: `Новых заходов за неделю: ${input.newVisits}`,
+      detail:
+        `Норма — ${input.visitNorm}. Обслуживать своих привычнее: там ждут и ` +
+        'не отказывают. Но новые заведения от этого не появляются, и видно ' +
+        'это станет через месяц по остановившемуся росту.',
+    });
+  }
+
+  // Единственный поставщик — это остановка производства, а не неудобство:
+  // семена и субстрат заменить в тот же день негде, а цикл не ускорить.
+  if (input.soleSourced.length > 0) {
+    breaches.push({
+      metric: 'supplier',
+      title: `Один поставщик: ${input.soleSourced.slice(0, 3).join(', ')}`,
+      detail:
+        'По этим позициям возит ровно один поставщик. Его отказ, отпуск или ' +
+        'поднятая цена останавливают посев — а торговаться, когда выбора ' +
+        'нет, не с чем. Три поставщика на позицию — правило, а не запас.',
     });
   }
 

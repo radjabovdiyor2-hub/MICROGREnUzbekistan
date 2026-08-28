@@ -56,6 +56,9 @@ describe('collectBreaches', () => {
     concentrationLimit: 0.33,
     activeCustomers: 10,
     minCustomers: 5,
+    newVisits: 5,
+    visitNorm: 5,
+    soleSourced: [] as string[],
   };
 
   it('молчит, когда всё в норме', () => {
@@ -90,5 +93,51 @@ describe('collectBreaches', () => {
       activeCustomers: 1,
     });
     expect(b.map((x) => x.metric)).toEqual(['defect', 'concentration', 'customers']);
+  });
+});
+
+describe('норма заходов и поставщики', () => {
+  const base = {
+    defect: null,
+    defectLimit: 0.15,
+    concentration: null,
+    concentrationLimit: 0.33,
+    activeCustomers: 10,
+    minCustomers: 5,
+    newVisits: 5,
+    visitNorm: 5,
+    soleSourced: [] as string[],
+  };
+
+  it('норма выполнена — молчит', () => {
+    expect(collectBreaches(base)).toEqual([]);
+  });
+
+  it('заходов меньше нормы — говорит', () => {
+    // Неделя без единой новой двери выглядит так же, как неделя с пятью:
+    // обе «работали». Различает их только число.
+    const b = collectBreaches({ ...base, newVisits: 2 });
+    expect(b).toHaveLength(1);
+    expect(b[0].metric).toBe('visits');
+  });
+
+  it('ровно по норме — не срабатывает', () => {
+    expect(collectBreaches({ ...base, newVisits: 5 })).toEqual([]);
+  });
+
+  it('единственный поставщик позиции — повод сказать', () => {
+    const b = collectBreaches({ ...base, soleSourced: ['Семена редиса'] });
+    expect(b).toHaveLength(1);
+    expect(b[0].metric).toBe('supplier');
+    expect(b[0].title).toContain('Семена редиса');
+  });
+
+  it('в заголовок попадают не все позиции сразу', () => {
+    // Иначе сигнал превращается в простыню, которую не читают.
+    const b = collectBreaches({
+      ...base,
+      soleSourced: ['a', 'b', 'c', 'd', 'e'],
+    });
+    expect(b[0].title).not.toContain('e');
   });
 });
