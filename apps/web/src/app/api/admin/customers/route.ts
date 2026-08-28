@@ -6,6 +6,7 @@ import { hidesMoney, maskSum } from '@/lib/customers/money';
 import { audit } from '@/lib/audit';
 import { isCustomerStatus, summarizeFunnel } from '@/lib/customers/statuses';
 import { getCustomerCard } from '@/lib/customers/card';
+import { loadAcquisition, type Acquisition } from '@/lib/customers/acquisition';
 import {
   RETIRED_COMPANY_TYPES,
   isAudience,
@@ -175,6 +176,7 @@ export async function GET(request: NextRequest) {
     // Воронка считается по отдельной просьбе: это отдельный запрос к базе,
     // а список клиентов открывают чаще, чем смотрят на этапы.
     let funnel;
+    let acquisition: Acquisition | undefined;
     if (searchParams.get('funnel') === '1') {
       const grouped = await prisma.customer.groupBy({
         by: ['status'],
@@ -184,6 +186,16 @@ export async function GET(request: NextRequest) {
       const counts: Record<string, number> = {};
       for (const row of grouped) counts[row.status] = row._count._all;
       funnel = summarizeFunnel(counts);
+
+      // Стоимость привлечения — рядом с воронкой и тем же запросом:
+      // «сколько дверей на одно согласие» и «что оно приносит» отвечают
+      // на один вопрос, и смотреть их порознь бессмысленно.
+      //
+      // Год назад — не круглое число ради красоты: полугодовое окно
+      // отдачи должно поместиться в период целиком, иначе дозревших
+      // заведений не окажется ни одного и экран всегда молчал бы.
+      const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+      acquisition = await loadAcquisition(yearAgo, new Date());
     }
 
     return NextResponse.json({
@@ -191,6 +203,7 @@ export async function GET(request: NextRequest) {
       total,
       page,
       funnel,
+      acquisition,
       hasMore: page * limit < total,
       customers: customers.map((c) => ({
         id: c.id,

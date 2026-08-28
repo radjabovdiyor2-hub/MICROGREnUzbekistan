@@ -82,6 +82,7 @@ Prisma отдаёт `Decimal` объектом, а `NextResponse.json` сери�
 | `Employee` | Staff with PIN login |
 | `PosSale` | Шапка чека кассы: номер, деловая дата, автор, покупатель, скидка, причина проводки задним числом. `kind = sale \| refund`, возврат ссылается на продажу через `refundOfId`. До неё чек существовал только как набор движений, связанных номером внутри текста `reason` |
 | `CustomerPrice` | Договорная цена товара для клиента. Отдельной таблицей, потому что `import-catalog.ts` переимпортирует прайс на каждом деплое и затирает правки цен |
+| `CustomerContact` | Контактные лица заведения (`customer_contacts`): имя, роль, телефон, `decides` — утверждает ли закупку. Связь на `Customer`, а не на `Restaurant`: переговоры ведутся по базе CRM, справочник партнёров журнала здесь ни при чём. Старые `Customer.contactName` / `phone` остаются — это первый контакт, а не весь список |
 | `StockMovement` | Inventory tracking (IN/OUT/ADJUSTMENT/RETURN/WRITE_OFF). `soldAt` — деловая дата операции, отдельно от `createdAt` (времени записи), как у `Finance.date`; по ней считают отчёты. `listPrice` и `priceReason` — прайс на момент продажи и объяснение уступки |
 | `Supplier` | Vendor management |
 | `Debt` | Accounts payable/receivable |

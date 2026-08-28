@@ -12,6 +12,7 @@ function debt(p: Partial<DebtLike> = {}): DebtLike {
     paidAmount: 0,
     dueDate: new Date('2026-08-25T00:00:00'),
     isPaid: false,
+    critical: false,
     ...p,
   };
 }
@@ -118,5 +119,47 @@ describe('buildPaymentCalendar', () => {
     const c = buildPaymentCalendar([], TODAY);
     expect(c.days).toEqual([]);
     expect(c.worstBalance).toBe(0);
+  });
+});
+
+describe('очередь платежей', () => {
+  it('считает отдельно то, что нельзя двигать', () => {
+    // В разрыв решение принимается не по общей сумме долгов, а по этой:
+    // её надо закрыть в любом случае, остальное можно передоговорить.
+    const c = buildPaymentCalendar(
+      [
+        debt({ id: 'seeds', amount: 400_000, critical: true }),
+        debt({ id: 'rent', personName: 'Аренда', amount: 900_000 }),
+      ],
+      TODAY,
+    );
+
+    expect(c.criticalOutgoing).toBe(400_000);
+    expect(c.days[0].outgoing).toBe(1_300_000);
+  });
+
+  it('внутри дня семена стоят выше крупной аренды', () => {
+    // Если денег хватает не на всё, глаз должен упереться в то, что
+    // двигать нельзя, а не искать это в списке по фамилии.
+    const c = buildPaymentCalendar(
+      [
+        debt({ id: 'rent', personName: 'Аренда', amount: 900_000 }),
+        debt({ id: 'seeds', amount: 400_000, critical: true }),
+      ],
+      TODAY,
+    );
+
+    expect(c.days[0].items.map((i) => i.id)).toEqual(['seeds', 'rent']);
+  });
+
+  it('долг НАМ в критичную сумму не попадает', () => {
+    // Критично то, что мы платим. Чужой долг нам производство не
+    // останавливает — он его, наоборот, финансирует.
+    const c = buildPaymentCalendar(
+      [debt({ id: 'in', type: 'WHO_OWES_US', amount: 700_000, critical: true })],
+      TODAY,
+    );
+
+    expect(c.criticalOutgoing).toBe(0);
   });
 });

@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import type { CustomerCard } from '@/lib/customers/card';
 import { AdminCustomerCardHead } from './AdminCustomerCardHead';
+import { AdminCustomerContacts } from './AdminCustomerContacts';
 import { AdminCustomerOrders } from './AdminCustomerOrders';
 import { AdminCustomerActivity } from './AdminCustomerActivity';
 import { PosSaleSheet } from './PosSaleSheet';
@@ -87,6 +88,9 @@ export function AdminCustomerCard({ customerId, lang, sellerName, onBack, onEdit
       />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+        {/* Контакты — выше истории: перед звонком нужно знать, с кем
+            говорить, а не что было в прошлый раз. */}
+        <AdminCustomerContacts customerId={customerId} lang={lang} />
         <AdminCustomerOrders orders={data.orders} />
         <AdminCustomerActivity interactions={data.interactions} followups={data.followups} />
       </div>

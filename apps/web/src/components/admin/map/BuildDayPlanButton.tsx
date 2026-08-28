@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Wand2 } from 'lucide-react';
 
 import { useFeedback } from '../AdminFeedback';
-import { buildDayPlan, PLAN_SIZE, type PlanCandidate } from '@/lib/customers/dayPlan';
+import { buildDayPlan, planMix, PLAN_SIZE, type PlanCandidate } from '@/lib/customers/dayPlan';
 import { readPosition } from '@/lib/geo/position';
 import type { RoutePoint } from '@/lib/customers/dayRoute';
 import type { PointView } from './mapFeature';
@@ -114,12 +114,22 @@ export function BuildDayPlanButton({
         );
       }
 
+      // Состав дня, а не только его длина.
+      //
+      // Новые двери и обслуживание своих — разная работа, и в общем счёте
+      // её не видно. Обслуживать привычнее: там ждут и не отказывают, —
+      // но новых заведений от этого не прибавляется, а растёт дело
+      // именно за их счёт. День, целиком ушедший на своих, должен быть
+      // виден сразу, а не через месяц по отсутствию роста.
+      const mix = planMix(plan, candidates);
+      const mixRu = `${mix.fresh} новых, ${mix.existing} своих`;
+
       notify.success(
         lang === 'ru'
           ? at
-            ? `План на сегодня: ${plan.length} — от вашего места`
-            : `План на сегодня: ${plan.length}. Место не определилось — порядок поправьте сами`
-          : `Bugungi reja: ${plan.length}`,
+            ? `План на сегодня: ${plan.length} — ${mixRu}, от вашего места`
+            : `План на сегодня: ${plan.length} — ${mixRu}. Место не определилось, порядок поправьте сами`
+          : `Bugungi reja: ${plan.length} — ${mix.fresh} yangi, ${mix.existing} doimiy`,
       );
     } finally {
       setBusy(false);

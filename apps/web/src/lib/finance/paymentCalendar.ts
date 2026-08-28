@@ -38,6 +38,16 @@ export interface DebtLike {
   paidAmount: number;
   dueDate: Date | null;
   isPaid: boolean;
+  /**
+   * Платёж, задержка которого останавливает производство.
+   *
+   * Заплатить всем сразу в разрыв не выйдет, и очередь приходится
+   * назначать. Первыми идут семена и субстрат: без них не будет посева, а
+   * посев не наверстать — цикл занимает недели, и потерянная неделя
+   * означает пустые полки через месяц. Задержка любого другого платежа
+   * стоит испорченных отношений, но не остановки.
+   */
+  critical: boolean;
 }
 
 export interface CalendarItem {
@@ -47,6 +57,8 @@ export interface CalendarItem {
   /** Сколько по долгу ещё предстоит. */
   remaining: number;
   overdue: boolean;
+  /** Без этого платежа встаёт производство — см. `DebtLike.critical`. */
+  critical: boolean;
 }
 
 export interface CalendarDay {
@@ -72,6 +84,14 @@ export interface PaymentCalendar {
   overdueOutgoing: number;
   /** Худшее сальдо за период: если отрицательное — это и есть разрыв. */
   worstBalance: number;
+  /**
+   * Сколько предстоит заплатить тем, кто ждать не станет.
+   *
+   * Отдельным числом, потому что решение в разрыв принимается не по общей
+   * сумме долгов, а по этой: её надо закрыть в любом случае, остальное
+   * можно двигать.
+   */
+  criticalOutgoing: number;
 }
 
 function remainingOf(debt: DebtLike): number {
@@ -89,6 +109,7 @@ export function buildPaymentCalendar(debts: DebtLike[], today: Date): PaymentCal
   const undated: CalendarItem[] = [];
   let overdueIncoming = 0;
   let overdueOutgoing = 0;
+  let criticalOutgoing = 0;
 
   const dayOf = (key: string): CalendarDay => {
     const existing = byDay.get(key);
@@ -104,7 +125,14 @@ export function buildPaymentCalendar(debts: DebtLike[], today: Date): PaymentCal
     if (remaining <= 0) continue;
 
     if (!debt.dueDate) {
-      undated.push({ id: debt.id, personName: debt.personName, side: debt.type, remaining, overdue: false });
+      undated.push({
+        id: debt.id,
+        personName: debt.personName,
+        side: debt.type,
+        remaining,
+        overdue: false,
+        critical: debt.critical,
+      });
       continue;
     }
 
@@ -114,18 +142,32 @@ export function buildPaymentCalendar(debts: DebtLike[], today: Date): PaymentCal
     const key = overdue ? todayKey : dueKey;
 
     const day = dayOf(key);
-    day.items.push({ id: debt.id, personName: debt.personName, side: debt.type, remaining, overdue });
+    day.items.push({
+      id: debt.id,
+      personName: debt.personName,
+      side: debt.type,
+      remaining,
+      overdue,
+      critical: debt.critical,
+    });
 
     if (debt.type === 'WHO_OWES_US') {
       day.incoming += remaining;
       if (overdue) overdueIncoming += remaining;
     } else {
       day.outgoing += remaining;
+      if (debt.critical) criticalOutgoing += remaining;
       if (overdue) overdueOutgoing += remaining;
     }
   }
 
   const days = [...byDay.values()].sort((a, b) => a.date.localeCompare(b.date));
+
+  // Внутри дня критичное — сверху: если денег хватает не на всё, глаз
+  // должен упереться в то, что двигать нельзя, а не искать это в списке.
+  for (const day of days) {
+    day.items.sort((a, b) => Number(b.critical) - Number(a.critical) || b.remaining - a.remaining);
+  }
 
   let running = 0;
   let worstBalance = 0;
@@ -136,23 +178,53 @@ export function buildPaymentCalendar(debts: DebtLike[], today: Date): PaymentCal
     if (running < worstBalance) worstBalance = running;
   }
 
-  return { days, undated, overdueIncoming, overdueOutgoing, worstBalance };
+  return { days, undated, overdueIncoming, overdueOutgoing, worstBalance, criticalOutgoing };
 }
 
-/** Собрать календарь по непогашенным долгам. */
+/**
+ * Собрать календарь по непогашенным долгам.
+ *
+ * КТО КРИТИЧЕН — НЕ СПИСОК ИМЁН, А ФАКТ ПОСТАВКИ. Поставщик считается
+ * критичным, если хоть раз привозил семена или субстрат: это видно из
+ * прихода сырья и не требует ни ручной пометки, ни нового поля, которое
+ * забыли бы проставить у нового поставщика.
+ *
+ * Долг без привязки к поставщику критичным не считается. Он мог быть
+ * заведён руками и относиться к чему угодно — назвать его
+ * останавливающим производство означало бы поднять тревогу на пустом
+ * месте, а тревога, которая часто ошибается, перестаёт работать.
+ */
 export async function loadPaymentCalendar(today = new Date()): Promise<PaymentCalendar> {
-  const debts = await prisma.debt.findMany({
-    where: { isPaid: false },
-    select: {
-      id: true,
-      type: true,
-      personName: true,
-      amount: true,
-      paidAmount: true,
-      dueDate: true,
-      isPaid: true,
-    },
-  });
+  const [debts, criticalIntake] = await Promise.all([
+    prisma.debt.findMany({
+      where: { isPaid: false },
+      select: {
+        id: true,
+        type: true,
+        personName: true,
+        amount: true,
+        paidAmount: true,
+        dueDate: true,
+        isPaid: true,
+        supplierId: true,
+      },
+    }),
+    prisma.rawMaterialMovement.findMany({
+      where: { type: 'IN', supplierId: { not: null }, material: { kind: { in: ['SEED', 'SUBSTRATE'] } } },
+      select: { supplierId: true },
+      distinct: ['supplierId'],
+    }),
+  ]);
 
-  return buildPaymentCalendar(debts, today);
+  const criticalSuppliers = new Set(
+    criticalIntake.map((m) => m.supplierId).filter((id): id is string => id !== null),
+  );
+
+  return buildPaymentCalendar(
+    debts.map((d) => ({
+      ...d,
+      critical: d.type === 'WE_OWE' && d.supplierId !== null && criticalSuppliers.has(d.supplierId),
+    })),
+    today,
+  );
 }

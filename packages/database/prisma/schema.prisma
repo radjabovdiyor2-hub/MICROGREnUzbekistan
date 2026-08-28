@@ -917,8 +917,6 @@ model Restaurant {
   magazineHtmlUrl String? @map("magazine_html_url")
 
   // Карта лояльности: N штампов (за кадры) → промокод в магазин микрозелени
-  contacts RestaurantContact[]
-
   loyaltyGoal          Int? @default(5) @map("loyalty_goal")
   loyaltyRewardPercent Int? @default(15) @map("loyalty_reward_percent")
 
@@ -1031,13 +1029,14 @@ model RestaurantIssue {
 /// утверждает управляющий или владелец. Одно поле `contact_name` заставляло
 /// выбирать, чьё имя записать, — и переговоры уходили не к тому человеку.
 ///
-/// Старые `contact_name` и `phone` в карточке остаются: они наполнены, и
-/// сносить их ради стройности значило бы потерять данные. Новые контакты
-/// добавляются рядом.
-model RestaurantContact {
-  id           String     @id @default(cuid())
-  restaurantId String     @map("restaurant_id")
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+/// ПОЧЕМУ НА CUSTOMER, А НЕ НА RESTAURANT. Сначала связь стояла на
+/// `restaurants`, и это была ошибка: тот справочник — партнёры журнала,
+/// около сотни записей, тогда как продажи ведутся по `customers`, где
+/// заведений на порядок больше. Контакт нужен там, где идут переговоры.
+model CustomerContact {
+  id         String   @id @default(cuid())
+  customerId Int      @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   name  String  @db.VarChar(255)
   /// Роль: chef | manager | owner | purchaser | other. Словарь — в
@@ -1054,8 +1053,8 @@ model RestaurantContact {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  @@index([restaurantId])
-  @@map("restaurant_contacts")
+  @@index([customerId])
+  @@map("customer_contacts")
 }
 
 model Advertiser {
@@ -1394,6 +1393,8 @@ model Customer {
   prices       CustomerPrice[]
   posSales     PosSale[]
   planStops    VisitPlanStop[]
+
+  contacts CustomerContact[]
 
   @@index([telegramId])
   @@index([phone])

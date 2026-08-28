@@ -133,7 +133,7 @@ export const HOME_JSON_LD_DATA = {
           name: "Nutritsiolog bilan maslahatlashish mumkinmi? / Можно ли проконсультироваться с нутрициологом?",
           acceptedAnswer: {
             '@type': 'Answer',
-            text: "Ha! Bizning AI-nутрициолог xizmati saytda mavjud. Sog'lom taomnoma, dieta, ZOJ va PP bo'yicha maslahat olishingiz mumkin. Да! Наш AI-нутрициолог доступен на сайте. Консультации по здоровому питанию, диете, ЗОЖ и ПП.",
+            text: "Ha! Bizning AI-nutritsiolog xizmati saytda mavjud. Sog'lom taomnoma, dieta, ZOJ va PP bo'yicha maslahat olishingiz mumkin. Да! Наш AI-нутрициолог доступен на сайте. Консультации по здоровому питанию, диете, ЗОЖ и ПП.",
           },
         },
         {
