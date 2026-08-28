@@ -4,6 +4,8 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Filter } from 'lucide-react';
 import type { FunnelStage } from '@/lib/customers/statuses';
+import type { Acquisition } from '@/lib/customers/acquisition';
+import { AdminAcquisitionCost } from './AdminAcquisitionCost';
 
 interface Props {
   /** Экран клиентов работает с языком, а не с готовой функцией перевода. */
@@ -33,12 +35,17 @@ export function AdminCustomerFunnel({ lang }: Props) {
         credentials: 'same-origin',
       });
       const json = await res.json();
-      if (json.status === 'ok') return (json.funnel ?? []) as FunnelStage[];
+      if (json.status === 'ok') {
+        return {
+          stages: (json.funnel ?? []) as FunnelStage[],
+          acquisition: (json.acquisition ?? null) as Acquisition | null,
+        };
+      }
       throw new Error(json.error || 'Не удалось загрузить');
     },
   });
 
-  const stages = data ?? [];
+  const stages = data?.stages ?? [];
   const total = stages.reduce((sum, s) => sum + s.count, 0);
   if (total === 0) return null;
 
@@ -96,6 +103,8 @@ export function AdminCustomerFunnel({ lang }: Props) {
           "Bugungi kesim. Bosqichlar orasidagi o'tishlar yaqinda yozila boshladi.",
         )}
       </div>
+
+      {data?.acquisition && <AdminAcquisitionCost data={data.acquisition} lang={lang} />}
     </div>
   );
 }
