@@ -74,3 +74,107 @@ def test_keys_do_not_interfere():
     assert alert_once.should_send("finance.overdue", "1,2") is True
     assert alert_once.should_send("support.csat", "1,2") is True
     assert alert_once.should_send("finance.overdue", "1,2") is False
+
+
+# ── Память переживает выкладку ───────────────────────────────────────────
+#
+# Состояние жило только в памяти процесса, и это было записано как
+# осознанный размен: «после выкладки бот один раз повторит оповещение».
+#
+# Размен перестал сходиться, когда на `alert_once` села сводка по
+# сотрудникам с недельным окном: мержей в main бывает по четыре за сутки,
+# то есть «раз в неделю» превращалось в «при каждой выкатке», и молчание,
+# ради которого всё делалось, не наступало никогда.
+
+
+class FakeRedis:
+    """Хеш в памяти. Тот же интерфейс, что нужен `alert_once`."""
+
+    def __init__(self, data=None, fail=False):
+        self.data = dict(data or {})
+        self.fail = fail
+        self.closed = False
+
+    async def hgetall(self, key):
+        if self.fail:
+            raise ConnectionError("redis недоступен")
+        return dict(self.data)
+
+    async def hset(self, key, field, value):
+        self.data[field] = value
+
+    async def hdel(self, key, field):
+        self.data.pop(field, None)
+
+    async def aclose(self):
+        self.closed = True
+
+
+@pytest.mark.asyncio
+async def test_state_survives_restart(monkeypatch):
+    """Перезапуск процесса не заставляет повод прозвучать заново."""
+    import time as _time
+
+    from shared import alert_once
+
+    store = FakeRedis({"hr:staff": f"5/0/1/6|{_time.time()}"})
+    monkeypatch.setattr(alert_once, "_client", lambda: store)
+
+    alert_once.reset()
+    loaded = await alert_once.load()
+
+    assert loaded == 1
+    # Тот же состав после перезапуска — молчим, как будто не перезапускались.
+    assert alert_once.should_send("hr:staff", "5/0/1/6", remind_after_hours=24 * 7) is False
+    # Изменившийся — звучит.
+    assert alert_once.should_send("hr:staff", "4/0/2/6", remind_after_hours=24 * 7) is True
+
+
+@pytest.mark.asyncio
+async def test_stale_entries_are_dropped_on_load(monkeypatch):
+    """Повод месячной давности — мусор, а не «висящая проблема»."""
+    import time as _time
+
+    from shared import alert_once
+
+    old = _time.time() - 40 * 24 * 3600
+    store = FakeRedis({"support.csat": f"7|{old}"})
+    monkeypatch.setattr(alert_once, "_client", lambda: store)
+
+    alert_once.reset()
+    loaded = await alert_once.load()
+
+    assert loaded == 0
+    assert alert_once.should_send("support.csat", "7") is True
+
+
+@pytest.mark.asyncio
+async def test_unavailable_redis_does_not_silence_alerts(monkeypatch):
+    """Redis лежит — работаем по памяти процесса, а не молчим."""
+    from shared import alert_once
+
+    store = FakeRedis(fail=True)
+    monkeypatch.setattr(alert_once, "_client", lambda: store)
+
+    alert_once.reset()
+    loaded = await alert_once.load()
+
+    assert loaded == 0
+    # Лишнее оповещение дешевле пропущенного.
+    assert alert_once.should_send("support.csat", "7") is True
+
+
+@pytest.mark.asyncio
+async def test_broken_record_is_ignored(monkeypatch):
+    """Испорченная запись не роняет загрузку целиком."""
+    from shared import alert_once
+    import time as _time
+
+    store = FakeRedis({
+        "good": f"7|{_time.time()}",
+        "broken": "без-времени",
+    })
+    monkeypatch.setattr(alert_once, "_client", lambda: store)
+
+    alert_once.reset()
+    assert await alert_once.load() == 1
