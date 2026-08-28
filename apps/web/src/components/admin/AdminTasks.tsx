@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, CheckCircle2, ClipboardList, Plus, Trash2 } from 'lucide-react';
 
 import { AdminCheckbox } from './AdminCheckbox';
@@ -47,7 +47,16 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
 
   // Поиска по задачам не было — только фильтр по отделу. Тридцать открытых
   // задач ищутся глазами, и «где та про субстрат» стоит прокрутки.
-  const visible = tasks.filter(x => matchesQuery(query, x.title, x.description, x.department, x.assignee));
+  // useMemo здесь не про скорость, а про ТОЖДЕСТВЕННОСТЬ ссылки. Без него
+  // новый массив на каждый рендер, эффект ниже видит «зависимость
+  // изменилась» всегда — и его приходилось глушить подавлением линтера,
+  // перечисляя зависимости вручную. Перечисленные руками зависимости
+  // расходятся с телом эффекта молча: добавят условие в фильтр, забудут
+  // строку в списке, и выбор перестанет чиститься.
+  const visible = useMemo(
+    () => tasks.filter(x => matchesQuery(query, x.title, x.description, x.department, x.assignee)),
+    [tasks, query],
+  );
 
   // Выбрано ли всё ВИДИМОЕ. Считается по текущему списку, а не по всей
   // базе: фильтр меняет то, что перед человеком, и «выбрать всё» обязано
@@ -61,8 +70,7 @@ export function AdminTasks({ lang = 'ru', focus = '' }: { lang?: 'ru' | 'uz'; fo
       const next = prev.filter(id => visible.some(x => x.id === id));
       return next.length === prev.length ? prev : next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, query, setSelected]);
+  }, [visible, setSelected]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
