@@ -15,14 +15,9 @@ from pathlib import Path
 
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import (
-    Message,
-    CallbackQuery,
-    FSInputFile,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-)
+from aiogram.types import Message
 
+from shared import approvals
 from shared.config import settings
 from shared.ai_engine import AIEngine
 from shared.brand import BRAND_TEXT_STYLE
@@ -31,8 +26,17 @@ logger = logging.getLogger(__name__)
 router = Router()
 ai = AIEngine()
 
-# token -> {"caption": str, "image": str|None, "kind": "feed"|"story", "topic": str}
-PENDING_POSTS: dict = {}
+# ⚠️ ЗДЕСЬ БЫЛ СВОЙ СЛОВАРЬ ЗАЯВОК — `PENDING_POSTS` в памяти процесса.
+#
+# Два изъяна разом. Во-первых, механизм подтверждения в проекте ОДИН
+# (`shared/approvals.py`), и три предыдущие самодельные копии уже свели к
+# нему — эта осталась четвёртой. Во-вторых, ровно из-за того, из-за чего
+# сводили: выкатка стирала словарь, владелец нажимал «Опубликовать» и
+# получал «Пост устарел», а сгенерированная картинка (платный вызов
+# модели) оставалась сиротой в bus_tasks.
+#
+# Теперь заявка лежит в `owner_approvals` и переживает рестарт. Картинка
+# показывается отдельным сообщением — `approvals.request(photo=...)`.
 _STORE_DIR = Path(__file__).resolve().parents[3] / "bus_tasks"
 
 
@@ -55,22 +59,6 @@ def _extract_topic(text: str) -> str:
         t,
     )
     return t.strip(" .!?:") or "микрозелень"
-
-
-def _kb(token: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="✅ Опубликовать в Instagram",
-                    callback_data=f"autopost:pub:{token}",
-                ),
-                InlineKeyboardButton(
-                    text="❌ Отмена", callback_data=f"autopost:cancel:{token}"
-                ),
-            ]
-        ]
-    )
 
 
 async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"):
@@ -116,33 +104,17 @@ async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"
     except Exception as e:
         logger.warning(f"autopost image error: {e}")
 
-    token = uuid.uuid4().hex[:8]
-    PENDING_POSTS[token] = {
-        "caption": caption,
-        "image": image_path,
-        "kind": kind,
-        "topic": topic,
-    }
-    if len(PENDING_POSTS) > 40:
-        for old in list(PENDING_POSTS.keys())[:-40]:
-            PENDING_POSTS.pop(old, None)
-
-    preview_head = "📸 <b>Превью поста</b> — проверьте и подтвердите публикацию:\n\n"
     body = caption if len(caption) < 900 else caption[:900] + "…"
-    try:
-        if image_path and os.path.isfile(image_path):
-            await message.answer_photo(
-                FSInputFile(image_path),
-                caption=preview_head + body,
-                reply_markup=_kb(token),
-                parse_mode="HTML",
-            )
-        else:
-            await message.answer(
-                preview_head + body, reply_markup=_kb(token), parse_mode="HTML"
-            )
-    except Exception:
-        await message.answer(preview_head + body, reply_markup=_kb(token))
+    await approvals.request(
+        message.bot,
+        message.chat.id,
+        "instagram_post",
+        {"caption": caption, "image": image_path, "kind": kind, "topic": topic},
+        summary=f"Опубликовать в Instagram: {topic}",
+        bot_name="content_bot",
+        details=body,
+        photo=image_path or None,
+    )
 
 
 @router.message(Command("post"))
@@ -170,75 +142,58 @@ async def nl_post(message: Message):
     await _generate_and_preview(message, topic, kind="feed")
 
 
-@router.callback_query(F.data.startswith("autopost:pub:"))
-async def approve_publish(cb: CallbackQuery):
-    if not _is_admin(cb.message) and cb.from_user.id not in settings.admin_telegram_ids:
-        await cb.answer("⛔ Только для руководителя")
-        return
-    token = cb.data.split(":")[-1]
-    post = PENDING_POSTS.pop(token, None)
-    try:
-        await cb.message.edit_reply_markup(reply_markup=None)
-    except Exception as exc:
-        # Кнопки уже убраны или сообщение устарело — не повод прерывать
-        # обработку, но и молчать нельзя: сюда же попадёт отзыв прав бота.
-        logger.debug("autopost: не убрал кнопки под сообщением: %s", exc)
-    if not post:
-        await cb.answer("Пост устарел или уже обработан")
-        return
-    await cb.answer("Публикую…")
-    await cb.message.answer("⏳ Публикую в Instagram…")
-
+# ── Публикация после одобрения ───────────────────────────────────────────
+#
+# Обработчик регистрируется в общем механизме, а не ловит свой
+# `callback_data`: кнопки рисует `approvals`, решение хранит
+# `owner_approvals`, а сюда приходит только payload заявки.
+#
+# Возвращаемая строка дописывается в карточку — по ней владелец видит,
+# опубликовалось ли на самом деле, а не «команда принята».
+async def _publish_approved(payload: dict, callback) -> str:
     from shared.instagram import post_to_instagram
+
+    image = payload.get("image")
+    caption = payload.get("caption") or ""
+
+    if not image:
+        return "⚠️ Нет картинки — публикация отменена."
 
     ok = False
     try:
-        if post.get("image"):
-            ok = await post_to_instagram(
-                post["image"], post["caption"], post_type=post.get("kind", "feed")
-            )
-        else:
-            await cb.message.answer(
-                "⚠️ Нет картинки для публикации — публикация в Instagram отменена."
-            )
-    except Exception as e:
-        logger.error(f"autopost publish error: {e}", exc_info=True)
+        ok = await post_to_instagram(
+            image, caption, post_type=payload.get("kind", "feed")
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error("autopost: публикация не удалась: %s", exc, exc_info=True)
+
+    _cleanup(image)
 
     if ok:
-        await cb.message.answer(
-            "✅ <b>Опубликовано в Instagram!</b>", parse_mode="HTML"
-        )
-    else:
-        await cb.message.answer(
-            "⚠️ Не удалось опубликовать в Instagram (проверьте токен/доступ Graph API). "
-            "Текст и картинка выше — можно опубликовать вручную.",
-            parse_mode="HTML",
-        )
-    # чистим временный файл
-    img = post.get("image")
-    if img and str(img).startswith(str(_STORE_DIR)) and os.path.isfile(img):
-        try:
-            os.remove(img)
-        except OSError as exc:
-            logger.warning("autopost: не удалил временный файл %s: %s", img, exc)
+        return "✅ Опубликовано в Instagram."
+    return (
+        "⚠️ Не удалось опубликовать (проверьте токен и доступ Graph API). "
+        "Текст и картинка выше — можно опубликовать вручную."
+    )
 
 
-@router.callback_query(F.data.startswith("autopost:cancel:"))
-async def cancel_post(cb: CallbackQuery):
-    token = cb.data.split(":")[-1]
-    post = PENDING_POSTS.pop(token, None)
+async def _discard_post(payload: dict, callback) -> str:
+    """Отклонили — временную картинку держать незачем."""
+    _cleanup(payload.get("image"))
+    return ""
+
+
+def _cleanup(image) -> None:
+    """Убрать временный файл превью. URL и чужие пути не трогаем."""
+    if not image or not str(image).startswith(str(_STORE_DIR)):
+        return
+    if not os.path.isfile(image):
+        return
     try:
-        await cb.message.edit_reply_markup(reply_markup=None)
-    except Exception as exc:
-        # Кнопки уже убраны или сообщение устарело — не повод прерывать
-        # обработку, но и молчать нельзя: сюда же попадёт отзыв прав бота.
-        logger.debug("autopost: не убрал кнопки под сообщением: %s", exc)
-    if post:
-        img = post.get("image")
-        if img and str(img).startswith(str(_STORE_DIR)) and os.path.isfile(img):
-            try:
-                os.remove(img)
-            except OSError as exc:
-                logger.warning("autopost: не удалил временный файл %s: %s", img, exc)
-    await cb.answer("Отменено")
-    await cb.message.answer("❌ Публикация отменена.")
+        os.remove(image)
+    except OSError as exc:
+        logger.warning("autopost: не удалил временный файл %s: %s", image, exc)
+
+
+approvals.register_handler("instagram_post", _publish_approved)
+approvals.register_reject_handler("instagram_post", _discard_post)
