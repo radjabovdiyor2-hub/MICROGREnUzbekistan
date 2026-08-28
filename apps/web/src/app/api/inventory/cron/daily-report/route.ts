@@ -149,9 +149,11 @@ export async function GET() {
         chat_id: adminChatId,
         text: message,
         parse_mode: 'HTML',
-        // Дневной отчёт — это разговор про деньги: ведём в «Доход», а не
-        // в общую сводку, где цифру ещё надо найти.
-        reply_markup: openKeyboard(adminChatId, 'revenue', null, '💵 Доход за день'),
+        // Дневной отчёт — это разговор про деньги, и «Сводка» теперь и
+        // есть разговор про деньги: сутки сверху, неделя и месяц ниже.
+        // Прежний адрес `revenue` остался живым для старых сообщений, но
+        // новые ссылки ведут на пункт, который есть в меню.
+        reply_markup: openKeyboard(adminChatId, 'stats', null, '💵 Доход за день'),
         disable_web_page_preview: true,
       }),
     });
