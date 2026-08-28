@@ -4,7 +4,7 @@ import { safeError } from '@/lib/safeError';
 import { actorOf, getSession, isAuthorized, isStaff, unauthorized } from '@/lib/adminAuth';
 import { hidesMoney, maskSum } from '@/lib/customers/money';
 import { audit } from '@/lib/audit';
-import { isCustomerStatus } from '@/lib/customers/statuses';
+import { isCustomerStatus, summarizeFunnel } from '@/lib/customers/statuses';
 import { getCustomerCard } from '@/lib/customers/card';
 import {
   RETIRED_COMPANY_TYPES,
@@ -172,10 +172,25 @@ export async function GET(request: NextRequest) {
       prisma.customer.count({ where }),
     ]);
 
+    // Воронка считается по отдельной просьбе: это отдельный запрос к базе,
+    // а список клиентов открывают чаще, чем смотрят на этапы.
+    let funnel;
+    if (searchParams.get('funnel') === '1') {
+      const grouped = await prisma.customer.groupBy({
+        by: ['status'],
+        where: { deletedAt: null },
+        _count: { _all: true },
+      });
+      const counts: Record<string, number> = {};
+      for (const row of grouped) counts[row.status] = row._count._all;
+      funnel = summarizeFunnel(counts);
+    }
+
     return NextResponse.json({
       status: 'ok',
       total,
       page,
+      funnel,
       hasMore: page * limit < total,
       customers: customers.map((c) => ({
         id: c.id,

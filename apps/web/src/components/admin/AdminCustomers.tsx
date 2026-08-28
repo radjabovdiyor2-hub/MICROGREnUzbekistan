@@ -7,6 +7,7 @@ import { AdminCustomerEdit } from './AdminCustomerEdit';
 import { AdminCustomerCard } from './AdminCustomerCard';
 import { AdminCustomersToolbar } from './AdminCustomersToolbar';
 import { AdminCustomerPurge } from './AdminCustomerPurge';
+import { AdminCustomerFunnel } from './AdminCustomerFunnel';
 import { AdminPager } from './AdminPager';
 import { AdminCustomerMap } from './map/AdminCustomerMap';
 import { PAGE_SIZE, useAdminCustomers } from './useAdminCustomers';
@@ -151,6 +152,7 @@ export function AdminCustomers({
       {isOwner && s.view !== 'map' && (
         <div style={{ marginBottom: 'var(--space-3)' }}>
           <AdminCustomerPurge onDone={() => s.refetch()} />
+          <AdminCustomerFunnel lang={lang} />
         </div>
       )}
 

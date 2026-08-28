@@ -8,7 +8,9 @@ import type { MarginBreakdown } from '@/lib/finance/margin';
 import type { Unearned } from '@/lib/finance/unearned';
 import type { PaymentCalendar } from '@/lib/finance/paymentCalendar';
 import { AdminMarginTable } from './AdminMarginTable';
+import type { CashFlow } from '@/lib/finance/cashFlow';
 import { AdminPaymentCalendar } from './AdminPaymentCalendar';
+import { AdminCashFlow } from './AdminCashFlow';
 import { BreakEvenVerdict, Cell } from './AdminBreakEvenVerdict';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -44,6 +46,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
           margin: MarginBreakdown;
           unearned: Unearned;
           paymentCalendar: PaymentCalendar;
+          cashFlow: CashFlow;
         };
       throw new Error(json.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
     },
@@ -59,7 +62,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
 
   if (!data) return null;
 
-  const { breakEven: be, margin, unearned, paymentCalendar } = data;
+  const { breakEven: be, margin, unearned, paymentCalendar, cashFlow } = data;
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
@@ -97,6 +100,8 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
           />
         </div>
       </div>
+
+      <AdminCashFlow flow={cashFlow} t={t} />
 
       <AdminPaymentCalendar calendar={paymentCalendar} t={t} />
 
