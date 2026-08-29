@@ -1,6 +1,8 @@
 'use client';
 
 import Link from 'next/link';
+
+import { PasskeyLoginButton } from './PasskeyLoginButton';
 import type { Dispatch, SetStateAction } from 'react';
 import { ArrowLeft, ArrowRight, ChevronRight, Home, Lock, Settings, Tag } from 'lucide-react';
 
@@ -22,11 +24,13 @@ interface Props {
   handleOwnerLogin: (e: React.FormEvent) => void;
   handlePinPress: (digit: number) => void;
   t: (ru: string, uz: string) => string;
+  /** Язык нужен вложенным кнопкам, у которых своих подписей больше двух. */
+  lang: 'ru' | 'uz';
 }
 
 export function AdminAuthScreens({
   authMode, setAuthMode, password, setPassword, pin, setPin,
-  authError, setAuthError, handleOwnerLogin, handlePinPress, t,
+  authError, setAuthError, handleOwnerLogin, handlePinPress, t, lang,
 }: Props) {
   // Choose mode
   if (authMode === 'choose') {
@@ -90,11 +94,12 @@ export function AdminAuthScreens({
             style={{ width: '100%', padding: 'var(--space-3)', border: `1px solid ${authError ? 'var(--error)' : 'var(--border)'}`, borderRadius: 'var(--radius-md)', background: 'var(--bg-secondary)', outline: 'none', color: 'var(--text-primary)', marginBottom: 'var(--space-3)' }} />
           {authError && <p style={{ color: 'var(--error)', fontSize: 'var(--text-xs)', marginBottom: 'var(--space-3)' }}>{authError}</p>}
           
-          {/* Кнопки «Вход по Face ID» здесь больше нет: сервер отвечает на
-              неё 501. Прежняя реализация WebAuthn не проверяла подпись —
-              владельцем можно было представиться, зная лишь id ключа, —
-              и вход отключён до переделки. Кнопка, которая всегда даёт
-              ошибку, хуже её отсутствия. */}
+          {/* Вход по Face ID / Touch ID вернулся — теперь с проверкой
+              подписи (`@simplewebauthn`). Кнопка сама себя не показывает,
+              пока к админке не привязан ни один ключ: кнопка, которая
+              гарантированно не работает, хуже её отсутствия. */}
+          <PasskeyLoginButton lang={lang} onError={setAuthError} />
+
           <button type="submit" className="btn btn-primary btn-lg btn-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
             <ArrowRight size={18} /> {t('Войти по паролю', 'Parol bilan kirish')}
           </button>

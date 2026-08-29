@@ -60,7 +60,7 @@ Base URL: `https://microgreenuzbekistan.com/api`
 | POST | `/api/auth/register` | Регистрация по телефону (телефон нормализуется, `lib/phone.ts`) |
 | POST | `/api/auth/telegram`, `/api/auth/telegram-webapp` | Вход через Telegram |
 | POST | `/api/auth/password` | Пароль владельца |
-| GET/POST | `/api/auth/webauthn` | Passkeys (login-ветки отвечают 501) |
+| GET/POST | `/api/auth/webauthn` | Вход по Face ID / Touch ID: подпись проверяет `@simplewebauthn`, GET отвечает, привязан ли ключ |
 | GET/POST | `/api/users/telegram` | Пользователь по `?telegramId=`; ответ — `{ user }` |
 | GET | `/api/users/telegram/[id]/bonuses` | Баланс баллов (свой, бот или сотрудник) |
 | GET | `/api/users/inactive` | Клиенты без заказов за N дней (для кампании возврата, только бот) |

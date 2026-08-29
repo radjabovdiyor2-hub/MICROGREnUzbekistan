@@ -95,7 +95,10 @@ export const Metrics = {
   // `telegram` — вход владельца из Mini App по подписи initData
   // (/api/auth/telegram-admin). Отдельная метка нужна, чтобы отличить
   // подобранный пароль от чужого Telegram-аккаунта, стучащегося в админку.
-  loginFailed: (kind: 'password' | 'pin' | 'telegram') =>
+  // `passkey` — вход по Face ID / Touch ID. Отдельная метка, а не
+  // «password»: перебор пароля и отклонённая подпись — разные события,
+  // и всплеск второго значит попытку подделать ключ.
+  loginFailed: (kind: 'password' | 'pin' | 'telegram' | 'passkey') =>
     inc('mg_auth_failed_total', 'Неудачные попытки входа', { kind }),
 
   loginSuccess: (role: string) =>

@@ -123,6 +123,7 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
         handleOwnerLogin={handleOwnerLogin}
         handlePinPress={handlePinPress}
         t={t}
+        lang={lang}
       />
       </>
     );

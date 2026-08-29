@@ -1,154 +1,276 @@
 import { NextRequest, NextResponse } from 'next/server';
-import fs from 'fs';
-import crypto from 'crypto';
-import { isAuthorized, unauthorized } from '@/lib/adminAuth';
-import { stateFile } from '@/lib/stateDir';
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+} from '@simplewebauthn/server';
 
-// ════════════════════════════════════════════════════════════════════
-// WebAuthn (Face ID / Touch ID) — ВХОД ОТКЛЮЧЁН.
+import { actorOf, isAuthorized, unauthorized } from '@/lib/adminAuth';
+import { audit } from '@/lib/audit';
+import { Metrics } from '@/lib/metrics';
+import { clientIp, consume, reset, tooManyRequests } from '@/lib/rateLimit';
+import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
+import {
+  addCredential,
+  counterLooksCloned,
+  findCredential,
+  hasCredentials,
+  listCredentials,
+  putChallenge,
+  removeCredential,
+  takeChallenge,
+  updateCounter,
+} from '@/lib/auth/passkeys';
+
+// ══════════════════════════════════════════════════════════════════════
+// Вход по Face ID / Touch ID (WebAuthn).
 //
-// Прежняя реализация не проверяла подпись: login-verify сверял только
-// credential.id из хранилища, а login-options этот id и выдавал.
-// Вход владельцем выполнялся двумя HTTP-запросами без криптографии.
-// publicKey никогда не сохранялся корректно.
+// ПОЧЕМУ ОН БЫЛ ВЫКЛЮЧЕН И ЧТО ИЗМЕНИЛОСЬ
 //
-// Для починки нужен @simplewebauthn/server + полная перерегистрация.
-// До тех пор все login-действия возвращают 501.
+// Прежняя реализация подпись не проверяла: `login-verify` сверял только
+// `credential.id` со списком, а `login-options` этот же id и выдавал —
+// войти владельцем можно было двумя запросами без криптографии вовсе.
+// Поэтому вход отвечал 501, а не «работал плохо».
 //
-// Оставлены: list / delete (управление уже привязанными ключами) и
-// register-options / register-verify (для подготовки к переходу на
-// @simplewebauthn). Все под isAuthorized — без пароля не войти.
-// ════════════════════════════════════════════════════════════════════
+// Теперь проверку делает `@simplewebauthn/server`: подпись, задача,
+// источник, RP ID и счётчик клонов. Своей криптографии здесь нет и быть
+// не должно.
+//
+// ВХОД ДАЁТ РОВНО ТУ ЖЕ СЕССИЮ, ЧТО И ПАРОЛЬ. Та же кука, тот же отпечаток
+// (ip + user-agent), тот же срок, та же запись в аудит. Второй способ входа
+// не должен означать второй, более слабый вид доступа.
+//
+// РЕГИСТРАЦИЯ ТОЛЬКО ИЗНУТРИ. Привязать ключ можно, лишь уже войдя паролем:
+// иначе первый встречный привязал бы свой палец к чужой админке.
+// ══════════════════════════════════════════════════════════════════════
 
-// STATE_DIR, а не слой образа: иначе привязанные passkeys исчезали при
-// каждом деплое вместе с файлом.
-const WEBAUTHN_FILE = stateFile('.admin-webauthn.json');
+export const runtime = 'nodejs';
 
-interface StoredCredential {
-  id: string;
-  publicKey: string;
-  counter: number;
-  createdAt: string;
-  label: string;
-}
+/** Столько же, сколько у пароля: вход есть вход, откуда бы он ни шёл. */
+const LOGIN_LIMIT = 10;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 
-interface WebAuthnStore {
-  credentials: StoredCredential[];
-  challenges: Record<string, { challenge: string; expires: number }>;
-}
+const RP_NAME = 'Microgreen Admin';
+const USER_NAME = 'admin';
 
-function loadStore(): WebAuthnStore {
-  try {
-    if (fs.existsSync(WEBAUTHN_FILE)) {
-      return JSON.parse(fs.readFileSync(WEBAUTHN_FILE, 'utf-8'));
-    }
-  } catch (error) {
-    // Файл хранилища битый или недоступен: работаем как с пустым — иначе
-    // сломанный JSON уронил бы вход по ключу целиком. Но молчать нельзя.
-    console.error('[webauthn] хранилище не прочитано:', error);
-  }
-  return { credentials: [], challenges: {} };
-}
-
-function saveStore(store: WebAuthnStore): void {
-  const now = Date.now();
-  for (const [k, v] of Object.entries(store.challenges)) {
-    if (v.expires < now) delete store.challenges[k];
-  }
-  fs.writeFileSync(WEBAUTHN_FILE, JSON.stringify(store, null, 2), 'utf-8');
-}
-
-function getRpId(req: NextRequest): string {
+/**
+ * Домен, для которого выпущен ключ.
+ *
+ * Переменная важнее заголовка: за обратным прокси `host` бывает внутренним
+ * (`web:3000`), и ключ, выпущенный на такое имя, не подойдёт снаружи.
+ */
+function rpId(req: NextRequest): string {
   if (process.env.WEBAUTHN_RP_ID) return process.env.WEBAUTHN_RP_ID;
   const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost';
   return host.split(':')[0];
 }
 
-const RP_NAME = 'Microgreen Admin';
-const USER_ID = 'admin';
-
-function base64url(buf: Buffer | Uint8Array): string {
-  return Buffer.from(buf).toString('base64url');
+/**
+ * Источник, который браузер подписал.
+ *
+ * Сверяется с тем, что пришло в подписи: без этой проверки ключ, выпущенный
+ * для нашего домена, принимался бы со страницы злоумышленника.
+ */
+function expectedOrigin(req: NextRequest): string {
+  const origin = req.headers.get('origin');
+  if (origin) return origin;
+  const proto = req.headers.get('x-forwarded-proto') || 'https';
+  const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost:3000';
+  return `${proto}://${host}`;
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => ({}));
-  const { action } = body;
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'invalid payload' }, { status: 400 });
+  }
+  const action = String((body as Record<string, unknown>).action ?? '');
+  const ip = clientIp(req);
 
-  if (action === 'login-options' || action === 'login-verify') {
-    return NextResponse.json(
-      {
-        error:
-          "Face ID kirish vaqtincha o'chirilgan (xavfsizlik yangilanishi). Parol bilan kiring.",
-        code: 'WEBAUTHN_DISABLED',
-      },
-      { status: 501 },
-    );
+  // ── Вход: доступен без сессии, поэтому под лимитом ────────────────
+  if (action === 'login-options') {
+    if (!hasCredentials()) {
+      return NextResponse.json(
+        { error: 'Ключи не привязаны', code: 'NO_CREDENTIALS' },
+        { status: 404 },
+      );
+    }
+    const options = await generateAuthenticationOptions({
+      rpID: rpId(req),
+      userVerification: 'required',
+      allowCredentials: listCredentials().map((c) => ({
+        id: c.id,
+        transports: c.transports as AuthenticatorTransportFuture[] | undefined,
+      })),
+    });
+    const sessionId = putChallenge(options.challenge);
+    return NextResponse.json({ sessionId, publicKey: options });
   }
 
+  if (action === 'login-verify') {
+    const limit = await consume(`webauthn:${ip}`, LOGIN_LIMIT, LOGIN_WINDOW_MS);
+    if (!limit.ok) {
+      audit({ action: 'login.ratelimited', actor: 'owner', ip });
+      Metrics.rateLimited('auth/webauthn');
+      return tooManyRequests(limit.retryAfter);
+    }
+
+    const { sessionId, credential } = body as {
+      sessionId?: string;
+      credential?: { id?: string };
+    };
+    const challenge = sessionId ? takeChallenge(sessionId) : null;
+    if (!challenge) {
+      return NextResponse.json({ error: 'Срок запроса истёк — повторите' }, { status: 400 });
+    }
+
+    const stored = credential?.id ? findCredential(credential.id) : null;
+    if (!stored) {
+      audit({ action: 'login.failed', actor: 'passkey', ip });
+      Metrics.loginFailed('passkey');
+      return NextResponse.json({ error: 'Ключ не привязан' }, { status: 401 });
+    }
+
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response: credential as never,
+        expectedChallenge: challenge,
+        expectedOrigin: expectedOrigin(req),
+        expectedRPID: rpId(req),
+        requireUserVerification: true,
+        credential: {
+          id: stored.id,
+          publicKey: Buffer.from(stored.publicKey, 'base64url'),
+          counter: stored.counter,
+          transports: stored.transports as AuthenticatorTransportFuture[] | undefined,
+        },
+      });
+    } catch (error) {
+      audit({ action: 'login.failed', actor: 'passkey', ip });
+      Metrics.loginFailed('passkey');
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Подпись не принята' },
+        { status: 401 },
+      );
+    }
+
+    if (!verification.verified) {
+      audit({ action: 'login.failed', actor: 'passkey', ip });
+      Metrics.loginFailed('passkey');
+      return NextResponse.json({ error: 'Подпись не принята' }, { status: 401 });
+    }
+
+    const next = verification.authenticationInfo.newCounter;
+    if (counterLooksCloned(stored.counter, next)) {
+      // Счётчик не вырос — либо повтор, либо копия ключа. Пускать нельзя,
+      // и молчать об этом тоже: владельцу нужно знать, что ключ отозвать.
+      audit({ action: 'login.passkey.cloned', actor: stored.label, ip, target: stored.id });
+      Metrics.loginFailed('passkey');
+      return NextResponse.json(
+        { error: 'Ключ отклонён: счётчик не изменился. Привяжите ключ заново.' },
+        { status: 401 },
+      );
+    }
+    updateCounter(stored.id, next);
+
+    const token = await createSession({
+      role: 'ADMIN',
+      fp: await sessionFingerprint(ip, req.headers.get('user-agent') ?? ''),
+    });
+    if (!token) {
+      return NextResponse.json(
+        { error: 'SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq' },
+        { status: 503 },
+      );
+    }
+
+    await reset(`webauthn:${ip}`);
+    audit({ action: 'login.success', actor: 'owner', role: 'ADMIN', ip, target: stored.label });
+    Metrics.loginSuccess('ADMIN');
+
+    const res = NextResponse.json({ success: true, valid: true, role: 'ADMIN' });
+    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+    return res;
+  }
+
+  // ── Всё остальное — только уже вошедшему ──────────────────────────
   if (!isAuthorized(req)) return unauthorized();
 
   if (action === 'register-options') {
-    const store = loadStore();
-    const challenge = base64url(crypto.randomBytes(32));
-    const sessionId = base64url(crypto.randomBytes(16));
-    store.challenges[sessionId] = { challenge, expires: Date.now() + 5 * 60 * 1000 };
-    saveStore(store);
-
-    const rpId = getRpId(req);
-
-    return NextResponse.json({
-      sessionId,
-      publicKey: {
-        challenge,
-        rp: { id: rpId, name: RP_NAME },
-        user: {
-          id: base64url(Buffer.from(USER_ID)),
-          name: 'admin',
-          displayName: 'Администратор',
-        },
-        pubKeyCredParams: [
-          { alg: -7, type: 'public-key' },
-          { alg: -257, type: 'public-key' },
-        ],
-        authenticatorSelection: {
-          authenticatorAttachment: 'platform',
-          userVerification: 'required',
-          residentKey: 'preferred',
-        },
-        timeout: 60000,
-        excludeCredentials: store.credentials.map((c) => ({
-          id: c.id,
-          type: 'public-key' as const,
-        })),
+    const options = await generateRegistrationOptions({
+      rpName: RP_NAME,
+      rpID: rpId(req),
+      userName: USER_NAME,
+      userDisplayName: 'Владелец',
+      attestationType: 'none',
+      authenticatorSelection: {
+        // Платформенный аутентификатор — это и есть Face ID / Touch ID.
+        authenticatorAttachment: 'platform',
+        userVerification: 'required',
+        residentKey: 'preferred',
       },
+      excludeCredentials: listCredentials().map((c) => ({ id: c.id })),
     });
+    const sessionId = putChallenge(options.challenge);
+    return NextResponse.json({ sessionId, publicKey: options });
   }
 
   if (action === 'register-verify') {
-    const store = loadStore();
-    const { sessionId, credential, label } = body;
-    const session = store.challenges[sessionId];
-    if (!session) return NextResponse.json({ error: 'Session expired' }, { status: 400 });
-    delete store.challenges[sessionId];
-
-    const cred: StoredCredential = {
-      id: credential.id,
-      publicKey: credential.response?.publicKey || credential.id,
-      counter: 0,
-      createdAt: new Date().toISOString(),
-      label: label || 'Biometric',
+    const { sessionId, credential, label } = body as {
+      sessionId?: string;
+      credential?: unknown;
+      label?: string;
     };
-    store.credentials.push(cred);
-    saveStore(store);
+    const challenge = sessionId ? takeChallenge(sessionId) : null;
+    if (!challenge) {
+      return NextResponse.json({ error: 'Срок запроса истёк — повторите' }, { status: 400 });
+    }
 
-    return NextResponse.json({ ok: true, credentialId: cred.id });
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({
+        response: credential as never,
+        expectedChallenge: challenge,
+        expectedOrigin: expectedOrigin(req),
+        expectedRPID: rpId(req),
+        requireUserVerification: true,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Ключ не принят' },
+        { status: 400 },
+      );
+    }
+
+    const info = verification.registrationInfo;
+    if (!verification.verified || !info) {
+      return NextResponse.json({ error: 'Ключ не принят' }, { status: 400 });
+    }
+
+    addCredential({
+      id: info.credential.id,
+      // base64url, потому что хранилище — JSON: сырые байты туда не лягут.
+      publicKey: Buffer.from(info.credential.publicKey).toString('base64url'),
+      counter: info.credential.counter,
+      transports: info.credential.transports,
+      createdAt: new Date().toISOString(),
+      label: String(label || 'Ключ входа').slice(0, 60),
+    });
+
+    audit({
+      action: 'passkey.add',
+      ...actorOf(req),
+      ip,
+      target: info.credential.id,
+    });
+    return NextResponse.json({ ok: true, credentialId: info.credential.id });
   }
 
   if (action === 'list') {
-    const store = loadStore();
     return NextResponse.json({
-      credentials: store.credentials.map((c) => ({
+      credentials: listCredentials().map((c) => ({
         id: c.id,
         label: c.label,
         createdAt: c.createdAt,
@@ -157,11 +279,23 @@ export async function POST(req: NextRequest) {
   }
 
   if (action === 'delete') {
-    const store = loadStore();
-    store.credentials = store.credentials.filter((c) => c.id !== body.credentialId);
-    saveStore(store);
+    const id = String((body as Record<string, unknown>).credentialId ?? '');
+    if (!id) return NextResponse.json({ error: 'Нужен credentialId' }, { status: 400 });
+    removeCredential(id);
+    audit({ action: 'passkey.remove', ...actorOf(req), ip, target: id });
     return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 });
 }
+
+/** Есть ли привязанные ключи — по этому вопросу экран входа решает, показывать ли кнопку. */
+export async function GET() {
+  return NextResponse.json({ available: hasCredentials() });
+}
+
+type AuthenticatorTransportFuture = Parameters<
+  typeof verifyAuthenticationResponse
+>[0]['credential']['transports'] extends (infer T)[] | undefined
+  ? T
+  : never;
