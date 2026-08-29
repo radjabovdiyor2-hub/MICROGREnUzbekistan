@@ -58,7 +58,16 @@ export function InstagramGrid({ posts, loading, addedId, findProduct, onBuy }: {
                 fill
                 style={{ objectFit: 'cover', transition: 'transform 0.3s ease' }}
                 sizes="(max-width: 768px) 33vw, 200px"
-                unoptimized // Instagram CDN handles optimization
+                // Здесь стоял `unoptimized` с пометкой «Instagram сам всё
+                // оптимизирует». Замер главной на телефоне показал
+                // обратное: CDN отдаёт исходники — 438, 283, 280, 249 и
+                // 213 КБ, — а плитка на экране шириной 390 px занимает
+                // около 130 px. Полтора мегабайта ради миниатюр.
+                //
+                // Домены Instagram уже разрешены в `remotePatterns`, так
+                // что достаточно снять флаг: Next заберёт снимок один раз,
+                // ужмёт до нужной ширины в AVIF/WebP и будет держать
+                // результат год (`minimumCacheTTL`).
                 onError={(e) => {
                   // Hide broken images
                   (e.target as HTMLImageElement).style.display = 'none';
