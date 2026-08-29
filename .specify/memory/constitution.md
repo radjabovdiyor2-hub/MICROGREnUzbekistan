@@ -8,10 +8,10 @@
 
 | Модуль | Стек | Роль | Размер |
 |--------|------|------|--------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 30 API-групп, 123 route-файла, 275 компонентов | ~66KB globals.css, 83 Prisma-модели |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 30 API-групп, 125 route-файлов, 275 компонентов | ~66KB globals.css, 86 Prisma-моделей |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 64 shared-модулей, ~400KB main.py суммарно |
-| `packages/database` | Prisma ORM, PostgreSQL | Схема (83 модели, 2589 строк), миграции, сиды | schema.prisma — единый источник DDL |
+| `packages/database` | Prisma ORM, PostgreSQL | Схема (86 моделей, 2589 строк), миграции, сиды | schema.prisma — единый источник DDL |
 
 **Запреты:**
 - Прямой импорт между модулями запрещён. Всё через HTTP API или Event Bus.
@@ -112,7 +112,7 @@
 8. **No git side effects.** Commit/push — только по явному запросу.
 9. **No secrets.** Никогда не печатать/логировать/коммитить `.env`, токены, ключи.
 
-### VII. API — 30 групп, 123 роута
+### VII. API — 30 групп, 125 роутов
 
 Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, channels, config, content, events, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, push, referral, reviews, subscriptions, support, telegram, upload, users, whatsapp.
 
@@ -134,7 +134,7 @@
 
 | Файл | Что содержит |
 |------|-------------|
-| `packages/database/prisma/schema.prisma` | 83 модели, 2589 строк — полная схема БД |
+| `packages/database/prisma/schema.prisma` | 86 моделей, 2589 строк — полная схема БД |
 | `apps/web/src/app/globals.css` | Design System v1.0 (2696 строк) |
 | `apps/web/design-system/tokens/tokens.json` | Дизайн-токены W3C DTCG |
 | `apps/tgas/shared/bot_registry.py` | Реестр всех 12 ботов и моста (порты, имена, отделы) |

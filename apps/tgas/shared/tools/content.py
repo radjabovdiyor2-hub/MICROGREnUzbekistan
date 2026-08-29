@@ -228,7 +228,8 @@ async def get_content_status() -> Dict[str, Any]:
 register(
     Tool(
         name="build_price_list_post",
-        admin_tab="dept_content",
+        admin_tab="departments",
+        admin_focus_const="content",
         description=(
             "Готовые строки прайс-листа из каталога для поста, сторис или "
             "коммерческого предложения. ВСЕГДА вызывай перед тем, как писать "
@@ -260,7 +261,8 @@ register(
         },
         required=["text_body"],
         risky=True,
-        admin_tab="dept_content",
+        admin_tab="departments",
+        admin_focus_const="content",
         confirm=lambda a: (
             f"Опубликовать в Instagram Stories: {str(a.get('text_body'))[:120]}…"
         ),
@@ -270,7 +272,8 @@ register(
 register(
     Tool(
         name="generate_image",
-        admin_tab="dept_content",
+        admin_tab="departments",
+        admin_focus_const="content",
         description="Сгенерировать изображение в фирменном стиле по описанию (на английском).",
         run=generate_image,
         departments=DEPTS,
@@ -282,7 +285,8 @@ register(
 register(
     Tool(
         name="get_content_status",
-        admin_tab="dept_content",
+        admin_tab="departments",
+        admin_focus_const="content",
         description="Статус публикаций на сегодня: что вышло, что ещё по плану.",
         run=get_content_status,
         departments=DEPTS,
@@ -292,7 +296,8 @@ register(
 register(
     Tool(
         name="get_content_schedule",
-        admin_tab="dept_content",
+        admin_tab="departments",
+        admin_focus_const="content",
         description=(
             "Расписание автопубликаций. Вызывай, когда спрашивают «во сколько», "
             "«какой график», «опубликовали ли», «статус публикаций» — и НЕ публикуй "
@@ -306,7 +311,8 @@ register(
 register(
     Tool(
         name="create_poll",
-        admin_tab="dept_content",
+        admin_tab="departments",
+        admin_focus_const="content",
         description="Отправить опрос (голосование, викторину) в чат задачи.",
         run=create_poll,
         departments=DEPTS,
@@ -340,7 +346,8 @@ register(
         },
         required=["text_body"],
         risky=True,
-        admin_tab="dept_content",
+        admin_tab="departments",
+        admin_focus_const="content",
         confirm=lambda a: (
             f"Опубликовать сторис в Instagram: «{str(a.get('headline') or a.get('text_body'))[:60]}»"
         ),

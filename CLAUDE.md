@@ -8,10 +8,10 @@ Guidance для Claude Code при работе в этом репозитори
 
 | Модуль | Стек | Роль |
 |--------|------|------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 30 API-групп, 123 роута |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 30 API-групп, 125 роутов |
 | `apps/bot` | Python, aiogram 3, OpenAI | Telegram-бот витрины: AI-продавец, ходит в `apps/web/api/*` по HTTP |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
-| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 83 модели, единый источник DDL |
+| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 86 моделей, единый источник DDL |
 
 Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 

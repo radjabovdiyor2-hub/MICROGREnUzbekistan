@@ -3,6 +3,7 @@ import { prisma } from '@repo/database';
 import { getSession, isProduction, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { publish } from '@/lib/realtime/bus';
+import { loadForecast, sowingPlan } from '@/lib/forecast/demand';
 import {
   plantBatch,
   harvestBatch,
@@ -55,6 +56,30 @@ export async function GET(request: NextRequest) {
   if (!isProduction(request)) return unauthorized();
 
   const params = new URL(request.url).searchParams;
+
+  // Прогноз спроса: сколько и когда сеять под ожидаемые заказы.
+  //
+  // Отдельным флагом, а не всегда: расчёт поднимает историю продаж за
+  // квартал, и вешать это на каждое открытие вкладки посадок незачем.
+  // Своей API-группы не заводим — вопрос «что сеять» принадлежит посадкам.
+  if (params.get('forecast') === '1') {
+    const days = Math.min(Math.max(Number(params.get('history')) || 90, 30), 365);
+    const horizon = Math.min(Math.max(Number(params.get('horizon')) || 14, 1), 60);
+
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    from.setHours(0, 0, 0, 0);
+
+    const now = new Date();
+    const signals = await loadForecast(from, now);
+
+    return NextResponse.json({
+      status: 'ok',
+      horizonDays: horizon,
+      signals,
+      sowing: sowingPlan(signals, now, horizon),
+    });
+  }
 
   // Предпросмотр расхода: форма показывает «нужно 30 г семян гороха,
   // на складе 1 200 г» ДО того, как владелец нажмёт «Посадить».

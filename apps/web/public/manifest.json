@@ -40,12 +40,40 @@
         "lifestyle"
     ],
     "lang": "uz",
-    "screenshots": [
+    "id": "/",
+    "shortcuts": [
         {
-            "src": "/screenshots/home.png",
-            "sizes": "1080x1920",
-            "type": "image/png",
-            "form_factor": "narrow"
+            "name": "Katalog",
+            "short_name": "Katalog",
+            "url": "/catalog",
+            "icons": [
+                {
+                    "src": "/icons/icon-192.svg",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Savat",
+            "short_name": "Savat",
+            "url": "/cart",
+            "icons": [
+                {
+                    "src": "/icons/icon-192.svg",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Buyurtmalarim",
+            "short_name": "Buyurtmalar",
+            "url": "/profile",
+            "icons": [
+                {
+                    "src": "/icons/icon-192.svg",
+                    "sizes": "192x192"
+                }
+            ]
         }
     ]
 }

@@ -3,6 +3,9 @@ import { prisma } from '@repo/database';
 import { loadSalesLedger } from '@/lib/revenue/salesLedger';
 import { summarize } from '@/lib/revenue/summary';
 import { scanGrowBatches, raiseGrowAlerts, growReportLines } from '@/lib/production/growWatch';
+import { alertOverdueDebts } from '@/lib/finance/debtWatch';
+import { alertDropouts } from '@/lib/customers/rhythm';
+import { alertKpiBreaches } from '@/lib/kpi/watch';
 import { openKeyboard } from '@/lib/telegram/adminLinks';
 
 // ==========================================
@@ -94,6 +97,25 @@ export async function GET() {
       console.error('Grow alerts failed (report still sent):', err),
     );
 
+    // Просрочка по дебиторке уходит в это же сообщение ниже, но сообщение
+    // пролистывается, а сигнал в колокольчике дожидается владельца — та же
+    // причина, по которой рядом стоит raiseGrowAlerts.
+    await alertOverdueDebts().catch((err) =>
+      console.error('Debt alerts failed (report still sent):', err),
+    );
+
+    // Выпадение клиента из ритма нигде больше не всплывает: в списках он
+    // остаётся активным, а заказы просто перестают приходить.
+    await alertDropouts().catch((err) =>
+      console.error('Dropout alerts failed (report still sent):', err),
+    );
+
+    // Коридоры нормы: само число в отчёте ничего не говорит, пока не
+    // задана граница, за которой пора что-то делать.
+    await alertKpiBreaches().catch((err) =>
+      console.error('KPI alerts failed (report still sent):', err),
+    );
+
     // Critical stock
     if (criticalProducts.length > 0) {
       message += `⚠️ <b>Kam qolgan tovarlar (${criticalProducts.length}):</b>\n`;
@@ -127,9 +149,11 @@ export async function GET() {
         chat_id: adminChatId,
         text: message,
         parse_mode: 'HTML',
-        // Дневной отчёт — это разговор про деньги: ведём в «Доход», а не
-        // в общую сводку, где цифру ещё надо найти.
-        reply_markup: openKeyboard(adminChatId, 'revenue', null, '💵 Доход за день'),
+        // Дневной отчёт — это разговор про деньги, и «Сводка» теперь и
+        // есть разговор про деньги: сутки сверху, неделя и месяц ниже.
+        // Прежний адрес `revenue` остался живым для старых сообщений, но
+        // новые ссылки ведут на пункт, который есть в меню.
+        reply_markup: openKeyboard(adminChatId, 'stats', null, '💵 Доход за день'),
         disable_web_page_preview: true,
       }),
     });

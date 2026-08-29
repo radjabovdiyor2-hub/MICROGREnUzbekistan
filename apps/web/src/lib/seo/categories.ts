@@ -66,7 +66,7 @@ export const CATEGORY_SEO: Record<string, CategorySeo> = {
     h1Ru: 'Салаты — Бацио, Романо, Латук, Руккола',
     title: 'Салаты купить в Самарканде — Бацио, Романо, Латук, Руккола | Доставка',
     description: "Свежие листовые салаты с доставкой по Самарканду: Бацио, Романо, Латук, Руккола, Айсберг, Лолло Россо. Для дома и ресторанов, опт HoReCa.",
-    introUz: "Bizda listli salatlarning keng tanlovi: Bacio, Romano, Latuk, Rukkola, Aйsberg, Lollo Rosso va boshqalar. Barchasi yangi kesilgan, xrustlı va shirali. Uy va restoranlar uchun.",
+    introUz: "Bizda listli salatlarning keng tanlovi: Bacio, Romano, Latuk, Rukkola, Aysberg, Lollo Rosso va boshqalar. Barchasi yangi kesilgan, xrustli va shirali. Uy va restoranlar uchun.",
     introRu: "Широкий выбор листовых салатов: Бацио, Романо, Латук, Руккола, Айсберг, Лолло Россо и другие. Все свежесрезанные, хрустящие и сочные. Для дома и для ресторанов — с регулярными оптовыми поставками.",
     keywords: ['салат бацио', 'салат романо', 'салат латук', 'руккола свежая', 'салат айсберг', 'лолло россо', 'салаты Самарканд'],
   },

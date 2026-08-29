@@ -44,8 +44,17 @@ logger = logging.getLogger(__name__)
 #: Куда вести заявки, у которых нет инструмента офиса.
 #: `storefront_write` разбирается отдельно — у него есть имя инструмента витрины.
 KIND_TABS: Dict[str, str] = {
-    "content_publish": "dept_content",
+    "content_publish": "departments",
     "meeting_plan": "tasks",
+}
+
+#: Отдел, на котором открыть экран «Отделы».
+#:
+#: Десять вкладок dept_* свернулись в один экран с переключателем. Без
+#: этой подсказки заявка отдела контента открывала бы продажи — первый
+#: отдел в списке.
+KIND_FOCUS: Dict[str, str] = {
+    "content_publish": "content",
 }
 
 #: Write-инструменты витрины (`apps/web/src/lib/stepan/writeTools*.ts`).
@@ -89,26 +98,32 @@ def target_for(kind: str, payload: Optional[Dict[str, Any]]) -> Tuple[str, Optio
     args: Dict[str, Any] = raw_args if isinstance(raw_args, dict) else {}
 
     if tool_name:
-        tab, focus_arg = _tool_target(tool_name)
+        tab, focus_arg, focus_const = _tool_target(tool_name)
         if tab:
             focus = args.get(focus_arg) if focus_arg else None
+            if focus in (None, ""):
+                # Постоянный предмет — отдел у инструментов ИИ-офиса. Он не
+                # приходит аргументом, но без него экран отделов откроется
+                # на продажах, а не на том, о котором речь.
+                focus = focus_const or None
             return tab, (str(focus) if focus not in (None, "") else None)
 
-    return KIND_TABS.get(str(kind or ""), FALLBACK_TAB), None
+    key = str(kind or "")
+    return KIND_TABS.get(key, FALLBACK_TAB), KIND_FOCUS.get(key)
 
 
-def _tool_target(tool_name: str) -> Tuple[str, str]:
-    """(вкладка, имя аргумента для focus) по имени инструмента."""
+def _tool_target(tool_name: str) -> Tuple[str, str, str]:
+    """(вкладка, имя аргумента для focus, постоянный focus) по инструменту."""
     try:
         from shared import tools as tool_registry
 
         tool = tool_registry.by_name(tool_name)
         if tool is not None and tool.admin_tab:
-            return tool.admin_tab, tool.admin_focus_arg
+            return tool.admin_tab, tool.admin_focus_arg, tool.admin_focus_const
     except Exception as exc:  # реестр не должен ронять отправку оповещения
         logger.warning("ADMIN_LINKS: реестр инструментов недоступен: %s", exc)
 
-    return STOREFRONT_TOOL_TABS.get(tool_name, ""), ""
+    return STOREFRONT_TOOL_TABS.get(tool_name, ""), "", ""
 
 
 def link(text: str, kind: str, payload: Optional[Dict[str, Any]]) -> str:
@@ -171,11 +186,14 @@ def tool_markup(
     хуже отсутствующей — она обещает показать то, о чём шла речь, а
     приводит в список чужих заявок.
     """
-    tab, focus_arg = _tool_target(tool_name)
+    tab, focus_arg, focus_const = _tool_target(tool_name)
     if not tab:
         return None
     raw = (args or {}).get(focus_arg) if focus_arg else None
-    focus = str(raw) if raw not in (None, "") else None
+    # Тот же порядок, что в `target_for`: аргумент главнее постоянного
+    # значения, а постоянное спасает там, где предмет в аргументах не
+    # приходит — например отдел у инструментов ИИ-офиса.
+    focus = str(raw) if raw not in (None, "") else (focus_const or None)
     return tab_markup(tab, chat_id, text=text, focus=focus)
 
 

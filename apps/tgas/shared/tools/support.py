@@ -189,7 +189,8 @@ register(
 register(
     Tool(
         name="check_dm",
-        admin_tab="dept_support",
+        admin_tab="departments",
+        admin_focus_const="support",
         description="Проверить непрочитанные сообщения в Instagram Direct.",
         run=check_dm,
         departments=DEPTS,

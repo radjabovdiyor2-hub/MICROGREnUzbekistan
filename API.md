@@ -2,7 +2,7 @@
 
 Base URL: `https://microgreenuzbekistan.com/api`
 
-**30 групп, 123 route-файла.** Список ниже сверен с каталогом
+**30 групп, 125 route-файлов.** Список ниже сверен с каталогом
 `apps/web/src/app/api/`, а не дописан по памяти. Раньше здесь значились восемь
 эндпоинтов, которых нет и не было, — в том числе `POST /api/sms`, из-за
 которого витринный бот месяцами получал 404 (этот случай конституция
@@ -86,6 +86,8 @@ Base URL: `https://microgreenuzbekistan.com/api`
 | POST/PUT/GET | `/api/inventory/pos` | Касса (STAFF). POST — продажа, PUT — возврат, GET — отчёт смены. Тело продажи: `items[{productId, quantity, price, priceReason}]`, `paymentMethod`, `customerId?`, `discount?{type,value,reason}`, `soldAt?` + `backdateReason?`, `performedBy?` (только у ADMIN). Цена не по прайсу требует `priceReason`; продавец проводит задним числом не глубже 7 суток, владелец — без предела, будущее закрыто всем |
 | GET | `/api/inventory/customers` | Поиск покупателя для кассы по имени и телефону (STAFF). Отдаёт только имя, компанию и телефон — карточка целиком остаётся под ADMIN |
 | GET/PUT/DELETE | `/api/inventory/customers/prices` | Договорные цены клиента. Читает касса (STAFF), меняет только владелец |
+| GET/POST/PUT/DELETE | `/api/admin/customers/contacts` | Контактные лица заведения: имя, роль, телефон, признак утверждающего закупку. Продукт выбирает шеф, а закупку утверждает управляющий — в карточке нужны оба (ADMIN) |
+| GET/POST/PUT | `/api/admin/owner` | Практики владельца: каталог с сериями (GET), отметка «сделано» за дату (POST), свой ритм и заметка (PUT). Без аудита намеренно — это личные отметки владельца, а не действия сотрудника с данными дела (ADMIN) |
 | GET/POST | `/api/admin/*` | Ещё ~45 роутов: магазин журнала, посадки, смены, ОТК, настройки, Стёпан |
 
 ## Integrations

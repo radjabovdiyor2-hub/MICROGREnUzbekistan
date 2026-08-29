@@ -50,7 +50,6 @@ function TabLoading() {
 // типов пропсов идёт от лоадера и через промежуточную функцию схлопывается
 // в `never`, после чего экраны перестают принимать собственные пропсы.
 
-const AdminStats = dynamic(() => import('@/components/admin/AdminStats').then((m) => m.AdminStats), { ssr: false, loading: TabLoading });
 const AdminOrders = dynamic(() => import('@/components/admin/AdminOrders').then((m) => m.AdminOrders), { ssr: false, loading: TabLoading });
 const AdminProducts = dynamic(() => import('@/components/admin/AdminProducts').then((m) => m.AdminProducts), { ssr: false, loading: TabLoading });
 const AdminPOS = dynamic(() => import('@/components/admin/AdminPOS').then((m) => m.AdminPOS), { ssr: false, loading: TabLoading });
@@ -63,7 +62,6 @@ const AdminShifts = dynamic(() => import('@/components/admin/AdminShifts').then(
 const AdminAnalytics = dynamic(() => import('@/components/admin/AdminAnalytics').then((m) => m.AdminAnalytics), { ssr: false, loading: TabLoading });
 const AdminForecast = dynamic(() => import('@/components/admin/AdminForecast').then((m) => m.AdminForecast), { ssr: false, loading: TabLoading });
 const AdminSettings = dynamic(() => import('@/components/admin/AdminSettings').then((m) => m.AdminSettings), { ssr: false, loading: TabLoading });
-const AdminRevenue = dynamic(() => import('@/components/admin/AdminRevenue').then((m) => m.AdminRevenue), { ssr: false, loading: TabLoading });
 const AdminGrowing = dynamic(() => import('@/components/admin/AdminGrowing').then((m) => m.AdminGrowing), { ssr: false, loading: TabLoading });
 const AdminRawMaterials = dynamic(() => import('@/components/admin/AdminRawMaterials').then((m) => m.AdminRawMaterials), { ssr: false, loading: TabLoading });
 const AdminCropNorms = dynamic(() => import('@/components/admin/AdminCropNorms').then((m) => m.AdminCropNorms), { ssr: false, loading: TabLoading });
@@ -72,11 +70,13 @@ const AdminMagazineEditions = dynamic(() => import('@/components/admin/AdminMaga
 const AdminMagazineMoney = dynamic(() => import('@/components/admin/AdminMagazineMoney').then((m) => m.AdminMagazineMoney), { ssr: false, loading: TabLoading });
 const AdminGuestPhotos = dynamic(() => import('@/components/admin/AdminGuestPhotos').then((m) => m.AdminGuestPhotos), { ssr: false, loading: TabLoading });
 const AdminRecipes = dynamic(() => import('@/components/admin/AdminRecipes').then((m) => m.AdminRecipes), { ssr: false, loading: TabLoading });
-const AdminDepartment = dynamic(() => import('@/components/admin/AdminDepartment').then((m) => m.AdminDepartment), { ssr: false, loading: TabLoading });
 const AdminLearnings = dynamic(() => import('@/components/admin/AdminLearnings').then((m) => m.AdminLearnings), { ssr: false, loading: TabLoading });
 const AdminCustomers = dynamic(() => import('@/components/admin/AdminCustomers').then((m) => m.AdminCustomers), { ssr: false, loading: TabLoading });
 const AdminBotControl = dynamic(() => import('@/components/admin/AdminBotControl').then((m) => m.AdminBotControl), { ssr: false, loading: TabLoading });
 const AdminStepan = dynamic(() => import('@/components/admin/AdminStepan').then((m) => m.AdminStepan), { ssr: false, loading: TabLoading });
+const AdminOwner = dynamic(() => import('@/components/admin/AdminOwner').then((m) => m.AdminOwner), { ssr: false, loading: TabLoading });
+const AdminDepartments = dynamic(() => import('@/components/admin/AdminDepartments').then((m) => m.AdminDepartments), { ssr: false, loading: TabLoading });
+const AdminMoneyOverview = dynamic(() => import('@/components/admin/AdminMoneyOverview').then((m) => m.AdminMoneyOverview), { ssr: false, loading: TabLoading });
 const AdminBotHealth = dynamic(() => import('@/components/admin/AdminBotHealth').then((m) => m.AdminBotHealth), { ssr: false, loading: TabLoading });
 const AdminPromo = dynamic(() => import('@/components/admin/AdminPromo').then((m) => m.AdminPromo), { ssr: false, loading: TabLoading });
 const AdminFinance = dynamic(() => import('@/components/admin/AdminFinance').then((m) => m.AdminFinance), { ssr: false, loading: TabLoading });
@@ -119,8 +119,11 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
   <main className="admin-main">
     {activeTab === 'pos' && canSell && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} isOwner={isOwner} />}
     {activeTab === 'stepan' && isOwner && <AdminStepan lang={lang} />}
-    {activeTab === 'stats' && isOwner && <AdminStats />}
-    {activeTab === 'revenue' && isOwner && <AdminRevenue />}
+    {activeTab === 'owner' && isOwner && <AdminOwner lang={lang} />}
+    {/* Сводка и доход были двумя вкладками на одном разделе аналитики:
+        сутки против недели. Экран один, старый адрес `revenue` оставлен
+        живым — на него ведут ссылки из Telegram и закладки владельца. */}
+    {(activeTab === 'stats' || activeTab === 'revenue') && isOwner && <AdminMoneyOverview />}
     {activeTab === 'growing' && canGrow && <AdminGrowing focus={focus} />}
     {activeTab === 'crop_norms' && isOwner && <AdminCropNorms />}
     {activeTab === 'customers' && (isOwner || canSell) && (
@@ -165,16 +168,18 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
         разошлись с реальностью (контент вёл на MG_Finance1_bot, финансы — на
         MG_Content1_bot), а QA/R&D/DevOps указывали на бота руководителя,
         обещая чат отдела, которого не существует. */}
-    {activeTab === 'dept_sales' && isOwner && <AdminDepartment departmentId="sales" departmentName={t('Продажи', 'Sotuvlar')} lang={lang} />}
-    {activeTab === 'dept_marketing' && isOwner && <AdminDepartment departmentId="marketing" departmentName={t('Маркетинг', 'Marketing')} lang={lang} />}
-    {activeTab === 'dept_content' && isOwner && <AdminDepartment departmentId="content" departmentName={t('Контент', 'Kontent')} lang={lang} />}
-    {activeTab === 'dept_hr' && isOwner && <AdminDepartment departmentId="hr" departmentName={t('Кадры (HR)', 'Kadrlar (HR)')} lang={lang} />}
-    {activeTab === 'dept_finance' && isOwner && <AdminDepartment departmentId="finance" departmentName={t('Финансы', 'Moliya')} lang={lang} />}
-    {activeTab === 'dept_analytics' && isOwner && <AdminDepartment departmentId="analytics" departmentName={t('Аналитика', 'Analitika')} lang={lang} />}
-    {activeTab === 'dept_devops' && isOwner && <AdminDepartment departmentId="devops" departmentName={t('DevOps / IT', 'DevOps / IT')} lang={lang} />}
-    {activeTab === 'dept_qa' && isOwner && <AdminDepartment departmentId="qa" departmentName={t('QA / Качество', 'QA / Sifat')} lang={lang} />}
-    {activeTab === 'dept_rnd' && isOwner && <AdminDepartment departmentId="rnd" departmentName={t('R&D', 'R&D')} lang={lang} />}
-    {activeTab === 'dept_support' && isOwner && <AdminDepartment departmentId="support" departmentName={t('Поддержка', "Qo'llab-quvvatlash")} lang={lang} />}
+    {/* Один экран вместо десяти вкладок: за всеми отделами стоял один
+        компонент с разным идентификатором. Старые адреса `dept_*`
+        остаются живыми — по ним приходят ссылки из ИИ-офиса. */}
+    {(activeTab === 'departments' || activeTab.startsWith('dept_')) && isOwner && (
+      // Отдел берётся из `focus` — так его передаёт офис. Старая ссылка
+      // вида `dept_content` тоже открывает свой отдел: имя после префикса
+      // и есть идентификатор, и терять его при переезде было бы обидно.
+      <AdminDepartments
+        lang={lang}
+        focus={activeTab.startsWith('dept_') ? activeTab.slice(5) : focus}
+      />
+    )}
 
     {/* Контент и журнал */}
     {activeTab === 'magazine' && isOwner && <AdminMagazine />}
