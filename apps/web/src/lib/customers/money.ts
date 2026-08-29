@@ -27,7 +27,7 @@
  * прятать от него значило бы сломать сводки офиса.
  */
 export function hidesMoney(role: string | undefined | null): boolean {
-  return role === 'SELLER' || role === 'GROWER' || role === 'CUSTOMER';
+  return role === 'SELLER' || role === 'CUSTOMER';
 }
 
 /** Сумма или «не показываем». */

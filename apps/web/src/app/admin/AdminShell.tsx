@@ -56,11 +56,8 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
   } = useAdminAuth(initialRole, initialName, t);
 
   // Вкладка живёт в адресной строке — ссылка из Telegram приводит на свой
-  // экран (см. useAdminTab). Отсчитываем от ЖИВОЙ должности, а не от той,
-  // что пришла с сервера: у агронома, вошедшего по PIN в свежей вкладке,
-  // роли в cookie ещё нет, и он попадал на кассу — экран, которого ему не
-  // положено видеть. Отдел показывался пустым, пока он не ткнёт «Посадки».
-  const { activeTab, focus, query, openTab: setActiveTab } = useAdminTab(staffRole ?? initialRole);
+  // экран (см. useAdminTab).
+  const { activeTab, focus, query, openTab: setActiveTab } = useAdminTab();
 
   // Живой поток изменений. Одно подключение на всю админку, а не по одному
   // на экран: событие приходит темой, и кэш React Query устаревает сразу у
@@ -68,11 +65,8 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
   // этом не уходит — у его запросов нет активных наблюдателей.
   const realtime = useRealtime(Boolean(isAuthenticated));
 
-  // Теплица открыта владельцу и агроному. Продавцу — нет: касса и посадки
-  // это разные люди, и смешивать их права незачем.
-  const canGrow = isOwner || staffRole === 'GROWER';
   const canSell = isOwner || staffRole === 'SELLER';
-  const staffTabs = staffTabsFor(staffRole === 'GROWER' ? 'GROWER' : 'SELLER');
+  const staffTabs = staffTabsFor();
 
   // Сессия уже проверена на сервере (см. admin/page.tsx) — читать её из
   // браузера незачем, поэтому и экрана ожидания «checking» больше нет.
@@ -158,7 +152,7 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
         t={t}
       />
       {/* Main Content */}
-      <AdminTabRouter activeTab={activeTab} focus={focus} query={query} isOwner={isOwner} canGrow={canGrow} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
+      <AdminTabRouter activeTab={activeTab} focus={focus} query={query} isOwner={isOwner} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
 
       <AdminCommandPalette
         paletteOpen={paletteOpen}

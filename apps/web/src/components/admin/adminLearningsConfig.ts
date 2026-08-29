@@ -8,7 +8,6 @@ export const BOT_EMOJIS: Record<string, string> = {
   finance_bot: '💰 FinanceBot',
   support_bot: '🎧 SupportBot',
   hr_bot: '👥 HRBot',
-  qa_bot: '🔍 QABot',
   rnd_bot: '💡 RnDBot',
   stepan_bot: '🤖 StepanBot (CEO)',
   devops_bot: '⚙️ DevOpsBot',

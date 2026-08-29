@@ -37,18 +37,11 @@ export const CUSTOMER_COOKIE = 'mg_customer';
 export const STAFF_TTL_SECONDS = 12 * 60 * 60;
 export const CUSTOMER_TTL_SECONDS = 30 * 24 * 60 * 60;
 
-/**
- * Роли сессии.
- *
- * `GROWER` — агроном: тот, кто физически сажает. Ему нужны посадки и не нужна
- * касса, продавцу — наоборот. Раньше сотрудник любой должности получал `SELLER`
- * и видел ровно вкладку «Продажи», поэтому человека, который ведёт теплицу,
- * пускать было некуда: посадки лежат под `/api/admin/*`, то есть под владельцем.
- */
-export type SessionRole = 'ADMIN' | 'SELLER' | 'GROWER' | 'CUSTOMER';
+/** Роли сессии. Сотрудник по PIN получает `SELLER`, владелец — `ADMIN`. */
+export type SessionRole = 'ADMIN' | 'SELLER' | 'CUSTOMER';
 
 /** Роли, которые выдаются сотруднику по PIN. Проверяется при разборе токена. */
-export const STAFF_ROLES: readonly SessionRole[] = ['ADMIN', 'SELLER', 'GROWER'];
+export const STAFF_ROLES: readonly SessionRole[] = ['ADMIN', 'SELLER'];
 
 export interface SessionPayload {
   role: SessionRole;
@@ -131,7 +124,7 @@ export async function verifySession(
   try {
     const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
     const role = payload.role;
-    if (role !== 'ADMIN' && role !== 'SELLER' && role !== 'GROWER' && role !== 'CUSTOMER') {
+    if (role !== 'ADMIN' && role !== 'SELLER' && role !== 'CUSTOMER') {
       return null;
     }
 

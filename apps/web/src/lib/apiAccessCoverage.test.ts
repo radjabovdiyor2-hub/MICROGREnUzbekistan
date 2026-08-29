@@ -40,7 +40,6 @@ const PUBLIC_BY_DESIGN = [
   '/api/auth/webauthn',      // вход отключён, отвечает 501
   '/api/categories',
   '/api/config',             // публичные настройки: витрина и бот
-  '/api/content/grow-live',  // фаза живой партии на карточке товара; без цифр производства
   '/api/content/recipe-of-day',
   '/api/health',
   '/api/instagram',

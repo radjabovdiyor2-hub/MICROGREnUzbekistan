@@ -11,8 +11,8 @@ import type { AuthMode } from './AdminAuthScreens';
 // не годится — вкладка помнила бы вход после отзыва доступа.
 // ══════════════════════════════════════════════════════════════════════
 
-/** Кто вошёл. `GROWER` — агроном: у него теплица вместо кассы. */
-export type StaffRole = 'ADMIN' | 'SELLER' | 'GROWER';
+/** Кто вошёл: владелец или сотрудник по PIN. */
+export type StaffRole = 'ADMIN' | 'SELLER';
 
 export function useAdminAuth(
   initialRole: StaffRole | null,
@@ -22,10 +22,10 @@ export function useAdminAuth(
   const [authMode, setAuthMode] = useState<AuthMode>('choose');
   const [isOwner, setIsOwner] = useState(initialRole === 'ADMIN');
   const [sellerName, setSellerName] = useState(
-    initialRole === 'SELLER' || initialRole === 'GROWER' ? initialName : '',
+    initialRole === 'SELLER' ? initialName : '',
   );
-  // Должность сотрудника решает, какие вкладки он видит. Раньше вход по PIN
-  // всегда означал продавца, и человеку из теплицы показывать было нечего.
+  // Роль вошедшего: владелец видит всю админку, сотрудник по PIN — кассу,
+  // клиентов и свой рейс (`SELLER_TABS`).
   const [staffRole, setStaffRole] = useState<StaffRole | null>(initialRole);
   const [password, setPassword] = useState('');
   const [pin, setPin] = useState('');
@@ -76,7 +76,7 @@ export function useAdminAuth(
       const data = await res.json();
       if (data.success) {
         setSellerName(data.employee.name);
-        setStaffRole(data.employee.role === 'grower' ? 'GROWER' : 'SELLER');
+        setStaffRole('SELLER');
         setAuthError('');
       } else {
         setAuthError(t("Неверный PIN", "PIN noto'g'ri"));

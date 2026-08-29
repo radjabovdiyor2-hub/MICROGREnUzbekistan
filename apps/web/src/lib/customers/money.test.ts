@@ -15,9 +15,8 @@ describe('кому прятать', () => {
     expect(hidesMoney('ADMIN')).toBe(false);
   });
 
-  it('продавец и агроном — нет', () => {
+  it('продавец — нет', () => {
     expect(hidesMoney('SELLER')).toBe(true);
-    expect(hidesMoney('GROWER')).toBe(true);
     expect(hidesMoney('CUSTOMER')).toBe(true);
   });
 

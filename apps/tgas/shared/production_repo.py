@@ -1,26 +1,21 @@
 """
-🌱 PRODUCTION REPO — единственная дверь офиса к производственному контуру
+🌱 PRODUCTION REPO — дверь офиса к складу сырья, сменам и маршрутам
 =========================================================================
-Партии (`grow_batches`), сырьё (`raw_materials`), смены (`shifts`), ОТК
-(`quality_controls`), опыты (`experiments`), маршруты (`delivery_routes`).
+Сырьё (`raw_materials`), смены (`shifts`), маршруты (`delivery_routes`).
 
 ПОЧЕМУ НЕ SQL
 
-Посадка — это не INSERT. `plantBatch` (`apps/web/src/lib/production/growBatch.ts`)
-списывает семена и субстрат по нормам культуры из `crop_norms`, пишет движения
-в `raw_material_movements` и складывает себестоимость партии. `receiveMaterial`
-пересчитывает средневзвешенную цену закупки. `harvestBatch` одной транзакцией
-приходует товар и раскидывает себестоимость на единицу — комментарий в
-`api/admin/grow-batches/route.ts` объясняет, что раньше приход делал браузер
-отдельным запросом и двойной клик давал двойной приход.
+Приход сырья — это не INSERT: `receiveMaterial`
+(`apps/web/src/lib/production/rawMaterials.ts`) пересчитывает средневзвешенную
+цену закупки и пишет движение в `raw_material_movements` одной транзакцией.
 
 Повтори мы эту арифметику на Python — получим две копии, которые разойдутся.
 Ровно так уже разъезжались каталог и заказы; отсюда `catalog_repo.py` и
 `storefront_orders.py`, и отсюда же этот модуль.
 
-Офис пишет производство ТОЛЬКО через витрину. Отказ витрины — это отказ
-операции, а не тихий успех: бот обязан сказать руководителю правду, иначе
-«посадил» превращается в партию, которой нет.
+Офис пишет склад ТОЛЬКО через витрину. Отказ витрины — это отказ операции,
+а не тихий успех: бот обязан сказать руководителю правду, иначе «оприходовал»
+превращается в приход, которого нет.
 
 АУТЕНТИФИКАЦИЯ
 Те же два заголовка, что и в `storefront_orders.py`: `x-bot-secret` для
@@ -109,94 +104,6 @@ async def _call(
         return {"ok": False, "error": f"витрина недоступна ({exc})"}
 
 
-# ── Партии ──────────────────────────────────────────────────────────────
-
-
-async def plant_requirements(crop_type: str, trays: int) -> Dict[str, Any]:
-    """Сколько сырья спишет посадка и хватает ли его. Ничего не меняет.
-
-    Витрина считает это по `crop_norms` тем же кодом, что и сама посадка,
-    поэтому цифры в карточке подтверждения совпадут с фактическим списанием.
-    """
-    return await _call(
-        "GET",
-        "/admin/grow-batches",
-        params={"requirements": str(crop_type), "trays": str(int(trays))},
-    )
-
-
-async def plant(
-    crop_type: str,
-    trays: int,
-    seed_date: str = "",
-    note: str = "",
-    product_name: str = "",
-) -> Dict[str, Any]:
-    """Посадить партию: списывает сырьё по нормам и считает себестоимость."""
-    payload: Dict[str, Any] = {
-        "cropType": str(crop_type),
-        "trays": int(trays),
-        "performedBy": PERFORMED_BY,
-    }
-    if seed_date:
-        payload["seedDate"] = str(seed_date)
-    if note:
-        payload["note"] = str(note)[:1000]
-    if product_name:
-        payload["productName"] = str(product_name)[:255]
-    return await _call("POST", "/admin/grow-batches", payload=payload)
-
-
-async def harvest(batch_id: str, quantity: float, product_name: str = "") -> Dict[str, Any]:
-    """Собрать урожай: приход товара на склад + себестоимость единицы."""
-    payload: Dict[str, Any] = {
-        "id": str(batch_id),
-        "harvestQty": float(quantity),
-        "performedBy": PERFORMED_BY,
-    }
-    if product_name:
-        payload["productName"] = str(product_name)[:255]
-    return await _call("PATCH", "/admin/grow-batches", payload=payload)
-
-
-async def write_off_batch(batch_id: str) -> Dict[str, Any]:
-    """Списать испорченную партию."""
-    return await _call(
-        "PATCH",
-        "/admin/grow-batches",
-        payload={"id": str(batch_id), "action": "write_off", "performedBy": PERFORMED_BY},
-    )
-
-
-async def open_dark_phase(batch_id: str, extend: bool = False) -> Dict[str, Any]:
-    """Досрочно вывести партию на свет — или подержать в темноте ещё сутки.
-
-    Фаза партии нигде не хранится, она считается из даты посева и числа тёмных
-    дней. Поэтому «открыть» — это не смена статуса, а правка того самого числа:
-    ставим столько, сколько партия реально прожила. Норма культуры остаётся
-    прежней, витрина лишь возвращает её рядом для сравнения.
-
-    Нужно потому, что всходы зависят от партии семян и температуры: в норме
-    четыре дня, а вышла за три — держать готовый лоток в темноте лишние сутки
-    значит терять день срока хранения.
-    """
-    return await _call(
-        "PATCH",
-        "/admin/grow-batches",
-        payload={
-            "id": str(batch_id),
-            "action": "extend_dark" if extend else "open_dark",
-            "performedBy": PERFORMED_BY,
-        },
-    )
-
-
-async def list_batches(include_harvested: bool = False) -> Dict[str, Any]:
-    """Партии. По умолчанию без собранных — витрина фильтрует их сама."""
-    params = {"all": "1"} if include_harvested else None
-    return await _call("GET", "/admin/grow-batches", params=params)
-
-
 # ── Сырьё ───────────────────────────────────────────────────────────────
 
 
@@ -271,46 +178,6 @@ async def assign_shift(
     if note:
         payload["note"] = str(note)[:500]
     return await _call("POST", "/admin/shifts", payload=payload)
-
-
-# ── ОТК и опыты ─────────────────────────────────────────────────────────
-
-
-async def log_quality(
-    batch_id: str, status: str = "passed", defect_type: str = "", notes: str = ""
-) -> Dict[str, Any]:
-    """Запись ОТК в `quality_controls` — ту таблицу, которую читает админка."""
-    payload: Dict[str, Any] = {"batchId": str(batch_id), "status": str(status)}
-    if defect_type:
-        # 50, а не 255: в схеме QualityControl.defectType — VarChar(50).
-        payload["defectType"] = str(defect_type)[:50]
-    if notes:
-        payload["notes"] = str(notes)[:1000]
-    return await _call("POST", "/admin/qa", payload=payload)
-
-
-async def log_experiment(
-    title: str,
-    hypothesis: str = "",
-    result: str = "",
-    batch_id: str = "",
-    status: str = "ongoing",
-) -> Dict[str, Any]:
-    """Опыт R&D в `experiments`.
-
-    `result` — отдельным полем, а не внутри гипотезы: у `Experiment` есть
-    своя колонка `result`, и колонка «Результат» на вкладке «Эксперименты»
-    читает именно её. Пока итог заворачивали в текст гипотезы, колонка
-    оставалась пустой всегда — то самое «владелец в админке этого не видит».
-    """
-    payload: Dict[str, Any] = {"title": str(title)[:255], "status": str(status)}
-    if hypothesis:
-        payload["hypothesis"] = str(hypothesis)[:2000]
-    if result:
-        payload["result"] = str(result)[:2000]
-    if batch_id:
-        payload["batchId"] = str(batch_id)
-    return await _call("POST", "/admin/experiments", payload=payload)
 
 
 # ── Маршруты доставки ───────────────────────────────────────────────────

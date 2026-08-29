@@ -24,7 +24,7 @@ interface Props {
   setActiveTab: (id: string) => void;
   isOwner: boolean;
   sellerName: string;
-  /** Вкладки сотрудника: у продавца касса, у агронома посадки. */
+  /** Вкладки сотрудника: касса, клиенты и свой рейс. */
   staffTabs: { id: string; ru: string; uz: string; icon: React.ReactNode }[];
   lang: 'ru' | 'uz';
   toggleLang: () => void;

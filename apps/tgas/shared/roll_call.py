@@ -20,7 +20,6 @@ BOT_DISPLAY_NAMES = {
     "finance_bot": "Отдел Финансов",
     "analytics_bot": "Отдел Аналитики",
     "content_bot": "Отдел Контента",
-    "qa_bot": "Отдел QA (Качество)",
     "rnd_bot": "Отдел R&D (Исследования)",
     "devops_bot": "Отдел DevOps (IT)",
     "franchise_bot": "Отдел Франшизы",

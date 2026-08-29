@@ -30,12 +30,12 @@ describe('ячейка CSV', () => {
 
 describe('виды отчётов', () => {
   it('знает те, что были, и те, что добавились', () => {
-    // Клиенты, заказы, финансы и посадки — то, что чаще всего просят
+    // Клиенты, заказы и финансы — то, что чаще всего просят
     // унести в таблицу, и чего выгрузить было нельзя.
-    for (const t of ['inventory', 'debts', 'movements', 'sales', 'customers', 'orders', 'finance', 'growing']) {
+    for (const t of ['inventory', 'debts', 'movements', 'sales', 'customers', 'orders', 'finance']) {
       expect(isReportType(t), t).toBe(true);
     }
-    expect(REPORT_TYPES).toHaveLength(8);
+    expect(REPORT_TYPES).toHaveLength(7);
   });
 
   it('чужой тип отвергает', () => {

@@ -69,7 +69,6 @@ NEW_TOOLS = [
     "get_debts",
     "get_shifts",
     "get_supplier_prices",
-    "get_quality_report",
     "get_followups",
 ]
 
@@ -184,44 +183,6 @@ async def test_supplier_prices_empty_explains_where_they_come_from(fake_db):
     res = await operations_read.get_supplier_prices(material="лаванда")
     assert res["found"] is False
     assert "админке" in res["summary"]
-
-
-# ── Контроль качества ───────────────────────────────────────────────────
-
-@pytest.mark.asyncio
-async def test_quality_report_counts_defects_by_type(fake_db):
-    fake_db([
-        {
-            "status": "passed", "defect_type": None, "notes": None,
-            "created_at": datetime(2026, 8, 8), "crop_type": "pea",
-            "trays": 4, "inspector_name": "Азиз",
-        },
-        {
-            "status": "defect", "defect_type": "mold", "notes": "низ лотка",
-            "created_at": datetime(2026, 8, 7), "crop_type": "radish",
-            "trays": 2, "inspector_name": "Азиз",
-        },
-        {
-            "status": "defect", "defect_type": "mold", "notes": None,
-            "created_at": datetime(2026, 8, 6), "crop_type": "radish",
-            "trays": 2, "inspector_name": None,
-        },
-    ])
-
-    res = await operations_read.get_quality_report(days="7")
-
-    assert res["passed"] == 1
-    assert res["failed"] == 2
-    assert res["defects"] == {"mold": 2}
-    assert "mold" in res["summary"]
-
-
-@pytest.mark.asyncio
-async def test_quality_report_window_is_clamped(fake_db):
-    """Мусор во входных данных не должен ломать запрос."""
-    fake_db([])
-    res = await operations_read.get_quality_report(days="не знаю")
-    assert res["summary"].count("7") >= 1
 
 
 # ── Напоминания ─────────────────────────────────────────────────────────

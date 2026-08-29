@@ -1,7 +1,6 @@
 'use client';
 
 import { BULK_KINDS, KIND_LABELS, UNIT_OPTIONS, type RawMaterial } from './rawMaterialTypes';
-import type { CropNorm } from './growingData';
 import { input, label } from './adminFormStyles';
 
 // Поля формы сырья. Их два непересекающихся набора — приход по существующей
@@ -99,13 +98,12 @@ export interface NewMaterialFieldsProps {
   setMinStock: (v: string) => void;
   cropType: string;
   setCropType: (v: string) => void;
-  norms: CropNorm[];
 }
 
 /** Заведение новой позиции: имя, тип, единица, порог, культура. */
 export function NewRawMaterialFields({
   name, setName, kind, setKind, unit, setUnit,
-  minStock, setMinStock, cropType, setCropType, norms,
+  minStock, setMinStock, cropType, setCropType,
 }: NewMaterialFieldsProps) {
   return (
     <div style={gridStyle}>
@@ -145,22 +143,11 @@ export function NewRawMaterialFields({
       </div>
       {kind === 'SEED' && (
         <div>
-          <label style={label} htmlFor="raw-crop">Культура (для списания при посадке)</label>
-          <select id="raw-crop" style={input} value={cropType}
-            onChange={(e) => setCropType(e.target.value)}>
-            <option value="">— не указана —</option>
-            {norms.map((n) => (
-              <option key={n.cropType} value={n.cropType}>
-                {n.nameRu} ({n.cropType})
-              </option>
-            ))}
-          </select>
-          {norms.length === 0 && (
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--warning)', marginTop: 4 }}>
-              Справочник культур пуст — заполните его в разделе «Нормы культур»,
-              иначе посадка не сможет списать эти семена.
-            </div>
-          )}
+          {/* Метка культуры: по ней семена группируются в списке. Значение
+              свободное — справочника норм, который его проверял, больше нет. */}
+          <label style={label} htmlFor="raw-crop">Культура</label>
+          <input id="raw-crop" style={input} value={cropType}
+            onChange={(e) => setCropType(e.target.value)} placeholder="rukkola" />
         </div>
       )}
     </div>

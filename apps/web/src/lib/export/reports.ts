@@ -13,7 +13,7 @@ import { soldProductName } from '@/lib/products/sold';
 //
 // ЧЕГО НЕ ХВАТАЛО. Выгружались склад, долги, движения и продажи. Не
 // выгружалось то, что чаще всего и просят унести в таблицу: клиенты,
-// заказы, финансы и посадки. Отчёт, который нельзя открыть в Excel, для
+// заказы и финансы. Отчёт, который нельзя открыть в Excel, для
 // бухгалтера не существует.
 // ══════════════════════════════════════════════════════════════════════
 
@@ -49,7 +49,7 @@ const MAX_ROWS = 5000;
 
 export const REPORT_TYPES = [
   'inventory', 'debts', 'movements', 'sales',
-  'customers', 'orders', 'finance', 'growing',
+  'customers', 'orders', 'finance',
 ] as const;
 
 export type ReportType = (typeof REPORT_TYPES)[number];
@@ -67,7 +67,6 @@ export async function buildReport(type: ReportType): Promise<Report> {
     case 'customers': return customers();
     case 'orders': return orders();
     case 'finance': return finance();
-    case 'growing': return growing();
   }
 }
 
@@ -228,26 +227,4 @@ async function finance(): Promise<Report> {
     ]);
   }
   return { filename: 'moliya_hisobot', csv };
-}
-
-async function growing(): Promise<Report> {
-  const rows = await prisma.growBatch.findMany({
-    orderBy: { seedDate: 'desc' },
-    take: MAX_ROWS,
-    select: {
-      cropType: true, productName: true, trays: true, seedDate: true,
-      darkDays: true, lightDays: true, shelfDays: true, status: true,
-      harvestDate: true, harvestQty: true, plannedYield: true,
-    },
-  });
-
-  let csv = "Ekin,Tovar,Lotoklar,Ekilgan,Qorong'i,Yorug',Saqlash,Holati,Yig'ilgan,Hosil,Reja\n";
-  for (const b of rows) {
-    csv += row([
-      b.cropType, b.productName || '-', b.trays, d(b.seedDate),
-      b.darkDays, b.lightDays, b.shelfDays, b.status,
-      d(b.harvestDate), b.harvestQty ?? 0, Number(b.plannedYield ?? 0),
-    ]);
-  }
-  return { filename: 'ekishlar_hisobot', csv };
 }

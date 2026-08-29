@@ -17,7 +17,6 @@
 | — | 8087 | — | резерв pm_bot |
 | analytics_bot | 8088 | да | analytics |
 | content_bot | 8089 | да | content |
-| qa_bot | 8090 | нет | qa |
 | rnd_bot | 8091 | нет | rnd |
 | devops_bot | 8092 | нет | devops |
 | franchise_bot | 8093 | нет | — |

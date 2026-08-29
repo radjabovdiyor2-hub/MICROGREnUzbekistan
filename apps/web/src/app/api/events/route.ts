@@ -38,12 +38,10 @@ export const runtime = 'nodejs';
 const PING_MS = 25_000;
 
 export async function GET(request: NextRequest) {
-  // Проверка по роли, а не через `isStaff()`: тот намеренно не пускает
-  // агронома (см. adminAuth), и теплица осталась бы единственным экраном
-  // без живых обновлений. Здесь нужен любой сотрудник — данных в потоке
-  // нет, только имена изменившихся тем.
+  // Проверка по роли: в потоке нет данных, только имена изменившихся тем,
+  // поэтому достаточно любого сотрудника.
   const role = getSession(request)?.role;
-  if (role !== 'ADMIN' && role !== 'SELLER' && role !== 'GROWER') {
+  if (role !== 'ADMIN' && role !== 'SELLER') {
     return new Response('Unauthorized', { status: 401 });
   }
 

@@ -107,7 +107,6 @@ class LoopResult:
 #: Пороги самостоятельности из настроек админки. Ключи — `autonomy.*`.
 _LIMIT_KEYS = (
     "autonomy.writeOffMax",
-    "autonomy.plantTraysMax",
     "autonomy.receiptMaxSum",
     "autonomy.financeMaxSum",
 )

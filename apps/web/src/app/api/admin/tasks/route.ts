@@ -25,7 +25,7 @@ import { publish } from '@/lib/realtime/bus';
  */
 const DEPARTMENTS = [
   'sales', 'support', 'finance', 'hr', 'marketing',
-  'analytics', 'content', 'qa', 'rnd', 'devops',
+  'analytics', 'content', 'rnd', 'devops',
   'pm', 'operations', 'production', 'logistics',
 ] as const;
 

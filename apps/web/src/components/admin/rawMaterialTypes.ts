@@ -4,7 +4,7 @@ export interface RawMaterial {
   kind: 'SEED' | 'SUBSTRATE' | 'TRAY' | 'PACKAGING' | 'OTHER';
   unit: string;
   stock: number;
-  /** Средневзвешенная себестоимость единицы — по ней списывается посадка. */
+  /** Средневзвешенная себестоимость единицы. */
   avgCost: number;
   minStock: number;
   cropType: string | null;

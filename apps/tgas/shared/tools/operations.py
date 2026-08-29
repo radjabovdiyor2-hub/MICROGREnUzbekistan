@@ -20,15 +20,13 @@
 явными аргументами: модель обязана назвать позицию и количество, а рискованная
 запись проходит через подтверждение.
 
-ПОЧЕМУ ПОСАДКА, УРОЖАЙ И ПРИХОД ИДУТ ЧЕРЕЗ HTTP, А СПИСАНИЕ СЫРЬЯ — SQL
+ПОЧЕМУ ПРИХОД ИДЁТ ЧЕРЕЗ HTTP, А СПИСАНИЕ СЫРЬЯ — SQL
 
 `write_off_inventory` — простое вычитание с проверкой остатка в одном UPDATE,
-и переносить его некуда. А посадка списывает сырьё по нормам культуры и
-складывает себестоимость партии; приход пересчитывает средневзвешенную цену;
-сбор урожая приходует товар и раскидывает себестоимость на единицу. Эта
-арифметика живёт в `apps/web/src/lib/production/`, и вторая её копия на Python
-неизбежно разойдётся с первой — так уже было с каталогом и заказами. Поэтому
-всё, что сложнее вычитания, идёт через `shared/production_repo.py`.
+и переносить его некуда. А приход пересчитывает средневзвешенную цену закупки.
+Эта арифметика живёт в `apps/web/src/lib/production/`, и вторая её копия на
+Python неизбежно разойдётся с первой — так уже было с каталогом и заказами.
+Поэтому всё, что сложнее вычитания, идёт через `shared/production_repo.py`.
 """
 
 from __future__ import annotations
@@ -170,63 +168,11 @@ async def write_off_inventory(
     }
 
 
-async def get_grow_batches(only_active: bool = True) -> Dict[str, Any]:
-    """Посадки: что растёт, что готово, что просрочено."""
-    where = "WHERE status <> 'harvested'" if only_active else ""
-    async with get_session_ctx() as session:
-        rows = (
-            await session.execute(
-                text(
-                    # id обязателен: без него модель не может назвать партию
-                    # для сбора или списания — инструменты работают по id.
-                    "SELECT crop_type, trays, seed_date, dark_days, light_days, shelf_days, "
-                    "       status, seed_cost, supplies_cost, planned_yield, "
-                    "       CURRENT_DATE - seed_date AS elapsed, id "
-                    f"FROM grow_batches {where} ORDER BY seed_date DESC LIMIT 100"
-                )
-            )
-        ).fetchall()
-
-    batches = []
-    for r in rows:
-        elapsed = int(r[10] or 0)
-        dark, light, shelf = int(r[3] or 0), int(r[4] or 0), int(r[5] or 0)
-        if r[6] == "harvested":
-            phase = "собрано"
-        elif elapsed < dark:
-            phase = "тёмная фаза"
-        elif elapsed < dark + light:
-            phase = "на свету"
-        elif elapsed < dark + light + shelf:
-            phase = "готово к продаже"
-        else:
-            phase = "ПРОСРОЧЕНО"
-        batches.append(
-            {
-                "id": r[11],
-                "crop": r[0],
-                "trays": r[1],
-                "seed_date": str(r[2]),
-                "days": elapsed,
-                "phase": phase,
-                "cost": float(r[7] or 0) + float(r[8] or 0),
-                "planned_yield": float(r[9] or 0),
-            }
-        )
-
-    return {
-        "count": len(batches),
-        "ready": sum(1 for b in batches if b["phase"] == "готово к продаже"),
-        "expired": sum(1 for b in batches if b["phase"] == "ПРОСРОЧЕНО"),
-        "batches": batches,
-    }
-
-
-# ── Производственный цикл: пишем через витрину ──────────────────────────
+# ── Приход сырья: пишем через витрину ───────────────────────────────────
 #
-# Здесь нет ни одного INSERT/UPDATE. Посадка, сбор и приход — операции, а не
-# записи строк: за каждой стоит списание по нормам, себестоимость и движения
-# сырья. Считает их витрина, офис только просит (см. shared/production_repo.py).
+# Здесь нет ни одного INSERT/UPDATE. Приход — операция, а не запись строки: за
+# ним стоит пересчёт средневзвешенной себестоимости и движение сырья. Считает
+# его витрина, офис только просит (см. shared/production_repo.py).
 
 
 def _within(value: Any, limit: Any) -> bool:
@@ -309,165 +255,6 @@ async def list_suppliers() -> Dict[str, Any]:
         "count": len(suppliers),
         "suppliers": suppliers,
         "note": "id отсюда — то, что просит receive_material.",
-    }
-
-
-async def plant_batch(
-    crop_type: str, quantity: Optional[int] = None, seed_date: str = "", note: str = ""
-) -> Dict[str, Any]:
-    """Посадить партию: списать сырьё по нормам и посчитать себестоимость.
-
-    `quantity` — в единицах, заданных нормой культуры: лотки у микрозелени,
-    стаканчики 63 мм у салата. Параметр назывался `trays`, и для салата это
-    было неправдой — поштучная посадка лотков не использует вовсе.
-
-    Не назвали количество — спрашиваем. Здесь стояло `max(1, int(quantity or 1))`,
-    то есть «посади горох» сажало ровно один лоток и списывало сырьё под него:
-    партия заведена, семена списаны, себестоимость посчитана — всё на числе,
-    которого никто не называл.
-    """
-    # `quantity` приходит от модели и бывает None: инструмент вызывают
-    # фразой «посади горох» без числа. Приводим в ОТДЕЛЬНУЮ переменную, а не
-    # переприсваиваем аргумент: у него тип `Optional[int]`, и переприсваивание
-    # результатом `int(...)` пришлось бы глушить подавлением — тем самым
-    # `@ts-ignore`, который на стороне TypeScript запрещён прямо.
-    if quantity is None:
-        return {
-            "ok": False,
-            "needs": ["quantity"],
-            "error": (
-                f"Не назвали, сколько сажаем «{crop_type}». Скажите число единиц "
-                f"(лотков для микрозелени, стаканчиков для салата) — тогда посажу."
-            ),
-        }
-    try:
-        count = int(quantity)
-    except (TypeError, ValueError):
-        return {
-            "ok": False,
-            "needs": ["quantity"],
-            "error": (
-                f"Не назвали, сколько сажаем «{crop_type}». Скажите число единиц "
-                f"(лотков для микрозелени, стаканчиков для салата) — тогда посажу."
-            ),
-        }
-    if count <= 0:
-        return {
-            "ok": False,
-            "needs": ["quantity"],
-            "error": "Количество должно быть больше нуля.",
-        }
-
-    # Сначала спрашиваем расход. Витрина откажет и сама, но тогда владелец
-    # увидит «не смог» вместо «не хватает 300 г семян гороха, есть 120».
-    preview = await production_repo.plant_requirements(crop_type, count)
-    if not preview.get("ok"):
-        details = preview.get("details") or {}
-        return {
-            "ok": False,
-            "error": preview.get("error", ""),
-            "needs": details.get("needs", []),
-            "note": "Посадка НЕ выполнена — не хватает данных или сырья.",
-        }
-
-    data = preview.get("data") or {}
-    short = [
-        {
-            "материал": n.get("label"),
-            "нужно": n.get("required"),
-            "хватает": n.get("enough"),
-        }
-        for n in (data.get("needs") or [])
-    ]
-    if any(n.get("хватает") is False for n in short):
-        return {
-            "ok": False,
-            "error": "На складе не хватает сырья.",
-            "needs": short,
-            "note": "Посадка НЕ выполнена. Назови, чего и сколько не хватает.",
-        }
-
-    planted = await production_repo.plant(crop_type, count, seed_date, note)
-    if not planted.get("ok"):
-        return _fail(planted, "Посадка")
-
-    batch = (planted.get("data") or {}).get("batch") or {}
-    # Единицу берём из ответа витрины: она знает норму культуры.
-    unit_word = (
-        "стаканч." if (data.get("crop") or {}).get("plantingUnit") == "cup" else "лотк."
-    )
-    return {
-        "ok": True,
-        "batch_id": batch.get("id"),
-        "crop": crop_type,
-        "quantity": count,
-        "unit": unit_word,
-        "consumed": short,
-        "estimated_cost": data.get("estimatedCost"),
-        "summary": f"Посажено {count} {unit_word} «{crop_type}».",
-    }
-
-
-async def open_batch(batch_id: str, extend: bool = False) -> Dict[str, Any]:
-    """Досрочно вывести партию на свет или продлить тёмную фазу."""
-    result = await production_repo.open_dark_phase(batch_id, extend=bool(extend))
-    if not result.get("ok"):
-        return _fail(result, "Тёмная фаза")
-
-    data = result.get("data") or {}
-    actual = data.get("actualDarkDays")
-    norm = data.get("normDarkDays")
-    crop = data.get("cropNameRu") or batch_id
-
-    if extend:
-        summary = f"Партия {crop}: остаётся в темноте, всего {actual} дн."
-    else:
-        summary = f"Партия {crop} выведена на свет: {actual} дн. в темноте."
-    # Расхождение с нормой называем вслух — по нему владелец решает, править
-    # ли справочник. Сами норму не трогаем: одна ранняя партия ещё не норматив.
-    if isinstance(actual, int) and isinstance(norm, int) and actual != norm:
-        summary += f" В норме культуры {norm} дн. — стоит проверить справочник."
-
-    return {
-        "ok": True,
-        "batch_id": batch_id,
-        "dark_days": actual,
-        "norm_dark_days": norm,
-        "summary": summary,
-    }
-
-
-async def harvest_batch(
-    batch_id: str, quantity: float, product_name: str = ""
-) -> Dict[str, Any]:
-    """Собрать урожай: оприходовать товар и посчитать себестоимость единицы."""
-    if float(quantity or 0) <= 0:
-        return {"ok": False, "error": "Количество урожая должно быть больше нуля."}
-
-    result = await production_repo.harvest(batch_id, float(quantity), product_name)
-    if not result.get("ok"):
-        return _fail(result, "Сбор урожая")
-
-    batch = (result.get("data") or {}).get("batch") or {}
-    return {
-        "ok": True,
-        "batch_id": batch_id,
-        "harvest_qty": batch.get("harvestQty", quantity),
-        "unit_cost": batch.get("costPrice"),
-        "summary": f"Партия {batch_id}: собрано {quantity}, товар оприходован.",
-    }
-
-
-async def write_off_batch(batch_id: str, reason: str = "") -> Dict[str, Any]:
-    """Списать испорченную партию — зафиксировать реальный убыток."""
-    result = await production_repo.write_off_batch(batch_id)
-    if not result.get("ok"):
-        return _fail(result, "Списание партии")
-    return {
-        "ok": True,
-        "batch_id": batch_id,
-        "reason": reason,
-        "summary": f"Партия {batch_id} списана.",
     }
 
 
@@ -596,33 +383,9 @@ register(
 
 register(
     Tool(
-        name="get_grow_batches",
-        admin_tab="growing",
-        description=(
-            "Посадки: id партии, культура, фаза, что готово к продаже и что "
-            "просрочено. Вызывай на «что на выращивании», «что созрело», "
-            "«сколько лотков посажено», а также ПЕРЕД записью ОТК — "
-            "log_quality_check работает по id партии отсюда."
-        ),
-        run=get_grow_batches,
-        # +qa: отделу качества этот список был недоступен, а без него
-        # log_quality_check не мог назвать партию — журнал ОТК падал на
-        # внешнем ключе при каждом вызове.
-        departments=DEPTS + ["qa"],
-        params={
-            "only_active": {
-                "type": "boolean",
-                "description": "Только несобранные партии (по умолчанию да).",
-            }
-        },
-    )
-)
-
-register(
-    Tool(
         name="write_off_inventory",
         description=(
-            "Списать расходник со склада при посеве, сборке или упаковке. "
+            "Списать расходник со склада при сборке или упаковке. "
             "Обязательно назови КОНКРЕТНУЮ позицию и КОЛИЧЕСТВО — по умолчанию "
             "ничего не списывается. Не знаешь количества — сначала спроси."
         ),
@@ -631,7 +394,7 @@ register(
         params={
             "item_name": {"type": "string", "description": "Название позиции на складе"},
             "quantity": {"type": "number", "description": "Сколько списать"},
-            "reason": {"type": "string", "description": "Основание: посев, сборка, брак"},
+            "reason": {"type": "string", "description": "Основание: сборка, упаковка, брак"},
         },
         required=["item_name", "quantity"],
         risky=True,
@@ -645,134 +408,6 @@ register(
 )
 
 # ── Производственный цикл ───────────────────────────────────────────────
-
-register(
-    Tool(
-        name="plant_batch",
-        description=(
-            "ПОСАДИТЬ партию: завести посадку, списать семена и субстрат по "
-            "норме культуры и посчитать себестоимость. Вызывай на «посади», "
-            "«посей», «поставь N лотков», «посади N стаканчиков». Микрозелень "
-            "считается ЛОТКАМИ, салаты — СТАКАНЧИКАМИ поштучно; единицу знает "
-            "норма культуры. Сначала сам проверит, хватает ли сырья, и "
-            "откажется сажать в минус."
-        ),
-        run=plant_batch,
-        departments=DEPTS,
-        params={
-            "crop_type": {"type": "string", "description": "Культура: redis, gorox, podsolnuh…"},
-            "quantity": {
-                "type": "integer",
-                "description": (
-                    "Сколько единиц: лотков у микрозелени, стаканчиков у салата. "
-                    "Не назвали — НЕ ПРИДУМЫВАЙ, спроси у руководителя."
-                ),
-            },
-            "seed_date": {"type": "string", "description": "Дата посева YYYY-MM-DD, пусто — сегодня"},
-            "note": {"type": "string", "description": "Заметка к партии"},
-        },
-        required=["crop_type", "quantity"],
-        risky=True,
-        admin_tab="growing",
-        confirm=lambda a: (
-            f"Посадить {a.get('quantity', '?')} ед. «{a.get('crop_type', '?')}» "
-            f"со списанием семян и субстрата по норме"
-        ),
-        # Порог один на обе единицы, и это осознанно. Единицу посадки знает
-        # витрина (норма культуры), а предикат порога синхронный и в базу не
-        # ходит — выбрать «порог для лотков» или «порог для стаканчиков» здесь
-        # физически нечем. Брать больший из двух значило бы тихо ослабить лимит
-        # на лотки, а это ровно та подмена, от которой уходим. Поэтому порог
-        # считается в ЕДИНИЦАХ ПОСАДКИ, и владелец ставит его под свой обычный
-        # объём: не подошло — заявка просто уйдёт на подтверждение.
-        auto_when=lambda a, lim: _within(
-            a.get("quantity"), lim.get("autonomy.plantTraysMax")
-        ),
-    )
-)
-
-register(
-    Tool(
-        name="open_batch",
-        admin_tab="growing",
-        description=(
-            "ОТКРЫТЬ ПАРТИЮ раньше срока — вывести из тёмной фазы на свет. "
-            "Вызывай на «открой партию», «вышла раньше», «уже проросла», "
-            "«готова к свету». С `extend=true` — наоборот, оставить в темноте "
-            "ещё на сутки. Номер партии бери из get_grow_batches (поле id)."
-        ),
-        run=open_batch,
-        departments=DEPTS,
-        params={
-            "batch_id": {"type": "string", "description": "id партии из get_grow_batches"},
-            "extend": {
-                "type": "boolean",
-                "description": "true — подержать в темноте ещё сутки вместо открытия",
-            },
-        },
-        required=["batch_id"],
-        # Не рискованный: денег не двигает, склада не касается и обратим —
-        # ошиблись, открыли не ту, вернули срок назад. Спрашивать разрешения
-        # на то, что агроном делает руками у стеллажа, значит его тормозить.
-    )
-)
-
-register(
-    Tool(
-        name="harvest_batch",
-        description=(
-            "СОБРАТЬ УРОЖАЙ с партии: оприходовать товар на склад и посчитать "
-            "себестоимость единицы. Номер партии бери из get_grow_batches (поле id). "
-            "Вызывай на «собрали», «срезали», «сняли урожай»."
-        ),
-        run=harvest_batch,
-        departments=DEPTS,
-        params={
-            "batch_id": {"type": "string", "description": "id партии из get_grow_batches"},
-            "quantity": {"type": "number", "description": "Сколько собрано (кг или шт)"},
-            "product_name": {"type": "string", "description": "Под каким товаром приходовать"},
-        },
-        required=["batch_id", "quantity"],
-        risky=True,
-        admin_tab="growing",
-        admin_focus_arg="batch_id",
-        confirm=lambda a: (
-            f"Оприходовать урожай {a.get('quantity', '?')} с партии {a.get('batch_id', '?')}"
-        ),
-        # Сбор урожая самостоятелен всегда: партия уже существует, цифра —
-        # факт с весов, а не решение. Спрашивать тут нечего.
-        auto_when=lambda a, lim: True,
-    )
-)
-
-register(
-    Tool(
-        name="write_off_batch",
-        description=(
-            "СПИСАТЬ партию целиком — она пропала, переросла или заражена. "
-            "Фиксирует убыток. Не путай с write_off_inventory: тот списывает "
-            "сырьё со склада, этот — выращенную партию."
-        ),
-        run=write_off_batch,
-        departments=DEPTS,
-        params={
-            "batch_id": {"type": "string", "description": "id партии из get_grow_batches"},
-            "reason": {"type": "string", "description": "Почему списываем"},
-        },
-        required=["batch_id"],
-        risky=True,
-        admin_tab="growing",
-        admin_focus_arg="batch_id",
-        confirm=lambda a: (
-            f"Списать партию {a.get('batch_id', '?')} целиком"
-            + (f": {a.get('reason')}" if a.get("reason") else "")
-        ),
-        # Списание партии — фиксация уже случившегося убытка (переросла,
-        # заражена), а не решение потратить. Держать это за подтверждением
-        # значит держать в остатках то, чего физически нет.
-        auto_when=lambda a, lim: True,
-    )
-)
 
 register(
     Tool(

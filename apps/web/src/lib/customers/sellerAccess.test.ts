@@ -17,7 +17,7 @@ import { findRule, roleSatisfies } from '@/middleware';
 // ══════════════════════════════════════════════════════════════════════
 
 /** Пройдёт ли роль по правилу, которое middleware выберет для этой двери. */
-function passes(role: 'ADMIN' | 'SELLER' | 'GROWER', path: string, method: string): boolean {
+function passes(role: 'ADMIN' | 'SELLER', path: string, method: string): boolean {
   const rule = findRule(path, method);
   // Правила нет — дверь вообще не под охраной middleware; в этом файле
   // таких путей нет, и молчаливое `true` скрыло бы ошибку в таблице.
@@ -85,18 +85,5 @@ describe('что осталось владельцу', () => {
     ]) {
       expect(passes('SELLER', path, 'GET'), path).toBe(false);
     }
-  });
-});
-
-describe('агроном сюда не проходит', () => {
-  it('ни читать, ни отмечать', () => {
-    // Теплица и клиенты не пересекаются: агроном ведёт посадки.
-    expect(passes('GROWER', '/api/admin/customers', 'GET')).toBe(false);
-    expect(passes('GROWER', '/api/admin/customers/map', 'GET')).toBe(false);
-    expect(passes('GROWER', '/api/admin/customers/visits', 'POST')).toBe(false);
-  });
-
-  it('а его собственная дверь по-прежнему открыта', () => {
-    expect(passes('GROWER', '/api/admin/grow-batches', 'POST')).toBe(true);
   });
 });

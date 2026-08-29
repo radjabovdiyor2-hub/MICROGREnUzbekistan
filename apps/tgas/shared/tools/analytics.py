@@ -175,6 +175,9 @@ register(
         admin_focus_const="marketing",
         description="Статистика Instagram: охваты, вовлечённость, рост подписчиков.",
         run=instagram_stats,
-        departments=DEPTS,
+        # +rnd: на этих цифрах стоит вся работа R&D — еженедельный разбор
+        # трендов и предложения по ассортименту (`bots/rnd_bot/main.py`).
+        # Отдел читал их только по расписанию, а спросить не мог.
+        departments=DEPTS + ["rnd"],
     )
 )

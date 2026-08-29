@@ -55,7 +55,6 @@ def test_bot_imports():
         "marketing_bot",
         "analytics_bot",
         "content_bot",
-        "qa_bot",
         "rnd_bot",
         "devops_bot",
         "franchise_bot",

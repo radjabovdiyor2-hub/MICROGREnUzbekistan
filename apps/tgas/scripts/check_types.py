@@ -116,7 +116,6 @@ CHECKED = [
     # Служебные боты целиком. Они без Telegram-интерфейса (воркеры шины и
     # webhook-приёмники), поэтому в них нет россыпи `callback.message`,
     # из-за которой отделы пока стоят в стороне, — и типы там уже сходятся.
-    "bots/qa_bot",
     "bots/rnd_bot",
     "bots/devops_bot",
     "bots/franchise_bot",

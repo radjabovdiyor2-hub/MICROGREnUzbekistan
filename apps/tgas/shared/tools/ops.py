@@ -1,108 +1,19 @@
 """
-Инструменты служебных отделов: QA (качество урожая), R&D (опыты), DevOps.
+Инструменты DevOps — отдела без Telegram-интерфейса.
 
-У этих трёх ботов нет Telegram-интерфейса — они работают только по задачам с
-шины. Тем важнее, чтобы у них были настоящие инструменты: иначе задача «проверь
-партию» закрывалась текстом без единой записи.
-
-КУДА ПИШУТСЯ ОТК И ОПЫТЫ
-
-Раньше оба журнала писались в `tasks` со статусом `done`, а докстринг уверял,
-что «отдельной таблицы под журнал качества в схеме нет». Это было неправдой:
-`quality_controls` и `experiments` есть в `schema.prisma`, их ведёт веб-админка
-(вкладки «ОТК» и «Эксперименты»), и `get_quality_report` читает именно
-`quality_controls`. То есть QA-бот записывал брак — и ни отчёт по качеству, ни
-владелец в админке этого не видели никогда.
-
-Теперь записи идут в настоящие таблицы через `shared/production_repo.py`
-(HTTP к витрине). Эскалация брака задачей отделу `pm` осталась: это
-уведомление производству, и ему место именно в `tasks`.
+Заводится отдельно от `common.py`: DevOps работает только по задачам с шины,
+и без собственных инструментов задача «сними бэкап» закрывалась бы текстом
+без единого действия.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from shared import bot_registry, production_repo, tasks_repo
+from shared import bot_registry
 from shared.tools.registry import Tool, register
 
-QA = ["qa"]
-RND = ["rnd"]
 DEVOPS = ["devops"]
-
-
-async def log_quality_check(
-    batch: str, verdict: str, issues: str = "", crop: str = ""
-) -> Dict[str, Any]:
-    """Записать результат проверки партии в журнал ОТК."""
-    ok = str(verdict).lower() in ("ok", "pass", "годна", "принята")
-
-    written = await production_repo.log_quality(
-        batch_id=batch,
-        status="passed" if ok else "defect",
-        # defect_type — VarChar(50) в схеме. Свободный вердикт модели туда не
-        # влезал, и запись падала на длине; полный текст и так идёт в notes.
-        defect_type="" if ok else str(verdict)[:50],
-        notes=f"Культура: {crop or '—'}. Вердикт: {verdict}. Замечания: {issues or 'нет'}",
-    )
-    if not written.get("ok"):
-        # Отказ витрины — отказ операции. Молча «записать» в другую таблицу
-        # нельзя: именно так журнал ОТК и разошёлся с админкой.
-        return {
-            "ok": False,
-            "error": written.get("error", ""),
-            "note": "Проверка НЕ записана в журнал ОТК. Не говори, что записал.",
-        }
-
-    record = written.get("data") or {}
-    result: Dict[str, Any] = {"ok": True, "record_id": record.get("id"), "passed": ok}
-    if not ok:
-        # Брак — это не только запись в журнале: производство должно узнать.
-        # Через tasks_repo.create, потому что голый INSERT не публиковал
-        # TASK_CREATED — задача «разобраться с браком» создавалась мёртвой,
-        # и производство о браке не узнавало никогда.
-        escalation = await tasks_repo.create(
-            title=f"Брак в партии {batch} — разобраться"[:500],
-            department="pm",
-            description=f"QA забраковал партию {batch}. Замечания: {issues or '—'}",
-            priority="high",
-            deadline_days=1,
-        )
-        result["escalated_to"] = "pm"
-        result["escalation_task_id"] = escalation.get("task_id")
-    return result
-
-
-async def log_experiment(
-    hypothesis: str, crop: str = "", result: str = "", metric: Optional[float] = None
-) -> Dict[str, Any]:
-    """Записать опыт R&D в журнал экспериментов: гипотеза, культура, результат."""
-    written = await production_repo.log_experiment(
-        title=f"{crop or 'Опыт'}: {hypothesis}",
-        hypothesis=f"Культура: {crop or '—'}\nГипотеза: {hypothesis}",
-        # Итог — в СВОЮ колонку `result`, а не внутрь гипотезы: её и читает
-        # столбец «Результат» на вкладке «Эксперименты».
-        result=(
-            f"{result}"
-            + (f" (показатель: {metric})" if metric is not None else "")
-            if result
-            else ""
-        ),
-        status="success" if result else "ongoing",
-    )
-    if not written.get("ok"):
-        return {
-            "ok": False,
-            "error": written.get("error", ""),
-            "note": "Опыт НЕ записан. Не говори, что записал.",
-        }
-
-    record = written.get("data") or {}
-    return {
-        "ok": True,
-        "experiment_id": record.get("id"),
-        "closed": bool(result),
-    }
 
 
 async def get_bot_health() -> Dict[str, Any]:
@@ -160,47 +71,6 @@ async def run_backup() -> Dict[str, Any]:
         or ("Бэкап снят, проверен и скопирован." if ok else "Бэкап не удался."),
     }
 
-
-register(
-    Tool(
-        name="log_quality_check",
-        admin_tab="qa",
-        description=(
-            "Записать результат проверки партии урожая в журнал ОТК. Сначала "
-            "возьми id партии через get_grow_batches — запись идёт по нему. "
-            "Если партия забракована, производству ставится задача разобраться."
-        ),
-        run=log_quality_check,
-        departments=QA,
-        params={
-            # Не «номер или название»: журнал ОТК ссылается на grow_batches по
-            # id, и прозаическое название давало нарушение внешнего ключа на
-            # каждом вызове. Источник id — get_grow_batches, теперь видимый QA.
-            "batch": {"type": "string", "description": "id партии из get_grow_batches"},
-            "verdict": {"type": "string", "description": "Годна / брак и почему"},
-            "issues": {"type": "string", "description": "Замечания: плесень, вытягивание, всхожесть"},
-            "crop": {"type": "string", "description": "Культура"},
-        },
-        required=["batch", "verdict"],
-    )
-)
-
-register(
-    Tool(
-        name="log_experiment",
-        admin_tab="experiments",
-        description="Записать опыт R&D: гипотеза, культура, результат, показатель.",
-        run=log_experiment,
-        departments=RND,
-        params={
-            "hypothesis": {"type": "string", "description": "Что проверяем"},
-            "crop": {"type": "string", "description": "Культура или субстрат"},
-            "result": {"type": "string", "description": "Итог, если опыт завершён"},
-            "metric": {"type": "number", "description": "Числовой показатель (урожайность, дни)"},
-        },
-        required=["hypothesis"],
-    )
-)
 
 register(
     Tool(

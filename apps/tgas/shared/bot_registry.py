@@ -57,7 +57,7 @@ class BotInfo:
     `DEPARTMENT_META` в web_office и `AdminTabRouter.tsx` — причём двумя
     несовместимыми семействами (@MicroGreenSalesBot против MG_*1_bot).
     Верно максимум одно, а админка рисует по ним кликабельную ссылку
-    https://t.me/<username>: половина ссылок вела в никуда, а у QA/R&D/DevOps
+    https://t.me/<username>: половина ссылок вела в никуда, а у R&D/DevOps
     подставлялся бот руководителя, обещая чат отдела, которого не существует.
 
     Проверить эти имена чтением кода нельзя — только у Telegram:
@@ -74,7 +74,6 @@ BOTS: tuple[BotInfo, ...] = (
     BotInfo("marketing_bot", "mg_marketing", 8086, "Маркетинг", "marketing", username="MG_Marketing_bot"),
     BotInfo("analytics_bot", "mg_analytics", 8088, "Аналитика", "analytics", username="MG_Analytics_bot"),
     BotInfo("content_bot", "mg_content", 8089, "Контент", "content", username="MG_Content1_bot"),
-    BotInfo("qa_bot", "mg_qa", 8090, "QA / Качество", "qa", telegram=False),
     BotInfo("rnd_bot", "mg_rnd", 8091, "R&D", "rnd", telegram=False),
     BotInfo("devops_bot", "mg_devops", 8092, "DevOps / IT", "devops", telegram=False),
     BotInfo("franchise_bot", "mg_franchise", 8093, "Франшиза", None, telegram=False),
@@ -125,8 +124,8 @@ def get(name: str) -> Optional[BotInfo]:
 def department_bot(department: str) -> Optional[BotInfo]:
     """Какой бот обслуживает отдел.
 
-    Сравнение регистронезависимое: диспетчер присылал department='QA', а
-    боты сравнивали с 'qa' напрямую — задача молча терялась.
+    Сравнение регистронезависимое: диспетчер присылал department='RND', а
+    боты сравнивали с 'rnd' напрямую — задача молча терялась.
     """
     dept = (department or "").lower()
     for bot in BOTS:

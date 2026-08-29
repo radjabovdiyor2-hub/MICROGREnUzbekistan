@@ -2,7 +2,6 @@
 
 import { useCallback } from 'react';
 import { detach } from '@/lib/background';
-import { fetchBatches, getBatchStatus } from './growingData';
 import type { Notification } from './notificationTypes';
 
 export const STORAGE_KEY = 'Microgreen_admin_notifications';
@@ -51,20 +50,19 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
     try {
       const today = new Date().toISOString().slice(0, 10);
 
-      // Три источника — ПАРАЛЛЕЛЬНО.
+      // Два источника — ПАРАЛЛЕЛЬНО.
       //
-      // Были три последовательных `await`, и колокольчик тратил на тик сумму
-      // всех трёх задержек. Один из них — `/api/inventory/analytics` — считает
-      // агрегаты по складу, то есть самый долгий; остальные ждали его без
-      // всякой причины: между источниками зависимости нет.
+      // Были последовательные `await`, и колокольчик тратил на тик сумму всех
+      // задержек. Один из них — `/api/inventory/analytics` — считает агрегаты
+      // по складу, то есть самый долгий; второй ждал его без всякой причины:
+      // между источниками зависимости нет.
       //
       // `allSettled`, а не `all`: отказ одного источника не должен лишать
-      // владельца двух других. Раньше падение первого же запроса выбрасывало
+      // владельца другого. Раньше падение первого же запроса выбрасывало
       // в общий catch и гасило весь тик.
-      const [posRes, warnRes, batchesRes] = await Promise.allSettled([
+      const [posRes, warnRes] = await Promise.allSettled([
         fetch(`/api/inventory/pos?date=${today}`).then(r => r.json()),
         fetch('/api/inventory/analytics?section=warnings').then(r => r.json()),
-        fetchBatches(),
       ]);
 
       // Журнал читается ОДИН раз за тик.
@@ -107,35 +105,6 @@ export function useNotificationPoller(setNotifications: (fn: (prev: Notification
             });
           }
         }
-      }
-
-      if (batchesRes.status === 'fulfilled') {
-        let readyCount = 0;
-        let expiredCount = 0;
-        for (const batch of batchesRes.value) {
-          const { status } = getBatchStatus(batch);
-          if (status === 'expired') expiredCount++;
-          else if (status === 'ready') readyCount++;
-        }
-        if (readyCount > 0 || expiredCount > 0) {
-          const growId = `grow_${today}`;
-          if (!seen.has(growId)) {
-            const parts = [];
-            if (readyCount > 0) parts.push(`${readyCount} партий готовы к продаже`);
-            if (expiredCount > 0) parts.push(`${expiredCount} просрочено!`);
-            newNotifs.push({
-              id: growId,
-              type: 'growing',
-              message: `🌱 ${parts.join(' · ')}`,
-              time: new Date(),
-              read: false,
-            });
-          }
-        }
-      } else {
-        // Отказ ловит `allSettled` выше — здесь только след в журнале, чтобы
-        // молчащий колокольчик не выглядел как «партий нет».
-        console.warn('Проверка партий не удалась:', batchesRes.reason);
       }
 
       try {

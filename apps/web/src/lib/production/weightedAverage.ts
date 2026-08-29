@@ -3,8 +3,8 @@
 //
 // Вынесена отдельной чистой функцией намеренно: это единственное правило, по
 // которому в системе появляется себестоимость, и оно должно проверяться
-// тестом без базы. Приход сырья (rawMaterials) и приход урожая (growBatch)
-// зовут именно её, а не считают каждый по-своему.
+// тестом без базы. Приход сырья (rawMaterials) зовёт именно её, а не считает
+// по-своему.
 //
 //     новая = (остаток × старая + приход × цена) / (остаток + приход)
 //
@@ -23,10 +23,4 @@ export function weightedAverageCost(
   // не тянется в расчёт.
   if (total <= 0) return incomingCost;
   return (stockBefore * costBefore + incomingQty * incomingCost) / total;
-}
-
-/** Себестоимость единицы урожая: всё, что вложено в партию, делить на выход. */
-export function unitCostOfHarvest(batchCost: number, harvestQty: number): number {
-  if (harvestQty <= 0) return 0;
-  return batchCost / harvestQty;
 }

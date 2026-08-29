@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
         meta: { quantity, unitCost, avgCostAfter: result.avgCostAfter },
       });
 
-      publish('inventory', 'growing');
+      publish('inventory');
       return NextResponse.json({ status: 'ok', receipt: result });
     } catch (error) {
       console.error('Raw material receipt error:', error);
@@ -138,16 +138,13 @@ export async function POST(request: NextRequest) {
   const name = String(body.name ?? '').trim();
   if (!name) return NextResponse.json({ error: 'Укажите название' }, { status: 400 });
 
-  const cropError = await validateCropType(body.cropType);
-  if (cropError) return cropError;
-
   const material = await prisma.rawMaterial.create({
     data: {
       name,
       kind: (body.kind ? String(body.kind) : 'OTHER') as never,
       unit: body.unit ? String(body.unit).slice(0, 10) : 'g',
       minStock: new Prisma.Decimal(Number(body.minStock) || 0),
-      cropType: body.cropType ? String(body.cropType) : null,
+      cropType: body.cropType ? String(body.cropType).trim().slice(0, 50) : null,
       note: body.note ? String(body.note).slice(0, 1000) : null,
     },
   });
@@ -158,7 +155,7 @@ export async function POST(request: NextRequest) {
     target: material.id, meta: { name, kind: material.kind },
   });
 
-  publish('inventory', 'growing');
+  publish('inventory');
   return NextResponse.json({ status: 'ok', material });
 }
 
@@ -173,9 +170,7 @@ export async function PATCH(request: NextRequest) {
   if ('unit' in body) data.unit = String(body.unit).slice(0, 10);
   if ('minStock' in body) data.minStock = new Prisma.Decimal(Number(body.minStock) || 0);
   if ('cropType' in body) {
-    const cropError = await validateCropType(body.cropType);
-    if (cropError) return cropError;
-    data.cropType = body.cropType ? String(body.cropType).trim() : null;
+    data.cropType = body.cropType ? String(body.cropType).trim().slice(0, 50) : null;
   }
   if ('isActive' in body) data.isActive = Boolean(body.isActive);
   if ('note' in body) data.note = body.note ? String(body.note).slice(0, 1000) : null;
@@ -194,7 +189,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const material = await prisma.rawMaterial.update({ where: { id: String(body.id) }, data });
-  publish('inventory', 'growing');
+  publish('inventory');
   return NextResponse.json({ status: 'ok', material });
 }
 
@@ -203,8 +198,7 @@ export async function PATCH(request: NextRequest) {
  *
  * Скрытие, а не удаление: у `RawMaterial` каскадные связи на журнал движений
  * и на прайсы поставщиков. Физическое удаление стёрло бы каждый приход с
- * реально потраченными деньгами и каждое списание, привязанное к посадке, —
- * себестоимость тех партий стала бы необъяснимой.
+ * реально потраченными деньгами, и себестоимость перестала бы объясняться.
  *
  * Исключение — позиция, по которой не было НИ ОДНОГО движения. Это заведённая
  * по ошибке строка (опечатка в названии или в культуре); стирать в ней нечего,
@@ -228,7 +222,7 @@ export async function DELETE(request: NextRequest) {
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: id, meta: { name: material.name, reason: 'без движений' },
     });
-    publish('inventory', 'growing');
+    publish('inventory');
     return NextResponse.json({ status: 'ok', removed: true });
   }
 
@@ -239,34 +233,6 @@ export async function DELETE(request: NextRequest) {
     target: id, meta: { name: material.name, movements },
   });
   return NextResponse.json({ status: 'ok', removed: false, movements });
-}
-
-/**
- * Культура должна существовать в справочнике норм.
- *
- * Выпадающего списка в форме мало: в эту же таблицу пишут боты и внешние
- * вызовы API. Именно так и появилась позиция с культурой «Амарант» вместо
- * `amaranth` — посадка потом отвечала «семян нет на складе», хотя мешок
- * лежал в списке строкой выше.
- */
-async function validateCropType(raw: unknown): Promise<NextResponse | null> {
-  const cropType = raw ? String(raw).trim() : '';
-  if (!cropType) return null;
-
-  const norm = await prisma.cropNorm.findUnique({ where: { cropType } });
-  if (norm) return null;
-
-  const known = await prisma.cropNorm.findMany({
-    where: { isActive: true },
-    select: { cropType: true, nameRu: true },
-    orderBy: { nameRu: 'asc' },
-  });
-  return NextResponse.json({
-    error:
-      `Культуры «${cropType}» нет в справочнике норм. ` +
-      `Выберите из списка: ${known.map((k) => `${k.nameRu} (${k.cropType})`).join(', ') || 'справочник пуст'}`,
-    needs: ['cropNorm'],
-  }, { status: 400 });
 }
 
 async function upsertSupplierPrice(

@@ -406,7 +406,6 @@ ALIASES = {
     "support_bot": ["Support"],
     "analytics_bot": ["Analytics"],
     "content_bot": ["Content"],
-    "qa_bot": ["QA"],
     "rnd_bot": ["R&D"],
     "devops_bot": ["DevOps"],
     "franchise_bot": ["Franchise"],

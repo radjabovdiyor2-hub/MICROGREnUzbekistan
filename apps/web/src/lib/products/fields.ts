@@ -40,7 +40,7 @@ export const PUBLIC_PRODUCT_SELECT = {
   category: true,
 } as const;
 
-// Себестоимость нужна админке: подстановка в форму посадки и расчёт COGS.
+// Себестоимость нужна админке: расчёт COGS и маржи.
 export const STAFF_PRODUCT_SELECT = {
   ...PUBLIC_PRODUCT_SELECT,
   costPrice: true,

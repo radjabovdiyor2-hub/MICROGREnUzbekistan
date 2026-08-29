@@ -79,7 +79,6 @@ function verifySessionSync(token: string | undefined): VerifiedSession | null {
   if (
     payload.role !== 'ADMIN' &&
     payload.role !== 'SELLER' &&
-    payload.role !== 'GROWER' &&
     payload.role !== 'CUSTOMER'
   ) {
     return null;
@@ -145,19 +144,6 @@ export function actorOf(request: Request): { actor: string; role: string } {
 export function isStaff(request: Request): boolean {
   if (isAuthorized(request)) return true;
   return getSession(request)?.role === 'SELLER';
-}
-
-/**
- * Доступ владельца или агронома — посадки.
- *
- * Второй рубеж после middleware, как и `isAuthorized`: роут обязан проверять
- * сам, иначе прямое обращение мимо matcher'а прошло бы без проверки.
- *
- * Продавца тут намеренно нет: касса и теплица — разные люди и разные права.
- */
-export function isProduction(request: Request): boolean {
-  if (isAuthorized(request)) return true;
-  return getSession(request)?.role === 'GROWER';
 }
 
 /**

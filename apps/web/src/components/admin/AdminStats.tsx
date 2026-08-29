@@ -1,7 +1,6 @@
 'use client';
 
 import { AdminStatsRevenue } from './AdminStatsRevenue';
-import { AdminGrowSummary } from './AdminGrowSummary';
 
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -103,7 +102,6 @@ export function AdminStats() {
         stats={stats}
         fmt={fmt}
       />
-      <AdminGrowSummary fmt={fmt} />
     </div>
   );
 }

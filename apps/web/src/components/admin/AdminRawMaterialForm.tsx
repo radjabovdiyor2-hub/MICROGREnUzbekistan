@@ -1,10 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { useSuppliers } from './useAdminReferences';
 import { BULK_KINDS, type RawMaterial } from './rawMaterialTypes';
-import { fetchCropNorms, type CropNorm } from './growingData';
 import { NewRawMaterialFields, RawMaterialReceiptFields } from './AdminRawMaterialFields';
 
 // Форма выполняет две задачи: завести позицию сырья и оприходовать приход.
@@ -39,14 +37,6 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   // Единица ВВОДА прихода. Хранение всегда в граммах; килограммы переводим.
   const [intakeUnit, setIntakeUnit] = useState<'g' | 'kg'>('kg');
   const suppliers = useSuppliers();
-
-  // Культуры — из справочника норм, а не из головы. Поле было свободным,
-  // и «Амарант» по-русски прошло валидацию, но посадка ищет `amaranth`
-  // точным совпадением и семян не находила.
-  const { data: norms = [] } = useQuery<CropNorm[]>({
-    queryKey: ['admin-crop-norms'],
-    queryFn: fetchCropNorms,
-  });
 
   // Килограммы → граммы: и количество, и цена. Цена за килограмм делится
   // на 1000, иначе средневзвешенная себестоимость вырастет в тысячу раз.
@@ -107,7 +97,6 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
           setMinStock={setMinStock}
           cropType={cropType}
           setCropType={setCropType}
-          norms={norms}
         />
       )}
 

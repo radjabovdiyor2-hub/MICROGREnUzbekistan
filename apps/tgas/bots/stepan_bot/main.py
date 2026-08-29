@@ -529,15 +529,13 @@ async def auto_task_creation():
     каталога это 69 сообщений и 34 вызова модели за один прогон, четыре раза
     в сутки; метельщик зависших задач потом повторял их ещё дважды.
 
-    И главное: такая задача невыполнима в принципе. «Пополнить Рукколу» —
-    это посадить и собрать; инструмента «пополнить готовый товар» нет ни у
-    одного отдела. То есть каждая из них могла только висеть в списке до
-    ручного закрытия — ровно те «невыполнимые задачи», из-за которых
-    владелец и начал этот разбор.
+    И главное: такая задача невыполнима в принципе — инструмента «пополнить
+    готовый товар» нет ни у одного отдела. То есть каждая из них могла только
+    висеть в списке до ручного закрытия — ровно те «невыполнимые задачи»,
+    из-за которых владелец и начал этот разбор.
 
     Сигнал сохранён: заканчивающиеся позиции идут одной строкой в утренней
-    сводке (`grow_morning`), где их видно рядом с посадками — то есть рядом
-    с тем единственным действием, которым остаток и пополняется.
+    сводке (`stock_morning`).
     """
     try:
         from sqlalchemy import text as sa_text
@@ -722,16 +720,16 @@ async def bot_health_summary():
         logger.warning("Не смог собрать отчёт об упавших задачах: %s", exc)
 
 
-async def grow_morning():
-    """Утренняя сводка по посадкам: что созрело, что дозреет, что просрочено.
+async def stock_morning():
+    """Утренняя сводка по складу: что заканчивается.
 
-    Напоминаний о посадках не было вообще. Фазу партии умел считать только
-    экран «Посадки» в админке — то есть узнать, что партия готова, можно было,
-    лишь открыв вкладку. При сроке хранения 5–7 дней это значило, что партия
-    молча протухала, а убыток теперь считается по настоящей себестоимости.
-
-    Молчим, когда писать не о чем: ежедневное «посадок нет» приучает
+    Молчим, когда писать не о чем: ежедневное «всё в порядке» приучает
     пролистывать сообщение не читая.
+
+    `alert_once` — потому что заканчивающаяся позиция остаётся такой день за
+    днём: без гашения владелец получал бы одну и ту же строку каждое утро до
+    самой закупки. Пишем, когда состав списка изменился, плюс напоминание раз
+    в сутки.
     """
     try:
         admin_id = (
@@ -740,39 +738,27 @@ async def grow_morning():
         if not admin_id:
             return
 
-        from shared import alert_once, grow_watch
+        from shared import alert_once
 
-        state = await grow_watch.scan()
-        text_body = grow_watch.morning_text(state)
-
-        # Просроченные партии повторялись КАЖДОЕ утро одной и той же строкой:
-        # `scan()` берёт всё, что не `harvested`, а просрочка под это подходит
-        # всегда. К концу месяца владелец получал тридцать одинаковых сообщений
-        # про один и тот же убыток. Это ровно то, против чего написан
-        # `alert_once`: пишем, когда состав изменился, плюс напоминание раз в
-        # сутки. «Созрело сегодня» и «дозреет завтра» меняются сами по себе,
-        # поэтому отпечаток берём со всей сводки.
+        text_body = await _low_stock_line()
         if text_body:
             fingerprint = str(hash(text_body))
-            if not alert_once.should_send("grow_morning", fingerprint):
+            if not alert_once.should_send("stock_morning", fingerprint):
                 text_body = None
         else:
-            alert_once.resolved("grow_morning")
+            alert_once.resolved("stock_morning")
 
-        parts = [p for p in (text_body, await _low_stock_line()) if p]
-        if parts:
-            await _bot.send_message(admin_id, "\n\n".join(parts), parse_mode="HTML")
+        if text_body:
+            await _bot.send_message(admin_id, text_body, parse_mode="HTML")
     except Exception as exc:
-        logger.error(f"Ошибка утренней сводки по посадкам: {exc}")
+        logger.error(f"Ошибка утренней сводки по складу: {exc}")
 
 
 async def _low_stock_line() -> str | None:
     """Заканчивающиеся товары — одной строкой к утренней сводке.
 
-    Здесь, а не отдельным сообщением и не задачами: пополнить готовый товар
-    можно только посадкой, и рядом с посадками этот список читается как
-    «что сеять сегодня». Отдельным сообщением он был бы ещё одним уведомлением,
-    а задачами — тем, чем и был: тридцатью четырьмя невыполнимыми поручениями.
+    Одной строкой, а не задачами: задачами это было тридцатью четырьмя
+    поручениями «пополнить <товар>», которые оставалось только закрыть руками.
     """
     from shared import catalog_repo
 
@@ -787,29 +773,6 @@ async def _low_stock_line() -> str | None:
     shown = ", ".join(i["name"] for i in items[:5])
     tail = f" и ещё {len(items) - 5}" if len(items) > 5 else ""
     return f"📉 <b>Заканчиваются ({len(items)}):</b> {shown}{tail}"
-
-
-async def grow_urgent():
-    """Партии, у которых сегодня последний день продажи.
-
-    Отдельно от утренней сводки и намеренно позже: к обеду видно, продали или
-    нет, и напоминание ещё может что-то изменить.
-    """
-    try:
-        admin_id = (
-            settings.admin_telegram_ids[0] if settings.admin_telegram_ids else None
-        )
-        if not admin_id:
-            return
-
-        from shared import grow_watch
-
-        state = await grow_watch.scan()
-        text_body = grow_watch.urgent_text(state["urgent"])
-        if text_body:
-            await _bot.send_message(admin_id, text_body, parse_mode="HTML")
-    except Exception as exc:
-        logger.error(f"Ошибка срочного напоминания по посадкам: {exc}")
 
 
 #: Сколько заявок дайджест показывает строками и по скольким даёт кнопки.
@@ -1061,8 +1024,7 @@ scheduler.add_interval(name="bot_health_check", func=bot_health_check, seconds=3
 scheduler.add_cron(name="bot_health_summary", func=bot_health_summary, hour=9, minute=0)
 # Посадки: сводка утром, отдельное напоминание по «последнему дню» в обед.
 # 08:30, а не 09:00 — чтобы не слипаться со сводкой о ботах в одну простыню.
-scheduler.add_cron(name="grow_morning", func=grow_morning, hour=8, minute=30)
-scheduler.add_cron(name="grow_urgent", func=grow_urgent, hour=14, minute=0)
+scheduler.add_cron(name="stock_morning", func=stock_morning, hour=8, minute=30)
 
 
 # Инфраструктура
