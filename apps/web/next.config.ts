@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '100mb',
     },
+    // `optimizePackageImports` здесь ПРОБОВАЛИ и убрали: измеренной пользы
+    // ноль. Главная, каталог и корзина весили 278, 267 и 268 КБ скриптов и
+    // с ним, и без него — побайтово. Next 16 уже разбирает индексный импорт
+    // lucide сам, а framer-motion в этом проекте и так грузится по месту.
+    //
+    // Оставлять настройку, которая ничего не делает, вреднее, чем не иметь
+    // её: следующий человек решит, что рычаг уже дёрнут.
   },
   // Workspace packages resolve through node_modules (@repo/database -> dist,
   // @repo/shared -> src, transpiled here). Do NOT re-alias them in turbopack/
@@ -56,9 +63,36 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // Icons and manifest — moderate cache
+      // Icons and manifest — moderate cache.
+      //
+      // Правило было одно, `/(icons|manifest.json|og-image.png)`, и НЕ
+      // РАБОТАЛО: безымянная группа в `source` не разворачивается в
+      // альтернативу путей, и манифест попадал под общее «no-store» ниже.
+      // Браузер перекачивал его на каждую загрузку страницы — вместе с
+      // иконками, на которые он ссылается.
+      //
+      // Проверяется руками: `curl -I /manifest.json` должен показывать
+      // неделю, а не `no-store`. Заметить иначе нельзя — ошибок нет.
       {
-        source: "/(icons|manifest.json|og-image.png)",
+        source: "/manifest.json",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=2592000",
+          },
+        ],
+      },
+      {
+        source: "/manifest-admin.json",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=604800, stale-while-revalidate=2592000",
+          },
+        ],
+      },
+      {
+        source: "/icons/:path*",
         headers: [
           {
             key: "Cache-Control",
@@ -116,9 +150,35 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // ── Каталог товаров: полминуты в кэше ────────────────────────────
+      //
+      // Каталог рисуется на клиенте: сначала приходит страница, потом
+      // отдельным запросом товары. То есть покупатель ждёт ДВА круга до
+      // сервера подряд, и второй — четверть секунды.
+      //
+      // Ответ одинаков для всех: в роуте нет ни сессии, ни cookie, ни
+      // договорных цен. Значит кэшировать его безопасно, в том числе
+      // общим прокси, если он однажды появится.
+      //
+      // Полминуты — правка цены доходит до витрины почти сразу, а не
+      // «когда-нибудь». Остаток запаса товара за это время устареть может,
+      // но заказ всё равно проверяет наличие на сервере: витрина здесь
+      // показывает, а не решает.
+      //
+      // `/api/products/export` под это правило НЕ попадает — он для
+      // владельца, и там выгрузка, а не витрина.
+      {
+        source: "/api/products",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=30, stale-while-revalidate=120",
+          },
+        ],
+      },
       // API routes — no cache
       {
-        source: "/api/:path*",
+        source: "/api/:path((?!products$).*)",
         headers: [
           {
             key: "Cache-Control",
@@ -165,9 +225,50 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      // HTML pages — ALWAYS fresh (no stale content)
+      // ── Витрина: минута в кэше браузера ──────────────────────────────
+      //
+      // Каталог, карточка товара, журнал и рецепты одинаковы для всех и
+      // меняются не чаще, чем правят прайс. С `no-store` каждый переход
+      // «назад» и каждое повторное открытие ждали полного ответа сервера —
+      // около 0,4 с только до первого байта, на телефоне в 3G заметно.
+      //
+      // `private` — принципиально: кэширует ТОЛЬКО браузер покупателя, а
+      // не общий прокси. Даже если на странице однажды появится имя
+      // вошедшего, чужому оно не достанется.
+      //
+      // Минута, а не час: правку цены владелец увидит на витрине сразу
+      // после следующего обновления, а не будет гадать, почему не видно.
+      // `stale-while-revalidate` отдаёт старое мгновенно и обновляет
+      // фоном — переход выглядит мгновенным даже на исходе минуты.
       {
-        source: "/:path((?!api|_next|images|icons|maplibre).*)",
+        source: "/:path(|catalog|magazine)",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, max-age=60, stale-while-revalidate=300",
+          },
+        ],
+      },
+      {
+        source: "/:section(catalog|product|recipe|magazine)/:rest*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, max-age=60, stale-while-revalidate=300",
+          },
+        ],
+      },
+      // HTML pages — ALWAYS fresh (no stale content)
+      //
+      // Всё остальное: корзина, избранное, кабинет, баланс, админка.
+      // Там либо личные данные, либо состояние, устаревание которого
+      // человек примет за поломку — «положил в корзину, а её нет».
+      // Исключения перечислены явно: витринные правила выше их уже
+      // покрыли, а два `Cache-Control` в одном ответе браузер сводит к
+      // самому строгому, то есть к `no-store` — и послабление не сработало
+      // бы вовсе.
+      {
+        source: "/:path((?!api|_next|images|icons|maplibre|manifest|catalog|product|recipe|magazine).+)",
         headers: [
           {
             key: "Cache-Control",
