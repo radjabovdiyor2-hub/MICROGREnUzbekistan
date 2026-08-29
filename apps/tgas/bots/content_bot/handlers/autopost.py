@@ -40,6 +40,18 @@ ai = AIEngine()
 _STORE_DIR = Path(__file__).resolve().parents[3] / "bus_tasks"
 
 
+#: Человеческие имена площадок — они попадают в карточку владельцу.
+TARGET_NAMES = {
+    "instagram": "Instagram",
+    "telegram_channel": "Telegram-канал",
+    "telegram_group": "Telegram-группа",
+}
+
+
+def _targets_label(targets: tuple[str, ...]) -> str:
+    return " и ".join(TARGET_NAMES.get(t, t) for t in targets)
+
+
 def _is_admin(message: Message) -> bool:
     return (
         bool(message.from_user) and message.from_user.id in settings.admin_telegram_ids
@@ -61,7 +73,12 @@ def _extract_topic(text: str) -> str:
     return t.strip(" .!?:") or "микрозелень"
 
 
-async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"):
+async def _generate_and_preview(
+    message: Message,
+    topic: str,
+    kind: str = "feed",
+    targets: tuple[str, ...] = ("instagram",),
+):
     from bots.content_bot.main import get_dynamic_content_policy
     await message.answer(f"🎨 Генерирую пост про «{topic}»… это займёт ~30–60 сек.")
 
@@ -105,12 +122,26 @@ async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"
         logger.warning(f"autopost image error: {e}")
 
     body = caption if len(caption) < 900 else caption[:900] + "…"
+    # Охват площадок кладётся В ЗАЯВКУ и называется в её заголовке.
+    #
+    # Общий механизм подтверждения знает только «одобрить» и «отклонить»,
+    # третьей кнопки у него нет. Значит, выбор охвата должен случиться
+    # РАНЬШЕ карточки — иначе одна кнопка «опубликовать» однажды начала бы
+    # рассылать шире, чем владелец одобрял: соглашались на сторис, а пост
+    # ушёл подписчикам канала.
+    where = _targets_label(targets)
     await approvals.request(
         message.bot,
         message.chat.id,
         "instagram_post",
-        {"caption": caption, "image": image_path, "kind": kind, "topic": topic},
-        summary=f"Опубликовать в Instagram: {topic}",
+        {
+            "caption": caption,
+            "image": image_path,
+            "kind": kind,
+            "topic": topic,
+            "targets": list(targets),
+        },
+        summary=f"Опубликовать в {where}: {topic}",
         bot_name="content_bot",
         details=body,
         photo=image_path or None,
@@ -129,6 +160,29 @@ async def cmd_post(message: Message, command=None):
         )
         return
     await _generate_and_preview(message, args, kind="feed")
+
+
+@router.message(Command("post_all"))
+async def cmd_post_all(message: Message, command=None):
+    """Тот же пост, но охват шире — Instagram и Telegram-канал.
+
+    Отдельная команда, а не флажок в карточке: у общего механизма
+    подтверждения кнопок ровно две, и «одобрить» обязано означать одно и
+    то же каждый раз. Шире рассылать — отдельное осознанное действие.
+    """
+    if not _is_admin(message):
+        return
+    args = (getattr(command, "args", None) or "").strip()
+    if not args:
+        await message.answer(
+            "📣 Формат: <code>/post_all тема поста</code> — "
+            "выйдет и в Instagram, и в Telegram-канал.",
+            parse_mode="HTML",
+        )
+        return
+    await _generate_and_preview(
+        message, args, kind="feed", targets=("instagram", "telegram_channel")
+    )
 
 
 # Естественный язык: «сделай пост про …», «опубликуй пост о …»
@@ -151,30 +205,42 @@ async def nl_post(message: Message):
 # Возвращаемая строка дописывается в карточку — по ней владелец видит,
 # опубликовалось ли на самом деле, а не «команда принята».
 async def _publish_approved(payload: dict, callback) -> str:
-    from shared.instagram import post_to_instagram
+    from shared.publisher import Post, publish
 
     image = payload.get("image")
     caption = payload.get("caption") or ""
+    targets = payload.get("targets") or ["instagram"]
 
     if not image:
         return "⚠️ Нет картинки — публикация отменена."
 
-    ok = False
     try:
-        ok = await post_to_instagram(
-            image, caption, post_type=payload.get("kind", "feed")
+        report = await publish(
+            Post(
+                title=payload.get("topic", "Microgreen Uzbekistan"),
+                body=caption,
+                image=image,
+                kind=payload.get("kind", "feed"),
+            ),
+            targets,
         )
     except Exception as exc:  # noqa: BLE001
         logger.error("autopost: публикация не удалась: %s", exc, exc_info=True)
+        return "⚠️ Не удалось опубликовать — подробности в журнале."
 
     _cleanup(image)
 
-    if ok:
-        return "✅ Опубликовано в Instagram."
-    return (
-        "⚠️ Не удалось опубликовать (проверьте токен и доступ Graph API). "
-        "Текст и картинка выше — можно опубликовать вручную."
-    )
+    # Отчёт по КАЖДОЙ площадке отдельно: общее «опубликовано» скрыло бы,
+    # что в Instagram пост не ушёл, а владелец бы этого не узнал.
+    lines = []
+    for target, result in report.items():
+        name = TARGET_NAMES.get(target, target)
+        if result.get("ok"):
+            note = " (без картинки)" if result.get("photo_lost") else ""
+            lines.append(f"✅ {name}{note}")
+        else:
+            lines.append(f"⚠️ {name}: {result.get('error', 'не удалось')}")
+    return "\n".join(lines) or "⚠️ Не выбрано ни одной площадки."
 
 
 async def _discard_post(payload: dict, callback) -> str:

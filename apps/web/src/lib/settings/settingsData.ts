@@ -18,6 +18,16 @@ export const SETTINGS = {
     labelRu: 'Обещанное время (мин)', labelUz: 'Yetkazish vaqti (daq)',
     hintRu: 'Показывается на сайте и в карточке товара',
   },
+  // Разметка товара для Google и товарных подборок ИИ. Ноль = ничего не
+  // обещаем: политика возврата в schema.org — публичное обещание, и
+  // выдумывать за владельца срок нельзя. Как только срок задан, он уходит
+  // в карточку товара и в товарный фид одинаковый.
+  'delivery.returnDays': {
+    category: 'delivery', type: 'number', default: 0, publicKey: true,
+    labelRu: 'Срок возврата, дней', labelUz: 'Qaytarish muddati, kun',
+    hintRu: 'Уходит в разметку товара для Google. 0 — возврат не заявляем вовсе',
+    min: 0, max: 90,
+  },
 
   // ── Контакты ────────────────────────────────────────────────────────
   'contacts.phonePrimary': {

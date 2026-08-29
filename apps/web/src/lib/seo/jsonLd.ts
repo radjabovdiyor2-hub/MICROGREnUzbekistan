@@ -111,3 +111,78 @@ export function recipeSchema(r: RecipeSchemaInput) {
   }
   return data;
 }
+
+/**
+ * `OfferShippingDetails` — стоимость и срок доставки в разметке товара.
+ *
+ * Без него Google собирает карточку товара без строки доставки, а именно
+ * она отличает местный магазин от заграничного в товарной выдаче и в
+ * подборках ИИ-поиска. Числа — из настроек витрины, теми же значениями
+ * считается доставка в корзине и уходит в товарный фид: третьего места,
+ * где они живут, быть не должно.
+ *
+ * Здесь только те свойства, что существуют в schema.org. Порог бесплатной
+ * доставки в разметку не попадает: подходящего поля у `OfferShippingDetails`
+ * нет, а выдуманное Google молча игнорирует — то есть в коде оно есть, а в
+ * выдаче его нет, и это худший вид «сделано».
+ *
+ * Политику возврата тоже НЕ заявляем: возврат срезанной зелени — вопрос к
+ * владельцу, а не к разработчику. Разметка — публичное обещание.
+ */
+export function offerShippingDetails(opts: {
+  fee: number;
+  /** Обещание срока из настроек, например «30-90» (минуты). */
+  promiseMinutes: string;
+}) {
+  const [minRaw] = opts.promiseMinutes.split('-');
+  // Сроки Google принимает в ДНЯХ. Доставка за час — это ноль дней в
+  // обработке и не больше суток в пути; час округлять до суток нельзя,
+  // иначе местный магазин выглядит как склад в другой стране.
+  const knownPromise = Number.isFinite(Number(minRaw));
+
+  return {
+    '@type': 'OfferShippingDetails',
+    shippingRate: {
+      '@type': 'MonetaryAmount',
+      value: opts.fee,
+      currency: 'UZS',
+    },
+    shippingDestination: {
+      '@type': 'DefinedRegion',
+      addressCountry: 'UZ',
+    },
+    ...(knownPromise
+      ? {
+          deliveryTime: {
+            '@type': 'ShippingDeliveryTime',
+            handlingTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 0, unitCode: 'DAY' },
+            transitTime: { '@type': 'QuantitativeValue', minValue: 0, maxValue: 1, unitCode: 'DAY' },
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * `MerchantReturnPolicy` — публичное обещание о возврате.
+ *
+ * Google просит его у товарной карточки, но заявлять его без решения
+ * владельца нельзя: разметка читается как оферта. Поэтому источник —
+ * настройка `delivery.returnDays`, и ноль означает «ничего не обещаем»:
+ * функция возвращает `null`, поле в разметку не попадает вовсе.
+ *
+ * Пустое поле хуже отсутствующего только на вид: отсутствие Google
+ * трактует как «политика не указана», а неверный срок — как нарушенное
+ * обещание, с которым приходит покупатель.
+ */
+export function merchantReturnPolicy(returnDays: number) {
+  if (!Number.isFinite(returnDays) || returnDays <= 0) return null;
+  return {
+    '@type': 'MerchantReturnPolicy',
+    applicableCountry: 'UZ',
+    returnPolicyCategory: 'https://schema.org/MerchantReturnFiniteReturnWindow',
+    merchantReturnDays: Math.trunc(returnDays),
+    returnMethod: 'https://schema.org/ReturnByMail',
+    returnFees: 'https://schema.org/FreeReturn',
+  };
+}
