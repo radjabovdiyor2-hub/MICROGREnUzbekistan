@@ -125,7 +125,26 @@ export default async function RootLayout({
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <JsonLd />
-        <script src="https://telegram.org/js/telegram-web-app.js" nonce={nonce} async></script>
+        {/* SDK Telegram — только тем, кто пришёл ИЗ Telegram.
+            Он весит 114 КБ и грузился всем подряд, хотя нужен лишь внутри
+            мини-приложения: обычный посетитель сайта платил за него на
+            каждой странице, включая экран входа в админку.
+
+            Признак — параметры `tgWebApp*`, которые Telegram дописывает в
+            адрес при открытии. Они есть только на первом шаге, поэтому
+            запоминаем факт на вкладку: внутренние переходы адрес меняют.
+
+            Домен разрешён в `script-src` явно, так что подставлять nonce
+            добавленному тегу не нужно. Все потребители (`haptic`, шапка,
+            `TelegramInit`) читают `window.Telegram?.WebApp` через `?.` и
+            отсутствие SDK переносят молча — снаружи Telegram его и раньше
+            не было ничего, кроме самого файла. */}
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var k='mg-tg-app';var inTg=/tgWebApp/.test(location.hash)||/tgWebApp/.test(location.search)||sessionStorage.getItem(k)==='1';if(!inTg)return;sessionStorage.setItem(k,'1');var s=document.createElement('script');s.src='https://telegram.org/js/telegram-web-app.js';s.async=true;document.head.appendChild(s)}catch(e){}})()`,
+          }}
+        />
         <script
           nonce={nonce}
           dangerouslySetInnerHTML={{
