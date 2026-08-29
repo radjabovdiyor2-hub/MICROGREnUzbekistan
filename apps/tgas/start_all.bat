@@ -19,7 +19,7 @@ if not exist ".\venv\Scripts\python.exe" (
     exit /b 1
 )
 
-set BOTS=stepan_bot sales_bot support_bot hr_bot finance_bot marketing_bot analytics_bot content_bot qa_bot rnd_bot devops_bot franchise_bot n8n_bridge
+set BOTS=stepan_bot sales_bot support_bot hr_bot finance_bot marketing_bot analytics_bot content_bot rnd_bot devops_bot franchise_bot n8n_bridge
 
 echo Starting Web Office...
 start "" cmd /k ".\venv\Scripts\python.exe -m uvicorn web_office.main:app --host 0.0.0.0 --port 8050"

@@ -7,16 +7,15 @@
     «сколько мне должны?»              — таблица `debts` пишется, читать нечем
     «кто сегодня в смене?»             — `shifts` пишется, читать нечем
     «почём последний раз брали семена?» — `supplier_prices` пишется, читать нечем
-    «что с браком на этой неделе?»     — `quality_controls` пишется, читать нечем
     «кому мы обещали перезвонить?»     — `followups` пишется, читать нечем
 
 Владелец видел их только в админке, вручную. Бот на прямой вопрос отвечал
 общими словами или выдумывал — потому что инструмента не было, а модель без
 инструмента отвечает всё равно.
 
-Здесь закрыты те пять, что про деньги и ежедневную работу. Остальные
-(эксперименты, подписки, маршруты, отзывы, промокоды, журнальные таблицы)
-намеренно оставлены: там сначала нужно решить, кто и о чём спрашивает.
+Здесь закрыты те четыре, что про деньги и ежедневную работу. Остальные
+(подписки, маршруты, отзывы, промокоды, журнальные таблицы) намеренно
+оставлены: там сначала нужно решить, кто и о чём спрашивает.
 
 ЧТО ВАЖНО ПРИ ПРАВКЕ
 
@@ -49,7 +48,6 @@ DEPTS = [
     "marketing",
     "hr",
     "content",
-    "qa",
     "rnd",
     "devops",
 ]
@@ -242,67 +240,6 @@ async def get_supplier_prices(material: str = "", supplier: str = "") -> Dict[st
 
 # ── Контроль качества ───────────────────────────────────────────────────
 
-async def get_quality_report(days: str = "7") -> Dict[str, Any]:
-    """Проверки качества за N дней: сколько годно, сколько брака и какого."""
-    try:
-        window = max(1, min(90, int(str(days).strip() or 7)))
-    except ValueError:
-        window = 7
-
-    async with get_session_ctx() as session:
-        result = await session.execute(
-            text("""
-                SELECT qc.status, qc.defect_type, qc.notes, qc.created_at,
-                       b.crop_type, b.trays, e.name AS inspector_name
-                FROM quality_controls qc
-                JOIN grow_batches b ON b.id = qc.batch_id
-                LEFT JOIN employees e ON e.id = qc.inspector_id
-                WHERE qc.created_at >= NOW() - make_interval(days => :days)
-                ORDER BY qc.created_at DESC
-                LIMIT 50
-            """),
-            {"days": window},
-        )
-        rows = _rows(result)
-
-    if not rows:
-        return {"found": False, "summary": f"Проверок качества за {window} дн. не было."}
-
-    passed = [r for r in rows if r["status"] == "passed"]
-    failed = [r for r in rows if r["status"] != "passed"]
-
-    defects: Dict[str, int] = {}
-    for r in failed:
-        key = r["defect_type"] or "не указан"
-        defects[key] = defects.get(key, 0) + 1
-
-    return {
-        "found": True,
-        "days": window,
-        "total": len(rows),
-        "passed": len(passed),
-        "failed": len(failed),
-        "defects": defects,
-        "summary": (
-            f"За {window} дн. проверок {len(rows)}: годно {len(passed)}, "
-            f"брак {len(failed)}."
-            + (f" Чаще всего: {max(defects, key=lambda d: defects[d])}." if defects else "")
-        ),
-        "checks": [
-            {
-                "crop": r["crop_type"],
-                "trays": r["trays"],
-                "status": r["status"],
-                "defect": r["defect_type"],
-                "inspector": r["inspector_name"],
-                "notes": r["notes"],
-                "date": r["created_at"].strftime("%d.%m.%Y"),
-            }
-            for r in rows[:20]
-        ],
-    }
-
-
 # ── Напоминания перезвонить ─────────────────────────────────────────────
 
 async def get_followups(status: str = "pending") -> Dict[str, Any]:
@@ -417,25 +354,6 @@ register(
                 "type": "string",
                 "description": "Название поставщика или его часть.",
             },
-        },
-    )
-)
-
-register(
-    Tool(
-        name="get_quality_report",
-        admin_tab="qa",
-        description=(
-            "Контроль качества за период: сколько партий годно, сколько брака и какого. "
-            "Вызывай на «что с браком», «качество урожая», «сколько плесени»."
-        ),
-        run=get_quality_report,
-        departments=DEPTS,
-        params={
-            "days": {
-                "type": "string",
-                "description": "За сколько дней смотреть. По умолчанию 7.",
-            }
         },
     )
 )

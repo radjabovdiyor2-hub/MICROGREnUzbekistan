@@ -13,7 +13,6 @@ import { SESSION_COOKIE, verifySession, type SessionRole } from '@/lib/session';
 type Access =
   | 'ADMIN'
   | 'STAFF'
-  | 'PRODUCTION'
   | 'CUSTOMER';
 
 interface Rule {
@@ -24,15 +23,6 @@ interface Rule {
 
 const RULES: Rule[] = [
   { prefix: '/api/admin', access: 'ADMIN' },
-  // Теплица. Сажает не владелец, а агроном, и посадки — единственное, что
-  // ему нужно. `findRule` берёт САМЫЙ ДЛИННЫЙ подходящий префикс, поэтому
-  // эти три правила перебивают общий `/api/admin` выше независимо от порядка.
-  { prefix: '/api/admin/grow-batches', access: 'PRODUCTION' },
-  // Нормы культур и остатки сырья — только на чтение: форма посадки показывает
-  // «нужно 30 г семян, на складе 1 200 г» до нажатия. Приход сырья и правка
-  // справочника остаются владельцу — это деньги и общие нормативы.
-  { prefix: '/api/admin/crop-norms', access: 'PRODUCTION', methods: ['GET'] },
-  { prefix: '/api/admin/raw-materials', access: 'PRODUCTION', methods: ['GET'] },
   // Клиенты и карта открыты продавцу: по ним он и ездит. `findRule` берёт
   // самый длинный подходящий префикс И сверяет метод, поэтому всё, чего нет
   // в списке методов, падает обратно на общее правило ADMIN выше.
@@ -158,9 +148,6 @@ export function roleSatisfies(role: SessionRole, access: Access): boolean {
   // Кабинет открыт и сотруднику: он тоже покупатель, и отдельного запрета нет.
   // Обратное неверно — CUSTOMER не проходит ни в ADMIN, ни в STAFF.
   if (access === 'CUSTOMER') return true;
-  // Теплица и касса не пересекаются: агроном не открывает смену, продавец не
-  // трогает партии. Владелец проходит везде.
-  if (access === 'PRODUCTION') return role === 'ADMIN' || role === 'GROWER';
   return role === 'ADMIN' || role === 'SELLER';
 }
 

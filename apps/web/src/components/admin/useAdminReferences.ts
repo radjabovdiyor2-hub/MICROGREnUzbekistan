@@ -1,10 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { fetchBatches, type Batch } from './growingData';
 
 // ══════════════════════════════════════════════════════════════════════
-// Справочники для форм админки: поставщики, сотрудники, партии, нормы.
+// Справочники для форм админки: поставщики, сотрудники, товары, заказы.
 //
 // ЗАЧЕМ ОДНО МЕСТО
 //
@@ -87,21 +86,6 @@ export function usePendingOrders() {
       const orders = (json.orders ?? []) as RefOrder[];
       return orders.filter((o) => !['DELIVERED', 'CANCELLED'].includes(o.status));
     },
-  });
-  return data ?? [];
-}
-
-/**
- * Партии посадок — для отчётов ОТК и экрана теплицы.
- *
- * Запрос идёт через `fetchBatches` из `growingData`, а не своим `fetch`:
- * там же лежит разбор ответа (`status: 'ok'`) и тип `Batch`, и вторая копия
- * этого знания разошлась бы с первой при первом же изменении роута.
- */
-export function useGrowBatches() {
-  const { data } = useQuery<Batch[]>({
-    queryKey: ['admin-grow-batches'],
-    queryFn: fetchBatches,
   });
   return data ?? [];
 }

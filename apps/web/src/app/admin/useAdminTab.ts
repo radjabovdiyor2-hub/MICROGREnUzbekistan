@@ -3,7 +3,6 @@
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ALL_TABS } from './adminTabs';
-import type { StaffRole } from './useAdminAuth';
 
 // ══════════════════════════════════════════════════════════════════════
 // Вкладка админки в адресной строке.
@@ -39,11 +38,9 @@ import type { StaffRole } from './useAdminAuth';
 // ══════════════════════════════════════════════════════════════════════
 
 /** Куда открывать админку, если вкладка не задана. */
-function defaultTab(role: StaffRole | null): string {
-  return role === 'GROWER' ? 'growing' : 'pos';
-}
+const DEFAULT_TAB = 'pos';
 
-export function useAdminTab(initialRole: StaffRole | null) {
+export function useAdminTab() {
   const params = useSearchParams();
 
   const requested = params.get('tab');
@@ -52,8 +49,8 @@ export function useAdminTab(initialRole: StaffRole | null) {
   // версии бота, и падать из-за неё экран не должен.
   const activeTab = useMemo(() => {
     if (requested && ALL_TABS.some((tab) => tab.id === requested)) return requested;
-    return defaultTab(initialRole);
-  }, [requested, initialRole]);
+    return DEFAULT_TAB;
+  }, [requested]);
 
   const openTab = useCallback((id: string) => {
     const next = new URLSearchParams(window.location.search);

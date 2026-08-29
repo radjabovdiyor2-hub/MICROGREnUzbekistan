@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { loadSalesLedger } from '@/lib/revenue/salesLedger';
 import { summarize } from '@/lib/revenue/summary';
-import { scanGrowBatches, raiseGrowAlerts, growReportLines } from '@/lib/production/growWatch';
 import { alertOverdueDebts } from '@/lib/finance/debtWatch';
 import { alertDropouts } from '@/lib/customers/rhythm';
 import { alertKpiBreaches } from '@/lib/kpi/watch';
@@ -85,21 +84,8 @@ export async function GET() {
     message += `   Tan narxi: ${fmt(totalCost)} so'm\n`;
     message += `   <b>Sof foyda: ${fmt(netProfit)} so'm</b> (${margin.toFixed(0)}% marja)\n\n`;
 
-    // Посадки: что созрело и что просрочено.
-    //
-    // Напоминаний о посадках не было ни одного — фазу партии умел считать
-    // только экран в браузере, поэтому партия успевала протухнуть молча.
-    // raiseGrowAlerts заодно кладёт сигнал в колокольчик админки, чтобы он
-    // дождался владельца, а не исчезал вместе с закрытой вкладкой.
-    const growState = await scanGrowBatches();
-    message += growReportLines(growState);
-    await raiseGrowAlerts(growState).catch((err) =>
-      console.error('Grow alerts failed (report still sent):', err),
-    );
-
     // Просрочка по дебиторке уходит в это же сообщение ниже, но сообщение
-    // пролистывается, а сигнал в колокольчике дожидается владельца — та же
-    // причина, по которой рядом стоит raiseGrowAlerts.
+    // пролистывается, а сигнал в колокольчике дожидается владельца.
     await alertOverdueDebts().catch((err) =>
       console.error('Debt alerts failed (report still sent):', err),
     );

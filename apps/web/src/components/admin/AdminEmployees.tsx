@@ -29,7 +29,7 @@ const EMPTY_EMPLOYEE = {
   telegramId: '',
 };
 
-/** Цвет плашки должности. Агроном — зелёный теплицы, а не кассы. */
+/** Цвет плашки должности. */
 const ROLE_TONE: Record<string, { bg: string; fg: string }> = {
   manager: { bg: 'var(--info-bg)', fg: 'var(--info)' },
   grower: { bg: 'var(--brand-primary-light)', fg: 'var(--brand-primary)' },
@@ -217,8 +217,8 @@ export function AdminEmployees({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
                   <div style={{ fontWeight: 'var(--font-bold)' }}>{emp.name}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                     {/* Должность подписываем по справочнику, а не двумя ветками
-                        тернарника: агроном в них не помещался и показывался
-                        «продавцом» — то есть карточка врала о правах человека. */}
+                        тернарника: третья должность в них не помещалась и
+                        показывалась «продавцом» — карточка врала о человеке. */}
                     <span style={{ padding: '1px 6px', borderRadius: 'var(--radius-full)', background: ROLE_TONE[emp.role]?.bg ?? 'var(--success-bg)', color: ROLE_TONE[emp.role]?.fg ?? 'var(--success)', fontSize: '10px', fontWeight: 'var(--font-bold)' }}>
                       {employeeRoleLabel(emp.role)}
                     </span>

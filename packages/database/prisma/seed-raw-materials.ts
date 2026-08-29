@@ -3,26 +3,19 @@ import { PrismaClient, Prisma, RawMaterialKind } from '@prisma/client';
 // ══════════════════════════════════════════════════════════════════════
 // Засев СПРАВОЧНИКА сырья — позиций, а не остатков.
 //
-// 10.08.2026 Стёпан на вопрос о посадке ответил: «Запас семян кейла не был
-// проверен, так как в наличии только семена гороха». Это была правда.
-// Нормы культур засевались при каждом деплое, а сами позиции сырья — никогда
-// и нигде: их заводили руками через админку, и завели ровно одну.
-//
-// Посадка ищет семена так (apps/web/src/lib/production/growBatch.ts):
-//     rawMaterial.findFirst({ where: { kind: 'SEED', cropType, isActive } })
-// Нет строки — нет посадки, нет себестоимости, нет партии.
+// Позиции сырья не заводились нигде: их вносили руками через админку, и
+// завели ровно одну. Закупки семян при этом нигде не числились, хотя деньги
+// на них уходили.
 //
 // ОСТАТКИ ЗДЕСЬ НУЛЕВЫЕ, И ЭТО ГЛАВНОЕ.
 //
 // Справочник — это перечень того, ЧТО бывает на складе; сколько его лежит,
-// знает только владелец. Выдуманный остаток хуже нулевого: по нему посадка
-// спишет несуществующее сырьё, партия получит выдуманную себестоимость, а
-// закупка не понадобится — до момента, когда семян физически не окажется.
-// С нулём бот говорит по делу: «нужно 12 г семян кейла, на складе 0 —
-// оформите приход».
+// знает только владелец. Выдуманный остаток хуже нулевого: закупка по нему
+// не понадобится — до момента, когда семян физически не окажется. С нулём
+// бот говорит по делу: «семян кейла на складе 0 — оформите приход».
 //
 // Количество вносится приходом: инструмент `receive_material` у Стёпана или
-// «Производство → Сырьё → Приход» в админке. Приход же считает
+// «Товар и склад → Сырьё → Приход» в админке. Приход же считает
 // средневзвешенную себестоимость, поэтому и цену тут выдумывать нельзя.
 //
 // Запуск (идемпотентно, существующие позиции НЕ трогаются):
@@ -36,48 +29,81 @@ const prisma = new PrismaClient();
  *
  * Субстрата ДВА, и они не взаимозаменяемы: кокос под лотки микрозелени
  * (150 г на лоток), агро вата под стаканчики салата (пробка на стаканчик).
- * Именно ради этой пары в норме культуры есть `substrateMaterialId` — без
- * явной привязки посадка брала «первый активный субстрат» и списывала бы
- * кокос под салат.
  *
  * Стаканчиков 63 мм здесь НЕТ намеренно: по решению владельца они
- * многоразовые, то есть не расходник и в себестоимость партии не входят.
+ * многоразовые, то есть не расходник.
  */
 const CONSUMABLES: {
-  key: string;
   name: string;
   kind: RawMaterialKind;
   unit: string;
   note: string;
 }[] = [
   {
-    key: 'coco',
     name: 'Кокосовый субстрат',
     kind: 'SUBSTRATE',
     unit: 'g',
     note: 'Стандарт микрозелени: 150 г на лоток.',
   },
   {
-    key: 'wool',
     name: 'Агро вата (пробки 63 мм)',
     kind: 'SUBSTRATE',
     unit: 'pcs',
     note: 'Салаты в стаканчиках: одна пробка на стаканчик.',
   },
   {
-    key: 'tray',
     name: 'Лоток 10×20',
     kind: 'TRAY',
     unit: 'pcs',
-    note: 'Одноразовый, списывается при посадке лотками.',
+    note: 'Одноразовый лоток микрозелени.',
   },
   {
-    key: 'pack',
     name: 'Упаковка (контейнер)',
     kind: 'PACKAGING',
     unit: 'pcs',
-    note: 'Списывается при СБОРЕ урожая, а не при посадке.',
+    note: 'Контейнер под готовый товар.',
   },
+];
+
+/**
+ * Ассортимент семян: по позиции на культуру.
+ *
+ * Список перенесён из справочника норм культур — сам справочник удалён
+ * вместе с производственным разделом, а перечень нужен: иначе культура
+ * снова окажется в прайсе и не окажется на складе, как это уже было.
+ *
+ * Единица — та, в которой семена ЗАКУПАЮТ: микрозелень граммами, салат
+ * дражированными семенами поштучно.
+ */
+const SEED_CROPS: { cropType: string; nameRu: string; unit: string }[] = [
+  { cropType: 'radish', nameRu: 'Редис', unit: 'g' },
+  { cropType: 'broccoli', nameRu: 'Брокколи', unit: 'g' },
+  { cropType: 'sunflower', nameRu: 'Подсолнух', unit: 'g' },
+  { cropType: 'pea', nameRu: 'Горошек', unit: 'g' },
+  { cropType: 'arugula', nameRu: 'Руккола', unit: 'g' },
+  { cropType: 'mustard', nameRu: 'Горчица', unit: 'g' },
+  { cropType: 'amaranth', nameRu: 'Амарант', unit: 'g' },
+  { cropType: 'basil', nameRu: 'Базилик', unit: 'g' },
+  { cropType: 'cilantro', nameRu: 'Кинза', unit: 'g' },
+  { cropType: 'kohlrabi', nameRu: 'Кольраби', unit: 'g' },
+  { cropType: 'mizuna', nameRu: 'Мизуна', unit: 'g' },
+  { cropType: 'wheatgrass', nameRu: 'Витграсс', unit: 'g' },
+  { cropType: 'spinach', nameRu: 'Шпинат', unit: 'g' },
+  { cropType: 'beet', nameRu: 'Свёкла', unit: 'g' },
+  { cropType: 'cabbage', nameRu: 'Капуста', unit: 'g' },
+  { cropType: 'cress', nameRu: 'Кресс-салат', unit: 'g' },
+  { cropType: 'pakchoy', nameRu: 'Пак-чой', unit: 'g' },
+  { cropType: 'tatsoi', nameRu: 'Татсой', unit: 'g' },
+  { cropType: 'chard', nameRu: 'Мангольд', unit: 'g' },
+  { cropType: 'kale', nameRu: 'Кейл', unit: 'g' },
+  { cropType: 'mint', nameRu: 'Мята', unit: 'g' },
+  { cropType: 'sorrel', nameRu: 'Щавель', unit: 'g' },
+  { cropType: 'lettuce-aveleda', nameRu: 'Салат Aveleda', unit: 'pcs' },
+  { cropType: 'lettuce-iceberg', nameRu: 'Салат Айсберг', unit: 'pcs' },
+  { cropType: 'lettuce-romano', nameRu: 'Салат Романо', unit: 'pcs' },
+  { cropType: 'lettuce-lollo', nameRu: 'Салат Лоло Росса', unit: 'pcs' },
+  { cropType: 'lettuce-radicio', nameRu: 'Салат Радичио', unit: 'pcs' },
+  { cropType: 'lettuce-frise', nameRu: 'Салат Фризе', unit: 'pcs' },
 ];
 
 async function ensure(
@@ -108,58 +134,29 @@ async function ensure(
 
 async function main() {
   // ── Расходники ──
-  const byKey = new Map<string, string>();
   let createdConsumables = 0;
   for (const item of CONSUMABLES) {
-    const { row, created } = await ensure(item.name, item.kind, item.unit, item.note, null);
-    byKey.set(item.key, row.id);
+    const { created } = await ensure(item.name, item.kind, item.unit, item.note, null);
     if (created) createdConsumables++;
   }
 
-  // ── Семена: по позиции на каждую культуру из норм ──
-  //
-  // Источник списка — сама таблица норм, а не второй список в этом файле:
-  // две копии ассортимента разойдутся, и разойдутся молча — ровно так кейл
-  // и оказался в прайсе, но не на складе.
-  const norms = await prisma.cropNorm.findMany({ orderBy: { cropType: 'asc' } });
+  // ── Семена: по позиции на каждую культуру ассортимента ──
   let createdSeeds = 0;
-  for (const norm of norms) {
-    if (norm.cropType === 'other') continue; // «Другое» — не культура, семян у неё нет
+  for (const crop of SEED_CROPS) {
     const { created } = await ensure(
-      `Семена: ${norm.nameRu}`,
+      `Семена: ${crop.nameRu}`,
       'SEED',
-      norm.seedUnit, // граммы для лотков, штуки для стаканчиков
+      crop.unit, // граммы у микрозелени, штуки у дражированного салата
       'Заведено справочником. Остаток вносится приходом.',
-      norm.cropType,
+      crop.cropType,
     );
     if (created) createdSeeds++;
   }
 
-  // ── Привязка субстрата к нормам ──
-  //
-  // Заполняем только пустое: выбор владельца не перезаписываем. Без привязки
-  // посадка при двух субстратах отказывается работать (и правильно делает) —
-  // угадывать между кокосом и ватой она не имеет права.
-  const coco = byKey.get('coco');
-  const wool = byKey.get('wool');
-  const boundTrays = coco
-    ? await prisma.cropNorm.updateMany({
-        where: { substrateMaterialId: null, plantingUnit: 'tray' },
-        data: { substrateMaterialId: coco },
-      })
-    : { count: 0 };
-  const boundCups = wool
-    ? await prisma.cropNorm.updateMany({
-        where: { substrateMaterialId: null, plantingUnit: 'cup' },
-        data: { substrateMaterialId: wool },
-      })
-    : { count: 0 };
-
   console.log(`Расходники: добавлено ${createdConsumables} из ${CONSUMABLES.length}.`);
-  console.log(`Семена: добавлено ${createdSeeds} позиций (культур в нормах: ${norms.length}).`);
-  console.log(`Субстрат привязан: лотки → кокос ${boundTrays.count}, стаканчики → вата ${boundCups.count}.`);
+  console.log(`Семена: добавлено ${createdSeeds} позиций из ${SEED_CROPS.length}.`);
   console.log('⚠️ Остатки нулевые — это справочник, а не инвентаризация.');
-  console.log('⚠️ Внесите приход: «Производство → Сырьё» или инструмент receive_material.');
+  console.log('⚠️ Внесите приход: «Товар и склад → Сырьё» или инструмент receive_material.');
 }
 
 if (require.main === module) {

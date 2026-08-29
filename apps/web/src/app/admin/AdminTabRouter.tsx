@@ -62,9 +62,7 @@ const AdminShifts = dynamic(() => import('@/components/admin/AdminShifts').then(
 const AdminAnalytics = dynamic(() => import('@/components/admin/AdminAnalytics').then((m) => m.AdminAnalytics), { ssr: false, loading: TabLoading });
 const AdminForecast = dynamic(() => import('@/components/admin/AdminForecast').then((m) => m.AdminForecast), { ssr: false, loading: TabLoading });
 const AdminSettings = dynamic(() => import('@/components/admin/AdminSettings').then((m) => m.AdminSettings), { ssr: false, loading: TabLoading });
-const AdminGrowing = dynamic(() => import('@/components/admin/AdminGrowing').then((m) => m.AdminGrowing), { ssr: false, loading: TabLoading });
 const AdminRawMaterials = dynamic(() => import('@/components/admin/AdminRawMaterials').then((m) => m.AdminRawMaterials), { ssr: false, loading: TabLoading });
-const AdminCropNorms = dynamic(() => import('@/components/admin/AdminCropNorms').then((m) => m.AdminCropNorms), { ssr: false, loading: TabLoading });
 const AdminMagazine = dynamic(() => import('@/components/admin/AdminMagazine').then((m) => m.AdminMagazine), { ssr: false, loading: TabLoading });
 const AdminMagazineEditions = dynamic(() => import('@/components/admin/AdminMagazineEditions').then((m) => m.AdminMagazineEditions), { ssr: false, loading: TabLoading });
 const AdminMagazineMoney = dynamic(() => import('@/components/admin/AdminMagazineMoney').then((m) => m.AdminMagazineMoney), { ssr: false, loading: TabLoading });
@@ -89,27 +87,23 @@ const AdminTasks = dynamic(() => import('@/components/admin/AdminTasks').then((m
 const AdminCategories = dynamic(() => import('@/components/admin/AdminCategories').then((m) => m.AdminCategories), { ssr: false, loading: TabLoading });
 const AdminDeliveries = dynamic(() => import('@/components/admin/AdminDeliveries').then((m) => m.AdminDeliveries), { ssr: false, loading: TabLoading });
 const AdminMyRoute = dynamic(() => import('@/components/admin/AdminMyRoute').then((m) => m.AdminMyRoute), { ssr: false, loading: TabLoading });
-const AdminQA = dynamic(() => import('@/components/admin/AdminQA').then((m) => m.AdminQA), { ssr: false, loading: TabLoading });
-const AdminExperiments = dynamic(() => import('@/components/admin/AdminExperiments').then((m) => m.AdminExperiments), { ssr: false, loading: TabLoading });
 const AdminFranchise = dynamic(() => import('@/components/admin/AdminFranchise').then((m) => m.AdminFranchise), { ssr: false, loading: TabLoading });
 const AdminWorkflowStudio = dynamic(() => import('@/components/admin/AdminWorkflowStudio').then((m) => m.AdminWorkflowStudio), { ssr: false, loading: TabLoading });
 
-export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canSell, sellerName, lang, t }: {
+export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sellerName, lang, t }: {
   activeTab: string;
   /**
    * Запись, ради которой пришли по ссылке из Telegram (`?focus=`).
    *
    * Ссылку строит ИИ-офис (`shared/admin_links.py`) из заявки владельцу:
-   * номер задачи, заказа, партии. Экраны, которым выделять нечего, его
+   * номер задачи или заказа. Экраны, которым выделять нечего, его
    * просто не берут — вкладка всё равно открыта правильная.
    */
   focus: string;
   /** Что положить в поиск раздела при открытии (`?q=`). */
   query?: string;
   isOwner: boolean;
-  /** Владелец или агроном — теплица открыта обоим. */
-  canGrow: boolean;
-  /** Владелец или продавец — касса. Агроному она не нужна. */
+  /** Владелец или продавец — касса. */
   canSell: boolean;
   sellerName: string;
   lang: 'ru' | 'uz';
@@ -124,8 +118,6 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
         сутки против недели. Экран один, старый адрес `revenue` оставлен
         живым — на него ведут ссылки из Telegram и закладки владельца. */}
     {(activeTab === 'stats' || activeTab === 'revenue') && isOwner && <AdminMoneyOverview />}
-    {activeTab === 'growing' && canGrow && <AdminGrowing focus={focus} />}
-    {activeTab === 'crop_norms' && isOwner && <AdminCropNorms />}
     {activeTab === 'customers' && (isOwner || canSell) && (
       // Имя автора чека — то же, что у кассы: продать теперь можно и с
       // точки на карте, и подписан такой чек должен быть одинаково.
@@ -194,13 +186,11 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
     {activeTab === 'audit' && isOwner && <AdminAudit lang={lang} />}
     {activeTab === 'settings' && isOwner && <AdminSettings lang={lang} />}
     
-    {/* Производство и Сеть */}
+    {/* Логистика и сеть */}
     {activeTab === 'deliveries' && isOwner && <AdminDeliveries />}
     {/* Свой рейс открыт и курьеру (canSell), и владельцу: рейс отбирается
         по имени в самом роуте, поэтому чужого здесь не покажут. */}
     {activeTab === 'my_route' && (isOwner || canSell) && <AdminMyRoute lang={lang} />}
-    {activeTab === 'qa' && isOwner && <AdminQA />}
-    {activeTab === 'experiments' && isOwner && <AdminExperiments />}
     {activeTab === 'franchise' && isOwner && <AdminFranchise />}
   </main>
   );

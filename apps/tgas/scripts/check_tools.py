@@ -62,7 +62,7 @@ def check_department_coverage() -> None:
     чего сторож и заведён: умеет ли отдел делать СВОЮ работу.
     """
     common_names = {t.name for t in tool_registry.tools_for("hr")} & {
-        t.name for t in tool_registry.tools_for("qa")
+        t.name for t in tool_registry.tools_for("devops")
     }
     for bot in bot_registry.BOTS:
         dept = bot.department
@@ -371,7 +371,6 @@ _ID_SOURCES = {
     "driver_id": ("list_staff",),
     "material_id": ("get_inventory",),
     "supplier_id": ("list_suppliers",),
-    "batch_id": ("get_grow_batches",),
     "task_id": ("get_tasks",),
 }
 
@@ -407,7 +406,7 @@ def check_tool_arguments_are_obtainable() -> None:
 def check_risky_tools_are_reachable() -> None:
     """У отдела с рискованным инструментом должен быть канал подтверждения.
 
-    qa_bot, rnd_bot и devops_bot не имеют Telegram-интерфейса и зовут
+    rnd_bot и devops_bot не имеют Telegram-интерфейса и зовут
     `execute_bot_task(bot=None)`. Пока `approvals.request` не умел запасного
     канала, заявка у них просто не создавалась: модель получала «подтвердить
     не удалось», и ЛЮБОЙ risky-инструмент этих отделов не выполнялся никогда.

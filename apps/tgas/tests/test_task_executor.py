@@ -198,8 +198,8 @@ async def test_unknown_department_goes_to_chief(patched, monkeypatch):
     )
     await task_executor.execute_bot_task(
         bot=FakeBot(),
-        bot_name="qa_bot",
-        department="qa",
+        bot_name="rnd_bot",
+        department="rnd",
         task_data={"task_id": 3, "title": "t", "chat_id": 5},
         team_context="ctx",
     )
@@ -210,28 +210,28 @@ async def test_unknown_department_goes_to_chief(patched, monkeypatch):
 # ── Безголовые боты ─────────────────────────────────────────────────────
 @pytest.mark.asyncio
 async def test_headless_bot_does_not_crash(patched, monkeypatch):
-    """qa/rnd/devops работают без Telegram: bot=None.
+    """rnd/devops работают без Telegram: bot=None.
 
     Раньше `bot.send_message` вызывался до проверки на None, и КАЖДАЯ задача
-    этих трёх ботов заканчивалась AttributeError.
+    этих ботов заканчивалась AttributeError.
     """
     import shared.task_executor as task_executor
 
     monkeypatch.setattr(
         task_executor,
         "AIEngine",
-        lambda *a, **k: ScriptedAI([FakeMessage(content="Партия проверена.")]),
+        lambda *a, **k: ScriptedAI([FakeMessage(content="Гипотеза записана.")]),
     )
     await task_executor.execute_bot_task(
         bot=None,
-        bot_name="qa_bot",
-        department="qa",
-        task_data={"task_id": 11, "title": "проверь партию", "chat_id": 5},
+        bot_name="rnd_bot",
+        department="rnd",
+        task_data={"task_id": 11, "title": "проверь гипотезу", "chat_id": 5},
         team_context="ctx",
     )
     done = [e for e in patched if str(e["event"]).lower() == "task_completed"]
     assert len(done) == 1
-    assert "Партия проверена." in done[0]["data"]["text"]
+    assert "Гипотеза записана." in done[0]["data"]["text"]
 
 
 @pytest.mark.asyncio
@@ -243,8 +243,8 @@ async def test_task_without_id_is_skipped(patched, monkeypatch):
     )
     await task_executor.execute_bot_task(
         bot=None,
-        bot_name="qa_bot",
-        department="qa",
+        bot_name="rnd_bot",
+        department="rnd",
         task_data={"title": "без id"},
         team_context="ctx",
     )

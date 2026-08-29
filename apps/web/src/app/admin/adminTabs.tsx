@@ -2,7 +2,7 @@
 
 import {
   Route,
-  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, ShoppingCart, Compass, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network, Share2
+  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, FileText, History, Layers, Leaf, Lock, Package, Percent, Play, ShoppingCart, Compass, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network, Share2
 } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -87,18 +87,6 @@ export const TAB_GROUPS = [
     ]
   },
   {
-    // Теплица: от нормы высева до контроля качества и опытов.
-    title: { ru: 'Производство', uz: 'Ishlab chiqarish' },
-    tabs: [
-      { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Leaf size={16} /> },
-      // Нормы расхода: по ним посадка списывает сырьё и считает себестоимость.
-      // Сидер справочника прямо отсылает владельца сюда, а экрана не было.
-      { id: 'crop_norms', ru: 'Нормы культур', uz: 'Ekin normalari', icon: <Sprout size={16} /> },
-      { id: 'qa', ru: 'Контроль качества', uz: 'Sifat nazorati', icon: <Eye size={16} /> },
-      { id: 'experiments', ru: 'Опыты (R&D)', uz: 'Tajribalar (R&D)', icon: <Lightbulb size={16} /> },
-    ]
-  },
-  {
     // Люди: свои сотрудники и то, что им поручено.
     title: { ru: 'Команда', uz: 'Jamoa' },
     tabs: [
@@ -162,12 +150,7 @@ export const SELLER_TABS = [
   { id: 'my_route', ru: 'Мой рейс', uz: 'Mening reysim', icon: <Navigation size={16} /> },
 ];
 
-/** Агроном ведёт теплицу: посадки и ничего больше. Касса ему не нужна. */
-export const GROWER_TABS = [
-  { id: 'growing', ru: 'Посадки', uz: 'Ekish', icon: <Leaf size={16} /> },
-];
-
-/** Вкладки сотрудника по его должности. Владелец сюда не попадает — у него все. */
-export function staffTabsFor(role: 'SELLER' | 'GROWER' | null) {
-  return role === 'GROWER' ? GROWER_TABS : SELLER_TABS;
+/** Вкладки сотрудника. Владелец сюда не попадает — у него все. */
+export function staffTabsFor() {
+  return SELLER_TABS;
 }

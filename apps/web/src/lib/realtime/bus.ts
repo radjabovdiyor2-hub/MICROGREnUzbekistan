@@ -32,7 +32,6 @@ export type Topic =
   | 'inventory'
   | 'customers'
   | 'tasks'
-  | 'growing'
   | 'bots';
 
 export interface ChangeEvent {

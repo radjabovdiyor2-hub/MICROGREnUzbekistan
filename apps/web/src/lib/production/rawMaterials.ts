@@ -1,4 +1,4 @@
-import { prisma, Prisma, type TransactionClient } from '@repo/database';
+import { prisma, Prisma } from '@repo/database';
 import { weightedAverageCost } from './weightedAverage';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -21,18 +21,6 @@ import { weightedAverageCost } from './weightedAverage';
 // `raw_material_movements`, одной транзакцией и относительной операцией —
 // ровно та ошибка, из-за которой у готового товара остатки разъезжались.
 // ══════════════════════════════════════════════════════════════════════
-
-/** Не хватило сырья: сколько нужно и сколько есть — чтобы можно было спросить. */
-export class NotEnoughMaterialError extends Error {
-  constructor(
-    readonly materialName: string,
-    readonly required: number,
-    readonly available: number,
-    readonly unit: string,
-  ) {
-    super(`${materialName}: нужно ${required} ${unit}, на складе ${available} ${unit}`);
-  }
-}
 
 const dec = (v: Prisma.Decimal | number | null | undefined): number =>
   v == null ? 0 : Number(v);
@@ -129,72 +117,6 @@ export async function receiveMaterial(input: ReceiptInput): Promise<ReceiptResul
       totalCost,
     };
   });
-}
-
-export interface ConsumeInput {
-  materialId: string;
-  quantity: number;
-  growBatchId?: string | null;
-  reason?: string;
-  performedBy?: string | null;
-}
-
-/**
- * Списать сырьё. Вызывается ВНУТРИ чужой транзакции (посадка списывает
- * несколько материалов разом и обязана быть атомарной: либо партия и все
- * списания, либо ничего).
- *
- * Возвращает стоимость списанного по текущей средневзвешенной цене — из неё
- * складывается себестоимость партии.
- */
-export async function consumeMaterial(
-  tx: TransactionClient,
-  input: ConsumeInput,
-): Promise<{ cost: number; unitCost: number; stockAfter: number }> {
-  const quantity = Math.abs(Number(input.quantity));
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    return { cost: 0, unitCost: 0, stockAfter: 0 };
-  }
-
-  const material = await tx.rawMaterial.findUnique({ where: { id: input.materialId } });
-  if (!material) throw new Error('Сырьё не найдено');
-
-  const unitCost = dec(material.avgCost);
-  const cost = quantity * unitCost;
-
-  // Условное списание: не хватило — ничего не записалось. Проверка и запись
-  // одной операцией, чтобы между ними не проскочила вторая посадка.
-  const decremented = await tx.rawMaterial.updateMany({
-    where: { id: material.id, stock: { gte: new Prisma.Decimal(quantity) } },
-    data: { stock: { decrement: new Prisma.Decimal(quantity) } },
-  });
-  if (decremented.count === 0) {
-    throw new NotEnoughMaterialError(
-      material.name,
-      quantity,
-      dec(material.stock),
-      material.unit,
-    );
-  }
-
-  await tx.rawMaterialMovement.create({
-    data: {
-      materialId: material.id,
-      type: 'CONSUME',
-      quantity: new Prisma.Decimal(-quantity),
-      unitCost: new Prisma.Decimal(unitCost.toFixed(2)),
-      totalCost: new Prisma.Decimal(cost.toFixed(2)),
-      growBatchId: input.growBatchId || null,
-      reason: input.reason || 'Расход на посадку',
-      performedBy: input.performedBy || 'System',
-    },
-  });
-
-  return {
-    cost,
-    unitCost,
-    stockAfter: dec(material.stock) - quantity,
-  };
 }
 
 /** Сырьё, которого осталось меньше порога, — для предупреждений. */

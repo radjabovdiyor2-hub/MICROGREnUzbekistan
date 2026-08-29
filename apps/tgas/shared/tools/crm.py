@@ -44,7 +44,6 @@ DEPTS = [
     "marketing",
     "hr",
     "content",
-    "qa",
     "rnd",
     "devops",
 ]

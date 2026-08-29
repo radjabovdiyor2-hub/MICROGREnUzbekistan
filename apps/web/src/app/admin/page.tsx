@@ -30,9 +30,7 @@ export default async function AdminPage() {
   // входа, как и полному незнакомцу. Иначе вошедший в кабинет клиент попадал
   // бы в оболочку админки — пусть и без прав на её API.
   const staffRole =
-    session?.role === 'ADMIN' || session?.role === 'SELLER' || session?.role === 'GROWER'
-      ? session.role
-      : null;
+    session?.role === 'ADMIN' || session?.role === 'SELLER' ? session.role : null;
 
   return (
     <AdminShell

@@ -8,10 +8,10 @@ Guidance для Claude Code при работе в этом репозитори
 
 | Модуль | Стек | Роль |
 |--------|------|------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 30 API-групп, 125 роутов |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 30 API-групп, 120 роутов |
 | `apps/bot` | Python, aiogram 3, OpenAI | Telegram-бот витрины: AI-продавец, ходит в `apps/web/api/*` по HTTP |
-| `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 12 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
-| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 86 моделей, единый источник DDL |
+| `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 11 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
+| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 82 модели, единый источник DDL |
 
 Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
 
@@ -80,7 +80,7 @@ python scripts/check_docs_numbers.py   # числа в документах со
 
 - `packages/database/prisma/schema.prisma` — вся схема БД
 - `apps/web/src/app/globals.css` — Design System v1.0
-- `apps/tgas/shared/bot_registry.py` — реестр 12 ботов + мост (порты, отделы)
+- `apps/tgas/shared/bot_registry.py` — реестр 11 ботов + мост (порты, отделы)
 - `apps/tgas/shared/event_bus.py`, `shared/bot_bus.py` — межботовая связь
 
 ## Документация

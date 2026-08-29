@@ -103,5 +103,5 @@ def test_department_hint_only_where_screen_takes_it():
 
 
 def test_tab_of_returns_none_for_unknown():
-    assert menu_button.tab_of("qa_bot") is None
+    assert menu_button.tab_of("no_such_bot") is None
     assert menu_button.tab_of("finance_bot") == "finance"

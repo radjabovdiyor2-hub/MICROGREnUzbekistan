@@ -31,7 +31,7 @@ docker compose up -d postgres redis
 python -m bots.sales_bot.main
 python -m bots.stepan_bot.main
 # ... и так далее для hr_bot, finance_bot, marketing_bot, support_bot, pm_bot, analytics_bot,
-#     content_bot, devops_bot, qa_bot, rnd_bot, n8n_bridge
+#     content_bot, devops_bot, rnd_bot, n8n_bridge
 ```
 
 **Запуск веб-дашборда:**
@@ -57,7 +57,7 @@ bots/<name>_bot/
 ├── handlers/        # Router'ы aiogram (список all_routers экспортируется из handlers/__init__.py)
 └── keyboards/       # билдеры inline-клавиатур
 ```
-Более лёгкие сервисные боты (`devops_bot`, `qa_bot`, `rnd_bot`, `n8n_bridge`) — это однофайловый `main.py`
+Более лёгкие сервисные боты (`devops_bot`, `rnd_bot`, `n8n_bridge`) — это однофайловый `main.py`
 вообще без Telegram `Dispatcher`: это чистые воркеры event-bus/bot-bus или простые aiohttp
 webhook-приёмники.
 
@@ -110,7 +110,7 @@ logistics** своего бота НЕ имеют — их принимает **
 ```
 stepan=8081  sales=8082  support=8083  hr=8084  finance=8085
 marketing=8086  pm=8087  analytics=8088  content=8089
-qa=8090  rnd=8091  devops=8092
+rnd=8091  devops=8092
 ```
 
 ### База данных

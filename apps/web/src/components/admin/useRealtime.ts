@@ -47,7 +47,6 @@ const KEYS_BY_TOPIC: Record<string, string[]> = {
   ],
   customers: ['admin-customers', 'admin-customer', 'admin-customers-map'],
   tasks: ['admin-tasks', 'admin-approvals', 'admin-department'],
-  growing: ['admin-grow-summary', 'admin-grow-batches', 'admin-crop-norms', 'admin-qa'],
   bots: ['admin-bot-health', 'admin-ai-spend'],
 };
 

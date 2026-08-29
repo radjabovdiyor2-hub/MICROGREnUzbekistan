@@ -36,7 +36,6 @@ LISTENED_DEPARTMENTS = {
     "marketing",
     "analytics",
     "content",
-    "qa",
     "rnd",
     "devops",
 }

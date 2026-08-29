@@ -82,7 +82,7 @@ export const WRITE_TOOLS_CORE: WriteTool[] = [
       department: {
         type: 'string', description: 'Отдел-исполнитель',
         enum: ['sales', 'support', 'finance', 'hr', 'marketing', 'analytics',
-               'content', 'qa', 'rnd', 'devops', 'pm', 'operations', 'production', 'logistics'],
+               'content', 'rnd', 'devops', 'pm', 'operations', 'production', 'logistics'],
       },
       title: { type: 'string', description: 'Что нужно сделать' },
       priority: { type: 'string', description: 'Приоритет', enum: ['low', 'medium', 'high', 'urgent'] },

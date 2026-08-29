@@ -11,8 +11,7 @@ class WorkflowManager:
     def __init__(self):
         self.workflows = {
             "new_product_launch": {
-                "step_1": {"bot": "rnd_bot", "next": "qa_check"},
-                "qa_check": {"bot": "qa_bot", "next": "hitl_approval"},
+                "step_1": {"bot": "rnd_bot", "next": "hitl_approval"},
                 "hitl_approval": {"bot": "admin", "next": "marketing_campaign"},
                 "marketing_campaign": {"bot": "marketing_bot", "next": "done"}
             }
@@ -51,12 +50,6 @@ class WorkflowManager:
             
         next_step = step_config.get("next")
         if next_step and next_step != "done":
-            # Проверка на брак от QA (Пример условного перехода/цикла)
-            if current_step == "qa_check" and data.get("is_defect") is True:
-                logger.info(f"Workflow {workflow_name}: QA failed, looping back to rnd_bot")
-                await self._dispatch_step(workflow_name, "step_1", {"error": "QA Failed", **data})
-                return
-                
             await self._dispatch_step(workflow_name, next_step, data)
         elif next_step == "done":
             logger.info(f"Workflow {workflow_name} completed successfully.")

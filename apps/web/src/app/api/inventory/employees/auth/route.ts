@@ -52,12 +52,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PIN noto'g'ri" }, { status: 401 });
     }
 
-    // Должность из карточки сотрудника решает, что он увидит. Поле `role`
-    // существовало и раньше, но ни на что не влияло: любой сотрудник получал
-    // SELLER и одну вкладку «Продажи», поэтому агроному, который ведёт
-    // теплицу, показывать было нечего — посадки лежат под доступом владельца.
-    const sessionRole = employee.role === 'grower' ? 'GROWER' : 'SELLER';
-
+    const sessionRole = 'SELLER' as const;
     const ua = request.headers.get('user-agent') ?? '';
     const fp = await sessionFingerprint(ip, ua);
     const token = await createSession({ role: sessionRole, name: employee.name, fp });

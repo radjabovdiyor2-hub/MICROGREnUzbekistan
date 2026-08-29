@@ -71,10 +71,10 @@ describe('черновик формы', () => {
 
   it('черновики разных форм не смешиваются', () => {
     writeDraft(store, draftKey('product', null), { name: 'товар' });
-    writeDraft(store, draftKey('growing', null), { name: 'посадка' });
+    writeDraft(store, draftKey('products', null), { name: 'товар' });
 
     expect(readDraft<{ name: string }>(store, draftKey('product', null))?.name).toBe('товар');
-    expect(readDraft<{ name: string }>(store, draftKey('growing', null))?.name).toBe('посадка');
+    expect(readDraft<{ name: string }>(store, draftKey('products', null))?.name).toBe('товар');
   });
 
   it('запись старше суток не возвращается и стирается', () => {

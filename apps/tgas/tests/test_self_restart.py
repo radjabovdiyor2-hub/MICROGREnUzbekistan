@@ -59,8 +59,8 @@ async def test_handler_survives_empty_params(monkeypatch):
     monkeypatch.setattr(self_restart.os, "_exit", lambda code: None)
     monkeypatch.setattr(self_restart, "GRACE_SECONDS", 0)
 
-    assert (await self_restart.handler("qa_bot")(None))["status"] == "ok"
-    assert (await self_restart.handler("qa_bot")({}))["status"] == "ok"
+    assert (await self_restart.handler("rnd_bot")(None))["status"] == "ok"
+    assert (await self_restart.handler("rnd_bot")({}))["status"] == "ok"
 
 
 def test_every_bot_with_a_bus_listener_can_restart():

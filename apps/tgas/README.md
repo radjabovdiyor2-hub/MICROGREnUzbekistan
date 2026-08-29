@@ -125,7 +125,6 @@ Telegram-боты (aiogram, FSM + AI-чат):
 | Бот | Роль | Модуль |
 |-----|------|--------|
 | DevOps Bot | 🛠 Бэкапы БД, обслуживание | `bots.devops_bot.main` |
-| QA Bot | 🔬 Контроль качества (Vision-анализ фото всходов) | `bots.qa_bot.main` |
 | R&D Bot | 🧬 Анализ трендов | `bots.rnd_bot.main` |
 | n8n Bridge | 🌉 Мост к n8n (почта / календарь / контакты) | `bots.n8n_bridge.main` |
 

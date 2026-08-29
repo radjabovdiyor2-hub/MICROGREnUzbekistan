@@ -32,7 +32,6 @@ export const DEPARTMENTS: Dept[] = [
   { id: 'analytics', ru: 'Аналитика', uz: 'Analitika' },
   { id: 'hr', ru: 'Кадры (HR)', uz: 'Kadrlar (HR)' },
   { id: 'support', ru: 'Поддержка', uz: "Qo'llab-quvvatlash" },
-  { id: 'qa', ru: 'QA / Качество', uz: 'QA / Sifat' },
   { id: 'devops', ru: 'DevOps / IT', uz: 'DevOps / IT' },
   { id: 'rnd', ru: 'R&D', uz: 'R&D' },
 ];

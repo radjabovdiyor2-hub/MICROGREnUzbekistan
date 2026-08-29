@@ -44,11 +44,6 @@ export const runtime = 'nodejs';
 const LIMIT = 20;
 const WINDOW_MS = 60 * 60 * 1000;
 
-/** Должность из карточки решает, что человек увидит. */
-function sessionRoleOf(role: string): 'SELLER' | 'GROWER' {
-  return role === 'grower' ? 'GROWER' : 'SELLER';
-}
-
 export async function POST(request: NextRequest) {
   const ip = clientIp(request);
   const limit = await consume(`tgstaff:${ip}`, LIMIT, WINDOW_MS);
@@ -96,7 +91,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const role = sessionRoleOf(employee.role);
+  const role = 'SELLER' as const;
   const fp = await sessionFingerprint(ip, request.headers.get('user-agent') ?? '');
   const token = await createSession({ role, name: employee.name, fp });
   if (!token) {

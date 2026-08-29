@@ -33,7 +33,7 @@ import { publish, type Topic } from '@/lib/realtime/bus';
 
 /** Темы, которые офис вправе объявить изменившимися. */
 const TOPICS: readonly Topic[] = [
-  'products', 'orders', 'inventory', 'customers', 'tasks', 'growing', 'bots',
+  'products', 'orders', 'inventory', 'customers', 'tasks', 'bots',
 ];
 
 function isTopic(value: unknown): value is Topic {

@@ -36,7 +36,7 @@ TIMEOUT_SECONDS = 4
 #: Список продублирован намеренно: импорта между приложениями нет, а
 #: опечатка иначе всплыла бы молчащим экраном. Сверяет `check_tools.py`.
 TOPICS = frozenset(
-    {"products", "orders", "inventory", "customers", "tasks", "growing", "bots"}
+    {"products", "orders", "inventory", "customers", "tasks", "bots"}
 )
 
 
