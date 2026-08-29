@@ -5,6 +5,7 @@ import {
   Clock, Home, Instagram, MapPin, Navigation, Phone, Truck,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { WhenVisible } from '@/components/ui/WhenVisible';
 
 // maplibre-gl трогает window на импорте — при SSR падает сборка.
 const StoreMap = dynamic(() => import('./StoreMap'), {
@@ -108,7 +109,11 @@ export function StoreLocation() {
             </div>
           </div>
 
-          {/* Map — lazy loaded on click */}
+          {/* Карта грузится, когда до неё доскроллили.
+              `dynamic` откладывает разбор кода, но не загрузку: импорт
+              уходил в сеть при открытии главной, и вместе с ним MapLibre,
+              тайлы, спрайты и шрифты — сотни килобайт ради блока в самом
+              низу страницы, до которого доходят единицы. */}
           <div style={{
             borderRadius: 'var(--radius-xl)',
             overflow: 'hidden',
@@ -117,11 +122,17 @@ export function StoreLocation() {
             position: 'relative',
             background: 'var(--bg-tertiary)',
           }}>
-              <StoreMap
-                latitude={STORE_LAT}
-                longitude={STORE_LON}
-                title={t("Microgreen do'koni joylashuvi", 'Расположение магазина Microgreen')}
-              />
+              <WhenVisible
+                placeholder={
+                  <div style={{ width: '100%', height: '100%', background: 'var(--bg-tertiary)' }} />
+                }
+              >
+                <StoreMap
+                  latitude={STORE_LAT}
+                  longitude={STORE_LON}
+                  title={t("Microgreen do'koni joylashuvi", 'Расположение магазина Microgreen')}
+                />
+              </WhenVisible>
             {/* Map Actions Overlay */}
             <div style={{
               position: 'absolute',
