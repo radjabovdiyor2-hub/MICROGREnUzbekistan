@@ -37,7 +37,7 @@ const PUBLIC_BY_DESIGN = [
   '/api/auth/telegram-admin',
   '/api/auth/telegram-staff',
   '/api/auth/telegram-webapp',
-  '/api/auth/webauthn',      // вход отключён, отвечает 501
+  '/api/auth/webauthn',      // вход по ключу: подпись и есть проверка, сессии до неё нет
   '/api/categories',
   '/api/config',             // публичные настройки: витрина и бот
   '/api/content/recipe-of-day',

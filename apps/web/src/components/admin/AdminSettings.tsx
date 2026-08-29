@@ -1,6 +1,7 @@
 'use client';
 
 import { PasswordCard } from './AdminPasswordCard';
+import { PasskeyCard } from './AdminPasskeyCard';
 import { AlertTriangle, CheckCircle, Clock, RotateCcw, Save, Search } from 'lucide-react';
 import { AdminSettingField } from './AdminSettingField';
 import { useAdminSettings } from './useAdminSettings';
@@ -101,6 +102,10 @@ export function AdminSettings({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       ))}
 
       <PasswordCard lang={lang} />
+
+      {/* Ключ входа — рядом с паролем: это два способа попасть внутрь,
+          и решение «завести или снять» принимают в одном месте. */}
+      <PasskeyCard lang={lang} />
     </div>
   );
 }
