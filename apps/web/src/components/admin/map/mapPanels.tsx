@@ -107,6 +107,7 @@ export function TrayPanel({
       onStartChain={m.startChain}
       onStopChain={m.stopChain}
       isOwner={isOwner}
+      loading={m.isLoading && m.collection.features.length === 0}
     />
   );
 }

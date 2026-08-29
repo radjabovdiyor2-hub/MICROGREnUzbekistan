@@ -33,6 +33,15 @@ interface Props {
   onStopChain: () => void;
   /** Пакетный геокодер — только владельцу. */
   isOwner: boolean;
+  /**
+   * Карта ещё грузится и показывать нечего.
+   *
+   * Пустой лоток означает «все клиенты расставлены» — но ровно так же он
+   * выглядит, пока точки не приехали. Утверждение «все на карте» рядом с
+   * пустой картой человек читает как «клиентов больше нет», и это первое,
+   * что он видит после повторного входа: карта пустая, а подпись уверена.
+   */
+  loading?: boolean;
 }
 
 const label = {
@@ -42,6 +51,7 @@ const label = {
   cancel: { ru: 'Отмена', uz: 'Bekor qilish' },
   noAddress: { ru: 'адрес не указан', uz: 'manzil koʻrsatilmagan' },
   empty: { ru: 'Все клиенты на карте', uz: 'Barcha mijozlar xaritada' },
+  loading: { ru: 'Загружаем клиентов…', uz: 'Mijozlar yuklanmoqda…' },
   chain: { ru: 'Расставить подряд', uz: 'Ketma-ket joylash' },
   stopChain: { ru: 'Закончить', uz: 'Tugatish' },
   next: { ru: 'Сейчас ставим', uz: 'Hozir qoʻyamiz' },
@@ -59,6 +69,7 @@ export function UnplacedTray({
   onStartChain,
   onStopChain,
   isOwner,
+  loading = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const current = items.find((c) => c.id === placingId) ?? null;
@@ -69,7 +80,7 @@ export function UnplacedTray({
         className="card"
         style={{ padding: 'var(--space-3)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}
       >
-        {label.empty[lang]}
+        {loading ? label.loading[lang] : label.empty[lang]}
       </div>
     );
   }
