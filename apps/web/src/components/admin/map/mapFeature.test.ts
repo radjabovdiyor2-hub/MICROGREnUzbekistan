@@ -7,8 +7,10 @@ import {
   SEARCH_LIMIT,
   TASHKENT,
   boundsOfFeatures,
+  heatOf,
   routeCollection,
   searchPoints,
+  type MapCollection,
 } from './mapFeature';
 import type { MapFeature } from './mapFeature';
 
@@ -153,5 +155,29 @@ describe('routeCollection', () => {
       routeCollection(swapped).features.map((f) => [f.id, f.properties?.seq]),
     );
     expect(seqById).toEqual({ 9: 1, 7: 2 });
+  });
+});
+
+describe('чем взвешивать тепло', () => {
+  it('берёт указание сервера, когда оно есть', () => {
+    const summary = {
+      heat: { field: 'oc' as const, p80: 12 },
+      spentPercentiles: { p50: 1, p80: 900 },
+    } as unknown as MapCollection['summary'];
+    expect(heatOf(summary)).toEqual({ field: 'oc', p80: 12 });
+  });
+
+  it('переживает снимок, снятый прежней версией', () => {
+    // Снимок карты лежит в localStorage и разбирается из JSON: поля `heat`
+    // в нём нет, а тип об этом не знает. Без запасного ответа обращение к
+    // `heat.field` роняло отрисовку слоёв — то есть карту целиком — ровно
+    // у того, кто уже ею пользовался.
+    const old = { spentPercentiles: { p50: 1, p80: 900 } } as unknown as MapCollection['summary'];
+    expect(heatOf(old)).toEqual({ field: 'sp', p80: 900 });
+  });
+
+  it('пустой снимок не даёт NaN в пороге', () => {
+    const bare = {} as unknown as MapCollection['summary'];
+    expect(heatOf(bare)).toEqual({ field: 'sp', p80: 0 });
   });
 });

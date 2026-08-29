@@ -96,7 +96,8 @@ export interface UnplacedCustomer {
   city: string;
   address: string | null;
   ordersCount: number;
-  totalSpent: number;
+  /** null — смотрит не владелец. Ноль означал бы «ничего не покупал». */
+  totalSpent: number | null;
   lastOrderDate: string | null;
   state: SegmentState;
   /** Тип заведения: в лотке он подсказывает, где искать адрес. */
@@ -139,8 +140,29 @@ export interface MapCollection {
     placed: number;
     unplaced: number;
     byState: Record<SegmentState, number>;
-    revenueByState: Record<SegmentState, number>;
-    spentPercentiles: { p50: number; p80: number };
+    /**
+     * Выручка по состояниям. null — смотрит не владелец.
+     *
+     * Здесь она НЕ маскировалась, при том что сумма каждой точки (`sp`) и
+     * разрез по районам маскируются. Легенда печатает эти числа прямо на
+     * экране, поэтому продавец видел всю выручку по состояниям — ровно то,
+     * что от него закрывают в остальных местах.
+     */
+    revenueByState: Record<SegmentState, number | null>;
+    /** Пороги сумм для раскраски. null — смотрит не владелец. */
+    spentPercentiles: { p50: number | null; p80: number | null };
+    /**
+     * Чем взвешивать тепловой слой.
+     *
+     * Тепло всегда считалось по сумме (`sp`). У продавца она замаскирована,
+     * `coalesce(sp, 0)` давал ноль на КАЖДОЙ точке, и слой рисовал ровную
+     * заливку одной интенсивности: карта показывала «везде одинаково» и не
+     * сообщала об этом ничем. Когда деньги закрыты, взвешиваем по числу
+     * заказов — вопрос «где густо» остаётся с честным ответом.
+     */
+    heat: { field: 'sp' | 'oc'; p80: number };
+    /** Закрыты ли деньги для того, кто смотрит. */
+    moneyHidden: boolean;
     /** Заведений-целей на карте. Есть только когда запрошен слой проспектов. */
     prospects?: number;
     /** Разрез по районам, от худшего покрытия к лучшему. */
@@ -309,6 +331,9 @@ export function buildMapCollection(
   const visits = options.visits ?? new Map<number, Date>();
   const hideMoney = options.hideMoney ?? false;
   const percentiles = spentPercentiles(customers.map((c) => Number(c.totalSpent || 0)));
+  // Порог по заказам — на случай, когда деньги закрыты и тепло считается
+  // по ним. Считаем всегда: выборка уже в памяти, и ветвление тут дороже.
+  const ordersP80 = spentPercentiles(customers.map((c) => c.ordersCount)).p80;
 
   const features: MapFeature[] = [];
   const unplaced: UnplacedCustomer[] = [];
@@ -339,7 +364,7 @@ export function buildMapCollection(
         city: c.city,
         address: c.address,
         ordersCount: c.ordersCount,
-        totalSpent: spent,
+        totalSpent: maskSum(spent, hideMoney),
         lastOrderDate: c.lastOrderDate ? c.lastOrderDate.toISOString() : null,
         state: segment.state,
         companyType: c.companyType,
@@ -383,8 +408,15 @@ export function buildMapCollection(
       placed: features.length,
       unplaced: unplaced.length,
       byState,
-      revenueByState,
-      spentPercentiles: percentiles,
+      revenueByState: maskCounters(revenueByState, hideMoney),
+      spentPercentiles: {
+        p50: maskSum(percentiles.p50, hideMoney),
+        p80: maskSum(percentiles.p80, hideMoney),
+      },
+      heat: hideMoney
+        ? { field: 'oc', p80: ordersP80 }
+        : { field: 'sp', p80: percentiles.p80 },
+      moneyHidden: hideMoney,
       districts: districtStats(features),
       coverage: computeCoverage(customers),
     },
@@ -400,6 +432,20 @@ export function buildMapCollection(
  * Клиенты без района не выдумываются в «прочее»: если район не определён,
  * строки просто нет — пустая категория выглядела бы как реальная территория.
  */
+/**
+ * Спрятать набор сумм целиком. Прочерк, а не ноль: ноль в легенде читается
+ * как «в этом состоянии денег нет», и это неправда, а не отсутствие доступа.
+ */
+function maskCounters(
+  counters: Record<SegmentState, number>,
+  hide: boolean,
+): Record<SegmentState, number | null> {
+  if (!hide) return counters;
+  const out = {} as Record<SegmentState, number | null>;
+  for (const key of Object.keys(counters) as SegmentState[]) out[key] = null;
+  return out;
+}
+
 export function districtStats(features: MapFeature[]): DistrictStat[] {
   const byDistrict = new Map<string, DistrictStat>();
 

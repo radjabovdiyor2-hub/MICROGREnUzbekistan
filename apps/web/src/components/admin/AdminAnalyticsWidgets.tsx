@@ -1,5 +1,6 @@
 'use client';
 
+import { Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Clock } from 'lucide-react';
 import { tint } from '@/lib/tint';
@@ -123,8 +124,11 @@ export function ABCXYZWidget() {
         ))}
         {/* Rows */}
         {['A', 'B', 'C'].map(abc => (
-          <>
-            <div key={`label-${abc}`} style={{ fontSize: '10px', fontWeight: 'var(--font-bold)', color: 'var(--text-muted)', padding: '8px 6px', display: 'flex', alignItems: 'center' }}>{abc}</div>
+          // Ключ — на самом ФРАГМЕНТЕ, а не на первом его ребёнке: список
+          // строит именно фрагмент, и React ругался про «unique key prop»
+          // на каждую отрисовку матрицы, хотя внутри ключи были.
+          <Fragment key={abc}>
+            <div style={{ fontSize: '10px', fontWeight: 'var(--font-bold)', color: 'var(--text-muted)', padding: '8px 6px', display: 'flex', alignItems: 'center' }}>{abc}</div>
             {['X', 'Y', 'Z'].map(xyz => {
               const cls = `${abc}${xyz}`;
               const count = classSummary[cls] || 0;
@@ -139,7 +143,7 @@ export function ABCXYZWidget() {
                 </div>
               );
             })}
-          </>
+          </Fragment>
         ))}
       </div>
       </div>

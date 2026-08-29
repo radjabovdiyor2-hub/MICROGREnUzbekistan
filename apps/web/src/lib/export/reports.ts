@@ -1,6 +1,8 @@
 import { prisma } from '@repo/database';
 
 import { soldProductName } from '@/lib/products/sold';
+import { lineTotal } from '@/lib/qty';
+import { POS_SALE_WHERE, byBusinessDate } from '@/lib/revenue/salesLedger';
 
 // ══════════════════════════════════════════════════════════════════════
 // Выгрузки в CSV — сборка отчётов отдельно от роута.
@@ -120,11 +122,43 @@ async function movements(): Promise<Report> {
   return { filename: 'harakatlar_hisobot', csv };
 }
 
+/**
+ * Продажи за 30 дней: сайт, касса и возвраты одним файлом.
+ *
+ * ЧТО ЗДЕСЬ БЫЛО НЕВЕРНО — четыре вещи, и каждая тихо меняла цифры.
+ *
+ *   1. Касса отбиралась по началу строки `reason` («Do'kon sotish»). Продажи
+ *      в долг пишутся как «Qarzga sotish» и в выгрузку не попадали вовсе —
+ *      при том, что в выручку они входят. Тот же дефект уже ловили в отчёте
+ *      смены; определение продажи одно на витрину, и живёт оно в
+ *      `lib/revenue/salesLedger`: движение OUT без заказа и с ценой продажи.
+ *   2. Цена бралась из `product.price` — СЕГОДНЯШНЕГО прайса. Продали со
+ *      скидкой или по договорной цене месяц назад — в файле стояла цена,
+ *      по которой не продавали. Правильная цена лежит в `salePrice`.
+ *   3. Дата бралась из `createdAt`. Продажа, занесённая задним числом,
+ *      попадала в файл не своим днём.
+ *   4. Колонка «Kim» отвечала на два разных вопроса: у онлайна это
+ *      покупатель, у кассы — продавец. Теперь их две.
+ *
+ * Возвраты добавлены отдельным типом со знаком минус: без них сумма файла
+ * не сходится с выручкой, которую показывает админка.
+ */
 async function sales(): Promise<Report> {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
-  const [online, pos] = await Promise.all([
+  const posInclude = {
+    product: { select: { nameUz: true, price: true } },
+    sale: {
+      select: {
+        number: true,
+        performedBy: true,
+        customer: { select: { name: true, companyName: true } },
+      },
+    },
+  } as const;
+
+  const [online, pos, refunds] = await Promise.all([
     prisma.order.findMany({
       where: { createdAt: { gte: since }, status: { not: 'CANCELLED' } },
       include: {
@@ -132,31 +166,62 @@ async function sales(): Promise<Report> {
         user: { select: { firstName: true, phone: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: MAX_ROWS,
     }),
     prisma.stockMovement.findMany({
-      where: { type: 'OUT', reason: { startsWith: "Do'kon sotish" }, createdAt: { gte: since } },
-      include: { product: { select: { nameUz: true, price: true } } },
-      orderBy: { createdAt: 'desc' },
+      where: {
+        ...POS_SALE_WHERE,
+        ...byBusinessDate({ gte: since }),
+      },
+      include: posInclude,
+      orderBy: { soldAt: 'desc' },
+      take: MAX_ROWS,
+    }),
+    prisma.stockMovement.findMany({
+      where: {
+        type: 'IN',
+        reason: { startsWith: 'Qaytarish' },
+        ...byBusinessDate({ gte: since }),
+      },
+      include: posInclude,
+      orderBy: { soldAt: 'desc' },
+      take: MAX_ROWS,
     }),
   ]);
 
-  let csv = 'Sana,Turi,Raqam,Tovar,Miqdor,Narx,Jami,Kim\n';
+  /** Покупатель чека кассы: заведение важнее контактного лица. */
+  const buyerOf = (m: (typeof pos)[number]): string =>
+    m.sale?.customer?.companyName || m.sale?.customer?.name || '-';
+
+  let csv = 'Sana,Turi,Raqam,Tovar,Miqdor,Narx,Jami,Mijoz,Sotuvchi\n';
   for (const o of online) {
     for (const item of o.items) {
+      const qty = Number(item.quantity);
       csv += row([
         dt(o.createdAt), 'Online', o.orderNumber, soldProductName(item),
-        item.quantity, item.price, item.quantity * item.price,
+        qty, item.price, lineTotal(item.price, qty),
         o.user?.firstName || o.phone || '-',
+        // У заказа с сайта продавца нет — его оформил сам покупатель.
+        '-',
       ]);
     }
   }
   for (const m of pos) {
-    const match = m.reason?.match(/\(S-[A-Z0-9-]+\)/);
-    const price = m.product?.price ?? 0;
-    const qty = Math.abs(m.quantity);
+    const price = m.salePrice ?? m.product?.price ?? 0;
+    const qty = Math.abs(Number(m.quantity));
     csv += row([
-      dt(m.createdAt), "Do'kon", match ? match[0].replace(/[()]/g, '') : '-',
-      soldProductName(m), qty, price, qty * price, m.performedBy || '-',
+      dt(m.soldAt ?? m.createdAt), "Do'kon", m.sale?.number ?? '-',
+      soldProductName(m), qty, price, lineTotal(price, qty),
+      buyerOf(m), m.sale?.performedBy ?? m.performedBy ?? '-',
+    ]);
+  }
+  for (const m of refunds) {
+    const price = m.salePrice ?? m.product?.price ?? 0;
+    const qty = Math.abs(Number(m.quantity));
+    csv += row([
+      dt(m.soldAt ?? m.createdAt), 'Qaytarish', m.sale?.number ?? '-',
+      soldProductName(m), -qty, price, -lineTotal(price, qty),
+      buyerOf(m), m.sale?.performedBy ?? m.performedBy ?? '-',
     ]);
   }
   return { filename: 'sotishlar_hisobot', csv };

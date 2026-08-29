@@ -3,6 +3,7 @@
 import React from 'react';
 import { Banknote, CheckCircle, Clock, CreditCard, RefreshCw } from 'lucide-react';
 import { formatQtyWithUnit, lineTotal } from '@/lib/qty';
+import { paymentLabel } from '@/lib/pos/labels';
 import type { SaleResultData } from './posReceiptTypes';
 
 export function AdminPOSReceiptCard({
@@ -16,7 +17,9 @@ export function AdminPOSReceiptCard({
   // Позиции, а не сумма количеств: 2 лотка и 1 кг — это не «3 товара»,
   // и с дробными количествами такая сумма выглядела бы как «2.3 товар(ов)».
   const itemCount = saleResult.items?.length || 0;
-  const payLabel = saleResult.payMethod === 'cash' ? 'Наличные' : saleResult.payMethod === 'card' ? 'Карта' : 'В долг';
+  // Подпись способа оплаты — из общего словаря: три её написания уже
+  // разъезжались (карточка чека, сообщение бота, история продаж).
+  const payLabel = paymentLabel(saleResult.payMethod, 'ru') ?? '';
   const payIcon = saleResult.payMethod === 'cash' ? <Banknote size={14} /> : saleResult.payMethod === 'card' ? <CreditCard size={14} /> : <Clock size={14} />;
 
   return (

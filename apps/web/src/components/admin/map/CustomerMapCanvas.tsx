@@ -264,7 +264,10 @@ export default function CustomerMapCanvas(props: Props) {
   }, [delivery]);
 
   // ── Раскраска: меняем paint, данные не трогаем ─────────────────────
-  const p80 = data.summary.spentPercentiles.p80;
+  // Порог сумм нужен только режиму «по выручке», а он открыт лишь
+  // владельцу (см. MapFilterRibbons). У продавца он замаскирован — ноль
+  // здесь означает «этой раскраски всё равно нет в его списке».
+  const p80 = data.summary.spentPercentiles?.p80 ?? 0;
   useEffect(() => {
     const instance = map.current;
     if (!instance || !ready.current) return;

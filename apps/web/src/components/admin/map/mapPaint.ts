@@ -161,11 +161,11 @@ export function clusterRadius(): Expression {
  * Нижняя ступень НЕ ноль: клиент без выручки — всё равно клиент, и
  * нулевой вес выкинул бы его из карты плотности совсем.
  */
-export function heatWeight(p80: number): Expression {
+export function heatWeight(field: 'sp' | 'oc', p80: number): Expression {
   return [
     'interpolate',
     ['linear'],
-    ['coalesce', ['get', 'sp'], 0],
+    ['coalesce', ['get', field], 0],
     0, 0.3,
     Math.max(p80, 1), 1,
   ];

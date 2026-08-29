@@ -1,20 +1,39 @@
 'use client';
 
-import { Clock, Download, ShoppingCart } from 'lucide-react';
+import { Clock, Download, RotateCcw, ShoppingCart } from 'lucide-react';
 import type { CSSProperties } from 'react';
+
+import { AdminSaleRow } from './AdminSaleRow';
 import type { Sale } from './movementTypes';
 
-// Вкладка «История продаж» кассы. Вынесено из AdminMovements: файл перерос
-// 200 строк, а две его вкладки друг о друге ничего не знают.
+// ══════════════════════════════════════════════════════════════════════
+// Вкладка «История продаж» кассы.
+//
+// ВОЗВРАТЫ ТЕПЕРЬ ВИДНЫ. Сервер считал их с самого начала и вычитал из
+// «Tushum», но на экран не выводил ни одной строкой: сумма чеков не сходилась
+// с выручкой дня, и объяснения этому в интерфейсе не было. Отдельным списком,
+// а не вперемешку с продажами: возврат — это отмена, и смешивать его со
+// продажами в одной ленте значит прятать его в ней.
+//
+// Кто продал и кому — в самой карточке чека (AdminSaleRow).
+// ══════════════════════════════════════════════════════════════════════
+
+const text = {
+  returns: { ru: 'Возвраты', uz: 'Qaytarishlar' },
+  empty: { ru: 'В этот день продаж нет', uz: "Bu kunda sotishlar yo'q" },
+};
 
 export function AdminSalesTab({
-  sales, salesDate, setSalesDate, salesLoading, salesSummary, fmt, inputStyle, onExport,
+  sales, returns, salesDate, setSalesDate, salesLoading, salesSummary,
+  lang, fmt, inputStyle, onExport,
 }: {
   sales: Sale[];
+  returns: Sale[];
   salesDate: string;
   setSalesDate: (v: string) => void;
   salesLoading: boolean;
   salesSummary: { totalSales: number; totalItems: number; totalRevenue: number };
+  lang: 'ru' | 'uz';
   fmt: (n: number) => string;
   inputStyle: CSSProperties;
   onExport: (type: string) => void;
@@ -63,43 +82,30 @@ export function AdminSalesTab({
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
         <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
       </div>
-    ) : sales.length === 0 ? (
+    ) : sales.length === 0 && returns.length === 0 ? (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
         <ShoppingCart size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
-        <p>Bu kunda sotishlar yo&apos;q</p>
+        <p>{text.empty[lang]}</p>
       </div>
     ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
         {sales.map((sale, idx) => (
-          <div key={sale.number} className="card" style={{ padding: 'var(--space-3)' }}>
-            {/* Sale header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <span style={{ width: 28, height: 28, borderRadius: 'var(--radius-md)', background: 'var(--success-bg)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px' }}>
-                  {idx + 1}
-                </span>
-                <div>
-                  <div style={{ fontSize: 'var(--text-xs)', fontWeight: 700, fontFamily: 'monospace' }}>{sale.number}</div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                    {new Date(sale.time).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })} · {sale.itemCount} ta tovar
-                  </div>
-                </div>
-              </div>
-              <div style={{ fontWeight: 800, color: 'var(--success)', fontSize: 'var(--text-sm)' }}>
-                {fmt(sale.total)} so&apos;m
-              </div>
-            </div>
-            {/* Sale items */}
-            <div style={{ background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-2)' }}>
-              {sale.items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', padding: '2px 0', color: 'var(--text-secondary)' }}>
-                  <span>{Math.abs(item.quantity)}× {item.product.nameUz}</span>
-                  <span style={{ fontWeight: 600 }}>{fmt(Math.abs(item.quantity) * item.product.price)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <AdminSaleRow key={sale.number} sale={sale} index={idx} lang={lang} fmt={fmt} />
         ))}
+
+        {returns.length > 0 && (
+          <>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6, marginTop: 'var(--space-2)',
+              fontSize: 'var(--text-xs)', fontWeight: 700, color: 'var(--warning)',
+            }}>
+              <RotateCcw size={13} /> {text.returns[lang]} · {returns.length}
+            </div>
+            {returns.map((ret, idx) => (
+              <AdminSaleRow key={ret.number} sale={ret} index={idx} lang={lang} fmt={fmt} isReturn />
+            ))}
+          </>
+        )}
       </div>
     )}
   </>

@@ -114,6 +114,8 @@ export const EMPTY_COLLECTION: MapCollection = {
     byState: { prospect: 0, new: 0, healthy: 0, slipping: 0, at_risk: 0, lost: 0 },
     revenueByState: { prospect: 0, new: 0, healthy: 0, slipping: 0, at_risk: 0, lost: 0 },
     spentPercentiles: { p50: 0, p80: 0 },
+    heat: { field: 'sp', p80: 0 },
+    moneyHidden: false,
     districts: [],
     coverage: { exact: 0, rough: 0, missing: 0, total: 0, percent: 0 },
   },
@@ -197,6 +199,21 @@ export const EMPTY_ROUTE: GeoJSON.FeatureCollection = {
   features: [],
 };
 
-export function formatSum(value: number): string {
+/**
+ * Чем взвешивать тепловой слой — с запасным ответом.
+ *
+ * `summary.heat` появился позже самой карты, а карта читает и СНИМОК из
+ * localStorage, снятый прежней версией: там этого поля нет вовсе. Без
+ * запасного ответа обращение к `heat.field` роняло отрисовку слоёв — то
+ * есть карту целиком — ровно у того, кто уже ею пользовался. Тип этого не
+ * ловит: снимок разбирается из JSON и типу верят на слово.
+ */
+export function heatOf(summary: MapCollection['summary']): { field: 'sp' | 'oc'; p80: number } {
+  return summary.heat ?? { field: 'sp', p80: summary.spentPercentiles?.p80 ?? 0 };
+}
+
+/** Сумма для карты. `null` — смотрит не владелец, и это прочерк, не ноль. */
+export function formatSum(value: number | null): string {
+  if (value === null) return '—';
   return new Intl.NumberFormat('ru-RU').format(Math.round(value));
 }
