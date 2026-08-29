@@ -25,6 +25,7 @@ import { SOURCE_DELIVERY, buildDeliveryLayers } from './mapLayersDelivery';
 import {
   EMPTY_DELIVERY,
   EMPTY_ROUTE,
+  heatOf,
   routeCollection,
   type ColorizeMode,
   type MapCollection,
@@ -139,7 +140,7 @@ export function attachMapEvents(
  * когда точки уже расставлены, и линия под ними была бы бесполезна.
  */
 export function attachMapLayers(instance: MapLibreMap, now: MapLatest): void {
-  const heat = now.data.summary.heat;
+  const heat = heatOf(now.data.summary);
   const points = now.data as unknown as GeoJSON.FeatureCollection;
 
   // Тепло — ПЕРВЫМ и на своём источнике без кластеризации. Первым, потому

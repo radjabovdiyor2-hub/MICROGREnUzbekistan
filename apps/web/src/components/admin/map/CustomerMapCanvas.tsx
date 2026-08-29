@@ -267,7 +267,7 @@ export default function CustomerMapCanvas(props: Props) {
   // Порог сумм нужен только режиму «по выручке», а он открыт лишь
   // владельцу (см. MapFilterRibbons). У продавца он замаскирован — ноль
   // здесь означает «этой раскраски всё равно нет в его списке».
-  const p80 = data.summary.spentPercentiles.p80 ?? 0;
+  const p80 = data.summary.spentPercentiles?.p80 ?? 0;
   useEffect(() => {
     const instance = map.current;
     if (!instance || !ready.current) return;

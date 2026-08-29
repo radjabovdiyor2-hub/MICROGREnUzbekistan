@@ -199,6 +199,19 @@ export const EMPTY_ROUTE: GeoJSON.FeatureCollection = {
   features: [],
 };
 
+/**
+ * Чем взвешивать тепловой слой — с запасным ответом.
+ *
+ * `summary.heat` появился позже самой карты, а карта читает и СНИМОК из
+ * localStorage, снятый прежней версией: там этого поля нет вовсе. Без
+ * запасного ответа обращение к `heat.field` роняло отрисовку слоёв — то
+ * есть карту целиком — ровно у того, кто уже ею пользовался. Тип этого не
+ * ловит: снимок разбирается из JSON и типу верят на слово.
+ */
+export function heatOf(summary: MapCollection['summary']): { field: 'sp' | 'oc'; p80: number } {
+  return summary.heat ?? { field: 'sp', p80: summary.spentPercentiles?.p80 ?? 0 };
+}
+
 /** Сумма для карты. `null` — смотрит не владелец, и это прочерк, не ноль. */
 export function formatSum(value: number | null): string {
   if (value === null) return '—';
