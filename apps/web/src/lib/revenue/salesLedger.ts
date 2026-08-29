@@ -67,6 +67,14 @@ export interface SaleLine {
   cost: number;
   at: Date;
   channel: SaleChannel;
+  /**
+   * Кому продано. Пустой — покупатель не опознан: продажа за прилавком
+   * случайному человеку или заказ без входа в кабинет.
+   *
+   * Нужен, чтобы считать рентабельность по заведению (`finance/margin.ts`):
+   * дальняя точка с мелким заказом выглядит прибыльной, пока не посчитаешь.
+   */
+  customerId: number | null;
 }
 
 /** Заказ целиком: доставка, скидка и статус живут здесь, а не в позициях. */
@@ -160,7 +168,11 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
         salePrice: { not: null },
         ...byBusinessDate(range),
       },
-      include: { product: { select: { nameUz: true, costPrice: true } } },
+      include: {
+        product: { select: { nameUz: true, costPrice: true } },
+        // Продажа с выезда знает заведение — она и даёт разрез по клиентам.
+        sale: { select: { customerId: true } },
+      },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.stockMovement.findMany({
@@ -170,6 +182,18 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
     }),
     buildCostMap(),
   ]);
+
+  // Заказ с витрины знает пользователя, а не карточку клиента: связывает их
+  // `Customer.webUserId`. Одним запросом на весь период, а не по заказу.
+  const userIds = [...new Set(orders.map((o) => o.userId).filter((id): id is string => !!id))];
+  const customerByUser = new Map<string, number>();
+  if (userIds.length > 0) {
+    const linked = await prisma.customer.findMany({
+      where: { webUserId: { in: userIds } },
+      select: { id: true, webUserId: true },
+    });
+    for (const c of linked) if (c.webUserId) customerByUser.set(c.webUserId, c.id);
+  }
 
   // У удалённого товара связи не осталось, а значит и себестоимости:
   // ноль здесь честнее подстановки чужой закупки.
@@ -200,6 +224,7 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
         cost: lineTotal(costOf(item.productId), item.quantity),
         at: order.createdAt,
         channel: 'online',
+        customerId: (order.userId && customerByUser.get(order.userId)) || null,
       });
     }
   }
@@ -217,6 +242,7 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
       cost: Math.round(quantity * unitCost),
       at: m.soldAt ?? m.createdAt,
       channel: 'pos',
+      customerId: m.sale?.customerId ?? null,
     });
   }
 

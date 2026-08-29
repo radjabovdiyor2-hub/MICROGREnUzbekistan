@@ -136,45 +136,24 @@ crosspost = CrossPostService()
 
 
 # ==================== CONVENIENCE FUNCTIONS ====================
-
-async def post_new_product(title: str, description: str, price: int, image_url: Optional[str] = None) -> Dict:
-    """Post new product announcement to all platforms"""
-    price_fmt = f"{price:,}".replace(",", " ")
-    
-    post = CrossPost(
-        title=f"🆕 {title}",
-        body=f"{description}\n\n💰 <b>{price_fmt} сум</b>",
-        image_url=image_url,
-        hashtags=["микрозелень", "новинка", "microgreens", "organic", "самарканд"],
-        platforms=[Platform.CHANNEL, Platform.INSTAGRAM]
-    )
-    
-    return await crosspost.publish(post)
-
-
-async def post_daily_tip(tip: str) -> Dict:
-    """Post daily tip to channel"""
-    post = CrossPost(
-        title="💡 Совет дня",
-        body=tip,
-        platforms=[Platform.CHANNEL]
-    )
-    
-    return await crosspost.publish(post)
-
-
-async def post_order_milestone(order_count: int) -> Dict:
-    """Celebrate order milestones"""
-    post = CrossPost(
-        title=f"🎉 {order_count} заказов!",
-        body="Спасибо что выбираете Microgreen Uzbekistan!\n\n"
-             "Каждый заказ = +5% бонусов 💎\n"
-             "Играйте в Farm Simulator для ещё больше бонусов! 🎮",
-        platforms=[Platform.CHANNEL, Platform.GROUP]
-    )
-    
-    return await crosspost.publish(post)
-
+#
+# Здесь лежали `post_new_product`, `post_daily_tip` и `post_order_milestone`.
+# Все три удалены, и вот почему.
+#
+# `post_new_product` передавала `Platform.INSTAGRAM` — значения, которого в
+# перечислении нет: первый же вызов упал бы с AttributeError. Не упал он
+# только потому, что функцию не звал никто. `ruff --select F` такое не
+# ловит — обращение к атрибуту он не проверяет.
+#
+# `post_daily_tip` существовала ДВАЖДЫ: здесь и в `channel_service.py`.
+# Живая — там, её зовёт `trigger_service`. Одно имя в двух файлах делало
+# разное, и это ровно та болезнь, от которой в офисе завели правило
+# «один владелец на имя».
+#
+# Публикация принадлежит офису: `apps/tgas/shared/publisher.py` — один
+# вход на Instagram, канал и группу. Витринный бот публикует только то,
+# что относится к нему самому: приветствие в группе ниже и объявления
+# админа через `crosspost.publish`.
 
 async def welcome_to_group(user_name: str, chat_id: str) -> Dict:
     """Welcome new member to group"""

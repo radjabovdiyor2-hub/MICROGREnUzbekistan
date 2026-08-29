@@ -1118,6 +1118,69 @@ scheduler.add_interval(
 )
 
 
+# ── Каналы продаж: остатки на маркетплейсах и в агрегаторах доставки ──
+#
+# По той же причине, что и очередь выше: расчёт живёт на витрине, а
+# планировщика там нет. Интервал короче (5 минут против 15) — между
+# «лоток кончился» и снятием карточки на площадке стоит ровно он, а
+# отмена заказа у маркетплейса стоит процентов от суммы и рейтинга.
+#: Каналы, о застревании которых владельцу уже сказали. Живёт до
+#: перезапуска бота — и это осознанно: после перезапуска один повтор
+#: сигнала лучше, чем молчание из-за потерянного состояния.
+_alerted_channels: set[str] = set()
+
+
+async def _sync_sales_channels():
+    from shared.storefront_channels import sync_channels, describe_stalled
+
+    result = await sync_channels()
+
+    # Застрявший канал — это площадка, торгующая вчерашними остатками.
+    # Сигналим ТОЛЬКО о новых: очередь стоит часами, а задача ходит каждые
+    # пять минут, и одинаковый алерт 12 раз в час владелец перестанет
+    # читать быстрее, чем починит канал.
+    global _alerted_channels
+    stalled = result.get("stalled") or []
+    now_stalled = {item.get("channel", "?") for item in stalled}
+    fresh = [item for item in stalled if item.get("channel") not in _alerted_channels]
+    recovered = _alerted_channels - now_stalled
+    _alerted_channels = now_stalled
+
+    if recovered:
+        logger.info("КАНАЛЫ: очередь разошлась у %s", ", ".join(sorted(recovered)))
+
+    if not fresh:
+        return
+
+    text = describe_stalled(fresh)
+    logger.warning("КАНАЛЫ: застряли\n%s", text)
+
+    if settings.admin_telegram_ids:
+        await alert_admins(
+            _bot,
+            "🛒 <b>Канал продаж стоит</b>\n\n" + text
+            + "\n\nПлощадка показывает вчерашние остатки — заказ на то, "
+            "чего нет, обойдётся отменой и рейтингом.",
+            admin_tab="channels",
+            button_text="🛒 Каналы продаж",
+        )
+
+    from shared.owner_alerts import raise_alert, SEVERITY_WARNING
+
+    await raise_alert(
+        kind="channel_stalled",
+        title="Канал продаж стоит",
+        message=text,
+        source="stepan_bot",
+        severity=SEVERITY_WARNING,
+    )
+
+
+scheduler.add_interval(
+    name="channels_sync", func=_sync_sales_channels, seconds=300
+)
+
+
 # ── KPI-watchdog: при падении показателей автоматически созывает совещание отделов ──
 async def _kpi_watchdog_job():
     try:

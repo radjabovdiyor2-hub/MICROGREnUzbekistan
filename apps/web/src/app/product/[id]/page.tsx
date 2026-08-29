@@ -6,7 +6,8 @@ import { PUBLIC_PRODUCT_SELECT } from '@/lib/products/fields';
 import type { Product as PublicProduct } from './productDetailTypes';
 import { recipesForProduct, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
-import { jsonLdScript } from '@/lib/seo/jsonLd';
+import { jsonLdScript, merchantReturnPolicy, offerShippingDetails } from '@/lib/seo/jsonLd';
+import { getNumber, getSetting } from '@/lib/settings/store';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -84,6 +85,17 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   let jsonLd = null;
   let breadcrumb = null;
   let initialProduct: PublicProduct | null = null;
+
+  // Настройки доставки для разметки оффера. `lib/settings/store` никогда не
+  // бросает исключение и на недоступной базе отдаёт дефолты — карточка
+  // товара из-за них не падает.
+  const [deliveryFee, deliveryPromise, returnDays] = await Promise.all([
+    getNumber('delivery.fee'),
+    getSetting('delivery.timePromise'),
+    getNumber('delivery.returnDays'),
+  ]);
+  // Ноль = владелец не задал срок возврата, и в разметке его не будет.
+  const returnPolicy = merchantReturnPolicy(returnDays);
   try {
     const product = await prisma.product.findUnique({
       where: { id },
@@ -128,6 +140,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             name: 'Microgreen Uzbekistan',
           },
           url: `${DOMAIN}/product/${id}`,
+          // Стоимость и срок доставки: без них Google собирает карточку
+          // товара без строки доставки — той самой, что отличает местный
+          // магазин от заграничного склада. Числа из настроек, теми же
+          // считается корзина и товарный фид.
+          shippingDetails: offerShippingDetails({
+            fee: deliveryFee,
+            promiseMinutes: deliveryPromise,
+          }),
+          ...(returnPolicy ? { hasMerchantReturnPolicy: returnPolicy } : {}),
         },
         ...(product.rating > 0 ? {
           aggregateRating: {

@@ -10,18 +10,31 @@
 // Слаги здесь ОБЯЗАНЫ совпадать с набором бота. Меняете тут — меняйте там.
 // ══════════════════════════════════════════════════════════════════════
 
+/**
+ * Постоянный расход приходит независимо от продаж, переменный растёт
+ * вместе с ними. Деление нужно точке безубыточности (`breakEven.ts`) и
+ * только расходам: у дохода постоянной и переменной стороны нет.
+ */
+export type CostKind = 'fixed' | 'variable';
+
 export interface FinanceCategory {
   value: string;
   label: string;
+  /** Только у расходных статей. У доходных — `undefined`, и это намеренно. */
+  kind?: CostKind;
 }
 
 export const EXPENSE_CATEGORIES: FinanceCategory[] = [
-  { value: 'salary', label: 'Зарплата' },
-  { value: 'rent', label: 'Аренда' },
-  { value: 'marketing', label: 'Маркетинг' },
-  { value: 'supplies', label: 'Закупка сырья и расходников' },
-  { value: 'taxes', label: 'Налоги' },
-  { value: 'other', label: 'Прочее' },
+  // Оклад, аренда и рекламный бюджет приходят и в месяц без единой продажи.
+  { value: 'salary', label: 'Зарплата', kind: 'fixed' },
+  { value: 'rent', label: 'Аренда', kind: 'fixed' },
+  { value: 'marketing', label: 'Маркетинг', kind: 'fixed' },
+  // Закупка растёт вместе с продажами: больше продали — больше посеяли.
+  { value: 'supplies', label: 'Закупка сырья и расходников', kind: 'variable' },
+  // Налог с оборота считается от выручки, поэтому переменный.
+  { value: 'taxes', label: 'Налоги', kind: 'variable' },
+  // «Прочее» — постоянное по той же причине, что и неизвестная статья ниже.
+  { value: 'other', label: 'Прочее', kind: 'fixed' },
 ];
 
 export const INCOME_CATEGORIES: FinanceCategory[] = [
@@ -46,4 +59,28 @@ export function isKnownCategory(type: string, category: string): boolean {
 export function categoryLabel(category: string): string {
   const all = [...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES];
   return all.find((c) => c.value === category)?.label ?? category;
+}
+
+/**
+ * Статьи, которые НЕ прибавляются к переменным расходам в точке
+ * безубыточности: они уже придут туда себестоимостью проданного.
+ *
+ * Закупка семян и себестоимость выращенного из них — один и тот же мешок,
+ * показанный дважды: сначала при оплате поставщику, потом при продаже.
+ * Сложить их значит завысить переменные расходы и получить точку выше
+ * настоящей — то есть решить, что бизнес убыточен, когда он прибылен.
+ */
+export const INVENTORY_CATEGORIES: string[] = ['supplies'];
+
+/**
+ * Постоянная статья или переменная.
+ *
+ * Неизвестная — ПОСТОЯННАЯ, и это осознанная ошибка в безопасную сторону.
+ * Переменная статья уменьшает маржу и поднимает точку безубыточности,
+ * постоянная — поднимает её тоже, но не искажает маржу, по которой потом
+ * считают каждый следующий месяц. Занизить точку опаснее, чем завысить:
+ * первое звучит как «мы в плюсе» тогда, когда это неправда.
+ */
+export function costKind(category: string): CostKind {
+  return EXPENSE_CATEGORIES.find((c) => c.value === category)?.kind ?? 'fixed';
 }

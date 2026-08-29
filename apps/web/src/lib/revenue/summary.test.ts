@@ -33,6 +33,7 @@ describe('свод выручки', () => {
             cost: 320_000,
             at: TODAY,
             channel: 'online',
+            customerId: null,
           },
         ],
         orders: [
@@ -75,6 +76,7 @@ describe('свод выручки', () => {
             cost: 320_000,
             at: TODAY,
             channel: 'online',
+            customerId: null,
           },
         ],
         orders: [
@@ -114,6 +116,7 @@ describe('свод выручки', () => {
             cost: 40_000,
             at: TODAY,
             channel: 'pos',
+            customerId: null,
           },
         ],
       }),
@@ -137,6 +140,7 @@ describe('свод выручки', () => {
             cost: 80_000,
             at: TODAY,
             channel: 'online',
+            customerId: null,
           },
         ],
         orders: [
@@ -172,6 +176,7 @@ describe('свод выручки', () => {
             cost: 80_000,
             at: TODAY,
             channel: 'pos',
+            customerId: null,
           },
         ],
         returns: [
@@ -204,6 +209,7 @@ describe('свод выручки', () => {
           cost: 5_000,
           at,
           channel: 'pos' as const,
+          customerId: null,
         })),
       }),
       SINCE,
@@ -225,6 +231,7 @@ describe('свод выручки', () => {
             cost: 80_000,
             at: new Date('2026-08-03T23:59:00'),
             channel: 'pos',
+            customerId: null,
           },
         ],
       }),
@@ -248,6 +255,7 @@ describe('спрос по товарам', () => {
             cost: 80_000,
             at: TODAY,
             channel: 'online',
+            customerId: null,
           },
           {
             productId: 'p1',
@@ -257,6 +265,7 @@ describe('спрос по товарам', () => {
             cost: 40_000,
             at: TODAY,
             channel: 'pos',
+            customerId: null,
           },
         ],
       }),

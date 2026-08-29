@@ -58,6 +58,13 @@ def _extract_topic(text: str) -> str:
 
 
 def _kb(token: str) -> InlineKeyboardMarkup:
+    """Две кнопки публикации — и это не удобство, а согласие.
+
+    «В Instagram» и «в Instagram и Telegram-канал» — разные по охвату
+    действия, и второе владелец должен выбрать сам. Дописать канал в
+    существующую кнопку значило бы расширить рассылку молча: одобряли
+    сторис, а вышел пост подписчикам канала.
+    """
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -65,12 +72,28 @@ def _kb(token: str) -> InlineKeyboardMarkup:
                     text="✅ Опубликовать в Instagram",
                     callback_data=f"autopost:pub:{token}",
                 ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📣 Instagram и Telegram-канал",
+                    callback_data=f"autopost:pub_all:{token}",
+                ),
                 InlineKeyboardButton(
                     text="❌ Отмена", callback_data=f"autopost:cancel:{token}"
                 ),
-            ]
+            ],
         ]
     )
+
+
+def _drop_temp(post: dict) -> None:
+    """Убрать временную картинку одобренного или отменённого поста."""
+    img = post.get("image")
+    if img and str(img).startswith(str(_STORE_DIR)) and os.path.isfile(img):
+        try:
+            os.remove(img)
+        except OSError as exc:
+            logger.warning("autopost: не удалил временный файл %s: %s", img, exc)
 
 
 async def _generate_and_preview(message: Message, topic: str, kind: str = "feed"):
@@ -214,13 +237,58 @@ async def approve_publish(cb: CallbackQuery):
             "Текст и картинка выше — можно опубликовать вручную.",
             parse_mode="HTML",
         )
-    # чистим временный файл
-    img = post.get("image")
-    if img and str(img).startswith(str(_STORE_DIR)) and os.path.isfile(img):
-        try:
-            os.remove(img)
-        except OSError as exc:
-            logger.warning("autopost: не удалил временный файл %s: %s", img, exc)
+    _drop_temp(post)
+
+
+@router.callback_query(F.data.startswith("autopost:pub_all:"))
+async def approve_publish_all(cb: CallbackQuery):
+    """Один пост — Instagram и Telegram-канал сразу.
+
+    Раскладывает его единый издатель (`shared/publisher.py`): Instagram
+    напрямую, канал — через дверь витрины, потому что токен витринного
+    бота живёт там, а прямых импортов между приложениями нет.
+    """
+    if not _is_admin(cb.message) and cb.from_user.id not in settings.admin_telegram_ids:
+        await cb.answer("⛔ Только для руководителя")
+        return
+    token = cb.data.split(":")[-1]
+    post = PENDING_POSTS.pop(token, None)
+    try:
+        await cb.message.edit_reply_markup(reply_markup=None)
+    except Exception as exc:
+        logger.debug("autopost: не убрал кнопки под сообщением: %s", exc)
+    if not post:
+        await cb.answer("Пост устарел или уже обработан")
+        return
+
+    await cb.answer("Публикую…")
+    await cb.message.answer("⏳ Публикую в Instagram и Telegram-канал…")
+
+    from shared.publisher import Post, publish
+
+    report = await publish(
+        Post(
+            title=post.get("topic", "Microgreen Uzbekistan"),
+            body=post["caption"],
+            image=post.get("image"),
+            kind=post.get("kind", "feed"),
+        ),
+        ["instagram", "telegram_channel"],
+    )
+
+    # Отчёт по каждой цели отдельно: «опубликовано» без разбора скрыло бы
+    # то, что в Instagram пост не ушёл, а владелец бы этого не узнал.
+    lines = []
+    for target, result in report.items():
+        name = "Instagram" if target == "instagram" else "Telegram-канал"
+        if result.get("ok"):
+            note = " (без картинки)" if result.get("photo_lost") else ""
+            lines.append(f"✅ {name}{note}")
+        else:
+            lines.append(f"⚠️ {name}: {result.get('error', 'не удалось')}")
+    await cb.message.answer("\n".join(lines) or "Не выбрано ни одной площадки")
+
+    _drop_temp(post)
 
 
 @router.callback_query(F.data.startswith("autopost:cancel:"))
@@ -234,11 +302,6 @@ async def cancel_post(cb: CallbackQuery):
         # обработку, но и молчать нельзя: сюда же попадёт отзыв прав бота.
         logger.debug("autopost: не убрал кнопки под сообщением: %s", exc)
     if post:
-        img = post.get("image")
-        if img and str(img).startswith(str(_STORE_DIR)) and os.path.isfile(img):
-            try:
-                os.remove(img)
-            except OSError as exc:
-                logger.warning("autopost: не удалил временный файл %s: %s", img, exc)
+        _drop_temp(post)
     await cb.answer("Отменено")
     await cb.message.answer("❌ Публикация отменена.")

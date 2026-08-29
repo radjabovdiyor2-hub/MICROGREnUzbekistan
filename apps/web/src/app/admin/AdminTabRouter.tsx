@@ -81,6 +81,7 @@ const AdminBotHealth = dynamic(() => import('@/components/admin/AdminBotHealth')
 const AdminPromo = dynamic(() => import('@/components/admin/AdminPromo').then((m) => m.AdminPromo), { ssr: false, loading: TabLoading });
 const AdminFinance = dynamic(() => import('@/components/admin/AdminFinance').then((m) => m.AdminFinance), { ssr: false, loading: TabLoading });
 const AdminAudit = dynamic(() => import('@/components/admin/AdminAudit').then((m) => m.AdminAudit), { ssr: false, loading: TabLoading });
+const AdminChannels = dynamic(() => import('@/components/admin/AdminChannels').then((m) => m.AdminChannels), { ssr: false, loading: TabLoading });
 const AdminAiSpend = dynamic(() => import('@/components/admin/AdminAiSpend').then((m) => m.AdminAiSpend), { ssr: false, loading: TabLoading });
 const AdminApprovals = dynamic(() => import('@/components/admin/AdminApprovals').then((m) => m.AdminApprovals), { ssr: false, loading: TabLoading });
 const AdminVisitPlans = dynamic(() => import('@/components/admin/AdminVisitPlans').then((m) => m.AdminVisitPlans), { ssr: false, loading: TabLoading });
@@ -150,6 +151,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canGrow, canS
     {activeTab === 'workflow_studio' && isOwner && <AdminWorkflowStudio />}
     {activeTab === 'bot_control' && isOwner && <AdminBotControl lang={lang} />}
     {activeTab === 'bot_health' && isOwner && <AdminBotHealth lang={lang} />}
+    {activeTab === 'channels' && isOwner && <AdminChannels lang={lang} />}
     {activeTab === 'tasks' && isOwner && <AdminTasks lang={lang} focus={focus} />}
     {activeTab === 'approvals' && isOwner && <AdminApprovals lang={lang} />}
     {/* Объезды — владельцу: это взгляд на чужую работу. Продавец свой

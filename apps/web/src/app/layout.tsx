@@ -10,6 +10,7 @@ import { AuthProvider } from '@/components/providers/AuthProvider';
 import { AppShell } from '@/components/layout/AppShell';
 import { ReactQueryProvider } from '@/components/providers/ReactQueryProvider';
 import { PwaRegister } from '@/components/providers/PwaRegister';
+import { domainVerification } from '@/lib/seo/verification';
 import { ReferralCapture } from '@/components/providers/ReferralCapture';
 import { TelegramInit } from '@/components/providers/TelegramInit';
 import { Analytics } from '@/components/providers/Analytics';
@@ -77,10 +78,10 @@ export const metadata: Metadata = {
     title: 'Microgreen',
   },
   verification: {
-    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || undefined,
-    other: process.env.NEXT_PUBLIC_YANDEX_VERIFICATION
-      ? { 'yandex-verification': process.env.NEXT_PUBLIC_YANDEX_VERIFICATION }
-      : undefined,
+    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION?.trim() || undefined,
+    // Яндекс и Meta — через `domainVerification`: пустая переменная там
+    // означает «метки нет», а не «метка с пустым токеном».
+    other: domainVerification(process.env),
   },
   category: 'food',
   other: {

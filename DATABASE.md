@@ -18,7 +18,7 @@ products` с офисными колонками проходил проверк
 | Витрина | `apps/web` (Prisma) | `products`, `categories`, `orders`, `order_items`, `users`, `employees` | cuid-строки |
 | CRM офиса | `apps/tgas` (raw SQL) | `crm_products`, `crm_orders`, `crm_order_items`, `crm_employees`, `customers`, `interactions`, `tasks`, `finances`, `followups`, `inventory`, `ai_usage` | `serial` |
 
-**Схемой владеет Prisma** — `packages/database/prisma/schema.prisma`, 79 моделей.
+**Схемой владеет Prisma** — `packages/database/prisma/schema.prisma`, 83 модели.
 `apps/tgas/database/init.sql` — исторический файл: он описывает состояние ДО
 переименования и в прод не монтируется.
 

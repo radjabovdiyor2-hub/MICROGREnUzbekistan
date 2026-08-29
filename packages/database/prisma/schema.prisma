@@ -90,6 +90,7 @@ model Product {
   recipeIngredients RecipeIngredient[]
   greenBoxItems     GreenBoxItem[]
   customerPrices    CustomerPrice[]
+  channelListings   ChannelListing[]
 
   @@index([categoryId])
   @@index([categoryId, isActive])
@@ -254,6 +255,7 @@ model Order {
   items                OrderItem[]
   DeliveryStop         DeliveryStop[]
   subscriptionDelivery SubscriptionDelivery[]
+  channelOrder         ChannelOrder?
 
   // Composite indexes for the hot list queries (newest-first pagination):
   // admin list by status, a customer's own orders, and lookup by phone.
@@ -2428,4 +2430,160 @@ model Experiment {
   // родителя» и каскадное удаление идут полным перебором таблицы.
   @@index([batchId])
   @@map("experiments")
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Каналы продаж: маркетплейсы, агрегаторы доставки, товарные фиды.
+//
+// Витрина — владелец каталога и заказов, поэтому листинги на чужих
+// площадках и приём заказов оттуда живут здесь, а не в офисе. Заказ с
+// любой площадки создаётся той же дверью `POST /api/orders`, что и заказ
+// с сайта: второй двери нет, иначе остаток не спишется.
+// ══════════════════════════════════════════════════════════════════════
+
+model SalesChannel {
+  id   String @id @default(cuid())
+  /// Код канала: `google_shopping`, `ai_agents`, `uzum`, `tezkor`,
+  /// `yandex_eats`, `sello`, `olx`, `telegram`, `instagram`.
+  /// Он же уходит в `Order.source` — по нему считается выручка канала.
+  code String @unique @db.VarChar(30)
+  /// `feed` — только выгрузка, `marketplace`, `delivery`, `social`.
+  kind String @db.VarChar(20)
+  name String @db.VarChar(60)
+
+  /// Выключенный канал не отдаёт товар в фидах и не принимает заказы.
+  isActive Boolean @default(false) @map("is_active")
+
+  /// Как площадка узнаёт об остатках: `api` (шлём сами), `feed` (забирает
+  /// сама), `manual` (человек грузит выгрузку в кабинет). Для `manual`
+  /// синхронизация обязана честно сказать «сделай руками», а не
+  /// отчитаться об успехе — тихий успех здесь означает проданный воздух.
+  syncMode String @default("manual") @map("sync_mode") @db.VarChar(10)
+
+  /// Города, куда канал доставляет в пределах суток. Пусто = никуда:
+  /// свежий лоток не выставляется «на всякий случай».
+  cities String[]
+
+  /// Наценка канала в процентах — комиссия площадки не должна съедать
+  /// маржу. 0 = цена как на витрине.
+  markupPercent Int @default(0) @map("markup_percent")
+
+  /// Сколько единиц НЕ отдаём наружу. Последние лотки держат заказы
+  /// витрины и рестораны, у которых доставка сегодня.
+  stockBuffer Int @default(0) @map("stock_buffer")
+
+  /// Время отсечки (`HH:MM`, Asia/Samarkand): после него скоропорт
+  /// отдаётся как «нет в наличии» до утра. Пусто = отсечки нет.
+  orderCutoff String? @map("order_cutoff") @db.VarChar(5)
+
+  /// Адрес, куда шлём обновления остатков и цен (`syncMode = api`).
+  /// Токен к нему лежит в окружении: URL не секрет, ключ — секрет.
+  apiUrl String? @map("api_url")
+
+  lastSyncAt DateTime? @map("last_sync_at")
+  lastError  String?   @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  listings ChannelListing[]
+  orders   ChannelOrder[]
+
+  @@map("sales_channels")
+}
+
+model ChannelListing {
+  id        String       @id @default(cuid())
+  channelId String       @map("channel_id")
+  channel   SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  /// Товар удаляют из каталога — листинг уходит вместе с ним: карточка на
+  /// площадке без товара продаёт то, чего нет.
+  productId String  @map("product_id")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// Идентификатор карточки на стороне площадки (артикул оффера).
+  externalId String? @map("external_id") @db.VarChar(80)
+
+  /// Цена канала в сумах. Пусто = цена каталога с наценкой канала.
+  price Int?
+
+  isPublished Boolean @default(false) @map("is_published")
+
+  /// Статус модерации площадки: `pending`, `active`, `rejected`, `paused`.
+  moderation String @default("pending") @db.VarChar(20)
+
+  /// Почему позиция снята — причина видна владельцу на экране «Каналы».
+  pausedReason String? @map("paused_reason") @db.VarChar(200)
+
+  /// Остаток, который мы в последний раз ОТПРАВИЛИ площадке.
+  ///
+  /// Без снимка «что там сейчас» пришлось бы слать всё при каждом прогоне:
+  /// сорок позиций в минуту на канал, из которых меняются одна-две. По
+  /// нему же видно расхождение, если отправка не дошла.
+  syncedStock Int? @map("synced_stock")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([channelId, productId])
+  @@index([productId])
+  @@map("channel_listings")
+}
+
+model ChannelOrder {
+  id        String       @id @default(cuid())
+  channelId String       @map("channel_id")
+  channel   SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  /// Номер заказа на стороне площадки. Вместе с каналом — ключ
+  /// идемпотентности: повторный вебхук возвращает тот же заказ витрины,
+  /// а не создаёт второй. Площадки повторяют доставку при любом таймауте.
+  externalId String @map("external_id") @db.VarChar(80)
+
+  /// Заказ витрины. Нулевой — если приём упал после записи заявки:
+  /// строка остаётся следом, по ней видно, что заказ пришёл и потерялся.
+  orderId String? @unique @map("order_id")
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  /// Насколько цена площадки разошлась с прайсом витрины (в сумах, со
+  /// знаком). Заказ не блокируется — покупатель уже заплатил площадке, —
+  /// но расхождение видно в отчёте по каналу.
+  priceDelta Int @default(0) @map("price_delta")
+
+  /// Тело, как его прислала площадка. Нужно для разбора спора: чем
+  /// доказать, что заказ пришёл именно таким.
+  payload Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([channelId, externalId])
+  @@map("channel_orders")
+}
+
+model ChannelOutbox {
+  id Int @id @default(autoincrement())
+
+  /// Что отправляем: `stock`, `price`, `listing`.
+  topic String @db.VarChar(20)
+
+  /// Куда — код канала. Строкой, а не связью: очередь переживает
+  /// удаление канала и не роняет отправку каскадом.
+  channelCode String @map("channel_code") @db.VarChar(30)
+
+  payload Json
+
+  /// Ключ идемпотентности `<канал>:<тема>:<товар>`. Повторная постановка
+  /// того же события строку не дублирует: наружу уходит последнее
+  /// состояние остатка, а не десять его версий подряд.
+  refKey String @unique @map("ref_key") @db.VarChar(120)
+
+  attempts      Int      @default(0)
+  nextAttemptAt DateTime @default(now()) @map("next_attempt_at")
+  lastError     String?  @map("last_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([nextAttemptAt])
+  @@map("channel_outbox")
 }

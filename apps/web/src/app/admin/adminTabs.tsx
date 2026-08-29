@@ -2,7 +2,7 @@
 
 import {
   Route,
-  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, ShoppingCart, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
+  Activity, Banknote, BarChart, Brain, Camera, ClipboardList, Clock, Cpu, CreditCard, DollarSign, Eye, FileText, History, Layers, Leaf, Lightbulb, Lock, Package, Percent, Play, Send, Settings, Share2, ShoppingCart, Sprout, BookOpen, Navigation, Tag, TrendingUp, Truck, Users, Wallet, Network
 } from 'lucide-react';
 
 // Реестр вкладок админки — чистые данные, вынесены из AdminShell: они не
@@ -99,6 +99,10 @@ export const TAB_GROUPS = [
       { id: 'analytics', ru: 'Аналитика', uz: 'Analitika', icon: <BarChart size={16} /> },
       { id: 'forecast', ru: 'Прогноз', uz: 'Prognoz', icon: <TrendingUp size={16} /> },
       { id: 'audit', ru: 'Журнал действий', uz: 'Amallar jurnali', icon: <History size={16} /> },
+      // Где мы продаём, кроме собственной витрины: маркетплейсы,
+      // агрегаторы доставки и товарные фиды. Здесь же рубильники
+      // безопасности скоропорта — буфер остатка и окно отгрузки.
+      { id: 'channels', ru: 'Каналы продаж', uz: 'Sotuv kanallari', icon: <Share2 size={16} /> },
       { id: 'settings', ru: 'Настройки', uz: 'Sozlamalar', icon: <Lock size={16} /> },
     ]
   },
