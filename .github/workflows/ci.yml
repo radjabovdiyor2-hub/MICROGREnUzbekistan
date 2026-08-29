@@ -499,7 +499,7 @@ jobs:
             # Теперь мы просто делаем up -d (без --build, т.к. образы уже скачаны pull).
             docker compose -f docker-compose.prod.yml up -d \
               web_office stepan sales support hr finance marketing \
-              analytics content qa rnd devops n8n_bridge franchise bot
+              analytics content rnd devops n8n_bridge franchise bot
             # One-time: migrate content_status.json → PostgreSQL (no-op if already done)
             docker exec mg_content python scripts/migrate_content_status.py 2>/dev/null || true
             # Update host system Nginx configs (if any) and Docker container Nginx to client_max_body_size 100M

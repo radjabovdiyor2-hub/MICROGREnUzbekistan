@@ -12,6 +12,7 @@
     ../../docker-compose.prod.yml   прод-стек (то, что крутится на сервере)
     start_all.ps1 / .bat      windows-лаунчеры
     bots/<name>/main.py       фактический вызов start_heartbeat
+    .github/workflows/*.yml   список служб, который поднимает выкатка
 
 30.07.2026 мониторинг показывал 11/13, и обе причины были из этой щели:
 
@@ -21,8 +22,15 @@
   · franchise отсутствовал в docker-compose.prod.yml целиком — на прод его
     просто не разворачивали, хотя в ALL_BOTS и dev-compose он был.
 
+29.08.2026 добавилось седьмое место, и оно уронило ВЫКАТКУ. Шаг «поднять
+ботов» перечисляет службы строкой прямо в workflow, и там остался `qa`
+после того, как бот был удалён отовсюду, куда скрипт смотрел. Прод встал
+посередине: витрина уже на новом образе, боты — на старом,
+`no such service: qa`. Шесть согласованных источников не спасли, потому
+что седьмой в сверку не входил.
+
 Ни одну из этих ошибок нельзя увидеть, читая один файл. Скрипт сверяет все
-шесть источников с ALL_BOTS как с единственной правдой и падает со списком
+источники с ALL_BOTS как с единственной правдой и падает со списком
 расхождений. Инфраструктура не нужна — только чтение файлов.
 
 Чего скрипт НЕ проверяет: что бот реально жив. Это делает мониторинг
@@ -167,6 +175,69 @@ for name, comment in (("start_all.ps1", "#"), ("start_all.bat", "rem")):
 # start_all_wmi.ps1 удалён проверкой 31.07.2026: он отстал на 8 ботов из 13,
 # был помечен устаревшим в CLAUDE.md и ничем не запускался. Если файл вернут —
 # сверяем как обычный лаунчер, а не как исключение.
+
+
+# ── 5. список служб в выкатке ───────────────────────────────────────────
+#
+# Шаг «поднять ботов» перечисляет службы compose строкой. Имена там — НЕ
+# имена ботов: `stepan_bot` поднимается службой `stepan`. Поэтому сверяем
+# по отображению «служба → бот», а лишние имена (`web_office`, `bot`,
+# `db-seed`) в реестре ботов не ищем — это не боты.
+#
+# Пропущенный здесь бот не ломает ни один тест и ни одну сборку: он просто
+# не перезапускается на проде и молча остаётся на старом образе. ЛИШНИЙ —
+# роняет выкатку целиком посреди процесса, уже после миграции базы.
+SERVICE_TO_BOT = {b.replace("_bot", ""): b for b in EXPECTED if b.endswith("_bot")}
+SERVICE_TO_BOT["n8n_bridge"] = "n8n_bridge"
+
+#: Службы стека, которые ботами не являются.
+NOT_A_BOT = {"web", "web_office", "bot", "nginx", "postgres", "redis", "db-seed", "db-push"}
+
+
+def deploy_services(text: str) -> set[str]:
+    """Имена служб из строк `docker compose ... up -d <службы>`.
+
+    Разбираем построчно, а не регуляркой по всему файлу: команда переносится
+    обратным слешем, а между командами стоят комментарии — регулярка их
+    заглатывала и объявляла службами слова из пояснений.
+    """
+    found: set[str] = set()
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        block = lines[i].strip()
+        if block.startswith("#") or "docker compose" not in block or " up -d" not in block:
+            i += 1
+            continue
+        # Склеиваем перенос строки обратным слешем.
+        while block.endswith("\\") and i + 1 < len(lines):
+            i += 1
+            block = block[:-1].strip() + " " + lines[i].strip()
+        for word in block.split(" up -d", 1)[1].split():
+            if word.startswith("-") or word == "\\" or word in NOT_A_BOT:
+                continue
+            found.add(word)
+        i += 1
+    return found
+
+
+for name in ("ci.yml", "deploy.yml"):
+    text = read(REPO / ".github" / "workflows" / name)
+    if text is None:
+        notes.append(f"  —   .github/workflows/{name} — файла нет, пропускаю")
+        continue
+
+    services = deploy_services(text)
+    unknown = {s for s in services if s not in SERVICE_TO_BOT}
+    if unknown:
+        problems.append(
+            f".github/workflows/{name}: выкатка поднимает службы, которых нет "
+            f"в реестре ботов — {', '.join(sorted(unknown))}. "
+            f"`docker compose up` на несуществующей службе роняет выкатку "
+            f"посреди процесса, уже после миграции базы"
+        )
+    listed = {SERVICE_TO_BOT[s] for s in services if s in SERVICE_TO_BOT}
+    compare(f".github/workflows/{name}", listed)
 
 # ── итог ────────────────────────────────────────────────────────────────
 print(f"Реестр ботов: {len(EXPECTED)} (shared/health.py → ALL_BOTS)\n")
