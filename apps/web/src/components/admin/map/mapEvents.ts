@@ -139,7 +139,7 @@ export function attachMapEvents(
  * когда точки уже расставлены, и линия под ними была бы бесполезна.
  */
 export function attachMapLayers(instance: MapLibreMap, now: MapLatest): void {
-  const p80 = now.data.summary.spentPercentiles.p80;
+  const heat = now.data.summary.heat;
   const points = now.data as unknown as GeoJSON.FeatureCollection;
 
   // Тепло — ПЕРВЫМ и на своём источнике без кластеризации. Первым, потому
@@ -152,10 +152,10 @@ export function attachMapLayers(instance: MapLibreMap, now: MapLatest): void {
       ...heatSourceOptions(),
     });
   }
-  const heat = buildHeatLayer(now.colors, p80);
-  if (!instance.getLayer(heat.id)) {
+  const heatLayer = buildHeatLayer(now.colors, heat);
+  if (!instance.getLayer(heatLayer.id)) {
     instance.addLayer({
-      ...heat,
+      ...heatLayer,
       layout: { visibility: now.heat ? 'visible' : 'none' },
     } as unknown as AddLayerObject);
   }
@@ -180,7 +180,11 @@ export function attachMapLayers(instance: MapLibreMap, now: MapLatest): void {
     if (!instance.getLayer(layer.id)) instance.addLayer(layer as unknown as AddLayerObject);
   }
 
-  for (const layer of buildLayers(now.mode, now.colors, p80)) {
+  for (const layer of buildLayers(
+    now.mode,
+    now.colors,
+    now.data.summary.spentPercentiles.p80 ?? 0,
+  )) {
     if (!instance.getLayer(layer.id)) instance.addLayer(layer as unknown as AddLayerObject);
   }
 

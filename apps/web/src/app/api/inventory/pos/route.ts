@@ -3,8 +3,14 @@ import { prisma } from '@repo/database';
 import { processSale } from '@/lib/pos/sale';
 import { processRefund } from '@/lib/pos/refund';
 import { publish } from '@/lib/realtime/bus';
-import { byBusinessDate, localDayRange, formatLocalDate } from '@/lib/revenue/salesLedger';
+import {
+  POS_SALE_WHERE,
+  byBusinessDate,
+  localDayRange,
+  formatLocalDate,
+} from '@/lib/revenue/salesLedger';
 import { LIST_LIMIT } from '@/lib/api/listLimit';
+import { soldProductName } from '@/lib/products/sold';
 
 // ==========================================
 // POS (Point of Sale) — Quick Store Sales
@@ -12,6 +18,105 @@ import { LIST_LIMIT } from '@/lib/api/listLimit';
 // Продажа и возврат живут в lib/pos: в route.ts Next.js разрешает
 // экспортировать только HTTP-обработчики.
 // ==========================================
+
+// ══════════════════════════════════════════════════════════════════════
+// ШАПКА ЧЕКА В ОТВЕТЕ — ради вопроса «кто и кому продал».
+//
+// История продаж показывала номер, время, позиции и сумму. Ни покупателя,
+// ни продавца в ней не было НИ РАЗУ, хотя обе величины лежат в `pos_sales`
+// с самого появления таблицы: чек знает и `customerId`, и `performedBy`.
+// Пока продавец один, это незаметно; со вторым «чей это чек» становится
+// вопросом без ответа, а «кому мы продали в среду» — без ответа вовсе.
+//
+// Берём из связи, а не из `movement.performedBy`: у движения тоже есть
+// такое поле, но чек — это шапка, и способ оплаты, скидка и место продажи
+// живут только в ней. `performedBy` движения остаётся ЗАПАСНЫМ путём для
+// строк, записанных до появления `pos_sales`.
+// ══════════════════════════════════════════════════════════════════════
+
+const SALE_HEAD = {
+  number: true,
+  performedBy: true,
+  role: true,
+  paymentMethod: true,
+  origin: true,
+  discount: true,
+  discountReason: true,
+  backdated: true,
+  backdateReason: true,
+  reason: true,
+  customer: { select: { id: true, name: true, companyName: true } },
+  refundOf: { select: { number: true } },
+} as const;
+
+type SaleHead = {
+  number: string;
+  performedBy: string;
+  role: string | null;
+  paymentMethod: string;
+  origin: string;
+  discount: number;
+  discountReason: string | null;
+  backdated: boolean;
+  backdateReason: string | null;
+  reason: string | null;
+  customer: { id: number; name: string | null; companyName: string | null } | null;
+  refundOf: { number: string } | null;
+};
+
+/** Как показать покупателя: заведение важнее контактного лица. */
+function customerLabel(customer: SaleHead['customer']): string | null {
+  if (!customer) return null;
+  return customer.companyName || customer.name || null;
+}
+
+/**
+ * Шапка чека для ответа. `null` у движения без связи — чек записан до
+ * появления таблицы: тогда о продавце знает только само движение.
+ */
+function headOf(head: SaleHead | null, performedBy: string | null) {
+  return {
+    customerId: head?.customer?.id ?? null,
+    customerName: customerLabel(head?.customer ?? null),
+    performedBy: head?.performedBy ?? performedBy ?? null,
+    role: head?.role ?? null,
+    paymentMethod: head?.paymentMethod ?? null,
+    origin: head?.origin ?? null,
+    discount: head?.discount ?? 0,
+    discountReason: head?.discountReason ?? null,
+    backdated: head?.backdated ?? false,
+    backdateReason: head?.backdateReason ?? null,
+    reason: head?.reason ?? null,
+    refundOf: head?.refundOf?.number ?? null,
+  };
+}
+
+/**
+ * Позиция чека для экрана: снимок названия и ФАКТИЧЕСКАЯ цена продажи.
+ *
+ * Две поправки к прежнему ответу, и обе про правду:
+ *
+ *   · название — через `soldProductName`. Товар мог быть удалён из
+ *     каталога, `product` тогда пустой, и обращение к `product.nameUz`
+ *     роняло экран истории на первом же таком чеке;
+ *   · цена — `salePrice`, а не сегодняшняя цена прайса. Позиции считались
+ *     по `product.price`, поэтому строки чека со скидкой или с договорной
+ *     ценой не сходились с его же итогом, посчитанным по `salePrice`.
+ */
+function lineOf(m: {
+  quantity: unknown;
+  salePrice: number | null;
+  productName: string | null;
+  product: { nameUz: string; nameRu: string; price: number } | null;
+}) {
+  return {
+    quantity: Number(m.quantity),
+    product: {
+      nameUz: soldProductName(m),
+      price: m.salePrice ?? m.product?.price ?? 0,
+    },
+  };
+}
 
 // POST — Process a store sale (multiple items at once)
 export async function POST(request: NextRequest) {
@@ -54,9 +159,7 @@ export async function GET(request: NextRequest) {
   // Дата — деловая (`soldAt`): продажа, занесённая сегодня за вчера, должна
   // лечь во вчерашнюю смену.
   const where: Record<string, unknown> = {
-    type: 'OUT',
-    orderId: null,
-    salePrice: { not: null },
+    ...POS_SALE_WHERE,
     ...byBusinessDate({ gte: startOfDay, lt: endOfDay }),
   };
 
@@ -68,7 +171,7 @@ export async function GET(request: NextRequest) {
     where,
     include: {
       product: { select: { nameUz: true, nameRu: true, price: true, unit: true } },
-      sale: { select: { number: true } },
+      sale: { select: SALE_HEAD },
     },
     orderBy: { soldAt: 'desc' },
     take: LIST_LIMIT,
@@ -88,14 +191,20 @@ export async function GET(request: NextRequest) {
     where: returnWhere,
     include: {
       product: { select: { nameUz: true, nameRu: true, price: true, unit: true } },
-      sale: { select: { number: true } },
+      sale: { select: SALE_HEAD },
     },
     orderBy: { soldAt: 'desc' },
     take: LIST_LIMIT,
   });
 
   // Group sales by sale number
-  const salesMap = new Map<string, { items: typeof movements; total: number; time: string }>();
+  type Grouped = {
+    items: typeof movements;
+    total: number;
+    time: string;
+  } & ReturnType<typeof headOf>;
+
+  const salesMap = new Map<string, Grouped>();
 
   for (const m of movements) {
     // Номер чека теперь колонка. Разбор регулярками оставлен запасным путём
@@ -104,7 +213,12 @@ export async function GET(request: NextRequest) {
     const saleNum = m.sale?.number ?? (match ? match[0].replace(/[()]/g, '') : 'unknown');
 
     if (!salesMap.has(saleNum)) {
-      salesMap.set(saleNum, { items: [], total: 0, time: (m.soldAt ?? m.createdAt).toISOString() });
+      salesMap.set(saleNum, {
+        items: [],
+        total: 0,
+        time: (m.soldAt ?? m.createdAt).toISOString(),
+        ...headOf(m.sale, m.performedBy),
+      });
     }
     const sale = salesMap.get(saleNum)!;
     sale.items.push(m);
@@ -112,13 +226,24 @@ export async function GET(request: NextRequest) {
   }
 
   // Group returns by return number
-  const returnsMap = new Map<string, { items: typeof returnMovements; total: number; time: string }>();
+  type GroupedReturn = {
+    items: typeof returnMovements;
+    total: number;
+    time: string;
+  } & ReturnType<typeof headOf>;
+
+  const returnsMap = new Map<string, GroupedReturn>();
   for (const m of returnMovements) {
     const match = m.reason?.match(/\(R-[A-Z0-9-]+\)/);
     const retNum = m.sale?.number ?? (match ? match[0].replace(/[()]/g, '') : 'unknown');
 
     if (!returnsMap.has(retNum)) {
-      returnsMap.set(retNum, { items: [], total: 0, time: (m.soldAt ?? m.createdAt).toISOString() });
+      returnsMap.set(retNum, {
+        items: [],
+        total: 0,
+        time: (m.soldAt ?? m.createdAt).toISOString(),
+        ...headOf(m.sale, m.performedBy),
+      });
     }
     const ret = returnsMap.get(retNum)!;
     ret.items.push(m);
@@ -126,11 +251,13 @@ export async function GET(request: NextRequest) {
   }
 
   const sales = Array.from(salesMap.entries()).map(([number, data]) => ({
-    number, ...data, itemCount: data.items.length, type: 'sale' as const,
+    number, ...data, items: data.items.map(lineOf), itemCount: data.items.length,
+    type: 'sale' as const,
   }));
 
   const returns = Array.from(returnsMap.entries()).map(([number, data]) => ({
-    number, ...data, itemCount: data.items.length, type: 'return' as const,
+    number, ...data, items: data.items.map(lineOf), itemCount: data.items.length,
+    type: 'return' as const,
   }));
 
   const grossRevenue = sales.reduce((s, sale) => s + sale.total, 0);

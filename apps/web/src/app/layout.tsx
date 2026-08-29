@@ -16,6 +16,7 @@ import { TelegramInit } from '@/components/providers/TelegramInit';
 import { Analytics } from '@/components/providers/Analytics';
 import { CityProvider } from '@/components/providers/CityProvider';
 import { SEO_KEYWORDS } from '@/lib/seo/keywordsData';
+import { THEME_BOOTSTRAP } from '@/lib/themeBootstrap';
 
 const DOMAIN = 'https://microgreenuzbekistan.com';
 
@@ -127,12 +128,11 @@ export default async function RootLayout({
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <JsonLd />
         <script src="https://telegram.org/js/telegram-web-app.js" nonce={nonce} async></script>
-        <script
-          nonce={nonce}
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('Microgreen-theme');if(t){document.documentElement.setAttribute('data-theme',t)}else{var d=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',d)}}catch(e){document.documentElement.setAttribute('data-theme','light')}})()`,
-          }}
-        />
+        {/* Тема — до первой отрисовки. Разрешение даёт ХЕШ в CSP, а не
+            nonce: на статически собранных страницах каталога nonce
+            запекается пустым, и скрипт молча не исполнялся (см.
+            lib/themeBootstrap.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
       </head>
       <body>
         <ThemeProvider>

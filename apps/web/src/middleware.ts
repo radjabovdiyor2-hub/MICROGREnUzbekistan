@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CATEGORY_SLUGS } from '@/lib/seo/categories';
 import { SESSION_COOKIE, verifySession, type SessionRole } from '@/lib/session';
+import { THEME_BOOTSTRAP_HASH } from '@/lib/themeBootstrap';
 
 // ════════════════════════════════════════════════════════════════════
 // Единая точка авторизации API + SEO-редирект каталога.
@@ -179,7 +180,12 @@ const DEV_SCRIPT_SRC = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'"
 function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}'${DEV_SCRIPT_SRC} https://telegram.org https://oauth.telegram.org https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru`,
+    // `THEME_BOOTSTRAP_HASH` — разрешение для скрипта темы. Nonce'а ему
+    // мало: на статически собранных страницах каталога он запекается
+    // пустым на сборке, не совпадает с живым и скрипт не исполняется —
+    // тема не применяется до первой отрисовки. Хеш от постоянного
+    // скрипта работает и на статике, и на динамике.
+    `script-src 'self' 'nonce-${nonce}' ${THEME_BOOTSTRAP_HASH}${DEV_SCRIPT_SRC} https://telegram.org https://oauth.telegram.org https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: https: blob:",

@@ -1,5 +1,7 @@
 import { prisma } from '@repo/database';
 
+import { POS_SALE_WHERE, byBusinessDate } from '@/lib/revenue/salesLedger';
+
 // Вынесено из api/inventory/analytics/route.ts: файл перерос 200 строк,
 // а в route.ts Next.js разрешает экспортировать только HTTP-обработчики.
 // Каждая секция считается независимо — роут остался диспетчером.
@@ -19,8 +21,14 @@ export async function loadSales(months: number) {
         where: { createdAt: { gte: start, lte: end }, status: { not: 'CANCELLED' } },
         select: { total: true },
       }),
+      // Продажа в точке опознаётся так же, как в `lib/revenue/salesLedger`:
+      // движение OUT без заказа и с ценой продажи. Здесь стоял отбор по
+      // началу строки `reason` («Do'kon sotish»), и продажи в долг —
+      // «Qarzga sotish» — в помесячную выручку не попадали вовсе. По той же
+      // причине дата теперь деловая: продажа, занесённая задним числом,
+      // ложилась не в свой месяц.
       prisma.stockMovement.findMany({
-        where: { type: 'OUT', reason: { startsWith: "Do'kon sotish" }, createdAt: { gte: start, lte: end } },
+        where: { ...POS_SALE_WHERE, ...byBusinessDate({ gte: start, lte: end }) },
         include: { product: { select: { price: true } } },
       }),
     ]);

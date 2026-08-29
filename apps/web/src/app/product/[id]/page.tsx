@@ -112,8 +112,12 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
 
     if (product) {
       const { reviews: _reviews, ...card } = product;
-      initialProduct = card as PublicProduct;
-
+      // `stock` в базе — `Decimal` (весовой товар продаётся дробно), и в
+      // клиентский компонент он уезжал как есть. Тип обещал `number`, а
+      // приведение `as` это расхождение просто скрывало: «Осталось N шт»
+      // работало на том, что `Decimal` умеет `toJSON`, а сравнения приводят
+      // строку к числу. Обещание типа делаем правдой явно.
+      initialProduct = { ...card, stock: Number(card.stock) } as PublicProduct;
       const image = product.images?.[0] || `${DOMAIN}/hero-microgreens.png`;
       jsonLd = {
         '@context': 'https://schema.org',

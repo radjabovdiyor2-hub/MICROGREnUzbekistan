@@ -52,6 +52,26 @@ export const byBusinessDate = (range: { gte: Date; lte?: Date; lt?: Date }) => (
   OR: [{ soldAt: range }, { soldAt: null, createdAt: range }],
 });
 
+/**
+ * «Что такое продажа в точке» — одним объектом, чтобы отчёты не переписывали
+ * это условие каждый по-своему.
+ *
+ * `orderId IS NULL` отсекает движения онлайн-заказов: их выручку даёт сам
+ * заказ. `salePrice IS NOT NULL` отсекает ручные списания: товар ушёл со
+ * склада, а денег за него не приходило.
+ *
+ * Отдельной константой, потому что копия этого условия уже расходилась:
+ * выгрузка «Продажи» отбирала кассу по началу строки `reason`
+ * («Do'kon sotish»), и продажи в долг — «Qarzga sotish» — в CSV не попадали
+ * вовсе, хотя в выручке админки они были. Одинаковое условие в двух местах
+ * держится не аккуратностью, а тем, что оно одно.
+ */
+export const POS_SALE_WHERE = {
+  type: 'OUT',
+  orderId: null,
+  salePrice: { not: null },
+} as const;
+
 export type SaleChannel = 'online' | 'pos';
 
 /** Проданная позиция — ровно один раз, из ровно одного источника. */
@@ -163,9 +183,7 @@ export async function loadSalesLedger(from: Date, to?: Date): Promise<SalesLedge
     // со склада, но денег за него не приходило.
     prisma.stockMovement.findMany({
       where: {
-        type: 'OUT',
-        orderId: null,
-        salePrice: { not: null },
+        ...POS_SALE_WHERE,
         ...byBusinessDate(range),
       },
       include: {

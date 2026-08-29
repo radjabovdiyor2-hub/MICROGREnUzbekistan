@@ -21,7 +21,33 @@ export interface Product {
   price: number;
 }
 
-export interface Sale {
+/**
+ * Шапка чека: кто продал и кому.
+ *
+ * Обе величины лежат в `pos_sales` с самого появления таблицы, а история
+ * продаж показывала только номер, время и сумму. Пустой `performedBy`
+ * означает чек, записанный до появления шапки, — не «продавец неизвестен
+ * по злому умыслу», а «строка старая».
+ */
+export interface ReceiptHead {
+  customerId: number | null;
+  customerName: string | null;
+  performedBy: string | null;
+  role: string | null;
+  paymentMethod: string | null;
+  /** `counter` — за прилавком, `field` — с выезда по карте. */
+  origin: string | null;
+  discount: number;
+  discountReason: string | null;
+  backdated: boolean;
+  backdateReason: string | null;
+  /** Причина возврата — только у возвратов. */
+  reason: string | null;
+  /** Номер чека, по которому сделан возврат. */
+  refundOf: string | null;
+}
+
+export interface Sale extends ReceiptHead {
   number: string;
   items: { quantity: number; product: { nameUz: string; price: number } }[];
   total: number;

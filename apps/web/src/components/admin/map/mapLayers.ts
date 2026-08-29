@@ -97,7 +97,7 @@ export function heatSourceOptions() {
   return { cluster: false };
 }
 
-export function buildHeatLayer(c: TokenColors, p80: number) {
+export function buildHeatLayer(c: TokenColors, heat: { field: 'sp' | 'oc'; p80: number }) {
   return {
     id: LAYER_HEAT,
     type: 'heatmap' as const,
@@ -106,7 +106,7 @@ export function buildHeatLayer(c: TokenColors, p80: number) {
     // значило бы показать «густо» там, где мы ничего не зарабатываем.
     filter: ['!=', ['get', 'k'], 'restaurant'],
     paint: {
-      'heatmap-weight': heatWeight(p80),
+      'heatmap-weight': heatWeight(heat.field, heat.p80),
       'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 8, 1, 14, 3],
       'heatmap-color': heatColor(c),
       'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 8, 12, 14, 30],

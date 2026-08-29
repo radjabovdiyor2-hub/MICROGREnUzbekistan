@@ -22,6 +22,9 @@ interface Props {
   labels: { place: string; cancel: string; noAddress: string };
 }
 
+/** Заказов — подпись для строки, где сумма закрыта. */
+const ORDERS_WORD = { ru: 'заказ.', uz: 'buyurtma' };
+
 const ellipsis: React.CSSProperties = {
   whiteSpace: 'nowrap',
   overflow: 'hidden',
@@ -65,7 +68,13 @@ export function UnplacedRow({ customer, lang, placing, onPlace, onCancel, labels
           )}
         </div>
         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', ...ellipsis }}>
-          {customer.address || labels.noAddress} · {formatSum(customer.totalSpent)} сум
+          {customer.address || labels.noAddress}
+          {/* Продавцу суммы закрыты: вместо «— сум» показываем число заказов.
+              Строка обязана оставаться осмысленной — по ней решают, чей пин
+              ставить первым. */}
+          {customer.totalSpent === null
+            ? ` · ${customer.ordersCount} ${ORDERS_WORD[lang]}`
+            : ` · ${formatSum(customer.totalSpent)} сум`}
         </div>
       </div>
 

@@ -235,6 +235,45 @@ describe('buildMapCollection', () => {
     expect(c.summary.revenueByState.lost).toBe(1_000_000);
   });
 
+  // ── Деньги, закрытые от продавца ────────────────────────────────
+  //
+  // Маскировалась только сумма самой точки. Легенда печатает выручку по
+  // состояниям, лоток «без координат» — сумму каждого клиента, а тепловой
+  // слой взвешивается по той же сумме: закрытая цифра утекала в двух местах
+  // и ломала третье. Проверяем все четыре следствия сразу — они об одном.
+  it('продавцу закрыты все суммы, а не только сумма точки', () => {
+    const c = buildMapCollection(
+      [
+        customer({ lastOrderDate: daysAgo(2), totalSpent: 1_000_000 }),
+        customer({ id: 2, latitude: null, longitude: null, totalSpent: 500_000 }),
+      ],
+      new Map(),
+      { now: NOW, hideMoney: true },
+    );
+
+    expect(c.features[0].properties.sp).toBeNull();
+    expect(c.summary.revenueByState.healthy).toBeNull();
+    expect(c.summary.spentPercentiles.p80).toBeNull();
+    expect(c.unplaced[0].totalSpent).toBeNull();
+    // Штуки остаются: они не деньги, и без них лоток теряет всякий порядок.
+    expect(c.unplaced[0].ordersCount).toBe(12);
+  });
+
+  it('тепло переключается на заказы, когда суммы закрыты', () => {
+    const visible = buildMapCollection([customer()], new Map(), { now: NOW });
+    expect(visible.summary.heat.field).toBe('sp');
+    expect(visible.summary.moneyHidden).toBe(false);
+
+    const hidden = buildMapCollection([customer()], new Map(), {
+      now: NOW,
+      hideMoney: true,
+    });
+    // Раньше слой взвешивался по `sp`, а он у продавца пустой: coalesce(sp, 0)
+    // давал одинаковый вес на каждой точке, и тепло рисовало ровную заливку.
+    expect(hidden.summary.heat.field).toBe('oc');
+    expect(hidden.summary.heat.p80).toBe(12);
+  });
+
   it('фильтр по состоянию убирает точку и из сводки тоже', () => {
     const c = buildMapCollection([customer({ lastOrderDate: daysAgo(2) })], new Map(), {
       now: NOW,

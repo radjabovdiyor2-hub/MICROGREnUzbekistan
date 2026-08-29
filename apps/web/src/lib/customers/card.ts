@@ -46,6 +46,14 @@ export interface CustomerCardOrder {
 export interface CustomerLastVisit {
   at: string;
   type: string;
+  /**
+   * Кто ездил. null — отметка старше того дня, когда автора начали писать.
+   *
+   * Хранится в колонке `bot_name`: офис пишет туда имя бота, сделавшего
+   * касание, а карта — имя человека. Вопрос один и тот же — «чья это
+   * запись», — поэтому и колонка одна.
+   */
+  by: string | null;
   /** Расстояние до пина в метрах. null — место не подтверждено. */
   distanceM: number | null;
   /** Круг неопределённости, метры. Без него расстояние толкуется наугад. */
@@ -202,6 +210,7 @@ export async function getCustomerCard(
         .map((i) => ({
           at: i.createdAt.toISOString(),
           type: i.interactionType,
+          by: i.botName ?? null,
           distanceM: i.distanceM ?? null,
           accuracyM: i.accuracyM ?? null,
         }))[0] ?? null,

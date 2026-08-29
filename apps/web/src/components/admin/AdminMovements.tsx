@@ -49,6 +49,9 @@ export function AdminMovements({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     enabled: tab === 'sales',
   });
   const sales: Sale[] = salesData?.sales || [];
+  // Возвраты приходили вместе с продажами и не показывались нигде: выручка
+  // дня уже была уменьшена на них, а увидеть, за что именно, было негде.
+  const returns: Sale[] = salesData?.returns || [];
   const salesSummary = salesData?.summary || { totalSales: 0, totalItems: 0, totalRevenue: 0 };
   const salesLoading = salesLoadingLoading && tab === 'sales';
 
@@ -189,9 +192,9 @@ export function AdminMovements({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
       {/* ============ SALES HISTORY TAB ============ */}
       {tab === 'sales' && (
         <AdminSalesTab
-          sales={sales} salesDate={salesDate} setSalesDate={setSalesDate}
+          sales={sales} returns={returns} salesDate={salesDate} setSalesDate={setSalesDate}
           salesLoading={salesLoading} salesSummary={salesSummary}
-          fmt={fmt} inputStyle={inputStyle} onExport={handleExport} />
+          lang={lang} fmt={fmt} inputStyle={inputStyle} onExport={handleExport} />
       )}
     </div>
   );
