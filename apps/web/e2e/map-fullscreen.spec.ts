@@ -249,6 +249,12 @@ test.describe("Полноэкранный режим карты", () => {
     await openMap(page);
     await fullscreenButton(page).click();
 
+    // Поиск в полном экране СВЁРНУТ: развёрнутым он занимал верхнюю треть
+    // карты, ради которой режим и включают. Проверяем и это — иначе
+    // следующая правка вернёт карточку на 360 px незамеченной.
+    await expect(page.getByPlaceholder(/Найти заведение|Joy topish/)).toHaveCount(0);
+    await page.getByRole("button", { name: /Поиск|Qidiruv/ }).first().click();
+
     // Точку выбираем поиском: тот же путь к карточке, что у человека, и
     // он не требует попадания пальцем по холсту.
     await page.getByPlaceholder(/Найти заведение|Joy topish/).first().fill("Плов");
