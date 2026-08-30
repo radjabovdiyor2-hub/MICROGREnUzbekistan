@@ -24,6 +24,14 @@ export interface PlanStopRow {
   accuracyM: number | null;
 }
 
+/** Что взято с собой: товар и сколько. Пустой список — объезд без развоза. */
+export interface PlanItemRow {
+  productId: string;
+  name: string;
+  qty: number;
+  unit: string | null;
+}
+
 export interface PlanRow {
   id: number;
   assignee: string;
@@ -31,6 +39,7 @@ export interface PlanRow {
   source: string;
   doneCount: number;
   stops: PlanStopRow[];
+  items?: PlanItemRow[];
 }
 
 /** Цвет полосы исполнения: пусто, начато, всё. */
@@ -92,6 +101,32 @@ export function AdminVisitPlanRow({
           }}
         />
       </div>
+
+      {/* Что взять с собой — ПЕРЕД списком точек: это первое, что нужно
+          утром, у машины, а не после того как объезд закончен. Строки нет
+          вовсе, когда товаров нет: пустая подпись «Взять: —» сообщала бы
+          о пробеле там, где его нет — разведочный объезд это норма. */}
+      {plan.items && plan.items.length > 0 && (
+        <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'baseline' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            {lang === 'ru' ? 'Взять с собой:' : 'Olib ketish:'}
+          </span>
+          {plan.items.map((item) => (
+            <span
+              key={item.productId}
+              style={{
+                fontSize: 'var(--text-xs)',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-full)',
+                background: 'var(--bg-secondary)',
+                color: 'var(--text-primary)',
+              }}
+            >
+              {item.name} · {item.qty}{item.unit ? ` ${item.unit}` : ''}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: 'grid', gap: 'var(--space-1)' }}>
         {plan.stops.map((stop, i) => {
