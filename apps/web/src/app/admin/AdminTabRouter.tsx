@@ -64,10 +64,10 @@ const AdminForecast = dynamic(() => import('@/components/admin/AdminForecast').t
 const AdminSettings = dynamic(() => import('@/components/admin/AdminSettings').then((m) => m.AdminSettings), { ssr: false, loading: TabLoading });
 const AdminRawMaterials = dynamic(() => import('@/components/admin/AdminRawMaterials').then((m) => m.AdminRawMaterials), { ssr: false, loading: TabLoading });
 const AdminMagazine = dynamic(() => import('@/components/admin/AdminMagazine').then((m) => m.AdminMagazine), { ssr: false, loading: TabLoading });
-const AdminMagazineEditions = dynamic(() => import('@/components/admin/AdminMagazineEditions').then((m) => m.AdminMagazineEditions), { ssr: false, loading: TabLoading });
+const AdminMagazineIssues = dynamic(() => import('@/components/admin/AdminMagazineIssues').then((m) => m.AdminMagazineIssues), { ssr: false, loading: TabLoading });
 const AdminMagazineMoney = dynamic(() => import('@/components/admin/AdminMagazineMoney').then((m) => m.AdminMagazineMoney), { ssr: false, loading: TabLoading });
 const AdminGuestPhotos = dynamic(() => import('@/components/admin/AdminGuestPhotos').then((m) => m.AdminGuestPhotos), { ssr: false, loading: TabLoading });
-const AdminRecipes = dynamic(() => import('@/components/admin/AdminRecipes').then((m) => m.AdminRecipes), { ssr: false, loading: TabLoading });
+const AdminMagazineContent = dynamic(() => import('@/components/admin/AdminMagazineContent').then((m) => m.AdminMagazineContent), { ssr: false, loading: TabLoading });
 const AdminLearnings = dynamic(() => import('@/components/admin/AdminLearnings').then((m) => m.AdminLearnings), { ssr: false, loading: TabLoading });
 const AdminCustomers = dynamic(() => import('@/components/admin/AdminCustomers').then((m) => m.AdminCustomers), { ssr: false, loading: TabLoading });
 const AdminBotControl = dynamic(() => import('@/components/admin/AdminBotControl').then((m) => m.AdminBotControl), { ssr: false, loading: TabLoading });
@@ -175,10 +175,15 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
 
     {/* Контент и журнал */}
     {activeTab === 'magazine' && isOwner && <AdminMagazine />}
-    {activeTab === 'magazine_editions' && isOwner && <AdminMagazineEditions lang={lang} />}
+    {activeTab === 'magazine_editions' && isOwner && <AdminMagazineIssues lang={lang} />}
     {activeTab === 'magazine_money' && isOwner && <AdminMagazineMoney lang={lang} />}
     {activeTab === 'guest_photos' && isOwner && <AdminGuestPhotos />}
-    {activeTab === 'recipes' && isOwner && <AdminRecipes />}
+    {/* Материалы и рецепты — один экран. Старый адрес `?tab=recipes`
+        остаётся живым и открывает его сразу на рецептах: по нему приходят
+        ссылки из ИИ-офиса. */}
+    {(activeTab === 'recipes' || activeTab === 'magazine_content') && isOwner && (
+      <AdminMagazineContent initialTab={activeTab === 'recipes' ? 'recipes' : 'articles'} />
+    )}
 
     {/* Аналитика и система */}
     {activeTab === 'analytics' && isOwner && <AdminAnalytics />}

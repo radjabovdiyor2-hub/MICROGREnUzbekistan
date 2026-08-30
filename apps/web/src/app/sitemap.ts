@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { prisma } from '@repo/database';
 import { CATEGORY_SLUGS } from '@/lib/seo/categories';
+import { RUBRICS } from '@/lib/magazine/rubrics';
 
 const BASE = 'https://microgreenuzbekistan.com';
 
@@ -65,19 +66,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // Magazine pages — реальные выпуски движка (/magazine/r/<slug>)
-  const { listPublishedIssues } = await import('@/lib/magazine/data');
+  // Журнал: рубрики и материалы. Рубрики берутся из словаря, а не из базы —
+  // это шесть постоянных разделов, и они индексируются даже пустыми.
+  const rubricPages: MetadataRoute.Sitemap = RUBRICS.map((r) => ({
+    url: `${BASE}/magazine/${r.id}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
+
   let magazinePages: MetadataRoute.Sitemap = [];
   try {
-    const issues = await listPublishedIssues();
-    magazinePages = issues.map((issue) => ({
-      url: `${BASE}/magazine/r/${issue.slug}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
+    const { listArticleRoutes } = await import('@/lib/magazine/content');
+    const articles = await listArticleRoutes();
+    magazinePages = articles.map((a) => ({
+      url: `${BASE}/magazine/${a.rubric}/${a.slug}`,
+      lastModified: a.updatedAt,
+      changeFrequency: 'monthly' as const,
+      priority: 0.75,
     }));
   } catch {
-    // БД недоступна на этапе сборки — карта сайта без выпусков
+    // БД недоступна на этапе сборки — карта сайта без материалов
   }
 
   // Category landing pages — реальные индексируемые URL /catalog/<slug>,
@@ -164,7 +173,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   return [
-    ...staticPages, ...magazinePages, ...categoryPages,
+    ...staticPages, ...rubricPages, ...magazinePages, ...categoryPages,
     ...productPages, ...recipePages, ...menuPages,
   ];
 }

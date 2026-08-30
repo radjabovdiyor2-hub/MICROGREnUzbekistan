@@ -18,7 +18,7 @@ products` с офисными колонками проходил проверк
 | Витрина | `apps/web` (Prisma) | `products`, `categories`, `orders`, `order_items`, `users`, `employees` | cuid-строки |
 | CRM офиса | `apps/tgas` (raw SQL) | `crm_products`, `crm_orders`, `crm_order_items`, `crm_employees`, `customers`, `interactions`, `tasks`, `finances`, `followups`, `inventory`, `ai_usage` | `serial` |
 
-**Схемой владеет Prisma** — `packages/database/prisma/schema.prisma`, 82 модели.
+**Схемой владеет Prisma** — `packages/database/prisma/schema.prisma`, 83 модели.
 `apps/tgas/database/init.sql` — исторический файл: он описывает состояние ДО
 переименования и в прод не монтируется.
 
@@ -97,10 +97,19 @@ Prisma отдаёт `Decimal` объектом, а `NextResponse.json` сери�
 
 | Model | Purpose |
 |-------|---------|
-| `MagazineEdition` | Общий выпуск журнала (50% контента) |
-| `RestaurantIssue` | Персональный выпуск ресторана (вторые 50%) |
+| `MagazineIssue` | Карточка вышедшего номера: название, обложка, адреса вёрстки и PDF, публикация |
+| `MagazineArticle`, `MagazineArticleSection` | Материалы журнала на сайте по рубрикам и их текст |
+| `Recipe`, `RecipeStep`, `RecipeIngredient` | Рецепты — отдельная рубрика журнала со сбором набора в корзину |
 | `Restaurant` | Рестораны-партнёры: slug, бренд-цвета, промокод, меню |
-| `PrintSubscription`, `PrintOrder` | Печатные подписки и заказы |
+| `PrintSubscription`, `PrintOrder` | Печатные подписки и счета за тираж (счёт ссылается на номер) |
+
+Содержимого номера в базе НЕТ, и это решение, а не пробел. Номер верстается
+вручную (`content/generated/<slug>-print.html`), проходит сверки и публикуется
+скриптом `scripts/publish-magazine.mjs` в `apps/web/public/magazine/`. База
+хранит карточку номера — по ней он показывается на `/magazine` и его отдаёт
+бот витрины через `/api/magazine/current`. Прежние `MagazineEdition` и
+`RestaurantIssue` (блоки, которые складывал крон и переписывал ИИ) удалены:
+настоящие номера так никогда не делались.
 
 ## Migration Rules
 

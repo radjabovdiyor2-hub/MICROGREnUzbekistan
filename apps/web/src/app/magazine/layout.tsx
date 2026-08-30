@@ -7,20 +7,20 @@ const SITE = process.env.NEXT_PUBLIC_URL || 'https://microgreenuzbekistan.com';
 export const metadata: Metadata = {
   title: {
     template: '%s — FRESH WEEKLY',
-    default: 'FRESH WEEKLY — Журнал о еде, ресторанах и здоровье',
+    default: 'FRESH WEEKLY — журнал о еде, здоровье и доме',
   },
-  description: 'Еженедельный интерактивный журнал: рестораны Ташкента и Самарканда, стрит-фуд мира, рецепты для шефов и хозяек, нутрициология, фитнес, IT-стартапы. С дополненной реальностью!',
+  description: 'Журнал Microgreen Uzbekistan: рецепты с микрозеленью, рестораны Самарканда и Ташкента, здоровье, советы хозяйке, скидки и наборы к салатам. Печатный номер — онлайн и в PDF.',
   keywords: [
-    'FRESH WEEKLY', 'журнал о еде', 'рестораны Ташкента', 'рестораны Самарканда',
-    'микрозелень', 'рецепты', 'нутрициология', 'AR', 'дополненная реальность',
-    'ovqat jurnali', 'Toshkent restoranlari', 'mikrozeleny',
+    'FRESH WEEKLY', 'журнал о еде', 'рестораны Самарканда', 'рестораны Ташкента',
+    'микрозелень', 'рецепты с микрозеленью', 'здоровое питание', 'советы хозяйке',
+    'ovqat jurnali', 'Samarqand restoranlari', "mikroko'kat", 'retseptlar',
   ],
   alternates: {
     canonical: `${SITE}/magazine`,
   },
   openGraph: {
-    title: 'FRESH WEEKLY — Интерактивный журнал о еде',
-    description: 'Интерактивный журнал о еде, здоровье и технологиях. Рестораны, рецепты, AR-коллекция персонажей. Читайте онлайн, скачивайте PDF или закажите печатную копию.',
+    title: 'FRESH WEEKLY — журнал о еде, здоровье и доме',
+    description: 'Рецепты, рестораны, здоровье и советы хозяйке. Читайте онлайн, скачивайте PDF или закажите печатный номер.',
     type: 'article',
     url: `${SITE}/magazine`,
     siteName: 'Microgreen Uzbekistan',
@@ -29,8 +29,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FRESH WEEKLY — Журнал о еде, ресторанах и здоровье',
-    description: 'Еженедельный интерактивный журнал с дополненной реальностью — рестораны, рецепты, здоровье.',
+    title: 'FRESH WEEKLY — журнал о еде, здоровье и доме',
+    description: 'Рецепты, рестораны, здоровье и советы хозяйке — журнал Microgreen Uzbekistan.',
     images: ['/img/og-magazine.jpg'],
   },
 };
@@ -40,7 +40,7 @@ const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Periodical',
   name: 'FRESH WEEKLY',
-  description: 'Еженедельный интерактивный журнал о еде, ресторанах и здоровье от Microgreen Uzbekistan.',
+  description: 'Журнал о еде, здоровье и доме от Microgreen Uzbekistan: рецепты, рестораны, советы хозяйке.',
   url: `${SITE}/magazine`,
   publisher: {
     '@type': 'Organization',

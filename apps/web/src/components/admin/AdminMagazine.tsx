@@ -14,7 +14,7 @@ export function AdminMagazine() {
     restaurant, dishes, uploading, loading, quickName, setQuickName,
     lastQr, previewVideoUrl, setPreviewVideoUrl, copiedId, dragActive, setDragActive,
     editingId, editingName, setEditingName,
-    copyLink, uploadMagazine, removeMagazine,
+    copyLink,
     quickAddVideo, uploadVideoToDish, removeVideo, removeDish,
     startRename, saveRename, downloadQr, setEditingId,
   } = useMagazineAdmin();
@@ -23,29 +23,10 @@ export function AdminMagazine() {
 
   return (
     <div style={{ padding: 'var(--space-6)', maxWidth: 840 }}>
-      <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>Журнал · FRESH WEEKLY</h2>
-
-      {/* Журнал: PDF / HTML */}
-      <div style={{ display: 'flex', gap: 'var(--space-3)', marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
-        <FileCard
-          label="📄 PDF журнала"
-          url={restaurant?.magazinePdfUrl ?? null}
-          accept=".pdf"
-          uploading={uploading === 'magazinePdfUrl'}
-          disabled={!!uploading}
-          onUpload={(f) => uploadMagazine('magazinePdfUrl', f)}
-          onRemove={() => removeMagazine('magazinePdfUrl')}
-        />
-        <FileCard
-          label="🌐 HTML журнала"
-          url={restaurant?.magazineHtmlUrl ?? null}
-          accept=".html,.htm"
-          uploading={uploading === 'magazineHtmlUrl'}
-          disabled={!!uploading}
-          onUpload={(f) => uploadMagazine('magazineHtmlUrl', f)}
-          onRemove={() => removeMagazine('magazineHtmlUrl')}
-        />
-      </div>
+      <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>Живое меню заведения</h2>
+      <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', maxWidth: 620 }}>
+        Блюда, ролики и печатные QR витрины /m/&lt;slug&gt;. Номер журнала и его PDF заводятся на вкладке «Номера».
+      </p>
 
       {/* Быстрое добавление видео → QR с поддержкой Drag-and-Drop */}
       <div
@@ -120,32 +101,6 @@ export function AdminMagazine() {
             <button onClick={() => setPreviewVideoUrl(null)} style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(var(--overlay-dark-rgb), 0.6)', color: 'var(--text-inverse)', border: 'none', borderRadius: '50%', width: 32, height: 32, fontSize: 18, cursor: 'pointer' }}>✕</button>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function FileCard({ label, url, accept, uploading, disabled, onUpload, onRemove }: {
-  label: string; url: string | null; accept: string; uploading: boolean; disabled: boolean;
-  onUpload: (f: File) => void; onRemove: () => void;
-}) {
-  return (
-    <div className="card" style={{ flex: 1, minWidth: 200, padding: 'var(--space-3)' }}>
-      <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, marginBottom: 'var(--space-2)' }}>{label}</div>
-      {url ? (
-        <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-          <a href={url} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть ↗</a>
-          <label style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', cursor: disabled ? 'wait' : 'pointer' }}>
-            Заменить
-            <input type="file" accept={accept} style={{ display: 'none' }} disabled={disabled} onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
-          </label>
-          <button onClick={onRemove} style={{ fontSize: 'var(--text-xs)', padding: '2px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', background: 'transparent', color: 'var(--error)', cursor: 'pointer' }}>Удалить</button>
-        </div>
-      ) : (
-        <label style={{ display: 'inline-block', fontSize: 'var(--text-sm)', padding: '6px 14px', borderRadius: '8px', background: 'var(--brand-primary)', color: 'var(--text-inverse)', cursor: disabled ? 'wait' : 'pointer', fontWeight: 600 }}>
-          {uploading ? 'Загрузка...' : '⬆ Загрузить'}
-          <input type="file" accept={accept} style={{ display: 'none' }} disabled={disabled} onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.target.value = ''; }} />
-        </label>
       )}
     </div>
   );

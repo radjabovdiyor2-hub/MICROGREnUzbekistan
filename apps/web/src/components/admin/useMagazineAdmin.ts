@@ -8,7 +8,11 @@ import { useMagazineVideo } from './useMagazineVideo';
 import type { MagazineRestaurant, MagazineDish } from './magazineTypes';
 
 // ══════════════════════════════════════════════════════════════════════
-// Состояние и операции админки журнала: выпуск, блюда, видео, QR.
+// Состояние и операции живого меню заведения: блюда, ролики, QR.
+//
+// PDF и вёрстка номера сюда больше не грузятся: они принадлежат номеру
+// (`MagazineIssue`), а не карточке ресторана — у заведения номеров бывает
+// несколько, и два поля хранили только последний.
 // Вынесено из AdminMagazine — файл перерос 200 строк.
 //
 // Вынесено вместе с состоянием, а не отдельными функциями: обработчики
@@ -92,33 +96,6 @@ export function useMagazineAdmin() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Загрузить журнал (PDF/HTML)
-  const uploadMagazine = async (field: 'magazinePdfUrl' | 'magazineHtmlUrl', file: File) => {
-    if (!restaurant) return;
-    setUploading(field);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: fd });
-      const data = await res.json().catch(() => null);
-      if (!data?.url) { notify.error(data?.error || 'Файл не загрузился'); return; }
-      await adminFetch('/api/admin/magazine/restaurants', {
-        method: 'PATCH',
-        body: JSON.stringify({ id: restaurant.id, [field]: data.url }),
-      });
-      await refreshRestaurant();
-    } finally { setUploading(''); }
-  };
-
-  const removeMagazine = async (field: 'magazinePdfUrl' | 'magazineHtmlUrl') => {
-    if (!restaurant) return;
-    await adminFetch('/api/admin/magazine/restaurants', {
-      method: 'PATCH',
-      body: JSON.stringify({ id: restaurant.id, [field]: null }),
-    });
-    await refreshRestaurant();
-  };
-
   // Загрузить видео → создать блюдо → показать QR
   const { quickAddVideo, uploadVideoToDish } =
     useMagazineVideo(restaurant, setUploading, setQuickName, setLastQr, loadDishes, ensureRestaurant, quickName);
@@ -178,7 +155,7 @@ export function useMagazineAdmin() {
     restaurant, dishes, uploading, loading, quickName, setQuickName,
     lastQr, previewVideoUrl, setPreviewVideoUrl, copiedId, dragActive, setDragActive,
     editingId, editingName, setEditingName,
-    refreshRestaurant, loadDishes, copyLink, uploadMagazine, removeMagazine,
+    refreshRestaurant, loadDishes, copyLink,
     quickAddVideo, uploadVideoToDish, removeVideo, removeDish,
     startRename, saveRename, downloadQr, setEditingId,
   };

@@ -204,8 +204,10 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Permissions-Policy",
-            // camera=(self) — AR-сканер журнала (/magazine/ar) снимает
-            // коллекционную карточку; со сторонних origin камера по-прежнему закрыта
+            // camera=(self) — кадр гостя в живом меню (/m/<slug>/frame/<code>):
+            // гость снимает блюдо прямо со страницы. Здесь была ссылка на
+            // AR-сканер /magazine/ar, которого в приложении нет.
+            // Со сторонних origin камера по-прежнему закрыта
             value: "camera=(self), microphone=(self), geolocation=()",
           },
           {

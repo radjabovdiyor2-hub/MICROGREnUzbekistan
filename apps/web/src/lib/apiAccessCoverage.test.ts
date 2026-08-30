@@ -45,6 +45,7 @@ const PUBLIC_BY_DESIGN = [
   '/api/instagram',
   '/api/instagram/stories',
   '/api/leads',              // B2B-заявка с сайта; лимит
+  '/api/magazine/current',   // свежий номер журнала: витрина и бот
   '/api/menu/loyalty',       // карта гостя из «живого меню»
   '/api/menu/photo',         // кадр гостя; лимит 10/час
   '/api/products',           // каталог на чтение

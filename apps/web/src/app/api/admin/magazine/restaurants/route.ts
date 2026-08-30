@@ -111,8 +111,6 @@ export async function PATCH(request: Request) {
     if ('slug' in rest) data.slug = slugify(rest.slug);
     if ('promoDiscount' in rest) data.promoDiscount = rest.promoDiscount ? Number(rest.promoDiscount) : null;
     if ('isMagazinePartner' in rest) data.isMagazinePartner = !!rest.isMagazinePartner;
-    if ('magazinePdfUrl' in rest) data.magazinePdfUrl = rest.magazinePdfUrl || null;
-    if ('magazineHtmlUrl' in rest) data.magazineHtmlUrl = rest.magazineHtmlUrl || null;
 
     const updated = await prisma.restaurant.update({ where: { id }, data });
     await upsertPromo(updated.promoCode, updated.promoDiscount);

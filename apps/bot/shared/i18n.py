@@ -590,6 +590,21 @@ STRINGS: dict[str, tuple[str, str]] = {
     "btn.website": ("🌐 Sayt", "🌐 Сайт"),
 
     # ── Журнал FRESH WEEKLY ──
+    # Карточка номера: заголовок и «о чём он» приходят с витрины, а не
+    # стоят здесь текстом — раньше бот рассказывал про второй номер, а
+    # присылал файл третьего.
+    "magazine.card": (
+        "🌟 <b>FRESH WEEKLY — {number}-son</b>\n"
+        "<b>{title}</b>\n\n"
+        "{summary}",
+        "🌟 <b>FRESH WEEKLY — Выпуск #{number}</b>\n"
+        "<b>{title}</b>\n\n"
+        "{summary}",
+    ),
+    "magazine.unavailable": (
+        "Hozircha eʼlon qilingan son yoʻq. Jurnal: {url}",
+        "Опубликованного номера сейчас нет. Журнал: {url}",
+    ),
     "magazine.sending_pdf": ("📄 PDF yuborilyapti…", "📄 Отправляю PDF..."),
     "magazine.pdf_caption": (
         "📖 <b>FRESH WEEKLY — {number}-son</b>\n"

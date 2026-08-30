@@ -20,8 +20,9 @@
 │  │  /              → Storefront (catalog, cart, checkout)      │  │
 │  │  /catalog       → Product listing                          │  │
 │  │  /product/[slug]→ Product detail                           │  │
-│  │  /magazine      → FRESH WEEKLY journal                     │  │
-│  │  /magazine/ar   → AR viewer (WebAR)                        │  │
+│  │  /magazine      → FRESH WEEKLY: рубрики, материалы, номера │  │
+│  │  /magazine/<рубрика>/<slug> → материал журнала              │  │
+│  │  /recipe/[slug] → рецепт (печатный QR) + набор в корзину    │  │
 │  │  /admin         → Admin dashboard                          │  │
 │  │  /api/*         → 23 API route groups                      │  │
 │  └────────────────────────┬───────────────────────────────────┘  │

@@ -4,8 +4,6 @@ import type { CSSProperties } from 'react';
 export interface MagazineRestaurant {
   id: string;
   slug: string;
-  magazinePdfUrl?: string | null;
-  magazineHtmlUrl?: string | null;
 }
 
 /** Блюдо с видео-кадром — из /api/admin/magazine/dishes. */

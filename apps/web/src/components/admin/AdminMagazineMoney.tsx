@@ -5,6 +5,7 @@ import { Banknote, Megaphone, Printer } from 'lucide-react';
 import { useState } from 'react';
 
 import { AdminMagazinePrintLeads } from './AdminMagazinePrintLeads';
+import { AdminMagazinePrintRun } from './AdminMagazinePrintRun';
 import { AdminNotice } from './AdminNotice';
 import { AdminSearch, matchesQuery } from './AdminSearch';
 import { useFeedback } from './AdminFeedback';
@@ -40,7 +41,8 @@ interface PrintOrder {
   margin: number;
   status: string;
   createdAt: string;
-  restaurantIssue?: { restaurant?: { name: string | null } | null } | null;
+  issue?: { number: number; titleRu: string; restaurant?: { name: string | null } | null } | null;
+  subscription?: { restaurant?: { name: string | null } | null } | null;
 }
 
 interface Advertiser {
@@ -54,6 +56,11 @@ interface Advertiser {
 }
 
 const money = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
+
+/** Кому выставлен счёт: заведение номера, иначе — заведение подписки. */
+function billedTo(order: PrintOrder): string | null {
+  return order.issue?.restaurant?.name || order.subscription?.restaurant?.name || null;
+}
 
 const SUB_STATUS: Record<string, string> = {
   active: 'активна', paused: 'пауза', cancelled: 'отменена',
@@ -121,7 +128,7 @@ export function AdminMagazineMoney({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   const subRows = (subs.data ?? []).filter((s) =>
     matchesQuery(query, s.restaurant?.name, s.plan, s.status));
   const orderRows = (orders.data ?? []).filter((o) =>
-    matchesQuery(query, o.restaurantIssue?.restaurant?.name, o.status));
+    matchesQuery(query, billedTo(o), o.issue?.titleRu, o.status));
   const adRows = (ads.data ?? []).filter((a) =>
     matchesQuery(query, a.companyName, a.contactPerson, a.phone, a.status));
 
@@ -182,10 +189,11 @@ export function AdminMagazineMoney({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
 
       {/* ── Счета за печать ───────────────────────────────────────── */}
       <Section icon={<Banknote size={16} />} title={t('Счета за печать', "Bosma hisoblari")} count={orderRows.length}>
+        <AdminMagazinePrintRun lang={lang} />
         {orderRows.map((o) => (
           <Row key={o.id}
-            title={o.restaurantIssue?.restaurant?.name || t('без ресторана', 'restoransiz')}
-            detail={`${o.copies} ${t('копий', 'nusxa')} · ${money(o.revenue)} − ${money(o.cost)} = ${money(o.margin)}`}
+            title={billedTo(o) || t('без ресторана', 'restoransiz')}
+            detail={`${o.issue ? `№${o.issue.number} · ` : ''}${o.copies} ${t('копий', 'nusxa')} · ${money(o.revenue)} − ${money(o.cost)} = ${money(o.margin)}`}
             badge={ORDER_STATUS[o.status] ?? o.status}
             actions={o.status !== 'paid' && o.status !== 'cancelled' ? [
               { label: t('Оплачен', "To'landi"), run: () => patch('/api/admin/magazine/print-orders', { id: o.id, status: 'paid' }, 'mag-print-orders') },

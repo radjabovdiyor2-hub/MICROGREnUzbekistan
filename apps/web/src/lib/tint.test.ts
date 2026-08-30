@@ -85,7 +85,6 @@ describe('склейка альфы к цвету', () => {
       ...sourceFiles('components', 'ai'),
       ...sourceFiles('components', 'recipe'),
       ...sourceFiles('components', 'menu'),
-      ...sourceFiles('components', 'magazine'),
     ].filter((path) => BROKEN.test(readFileSync(path, 'utf8')));
 
     expect(
