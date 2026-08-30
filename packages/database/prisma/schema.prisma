@@ -1115,8 +1115,21 @@ model PrintSubscription {
 
 model PrintOrder {
   id              String             @id @default(cuid())
-  issueId         String             @map("issue_id")
-  issue           MagazineIssue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  // ПОЧЕМУ НЕОБЯЗАТЕЛЬНАЯ. Счёт — денежная запись, и она переживает номер, к
+  // которому выставлена: удаление карточки номера не должно стирать историю
+  // тиража. Прежняя связь была NOT NULL с каскадом — удаление номера уносило
+  // и выставленные по нему счета.
+  //
+  // Второе, из-за чего это всплыло: переезд с `restaurant_issue_id` на
+  // `issue_id` в ОБЯЗАТЕЛЬНОЙ колонке — это `ADD COLUMN ... NOT NULL` на
+  // таблице, где уже могут быть строки. Такой push падает на проде посреди
+  // миграции, уже пройдя предохранитель удаления данных.
+  //
+  // Новые счета без номера не появляются: его требуют схемы запросов
+  // `/api/admin/magazine/print-run` и POST `/api/admin/magazine/print-orders`.
+  // Пусто здесь — только у счёта, чей номер удалили.
+  issueId         String?            @map("issue_id")
+  issue           MagazineIssue?     @relation(fields: [issueId], references: [id], onDelete: SetNull)
   subscriptionId  String?            @map("subscription_id")
   subscription    PrintSubscription? @relation(fields: [subscriptionId], references: [id])
   copies          Int

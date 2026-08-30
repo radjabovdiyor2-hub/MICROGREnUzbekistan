@@ -70,6 +70,13 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const { issueId, subscriptionId, copies, unitPrice, unitCost } = data;
 
+    // Номер обязателен ЗДЕСЬ, хотя в схеме колонка необязательная. Пусто в
+    // базе допускается только для счёта, чей номер удалили; заводить новый
+    // счёт «ни за какой номер» нельзя — его потом не к чему отнести.
+    if (!issueId) {
+      return NextResponse.json({ error: 'issueId обязателен: счёт выставляется за номер' }, { status: 400 });
+    }
+
     const pricing = computeOrder(copies, unitPrice, unitCost);
 
     const order = await prisma.printOrder.create({
