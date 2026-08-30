@@ -112,17 +112,21 @@ export const TAB_GROUPS = [
   {
     title: { ru: 'Журнал FRESH WEEKLY', uz: 'FRESH WEEKLY jurnali' },
     tabs: [
-      { id: 'magazine', ru: 'Журнал', uz: 'Jurnal', icon: <FileText size={16} /> },
-      // Выпусками журнал не управлялся вовсе: восемь групп API без
-      // единого экрана, всё делал крон, а владелец узнавал результат из
-      // готового PDF.
-      { id: 'magazine_editions', ru: 'Выпуски', uz: 'Sonlar', icon: <BookOpen size={16} /> },
+      // Номера: карточка вышедшего номера и публикация. Конвейера,
+      // который собирал выпуски сам, здесь больше нет — номер верстается
+      // руками, а система про него знает и показывает его на сайте.
+      { id: 'magazine_editions', ru: 'Номера', uz: 'Sonlar', icon: <BookOpen size={16} /> },
+      // Материалы и рецепты вместе: на сайте это один раздел, и рецепт —
+      // такая же рубрика журнала, как здоровье или советы хозяйке.
+      { id: 'recipes', ru: 'Материалы и рецепты', uz: 'Materiallar va retseptlar', icon: <FileText size={16} /> },
       // Подписки на тираж, счета за печать и рекламодатели: три группы
       // API без единого экрана. Печать — прямой расход, реклама и
       // подписка — прямая выручка, а увидеть их было негде.
       { id: 'magazine_money', ru: 'Тираж и реклама', uz: 'Tiraj va reklama', icon: <Banknote size={16} /> },
       { id: 'guest_photos', ru: 'Кадры гостей', uz: 'Mehmon kadrlari', icon: <Camera size={16} /> },
-      { id: 'recipes', ru: 'Рецепты', uz: 'Retseptlar', icon: <Leaf size={16} /> },
+      // Живое меню заведения: блюда, ролики и QR на них. К содержимому
+      // журнала отношения не имеет — это витрина ресторана /m/<slug>.
+      { id: 'magazine', ru: 'Живое меню', uz: 'Jonli menyu', icon: <Leaf size={16} /> },
     ]
   },
   {

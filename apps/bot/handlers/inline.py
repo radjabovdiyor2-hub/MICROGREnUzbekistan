@@ -2,48 +2,51 @@ import logging
 from aiogram import Router, F
 from aiogram.types import InlineQuery, InlineQueryResultArticle, InputTextMessageContent
 from keyboards.magazine import magazine_keyboard
-from handlers.magazine import get_issue_cover_url
 from services.config_service import fetch_site_config
 from services.lang_storage import lang_of
+from services.magazine_service import fetch_current_issue
 
 router = Router()
 
 @router.inline_query(F.query.startswith("magazine"))
 async def inline_magazine_query(inline_query: InlineQuery):
-    """
-    Обработчик inline-запросов для пересылки журнала.
-    Запрос имеет вид: "magazine {issue_number}"
+    """Пересылка номера журнала другу.
+
+    Номер и обложка берутся с витрины (`/api/magazine/current`), а не из
+    номера в тексте запроса: пересланная карточка обязана совпадать с тем,
+    что откроется по ссылке. Раньше здесь по умолчанию стоял «выпуск 2», и
+    друг получал карточку номера, которого на сайте уже не было.
     """
     lang = lang_of(inline_query)
-    try:
-        parts = inline_query.query.split(" ")
-        issue_number = int(parts[1]) if len(parts) > 1 else 2
-    except ValueError:
-        issue_number = 2
+    issue = await fetch_current_issue()
+    if issue is None:
+        await inline_query.answer([], cache_time=1)
+        return
+
+    title = (issue.title_uz or issue.title_ru) if lang == "uz" else issue.title_ru
+    summary = ((issue.summary_uz or issue.summary_ru) if lang == "uz" else issue.summary_ru) or ""
 
     text = (
-        f"🌟 <b>FRESH WEEKLY — Выпуск #{issue_number}</b>\n\n"
-        "Главный интерактивный гастрономический журнал Узбекистана о микрозелени, ресторанах и рецептах!\n\n"
-        # Страницы выпуска по номеру нет — /magazine показывает все выпуски.
-        "👉 <a href='https://microgreenuzbekistan.com/magazine'>Читать выпуск онлайн</a>"
+        f"🌟 <b>FRESH WEEKLY — Выпуск #{issue.number}</b>\n"
+        f"<b>{title}</b>\n\n"
+        f"{summary}\n\n"
+        f"👉 <a href='{issue.magazine_url}'>Читать журнал онлайн</a>"
     )
-
-    thumb_url = get_issue_cover_url()
 
     # Цена печатного выпуска — из настроек: она стоит на кнопке клавиатуры.
     config = await fetch_site_config()
 
     result = InlineQueryResultArticle(
-        id=f"mag_{issue_number}",
-        title=f"FRESH WEEKLY Выпуск #{issue_number}",
+        id=f"mag_{issue.number}",
+        title=f"FRESH WEEKLY Выпуск #{issue.number}",
         description="Переслать журнал другу",
-        thumb_url=thumb_url,
+        thumb_url=issue.cover_url,
         input_message_content=InputTextMessageContent(
             message_text=text,
             parse_mode="HTML",
             disable_web_page_preview=False
         ),
-        reply_markup=magazine_keyboard(issue_number, config.magazine_print_price, lang)
+        reply_markup=magazine_keyboard(issue.number, config.magazine_print_price, lang)
     )
 
     try:

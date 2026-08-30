@@ -71,6 +71,41 @@ export function collectionPage(opts: {
   };
 }
 
+interface ArticleSchemaInput {
+  url: string;
+  headline: string;
+  description: string | null;
+  image: string | null;
+  publishedAt: Date | null;
+  updatedAt?: Date | null;
+  section: string;
+}
+
+/** schema.org/Article — материал журнала в выдаче с датой и рубрикой. */
+export function articleSchema(a: ArticleSchemaInput) {
+  const image = a.image
+    ? (a.image.startsWith('http') ? a.image : `${SITE_DOMAIN}${a.image}`)
+    : `${SITE_DOMAIN}/hero-microgreens.png`;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: a.headline,
+    ...(a.description ? { description: a.description } : {}),
+    image: [image],
+    articleSection: a.section,
+    inLanguage: ['uz', 'ru'],
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `${SITE_DOMAIN}${a.url}` },
+    ...(a.publishedAt ? { datePublished: a.publishedAt.toISOString() } : {}),
+    ...(a.updatedAt ? { dateModified: a.updatedAt.toISOString() } : {}),
+    publisher: {
+      '@type': 'Organization',
+      name: 'Microgreen Uzbekistan',
+      url: SITE_DOMAIN,
+      logo: { '@type': 'ImageObject', url: `${SITE_DOMAIN}/logo.svg` },
+    },
+  };
+}
+
 interface RecipeSchemaInput {
   slug: string;
   name: string;

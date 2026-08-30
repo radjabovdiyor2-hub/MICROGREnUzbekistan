@@ -2,7 +2,7 @@
 
 Base URL: `https://microgreenuzbekistan.com/api`
 
-**30 групп, 120 route-файлов.** Список ниже сверен с каталогом
+**30 групп, 117 route-файлов.** Список ниже сверен с каталогом
 `apps/web/src/app/api/`, а не дописан по памяти. Раньше здесь значились восемь
 эндпоинтов, которых нет и не было, — в том числе `POST /api/sms`, из-за
 которого витринный бот месяцами получал 404 (этот случай конституция
@@ -74,7 +74,7 @@ Base URL: `https://microgreenuzbekistan.com/api`
 | POST | `/api/ai/chat` | ИИ-агроном. Клиента находит по `userId` (cuid) или `telegramId` |
 | GET | `/api/content/recipe-of-day` | Рецепт дня |
 | GET | `/api/instagram` | Прокси ленты Instagram |
-| GET | `/api/menu`, `/api/magazine/*` | Журнал FRESH WEEKLY и меню ресторанов |
+| GET | `/api/menu`, `/api/magazine/current` | Свежий номер FRESH WEEKLY (витрина и бот) и меню ресторанов |
 
 ## Admin & Operations
 

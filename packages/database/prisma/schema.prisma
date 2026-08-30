@@ -88,6 +88,7 @@ model Product {
   reviews           Review[]
   stockMovements    StockMovement[]
   recipeIngredients RecipeIngredient[]
+  magazineArticles  MagazineArticle[]
   greenBoxItems     GreenBoxItem[]
   customerPrices    CustomerPrice[]
   channelListings   ChannelListing[]
@@ -833,9 +834,9 @@ model Restaurant {
   menuItems         String[] @map("menu_items") // блюда меню для контекста ИИ
   isMagazinePartner Boolean  @default(false) @map("is_magazine_partner")
 
-  // Готовый журнал: PDF/HTML загружается владельцем через админку
-  magazinePdfUrl  String? @map("magazine_pdf_url")
-  magazineHtmlUrl String? @map("magazine_html_url")
+  // Вёрстка и PDF номера лежат НЕ здесь, а на самом номере
+  // (`MagazineIssue.webUrl` / `pdfUrl`): у заведения их бывает несколько,
+  // и два поля на карточке ресторана хранили только последний.
 
   // Карта лояльности: N штампов (за кадры) → промокод в магазин микрозелени
   loyaltyGoal          Int? @default(5) @map("loyalty_goal")
@@ -861,7 +862,7 @@ model Restaurant {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  magazineIssues     RestaurantIssue[]
+  magazineIssues     MagazineIssue[]
   printSubscriptions PrintSubscription[]
   menuDishes         Dish[]
   guestPhotos        GuestPhoto[]
@@ -894,49 +895,125 @@ model LoyaltyCard {
 }
 
 // ==========================================
-// FRESH WEEKLY — Персональные выпуски (схема 50/50)
+// FRESH WEEKLY — номера журнала и материалы сайта
 // ==========================================
 
-// Общий 50%: генерится раз в неделю, одинаков для всех ресторанов
-model MagazineEdition {
-  id          String    @id @default(cuid())
-  weekNumber  Int       @unique @map("week_number")
-  title       String
-  coverTheme  String?   @map("cover_theme")
-  sharedSpec  Json      @default("{}") @map("shared_spec") // { blocks: Block[] }
+/// Номер журнала, собранный ВРУЧНУЮ.
+///
+/// ПОЧЕМУ ЗДЕСЬ НЕТ КОНТЕНТА НОМЕРА. Раньше номер жил в базе блоками
+/// (`magazine_editions.shared_spec` + `restaurant_issues.spec`), которые
+/// раскладывал крон и переписывал ИИ. Настоящие номера так никогда не
+/// делались: вёрстка идёт руками в `content/generated/<slug>-print.html`,
+/// проходит сверки (обрез, 300 dpi, стоп-список заявлений) и публикуется
+/// скриптом в `apps/web/public/magazine/`. База про это не знала вовсе, и
+/// на сайт попадали сгенерированные черновики вместо вышедшего номера.
+///
+/// Здесь — карточка номера: чем он называется, где лежит его вёрстка и PDF,
+/// вышел он или ещё нет. Публикация — одно поле, а не конвейер.
+model MagazineIssue {
+  id     String @id @default(cuid())
+  number Int    @unique
+  /// Совпадает с именем файлов в `public/magazine`: <slug>.html и <slug>.pdf.
+  slug   String @unique
+
+  titleRu   String  @map("title_ru")
+  titleUz   String? @map("title_uz")
+  summaryRu String? @map("summary_ru") @db.Text
+  summaryUz String? @map("summary_uz") @db.Text
+
+  coverImage String? @map("cover_image")
+  /// Вёрстка номера для чтения онлайн: /magazine/<slug>.html
+  webUrl     String? @map("web_url")
+  /// PDF для скачивания и для бота: /magazine/<slug>.pdf
+  pdfUrl     String? @map("pdf_url")
+
+  /// Рубрики номера — ключи из lib/magazine/rubrics.ts.
+  topics String[]
+
+  /// Номер, сделанный для конкретного заведения. Пусто — общий номер.
+  /// Связь остаётся ради тиража: счёт за печать выставляется заведению.
+  restaurantId String?     @map("restaurant_id")
+  restaurant   Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+
   isPublished Boolean   @default(false) @map("is_published")
   publishedAt DateTime? @map("published_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  issues RestaurantIssue[]
+  articles    MagazineArticle[]
+  printOrders PrintOrder[]
 
-  @@map("magazine_editions")
+  @@index([restaurantId])
+  @@map("magazine_issues")
 }
 
-// Персональный 50%: слово шефа, обложка, семейный блок — на каждый ресторан
-model RestaurantIssue {
-  id           String          @id @default(cuid())
-  editionId    String          @map("edition_id")
-  edition      MagazineEdition @relation(fields: [editionId], references: [id], onDelete: Cascade)
-  restaurantId String          @map("restaurant_id")
-  restaurant   Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  spec         Json            @default("{}") // { blocks: Block[] }
-  status       String          @default("draft") // draft | ready | published
-  webSlug      String          @unique @map("web_slug")
-  pdfUrl       String?         @map("pdf_url")
-  htmlUrl      String?         @map("html_url")
-  publishedAt  DateTime?       @map("published_at")
+/// Материал журнала на сайте: здоровье, рестораны, советы хозяйке, скидки.
+///
+/// ЗАЧЕМ ОТДЕЛЬНО ОТ НОМЕРА. Номер выходит раз в несколько недель и живёт
+/// файлом; между номерами разделу нечего показать, а поисковику — нечего
+/// индексировать. Материал — веб-страница на узбекской латинице и русском,
+/// которую можно опубликовать в любой день и связать с номером, если она
+/// оттуда.
+///
+/// РЕЦЕПТЫ СЮДА НЕ ПЕРЕЕХАЛИ намеренно: у них своя структура (шаги,
+/// таймеры, ингредиенты с товаром и сбор набора в корзину) и печатные QR
+/// на /recipe/<slug>, которые нельзя переадресовать. В журнале они
+/// показываются рубрикой, оставаясь моделью `Recipe`.
+model MagazineArticle {
+  id     String @id @default(cuid())
+  slug   String @unique
+  /// Ключ рубрики из lib/magazine/rubrics.ts.
+  rubric String @db.VarChar(20)
+
+  titleRu   String  @map("title_ru")
+  titleUz   String? @map("title_uz")
+  excerptRu String? @map("excerpt_ru") @db.Text
+  excerptUz String? @map("excerpt_uz") @db.Text
+
+  coverImage String? @map("cover_image")
+
+  /// Материал из номера — ссылка «читать весь номер».
+  issueId String?        @map("issue_id")
+  issue   MagazineIssue? @relation(fields: [issueId], references: [id], onDelete: SetNull)
+
+  /// Товар, к которому ведёт материал: рубрика скидок и наборов без него
+  /// остаётся текстом, из которого некуда нажать.
+  productId String?  @map("product_id")
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  isPublished Boolean   @default(false) @map("is_published")
+  publishedAt DateTime? @map("published_at")
+  sortOrder   Int       @default(0) @map("sort_order")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  printOrders PrintOrder[]
+  sections MagazineArticleSection[]
 
-  @@unique([editionId, restaurantId])
-  @@index([restaurantId])
-  @@map("restaurant_issues")
+  @@index([rubric, isPublished])
+  @@index([issueId])
+  @@index([productId])
+  @@map("magazine_articles")
+}
+
+/// Часть материала: подзаголовок, текст, картинка. Тем же приёмом собран
+/// рецепт (`RecipeStep`) — редактор один и тот же, разметку писать руками
+/// не нужно, и в тексте не может оказаться чужого HTML.
+model MagazineArticleSection {
+  id        String          @id @default(cuid())
+  articleId String          @map("article_id")
+  article   MagazineArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  order     Int
+
+  headingRu String? @map("heading_ru")
+  headingUz String? @map("heading_uz")
+  textRu    String  @map("text_ru") @db.Text
+  textUz    String? @map("text_uz") @db.Text
+  image     String?
+
+  @@index([articleId])
+  @@map("magazine_article_sections")
 }
 
 // ==========================================
@@ -1037,24 +1114,24 @@ model PrintSubscription {
 }
 
 model PrintOrder {
-  id                String             @id @default(cuid())
-  restaurantIssueId String             @map("restaurant_issue_id")
-  restaurantIssue   RestaurantIssue    @relation(fields: [restaurantIssueId], references: [id], onDelete: Cascade)
-  subscriptionId    String?            @map("subscription_id")
-  subscription      PrintSubscription? @relation(fields: [subscriptionId], references: [id])
-  copies            Int
-  unitCost          Int                @map("unit_cost")
-  unitPrice         Int                @map("unit_price")
-  revenue           Int // unitPrice * copies
-  cost              Int // unitCost * copies
-  margin            Int // revenue - cost
-  status            String             @default("pending") // pending | paid | printing | shipped | delivered
-  paymentProvider   String?            @map("payment_provider") // click | payme | cash
-  paidAt            DateTime?          @map("paid_at")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
+  id              String             @id @default(cuid())
+  issueId         String             @map("issue_id")
+  issue           MagazineIssue      @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  subscriptionId  String?            @map("subscription_id")
+  subscription    PrintSubscription? @relation(fields: [subscriptionId], references: [id])
+  copies          Int
+  unitCost        Int                @map("unit_cost")
+  unitPrice       Int                @map("unit_price")
+  revenue         Int // unitPrice * copies
+  cost            Int // unitCost * copies
+  margin          Int // revenue - cost
+  status          String             @default("pending") // pending | paid | printing | shipped | delivered
+  paymentProvider String?            @map("payment_provider") // click | payme | cash
+  paidAt          DateTime?          @map("paid_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
 
-  @@index([restaurantIssueId])
+  @@index([issueId])
   // Индекс на внешний ключ. Postgres НЕ создаёт его сам: сама связь
   // проверяется по первичному ключу родителя, а выборка «дети этого
   // родителя» и каскадное удаление идут полным перебором таблицы.

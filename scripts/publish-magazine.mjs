@@ -100,6 +100,9 @@ try {
 console.log(`✓ /magazine/${SLUG}.html`);
 console.log(`✓ ${pdfNote}`);
 console.log(`  ассетов рядом: ${copied.length} (${copied.join(', ')})`);
-console.log('\nОсталось вручную: в админке привязать PDF к записи Restaurant');
-console.log('«Microgreen Uzbekistan» (isMagazinePartner = true) — тогда номер');
-console.log('встанет карточкой в блок загруженных на /magazine.');
+console.log('\nОсталось вручную: в админке «Журнал → Номера» завести карточку номера');
+console.log(`  адрес (slug): ${SLUG}`);
+console.log(`  чтение онлайн: /magazine/${SLUG}.html`);
+console.log(`  PDF:           /magazine/${SLUG}.pdf`);
+console.log('и нажать «Опубликовать» — тогда номер встанет на /magazine');
+console.log('и его начнёт отдавать бот витрины.');

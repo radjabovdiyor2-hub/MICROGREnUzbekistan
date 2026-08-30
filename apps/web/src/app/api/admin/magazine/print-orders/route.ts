@@ -43,10 +43,10 @@ export async function GET(req: NextRequest) {
 
     const orders = await prisma.printOrder.findMany({
       include: {
-        restaurantIssue: {
-          include: { restaurant: true, edition: true }
-        },
-        subscription: true
+        // Номер и заведение, которому он печатается: в списке счёт узнают
+        // по ним, а не по идентификатору.
+        issue: { select: { number: true, titleRu: true, restaurant: { select: { name: true } } } },
+        subscription: { include: { restaurant: { select: { name: true } } } },
       },
       orderBy: { createdAt: 'desc' },
       take: LIST_LIMIT,
@@ -68,13 +68,13 @@ export async function POST(req: NextRequest) {
 
   try {
     const data = await req.json();
-    const { restaurantIssueId, subscriptionId, copies, unitPrice, unitCost } = data;
-    
+    const { issueId, subscriptionId, copies, unitPrice, unitCost } = data;
+
     const pricing = computeOrder(copies, unitPrice, unitCost);
 
     const order = await prisma.printOrder.create({
       data: {
-        restaurantIssueId,
+        issueId,
         subscriptionId: subscriptionId || null,
         copies,
         unitPrice,
@@ -101,7 +101,7 @@ export async function PATCH(req: NextRequest) {
     // Закрытый список полей. Здесь стояло `data: updateData` — тело уходило
     // в базу целиком, и присланное `revenue` или `cost` переписывало
     // посчитанные суммы тиража. Менять у счёта можно ровно две вещи:
-    // состояние и адрес готового файла.
+    // состояние счёта.
     const status = ['pending', 'printing', 'delivered', 'paid', 'cancelled'];
     const update: Record<string, unknown> = {};
     if (typeof data.status === 'string') {
@@ -113,8 +113,6 @@ export async function PATCH(req: NextRequest) {
       // отметить оплаченным задним числом любым днём.
       if (data.status === 'paid') update.paidAt = new Date();
     }
-    if (typeof data.pdfUrl === 'string') update.pdfUrl = data.pdfUrl.slice(0, 500);
-
     if (Object.keys(update).length === 0) {
       return NextResponse.json({ error: 'Нечего менять' }, { status: 400 });
     }
