@@ -193,7 +193,7 @@ export function AdminMagazineMoney({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         {orderRows.map((o) => (
           <Row key={o.id}
             title={billedTo(o) || t('без ресторана', 'restoransiz')}
-            detail={`${o.issue ? `№${o.issue.number} · ` : ''}${o.copies} ${t('копий', 'nusxa')} · ${money(o.revenue)} − ${money(o.cost)} = ${money(o.margin)}`}
+            detail={`${o.issue ? `№${o.issue.number}` : t('номер удалён', 'son oʻchirilgan')} · ${o.copies} ${t('копий', 'nusxa')} · ${money(o.revenue)} − ${money(o.cost)} = ${money(o.margin)}`}
             badge={ORDER_STATUS[o.status] ?? o.status}
             actions={o.status !== 'paid' && o.status !== 'cancelled' ? [
               { label: t('Оплачен', "To'landi"), run: () => patch('/api/admin/magazine/print-orders', { id: o.id, status: 'paid' }, 'mag-print-orders') },
