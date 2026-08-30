@@ -16,13 +16,25 @@
 // ловит тест `companyTypes.test.ts`.
 // ══════════════════════════════════════════════════════════════════════
 
-/** Группы для лент чипов: три вопроса к территории, а не один длинный список. */
-export const COMPANY_TYPE_GROUPS = ['horeca', 'health', 'misc'] as const;
+/**
+ * Группы типов — и разделы ленты, и КНОПКА на всю группу разом.
+ *
+ * Раньше группа была подписью: четырнадцать чипов лежали одной лентой, и
+ * «покажи весь общепит» означало четырнадцать нажатий подряд, каждое из
+ * которых перезапрашивает карту. Самый частый вопрос к территории —
+ * именно групповой: общепит, гостиницы, спорт.
+ *
+ * Отели и санатории вынесены из «Кухни» в свою группу: у них другой
+ * разговор о закупке (завтраки и банкеты, а не кухня «на каждый день»), и
+ * спрашивают их отдельно.
+ */
+export const COMPANY_TYPE_GROUPS = ['food', 'stay', 'sport', 'misc'] as const;
 export type CompanyTypeGroup = (typeof COMPANY_TYPE_GROUPS)[number];
 
 export const GROUP_META: Record<CompanyTypeGroup, { ru: string; uz: string }> = {
-  horeca: { ru: 'Кухня', uz: 'Oshxona' },
-  health: { ru: 'Здоровье и спорт', uz: 'Salomatlik va sport' },
+  food: { ru: 'Общепит', uz: 'Ovqatlanish' },
+  stay: { ru: 'Отели и санатории', uz: 'Mehmonxona va sanatoriy' },
+  sport: { ru: 'Спортзалы и бассейны', uz: 'Sport zallari va basseynlar' },
   misc: { ru: 'Прочее', uz: 'Boshqa' },
 };
 
@@ -33,23 +45,23 @@ export interface CompanyTypeMeta {
 }
 
 export const COMPANY_TYPES: Record<string, CompanyTypeMeta> = {
-  // ── Кухня: прямая цель микрозелени ──
-  restaurant: { ru: 'Ресторан', uz: 'Restoran', group: 'horeca' },
-  cafe: { ru: 'Кафе', uz: 'Kafe', group: 'horeca' },
-  toyxona: { ru: 'Свадебный ресторан', uz: 'Toʻyxona', group: 'horeca' },
-  banquet: { ru: 'Банкетный зал', uz: 'Banket zali', group: 'horeca' },
-  chaikhana: { ru: 'Чайхана', uz: 'Choyxona', group: 'horeca' },
-  canteen: { ru: 'Столовая', uz: 'Oshxona', group: 'horeca' },
-  fastfood: { ru: 'Фастфуд', uz: 'Tez taomlar', group: 'horeca' },
-  coffee: { ru: 'Кофейня', uz: 'Qahvaxona', group: 'horeca' },
-  bakery: { ru: 'Пекарня и кондитерская', uz: 'Nonvoyxona va qandolatxona', group: 'horeca' },
-  hotel: { ru: 'Отель', uz: 'Mehmonxona', group: 'horeca' },
-  catering: { ru: 'Кейтеринг', uz: 'Ketering', group: 'horeca' },
+  // ── Общепит: прямая цель микрозелени ──
+  restaurant: { ru: 'Ресторан', uz: 'Restoran', group: 'food' },
+  cafe: { ru: 'Кафе', uz: 'Kafe', group: 'food' },
+  toyxona: { ru: 'Свадебный ресторан', uz: 'Toʻyxona', group: 'food' },
+  banquet: { ru: 'Банкетный зал', uz: 'Banket zali', group: 'food' },
+  chaikhana: { ru: 'Чайхана', uz: 'Choyxona', group: 'food' },
+  canteen: { ru: 'Столовая', uz: 'Oshxona', group: 'food' },
+  fastfood: { ru: 'Фастфуд', uz: 'Tez taomlar', group: 'food' },
+  coffee: { ru: 'Кофейня', uz: 'Qahvaxona', group: 'food' },
+  bakery: { ru: 'Пекарня и кондитерская', uz: 'Nonvoyxona va qandolatxona', group: 'food' },
+  hotel: { ru: 'Отель', uz: 'Mehmonxona', group: 'stay' },
+  catering: { ru: 'Кейтеринг', uz: 'Ketering', group: 'food' },
 
-  // ── Здоровье и спорт ──
-  fitness: { ru: 'Фитнес-клуб', uz: 'Fitnes klub', group: 'health' },
-  sport: { ru: 'Спорткомплекс', uz: 'Sport majmuasi', group: 'health' },
-  sanatorium: { ru: 'Санаторий', uz: 'Sanatoriy', group: 'health' },
+  // ── Гостиницы и спорт ──
+  fitness: { ru: 'Фитнес-клуб', uz: 'Fitnes klub', group: 'sport' },
+  sport: { ru: 'Спорткомплекс и бассейн', uz: 'Sport majmuasi va basseyn', group: 'sport' },
+  sanatorium: { ru: 'Санаторий', uz: 'Sanatoriy', group: 'stay' },
 
   // ── Прочее ──
   other: { ru: 'Прочее', uz: 'Boshqa', group: 'misc' },

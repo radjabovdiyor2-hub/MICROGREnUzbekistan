@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
 
 import { MapBanners } from './MapBanners';
+import { MapOverlayTop, useSearchOpen } from './MapOverlayTop';
 import { AddCustomerHere } from './AddCustomerHere';
 import { MapDock, type DockTab } from './MapDock';
 import { MapSkeleton } from './MapSkeleton';
@@ -52,6 +53,9 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
   // Открытая вкладка дока. Живёт здесь, а не в самом доке: от неё зависит,
   // выходит ли Escape из полноэкранного режима.
   const [dockTab, setDockTab] = useState<DockTab | null>(null);
+  // Поиск в полном экране раскрывается по нажатию: развёрнутым он съедал
+  // верхнюю треть карты, ради которой режим и включают.
+  const [searchOpen, setSearchOpen] = useSearchOpen();
 
   // Полный экран выходит по Escape только когда поверх карты не открыто
   // ничего своего: иначе одно нажатие закрывало бы сразу две вещи, и
@@ -72,18 +76,25 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
       onPick={(point) => {
         m.focusPoint(point);
         m.setQuery('');
+        // Нашёл — и поиск ушёл с карты: держать поле открытым поверх
+        // точки, к которой только что подлетели, незачем.
+        setSearchOpen(false);
       }}
       states={m.states}
       onStates={m.setStates}
     />
   );
 
-  // В полноэкранном режиме поиск уходит поверх карты — потока там нет.
-  const searchOverlay = full.isFull ? (
-    <div className="card" style={{ padding: 'var(--space-2)', width: 'min(360px, 100%)' }}>
-      {search}
-    </div>
-  ) : null;
+  const overlayTop = (
+    <MapOverlayTop
+      lang={lang}
+      isFull={full.isFull}
+      search={search}
+      searchOpen={searchOpen}
+      onSearchOpen={setSearchOpen}
+      m={m}
+    />
+  );
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
@@ -112,7 +123,7 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
       >
         <MapStage
           isFull={full.isFull}
-          overlayTop={searchOverlay}
+          overlayTop={overlayTop}
           overlayBottom={
             <div style={{ display: 'grid', gap: 'var(--space-2)', justifyItems: 'start' }}>
               <MapPointsHere

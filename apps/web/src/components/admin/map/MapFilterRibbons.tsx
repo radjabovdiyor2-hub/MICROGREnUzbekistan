@@ -166,6 +166,7 @@ export function MapFilterRibbons({ lang, m, isOwner, chip }: Props) {
         lang={lang}
         companyTypes={companyTypes}
         onToggleType={m.toggleCompanyType}
+        onToggleGroup={m.toggleCompanyGroup}
         onClearTypes={m.clearCompanyTypes}
         audience={audience}
         onAudience={m.setAudience}
