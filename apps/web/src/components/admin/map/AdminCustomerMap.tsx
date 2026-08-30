@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
 
 import { MapBanners } from './MapBanners';
-import { PlacingBanner } from './PlacingBanner';
+import { MapOverlayTop, useSearchOpen } from './MapOverlayTop';
 import { AddCustomerHere } from './AddCustomerHere';
 import { MapDock, type DockTab } from './MapDock';
 import { MapSkeleton } from './MapSkeleton';
@@ -53,6 +53,9 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
   // Открытая вкладка дока. Живёт здесь, а не в самом доке: от неё зависит,
   // выходит ли Escape из полноэкранного режима.
   const [dockTab, setDockTab] = useState<DockTab | null>(null);
+  // Поиск в полном экране раскрывается по нажатию: развёрнутым он съедал
+  // верхнюю треть карты, ради которой режим и включают.
+  const [searchOpen, setSearchOpen] = useSearchOpen();
 
   // Полный экран выходит по Escape только когда поверх карты не открыто
   // ничего своего: иначе одно нажатие закрывало бы сразу две вещи, и
@@ -73,41 +76,25 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
       onPick={(point) => {
         m.focusPoint(point);
         m.setQuery('');
+        // Нашёл — и поиск ушёл с карты: держать поле открытым поверх
+        // точки, к которой только что подлетели, незачем.
+        setSearchOpen(false);
       }}
       states={m.states}
       onStates={m.setStates}
     />
   );
 
-  // В полноэкранном режиме поиск уходит поверх карты — потока там нет.
-  const searchOverlay = full.isFull ? (
-    <div className="card" style={{ padding: 'var(--space-2)', width: 'min(360px, 100%)' }}>
-      {search}
-    </div>
-  ) : null;
-
-  // Кому ставим пин. Имя ищем в обоих списках: у клиента без координат оно
-  // лежит в очереди лотка, у того, кому пин переставляют, — среди точек.
-  const placingName =
-    m.placingId === null
-      ? null
-      : (m.collection.features.find((f) => f.id === m.placingId)?.properties.n
-        ?? m.queue.find((c) => c.id === m.placingId)?.name
-        ?? null);
-
-  const overlayTop = (m.placingId !== null || searchOverlay !== null) ? (
-    <div style={{ display: 'grid', gap: 'var(--space-2)', justifyItems: 'start' }}>
-      {m.placingId !== null && (
-        <PlacingBanner
-          name={placingName}
-          lang={lang}
-          chaining={m.chaining}
-          onCancel={m.stopChain}
-        />
-      )}
-      {searchOverlay}
-    </div>
-  ) : null;
+  const overlayTop = (
+    <MapOverlayTop
+      lang={lang}
+      isFull={full.isFull}
+      search={search}
+      searchOpen={searchOpen}
+      onSearchOpen={setSearchOpen}
+      m={m}
+    />
+  );
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-3)' }}>

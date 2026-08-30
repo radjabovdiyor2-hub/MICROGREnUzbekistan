@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { clientErrorMessage } from '@/lib/safeError';
 import { readSnapshot, saveSnapshot } from '@/lib/customers/mapSnapshot';
 import type { SegmentState } from '@/lib/customers/segments';
+import { typesOfGroup, type CompanyTypeGroup } from '@/lib/customers/companyTypes';
 
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
 
@@ -334,6 +335,27 @@ export function useCustomerMap() {
       // Смена типа снимает аудиторию: лента «женский / мужской» исчезает
       // вместе с фитнесом, а невидимый включённый фильтр — это карта,
       // которая необъяснимо пуста.
+      setAudience('all');
+    },
+    /**
+     * Вся группа разом: общепит, гостиницы, спорт.
+     *
+     * Самый частый вопрос к территории групповой, а не поштучный, и
+     * набирать его четырнадцатью нажатиями — это четырнадцать запросов к
+     * карте подряд. Повторное нажатие группу снимает: кнопка отвечает за
+     * своё состояние целиком, а не только за включение.
+     */
+    toggleCompanyGroup: (group: CompanyTypeGroup) => {
+      const slugs = typesOfGroup(group).map((t) => t.slug);
+      setCompanyTypes((prev) => {
+        const next = new Set(prev);
+        const whole = slugs.every((slug) => next.has(slug));
+        for (const slug of slugs) {
+          if (whole) next.delete(slug);
+          else next.add(slug);
+        }
+        return next;
+      });
       setAudience('all');
     },
     /** «Все типы»: снять выбор целиком. */

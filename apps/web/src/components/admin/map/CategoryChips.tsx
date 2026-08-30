@@ -7,6 +7,7 @@ import {
   COMPANY_TYPE_GROUPS,
   GROUP_META,
   typesOfGroup,
+  type CompanyTypeGroup,
 } from '@/lib/customers/companyTypes';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -27,6 +28,8 @@ interface Props {
   /** Выбранные типы. Пустой набор — все. */
   companyTypes: Set<string>;
   onToggleType: (value: string) => void;
+  /** Вся группа разом: общепит, гостиницы, спорт. */
+  onToggleGroup: (group: CompanyTypeGroup) => void;
   onClearTypes: () => void;
   audience: string;
   onAudience: (value: string) => void;
@@ -53,6 +56,7 @@ export function CategoryChips({
   lang,
   companyTypes,
   onToggleType,
+  onToggleGroup,
   onClearTypes,
   audience,
   onAudience,
@@ -63,6 +67,12 @@ export function CategoryChips({
   // фитнес, а не про кафе, попавшее в тот же выбор.
   const only = companyTypes.size === 1 ? [...companyTypes][0] : '';
   const showAudience = AUDIENCE_RELEVANT.includes(only);
+
+  /** Выбрана ли группа целиком — от этого зависит вид её кнопки. */
+  const wholeGroup = (group: CompanyTypeGroup): boolean => {
+    const slugs = typesOfGroup(group).map((t) => t.slug);
+    return slugs.length > 0 && slugs.every((slug) => companyTypes.has(slug));
+  };
 
   return (
     <>
@@ -82,9 +92,23 @@ export function CategoryChips({
               style={{ width: 1, background: 'var(--border)', flexShrink: 0, alignSelf: 'stretch' }}
               aria-hidden
             />
-            <span style={caption} title={GROUP_META[group][lang]}>
+            {/* Группа — КНОПКА, а не подпись. «Покажи весь общепит» стоило
+                четырнадцати нажатий подряд, и каждое перезапрашивало карту.
+                Нажата, только когда выбрана ВСЯ группа: иначе она горела бы
+                от одного кафе и врала про свой охват. */}
+            <button
+              type="button"
+              aria-pressed={wholeGroup(group)}
+              style={{ ...chip(wholeGroup(group)), fontWeight: 'var(--font-semibold)' }}
+              onClick={() => onToggleGroup(group)}
+              title={
+                lang === 'ru'
+                  ? `Выбрать все: ${GROUP_META[group].ru.toLowerCase()}`
+                  : GROUP_META[group].uz
+              }
+            >
               {GROUP_META[group][lang]}
-            </span>
+            </button>
             {typesOfGroup(group).map(({ slug, meta }) => (
               <button
                 key={slug}
