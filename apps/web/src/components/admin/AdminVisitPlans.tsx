@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarDays, MapPinOff, RefreshCw } from 'lucide-react';
 
+import { AdminAssignRoute } from './AdminAssignRoute';
 import { AdminVisitPlanRow, type PlanRow } from './AdminVisitPlanRow';
 import { AdminDayFacts, type DaySale, type DayVisit } from './AdminDayFacts';
 
@@ -78,11 +79,14 @@ export function AdminVisitPlans({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
         <CalendarDays size={18} style={{ color: 'var(--brand-primary)' }} />
+        {/* Потолка «не позже сегодня» здесь больше нет. Он и делал экран
+            отчётом о прошлом: объезд на субботу нельзя было ни назначить,
+            ни посмотреть — дата просто не выбиралась. Прошлое читается по
+            отметкам и чекам, будущее — по назначенным планам. */}
         <input
           type="date"
           className="input"
           value={date}
-          max={today()}
           onChange={(e) => setDate(e.target.value)}
           style={{ minHeight: 44, width: 'auto' }}
         />
@@ -97,6 +101,8 @@ export function AdminVisitPlans({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           <RefreshCw size={15} className={isFetching ? 'animate-spin' : undefined} />
           {t('Обновить', 'Yangilash')}
         </button>
+
+        <AdminAssignRoute date={date} lang={lang} onSaved={() => void refetch()} />
 
         {totalStops > 0 && (
           <span style={{ marginLeft: 'auto', color: 'var(--text-secondary)' }}>

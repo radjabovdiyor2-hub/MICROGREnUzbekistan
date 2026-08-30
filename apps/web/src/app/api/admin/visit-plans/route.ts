@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       date?: unknown;
       assignee?: unknown;
       customerIds?: unknown;
+      items?: unknown;
     } | null;
 
     const ids = Array.isArray(body?.customerIds)
@@ -115,6 +116,18 @@ export async function POST(request: NextRequest) {
       requested: typeof body?.assignee === 'string' ? body.assignee : '',
     });
 
+    // Что взять с собой. Поля нет — список не трогаем (объезд пересобрали,
+    // а загрузку машины оставили); пустой массив — очистили осознанно.
+    const items = Array.isArray(body?.items)
+      ? body.items
+          .map((raw) => raw as { productId?: unknown; qty?: unknown })
+          .map((raw) => ({
+            productId: typeof raw.productId === 'string' ? raw.productId : '',
+            qty: Number(raw.qty),
+          }))
+          .filter((item) => item.productId !== '' && Number.isInteger(item.qty) && item.qty > 0)
+      : undefined;
+
     const planDate = readDate(typeof body?.date === 'string' ? body.date : null);
     const saved = await saveDayPlan({
       planDate,
@@ -122,6 +135,7 @@ export async function POST(request: NextRequest) {
       author,
       source: planSource({ assignee, author }),
       customerIds: ids,
+      items,
     });
 
     audit({
@@ -129,7 +143,7 @@ export async function POST(request: NextRequest) {
       ...actorOf(request),
       ip: request.headers.get('x-forwarded-for') ?? undefined,
       target: `${planDate.toISOString().slice(0, 10)} → ${assignee || 'ничей'}`,
-      meta: { stops: saved.stops },
+      meta: { stops: saved.stops, items: saved.items },
     });
 
     // Соседняя вкладка владельца обязана увидеть новый план, а не вчерашний.

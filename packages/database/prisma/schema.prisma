@@ -89,6 +89,7 @@ model Product {
   stockMovements    StockMovement[]
   recipeIngredients RecipeIngredient[]
   magazineArticles  MagazineArticle[]
+  visitPlanItems    VisitPlanItem[]
   greenBoxItems     GreenBoxItem[]
   customerPrices    CustomerPrice[]
   channelListings   ChannelListing[]
@@ -1397,13 +1398,14 @@ model Customer {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  crmOrders    CrmOrder[]
-  interactions Interaction[]
-  followups    Followup[]
-  restaurant   Restaurant?
-  prices       CustomerPrice[]
-  posSales     PosSale[]
-  planStops    VisitPlanStop[]
+  crmOrders     CrmOrder[]
+  interactions  Interaction[]
+  followups     Followup[]
+  restaurant    Restaurant?
+  prices        CustomerPrice[]
+  posSales      PosSale[]
+  planStops     VisitPlanStop[]
+  visitSchedule VisitSchedule[]
 
   contacts CustomerContact[]
 
@@ -1673,6 +1675,7 @@ model VisitPlan {
   /// `self` — собрал себе сам, `owner` — назначен сверху.
   source   String          @default("self") @db.VarChar(10)
   stops    VisitPlanStop[]
+  items    VisitPlanItem[]
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -1683,6 +1686,70 @@ model VisitPlan {
   @@unique([planDate, assignee])
   @@index([planDate])
   @@map("visit_plans")
+}
+
+/// Что взять с собой в объезд: товар и сколько.
+///
+/// ПОЧЕМУ НА ПЛАН, А НЕ НА ОСТАНОВКУ. Список отвечает на вопрос «что
+/// грузить в машину утром», а не «что отдать в этой точке»: развозят из
+/// общего запаса, и разложить его по клиентам заранее нельзя — у кого-то
+/// возьмут два лотка вместо одного. Что реально ушло клиенту, знает чек
+/// кассы, а не план.
+///
+/// Список НЕОБЯЗАТЕЛЕН: объезд без товаров — это разведка и переговоры, и
+/// таких дней не меньше, чем развозных.
+model VisitPlanItem {
+  id        Int       @id @default(autoincrement())
+  planId    Int       @map("plan_id")
+  plan      VisitPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  productId String    @map("product_id")
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Сколько единиц взять. Единица — та же, что у товара в каталоге.
+  qty       Int       @default(1)
+
+  @@unique([planId, productId])
+  @@index([planId])
+  // Индекс на внешний ключ. Postgres НЕ создаёт его сам: сама связь
+  // проверяется по первичному ключу родителя, а выборка «дети этого
+  // родителя» и каскадное удаление идут полным перебором таблицы.
+  @@index([productId])
+  @@map("visit_plan_items")
+}
+
+/// Постоянный день заезда к клиенту: «к этому — по субботам».
+///
+/// ЗАЧЕМ ОТДЕЛЬНО ОТ ПЛАНА. План — это конкретный день (`VisitPlan`), и он
+/// собирается заново каждое утро. Расписание отвечает на другой вопрос: к
+/// кому мы ездим РЕГУЛЯРНО и по каким дням. Без него «заезжать к нему по
+/// субботам» жило только в голове продавца и уходило вместе с ним.
+///
+/// РАСПИСАНИЕ НЕ СОЗДАЁТ ПЛАН САМО. Оно подсказывает, кого поставить в
+/// объезд на выбранную дату, а собирает план человек — тот же принцип, что
+/// у автоплана дня: план это предложение, а не приказ. Автоматика за спиной
+/// поставила бы в маршрут закрытое на ремонт заведение.
+model VisitSchedule {
+  id         Int      @id @default(autoincrement())
+  customerId Int      @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  /// День недели по ISO: понедельник = 1, воскресенье = 7. Не 0..6 —
+  /// `Date.getDay()` считает воскресенье нулём, и смешение этих двух шкал
+  /// даёт сдвиг на день, который виден только в субботу.
+  weekday Int
+
+  /// Кому заезжать. Пустая строка — «любому, кто поедет»: та же причина
+  /// не-nullable, что у `VisitPlan.assignee` — уникальность ниже, а NULL
+  /// в SQL не равен NULL.
+  assignee String  @default("") @db.VarChar(255)
+  note     String? @db.VarChar(255)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([customerId, weekday, assignee])
+  @@index([weekday])
+  @@index([customerId])
+  @@map("visit_schedules")
 }
 
 model VisitPlanStop {
