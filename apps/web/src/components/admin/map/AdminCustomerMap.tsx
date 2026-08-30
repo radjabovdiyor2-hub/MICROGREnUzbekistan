@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { CustomerMapToolbar } from './CustomerMapToolbar';
 
 import { MapBanners } from './MapBanners';
+import { PlacingBanner } from './PlacingBanner';
 import { AddCustomerHere } from './AddCustomerHere';
 import { MapDock, type DockTab } from './MapDock';
 import { MapSkeleton } from './MapSkeleton';
@@ -85,6 +86,29 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
     </div>
   ) : null;
 
+  // Кому ставим пин. Имя ищем в обоих списках: у клиента без координат оно
+  // лежит в очереди лотка, у того, кому пин переставляют, — среди точек.
+  const placingName =
+    m.placingId === null
+      ? null
+      : (m.collection.features.find((f) => f.id === m.placingId)?.properties.n
+        ?? m.queue.find((c) => c.id === m.placingId)?.name
+        ?? null);
+
+  const overlayTop = (m.placingId !== null || searchOverlay !== null) ? (
+    <div style={{ display: 'grid', gap: 'var(--space-2)', justifyItems: 'start' }}>
+      {m.placingId !== null && (
+        <PlacingBanner
+          name={placingName}
+          lang={lang}
+          chaining={m.chaining}
+          onCancel={m.stopChain}
+        />
+      )}
+      {searchOverlay}
+    </div>
+  ) : null;
+
   return (
     <div style={{ display: 'grid', gap: 'var(--space-3)' }}>
       <CustomerMapToolbar
@@ -112,7 +136,7 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
       >
         <MapStage
           isFull={full.isFull}
-          overlayTop={searchOverlay}
+          overlayTop={overlayTop}
           overlayBottom={
             <div style={{ display: 'grid', gap: 'var(--space-2)', justifyItems: 'start' }}>
               <MapPointsHere
