@@ -10,10 +10,14 @@
  * что бот отдаёт по /magazine и что открывается на сайте. Файлы верстает и
  * публикует `scripts/publish-magazine.mjs`; база хранит карточку.
  *
- * Идемпотентно: upsert по slug. Повторный прогон не создаёт второй номер и
- * не трогает флаг публикации, если номер уже заведён руками.
+ * ЗАПУСКАЕТСЯ НА КАЖДОМ ДЕПЛОЕ (`seed-if-empty.ts`), поэтому осторожен:
+ *   · номер с этим slug есть      → обновляет только пути к файлам;
+ *   · номера ведёт владелец сам   → не вмешивается вовсе;
+ *   · номеров нет ни одного       → заводит этот.
+ * Так удалённый номер не воскресает на следующей выкатке, а свежий прод не
+ * показывает «номер готовится», когда номер лежит рядом в образе.
  *
- * Запуск:  cd packages/database && npx tsx prisma/seed-magazine-issue.ts
+ * Запуск вручную:  cd packages/database && npx tsx prisma/seed-magazine-issue.ts
  */
 import { PrismaClient } from '@prisma/client';
 
@@ -22,16 +26,31 @@ const prisma = new PrismaClient();
 const SLUG = 'shakar-01';
 
 async function main() {
-  const issue = await prisma.magazineIssue.upsert({
-    where: { slug: SLUG },
-    update: {
-      // Вёрстку и PDF обновляем: файлы могли переехать. Публикацию — нет,
-      // это решение владельца, а не сида.
-      webUrl: `/magazine/${SLUG}.html`,
-      pdfUrl: `/magazine/${SLUG}.pdf`,
-      coverImage: `/magazine/${SLUG}/${SLUG}-cover.jpg`,
-    },
-    create: {
+  const existing = await prisma.magazineIssue.findUnique({ where: { slug: SLUG } });
+
+  if (existing) {
+    // Пути к файлам обновляем: номер мог переехать вместе с образом.
+    // Название, темы и публикацию — нет, это правки владельца.
+    const issue = await prisma.magazineIssue.update({
+      where: { slug: SLUG },
+      data: {
+        webUrl: `/magazine/${SLUG}.html`,
+        pdfUrl: `/magazine/${SLUG}.pdf`,
+        coverImage: `/magazine/${SLUG}/${SLUG}-cover.jpg`,
+      },
+    });
+    console.log(`✓ Номер №${issue.number} «${issue.titleRu}» на месте, пути к файлам сверены`);
+    return;
+  }
+
+  const anyIssue = await prisma.magazineIssue.count();
+  if (anyIssue > 0) {
+    console.log(`✓ Номера ведёт владелец (${anyIssue} шт.) — сидер не вмешивается`);
+    return;
+  }
+
+  const issue = await prisma.magazineIssue.create({
+    data: {
       number: 3,
       slug: SLUG,
       titleRu: 'Сахар и порядок',
@@ -51,8 +70,7 @@ async function main() {
     },
   });
 
-  console.log(`✓ Номер №${issue.number} «${issue.titleRu}» — /magazine/${issue.slug}.html`);
-  console.log(`  публикация: ${issue.isPublished ? 'да' : 'нет (черновик)'}`);
+  console.log(`✓ Заведён номер №${issue.number} «${issue.titleRu}» — /magazine/${issue.slug}.html`);
 }
 
 main()
