@@ -36,6 +36,14 @@ export interface PlanStopView {
   accuracyM: number | null;
 }
 
+/** Что взять с собой: товар и сколько. Пустой список — объезд без развоза. */
+export interface PlanItemView {
+  productId: string;
+  name: string;
+  qty: number;
+  unit: string | null;
+}
+
 export interface PlanView {
   id: number;
   planDate: string;
@@ -43,6 +51,8 @@ export interface PlanView {
   assignee: string;
   author: string;
   source: string;
+  /** Список товаров к загрузке. Пустой — это норма, а не пробел. */
+  items: PlanItemView[];
   stops: PlanStopView[];
   doneCount: number;
 }
@@ -71,7 +81,9 @@ export async function saveDayPlan(params: {
   author: string;
   source: 'self' | 'owner';
   customerIds: number[];
-}): Promise<{ id: number; stops: number }> {
+  /** Что взять с собой. `undefined` — список не трогаем, `[]` — очистить. */
+  items?: { productId: string; qty: number }[];
+}): Promise<{ id: number; stops: number; items: number }> {
   const { from } = dayBounds(params.planDate);
 
   return prisma.$transaction(async (tx) => {
@@ -105,7 +117,31 @@ export async function saveDayPlan(params: {
       });
     }
 
-    return { id: plan.id, stops: unique.length };
+    // Список товаров переписывается целиком по той же причине, что и
+    // остановки. `undefined` от `[]` отличаем намеренно: «список не
+    // присылали» и «список очистили» — разные намерения, и молча стирать
+    // загрузку машины при сохранении маршрута нельзя.
+    let itemCount = 0;
+    if (params.items !== undefined) {
+      await tx.visitPlanItem.deleteMany({ where: { planId: plan.id } });
+      // Один товар — одна строка: повтор в присланном списке означает, что
+      // человек добавил его дважды, а не что нужно две записи.
+      const byProduct = new Map<string, number>();
+      for (const item of params.items) {
+        if (!item.productId || item.qty <= 0) continue;
+        byProduct.set(item.productId, (byProduct.get(item.productId) ?? 0) + item.qty);
+      }
+      if (byProduct.size > 0) {
+        await tx.visitPlanItem.createMany({
+          data: [...byProduct].map(([productId, qty]) => ({ planId: plan.id, productId, qty })),
+        });
+      }
+      itemCount = byProduct.size;
+    } else {
+      itemCount = await tx.visitPlanItem.count({ where: { planId: plan.id } });
+    }
+
+    return { id: plan.id, stops: unique.length, items: itemCount };
   });
 }
 
@@ -140,6 +176,9 @@ export async function readDayPlans(params: {
             select: { id: true, name: true, companyName: true, latitude: true, longitude: true },
           },
         },
+      },
+      items: {
+        include: { product: { select: { nameRu: true, unit: true } } },
       },
     },
     orderBy: { assignee: 'asc' },
@@ -188,6 +227,12 @@ export async function readDayPlans(params: {
       author: p.author,
       source: p.source,
       stops,
+      items: p.items.map((item) => ({
+        productId: item.productId,
+        name: item.product.nameRu,
+        qty: item.qty,
+        unit: item.product.unit,
+      })),
       doneCount: stops.filter((s) => s.done).length,
     };
   });

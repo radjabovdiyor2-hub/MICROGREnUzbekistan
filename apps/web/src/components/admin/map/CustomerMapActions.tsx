@@ -5,6 +5,7 @@ import { Check, MapPin, Phone, Plus, ShoppingCart } from 'lucide-react';
 import { NavigateButton } from './NavigateButton';
 import { DeletePointButton } from './DeletePointButton';
 import { VisitButtons } from './VisitButtons';
+import { VisitScheduleButtons } from './VisitScheduleButtons';
 import type { useVisitQueue } from './useVisitQueue';
 import { type PointView } from './mapFeature';
 
@@ -91,6 +92,11 @@ export function CustomerMapActions({
         lastVisitDays={point.lastVisitDays}
         queue={visitQueue}
       />
+
+      {/* Регулярность заезда — рядом с отметкой визита, а не в настройках:
+          «к этому по субботам» решают, глядя на клиента, и в отдельный
+          экран за этим не пойдут. */}
+      <VisitScheduleButtons customerId={point.id} lang={lang} />
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
         <button type="button" className="btn btn-sm btn-ghost" onClick={() => onOpenCard(point.id)}>

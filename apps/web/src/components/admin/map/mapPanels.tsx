@@ -1,5 +1,6 @@
 'use client';
 
+import { AssignedPlanBanner } from './AssignedPlanBanner';
 import { BuildDayPlanButton } from './BuildDayPlanButton';
 import { CategoryLegend } from './CategoryLegend';
 import { CustomerMapLegend } from './CustomerMapLegend';
@@ -51,6 +52,11 @@ export function LegendPanel({ lang, m }: Omit<PanelDeps, 'route'>) {
 export function RoutePanel({ lang, m, route }: PanelDeps) {
   return (
     <>
+      {/* Назначенное владельцем — ПЕРВЫМ и до кнопки автоплана: иначе
+          продавец соберёт себе свой объезд и не узнает, что ему выдали
+          задание. Принимается кнопкой, а не подставляется молча. */}
+      <AssignedPlanBanner lang={lang} stops={route.stops} onAccept={route.setAll} />
+
       {/* План собирается по ТЕМ ЖЕ точкам, что видны на карте: если
           человек отфильтровал по типу или району, план обязан идти по
           его выбору, а не по всей базе за его спиной. */}
