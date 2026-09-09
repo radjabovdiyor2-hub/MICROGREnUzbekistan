@@ -23,6 +23,25 @@ from contextlib import asynccontextmanager
 import pytest
 
 from shared import catalog_repo
+from shared.text_match import normal_forms
+
+
+# Морфология — объявленная зависимость (`pymorphy3` в requirements.txt), а не
+# необязательное украшение: без неё падеж снова прячет товар. Но в неполной
+# установке её отсутствие выглядит как дефект поиска — три теста падают на
+# сравнении id товара, и по сообщению не догадаться, что виноват не код.
+#
+# ПОЧЕМУ SKIP, А НЕ ПАДЕНИЕ. Установка пакета уже под гейтом: CI ставит
+# requirements.txt отдельным шагом, и не поставившийся pymorphy3 валит job
+# там же. Дублировать этот гейт здесь значит менять понятную ошибку установки
+# на непонятную ошибку теста.
+needs_morphology = pytest.mark.skipif(
+    normal_forms("гороха") != ["горох"],
+    reason=(
+        "нет морфологии: pymorphy3 не установлен. "
+        "pip install -r apps/tgas/requirements.txt"
+    ),
+)
 
 
 # Подмножество настоящего прайса: id, name_ru, name_uz, price, stock, слаг
@@ -137,6 +156,7 @@ def catalog(monkeypatch):
 
 # ── Случай 1: падеж и слово-категория ────────────────────────────────────
 
+@needs_morphology
 @pytest.mark.asyncio
 async def test_genitive_finds_nominative(catalog):
     """«гороха» находит «Горох» — падеж не должен прятать товар."""
@@ -144,6 +164,7 @@ async def test_genitive_finds_nominative(catalog):
     assert [p["id"] for p in found] == ["p_gorokh"]
 
 
+@needs_morphology
 @pytest.mark.asyncio
 async def test_category_word_plus_genitive(catalog):
     """Тот самый запрос из переписки: «микрозелень гороха».
@@ -157,6 +178,7 @@ async def test_category_word_plus_genitive(catalog):
     assert outcome["product"]["unit"] == "лоток"
 
 
+@needs_morphology
 @pytest.mark.asyncio
 async def test_category_word_disambiguates_twins(catalog):
     """«микрозелень рукколы» — это ОДНА руккола, вопрос задавать не о чем."""
