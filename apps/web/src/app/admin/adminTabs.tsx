@@ -92,6 +92,7 @@ export const TAB_GROUPS = [
     tabs: [
       { id: 'employees', ru: 'Сотрудники', uz: 'Xodimlar', icon: <Users size={16} /> },
       { id: 'shifts', ru: 'График смен', uz: 'Smena jadvali', icon: <Clock size={16} /> },
+      { id: 'payroll', ru: 'Зарплата', uz: 'Oylik', icon: <Banknote size={16} /> },
       { id: 'tasks', ru: 'Задачи отделам', uz: 'Vazifalar', icon: <ClipboardList size={16} /> },
       { id: 'approvals', ru: 'Ждёт решения', uz: 'Qaror kutmoqda', icon: <Clock size={16} /> },
     ]

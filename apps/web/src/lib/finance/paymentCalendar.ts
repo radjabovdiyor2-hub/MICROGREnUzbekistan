@@ -1,5 +1,8 @@
 import { prisma } from '@repo/database';
 import { formatLocalDate, startOfLocalDay } from '@/lib/localDate';
+import { getNumber } from '@/lib/settings/store';
+
+import { buildPayroll, payrollObligations, type PayoutKind } from './payroll';
 
 // ══════════════════════════════════════════════════════════════════════
 // Платёжный календарь: что и когда предстоит заплатить и получить.
@@ -39,13 +42,17 @@ export interface DebtLike {
   dueDate: Date | null;
   isPaid: boolean;
   /**
-   * Платёж, задержка которого останавливает производство.
+   * Платёж, который не двигают.
    *
    * Заплатить всем сразу в разрыв не выйдет, и очередь приходится
    * назначать. Первыми идут семена и субстрат: без них не будет посева, а
    * посев не наверстать — цикл занимает недели, и потерянная неделя
-   * означает пустые полки через месяц. Задержка любого другого платежа
-   * стоит испорченных отношений, но не остановки.
+   * означает пустые полки через месяц.
+   *
+   * Сюда же попадает зарплата. Формально производство от неё не встаёт,
+   * но переносить её нельзя по той же причине, по какой нельзя перенести
+   * семена: последствия не отыгрываются деньгами. Задержка любого другого
+   * платежа стоит испорченных отношений, но не остановки.
    */
   critical: boolean;
 }
@@ -195,7 +202,10 @@ export function buildPaymentCalendar(debts: DebtLike[], today: Date): PaymentCal
  * месте, а тревога, которая часто ошибается, перестаёт работать.
  */
 export async function loadPaymentCalendar(today = new Date()): Promise<PaymentCalendar> {
-  const [debts, criticalIntake] = await Promise.all([
+  // Период зарплаты — текущий месяц по локальному времени.
+  const period = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+  const [debts, criticalIntake, employees, payouts, payday] = await Promise.all([
     prisma.debt.findMany({
       where: { isPaid: false },
       select: {
@@ -214,17 +224,42 @@ export async function loadPaymentCalendar(today = new Date()): Promise<PaymentCa
       select: { supplierId: true },
       distinct: ['supplierId'],
     }),
+    prisma.employee.findMany({
+      select: { id: true, name: true, isActive: true, baseSalary: true },
+    }),
+    prisma.employeePayout.findMany({
+      where: { period: { gte: new Date(today.getFullYear(), today.getMonth(), 1),
+                         lt: new Date(today.getFullYear(), today.getMonth() + 1, 1) } },
+      select: { id: true, employeeId: true, amount: true, kind: true, period: true },
+    }),
+    getNumber('payroll.payday'),
   ]);
 
   const criticalSuppliers = new Set(
     criticalIntake.map((m) => m.supplierId).filter((id): id is string => id !== null),
   );
 
+  // ЗАРПЛАТА В КАЛЕНДАРЕ. До этого календарь отвечал на вопрос «хватит ли
+  // денег к двадцатому», не зная про самую крупную регулярную выплату:
+  // зарплата попадала в систему постфактум расходом в `finances`, когда
+  // деньги уже ушли. Разрыв в неделю выплаты был не виден до самого дня
+  // выплаты — то есть ровно тогда, когда сделать уже ничего нельзя.
+  const payroll = buildPayroll(
+    employees,
+    payouts.map((p) => ({ ...p, kind: p.kind as PayoutKind })),
+    period,
+    today,
+    payday,
+  );
+
   return buildPaymentCalendar(
-    debts.map((d) => ({
-      ...d,
-      critical: d.type === 'WE_OWE' && d.supplierId !== null && criticalSuppliers.has(d.supplierId),
-    })),
+    [
+      ...debts.map((d) => ({
+        ...d,
+        critical: d.type === 'WE_OWE' && d.supplierId !== null && criticalSuppliers.has(d.supplierId),
+      })),
+      ...payrollObligations(payroll),
+    ],
     today,
   );
 }

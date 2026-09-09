@@ -406,6 +406,7 @@ model Employee {
 
   shifts        Shift[]
   DeliveryRoute DeliveryRoute[]
+  payouts       EmployeePayout[]
 
   @@map("employees")
 }
@@ -426,6 +427,47 @@ model Shift {
   @@index([employeeId])
   @@index([date])
   @@map("shifts")
+}
+
+/// Именная выплата сотруднику: аванс, расчёт, премия или удержание.
+///
+/// ЗАЧЕМ ОТДЕЛЬНО ОТ `Finance`. Расход категории `salary` в `finances`
+/// отвечает, сколько ушло на зарплату за месяц, но не отвечает, сколько
+/// взял конкретный человек до получки: у расхода нет сотрудника, он
+/// связан только с заказом. Пока выплата не именная, аванс живёт в памяти
+/// владельца — и в день выплаты выясняется, что часть суммы уже роздана.
+///
+/// ПОЧЕМУ СУММА ВСЕГДА ПОЛОЖИТЕЛЬНАЯ. Направление задаёт `kind`, а не
+/// знак: минус в базе слишком легко потерять при суммировании, и тогда
+/// удержание молча превращается в выплату.
+model EmployeePayout {
+  id         String     @id @default(cuid())
+  employeeId String     @map("employee_id")
+  employee   Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  /// Сумма в сумах, всегда положительная.
+  amount     Int
+  kind       PayoutKind @default(ADVANCE)
+  /// Месяц, ЗА который идёт выплата. Не совпадает с датой выдачи: аванс за
+  /// сентябрь могут выдать в конце августа, и в расчёт сентября он обязан
+  /// попасть.
+  period     DateTime   @db.Date
+  /// Когда деньги фактически ушли из кассы.
+  paidAt     DateTime   @default(now()) @map("paid_at") @db.Date
+  note       String?    @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([employeeId])
+  @@index([period])
+  @@map("employee_payouts")
+}
+
+enum PayoutKind {
+  ADVANCE // аванс: деньги ушли до дня выплаты
+  SALARY // окончательный расчёт: деньги ушли
+  BONUS // премия: начислена, денег не двигает
+  DEDUCTION // удержание: уменьшает сумму к выплате
 }
 
 // ==========================================
