@@ -186,3 +186,7 @@ deploy/monitoring/metrics_token
 # в git, раздал бы всем клонам чужой список ключей.
 .admin-webauthn.json
 apps/web/.admin-webauthn.json
+
+# Локальные инструменты машины разработчика: установщик демона Antigravity
+# CLI кладёт себя в корень репозитория. К ферме отношения не имеет.
+agy-daemon.cmd
