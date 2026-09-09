@@ -53,6 +53,7 @@ python scripts/check_tools.py    # инструменты отделов и де
 python scripts/check_bot_roster.py
 python scripts/check_prompts.py
 python scripts/check_imports.py  # `from shared.X import Y` — Y существует
+python scripts/check_rotation.py # ротация контента не совпадает с днём недели
 python scripts/check_types.py    # mypy по «дверям к данным», блокирующая
 python scripts/check_soft_delete.py  # удалённый клиент не всплывает в офисе
 ```

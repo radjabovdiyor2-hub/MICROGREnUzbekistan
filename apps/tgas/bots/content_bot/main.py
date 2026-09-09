@@ -1111,13 +1111,22 @@ async def weekly_reach_report():
 
 # daily_site_recipe, daily_content_ideas, product_description_audit, weekly_content_plan —
 # отключены: спам в личку админу, не несёт ценности.
-scheduler.add_cron(
-    name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5
-)
+# ── Публикация одна: утренняя ────────────────────────────────────────
+#
+# Решение владельца: лента выглядела однообразной, и виноват был не только
+# формат (см. get_daily_morning_format), но и количество. Три автопубликации
+# в сутки на ферму такого размера — это не присутствие, а шум: вечерний пост
+# и субботний пост в сетку соревновались за то же внимание, что и утренний,
+# и разбавляли его.
+#
+# Функции ОСТАВЛЕНЫ, убрано только расписание — ровно так же, как здесь уже
+# поступили с reels и daily_magazine_rubric. Вернуть публикацию значит
+# раскомментировать строку, а не писать её заново.
 scheduler.add_interval(
     seconds=60, name="morning_post_dynamic_check", func=morning_post_dynamic_check
 )
-scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
+# scheduler.add_cron(name="weekly_grid_post", func=weekly_grid_post, hour=12, minute=0, day_of_week=5)
+# scheduler.add_cron(name="evening_post", func=evening_post, hour=18, minute=0)
 scheduler.add_cron(
     name="instagram_token_refresh",
     func=check_and_refresh_token_job,
@@ -1169,14 +1178,15 @@ async def daily_magazine_rubric():
 # scheduler.add_cron(name="reel_post_mon", func=reel_post, hour=19, minute=0, day_of_week=0)
 # scheduler.add_cron(name="reel_post_wed", func=reel_post, hour=19, minute=0, day_of_week=2)
 # scheduler.add_cron(name="reel_post_fri", func=reel_post, hour=19, minute=0, day_of_week=4)
-# Рубрики журнала
-scheduler.add_cron(
-    name="publish_restaurant_of_week",
-    func=publish_restaurant_of_week,
-    hour=11,
-    minute=0,
-    day_of_week=0,
-)
+# Рубрики журнала — тоже сняты с расписания: это была вторая публикация
+# понедельника, поверх утренней.
+# scheduler.add_cron(
+#     name="publish_restaurant_of_week",
+#     func=publish_restaurant_of_week,
+#     hour=11,
+#     minute=0,
+#     day_of_week=0,
+# )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
