@@ -4,6 +4,8 @@ import { AssignedPlanBanner } from './AssignedPlanBanner';
 import { BuildDayPlanButton } from './BuildDayPlanButton';
 import { CategoryLegend } from './CategoryLegend';
 import { CustomerMapLegend } from './CustomerMapLegend';
+import { MapKinds } from './MapKinds';
+import { useFieldPeople } from './useFieldPeople';
 import { CustomerMapPanel } from './CustomerMapPanel';
 import { DayRoutePanel } from './DayRoutePanel';
 import { DistrictBreakdown } from './DistrictBreakdown';
@@ -35,17 +37,39 @@ export interface PanelDeps {
  * когда точки покрашены по типу заведения, значит подписывать карту
  * цветами, которых на ней нет.
  */
-export function LegendPanel({ lang, m }: Omit<PanelDeps, 'route'>) {
+export function LegendPanel({ lang, m, route }: PanelDeps) {
+  // Слои читаются из тех же источников, что и рисуются: подпись, взятая из
+  // отдельного состояния, однажды разойдётся с картой и будет объяснять то,
+  // чего на ней нет.
+  const people = useFieldPeople();
+  const kinds = (
+    <MapKinds
+      lang={lang}
+      hasProspects={m.showProspects}
+      hasRoute={route.stops.length > 0}
+      hasDelivery={m.delivery !== null}
+      peopleCount={people?.length ?? 0}
+    />
+  );
+
   if (m.mode === 'category') {
-    return <CategoryLegend features={m.visible.features} lang={lang} />;
+    return (
+      <>
+        <CategoryLegend features={m.visible.features} lang={lang} />
+        {kinds}
+      </>
+    );
   }
   return (
-    <CustomerMapLegend
-      summary={m.collection.summary}
-      lang={lang}
-      active={m.states}
-      onToggle={m.toggleState}
-    />
+    <>
+      <CustomerMapLegend
+        summary={m.collection.summary}
+        lang={lang}
+        active={m.states}
+        onToggle={m.toggleState}
+      />
+      {kinds}
+    </>
   );
 }
 

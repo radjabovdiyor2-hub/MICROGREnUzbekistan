@@ -47,7 +47,7 @@ export function MapSidebar({ lang, m, route, onOpenCard, isOwner, sellerName }: 
         title={lang === 'ru' ? 'Легенда' : 'Izoh'}
         storageKey="mg-map-fold-legend"
       >
-        <LegendPanel lang={lang} m={m} />
+        <LegendPanel lang={lang} m={m} route={route} />
       </MapFoldable>
 
       <MapFoldable

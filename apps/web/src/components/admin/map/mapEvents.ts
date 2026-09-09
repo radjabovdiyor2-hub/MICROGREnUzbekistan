@@ -23,6 +23,12 @@ import { candidatesAt, handleClick, setHover } from './mapClick';
 import { isCluster, pickHit } from './mapHit';
 import { SOURCE_DELIVERY, buildDeliveryLayers } from './mapLayersDelivery';
 import {
+  SOURCE_PEOPLE,
+  buildPeopleCollection,
+  buildPeopleLayers,
+  type PersonOnMap,
+} from './mapLayersPeople';
+import {
   EMPTY_DELIVERY,
   EMPTY_ROUTE,
   heatOf,
@@ -44,6 +50,11 @@ import type { TokenColors } from './useTokenColors';
 export interface MapLatest {
   data: MapCollection;
   delivery: DeliveryCollection | null;
+  /**
+   * Где сейчас продавцы и водители. `null` — слой выключен или смотрит не
+   * владелец: видеть коллегу продавцу незачем, это слежка друг за другом.
+   */
+  people?: PersonOnMap[] | null;
   mode: ColorizeMode;
   colors: TokenColors;
   theme: 'light' | 'dark';
@@ -196,6 +207,19 @@ export function attachMapLayers(instance: MapLibreMap, now: MapLatest): void {
     });
   }
   for (const layer of buildDeliveryLayers(now.colors)) {
+    if (!instance.getLayer(layer.id)) instance.addLayer(layer as unknown as AddLayerObject);
+  }
+
+  // Люди — ПОСЛЕДНИМИ, то есть поверх всего. Человек движется, и его надо
+  // видеть даже там, где под ним густо стоят заведения: иначе он теряется
+  // в россыпи ровно в тот момент, когда его ищут.
+  if (!instance.getSource(SOURCE_PEOPLE)) {
+    instance.addSource(SOURCE_PEOPLE, {
+      type: 'geojson',
+      data: buildPeopleCollection(now.people ?? []) as unknown as GeoJSON.FeatureCollection,
+    });
+  }
+  for (const layer of buildPeopleLayers(now.colors)) {
     if (!instance.getLayer(layer.id)) instance.addLayer(layer as unknown as AddLayerObject);
   }
 }

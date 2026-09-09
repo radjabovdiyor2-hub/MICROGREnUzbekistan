@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useCustomerMap } from './useCustomerMap';
 import { useDayRoute } from './useDayRoute';
 import { useMapFullscreen } from './useMapFullscreen';
+import { useFieldPeople } from './useFieldPeople';
 import { FILTERS_OPEN_KEY, useRememberedFlag } from './useMapPrefs';
 
 // maplibre-gl трогает window прямо на импорте: без ssr:false падает сборка,
@@ -49,6 +50,9 @@ interface Props {
 export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Props) {
   const m = useCustomerMap();
   const route = useDayRoute();
+  // Слой людей сам себя выключает: никто не транслирует — рисовать
+  // некого. Продавцу роут отвечает отказом, и слоя у него нет.
+  const people = useFieldPeople();
   const [filtersOpen, setFiltersOpen] = useRememberedFlag(FILTERS_OPEN_KEY, true);
   // Открытая вкладка дока. Живёт здесь, а не в самом доке: от неё зависит,
   // выходит ли Escape из полноэкранного режима.
@@ -153,6 +157,7 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
             <CustomerMapCanvas
               data={m.visible}
               delivery={m.delivery}
+              people={people}
               mode={m.mode}
               selectedId={m.selectedId}
               placingId={m.placingId}

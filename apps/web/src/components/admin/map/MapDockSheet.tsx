@@ -80,7 +80,7 @@ export function MapDockSheet({
             <DistrictsPanel lang={lang} m={m} />
           </>
         )}
-        {tab === 'legend' && <LegendPanel lang={lang} m={m} />}
+        {tab === 'legend' && <LegendPanel lang={lang} m={m} route={route} />}
         {tab === 'route' && <RoutePanel lang={lang} m={m} route={route} />}
         {tab === 'tray' && <TrayPanel lang={lang} m={m} isOwner={isOwner} />}
         {tab === null && (

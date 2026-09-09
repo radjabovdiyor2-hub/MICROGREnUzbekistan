@@ -41,6 +41,11 @@ import {
   styleUrl,
 } from './mapLayers';
 import { SOURCE_DELIVERY } from './mapLayersDelivery';
+import {
+  SOURCE_PEOPLE,
+  buildPeopleCollection,
+  type PersonOnMap,
+} from './mapLayersPeople';
 import { useTokenColors } from './useTokenColors';
 import { useTheme } from '@/components/providers/ThemeProvider';
 
@@ -60,6 +65,11 @@ interface Props {
   data: MapCollection;
   /** Слой доставки. null — выключен. */
   delivery: DeliveryCollection | null;
+  /**
+   * Где сейчас продавцы и водители. `null` — слой выключен или смотрит
+   * не владелец.
+   */
+  people?: PersonOnMap[] | null;
   mode: ColorizeMode;
   selectedId: number | null;
   /** Режим простановки пина: следующий клик по карте станет координатой. */
@@ -91,6 +101,7 @@ export default function CustomerMapCanvas(props: Props) {
   const {
     data,
     delivery,
+    people,
     mode,
     selectedId,
     placingId,
@@ -277,6 +288,20 @@ export default function CustomerMapCanvas(props: Props) {
     // показывают точки, иначе заливка и россыпь начнут спорить друг с другом.
     (instance.getSource(SOURCE_HEAT) as GeoJSONSource | undefined)?.setData(collection);
   }, [data]);
+
+  // ── Люди в поле ───────────────────────────────────────────────────
+  //
+  // Обновляется чаще всего остального: раз в минуту, с той же частотой, с
+  // какой шлёт Telegram. Поэтому свой эффект — иначе каждое движение
+  // продавца пересобирало бы источник клиентов на несколько тысяч точек.
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !ready.current) return;
+    const source = instance.getSource(SOURCE_PEOPLE) as GeoJSONSource | undefined;
+    source?.setData(
+      buildPeopleCollection(people ?? []) as unknown as GeoJSON.FeatureCollection,
+    );
+  }, [people]);
 
   // ── Тепловая карта: гасим слой, а не выбрасываем источник ──────────
   useEffect(() => {
