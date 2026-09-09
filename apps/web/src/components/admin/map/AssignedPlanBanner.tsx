@@ -53,7 +53,10 @@ export function AssignedPlanBanner({ lang, stops, onAccept }: {
   const { data } = useQuery<Plan[]>({
     queryKey: ['assigned-plan', today()],
     queryFn: async () => {
-      const res = await adminFetch(`/api/admin/visit-plans?date=${today()}`);
+      // `mine=1` — только СВОЙ план. Без него владельцу приходили все, и
+      // баннер показывал ему объезд, который он сам выписал продавцу,
+      // со словами «вам назначен».
+      const res = await adminFetch(`/api/admin/visit-plans?date=${today()}&mine=1`);
       if (!res.ok) throw new Error('Не удалось загрузить назначенный объезд');
       const body = await res.json();
       return Array.isArray(body?.plans) ? body.plans : [];

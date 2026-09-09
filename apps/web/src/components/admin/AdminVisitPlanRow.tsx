@@ -2,6 +2,10 @@
 
 import { Check, Circle, MapPin } from 'lucide-react';
 
+import { AdminVisitPlanDelete } from './AdminVisitPlanDelete';
+export type { PlanItemRow, PlanRow, PlanStopRow } from './visitPlanRowTypes';
+import type { PlanRow } from './visitPlanRowTypes';
+
 import { proofLabel, proofToken, visitProof } from '@/lib/customers/visitProof';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -16,32 +20,6 @@ import { proofLabel, proofToken, visitProof } from '@/lib/customers/visitProof';
 // в строке остановки, а не прячется в карточке клиента.
 // ══════════════════════════════════════════════════════════════════════
 
-export interface PlanStopRow {
-  customerId: number;
-  name: string;
-  done: boolean;
-  distanceM: number | null;
-  accuracyM: number | null;
-}
-
-/** Что взято с собой: товар и сколько. Пустой список — объезд без развоза. */
-export interface PlanItemRow {
-  productId: string;
-  name: string;
-  qty: number;
-  unit: string | null;
-}
-
-export interface PlanRow {
-  id: number;
-  assignee: string;
-  author: string;
-  source: string;
-  doneCount: number;
-  stops: PlanStopRow[];
-  items?: PlanItemRow[];
-}
-
 /** Цвет полосы исполнения: пусто, начато, всё. */
 function progressToken(done: number, total: number): string {
   if (total === 0 || done === 0) return 'var(--text-muted)';
@@ -51,10 +29,13 @@ function progressToken(done: number, total: number): string {
 export function AdminVisitPlanRow({
   plan,
   lang,
+  date,
   onOpenCustomer,
 }: {
   plan: PlanRow;
   lang: 'ru' | 'uz';
+  /** Дата дня — нужна кнопке снятия объезда. */
+  date: string;
   onOpenCustomer: (id: number) => void;
 }) {
   const total = plan.stops.length;
@@ -87,6 +68,8 @@ export function AdminVisitPlanRow({
         >
           {plan.doneCount} / {total}
         </span>
+
+        <AdminVisitPlanDelete date={date} assignee={plan.assignee} lang={lang} />
       </div>
 
       {/* Полоса исполнения: число читается точно, полоса — мгновенно. */}

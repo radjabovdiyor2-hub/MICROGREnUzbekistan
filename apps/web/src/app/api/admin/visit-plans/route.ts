@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { actorOf, getSession, isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { planSource, resolveReadAssignee, resolveSaveAssignee } from '@/lib/customers/planAssignee';
-import { readDayFacts, readDayPlans, saveDayPlan } from '@/lib/customers/visitPlanStore';
+import { deleteDayPlan, readDayFacts, readDayPlans, saveDayPlan } from '@/lib/customers/visitPlanStore';
 import { prisma } from '@repo/database';
 
 import { notifyCustomer } from '@/lib/notify';
@@ -91,6 +91,8 @@ export async function GET(request: NextRequest) {
       isOwner: isOwner(request),
       actor,
       requested: sp.get('assignee'),
+      // `mine=1` просит экран, которому нужен ТОЛЬКО свой план.
+      mine: sp.get('mine') === '1',
     });
 
     const plans = await readDayPlans({ planDate, assignee });
@@ -205,6 +207,59 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok', plan: saved }, { status: 201 });
   } catch (error: unknown) {
     console.error('API Admin Visit Plans POST Error:', error);
+    return NextResponse.json({ error: safeError(error) }, { status: 500 });
+  }
+}
+
+/**
+ * Убрать объезд дня.
+ *
+ * КТО ЧТО МОЖЕТ. Владелец удаляет любой план на дату, продавец — только
+ * свой: тот же рубеж, что на сохранении, и по той же причине. Имя берётся
+ * из подписи, а не из адреса, поэтому «удалить чужой» продавцу недоступно
+ * даже подстановкой параметра.
+ *
+ * ОТМЕТКИ ВИЗИТОВ НЕ ТРОГАЕМ. Поездка, которая состоялась, не перестаёт
+ * быть фактом оттого, что план отменили; по ней же считается исполнение.
+ * Удаляется план и его содержимое, а не история работы.
+ */
+export async function DELETE(request: NextRequest) {
+  if (!isStaff(request)) return unauthorized();
+
+  try {
+    const sp = new URL(request.url).searchParams;
+    const planDate = readDate(sp.get('date'));
+
+    const actor = actorName(request);
+    if (actor === null) {
+      return NextResponse.json({ error: 'Сотрудник не опознан' }, { status: 403 });
+    }
+
+    // Тот же помощник, что и на сохранении: владелец назначает и снимает
+    // кому угодно, продавец — только себе. Развести эти два правила
+    // значило бы однажды дать продавцу стереть чужой день.
+    const assignee = resolveSaveAssignee({
+      isOwner: isOwner(request),
+      actor,
+      requested: sp.get('assignee') ?? '',
+    });
+
+    const removed = await deleteDayPlan({ planDate, assignee });
+
+    if (removed) {
+      audit({
+        action: 'visit.plan.delete',
+        ...actorOf(request),
+        ip: request.headers.get('x-forwarded-for') ?? undefined,
+        target: `${planDate.toISOString().slice(0, 10)} → ${assignee || 'ничей'}`,
+      });
+      publish('customers');
+    }
+
+    // Отсутствие плана — не ошибка: повторное нажатие выглядит так же.
+    return NextResponse.json({ status: 'ok', removed });
+  } catch (error: unknown) {
+    console.error('API Admin Visit Plans DELETE Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });
   }
 }

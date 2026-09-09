@@ -96,3 +96,30 @@ describe('назначение объезда: чего не должно слу
     expect(resolveSaveAssignee({ isOwner: true, actor: 'Владелец', requested: '' })).toBe('');
   });
 });
+
+describe('«мой план» — не чужой', () => {
+  it('владельцу с mine отдаётся только его, а не все подряд', () => {
+    // ТА САМАЯ ПОЛОМКА. Баннер «Вам назначен объезд» спрашивал планы без
+    // указания чьи, а владельцу отдаются ВСЕ — и первым назначенным
+    // оказывался тот, который он только что выписал продавцу. Выглядело
+    // это как «система сама назначила объезд на меня».
+    expect(
+      resolveReadAssignee({ isOwner: true, actor: 'Владелец', requested: null }),
+    ).toBeUndefined();
+    expect(
+      resolveReadAssignee({ isOwner: true, actor: 'Владелец', requested: null, mine: true }),
+    ).toBe('Владелец');
+  });
+
+  it('продавцу mine ничего не меняет — он и так видит только своё', () => {
+    expect(
+      resolveReadAssignee({ isOwner: false, actor: 'Азиз', requested: 'Бекзод', mine: true }),
+    ).toBe('Азиз');
+  });
+
+  it('mine сильнее запрошенного имени: чужое так не открыть', () => {
+    expect(
+      resolveReadAssignee({ isOwner: true, actor: 'Владелец', requested: 'Азиз', mine: true }),
+    ).toBe('Владелец');
+  });
+});

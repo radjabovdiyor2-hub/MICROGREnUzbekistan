@@ -155,6 +155,7 @@ export function AdminVisitPlans({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           key={plan.id}
           plan={plan}
           lang={lang}
+          date={date}
           onOpenCustomer={(id) => {
             // Точка на карте, а не строка списка: вопрос «был ли он там»
             // разрешается глазами по карте.

@@ -1,0 +1,28 @@
+// Формы строк объезда дня. Вынесены отдельно, потому что сам компонент
+// упирался в лимит 200 строк, а типы читают и он, и экран дня.
+
+export interface PlanStopRow {
+  customerId: number;
+  name: string;
+  done: boolean;
+  distanceM: number | null;
+  accuracyM: number | null;
+}
+
+/** Что взято с собой: товар и сколько. Пустой список — объезд без развоза. */
+export interface PlanItemRow {
+  productId: string;
+  name: string;
+  qty: number;
+  unit: string | null;
+}
+
+export interface PlanRow {
+  id: number;
+  assignee: string;
+  author: string;
+  source: string;
+  doneCount: number;
+  stops: PlanStopRow[];
+  items?: PlanItemRow[];
+}
