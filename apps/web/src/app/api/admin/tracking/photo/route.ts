@@ -7,6 +7,8 @@ import sharp from 'sharp';
 
 import { prisma } from '@repo/database';
 import { actorOf, getSession } from '@/lib/adminAuth';
+import { requireBotAuth } from '@/lib/botAuth';
+import { localDayRange } from '@/lib/localDate';
 import { audit } from '@/lib/audit';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
@@ -43,10 +45,45 @@ const QUALITY = 78;
  */
 const MAX_INPUT_BYTES = 25 * 1024 * 1024;
 
+/**
+ * Открытая стоянка сотрудника по его Telegram.
+ *
+ * ЗАЧЕМ ВТОРАЯ ДВЕРЬ. Продавец шлёт боту геопозицию — и туда же
+ * естественно шлёт фото с точки. Раньше кадр попадал в обработчик «рецепт
+ * из холодильника» и возвращался рецептом, а владелец фотоотчёта не видел
+ * вовсе. Дверь одна и та же, просто вход второй: бот называет себя общим
+ * секретом и говорит, ЧЕЙ это Telegram, а какая у человека сейчас открыта
+ * стоянка — решает сервер. Телу здесь верить нельзя ровно по той же
+ * причине, по которой расстояние до клиента считает сервер.
+ */
+async function openStayOf(telegramId: bigint): Promise<{ id: number; customerId: number } | null> {
+  const employee = await prisma.employee.findUnique({
+    where: { telegramId },
+    select: { id: true, isActive: true },
+  });
+  if (!employee || !employee.isActive) return null;
+
+  const { start, end } = localDayRange();
+  // Последняя незакрытая стоянка сегодня. Если человек отметил приезд к
+  // двум клиентам и не закрыл первую, кадр логичнее отнести к той, где он
+  // сейчас, — то есть к самой поздней.
+  return prisma.trackStay.findFirst({
+    where: {
+      fieldDay: { employeeId: employee.id },
+      leftAt: null,
+      arrivedAt: { gte: start, lt: end },
+    },
+    select: { id: true, customerId: true },
+    orderBy: { arrivedAt: 'desc' },
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = getSession(request);
-    if (!session || (session.role !== 'ADMIN' && session.role !== 'SELLER')) {
+    const bySession = session !== null && (session.role === 'ADMIN' || session.role === 'SELLER');
+    const byBot = !bySession && requireBotAuth(request);
+    if (!bySession && !byBot) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -67,11 +104,17 @@ export async function POST(request: NextRequest) {
 
     // Стоянку называют номером из базы или ключом телефона: кадр, снятый в
     // подвале, уходит из очереди позже, и номера у него ещё нет — его
-    // выдаёт сервер, до которого в момент съёмки не достучались.
+    // выдаёт сервер, до которого в момент съёмки не достучались. От бота
+    // не приходит ни того ни другого: он знает только, чей это Telegram.
     const byId = Number.isInteger(stayId) && stayId > 0;
     const clientRef =
       typeof rawRef === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(rawRef) ? rawRef : null;
-    if (!byId && !clientRef) {
+
+    const rawTg = form.get('telegramId');
+    const tgText = typeof rawTg === 'string' ? rawTg : '';
+    const byTelegram = byBot && /^\d{1,19}$/.test(tgText);
+
+    if (!byId && !clientRef && !byTelegram) {
       return NextResponse.json({ error: 'Не указана стоянка' }, { status: 400 });
     }
     if (file.size > MAX_INPUT_BYTES) {
@@ -80,12 +123,19 @@ export async function POST(request: NextRequest) {
 
     // Стоянку проверяем ДО записи файла: кадр, привязанный к несуществующей
     // стоянке, лёг бы на диск навсегда и не показался бы никогда.
-    const stay = await prisma.trackStay.findFirst({
-      where: byId ? { id: stayId } : { clientRef },
-      select: { id: true, customerId: true },
-    });
+    const stay = byTelegram
+      ? await openStayOf(BigInt(tgText))
+      : await prisma.trackStay.findFirst({
+          where: byId ? { id: stayId } : { clientRef },
+          select: { id: true, customerId: true },
+        });
     if (!stay) {
-      return NextResponse.json({ error: 'Стоянка не найдена' }, { status: 404 });
+      // Для бота это не ошибка, а «человек сейчас не на точке»: тогда фото
+      // — обычное сообщение, и его должен разобрать другой обработчик.
+      return NextResponse.json(
+        { error: byTelegram ? 'Нет открытой стоянки' : 'Стоянка не найдена' },
+        { status: 404 },
+      );
     }
 
     // Ориентацию применяем ЯВНО (`rotate()` без аргумента читает EXIF):

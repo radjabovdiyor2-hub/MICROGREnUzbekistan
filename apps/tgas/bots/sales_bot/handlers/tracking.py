@@ -16,12 +16,14 @@
 """
 
 import logging
+from io import BytesIO
 from typing import Optional
 
 from aiogram import F, Router
+from aiogram.dispatcher.event.bases import SkipHandler
 from aiogram.types import Message
 
-from shared.field_track import make_ping, send_pings
+from shared.field_track import make_ping, send_pings, send_visit_photo
 
 logger = logging.getLogger(__name__)
 
@@ -107,3 +109,52 @@ async def live_location_moved(message: Message) -> None:
     Ничего не отвечаем: раз в минуту писать в чат — это спам.
     """
     await _forward(message)
+
+
+@router.message(F.photo, F.chat.type == "private")
+async def visit_photo(message: Message) -> None:
+    """Фото с точки — в фотоотчёт владельцу.
+
+    ЗАЧЕМ ЗДЕСЬ. Продавец шлёт боту трансляцию геопозиции — и туда же
+    естественно шлёт кадр с точки. Раньше такое фото попадало в обработчик
+    «рецепт из холодильника» и возвращалось рецептом, а владелец
+    фотоотчёта не видел вовсе: снимать кадр надо было в админке, о чём
+    никто не догадывался.
+
+    ПРОВАЛИВАЕМСЯ ДАЛЬШЕ, ЕСЛИ ЧЕЛОВЕК НЕ НА ТОЧКЕ. `SkipHandler` отдаёт
+    сообщение следующему обработчику — тому самому рецепту. Съесть чужое
+    фото молча значило бы поломать то, что работало раньше: у бота продаж
+    фото от клиента это законный сценарий.
+
+    Стоянку выбирает СЕРВЕР по открытой отметке «я на точке». Поэтому
+    порядок такой: сначала «я на точке» в админке, потом кадры сюда.
+    """
+    if message.photo is None or message.from_user is None:
+        raise SkipHandler
+
+    photo = message.photo[-1]
+    try:
+        file_info = await message.bot.get_file(photo.file_id)
+        buffer = await message.bot.download_file(file_info.file_path, destination=BytesIO())
+        image = buffer.read()
+    except Exception as exc:
+        logger.warning("VISIT_PHOTO: кадр не скачался (%s)", exc)
+        raise SkipHandler
+
+    outcome = await send_visit_photo(message.from_user.id, image)
+
+    if outcome == "no_stay":
+        raise SkipHandler
+
+    if outcome == "ok":
+        await message.answer(
+            "📷 Фото добавлено в отчёт по точке.\n\n"
+            "Когда закончите — нажмите «Уехал» в админке."
+        )
+        return
+
+    # Витрина недоступна. Молчать нельзя: человек снял кадр и ждёт, что он
+    # дошёл, — а кадр не сохранился нигде.
+    await message.answer(
+        "⚠️ Фото не сохранилось — связь с сервером потерялась. Пришлите ещё раз."
+    )

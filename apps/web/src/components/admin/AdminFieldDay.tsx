@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { formatLocalDate } from '@/lib/localDate';
 
 import { FieldDayMap } from './field/FieldDayMap';
+import { FieldLive } from './field/FieldLive';
 import { FieldDayTimeline } from './field/FieldDayTimeline';
 import {
   humanDistance,
@@ -97,11 +98,10 @@ export function AdminFieldDay({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         />
       </div>
 
-      {employeeId === '' && (
-        <p style={{ color: 'var(--text-muted)' }}>
-          {t('Выберите сотрудника и день.', 'Xodim va kunni tanlang.')}
-        </p>
-      )}
+      {/* Никого не выбрали — показываем, кто в поле ПРЯМО СЕЙЧАС.
+          Это чаще нужный ответ, чем «выберите сотрудника»: разбор дня
+          делают вечером, а «где все» спрашивают посреди дня. */}
+      {employeeId === '' && <FieldLive lang={lang} />}
 
       {employeeId !== '' && isLoading && (
         <p style={{ color: 'var(--text-muted)' }}>{t('Собираю день…', 'Kun yig‘ilmoqda…')}</p>

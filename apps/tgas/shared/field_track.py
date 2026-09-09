@@ -12,6 +12,7 @@
 
 import logging
 import os
+import time
 from typing import Any, Dict, List, Optional
 
 import aiohttp
@@ -85,6 +86,42 @@ async def who_is_silent() -> List[Dict[str, Any]]:
     except Exception as exc:
         logger.warning("FIELD_TRACK: сводка молчания не получена (%s)", exc)
         return []
+
+
+async def send_visit_photo(telegram_id: int, image: bytes, filename: str = "visit.jpg") -> str:
+    """Отправить кадр как фотоотчёт с текущей стоянки.
+
+    Возвращает:
+      "ok"      — принят и привязан к стоянке;
+      "no_stay" — человек сейчас не на точке (стоянка не открыта);
+      "error"   — витрина недоступна или отказала.
+
+    РАЗЛИЧАТЬ ПЕРВОЕ И ВТОРОЕ ОБЯЗАТЕЛЬНО. «Не на точке» — это не сбой: это
+    обычное фото в переписке, и его должен разобрать следующий обработчик.
+    Съесть его молча значило бы поломать то, что работало раньше.
+    """
+    form = aiohttp.FormData()
+    form.add_field("file", image, filename=filename, content_type="image/jpeg")
+    form.add_field("telegramId", str(telegram_id))
+    form.add_field("takenAt", str(int(time.time() * 1000)))
+
+    headers = {k: v for k, v in _headers().items() if k != "Content-Type"}
+    try:
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
+            async with session.post(_url("/admin/tracking/photo"), data=form) as resp:
+                if resp.status == 200:
+                    return "ok"
+                if resp.status == 404:
+                    return "no_stay"
+                body = await resp.text()
+                logger.warning(
+                    "FIELD_TRACK: фото отклонено (%s): %s", resp.status, body[:200]
+                )
+                return "error"
+    except Exception as exc:
+        logger.warning("FIELD_TRACK: фото не отправлено (%s)", exc)
+        return "error"
 
 
 async def send_pings(telegram_id: int, pings: List[Dict[str, Any]]) -> bool:
