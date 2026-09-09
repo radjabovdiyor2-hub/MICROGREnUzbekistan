@@ -407,6 +407,8 @@ model Employee {
   shifts        Shift[]
   DeliveryRoute DeliveryRoute[]
   payouts       EmployeePayout[]
+  trackPings    TrackPing[]
+  fieldDays     FieldDay[]
 
   @@map("employees")
 }
@@ -1461,6 +1463,7 @@ model Customer {
   planStops     VisitPlanStop[]
   visitSchedule VisitSchedule[]
   debts         Debt[]
+  trackStays    TrackStay[]
 
   contacts CustomerContact[]
 
@@ -1684,6 +1687,11 @@ model Interaction {
   // прислать любое.
   distanceM Int?   @map("distance_m")
 
+  /// Стоянка, на которой сделана эта отметка. Появляется только у
+  /// отметок с карты: касания, записанные офисом (звонок, сообщение),
+  /// стоянки не имеют и иметь не могут.
+  stay TrackStay?
+
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([customerId])
@@ -1823,6 +1831,296 @@ model VisitPlanStop {
   // родителя» и каскадное удаление идут полным перебором таблицы.
   @@index([customerId])
   @@map("visit_plan_stops")
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// ПОЛЕ: день продавца и водителя на карте
+//
+// Отметка визита с подтверждением места уже была (см. `Interaction` выше:
+// координаты, точность, расстояние до пина). Она отвечает на вопрос «был
+// ли он там» в ОДИН момент — тот, когда нажали кнопку. На вопросы «где
+// был весь день», «сколько простоял», «сколько ехал между точками» и
+// «столько ли должна была занять дорога» ответить было нечем.
+//
+// Порядок ниже: сырой трек → день → стоянки → фото → плечи → кэш
+// маршрутизатора.
+// ══════════════════════════════════════════════════════════════════════
+
+/// Крошка трека: где был телефон сотрудника в этот момент.
+///
+/// ИСТОЧНИКОВ ДВА, ТАБЛИЦА ОДНА. Фон весь день даёт Telegram (трансляция
+/// геопозиции), точные отметки на месте — PWA админки. Разводить их по
+/// разным таблицам значит собирать день двумя запросами и сшивать по
+/// времени в коде — там же, где потом будут искать ошибку сшивки.
+///
+/// ЧТО СЮДА НЕ ПИШЕТСЯ. Строка появляется, только пока сотрудник сам
+/// включил трансляцию. Молчаливого сбора нет: это обработка личных
+/// данных, и согласие даётся действием, а не настройкой по умолчанию.
+model TrackPing {
+  id         String   @id @default(cuid())
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  /// Момент замера по данным источника, а не время записи в базу: пачка
+  /// приходит с задержкой, и `createdAt` склеил бы полчаса пути в точку.
+  at        DateTime
+  latitude  Float
+  longitude Float
+  /// Радиус неопределённости в метрах, как его называет источник.
+  /// NULL — источник точность не сообщил, а не «точность идеальная».
+  accuracyM Int?     @map("accuracy_m")
+
+  /// `telegram_live` | `pwa` | `visit` — кто прислал точку. Нужен не для
+  /// статистики: у Telegram и браузера разная частота и разная честность
+  /// точности, и сравнивать их между собой напрямую нельзя.
+  source String @db.VarChar(20)
+
+  /// Скорость и курс — только если источник их дал. Считать скорость по
+  /// соседним крошкам нельзя: на паузе трансляции получится «ехал 200
+  /// км/ч», и это выглядело бы уликой, хотя это дыра в связи.
+  speedMps   Float? @map("speed_mps")
+  headingDeg Int?   @map("heading_deg")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// Одна крошка на «сотрудник + момент + источник».
+  ///
+  /// Без этого ключа офлайн-очередь плодила бы дубли: она шлёт пачку
+  /// повторно, пока не получит подтверждения, и после двух попыток день
+  /// содержал бы каждую точку дважды — а значит, и вдвое больший путь.
+  /// Источник входит в ключ намеренно: Telegram и PWA могут честно снять
+  /// позицию в одну и ту же секунду, и это две разные записи.
+  @@unique([employeeId, at, source])
+  /// День собирается выборкой «этот сотрудник, это окно времени» — индекс
+  /// ровно под неё. Отдельный индекс по employeeId не нужен: этот
+  /// покрывает его префиксом.
+  @@index([employeeId, at])
+  @@map("track_pings")
+}
+
+/// Рабочий день сотрудника в поле: во сколько вышел, сколько прошёл.
+///
+/// ЗАЧЕМ ОТДЕЛЬНО ОТ ПИНГОВ. Отчёт дня открывают часто, а крошек за день
+/// сотни: считать сумму пути и время в движении на каждом открытии значит
+/// перебирать их заново ради чисел, которые уже не изменятся. Агрегаты
+/// пересчитываются при дописывании трека, а не при чтении.
+///
+/// ДЕНЬ — ЛОКАЛЬНАЯ ДАТА, а не UTC-сутки. Смена, начатая в 8 утра в
+/// Самарканде, обязана попасть в этот день целиком; по UTC она разъехалась
+/// бы на два.
+model FieldDay {
+  id         Int      @id @default(autoincrement())
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+
+  /// Границы смены по факту: первая и последняя крошка трека.
+  startedAt DateTime  @map("started_at")
+  endedAt   DateTime? @map("ended_at")
+
+  /// Чем сняли день целиком. Смешанный день (Telegram + PWA) помечается
+  /// как `mixed`: знать это нужно, когда трек рваный.
+  source String @default("telegram_live") @db.VarChar(20)
+
+  /// Пройдено метров и сколько из смены сотрудник двигался. Оба — по
+  /// треку, а не по маршрутизатору: это факт, а не эталон.
+  meters    Int @default(0)
+  movingSec Int @default(0) @map("moving_sec")
+  /// Сколько раз останавливался у клиентов. Держим числом рядом с днём,
+  /// чтобы список дней не тянул стоянки ради одной цифры.
+  stops     Int @default(0)
+
+  stays TrackStay[]
+  legs  RouteLeg[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  /// Один день на человека. Дозапись трека обновляет строку, а не плодит
+  /// вторую: та же причина, по которой уникален `VisitPlan`.
+  @@unique([employeeId, date])
+  @@index([date])
+  @@map("field_days")
+}
+
+/// Стоянка у клиента: приехал, простоял, уехал.
+///
+/// ЭТО ОТВЕТ НА «СКОЛЬКО ПРОБЫЛ». Его не было вовсе: отметка визита
+/// фиксирует момент нажатия кнопки, а не длительность разговора. «Заехал
+/// на минуту и отметился» и «просидел сорок минут с закупщиком» выглядели
+/// в системе одинаково.
+///
+/// `confirmedBy` РАЗДЕЛЯЕТ ДВА РАЗНЫХ УТВЕРЖДЕНИЯ. `manual` — человек сам
+/// нажал «я на точке» и «уехал». `derived` — стоянка выведена из сгущения
+/// крошек рядом с пином. Второе слабее первого: телефон мог лежать в
+/// машине у соседнего дома. Выдавать выведенное за подтверждённое нельзя —
+/// на таких молчаливых подменах и рушится доверие к признаку.
+model TrackStay {
+  id         Int      @id @default(autoincrement())
+  fieldDayId Int      @map("field_day_id")
+  fieldDay   FieldDay @relation(fields: [fieldDayId], references: [id], onDelete: Cascade)
+  customerId Int      @map("customer_id")
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  arrivedAt DateTime  @map("arrived_at")
+  /// Пусто — сотрудник ещё на точке или забыл отметить отъезд. Не
+  /// подставляем сюда конец смены: «простоял шесть часов» — это выдумка,
+  /// а пустое поле честно говорит «неизвестно».
+  leftAt    DateTime? @map("left_at")
+  /// Длительность в секундах. Хранится, а не считается на лету: у стоянки
+  /// без `leftAt` её нет, и NULL здесь значит ровно то же самое.
+  dwellSec  Int?      @map("dwell_sec")
+
+  /// `manual` | `derived` — см. заголовок модели.
+  confirmedBy String @default("derived") @map("confirmed_by") @db.VarChar(10)
+
+  /// Ключ, выданный телефоном при отметке «я на точке».
+  ///
+  /// ЗАЧЕМ. В подвале ресторана связи нет, и отметка ложится в очередь.
+  /// Но следом человек делает фото и жмёт «уехал» — а сослаться им не на
+  /// что: `id` выдаёт база, до которой мы не достучались. Телефон выдаёт
+  /// ключ сам, ещё до отправки, и все три действия ссылаются на него.
+  ///
+  /// УНИКАЛЕН — это и есть защита от дублей. Очередь повторяет отправку,
+  /// пока не получит ответа, и без ключа один заезд превращался бы в три.
+  ///
+  /// Необязателен: у стоянок, выведенных из трека, телефон ничего не
+  /// отмечал, и ключа у них нет.
+  clientRef String? @unique @map("client_ref") @db.VarChar(64)
+
+  /// Отметка визита, сделанная на этой стоянке. Связь необязательная:
+  /// заехал, никого не застал, уехал — стоянка есть, визита нет.
+  interactionId Int?         @unique @map("interaction_id")
+  interaction   Interaction? @relation(fields: [interactionId], references: [id], onDelete: SetNull)
+
+  photos VisitPhoto[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([fieldDayId])
+  // Индекс на внешний ключ. Postgres НЕ создаёт его сам: сама связь
+  // проверяется по первичному ключу родителя, а выборка «дети этого
+  // родителя» и каскадное удаление идут полным перебором таблицы.
+  @@index([customerId])
+  @@index([arrivedAt])
+  @@map("track_stays")
+}
+
+/// Кадр с точки: чем подтверждён визит, кроме координат.
+///
+/// ПРИВЯЗКА К СТОЯНКЕ, А НЕ К КЛИЕНТУ. За день к одному заведению заезжают
+/// дважды — утром не застали, вечером застали. Фото, привязанное к
+/// клиенту, во второй заезд встало бы рядом с первым, и «фотоотчёт за
+/// сегодня» показывал бы утреннюю витрину как вечернюю.
+model VisitPhoto {
+  id     Int       @id @default(autoincrement())
+  stayId Int       @map("stay_id")
+  stay   TrackStay @relation(fields: [stayId], references: [id], onDelete: Cascade)
+
+  /// Путь вида `/uploads/...`. Файл лежит в постоянном томе, куда пишет
+  /// `lib/uploads.ts`, — том же, что у остальных загрузок.
+  imageUrl String @map("image_url") @db.Text
+  width    Int
+  height   Int
+  /// Размер после сжатия. Держим числом, чтобы на вопрос «сколько это
+  /// заняло на диске» отвечал запрос, а не обход каталога.
+  bytes    Int
+
+  /// Когда снят кадр. Отдельно от `createdAt`: фото уходит из офлайн-
+  /// очереди через час после съёмки, и время записи к съёмке отношения
+  /// не имеет.
+  takenAt DateTime @map("taken_at")
+
+  /// Где стоял телефон в момент съёмки. Необязательно по той же причине,
+  /// что и у визита: в подвале GPS не берётся, а кадр всё равно ценен.
+  latitude  Float?
+  longitude Float?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([stayId])
+  @@map("visit_photos")
+}
+
+/// Плечо между двумя стоянками: сколько ехал на самом деле и сколько
+/// должен был.
+///
+/// ЗАЧЕМ ХРАНИТЬ ОБА ЧИСЛА. Факт берётся из трека и не меняется. Эталон
+/// приходит от маршрутизатора и зависит от времени выезда: в час пик и в
+/// полдень одна дорога занимает разное время. Пересчитать эталон задним
+/// числом значит подставить пробки того часа, когда открыли отчёт, а не
+/// того, когда человек ехал.
+///
+/// РАСХОЖДЕНИЕ НЕ ХРАНИТСЯ — оно выводится из этой пары. Хранимая
+/// производная однажды разойдётся со своими же исходниками, и разойдётся
+/// молча, в том самом отчёте, по которому разговаривают с людьми.
+model RouteLeg {
+  id         Int      @id @default(autoincrement())
+  fieldDayId Int      @map("field_day_id")
+  fieldDay   FieldDay @relation(fields: [fieldDayId], references: [id], onDelete: Cascade)
+
+  /// Откуда и куда. Обе стоянки принадлежат тому же дню.
+  fromStayId Int @map("from_stay_id")
+  toStayId   Int @map("to_stay_id")
+
+  departedAt DateTime @map("departed_at")
+  arrivedAt  DateTime @map("arrived_at")
+
+  /// Факт по треку.
+  actualSec    Int @map("actual_sec")
+  actualMeters Int @map("actual_meters")
+
+  /// Эталон маршрутизатора. NULL — эталон НЕ ПОЛУЧЕН (ключа нет, провайдер
+  /// молчит), и в отчёте так и написано. Ноль здесь читался бы как
+  /// «дорога занимает нисколько» и обвинил бы человека пустотой.
+  expectedSec    Int?      @map("expected_sec")
+  expectedMeters Int?      @map("expected_meters")
+  provider       String?   @db.VarChar(20)
+  /// Учитывал ли ответ пробки. Без этого флага эталон без пробок
+  /// неотличим от эталона с пробками, а разница между ними и есть весь
+  /// смысл сверки.
+  trafficUsed    Boolean   @default(false) @map("traffic_used")
+  /// На какой момент спрошен эталон — тот самый час выезда.
+  expectedAt     DateTime? @map("expected_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  /// Одно плечо на пару стоянок: пересчёт дня заменяет, а не плодит.
+  @@unique([fromStayId, toStayId])
+  @@index([fieldDayId])
+  @@map("route_legs")
+}
+
+/// Кэш ответов маршрутизатора.
+///
+/// Устроен как `GeocodeCache` и по той же причине: у внешнего API есть
+/// лимит и цена, а отчёт дня открывают много раз подряд. Ключ включает ЧАС
+/// выезда, а не только точки: тот же путь в 8 утра и в 14:00 — разные
+/// ответы, и склеивать их в одну строку значит терять пробки.
+model RouteCache {
+  id        Int    @id @default(autoincrement())
+  queryHash String @unique @map("query_hash") @db.VarChar(64)
+
+  fromLat Float @map("from_lat")
+  fromLon Float @map("from_lon")
+  toLat   Float @map("to_lat")
+  toLon   Float @map("to_lon")
+  /// Час суток выезда, 0..23, по местному времени.
+  hourBucket Int @map("hour_bucket")
+
+  seconds     Int?
+  meters      Int?
+  provider    String  @db.VarChar(20)
+  trafficUsed Boolean @default(false) @map("traffic_used")
+  attempts    Int     @default(1)
+  lastError   String? @map("last_error") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([provider])
+  @@map("route_cache")
 }
 
 // ══════════════════════════════════════════════════════════════════════

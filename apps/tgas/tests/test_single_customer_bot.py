@@ -52,13 +52,34 @@ def test_sales_bot_has_no_customer_cart() -> None:
     )
 
 
+# Роутеры, которым в боте отдела продаж место. Список ИМЕНОВАННЫЙ, а не
+# счётчик: счётчик одинаково падал и на возврате клиентской витрины, и на
+# любой честной офисной надстройке, поэтому его чинили, не разбираясь, —
+# то есть страж превращался в формальность. Имя заставляет назвать, что
+# именно добавили, а безымянный новичок роняет тест ровно так же.
+OFFICE_HANDLERS = {
+    "start",  # приветствие и лид-захват
+    "b2b",  # заявка на сотрудничество
+    "ai_chat",  # разговор с менеджером
+    "tracking",  # трансляция геопозиции полевого сотрудника
+}
+
+
 def test_sales_bot_routers_are_office_only() -> None:
+    source = (SALES / "handlers" / "__init__.py").read_text(encoding="utf-8")
+    imported = set(re.findall(r"from bots\.sales_bot\.handlers\.(\w+) import", source))
+
+    assert imported == OFFICE_HANDLERS, (
+        "состав роутеров отдела продаж изменился — проверьте, не вернулась ли "
+        f"клиентская витрина.\n  лишние: {sorted(imported - OFFICE_HANDLERS)}"
+        f"\n  пропали: {sorted(OFFICE_HANDLERS - imported)}"
+    )
+
     from bots.sales_bot.handlers import all_routers
 
-    # Роутеров ровно три: приветствие с лид-захватом, B2B и чат с менеджером.
-    assert len(all_routers) == 3, (
-        f"состав роутеров изменился ({len(all_routers)}) — проверьте, не вернулась "
-        "ли клиентская витрина"
+    assert len(all_routers) == len(OFFICE_HANDLERS), (
+        "роутер импортирован, но не включён в all_routers (или наоборот) — "
+        "тогда его обработчики молча не работают"
     )
 
 

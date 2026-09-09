@@ -1152,6 +1152,99 @@ async def handle_roll_call(payload: dict):
     await _shared_roll_call("sales_bot", payload)
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Сторож трансляции геопозиции
+#
+# Трансляция в Telegram живёт максимум восемь часов и включается вручную.
+# Оба конца срока тихие: утром её забывают включить, а через восемь часов
+# она гаснет сама, ничего никому не сказав. В обоих случаях день окажется
+# пустым, и выяснится это вечером — когда сделать уже нечего.
+#
+# ПИШЕМ ЧЕЛОВЕКУ, А НЕ ВЛАДЕЛЬЦУ. Это напоминание, а не донос: забытая
+# кнопка — не проступок. Владелец увидит дыру в отчёте и без нас.
+# ═══════════════════════════════════════════════════════════════════════
+
+# Кому и когда уже писали сегодня: telegram_id → «состояние, за которое
+# напомнили». Повтор того же состояния молчит — иначе сторож, бегающий
+# каждые полчаса, превратится в четырнадцать одинаковых сообщений за день.
+# Тот же приём, что в shared/alert_once.py.
+_track_nudged: dict[str, str] = {}
+_track_nudge_day: str = ""
+
+TRACK_HINT = (
+    "Включить: скрепка → Геопозиция → «Транслировать» → 8 часов."
+)
+
+
+async def track_watchdog():
+    """Напомнить тем, кто сегодня не на связи."""
+    from datetime import datetime
+
+    from shared.field_track import who_is_silent
+
+    global _track_nudge_day
+
+    now = datetime.now()
+    # Только в рабочие часы: напоминание в семь утра или в десять вечера —
+    # это не забота, а раздражение.
+    if not (9 <= now.hour < 18):
+        return
+
+    today = now.strftime("%Y-%m-%d")
+    if today != _track_nudge_day:
+        _track_nudge_day = today
+        _track_nudged.clear()
+
+    people = await who_is_silent()
+    if not people:
+        return
+
+    bot = Bot(
+        token=settings.sales_bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
+    try:
+        for person in people:
+            state = str(person.get("state") or "")
+            if state not in ("never", "silent"):
+                continue
+
+            chat_id = str(person.get("telegramId") or "")
+            if not chat_id or _track_nudged.get(chat_id) == state:
+                continue
+
+            if state == "never":
+                text = (
+                    "🛰 <b>Смена не записывается</b>\n\n"
+                    "Сегодня трансляция геопозиции ещё не включалась — "
+                    f"объезд не попадёт в отчёт.\n\n{TRACK_HINT}"
+                )
+            else:
+                minutes = person.get("silentMin")
+                text = (
+                    "🛰 <b>Трансляция прервалась</b>\n\n"
+                    f"Точек нет уже {minutes} мин. Телеграм выключает "
+                    f"трансляцию через 8 часов сам.\n\n{TRACK_HINT}"
+                )
+
+            try:
+                await bot.send_message(chat_id, text)
+                _track_nudged[chat_id] = state
+            except Exception as exc:
+                # Заблокировал бота или не начинал с ним диалог — это не
+                # повод ронять сторож для остальных.
+                logger.warning("TRACK_WATCHDOG: не доставлено %s (%s)", chat_id, exc)
+    finally:
+        await bot.session.close()
+
+
+# Раз в полчаса: чаще незачем — порог молчания пятнадцать минут, и человек
+# всё равно не включит трансляцию быстрее, чем дойдёт до телефона.
+scheduler.add_interval(
+    name="track_watchdog", func=track_watchdog, seconds=1800, initial_delay=120
+)
+
+
 async def main():
     if not settings.sales_bot_token:
         logger.error("FATAL: SALES_BOT_TOKEN is missing!")

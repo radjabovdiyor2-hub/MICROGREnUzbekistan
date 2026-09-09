@@ -60,6 +60,7 @@ const AdminSuppliers = dynamic(() => import('@/components/admin/AdminSuppliers')
 const AdminEmployees = dynamic(() => import('@/components/admin/AdminEmployees').then((m) => m.AdminEmployees), { ssr: false, loading: TabLoading });
 const AdminShifts = dynamic(() => import('@/components/admin/AdminShifts').then((m) => m.AdminShifts), { ssr: false, loading: TabLoading });
 const AdminPayroll = dynamic(() => import('@/components/admin/AdminPayroll').then((m) => m.AdminPayroll), { ssr: false, loading: TabLoading });
+const AdminFieldDay = dynamic(() => import('@/components/admin/AdminFieldDay').then((m) => m.AdminFieldDay), { ssr: false, loading: TabLoading });
 const AdminAnalytics = dynamic(() => import('@/components/admin/AdminAnalytics').then((m) => m.AdminAnalytics), { ssr: false, loading: TabLoading });
 const AdminForecast = dynamic(() => import('@/components/admin/AdminForecast').then((m) => m.AdminForecast), { ssr: false, loading: TabLoading });
 const AdminSettings = dynamic(() => import('@/components/admin/AdminSettings').then((m) => m.AdminSettings), { ssr: false, loading: TabLoading });
@@ -143,6 +144,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {activeTab === 'employees' && isOwner && <AdminEmployees lang={lang} />}
     {activeTab === 'shifts' && isOwner && <AdminShifts lang={lang} />}
     {activeTab === 'payroll' && isOwner && <AdminPayroll />}
+    {activeTab === 'field_day' && isOwner && <AdminFieldDay lang={lang} />}
 
     {/* ИИ-офис */}
     {activeTab === 'workflow_studio' && isOwner && <AdminWorkflowStudio />}

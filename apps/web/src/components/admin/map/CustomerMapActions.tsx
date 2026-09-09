@@ -4,6 +4,7 @@ import { Check, MapPin, Phone, Plus, ShoppingCart } from 'lucide-react';
 
 import { NavigateButton } from './NavigateButton';
 import { DeletePointButton } from './DeletePointButton';
+import { StayButtons } from './StayButtons';
 import { VisitButtons } from './VisitButtons';
 import { VisitScheduleButtons } from './VisitScheduleButtons';
 import type { useVisitQueue } from './useVisitQueue';
@@ -92,6 +93,11 @@ export function CustomerMapActions({
         lastVisitDays={point.lastVisitDays}
         queue={visitQueue}
       />
+
+      {/* Приезд, фото, отъезд. Рядом с отметкой визита намеренно: это одно
+          и то же действие человека у дверей заведения, разнесённое во
+          времени, — искать его в другом месте экрана он не станет. */}
+      <StayButtons customerId={point.id} lang={lang} />
 
       {/* Регулярность заезда — рядом с отметкой визита, а не в настройках:
           «к этому по субботам» решают, глядя на клиента, и в отдельный
