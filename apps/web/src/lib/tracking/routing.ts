@@ -124,10 +124,27 @@ async function askYandex(
 /**
  * Провайдеры в порядке предпочтения. Пустой список — эталона не будет, и
  * это нормальное состояние стенда без ключей, а не поломка.
+ *
+ * КЛЮЧ 2ГИС ПЕРЕИСПОЛЬЗУЕТСЯ. Отдельный `DGIS_ROUTING_API_KEY` не нужен:
+ * 2ГИС выдаёт один ключ на проект и включает доступ к сервисам галочками,
+ * поэтому тот же ключ, которым офис геокодирует адреса
+ * (`apps/tgas/shared/geo.py`), отвечает и на запрос маршрута. Проверено
+ * живым запросом: маршрут по Самарканду вернулся с HTTP 200, длиной и
+ * временем. Требовать второй ключ значило бы держать готовую функцию
+ * выключенной из-за переменной, которую некому заполнить.
+ *
+ * `DGIS_ROUTING_API_KEY` остаётся как ЯВНОЕ переопределение — на случай
+ * отдельного ключа под свою квоту, чтобы отчёты не съедали лимит
+ * геокодера.
+ *
+ * У ЯНДЕКСА ТАК НЕЛЬЗЯ, и подстановки для него нет намеренно: там ключ
+ * выдаётся на каждый сервис отдельно, и ключ Геокодера в Роутер приедет
+ * с 403. Тихая подстановка превратила бы понятное «ключ не задан» в
+ * непонятный отказ чужого API.
  */
 function providers(): { name: string; ask: (f: RoutePoint, t: RoutePoint) => Promise<RouteEstimate | null> }[] {
   const chain: { name: string; ask: (f: RoutePoint, t: RoutePoint) => Promise<RouteEstimate | null> }[] = [];
-  const dgis = process.env.DGIS_ROUTING_API_KEY;
+  const dgis = process.env.DGIS_ROUTING_API_KEY || process.env.DGIS_API_KEY;
   if (dgis) chain.push({ name: '2gis', ask: (f, t) => ask2gis(f, t, dgis) });
   const yandex = process.env.YANDEX_ROUTER_API_KEY;
   if (yandex) chain.push({ name: 'yandex', ask: (f, t) => askYandex(f, t, yandex) });
