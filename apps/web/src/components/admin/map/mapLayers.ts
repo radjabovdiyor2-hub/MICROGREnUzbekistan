@@ -334,6 +334,26 @@ export function hasDetailedBase(theme: 'light' | 'dark'): boolean {
  * это разница между «где-то тут» и «вот этот дом». Хост тот же самый,
  * поэтому правки CSP не требуется.
  */
+/**
+ * Тема, которая УЖЕ применена к странице.
+ *
+ * Атрибут `data-theme` ставит инлайн-скрипт в layout.tsx ещё до гидрации,
+ * а React в первом клиентском коммите отдаёт серверный снимок `light` (см.
+ * `getServerTheme` в ThemeProvider). Карта создаётся эффектом именно в этом
+ * коммите — и получала светлый стиль даже у человека с тёмной темой.
+ * Следом тема «догоняла», стиль пересобирался, и это видно глазом: белая
+ * вспышка, потом тёмная карта. Спрашиваем DOM, а не React, — там правда
+ * известна раньше.
+ */
+export function appliedTheme(root?: { getAttribute(name: string): string | null }): 'light' | 'dark' {
+  // Корень принимаем аргументом ради тестов: они идут в среде `node`, где
+  // `document` не существует вовсе, а проверять надо именно разбор
+  // атрибута — в нём и была ошибка.
+  const node = root ?? (typeof document === 'undefined' ? null : document.documentElement);
+  if (!node) return 'light';
+  return node.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+}
+
 export function styleUrl(theme: 'light' | 'dark', detailed: boolean = false): string {
   const base = process.env.NEXT_PUBLIC_MAP_TILES_URL || 'https://tiles.openfreemap.org';
   const style = theme === 'dark' ? 'dark' : detailed ? 'liberty' : 'positron';

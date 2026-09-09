@@ -36,6 +36,7 @@ import {
   SOURCE_HEAT,
   SOURCE_ID,
   SOURCE_ROUTE,
+  appliedTheme,
   buildLayers,
   styleUrl,
 } from './mapLayers';
@@ -133,7 +134,7 @@ export default function CustomerMapCanvas(props: Props) {
 
     // Запоминаем стиль, с которым карта создана: эффект подложки ниже
     // сравнивает с ним и на монтировании не трогает ничего.
-    styleRef.current = styleUrl(latest.current.theme, latest.current.detailedBase);
+    styleRef.current = styleUrl(appliedTheme(), latest.current.detailedBase);
 
     let instance: MapLibreMap;
     try {
@@ -187,11 +188,32 @@ export default function CustomerMapCanvas(props: Props) {
     instance.addControl(fullscreen, 'top-right');
     fullscreenControl.current = fullscreen;
 
+    /**
+     * Вернуть слои, если их нет. Безопасно звать сколько угодно раз.
+     *
+     * ПОЧЕМУ НЕ ХВАТАЛО ОДНОГО `styledata`. `setStyle` выбрасывает всё, что
+     * мы добавили поверх, и вернуть это должен обработчик смены стиля. Но
+     * `styledata` приходит несколько раз и на ранних срабатываниях
+     * `isStyleLoaded()` ещё false — а добавлять источники раньше нельзя,
+     * MapLibre бросит «Style is not done loading». Если ПОСЛЕДНЕЕ
+     * срабатывание попало в это окно, слои не возвращались уже никогда:
+     * карта рисовала подложку, а точек на ней не было до перезагрузки
+     * страницы. Ровно так это и выглядело: белая вспышка (стиль сбросился),
+     * потом тёмная карта — и пусто.
+     *
+     * `idle` закрывает дыру. Он приходит, когда карта дорисовала всё и
+     * больше ничего не ждёт, — то есть стиль заведомо загружен. Событий
+     * теперь два, и промахнуться мимо обоих нельзя.
+     */
+    const ensureLayers = () => {
+      if (!instance.isStyleLoaded()) return;
+      if (instance.getSource(SOURCE_ID)) return;
+      attach(instance);
+    };
+
     instance.on('load', () => attach(instance));
-    // После смены стиля MapLibre выбрасывает свои слои — навешиваем заново.
-    instance.on('styledata', () => {
-      if (instance.isStyleLoaded()) attach(instance);
-    });
+    instance.on('styledata', ensureLayers);
+    instance.on('idle', ensureLayers);
 
     const detach = attachMapEvents(instance, latest);
 

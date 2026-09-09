@@ -8,7 +8,7 @@ import {
   type GeoJSONSource,
 } from 'maplibre-gl';
 
-import { styleUrl } from '../map/mapLayers';
+import { appliedTheme, styleUrl } from '../map/mapLayers';
 import {
   SOURCE_TRACK,
   buildTrackCollection,
@@ -60,7 +60,9 @@ export function FieldDayMap({
     try {
       instance = new MapLibreMap({
         container: node,
-        style: styleUrl('light'),
+        // Тема из DOM, а не литералом: захардкоженный светлый стиль
+        // слепил бы глаза тому, у кого включена тёмная.
+        style: styleUrl(appliedTheme()),
         center: [66.9597, 39.654],
         zoom: 11,
         attributionControl: { compact: true },

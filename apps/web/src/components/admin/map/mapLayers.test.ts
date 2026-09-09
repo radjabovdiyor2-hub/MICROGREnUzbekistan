@@ -4,6 +4,7 @@ import { COLORIZE_MODES } from './mapFeature';
 import { MAP_FONT } from './mapFont';
 import { buildDeliveryLayers } from './mapLayersDelivery';
 import {
+  appliedTheme,
   buildLayers,
   clusterColor,
   clusterSourceOptions,
@@ -162,5 +163,27 @@ describe('styleUrl', () => {
     process.env.NEXT_PUBLIC_MAP_TILES_URL = 'https://tiles.example.com/';
     expect(styleUrl('light')).toBe('https://tiles.example.com/styles/positron');
     process.env.NEXT_PUBLIC_MAP_TILES_URL = original;
+  });
+});
+
+describe('appliedTheme', () => {
+  // РЕГРЕССИЯ. Карта создаётся эффектом в первом клиентском коммите, а
+  // React в нём отдаёт серверный снимок `light` — даже человеку с тёмной
+  // темой. Следом тема «догоняла», стиль пересобирался, и на глаз это
+  // белая вспышка с последующей тёмной картой; вместе со стилем терялись
+  // и точки. Правду знает DOM: атрибут ставит инлайн-скрипт до гидрации.
+  const root = (value: string | null) => ({ getAttribute: () => value });
+
+  it('берёт тему из атрибута, который стоит до гидрации', () => {
+    expect(appliedTheme(root('dark'))).toBe('dark');
+    expect(styleUrl(appliedTheme(root('dark')))).toMatch(/styles\/dark$/);
+  });
+
+  it('без атрибута — светлая, а не падение', () => {
+    expect(appliedTheme(root(null))).toBe('light');
+  });
+
+  it('чужое значение атрибута не выдаётся за тёмную тему', () => {
+    expect(appliedTheme(root('sepia'))).toBe('light');
   });
 });
