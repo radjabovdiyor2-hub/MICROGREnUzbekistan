@@ -13,6 +13,7 @@ import {
   buildMapWhere,
   buildProspectFeatures,
   districtStats,
+  loadCustomerDebts,
   loadFirstOrderDates,
   loadLastVisits,
   parseStates,
@@ -68,15 +69,17 @@ export async function GET(request: NextRequest) {
     }
 
     const ids = customers.map((c) => c.id);
-    // Два groupBy вместо 2N запросов: даты первых заказов задают ритм,
-    // даты визитов отвечают на «я к ним уже заезжал?».
-    const [firstOrders, visits] = await Promise.all([
+    // Три запроса вместо 3N: даты первых заказов задают ритм, даты визитов
+    // отвечают на «я к ним уже заезжал?», долги — на «с чем ехать».
+    const [firstOrders, visits, debts] = await Promise.all([
       loadFirstOrderDates(ids),
       loadLastVisits(ids),
+      loadCustomerDebts(ids),
     ]);
     const collection = buildMapCollection(customers, firstOrders, {
       states: parseStates(searchParams.get('state')),
       visits,
+      debts,
       // Продавцу открыты адреса и телефоны, но не деньги. Прячем здесь, а
       // не в разметке: ответ API смотрят в консоли одним движением.
       hideMoney: hidesMoney(getSession(request)?.role),

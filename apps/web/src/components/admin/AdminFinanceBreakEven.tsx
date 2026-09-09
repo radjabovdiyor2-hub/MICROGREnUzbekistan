@@ -9,8 +9,10 @@ import type { Unearned } from '@/lib/finance/unearned';
 import type { PaymentCalendar } from '@/lib/finance/paymentCalendar';
 import { AdminMarginTable } from './AdminMarginTable';
 import type { CashFlow } from '@/lib/finance/cashFlow';
+import type { VisitForecast } from '@/lib/finance/expectedVisits';
 import { AdminPaymentCalendar } from './AdminPaymentCalendar';
 import { AdminCashFlow } from './AdminCashFlow';
+import { AdminVisitForecast } from './AdminVisitForecast';
 import { BreakEvenVerdict, Cell } from './AdminBreakEvenVerdict';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -47,6 +49,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
           unearned: Unearned;
           paymentCalendar: PaymentCalendar;
           cashFlow: CashFlow;
+          visitForecast: VisitForecast;
         };
       throw new Error(json.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
     },
@@ -62,7 +65,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
 
   if (!data) return null;
 
-  const { breakEven: be, margin, unearned, paymentCalendar, cashFlow } = data;
+  const { breakEven: be, margin, unearned, paymentCalendar, cashFlow, visitForecast } = data;
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-4)' }}>
@@ -104,6 +107,9 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
       <AdminCashFlow flow={cashFlow} t={t} />
 
       <AdminPaymentCalendar calendar={paymentCalendar} t={t} />
+
+      {/* Ниже календаря намеренно: сначала обязательства, потом ожидания. */}
+      {visitForecast && <AdminVisitForecast forecast={visitForecast} t={t} />}
 
       {unearned.count > 0 && (
         <div

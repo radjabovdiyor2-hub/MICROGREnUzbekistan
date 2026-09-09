@@ -28,7 +28,7 @@ function at(lon: number, lat: number, name = 'x', id = 1): MapFeature {
     id,
     geometry: { type: 'Point', coordinates: [lon, lat] },
     properties: {
-      n: name, t: 'b2b', st: 'healthy', sp: 0, oc: 0,
+      n: name, t: 'b2b', st: 'healthy', sp: 0, db: null, oc: 0,
       dl: null, ov: null, vt: 'low', d: null, ct: 'restaurant', au: null,
       gs: null, ph: null, ad: null, gp: null, lv: null, k: 'customer',
     },

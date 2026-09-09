@@ -51,6 +51,13 @@ export interface MapPointProps {
   st: SegmentState;
   /** spent — всего потрачено. null — смотрит не владелец */
   sp: number | null;
+  /**
+   * Непогашенный долг заведения перед нами, сумы.
+   *
+   * `null` — либо долга нет, либо суммы скрыты для этой роли. Различать
+   * эти случаи на карте незачем: в обоих случаях цифру не показываем.
+   */
+  db: number | null;
   /** ordersCount */
   oc: number;
   /** daysSinceLastOrder, null если заказов не было */
@@ -323,12 +330,15 @@ export function buildMapCollection(
     states?: Set<SegmentState> | null;
     now?: Date;
     visits?: Map<number, Date>;
+    /** Непогашенный долг по клиенту: id → остаток. */
+    debts?: Map<number, number>;
     /** Прячем суммы: продавцу открыты адреса, но не деньги. */
     hideMoney?: boolean;
   } = {},
 ): MapCollection {
   const now = options.now ?? new Date();
   const visits = options.visits ?? new Map<number, Date>();
+  const debts = options.debts ?? new Map<number, number>();
   const hideMoney = options.hideMoney ?? false;
   const percentiles = spentPercentiles(customers.map((c) => Number(c.totalSpent || 0)));
   // Порог по заказам — на случай, когда деньги закрыты и тепло считается
@@ -383,6 +393,10 @@ export function buildMapCollection(
         t: c.customerType,
         st: segment.state,
         sp: maskSum(spent, hideMoney),
+        // Долг идёт по тому же правилу, что и оборот: продавцу открыты
+        // адреса, но не деньги. Ноль вместо скрытия читался бы как
+        // «долга нет» — это утверждение, а не умолчание.
+        db: debts.get(c.id) ? maskSum(debts.get(c.id) ?? 0, hideMoney) : null,
         oc: c.ordersCount,
         dl: segment.daysSince === null ? null : Math.round(segment.daysSince),
         ov: segment.overdueRatio === null ? null : Number(segment.overdueRatio.toFixed(2)),
@@ -529,6 +543,7 @@ export function buildProspectFeatures(rows: ProspectRow[]): MapFeature[] {
         t: 'prospect',
         st: 'prospect',
         sp: 0,
+        db: null,
         oc: 0,
         dl: null,
         ov: null,
@@ -618,6 +633,33 @@ export async function loadLastVisits(ids: number[]): Promise<Map<number, Date>> 
     if (row.customerId !== null && row._max.createdAt) {
       map.set(row.customerId, row._max.createdAt);
     }
+  }
+  return map;
+}
+
+/**
+ * Непогашенные долги заведений: id клиента → остаток к получению.
+ *
+ * Считаем ТОЛЬКО долги в нашу сторону (`WHO_OWES_US`) и только те, что
+ * привязаны к клиенту CRM. Долг, заведённый строкой на человека без
+ * карточки, к точке на карте отношения не имеет.
+ *
+ * Остаток, а не сумма: частично погашенный долг показывать целиком —
+ * значит требовать деньги дважды. Нулевой остаток отбрасываем: галочку
+ * «закрыт» ставят не всегда, а долгом это уже не является.
+ */
+export async function loadCustomerDebts(ids: number[]): Promise<Map<number, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = await prisma.debt.findMany({
+    where: { customerId: { in: ids }, type: 'WHO_OWES_US', isPaid: false },
+    select: { customerId: true, amount: true, paidAmount: true },
+  });
+  const map = new Map<number, number>();
+  for (const row of rows) {
+    if (row.customerId === null) continue;
+    const remaining = Math.max(0, row.amount - row.paidAmount);
+    if (remaining <= 0) continue;
+    map.set(row.customerId, (map.get(row.customerId) ?? 0) + remaining);
   }
   return map;
 }

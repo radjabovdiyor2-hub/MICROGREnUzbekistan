@@ -34,6 +34,9 @@ const createSchema = z.object({
   description: z.string().trim().max(2000).optional().nullable(),
   dueDate: z.string().optional().nullable(),
   supplierId: z.string().optional().nullable(),
+  // Привязка к заведению из CRM. Без неё долг остаётся строкой с именем и
+  // на карту клиентов не попадает: сумма и точка живут в разных мирах.
+  customerId: z.number().int().positive().optional().nullable(),
 });
 
 /**
@@ -48,6 +51,9 @@ const updateSchema = z.object({
   phone: z.string().trim().max(20).optional().nullable(),
   description: z.string().trim().max(2000).optional().nullable(),
   dueDate: z.string().optional().nullable(),
+  // `null` разрывает связь: долг завели не на то заведение — это надо
+  // уметь исправить, не удаляя саму запись с историей платежей.
+  customerId: z.number().int().positive().optional().nullable(),
 });
 
 // GET — List debts with filters
@@ -96,7 +102,7 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = await parseBody(request, createSchema);
     if (!parsed.ok) return parsed.response;
-    const { type, personName, phone, amount, description, dueDate, supplierId } = parsed.data;
+    const { type, personName, phone, amount, description, dueDate, supplierId, customerId } = parsed.data;
 
     const due = dueDate ? new Date(dueDate) : null;
     if (due && Number.isNaN(due.getTime())) {
@@ -113,6 +119,7 @@ export async function POST(request: NextRequest) {
         description: description || null,
         dueDate: due,
         supplierId: supplierId || null,
+        customerId: customerId ?? null,
         isPaid: false,
       },
     });
@@ -173,6 +180,7 @@ export async function PUT(request: NextRequest) {
     // целиком, и `{ id, isPaid: true }` закрывал долг без единого сума.
     const data: Record<string, unknown> = {};
     if (fields.personName !== undefined) data.personName = fields.personName;
+    if (fields.customerId !== undefined) data.customerId = fields.customerId ?? null;
     if (fields.phone !== undefined) data.phone = fields.phone || null;
     if (fields.description !== undefined) data.description = fields.description || null;
     if (fields.dueDate !== undefined) {

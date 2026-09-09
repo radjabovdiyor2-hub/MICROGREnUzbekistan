@@ -17,6 +17,7 @@ const customerFindUnique = vi.fn();
 const customerUpdate = vi.fn();
 const crmOrderGroupBy = vi.fn();
 const interactionGroupBy = vi.fn();
+const debtFindMany = vi.fn();
 const restaurantFindMany = vi.fn();
 
 vi.mock('@repo/database', () => ({
@@ -31,6 +32,9 @@ vi.mock('@repo/database', () => ({
     },
     interaction: {
       groupBy: (...a: unknown[]) => interactionGroupBy(...a),
+    },
+    debt: {
+      findMany: (...a: unknown[]) => debtFindMany(...a),
     },
     restaurant: {
       findMany: (...a: unknown[]) => restaurantFindMany(...a),
@@ -85,6 +89,7 @@ beforeEach(() => {
   vi.stubEnv('BOT_SECRET', '');
   crmOrderGroupBy.mockResolvedValue([]);
   interactionGroupBy.mockResolvedValue([]);
+  debtFindMany.mockResolvedValue([]);
 });
 
 describe('GET /api/admin/customers/map', () => {

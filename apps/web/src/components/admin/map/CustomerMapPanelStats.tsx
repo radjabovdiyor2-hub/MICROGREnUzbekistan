@@ -26,6 +26,7 @@ const label = {
   orders: { ru: 'Заказов', uz: 'Buyurtmalar' },
   spent: { ru: 'Потрачено', uz: 'Sarflangan' },
   district: { ru: 'Район', uz: 'Tuman' },
+  debt: { ru: 'Долг', uz: 'Qarz' },
   perMonth: { ru: 'за месяц', uz: 'bir oyda' },
 };
 
@@ -60,17 +61,23 @@ export function CustomerMapPanelStats({ point, trend, lang }: Props) {
         {/* Прочерк, а не «0 сум»: продавцу суммы не показываем, и ноль
             означал бы «клиент ничего не покупал». */}
         <Stat title={label.spent[lang]} value={sumLabel(point.totalSpent, lang)} />
+        {/* Долг показываем ТОЛЬКО когда он есть: пустая ячейка «Долг: —»
+            у каждого второго заведения превращает предупреждение в фон,
+            и настоящий долг перестают замечать. */}
+        {point.debt !== null && point.debt > 0 && (
+          <Stat title={label.debt[lang]} value={sumLabel(point.debt, lang)} tone="var(--error)" />
+        )}
         <Stat title={label.district[lang]} value={districtLabel(point.district, lang)} />
       </div>
     </>
   );
 }
 
-function Stat({ title, value }: { title: string; value: string }) {
+function Stat({ title, value, tone }: { title: string; value: string; tone?: string }) {
   return (
     <div>
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{title}</div>
-      <div style={{ fontWeight: 'var(--font-semibold)' }}>{value}</div>
+      <div style={{ fontWeight: 'var(--font-semibold)', color: tone }}>{value}</div>
     </div>
   );
 }

@@ -811,13 +811,25 @@ model Debt {
   isPaid      Boolean   @default(false) @map("is_paid")
   supplierId  String?   @map("supplier_id")
   supplier    Supplier? @relation(fields: [supplierId], references: [id])
-  userId      String?   @map("user_id") // Привязка к клиенту
+  userId      String?   @map("user_id") // Привязка к пользователю витрины
+  /// Заведение из CRM, за которым числится долг.
+  ///
+  /// ЗАЧЕМ ОТДЕЛЬНО ОТ `userId`. `userId` — учётка на витрине, её заводит
+  /// сам покупатель. Заведение, которому возят с отсрочкой, чаще всего
+  /// такой учётки не имеет: его завёл продавец в CRM. Пока связи не было,
+  /// долг существовал строкой `personName`, и положить его на карту было
+  /// нечем — сумма и точка жили в разных мирах.
+  ///
+  /// Необязательная: долги заводят и на людей, которых в CRM нет.
+  customerId  Int?      @map("customer_id")
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@index([type])
   @@index([isPaid])
+  @@index([customerId])
   // Индекс на внешний ключ. Postgres НЕ создаёт его сам: сама связь
   // проверяется по первичному ключу родителя, а выборка «дети этого
   // родителя» и каскадное удаление идут полным перебором таблицы.
@@ -1448,6 +1460,7 @@ model Customer {
   posSales      PosSale[]
   planStops     VisitPlanStop[]
   visitSchedule VisitSchedule[]
+  debts         Debt[]
 
   contacts CustomerContact[]
 

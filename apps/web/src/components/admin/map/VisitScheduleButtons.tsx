@@ -22,14 +22,25 @@ import { useFeedback } from '../AdminFeedback';
 //
 // РАСПИСАНИЕ НЕ СТАВИТ ВИЗИТ В ПЛАН САМО: оно подсказывает, кого взять на
 // эту дату, а собирает объезд человек.
+//
+// КОМУ НАЗНАЧЕН ЗАЕЗД. Расписание хранится парой «день + ответственный»,
+// и до сих пор экран всегда писал пустого ответственного: заезд стоял
+// «на всех», то есть ни на ком. Выбор сотрудника здесь и есть назначение
+// объезда — переключатели дней относятся к ВЫБРАННОМУ человеку, поэтому
+// смена ответственного перечитывает набор дней, а не переносит его.
+// Так у одного заведения могут быть разные дни у разных продавцов, что
+// таблица и допускает уникальным ключом (клиент, день, ответственный).
 // ══════════════════════════════════════════════════════════════════════
 
-interface ScheduleRow { weekday: number }
+interface ScheduleRow { weekday: number; assignee?: string }
+interface EmployeeRow { id: string; name: string }
 
 const label = {
   title: { ru: 'Заезжать по дням', uz: 'Qaysi kunlari borish' },
   none: { ru: 'Регулярных заездов нет', uz: 'Doimiy tashrif yoʻq' },
   failed: { ru: 'Не удалось сохранить расписание', uz: 'Jadval saqlanmadi' },
+  who: { ru: 'Кто заезжает', uz: 'Kim boradi' },
+  anyone: { ru: 'Не назначен', uz: 'Tayinlanmagan' },
 };
 
 export function VisitScheduleButtons({ customerId, lang }: {
@@ -39,7 +50,22 @@ export function VisitScheduleButtons({ customerId, lang }: {
   const notify = useFeedback();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const [assignee, setAssignee] = useState('');
   const key = ['visit-schedule', customerId];
+
+  // Список сотрудников общий для всех точек и меняется редко — держим его
+  // отдельным ключом, чтобы он не перезапрашивался на каждый клик по карте.
+  const { data: employees } = useQuery<EmployeeRow[]>({
+    queryKey: ['visit-schedule-assignees'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const res = await adminFetch('/api/inventory/employees');
+      if (!res.ok) return [];
+      const body = await res.json();
+      const rows = Array.isArray(body) ? body : (body?.employees ?? []);
+      return Array.isArray(rows) ? rows : [];
+    },
+  });
 
   const { data } = useQuery<ScheduleRow[]>({
     queryKey: key,
@@ -55,21 +81,33 @@ export function VisitScheduleButtons({ customerId, lang }: {
   // потребовала бы синхронизации эффектом — то есть второго источника
   // правды о том, что выбрано, и лишнего кадра при каждом ответе сети.
   const days = useMemo<Weekday[]>(
-    () => (data ?? []).map((r) => r.weekday).filter((d): d is Weekday => d >= 1 && d <= 7),
-    [data],
+    () =>
+      (data ?? [])
+        // Показываем дни ВЫБРАННОГО ответственного. Иначе переключатель
+        // светился бы днями чужого заезда, а сохранение стирало бы их.
+        .filter((r) => (r.assignee ?? '') === assignee)
+        .map((r) => r.weekday)
+        .filter((d): d is Weekday => d >= 1 && d <= 7),
+    [data, assignee],
   );
 
   const toggle = async (day: Weekday) => {
     const next = days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
     const before = data ?? [];
     // Переключатель обязан отзываться сразу: между нажатием и ответом сети
-    // в подвале ресторана проходит секунда и больше.
-    queryClient.setQueryData<ScheduleRow[]>(key, next.map((weekday) => ({ weekday })));
+    // в подвале ресторана проходит секунда и больше. Чужие строки при этом
+    // сохраняем: оптимистичное обновление не должно стирать с экрана заезды
+    // другого продавца.
+    const others = before.filter((r) => (r.assignee ?? '') !== assignee);
+    queryClient.setQueryData<ScheduleRow[]>(key, [
+      ...others,
+      ...next.map((weekday) => ({ weekday, assignee })),
+    ]);
     setBusy(true);
     try {
       const res = await adminFetch('/api/admin/visit-schedules', {
         method: 'PUT',
-        body: JSON.stringify({ customerId, weekdays: next }),
+        body: JSON.stringify({ customerId, weekdays: next, assignee }),
       });
       if (!res.ok) throw new Error('fail');
       queryClient.invalidateQueries({ queryKey: key });
@@ -89,6 +127,23 @@ export function VisitScheduleButtons({ customerId, lang }: {
         <CalendarClock size={13} />
         {label.title[lang]}
       </div>
+
+      <label style={{ display: 'grid', gap: 2, fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+        {label.who[lang]}
+        <select
+          value={assignee}
+          onChange={(e) => setAssignee(e.target.value)}
+          disabled={busy}
+          style={{ minHeight: 36, padding: '0 var(--space-2)', color: 'var(--text-primary)' }}
+        >
+          <option value="">{label.anyone[lang]}</option>
+          {(employees ?? []).map((e) => (
+            <option key={e.id} value={e.name}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+      </label>
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
         {WEEKDAYS.map((day) => {
           const on = days.includes(day);

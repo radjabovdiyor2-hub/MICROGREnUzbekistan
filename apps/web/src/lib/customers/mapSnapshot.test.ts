@@ -44,6 +44,7 @@ function collection(features = 0): MapCollection {
         t: 'b2b',
         st: 'healthy' as const,
         sp: 0,
+        db: null,
         oc: 0,
         dl: null,
         ov: null,

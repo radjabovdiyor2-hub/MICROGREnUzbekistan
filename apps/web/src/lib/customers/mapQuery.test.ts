@@ -448,3 +448,31 @@ describe('validateCoords', () => {
     expect(validateCoords(41.3, 200).ok).toBe(false);
   });
 });
+
+describe('долг заведения на карте', () => {
+  it('кладёт остаток долга в свойство точки', () => {
+    const c = buildMapCollection([customer()], new Map(), {
+      debts: new Map([[1, 850_000]]),
+    });
+
+    expect(c.features[0].properties.db).toBe(850_000);
+  });
+
+  it('без долга свойство пустое, а не ноль', () => {
+    const c = buildMapCollection([customer()], new Map(), { debts: new Map() });
+
+    // Ноль читался бы как утверждение «долга нет и не было».
+    expect(c.features[0].properties.db).toBeNull();
+  });
+
+  it('продавцу долг не показывается', () => {
+    const c = buildMapCollection([customer()], new Map(), {
+      debts: new Map([[1, 850_000]]),
+      hideMoney: true,
+    });
+
+    expect(c.features[0].properties.db).toBeNull();
+    // Оборот прячется тем же правилом — проверяем, что оно одно на двоих.
+    expect(c.features[0].properties.sp).toBeNull();
+  });
+});

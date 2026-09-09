@@ -32,6 +32,8 @@ export interface PointView {
   state: MapPointProps['st'];
   /** null — смотрит не владелец. */
   totalSpent: number | null;
+  /** Непогашенный долг заведения. null — долга нет либо суммы скрыты. */
+  debt: number | null;
   ordersCount: number;
   daysSinceLastOrder: number | null;
   overdueRatio: number | null;
@@ -56,6 +58,7 @@ export function toPointView(feature: MapFeature): PointView {
     customerType: p.t,
     state: p.st,
     totalSpent: p.sp,
+    debt: p.db ?? null,
     ordersCount: p.oc,
     daysSinceLastOrder: p.dl,
     overdueRatio: p.ov,

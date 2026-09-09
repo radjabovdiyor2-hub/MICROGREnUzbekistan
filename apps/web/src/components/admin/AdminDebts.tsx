@@ -36,7 +36,7 @@ export function AdminDebts() {
   const [showAdd, setShowAdd] = useState(false);
   const [paymentModal, setPaymentModal] = useState<Debt | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
-  const [newDebt, setNewDebt] = useState({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '' });
+  const [newDebt, setNewDebt] = useState({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '', customerId: '' });
 
   const { data, isLoading: loading, refetch: fetchDebts } = useQuery({
     queryKey: ['admin-debts', activeTab, statusFilter],
@@ -107,11 +107,15 @@ export function AdminDebts() {
           type: activeTab,
           // Пустую строку API принял бы за id и не нашёл поставщика.
           supplierId: newDebt.supplierId || null,
+          // Привязка к заведению из CRM. Без неё долг не ложится на карту
+          // клиентов: точка и сумма остаются в разных мирах. Долг на
+          // человека без карточки по-прежнему заводится — тогда null.
+          customerId: newDebt.customerId ? Number(newDebt.customerId) : null,
         }),
       },
       () => {
         setShowAdd(false);
-        setNewDebt({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '' });
+        setNewDebt({ type: 'WHO_OWES_US', personName: '', phone: '', amount: '', description: '', dueDate: '', supplierId: '', customerId: '' });
       },
     );
   };
