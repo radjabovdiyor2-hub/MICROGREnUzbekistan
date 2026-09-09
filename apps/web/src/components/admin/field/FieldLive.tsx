@@ -132,11 +132,18 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
                       marginLeft: 'auto',
                       // Серым, а не красным: молчание — это про связь, а не
                       // про человека. Красным здесь светил бы каждый подвал.
-                      color: stale ? 'var(--text-secondary)' : 'var(--brand-primary)',
+                      color:
+                        person.silentMin === null || stale
+                          ? 'var(--text-secondary)'
+                          : 'var(--brand-primary)',
                     }}
                   >
+                    {/* «Точек нет» — это не поломка и не молчание связи:
+                        человек отметился в админке, но трансляцию в
+                        Telegram не включил. Говорим прямо, что делать, —
+                        иначе владелец решит, что сломался трек. */}
                     {person.silentMin === null
-                      ? t('точек нет', 'nuqta yoʻq')
+                      ? t('трансляция не включена', 'translyatsiya yoqilmagan')
                       : stale
                         ? t(`молчит ${person.silentMin} мин`, `${person.silentMin} daq jim`)
                         : t('на связи', 'aloqada')}

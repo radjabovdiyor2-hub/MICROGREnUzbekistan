@@ -1,6 +1,14 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+// БЕЗ ЭТОГО ИМПОРТА КАРТА — ПУСТОЙ ПРЯМОУГОЛЬНИК.
+//
+// Стили maplibre подключались только в карте клиентов, а этот экран —
+// отдельный чанк и её не грузит. Без `.maplibregl-canvas { position:
+// absolute }` холст остаётся нулевого размера: контейнер виден, тайлов
+// нет, ошибок тоже нет. Импорт идемпотентен — бандлер подключит стили
+// один раз, сколько бы карт их ни просило.
+import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   Map as MapLibreMap,
   NavigationControl,
@@ -76,6 +84,11 @@ export function FieldDayMap({
     }
     map.current = instance;
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+
+    // Контейнер получает высоту вместе с раскладкой, и карта, созданная
+    // раньше этого момента, запоминает нулевой размер. `resize` после
+    // первой отрисовки дешевле, чем гадать, кто из родителей когда встал.
+    requestAnimationFrame(() => instance.resize());
 
     instance.on('load', () => {
       const { track: t, stays: s, colors: c } = latest.current;
