@@ -8,7 +8,7 @@
 
 | что | где |
 |---|---|
-| вёрстка и тексты, 12 полос | `content/generated/shakar-01-print.html` |
+| вёрстка и тексты, 16 полос | `content/generated/shakar-01-print.html` |
 | оформление | тот же `content/templates/fresh-weekly-a5.design.css` |
 | QR на `/balans` | `content/generated/qr-balans.png` |
 | закрытая доказательная база | `doc/dossier_glycemia.md` — **не публикуется** |
@@ -75,7 +75,7 @@ node scripts/magazine-pdf.mjs             # PDF для типографии
 
 | что менять | где |
 |---|---|
-| тексты полос | `content/templates/jasmin-print.baseline.html` |
+| тексты полос | `content/templates/restaurant-print.baseline.html` — общий для всех заведений |
 | оформление | `content/templates/fresh-weekly-a5.design.css` |
 | точечные правки разметки | `scripts/apply-magazine-design.mjs` |
 | адреса QR, фото, данные ресторана | `content/templates/jasmin.json` |

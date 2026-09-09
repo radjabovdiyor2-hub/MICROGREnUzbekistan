@@ -1,16 +1,18 @@
 // ════════════════════════════════════════════════════════════
 // Дизайн-слой печатного номера FRESH WEEKLY.
-//   node scripts/apply-magazine-design.mjs
+//   node scripts/apply-magazine-design.mjs <slug>
 //
-// Что делает: берёт базовый номер (content/templates/jasmin-print.baseline.html —
+// Что делает: берёт базовый номер (content/templates/restaurant-print.baseline.html —
 // полосы с текстами и фото, QR ещё растровые), заменяет в нём вшитые шрифты
-// и таблицу стилей, подставляет векторные QR и вносит точечные правки
-// в разметку. Пишет content/generated/jasmin-print.html.
+// и таблицу стилей, подставляет векторные QR, вносит точечные правки
+// в разметку и подставляет данные заведения из <slug>.json.
+// Пишет content/generated/<slug>-print.html.
 //
-// baseline — закоммиченный артефакт, а не воспроизводимый: шаблон с
-// плейсхолдерами и сборщик build-magazine.mjs удалены, номер верстается
-// вручную. Тексты полос правятся прямо в baseline, оформление — в
-// .design.css, разметка — здесь.
+// baseline — закоммиченный артефакт, а не воспроизводимый: полосы верстает
+// человек, тексты правятся прямо в baseline, оформление — в .design.css,
+// разметка — здесь. Заведение в baseline не вшито: название, адрес, шеф и
+// фото стоят плейсхолдерами `{{...}}` и подставляются шагом 9, поэтому один
+// baseline обслуживает все рестораны.
 //
 // Правки идемпотентны: всегда применяются к baseline, а не к прошлому
 // результату, поэтому запуск можно повторять сколько угодно раз.
@@ -23,14 +25,21 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const HTML = join(ROOT, 'content', 'generated', 'jasmin-print.html');
 const SRC = join(ROOT, 'content', 'templates');
+
+// Заведение задаётся слагом: `node scripts/apply-magazine-design.mjs <slug>`.
+// Путь результата, файл QR и данные для подстановки выводятся из него,
+// чтобы номер для нового ресторана не требовал правок в коде. Baseline
+// один на всех: заведение живёт в плейсхолдерах.
+const slug = process.argv[2] ?? 'jasmin';
+const CFG = JSON.parse(await readFile(join(SRC, `${slug}.json`), 'utf8'));
+const HTML = join(ROOT, 'content', 'generated', `${slug}-print.html`);
 
 // Правки всегда накатываются на исходный файл, а не на прошлый результат —
 // пересборка идемпотентна, и любую итерацию можно повторить с нуля.
 // Файл лежит с CRLF. Ищем по LF, при записи перевод строки возвращаем,
 // иначе многострочные шаблоны не находятся.
-const raw = await readFile(process.argv[2] ?? join(SRC, 'jasmin-print.baseline.html'), 'utf8');
+const raw = await readFile(join(SRC, 'restaurant-print.baseline.html'), 'utf8');
 const orig = raw.replace(/\r\n/g, '\n');
 const fonts = (await readFile(join(SRC, 'fonts', 'fonts-subset.css'), 'utf8')).replace(/\r\n/g, '\n');
 const css = (await readFile(join(SRC, 'fresh-weekly-a5.design.css'), 'utf8')).replace(/\r\n/g, '\n');
@@ -90,10 +99,10 @@ sub(
 
 sub(
   `      <div style="font-family:'Playfair Display',serif;font-size:24pt;font-weight:900;line-height:1.12;">
-        Hafta mehmoni:<br><span style="color:var(--gold);">oilaviy «Jasmin»</span>
+        Hafta mehmoni:<br><span style="color:var(--gold);">oilaviy «{{RESTAURANT}}»</span>
       </div>`,
   `      <div class="cover-title">
-        Hafta mehmoni:<br><span class="accent">oilaviy «Jasmin»</span>
+        Hafta mehmoni:<br><span class="accent">oilaviy «{{RESTAURANT}}»</span>
       </div>`
 );
 
@@ -121,11 +130,11 @@ sub(
 
 sub(
   `    <div class="ui" style="border-top:.5px solid rgba(255,255,255,.22);padding-top:3mm;display:flex;justify-content:space-between;font-size:6pt;color:rgba(255,255,255,.55);">
-      <span>© Microgreen Uzbekistan &amp; Jasmin</span>
+      <span>© Microgreen Uzbekistan &amp; {{RESTAURANT}}</span>
       <span style="color:var(--gold);font-weight:600;">freshweekly.uz</span>
     </div>`,
   `    <div class="cover-foot">
-      <span>© Microgreen Uzbekistan &amp; Jasmin</span>
+      <span>© Microgreen Uzbekistan &amp; {{RESTAURANT}}</span>
       <span class="site">freshweekly.uz</span>
     </div>`
 );
@@ -152,8 +161,8 @@ sub(
   `<div class="subhead">Содержание</div>`
 );
 sub(
-  `<div class="caption">Samarqand · Amir Temur ko'chasi 202 · @jasminsamarkand</div>`,
-  `<div class="dateline">Samarqand · Amir Temur ko‘chasi 202 · @jasminsamarkand</div>`
+  `<div class="caption">{{ADDRESS}} · {{INSTAGRAM}}</div>`,
+  `<div class="dateline">{{ADDRESS}} · {{INSTAGRAM}}</div>`
 );
 
 // ── 5. Задняя обложка ────────────────────────────────────────────
@@ -189,11 +198,11 @@ sub(`<div class="menu-qr" style="width:18mm;background:#fff;padding:1mm;border-r
 
 sub(
   `      <div class="ui" style="border-top:.5px solid rgba(255,255,255,.2);padding-top:3mm;display:flex;justify-content:space-between;font-size:6pt;color:rgba(255,255,255,.55);">
-        <span>© Microgreen Uzbekistan &amp; Jasmin · Iyul 2026</span>
+        <span>© Microgreen Uzbekistan &amp; {{RESTAURANT}} · {{ISSUE_DATE}}</span>
         <span style="color:var(--gold);font-weight:600;">freshweekly.uz</span>
       </div>`,
   `      <div class="back-foot">
-        <span>© Microgreen Uzbekistan &amp; Jasmin · Iyul 2026</span>
+        <span>© Microgreen Uzbekistan &amp; {{RESTAURANT}} · {{ISSUE_DATE}}</span>
         <span class="site">freshweekly.uz</span>
       </div>`
 );
@@ -213,9 +222,6 @@ sub(
 // ── 7. Задняя обложка: ритм блоков задают стили, не инлайн ───────
 sub(`<div class="page-body no-header" style="justify-content:space-between;">`, `<div class="page-body no-header">`);
 
-// Машинописный апостроф в адресе — на типографский, как в остальном номере
-sub(`Samarqand · Amir Temur ko'chasi 202<br>`, `Samarqand · Amir Temur ko‘chasi 202<br>`);
-
 // ── 8. QR-коды ───────────────────────────────────────────────────
 // Было: код блюда 01 — PNG в base64, 02–03 — другой PNG, 04–06 —
 // внешние PNG-файлы, остальные — SVG. Разный модуль, разная тихая
@@ -223,7 +229,7 @@ sub(`Samarqand · Amir Temur ko'chasi 202<br>`, `Samarqand · Amir Temur ko‘ch
 // шесть разных объектов, а растровые ещё и мылят на 300 dpi.
 // Стало: все девять — вектор с одинаковым модулем и тихой зоной.
 // Адреса сняты декодером с исходного макета и не изменены.
-const qr = JSON.parse(await readFile(join(SRC, 'jasmin-qr.json'), 'utf8'));
+const qr = JSON.parse(await readFile(join(SRC, `${slug}-qr.json`), 'utf8'));
 
 // ПОРЯДОК ВАЖЕН. Сначала три кода, которые в baseline уже векторные
 // (рецепт, меню, бот), и только потом коды блюд, которые в baseline —
@@ -255,9 +261,9 @@ const dishQr = [
   [/<div class="menu-qr hit"><img src="data:image\/png;base64,[^"]+"[^>]*><div class="menu-code">01<\/div>/, `<div class="menu-qr hit">${qr.D1}<div class="menu-code">01</div>`],
   [/<div class="menu-qr"><img src="data:image\/png;base64,[^"]+"[^>]*><div class="menu-code">02<\/div>/, `<div class="menu-qr">${qr.D2}<div class="menu-code">02</div>`],
   [/<div class="menu-qr"><img src="data:image\/png;base64,[^"]+"[^>]*><div class="menu-code">03<\/div>/, `<div class="menu-qr">${qr.D3}<div class="menu-code">03</div>`],
-  [/<div class="menu-qr"><img src="qr-jasmin-04\.png"[^>]*><div class="menu-code">04<\/div>/, `<div class="menu-qr">${qr.D4}<div class="menu-code">04</div>`],
-  [/<div class="menu-qr"><img src="qr-jasmin-05\.png"[^>]*><div class="menu-code">05<\/div>/, `<div class="menu-qr">${qr.D5}<div class="menu-code">05</div>`],
-  [/<div class="menu-qr"><img src="qr-jasmin-06\.png"[^>]*><div class="menu-code">06<\/div>/, `<div class="menu-qr">${qr.D6}<div class="menu-code">06</div>`],
+  [/<div class="menu-qr"><img src="qr-\{\{SLUG\}\}-04\.png"[^>]*><div class="menu-code">04<\/div>/, `<div class="menu-qr">${qr.D4}<div class="menu-code">04</div>`],
+  [/<div class="menu-qr"><img src="qr-\{\{SLUG\}\}-05\.png"[^>]*><div class="menu-code">05<\/div>/, `<div class="menu-qr">${qr.D5}<div class="menu-code">05</div>`],
+  [/<div class="menu-qr"><img src="qr-\{\{SLUG\}\}-06\.png"[^>]*><div class="menu-code">06<\/div>/, `<div class="menu-qr">${qr.D6}<div class="menu-code">06</div>`],
 ];
 for (const [re, to] of dishQr) {
   const hits = html.match(new RegExp(re.source, 'g'));
@@ -303,7 +309,7 @@ sub(
         <div class="ru"><span class="lang-tag">ru</span>QR рядом с блюдом — его страница: состав, цена и кнопка «снять кадр».</div>
       </div>`,
   `      <div class="lang-pair body">
-        <div class="uz">Iyulda «Jasmin»da eng ko‘p buyurtma qilinadigan olti taom. Yonidagi kodga telefonni tuting — tarkibi, narxi va o‘z kadringizni olish tugmasi ochiladi.</div>
+        <div class="uz">Iyulda «{{RESTAURANT}}»da eng ko‘p buyurtma qilinadigan olti taom. Yonidagi kodga telefonni tuting — tarkibi, narxi va o‘z kadringizni olish tugmasi ochiladi.</div>
         <div class="ru"><span class="lang-tag">ru</span>Шесть блюд, которые в июле заказывают чаще всего. Наведите телефон на код рядом с блюдом — откроются состав, цена и кнопка, чтобы снять свой кадр.</div>
       </div>`
 );
@@ -407,6 +413,30 @@ sub(
       <div style="display:flex;gap:3mm;align-items:center;">
         <div class="menu-qr" style="width:18mm;">`
 );
+
+// ── 9. Данные заведения ────────────────────────────────
+// Подстановка идёт ПОСЛЕДНЕЙ: анкеры выше ищут плейсхолдеры,
+// а не значения — подставить раньше значит сломать их поиск.
+const FIELDS = {
+  RESTAURANT: CFG.restaurant,
+  RESTAURANT_UC: String(CFG.restaurant ?? '').toUpperCase(),
+  ADDRESS: CFG.address,
+  INSTAGRAM: CFG.instagram,
+  CHEF: CFG.chefName,
+  SIGNATURE_DISH: CFG.signatureDish,
+  ISSUE: CFG.issue,
+  ISSUE_DATE: CFG.issueDate,
+  SLUG: CFG.slug,
+  ...(CFG.photos ?? {}),
+};
+html = html.replace(/\{\{([A-Z_0-9]+)\}\}/g, (m, key) => {
+  const v = FIELDS[key];
+  if (v === undefined || v === null || v === '') {
+    fail.push(`плейсхолдер {{${key}}} не заполнен в ${slug}.json`);
+    return m;
+  }
+  return String(v);
+});
 
 if (fail.length) {
   console.error('✗ Не применились правки:\n  ' + fail.join('\n  '));

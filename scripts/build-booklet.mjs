@@ -3,8 +3,8 @@
 // на A4 с одним сгибом посередине (сшивка скрепкой в корешок).
 //
 //   node booklet.mjs
-//   вход:  content/generated/jasmin-print.html   (154×216, с вылетами)
-//   выход: content/generated/jasmin-a4-booklet.html (A4 landscape ×6)
+//   вход:  content/generated/<slug>-print.html   (154×216, с вылетами)
+//   выход: content/generated/<slug>-a4-booklet.html (A4 landscape ×6)
 //
 // Почему отдельный файл, а не правка мастера: в мастере формат
 // 154×216 мм — это чистый A5 плюс 3 мм вылета с каждой стороны, как
@@ -21,8 +21,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = join(ROOT, 'content', 'generated', 'jasmin-print.html');
-const OUT = join(ROOT, 'content', 'generated', 'jasmin-a4-booklet.html');
+// Заведение задаётся слагом: `node scripts/build-booklet.mjs <slug>`.
+const slug = process.argv[2] ?? 'jasmin';
+const SRC = join(ROOT, 'content', 'generated', `${slug}-print.html`);
+const OUT = join(ROOT, 'content', 'generated', `${slug}-a4-booklet.html`);
 
 const html = (await readFile(SRC, 'utf8')).replace(/\r\n/g, '\n');
 
@@ -259,7 +261,7 @@ const out = `<!DOCTYPE html>
   Брошюрная раскладка номера под домашнюю печать: A4 landscape, по два
   чистых A5 на лист, сгиб посередине, скрепка в корешок.
 
-  Собрано из content/generated/jasmin-print.html — там мастер для
+  Собрано из content/generated/${slug}-print.html — там мастер для
   типографии (154×216 с вылетами), его и надо отдавать в печать.
   Здесь вылеты обрезаны по линии реза: домашний принтер в край не
   печатает, а два листа 154 мм в A4 не помещаются.

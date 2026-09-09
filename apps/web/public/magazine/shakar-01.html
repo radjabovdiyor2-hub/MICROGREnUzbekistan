@@ -214,7 +214,7 @@
      ловил это как «РЕЖЕТ». Правило живёт здесь, а не в
      content/templates/fresh-weekly-a5.design.css: тот файл общий с выпуском
      jasmin, и правка в нём переверстала бы чужой номер. */
-  .toc-list .toc-row { padding: 2.2mm 0; }
+  .toc-list .toc-row { padding: 1.5mm 0; }
 
   /* Дисклеймер задней обложки */
   .legal {
@@ -252,7 +252,7 @@
         <span>Jahon me&#39;yorlari</span><i>·</i><span>Avval yashil</span><i>·</i><span>Tarkib</span><i>·</i><span>Retsept</span>
       </div>
       <div class="cover-foot">
-        <span>12 sahifa · uz / ru</span>
+        <span>16 sahifa · uz / ru</span>
         <span class="site">microgreenuzbekistan.com</span>
       </div>
     </div>
@@ -310,6 +310,13 @@
             <div class="caption">Метод «Сначала зелень»</div>
           </div>
           <div class="toc-page">06</div>
+        </div>
+        <div class="toc-row">
+          <div class="toc-title">
+            <div class="h3">Kechagi palov</div>
+            <div class="caption">Вчерашний плов: бесплатный приём</div>
+          </div>
+          <div class="toc-page">07</div>
         </div>
         <div class="toc-row">
           <div class="toc-title">
@@ -443,20 +450,38 @@
 
       <div class="figure">
         <svg viewBox="0 0 320 132" role="img" aria-label="Krivaya glyukozy">
+          <defs>
+            <!-- Штриховка разницы. Заливка берёт --chart-a, а не --accent:
+                 см. решение о палитре в шапке файла. Штрих редкий (5 ед.,
+                 0.5) — полоса должна читаться как поле, а не как пятно,
+                 и обязана пережить чёрно-белую печать. -->
+            <pattern id="hatch-gap" width="5" height="5" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="0" x2="0" y2="5" stroke="var(--chart-a)" stroke-width="0.5" opacity="0.5"/>
+            </pattern>
+          </defs>
           <!-- сетка -->
           <line x1="30" y1="106" x2="308" y2="106" stroke="var(--hair)" stroke-width="0.7"/>
           <line x1="30" y1="14" x2="30" y2="106" stroke="var(--hair)" stroke-width="0.7"/>
           <line x1="30" y1="60" x2="308" y2="60" stroke="var(--hair-2)" stroke-width="0.5" stroke-dasharray="2 2"/>
+          <!-- Разница между порядками — то, ради чего график нарисован.
+               Раньше её нужно было домыслить, сравнив две линии глазом. -->
+          <path d="M30 96 C 62 92, 78 30, 116 24 C 156 18, 186 62, 224 82 C 258 98, 284 100, 308 101 L308 102 C 286 102, 264 100, 232 90 C 194 76, 164 50, 124 56 C 86 62, 66 94, 30 96 Z"
+                fill="url(#hatch-gap)" stroke="none"/>
           <!-- углеводы первыми -->
           <path d="M30 96 C 62 92, 78 30, 116 24 C 156 18, 186 62, 224 82 C 258 98, 284 100, 308 101"
                 fill="none" stroke="var(--ink-3)" stroke-width="1.5" stroke-dasharray="3.5 2.5"/>
           <!-- зелень первой -->
           <path d="M30 96 C 66 94, 86 62, 124 56 C 164 50, 194 76, 232 90 C 264 100, 286 102, 308 102"
                 fill="none" stroke="var(--accent)" stroke-width="2.1"/>
+          <!-- Вершины кривых. Координаты посчитаны по самим кривым Безье,
+               не подобраны на глаз. Кольцо цвета бумаги отделяет точку от
+               линии, иначе на пересечении они сливаются. -->
+          <circle cx="123.4" cy="23.4" r="2.1" fill="var(--paper)" stroke="var(--ink-3)" stroke-width="1"/>
+          <circle cx="135.7" cy="55.1" r="2.1" fill="var(--paper)" stroke="var(--accent)" stroke-width="1.3"/>
           <!-- подписи кривых. fill задаётся через style: presentation-атрибут
                проигрывает правилу класса .fig-note, и подпись теряла цвет. -->
           <text class="fig-note" x="122" y="18">Avval uglevod · Углеводы первыми</text>
-          <text class="fig-note" x="132" y="48" style="fill: var(--accent); font-weight: 700;">Avval yashil · Зелень первой</text>
+          <text class="fig-note" x="132" y="48" paint-order="stroke" stroke="var(--paper)" stroke-width="2.4" stroke-linejoin="round" style="fill: var(--accent); font-weight: 700;">Avval yashil · Зелень первой</text>
           <!-- оси -->
           <text class="fig-label" x="30" y="9">Qondagi glyukoza · Глюкоза крови</text>
           <text class="fig-tick" x="30" y="116">0</text>
@@ -731,25 +756,25 @@
            «фото в работе» нельзя: в тираже это читается как брак. -->
       <div class="mix-grid" style="margin-top: 1.8mm;">
         <div class="mix">
-          <img class="photo" src="../catalog/noxat_micro.png" alt="">
+          <img class="photo" src="../catalog/noxat_micro.webp" alt="">
           <div class="mix-name">Yumshoq · Мягкий</div>
           <div class="mix-note">No&#39;xat 35 % · kungaboqar · tatsoy<br><span>Горох, подсолнечник, татсой</span></div>
           <div class="menu-price">35 000</div>
         </div>
         <div class="mix">
-          <img class="photo" src="../catalog/redis_micro.png" alt="">
+          <img class="photo" src="../catalog/redis_micro.webp" alt="">
           <div class="mix-name">Palovga · К плову</div>
           <div class="mix-note">Turp 30 % · kress · kashnich<br><span>Редис, кресс, кориандр</span></div>
           <div class="menu-price">40 000</div>
         </div>
         <div class="mix">
-          <img class="photo" src="../catalog/brokkoli_micro.png" alt="">
+          <img class="photo" src="../catalog/brokkoli_micro.webp" alt="">
           <div class="mix-name">Krestsimon · Крестоцв.</div>
           <div class="mix-note">Kolrabi 30 % · brokkoli 25 %<br><span>Кольраби, брокколи, кресс</span></div>
           <div class="menu-price">45 000</div>
         </div>
         <div class="mix">
-          <img class="photo" src="../catalog/amarant_micro.png" alt="">
+          <img class="photo" src="../catalog/amarant_micro.webp" alt="">
           <div class="mix-name">Rangli · Цветной</div>
           <div class="mix-note">Amarant 25 % · qizil mizuna<br><span>Амарант, мизуна красная</span></div>
           <div class="menu-price">55 000</div>
@@ -1377,7 +1402,7 @@
         </div>
       </div>
 
-      <img class="photo photo-wide" src="../catalog/farm.png" alt="" style="margin-top: auto;">
+      <img class="photo photo-wide" src="../catalog/farm.webp" alt="" style="margin-top: auto;">
       <p class="photo-caption">
         Ferma Samarqand yaqinida · Ферма под Самаркандом: от срезки до доставки — сутки
       </p>

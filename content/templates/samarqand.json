@@ -1,0 +1,45 @@
+{
+  "_comment": "ОБЩИЙ номер FRESH WEEKLY — один на все заведения города. Отличие от конфига под конкретный ресторан: здесь нет ни одного заведения, поэтому один тираж расходится по всем точкам. Заведение получает только со-брендинг в колонтитуле, если платит за именной тираж. Порядок сборки: node scripts/build-magazine-qr.mjs content/templates/samarqand.json → apply-magazine-design.mjs samarqand → build-booklet.mjs samarqand, затем проверки. Подробно — docs/magazine-print-spec.md.",
+
+  "slug": "samarqand",
+  "restaurant": "Samarqand",
+  "issue": 1,
+  "issueDate": "Sentabr 2026",
+  "chefName": "Microgreen Uzbekistan",
+  "address": "Samarqand viloyati · Kamolot mahallasi",
+  "instagram": "@microgreenuzbekistan",
+  "signatureDish": "Samarqandcha damlama palov",
+  "recipeSlug": "samarqand-salati",
+
+  "_qr": "menuSlug и dishCodes те же, что у именных номеров: QR ведут в меню БРЕНДА (/m/fresh), а не заведения. Именно поэтому общий номер работает в любой точке без пересборки кодов.",
+  "menuSlug": "fresh",
+  "dishCodes": [3, 5, 6, 7, 8, 9],
+
+  "accent": "#0f3d2e",
+  "gold": "#c9a876",
+
+  "_photos": "Снимки блюд — собственные, фермы и бренда, а не конкретного заведения: общий номер не может показывать чужую подачу. Слоты те же, чтобы вёрстка не менялась.",
+  "photos": {
+    "PHOTO_COVER": "img/cover.jpg",
+    "PHOTO_CHEF": "img/chef_real.jpg",
+    "PHOTO_RESTAURANT": "img/restaurant.png",
+    "PHOTO_RECIPE": "img/recipe.png",
+    "PHOTO_HEALTH": "img/health-skin.png",
+    "PHOTO_KIDS": "img/kids.png",
+    "PHOTO_FARM": "img/farm.png",
+
+    "PHOTO_DISH_1": "img/plov-cold.jpg",
+    "PHOTO_DISH_2": "img/plate-order.jpg",
+    "PHOTO_DISH_3": "img/greens-first.jpg",
+    "PHOTO_DISH_4": "img/leaf-macro.jpg",
+    "PHOTO_DISH_5": "img/sugar-spoons.jpg",
+    "PHOTO_DISH_6": "img/recipe.png",
+
+    "PHOTO_GUEST_1": "img/guest1.png",
+    "PHOTO_GUEST_2": "img/guest2.png",
+    "PHOTO_GUEST_3": "img/guest3.png",
+    "PHOTO_GUEST_4": "img/guest4.png",
+    "PHOTO_GUEST_5": "img/guest5.png",
+    "PHOTO_GUEST_6": "img/guest6.png"
+  }
+}

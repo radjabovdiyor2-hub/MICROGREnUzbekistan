@@ -21,7 +21,7 @@ node scripts/magazine-pdf.mjs             # PDF для типографии
 | файл | что это |
 |---|---|
 | `content/templates/jasmin.json` | конфиг: ресторан, `menuSlug`, `dishCodes`, 19 путей к фото |
-| `content/templates/jasmin-print.baseline.html` | номер с текстами, фото и QR, до дизайн-слоя |
+| `content/templates/restaurant-print.baseline.html` | номер с текстами, фото и QR, до дизайн-слоя. Один на все заведения: данные ресторана вынесены в плейсхолдеры `{{RESTAURANT}}`, `{{ADDRESS}}`, `{{CHEF}}`, `{{INSTAGRAM}}`, `{{SIGNATURE_DISH}}`, `{{ISSUE}}`, `{{ISSUE_DATE}}`, `{{SLUG}}`, `{{PHOTO_DISH_1..6}}` |
 | `content/templates/fresh-weekly-a5.design.css` | таблица стилей номера |
 | `content/templates/fonts/fonts-subset.css` | шрифты, подмножество под символы номера |
 
@@ -177,14 +177,18 @@ node scripts/magazine-pdf.mjs             # PDF для типографии
    **Не выдумывать**: коды присваивает база при загрузке видео.
 3. Прописать пути к фото в `photos` — все 19 слотов.
 4. `node scripts/build-magazine-qr.mjs content/templates/<ресторан>.json`
-5. Скопировать `jasmin-print.baseline.html` → `<slug>-print.baseline.html`,
-   поменять тексты полос. Структура полос не меняется.
-6. Прописать новый slug в `scripts/apply-magazine-design.mjs` и прогнать
-   дизайн-слой, раскладку и три проверки.
+5. `node scripts/apply-magazine-design.mjs <slug>` — baseline общий, данные
+   заведения подставляются из конфига. Копировать его не нужно.
+6. `node scripts/build-booklet.mjs <slug>`, затем проверки:
+   `check-magazine-qr.mjs <конфиг>`, `check-magazine-fit.mjs <файл>`,
+   `check-magazine-photos.mjs <конфиг>`.
 
-Шага «собрать всё одной командой» больше нет: шаблон с плейсхолдерами удалён вместе
-со сборкой. Для второго ресторана baseline копируется от первого и правится руками —
-это соответствует процессу, в котором номер верстает человек.
+Структура полос общая для всех заведений и не меняется — меняются только значения
+конфига. Если нужен другой набор полос, это уже другая линия номеров, а не другой
+ресторан: тогда baseline копируется осознанно.
+
+Скрипт падает, если хоть один плейсхолдер остался незаполненным, и называет его
+по имени: номер с пустым местом вместо названия заведения в типографию не уедет.
 
 ---
 
