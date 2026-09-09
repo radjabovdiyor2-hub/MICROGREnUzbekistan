@@ -66,15 +66,19 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      # Блокируем только critical. Единственные оставшиеся high — это sharp
-      # 0.34.x (CVE-2026-33327/33328/35590/35591 в libvips): next 16.2.12
-      # держит его как optionalDependency "^0.34.5", а исправление вышло
-      # в 0.35, и npm-override этот вложенный экземпляр не перебивает.
-      # Ставить high блокирующим сейчас — значит держать CI вечно красным
-      # и приучить всех его игнорировать. Ограничение снимается, когда next
-      # перейдёт на sharp ^0.35 (см. SECURITY.md, «Принятые риски»).
+      # Порог опущен critical → high. Прежний комментарий держал critical
+      # из-за sharp 0.34.x, который next тянул как optionalDependency: с high
+      # тогда CI стоял бы вечно красным, а гейт, который всегда красный,
+      # перестают читать. Условие снятия было записано там же — «когда next
+      # перейдёт на sharp ^0.35», — и оно выполнено: next 16.3.4 объявляет
+      # sharp ^0.35.4, `npm audit --omit=dev` даёт ноль.
+      #
+      # Порог держится на проде (--omit=dev). Dev-зависимости остаются
+      # report-only ниже: уязвимость в vitest или storybook не уезжает к
+      # покупателю, и ронять из-за неё выкатку значит снова приучать всех
+      # обходить красный CI.
       - name: Audit production dependencies (blocking)
-        run: npm audit --omit=dev --audit-level=critical
+        run: npm audit --omit=dev --audit-level=high
       - name: Audit all dependencies (report only)
         run: npm audit --audit-level=high || true
 
