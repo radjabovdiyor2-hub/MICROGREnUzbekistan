@@ -48,10 +48,25 @@ function readDate(raw: string | null): Date {
  * Сотрудник опознаётся ИМЕНЕМ — так же, как в `Task.assignee` и в подписи
  * чека кассы: в сессии есть `name`, связи с `Employee` у неё нет. Заводить
  * её ради плана значило бы менять вход в админку.
+ *
+ * ПУСТО У ПРОДАВЦА — ЭТО ОТКАЗ, А НЕ ЗАГЛУШКА. Здесь стояло «Продавец»
+ * подстановкой, и это тихая ловушка: план такого человека лёг бы под
+ * литеральным именем «Продавец», с `Employee` не совпал бы никогда (значит
+ * и уведомления не было бы), а двое безымянных делили бы ОДНУ строку —
+ * уникальность стоит по паре (дата, исполнитель), и второй молча переписал
+ * бы день первому. Сейчас имя есть у каждого продавца (вход через Telegram
+ * кладёт `employee.name`), и заглушка не нужна: если её однажды не станет,
+ * лучше увидеть отказ, чем чужой объезд.
+ *
+ * У владельца имени в сессии нет вовсе — вход по паролю и по ключу его не
+ * кладут, — и это не мешает: владелец видит все планы и назначает по имени
+ * сотрудника, а не по своему.
  */
-function actorName(request: NextRequest): string {
+function actorName(request: NextRequest): string | null {
   const session = getSession(request);
-  return session?.name?.trim() || (session?.role === 'ADMIN' ? 'Владелец' : 'Продавец');
+  const name = session?.name?.trim();
+  if (name) return name;
+  return session?.role === 'ADMIN' ? 'Владелец' : null;
 }
 
 function isOwner(request: NextRequest): boolean {
@@ -67,9 +82,14 @@ export async function GET(request: NextRequest) {
 
     // Продавцу — только его собственный план. Владельцу — все, если он не
     // спросил чей-то конкретный.
+    const actor = actorName(request);
+    if (actor === null) {
+      return NextResponse.json({ error: 'Сотрудник не опознан' }, { status: 403 });
+    }
+
     const assignee = resolveReadAssignee({
       isOwner: isOwner(request),
-      actor: actorName(request),
+      actor,
       requested: sp.get('assignee'),
     });
 
@@ -107,6 +127,9 @@ export async function POST(request: NextRequest) {
 
     const owner = isOwner(request);
     const author = actorName(request);
+    if (author === null) {
+      return NextResponse.json({ error: 'Сотрудник не опознан' }, { status: 403 });
+    }
 
     // Назначить план другому может только владелец. Продавец сохраняет
     // исключительно себе — иначе он мог бы переписать чужой день.

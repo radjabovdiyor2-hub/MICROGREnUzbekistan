@@ -67,3 +67,32 @@ describe('происхождение плана', () => {
     expect(planSource({ assignee: 'Азиз', author: 'Владелец' })).toBe('owner');
   });
 });
+
+describe('назначение объезда: чего не должно случиться', () => {
+  it('продавец не может сохранить план на чужое имя', () => {
+    // Тело запроса пишет тот, чью добросовестность мы и ограничиваем.
+    expect(
+      resolveSaveAssignee({ isOwner: false, actor: 'Азиз', requested: 'Бекзод' }),
+    ).toBe('Азиз');
+  });
+
+  it('продавец не может прочитать чужой план, попросив его в адресе', () => {
+    expect(
+      resolveReadAssignee({ isOwner: false, actor: 'Азиз', requested: 'Бекзод' }),
+    ).toBe('Азиз');
+  });
+
+  it('владелец назначает по имени сотрудника, а не по своему', () => {
+    // Это и есть «назначить объезд»: план ложится на Азиза, автор —
+    // владелец, и источник помечается как назначенный сверху.
+    const assignee = resolveSaveAssignee({
+      isOwner: true, actor: 'Владелец', requested: '  Азиз  ',
+    });
+    expect(assignee).toBe('Азиз');
+    expect(planSource({ assignee, author: 'Владелец' })).toBe('owner');
+  });
+
+  it('пустое имя от владельца — ничей черновик, а не его собственный план', () => {
+    expect(resolveSaveAssignee({ isOwner: true, actor: 'Владелец', requested: '' })).toBe('');
+  });
+});

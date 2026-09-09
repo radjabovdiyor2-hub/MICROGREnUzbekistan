@@ -8,7 +8,9 @@ import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { weekdayLabel, isoWeekday } from '@/lib/customers/visitSchedule';
 
 import { AdminNotice } from './AdminNotice';
+import { AdminAssignRoutePicker, type PickCustomer } from './AdminAssignRoutePicker';
 import { AdminRouteGoods, type RouteGood } from './AdminRouteGoods';
+import type { AssignEmployee, ScheduledRow } from './assignRouteTypes';
 import { useFeedback } from './AdminFeedback';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -19,19 +21,14 @@ import { useFeedback } from './AdminFeedback';
 // СЕГОДНЯ. Роут дату и исполнителя принимал, а прислать их было некому —
 // то есть «поставь Азизу объезд на субботу» сделать было нельзя вовсе.
 //
-// ОТКУДА БЕРУТСЯ ТОЧКИ. Из расписания заездов на этот день недели: «к
-// этому по субботам» уже сказано на карточке клиента, и повторять это
-// списком незачем. Галочки сняты и поставлены руками — расписание
-// подсказывает, а решает человек.
+// ОТКУДА БЕРУТСЯ ТОЧКИ. Расписание заездов на этот день недели —
+// ПОДСКАЗКА, а не рамка: «к этому по субботам» уже сказано на карточке
+// клиента. Рядом поиск по всей базе — иначе назначить объезд можно было
+// только тем, у кого расписание уже заведено, а у большинства заведений
+// его нет: список выходил пустым, и функция не работала вовсе.
 //
 // СПИСОК ТОВАРОВ НЕОБЯЗАТЕЛЕН: объезд бывает развозной и разведочный.
 // ══════════════════════════════════════════════════════════════════════
-
-interface ScheduledRow {
-  id: number;
-  weekday: number;
-  customer: { id: number; name: string | null; address: string | null; district: string | null };
-}
 
 export function AdminAssignRoute({ date, lang, onSaved }: {
   /** Дата объезда `YYYY-MM-DD` — та же, что выбрана на экране дня. */
@@ -43,7 +40,9 @@ export function AdminAssignRoute({ date, lang, onSaved }: {
   const notify = useFeedback();
   const [open, setOpen] = useState(false);
   const [assignee, setAssignee] = useState('');
-  const [picked, setPicked] = useState<Set<number>>(new Set());
+  // Map, а не Set: выбранного через поиск клиента надо показать по имени,
+  // а искать его заново в списке, которого уже нет на экране, нечем.
+  const [picked, setPicked] = useState<Map<number, PickCustomer>>(new Map());
   const [goods, setGoods] = useState<RouteGood[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -60,11 +59,16 @@ export function AdminAssignRoute({ date, lang, onSaved }: {
     },
   });
 
-  const { data: employees = [] } = useQuery<{ id: string; name: string; role: string }[]>({
+  const { data: employees = [] } = useQuery<AssignEmployee[]>({
     queryKey: ['employees-list'],
     enabled: open,
-    queryFn: () => adminJsonArray<{ id: string; name: string; role: string }>('/api/inventory/employees'),
+    queryFn: () => adminJsonArray<AssignEmployee>('/api/inventory/employees'),
   });
+
+  // Кому назначаем — и достанем ли до него. Telegram у сотрудника может
+  // быть не привязан, и тогда уведомление о плане молча никуда не уйдёт.
+  const chosen = employees.find((e) => e.name === assignee) ?? null;
+  const unreachable = chosen !== null && !chosen.telegramId;
 
   const { data: products = [] } = useQuery<{ id: string; nameRu: string }[]>({
     queryKey: ['products-list'],
@@ -82,11 +86,11 @@ export function AdminAssignRoute({ date, lang, onSaved }: {
 
   const rows = scheduled?.items ?? [];
 
-  const toggle = (customerId: number) => {
+  const toggle = (customer: PickCustomer) => {
     setPicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(customerId)) next.delete(customerId);
-      else next.add(customerId);
+      const next = new Map(prev);
+      if (next.has(customer.id)) next.delete(customer.id);
+      else next.set(customer.id, customer);
       return next;
     });
   };
@@ -103,7 +107,7 @@ export function AdminAssignRoute({ date, lang, onSaved }: {
         body: JSON.stringify({
           date,
           assignee,
-          customerIds: [...picked],
+          customerIds: [...picked.keys()],
           // Пустой массив шлём осознанно: «объезд без товаров» — это
           // решение, а не отсутствие ответа.
           items: goods.filter((g) => g.productId),
@@ -111,9 +115,19 @@ export function AdminAssignRoute({ date, lang, onSaved }: {
       });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.error || 'Не удалось назначить объезд');
-      notify.success(t(`Объезд назначен: ${assignee}`, `Yoʻnalish tayinlandi: ${assignee}`));
+      // Говорим ПРАВДУ о том, узнает ли человек. Раньше здесь всегда было
+      // «назначен», и владелец считал, что поручил работу, — а сотруднику
+      // без привязанного Telegram не уходило ничего.
+      notify.success(
+        unreachable
+          ? t(
+              `Объезд назначен: ${assignee}. Скажите ему сами — Telegram не привязан.`,
+              `Yoʻnalish tayinlandi: ${assignee}. Oʻzingiz ayting — Telegram ulanmagan.`,
+            )
+          : t(`Объезд назначен: ${assignee}`, `Yoʻnalish tayinlandi: ${assignee}`),
+      );
       setOpen(false);
-      setPicked(new Set());
+      setPicked(new Map());
       setGoods([]);
       onSaved();
     } catch (err) {
@@ -148,39 +162,25 @@ export function AdminAssignRoute({ date, lang, onSaved }: {
         </select>
       </label>
 
-      <div style={{ display: 'grid', gap: 'var(--space-1)' }}>
-        <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600 }}>
-          {t('Кто по расписанию на этот день', 'Bu kunga jadval boʻyicha')}
-          {' · '}
-          <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{rows.length}</span>
+      {unreachable && (
+        <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
+          {t(
+            'У сотрудника не привязан Telegram — уведомление о плане он не получит. Назначить всё равно можно, но сказать придётся самому.',
+            'Xodimga Telegram ulanmagan — bildirishnoma bormaydi. Tayinlash mumkin, lekin oʻzingiz aytishingiz kerak.',
+          )}
         </div>
-        {rows.length === 0 ? (
-          <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-            {t(
-              'На этот день недели никого не назначено. Расписание ставится на карточке клиента на карте — «Заезжать по дням».',
-              'Bu kunga hech kim belgilanmagan.',
-            )}
-          </div>
-        ) : (
-          rows.map((row) => (
-            <label key={row.id} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', minHeight: 36 }}>
-              <input
-                type="checkbox"
-                checked={picked.has(row.customer.id)}
-                onChange={() => toggle(row.customer.id)}
-              />
-              <span style={{ flex: 1 }}>
-                {row.customer.name || `#${row.customer.id}`}
-                {row.customer.district && (
-                  <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
-                    {' · '}{row.customer.district}
-                  </span>
-                )}
-              </span>
-            </label>
-          ))
-        )}
-      </div>
+      )}
+
+      <AdminAssignRoutePicker
+        scheduled={rows.map((row) => ({
+          id: row.customer.id,
+          name: row.customer.name || `#${row.customer.id}`,
+          district: row.customer.district,
+        }))}
+        picked={picked}
+        lang={lang}
+        onToggle={toggle}
+      />
 
       <AdminRouteGoods items={goods} products={products} lang={lang} onChange={setGoods} />
 

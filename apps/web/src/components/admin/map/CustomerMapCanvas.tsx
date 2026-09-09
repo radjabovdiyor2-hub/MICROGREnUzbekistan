@@ -103,6 +103,11 @@ export default function CustomerMapCanvas(props: Props) {
   const container = useRef<HTMLDivElement | null>(null);
   const map = useRef<MapLibreMap | null>(null);
   const ready = useRef(false);
+  // Текущий URL подложки — чтобы не пересобирать стиль впустую.
+  const styleRef = useRef<string | null>(null);
+  // Навешивание слоёв: нужно и снаружи эффекта создания, когда
+  // источник потерялся и его надо вернуть.
+  const attachRef = useRef<((m: MapLibreMap) => void) | null>(null);
   const fullscreenControl = useRef<FullscreenToggleControl | null>(null);
   const { theme } = useTheme();
   const colors = useTokenColors();
@@ -124,12 +129,17 @@ export default function CustomerMapCanvas(props: Props) {
       attachMapLayers(m, latest.current);
       ready.current = true;
     };
+    attachRef.current = attach;
+
+    // Запоминаем стиль, с которым карта создана: эффект подложки ниже
+    // сравнивает с ним и на монтировании не трогает ничего.
+    styleRef.current = styleUrl(latest.current.theme, latest.current.detailedBase);
 
     let instance: MapLibreMap;
     try {
       instance = new MapLibreMap({
         container: node,
-        style: styleUrl(latest.current.theme, latest.current.detailedBase),
+        style: styleRef.current,
         // Рамкой, а не центром с зумом: пока точек нет, показываем оба
         // города сразу — ферма в Самарканде, заведения и там, и в Ташкенте.
         bounds: DEFAULT_BOUNDS,
@@ -228,9 +238,17 @@ export default function CustomerMapCanvas(props: Props) {
   }, [focus]);
 
   // ── Данные ────────────────────────────────────────────────────────
+  //
+  // САМОЛЕЧЕНИЕ ВМЕСТО ВЫХОДА. Раньше здесь стояло `if (!ready.current)
+  // return`, и один залипший флаг означал пустую карту до перезагрузки.
+  // Теперь спрашиваем не флаг, а саму карту: стиль загружен, а источника
+  // нет — значит слои потерялись, и их надо вернуть, а не промолчать.
   useEffect(() => {
     const instance = map.current;
-    if (!instance || !ready.current) return;
+    if (!instance) return;
+    if (!instance.isStyleLoaded()) return;
+    if (!instance.getSource(SOURCE_ID)) attachRef.current?.(instance);
+    if (!ready.current) return;
     const collection = data as unknown as GeoJSON.FeatureCollection;
     (instance.getSource(SOURCE_ID) as GeoJSONSource | undefined)?.setData(collection);
     // Тот же массив в оба источника: тепло не может показывать не то, что
@@ -293,11 +311,23 @@ export default function CustomerMapCanvas(props: Props) {
   //
   // Слои после смены стиля вернёт обработчик styledata: setStyle
   // выбрасывает всё, что мы добавили поверх.
+  //
+  // ТОЛЬКО ПРИ НАСТОЯЩЕЙ СМЕНЕ. Эффект срабатывает и на монтировании — с
+  // тем же стилем, который карта уже получила конструктором. Прежде он
+  // всё равно звал `setStyle` и гасил `ready`, а вернуть его мог только
+  // `styledata` с уже загруженным стилем. На пустом diff это событие
+  // приходит не всегда, и флаг оставался `false` НАВСЕГДА: дальше каждый
+  // приход данных молча выходил в первой строке, точки с карты пропадали
+  // и возвращались только перезагрузкой страницы. Ровно то, на что
+  // жаловались.
   useEffect(() => {
     const instance = map.current;
     if (!instance) return;
+    const next = styleUrl(theme, detailedBase);
+    if (styleRef.current === next) return;
+    styleRef.current = next;
     ready.current = false;
-    instance.setStyle(styleUrl(theme, detailedBase));
+    instance.setStyle(next);
   }, [theme, detailedBase]);
 
   // ── Выделение ─────────────────────────────────────────────────────
