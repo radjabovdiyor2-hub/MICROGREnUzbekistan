@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 // БЕЗ ЭТОГО ИМПОРТА КАРТА — ПУСТОЙ ПРЯМОУГОЛЬНИК.
 //
 // Стили maplibre подключались только в карте клиентов, а этот экран —
@@ -48,8 +48,12 @@ export function FieldDayMap({
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
+  const resizeRef = useRef<ResizeObserver | null>(null);
   const ready = useRef(false);
   const colors = useTokenColors();
+  // Отказ должен быть ВИДЕН. Чёрный прямоугольник без объяснения — это
+  // худший вид поломки: она выглядит как «карта такая» и живёт месяцами.
+  const [failure, setFailure] = useState('');
 
   // Свежие данные держим в ref: эффект инициализации должен выполниться
   // один раз, а данные к нему приезжают позже.
@@ -85,9 +89,25 @@ export function FieldDayMap({
     map.current = instance;
     instance.addControl(new NavigationControl({ showCompass: false }), 'top-right');
 
+    // Ошибку не глотаем: у карты клиентов такой обработчик есть, и без
+    // него любая неудача тайлов выглядит просто чёрным полем.
+    instance.on('error', (event: { error?: { message?: string } }) => {
+      const message = String(event?.error?.message ?? '');
+      if (message) setFailure(message);
+      console.error('[field-day] карта:', message || event);
+    });
+
     // Контейнер получает высоту вместе с раскладкой, и карта, созданная
-    // раньше этого момента, запоминает нулевой размер. `resize` после
-    // первой отрисовки дешевле, чем гадать, кто из родителей когда встал.
+    // раньше этого момента, запоминает НУЛЕВОЙ размер: контролы и подпись
+    // рисуются (они обычные элементы), а холст остаётся пустым — ровно то,
+    // что выглядит как чёрный прямоугольник с плюсом и минусом.
+    //
+    // Наблюдатель, а не единичный вызов: угадывать, когда встанут все
+    // родители, бессмысленно — вкладка, аккордеон и полный экран меняют
+    // размер в разные моменты.
+    const observer = new ResizeObserver(() => instance.resize());
+    observer.observe(node);
+    resizeRef.current = observer;
     requestAnimationFrame(() => instance.resize());
 
     instance.on('load', () => {
@@ -103,12 +123,19 @@ export function FieldDayMap({
         instance.addLayer(layer as unknown as AddLayerObject);
       }
       ready.current = true;
+      // Ещё один пересчёт размера — уже после загрузки стиля. Наблюдатель
+      // выше срабатывает на изменение контейнера, а этот случай другой:
+      // контейнер не менялся, но холст мог быть создан до того, как
+      // раскладка встала.
+      instance.resize();
       fitToTrack(instance, t);
     });
 
     return () => {
       ready.current = false;
       map.current = null;
+      resizeRef.current?.disconnect();
+      resizeRef.current = null;
       instance.remove();
     };
   }, []);
@@ -125,9 +152,24 @@ export function FieldDayMap({
   }, [track, stays]);
 
   return (
+    <>
+      {failure !== '' && (
+        <div
+          style={{
+            fontSize: 'var(--text-xs)',
+            color: 'var(--text-secondary)',
+            marginBottom: 'var(--space-1)',
+          }}
+        >
+          Карта: {failure}
+        </div>
+      )}
     <div
       ref={container}
       style={{
+        // Ширина явно, как у карты клиентов: без неё MapLibre в некоторых
+        // раскладках схлопывается и выглядит сломанным.
+        width: '100%',
         height: 320,
         borderRadius: 'var(--radius-md)',
         overflow: 'hidden',
@@ -135,6 +177,7 @@ export function FieldDayMap({
         background: 'var(--bg-secondary)',
       }}
     />
+    </>
   );
 }
 
