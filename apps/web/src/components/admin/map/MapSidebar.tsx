@@ -55,7 +55,7 @@ export function MapSidebar({ lang, m, route, onOpenCard, isOwner, sellerName }: 
         storageKey="mg-map-fold-route"
         hint={route.stops.length > 0 ? String(route.stops.length) : undefined}
       >
-        <RoutePanel lang={lang} m={m} route={route} />
+        <RoutePanel lang={lang} m={m} route={route} isOwner={isOwner} />
       </MapFoldable>
 
       <MapFoldable

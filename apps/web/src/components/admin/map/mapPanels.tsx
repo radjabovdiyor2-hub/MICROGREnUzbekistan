@@ -3,6 +3,7 @@
 import { AssignedPlanBanner } from './AssignedPlanBanner';
 import { BuildDayPlanButton } from './BuildDayPlanButton';
 import { CategoryLegend } from './CategoryLegend';
+import { AssignRouteFromMap } from './AssignRouteFromMap';
 import { CustomerMapLegend } from './CustomerMapLegend';
 import { MapKinds } from './MapKinds';
 import { useFieldPeople } from './useFieldPeople';
@@ -73,7 +74,7 @@ export function LegendPanel({ lang, m, route }: PanelDeps) {
   );
 }
 
-export function RoutePanel({ lang, m, route }: PanelDeps) {
+export function RoutePanel({ lang, m, route, isOwner = false }: PanelDeps & { isOwner?: boolean }) {
   return (
     <>
       {/* Назначенное владельцем — ПЕРВЫМ и до кнопки автоплана: иначе
@@ -90,6 +91,14 @@ export function RoutePanel({ lang, m, route }: PanelDeps) {
         hasStops={route.stops.length > 0}
         onPlan={route.setAll}
       />
+      {/* Назначение — СРАЗУ ПОД списком точек и только владельцу: он
+          набрал их глазами по карте, и уходить ради этого на другой экран,
+          чтобы набрать тот же список поиском заново, — это способ
+          ошибиться, а не второй способ работы. */}
+      {isOwner && (
+        <AssignRouteFromMap lang={lang} stops={route.stops} onAssigned={route.clear} />
+      )}
+
     <DayRoutePanel
       lang={lang}
       stops={route.stops}
