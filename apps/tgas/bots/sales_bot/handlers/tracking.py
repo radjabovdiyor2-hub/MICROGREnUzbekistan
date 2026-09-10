@@ -29,9 +29,12 @@ from aiogram.types import (
     Message,
 )
 
+from shared.admin_links import tab_button
+from shared.approvals import is_owner
 from shared.field_track import (
     shift_change,
     shift_state,
+    who_is_in_field,
     make_ping,
     my_day,
     plan_accept,
@@ -476,3 +479,82 @@ async def shift_button(callback: CallbackQuery) -> None:
         await callback.message.answer(
             "🏁 <b>Смена закрыта.</b>\n\nЗапись маршрута остановлена."
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# «Где сотрудники» — маршрут владельцу, не выходя из Telegram.
+#
+# ЧЕГО НЕ БЫЛО. Маршрут человека можно было посмотреть только в админке:
+# открыть браузер, вспомнить пароль, найти вкладку, выбрать сотрудника и
+# дату. Владелец при этом весь день в Telegram.
+#
+# ПОЧЕМУ КНОПКА, А НЕ КАРТИНКА. Нарисовать карту в сообщении нельзя —
+# нужен отдельный отрисовщик и неподвижный кадр. Кнопка открывает НАСТОЯЩУЮ
+# карту прямо внутри Telegram (Mini App), с треком, заездами и зумом. Это
+# и короче в работе, и полезнее в руках.
+#
+# ЧИСЛА БЕРЁМ ИЗ ЖИВОГО СЛОЯ КАРТЫ, а не считаем заново: два места,
+# отвечающие на один вопрос, разойдутся на первой же правке.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _field_line(person: dict) -> str:
+    """Одна строка сводки: кто, сколько прошёл, сколько заездов, на связи ли."""
+    name = str(person.get("name") or "—")
+    meters = int(person.get("meters") or 0)
+    stops = int(person.get("stops") or 0)
+    silent = person.get("silentMin")
+
+    # «Точек нет» и «молчит десять минут» — разные вещи. Первое означает,
+    # что человек не включил запись вовсе; второе — что связь моргнула.
+    if silent is None:
+        state = "запись не включена"
+    elif int(silent) >= 15:
+        state = f"молчит {int(silent)} мин"
+    else:
+        state = "на связи"
+
+    km = f"{meters / 1000:.1f} км" if meters >= 100 else "меньше 100 м"
+    return f"• <b>{name}</b> — {km}, заездов {stops}, {state}"
+
+
+@router.message(Command("field"))
+async def where_is_everyone(message: Message) -> None:
+    """Сводка по всем, кто сегодня в поле, плюс кнопка на карту."""
+    user_id = message.from_user.id if message.from_user else 0
+    if not is_owner(user_id):
+        # Это вопрос владельца. Продавцу чужой трек знать незачем — тот же
+        # рубеж, что и у отчёта дня на витрине.
+        raise SkipHandler
+
+    people = await who_is_in_field()
+    if not people:
+        await message.answer(
+            "🗺 <b>Сегодня в поле никого.</b>\n\n"
+            "Смену никто не открывал, либо записи ещё нет."
+        )
+        return
+
+    lines = [_field_line(p) for p in people]
+    rows = []
+    for person in people[:8]:
+        # Кнопка на КАЖДОГО: одна общая привела бы на экран, где владельцу
+        # снова выбирать человека руками — то есть кнопка не работала бы.
+        employee_id = str(person.get("id") or "")
+        if not employee_id:
+            continue
+        rows.append(
+            [
+                tab_button(
+                    f"🗺 {person.get('name') or 'На карте'}",
+                    "field_day",
+                    user_id,
+                    focus=employee_id,
+                )
+            ]
+        )
+
+    await message.answer(
+        "🗺 <b>Сейчас в поле</b>\n\n" + "\n".join(lines),
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows) if rows else None,
+    )

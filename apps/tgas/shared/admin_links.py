@@ -159,9 +159,19 @@ def open_button(
     return InlineKeyboardButton(text=text, url=url)
 
 
-def tab_button(text: str, tab: str, chat_id: Optional[int]) -> InlineKeyboardButton:
-    """То же самое, но вкладка задана прямо — без разбора заявки."""
-    url = admin_url(tab)
+def tab_button(
+    text: str,
+    tab: str,
+    chat_id: Optional[int],
+    focus: Optional[str] = None,
+) -> InlineKeyboardButton:
+    """То же самое, но вкладка задана прямо — без разбора заявки.
+
+    `focus` — конкретная запись на экране. Соседний `tab_markup` его умел,
+    а эта кнопка нет, и собрать список кнопок «по человеку» было нечем:
+    все они вели на один экран, где выбирать снова руками.
+    """
+    url = admin_url(tab, focus)
     if is_private_owner_chat(chat_id):
         return InlineKeyboardButton(text=text, web_app=WebAppInfo(url=url))
     return InlineKeyboardButton(text=text, url=url)

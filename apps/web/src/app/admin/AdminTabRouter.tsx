@@ -144,7 +144,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {activeTab === 'employees' && isOwner && <AdminEmployees lang={lang} />}
     {activeTab === 'shifts' && isOwner && <AdminShifts lang={lang} />}
     {activeTab === 'payroll' && isOwner && <AdminPayroll />}
-    {activeTab === 'field_day' && isOwner && <AdminFieldDay lang={lang} />}
+    {activeTab === 'field_day' && isOwner && <AdminFieldDay lang={lang} focus={focus} />}
 
     {/* ИИ-офис */}
     {activeTab === 'workflow_studio' && isOwner && <AdminWorkflowStudio />}

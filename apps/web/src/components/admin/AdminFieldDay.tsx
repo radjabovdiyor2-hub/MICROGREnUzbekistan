@@ -21,26 +21,36 @@ import {
 // ══════════════════════════════════════════════════════════════════════
 // День в поле: где был сотрудник, сколько простоял, сколько ехал.
 //
-// Отвечает на вопрос владельца «а не мухлёвка ли» — тот самый, который
-// уже записан в схеме рядом с отметкой визита. Разница в том, что отметка
-// подтверждает ОДИН момент, а здесь виден весь день подряд, и дыры в нём
-// видны тоже.
+// Отметка визита подтверждает ОДИН момент, а здесь виден весь день — и
+// дыры в нём тоже.
 //
-// СИСТЕМА НЕ ОБВИНЯЕТ. Она показывает числа и говорит, где они не сходятся
-// с дорогой; вывод делает человек. Автосигналов и связи с зарплатой здесь
-// нет намеренно — это решение владельца, а не упущение.
+// СИСТЕМА НЕ ОБВИНЯЕТ: показывает числа, вывод делает человек. Связи с
+// зарплатой ЗДЕСЬ нет намеренно — смена платит за присутствие, а
+// километры и стоянки это выработка, и это отдельный разговор.
 //
-// Лента вынесена в `field/FieldDayTimeline.tsx`: вместе файл переваливал
-// за лимит в 200 строк.
+// Лента — в `field/FieldDayTimeline.tsx`: файл упирается в 200 строк.
 // ══════════════════════════════════════════════════════════════════════
 
-export function AdminFieldDay({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+export function AdminFieldDay({
+  lang = 'ru',
+  focus = '',
+  mine = false,
+}: {
+  lang?: 'ru' | 'uz';
+  /** Сотрудник из ссылки Telegram. Без него кнопка бота вела на пустой экран. */
+  focus?: string;
+  /** Свой день: дверь сама отдаёт продавцу только его собственный. */
+  mine?: boolean;
+}) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
   const [date, setDate] = useState(() => formatLocalDate());
-  const [employeeId, setEmployeeId] = useState('');
+  // Ссылка задаёт НАЧАЛЬНОЕ значение, дальше решает человек: синхронизация
+  // эффектом вернула бы прежнего сотрудника после переключения.
+  const [employeeId, setEmployeeId] = useState(focus);
 
   const { data: employees = [] } = useQuery<EmployeeOption[]>({
     queryKey: ['admin-employees-list'],
+    enabled: !mine, // продавцу список сотрудников не положен
     queryFn: async () => {
       const res = await fetch('/api/inventory/employees');
       const data = await res.json();
@@ -49,12 +59,14 @@ export function AdminFieldDay({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
   });
 
   const { data, isLoading } = useQuery<FieldDayResponse>({
-    queryKey: ['field-day', employeeId, date],
-    enabled: employeeId !== '',
+    queryKey: ['field-day', mine ? 'self' : employeeId, date],
+    // В своём дне выбирать некого — сервер знает, чей он, по подписи.
+    enabled: mine || employeeId !== '',
     queryFn: async () => {
       // День собирается на сервере (пересборка стоянок и плеч) — ждём
       // дольше обычного, но всё-таки конечно.
-      const res = await fetch(`/api/admin/tracking/day?employee=${employeeId}&date=${date}`, {
+      const who = mine ? '' : `employee=${employeeId}&`;
+      const res = await fetch(`/api/admin/tracking/day?${who}date=${date}`, {
         signal: timeoutSignal(25_000),
       });
       const body = await res.json();
@@ -77,23 +89,26 @@ export function AdminFieldDay({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
           marginBottom: 'var(--space-4)',
         }}
       >
-        <Route size={24} /> {t('День в поле', 'Dala kuni')}
+        <Route size={24} /> {mine ? t('Мой день', 'Mening kunim') : t('День в поле', 'Dala kuni')}
       </h2>
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
-        <select
-          value={employeeId}
-          onChange={(e) => setEmployeeId(e.target.value)}
-          className="input"
-          style={{ maxWidth: 240 }}
-        >
-          <option value="">{t('Выберите сотрудника', 'Xodimni tanlang')}</option>
-          {employees.map((emp) => (
-            <option key={emp.id} value={emp.id}>
-              {emp.name}
-            </option>
-          ))}
-        </select>
+        {/* Выбор — только владельцу: свой день выбирать не из чего. */}
+        {!mine && (
+          <select
+            value={employeeId}
+            onChange={(e) => setEmployeeId(e.target.value)}
+            className="input"
+            style={{ maxWidth: 240 }}
+          >
+            <option value="">{t('Выберите сотрудника', 'Xodimni tanlang')}</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.id}>
+                {emp.name}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           type="date"
           value={date}

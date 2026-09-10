@@ -401,3 +401,27 @@ async def close_forgotten_shifts() -> int:
     except Exception as exc:
         logger.warning("SHIFT: забытые смены не закрыты (%s)", exc)
         return 0
+
+
+async def who_is_in_field() -> List[Dict[str, Any]]:
+    """Кто сейчас в поле: имя, сколько прошёл, сколько заездов, молчит ли.
+
+    Тот же живой слой, что рисует карту у владельца. Берём его, а не
+    считаем заново: два места, отвечающие на один вопрос, разойдутся на
+    первой же правке — и владелец увидит на карте одно, а в боте другое.
+
+    Пустой список при любой ошибке.
+    """
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.get(_url("/admin/tracking/live")) as resp:
+                if resp.status != 200:
+                    logger.warning("FIELD_TRACK: живой слой недоступен (%s)", resp.status)
+                    return []
+                body = await resp.json(content_type=None)
+                people = body.get("people") or [] if isinstance(body, dict) else []
+                return [p for p in people if isinstance(p, dict)]
+    except Exception as exc:
+        logger.warning("FIELD_TRACK: живой слой не получен (%s)", exc)
+        return []
