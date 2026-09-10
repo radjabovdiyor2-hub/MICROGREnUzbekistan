@@ -27,6 +27,11 @@
 //   FARM_EVERY_SEC — как часто снимать. По умолчанию 60.
 //
 // Запуск:  FARM_RTSP_URL=... FARM_ENDPOINT=... BOT_SECRET=... node scripts/farm-camera.mjs
+//
+// СНАЧАЛА ПРОВЕРКА:  node scripts/farm-camera.mjs --check
+// Берёт один кадр, никуда его не отправляет и говорит, что именно не так.
+// Нужна потому, что ffmpeg на любую беду отвечает одинаково невнятно, а
+// причин ровно четыре, и лечатся они по-разному.
 // ══════════════════════════════════════════════════════════════════════
 
 import { execFile } from 'node:child_process';
@@ -34,6 +39,7 @@ import { promisify } from 'node:util';
 
 const run = promisify(execFile);
 
+const CHECK = process.argv.includes('--check');
 const RTSP = process.env.FARM_RTSP_URL;
 const ENDPOINT = process.env.FARM_ENDPOINT;
 const SECRET = process.env.BOT_SECRET;
@@ -43,8 +49,10 @@ const EVERY_SEC = Number(process.env.FARM_EVERY_SEC || 60);
 // не задано» — это полчаса поиска вслепую.
 const missing = [
   !RTSP && 'FARM_RTSP_URL',
-  !ENDPOINT && 'FARM_ENDPOINT',
-  !SECRET && 'BOT_SECRET',
+  // В режиме проверки кадр никуда не уходит, поэтому адрес и секрет не
+  // нужны: проверить камеру можно до того, как настроен сайт.
+  !CHECK && !ENDPOINT && 'FARM_ENDPOINT',
+  !CHECK && !SECRET && 'BOT_SECRET',
 ].filter(Boolean);
 if (missing.length > 0) {
   console.error(`Не задано: ${missing.join(', ')}. Смотрите шапку файла.`);
@@ -84,6 +92,45 @@ async function send(jpeg) {
   if (!res.ok) throw new Error(`сайт ответил ${res.status}`);
 }
 
+/**
+ * Перевести жалобу ffmpeg в понятную причину.
+ *
+ * Он на всё отвечает похожим текстом, а причин четыре, и лечатся они
+ * по-разному: одна — в приложении камеры, другая — в проводе, третья — в
+ * наклейке на корпусе. Без разбора это полчаса перебора вслепую.
+ */
+function explain(message) {
+  const m = String(message).toLowerCase();
+  // Первое, на что натыкаются: ffmpeg не поставлен вовсе. Сообщение
+  // системы («spawn ffmpeg ENOENT») о камере не говорит ничего, и человек
+  // идёт проверять камеру, которая ни при чём.
+  if (m.includes('enoent') && m.includes('ffmpeg')) {
+    return 'на этом компьютере нет ffmpeg. Поставьте его с ffmpeg.org '
+      + '(Windows: распаковать и добавить папку bin в PATH) и запустите проверку снова. '
+      + 'Камера тут ни при чём.';
+  }
+  if (m.includes('401') || m.includes('unauthorized')) {
+    return 'камера не приняла пароль. В RTSP-адресе пароль — это КОД ПРОВЕРКИ '
+      + 'с наклейки на корпусе камеры, а не пароль от учётной записи EZVIZ.';
+  }
+  if (m.includes('timed out') || m.includes('timeout') || m.includes('no route')
+      || m.includes('unreachable') || m.includes('refused')) {
+    return 'камера не отвечает по этому адресу. Проверьте, что она включена, '
+      + 'что компьютер в ТОЙ ЖЕ сети (не в гостевой и не через мобильный), '
+      + 'и что IP взят из приложения EZVIZ — он меняется после перезагрузки роутера.';
+  }
+  if (m.includes('invalid data') || m.includes('could not find codec')
+      || m.includes('decode') || m.includes('corrupt')) {
+    return 'поток приходит, но не читается — почти наверняка включено ШИФРОВАНИЕ ВИДЕО. '
+      + 'Выключите его в приложении EZVIZ: настройки камеры → шифрование изображения.';
+  }
+  if (m.includes('404') || m.includes('not found')) {
+    return 'адрес потока не тот. У C6N обычно /H.264 в конце; попробуйте также '
+      + '/Streaming/Channels/101 и /h264_stream.';
+  }
+  return 'не разобрал причину. Полный текст ошибки выше.';
+}
+
 let failures = 0;
 
 async function tick() {
@@ -103,6 +150,26 @@ async function tick() {
     } else if (failures % 60 === 0) {
       console.error(`${new Date().toISOString()} — кадр не уходит уже ${failures} раз подряд`);
     }
+  }
+}
+
+if (CHECK) {
+  // Проверка отделена от съёмки намеренно: она ничего не отправляет и не
+  // зацикливается, поэтому её можно запускать при живом сайте.
+  try {
+    const jpeg = await grab();
+    if (!jpeg || jpeg.length === 0) throw new Error('пустой кадр');
+    const { writeFile } = await import('node:fs/promises');
+    await writeFile('farm-check.jpg', jpeg);
+    console.log(`Кадр получен: ${Math.round(jpeg.length / 1024)} КБ.`);
+    console.log('Сохранён рядом как farm-check.jpg — откройте и убедитесь, что');
+    console.log('камера смотрит туда, куда нужно. Если да, запускайте без --check.');
+    process.exit(0);
+  } catch (error) {
+    console.error(`Кадр не получен: ${error.message}`);
+    console.error('');
+    console.error(`ВЕРОЯТНАЯ ПРИЧИНА: ${explain(error.message)}`);
+    process.exit(1);
   }
 }
 
