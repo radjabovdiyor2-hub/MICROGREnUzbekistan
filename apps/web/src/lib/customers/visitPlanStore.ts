@@ -91,7 +91,7 @@ export async function saveDayPlan(params: {
   customerIds: number[];
   /** Что взять с собой. `undefined` — список не трогаем, `[]` — очистить. */
   items?: { productId: string; qty: number }[];
-}): Promise<{ id: number; stops: number; items: number }> {
+}): Promise<{ id: number; stops: number; items: number; changed: boolean }> {
   const { from } = dayBounds(params.planDate);
 
   return prisma.$transaction(async (tx) => {
@@ -105,6 +105,14 @@ export async function saveDayPlan(params: {
       },
       update: { author: params.author, source: params.source },
       select: { id: true },
+    });
+
+    // Что было в плане ДО правки — нужно, чтобы понять, изменился ли он
+    // по существу. См. сброс отметок ниже.
+    const before = await tx.visitPlanStop.findMany({
+      where: { planId: plan.id },
+      select: { customerId: true },
+      orderBy: { orderIndex: 'asc' },
     });
 
     // Остановки переписываем целиком: план собран заново, и порядок в нём
@@ -149,7 +157,29 @@ export async function saveDayPlan(params: {
       itemCount = await tx.visitPlanItem.count({ where: { planId: plan.id } });
     }
 
-    return { id: plan.id, stops: unique.length, items: itemCount };
+    // ── План изменился по существу — прежние отметки недействительны ──
+    //
+    // Сохранение ЗАМЕНЯЕТ план. Если состав точек стал другим, то и
+    // сообщение, которое ушло исполнителю, и его «Приступить» относятся к
+    // списку, которого больше нет: человек остаётся со старым набором в
+    // чате, а владелец видит «принял» про план, которого тот не видел.
+    //
+    // Сравниваем ПОРЯДОК, а не только набор: переставленные точки — это
+    // другой маршрут, и ехать по нему надо иначе.
+    //
+    // Тот же порядок и то же содержимое — отметки НЕ трогаем: иначе
+    // владелец, нажавший «сохранить» второй раз, слал бы человеку то же
+    // сообщение заново.
+    const same = samePlanStops(before.map((row) => row.customerId), unique);
+
+    if (!same) {
+      await tx.visitPlan.update({
+        where: { id: plan.id },
+        data: { announcedAt: null, acceptedAt: null },
+      });
+    }
+
+    return { id: plan.id, stops: unique.length, items: itemCount, changed: !same };
   });
 }
 
@@ -390,4 +420,21 @@ export async function readDayFacts(params: {
       at: s.soldAt.toISOString(),
     })),
   };
+}
+
+/**
+ * Тот же ли это маршрут.
+ *
+ * ОТ ЭТОГО ЗАВИСИТ, ПОЛУЧИТ ЛИ ЧЕЛОВЕК НОВОЕ ЗАДАНИЕ. Совпало — отметки об
+ * отправке и подтверждении остаются, и повторное сохранение не шлёт то же
+ * сообщение заново. Не совпало — обе снимаются: прежнее сообщение и
+ * прежнее «Приступить» относятся к списку, которого больше нет.
+ *
+ * ПОРЯДОК ЗНАЧИМ. Переставленные точки — это другой маршрут: ехать по нему
+ * надо иначе, и человек, принявший прежний порядок, принял не это.
+ * Сравнение по множеству молча сочло бы их одинаковыми.
+ */
+export function samePlanStops(before: number[], after: number[]): boolean {
+  if (before.length !== after.length) return false;
+  return before.every((id, i) => id === after[i]);
 }
