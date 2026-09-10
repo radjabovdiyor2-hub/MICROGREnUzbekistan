@@ -8,7 +8,7 @@
 
 | Модуль | Стек | Роль | Размер |
 |--------|------|------|--------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 30 API-групп, 128 route-файлов, 275 компонентов | ~66KB globals.css, 92 Prisma-моделей |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 30 API-групп, 130 route-файлов, 275 компонентов | ~66KB globals.css, 92 Prisma-моделей |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 11 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 64 shared-модулей, ~400KB main.py суммарно |
 | `packages/database` | Prisma ORM, PostgreSQL | Схема (92 моделей, 3022 строк), миграции, сиды | schema.prisma — единый источник DDL |

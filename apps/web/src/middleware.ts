@@ -60,6 +60,8 @@ const RULES: Rule[] = [
   // него на сегодня, чтобы показать полевое меню вместо покупательского.
   { prefix: '/api/admin/staff/me', access: 'STAFF', methods: ['GET'] },
   { prefix: '/api/admin/visit-plans/accept', access: 'STAFF', methods: ['POST'] },
+  // Вечерний итог дня зовёт сторож офиса общим секретом.
+  { prefix: '/api/admin/visit-plans/summarize', access: 'STAFF', methods: ['POST'] },
   { prefix: '/api/admin/visit-plans', access: 'STAFF', methods: ['GET', 'POST', 'DELETE'] },
   // Расписание заездов: «к этому — по субботам». Продавец ставит его тому,
   // к кому сам ездит, и читает, кого ставить в объезд на дату, — это его
@@ -86,6 +88,9 @@ const RULES: Rule[] = [
   // Доставка. Курьер видит СВОЙ рейс и закрывает точки; собирать рейсы,
   // менять их и удалять остаётся владельцу. Чей это рейс, решает сам роут
   // по имени из сессии — middleware владельца записи знать не может.
+  // Подтверждение рейса приходит от БОТА: у него нет сессии, только
+  // общий секрет. Правило длиннее общего, поэтому выигрывает.
+  { prefix: '/api/admin/deliveries/accept', access: 'STAFF', methods: ['POST'] },
   { prefix: '/api/admin/deliveries', access: 'STAFF', methods: ['GET', 'PATCH'] },
   { prefix: '/api/inventory/employees', access: 'ADMIN' },
   { prefix: '/api/inventory/debts', access: 'ADMIN' },

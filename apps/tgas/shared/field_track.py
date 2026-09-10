@@ -156,6 +156,51 @@ async def plan_accept(telegram_id: int, plan_id: Optional[int] = None) -> Dict[s
         return {"ok": False, "error": "связь с сервером потерялась"}
 
 
+async def summarize_day() -> int:
+    """Попросить витрину подвести итоги дня и положить сигналы владельцу.
+
+    Возвращает, сколько сигналов записано. Проход защищён от повтора на
+    стороне витрины: сигнал пишется раз на пару «день + человек».
+    """
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.post(_url("/admin/visit-plans/summarize"), json={}) as resp:
+                if resp.status != 200:
+                    logger.warning("FIELD_TRACK: итоги дня не подведены (%s)", resp.status)
+                    return 0
+                body = await resp.json(content_type=None)
+                return int(body.get("written") or 0) if isinstance(body, dict) else 0
+    except Exception as exc:
+        logger.warning("FIELD_TRACK: итоги дня не подведены (%s)", exc)
+        return 0
+
+
+async def route_accept(telegram_id: int, route_id: Optional[str] = None) -> Dict[str, Any]:
+    """Подтвердить «Приступить» по рейсу доставки.
+
+    Устроено как подтверждение объезда: номер из кнопки, если он есть, иначе
+    витрина найдёт сегодняшний рейс сама — и в обоих случаях проверит, что
+    рейс действительно этого водителя.
+    """
+    payload: Dict[str, Any] = {"telegramId": str(telegram_id)}
+    if route_id:
+        payload["routeId"] = route_id
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.post(_url("/admin/deliveries/accept"), json=payload) as resp:
+                body = await resp.json(content_type=None)
+                if resp.status == 200:
+                    return {"ok": True, **(body if isinstance(body, dict) else {})}
+                message = str(body.get("error") or "") if isinstance(body, dict) else ""
+                return {"ok": False, "error": message or f"HTTP {resp.status}"}
+    except Exception as exc:
+        logger.warning("FIELD_TRACK: подтверждение рейса не прошло (%s)", exc)
+        return {"ok": False, "error": "связь с сервером потерялась"}
+
+
 async def stay_start(telegram_id: int) -> Dict[str, Any]:
     """Отметить «я на точке». Клиента выбирает витрина по треку.
 

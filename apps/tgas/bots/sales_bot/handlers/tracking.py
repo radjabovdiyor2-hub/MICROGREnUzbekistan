@@ -33,6 +33,7 @@ from shared.field_track import (
     make_ping,
     my_day,
     plan_accept,
+    route_accept,
     send_pings,
     send_visit_photo,
     stay_finish,
@@ -362,3 +363,33 @@ async def day_button(cb: CallbackQuery) -> None:
     await cb.answer()
     if cb.message is not None and cb.from_user is not None:
         await _show_day(cb.message, cb.from_user.id)
+
+
+@router.callback_query(F.data.startswith("route:accept:"))
+async def route_accept_pressed(cb: CallbackQuery) -> None:
+    """«Приступить» под рейсом доставки.
+
+    Тот же рубеж, что у объезда: жмёт сотрудник, а не владелец, и кто он —
+    решает витрина по `telegramId`. Она же проверяет, что рейс его: кнопку
+    можно переслать.
+    """
+    if cb.from_user is None:
+        await cb.answer()
+        return
+
+    raw = (cb.data or "").split(":")[-1]
+    route_id = raw if raw and raw != "today" else None
+
+    result = await route_accept(cb.from_user.id, route_id)
+    if not result.get("ok"):
+        await cb.answer(str(result.get("error") or "Не получилось"), show_alert=True)
+        return
+
+    if result.get("already"):
+        await cb.answer("Уже подтверждено")
+        return
+
+    stops = int(result.get("stops") or 0)
+    await cb.answer("Принято")
+    if cb.message is not None:
+        await cb.message.answer(f"🚚 Рейс принят. Адресов: {stops}.")

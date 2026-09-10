@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
+import { notifyCustomer } from '@/lib/notify';
+import { actionButton, buttonRows } from '@/lib/telegram/adminLinks';
+import { assignedPlanText } from '@/lib/customers/planMessage';
 import { getSession, isAuthorized, isStaff } from '@/lib/adminAuth';
 import { LIST_LIMIT } from '@/lib/api/listLimit';
 
@@ -128,6 +131,9 @@ export async function POST(request: Request) {
       }
     });
 
+    // Водитель узнаёт о рейсе САМ — до этого не узнавал никак.
+    void announceRoute(route.id);
+
     return NextResponse.json(route, { status: 201 });
   } catch (error: unknown) {
     console.error('Error creating route:', error);
@@ -148,13 +154,29 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Missing route ID' }, { status: 400 });
     }
 
+    // Кому рейс принадлежал ДО правки: смена водителя — это новое
+    // назначение для нового человека, и он о нём ещё не знает.
+    const before = await prisma.deliveryRoute.findUnique({
+      where: { id },
+      select: { driverId: true },
+    });
+    const handedOver = Boolean(driverId) && before?.driverId !== driverId;
+
     const route = await prisma.deliveryRoute.update({
       where: { id },
       data: {
         driverId,
         status,
+        // Снимаем отметку об отправке и подтверждение: сообщение уходило
+        // прежнему водителю, а подтверждал его тоже он. Оставить их значит
+        // показать владельцу «принял» про человека, который рейса не
+        // видел. Прежнему сообщать нечего: у него рейс забрали, а не
+        // поручили.
+        ...(handedOver ? { announcedAt: null, acceptedAt: null } : {}),
       }
     });
+
+    if (handedOver) void announceRoute(route.id);
 
     return NextResponse.json(route);
   } catch (error: unknown) {
@@ -244,5 +266,67 @@ export async function DELETE(request: Request) {
   } catch (error: unknown) {
     console.error('Error deleting route:', error);
     return NextResponse.json({ error: 'Failed to delete' }, { status: 500 });
+  }
+}
+
+/**
+ * Сказать водителю о рейсе — один раз.
+ *
+ * ЧЕГО НЕ БЫЛО ВООБЩЕ. Водитель не узнавал о рейсе НИКАК: ни сообщения, ни
+ * сигнала. Он должен был сам догадаться открыть админку и нажать «Мой
+ * рейс» — при том, что в поле человек живёт в Telegram. Экран доставки
+ * чинил отметку доставленного, а не то, откуда водитель узнаёт адреса;
+ * до него их передавали голосом или скриншотом.
+ *
+ * ШЛЁМ ТОКЕНОМ БОТА ПРОДАЖ — там же, где вся полевая работа и куда
+ * вернётся нажатие кнопки: Telegram отдаёт callback тому боту, чьим
+ * токеном отправлено сообщение.
+ *
+ * ПОВТОРНО НЕ ШЛЁМ. Рейс правят по нескольку раз — добавили точку,
+ * поменяли порядок; без отметки `announcedAt` человек получал бы то же
+ * сообщение снова и снова.
+ */
+async function announceRoute(routeId: string): Promise<void> {
+  try {
+    const route = await prisma.deliveryRoute.findUnique({
+      where: { id: routeId },
+      select: {
+        announcedAt: true,
+        date: true,
+        driver: { select: { telegramId: true, isActive: true } },
+        stops: {
+          orderBy: { orderIndex: 'asc' },
+          select: { address: true, phone: true },
+        },
+      },
+    });
+    if (!route || route.announcedAt !== null) return;
+    if (!route.driver?.isActive || !route.driver.telegramId) return;
+    if (route.stops.length === 0) return;
+
+    const text = assignedPlanText({
+      dateLabel: route.date.toLocaleDateString('ru-RU'),
+      // У рейса адрес вместо названия: заведение может быть не заведено в
+      // CRM вовсе — доставку возят и разовым покупателям.
+      stops: route.stops.map((s) => ({ name: s.address, done: false })),
+    }).replace('🗺 <b>Объезд', '🚚 <b>Рейс');
+
+    const sent = await notifyCustomer(
+      route.driver.telegramId,
+      text,
+      buttonRows([actionButton('✅ Приступить', `route:accept:${routeId}`)]),
+      process.env.SALES_BOT_TOKEN,
+    );
+
+    // Отмечаем только отправленное: иначе неудача Telegram навсегда
+    // закрыла бы водителю возможность узнать о рейсе.
+    if (sent) {
+      await prisma.deliveryRoute.update({
+        where: { id: routeId },
+        data: { announcedAt: new Date() },
+      });
+    }
+  } catch (err) {
+    console.error('[deliveries] не сказали водителю о рейсе:', err);
   }
 }

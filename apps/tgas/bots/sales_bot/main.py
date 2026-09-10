@@ -1238,11 +1238,29 @@ async def track_watchdog():
         await bot.session.close()
 
 
+async def day_summary():
+    """Вечером подвести итоги объездов и положить сигналы владельцу.
+
+    ВНУТРИ ДНЯ ИТОГ НЕ ПОДВОДИТСЯ: половина точек в четыре часа — обычный
+    рабочий день, а не срыв. Считаем в девятнадцать, когда объезды уже
+    закончились, но вечер ещё не поздний: сигнал, пришедший ночью, читают
+    утром, а разговаривать по нему надо сегодня.
+
+    Повтор безопасен: витрина пишет сигнал раз на пару «день + человек».
+    """
+    from shared.field_track import summarize_day
+
+    written = await summarize_day()
+    if written:
+        logger.info("DAY_SUMMARY: сигналов владельцу — %s", written)
+
+
 # Раз в полчаса: чаще незачем — порог молчания пятнадцать минут, и человек
 # всё равно не включит трансляцию быстрее, чем дойдёт до телефона.
 scheduler.add_interval(
     name="track_watchdog", func=track_watchdog, seconds=1800, initial_delay=120
 )
+scheduler.add_cron(name="day_summary", func=day_summary, hour=19, minute=0)
 
 
 async def main():
