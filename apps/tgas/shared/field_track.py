@@ -334,3 +334,70 @@ async def pull_farm_frame() -> str:
     except Exception as exc:
         logger.warning("FARM: кадр не снят (%s)", exc)
         return "failed"
+
+
+async def shift_state(telegram_id: int) -> Optional[Dict[str, Any]]:
+    """Открыта ли смена у этого человека.
+
+    `None` — витрина не ответила. НЕ «закрыта»: подменять неизвестность
+    отрицанием значит показать человеку кнопку «начал», когда смена уже
+    идёт, и завести путаницу там, где её не было.
+    """
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.get(
+                _url("/shift"), params={"telegramId": str(telegram_id)}
+            ) as resp:
+                if resp.status != 200:
+                    logger.warning("SHIFT: состояние не получено (%s)", resp.status)
+                    return None
+                body = await resp.json(content_type=None)
+                return body if isinstance(body, dict) else None
+    except Exception as exc:
+        logger.warning("SHIFT: состояние не получено (%s)", exc)
+        return None
+
+
+async def shift_change(telegram_id: int, action: str) -> Optional[Dict[str, Any]]:
+    """Открыть или закрыть смену. `action` — "open" или "close".
+
+    `via="bot"` уходит на витрину намеренно: смену открывают из трёх мест,
+    и когда две из них поспорят о времени, разбирать будет нечем.
+    """
+    payload = {"action": action, "via": "bot", "telegramId": str(telegram_id)}
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.post(_url("/shift"), json=payload) as resp:
+                if resp.status != 200:
+                    logger.warning("SHIFT: %s не выполнено (%s)", action, resp.status)
+                    return None
+                body = await resp.json(content_type=None)
+                return body if isinstance(body, dict) else None
+    except Exception as exc:
+        logger.warning("SHIFT: %s не выполнено (%s)", action, exc)
+        return None
+
+
+async def close_forgotten_shifts() -> int:
+    """Закрыть смены, которые человек забыл закрыть.
+
+    Возвращает, сколько смен закрыто. Витрина ставит конец по последней
+    точке трека и помечает такое закрытие как автоматическое: время,
+    поставленное автоматом, — повод спросить, а не установленный факт.
+
+    Повтор безопасен: закрытая смена под условие уже не подходит.
+    """
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.post(_url("/admin/shifts/close-forgotten"), json={}) as resp:
+                if resp.status != 200:
+                    logger.warning("SHIFT: забытые смены не закрыты (%s)", resp.status)
+                    return 0
+                body = await resp.json(content_type=None)
+                return int(body.get("closed") or 0) if isinstance(body, dict) else 0
+    except Exception as exc:
+        logger.warning("SHIFT: забытые смены не закрыты (%s)", exc)
+        return 0

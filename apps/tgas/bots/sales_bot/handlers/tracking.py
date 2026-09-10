@@ -30,6 +30,8 @@ from aiogram.types import (
 )
 
 from shared.field_track import (
+    shift_change,
+    shift_state,
     make_ping,
     my_day,
     plan_accept,
@@ -304,9 +306,30 @@ async def plan_accept_pressed(cb: CallbackQuery) -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _day_keyboard(nav_url: str | None, accepted: bool) -> InlineKeyboardMarkup:
-    """Кнопки под днём: вести по маршруту и, если не принят, — принять."""
+def _day_keyboard(
+    nav_url: str | None, accepted: bool, shift_open: bool | None = None
+) -> InlineKeyboardMarkup:
+    """Кнопки под днём: смена, маршрут и отметка на точке.
+
+    `shift_open` — `None` означает «витрина не ответила». Тогда кнопки
+    смены НЕТ ВОВСЕ: показать «начал» человеку, у которого смена уже
+    идёт, значит завести путаницу там, где её не было.
+    """
     rows: list[list[InlineKeyboardButton]] = []
+
+    # СМЕНА ПЕРВОЙ КНОПКОЙ: с неё начинается день, и она же включает
+    # запись маршрута. Отдельной кнопки «записывать» больше нет — человек
+    # мог открыть смену и забыть её нажать, и тогда день считался
+    # отработанным, а маршрута не было.
+    if shift_open is True:
+        rows.append(
+            [InlineKeyboardButton(text="🏁 Закончил смену", callback_data="shift:close")]
+        )
+    elif shift_open is False:
+        rows.append(
+            [InlineKeyboardButton(text="▶️ Начал смену", callback_data="shift:open")]
+        )
+
     if nav_url:
         rows.append([InlineKeyboardButton(text="🧭 Вести", url=nav_url)])
     if not accepted:
@@ -339,14 +362,25 @@ async def _show_day(message: Message, user_id: int) -> None:
         await message.answer(f"⚠️ Не смог показать день: {day['error']}")
         return
 
+    # Смена спрашивается ВСЕГДА, даже когда объезда нет: работать можно и
+    # без назначенного маршрута, и отметить рабочий день человек должен
+    # уметь в любом случае.
+    state = await shift_state(user_id)
+    shift_open = None if state is None else bool(state.get("open"))
+
     text = str(day.get("text") or "На сегодня объезд не назначен.")
-    if not day.get("has"):
-        await message.answer(text)
-        return
+    if shift_open is True:
+        text += "\n\n🟢 Смена идёт."
+    elif shift_open is False:
+        text += "\n\n⚪ Смена не начата."
 
     await message.answer(
         text,
-        reply_markup=_day_keyboard(day.get("navUrl"), bool(day.get("accepted"))),
+        reply_markup=_day_keyboard(
+            day.get("navUrl") if day.get("has") else None,
+            bool(day.get("accepted")),
+            shift_open,
+        ),
     )
 
 
@@ -393,3 +427,52 @@ async def route_accept_pressed(cb: CallbackQuery) -> None:
     await cb.answer("Принято")
     if cb.message is not None:
         await cb.message.answer(f"🚚 Рейс принят. Адресов: {stops}.")
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Смена: «начал» и «закончил».
+#
+# ОДНА КНОПКА ЗАПУСКАЕТ ВСЁ. Смена включает запись маршрута на витрине —
+# отдельного «записывать день» больше нет. Раньше человек мог открыть
+# смену и забыть включить трек: день считался отработанным, а маршрута не
+# было.
+#
+# ТРАНСЛЯЦИЮ ВСЁ РАВНО НАПОМИНАЕМ. Браузер и Telegram включают геопозицию
+# по-разному, и притворяться, что это одна кнопка, нельзя: нажатие здесь
+# открывает смену, но точки шлёт трансляция, которую включает сам человек.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@router.callback_query(F.data.in_({"shift:open", "shift:close"}))
+async def shift_button(callback: CallbackQuery) -> None:
+    """Открыть или закрыть смену нажатием в боте."""
+    user_id = callback.from_user.id if callback.from_user else 0
+    who = await whoami(user_id)
+    if not who.get("staff"):
+        # Проверяем сотрудника, а НЕ владельца: смену открывает тот, кто
+        # работает. Все прочие обработчики офиса гонят не-владельца, и
+        # скопировать их сюда значило бы запереть человека от его смены.
+        await callback.answer("Кнопка не для вас", show_alert=True)
+        return
+
+    action = "open" if callback.data == "shift:open" else "close"
+    result = await shift_change(user_id, action)
+    if result is None:
+        await callback.answer("Не получилось — попробуйте ещё раз", show_alert=True)
+        return
+
+    if action == "open":
+        await callback.answer("Смена открыта")
+        if callback.message:
+            await callback.message.answer(
+                "▶️ <b>Смена открыта.</b>\n\n"
+                "Маршрут пишется. Чтобы точки доходили, включите трансляцию "
+                "геопозиции: скрепка → Геопозиция → «Транслировать» → 8 часов."
+            )
+        return
+
+    await callback.answer("Смена закрыта")
+    if callback.message:
+        await callback.message.answer(
+            "🏁 <b>Смена закрыта.</b>\n\nЗапись маршрута остановлена."
+        )
