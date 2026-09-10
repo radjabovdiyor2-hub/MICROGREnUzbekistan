@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Phone, Truck, X } from 'lucide-react';
 import { useState } from 'react';
 
+import { FieldTrackButton } from './map/FieldTrackButton';
 import { NavigateButton } from './map/NavigateButton';
 import { AdminNotice } from './AdminNotice';
 import { useFeedback } from './AdminFeedback';
@@ -91,6 +92,14 @@ export function AdminMyRoute({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
           {new Date(route.date).toLocaleDateString('ru-RU')} · осталось {left} из {route.stops.length}
         </span>
+      </div>
+
+      {/* Запись дня и здесь, а не только на карте клиентов: водитель в
+          неё не заходит вовсе — ему назначили рейс, он открыл рейс. Без
+          этой кнопки у него был бы трек только через Telegram, а без
+          Telegram — никакого. */}
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <FieldTrackButton lang={lang} />
       </div>
 
       <AdminNotice>{error}</AdminNotice>

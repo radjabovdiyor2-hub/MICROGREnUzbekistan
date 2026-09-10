@@ -6,6 +6,7 @@ import { AdminCustomerTable } from './AdminCustomerTable';
 import { AdminCustomerEdit } from './AdminCustomerEdit';
 import { AdminCustomerCard } from './AdminCustomerCard';
 import { AdminCustomersToolbar } from './AdminCustomersToolbar';
+import { FieldTrackButton } from './map/FieldTrackButton';
 import { AdminCustomerPurge } from './AdminCustomerPurge';
 import { AdminCustomerFunnel } from './AdminCustomerFunnel';
 import { AdminPager } from './AdminPager';
@@ -124,6 +125,16 @@ export function AdminCustomers({
 
   return (
     <div>
+      {/* Запись дня — только тому, кто ездит: владелец смотрит чужие дни,
+          а не пишет свой. НАД переключателем «список / карта», а не внутри
+          карты: экран открывается СПИСКОМ, и кнопка, спрятанная во втором
+          виде, есть только для того, кто уже знает, что она там. */}
+      {!isOwner && (
+        <div style={{ marginBottom: 'var(--space-3)' }}>
+          <FieldTrackButton lang={lang} />
+        </div>
+      )}
+
       <AdminCustomersToolbar
         lang={lang}
         loading={s.loading}

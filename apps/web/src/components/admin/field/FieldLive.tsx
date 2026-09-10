@@ -94,7 +94,7 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
       {!isLoading && people.length === 0 && (
         <p style={{ color: 'var(--text-muted)' }}>
           {t(
-            'Сегодня никто не включал трансляцию геопозиции.',
+            'Сегодня никто не включал запись дня — ни в Telegram, ни в браузере.',
             'Bugun hech kim geopozitsiya translyatsiyasini yoqmagan.',
           )}
         </p>
@@ -141,11 +141,12 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
                     }}
                   >
                     {/* «Точек нет» — это не поломка и не молчание связи:
-                        человек отметился в админке, но трансляцию в
-                        Telegram не включил. Говорим прямо, что делать, —
-                        иначе владелец решит, что сломался трек. */}
+                        человек отметился в админке, но день не пишет
+                        НИЧЕМ — ни трансляцией в Telegram, ни браузером.
+                        Способа два, и называть один из них значило бы
+                        послать человека чинить не то. */}
                     {person.silentMin === null
-                      ? t('трансляция не включена', 'translyatsiya yoqilmagan')
+                      ? t('запись дня не включена', 'kun yozuvi yoqilmagan')
                       : stale
                         ? t(`молчит ${person.silentMin} мин`, `${person.silentMin} daq jim`)
                         : t('на связи', 'aloqada')}
