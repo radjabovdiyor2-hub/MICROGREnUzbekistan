@@ -24,8 +24,18 @@ export function InstagramFeed() {
   const [addedId, setAddedId] = useState<string | null>(null);
   const cart = useCart();
 
-  // Каталог для «shoppable»: сопоставляем товар из подписи поста
+  // Каталог для «shoppable»: сопоставляем товар из подписи поста.
+  //
+  // ГРУЗИТСЯ ТОЛЬКО КОГДА ЕСТЬ ЧТО СОПОСТАВЛЯТЬ. Раньше сотня товаров
+  // уезжала с сервера при каждом открытии главной, безусловно и сразу —
+  // включая случай, когда постов нет вовсе (а без токена Instagram их
+  // нет). Блок при этом лежит ниже сгиба, то есть трафик тратился на
+  // экран, до которого человек может и не долистать.
+  //
+  // Зависимость от `posts.length`, а не от `posts`: массив пересоздаётся
+  // при каждом ответе, и эффект бегал бы по кругу.
   useEffect(() => {
+    if (posts.length === 0) return;
     let mounted = true;
     fetch('/api/products?limit=100')
       .then(r => r.json())
@@ -35,7 +45,7 @@ export function InstagramFeed() {
       })
       .catch(() => {});
     return () => { mounted = false; };
-  }, []);
+  }, [posts.length]);
 
   const findProduct = (caption?: string): ShopProduct | null => {
     if (!caption || products.length === 0) return null;

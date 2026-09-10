@@ -34,6 +34,7 @@ export const SETTING_CATEGORIES = [
   'magazine',
   'autonomy',
   'field',
+  'b2b',
 ] as const;
 
 export type SettingCategory = (typeof SETTING_CATEGORIES)[number];
@@ -48,5 +49,6 @@ export const CATEGORY_LABELS: Record<SettingCategory, { ru: string; uz: string }
   ai: { ru: 'ИИ и бюджет', uz: 'AI va byudjet' },
   magazine: { ru: 'Журнал', uz: 'Jurnal' },
   autonomy: { ru: 'Самостоятельность ботов', uz: 'Botlar mustaqilligi' },
+  b2b: { ru: 'Поставки заведениям', uz: 'Muassasalarga taʼminot' },
   field: { ru: 'Работа в поле', uz: 'Dala ishi' },
 };

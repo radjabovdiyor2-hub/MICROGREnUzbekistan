@@ -3,50 +3,30 @@
 import { useState, useEffect } from 'react';
 import { Download, Leaf, X } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { useInstallPrompt } from '@/lib/pwa/installPrompt';
 
+// Плавающее предложение установить приложение.
+//
+// Событие ловит общий модуль `lib/pwa/installPrompt`: с появлением второй
+// точки (строка в контактах) два собственных слушателя ловили бы одно и
+// то же событие, и `prompt()` у второго упал бы.
 export function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const { t } = useLang();
+  const { canInstall, install } = useInstallPrompt();
 
   useEffect(() => {
-    // Check if already installed or dismissed recently
-    const hasDismissed = localStorage.getItem('pwa_prompt_dismissed');
-    if (hasDismissed) {
-      const dismissedTime = parseInt(hasDismissed);
-      // If dismissed less than 3 days ago, don't show
-      if (Date.now() - dismissedTime < 3 * 24 * 60 * 60 * 1000) {
-        return;
-      }
-    }
-
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-      // Add a slight delay before showing the prompt for better UX
-      setTimeout(() => setShowPrompt(true), 3000);
-    };
-
-    window.addEventListener('beforeinstallprompt', handler);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handler);
-    };
-  }, []);
+    if (!canInstall) return;
+    // Отложили меньше трёх дней назад — не навязываемся.
+    const dismissed = localStorage.getItem('pwa_prompt_dismissed');
+    if (dismissed && Date.now() - Number(dismissed) < 3 * 24 * 60 * 60 * 1000) return;
+    // Пауза, чтобы предложение не выпрыгивало поверх первого экрана.
+    const timer = setTimeout(() => setShowPrompt(true), 3000);
+    return () => clearTimeout(timer);
+  }, [canInstall]);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
-    
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      console.log('User accepted the install prompt');
-    } else {
-      console.log('User dismissed the install prompt');
-    }
-    
-    setDeferredPrompt(null);
+    await install();
     setShowPrompt(false);
   };
 

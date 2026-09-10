@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Building2, Check, Loader2 } from 'lucide-react';
 
 import { useLang } from '@/components/providers/LangProvider';
+import { trackLead } from '@/lib/analytics';
 
 // ══════════════════════════════════════════════════════════════════════
 // Заявка ресторана на поставку.
@@ -63,6 +64,10 @@ export function LeadForm() {
         return;
       }
       if (!res.ok) throw new Error('failed');
+      // Считаем ПОСЛЕ ответа сервера, а не по нажатию кнопки: событие на
+      // клик записало бы и те заявки, что не дошли, и показывало бы рост
+      // там, где на самом деле обрыв связи.
+      trackLead('b2b-form');
       setDone(true);
     } catch {
       setError(t("Yuborilmadi. Telefon orqali bog'laning", 'Не отправилось. Позвоните нам, пожалуйста'));

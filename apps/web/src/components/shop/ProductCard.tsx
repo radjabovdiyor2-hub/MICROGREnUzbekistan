@@ -13,10 +13,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const spring = { type: 'spring' as const, damping: 20, stiffness: 300 };
 
+import { trackSelectItem } from '@/lib/analytics';
 import { type Product } from './productTypes';
 export type { Product };
 
-export function ProductCard({ product }: { product: Product }) {
+/**
+ * Карточка товара.
+ *
+ * `list` — откуда карточка показана: главная, каталог, избранное. Уходит
+ * в счётчики вместе с переходом, иначе все переходы сольются в одно число
+ * и сравнить блоки будет нечем. Значение по умолчанию честное: «не
+ * сказали откуда», а не подставленный наугад раздел.
+ */
+export function ProductCard({ product, list = 'unknown' }: { product: Product; list?: string }) {
   const discount = product.oldPrice ? getDiscountPercent(product.price, product.oldPrice) : 0;
   const categorySlug = product.category?.slug || '';
   const cart = useCart();
@@ -67,8 +76,15 @@ export function ProductCard({ product }: { product: Product }) {
     });
   };
 
+  // Первый шаг воронки. До этого она начиналась с «положил в корзину»,
+  // то есть «человек заинтересовался товаром» не считалось нигде.
+  const handleSelect = () => {
+    trackSelectItem({ id: product.id, name: productName, price: product.price }, list);
+  };
+
   return (
     <Link href={`/product/${product.id}`} className="product-card card" id={`product-${product.id}`}
+      onClick={handleSelect}
       style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', height: '100%' }}>
 
       {/* Discount Badge */}

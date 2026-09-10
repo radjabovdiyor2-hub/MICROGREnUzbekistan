@@ -57,7 +57,7 @@ export function ProductCrossSell({
       <div className="product-grid">
         {relatedLoading
           ? [1, 2, 3, 4].map((i) => <SkeletonProductCard key={i} />)
-          : related.map((p) => <ProductCard key={p.id} product={p} />)}
+          : related.map((p) => <ProductCard list="product-cross-sell" key={p.id} product={p} />)}
       </div>
     </div>
   );

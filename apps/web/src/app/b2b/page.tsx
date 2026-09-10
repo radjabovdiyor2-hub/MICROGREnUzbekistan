@@ -3,6 +3,11 @@ import { Clock, Leaf, Snowflake, Truck } from 'lucide-react';
 
 import { jsonLdScript, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
+import { loadB2bFacts } from '@/lib/b2b/facts';
+
+import { B2bCrops, loadCrops } from './B2bCrops';
+import { B2bFacts } from './B2bFacts';
+import { B2bTerms } from './B2bTerms';
 import { LeadForm } from './LeadForm';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -13,9 +18,15 @@ import { LeadForm } from './LeadForm';
 // Ресторан, который пришёл на сайт, оставить заявку не мог: `POST /api/leads`
 // существовал и не вызывался ниоткуда, формы не было ни одной.
 //
-// Обещаний по срокам и объёмам здесь намеренно нет: их называет менеджер,
-// глядя на загрузку теплицы. Страница отвечает на один вопрос — «с вами можно
-// работать регулярно?» — и даёт способ об этом сказать.
+// ЧТО ОБЕЩАЕМ, А ЧТО ОСТАВЛЯЕМ МЕНЕДЖЕРУ. Здесь стояло, что чисел не будет
+// вовсе: их называет менеджер, глядя на загрузку теплицы. Для ОБЪЁМА И
+// ЦЕНЫ это по-прежнему так и остаётся правилом.
+//
+// Но закупщик задаёт шесть вопросов, и пять из них от загрузки теплицы не
+// зависят: ассортимент, фасовка, срок, хранение, стоимость доставки,
+// прайс. Раньше ответа не было ни на один — человек писал в форму и ждал.
+// Часть не дожидалась. Теперь ответы стоят до формы, а объём и цена
+// по-прежнему за менеджером.
 // ══════════════════════════════════════════════════════════════════════
 
 export const revalidate = 3600;
@@ -74,7 +85,29 @@ const POINTS = [
   },
 ];
 
-export default function B2BPage() {
+/**
+ * Отказ базы не должен ронять страницу для закупщиков.
+ *
+ * Ассортимент и факты — дополнение: без них остаются условия работы,
+ * ссылка на прайс и форма заявки, то есть страница делает своё дело.
+ * Пятисотая вместо неё стоила бы заявки, а не двух блоков.
+ */
+async function orEmpty<T>(load: () => Promise<T>, fallback: T, what: string): Promise<T> {
+  try {
+    return await load();
+  } catch (error: unknown) {
+    console.error(`[b2b] не удалось загрузить ${what}:`, error);
+    return fallback;
+  }
+}
+
+export default async function B2BPage() {
+  // Параллельно: ассортимент и факты друг от друга не зависят.
+  const [crops, facts] = await Promise.all([
+    orEmpty(loadCrops, [], 'ассортимент'),
+    orEmpty(loadB2bFacts, { venues: 0, since: null, weeklyDeliveries: 0 }, 'факты'),
+  ]);
+
   const breadcrumb = breadcrumbList([
     { name: 'Bosh sahifa', url: '/' },
     { name: 'Restoranlarga yetkazib berish', url: '/b2b' },
@@ -114,7 +147,16 @@ export default function B2BPage() {
           ))}
         </div>
 
-        <div style={{ maxWidth: 560, margin: '0 auto' }}>
+        {/* Порядок намеренный: сначала ЧТО есть, потом НА КАКИХ условиях,
+            потом чем это подтверждается, и только затем форма. Заявка,
+            стоящая раньше ответов, собирает вопросы вместо заказов. */}
+        <B2bCrops groups={crops} />
+
+        <B2bTerms />
+
+        <B2bFacts facts={facts} />
+
+        <div style={{ maxWidth: 560, margin: 'var(--space-8) auto 0' }}>
           <LeadForm />
         </div>
       </section>

@@ -1,9 +1,8 @@
 'use client';
 
-import { ArrowRight, Phone, Package, Droplet, Sparkles } from 'lucide-react';
+import { ArrowRight, ChefHat, Package, Droplet, Sparkles } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { MicrogreensCanvas } from '@/components/ui/MicrogreensCanvas';
-import { CONTACT } from '@/lib/site';
 import Link from 'next/link';
 import { motion, useReducedMotion } from 'framer-motion';
 
@@ -86,9 +85,13 @@ export function HeroSection() {
           <Link href="/catalog" className="btn btn-primary btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '14px 28px' }}>
             {t('hero.catalog_btn')} <ArrowRight size={18} />
           </Link>
-          <a href={CONTACT.phonePrimaryHref} className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--brand-primary)' }}>
-            <Phone size={18} /> {t('hero.contact_btn')}
-          </a>
+          {/* Вторая кнопка ведёт РЕСТОРАНАМ, а не на телефон.
+              Телефон есть в шапке, в подвале и в блоке контактов — три
+              раза. А на `/b2b` не вело ничего, кроме строки в подвале,
+              хотя поставки заведениям — половина дела. */}
+          <Link href="/b2b" className="btn btn-ghost btn-lg" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: 'var(--brand-primary)' }}>
+            <ChefHat size={18} /> {t('hero.contact_btn')}
+          </Link>
         </motion.div>
 
         {/* Trust indicators */}

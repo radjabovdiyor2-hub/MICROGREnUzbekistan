@@ -122,8 +122,14 @@ export default async function RootLayout({
         {/* Performance: Preconnect to critical origins */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Performance: Preload hero image for fast LCP */}
-        <link rel="preload" as="image" href="/hero-microgreens.webp" type="image/webp" fetchPriority="high" />
+        {/* ПРЕДЗАГРУЗКИ ГЕРОЯ ЗДЕСЬ НЕТ, И ЭТО НАМЕРЕННО.
+            Стояла строка `preload as=image /hero-microgreens.webp` с
+            высоким приоритетом. Файл при этом не выводится НИ НА ОДНОЙ
+            странице: в герое рисуется canvas, а .png нужен только
+            метаданным для соцсетей — его тянет их робот, а не браузер.
+            То есть на каждой странице сайта в первую очередь качалась
+            картинка, которую никто не показывает, отбирая канал у
+            шрифтов и первого экрана. */}
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
         <JsonLd />

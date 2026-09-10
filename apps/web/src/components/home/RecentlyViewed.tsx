@@ -34,7 +34,7 @@ export function RecentlyViewed() {
         </div>
         <div className="product-grid">
           {items.map((p) => (
-            <ProductCard key={p.id} product={p} />
+            <ProductCard list="home-recent" key={p.id} product={p} />
           ))}
         </div>
       </div>

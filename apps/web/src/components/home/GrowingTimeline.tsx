@@ -3,6 +3,7 @@
 import { useLang } from '@/components/providers/LangProvider';
 import { Clock } from 'lucide-react';
 import { GROW_STAGES, StageIcon } from './instagramFeedData';
+import { GROW_TO_ORDER_DAYS } from '@/lib/site';
 import { tint } from '@/lib/tint';
 
 // Полоса стадий выращивания. Вынесено из InstagramFeed: файл перерос
@@ -26,7 +27,19 @@ export function GrowingTimeline({ activeStage, setActiveStage }: {
         fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600,
       }}>
         <Clock size={14} />
-        {t('7 kunlik o\'sish sikli', '7-дневный цикл выращивания')}
+        {/* ЦИКЛ ВЫРАЩИВАНИЯ, А НЕ СРОК ОЖИДАНИЯ.
+            Без уточнения читатель складывал одно с другим и получал
+            «заказ приедет через неделю» — при том, что рядом на странице
+            обещаны 30–90 минут. Зелень стоит на грядке готовая; неделя —
+            это сколько она растёт до среза, а не сколько ждать заказ.
+
+            Число берётся из `GROW_TO_ORDER_DAYS`, а не пишется цифрой:
+            своя копия уже разошлась бы с константой, которую покупатель
+            видит на карточке товара. */}
+        {t(
+          `${GROW_TO_ORDER_DAYS} kunda o'sadi — buyurtma kuni kesiladi`,
+          `Растёт ${GROW_TO_ORDER_DAYS} дней — срезаем в день заказа`,
+        )}
       </div>
 
       {/* Timeline Steps */}

@@ -123,7 +123,7 @@ export function CatalogContent({ initialCategory = '' }: { initialCategory?: str
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ type: 'spring', damping: 25, stiffness: 120, delay: Math.min(idx * 0.05, 0.3) }}
               >
-                <ProductCard product={product} />
+                <ProductCard list="catalog" product={product} />
               </motion.div>
             ))}
           </div>

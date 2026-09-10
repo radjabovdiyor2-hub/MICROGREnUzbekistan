@@ -86,7 +86,7 @@ export default function FavoritesPage() {
                 }}
                 transition={spring}
               >
-                <ProductCard
+                <ProductCard list="favorites"
                   product={{
                     ...fav,
                     nameRu: fav.nameRu || fav.nameUz,

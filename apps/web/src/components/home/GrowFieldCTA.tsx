@@ -21,7 +21,17 @@ export function GrowFieldCTA() {
           fontFamily: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.02em',
           fontSize: 'clamp(1.6rem, 4vw, 2.4rem)', marginBottom: 'var(--space-3)', textWrap: 'balance',
         }}>
-          {t("Bugun ekilgan — ertaga stolingizda", 'Свежесть с грядки — уже сегодня на вашем столе')}
+          {/* СРЕЗКА, А НЕ ПОСЕВ.
+              Здесь стояло «Bugun ekilgan — ertaga stolingizda» — «посеяли
+              сегодня, завтра на столе». Неверно трижды. Во-первых, продаём
+              мы срезку: зелень стоит готовая, а от посева до среза неделя,
+              и обещать её назавтра нельзя. Во-вторых, русская пара
+              обещала «уже сегодня» — две версии одного заголовка говорили
+              РАЗНОЕ. В-третьих, обе спорили с подписью под собой: «срезаем
+              в день заказа, 30–90 минут».
+              Теперь обе версии говорят одно и то же и совпадают с
+              подписью. `kesilgan` — срезано, `ekilgan` — посеяно. */}
+          {t('Bugun kesilgan — bugun dasturxaningizda', 'Срезано сегодня — сегодня на вашем столе')}
         </h2>
         <p style={{ color: 'var(--text-secondary)', maxWidth: '46ch', margin: '0 auto var(--space-6)', lineHeight: 1.6 }}>
           {t(

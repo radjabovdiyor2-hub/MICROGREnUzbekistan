@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-import { listPublishedIssues, listArticles, countArticlesByRubric } from '@/lib/magazine/content';
+import { listPublishedIssues, listArticles, countArticlesByRubric, type ArticleCard, type IssueCard } from '@/lib/magazine/content';
 import { listRecipes, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { MagazineIssueSpotlight } from './MagazineIssueSpotlight';
@@ -17,8 +17,15 @@ import { MagazineSubscribeCTA } from './MagazineSubscribeCTA';
 // номер, свёрстанный руками и опубликованный в public/magazine, сюда не
 // попадал вовсе: его нужно было отдельно привязать к карточке ресторана.
 //
-// ЧТО ЗДЕСЬ. Журнал как раздел о еде, здоровье, ресторанах и хозяйстве:
-// рубрики впереди номера, потому что читать между номерами тоже есть что.
+// ЧТО ЗДЕСЬ. Журнал как раздел о еде, здоровье, ресторанах и хозяйстве.
+//
+// ПОРЯДОК: ГОТОВОЕ ВПЕРЕДИ ОБЕЩАННОГО. Раньше сетка рубрик стояла выше
+// номера — «читать между номерами тоже есть что». Довод верный ровно до
+// тех пор, пока рубрики наполнены. При пустых таблицах статей все шесть
+// карточек пишут «скоро», и посетитель встречал шесть обещаний прежде,
+// чем единственный настоящий номер, который можно открыть и скачать.
+// Теперь первым идёт то, что готово.
+//
 // Рецепты — такая же рубрика, только её содержимое живёт своей моделью:
 // у рецепта шаги, таймеры и сбор набора в корзину, и печатные QR ведут на
 // /recipe/<slug>, поэтому переносить их сюда нельзя.
@@ -26,10 +33,16 @@ import { MagazineSubscribeCTA } from './MagazineSubscribeCTA';
 export const dynamic = 'force-dynamic';
 
 export default async function MagazinePage() {
+  // Отказ базы не должен ронять страницу целиком.
+  //
+  // У рецептов защита уже стояла, у остальных трёх выборок — нет, и
+  // недоступный Postgres превращал журнал в пятисотую. Заголовок,
+  // подписка и объяснение, что это за раздел, от базы не зависят вовсе:
+  // пустой журнал полезнее сломанного.
   const [issues, articles, counts, recipes] = await Promise.all([
-    listPublishedIssues(),
-    listArticles(undefined, 6),
-    countArticlesByRubric(),
+    listPublishedIssues().catch((): IssueCard[] => []),
+    listArticles(undefined, 6).catch((): ArticleCard[] => []),
+    countArticlesByRubric().catch((): Record<string, number> => ({})),
     listRecipes().catch((): RecipeCardView[] => []),
   ]);
 
@@ -60,9 +73,21 @@ export default async function MagazinePage() {
 
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 0' }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 20 }}>
-          Темы журнала
+          Печатный номер
         </h2>
-        <MagazineRubricGrid counts={counts} recipeCount={recipes.length} />
+        {latest ? (
+          <MagazineIssueSpotlight issue={latest} />
+        ) : (
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 24, padding: '48px 32px', textAlign: 'center' }}>
+            <div style={{ fontSize: 44, marginBottom: 12 }}>📖</div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
+              Номер готовится
+            </h3>
+            <p style={{ color: 'var(--text-secondary)' }}>
+              Как только номер выйдет из печати, он появится здесь — с чтением онлайн и PDF.
+            </p>
+          </div>
+        )}
       </section>
 
       {articles.length > 0 && (
@@ -94,21 +119,9 @@ export default async function MagazinePage() {
 
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 60px' }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 20 }}>
-          Печатный номер
+          Темы журнала
         </h2>
-        {latest ? (
-          <MagazineIssueSpotlight issue={latest} />
-        ) : (
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 24, padding: '48px 32px', textAlign: 'center' }}>
-            <div style={{ fontSize: 44, marginBottom: 12 }}>📖</div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
-              Номер готовится
-            </h3>
-            <p style={{ color: 'var(--text-secondary)' }}>
-              Как только номер выйдет из печати, он появится здесь — с чтением онлайн и PDF.
-            </p>
-          </div>
-        )}
+        <MagazineRubricGrid counts={counts} recipeCount={recipes.length} />
       </section>
 
       <MagazineIssueArchive issues={archive} />

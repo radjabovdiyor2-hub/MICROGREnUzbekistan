@@ -43,8 +43,12 @@ export function FeaturedProducts() {
       <div className="container">
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 'var(--space-6)', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
           <div>
+            {/* Заголовок из словаря, как и кнопка рядом. Раньше он был
+                вписан строкой, а ключ `featured.title` лежал в словаре
+                неиспользованным: два места для одного текста, и они уже
+                разошлись — «Хиты недели» против «Популярные товары». */}
             <h2 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Star fill="currentColor" strokeWidth={1} size={24} style={{ color: 'var(--brand-accent)' }} /> {t('Haftaning xitlari', 'Хиты недели')}
+              <Star fill="currentColor" strokeWidth={1} size={24} style={{ color: 'var(--brand-accent)' }} /> {t('featured.title')}
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginTop: '4px' }}>
               {t("Mijozlarimiz eng ko'p tanlaydigan mahsulotlar", 'То, что чаще всего выбирают наши клиенты')}
@@ -84,7 +88,7 @@ export function FeaturedProducts() {
                 }}
                 transition={spring}
               >
-                <ProductCard product={product} />
+                <ProductCard list="home-featured" product={product} />
               </motion.div>
             ))}
           </motion.div>

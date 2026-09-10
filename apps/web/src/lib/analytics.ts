@@ -29,6 +29,42 @@ export interface TrackItem {
   quantity: number;
 }
 
+/**
+ * Переход к товару — нажатие на карточку в любом списке.
+ *
+ * ЭТОГО СОБЫТИЯ НЕ БЫЛО ВОВСЕ. Воронка начиналась с `add_to_cart`, то
+ * есть первый шаг — «человек заинтересовался товаром» — не считался
+ * нигде. Из-за этого нельзя было ответить на вопрос, ради которого
+ * витрину и переделывают: приводит ли новый блок людей к товарам или
+ * просто занимает экран.
+ *
+ * `list` говорит, ОТКУДА пришли: главная, каталог, рецепт. Без него все
+ * переходы сольются в одно число, и сравнить блоки будет нечем.
+ */
+export function trackSelectItem(item: Omit<TrackItem, 'quantity'>, list: string) {
+  ga('select_item', {
+    item_list_name: list,
+    items: [{ item_id: item.id, item_name: item.name, price: item.price }],
+  });
+  ymGoal('select_item', { product: item.name, list });
+}
+
+/**
+ * Заявка от заведения — успешно отправленная форма на /b2b.
+ *
+ * Вторая метрика, которой не было. Заявки уходили в Telegram и в офис, но
+ * счётчики о них не знали: сравнить «сколько зашло на страницу» и
+ * «сколько написало» было невозможно.
+ *
+ * Зовётся ТОЛЬКО после ответа сервера. Событие на нажатие кнопки считало
+ * бы и те заявки, которые не дошли, — и показывало бы рост там, где на
+ * самом деле отказ сети.
+ */
+export function trackLead(source: string) {
+  ga('generate_lead', { currency: 'UZS', source });
+  ymGoal('generate_lead', { source });
+}
+
 export function trackAddToCart(item: TrackItem) {
   ga('add_to_cart', {
     currency: 'UZS',
