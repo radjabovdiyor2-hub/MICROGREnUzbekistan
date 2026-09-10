@@ -35,12 +35,24 @@ export function classify(status: number, message?: string): SendResult {
   return { kind: 'retry' };
 }
 
-/** Отдать пачку. Сеть не бросает наружу: обрыв — это `retry`. */
-export async function sendPings(pings: QueuedPing[]): Promise<SendResult> {
+/**
+ * Отдать пачку. Сеть не бросает наружу: обрыв — это `retry`.
+ *
+ * `deviceKey` — ключ приложения. Есть он только в APK, и нужен ровно
+ * потому, что родная служба будит приложение через сутки после того, как
+ * человек последний раз смотрел на экран: сессии к этому моменту нет, и
+ * пачка ушла бы в 401 — то есть в «отказ навсегда», хотя человек работает.
+ */
+export async function sendPings(
+  pings: QueuedPing[],
+  deviceKey?: string | null,
+): Promise<SendResult> {
   try {
     const res = await fetch('/api/admin/tracking/ping', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: deviceKey
+        ? { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceKey}` }
+        : { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pings }),
       // На слабой связи запрос не отказывает, а молчит минутами и держит
       // канал, по которому уходит фотоотчёт. Оборвать честнее.

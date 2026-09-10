@@ -8,12 +8,15 @@ Guidance для Claude Code при работе в этом репозитори
 
 | Модуль | Стек | Роль |
 |--------|------|------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 30 API-групп, 118 роутов |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY. 33 API-группы, 136 роутов |
 | `apps/bot` | Python, aiogram 3, OpenAI | Telegram-бот витрины: AI-продавец, ходит в `apps/web/api/*` по HTTP |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 11 ботов + n8n_bridge, порты 8081–8093. Своя [CLAUDE.md](apps/tgas/CLAUDE.md) |
-| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 92 моделей, единый источник DDL |
+| `packages/database` | Prisma, PostgreSQL | `schema.prisma` — 93 моделей, единый источник DDL |
+| `mobile` | Capacitor 8, Android | Оболочка APK: та же админка, но координаты даёт система, а не вкладка. **Не workspace** — свои зависимости и своя сборка в CI, чтобы `npm ci` витрины не тащил Capacitor |
 
-Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`).
+Turborepo монорепо, npm workspaces (`apps/*`, `packages/*`). `mobile/` стоит
+в стороне намеренно: это не JS-приложение монорепо, а обёртка с родной
+сборкой, и её зависимости не должны попадать в установку витрины.
 
 ## Жёсткие запреты
 

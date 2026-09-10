@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Microgreen</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font: 16px/1.5 system-ui, -apple-system, sans-serif;
+        background: #0f1511;
+        color: #e8f0ea;
+        padding: 24px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Эта страница почти никогда не видна: приложение открывает НАСТОЯЩУЮ
+      админку по адресу из capacitor.config.json. Файл существует потому,
+      что Capacitor требует локальную папку с веб-частью, и показывается
+      только в тот миг, пока WebView не начал загрузку.
+    -->
+    <p>Открываем админку…</p>
+  </body>
+</html>

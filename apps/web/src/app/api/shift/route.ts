@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getSession } from '@/lib/adminAuth';
 import { requireBotAuth } from '@/lib/botAuth';
+import { deviceHolder } from '@/lib/deviceAuth';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
 import { announceShiftClose, announceShiftOpen } from '@/lib/shift/announce';
@@ -20,8 +21,10 @@ import {
 // график смен. Отметить начало и конец СВОЕЙ смены человек не мог нигде:
 // ни в приложении, ни в боте.
 //
-// ДВЕ ДОРОГИ ВНУТРЬ, как у крошек трека:
+// ТРИ ДОРОГИ ВНУТРЬ, как у крошек трека:
 //   · сессия сотрудника — из приложения и из веба;
+//   · ключ устройства — из приложения на Android: фоновая служба должна
+//     знать, идёт ли смена, когда сессии давно нет;
 //   · ботовый секрет плюс `telegramId` в теле — из Telegram.
 // Кто это, берём из подписи, а не из тела: телу здесь верить нельзя ровно
 // по той же причине, по которой расстояние до клиента считает сервер.
@@ -42,7 +45,16 @@ async function actor(
 
   if (session && (session.role === 'ADMIN' || session.role === 'SELLER') && session.name) {
     ref = { name: session.name };
-  } else if (requireBotAuth(request)) {
+  } else {
+    // Ключ устройства называет человека прямо и уже проверен по отпечатку —
+    // ни имени, ни `telegramId` спрашивать не нужно.
+    const device = await deviceHolder(request);
+    if (device) {
+      return { id: device.employeeId, name: device.name, telegramId: device.telegramId };
+    }
+  }
+
+  if (!ref && requireBotAuth(request)) {
     // `telegramId` приходит строкой намеренно: JSON теряет точность на
     // больших id.
     //

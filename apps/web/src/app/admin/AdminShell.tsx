@@ -7,6 +7,8 @@ import { AdminCommandPalette } from './AdminCommandPalette';
 import { useState, useEffect, Suspense } from 'react';
 
 import '@/styles/admin-shell.css';
+import { AppUpdateBanner } from '@/components/admin/AppUpdateBanner';
+
 import { AdminTabRouter } from './AdminTabRouter';
 import { ALL_TABS, staffTabsFor } from './adminTabs';
 import { AdminAuthScreens } from './AdminAuthScreens';
@@ -152,6 +154,10 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
         setPaletteQuery={setPaletteQuery}
         t={t}
       />
+      {/* Полоса «вышла новая версия» — только внутри приложения; в
+          браузере компонент возвращает null и ничего не грузит. */}
+      <AppUpdateBanner lang={lang} />
+
       {/* Main Content */}
       <AdminTabRouter activeTab={activeTab} focus={focus} query={query} isOwner={isOwner} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
 

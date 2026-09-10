@@ -254,6 +254,19 @@ export const SETTINGS = {
     labelRu: 'Простой без движения, минуты', labelUz: "Harakatsiz turish, daqiqa",
     hintRu: 'Дольше этого на одном месте и не у клиента — в отчёте дня появится простой. Это вопрос, а не обвинение: обед, очередь и поломка выглядят так же. Радиус берётся тот же, что у стоянки',
   },
+  // Приложение на Android. Обе строки нужны только ему: сборка сама
+  // сверяет свою версию с этой и говорит человеку, что вышла новая.
+  // Пусто — приложением не пользуются, и никто ничего не спрашивает.
+  'field.appVersion': {
+    category: 'field', type: 'string', default: '',
+    labelRu: 'Свежая версия приложения', labelUz: 'Ilovaning yangi versiyasi',
+    hintRu: 'Например 1.4. Приложение сравнит со своей и предложит обновиться. Пусто — не предлагать',
+  },
+  'field.appUrl': {
+    category: 'field', type: 'string', default: '',
+    labelRu: 'Ссылка на приложение', labelUz: 'Ilova havolasi',
+    hintRu: 'Куда ведёт кнопка «Обновить». Файл APK из сборки: можно положить куда угодно — хоть переслать в Telegram',
+  },
   'field.trackKeepDays': {
     category: 'field', type: 'number', default: 90, min: 7, max: 365,
     labelRu: 'Хранить трек, дней', labelUz: 'Trekni saqlash, kun',

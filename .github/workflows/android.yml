@@ -1,0 +1,151 @@
+name: Android APK
+
+# ══════════════════════════════════════════════════════════════════════
+# Сборка приложения для полевых сотрудников.
+#
+# ЗАЧЕМ В CI, А НЕ НА МАШИНЕ. Android SDK и JDK нужны только здесь: на
+# рабочем компьютере их нет, а ставить пять гигабайт ради файла, который
+# собирается раз в месяц, незачем. Плюс сборка воспроизводима — тот же
+# коммит даёт тот же APK.
+#
+# РОДНОЙ ПРОЕКТ ГЕНЕРИРУЕТСЯ ЗДЕСЬ ЖЕ (`cap add android`), а не лежит в
+# репозитории: 120 файлов Gradle, которые никто не правит руками, однажды
+# разойдутся с конфигом, и разбираться в этом будет некому.
+#
+# ЗАПУСК РУКАМИ: вкладка Actions → Android APK → Run workflow.
+# ЛИБО тегом `apk-v1.2` — тогда файл приложится к релизу.
+# ══════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['apk-v*']
+
+jobs:
+  apk:
+    name: Собрать APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # нужно, чтобы приложить файл к релизу по тегу
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Android Gradle Plugin 8.x требует JDK 17+; берём 21 — он же стоит
+      # на образе ubuntu-latest и не тянет лишней загрузки.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Зависимости оболочки
+        working-directory: mobile
+        run: npm ci
+
+      - name: Родной проект Android
+        working-directory: mobile
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      # Версия нужна не для красоты: приложение сверяет её с настройкой
+      # `app.androidVersion` на витрине и говорит человеку, что вышла
+      # новая. Без штампа все сборки называются «1.0», и проверка врёт.
+      - name: Проставить версию
+        working-directory: mobile/android/app
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#apk-v}"
+          if [ "$VERSION_NAME" = "$GITHUB_REF_NAME" ]; then
+            VERSION_NAME="0.${GITHUB_RUN_NUMBER}"
+          fi
+          sed -i "s/versionCode 1/versionCode ${GITHUB_RUN_NUMBER}/" build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"${VERSION_NAME}\"/" build.gradle
+          echo "VERSION_NAME=${VERSION_NAME}" >> "$GITHUB_ENV"
+          grep -n "version" build.gradle | head -5
+
+      # ── ПОДПИСЬ ────────────────────────────────────────────────────
+      #
+      # Android не ставит обновление поверх приложения, подписанного ДРУГИМ
+      # ключом. У отладочной подписи ключ создаётся заново на каждом
+      # раннере — то есть каждая сборка была бы «чужой», и обновление
+      # требовало бы удалить приложение (вместе с ключом устройства).
+      #
+      # Поэтому ключ хранится в секретах репозитория. Как его завести —
+      # `mobile/README.md`. Пока секрета нет, собираем отладочную сборку и
+      # говорим об этом вслух: молчаливая отладочная подпись — это
+      # ловушка, которая срабатывает через месяц, при первом обновлении.
+      - name: Ключ подписи
+        id: keystore
+        env:
+          KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/mg.keystore"
+            echo "signed=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Ключа подписи нет — собираю отладочную сборку. Обновить её поверх прежней Android не даст: приложение придётся удалить и поставить заново. Как завести ключ — mobile/README.md"
+            echo "signed=no" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Собрать подписанный APK
+        if: steps.keystore.outputs.signed == 'yes'
+        working-directory: mobile/android
+        env:
+          MG_KEYSTORE: ${{ runner.temp }}/mg.keystore
+          MG_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MG_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MG_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cat >> app/build.gradle <<'GRADLE'
+
+          // Подпись релизной сборки ключом из секретов репозитория.
+          // Дописывается сборщиком: сам файл генерируется `cap add android`.
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("MG_KEYSTORE"))
+                      storePassword System.getenv("MG_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("MG_KEY_ALIAS")
+                      keyPassword System.getenv("MG_KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }
+              }
+          }
+          GRADLE
+          ./gradlew assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/microgreen-${VERSION_NAME}.apk"
+
+      - name: Собрать отладочный APK
+        if: steps.keystore.outputs.signed == 'no'
+        working-directory: mobile/android
+        run: |
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/microgreen-${VERSION_NAME}-debug.apk"
+
+      - name: Выложить файл
+        uses: actions/upload-artifact@v4
+        with:
+          name: microgreen-apk
+          path: ${{ runner.temp }}/*.apk
+          retention-days: 90
+
+      # По тегу — ещё и релизом: ссылка на релиз живёт дольше артефакта и
+      # её можно дать человеку, не объясняя, что такое Actions.
+      - name: Приложить к релизу
+        if: startsWith(github.ref, 'refs/tags/apk-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ runner.temp }}/*.apk
+          body: |
+            Приложение для полевых сотрудников — версия ${{ env.VERSION_NAME }}.
+
+            Установка и разрешения: `mobile/README.md`.

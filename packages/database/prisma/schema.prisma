@@ -420,8 +420,46 @@ model Employee {
   payouts       EmployeePayout[]
   trackPings    TrackPing[]
   fieldDays     FieldDay[]
+  devices       DeviceToken[]
 
   @@map("employees")
+}
+
+/// Ключ устройства: приложение шлёт трек само, когда экран погашен.
+///
+/// ЗАЧЕМ ОТДЕЛЬНЫЙ КЛЮЧ, А НЕ СЕССИЯ. Сессия живёт в браузере и истекает;
+/// фоновая служба Android переживает и перезагрузку телефона, и неделю без
+/// открытия приложения. Ключ выдаётся ОДИН РАЗ после входа по PIN и
+/// принадлежит паре «человек + телефон».
+///
+/// ОБЩИЙ СЕКРЕТ БОТА СЮДА НЕ ГОДИТСЯ НИ ПРИ КАКИХ УСЛОВИЯХ: он открывает
+/// все служебные двери разом, а APK лежит у людей на телефонах и
+/// разбирается любым желающим. Ключ устройства открывает ровно две двери
+/// (трек и своя смена) и отзывается по одному телефону.
+model DeviceToken {
+  id         String   @id @default(cuid())
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 от ключа. Сам ключ не хранится НИГДЕ и показывается один раз:
+  /// утёкшая база не должна давать доступ к треку живых людей.
+  tokenHash String @unique @map("token_hash") @db.VarChar(64)
+
+  /// Как человек назвал телефон. Владелец отзывает ключ по этой подписи —
+  /// «Redmi Азиза» понятнее, чем строка из тридцати символов.
+  label    String @db.VarChar(80)
+  platform String @default("android") @db.VarChar(16)
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  /// Когда с этого ключа последний раз приходили данные. Пусто — приложение
+  /// поставили и не открывали.
+  lastSeenAt DateTime? @map("last_seen_at")
+  /// Отозван владельцем. НЕ УДАЛЯЕМ строку: история «этот телефон писал
+  /// трек до 5 сентября» объясняет дыру в отчёте лучше, чем её отсутствие.
+  revokedAt  DateTime? @map("revoked_at")
+
+  @@index([employeeId])
+  @@map("device_tokens")
 }
 
 model Shift {

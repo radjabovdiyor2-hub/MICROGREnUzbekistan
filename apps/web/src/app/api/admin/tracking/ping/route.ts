@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getSession } from '@/lib/adminAuth';
 import { requireBotAuth } from '@/lib/botAuth';
+import { deviceHolder } from '@/lib/deviceAuth';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
 import { recordPings, resolveEmployee, type EmployeeRef } from '@/lib/tracking/fieldDay';
@@ -33,14 +34,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Ожидалось тело запроса' }, { status: 400 });
     }
 
-    // Сначала сессия, и только потом секрет бота: у запроса из браузера
-    // секрета нет и быть не должно, а у бота нет сессии.
+    // ТРИ ДВЕРИ, И КАЖДАЯ ЗНАЕТ ЧЕЛОВЕКА ПО-СВОЕМУ:
+    //   · сессия — из браузера и из PWA;
+    //   · ключ устройства — из приложения, когда экран погашен и сессии
+    //     давно нет; он же единственный, кто называет сотрудника прямо,
+    //     без поиска по имени;
+    //   · общий секрет бота — из Telegram, с `telegramId` в теле.
+    //
+    // Порядок важен: у запроса из браузера секрета нет и быть не должно, а
+    // у фоновой службы нет сессии.
     const session = getSession(request);
     let ref: EmployeeRef | null = null;
+    // Ключ устройства называет сотрудника ПРЯМО, без поиска по имени: он
+    // выдан этому человеку и этому телефону, и тёзка тут ничего не сломает.
+    let employeeId: string | null = null;
 
     if (session && (session.role === 'ADMIN' || session.role === 'SELLER') && session.name) {
       ref = { name: session.name };
-    } else if (requireBotAuth(request)) {
+    } else {
+      const device = await deviceHolder(request);
+      if (device) employeeId = device.employeeId;
+    }
+
+    if (!ref && !employeeId && requireBotAuth(request)) {
       // `telegramId` приходит числом или строкой: JSON теряет точность на
       // больших id, и бот шлёт их строкой намеренно.
       const rawId = body.telegramId;
@@ -51,16 +67,19 @@ export async function POST(request: NextRequest) {
       ref = { telegramId: BigInt(asText) };
     }
 
-    if (!ref) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (ref) {
+      const employee = await resolveEmployee(ref);
+      if ('error' in employee) {
+        // 403, а не 404: сотрудник может существовать и быть уволенным, и
+        // разный ответ на эти два случая рассказал бы постороннему, кто в
+        // штате. Тот же довод, что во входе по Telegram.
+        return NextResponse.json({ error: employee.error }, { status: 403 });
+      }
+      employeeId = employee.id;
     }
 
-    const employee = await resolveEmployee(ref);
-    if ('error' in employee) {
-      // 403, а не 404: сотрудник может существовать и быть уволенным, и
-      // разный ответ на эти два случая рассказал бы постороннему, кто в
-      // штате. Тот же довод, что во входе по Telegram.
-      return NextResponse.json({ error: employee.error }, { status: 403 });
+    if (!employeeId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Разбор и вся отбраковка — в чистом модуле: мусорная крошка
@@ -72,7 +91,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'ok', stored: 0, days: [] });
     }
 
-    const { stored, days } = await recordPings(employee.id, pings);
+    const { stored, days } = await recordPings(employeeId, pings);
 
     // Карта владельца обязана увидеть, что человек поехал, без перезагрузки.
     if (stored > 0) publish('customers');

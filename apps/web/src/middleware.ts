@@ -83,6 +83,15 @@ const RULES: Rule[] = [
   // начало и конец своей смены человек до сих пор не мог нигде.
   // Чья это смена, решает сам роут по подписи, а не по телу запроса.
   { prefix: '/api/shift', access: 'STAFF', methods: ['GET', 'POST'] },
+  // Ключи устройств. STAFF, а не ADMIN: ключ себе выдаёт сам сотрудник,
+  // войдя по PIN, — это то же согласие действием, что и с трансляцией.
+  // Список и отзыв остаются владельцу, но проверяет это САМ РОУТ: правило
+  // по методам здесь означало бы, что GET и DELETE не покрыты вовсе.
+  { prefix: '/api/auth/device', access: 'STAFF' },
+  // Какая версия приложения свежая. STAFF: спрашивает сам сотрудник из
+  // приложения. Наружу это знать незачем — ссылка на файл сборки не
+  // предназначена посторонним.
+  { prefix: '/api/app/version', access: 'STAFF', methods: ['GET'] },
   // Вечернее закрытие забытых смен зовёт сторож офиса общим секретом —
   // как и подведение итогов дня. График остаётся владельцу: правило
   // длиннее общего, поэтому выигрывает именно оно.
@@ -160,6 +169,32 @@ export function findRule(pathname: string, method: string): Rule | null {
     if (!best || rule.prefix.length > best.prefix.length) best = rule;
   }
   return best;
+}
+
+/**
+ * Двери, которые открывает КЛЮЧ УСТРОЙСТВА (приложение на Android).
+ *
+ * Список короткий намеренно: ключ лежит в APK на телефоне сотрудника, и
+ * открывать им что-то кроме своего трека и своей смены нельзя.
+ *
+ * ⚠️ ЗДЕСЬ ПРОВЕРЯЕТСЯ ТОЛЬКО ФОРМА КЛЮЧА, А НЕ САМ КЛЮЧ. Middleware
+ * работает в Edge-runtime, где нет ни базы, ни Prisma, — сверить отпечаток
+ * отсюда невозможно. Настоящую проверку делает РОУТ (`lib/deviceAuth.ts`),
+ * и поэтому в этом списке могут стоять только те пути, которые проверяют
+ * ключ сами. Добавить сюда путь, который полагается на middleware, значит
+ * открыть его строкой «Bearer mgd_» кому угодно.
+ */
+const DEVICE_PATHS = ['/api/admin/tracking/ping', '/api/shift'];
+
+/**
+ * Похоже ли на ключ устройства. Правду скажет роут, здесь — только форма.
+ *
+ * Экспортируется ради теста: пускать не того — самая тихая из ошибок
+ * доступа, и проверять её надо на списке путей, а не глазами.
+ */
+export function looksLikeDeviceToken(authorization: string | null, pathname: string): boolean {
+  if (!DEVICE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
+  return /^Bearer mgd_[A-Za-z0-9_-]{20,120}$/.test(authorization ?? '');
 }
 
 function hasBotSecret(request: NextRequest): boolean {
@@ -264,7 +299,7 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith('/api/')) {
     if (!PUBLIC_EXCEPTIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
       const rule = findRule(pathname, req.method);
-      if (rule && !hasBotSecret(req)) {
+      if (rule && !hasBotSecret(req) && !looksLikeDeviceToken(req.headers.get('authorization'), pathname)) {
         const session = await verifySession(req.cookies.get(SESSION_COOKIE)?.value);
         if (!session) {
           return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

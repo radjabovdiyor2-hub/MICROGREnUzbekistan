@@ -58,6 +58,7 @@ const AdminDebts = dynamic(() => import('@/components/admin/AdminDebts').then((m
 const AdminMovements = dynamic(() => import('@/components/admin/AdminMovements').then((m) => m.AdminMovements), { ssr: false, loading: TabLoading });
 const AdminSuppliers = dynamic(() => import('@/components/admin/AdminSuppliers').then((m) => m.AdminSuppliers), { ssr: false, loading: TabLoading });
 const AdminEmployees = dynamic(() => import('@/components/admin/AdminEmployees').then((m) => m.AdminEmployees), { ssr: false, loading: TabLoading });
+const AdminDevices = dynamic(() => import('@/components/admin/AdminDevices').then((m) => m.AdminDevices), { ssr: false });
 const AdminShifts = dynamic(() => import('@/components/admin/AdminShifts').then((m) => m.AdminShifts), { ssr: false, loading: TabLoading });
 const AdminPayroll = dynamic(() => import('@/components/admin/AdminPayroll').then((m) => m.AdminPayroll), { ssr: false, loading: TabLoading });
 const AdminFieldDay = dynamic(() => import('@/components/admin/AdminFieldDay').then((m) => m.AdminFieldDay), { ssr: false, loading: TabLoading });
@@ -141,7 +142,15 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {activeTab === 'categories' && isOwner && <AdminCategories lang={lang} />}
     {activeTab === 'promo' && isOwner && <AdminPromo lang={lang} />}
     {activeTab === 'finance' && isOwner && <AdminFinance lang={lang} />}
-    {activeTab === 'employees' && isOwner && <AdminEmployees lang={lang} />}
+    {activeTab === 'employees' && isOwner && (
+      <>
+        <AdminEmployees lang={lang} />
+        {/* Телефоны с приложением — здесь же, рядом со штатом: ключ
+            принадлежит человеку, и отзывают его тогда же, когда правят
+            карточку. Отдельная вкладка ради трёх строк никому не нужна. */}
+        <AdminDevices lang={lang} />
+      </>
+    )}
     {activeTab === 'shifts' && isOwner && <AdminShifts lang={lang} />}
     {activeTab === 'payroll' && isOwner && <AdminPayroll />}
     {activeTab === 'field_day' && isOwner && <AdminFieldDay lang={lang} focus={focus} />}

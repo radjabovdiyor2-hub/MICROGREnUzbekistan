@@ -2,8 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { watchPosition, type StopWatch, type WatchFailure } from '@/lib/geo/watch';
+import {
+  watchPosition,
+  type StopWatch,
+  type WatchFailure,
+  type WatchSample,
+} from '@/lib/geo/watch';
+import { watchNative } from '@/lib/native/geo';
 import { isOffline, isSlowLink } from '@/lib/net/connection';
+import { ensureDeviceKey, readDeviceKey } from '@/lib/tracking/deviceKey';
 import { sendPings } from '@/lib/tracking/sendPings';
 import {
   MAX_QUEUE,
@@ -31,6 +38,12 @@ import {
 // СЛАБАЯ СВЯЗЬ. Отправляем реже и большими пачками: десяток запросов по
 // одной крошке на двух палках забьют канал, по которому уходит фотоотчёт.
 // Совсем без связи не пробуем вовсе — очередь дождётся, а заряд нет.
+//
+// В ПРИЛОЖЕНИИ КООРДИНАТЫ ДАЁТ СИСТЕМА, а не вкладка: `watchNative`
+// работает с погашенным экраном, `watchPosition` — только пока на экран
+// смотрят. Всё остальное — очередь, отбор крошек, отправка — одно и то же
+// на оба случая, и разъезжаться этим двум путям нельзя: день, снятый
+// приложением и браузером, должен считаться одной арифметикой.
 // ══════════════════════════════════════════════════════════════════════
 
 /** Как часто пробуем отдать накопленное. На слабой связи — вчетверо реже. */
@@ -69,6 +82,8 @@ export function useFieldTracker(shiftOpen?: boolean): FieldTracker {
   const last = useRef<QueuedPing | null>(null);
   const stopWatch = useRef<StopWatch | null>(null);
   const sending = useRef(false);
+  // Ключ приложения. В браузере остаётся `null` навсегда — и это норма.
+  const deviceKey = useRef<string | null>(null);
 
   /** Отдать накопленное. Пачка снимается с очереди только после успеха. */
   const flush = useCallback(async () => {
@@ -76,7 +91,7 @@ export function useFieldTracker(shiftOpen?: boolean): FieldTracker {
     const batch = takeBatch(queue.current);
     sending.current = true;
     try {
-      const result = await sendPings(batch);
+      const result = await sendPings(batch, deviceKey.current);
       if (result.kind === 'retry') return;
       if (result.kind === 'rejected') {
         setRejected(result.message);
@@ -105,41 +120,56 @@ export function useFieldTracker(shiftOpen?: boolean): FieldTracker {
     if (stopWatch.current) return;
     setFailure(null);
     setRejected(null);
-    stopWatch.current = watchPosition(
-      (sample) => {
-        // Удачный замер гасит прежнюю жалобу. Потеря неба в подвале —
-        // дело минутное, а надпись «спутники не ловятся» без этого висела
-        // бы до конца смены и врала бы ровно тогда, когда запись идёт.
-        setFailure((before) => (before === null ? before : null));
-        const ping: QueuedPing = {
-          at: sample.at,
-          latitude: sample.latitude,
-          longitude: sample.longitude,
-          accuracyM: sample.accuracyM,
-          source: 'pwa',
-          speedMps: sample.speedMps,
-          headingDeg: sample.headingDeg,
-        };
-        if (!shouldKeep(last.current, ping)) return;
-        last.current = ping;
-        queue.current = enqueue(queue.current, ping);
-        writeQueue(localStorage, queue.current);
-        setPending(queue.current.length);
-        // Первую крошку отдаём сразу: владелец должен увидеть, что
-        // человек поехал, не дожидаясь минуты.
-        if (queue.current.length === 1) void flush();
-      },
-      (reason) => {
-        setFailure(reason);
-        // Отказ в доступе не лечится ожиданием: слежение снимаем, чтобы
-        // не жечь заряд впустую, и говорим об этом на экране.
-        if (reason === 'denied') {
-          stopWatch.current?.();
-          stopWatch.current = null;
-          setOn(false);
-        }
-      },
-    );
+
+    // Ключ просим В МОМЕНТ ОТКРЫТИЯ СМЕНЫ, а не при загрузке экрана: здесь
+    // человек только что вошёл по PIN, сессия свежая, и запрос пройдёт.
+    // Не дожидаемся ответа: первая крошка уйдёт по сессии, ключ
+    // подхватится следующей пачкой.
+    deviceKey.current = readDeviceKey(localStorage);
+    void ensureDeviceKey().then((key) => {
+      if (key) deviceKey.current = key;
+    });
+
+    const onSample = (sample: WatchSample) => {
+      // Удачный замер гасит прежнюю жалобу. Потеря неба в подвале —
+      // дело минутное, а надпись «спутники не ловятся» без этого висела
+      // бы до конца смены и врала бы ровно тогда, когда запись идёт.
+      setFailure((before) => (before === null ? before : null));
+      const ping: QueuedPing = {
+        at: sample.at,
+        latitude: sample.latitude,
+        longitude: sample.longitude,
+        accuracyM: sample.accuracyM,
+        source: 'pwa',
+        speedMps: sample.speedMps,
+        headingDeg: sample.headingDeg,
+      };
+      if (!shouldKeep(last.current, ping)) return;
+      last.current = ping;
+      queue.current = enqueue(queue.current, ping);
+      writeQueue(localStorage, queue.current);
+      setPending(queue.current.length);
+      // Первую крошку отдаём сразу: владелец должен увидеть, что
+      // человек поехал, не дожидаясь минуты.
+      if (queue.current.length === 1) void flush();
+    };
+
+    const onFail = (reason: WatchFailure) => {
+      setFailure(reason);
+      // Отказ в доступе не лечится ожиданием: слежение снимаем, чтобы
+      // не жечь заряд впустую, и говорим об этом на экране.
+      if (reason === 'denied') {
+        stopWatch.current?.();
+        stopWatch.current = null;
+        setOn(false);
+      }
+    };
+
+    // СНАЧАЛА СИСТЕМА, ПОТОМ ВКЛАДКА. В приложении координаты даёт родная
+    // служба: она пишет с погашенным экраном. `null` означает, что мы в
+    // обычном браузере (или в старой сборке приложения без модуля), — и
+    // тогда работает прежний путь, а не пустота.
+    stopWatch.current = watchNative(onSample, onFail) ?? watchPosition(onSample, onFail);
     setOn(true);
   }, [flush]);
 

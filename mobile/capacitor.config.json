@@ -1,0 +1,16 @@
+{
+  "appId": "uz.microgreen.field",
+  "appName": "Microgreen",
+  "webDir": "www",
+  "server": {
+    "url": "https://microgreenuzbekistan.com/admin",
+    "androidScheme": "https",
+    "cleartext": false,
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  }
+}

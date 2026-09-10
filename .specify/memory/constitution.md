@@ -8,10 +8,10 @@
 
 | Модуль | Стек | Роль | Размер |
 |--------|------|------|--------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 32 API-групп, 134 route-файлов, 309 компонентов | ~66KB globals.css, 92 Prisma-моделей |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 33 API-группы, 136 route-файлов, 313 компонентов | ~66KB globals.css, 93 Prisma-модели |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 11 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 64 shared-модулей, ~400KB main.py суммарно |
-| `packages/database` | Prisma ORM, PostgreSQL | Схема (92 моделей, 3022 строк), миграции, сиды | schema.prisma — единый источник DDL |
+| `packages/database` | Prisma ORM, PostgreSQL | Схема (93 моделей, 3022 строк), миграции, сиды | schema.prisma — единый источник DDL |
 
 **Запреты:**
 - Прямой импорт между модулями запрещён. Всё через HTTP API или Event Bus.
@@ -115,9 +115,9 @@
 8. **No git side effects.** Commit/push — только по явному запросу.
 9. **No secrets.** Никогда не печатать/логировать/коммитить `.env`, токены, ключи.
 
-### VII. API — 30 групп, 125 роутов
+### VII. API — 33 группы, 136 роутов
 
-Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, channels, config, content, events, farm, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, push, referral, reviews, shift, subscriptions, support, telegram, upload, users, whatsapp.
+Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, app, auth, categories, channels, config, content, events, farm, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, push, referral, reviews, shift, subscriptions, support, telegram, upload, users, whatsapp.
 
 Здесь значилась ещё и `sms` — группы с таким именем нет и не было, а витринный
 бот слал в неё `POST /api/sms` и получал 404. Список сверять с каталогом, а не
@@ -137,7 +137,7 @@
 
 | Файл | Что содержит |
 |------|-------------|
-| `packages/database/prisma/schema.prisma` | 92 моделей, 3022 строк — полная схема БД |
+| `packages/database/prisma/schema.prisma` | 93 моделей, 3022 строк — полная схема БД |
 | `apps/web/src/app/globals.css` | Design System v1.0 (2696 строк) |
 | `apps/web/design-system/tokens/tokens.json` | Дизайн-токены W3C DTCG |
 | `apps/tgas/shared/bot_registry.py` | Реестр всех 11 ботов и моста (порты, имена, отделы) |
