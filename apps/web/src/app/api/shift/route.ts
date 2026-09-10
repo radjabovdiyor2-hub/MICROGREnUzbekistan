@@ -40,7 +40,13 @@ async function actor(
   } else if (requireBotAuth(request)) {
     // `telegramId` приходит строкой намеренно: JSON теряет точность на
     // больших id.
-    const raw = body?.telegramId;
+    //
+    // ИЩЕМ И В ТЕЛЕ, И В АДРЕСЕ. У запроса состояния (`GET`) тела нет
+    // вовсе, и бот передаёт номер параметром. Первая версия читала только
+    // тело — и бот не мог узнать, открыта ли смена: дверь отвечала «не
+    // указан telegramId» на совершенно правильный запрос. Нашлось живой
+    // проверкой, не тестом.
+    const raw = body?.telegramId ?? request.nextUrl.searchParams.get('telegramId');
     const asText = typeof raw === 'string' || typeof raw === 'number' ? String(raw) : '';
     if (!/^\d{1,19}$/.test(asText)) return { error: 'Не указан telegramId', status: 400 };
     ref = { telegramId: BigInt(asText) };

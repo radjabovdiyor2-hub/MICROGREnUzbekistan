@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { prisma } from '@repo/database';
 import { requireBotAuth } from '@/lib/botAuth';
-import { startOfLocalDay } from '@/lib/localDate';
+import { formatLocalDate, localDayRange, startOfLocalDay } from '@/lib/localDate';
 import { safeError } from '@/lib/safeError';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -52,8 +52,14 @@ export async function POST(request: NextRequest) {
       if (shift.startTime === null) continue;
       // Ищем последнюю крошку В ПРЕДЕЛАХ ТОГО ЖЕ ДНЯ: точка со следующего
       // утра закрыла бы вчерашнюю смену завтрашним временем.
-      const dayEnd = new Date(shift.date);
-      dayEnd.setDate(dayEnd.getDate() + 1);
+      //
+      // ДЕНЬ БЕРЁМ ИЗ `startTime`, А НЕ ИЗ `date`. Колонка дня хранится
+      // типом `Date` и читается полуночью по UTC — у нас это пять утра по
+      // Ташкенту. Считая окно от неё, я промахивался на пять часов: живая
+      // проверка показала «смена без трека» при честной крошке в 17:42.
+      // `startTime` — полноценная отметка времени, и двусмысленности в ней
+      // нет вовсе.
+      const { end: dayEnd } = localDayRange(formatLocalDate(shift.startTime));
 
       const last = await prisma.trackPing.findFirst({
         where: { employeeId: shift.employeeId, at: { gte: shift.startTime, lt: dayEnd } },

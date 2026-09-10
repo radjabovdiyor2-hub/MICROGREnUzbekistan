@@ -23,11 +23,23 @@
 /** Смена в том виде, в каком её понимает расчёт. */
 export interface ShiftLike {
   employeeId: string;
-  /** День смены. Время внутри не важно — важна дата. */
+  /**
+   * День смены из колонки `Date`.
+   *
+   * Запасной вариант: считаем день по `startTime`, если он есть. Колонка
+   * хранится типом `Date` и читается полуночью по UTC — у нас это пять
+   * утра по Ташкенту, и день, названный по ней, может разойтись с тем,
+   * когда человек реально вышел.
+   */
   date: Date;
   /** `work` оплачивается, `sick` и `vacation` — нет. */
   type: string;
-  /** Когда человек нажал «начал». `null` — смена только запланирована. */
+  /**
+   * Когда человек нажал «начал». `null` — смена только запланирована.
+   *
+   * ОН ЖЕ ЗАДАЁТ ДЕНЬ. Это полноценная отметка времени, и двусмысленности
+   * в ней нет — в отличие от колонки `date`.
+   */
   startTime: Date | null;
 }
 
@@ -57,7 +69,7 @@ export function workedDays(shifts: ShiftLike[]): Map<string, number> {
     if (shift.type !== PAID_SHIFT_TYPE) continue;
     if (shift.startTime === null) continue;
     const days = byEmployee.get(shift.employeeId) ?? new Set<string>();
-    days.add(dayKey(shift.date));
+    days.add(dayKey(shift.startTime));
     byEmployee.set(shift.employeeId, days);
   }
 
