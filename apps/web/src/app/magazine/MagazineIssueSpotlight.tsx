@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 import type { IssueCard } from '@/lib/magazine/content';
 
 // Свежий номер на витрине: обложка, о чём он и две двери — читать онлайн
@@ -21,6 +23,8 @@ export function MagazineIssueSpotlight({ issue }: { issue: IssueCard }) {
     >
       <div
         style={{
+          // `position: relative` — опора для `fill` у обложки.
+          position: 'relative',
           aspectRatio: '148 / 210', borderRadius: 16, overflow: 'hidden',
           background: 'linear-gradient(135deg, var(--editorial-cover-green), var(--editorial-cover-green-deep))',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -28,8 +32,26 @@ export function MagazineIssueSpotlight({ issue }: { issue: IssueCard }) {
           boxShadow: 'var(--shadow-xl)',
         }}
       >
+        {/* ЧЕРЕЗ next/image, А НЕ ОБЫЧНЫЙ <img>.
+            Обложка лежит исходником со сканера — 1,2 МБ JPEG, и раньше он
+            уезжал посетителю целиком. Замер главной на прод-сборке с
+            телефонного экрана: 2307 КБ всего, из них 2306 КБ — эта
+            картинка. То есть весь вес страницы был ею одной.
+
+            `next/image` отдаёт avif/webp нужного размера (настройка в
+            next.config.ts) — коробка тут не шире 320 CSS-пикселей.
+            `sizes` обязателен при `fill`: без него берётся самый крупный
+            вариант, и смысл теряется. */}
         {issue.coverImage
-          ? <img src={issue.coverImage} alt={issue.titleRu} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ? (
+            <Image
+              src={issue.coverImage}
+              alt={issue.titleRu}
+              fill
+              sizes="(max-width: 480px) 90vw, 320px"
+              style={{ objectFit: 'cover' }}
+            />
+          )
           : <span style={{ fontSize: 56 }}>📖</span>}
       </div>
 

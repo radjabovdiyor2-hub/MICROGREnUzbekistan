@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Sprout } from 'lucide-react';
 
 import { useLang } from '@/components/providers/LangProvider';
 import { CONTACT } from '@/lib/site';
-import type { InstaPost } from './instagramFeedData';
+import { useInstagramPosts } from './useInstagramPosts';
 
 // ══════════════════════════════════════════════════════════════════════
 // «Ваша ферма» — как это выглядит на самом деле.
@@ -30,24 +29,17 @@ const SHOTS = 4;
 
 export function FarmSection() {
   const { t } = useLang();
-  const [posts, setPosts] = useState<InstaPost[]>([]);
+  // Общий источник с лентой ниже: два своих запроса тянули один и тот же
+  // ответ дважды.
+  const { data } = useInstagramPosts();
 
-  useEffect(() => {
-    let mounted = true;
-    fetch('/api/instagram')
-      .then((r) => r.json())
-      .then((data) => {
-        const list: InstaPost[] = Array.isArray(data.posts) ? data.posts : [];
-        // Видео пропускаем: обложка у него приходит отдельным полем, и без
-        // него в сетке оказался бы чёрный прямоугольник.
-        const photos = list.filter((p) => p.mediaUrl && p.mediaType !== 'VIDEO');
-        if (mounted) setPosts(photos.slice(0, SHOTS));
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  // Только НАСТОЯЩИЕ посты: запасные — синтетика, и выдавать их за кадры
+  // с фермы нельзя, ради этого блок и заводился.
+  // Видео пропускаем: обложка у него приходит отдельным полем, и без неё
+  // в сетке оказался бы чёрный прямоугольник.
+  const posts = (data?.isReal ? data.posts : [])
+    .filter((p) => p.mediaUrl && p.mediaType !== 'VIDEO')
+    .slice(0, SHOTS);
 
   if (posts.length === 0) return null;
 

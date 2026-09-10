@@ -141,3 +141,61 @@ export function recipeCartProducts(recipe: RecipeView): RecipeCartProduct[] {
   }
   return out;
 }
+
+/** Блюдо вместе с зеленью, которую оно требует. */
+export interface DishWithGreens {
+  slug: string;
+  titleRu: string;
+  titleUz: string | null;
+  heroImage: string | null;
+  cookMinutes: number | null;
+  /** Только продаваемая зелень: то, что можно положить в корзину. */
+  greens: RecipeCartProduct[];
+}
+
+/**
+ * Блюда, для которых у нас есть зелень.
+ *
+ * ОДНА ВЫБОРКА НА ДВА ЭКРАНА: страницу для закупщиков («как это выглядит
+ * в блюдах») и подборщик «какую зелень добавить». Два запроса за одним и
+ * тем же разошлись бы на первой правке — например, один продолжил бы
+ * показывать блюдо, у которого зелень сняли с продажи.
+ *
+ * БЛЮДА БЕЗ ПРОДАВАЕМОЙ ЗЕЛЕНИ ОТСЕИВАЮТСЯ. Рецепт, к которому нечего
+ * купить, на обоих экранах бесполезен: закупщику он ничего не говорит о
+ * нашем товаре, а подборщику нечего предложить.
+ */
+export async function listDishesWithGreens(take = 12): Promise<DishWithGreens[]> {
+  const rows = await prisma.recipe.findMany({
+    where: { isActive: true, ingredients: { some: { productId: { not: null } } } },
+    select: {
+      slug: true, titleRu: true, titleUz: true, heroImage: true, cookMinutes: true,
+      ingredients: {
+        where: { productId: { not: null } },
+        orderBy: { order: 'asc' },
+        select: { product: { include: { category: true } } },
+      },
+    },
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
+    take,
+  });
+
+  return rows
+    .map((r) => {
+      const seen = new Set<string>();
+      const greens: RecipeCartProduct[] = [];
+      for (const ing of r.ingredients) {
+        // Снятый с продажи товар в корзину не кладём — та же проверка,
+        // что и на странице рецепта.
+        if (ing.product && ing.product.isActive && !seen.has(ing.product.id)) {
+          seen.add(ing.product.id);
+          greens.push(toCartProduct(ing.product));
+        }
+      }
+      return {
+        slug: r.slug, titleRu: r.titleRu, titleUz: r.titleUz,
+        heroImage: r.heroImage, cookMinutes: r.cookMinutes, greens,
+      };
+    })
+    .filter((d) => d.greens.length > 0);
+}

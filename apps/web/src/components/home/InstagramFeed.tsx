@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Instagram, Leaf } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
 import { useCart } from '@/components/providers/CartProvider';
+import { useInstagramPosts } from './useInstagramPosts';
 import { motion } from 'framer-motion';
 import { GrowingTimeline } from './GrowingTimeline';
 import { InstagramGrid } from './InstagramGrid';
@@ -11,15 +12,23 @@ import { InstagramGrid } from './InstagramGrid';
 import {
   FALLBACK_POSTS, INSTAGRAM_HANDLE,
   INSTAGRAM_URL,
-  type InstaPost, type ShopProduct,
+  type ShopProduct,
 } from './instagramFeedData';
 
 export function InstagramFeed() {
   const { t } = useLang();
   const [activeStage, setActiveStage] = useState(3);
-  const [posts, setPosts] = useState<InstaPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isReal, setIsReal] = useState(false);
+  // Состояние ленты ВЫЧИСЛЯЕТСЯ из запроса, а не копируется в своё
+  // эффектом: копия потребовала бы синхронизации и давала бы лишний кадр
+  // при каждом ответе. Тот же довод, что у переключателя дней в
+  // расписании заездов.
+  // Источник общий с блоком фермы выше: два своих запроса тянули один и
+  // тот же ответ дважды. Запасные посты подставляем здесь, а не в хуке:
+  // ферме они не нужны, ей нужны только настоящие кадры.
+  const feed = useInstagramPosts();
+  const isReal = feed.data?.isReal ?? false;
+  const loading = feed.isLoading;
+  const posts = isReal ? (feed.data?.posts ?? []).slice(0, 9) : FALLBACK_POSTS;
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [addedId, setAddedId] = useState<string | null>(null);
   const cart = useCart();
@@ -32,10 +41,12 @@ export function InstagramFeed() {
   // нет). Блок при этом лежит ниже сгиба, то есть трафик тратился на
   // экран, до которого человек может и не долистать.
   //
-  // Зависимость от `posts.length`, а не от `posts`: массив пересоздаётся
-  // при каждом ответе, и эффект бегал бы по кругу.
+  // Под НАСТОЯЩИЕ посты, а не под любые. Прежний заслон смотрел на длину
+  // списка — но когда Instagram молчит, сюда подставляются ЗАПАСНЫЕ посты,
+  // список непустой, и сотня товаров всё равно уезжала. Сопоставлять
+  // подписи синтетических постов с каталогом бессмысленно вдвойне.
   useEffect(() => {
-    if (posts.length === 0) return;
+    if (!isReal) return;
     let mounted = true;
     fetch('/api/products?limit=100')
       .then(r => r.json())
@@ -45,7 +56,7 @@ export function InstagramFeed() {
       })
       .catch(() => {});
     return () => { mounted = false; };
-  }, [posts.length]);
+  }, [isReal]);
 
   const findProduct = (caption?: string): ShopProduct | null => {
     if (!caption || products.length === 0) return null;
@@ -69,27 +80,6 @@ export function InstagramFeed() {
     setTimeout(() => setAddedId(cur => (cur === p.id ? null : cur)), 2000);
   };
 
-  useEffect(() => {
-    let mounted = true;
-    fetch('/api/instagram')
-      .then(r => r.json())
-      .then(data => {
-        if (!mounted) return;
-        if (data.posts && data.posts.length > 0) {
-          setPosts(data.posts.slice(0, 9));
-          setIsReal(true);
-        } else {
-          setPosts(FALLBACK_POSTS);
-        }
-      })
-      .catch(() => {
-        if (mounted) setPosts(FALLBACK_POSTS);
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-    return () => { mounted = false; };
-  }, []);
 
   return (
     <section style={{

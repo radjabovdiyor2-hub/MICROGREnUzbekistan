@@ -4,8 +4,10 @@ import { Clock, Leaf, Snowflake, Truck } from 'lucide-react';
 import { jsonLdScript, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
 import { loadB2bFacts } from '@/lib/b2b/facts';
+import { listDishesWithGreens } from '@/lib/recipes';
 
 import { B2bCrops, loadCrops } from './B2bCrops';
+import { B2bDishes } from './B2bDishes';
 import { B2bFacts } from './B2bFacts';
 import { B2bTerms } from './B2bTerms';
 import { LeadForm } from './LeadForm';
@@ -103,9 +105,10 @@ async function orEmpty<T>(load: () => Promise<T>, fallback: T, what: string): Pr
 
 export default async function B2BPage() {
   // Параллельно: ассортимент и факты друг от друга не зависят.
-  const [crops, facts] = await Promise.all([
+  const [crops, facts, dishes] = await Promise.all([
     orEmpty(loadCrops, [], 'ассортимент'),
     orEmpty(loadB2bFacts, { venues: 0, since: null, weeklyDeliveries: 0 }, 'факты'),
+    orEmpty(() => listDishesWithGreens(6), [], 'блюда'),
   ]);
 
   const breadcrumb = breadcrumbList([
@@ -151,6 +154,8 @@ export default async function B2BPage() {
             потом чем это подтверждается, и только затем форма. Заявка,
             стоящая раньше ответов, собирает вопросы вместо заказов. */}
         <B2bCrops groups={crops} />
+
+        <B2bDishes dishes={dishes} />
 
         <B2bTerms />
 

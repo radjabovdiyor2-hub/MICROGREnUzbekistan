@@ -4,8 +4,9 @@ import { notFound } from 'next/navigation';
 
 import { listArticles } from '@/lib/magazine/content';
 import { findRubric, RECIPE_RUBRIC, type RubricId } from '@/lib/magazine/rubrics';
-import { listRecipes, type RecipeCardView } from '@/lib/recipes';
+import { listDishesWithGreens, listRecipes, type DishWithGreens, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
+import { GreensPicker } from '@/components/recipe/GreensPicker';
 import { MagazineArticleCard } from '../MagazineArticleCard';
 import { jsonLdScript, breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
@@ -40,9 +41,14 @@ export default async function RubricPage({ params }: { params: Promise<{ rubric:
   if (!r) notFound();
 
   const isRecipes = r.id === RECIPE_RUBRIC;
-  const [articles, recipes] = await Promise.all([
+  const [articles, recipes, dishes] = await Promise.all([
     isRecipes ? Promise.resolve([]) : listArticles(r.id as RubricId),
     isRecipes ? listRecipes().catch((): RecipeCardView[] => []) : Promise.resolve([]),
+    // Подборщик — только на рецептах: в остальных рубриках предлагать
+    // нечего, и блок там был бы шумом.
+    isRecipes
+      ? listDishesWithGreens(8).catch((): DishWithGreens[] => [])
+      : Promise.resolve([] as DishWithGreens[]),
   ]);
 
   const items = isRecipes
@@ -88,6 +94,16 @@ export default async function RubricPage({ params }: { params: Promise<{ rubric:
             {r.taglineUz}. {r.taglineRu}.
           </p>
         </header>
+
+        {/* Подборщик отвечает на короткий вопрос «что добавить к этому
+            блюду» и кладёт зелень в корзину, не уводя со страницы. Сетка
+            ниже — для другого случая: когда решения ещё нет и человек
+            выбирает, что бы приготовить. */}
+        {isRecipes && dishes.length > 0 && (
+          <div style={{ marginBottom: 28 }}>
+            <GreensPicker dishes={dishes} />
+          </div>
+        )}
 
         {items.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>

@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import Link from 'next/link';
 
 import { listPublishedIssues, listArticles, countArticlesByRubric, type ArticleCard, type IssueCard } from '@/lib/magazine/content';
@@ -30,7 +31,28 @@ import { MagazineSubscribeCTA } from './MagazineSubscribeCTA';
 // у рецепта шаги, таймеры и сбор набора в корзину, и печатные QR ведут на
 // /recipe/<slug>, поэтому переносить их сюда нельзя.
 // ══════════════════════════════════════════════════════════════════════
+// СТРАНИЦА ДИНАМИЧЕСКАЯ НЕ ИЗ-ЗА ЭТОЙ СТРОКИ. Макет читает `headers()`
+// ради nonce для CSP, а это делает динамическими вообще все страницы
+// приложения. Убрать строку — ничего не изменится, поэтому она оставлена
+// как честное описание положения дел.
+//
+// Что действительно стоило дорого — четыре запроса к базе на КАЖДЫЙ заход
+// за содержимым, которое меняется раз в недели. Их и кэшируем ниже.
 export const dynamic = 'force-dynamic';
+
+// Час — потому что номер выходит раз в неделю, а статью публикуют вручную
+// и ждать её появления час не жалко. `tags` позволяют сбросить кэш
+// адресно, когда админка опубликует новое.
+// Не `as const`: Next ждёт изменяемый `string[]` в `tags`.
+const CACHE = { revalidate: 3600, tags: ['magazine'] };
+
+const cachedIssues = unstable_cache(listPublishedIssues, ['mag-issues'], CACHE);
+const cachedArticles = unstable_cache(() => listArticles(undefined, 6), ['mag-articles'], CACHE);
+const cachedCounts = unstable_cache(countArticlesByRubric, ['mag-counts'], CACHE);
+const cachedRecipes = unstable_cache(listRecipes, ['mag-recipes'], {
+  revalidate: 3600,
+  tags: ['recipes'],
+});
 
 export default async function MagazinePage() {
   // Отказ базы не должен ронять страницу целиком.
@@ -40,10 +62,10 @@ export default async function MagazinePage() {
   // подписка и объяснение, что это за раздел, от базы не зависят вовсе:
   // пустой журнал полезнее сломанного.
   const [issues, articles, counts, recipes] = await Promise.all([
-    listPublishedIssues().catch((): IssueCard[] => []),
-    listArticles(undefined, 6).catch((): ArticleCard[] => []),
-    countArticlesByRubric().catch((): Record<string, number> => ({})),
-    listRecipes().catch((): RecipeCardView[] => []),
+    cachedIssues().catch((): IssueCard[] => []),
+    cachedArticles().catch((): ArticleCard[] => []),
+    cachedCounts().catch((): Record<string, number> => ({})),
+    cachedRecipes().catch((): RecipeCardView[] => []),
   ]);
 
   const latest = issues[0] ?? null;
