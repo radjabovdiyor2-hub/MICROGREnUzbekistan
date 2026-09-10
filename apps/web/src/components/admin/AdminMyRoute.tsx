@@ -29,7 +29,21 @@ const STOP_LABEL: Record<string, { text: string; color: string }> = {
   failed: { text: 'Не застал', color: 'var(--error)' },
 };
 
-export function AdminMyRoute({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
+export function AdminMyRoute({
+  lang = 'ru',
+  isOwner = false,
+}: {
+  lang?: 'ru' | 'uz';
+  /**
+   * Владельцу кнопку смены не показываем.
+   *
+   * Смена привязана к карточке сотрудника, а владелец входит по паролю —
+   * имени сотрудника в его сессии нет вовсе, и дверь ответила бы отказом.
+   * Кнопка, которая гарантированно не работает, хуже её отсутствия: она
+   * показала бы «сессия истекла» при совершенно исправной сессии.
+   */
+  isOwner?: boolean;
+}) {
   const queryClient = useQueryClient();
   const notify = useFeedback();
   const [error, setError] = useState('');
@@ -94,13 +108,15 @@ export function AdminMyRoute({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         </span>
       </div>
 
-      {/* Запись дня и здесь, а не только на карте клиентов: водитель в
-          неё не заходит вовсе — ему назначили рейс, он открыл рейс. Без
-          этой кнопки у него был бы трек только через Telegram, а без
-          Telegram — никакого. */}
-      <div style={{ marginBottom: 'var(--space-4)' }}>
-        <FieldTrackButton lang={lang} />
-      </div>
+      {/* Смена и здесь, а не только на карте клиентов: водитель в неё не
+          заходит вовсе — ему назначили рейс, он открыл рейс. Без этой
+          кнопки у него был бы трек только через Telegram, а без Telegram —
+          никакого. Владельцу не показываем: см. `isOwner` выше. */}
+      {!isOwner && (
+        <div style={{ marginBottom: 'var(--space-4)' }}>
+          <FieldTrackButton lang={lang} />
+        </div>
+      )}
 
       <AdminNotice>{error}</AdminNotice>
 

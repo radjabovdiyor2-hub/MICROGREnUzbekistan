@@ -199,7 +199,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {activeTab === 'deliveries' && isOwner && <AdminDeliveries />}
     {/* Свой рейс открыт и курьеру (canSell), и владельцу: рейс отбирается
         по имени в самом роуте, поэтому чужого здесь не покажут. */}
-    {activeTab === 'my_route' && (isOwner || canSell) && <AdminMyRoute lang={lang} />}
+    {activeTab === 'my_route' && (isOwner || canSell) && <AdminMyRoute lang={lang} isOwner={isOwner} />}
     {activeTab === 'franchise' && isOwner && <AdminFranchise />}
   </main>
   );
