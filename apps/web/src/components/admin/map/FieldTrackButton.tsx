@@ -104,6 +104,14 @@ export function FieldTrackButton({ lang }: { lang: 'ru' | 'uz' }) {
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('hint')}</span>
       )}
 
+      {/* Смена не открылась. Молчать нельзя: человек нажал кнопку и вправе
+          знать, почему ничего не произошло. */}
+      {shift.error !== null && (
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--error)' }}>
+          {shift.error}
+        </span>
+      )}
+
       {/* Отказ сервера показываем ЕГО СЛОВАМИ и по-русски для обоих
           языков: «совпадают имена сотрудников» чинит владелец, и человеку
           в поле надо передать ему ровно эту фразу, а не пересказ. */}

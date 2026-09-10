@@ -46,7 +46,10 @@ async function actor(
     ref = { telegramId: BigInt(asText) };
   }
 
-  if (!ref) return { error: 'Unauthorized', status: 401 };
+  // Словами, а не «Unauthorized»: это сообщение видит человек в поле, и
+  // оно должно говорить, ЧТО ДЕЛАТЬ. Живая проверка показала английское
+  // слово рядом с кнопкой — для продавца это просто «не работает».
+  if (!ref) return { error: 'Сессия истекла — войдите заново', status: 401 };
 
   const employee = await resolveEmployee(ref);
   // 403, а не 404: уволенный и несуществующий должны выглядеть одинаково,
