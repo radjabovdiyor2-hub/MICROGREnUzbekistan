@@ -66,3 +66,64 @@ describe('воркер MapLibre собирается комплектно', () =
     }
   });
 });
+
+// ══════════════════════════════════════════════════════════════════════
+// Второй случай той же черноты — 09.09.2026, экран «День в поле».
+//
+// Адрес воркера выставляется ПОБОЧНЫМ ЭФФЕКТОМ модуля `@/lib/map/worker`,
+// то есть только у того, кто его импортировал. Импортировали его карта
+// клиентов и витринная; новая карта дня — нет. На её вкладке ни одной из
+// двух старых карт нет, адрес оставался невыставленным, MapLibre считал
+// его от `import.meta.url` и получал 404.
+//
+// Поломка тихая до неприличия: стиль, спрайты и TileJSON приходят главным
+// потоком и отвечают 200, растровый слой даже загружается — а векторных
+// тайлов и шрифтов нет, потому что их тянет мёртвый воркер. Ни ошибки, ни
+// исключения, ни красного в CI. Отличить от «карта не подключена» нельзя.
+//
+// Поэтому правило проверяется механически: кто строит карту — тот
+// импортирует адрес воркера. Третьей такой карты быть не должно.
+// ══════════════════════════════════════════════════════════════════════
+
+describe('каждая карта задаёт адрес воркера', () => {
+  const SRC = join(process.cwd(), 'src');
+
+  /** Все .ts/.tsx под src — рекурсивно, без node_modules. */
+  function sources(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) return sources(full);
+      return /\.tsx?$/.test(entry.name) ? [full] : [];
+    });
+  }
+
+  /** Псевдоним, под которым файл ввёз конструктор карты. */
+  function mapAlias(source: string): string | null {
+    const block = source.match(/import\s*\{([\s\S]*?)\}\s*from\s*['"]maplibre-gl['"]/);
+    if (!block) return null;
+    const named = block[1].match(/\bMap\s+as\s+(\w+)/);
+    if (named) return named[1];
+    return /\bMap\b\s*(?:,|\})/.test(block[1]) ? 'Map' : null;
+  }
+
+  const builders = sources(SRC)
+    .map((file) => ({ file, source: readFileSync(file, 'utf8') }))
+    .filter(({ source }) => {
+      const alias = mapAlias(source);
+      return alias !== null && new RegExp(String.raw`new\s+${alias}\s*\(`).test(source);
+    });
+
+  it('карты вообще находятся — иначе проверка проверяет пустоту', () => {
+    // Переименовали импорт или перешли на другую библиотеку — тест обязан
+    // упасть здесь, а не тихо стать зелёной пустышкой.
+    expect(builders.length, 'ни одного конструктора карты не найдено').toBeGreaterThan(0);
+  });
+
+  it.each(builders.map(({ file }) => file))('%s импортирует @/lib/map/worker', (file) => {
+    const source = readFileSync(file, 'utf8');
+    expect(
+      /import\s+['"]@\/lib\/map\/worker['"]/.test(source),
+      'без этого импорта векторные тайлы не разберёт никто, и карта будет чёрной',
+    ).toBe(true);
+  });
+});
