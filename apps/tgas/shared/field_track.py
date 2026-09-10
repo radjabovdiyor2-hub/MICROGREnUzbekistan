@@ -88,6 +88,40 @@ async def who_is_silent() -> List[Dict[str, Any]]:
         return []
 
 
+async def stay_start(telegram_id: int) -> Dict[str, Any]:
+    """Отметить «я на точке». Клиента выбирает витрина по треку.
+
+    Возвращает `{"ok": True, "customer": "Плов Центр"}` либо
+    `{"ok": False, "error": "..."}`. Ошибку показываем дословно: «не вижу,
+    где вы» — это не сбой, а руководство к действию, и подменять его общим
+    «не получилось» значит оставить человека в поле гадать.
+    """
+    return await _stay_call("POST", telegram_id)
+
+
+async def stay_finish(telegram_id: int) -> Dict[str, Any]:
+    """Отметить «уехал». Закрывается единственная открытая стоянка."""
+    return await _stay_call("PATCH", telegram_id)
+
+
+async def _stay_call(method: str, telegram_id: int) -> Dict[str, Any]:
+    payload = {"telegramId": str(telegram_id)}
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.request(
+                method, _url("/admin/tracking/stay"), json=payload
+            ) as resp:
+                body = await resp.json(content_type=None)
+                if resp.status == 200:
+                    return {"ok": True, **(body if isinstance(body, dict) else {})}
+                message = str(body.get("error") or "") if isinstance(body, dict) else ""
+                return {"ok": False, "error": message or f"HTTP {resp.status}"}
+    except Exception as exc:
+        logger.warning("FIELD_TRACK: отметка стоянки не прошла (%s)", exc)
+        return {"ok": False, "error": "связь с сервером потерялась"}
+
+
 async def send_visit_photo(telegram_id: int, image: bytes, filename: str = "visit.jpg") -> str:
     """Отправить кадр как фотоотчёт с текущей стоянки.
 

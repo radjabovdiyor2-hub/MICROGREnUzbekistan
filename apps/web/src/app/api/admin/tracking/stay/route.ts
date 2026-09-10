@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { prisma } from '@repo/database';
 import { actorOf, getSession } from '@/lib/adminAuth';
+import { requireBotAuth } from '@/lib/botAuth';
+import { getNumber } from '@/lib/settings/store';
+import { nearestPin } from '@/lib/tracking/stays';
 import { audit } from '@/lib/audit';
 import { formatLocalDate, localDayRange } from '@/lib/localDate';
 import { publish } from '@/lib/realtime/bus';
@@ -44,6 +47,61 @@ function clampToWindow(raw: unknown): Date {
   return new Date(ms);
 }
 
+/**
+ * Сотрудник, назвавшийся Telegram-ом через бота.
+ *
+ * ЗАЧЕМ ВТОРАЯ ДВЕРЬ. Продавец живёт в Telegram: туда он шлёт трансляцию
+ * геопозиции, туда же фото с точки. Требовать ради отметки «я на точке»
+ * открыть админку — значит требовать того, чего в поле не делают, и весь
+ * цикл рвался в середине: фото приходило, а привязать его было не к чему.
+ */
+async function botEmployee(request: NextRequest, telegramId: unknown): Promise<{ id: string } | null> {
+  if (!requireBotAuth(request)) return null;
+  const text = typeof telegramId === 'string' || typeof telegramId === 'number' ? String(telegramId) : '';
+  if (!/^\d{1,19}$/.test(text)) return null;
+
+  const found = await prisma.employee.findUnique({
+    where: { telegramId: BigInt(text) },
+    select: { id: true, isActive: true },
+  });
+  return found && found.isActive ? { id: found.id } : null;
+}
+
+/**
+ * У какого клиента человек стоит СЕЙЧАС — по последней крошке трека.
+ *
+ * ПОЧЕМУ СЕРВЕР, А НЕ БОТ. Бот знает только «нажали кнопку»; где человек
+ * и кто рядом — знает база. Присылать клиента телом запроса нельзя по той
+ * же причине, по которой расстояние до него считает сервер: тело пишет
+ * тот, чью добросовестность мы и проверяем.
+ *
+ * `null` — трансляция не включена или человек не у клиента. Оба случая
+ * означают одно: отмечать нечего, и сказать об этом надо прямо.
+ */
+async function whereIsHe(employeeId: string): Promise<{ customerId: number; at: Date } | null> {
+  const last = await prisma.trackPing.findFirst({
+    where: { employeeId },
+    select: { at: true, latitude: true, longitude: true },
+    orderBy: { at: 'desc' },
+  });
+  // Точка старше получаса — это не «сейчас»: за полчаса уезжают через весь
+  // город, и отмечать по ней визит значило бы подтверждать несуществующее.
+  if (!last || Date.now() - last.at.getTime() > 30 * 60_000) return null;
+
+  const radiusM = await getNumber('field.stayRadiusM');
+  const pins = await prisma.customer.findMany({
+    where: { latitude: { not: null }, longitude: { not: null } },
+    select: { id: true, latitude: true, longitude: true },
+  });
+
+  const pin = nearestPin(
+    { latitude: last.latitude, longitude: last.longitude },
+    pins.map((c) => ({ id: c.id, latitude: c.latitude as number, longitude: c.longitude as number })),
+    radiusM,
+  );
+  return pin ? { customerId: pin.id, at: last.at } : null;
+}
+
 /** Сотрудник запроса — по подписи, а не по телу. */
 async function meFrom(request: NextRequest): Promise<{ id: string } | null> {
   const session = getSession(request);
@@ -78,11 +136,26 @@ async function ensureDay(employeeId: string, at: Date): Promise<number> {
 
 export async function POST(request: NextRequest) {
   try {
-    const me = await meFrom(request);
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+
+    // Две двери. Из админки человек называет клиента сам — он его видит на
+    // карте. Из бота клиента называет СЕРВЕР по последней крошке трека:
+    // в чате выбирать не из чего, а телу верить нельзя.
+    const fromBot = await botEmployee(request, body?.telegramId);
+    const me = fromBot ?? (await meFrom(request));
     if (!me) return NextResponse.json({ error: 'Сотрудник не опознан' }, { status: 403 });
 
-    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    const customerId = Number(body?.customerId);
+    let customerId = Number(body?.customerId);
+    if (fromBot) {
+      const here = await whereIsHe(me.id);
+      if (!here) {
+        return NextResponse.json(
+          { error: 'Не вижу, где вы: включите трансляцию геопозиции и встаньте у клиента' },
+          { status: 409 },
+        );
+      }
+      customerId = here.customerId;
+    }
     if (!Number.isInteger(customerId) || customerId <= 0) {
       return NextResponse.json({ error: 'Не указан клиент' }, { status: 400 });
     }
@@ -127,6 +200,13 @@ export async function POST(request: NextRequest) {
       select: { id: true, arrivedAt: true },
     });
 
+    // Имя клиента в ответе: боту надо сказать человеку, у КОГО он отмечен,
+    // — иначе тот не заметит, что сервер выбрал соседнее заведение.
+    const named = await prisma.customer.findUnique({
+      where: { id: customerId },
+      select: { name: true, companyName: true },
+    });
+
     audit({
       action: 'tracking.stay.in',
       ...actorOf(request),
@@ -135,7 +215,12 @@ export async function POST(request: NextRequest) {
     });
     publish('customers');
 
-    return NextResponse.json({ status: 'ok', stayId: stay.id, reopened: false });
+    return NextResponse.json({
+      status: 'ok',
+      stayId: stay.id,
+      reopened: false,
+      customer: named?.companyName || named?.name || `#${customerId}`,
+    });
   } catch (error: unknown) {
     console.error('API Admin Tracking Stay POST Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });
@@ -145,18 +230,22 @@ export async function POST(request: NextRequest) {
 /** «Уехал»: закрывает открытую стоянку и считает длительность. */
 export async function PATCH(request: NextRequest) {
   try {
-    const me = await meFrom(request);
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+
+    const fromBot = await botEmployee(request, body?.telegramId);
+    const me = fromBot ?? (await meFrom(request));
     if (!me) return NextResponse.json({ error: 'Сотрудник не опознан' }, { status: 403 });
 
-    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
     const stayId = Number(body?.stayId);
     const clientRef = readRef(body?.clientRef);
 
     // Стоянку называют либо номером из базы, либо ключом телефона: из
     // подвала номер неоткуда взять — его выдаёт сервер, до которого в тот
-    // момент не достучались.
+    // момент не достучались. Из бота не приходит ни того ни другого:
+    // закрываем ЕДИНСТВЕННУЮ открытую стоянку человека — она и есть та,
+    // с которой он уезжает.
     const byId = Number.isInteger(stayId) && stayId > 0;
-    if (!byId && !clientRef) {
+    if (!byId && !clientRef && !fromBot) {
       return NextResponse.json({ error: 'Не указана стоянка' }, { status: 400 });
     }
 
@@ -164,10 +253,11 @@ export async function PATCH(request: NextRequest) {
     // только существование записи.
     const stay = await prisma.trackStay.findFirst({
       where: {
-        ...(byId ? { id: stayId } : { clientRef }),
+        ...(byId ? { id: stayId } : clientRef ? { clientRef } : { leftAt: null }),
         fieldDay: { employeeId: me.id },
       },
       select: { id: true, arrivedAt: true, leftAt: true, customerId: true },
+      orderBy: { arrivedAt: 'desc' },
     });
     if (!stay) return NextResponse.json({ error: 'Стоянка не найдена' }, { status: 404 });
     if (stay.leftAt) {

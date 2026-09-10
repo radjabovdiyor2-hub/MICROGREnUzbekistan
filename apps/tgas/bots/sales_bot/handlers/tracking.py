@@ -21,9 +21,20 @@ from typing import Optional
 
 from aiogram import F, Router
 from aiogram.dispatcher.event.bases import SkipHandler
-from aiogram.types import Message
+from aiogram.types import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    CallbackQuery,
+    Message,
+)
 
-from shared.field_track import make_ping, send_pings, send_visit_photo
+from shared.field_track import (
+    make_ping,
+    send_pings,
+    send_visit_photo,
+    stay_finish,
+    stay_start,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +105,11 @@ async def live_location_started(message: Message) -> None:
     hours = max(1, int(live) // 3600)
     await message.answer(
         f"🛰 Трансляция включена на {hours} ч. Смена пишется.\n\n"
-        "Выключить можно в любой момент — в том же сообщении с картой, "
-        "кнопкой «Остановить».",
+        "Приехали к клиенту — нажмите «Я на точке», и фото пойдут в отчёт "
+        "по нему.\n"
+        "Выключить трансляцию можно в любой момент — в том же сообщении "
+        "с картой, кнопкой «Остановить».",
+        reply_markup=_stay_keyboard(arrived=False),
     )
 
 
@@ -148,8 +162,8 @@ async def visit_photo(message: Message) -> None:
 
     if outcome == "ok":
         await message.answer(
-            "📷 Фото добавлено в отчёт по точке.\n\n"
-            "Когда закончите — нажмите «Уехал» в админке."
+            "📷 Фото добавлено в отчёт по точке.",
+            reply_markup=_stay_keyboard(arrived=True),
         )
         return
 
@@ -158,3 +172,73 @@ async def visit_photo(message: Message) -> None:
     await message.answer(
         "⚠️ Фото не сохранилось — связь с сервером потерялась. Пришлите ещё раз."
     )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Весь цикл точки — в одном чате
+#
+# ЗАЧЕМ. Отметка «я на точке» жила только в PWA админки, и цикл рвался
+# посередине: продавец шлёт геопозицию в Telegram, шлёт туда же фото — а
+# привязать кадр не к чему, потому что стоянку никто не открыл. Требовать
+# ради одной кнопки открыть админку — значит требовать того, чего в поле
+# не делают.
+#
+# КЛИЕНТА ВЫБИРАЕТ СЕРВЕР по последней крошке трека. В чате выбирать не из
+# чего: списка заведений здесь нет, а присылать клиента телом запроса
+# нельзя по той же причине, по какой расстояние до него считает сервер.
+# Поэтому и ответ называет заведение — чтобы человек заметил, если сервер
+# выбрал соседнее.
+# ═══════════════════════════════════════════════════════════════════════
+
+def _stay_keyboard(arrived: bool) -> InlineKeyboardMarkup:
+    """Одна кнопка на состояние: приехал или уехал. Две сразу путают."""
+    button = (
+        InlineKeyboardButton(text="🚗 Уехал", callback_data="stay:out")
+        if arrived
+        else InlineKeyboardButton(text="📍 Я на точке", callback_data="stay:in")
+    )
+    return InlineKeyboardMarkup(inline_keyboard=[[button]])
+
+
+@router.callback_query(F.data == "stay:in")
+async def stay_in(cb: CallbackQuery) -> None:
+    if cb.from_user is None:
+        await cb.answer()
+        return
+
+    result = await stay_start(cb.from_user.id)
+    if not result.get("ok"):
+        # Причину показываем дословно: «не вижу, где вы» — это руководство
+        # к действию, а не сбой.
+        await cb.answer(str(result.get("error") or "Не получилось"), show_alert=True)
+        return
+
+    who = result.get("customer") or "точка"
+    await cb.answer()
+    if cb.message is not None:
+        await cb.message.answer(
+            f"📍 Отмечено: <b>{who}</b>.\n\n"
+            "Пришлите фото — оно уйдёт в отчёт по этой точке. "
+            "Уезжаете — нажмите «Уехал».",
+            reply_markup=_stay_keyboard(arrived=True),
+        )
+
+
+@router.callback_query(F.data == "stay:out")
+async def stay_out(cb: CallbackQuery) -> None:
+    if cb.from_user is None:
+        await cb.answer()
+        return
+
+    result = await stay_finish(cb.from_user.id)
+    if not result.get("ok"):
+        await cb.answer(str(result.get("error") or "Не получилось"), show_alert=True)
+        return
+
+    minutes = int(result.get("dwellSec") or 0) // 60
+    await cb.answer()
+    if cb.message is not None:
+        await cb.message.answer(
+            f"🚗 Уехали. На точке — {minutes} мин.",
+            reply_markup=_stay_keyboard(arrived=False),
+        )
