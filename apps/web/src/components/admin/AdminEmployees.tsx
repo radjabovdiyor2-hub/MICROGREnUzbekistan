@@ -19,6 +19,10 @@ interface Employee {
   city: string | null;
   /** Строкой, а не числом: BigInt не переживает JSON. */
   telegramId: string | null;
+  /** Оклад за месяц. `null` — не назначен, и это не ноль. */
+  baseSalary: number | null;
+  /** Ставка за смену. Задаётся вместо оклада, а не вместе с ним. */
+  shiftRate: number | null;
   isActive: boolean;
   todaySalesCount: number;
   todayRevenue: number;
@@ -26,13 +30,14 @@ interface Employee {
 
 const EMPTY_EMPLOYEE = {
   name: '', pin: '', phone: '', role: 'seller', department: '', city: 'samarqand',
-  telegramId: '',
+  telegramId: '', baseSalary: '', shiftRate: '',
 };
 
 /** Цвет плашки должности. */
 const ROLE_TONE: Record<string, { bg: string; fg: string }> = {
   manager: { bg: 'var(--info-bg)', fg: 'var(--info)' },
   grower: { bg: 'var(--brand-primary-light)', fg: 'var(--brand-primary)' },
+  driver: { bg: 'var(--warning-bg)', fg: 'var(--warning)' },
 };
 
 export function AdminEmployees({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
@@ -185,6 +190,25 @@ export function AdminEmployees({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
               onChange={e => setForm(f => ({ ...f, telegramId: e.target.value.replace(/\D/g, '') }))}
               inputMode="numeric"
               style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
+            {/* ОКЛАД И СТАВКА. Колонка `baseSalary` была в схеме с самого
+                начала и её читал расчёт зарплаты — но заполнить её было
+                НЕГДЕ. Поэтому у всех выходил ноль: экран «Зарплата»
+                показывал нули, а календарь платежей вовсе не видел
+                крупнейшего регулярного расхода.
+
+                Два поля, а не одно: у офиса помесячный оклад, у поля —
+                ставка за выход. Заполнять надо ОДНО из них; заданы оба —
+                расчёт скажет об этом вслух. */}
+            <input placeholder={t('Оклад в месяц, сум', 'Oylik maosh, soʻm')}
+              value={form.baseSalary}
+              onChange={e => setForm(f => ({ ...f, baseSalary: e.target.value.replace(/\D/g, '') }))}
+              inputMode="numeric"
+              style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
+            <input placeholder={t('Ставка за смену, сум', 'Bir smena uchun, soʻm')}
+              value={form.shiftRate}
+              onChange={e => setForm(f => ({ ...f, shiftRate: e.target.value.replace(/\D/g, '') }))}
+              inputMode="numeric"
+              style={{ padding: 'var(--space-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 'var(--text-sm)' }} />
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
             <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
@@ -233,7 +257,16 @@ export function AdminEmployees({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '4px' }}>
-                  <button onClick={() => { setEditId(emp.id); setForm({ name: emp.name, pin: '', phone: emp.phone || '', role: emp.role, department: emp.department || '', city: emp.city || 'samarqand', telegramId: emp.telegramId || '' }); setShowAdd(true); }}
+                  <button onClick={() => { setEditId(emp.id); setForm({
+                      name: emp.name, pin: '', phone: emp.phone || '', role: emp.role,
+                      department: emp.department || '', city: emp.city || 'samarqand',
+                      telegramId: emp.telegramId || '',
+                      // БЕЗ ЭТИХ ДВУХ СТРОК ПРАВКА СТИРАЛА БЫ ЗАРПЛАТУ:
+                      // форма ушла бы с пустыми полями, а пустое поле
+                      // сервер понимает как «снять значение».
+                      baseSalary: emp.baseSalary == null ? '' : String(emp.baseSalary),
+                      shiftRate: emp.shiftRate == null ? '' : String(emp.shiftRate),
+                    }); setShowAdd(true); }}
                     className="btn btn-ghost btn-sm" style={{ width: 28, height: 28, padding: 0 }}>
                     <Edit size={14} />
                   </button>

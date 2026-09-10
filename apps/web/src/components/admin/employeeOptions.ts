@@ -27,6 +27,11 @@ export const EMPLOYEE_ROLES = [
   { value: 'seller', label: 'Sotuvchi' },
   { value: 'manager', label: 'Menejer' },
   { value: 'grower', label: 'Agronom' },
+  // РОЛИ ВОДИТЕЛЯ НЕ БЫЛО ВОВСЕ, хотя рейсы развозит отдельный человек:
+  // `DeliveryRoute.driverId` ссылается на сотрудника, а назвать его как
+  // водителя было нечем. Человека, которому платят за выезды, приходилось
+  // записывать продавцом.
+  { value: 'driver', label: 'Haydovchi' },
 ];
 
 /** Разрешённые значения — их же проверяет API. */

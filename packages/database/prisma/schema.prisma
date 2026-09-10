@@ -399,7 +399,18 @@ model Employee {
   isActive   Boolean   @default(true) @map("is_active")
   role       String    @default("seller") // seller | manager
   birthDate  DateTime? @map("birth_date") @db.Date
-  baseSalary Int?      @map("base_salary") // UZS
+  /// Оклад за месяц в сумах. NULL — оклад не назначен, и это НЕ ноль:
+  /// ноль означал бы «работает бесплатно», а ведомость честно начислила бы
+  /// ноль. Различие — единственный признак незаполненной карточки.
+  baseSalary Int?      @map("base_salary")
+
+  /// Ставка за одну отработанную смену, в сумах.
+  ///
+  /// ОТДЕЛЬНО ОТ ОКЛАДА, а не вместо него: у офиса помесячный оклад, у
+  /// поля — выходы. Заданы оба — это ошибка ввода, и расчёт говорит о ней
+  /// вслух, а не складывает: сложенные, они заплатили бы дважды за один
+  /// месяц.
+  shiftRate  Int?      @map("shift_rate")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

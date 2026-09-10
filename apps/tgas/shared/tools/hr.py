@@ -48,22 +48,46 @@ async def list_employees(status: Optional[str] = None) -> Dict[str, Any]:
 
 
 async def get_payroll() -> Dict[str, Any]:
-    """Фонд оплаты труда по активным сотрудникам."""
-    async with get_session_ctx() as session:
-        rows = (
-            await session.execute(
-                text(
-                    "SELECT name, role, salary FROM crm_employees "
-                    "WHERE LOWER(status) = 'active' AND salary > 0 ORDER BY salary DESC"
-                )
-            )
-        ).fetchall()
-    total = sum(float(r[2] or 0) for r in rows)
+    """Ведомость зарплаты: кому сколько начислено и сколько ещё отдать.
+
+    ЧИТАЕМ ВИТРИНУ, А НЕ `crm_employees`. Здесь стоял
+    `SELECT salary FROM crm_employees` — у этой колонки нет ни одного
+    пишущего места во всём репозитории, поэтому инструмент годами отвечал
+    «фонд ноль» и владельцу, и модели.
+
+    Зарплата живёт на витрине: оклад, ставка за смену, выплаты и расчёт.
+    Второй источник правды о деньгах человека и был причиной поломки.
+    """
+    from shared.storefront_payroll import get_payroll as fetch
+
+    payroll = await fetch()
+    if payroll is None:
+        # Честный отказ, а не ноль: «фонд ноль» модель перескажет владельцу
+        # как факт, и он примет решение по несуществующему числу.
+        return {
+            "found": False,
+            "summary": "Ведомость недоступна — витрина не ответила.",
+        }
+
+    rows = payroll.get("rows") or []
+    accrued = float(payroll.get("totalAccrued") or 0)
+    remaining = float(payroll.get("totalRemaining") or 0)
     return {
-        "total": total,
-        "total_text": format_price(total),
+        "found": True,
+        "period": payroll.get("period"),
+        "payday": payroll.get("payday"),
+        "total_accrued": accrued,
+        "total_accrued_text": format_price(accrued),
+        "total_remaining": remaining,
+        "total_remaining_text": format_price(remaining),
         "employees": [
-            {"name": r[0], "role": r[1], "salary": float(r[2] or 0)} for r in rows
+            {
+                "name": r.get("name"),
+                "accrued": r.get("accrued"),
+                "paid": r.get("paidTotal"),
+                "remaining": r.get("remaining"),
+            }
+            for r in rows
         ],
     }
 
@@ -203,8 +227,10 @@ register(
 register(
     Tool(
         name="get_payroll",
-        admin_tab="employees",
-        description="Фонд оплаты труда: кто сколько получает, итог по активным.",
+        # Экран зарплаты, а не сотрудников: раньше кнопка вела на список
+        # персонала, который эту ведомость не показывает вовсе.
+        admin_tab="payroll",
+        description="Ведомость зарплаты: начислено, выдано, сколько найти к выплате.",
         run=get_payroll,
         departments=DEPTS,
     )

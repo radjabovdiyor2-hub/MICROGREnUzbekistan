@@ -347,10 +347,22 @@ async def monthly_pnl():
 
 
 async def salary_reminder():
-    """Напоминание о зарплатном фонде (28-го числа)."""
+    """За два дня до выплаты: хватит ли денег.
+
+    ЭТО НЕ ПОВТОР НАПОМИНАНИЯ HR. Тот 25-го говорит «через пять дней
+    зарплата, вот ведомость»; этот за два дня спрашивает другое — есть ли
+    чем платить. Два шага одного дела, а не одно сообщение дважды.
+
+    ЧИСЛО БЕРЁТСЯ С ВИТРИНЫ. Здесь стоял `SUM(salary) FROM crm_employees`
+    — колонка, у которой нет ни одного пишущего места во всём
+    репозитории. Оба напоминания годами показывали ноль.
+
+    Показываем «найти к выплате», а не начисленное: на счету должно
+    хватить именно на остаток, а не на весь фонд — часть уже роздана
+    авансами.
+    """
     try:
-        from shared.database import get_session_ctx
-        from sqlalchemy import text
+        from shared.storefront_payroll import get_payroll
 
         bot = Bot(
             token=settings.finance_bot_token,
@@ -358,30 +370,34 @@ async def salary_reminder():
         )
         admin_id = settings.admin_telegram_ids[0]
         try:
-            async with get_session_ctx() as session:
-                result = await session.execute(
-                    text(
-                        "SELECT COUNT(*) AS cnt, COALESCE(SUM(salary), 0) AS total "
-                        "FROM crm_employees WHERE status = 'active'"
-                    )
+            payroll = await get_payroll()
+            if payroll is None:
+                await bot.send_message(
+                    admin_id,
+                    "💰 <b>Послезавтра зарплата.</b>\n"
+                    "Сумму посчитать не удалось — витрина не ответила.",
                 )
-                row = result.fetchone()
-            count = row[0] if row else 0
-            total = row[1] if row else 0
-            # «Убедитесь, что на счету достаточно» — проверить это можно
-            # только в балансе, и дорогу туда человек до сих пор искал сам.
+                logger.warning("salary_reminder: ведомость не получена")
+                return
+
+            rows = payroll.get("rows") or []
+            remaining = float(payroll.get("totalRemaining") or 0)
+            paid = float(payroll.get("totalPaid") or 0)
             await send_report(
                 bot,
                 admin_id,
-                f"💰 <b>Напоминание: послезавтра зарплата!</b>\n\n"
-                f"👥 Сотрудников: {count}\n"
-                f"💵 Фонд ЗП: {'{:,.0f}'.format(total)} сум\n\n"
+                f"💰 <b>Послезавтра зарплата!</b>\n\n"
+                f"👥 Сотрудников: {len(rows)}\n"
+                f"💵 Уже роздано: {paid:,.0f} сум\n"
+                f"🔻 Найти к выплате: {remaining:,.0f} сум\n\n"
                 f"Убедитесь, что на счету достаточно средств.",
                 admin_tab="finance",
                 button_text="💼 Проверить баланс",
             )
             logger.info(
-                "salary_reminder: %d сотрудников, фонд %s", count, f"{total:,.0f}"
+                "salary_reminder: %d сотрудников, к выплате %s",
+                len(rows),
+                f"{remaining:,.0f}",
             )
         finally:
             await bot.session.close()

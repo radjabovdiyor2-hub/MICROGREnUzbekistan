@@ -59,6 +59,23 @@ function forClient(employee: Record<string, unknown>) {
   };
 }
 
+/**
+ * Деньги из формы: пусто — значит «не задано», а не ноль.
+ *
+ * РАЗЛИЧИЕ НЕ КОСМЕТИЧЕСКОЕ. Ноль в окладе — это «работает бесплатно», и
+ * ведомость честно начислит ноль. NULL — «ставка не назначена», и это
+ * повод её назначить, а не платить ничего. Свести их в одно значит
+ * потерять единственный признак незаполненной карточки.
+ */
+function readMoney(value: unknown): number | null | NextResponse {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n < 0 || n > 1_000_000_000) {
+    return NextResponse.json({ error: 'Сумма — целое число от 0' }, { status: 400 });
+  }
+  return n;
+}
+
 function badRole(role: unknown): NextResponse | null {
   if (role === undefined || role === null || role === '') return null;
   if (EMPLOYEE_ROLE_VALUES.includes(String(role))) return null;
@@ -119,7 +136,7 @@ export async function POST(request: NextRequest) {
     // department и city раньше не читались вовсе: колонки в базе есть,
     // график смен их показывает, но заполнить их было нечем — у каждого
     // сотрудника отдел оставался пустым навсегда.
-    const { name, pin, phone, role, department, city, telegramId } = body;
+    const { name, pin, phone, role, department, city, telegramId, baseSalary, shiftRate } = body;
 
     if (!name || !pin) {
       return NextResponse.json({ error: "Ism va PIN majburiy" }, { status: 400 });
@@ -141,12 +158,19 @@ export async function POST(request: NextRequest) {
     const tg = parseTelegramId(telegramId);
     if (tg instanceof NextResponse) return tg;
 
+    const base = readMoney(baseSalary);
+    if (base instanceof NextResponse) return base;
+    const perShift = readMoney(shiftRate);
+    if (perShift instanceof NextResponse) return perShift;
+
     const employee = await prisma.employee.create({
       data: {
         name, pin,
         phone: phone || null,
         role: role || 'seller',
         department: department || null,
+        baseSalary: base,
+        shiftRate: perShift,
         ...(city ? { city: String(city) } : {}),
         ...(tg === undefined ? {} : { telegramId: tg }),
       },
@@ -189,9 +213,24 @@ export async function PUT(request: NextRequest) {
     // Белый список полей: раньше тело разворачивалось целиком, и клиент мог
     // переписать любую колонку — включая isActive и totalSales.
     const allowed = ['name', 'pin', 'phone', 'role', 'department', 'city', 'isActive'];
+
     const patch: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in data) patch[key] = data[key] === '' ? null : data[key];
+    }
+    // ОКЛАД И СТАВКА — ОТДЕЛЬНО ОТ БЕЛОГО СПИСКА: их надо разобрать в
+    // число, а строка «300000» в колонке Int уронила бы запрос молча.
+    //
+    // Раньше их не было ВООБЩЕ НИГДЕ: колонка `baseSalary` в схеме есть и
+    // читается расчётом зарплаты, но заполнить её было нечем — ни здесь,
+    // ни в форме. Поэтому у всех выходил ноль, экран зарплаты показывал
+    // нули, а календарь платежей не видел крупнейшего регулярного
+    // расхода вовсе.
+    for (const key of ['baseSalary', 'shiftRate'] as const) {
+      if (!(key in data)) continue;
+      const parsed = readMoney(data[key]);
+      if (parsed instanceof NextResponse) return parsed;
+      patch[key] = parsed;
     }
 
     // Telegram ID отдельно от белого списка: он требует разбора и своей

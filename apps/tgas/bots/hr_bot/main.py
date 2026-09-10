@@ -24,10 +24,24 @@ scheduler = BotScheduler("hr_bot")
 
 
 async def payroll_reminder():
-    """Напоминание о зарплате за 5 дней (25-го числа)."""
+    """Напоминание о зарплате за пять дней до выплаты (25-го числа).
+
+    ЧИСЛО БЕРЁТСЯ С ВИТРИНЫ, А НЕ ИЗ `crm_employees`.
+
+    Здесь стоял `SUM(salary) FROM crm_employees` — у этой колонки нет ни
+    одного пишущего места во всём репозитории, то есть она всегда пуста.
+    Владельцу дважды в месяц приходило уверенное «Фонд: 0 сум», и
+    проверить его было нечем.
+
+    Зарплата живёт на витрине: оклад, ставка за смену, выплаты и расчёт.
+    Второй источник правды о деньгах человека и был причиной поломки.
+
+    НЕ ДОШЛО — ГОВОРИМ ОБ ЭТОМ. Молчаливый ноль неотличим от «все уже
+    получили», и именно эта подмена делала сломанный запрос спокойным
+    сообщением.
+    """
     try:
-        from shared.database import get_session_ctx
-        from sqlalchemy import text
+        from shared.storefront_payroll import get_payroll
 
         bot = Bot(
             token=settings.hr_bot_token,
@@ -35,25 +49,34 @@ async def payroll_reminder():
         )
         admin_id = settings.admin_telegram_ids[0]
         try:
-            async with get_session_ctx() as session:
-                result = await session.execute(
-                    text(
-                        "SELECT COUNT(*) AS cnt, COALESCE(SUM(salary), 0) AS total "
-                        "FROM crm_employees WHERE status = 'active'"
-                    )
+            payroll = await get_payroll()
+            if payroll is None:
+                await bot.send_message(
+                    admin_id,
+                    "💰 <b>Через 5 дней зарплата.</b>\n"
+                    "Сумму посчитать не удалось — витрина не ответила. "
+                    "Откройте раздел «Зарплата».",
                 )
-                row = result.fetchone()
-            count = row[0] if row else 0
-            total = row[1] if row else 0
-            await bot.send_message(
+                logger.warning("payroll_reminder: ведомость не получена")
+                return
+
+            rows = payroll.get("rows") or []
+            remaining = float(payroll.get("totalRemaining") or 0)
+            accrued = float(payroll.get("totalAccrued") or 0)
+            await send_report(
+                bot,
                 admin_id,
-                f"💰 <b>Напоминание:</b> через 5 дней зарплата.\n"
-                f"Сотрудников: {count}\n"
-                f"Фонд: {'{:,.0f}'.format(total)} сум",
-                parse_mode="HTML",
+                f"💰 <b>Через 5 дней зарплата.</b>\n"
+                f"Сотрудников: {len(rows)}\n"
+                f"Начислено: {accrued:,.0f} сум\n"
+                f"Найти к выплате: {remaining:,.0f} сум",
+                admin_tab="payroll",
+                button_text="💰 Открыть зарплату",
             )
             logger.info(
-                "payroll_reminder: %d сотрудников, фонд %s", count, f"{total:,.0f}"
+                "payroll_reminder: %d сотрудников, к выплате %s",
+                len(rows),
+                f"{remaining:,.0f}",
             )
         finally:
             await bot.session.close()
