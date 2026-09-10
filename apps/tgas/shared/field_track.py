@@ -403,12 +403,24 @@ async def close_forgotten_shifts() -> int:
         return 0
 
 
-async def who_is_in_field() -> List[Dict[str, Any]]:
-    """Кто сейчас в поле: имя, сколько прошёл, сколько заездов, молчит ли.
+#: Порог молчания на случай, если витрина его не назвала.
+#:
+#: Своего числа у офиса быть не должно: с какой минуты человек «молчит»,
+#: решает витрина и говорит это полем `silentAfterMin` — тем же числом
+#: гаснет точка на карте. Эта константа работает ровно в одном случае:
+#: витрина старее ответа с полем. Разъехаться с ней она не успеет, потому
+#: что живёт одним прогоном.
+SILENT_MIN_FALLBACK = 15
+
+
+async def who_is_in_field() -> tuple[List[Dict[str, Any]], int]:
+    """Кто сейчас в поле и с какой минуты считать человека замолчавшим.
 
     Тот же живой слой, что рисует карту у владельца. Берём его, а не
     считаем заново: два места, отвечающие на один вопрос, разойдутся на
     первой же правке — и владелец увидит на карте одно, а в боте другое.
+    По той же причине отсюда возвращается и ПОРОГ: он приходит вместе с
+    людьми, а не хранится второй копией в боте.
 
     Пустой список при любой ошибке.
     """
@@ -418,10 +430,15 @@ async def who_is_in_field() -> List[Dict[str, Any]]:
             async with session.get(_url("/admin/tracking/live")) as resp:
                 if resp.status != 200:
                     logger.warning("FIELD_TRACK: живой слой недоступен (%s)", resp.status)
-                    return []
+                    return [], SILENT_MIN_FALLBACK
                 body = await resp.json(content_type=None)
-                people = body.get("people") or [] if isinstance(body, dict) else []
-                return [p for p in people if isinstance(p, dict)]
+                if not isinstance(body, dict):
+                    return [], SILENT_MIN_FALLBACK
+                people = [p for p in (body.get("people") or []) if isinstance(p, dict)]
+                threshold = body.get("silentAfterMin")
+                if not isinstance(threshold, int) or threshold <= 0:
+                    threshold = SILENT_MIN_FALLBACK
+                return people, threshold
     except Exception as exc:
         logger.warning("FIELD_TRACK: живой слой не получен (%s)", exc)
-        return []
+        return [], SILENT_MIN_FALLBACK

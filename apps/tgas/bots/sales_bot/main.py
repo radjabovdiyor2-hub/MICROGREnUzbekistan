@@ -23,6 +23,8 @@
 
 import asyncio
 import logging
+from typing import Optional
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.redis import RedisStorage
@@ -35,6 +37,7 @@ from shared.config import settings
 from shared.database import init_db
 from shared.event_bus import event_bus
 from bots.sales_bot.handlers import all_routers
+from bots.sales_bot.handlers.shift_menu import LIVE_HINT
 from shared.group_orchestrator import create_group_router
 from shared.scheduler import BotScheduler
 from shared.health import start_heartbeat
@@ -1162,24 +1165,174 @@ async def handle_roll_call(payload: dict):
 #
 # ПИШЕМ ЧЕЛОВЕКУ, А НЕ ВЛАДЕЛЬЦУ. Это напоминание, а не донос: забытая
 # кнопка — не проступок. Владелец увидит дыру в отчёте и без нас.
+#
+# И ТОЛЬКО ТЕМ, У КОГО ОТКРЫТА СМЕНА. Сторож брал всех активных
+# сотрудников с Telegram и напоминал каждому — включая тех, у кого сегодня
+# выходной. Теперь состояние смены приходит вместе со сводкой (`state`),
+# и человек без смены не получает ничего.
 # ═══════════════════════════════════════════════════════════════════════
 
-# Кому и когда уже писали сегодня: telegram_id → «состояние, за которое
-# напомнили». Повтор того же состояния молчит — иначе сторож, бегающий
+# Кому и когда уже писали сегодня: telegram_id → «повод, за который
+# напомнили». Повтор того же повода молчит — иначе сторож, бегающий
 # каждые полчаса, превратится в четырнадцать одинаковых сообщений за день.
 # Тот же приём, что в shared/alert_once.py.
 _track_nudged: dict[str, str] = {}
+# Кого уже показали владельцу и по какому поводу. Раз на пару «день +
+# повод»: владелец должен узнать о случае, а не получать его каждые
+# полчаса, пока человек стоит.
+_track_escalated: dict[str, str] = {}
+# Кому напоминание НЕ ДОШЛО (заблокировал бота, не начинал диалог). Это
+# отдельный факт: владельцу нельзя писать «напомнили — не отреагировал»,
+# когда напоминания человек не видел.
+_track_undelivered: set[str] = set()
 _track_nudge_day: str = ""
 
 # Способа два, и второй нужен не для красоты: у нового сотрудника может не
 # быть диалога с ботом, а на телефоне — самого Telegram. Раньше в таком
 # случае дня не было вовсе. Трансляция всё равно названа первой: она одна
 # пишет с погашенным экраном, а браузер — пока вкладка открыта.
+#
+# Про саму трансляцию говорим словами `LIVE_HINT` — теми же, что на
+# клавиатуре смены и в сообщении витрины: два описания одного действия
+# расходятся на первой правке.
 TRACK_HINT = (
-    "Включить: скрепка → Геопозиция → «Транслировать» → 8 часов.\n"
+    LIVE_HINT + "\n\n"
     "Без Telegram: откройте админку и нажмите «Записывать день» "
     "(работает, пока экран включён)."
 )
+
+
+def track_nudge(person: dict) -> Optional[tuple[str, str]]:
+    """Повод и текст сотруднику. `None` — писать нечего.
+
+    ОТДЕЛЬНОЙ ФУНКЦИЕЙ, потому что это единственное место, где сторож
+    ошибается молча: лишнее сообщение в выходной выглядит как работающая
+    система, а не как поломка. Здесь решение можно проверить тестом, не
+    поднимая ни Telegram, ни базу.
+
+    Состояния приходят из витрины (`/admin/tracking/silent`):
+      · `off` — смены сегодня не открывал. Не наше дело;
+      · `ok` — точки идут;
+      · `never` — смена открыта, а точек нет ни одной;
+      · `silent` — точки были и прекратились.
+
+    Отдельно от состояния идёт `idleMin` — сколько минут человек СТОИТ НА
+    МЕСТЕ не у клиента. Это не разновидность молчания: телефон при этом
+    честно шлёт точки. Разными должны быть и вопросы: «что со связью» и
+    «всё ли в порядке» задают разным людям и по разным поводам.
+
+    Повод возвращается вместе с текстом, потому что по нему считается
+    повтор: сообщение может измениться словом, а повод — это то, из-за чего
+    мы вообще заговорили.
+    """
+    state = str(person.get("state") or "")
+
+    if state == "never":
+        # Смена ОТКРЫТА — иначе состояние было бы `off`. Человек сам нажал
+        # «Начал смену», а маршрут не пишется: это уже не догадка о чужом
+        # дне, а расхождение внутри его собственного.
+        return "never", (
+            "🛰 <b>Смена идёт, а маршрут не пишется</b>\n\n"
+            "Вы открыли смену, но за сегодня не пришло ни одной "
+            f"точки — объезд не попадёт в отчёт.\n\n{TRACK_HINT}"
+        )
+
+    if state == "silent":
+        minutes = person.get("silentMin")
+        return "silent", (
+            "🛰 <b>Трансляция прервалась</b>\n\n"
+            f"Смена идёт, но точек нет уже {minutes} мин. Телеграм "
+            f"выключает трансляцию через 8 часов сам.\n\n{TRACK_HINT}"
+        )
+
+    idle = person.get("idleMin")
+    if state == "ok" and isinstance(idle, int) and idle > 0:
+        # ВОПРОС, А НЕ ЗАМЕЧАНИЕ. Сорок минут на месте объясняются обедом,
+        # очередью, поломкой и разговором. Порог задал владелец в настройках
+        # витрины, и она же решила, что порог превышен, — здесь только слова.
+        return "idle", (
+            "🚏 <b>Вы стоите на месте</b>\n\n"
+            f"По треку — {idle} мин на одном месте и не у клиента. "
+            "Всё в порядке?\n\n"
+            "Это не отметка о нарушении: обед, очередь и поломка выглядят "
+            "так же. Если нужна помощь — напишите."
+        )
+
+    return None
+
+
+def owner_alert(person: dict, reason: str, delivered: bool) -> tuple[str, str]:
+    """Заголовок и текст сигнала владельцу — когда напоминание не помогло.
+
+    ВЛАДЕЛЬЦУ ПИШЕМ ВТОРЫМ И НЕ РАНЬШЕ. Большинство случаев решается
+    самим сотрудником: включил трансляцию, поехал дальше. Сигнал сразу
+    означал бы десятки сообщений в день на пятерых — и их перестают читать
+    вместе с настоящими.
+
+    `delivered` — дошло ли напоминание. «Не отреагировал» про человека,
+    который сообщения не видел, — это неправда, и владелец по ней спросит
+    не о том.
+    """
+    name = str(person.get("name") or "Сотрудник")
+
+    if reason == "never":
+        what = "смена открыта, а маршрут не пишется: за сегодня нет ни одной точки"
+    elif reason == "silent":
+        what = f"трансляция прервалась, точек нет {person.get('silentMin')} мин"
+    else:
+        what = f"стоит {person.get('idleMin')} мин на одном месте и не у клиента"
+
+    tail = (
+        "Напоминание отправлено — за полчаса ничего не изменилось."
+        if delivered
+        else "Напомнить не удалось: сотрудник не начинал диалог с ботом или заблокировал его."
+    )
+    return f"{name}: {what}", f"{name} — {what}.\n\n{tail}"
+
+
+def plan_watchdog(
+    people: list[dict],
+    nudged: dict[str, str],
+    escalated: dict[str, str],
+) -> tuple[list[tuple[str, str, str]], list[tuple[str, str, dict]]]:
+    """Кому написать и кого показать владельцу — за один проход.
+
+    Возвращает `(кому писать, кого эскалировать)`; в обоих списках
+    `telegram_id`, повод и то, чем этот повод объяснять.
+
+    ПОЧЕМУ ОТДЕЛЬНО ОТ ОТПРАВКИ. Здесь живёт правило «сначала сотруднику,
+    потом владельцу», и ошибка в нём тихая: сигнал владельцу с первого
+    круга выглядит как работающая система, а на пятерых сотрудниках это
+    десятки сообщений в день — и их перестают читать вместе с настоящими.
+    Отправку проверить тестом нельзя, а это правило — можно.
+
+    Решение принимается ДО открытия сессии Telegram: в обычный день писать
+    некому вовсе, а сторож бегает каждые полчаса.
+    """
+    outbox: list[tuple[str, str, str]] = []
+    escalate: list[tuple[str, str, dict]] = []
+
+    for person in people:
+        nudge = track_nudge(person)
+        if nudge is None:
+            continue
+
+        reason, text = nudge
+        chat_id = str(person.get("telegramId") or "")
+        if not chat_id:
+            continue
+
+        if nudged.get(chat_id) != reason:
+            outbox.append((chat_id, reason, text))
+            continue
+
+        # Мы уже писали об этом же поводе, прошёл круг — и ничего не
+        # изменилось. Только теперь это становится вопросом владельца, и
+        # только один раз за день.
+        if escalated.get(chat_id) != reason:
+            escalate.append((chat_id, reason, person))
+
+    return outbox, escalate
 
 
 async def track_watchdog():
@@ -1187,6 +1340,7 @@ async def track_watchdog():
     from datetime import datetime
 
     from shared.field_track import who_is_silent
+    from shared.owner_alerts import SEVERITY_WARNING, raise_alert
 
     global _track_nudge_day
 
@@ -1200,48 +1354,47 @@ async def track_watchdog():
     if today != _track_nudge_day:
         _track_nudge_day = today
         _track_nudged.clear()
+        _track_escalated.clear()
+        _track_undelivered.clear()
 
     people = await who_is_silent()
-    if not people:
-        return
+    outbox, escalate = plan_watchdog(people, _track_nudged, _track_escalated)
 
-    bot = Bot(
-        token=settings.sales_bot_token,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
-    )
-    try:
-        for person in people:
-            state = str(person.get("state") or "")
-            if state not in ("never", "silent"):
-                continue
+    if outbox:
+        bot = Bot(
+            token=settings.sales_bot_token,
+            default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+        )
+        try:
+            for chat_id, reason, text in outbox:
+                try:
+                    await bot.send_message(chat_id, text)
+                    _track_undelivered.discard(chat_id)
+                except Exception as exc:
+                    # Заблокировал бота или не начинал с ним диалог — это не
+                    # повод ронять сторож для остальных. Повод помечаем
+                    # написанным в любом случае: иначе человек с
+                    # заблокированным ботом не дойдёт до владельца никогда —
+                    # а он-то как раз и должен.
+                    _track_undelivered.add(chat_id)
+                    logger.warning("TRACK_WATCHDOG: не доставлено %s (%s)", chat_id, exc)
+                _track_nudged[chat_id] = reason
+        finally:
+            await bot.session.close()
 
-            chat_id = str(person.get("telegramId") or "")
-            if not chat_id or _track_nudged.get(chat_id) == state:
-                continue
-
-            if state == "never":
-                text = (
-                    "🛰 <b>Смена не записывается</b>\n\n"
-                    "Сегодня трансляция геопозиции ещё не включалась — "
-                    f"объезд не попадёт в отчёт.\n\n{TRACK_HINT}"
-                )
-            else:
-                minutes = person.get("silentMin")
-                text = (
-                    "🛰 <b>Трансляция прервалась</b>\n\n"
-                    f"Точек нет уже {minutes} мин. Телеграм выключает "
-                    f"трансляцию через 8 часов сам.\n\n{TRACK_HINT}"
-                )
-
-            try:
-                await bot.send_message(chat_id, text)
-                _track_nudged[chat_id] = state
-            except Exception as exc:
-                # Заблокировал бота или не начинал с ним диалог — это не
-                # повод ронять сторож для остальных.
-                logger.warning("TRACK_WATCHDOG: не доставлено %s (%s)", chat_id, exc)
-    finally:
-        await bot.session.close()
+    for chat_id, reason, person in escalate:
+        title, message = owner_alert(person, reason, chat_id not in _track_undelivered)
+        ok = await raise_alert(
+            kind=f"field_{reason}",
+            title=title,
+            message=message,
+            source="sales_bot",
+            severity=SEVERITY_WARNING,
+        )
+        # Метку ставим только при успехе — по образцу `announcePlan`: иначе
+        # недошедший сигнал считался бы доставленным и не повторился.
+        if ok:
+            _track_escalated[chat_id] = reason
 
 
 async def day_summary():
@@ -1254,7 +1407,20 @@ async def day_summary():
 
     Повтор безопасен: витрина пишет сигнал раз на пару «день + человек».
     """
-    from shared.field_track import summarize_day
+    from shared.field_track import close_forgotten_shifts, summarize_day
+
+    # СНАЧАЛА ЗАКРЫВАЕМ ЗАБЫТЫЕ СМЕНЫ, потом подводим итог.
+    #
+    # Порядок важен: смена, оставшаяся открытой со вчера, иначе попала бы в
+    # отчёт как идущая, и владелец увидел бы человека «на работе» вторые
+    # сутки.
+    #
+    # Эта строка уже была написана однажды и НЕ ДОЕХАЛА до репозитория:
+    # файл не попал в коммит 5d7aafd, хотя его сообщение утверждало
+    # обратное. Дверь и мост при этом существовали — и не звал их никто.
+    closed = await close_forgotten_shifts()
+    if closed:
+        logger.info("DAY_SUMMARY: закрыто забытых смен — %s", closed)
 
     written = await summarize_day()
     if written:

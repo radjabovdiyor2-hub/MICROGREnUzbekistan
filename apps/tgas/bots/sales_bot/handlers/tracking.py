@@ -516,8 +516,13 @@ async def shift_button(callback: CallbackQuery) -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _field_line(person: dict) -> str:
-    """Одна строка сводки: кто, сколько прошёл, сколько заездов, на связи ли."""
+def _field_line(person: dict, silent_after_min: int) -> str:
+    """Одна строка сводки: кто, сколько прошёл, сколько заездов, на связи ли.
+
+    Порог молчания приходит из витрины (`silentAfterMin`), а не вписан
+    здесь числом: по нему же гаснет точка на карте, и два числа означали бы
+    человека, который на карте ещё «сейчас», а в сводке уже «молчит».
+    """
     name = str(person.get("name") or "—")
     meters = int(person.get("meters") or 0)
     stops = int(person.get("stops") or 0)
@@ -527,7 +532,7 @@ def _field_line(person: dict) -> str:
     # что человек не включил запись вовсе; второе — что связь моргнула.
     if silent is None:
         state = "запись не включена"
-    elif int(silent) >= 15:
+    elif int(silent) >= silent_after_min:
         state = f"молчит {int(silent)} мин"
     else:
         state = "на связи"
@@ -545,7 +550,7 @@ async def where_is_everyone(message: Message) -> None:
         # рубеж, что и у отчёта дня на витрине.
         raise SkipHandler
 
-    people = await who_is_in_field()
+    people, silent_after_min = await who_is_in_field()
     if not people:
         await message.answer(
             "🗺 <b>Сегодня в поле никого.</b>\n\n"
@@ -553,7 +558,7 @@ async def where_is_everyone(message: Message) -> None:
         )
         return
 
-    lines = [_field_line(p) for p in people]
+    lines = [_field_line(p, silent_after_min) for p in people]
     rows = []
     for person in people[:8]:
         # Кнопка на КАЖДОГО: одна общая привела бы на экран, где владельцу
