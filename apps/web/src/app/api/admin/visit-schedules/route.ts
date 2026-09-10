@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
       orderBy: { customerId: 'asc' },
     });
 
-    return NextResponse.json({ weekday, items: rows });
+    return NextResponse.json({ weekday, items: dedupeByCustomer(rows) });
   } catch (error: unknown) {
     console.error('[/api/admin/visit-schedules] GET:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });
@@ -127,4 +127,32 @@ export async function PUT(request: NextRequest) {
     console.error('[/api/admin/visit-schedules] PUT:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });
   }
+}
+
+/**
+ * Один клиент — одна строка в списке дня.
+ *
+ * ОТКУДА БЕРУТСЯ ДУБЛИ. Расписание адресное: у клиента законно бывают
+ * разные дни у разных людей — «Азиз по субботам, Бекзод по средам». Но
+ * есть и безымянная строка `assignee: ''` — «любому, кто поедет». Владелец,
+ * назначающий субботу Азизу, её не стирает (и правильно: набор дней
+ * заменяется в пределах ОДНОГО человека), и клиент оказывается в списке
+ * дня дважды.
+ *
+ * Чиним на чтении, а не удалением: снести чужие строки значило бы стереть
+ * расписание второго продавца ради косметики в диалоге.
+ *
+ * ИМЕНОВАННАЯ СТРОКА ПОБЕЖДАЕТ БЕЗЫМЯННУЮ: «к этому едет Азиз» — более
+ * точное знание, чем «кто-нибудь». Между двумя именованными выбор не
+ * делаем — берём первую и оставляем обе видимыми через `assignee`.
+ */
+function dedupeByCustomer<T extends { customerId: number; assignee: string }>(rows: T[]): T[] {
+  const best = new Map<number, T>();
+  for (const row of rows) {
+    const kept = best.get(row.customerId);
+    if (!kept || (kept.assignee === '' && row.assignee !== '')) {
+      best.set(row.customerId, row);
+    }
+  }
+  return [...best.values()];
 }

@@ -21,6 +21,7 @@ from typing import Optional
 
 from aiogram import F, Router
 from aiogram.dispatcher.event.bases import SkipHandler
+from aiogram.filters import Command
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -30,11 +31,13 @@ from aiogram.types import (
 
 from shared.field_track import (
     make_ping,
+    my_day,
     plan_accept,
     send_pings,
     send_visit_photo,
     stay_finish,
     stay_start,
+    whoami,
 )
 
 logger = logging.getLogger(__name__)
@@ -285,3 +288,77 @@ async def plan_accept_pressed(cb: CallbackQuery) -> None:
             "Приехали к первой — нажмите «Я на точке».",
             reply_markup=_stay_keyboard(arrived=False),
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# «Мой день» — постоянная дверь к работе
+#
+# ЧЕГО НЕ БЫЛО. Меню бота продаж покупательское: каталог, B2B, «мои
+# заказы». У полевого сотрудника меню не было вовсе — все его кнопки жили
+# на разовых сообщениях: пропустил уведомление, и работа снова невидима.
+# При этом продавец пользуется ТОЛЬКО Telegram, админку не открывает.
+#
+# СПИСОК СОБИРАЕТ ВИТРИНА. Тот же текст печатает уведомление о назначении;
+# собери его бот вторыми руками — порядок точек разъехался бы через месяц.
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _day_keyboard(nav_url: str | None, accepted: bool) -> InlineKeyboardMarkup:
+    """Кнопки под днём: вести по маршруту и, если не принят, — принять."""
+    rows: list[list[InlineKeyboardButton]] = []
+    if nav_url:
+        rows.append([InlineKeyboardButton(text="🧭 Вести", url=nav_url)])
+    if not accepted:
+        # `today` вместо номера: у кнопки в «Моём дне» плана под рукой нет,
+        # и витрина найдёт сегодняшний сама. Ноль читался бы как номер.
+        rows.append(
+            [InlineKeyboardButton(text="✅ Приступить", callback_data="plan:accept:today")]
+        )
+    rows.append([InlineKeyboardButton(text="📍 Я на точке", callback_data="stay:in")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+async def _show_day(message: Message, user_id: int) -> None:
+    """Показать день человеку `user_id` в чате `message`.
+
+    Отправитель передаётся отдельно намеренно: у сообщения, под которым
+    нажали кнопку, `from_user` — это БОТ, а день нужен нажавшему.
+    Подменять поле в модели aiogram нельзя: это чужая структура, и правка
+    её полей ломается на первом же обновлении библиотеки.
+    """
+    who = await whoami(user_id)
+    if not who.get("staff"):
+        # Не сотрудник — это обычный посетитель бота. Молчим и отдаём
+        # сообщение дальше: у покупателя своё меню, и подменять его
+        # служебным ответом нельзя.
+        raise SkipHandler
+
+    day = await my_day(user_id)
+    if day.get("error"):
+        await message.answer(f"⚠️ Не смог показать день: {day['error']}")
+        return
+
+    text = str(day.get("text") or "На сегодня объезд не назначен.")
+    if not day.get("has"):
+        await message.answer(text)
+        return
+
+    await message.answer(
+        text,
+        reply_markup=_day_keyboard(day.get("navUrl"), bool(day.get("accepted"))),
+    )
+
+
+@router.message(Command("day"))
+async def day_command(message: Message) -> None:
+    """`/day` — что у меня сегодня."""
+    if message.from_user is None:
+        return
+    await _show_day(message, message.from_user.id)
+
+
+@router.callback_query(F.data == "field:day")
+async def day_button(cb: CallbackQuery) -> None:
+    await cb.answer()
+    if cb.message is not None and cb.from_user is not None:
+        await _show_day(cb.message, cb.from_user.id)

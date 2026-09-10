@@ -88,6 +88,45 @@ async def who_is_silent() -> List[Dict[str, Any]]:
         return []
 
 
+async def whoami(telegram_id: int) -> Dict[str, Any]:
+    """Сотрудник ли это и что у него на сегодня.
+
+    Связка Telegram ↔ сотрудник живёт в витрине (`Employee.telegramId`), и
+    держать её копию в офисе значило бы завести второй список штата,
+    который разойдётся с первым.
+
+    Не сотрудник — `{"staff": False}`, и это ОТВЕТ, а не ошибка:
+    покупателей у бота на порядок больше.
+    """
+    return await _get(f"/admin/staff/me?telegramId={telegram_id}")
+
+
+async def my_day(telegram_id: int) -> Dict[str, Any]:
+    """Готовый текст «Мой день» и ссылка навигации.
+
+    ТЕКСТ СОБИРАЕТ ВИТРИНА. Тот же список печатает уведомление о
+    назначении; собери его бот вторыми руками — через месяц человек видел
+    бы в сообщении один порядок точек, а в «Моём дне» другой.
+    """
+    return await _get(f"/admin/staff/day?telegramId={telegram_id}")
+
+
+async def _get(path: str) -> Dict[str, Any]:
+    """GET к витрине. Отказ — словарь с `error`, а не исключение."""
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.get(_url(path)) as resp:
+                body = await resp.json(content_type=None)
+                if resp.status == 200 and isinstance(body, dict):
+                    return body
+                message = str(body.get("error") or "") if isinstance(body, dict) else ""
+                return {"error": message or f"HTTP {resp.status}"}
+    except Exception as exc:
+        logger.warning("FIELD_TRACK: запрос %s не прошёл (%s)", path, exc)
+        return {"error": "связь с сервером потерялась"}
+
+
 async def plan_accept(telegram_id: int, plan_id: Optional[int] = None) -> Dict[str, Any]:
     """Подтвердить «Приступить» по назначенному объезду.
 

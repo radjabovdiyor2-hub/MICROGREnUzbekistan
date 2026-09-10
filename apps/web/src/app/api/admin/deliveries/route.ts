@@ -21,9 +21,35 @@ function isOwner(request: Request): boolean {
   return isAuthorized(request);
 }
 
-/** Имя вошедшего — им подписаны маршруты курьера. */
+/** Имя вошедшего. В сессии сотрудника лежит `Employee.name`. */
 function actorName(request: Request): string {
   return getSession(request)?.name?.trim() || '';
+}
+
+/**
+ * Сотрудник вошедшего — ПО ИДЕНТИФИКАТОРУ, а не по имени.
+ *
+ * ЗАЧЕМ. Рейс сохраняется с `driverId` (внешний ключ), а искали его по
+ * `driver: { name }`. `Employee.name` НЕ уникально: два Азиза в штате — и
+ * каждый видит рейсы обоих, то есть чужие адреса, телефоны и заказы.
+ * Переименование сотрудника ломает то же самое с другой стороны: имя в
+ * сессии живёт до конца её срока и перестаёт совпадать с базой, а курьер
+ * видит «маршрут не назначен» при существующем рейсе.
+ *
+ * `null` — не опознали. Это ОТКАЗ, а не «показать всё»: пустое имя не
+ * должно открывать чужую работу. Так же поступает трекинг.
+ */
+async function actorEmployeeId(request: Request): Promise<string | null> {
+  const name = actorName(request);
+  if (!name) return null;
+  const matches = await prisma.employee.findMany({
+    where: { name, isActive: true },
+    select: { id: true },
+    take: 2,
+  });
+  // Двое с одним именем — опознать некого. Показать рейс наугад значит
+  // выдать одному человеку работу другого.
+  return matches.length === 1 ? matches[0].id : null;
 }
 
 export async function GET(request: Request) {
@@ -41,9 +67,9 @@ export async function GET(request: Request) {
   // «все»: тогда сотрудник без имени видел бы чужие адреса и телефоны.
   // Поэтому отсутствие имени — это пустой ответ, а не отсутствие фильтра.
   if (!isOwner(request)) {
-    const name = actorName(request);
-    if (!name) return NextResponse.json([]);
-    where.driver = { name };
+    const driverId = await actorEmployeeId(request);
+    if (!driverId) return NextResponse.json([]);
+    where.driverId = driverId;
   }
 
   try {
@@ -172,7 +198,10 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Stop not found' }, { status: 404 });
     }
     // Чужой рейс закрывать нельзя — ни по ошибке, ни намеренно.
-    if (!isOwner(request) && stop.route.driver?.name !== actorName(request)) {
+    // Закрыть точку может владелец или ТОТ САМЫЙ курьер — сверяем по
+    // идентификатору, а не по имени: тёзка не должен закрывать чужие
+    // доставки.
+    if (!isOwner(request) && stop.route.driverId !== (await actorEmployeeId(request))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

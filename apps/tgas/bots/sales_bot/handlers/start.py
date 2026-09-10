@@ -3,7 +3,12 @@
 import logging
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+)
 from aiogram.fsm.context import FSMContext
 from sqlalchemy import text
 from shared.config import settings
@@ -79,6 +84,47 @@ async def cmd_start(message: Message, state: FSMContext):
 
     await state.update_data(lang=lang, cart={})
     await message.answer(text_msg, reply_markup=await main_menu(lang))
+
+    # ── Полевому сотруднику — своя дверь ──────────────────────────────
+    #
+    # Бот один и тот же для покупателя и для продавца, а меню им нужно
+    # разное. У покупателя оно есть — каталог, B2B, «мои заказы»; у
+    # полевого сотрудника не было НИКАКОГО: все его кнопки жили на разовых
+    # сообщениях, и пропущенное уведомление означало, что работа снова
+    # невидима. При этом продавец пользуется ТОЛЬКО Telegram.
+    #
+    # Отдельным сообщением, а не подменой меню: он и покупателем бывает —
+    # заказывает себе, смотрит каталог. Отобрать у него магазин ради
+    # служебных кнопок было бы хуже, чем показать и то и другое.
+    #
+    # Кто сотрудник, решает витрина: связка Telegram ↔ сотрудник живёт в
+    # `Employee.telegramId`, и копия этого списка в офисе разошлась бы с
+    # оригиналом.
+    try:
+        from shared.field_track import whoami
+
+        who = await whoami(message.from_user.id)
+        if who.get("staff"):
+            today = who.get("today") or {}
+            stops = int(today.get("planStops") or 0)
+            line = (
+                f"На сегодня объезд: {stops} точек."
+                if stops
+                else "На сегодня объезд не назначен."
+            )
+            await message.answer(
+                f"🧰 <b>Рабочее меню</b>\n\n{line}",
+                reply_markup=InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [InlineKeyboardButton(text="🗺 Мой день", callback_data="field:day")],
+                        [InlineKeyboardButton(text="📍 Я на точке", callback_data="stay:in")],
+                    ]
+                ),
+            )
+    except Exception as exc:
+        # Витрина недоступна — покупательское меню уже показано, и ронять
+        # приветствие из-за служебной надстройки нельзя.
+        logger.warning("SALES_START: рабочее меню не показано (%s)", exc)
 
 
 @router.message(Command("help"))

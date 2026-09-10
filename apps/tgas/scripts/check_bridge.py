@@ -48,6 +48,11 @@ PATTERNS = [
     # Обёртка _call("GET", "/path") — так ходит production_repo. Без этого
     # шаблона сверка молча пропускала пять адресов и была зелёной впустую.
     re.compile(r"_call\(\s*[\"'][A-Z]+[\"']\s*,\s*f?[\"']" + PATH, re.S),
+    # Обёртка _get("/path") — так ходит field_track. Появилась позже, и
+    # сверка снова молча пропустила две двери. Это уже второй раз: каждый
+    # новый способ звать витрину обязан попадать сюда, иначе проверка врёт
+    # зелёным — а именно от этого она и защищает.
+    re.compile(r"_get\(\s*f?[\"']" + PATH),
 ]
 
 
@@ -66,7 +71,9 @@ def collect_calls():
             text = file.read_text(encoding="utf-8", errors="replace")
             for pattern in PATTERNS:
                 for match in pattern.finditer(text):
-                    path = match.group(1).rstrip("/")
+                    # Строка запроса к роуту не относится: `?x=1` это
+                    # параметры, а не другой адрес.
+                    path = match.group(1).split("?")[0].rstrip("/")
                     if path and path != "/":
                         found.setdefault(path, set()).add(file.name)
     return found
