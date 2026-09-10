@@ -1,5 +1,6 @@
 import { formatLocalDate, startOfLocalDay } from '@/lib/localDate';
 
+import { shiftPay } from './shiftPay';
 import type { DebtLike } from './paymentCalendar';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -51,14 +52,28 @@ export interface EmployeeLike {
   isActive: boolean;
   /** Оклад за месяц в сумах. `null` — оклад не задан. */
   baseSalary: number | null;
+  /** Ставка за смену. Задаётся ВМЕСТО оклада, а не вместе с ним. */
+  shiftRate: number | null;
 }
 
 export interface PayrollRow {
   employeeId: string;
   name: string;
   isActive: boolean;
-  /** Оклад за период. */
+  /** Начислено за присутствие: оклад либо смены по ставке. */
   base: number;
+  /** Сколько дней отработано за период. Ноль у тех, кто на окладе. */
+  shiftDays: number;
+  /** Ставка за смену, по которой посчитано. Ноль — считали по окладу. */
+  shiftRate: number;
+  /**
+   * У человека заданы И оклад, И ставка за смену.
+   *
+   * Это ошибка ввода: сложенные, они заплатили бы дважды за один месяц.
+   * Расчёт берёт оклад, а экран обязан показать спор — молчаливый выбор
+   * однажды окажется не тем.
+   */
+  rateConflict: boolean;
   /** Начислено сверх оклада. */
   bonuses: number;
   /** Удержано. */
@@ -134,6 +149,14 @@ export function buildPayroll(
   period: string,
   today: Date,
   payday: number,
+  /**
+   * Сколько дней каждый отработал за период — из `workedDays()`.
+   *
+   * Отдельным доводом, а не полем сотрудника: смены зависят от периода, а
+   * карточка человека — нет. Пустая карта означает «смен не было», и для
+   * тех, кто на окладе, это норма.
+   */
+  worked: Map<string, number> = new Map(),
 ): Payroll {
   const inPeriod = payouts.filter((p) => periodKey(p.period) === period);
   const withMovement = new Set(inPeriod.map((p) => p.employeeId));
@@ -145,7 +168,12 @@ export function buildPayroll(
       const sum = (kind: PayoutKind) =>
         mine.filter((p) => p.kind === kind).reduce((acc, p) => acc + Math.max(0, p.amount), 0);
 
-      const base = Math.max(0, e.baseSalary ?? 0);
+      // Оклад ИЛИ смены по ставке — решает `shiftPay`, и он же сообщает о
+      // споре. Раньше здесь стоял только оклад, и отработанное время в
+      // начисление не входило вовсе.
+      const days = worked.get(e.id) ?? 0;
+      const pay = shiftPay(e.baseSalary, e.shiftRate, days);
+      const base = pay.amount;
       const bonuses = sum('BONUS');
       const deductions = sum('DEDUCTION');
       const advances = sum('ADVANCE');
@@ -160,6 +188,9 @@ export function buildPayroll(
         name: e.name,
         isActive: e.isActive,
         base,
+        shiftDays: pay.days,
+        shiftRate: pay.rate,
+        rateConflict: pay.conflict,
         bonuses,
         deductions,
         advances,

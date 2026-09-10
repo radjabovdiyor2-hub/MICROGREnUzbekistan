@@ -1,0 +1,105 @@
+// ══════════════════════════════════════════════════════════════════════
+// Смены в деньги.
+//
+// ЗАЧЕМ ОТДЕЛЬНО ОТ `payroll.ts`. Там арифметика ведомости: начислено
+// минус выдано. Здесь другой вопрос — сколько человек ОТРАБОТАЛ, и он
+// единственный, где легко заплатить дважды.
+//
+// СЧИТАЕМ РАЗНЫЕ ДНИ, А НЕ СТРОКИ СМЕН. Уникального ключа «человек +
+// день» в таблице нет намеренно (см. `schema.prisma`): он уронил бы
+// выкатку на существующих дублях и запретил бы законную разбитую смену —
+// утро и вечер. Поэтому защита от двойной ставки живёт здесь: два выхода
+// в один день — один оплаченный день.
+//
+// БОЛЕЗНЬ И ОТПУСК НЕ ОПЛАЧИВАЮТСЯ ставкой за смену. Поле `type` до сих
+// пор не потребляло ничто, и «отпуск» ничем не отличался от рабочего дня.
+// Оплачиваемый отпуск — это отдельный разговор с владельцем, а не тихая
+// строка в формуле.
+//
+// МОДУЛЬ ЧИСТЫЙ: ни Prisma, ни дат «сегодня». Считать деньги по времени
+// запуска — верный способ получить разный ответ на один и тот же вопрос.
+// ══════════════════════════════════════════════════════════════════════
+
+/** Смена в том виде, в каком её понимает расчёт. */
+export interface ShiftLike {
+  employeeId: string;
+  /** День смены. Время внутри не важно — важна дата. */
+  date: Date;
+  /** `work` оплачивается, `sick` и `vacation` — нет. */
+  type: string;
+  /** Когда человек нажал «начал». `null` — смена только запланирована. */
+  startTime: Date | null;
+}
+
+/** Тип смены, который идёт в оплату. Остальные — присутствие без работы. */
+export const PAID_SHIFT_TYPE = 'work';
+
+/** Локальная дата в виде `ГГГГ-ММ-ДД` — ключ для подсчёта разных дней. */
+function dayKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Сколько ДНЕЙ человек отработал.
+ *
+ * Оплачивается только смена, которую человек ОТКРЫЛ (`startTime` задан):
+ * назначенная в графике, но не начатая — это план, а не работа. Иначе
+ * расписание, составленное на месяц вперёд, превратилось бы в
+ * начисленную зарплату за месяц вперёд.
+ */
+export function workedDays(shifts: ShiftLike[]): Map<string, number> {
+  const byEmployee = new Map<string, Set<string>>();
+
+  for (const shift of shifts) {
+    if (shift.type !== PAID_SHIFT_TYPE) continue;
+    if (shift.startTime === null) continue;
+    const days = byEmployee.get(shift.employeeId) ?? new Set<string>();
+    days.add(dayKey(shift.date));
+    byEmployee.set(shift.employeeId, days);
+  }
+
+  const out = new Map<string, number>();
+  for (const [employeeId, days] of byEmployee) out.set(employeeId, days.size);
+  return out;
+}
+
+/** Как посчитано начисление — чтобы показать это человеку, а не одно число. */
+export interface ShiftPay {
+  /** Сумма к начислению за период. */
+  amount: number;
+  /** Отработано дней. */
+  days: number;
+  /** Ставка за день. */
+  rate: number;
+  /**
+   * Заданы и оклад, и ставка за смену.
+   *
+   * Это ошибка ввода, а не режим работы: сложенные, они заплатили бы
+   * дважды за один месяц. Расчёт берёт ОКЛАД и говорит о споре вслух —
+   * молчаливый выбор одного из двух однажды окажется не тем.
+   */
+  conflict: boolean;
+}
+
+/**
+ * Начисление за период: оклад ИЛИ ставка за смену.
+ *
+ * `baseSalary` имеет приоритет при споре намеренно: он не зависит от
+ * того, нажимал ли человек кнопку, и потому безопаснее как запасной
+ * ответ.
+ */
+export function shiftPay(
+  baseSalary: number | null,
+  shiftRate: number | null,
+  days: number,
+): ShiftPay {
+  const base = baseSalary === null ? 0 : Math.max(0, baseSalary);
+  const rate = shiftRate === null ? 0 : Math.max(0, shiftRate);
+  const conflict = base > 0 && rate > 0;
+
+  if (base > 0) return { amount: base, days, rate: 0, conflict };
+  return { amount: rate * Math.max(0, days), days, rate, conflict };
+}

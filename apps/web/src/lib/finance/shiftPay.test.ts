@@ -1,0 +1,113 @@
+import { describe, expect, it } from 'vitest';
+
+import { shiftPay, workedDays, type ShiftLike } from './shiftPay';
+
+// ══════════════════════════════════════════════════════════════════════
+// Здесь считаются ЧУЖИЕ ДЕНЬГИ, и ошибка в любую сторону тихая.
+//
+// Переплатить — заметит владелец через месяц по кассе. Недоплатить —
+// заметит человек, и это уже разговор о доверии. Ни то, ни другое не
+// падает и не логируется: расчёт вернёт число, и оно будет выглядеть
+// правдоподобно.
+//
+// Уникального ключа «человек + день» в таблице нет намеренно: он уронил
+// бы выкатку на существующих дублях и запретил бы разбитую смену. Значит
+// защита от двойной ставки живёт ЗДЕСЬ и обязана быть проверена.
+// ══════════════════════════════════════════════════════════════════════
+
+const AZIZ = 'emp-1';
+const BEK = 'emp-2';
+
+function shift(employeeId: string, day: string, extra: Partial<ShiftLike> = {}): ShiftLike {
+  return {
+    employeeId,
+    date: new Date(`${day}T00:00:00`),
+    type: 'work',
+    startTime: new Date(`${day}T08:00:00`),
+    ...extra,
+  };
+}
+
+describe('workedDays', () => {
+  it('считает отработанные дни', () => {
+    const days = workedDays([shift(AZIZ, '2026-09-01'), shift(AZIZ, '2026-09-02')]);
+    expect(days.get(AZIZ)).toBe(2);
+  });
+
+  it('ДВЕ СМЕНЫ В ОДИН ДЕНЬ — один оплаченный день', () => {
+    // Разбитая смена (утро и вечер) законна, и запрещать её нельзя. Но
+    // платить за неё дважды — прямая переплата.
+    const days = workedDays([
+      shift(AZIZ, '2026-09-01', { startTime: new Date('2026-09-01T08:00:00') }),
+      shift(AZIZ, '2026-09-01', { startTime: new Date('2026-09-01T17:00:00') }),
+    ]);
+    expect(days.get(AZIZ)).toBe(1);
+  });
+
+  it('назначенная, но не начатая смена не оплачивается', () => {
+    // Иначе расписание, составленное на месяц вперёд, стало бы зарплатой
+    // за месяц вперёд.
+    const days = workedDays([shift(AZIZ, '2026-09-01', { startTime: null })]);
+    expect(days.get(AZIZ)).toBeUndefined();
+  });
+
+  it('болезнь и отпуск ставкой за смену не оплачиваются', () => {
+    // Поле `type` до сих пор не потребляло ничто, и «отпуск» ничем не
+    // отличался от рабочего дня. Оплачиваемый отпуск — отдельный
+    // разговор с владельцем, а не тихая строка в формуле.
+    const days = workedDays([
+      shift(AZIZ, '2026-09-01', { type: 'sick' }),
+      shift(AZIZ, '2026-09-02', { type: 'vacation' }),
+    ]);
+    expect(days.get(AZIZ)).toBeUndefined();
+  });
+
+  it('людей не путает', () => {
+    const days = workedDays([shift(AZIZ, '2026-09-01'), shift(BEK, '2026-09-01')]);
+    expect(days.get(AZIZ)).toBe(1);
+    expect(days.get(BEK)).toBe(1);
+  });
+
+  it('пустой список — пустой ответ, а не ноль у всех', () => {
+    expect(workedDays([]).size).toBe(0);
+  });
+});
+
+describe('shiftPay', () => {
+  it('ставка за смену умножается на дни', () => {
+    const pay = shiftPay(null, 150_000, 12);
+    expect(pay.amount).toBe(1_800_000);
+    expect(pay.days).toBe(12);
+    expect(pay.rate).toBe(150_000);
+  });
+
+  it('ноль смен даёт ноль, а не ставку', () => {
+    expect(shiftPay(null, 150_000, 0).amount).toBe(0);
+  });
+
+  it('оклад не зависит от числа смен', () => {
+    // Офисный сотрудник смен не отмечает, и это не повод не платить ему.
+    expect(shiftPay(3_000_000, null, 0).amount).toBe(3_000_000);
+  });
+
+  it('ЗАДАНЫ ОБА — расчёт говорит об этом и НЕ складывает', () => {
+    // Сложенные, они заплатили бы дважды за один месяц.
+    const pay = shiftPay(3_000_000, 150_000, 12);
+    expect(pay.conflict).toBe(true);
+    expect(pay.amount).toBe(3_000_000);
+    expect(pay.amount).not.toBe(3_000_000 + 12 * 150_000);
+  });
+
+  it('ничего не задано — ноль без спора', () => {
+    const pay = shiftPay(null, null, 12);
+    expect(pay.amount).toBe(0);
+    expect(pay.conflict).toBe(false);
+  });
+
+  it('отрицательные значения не превращаются в долг сотрудника', () => {
+    // Минус в ставке — опечатка ввода, а не удержание: для удержаний есть
+    // свой вид записи в ведомости.
+    expect(shiftPay(null, -150_000, 12).amount).toBe(0);
+    expect(shiftPay(null, 150_000, -5).amount).toBe(0);
+  });
+});

@@ -11,7 +11,7 @@ import {
 const TODAY = new Date('2026-09-01T09:00:00');
 
 function emp(p: Partial<EmployeeLike> = {}): EmployeeLike {
-  return { id: 'e1', name: 'Азиз', isActive: true, baseSalary: 4_000_000, ...p };
+  return { id: 'e1', name: 'Азиз', isActive: true, baseSalary: 4_000_000, shiftRate: null, ...p };
 }
 
 function payout(p: Partial<PayoutLike> = {}): PayoutLike {
@@ -173,5 +173,99 @@ describe('payrollObligations', () => {
     );
 
     expect(payrollObligations(p)).toHaveLength(0);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════
+// НАЧИСЛЕНИЕ ПО СМЕНАМ И ПУТЬ ДО КАЛЕНДАРЯ ПЛАТЕЖЕЙ.
+//
+// Второе — разрыв, которого никто не проверял. `payrollObligations`
+// отдаёт только строки с долгом перед сотрудником; пока оклад невозможно
+// было ввести, таких строк не было ни одной, и календарь получал пустоту.
+// При этом в коде записано, что крупнейший регулярный платёж теперь
+// виден в прогнозе. Утверждение было верным по замыслу и ложным на деле,
+// и падать было нечему.
+// ══════════════════════════════════════════════════════════════════════
+
+describe('начисление по сменам', () => {
+  it('полевой сотрудник получает за отработанные дни', () => {
+    const payroll = buildPayroll(
+      [emp({ baseSalary: null, shiftRate: 150_000 })],
+      [],
+      '2026-09',
+      TODAY,
+      30,
+      new Map([['e1', 12]]),
+    );
+    expect(payroll.rows[0].base).toBe(1_800_000);
+    expect(payroll.rows[0].shiftDays).toBe(12);
+    expect(payroll.rows[0].shiftRate).toBe(150_000);
+  });
+
+  it('ни одной смены — ноль, а не ставка', () => {
+    const payroll = buildPayroll(
+      [emp({ baseSalary: null, shiftRate: 150_000 })],
+      [],
+      '2026-09',
+      TODAY,
+      30,
+      new Map(),
+    );
+    expect(payroll.rows[0].base).toBe(0);
+  });
+
+  it('оклад не зависит от смен', () => {
+    // Офисный сотрудник смен не отмечает, и это не повод не платить ему.
+    const payroll = buildPayroll([emp()], [], '2026-09', TODAY, 30, new Map());
+    expect(payroll.rows[0].base).toBe(4_000_000);
+  });
+
+  it('заданы оба — спор виден, суммы не складываются', () => {
+    const payroll = buildPayroll(
+      [emp({ baseSalary: 4_000_000, shiftRate: 150_000 })],
+      [],
+      '2026-09',
+      TODAY,
+      30,
+      new Map([['e1', 12]]),
+    );
+    expect(payroll.rows[0].rateConflict).toBe(true);
+    expect(payroll.rows[0].base).toBe(4_000_000);
+  });
+});
+
+describe('зарплата доходит до календаря платежей', () => {
+  it('начисленное и невыплаченное становится обязательством', () => {
+    const payroll = buildPayroll([emp()], [], '2026-09', TODAY, 30, new Map());
+    const debts = payrollObligations(payroll);
+    expect(debts).toHaveLength(1);
+    expect(debts[0].amount).toBe(4_000_000);
+    expect(debts[0].critical).toBe(true);
+  });
+
+  it('смены полевого сотрудника ТОЖЕ доходят до календаря', () => {
+    // Ради этого весь расчёт и заводился: без смен у полевых начисление
+    // равнялось нулю, и прогноз кассового разрыва их не видел вовсе.
+    const payroll = buildPayroll(
+      [emp({ baseSalary: null, shiftRate: 150_000 })],
+      [],
+      '2026-09',
+      TODAY,
+      30,
+      new Map([['e1', 20]]),
+    );
+    expect(payrollObligations(payroll)[0].amount).toBe(3_000_000);
+  });
+
+  it('всё выплачено — обязательства нет', () => {
+    const payroll = buildPayroll(
+      [emp()],
+      [payout({ kind: 'SALARY', amount: 4_000_000 })],
+      '2026-09',
+      TODAY,
+      30,
+      new Map(),
+    );
+    expect(payrollObligations(payroll)).toEqual([]);
   });
 });

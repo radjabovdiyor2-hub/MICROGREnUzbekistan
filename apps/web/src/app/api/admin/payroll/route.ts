@@ -7,6 +7,7 @@ import { audit } from '@/lib/audit';
 import { parseBody } from '@/lib/api/parseBody';
 import { getNumber } from '@/lib/settings/store';
 import { buildPayroll, type PayoutKind } from '@/lib/finance/payroll';
+import { workedDays } from '@/lib/finance/shiftPay';
 
 // ══════════════════════════════════════════════════════════════════════
 // Зарплата: кто сколько уже взял и сколько предстоит выплатить.
@@ -60,14 +61,21 @@ export async function GET(request: NextRequest) {
 
   const payday = await getNumber('payroll.payday' as never);
 
-  const [employees, payouts] = await Promise.all([
+  const [employees, payouts, shifts] = await Promise.all([
     prisma.employee.findMany({
-      select: { id: true, name: true, isActive: true, baseSalary: true },
+      select: { id: true, name: true, isActive: true, baseSalary: true, shiftRate: true },
       orderBy: { name: 'asc' },
     }),
     prisma.employeePayout.findMany({
       where: { period: periodRange(period) },
       orderBy: [{ paidAt: 'desc' }, { id: 'desc' }],
+    }),
+    // Смены за тот же период. Берём только начатые: назначенная в
+    // графике, но не открытая — это план, а не работа, и превращать
+    // расписание на месяц вперёд в зарплату вперёд нельзя.
+    prisma.shift.findMany({
+      where: { date: periodRange(period), startTime: { not: null } },
+      select: { employeeId: true, date: true, type: true, startTime: true },
     }),
   ]);
 
@@ -83,6 +91,7 @@ export async function GET(request: NextRequest) {
     period,
     new Date(),
     payday,
+    workedDays(shifts),
   );
 
   return NextResponse.json({

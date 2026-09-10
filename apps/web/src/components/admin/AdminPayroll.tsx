@@ -50,6 +50,12 @@ interface PayrollRow {
   accrued: number;
   remaining: number;
   overpaid: boolean;
+  /** Отработано дней за период. Ноль у тех, кто на окладе. */
+  shiftDays: number;
+  /** Ставка за смену. Ноль — считали по окладу. */
+  shiftRate: number;
+  /** Заданы и оклад, и ставка: ошибка ввода, а не режим работы. */
+  rateConflict: boolean;
 }
 
 interface Payroll {
@@ -275,6 +281,21 @@ export function AdminPayroll() {
                       {r.bonuses > 0 && ` +${fmt(r.bonuses)}`}
                       {r.deductions > 0 && ` −${fmt(r.deductions)}`}
                     </span>
+                  )}
+                  {/* ИЗ ЧЕГО ВЫШЛА СУММА. Раньше здесь стояло число без
+                      объяснения, и проверить его было нечем — а это
+                      деньги человека, и вопрос «почему столько» задают. */}
+                  {r.shiftRate > 0 && (
+                    <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
+                      {r.shiftDays} смен × {fmt(r.shiftRate)}
+                    </div>
+                  )}
+                  {/* Заданы и оклад, и ставка. Расчёт взял оклад, но
+                      молчать об этом нельзя: однажды он возьмёт не то. */}
+                  {r.rateConflict && (
+                    <div style={{ color: 'var(--error)', fontSize: 'var(--text-xs)' }}>
+                      заданы и оклад, и ставка — считаем по окладу
+                    </div>
                   )}
                 </td>
                 <td style={{ padding: 'var(--space-2)', color: r.paidTotal > 0 ? 'var(--warning)' : undefined }}>

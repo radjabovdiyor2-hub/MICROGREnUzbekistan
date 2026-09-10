@@ -3,6 +3,7 @@ import { formatLocalDate, startOfLocalDay } from '@/lib/localDate';
 import { getNumber } from '@/lib/settings/store';
 
 import { buildPayroll, payrollObligations, type PayoutKind } from './payroll';
+import { workedDays } from './shiftPay';
 
 // ══════════════════════════════════════════════════════════════════════
 // Платёжный календарь: что и когда предстоит заплатить и получить.
@@ -205,7 +206,7 @@ export async function loadPaymentCalendar(today = new Date()): Promise<PaymentCa
   // Период зарплаты — текущий месяц по локальному времени.
   const period = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-  const [debts, criticalIntake, employees, payouts, payday] = await Promise.all([
+  const [debts, criticalIntake, employees, payouts, shifts, payday] = await Promise.all([
     prisma.debt.findMany({
       where: { isPaid: false },
       select: {
@@ -225,12 +226,20 @@ export async function loadPaymentCalendar(today = new Date()): Promise<PaymentCa
       distinct: ['supplierId'],
     }),
     prisma.employee.findMany({
-      select: { id: true, name: true, isActive: true, baseSalary: true },
+      select: { id: true, name: true, isActive: true, baseSalary: true, shiftRate: true },
     }),
     prisma.employeePayout.findMany({
       where: { period: { gte: new Date(today.getFullYear(), today.getMonth(), 1),
                          lt: new Date(today.getFullYear(), today.getMonth() + 1, 1) } },
       select: { id: true, employeeId: true, amount: true, kind: true, period: true },
+    }),
+    // Смены текущего месяца: у полевых сотрудников начисление считается по
+    // ним, и без этого календарь недосчитал бы их зарплату целиком.
+    prisma.shift.findMany({
+      where: { date: { gte: new Date(today.getFullYear(), today.getMonth(), 1),
+                       lt: new Date(today.getFullYear(), today.getMonth() + 1, 1) },
+               startTime: { not: null } },
+      select: { employeeId: true, date: true, type: true, startTime: true },
     }),
     getNumber('payroll.payday'),
   ]);
@@ -250,6 +259,7 @@ export async function loadPaymentCalendar(today = new Date()): Promise<PaymentCa
     period,
     today,
     payday,
+    workedDays(shifts),
   );
 
   return buildPaymentCalendar(
