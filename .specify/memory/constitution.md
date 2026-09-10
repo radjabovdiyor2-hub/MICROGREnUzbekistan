@@ -8,7 +8,7 @@
 
 | Модуль | Стек | Роль | Размер |
 |--------|------|------|--------|
-| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 30 API-групп, 130 route-файлов, 307 компонентов | ~66KB globals.css, 92 Prisma-моделей |
+| `apps/web` | Next.js 16.3, React 19, TailwindCSS v4, Prisma | PWA: витрина, каталог, корзина, админка, журнал FRESH WEEKLY, 31 API-групп, 131 route-файлов, 309 компонентов | ~66KB globals.css, 92 Prisma-моделей |
 | `apps/bot` | Python, aiogram 3, Gemini | Telegram-бот витрины: заказы, AI-агроном | HTTP → `apps/web/api/*` |
 | `apps/tgas` | Python, aiogram 3, aiohttp, Redis | AI Office: 11 автономных ботов + n8n_bridge. Event Bus (Redis Pub/Sub + HTTP fallback), порты 8081-8093 | 64 shared-модулей, ~400KB main.py суммарно |
 | `packages/database` | Prisma ORM, PostgreSQL | Схема (92 моделей, 3022 строк), миграции, сиды | schema.prisma — единый источник DDL |
@@ -117,7 +117,7 @@
 
 ### VII. API — 30 групп, 125 роутов
 
-Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, channels, config, content, events, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, push, referral, reviews, subscriptions, support, telegram, upload, users, whatsapp.
+Перед созданием нового API-роута — обязательно прочитать `apps/web/src/app/api/`. Существующие группы: admin, ai, auth, categories, channels, config, content, events, farm, health, instagram, inventory, leads, magazine, marketing, menu, metrics, notify, orders, payment, products, promo, push, referral, reviews, subscriptions, support, telegram, upload, users, whatsapp.
 
 Здесь значилась ещё и `sms` — группы с таким именем нет и не было, а витринный
 бот слал в неё `POST /api/sms` и получал 404. Список сверять с каталогом, а не

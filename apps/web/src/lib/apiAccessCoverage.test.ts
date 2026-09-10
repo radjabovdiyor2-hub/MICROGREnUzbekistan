@@ -64,6 +64,10 @@ const PUBLIC_BY_DESIGN = [
 const SELF_GUARDED = [
   '/api/ai/usage',           // requireBotAuth — расход витринного бота
   '/api/events',             // SSE админки: сверяет роль сессии внутри
+  // GET открыт намеренно — это витрина, кадр с фермы для главной.
+  // POST закрыт requireBotAuth: класть кадр вправе только то, что стоит
+  // на ферме, иначе на главной окажется картинка любого, кто узнал адрес.
+  '/api/farm/frame',
   '/api/metrics',            // METRICS_TOKEN или сессия ADMIN
   '/api/orders/status',      // INGEST_SECRET — обратная синхронизация из офиса
   '/api/payment/click',      // подпись провайдера

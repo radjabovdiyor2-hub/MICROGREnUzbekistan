@@ -15,6 +15,7 @@ import { listRecipes } from '@/lib/recipes';
 // Lazy-load below-fold sections — reduces initial JS bundle
 const NutritionistPanel = dynamic(() => import('@/components/home/NutritionistPanel').then(m => ({ default: m.NutritionistPanel })));
 const StoriesBar = dynamic(() => import('@/components/home/StoriesBar').then(m => ({ default: m.StoriesBar })));
+const FarmLive = dynamic(() => import('@/components/home/FarmLive').then(m => ({ default: m.FarmLive })));
 const FarmSection = dynamic(() => import('@/components/home/FarmSection').then(m => ({ default: m.FarmSection })));
 const InstagramFeed = dynamic(() => import('@/components/home/InstagramFeed').then(m => ({ default: m.InstagramFeed })));
 const StoreLocation = dynamic(() => import('@/components/home/StoreLocation').then(m => ({ default: m.StoreLocation })));
@@ -129,7 +130,19 @@ export default async function HomePage() {
 
       <SproutDivider flip />
 
-      {/* 5. Ваша ферма — живые кадры, а не сток */}
+      {/* 5. Ваша ферма.
+
+          Сначала камера: она показывает теплицу как есть, включая пустые
+          стеллажи, и потому убедительнее любого отобранного снимка. Ниже —
+          помеченные кадры процесса из ленты.
+
+          Оба блока гаснут сами: камера — когда кадр несвежий, лента —
+          когда помеченных постов нет. Сегодня не показывается ни один, и
+          это честное состояние, а не поломка. */}
+      <ScrollReveal delay={80}>
+        <FarmLive />
+      </ScrollReveal>
+
       <ScrollReveal delay={80}>
         <FarmSection />
       </ScrollReveal>
