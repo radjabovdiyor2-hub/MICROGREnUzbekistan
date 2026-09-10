@@ -67,9 +67,12 @@ async function send(
   parseMode: 'Markdown' | 'HTML',
   chatId: string,
   replyMarkup?: unknown,
+  /** Кто отправитель. По умолчанию витринный бот — как было. */
+  token: string | undefined = BOT_TOKEN,
 ): Promise<boolean> {
+  if (!token) return false;
   try {
-    const res = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -125,7 +128,24 @@ export async function notifyAdminRaw(
 export async function notifyCustomer(
   telegramId: bigint | number | string | null | undefined,
   message: string,
+  /**
+   * Клавиатура под сообщением. Необязательна — по умолчанию всё как было.
+   */
+  replyMarkup?: unknown,
+  /**
+   * Токен бота-отправителя. По умолчанию витринный.
+   *
+   * ЗАЧЕМ ВЫБОР. Нажатие кнопки Telegram отдаёт ТОМУ боту, чьим токеном
+   * отправлено сообщение. Полевая работа продавца — трансляция геопозиции,
+   * «Я на точке», фото — живёт в боте продаж, и задание должно приходить
+   * туда же: иначе человек получает работу в одном чате, а делает её в
+   * другом, а кнопка под заданием не доходит до обработчика вовсе.
+   *
+   * Прецедент в офисе тот же: `approvals._fallback_bot()` шлёт карточку
+   * чужим токеном, и нажатие ловит polling того бота.
+   */
+  token: string | undefined = BOT_TOKEN,
 ): Promise<boolean> {
-  if (!BOT_TOKEN || !telegramId) return false;
-  return send(message, 'HTML', telegramId.toString());
+  if (!token || !telegramId) return false;
+  return send(message, 'HTML', telegramId.toString(), replyMarkup, token);
 }

@@ -51,6 +51,14 @@ export interface PlanView {
   assignee: string;
   author: string;
   source: string;
+  /**
+   * Когда исполнитель нажал «Приступить». `null` — не подтвердил.
+   *
+   * Без этого владелец видел «0 из 8» одинаково и когда человек не
+   * открывал задание, и когда он стоит в пробке у первой точки. Это два
+   * разных дня и два разных разговора.
+   */
+  acceptedAt: string | null;
   /** Список товаров к загрузке. Пустой — это норма, а не пробел. */
   items: PlanItemView[];
   stops: PlanStopView[];
@@ -255,6 +263,7 @@ export async function readDayPlans(params: {
       assignee: p.assignee,
       author: p.author,
       source: p.source,
+      acceptedAt: p.acceptedAt ? p.acceptedAt.toISOString() : null,
       stops,
       items: p.items.map((item) => ({
         productId: item.productId,

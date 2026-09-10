@@ -1740,6 +1740,25 @@ model VisitPlan {
   stops    VisitPlanStop[]
   items    VisitPlanItem[]
 
+  /// Когда о плане сказали исполнителю в Telegram.
+  ///
+  /// ЗАЧЕМ ОТМЕТКА. План пересохраняется при каждой правке состава, а
+  /// уведомление должно уйти ОДИН раз: иначе владелец, переставляющий
+  /// точки местами, шлёт человеку пять одинаковых сообщений подряд, и тот
+  /// перестаёт их читать — вместе с шестым, которое важное.
+  announcedAt DateTime? @map("announced_at")
+
+  /// Когда исполнитель нажал «Приступить».
+  ///
+  /// ЭТО ПОДТВЕРЖДЕНИЕ, А НЕ ШЛАГБАУМ — решение владельца. Работать можно
+  /// и без нажатия: связь пропадает, а объезд ехать надо. Пусто значит «не
+  /// подтвердил», а не «не поедет».
+  ///
+  /// Без этой колонки владелец видел «0 из 8» одинаково и когда человек не
+  /// увидел задание, и когда он стоит в пробке у первой точки. Это два
+  /// разных дня и два разных разговора.
+  acceptedAt DateTime? @map("accepted_at")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -2826,6 +2845,16 @@ model DeliveryRoute {
   driver    Employee?      @relation(fields: [driverId], references: [id])
   date      DateTime       @db.Date
   status    String         @default("pending") @db.VarChar(20)
+
+  /// Когда о рейсе сказали водителю и когда он подтвердил.
+  ///
+  /// До этого водитель не узнавал о рейсе НИКАК: ни сообщения, ни сигнала.
+  /// Он должен был сам догадаться открыть админку и нажать «Мой рейс» —
+  /// при том, что в поле человек живёт в Telegram. Экран доставки чинил
+  /// отметку доставленного, а не то, откуда водитель узнаёт про адреса.
+  announcedAt DateTime? @map("announced_at")
+  acceptedAt  DateTime? @map("accepted_at")
+
   createdAt DateTime       @default(now()) @map("created_at")
   updatedAt DateTime       @updatedAt @map("updated_at")
   stops     DeliveryStop[]

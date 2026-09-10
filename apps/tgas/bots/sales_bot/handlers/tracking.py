@@ -30,6 +30,7 @@ from aiogram.types import (
 
 from shared.field_track import (
     make_ping,
+    plan_accept,
     send_pings,
     send_visit_photo,
     stay_finish,
@@ -240,5 +241,47 @@ async def stay_out(cb: CallbackQuery) -> None:
     if cb.message is not None:
         await cb.message.answer(
             f"🚗 Уехали. На точке — {minutes} мин.",
+            reply_markup=_stay_keyboard(arrived=False),
+        )
+
+
+@router.callback_query(F.data.startswith("plan:accept:"))
+async def plan_accept_pressed(cb: CallbackQuery) -> None:
+    """«Приступить» под назначенным объездом.
+
+    ПРОВЕРКА НЕ НА ВЛАДЕЛЬЦА. Все прочие callback-обработчики офиса
+    (`approvals`, `task_ui`, диспетчер Стёпана) начинаются с `is_owner` и
+    гонят остальных. Здесь так нельзя: жмёт как раз сотрудник. Кто он —
+    решает витрина по `telegramId`, и она же проверяет, что объезд
+    действительно его: кнопку можно переслать другому человеку.
+
+    ЭТО ПОДТВЕРЖДЕНИЕ, А НЕ ШЛАГБАУМ. Не нажал — объезд всё равно его, и
+    отметки визитов засчитываются. Связь в поле пропадает, а работа не ждёт.
+    """
+    if cb.from_user is None:
+        await cb.answer()
+        return
+
+    raw = (cb.data or "").split(":")[-1]
+    plan_id = int(raw) if raw.isdigit() else None
+
+    result = await plan_accept(cb.from_user.id, plan_id)
+    if not result.get("ok"):
+        # Причину показываем дословно: «объезд не найден» и «связь
+        # потерялась» лечатся по-разному, а общим «не получилось» человек
+        # в поле распорядиться не может.
+        await cb.answer(str(result.get("error") or "Не получилось"), show_alert=True)
+        return
+
+    stops = int(result.get("stops") or 0)
+    if result.get("already"):
+        await cb.answer("Уже подтверждено", show_alert=False)
+        return
+
+    await cb.answer("Принято")
+    if cb.message is not None:
+        await cb.message.answer(
+            f"👍 Принято. Точек: {stops}.\n\n"
+            "Приехали к первой — нажмите «Я на точке».",
             reply_markup=_stay_keyboard(arrived=False),
         )

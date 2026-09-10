@@ -88,6 +88,35 @@ async def who_is_silent() -> List[Dict[str, Any]]:
         return []
 
 
+async def plan_accept(telegram_id: int, plan_id: Optional[int] = None) -> Dict[str, Any]:
+    """Подтвердить «Приступить» по назначенному объезду.
+
+    Номер плана берём из кнопки, если он есть; без него витрина найдёт
+    сегодняшний объезд этого человека сама. Принадлежность плана она
+    проверяет в любом случае: кнопку можно переслать, и без проверки чужой
+    объезд подтвердил бы кто угодно из штата.
+
+    Возвращает `{"ok": True, "already": bool, "stops": int}` либо
+    `{"ok": False, "error": "..."}`.
+    """
+    payload: Dict[str, Any] = {"telegramId": str(telegram_id)}
+    if plan_id is not None:
+        payload["planId"] = plan_id
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.post(_url("/admin/visit-plans/accept"), json=payload) as resp:
+                body = await resp.json(content_type=None)
+                if resp.status == 200:
+                    return {"ok": True, **(body if isinstance(body, dict) else {})}
+                message = str(body.get("error") or "") if isinstance(body, dict) else ""
+                return {"ok": False, "error": message or f"HTTP {resp.status}"}
+    except Exception as exc:
+        logger.warning("FIELD_TRACK: подтверждение объезда не прошло (%s)", exc)
+        return {"ok": False, "error": "связь с сервером потерялась"}
+
+
 async def stay_start(telegram_id: int) -> Dict[str, Any]:
     """Отметить «я на точке». Клиента выбирает витрина по треку.
 

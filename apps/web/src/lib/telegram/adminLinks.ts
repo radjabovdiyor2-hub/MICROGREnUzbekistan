@@ -21,11 +21,31 @@
 // возврата, у «кончается товар» и у дневного отчёта.
 // ══════════════════════════════════════════════════════════════════════
 
-/** Кнопка Telegram: либо Mini App, либо обычная ссылка. */
+/**
+ * Кнопка Telegram: ссылка, Mini App или ДЕЙСТВИЕ.
+ *
+ * `callback_data` появилось позже остальных и меняет природу кнопки. Ссылка
+ * и Mini App уводят человека на экран; действие возвращается НАЗАД — в того
+ * бота, ЧЬИМ ТОКЕНОМ отправлено сообщение. Telegram маршрутизирует нажатие
+ * только так, поэтому выбор токена и есть выбор обработчика: кнопка под
+ * сообщением от витринного бота никогда не дойдёт до бота продаж, сколько
+ * бы обработчиков там ни висело.
+ */
 export interface TelegramButton {
   text: string;
   url?: string;
   web_app?: { url: string };
+  callback_data?: string;
+}
+
+/** Кнопка-действие. Данные короткие: Telegram даёт на них 64 байта. */
+export function actionButton(text: string, data: string): TelegramButton {
+  return { text, callback_data: data.slice(0, 64) };
+}
+
+/** Клавиатура из готовых кнопок — по одной в ряд. */
+export function buttonRows(...rows: TelegramButton[][]): { inline_keyboard: TelegramButton[][] } {
+  return { inline_keyboard: rows.filter((row) => row.length > 0) };
 }
 
 /** Подпись по умолчанию — та же, что у офиса: человек привыкает к одной. */

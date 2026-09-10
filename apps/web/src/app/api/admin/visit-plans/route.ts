@@ -7,6 +7,8 @@ import { deleteDayPlan, readDayFacts, readDayPlans, saveDayPlan } from '@/lib/cu
 import { prisma } from '@repo/database';
 
 import { notifyCustomer } from '@/lib/notify';
+import { actionButton, buttonRows } from '@/lib/telegram/adminLinks';
+import { assignedPlanText } from '@/lib/customers/planMessage';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
 
@@ -180,28 +182,14 @@ export async function POST(request: NextRequest) {
     // увидеть свой день, надо было самому открыть админку и догадаться
     // туда заглянуть. Владелец при этом считал, что поручил работу.
     //
-    // Сотрудник опознаётся именем — так же, как в самом плане и в
-    // `Task.assignee`; Telegram берём из карточки сотрудника. Нет связки с
-    // Telegram — молчим: отправить некуда, а падать из-за этого запрос не
-    // должен, план уже сохранён.
+    // ШЛЁМ ТОКЕНОМ БОТА ПРОДАЖ, а не витринного. Нажатие кнопки Telegram
+    // отдаёт ТОМУ боту, чьим токеном отправлено сообщение, а полевая
+    // работа продавца — трансляция геопозиции, «Я на точке», фото — живёт
+    // именно там. Прежнее сообщение приходило от бота покупателей: человек
+    // получал работу в одном чате, а делал её в другом, и кнопка под
+    // заданием не дошла бы до обработчика вовсе.
     if (owner && assignee && assignee !== author) {
-      void (async () => {
-        try {
-          const employee = await prisma.employee.findFirst({
-            where: { name: assignee, isActive: true },
-            select: { telegramId: true },
-          });
-          if (!employee?.telegramId) return;
-          const day = planDate.toLocaleDateString('ru-RU');
-          await notifyCustomer(
-            employee.telegramId,
-            `🗺 Вам назначен объезд на ${day}: ${saved.stops} точек.\n`
-            + 'Откройте «Клиенты» → карта, план уже там.',
-          );
-        } catch (err) {
-          console.error('[visit-plans] не сказали продавцу о плане:', err);
-        }
-      })();
+      void announcePlan(saved.id, assignee, planDate);
     }
 
     return NextResponse.json({ status: 'ok', plan: saved }, { status: 201 });
@@ -261,5 +249,75 @@ export async function DELETE(request: NextRequest) {
   } catch (error: unknown) {
     console.error('API Admin Visit Plans DELETE Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });
+  }
+}
+
+/**
+ * Сказать исполнителю о плане — один раз.
+ *
+ * ПОВТОРНО НЕ ШЛЁМ. План пересохраняется при каждой правке состава, а
+ * владелец переставляет точки по нескольку раз: без отметки `announcedAt`
+ * человек получал бы пять одинаковых сообщений подряд и перестал бы их
+ * читать вместе с шестым, которое важное.
+ *
+ * ОШИБКУ НЕ ПОДНИМАЕМ: план уже сохранён, и ронять из-за Telegram запрос,
+ * который сделал свою работу, нельзя.
+ */
+async function announcePlan(planId: number, assignee: string, planDate: Date): Promise<void> {
+  try {
+    const plan = await prisma.visitPlan.findUnique({
+      where: { id: planId },
+      select: {
+        announcedAt: true,
+        stops: {
+          orderBy: { orderIndex: 'asc' },
+          select: {
+            customer: { select: { name: true, companyName: true, district: true } },
+          },
+        },
+        items: { select: { qty: true, product: { select: { nameRu: true, unit: true } } } },
+      },
+    });
+    if (!plan || plan.announcedAt !== null) return;
+
+    const employee = await prisma.employee.findFirst({
+      where: { name: assignee, isActive: true },
+      select: { telegramId: true },
+    });
+    if (!employee?.telegramId) return;
+
+    const text = assignedPlanText({
+      dateLabel: planDate.toLocaleDateString('ru-RU'),
+      // Пройденного здесь нет по определению: план только что назначен.
+      stops: plan.stops.map((s) => ({
+        name: s.customer.companyName || s.customer.name || 'Без названия',
+        done: false,
+        district: s.customer.district,
+      })),
+      goods: plan.items.map((i) => ({
+        name: i.product.nameRu,
+        qty: i.qty,
+        unit: i.product.unit,
+      })),
+    });
+
+    const sent = await notifyCustomer(
+      employee.telegramId,
+      text,
+      buttonRows([actionButton('✅ Приступить', `plan:accept:${planId}`)]),
+      // Бот продаж — там же, где вся полевая работа продавца.
+      process.env.SALES_BOT_TOKEN,
+    );
+
+    // Отмечаем ТОЛЬКО отправленное. Иначе неудача Telegram навсегда закрыла
+    // бы человеку возможность узнать о плане: повтора бы не было.
+    if (sent) {
+      await prisma.visitPlan.update({
+        where: { id: planId },
+        data: { announcedAt: new Date() },
+      });
+    }
+  } catch (err) {
+    console.error('[visit-plans] не сказали продавцу о плане:', err);
   }
 }

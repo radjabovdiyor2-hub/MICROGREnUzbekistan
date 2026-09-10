@@ -22,6 +22,8 @@ export interface PlanRow {
   assignee: string;
   author: string;
   source: string;
+  /** Когда исполнитель подтвердил, что увидел. `null` — не подтвердил. */
+  acceptedAt?: string | null;
   doneCount: number;
   stops: PlanStopRow[];
   items?: PlanItemRow[];

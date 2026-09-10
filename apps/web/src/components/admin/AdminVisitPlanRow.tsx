@@ -59,6 +59,20 @@ export function AdminVisitPlanRow({
               : 'oʻzi tuzgan'}
         </span>
 
+        {/* Подтвердил или нет. Без этой подписи «0 из 8» читается
+            одинаково и когда человек не открывал задание, и когда он
+            стоит в пробке у первой точки — а это разные разговоры.
+            Серым, не красным: ненажатая кнопка не проступок, связь в
+            поле пропадает. */}
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+          {plan.acceptedAt
+            ? `${lang === 'ru' ? 'принял' : 'qabul qildi'} ${new Date(plan.acceptedAt)
+                .toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`
+            : lang === 'ru'
+              ? 'не подтвердил'
+              : 'tasdiqlamagan'}
+        </span>
+
         <span
           style={{
             marginLeft: 'auto',

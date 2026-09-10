@@ -34,6 +34,7 @@ python scripts/check_bot_roster.py   # состав 11 ботов + моста �
 python scripts/check_prompts.py      # контакты и промпты
 python scripts/check_imports.py      # `from shared.X import Y` — Y там есть
 python scripts/check_rotation.py     # длина списков ротации не кратна семи
+python scripts/check_bridge.py       # адреса витрины из Python существуют роутами
 python scripts/check_types.py        # типы в дверях к данным (mypy по списку)
 python scripts/check_soft_delete.py  # удалённый клиент не читается нигде
 ```
