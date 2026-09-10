@@ -15,6 +15,13 @@ export interface Shift {
   endTime: string | null;
   type: string;
   note: string | null;
+  /**
+   * Смену закрыл вечерний проход по последней точке трека, а не человек.
+   *
+   * Владелец обязан отличать одно от другого: время, поставленное
+   * автоматом, — повод спросить, а не установленный факт.
+   */
+  closedAuto?: boolean;
   employee?: {
     name: string;
     department: string | null;

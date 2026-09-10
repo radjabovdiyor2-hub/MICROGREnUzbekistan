@@ -66,6 +66,15 @@ export function AdminShiftCard({ shift, onEdit, onDelete }: Props) {
             {hhmm(shift.startTime)} — {hhmm(shift.endTime)}
           </div>
         )}
+        {/* Смену закрыл вечерний проход, а не человек: конец поставлен по
+            последней точке трека. Молчать об этом нельзя — иначе время
+            автомата неотличимо от времени, которое отметил сотрудник. */}
+        {shift.closedAuto && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--warning)' }}>
+            <Clock size={14} />
+            закрыта автоматически
+          </div>
+        )}
       </div>
 
       {shift.note && (

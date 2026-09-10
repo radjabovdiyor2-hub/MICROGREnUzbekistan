@@ -37,6 +37,7 @@ python scripts/check_rotation.py     # длина списков ротации 
 python scripts/check_bridge.py       # адреса витрины из Python существуют роутами
 python scripts/check_types.py        # типы в дверях к данным (mypy по списку)
 python scripts/check_soft_delete.py  # удалённый клиент не читается нигде
+python scripts/check_chain.py    # цепь «работал → зарплата» замкнута: у поля есть писатель и читатель
 ```
 
 `check_imports.py` появился после 10.08.2026: `shared/feedback_loop.py`

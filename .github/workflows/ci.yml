@@ -146,6 +146,7 @@ jobs:
           python scripts/check_rotation.py
           python scripts/check_bridge.py
           python scripts/check_soft_delete.py
+          python scripts/check_chain.py
 
   # ─────────────────────────── E2E ───────────────────────────
   # Шесть сценариев Playwright (auth, checkout, homepage, profile, shop) и

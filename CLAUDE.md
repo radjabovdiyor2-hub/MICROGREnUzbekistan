@@ -57,6 +57,7 @@ python scripts/check_rotation.py # ротация контента не совп
 python scripts/check_bridge.py   # адрес витрины, который зовёт Python, существует
 python scripts/check_types.py    # mypy по «дверям к данным», блокирующая
 python scripts/check_soft_delete.py  # удалённый клиент не всплывает в офисе
+python scripts/check_chain.py    # у каждого звена цепи «работал → зарплата» есть писатель и читатель
 ```
 
 Подробности — в [apps/tgas/CLAUDE.md](apps/tgas/CLAUDE.md).
