@@ -210,28 +210,41 @@ def _stay_keyboard(arrived: bool) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[button]])
 
 
-@router.callback_query(F.data == "stay:in")
-async def stay_in(cb: CallbackQuery) -> None:
-    if cb.from_user is None:
-        await cb.answer()
-        return
+async def mark_arrival(message: Message, user_id: int) -> Optional[str]:
+    """Отметить приезд на точку. Возвращает причину отказа или `None`.
 
-    result = await stay_start(cb.from_user.id)
+    Вынесено из обработчика кнопки, потому что то же самое делает кнопка
+    ПОСТОЯННОЙ клавиатуры — а она присылает обычный текст, не нажатие.
+    Две копии одной работы разошлись бы на первой правке.
+    """
+    result = await stay_start(user_id)
     if not result.get("ok"):
         # Причину показываем дословно: «не вижу, где вы» — это руководство
         # к действию, а не сбой.
-        await cb.answer(str(result.get("error") or "Не получилось"), show_alert=True)
-        return
+        reason = str(result.get("error") or "Не получилось")
+        await message.answer(f"⚠️ {reason}")
+        return reason
 
     who = result.get("customer") or "точка"
+    await message.answer(
+        f"📍 Отмечено: <b>{who}</b>.\n\n"
+        "Пришлите фото — оно уйдёт в отчёт по этой точке. "
+        "Уезжаете — нажмите «Уехал».",
+        reply_markup=_stay_keyboard(arrived=True),
+    )
+    return None
+
+
+@router.callback_query(F.data == "stay:in")
+async def stay_in(cb: CallbackQuery) -> None:
+    if cb.from_user is None or cb.message is None:
+        await cb.answer()
+        return
+
+    # Причину `mark_arrival` уже написал сообщением — всплывающее окно с
+    # тем же текстом было бы вторым уведомлением об одном событии.
+    await mark_arrival(cb.message, cb.from_user.id)
     await cb.answer()
-    if cb.message is not None:
-        await cb.message.answer(
-            f"📍 Отмечено: <b>{who}</b>.\n\n"
-            "Пришлите фото — оно уйдёт в отчёт по этой точке. "
-            "Уезжаете — нажмите «Уехал».",
-            reply_markup=_stay_keyboard(arrived=True),
-        )
 
 
 @router.callback_query(F.data == "stay:out")
@@ -345,7 +358,7 @@ def _day_keyboard(
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-async def _show_day(message: Message, user_id: int) -> None:
+async def show_day_for(message: Message, user_id: int) -> None:
     """Показать день человеку `user_id` в чате `message`.
 
     Отправитель передаётся отдельно намеренно: у сообщения, под которым
@@ -392,14 +405,14 @@ async def day_command(message: Message) -> None:
     """`/day` — что у меня сегодня."""
     if message.from_user is None:
         return
-    await _show_day(message, message.from_user.id)
+    await show_day_for(message, message.from_user.id)
 
 
 @router.callback_query(F.data == "field:day")
 async def day_button(cb: CallbackQuery) -> None:
     await cb.answer()
     if cb.message is not None and cb.from_user is not None:
-        await _show_day(cb.message, cb.from_user.id)
+        await show_day_for(cb.message, cb.from_user.id)
 
 
 @router.callback_query(F.data.startswith("route:accept:"))
@@ -464,20 +477,25 @@ async def shift_button(callback: CallbackQuery) -> None:
         await callback.answer("Не получилось — попробуйте ещё раз", show_alert=True)
         return
 
+    # Клавиатуру под полем ввода обновляем ТУТ ЖЕ. Она показывает
+    # противоположное действие («идёт» → «закончил»), и если оставить её
+    # прежней, человек увидит две кнопки о разном состоянии одной смены.
+    from bots.sales_bot.handlers.shift_menu import LIVE_HINT, shift_keyboard
+
     if action == "open":
         await callback.answer("Смена открыта")
         if callback.message:
             await callback.message.answer(
-                "▶️ <b>Смена открыта.</b>\n\n"
-                "Маршрут пишется. Чтобы точки доходили, включите трансляцию "
-                "геопозиции: скрепка → Геопозиция → «Транслировать» → 8 часов."
+                f"▶️ <b>Смена открыта.</b>\n\n{LIVE_HINT}",
+                reply_markup=shift_keyboard(True),
             )
         return
 
     await callback.answer("Смена закрыта")
     if callback.message:
         await callback.message.answer(
-            "🏁 <b>Смена закрыта.</b>\n\nЗапись маршрута остановлена."
+            "🏁 <b>Смена закрыта.</b>\n\nЗапись маршрута остановлена.",
+            reply_markup=shift_keyboard(False),
         )
 
 

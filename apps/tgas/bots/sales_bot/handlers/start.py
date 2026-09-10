@@ -5,8 +5,6 @@ from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import (
     CallbackQuery,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Message,
 )
 from aiogram.fsm.context import FSMContext
@@ -112,14 +110,15 @@ async def cmd_start(message: Message, state: FSMContext):
                 if stops
                 else "На сегодня объезд не назначен."
             )
-            await message.answer(
-                f"🧰 <b>Рабочее меню</b>\n\n{line}",
-                reply_markup=InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [InlineKeyboardButton(text="🗺 Мой день", callback_data="field:day")],
-                        [InlineKeyboardButton(text="📍 Я на точке", callback_data="stay:in")],
-                    ]
-                ),
+            # ПОСТОЯННАЯ клавиатура, а не кнопки под сообщением. Прежнее
+            # меню было разовым: оно уходит вверх с перепиской, и через
+            # десяток сообщений открыть смену было нечем — приходилось
+            # вспоминать команду или листать чат назад. Смена от этого
+            # чаще не открывалась вовсе.
+            from bots.sales_bot.handlers.shift_menu import send_shift_keyboard
+
+            await send_shift_keyboard(
+                message, message.from_user.id, f"🧰 <b>Рабочее меню</b>\n\n{line}"
             )
     except Exception as exc:
         # Витрина недоступна — покупательское меню уже показано, и ронять
