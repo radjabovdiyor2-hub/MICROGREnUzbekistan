@@ -4,6 +4,7 @@ import { prisma } from '@repo/database';
 import { getSession } from '@/lib/adminAuth';
 import { localDayRange } from '@/lib/localDate';
 import { safeError } from '@/lib/safeError';
+import { SILENT_MIN } from '@/lib/tracking/ping';
 
 // ══════════════════════════════════════════════════════════════════════
 // Кто сейчас в поле и где.
@@ -82,7 +83,11 @@ export async function GET(request: NextRequest) {
     // Кто дольше молчит — выше: именно он и есть повод спросить.
     people.sort((a, b) => (b.silentMin ?? 0) - (a.silentMin ?? 0));
 
-    return NextResponse.json({ status: 'ok', people, at: Date.now() });
+    // `silentAfterMin` — с какой минуты молчание перестаёт быть моргнувшей
+    // сетью. Отдаём вместе с людьми, чтобы бот не держал своей копии числа:
+    // сводка в Telegram и подпись на карте должны звать «молчит» одного и
+    // того же человека.
+    return NextResponse.json({ status: 'ok', people, silentAfterMin: SILENT_MIN, at: Date.now() });
   } catch (error: unknown) {
     console.error('API Admin Tracking Live GET Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });

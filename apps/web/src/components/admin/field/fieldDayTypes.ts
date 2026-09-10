@@ -44,11 +44,33 @@ export interface FieldLeg {
   trafficUsed: boolean;
 }
 
+/**
+ * Простой: человек на связи, но стоит на месте и не у клиента.
+ *
+ * В базе его нет — считается из трека при чтении дня (`lib/tracking/idle`).
+ * Поэтому здесь нет `id`: у окна простоя нет собственной жизни, к нему
+ * нельзя привязать фото и его нельзя подтвердить.
+ */
+export interface FieldIdle {
+  startedAt: string;
+  endedAt: string;
+  idleSec: number;
+  latitude: number;
+  longitude: number;
+  pings: number;
+}
+
 export interface FieldDayResponse {
   day: FieldDayHead | null;
   track: { at: string; latitude: number; longitude: number; accuracyM: number | null }[];
   stays: FieldStay[];
   legs: FieldLeg[];
+  /** Окна простоя. Пустой массив — не «не считали», а «не стоял». */
+  idle: FieldIdle[];
+  /** Сколько раз за день связь пропадала дольше `GAP_MS`. */
+  gaps: number;
+  /** Порог простоя из настроек — им же помечается долгая стоянка. */
+  idleAfterMin?: number;
 }
 
 export interface EmployeeOption {

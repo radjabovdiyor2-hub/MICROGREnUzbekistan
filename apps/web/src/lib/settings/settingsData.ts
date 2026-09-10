@@ -249,6 +249,11 @@ export const SETTINGS = {
     labelRu: 'Минимальная стоянка, минуты', labelUz: "Eng qisqa to'xtash, daqiqa",
     hintRu: 'Короче этого — это светофор рядом с заведением, а не заезд. Слишком малое значение засыпет отчёт ложными стоянками',
   },
+  'field.idleMinutes': {
+    category: 'field', type: 'number', default: 30, min: 10, max: 180,
+    labelRu: 'Простой без движения, минуты', labelUz: "Harakatsiz turish, daqiqa",
+    hintRu: 'Дольше этого на одном месте и не у клиента — в отчёте дня появится простой. Это вопрос, а не обвинение: обед, очередь и поломка выглядят так же. Радиус берётся тот же, что у стоянки',
+  },
   'field.trackKeepDays': {
     category: 'field', type: 'number', default: 90, min: 7, max: 365,
     labelRu: 'Хранить трек, дней', labelUz: 'Trekni saqlash, kun',

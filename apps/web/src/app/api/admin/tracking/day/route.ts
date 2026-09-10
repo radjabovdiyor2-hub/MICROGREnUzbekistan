@@ -4,6 +4,9 @@ import { prisma } from '@repo/database';
 import { getSession } from '@/lib/adminAuth';
 import { formatLocalDate, localDayRange } from '@/lib/localDate';
 import { safeError } from '@/lib/safeError';
+import { getNumber } from '@/lib/settings/store';
+import { detectIdle } from '@/lib/tracking/idle';
+import { summarize, type TrackPingInput } from '@/lib/tracking/ping';
 import { rebuildDay } from '@/lib/tracking/rebuild';
 import { fillExpected } from '@/lib/tracking/expected';
 
@@ -80,7 +83,9 @@ export async function GET(request: NextRequest) {
     if (!day) {
       // Дня нет — это не ошибка: человек мог не включать трансляцию.
       // Пустой ответ честнее 404: экран покажет «трека нет», а не сломается.
-      return NextResponse.json({ status: 'ok', day: null, track: [], stays: [], legs: [] });
+      return NextResponse.json({
+        status: 'ok', day: null, track: [], stays: [], legs: [], idle: [], gaps: 0,
+      });
     }
 
     const [track, stays, legs] = await Promise.all([
@@ -124,7 +129,52 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({ status: 'ok', day, track, stays, legs });
+    // ПРОСТОИ И РАЗРЫВЫ СЧИТАЮТСЯ ЗДЕСЬ, А НЕ ХРАНЯТСЯ.
+    //
+    // Своя таблица дала бы второй источник правды: трек можно дописать
+    // задним числом (офлайн-очередь приносит вчерашние крошки), и тогда
+    // сохранённый простой перестал бы соответствовать линии на карте.
+    // Стоянки и плечи хранятся потому, что к ним привязаны фото и визиты;
+    // к простою не привязано ничего.
+    const pings: TrackPingInput[] = track.map((p) => ({
+      at: p.at,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      accuracyM: p.accuracyM,
+      source: p.source as TrackPingInput['source'],
+      speedMps: null,
+      headingDeg: null,
+    }));
+
+    const [radiusM, idleMinutes] = await Promise.all([
+      getNumber('field.stayRadiusM'),
+      getNumber('field.idleMinutes'),
+    ]);
+
+    // Стоянка у клиента — это работа. Полчаса разговора с шефом простоем
+    // не считается, поэтому в исключения уходят и собранные заезды, и сами
+    // пины: тем же правилом пользуется сторож в боте, иначе экран владельца
+    // и сообщение сотруднику разошлись бы ровно на людях.
+    const pins = (
+      await prisma.customer.findMany({
+        where: { latitude: { not: null }, longitude: { not: null } },
+        select: { id: true, latitude: true, longitude: true },
+      })
+    ).map((c) => ({ id: c.id, latitude: c.latitude as number, longitude: c.longitude as number }));
+
+    const idle = detectIdle(pings, radiusM, idleMinutes * 60_000, {
+      pins,
+      busy: stays.map((s) => ({ arrivedAt: s.arrivedAt, leftAt: s.leftAt ?? s.arrivedAt })),
+    });
+
+    // `gaps` считался в `summarize` с самого начала и выбрасывался: в
+    // `FieldDay` для него нет колонки. Владелец при этом видел ровный трек
+    // там, где связи не было час.
+    const { gaps } = summarize(pings);
+
+    return NextResponse.json({
+      status: 'ok', day, track, stays, legs, idle, gaps, idleAfterMin: idleMinutes,
+    });
   } catch (error: unknown) {
     console.error('API Admin Tracking Day GET Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });

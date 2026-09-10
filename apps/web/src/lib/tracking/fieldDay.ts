@@ -29,21 +29,34 @@ import { purgeOldPings } from './retention';
  */
 export type EmployeeRef = { telegramId: bigint } | { name: string };
 
+/**
+ * Опознанный сотрудник.
+ *
+ * `telegramId` здесь ради обратной связи: смену открывают и в приложении,
+ * и в вебе, а сказать о ней человеку можно только в Telegram. Без этого
+ * поля дверь смены знала, КТО открыл, и не знала, КУДА ему написать.
+ */
+export interface ResolvedEmployee {
+  id: string;
+  name: string;
+  telegramId: bigint | null;
+}
+
 export async function resolveEmployee(
   ref: EmployeeRef,
-): Promise<{ id: string; name: string } | { error: string }> {
+): Promise<ResolvedEmployee | { error: string }> {
   if ('telegramId' in ref) {
     const found = await prisma.employee.findUnique({
       where: { telegramId: ref.telegramId },
-      select: { id: true, name: true, isActive: true },
+      select: { id: true, name: true, isActive: true, telegramId: true },
     });
     if (!found || !found.isActive) return { error: 'Сотрудник не найден' };
-    return { id: found.id, name: found.name };
+    return { id: found.id, name: found.name, telegramId: found.telegramId };
   }
 
   const matches = await prisma.employee.findMany({
     where: { name: ref.name, isActive: true },
-    select: { id: true, name: true },
+    select: { id: true, name: true, telegramId: true },
     take: 2,
   });
   if (matches.length === 0) return { error: 'Сотрудник не найден' };

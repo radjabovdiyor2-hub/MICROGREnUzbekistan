@@ -4,8 +4,13 @@ import { getSession } from '@/lib/adminAuth';
 import { requireBotAuth } from '@/lib/botAuth';
 import { publish } from '@/lib/realtime/bus';
 import { safeError } from '@/lib/safeError';
+import { announceShiftClose, announceShiftOpen } from '@/lib/shift/announce';
 import { closeShift, currentShift, isShiftSource, openShift } from '@/lib/shift/store';
-import { resolveEmployee, type EmployeeRef } from '@/lib/tracking/fieldDay';
+import {
+  resolveEmployee,
+  type EmployeeRef,
+  type ResolvedEmployee,
+} from '@/lib/tracking/fieldDay';
 
 // ══════════════════════════════════════════════════════════════════════
 // Своя смена: открыть, закрыть, узнать состояние.
@@ -31,7 +36,7 @@ export const dynamic = 'force-dynamic';
 async function actor(
   request: NextRequest,
   body: Record<string, unknown> | null,
-): Promise<{ id: string; name: string } | { error: string; status: number }> {
+): Promise<ResolvedEmployee | { error: string; status: number }> {
   const session = getSession(request);
   let ref: EmployeeRef | null = null;
 
@@ -96,12 +101,18 @@ export async function POST(request: NextRequest) {
       const shift = await openShift(who.id, now, via);
       // Экран владельца обязан увидеть, что человек вышел, без перезагрузки.
       publish('customers');
+      // СКАЗАТЬ ЧЕЛОВЕКУ В TELEGRAM — не дожидаясь: смена уже открыта, и
+      // молчание Telegram не повод отвечать ошибкой на успешное действие.
+      // Внутри — отказ, если открыли в самом боте: там ответ уже есть.
+      void announceShiftOpen(who.telegramId, shift.startedAt, via);
       return NextResponse.json({ status: 'ok', open: true, startedAt: shift.startedAt });
     }
 
     if (action === 'close') {
+      const via = isShiftSource(body?.via) ? body.via : 'pwa';
       const closed = await closeShift(who.id, now);
       publish('customers');
+      if (closed) void announceShiftClose(who.telegramId, closed.endedAt, via);
       // Закрывать было нечего — не ошибка: человек мог нажать дважды или
       // закрыть смену, которую уже закрыл вечерний проход.
       return NextResponse.json({

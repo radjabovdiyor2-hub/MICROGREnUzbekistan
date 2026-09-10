@@ -1,3 +1,5 @@
+import { SILENT_MIN } from '@/lib/tracking/ping';
+
 import { MAP_FONT } from './mapFont';
 import type { TokenColors } from './useTokenColors';
 
@@ -24,8 +26,15 @@ export const LAYER_PEOPLE_TRACK = 'field-people-track';
 export const LAYER_PEOPLE_DOT = 'field-people-dot';
 export const LAYER_PEOPLE_NAME = 'field-people-name';
 
-/** Дольше этого молчания точка перестаёт быть «сейчас». */
-export const PEOPLE_STALE_MIN = 15;
+/**
+ * Дольше этого молчания точка перестаёт быть «сейчас».
+ *
+ * То же число, по которому сторож считает трансляцию прерванной, а
+ * арифметика дня — разрывом связи: вопрос один, и своей копии здесь быть
+ * не должно. Карта, на которой человек ещё «сейчас», и сообщение, где он
+ * уже «молчит», — это разъехавшиеся числа, а не два мнения.
+ */
+export const PEOPLE_STALE_MIN = SILENT_MIN;
 
 export function buildPeopleLayers(c: TokenColors) {
   const live = ['<=', ['get', 'silentMin'], PEOPLE_STALE_MIN];

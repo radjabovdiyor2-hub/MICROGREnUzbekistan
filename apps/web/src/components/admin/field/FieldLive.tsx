@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Radio } from 'lucide-react';
 
 import { pollInterval, timeoutSignal } from '@/lib/net/connection';
+import { SILENT_MIN } from '@/lib/tracking/ping';
 
 import { FieldDayMap } from './FieldDayMap';
 import { clock, humanDistance } from './fieldDayTypes';
@@ -36,8 +37,8 @@ interface LivePerson {
 /** Обновляем раз в минуту — с той же частотой, с какой шлёт Telegram. */
 const REFRESH_MS = 60_000;
 
-/** Дольше этого молчания точка перестаёт быть «сейчас». */
-const STALE_MIN = 15;
+// Порог молчания — общий (`SILENT_MIN`): по нему же гаснет точка на карте
+// и сторож в боте считает трансляцию прерванной. Здесь была его копия.
 
 export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
@@ -68,7 +69,7 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
       latitude: person.last?.latitude ?? null,
       longitude: person.last?.longitude ?? null,
       dwellSec: null,
-      confirmedBy: (person.silentMin ?? 0) <= STALE_MIN ? 'manual' : 'derived',
+      confirmedBy: (person.silentMin ?? 0) <= SILENT_MIN ? 'manual' : 'derived',
     }));
 
   return (
@@ -106,7 +107,7 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
 
           <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
             {people.map((person) => {
-              const stale = (person.silentMin ?? 0) > STALE_MIN;
+              const stale = (person.silentMin ?? 0) > SILENT_MIN;
               return (
                 <div
                   key={person.id}

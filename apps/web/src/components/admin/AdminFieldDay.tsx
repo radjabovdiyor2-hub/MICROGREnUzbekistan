@@ -8,15 +8,10 @@ import { formatLocalDate } from '@/lib/localDate';
 import { timeoutSignal } from '@/lib/net/connection';
 
 import { FieldDayMap } from './field/FieldDayMap';
+import { FieldDaySummary } from './field/FieldDaySummary';
 import { FieldLive } from './field/FieldLive';
 import { FieldDayTimeline } from './field/FieldDayTimeline';
-import {
-  humanDistance,
-  humanDuration,
-  clock,
-  type EmployeeOption,
-  type FieldDayResponse,
-} from './field/fieldDayTypes';
+import { type EmployeeOption, type FieldDayResponse } from './field/fieldDayTypes';
 
 // ══════════════════════════════════════════════════════════════════════
 // День в поле: где был сотрудник, сколько простоял, сколько ехал.
@@ -140,32 +135,12 @@ export function AdminFieldDay({
 
       {day && (
         <>
-          <div
-            style={{
-              display: 'flex',
-              gap: 'var(--space-4)',
-              flexWrap: 'wrap',
-              padding: 'var(--space-3)',
-              background: 'var(--bg-secondary)',
-              borderRadius: 'var(--radius-md)',
-              marginBottom: 'var(--space-4)',
-              fontSize: 'var(--text-sm)',
-            }}
-          >
-            <span>
-              {t('Смена', 'Smena')}: {clock(day.startedAt)}
-              {day.endedAt ? `–${clock(day.endedAt)}` : ''}
-            </span>
-            <span>
-              {t('Пройдено', 'Bosib o‘tilgan')}: {humanDistance(day.meters)}
-            </span>
-            <span>
-              {t('В движении', 'Harakatda')}: {humanDuration(day.movingSec, lang)}
-            </span>
-            <span>
-              {t('Заездов', 'To‘xtashlar')}: {day.stops}
-            </span>
-          </div>
+          <FieldDaySummary
+            day={day}
+            idle={data?.idle ?? []}
+            gaps={data?.gaps ?? 0}
+            lang={lang}
+          />
 
           {/* Карта дня — над лентой: сперва «где ездил», потом «что там
               было». Обратный порядок заставляет читать список без карты
@@ -183,8 +158,14 @@ export function AdminFieldDay({
             />
           )}
 
-          {data && data.stays.length > 0 ? (
-            <FieldDayTimeline stays={data.stays} legs={data.legs} lang={lang} />
+          {data && (data.stays.length > 0 || data.idle.length > 0) ? (
+            <FieldDayTimeline
+              stays={data.stays}
+              legs={data.legs}
+              idle={data.idle}
+              idleAfterMin={data.idleAfterMin}
+              lang={lang}
+            />
           ) : (
             <p style={{ color: 'var(--text-muted)' }}>
               {t(
