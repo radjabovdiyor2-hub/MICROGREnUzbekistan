@@ -38,12 +38,35 @@ test.use({
     geolocation: { latitude: 39.6542, longitude: 66.9597, accuracy: 12 },
 });
 
-test("продавец включает запись дня, и крошки уходят на сервер", async ({ page, context }) => {
+test("продавец открывает смену, и крошки уходят на сервер", async ({ page, context }) => {
     const sent: Array<{ pings?: Array<Record<string, unknown>> }> = [];
     await page.route("**/api/admin/tracking/ping", async (route) => {
         sent.push(route.request().postDataJSON());
         await route.fulfill({ json: { status: "ok", stored: 1, days: [] } });
     });
+
+    // СМЕНА ЗАГЛУШЕНА, как и вход по PIN, и по той же причине: сотрудника
+    // с таким именем в засеянной базе нет, и настоящая дверь ответила бы
+    // «сотрудник не найден». Серверную часть смены закрывают юнит-тесты
+    // (`sellerAccess.test.ts`, `shiftPay.test.ts`); здесь проверяется то,
+    // что видно только в браузере: нажатие открывает смену, а смена сама
+    // включает запись — без второго нажатия.
+    let shiftOpen = false;
+    await page.route("**/api/shift", async (route) => {
+        if (route.request().method() === "POST") {
+            const body = route.request().postDataJSON() as { action?: string };
+            shiftOpen = body?.action === "open";
+        }
+        await route.fulfill({
+            json: {
+                status: "ok",
+                open: shiftOpen,
+                startedAt: shiftOpen ? new Date().toISOString() : null,
+                openedVia: shiftOpen ? "pwa" : null,
+            },
+        });
+    });
+
     // PIN проверяет база, которой у набора нет.
     await page.route("**/api/inventory/employees/auth", (r) =>
         r.fulfill({ json: { success: true, employee: { name: "Диагностика" } } }),
@@ -60,9 +83,15 @@ test("продавец включает запись дня, и крошки у�
     // Кнопка обязана быть видна СРАЗУ, а не после переключения на карту:
     // экран открывается списком, и спрятанная там кнопка есть только для
     // того, кто уже знает, что она там.
-    const button = page.getByRole("button", { name: /Записывать день/ });
+    const button = page.getByRole("button", { name: /Начал смену/ });
     await button.waitFor({ timeout: 20_000 });
     await button.click();
+
+    // ОДНА КНОПКА ЗАПУСКАЕТ ВСЁ. Отдельного «записывать день» больше нет:
+    // если бы запись не слушалась смены, ниже не пришло бы ни одной крошки.
+    await expect(page.getByRole("button", { name: /Закончил смену/ })).toBeVisible({
+        timeout: 15_000,
+    });
 
     // Первую крошку хук отдаёт сразу; сдвиг проверяет правило «уехал —
     // пиши, не дожидаясь интервала».
