@@ -168,10 +168,32 @@ export function useCustomerMap() {
    * подвале ресторана, в туманах области. Снимок читается ТОЛЬКО при
    * отказе запроса и только под теми же фильтрами.
    */
+  //
+  // ПОКАЗЫВАЕМ ЕГО И ПОКА ГРУЗИТСЯ, а не только при отказе. Ответ карты —
+  // это две тысячи точек; на 2G он идёт десятки секунд, и всё это время
+  // экран был пустым. Человек видел «точек нет» ровно там, где они есть,
+  // и решал, что карта опять сломалась. Прошлый снимок под теми же
+  // фильтрами честнее пустоты: он показывает то, что было, а не
+  // утверждает, что ничего нет.
   const snapshot = useMemo(
-    () => (error && !data ? readSnapshot(snapshotKey) : null),
-    [error, data, snapshotKey],
+    () => (data ? null : readSnapshot(snapshotKey)),
+    [data, snapshotKey],
   );
+
+  /**
+   * ПОЧЕМУ ПОКАЗАН СНИМОК, а не свежая карта.
+   *
+   * Разница не косметическая: «связи нет» и «ещё грузится» требуют разных
+   * действий. Написать «связи нет» человеку, у которого связь просто
+   * медленная, значит отправить его чинить то, что не сломано.
+   */
+  const snapshotReason: 'offline' | 'loading' | null = data
+    ? null
+    : snapshot === null
+      ? null
+      : error
+        ? 'offline'
+        : 'loading';
 
   const collection = data ?? snapshot?.collection ?? EMPTY_COLLECTION;
 
@@ -308,6 +330,7 @@ export function useCustomerMap() {
     dataUpdatedAt,
     /** Не null — на экране снимок, а не свежие данные. */
     snapshotAt: snapshot?.at ?? null,
+    snapshotReason,
 
     mode,
     setMode,

@@ -42,7 +42,7 @@ const card: React.CSSProperties = {
 };
 
 export function MapBanners({ lang, m }: Props) {
-  const { snapshotAt } = m;
+  const { snapshotAt, snapshotReason } = m;
   const errorText = errorOf(m);
   const { placed, total } = m.collection.summary;
   // Не «пусто», а «координат нет ни у кого»: разница видна только при
@@ -54,13 +54,27 @@ export function MapBanners({ lang, m }: Props) {
       {/* Связь пропала, но снимок есть: это не ошибка, а работа без сети.
           Красная плашка тут сказала бы «сломалось» про карту, по которой
           человек прямо сейчас едет. */}
-      {snapshotAt !== null && (
+      {snapshotAt !== null && snapshotReason === 'offline' && (
         <div className="card" style={{ ...card, color: 'var(--warning)' }}>
           <CloudOff size={16} />
           <span style={{ fontSize: 'var(--text-sm)' }}>
             {lang === 'ru'
               ? `Связи нет — карта снята ${snapshotTime(snapshotAt)}. Точки, адреса и телефоны на месте, отметки визитов уйдут сами, когда связь вернётся.`
               : `Aloqa yoʻq — xarita ${snapshotTime(snapshotAt)} olingan. Belgilar aloqa qaytganda yuboriladi.`}
+          </span>
+        </div>
+      )}
+
+      {/* Медленно — это НЕ «связи нет». Отправить человека чинить сеть,
+          которая просто медленная, — значит соврать и потратить его
+          время. Спокойный тон и другое слово. */}
+      {snapshotAt !== null && snapshotReason === 'loading' && (
+        <div className="card" style={{ ...card, color: 'var(--text-secondary)' }}>
+          <CloudOff size={16} />
+          <span style={{ fontSize: 'var(--text-sm)' }}>
+            {lang === 'ru'
+              ? `Показываю карту от ${snapshotTime(snapshotAt)} — свежая ещё грузится.`
+              : `${snapshotTime(snapshotAt)} dagi xarita — yangisi yuklanmoqda.`}
           </span>
         </div>
       )}

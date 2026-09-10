@@ -89,6 +89,7 @@ export function RoutePanel({ lang, m, route, isOwner = false }: PanelDeps & { is
         lang={lang}
         points={m.visible.features.map(toPointView)}
         hasStops={route.stops.length > 0}
+        isOwner={isOwner}
         onPlan={route.setAll}
       />
       {/* Назначение — СРАЗУ ПОД списком точек и только владельцу: он

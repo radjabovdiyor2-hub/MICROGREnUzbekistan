@@ -42,6 +42,32 @@ const text = {
   failed: { ru: 'Не получилось', uz: 'Boʻlmadi' },
 };
 
+/**
+ * Уже есть ли у человека объезд на эту дату.
+ *
+ * ЗАЧЕМ СПРАШИВАТЬ. Сохранение плана его ЗАМЕНЯЕТ — один план на человека
+ * в день, так стоит уникальность в базе. Назначить второй раз значит молча
+ * стереть первый: список точек, порядок и список товаров. Владелец при
+ * этом ничего не заметит, а продавец утром откроет чужой день.
+ *
+ * Ошибку проверки глотаем намеренно: не смогли спросить — не мешаем
+ * назначить. Предупреждение это удобство, а не рубеж; рубеж стоит на
+ * сервере и решает, кому вообще можно писать.
+ */
+async function existingStops(date: string, assignee: string): Promise<number> {
+  try {
+    const res = await adminFetch(
+      `/api/admin/visit-plans?date=${date}&assignee=${encodeURIComponent(assignee)}`,
+    );
+    if (!res.ok) return 0;
+    const body = await res.json();
+    const plans: { stops?: unknown[] }[] = Array.isArray(body?.plans) ? body.plans : [];
+    return plans.reduce((sum, plan) => sum + (plan.stops?.length ?? 0), 0);
+  } catch {
+    return 0;
+  }
+}
+
 export function AssignRouteFromMap({
   lang,
   stops,
@@ -73,6 +99,25 @@ export function AssignRouteFromMap({
 
   const assign = async () => {
     if (!assignee || busy) return;
+
+    // Спрашиваем ДО отправки: после неё прежний день уже не вернуть.
+    const already = await existingStops(date, assignee);
+    if (already > 0) {
+      const ok = await notify.confirm({
+        title:
+          lang === 'ru'
+            ? `У ${assignee} уже есть объезд на ${date} — ${already} точек. Заменить?`
+            : `${assignee}da ${date} uchun yoʻnalish bor (${already}). Almashtirilsinmi?`,
+        detail:
+          lang === 'ru'
+            ? 'Прежний список точек и товаров исчезнет. Отметки визитов, если он уже съездил, останутся.'
+            : 'Avvalgi roʻyxat oʻchadi. Tashriflar belgilari qoladi.',
+        confirmText: lang === 'ru' ? 'Заменить' : 'Almashtirish',
+        danger: true,
+      });
+      if (!ok) return;
+    }
+
     setBusy(true);
     try {
       const res = await adminFetch('/api/admin/visit-plans', {

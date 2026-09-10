@@ -30,12 +30,26 @@ export function BuildDayPlanButton({
   lang,
   points,
   hasStops,
+  isOwner = false,
   onPlan,
 }: {
   lang: 'ru' | 'uz';
   /** Точки, видимые на карте сейчас: план считается по ним же. */
   points: PointView[];
   hasStops: boolean;
+  /**
+   * Владелец собирает СЕБЕ ЧЕРНОВИК, а не план.
+   *
+   * У него автоплан сохранялся сразу — и без исполнителя, потому что
+   * назвать его тут некому. На экране дня это появлялось строкой «Ничей
+   * план»: запись, которую никто не заказывал и которая ничего не значит.
+   * Владелец собирает точки, чтобы НАЗНАЧИТЬ их человеку, и сохранение
+   * происходит именно назначением — ниже в той же панели.
+   *
+   * У продавца всё как было: он собирает план себе, и сохранить его надо
+   * сразу, иначе владелец не увидит ни плана, ни его исполнения.
+   */
+  isOwner?: boolean;
   onPlan: (stops: RoutePoint[]) => void;
 }) {
   const notify = useFeedback();
@@ -97,21 +111,25 @@ export function BuildDayPlanButton({
       // значило бы наказать за отсутствие связи. Говорим вслух и
       // работаем дальше — не молчим: неотправленный план владелец не
       // увидит, и знать об этом должны оба.
-      try {
-        const res = await fetch('/api/admin/visit-plans', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ customerIds: plan.map((p) => p.id) }),
-        });
-        if (!res.ok) throw new Error(String(res.status));
-      } catch {
-        notify.toast(
-          lang === 'ru'
-            ? 'План собран, но не ушёл владельцу — нет связи'
-            : 'Reja tuzildi, lekin yuborilmadi',
-          'warning',
-        );
+      // Владельцу сохранять нечего: у его черновика нет исполнителя, и
+      // на сервере он становился безымянной записью. Сохранит назначение.
+      if (!isOwner) {
+        try {
+          const res = await fetch('/api/admin/visit-plans', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ customerIds: plan.map((p) => p.id) }),
+          });
+          if (!res.ok) throw new Error(String(res.status));
+        } catch {
+          notify.toast(
+            lang === 'ru'
+              ? 'План собран, но не ушёл владельцу — нет связи'
+              : 'Reja tuzildi, lekin yuborilmadi',
+            'warning',
+          );
+        }
       }
 
       // Состав дня, а не только его длина.
