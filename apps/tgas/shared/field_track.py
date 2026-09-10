@@ -299,3 +299,38 @@ async def send_pings(telegram_id: int, pings: List[Dict[str, Any]]) -> bool:
     except Exception as exc:  # сеть, таймаут, витрина в перезапуске
         logger.warning("FIELD_TRACK: не отправлено (%s)", exc)
         return False
+
+
+async def pull_farm_frame() -> str:
+    """Попросить витрину снять кадр с камеры теплицы через облако EZVIZ.
+
+    Возвращает состояние словом: "ok" — кадр снят и лежит, "skipped" —
+    интеграция не настроена, "failed" — не сняли (чаще всего камера
+    выключена).
+
+    ЗАЧЕМ ЭТО ЗДЕСЬ. У витрины нет своего планировщика, а у ботов он есть
+    и уже ходит в те же двери за сводками. Заводить ради снимка второй
+    механизм расписаний незачем.
+
+    ТРЕВОГИ ЗДЕСЬ НЕТ НАМЕРЕННО. Камера, выключенная на ночь, — обычное
+    дело, а не поломка: блок на сайте просто гаснет до утра. Сигнал
+    владельцу на каждый такой случай превратился бы в шум, который
+    перестают читать вместе с настоящими.
+    """
+    try:
+        timeout = aiohttp.ClientTimeout(total=TIMEOUT_SEC)
+        async with aiohttp.ClientSession(headers=_headers(), timeout=timeout) as session:
+            async with session.post(_url("/farm/pull"), json={}) as resp:
+                if resp.status != 200:
+                    logger.warning("FARM: кадр не снят (%s)", resp.status)
+                    return "failed"
+                body = await resp.json(content_type=None)
+                if not isinstance(body, dict):
+                    return "failed"
+                state = str(body.get("status") or "failed")
+                if state == "failed":
+                    logger.info("FARM: кадр не снят — %s", body.get("reason") or "без причины")
+                return state
+    except Exception as exc:
+        logger.warning("FARM: кадр не снят (%s)", exc)
+        return "failed"
