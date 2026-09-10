@@ -3,6 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Radio } from 'lucide-react';
 
+import { pollInterval, timeoutSignal } from '@/lib/net/connection';
+
 import { FieldDayMap } from './FieldDayMap';
 import { clock, humanDistance } from './fieldDayTypes';
 
@@ -42,10 +44,10 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
 
   const { data, isLoading } = useQuery<{ people: LivePerson[] }>({
     queryKey: ['field-live'],
-    refetchInterval: REFRESH_MS,
+    refetchInterval: () => pollInterval(REFRESH_MS),
     refetchOnWindowFocus: true,
     queryFn: async () => {
-      const res = await fetch('/api/admin/tracking/live');
+      const res = await fetch('/api/admin/tracking/live', { signal: timeoutSignal() });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || 'Не удалось загрузить');
       return body;

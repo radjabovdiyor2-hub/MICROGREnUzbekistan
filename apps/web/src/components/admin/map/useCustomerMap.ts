@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { pollInterval, timeoutSignal } from '@/lib/net/connection';
+
 import { clientErrorMessage } from '@/lib/safeError';
 import { readSnapshot, saveSnapshot } from '@/lib/customers/mapSnapshot';
 import type { SegmentState } from '@/lib/customers/segments';
@@ -124,7 +126,12 @@ export function useCustomerMap() {
       if (audience !== 'all') params.set('audience', audience);
       const qs = params.toString();
 
-      const res = await fetch(`/api/admin/customers/map${qs ? `?${qs}` : ''}`);
+      const res = await fetch(`/api/admin/customers/map${qs ? `?${qs}` : ''}`, {
+        // Оборванный запрос честнее висящего: на слабой связи соединение
+        // не отказывает, а молчит, и вкладка ждёт его минутами. Повтор
+        // сделает react-query, а канал освободится.
+        signal: timeoutSignal(20_000),
+      });
       const body = await res.json().catch(() => null);
       // Отказ сервера показываем как есть: «под фильтр попало 12 000
       // клиентов» — осмысленный ответ, и подменять его общей ошибкой
@@ -135,7 +142,10 @@ export function useCustomerMap() {
       saveSnapshot(body, snapshotKey);
       return body;
     },
-    refetchInterval: REFRESH_MS,
+    // Опрос под связь: на 2G втрое реже, без связи — не опрашиваем вовсе.
+    // Это самый тяжёлый запрос экрана (тысячи точек), и на слабом канале
+    // именно он мешает уйти отметке визита и фотоотчёту.
+    refetchInterval: () => pollInterval(REFRESH_MS),
     refetchOnWindowFocus: true,
     // ПОКАЗЫВАЕМ ПРЕЖНИЕ ТОЧКИ, ПОКА ГРУЗЯТСЯ НОВЫЕ.
     //

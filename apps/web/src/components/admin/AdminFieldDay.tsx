@@ -5,6 +5,7 @@ import { Route } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { formatLocalDate } from '@/lib/localDate';
+import { timeoutSignal } from '@/lib/net/connection';
 
 import { FieldDayMap } from './field/FieldDayMap';
 import { FieldLive } from './field/FieldLive';
@@ -51,7 +52,11 @@ export function AdminFieldDay({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     queryKey: ['field-day', employeeId, date],
     enabled: employeeId !== '',
     queryFn: async () => {
-      const res = await fetch(`/api/admin/tracking/day?employee=${employeeId}&date=${date}`);
+      // День собирается на сервере (пересборка стоянок и плеч) — ждём
+      // дольше обычного, но всё-таки конечно.
+      const res = await fetch(`/api/admin/tracking/day?employee=${employeeId}&date=${date}`, {
+        signal: timeoutSignal(25_000),
+      });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || 'Не удалось загрузить день');
       return body as FieldDayResponse;

@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { Camera, LogIn, LogOut } from 'lucide-react';
 
+import { compressPhoto } from '@/lib/tracking/compressPhoto';
 import { newClientRef } from '@/lib/tracking/stayQueue';
 
 import { useStayQueue } from './useStayQueue';
@@ -70,12 +71,17 @@ export function StayButtons({ customerId, lang }: { customerId: number; lang: 'r
   const attach = (file: File) =>
     run(async () => {
       if (!clientRef) return false;
+      // Жмём ДО очереди, а не перед отправкой: кадр ждёт связи в
+      // хранилище браузера, и класть туда пятимегабайтные оригиналы —
+      // значит упереться в квоту на третьем фото. Момент съёмки при этом
+      // сохраняем свой: сжатие меняет файл, но не время.
+      const small = await compressPhoto(file);
       const ok = await queue.remember({
         kind: 'photo',
         clientRef,
         at: Date.now(),
         customerId,
-        blob: file,
+        blob: small,
       });
       if (ok) {
         setPhotos((n) => n + 1);

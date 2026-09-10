@@ -2,6 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 
+import { pollInterval, timeoutSignal } from '@/lib/net/connection';
+
 import type { PersonOnMap } from './mapLayersPeople';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -33,12 +35,15 @@ interface LiveResponse {
 export function useFieldPeople(): PersonOnMap[] | null {
   const { data } = useQuery<PersonOnMap[] | null>({
     queryKey: ['field-people-layer'],
-    refetchInterval: REFRESH_MS,
+    // На слабой связи опрашиваем втрое реже, без связи — не опрашиваем:
+    // запрос в никуда забивает единственный канал, по которому должна
+    // уйти отметка визита.
+    refetchInterval: () => pollInterval(REFRESH_MS),
     refetchOnWindowFocus: true,
     // Отказ — это ответ, а не сбой связи: повторять его бессмысленно.
     retry: false,
     queryFn: async () => {
-      const res = await fetch('/api/admin/tracking/live');
+      const res = await fetch('/api/admin/tracking/live', { signal: timeoutSignal() });
       if (!res.ok) return null;
       const body = (await res.json()) as LiveResponse;
       return Array.isArray(body.people) ? body.people : null;
