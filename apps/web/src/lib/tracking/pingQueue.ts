@@ -168,40 +168,13 @@ export function takeBatch(queue: QueuedPing[]): QueuedPing[] {
   return queue.slice(0, MAX_BATCH);
 }
 
-/**
- * Ключ «смена пишется».
- *
- * Хранится ВМЕСТЕ С ДАТОЙ, а не как булево. Флаг без даты, оставшийся со
- * вчера, поднял бы запись сам собой утром следующего дня — человек ещё не
- * вышел, а трек уже пишется, и владелец видит смену, которой нет.
- */
-export const SHIFT_KEY = 'mg-track-shift';
-
-/** Пишется ли смена сегодня. Чужая дата и мусор — «нет». */
-export function readShift(storage: Pick<Storage, 'getItem'>, today: string): boolean {
-  try {
-    return storage.getItem(SHIFT_KEY) === today;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Запомнить состояние записи.
- *
- * Отказ хранилища (приватный режим, переполнение) проглатываем намеренно:
- * запись при этом идёт, она просто не переживёт перезагрузку вкладки.
- * Ронять из-за этого всю функцию — хуже.
- */
-export function writeShift(
-  storage: Pick<Storage, 'setItem' | 'removeItem'>,
-  on: boolean,
-  today: string,
-): void {
-  try {
-    if (on) storage.setItem(SHIFT_KEY, today);
-    else storage.removeItem(SHIFT_KEY);
-  } catch {
-    // См. докстринг: молчание здесь осознанное.
-  }
-}
+// ФЛАГ «СМЕНА ПИШЕТСЯ» ОТСЮДА УБРАН, и это намеренно.
+//
+// Здесь лежала пара `readShift`/`writeShift` — состояние записи в
+// `localStorage`. О нём знала только та вкладка, где нажали кнопку:
+// человек открывал смену в боте, а приложение продолжало молчать.
+//
+// Смену открывают из трёх мест, значит правда о ней может быть только
+// одна и общая. Теперь она на сервере — `lib/shift/store.ts` и
+// `/api/shift`. Оставить копию рядом значило бы завести второй источник
+// правды о том же самом.

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { watchPosition, type StopWatch, type WatchFailure } from '@/lib/geo/watch';
-import { formatLocalDate } from '@/lib/localDate';
 import { isOffline, isSlowLink } from '@/lib/net/connection';
 import { sendPings } from '@/lib/tracking/sendPings';
 import {
@@ -11,11 +10,9 @@ import {
   PING_QUEUE_KEY,
   enqueue,
   readQueue,
-  readShift,
   shouldKeep,
   takeBatch,
   writeQueue,
-  writeShift,
   type QueuedPing,
 } from '@/lib/tracking/pingQueue';
 
@@ -57,7 +54,11 @@ export interface FieldTracker {
   stop: () => void;
 }
 
-export function useFieldTracker(): FieldTracker {
+/**
+ * @param shiftOpen открыта ли смена. `undefined` — ещё не знаем: сервер не
+ *   ответил, и трогать слежение в этот момент нельзя ни в какую сторону.
+ */
+export function useFieldTracker(shiftOpen?: boolean): FieldTracker {
   const [on, setOn] = useState(false);
   const [pending, setPending] = useState(0);
   const [failure, setFailure] = useState<WatchFailure | null>(null);
@@ -84,7 +85,9 @@ export function useFieldTracker(): FieldTracker {
         stopWatch.current?.();
         stopWatch.current = null;
         setOn(false);
-        writeShift(localStorage, false, formatLocalDate());
+        // Смену НЕ закрываем: сервер отказался принимать трек, а
+        // работать человек не переставал. Закрыть её отсюда значило бы
+        // стереть ему рабочий день из-за сбоя доступа.
         return;
       }
       // Сервер принял — снимаем ровно отправленное, а не всю очередь: за
@@ -134,36 +137,45 @@ export function useFieldTracker(): FieldTracker {
           stopWatch.current?.();
           stopWatch.current = null;
           setOn(false);
-          writeShift(localStorage, false, formatLocalDate());
         }
       },
     );
     setOn(true);
-    writeShift(localStorage, true, formatLocalDate());
   }, [flush]);
 
   const stop = useCallback(() => {
     stopWatch.current?.();
     stopWatch.current = null;
     setOn(false);
-    writeShift(localStorage, false, formatLocalDate());
     void flush();
   }, [flush]);
 
-  // Поднимаем очередь и, если смена была включена, само слежение.
+  // Поднимаем накопленное без связи. Слежение отсюда не запускаем: им
+  // распоряжается смена, а её состояние приходит с сервера отдельно.
   useEffect(() => {
     queue.current = readQueue(localStorage);
     setPending(queue.current.length);
     last.current = queue.current[queue.current.length - 1] ?? null;
-    if (readShift(localStorage, formatLocalDate())) start();
     return () => {
       stopWatch.current?.();
       stopWatch.current = null;
     };
-    // Только при монтировании: `start` стабилен, а повторный запуск
-    // подписался бы на приёмник второй раз.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ЗАПИСЬ СЛУШАЕТСЯ СМЕНЫ, а не своей кнопки.
+  //
+  // Раньше у записи был собственный флаг в `localStorage`, и о нём знала
+  // только та вкладка, где нажали: человек открывал смену в боте, а
+  // приложение продолжало молчать. Теперь правда одна и она на сервере.
+  //
+  // `undefined` — сервер ещё не ответил. В этот момент не делаем НИЧЕГО:
+  // выключить слежение «на всякий случай» значит потерять кусок трека при
+  // каждом обновлении страницы.
+  useEffect(() => {
+    if (shiftOpen === undefined) return;
+    if (shiftOpen && !stopWatch.current) start();
+    if (!shiftOpen && stopWatch.current) stop();
+  }, [shiftOpen, start, stop]);
 
   // Отправка по таймеру, при возвращении связи и при уходе со страницы.
   useEffect(() => {

@@ -5,14 +5,11 @@ import {
   MAX_QUEUE,
   MIN_INTERVAL_MS,
   PING_QUEUE_KEY,
-  SHIFT_KEY,
   enqueue,
   readQueue,
-  readShift,
   shouldKeep,
   takeBatch,
   writeQueue,
-  writeShift,
   type QueuedPing,
 } from './pingQueue';
 import { MAX_BATCH } from './ping';
@@ -161,27 +158,5 @@ describe('очередь в хранилище', () => {
       },
     };
     expect(writeQueue(broken, [base])).toBe(false);
-  });
-});
-
-describe('флаг смены', () => {
-  it('поднят сегодня — запись продолжается после перезагрузки', () => {
-    const s = memory();
-    writeShift(s, true, '2026-09-10');
-    expect(readShift(s, '2026-09-10')).toBe(true);
-  });
-
-  it('ВЧЕРАШНИЙ флаг запись не поднимает', () => {
-    // Иначе утром трек пишется сам собой, человек ещё не вышел, а
-    // владелец видит смену, которой нет.
-    const s = memory({ [SHIFT_KEY]: '2026-09-09' });
-    expect(readShift(s, '2026-09-10')).toBe(false);
-  });
-
-  it('выключение стирает флаг', () => {
-    const s = memory();
-    writeShift(s, true, '2026-09-10');
-    writeShift(s, false, '2026-09-10');
-    expect(readShift(s, '2026-09-10')).toBe(false);
   });
 });

@@ -3,6 +3,7 @@
 import { Radio, RadioTower } from 'lucide-react';
 
 import { useFieldTracker } from './useFieldTracker';
+import { useShift } from './useShift';
 
 // ══════════════════════════════════════════════════════════════════════
 // «Записывать день» — трек без Telegram.
@@ -25,8 +26,9 @@ import { useFieldTracker } from './useFieldTracker';
 // ══════════════════════════════════════════════════════════════════════
 
 const text = {
-  start: { ru: 'Записывать день', uz: 'Kunni yozish' },
-  stop: { ru: 'Запись идёт', uz: 'Yozilmoqda' },
+  start: { ru: 'Начал смену', uz: 'Smenani boshladim' },
+  stop: { ru: 'Закончил смену', uz: 'Smenani tugatdim' },
+  since: { ru: 'смена с', uz: 'smena' },
   hint: {
     ru: 'Пока экран включён и вкладка открыта',
     uz: 'Ekran yoniq va sahifa ochiq boʻlsa',
@@ -54,19 +56,32 @@ function clock(ms: number): string {
 
 export function FieldTrackButton({ lang }: { lang: 'ru' | 'uz' }) {
   const t = (key: keyof typeof text) => text[key][lang];
-  const tracker = useFieldTracker();
+  // ОДНА КНОПКА ЗАПУСКАЕТ ВСЁ. Смена и запись были двумя разными
+  // действиями, и человек мог открыть смену, забыв включить трек, —
+  // тогда день считался отработанным, а маршрута не было.
+  const shift = useShift();
+  const tracker = useFieldTracker(shift.loading ? undefined : shift.open);
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-1)', justifyItems: 'start' }}>
       <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
         <button
-          onClick={tracker.on ? tracker.stop : tracker.start}
-          className={tracker.on ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
+          onClick={shift.open ? shift.finish : shift.start}
+          disabled={shift.busy || shift.loading}
+          className={shift.open ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm'}
           style={{ display: 'flex', gap: 4, alignItems: 'center', minHeight: 44 }}
         >
-          {tracker.on ? <RadioTower size={14} /> : <Radio size={14} />}
-          {tracker.on ? t('stop') : t('start')}
+          {shift.open ? <RadioTower size={14} /> : <Radio size={14} />}
+          {shift.open ? t('stop') : t('start')}
         </button>
+
+        {/* Время начала — доказательство, что смена действительно открыта
+            на сервере, а не только в этой вкладке. */}
+        {shift.open && shift.startedAt !== null && (
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            {t('since')} {clock(shift.startedAt.getTime())}
+          </span>
+        )}
 
         {/* Сколько крошек ждёт связи. При живой сети здесь ноль, и строки
             нет: постоянный счётчик на экране читался бы как поломка. */}
@@ -85,7 +100,7 @@ export function FieldTrackButton({ lang }: { lang: 'ru' | 'uz' }) {
         )}
       </div>
 
-      {tracker.on && tracker.failure === null && (
+      {shift.open && tracker.failure === null && (
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('hint')}</span>
       )}
 
