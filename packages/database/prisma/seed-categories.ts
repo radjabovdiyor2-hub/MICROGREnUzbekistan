@@ -26,6 +26,10 @@ export const CATEGORY_SEEDS = [
   { slug: 'seeds', nameUz: "Urug'lar", nameRu: 'Семена', icon: 'Droplet', order: 6 },
   { slug: 'equipment', nameUz: 'Uskunalar', nameRu: 'Оборудование', icon: 'Settings', order: 7 },
   { slug: 'sets', nameUz: "To'plamlar", nameRu: 'Наборы', icon: 'Package', order: 8 },
+  // Соусы — отдельная рубрика, а не подраздел BALANS. Саше лежит в китах
+  // BALANS, но сам соус идёт к любой зелени: к боулу, к пасте, к плову. Спрятав
+  // его внутрь одной линейки, мы заставили бы искать его там, где не ищут.
+  { slug: 'sauces', nameUz: 'Souslar', nameRu: 'Соусы', icon: 'Droplet', order: 5 },
   { slug: 'services', nameUz: 'Xizmatlar', nameRu: 'Услуги и Сервис', icon: 'Sparkles', order: 9 },
 ] as const;
 

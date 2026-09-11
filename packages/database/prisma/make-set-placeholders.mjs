@@ -53,6 +53,16 @@ const SETS = [
   ['CH-4', 'set_ch4_hid'],
   ['MH-1', 'set_mh1_laganda'],
   ['IS-1', 'set_is1_ofis'],
+  // Соусы и миксы OSHXONA — те же правила: своё имя файла у каждой строки
+  // прайса, иначе слаг товара не уникален.
+  ['SOUS-1', 'sous_nordon_sashe'],
+  ['SOUS-2', 'sous_anor_sashe'],
+  ['SOUS-3', 'sous_asal_sashe'],
+  ['SOUS-4', 'sous_goshtga_sashe'],
+  ['SOUS-1L', 'sous_nordon_250'],
+  ['SOUS-2L', 'sous_anor_250'],
+  ['OS-M1', 'oshxona_nonushta'],
+  ['OS-M2', 'oshxona_pasta'],
 ];
 
 const SIZE = 1500;

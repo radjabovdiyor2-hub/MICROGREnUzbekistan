@@ -1,7 +1,7 @@
 // Рубрики, размер страницы и варианты сортировки каталога.
 // Файл .tsx: у рубрик есть иконки, то есть JSX.
 
-import { Leaf, Package, Salad } from 'lucide-react';
+import { Droplet, Leaf, Package, Salad } from 'lucide-react';
 
 export const PAGE_SIZE = 24;
 
@@ -31,6 +31,7 @@ export const CATEGORIES = [
   { slug: 'baby-leaf', nameUz: 'Baby Leaf', nameRu: 'Бейби лист', icon: <Leaf size={18} /> },
   { slug: 'salads', nameUz: 'Salatlar', nameRu: 'Салаты', icon: <Leaf size={18} /> },
   { slug: 'balans', nameUz: 'BALANS', nameRu: 'BALANS', icon: <Salad size={18} /> },
+  { slug: 'sauces', nameUz: 'Souslar', nameRu: 'Соусы', icon: <Droplet size={18} /> },
   { slug: 'sets', nameUz: "To'plamlar", nameRu: 'Наборы', icon: <Package size={18} /> },
 ];
 
