@@ -1,9 +1,10 @@
 'use client';
 
 import {
-  Instagram, MessageCircle, Phone, Leaf, MapPin,
+  Instagram, MessageCircle, Phone, MapPin,
 } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { CATALOG_SECTIONS, sectionHref } from '@/lib/catalogSections';
 import { LogoIcon } from '@/components/ui/Logo';
 import Link from 'next/link';
 
@@ -78,15 +79,26 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Categories */}
+        {/* Разделы — ИЗ ОБЩЕГО СПИСКА (`@/lib/catalogSections`), а не своей
+            копией. Копия здесь уже отставала: в подвале жили три рубрики из
+            одиннадцати, без соусов, наборов и всех четырёх линеек. А до этого
+            — наоборот, семена и оборудование, которых в прайсе нет вовсе, и
+            ссылка вела в пустой раздел.
+
+            «Все» пропускаем: этот пункт уже стоит справа, в «Информации». */}
         <div>
-          <h4 className="footer__section-title">{t('Kategoriyalar', 'Категории')}</h4>
+          <h4 className="footer__section-title">{t('Bo‘limlar', 'Разделы')}</h4>
           <ul className="footer__links">
-            <li><Link href="/catalog/microgreens" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Mikroko'katlar", 'Микрозелень')}</Link></li>
-            <li><Link href="/catalog/baby-leaf" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Baby Leaf", 'Бейби лист')}</Link></li>
-            <li><Link href="/catalog/salads" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Leaf size={14} /> {t("Salatlar", 'Салаты')}</Link></li>
-            {/* Семена и оборудование убраны: в прайсе их нет, товары
-                скрыты, и ссылки вели бы на пустой раздел. */}
+            {CATALOG_SECTIONS.filter((s) => s.slug).map((section) => {
+              const Icon = section.Icon;
+              return (
+                <li key={`${section.kind}-${section.slug}`}>
+                  <Link href={sectionHref(section)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon size={14} /> <span translate="no">{t(section.nameUz, section.nameRu)}</span>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
 

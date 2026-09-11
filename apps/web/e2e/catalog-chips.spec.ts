@@ -67,6 +67,27 @@ test.describe("Разделы каталога", () => {
     expect(box!.x + box!.width).toBeLessThanOrEqual(width);
   });
 
+  test("все плитки разделов одного размера", async ({ page }) => {
+    await page.goto("/catalog");
+
+    const pills = page.locator(".category-pill");
+    await expect(pills.first()).toBeVisible({ timeout: 20_000 });
+
+    // Ширину задавала длина слова, а высоту — наличие значка: у четырёх
+    // линеек его не было, и плитка выходила ниже соседей. Ряд читался как
+    // случайный набор кнопок. Размер теперь задаёт сетка, а значок
+    // обязателен по типу — здесь проверяется результат обоих решений.
+    const sizes = await pills.evaluateAll((nodes) =>
+      nodes.map((n) => {
+        const b = n.getBoundingClientRect();
+        return `${Math.round(b.width)}x${Math.round(b.height)}`;
+      }),
+    );
+    expect(sizes.length).toBe(EXPECTED.length);
+    expect([...new Set(sizes)]).toHaveLength(1);
+    expect(await page.locator(".category-pill__icon").count()).toBe(EXPECTED.length);
+  });
+
   test("нажатие на линейку сужает каталог, а не опустошает его", async ({ page }) => {
     await page.goto("/catalog");
 

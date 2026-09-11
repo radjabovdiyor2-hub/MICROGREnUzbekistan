@@ -5,7 +5,8 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, Clock, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { useLang } from '@/components/providers/LangProvider';
-import { CHIPS, SORT_OPTIONS } from './catalogConfig';
+import { SORT_OPTIONS } from './catalogConfig';
+import { CATALOG_SECTIONS } from '@/lib/catalogSections';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 import { useCatalog } from './useCatalog';
@@ -63,14 +64,9 @@ export function CatalogContent({ initialCategory = '' }: { initialCategory?: str
           `translate="no"` — Chrome переводил KUNLIK в «ЕЖЕДНЕВНО», OSHXONA в
           «КУХНЯ», а «Бейби лист» в «Список малышей»: имя переставало быть
           именем, и человек не узнавал на упаковке то, что видел на сайте. */}
-      <div
-        style={{
-          display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)',
-          marginBottom: 'var(--space-4)',
-        }}
-        aria-label={t("Bo'limlar", 'Разделы')}
-      >
-        {CHIPS.map((chip) => {
+      <div className="catalog-sections" aria-label={t("Bo'limlar", 'Разделы')}>
+        {CATALOG_SECTIONS.map((chip) => {
+          const Icon = chip.Icon;
           const active = chip.kind === 'line'
             ? activeLine === chip.slug
             : activeLine === '' && activeCategory === chip.slug;
@@ -81,7 +77,7 @@ export function CatalogContent({ initialCategory = '' }: { initialCategory?: str
               onClick={() => selectChip(chip.kind, chip.slug)}
               id={`filter-${chip.slug || 'all'}`}
             >
-              {chip.icon && <span className="category-pill__icon">{chip.icon}</span>}
+              <span className="category-pill__icon"><Icon size={22} /></span>
               <span className="category-pill__name" translate="no">
                 {t(chip.nameUz, chip.nameRu)}
               </span>
