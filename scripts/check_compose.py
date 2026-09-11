@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import io
+import json
 import re
 import sys
 
@@ -27,6 +28,9 @@ import yaml
 
 COMPOSE = "docker-compose.prod.yml"
 DEPLOY_FILES = (".github/workflows/ci.yml", "deploy_unified.sh")
+
+#: Конфиг оболочки Android.
+CAPACITOR_CONFIG = "mobile/capacitor.config.json"
 
 # Больше четырёх уникальных пар (dockerfile, target) быть не должно: tgas,
 # витрина, builder витрины и витринный бот. Пятая — признак того, что сборку
@@ -198,9 +202,44 @@ class Checker:
                     f"обрыв скачивания оставит базу мигрированной, а стек лежачим"
                 )
 
+    def check_capacitor(self) -> None:
+        """Фоновая запись в приложении не должна замолкать через пять минут.
+
+        `android.useLegacyBridge` — не украшение конфига. Без него служба
+        геопозиции ПЕРЕСТАЁТ слать точки через пять минут после того, как
+        приложение свернули; так написано в README самого плагина
+        (`@capacitor-community/background-geolocation`, issue #89).
+
+        Выглядит это не как поломка, а как честный короткий день: несколько
+        точек, пока экран горел, и прямая линия через полгорода между первой
+        и последней. Отличить от «человек не включил запись» по карте нельзя
+        — поэтому и сторож: строку, которую легко потерять при следующей
+        правке конфига, никто не заметит пропавшей.
+        """
+        try:
+            raw = io.open(CAPACITOR_CONFIG, encoding="utf-8").read()
+        except OSError:
+            # Оболочки может не быть в урезанной копии репозитория — это не
+            # нарушение развёртывания, проверять тогда нечего.
+            return
+
+        try:
+            config = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            self.errors.append(f"{CAPACITOR_CONFIG}: не разбирается как JSON ({exc})")
+            return
+
+        if config.get("android", {}).get("useLegacyBridge") is not True:
+            self.errors.append(
+                f"{CAPACITOR_CONFIG}: нет `android.useLegacyBridge: true` — "
+                f"фоновая запись маршрута замолчит через пять минут в фоне, "
+                f"и на карте это будет выглядеть прямой линией, а не поломкой"
+            )
+
     def run(self) -> int:
         self.check_compose()
         self.check_deploy_scripts()
+        self.check_capacitor()
         if self.errors:
             for message in self.errors:
                 print(f"ERROR: {message}", file=sys.stderr)
