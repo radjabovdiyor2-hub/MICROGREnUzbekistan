@@ -186,11 +186,27 @@ jobs:
       - name: Enable Postgres extensions
         run: psql "$DATABASE_URL" -c 'CREATE EXTENSION IF NOT EXISTS vector; CREATE EXTENSION IF NOT EXISTS pg_trgm;'
       - run: cd packages/database && npx prisma generate && npx prisma db push --skip-generate
-      # Пустая база — пустой каталог. Три сценария («каталог показывает товары»,
-      # «поиск принимает ввод», «catalog link navigates to catalog») ждут ссылку
-      # /product/<id> и без сидера падают по таймауту: выглядит как поломка
-      # витрины, хотя витрине просто нечего показывать.
-      - run: cd packages/database && npm run db:seed
+      # ТА ЖЕ ЦЕПЬ ЗАСЕВА, ЧТО И НА ДЕПЛОЕ, а не `npm run db:seed`.
+      #
+      # Пустая база — пустой каталог: три сценария («каталог показывает
+      # товары», «поиск принимает ввод», «catalog link navigates to catalog»)
+      # ждут ссылку /product/<id> и без сидера падают по таймауту. Это было
+      # причиной, по которой сидер здесь вообще появился.
+      #
+      # Но `seed.ts` заводит СТАРЫЙ каталог: 76 позиций с оборудованием и
+      # наборами, которых в прайсе нет вовсе. На проде его результат тут же
+      # переписывает `import-catalog.ts`, и живут там 70 товаров из
+      # price-list.html — с ценами, единицами и линейками. CI при этом
+      # проверял витрину поверх каталога, которого не существует: расхождение
+      # цен, единиц или линеек он увидеть не мог в принципе, а поломка
+      # импорта прошла бы мимо него молча.
+      #
+      # `seed-if-empty.ts` — ровно то, что запускает `db-seed` в
+      # docker-compose.prod.yml: категории, сырьё, заведения, номер журнала,
+      # затем базовый сидер на пустом каталоге и поверх него импорт прайса и
+      # описания наборов. На пустой базе вся цепь отрабатывает за десять
+      # секунд — дешевле, чем расхождение со стендом.
+      - run: cd packages/database && npx tsx prisma/seed-if-empty.ts
       - run: cd apps/web && npx playwright install --with-deps chromium
       - run: cd apps/web && npm run build
       # Свой сервер поднимает сам playwright.config.ts, когда
