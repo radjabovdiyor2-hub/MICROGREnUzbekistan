@@ -31,9 +31,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ⚠️ НЕ НИЖЕ 22: Capacitor CLI 8 отказывается запускаться на Node 20
+      # («The Capacitor CLI requires NodeJS >=22.0.0») — первая сборка упала
+      # ровно на этом. Локально не всплыло: на машине разработки Node 24.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # Android Gradle Plugin 8.x требует JDK 17+; берём 21 — он же стоит
       # на образе ubuntu-latest и не тянет лишней загрузки.
@@ -51,6 +54,21 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+          # Бит запуска у gradlew теряется при распаковке из npm-пакета на
+          # некоторых системах. Проверять дешевле, чем разбирать
+          # «Permission denied» в середине сборки.
+          chmod +x android/gradlew
+
+      # Нужной версии платформы на образе раннера может не оказаться, и
+      # тогда Gradle падает с «Failed to find target with hash string».
+      # Ставим явно: молчаливая автозагрузка внутри AGP работает не всегда.
+      - name: Android SDK под compileSdk 36
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          echo "SDK: $SDK"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" > /dev/null
+          echo "поставлено"
 
       # Версия нужна не для красоты: приложение сверяет её с настройкой
       # `app.androidVersion` на витрине и говорит человеку, что вышла
