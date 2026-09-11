@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, Clock, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { useLang } from '@/components/providers/LangProvider';
-import { CATEGORIES, LINES, SORT_OPTIONS } from './catalogConfig';
+import { CHIPS, SORT_OPTIONS } from './catalogConfig';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 import { useCatalog } from './useCatalog';
@@ -13,7 +13,7 @@ import { useCatalog } from './useCatalog';
 export function CatalogContent({ initialCategory = '' }: { initialCategory?: string }) {
   const { t } = useLang();
   const {
-    products, activeCategory, setActiveCategory, activeLine, setActiveLine, sort, setSort, search, setSearch,
+    products, activeCategory, activeLine, selectChip, sort, setSort, search, setSearch,
     loading, loadingMore, error, pagination, handleSearch, loadMore, hasMore, fetchProducts,
   } = useCatalog(initialCategory);
 
@@ -51,51 +51,43 @@ export function CatalogContent({ initialCategory = '' }: { initialCategory?: str
         </div>
       </form>
 
-      <div className="categories-scroll" style={{ paddingLeft: 0, marginBottom: 'var(--space-4)' }}>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.slug}
-            className={`category-pill ${activeCategory === cat.slug ? 'active' : ''}`}
-            onClick={() => setActiveCategory(cat.slug)}
-            id={`filter-${cat.slug || 'all'}`}
-          >
-            <span className="category-pill__icon">{cat.icon}</span>
-            <span className="category-pill__name" translate="no">{t(cat.nameUz, cat.nameRu)}</span>
-          </button>
-        ))}
-      </div>
+      {/* Разделы каталога — один ряд. За частью чипов стоит рубрика («что
+          это»), за частью — линейка («для кого»), но покупателю это различие
+          не нужно: он нажимает то, что ищет. Два ряда заставляли выбирать
+          дважды.
 
-      {/* Линейки — второй ряд, «для кого». Отдельно от рубрик намеренно:
-          рубрика отвечает на «что это» и у товара одна, а линеек несколько —
-          один и тот же шпинат служит и детской, и ежедневной кухне.
+          ПЕРЕНОС, А НЕ ПРОКРУТКА: в строку на телефоне влезало четыре чипа, и
+          CHEF с BOLAJON уезжали за край. Выбор, которого не видно, не
+          существует.
 
-          ПЕРЕНОС, А НЕ ПРОКРУТКА. Линеек шесть, и на телефоне в строку влезало
-          четыре: CHEF и BOLAJON уезжали за край, и владелец их просто не
-          видел. Прокрутку заметно не всем, а выбор, которого не видно, не
-          существует. У рубрик прокрутка осталась — там иконки и длинные имена.
-
-          `translate="no"` — чтобы браузер не переводил названия линеек.
-          Chrome на телефоне превращал KUNLIK в «ЕЖЕДНЕВНО», а OSHXONA в
-          «КУХНЯ»: имя бренда переставало быть именем. */}
+          `translate="no"` — Chrome переводил KUNLIK в «ЕЖЕДНЕВНО», OSHXONA в
+          «КУХНЯ», а «Бейби лист» в «Список малышей»: имя переставало быть
+          именем, и человек не узнавал на упаковке то, что видел на сайте. */}
       <div
         style={{
           display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)',
           marginBottom: 'var(--space-4)',
         }}
-        aria-label={t('Liniyalar', 'Линейки')}
+        aria-label={t("Bo'limlar", 'Разделы')}
       >
-        {LINES.map((line) => (
-          <button
-            key={line.slug || 'all-lines'}
-            className={`category-pill ${activeLine === line.slug ? 'active' : ''}`}
-            onClick={() => setActiveLine(line.slug)}
-            id={`line-${line.slug || 'all'}`}
-          >
-            <span className="category-pill__name" translate={line.slug ? 'no' : undefined}>
-              {t(line.nameUz, line.nameRu)}
-            </span>
-          </button>
-        ))}
+        {CHIPS.map((chip) => {
+          const active = chip.kind === 'line'
+            ? activeLine === chip.slug
+            : activeLine === '' && activeCategory === chip.slug;
+          return (
+            <button
+              key={`${chip.kind}-${chip.slug || 'all'}`}
+              className={`category-pill ${active ? 'active' : ''}`}
+              onClick={() => selectChip(chip.kind, chip.slug)}
+              id={`filter-${chip.slug || 'all'}`}
+            >
+              {chip.icon && <span className="category-pill__icon">{chip.icon}</span>}
+              <span className="category-pill__name" translate="no">
+                {t(chip.nameUz, chip.nameRu)}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div style={{

@@ -11,6 +11,23 @@ export function useCatalog(initialCategory: string) {
   // Линейка — второй, независимый фильтр: «для кого», а не «что это».
   // Пустая строка означает «все линейки», как и у категории.
   const [activeLine, setActiveLine] = useState(searchParams.get('line') || '');
+
+  /**
+   * Выбрать раздел каталога. Выбор всегда ОДИН.
+   *
+   * Рубрика и линейка — разные фильтры, и вместе они дают пересечение:
+   * «Салаты + BOLAJON» — это пустой экран, который человек прочтёт как
+   * сломанный каталог. Поэтому нажатие на раздел сбрасывает прежний.
+   */
+  const selectChip = useCallback((kind: 'category' | 'line', slug: string) => {
+    if (kind === 'line') {
+      setActiveLine(slug);
+      setActiveCategory('');
+    } else {
+      setActiveCategory(slug);
+      setActiveLine('');
+    }
+  }, []);
   const [sort, setSort] = useState('featured');
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
@@ -91,7 +108,7 @@ export function useCatalog(initialCategory: string) {
     activeCategory,
     setActiveCategory,
     activeLine,
-    setActiveLine,
+    selectChip,
     sort,
     setSort,
     search,
