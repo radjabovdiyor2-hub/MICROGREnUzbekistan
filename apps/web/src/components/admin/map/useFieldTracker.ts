@@ -12,6 +12,7 @@ import { watchNative } from '@/lib/native/geo';
 import { isOffline, isSlowLink } from '@/lib/net/connection';
 import { ensureDeviceKey, readDeviceKey } from '@/lib/tracking/deviceKey';
 import { sendPings } from '@/lib/tracking/sendPings';
+import { type PingSource } from '@/lib/tracking/ping';
 import {
   MAX_QUEUE,
   PING_QUEUE_KEY,
@@ -82,6 +83,9 @@ export function useFieldTracker(shiftOpen?: boolean): FieldTracker {
   const last = useRef<QueuedPing | null>(null);
   const stopWatch = useRef<StopWatch | null>(null);
   const sending = useRef(false);
+  // Кто даёт координаты: родная служба приложения или вкладка браузера.
+  // Выбор делается один раз при старте — здесь он и живёт.
+  const source = useRef<PingSource>('pwa');
   // Ключ приложения. В браузере остаётся `null` навсегда — и это норма.
   const deviceKey = useRef<string | null>(null);
 
@@ -140,7 +144,7 @@ export function useFieldTracker(shiftOpen?: boolean): FieldTracker {
         latitude: sample.latitude,
         longitude: sample.longitude,
         accuracyM: sample.accuracyM,
-        source: 'pwa',
+        source: source.current,
         speedMps: sample.speedMps,
         headingDeg: sample.headingDeg,
       };
@@ -169,7 +173,14 @@ export function useFieldTracker(shiftOpen?: boolean): FieldTracker {
     // служба: она пишет с погашенным экраном. `null` означает, что мы в
     // обычном браузере (или в старой сборке приложения без модуля), — и
     // тогда работает прежний путь, а не пустота.
-    stopWatch.current = watchNative(onSample, onFail) ?? watchPosition(onSample, onFail);
+    //
+    // И ЗАПОМИНАЕМ, ЧЕЙ ЭТО ПУТЬ. Раньше крошке проставлялся `pwa` в обоих
+    // случаях, и по данным нельзя было отличить спящую вкладку от
+    // работающего приложения — то есть нельзя было ответить, почему у
+    // человека за день три точки вместо трёхсот.
+    const native = watchNative(onSample, onFail);
+    source.current = native ? 'app' : 'pwa';
+    stopWatch.current = native ?? watchPosition(onSample, onFail);
     setOn(true);
   }, [flush]);
 

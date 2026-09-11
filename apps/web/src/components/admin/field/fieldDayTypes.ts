@@ -120,3 +120,33 @@ export function clock(iso: string): string {
 export function stayTitle(stay: FieldStay): string {
   return stay.customer.companyName || stay.customer.name || `#${stay.customer.id}`;
 }
+
+/**
+ * Чем сняли день, словами владельца.
+ *
+ * ЗАЧЕМ ЭТО НА ЭКРАНЕ. Способа три, и они дают РАЗНЫЙ трек: приложение
+ * пишет с погашенным экраном, вкладка браузера засыпает вместе с телефоном
+ * в кармане, Telegram шлёт раз в минуту и останавливается сам. Прямая линия
+ * через полгорода у «браузера» и у «приложения» означает разные поломки и
+ * разные следующие шаги — а без подписи их не различить.
+ *
+ * Неизвестное значение отдаём как есть, а не прячем за «—»: новый источник
+ * должен быть заметен, а не притвориться отсутствием.
+ */
+export function sourceLabel(source: string, lang: 'ru' | 'uz'): string {
+  const ru: Record<string, string> = {
+    telegram_live: 'Telegram',
+    pwa: 'браузер',
+    app: 'приложение',
+    visit: 'отметка',
+    mixed: 'смешанный',
+  };
+  const uz: Record<string, string> = {
+    telegram_live: 'Telegram',
+    pwa: 'brauzer',
+    app: 'ilova',
+    visit: 'belgi',
+    mixed: 'aralash',
+  };
+  return (lang === 'ru' ? ru : uz)[source] ?? source;
+}

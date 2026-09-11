@@ -71,6 +71,18 @@ describe('readPing', () => {
   it('отбрасывает неизвестный источник', () => {
     expect(readPing(raw({ source: 'satellite' }), NOW)).toBeNull();
     expect(readPing(raw({ source: undefined }), NOW)).toBeNull();
+    // Опечатка в названии — тоже неизвестный источник, и это важно: отказ
+    // здесь молчаливый и покрошечный.
+    expect(readPing(raw({ source: 'apk' }), NOW)).toBeNull();
+  });
+
+  it('принимает крошку от приложения — иначе день человека пропадёт молча', () => {
+    // СТРАХОВКА ПОРЯДКА ВЫКАТКИ. Отправитель в приложении ставит `app`;
+    // выкати его раньше сервера — и `readPing` отбросит КАЖДУЮ крошку, не
+    // написав ни строки в лог. Человек проработает день, а дня не будет.
+    const result = readPing(raw({ source: 'app' }), NOW);
+    expect(result).not.toBeNull();
+    expect(result?.source).toBe('app');
   });
 
   it('точность и скорость необязательны — без них крошка остаётся годной', () => {

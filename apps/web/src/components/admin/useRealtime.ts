@@ -46,6 +46,9 @@ const KEYS_BY_TOPIC: Record<string, string[]> = {
     'admin-analytics-health', 'admin-analytics-abcxyz',
   ],
   customers: ['admin-customers', 'admin-customer', 'admin-customers-map'],
+  // Живой слой поля: общий список, слежение за одним и точки людей на
+  // карте клиентов. Без этой строки все трое ждали бы своего опроса.
+  field: ['field-live', 'field-watch', 'field-people-layer'],
   tasks: ['admin-tasks', 'admin-approvals', 'admin-department'],
   bots: ['admin-bot-health', 'admin-ai-spend'],
 };

@@ -4,6 +4,7 @@ import {
   clock,
   humanDistance,
   humanDuration,
+  sourceLabel,
   type FieldDayHead,
   type FieldIdle,
   type FieldShift,
@@ -78,10 +79,16 @@ export function FieldDaySummary({
       </span>
 
       {/* Окно записи. Отличается от смены, и это видно: телефон мог прислать
-          точку до начала смены или замолчать задолго до её конца. */}
+          точку до начала смены или замолчать задолго до её конца.
+
+          И ЧЕМ снимали — тоже здесь. Это поле приходило с самого начала и
+          нигде не показывалось, а именно оно объясняет рваный трек: у
+          приложения, вкладки браузера и Telegram разная плотность точек. */}
       <span style={{ color: 'var(--text-secondary)' }}>
         {t('Запись', 'Yozuv')}: {clock(day.startedAt)}
         {day.endedAt ? `–${clock(day.endedAt)}` : ''}
+        {' · '}
+        {sourceLabel(day.source, lang)}
       </span>
       <span>
         {t('Пройдено', 'Bosib o‘tilgan')}: {humanDistance(day.meters)}

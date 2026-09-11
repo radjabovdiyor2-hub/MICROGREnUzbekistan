@@ -1,65 +1,53 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Radio } from 'lucide-react';
 
-import { pollInterval, timeoutSignal } from '@/lib/net/connection';
+import { agedSilentMin } from '@/lib/tracking/cadence';
 import { SILENT_MIN } from '@/lib/tracking/ping';
 
 import { FieldDayMap } from './FieldDayMap';
-import { clock, humanDistance } from './fieldDayTypes';
+import { FieldPersonRow } from './FieldPersonRow';
+import { FieldWatch } from './FieldWatch';
+import { useLivePeople } from './useLivePeople';
 
 // ══════════════════════════════════════════════════════════════════════
 // «Кто сейчас в поле» — живая карта для владельца.
 //
 // ОТДЕЛЬНО ОТ ОТЧЁТА ДНЯ намеренно. Отчёт отвечает на «как прошёл
 // вторник»: один человек, вечером, спокойно. Здесь другой вопрос и другое
-// время — «где сейчас все», посреди дня, между делами. Смешать их в один
-// экран значит заставить выбирать сотрудника и дату там, где нужен один
-// взгляд.
+// время — «где сейчас все», посреди дня, между делами.
 //
-// СТАРАЯ ТОЧКА НЕ ВЫДАЁТСЯ ЗА ТЕКУЩУЮ. Рядом с каждым — сколько минут он
-// молчит. Показать позицию часовой давности без этой подписи значит
-// соврать картой: владелец решит, что человек стоит там сейчас.
+// КАЖДЫЙ ПУТЬ ОТДЕЛЬНО. Раньше точки всех людей складывались в один
+// массив, а рисовальщик соединяет соседние точки отрезком — между
+// последней точкой одного человека и первой точкой другого выходила
+// сплошная фирменная линия через полгорода. Владелец увидел её и спросил,
+// почему трек прямой.
+//
+// СТРОКА — ВХОД В СЛЕЖЕНИЕ. Владелец смотрит на два имени, и следующее
+// его движение — ткнуть в то, за кем хочет посмотреть.
+//
+// СТАРАЯ ТОЧКА НЕ ВЫДАЁТСЯ ЗА ТЕКУЩУЮ: рядом с каждым — сколько минут он
+// молчит, и это число стареет на клиенте, пока ответ лежит в кэше.
 // ══════════════════════════════════════════════════════════════════════
-
-interface LivePerson {
-  id: string;
-  name: string;
-  startedAt: string;
-  meters: number;
-  stops: number;
-  track: { at: string; latitude: number; longitude: number; accuracyM: number | null }[];
-  last: { at: string; latitude: number; longitude: number } | null;
-  silentMin: number | null;
-}
-
-/** Обновляем раз в минуту — с той же частотой, с какой шлёт Telegram. */
-const REFRESH_MS = 60_000;
-
-// Порог молчания — общий (`SILENT_MIN`): по нему же гаснет точка на карте
-// и сторож в боте считает трансляцию прерванной. Здесь была его копия.
 
 export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
   const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
+  const [watching, setWatching] = useState<{ id: string; name: string } | null>(null);
+  const { people, isLoading, ageMs, frozen } = useLivePeople();
 
-  const { data, isLoading } = useQuery<{ people: LivePerson[] }>({
-    queryKey: ['field-live'],
-    refetchInterval: () => pollInterval(REFRESH_MS),
-    refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const res = await fetch('/api/admin/tracking/live', { signal: timeoutSignal() });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || 'Не удалось загрузить');
-      return body;
-    },
-  });
+  if (watching) {
+    return (
+      <FieldWatch
+        employeeId={watching.id}
+        name={watching.name}
+        lang={lang}
+        onBack={() => setWatching(null)}
+      />
+    );
+  }
 
-  const people = data?.people ?? [];
-
-  // Все треки в одну карту: владелец смотрит на город целиком, а не
-  // переключается между людьми.
-  const track = people.flatMap((person) => person.track);
+  const tracks = people.map((person) => person.track);
   // Текущие позиции — точками поверх. Кладём их в тот же слой стоянок:
   // отдельный слой ради двух кружков не окупается, а вид у них тот же.
   const marks = people
@@ -69,7 +57,8 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
       latitude: person.last?.latitude ?? null,
       longitude: person.last?.longitude ?? null,
       dwellSec: null,
-      confirmedBy: (person.silentMin ?? 0) <= SILENT_MIN ? 'manual' : 'derived',
+      confirmedBy:
+        (agedSilentMin(person.silentMin, ageMs) ?? 0) <= SILENT_MIN ? 'manual' : 'derived',
     }));
 
   return (
@@ -88,73 +77,40 @@ export function FieldLive({ lang }: { lang: 'ru' | 'uz' }) {
         <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>{people.length}</span>
       </div>
 
-      {isLoading && (
-        <p style={{ color: 'var(--text-muted)' }}>{t('Смотрю…', 'Qaralmoqda…')}</p>
+      {frozen && (
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-2)' }}>
+          {t(
+            'Связь пропала — цифры на этом экране больше не обновляются.',
+            'Aloqa yo‘q — bu ekrandagi raqamlar yangilanmayapti.',
+          )}
+        </p>
       )}
+
+      {isLoading && <p style={{ color: 'var(--text-muted)' }}>{t('Смотрю…', 'Qaralmoqda…')}</p>}
 
       {!isLoading && people.length === 0 && (
         <p style={{ color: 'var(--text-muted)' }}>
           {t(
-            'Сегодня никто не включал запись дня — ни в Telegram, ни в браузере.',
-            'Bugun hech kim geopozitsiya translyatsiyasini yoqmagan.',
+            'Сегодня никто не включал запись дня — ни в Telegram, ни в браузере, ни в приложении.',
+            'Bugun hech kim kun yozuvini yoqmagan.',
           )}
         </p>
       )}
 
       {people.length > 0 && (
         <>
-          <FieldDayMap track={track} stays={marks} />
+          <FieldDayMap tracks={tracks} stays={marks} />
 
           <div style={{ display: 'grid', gap: 'var(--space-2)' }}>
-            {people.map((person) => {
-              const stale = (person.silentMin ?? 0) > SILENT_MIN;
-              return (
-                <div
-                  key={person.id}
-                  style={{
-                    display: 'flex',
-                    gap: 'var(--space-3)',
-                    flexWrap: 'wrap',
-                    alignItems: 'baseline',
-                    padding: 'var(--space-2) var(--space-3)',
-                    background: 'var(--bg-secondary)',
-                    borderRadius: 'var(--radius-md)',
-                  }}
-                >
-                  <span style={{ fontWeight: 'var(--font-semibold)' }}>{person.name}</span>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                    {t('с', 'dan')} {clock(person.startedAt)}
-                    {' · '}
-                    {humanDistance(person.meters)}
-                    {' · '}
-                    {person.stops} {t('заездов', 'toʻxtash')}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 'var(--text-sm)',
-                      marginLeft: 'auto',
-                      // Серым, а не красным: молчание — это про связь, а не
-                      // про человека. Красным здесь светил бы каждый подвал.
-                      color:
-                        person.silentMin === null || stale
-                          ? 'var(--text-secondary)'
-                          : 'var(--brand-primary)',
-                    }}
-                  >
-                    {/* «Точек нет» — это не поломка и не молчание связи:
-                        человек отметился в админке, но день не пишет
-                        НИЧЕМ — ни трансляцией в Telegram, ни браузером.
-                        Способа два, и называть один из них значило бы
-                        послать человека чинить не то. */}
-                    {person.silentMin === null
-                      ? t('запись дня не включена', 'kun yozuvi yoqilmagan')
-                      : stale
-                        ? t(`молчит ${person.silentMin} мин`, `${person.silentMin} daq jim`)
-                        : t('на связи', 'aloqada')}
-                  </span>
-                </div>
-              );
-            })}
+            {people.map((person) => (
+              <FieldPersonRow
+                key={person.id}
+                person={person}
+                silentMin={agedSilentMin(person.silentMin, ageMs)}
+                lang={lang}
+                onWatch={() => setWatching({ id: person.id, name: person.name })}
+              />
+            ))}
           </div>
         </>
       )}

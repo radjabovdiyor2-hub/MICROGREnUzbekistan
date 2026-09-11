@@ -13,6 +13,18 @@ import type { TokenColors } from './useTokenColors';
 // утверждает, что человек там ехал. На деле он мог стоять в подвале с
 // мёртвым телефоном. Разрыв рисуется пунктиром и серым: это «мы не
 // знаем», а не «он срезал».
+//
+// И ПО ТОЙ ЖЕ ПРИЧИНЕ ПУТИ ПРИНИМАЮТСЯ СПИСКОМ СПИСКОВ. Живая карта
+// показывает всех, кто сейчас в поле, и однажды она сложила их точки в
+// один массив — а здесь между каждой парой соседних точек рисуется
+// отрезок. Между последней точкой одного человека и первой точкой другого
+// выходила сплошная фирменная линия через полгорода: дорога, которой никто
+// не ехал. Пунктиром она даже не становилась — разница времён у разных
+// людей бывает отрицательной.
+//
+// `TrackPoint[]` не присваивается к `TrackPoint[][]`, поэтому вызывающий
+// обязан сказать, ЧЕЙ это путь. Пометка «чей» на самих отрезках оставила бы
+// ошибку выразимой: отрезок всё равно строился бы, а потом отфильтровывался.
 // ══════════════════════════════════════════════════════════════════════
 
 export const SOURCE_TRACK = 'field-track';
@@ -98,29 +110,34 @@ export interface TrackStayPoint {
 export const TRACK_GAP_MS = GAP_MS;
 
 /**
- * GeoJSON дня: путь отрезками плюс точки стоянок.
+ * GeoJSON дня: пути отрезками плюс точки стоянок.
  *
  * Отрезками, а не одной линией: у каждого своя пометка «это разрыв», и
  * одной геометрией её не выразить.
+ *
+ * `tracks` — список путей, по одному на человека. Отрезок строится только
+ * внутри пути, поэтому склеить двух людей в одну дорогу нельзя (см. шапку).
  */
-export function buildTrackCollection(track: TrackPoint[], stays: TrackStayPoint[]) {
+export function buildTrackCollection(tracks: TrackPoint[][], stays: TrackStayPoint[]) {
   const features: GeoJSON.Feature[] = [];
 
-  for (let i = 1; i < track.length; i += 1) {
-    const from = track[i - 1];
-    const to = track[i];
-    const gap = new Date(to.at).getTime() - new Date(from.at).getTime() > TRACK_GAP_MS;
-    features.push({
-      type: 'Feature',
-      properties: { gap },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [from.longitude, from.latitude],
-          [to.longitude, to.latitude],
-        ],
-      },
-    });
+  for (const track of tracks) {
+    for (let i = 1; i < track.length; i += 1) {
+      const from = track[i - 1];
+      const to = track[i];
+      const gap = new Date(to.at).getTime() - new Date(from.at).getTime() > TRACK_GAP_MS;
+      features.push({
+        type: 'Feature',
+        properties: { gap },
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [from.longitude, from.latitude],
+            [to.longitude, to.latitude],
+          ],
+        },
+      });
+    }
   }
 
   for (const stay of stays) {
@@ -140,4 +157,45 @@ export function buildTrackCollection(track: TrackPoint[], stays: TrackStayPoint[
   }
 
   return { type: 'FeatureCollection' as const, features };
+}
+
+/**
+ * Как показывать путь целиком.
+ *
+ * `maxZoom` нужен для дня, проведённого на одной улице: без него карта
+ * ныряет до отдельных домов и теряет город вокруг.
+ */
+export const FIT_TRACK = { padding: 40, maxZoom: 15, duration: 0 } as const;
+
+/**
+ * Рамка вокруг всех путей — юго-запад и северо-восток.
+ *
+ * `null`, когда точек нет вовсе: рамки не существует, и звать `fitBounds`
+ * не с чем. Отдельная чистая функция, а не строчки внутри компонента, —
+ * чтобы её проверял тест, а не глаз на живой карте с WebGL.
+ */
+export function trackBounds(
+  tracks: TrackPoint[][],
+): [[number, number], [number, number]] | null {
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  let seen = false;
+
+  for (const track of tracks) {
+    for (const p of track) {
+      seen = true;
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLon) minLon = p.longitude;
+      if (p.longitude > maxLon) maxLon = p.longitude;
+    }
+  }
+
+  if (!seen) return null;
+  return [
+    [minLon, minLat],
+    [maxLon, maxLat],
+  ];
 }

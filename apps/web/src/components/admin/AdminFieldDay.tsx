@@ -116,7 +116,11 @@ export function AdminFieldDay({
       {/* Никого не выбрали — показываем, кто в поле ПРЯМО СЕЙЧАС.
           Это чаще нужный ответ, чем «выберите сотрудника»: разбор дня
           делают вечером, а «где все» спрашивают посреди дня. */}
-      {employeeId === '' && <FieldLive lang={lang} />}
+      {/* `!mine` обязателен: блок ходит в дверь «кто в поле», а она только
+          для владельца. Без этого продавец в режиме «Мой день» получил бы
+          403 по кругу. Сегодня недостижимо — но ровно до дня, когда эту
+          вкладку ему включат. */}
+      {!mine && employeeId === '' && <FieldLive lang={lang} />}
 
       {employeeId !== '' && isLoading && (
         <p style={{ color: 'var(--text-muted)' }}>{t('Собираю день…', 'Kun yig‘ilmoqda…')}</p>
@@ -148,7 +152,7 @@ export function AdminFieldDay({
               перед глазами. */}
           {data && data.track.length > 0 && (
             <FieldDayMap
-              track={data.track}
+              tracks={[data.track]}
               stays={data.stays.map((stay) => ({
                 id: stay.id,
                 latitude: stay.customer.latitude,

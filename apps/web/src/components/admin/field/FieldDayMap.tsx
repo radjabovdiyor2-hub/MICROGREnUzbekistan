@@ -19,6 +19,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 // TileJSON приходят главным потоком, а тайлов и шрифтов нет. Ни ошибки,
 // ни исключения — ровный чёрный прямоугольник с кнопками зума.
 import '@/lib/map/worker';
+import { webglMissing } from '@/lib/map/webgl';
 import {
   Map as MapLibreMap,
   NavigationControl,
@@ -28,11 +29,8 @@ import {
 
 import { appliedTheme, styleUrl } from '../map/mapLayers';
 import {
-  SOURCE_TRACK,
-  buildTrackCollection,
-  buildTrackLayers,
-  type TrackPoint,
-  type TrackStayPoint,
+  FIT_TRACK, SOURCE_TRACK, buildTrackCollection, buildTrackLayers, trackBounds,
+  type TrackPoint, type TrackStayPoint,
 } from '../map/mapLayersTrack';
 import { useTokenColors } from '../map/useTokenColors';
 
@@ -50,10 +48,11 @@ import { useTokenColors } from '../map/useTokenColors';
 // ══════════════════════════════════════════════════════════════════════
 
 export function FieldDayMap({
-  track,
+  tracks,
   stays,
 }: {
-  track: TrackPoint[];
+  /** По пути на человека. Один массив на всех склеил бы их в одну дорогу. */
+  tracks: TrackPoint[][];
   stays: TrackStayPoint[];
 }) {
   const container = useRef<HTMLDivElement>(null);
@@ -61,17 +60,20 @@ export function FieldDayMap({
   const resizeRef = useRef<ResizeObserver | null>(null);
   const ready = useRef(false);
   const colors = useTokenColors();
-  // Отказ должен быть ВИДЕН. Чёрный прямоугольник без объяснения — это
-  // худший вид поломки: она выглядит как «карта такая» и живёт месяцами.
-  const [failure, setFailure] = useState('');
+  // Отказ должен быть ВИДЕН: прямоугольник без объяснения выглядит как
+  // «карта такая» и живёт месяцами. Про WebGL спрашиваем ДО создания карты
+  // — конструктор без него бросает синхронно, и этот случай уходил в консоль.
+  const [failure, setFailure] = useState(() =>
+    webglMissing() ? 'не поднялась — похоже, в браузере выключен WebGL' : '',
+  );
 
   // Свежие данные держим в ref: эффект инициализации должен выполниться
   // один раз, а данные к нему приезжают позже.
-  const latest = useRef({ track, stays, colors });
+  const latest = useRef({ tracks, stays, colors });
   // Обновляем ПОСЛЕ отрисовки, а не во время: запись в ref прямо в теле
   // рендера ломает конкурентный режим. Так же сделано в CustomerMapCanvas.
   useEffect(() => {
-    latest.current = { track, stays, colors };
+    latest.current = { tracks, stays, colors };
   });
 
   useEffect(() => {
@@ -121,7 +123,7 @@ export function FieldDayMap({
     requestAnimationFrame(() => instance.resize());
 
     instance.on('load', () => {
-      const { track: t, stays: s, colors: c } = latest.current;
+      const { tracks: t, stays: s, colors: c } = latest.current;
       instance.addSource(SOURCE_TRACK, {
         type: 'geojson',
         data: buildTrackCollection(t, s) as unknown as GeoJSON.FeatureCollection,
@@ -157,9 +159,9 @@ export function FieldDayMap({
     if (!instance || !ready.current) return;
     const source = instance.getSource(SOURCE_TRACK) as GeoJSONSource | undefined;
     if (!source) return;
-    source.setData(buildTrackCollection(track, stays) as unknown as GeoJSON.FeatureCollection);
-    fitToTrack(instance, track);
-  }, [track, stays]);
+    source.setData(buildTrackCollection(tracks, stays) as unknown as GeoJSON.FeatureCollection);
+    fitToTrack(instance, tracks);
+  }, [tracks, stays]);
 
   return (
     <>
@@ -191,26 +193,8 @@ export function FieldDayMap({
   );
 }
 
-/** Показать день целиком. Пустой трек рамку не трогает. */
-function fitToTrack(instance: MapLibreMap, track: TrackPoint[]) {
-  if (track.length === 0) return;
-  let minLat = track[0].latitude;
-  let maxLat = track[0].latitude;
-  let minLon = track[0].longitude;
-  let maxLon = track[0].longitude;
-  for (const p of track) {
-    if (p.latitude < minLat) minLat = p.latitude;
-    if (p.latitude > maxLat) maxLat = p.latitude;
-    if (p.longitude < minLon) minLon = p.longitude;
-    if (p.longitude > maxLon) maxLon = p.longitude;
-  }
-  instance.fitBounds(
-    [
-      [minLon, minLat],
-      [maxLon, maxLat],
-    ],
-    // maxZoom нужен для дня, проведённого на одной улице: без него карта
-    // ныряет до отдельных домов и теряет город вокруг.
-    { padding: 40, maxZoom: 15, duration: 0 },
-  );
+/** Показать пути целиком. Точек нет — рамку не трогаем. */
+function fitToTrack(instance: MapLibreMap, tracks: TrackPoint[][]) {
+  const bounds = trackBounds(tracks);
+  if (bounds) instance.fitBounds(bounds, FIT_TRACK);
 }

@@ -94,7 +94,10 @@ export async function POST(request: NextRequest) {
     const { stored, days } = await recordPings(employeeId, pings);
 
     // Карта владельца обязана увидеть, что человек поехал, без перезагрузки.
-    if (stored > 0) publish('customers');
+    // `field` — живому слою поля, `customers` — карте клиентов, где люди
+    // рисуются поверх заведений. Одна публикация на пачку, а не на крошку:
+    // после часа без сети приезжает пятьсот штук одним запросом.
+    if (stored > 0) publish('field', 'customers');
 
     return NextResponse.json({ status: 'ok', stored, days });
   } catch (error: unknown) {

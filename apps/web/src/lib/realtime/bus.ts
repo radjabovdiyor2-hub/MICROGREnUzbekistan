@@ -32,7 +32,11 @@ export type Topic =
   | 'inventory'
   | 'customers'
   | 'tasks'
-  | 'bots';
+  | 'bots'
+  // Крошка от человека в поле. Отдельно от `customers`: живая карта
+  // спрашивала дверь раз в минуту, а точка приходит когда придёт — и
+  // «лайв» на минуту отставал от реальности на ровном месте.
+  | 'field';
 
 export interface ChangeEvent {
   topic: Topic;
