@@ -43,6 +43,7 @@ interface Parsed {
   unit: string;
   descriptionRu: string;
   isHit: boolean;
+  lines: string[];
 }
 
 /** `noxat_micro.webp` → `noxat-micro`. Разводит тёзок: руккола есть и в
@@ -115,16 +116,31 @@ function parsePriceList(): Omit<Parsed, 'descriptionRu' | 'isHit'>[] {
   return out;
 }
 
+/**
+ * Линейки с карточки: «для кого этот товар».
+ *
+ * Источник тот же, что у описания, — печатный каталог. Второго списка не
+ * заводим: линейка, написанная в коде отдельно от каталога, разойдётся с
+ * бумагой на первой же правке, и продавец с клиентом будут читать разное.
+ */
+const LINE_RE = /<span class="tag tag-line">([^<]+)<\/span>/g;
+
+const linesOf = (tags: string) => [...tags.matchAll(LINE_RE)].map((m) => m[1].trim());
+
 /** Описания и теги — из каталога, по имени картинки. */
-function parseCatalog(): Map<string, { descriptionRu: string; isHit: boolean }> {
+function parseCatalog(): Map<string, { descriptionRu: string; isHit: boolean; lines: string[] }> {
   const html = readFileSync(join(CATALOG_DIR, 'product-catalog.html'), 'utf8');
   const re =
     /<div class="pc-img"><img src="([^"]+)"[^>]*>[\s\S]*?<div class="pc-n">([^<]*)<\/div>[\s\S]*?<div class="pc-nr">([^<]*)<\/div>[\s\S]*?<div class="pc-d">([\s\S]*?)<\/div>[\s\S]*?<div class="pc-t">([\s\S]*?)<\/div>/g;
 
-  const out = new Map<string, { descriptionRu: string; isHit: boolean }>();
+  const out = new Map<string, { descriptionRu: string; isHit: boolean; lines: string[] }>();
   for (const m of html.matchAll(re)) {
     const [, file, , , desc, tags] = m;
-    out.set(file, { descriptionRu: strip(desc), isHit: tags.includes('Хит продаж') });
+    out.set(file, {
+      descriptionRu: strip(desc),
+      isHit: tags.includes('Хит продаж'),
+      lines: linesOf(tags),
+    });
   }
   return out;
 }
@@ -135,7 +151,7 @@ async function main() {
 
   const items: Parsed[] = priced.map((p) => ({
     ...p,
-    ...(described.get(p.file) ?? { descriptionRu: '', isHit: false }),
+    ...(described.get(p.file) ?? { descriptionRu: '', isHit: false, lines: [] }),
   }));
 
   const used = [...new Set(items.map((i) => i.category))];
@@ -158,6 +174,7 @@ async function main() {
       images: [`/catalog/${item.file}`],
       categoryId: byslug.get(item.category)!,
       isFeatured: item.isHit,
+      lines: item.lines,
       isActive: true,
     };
 

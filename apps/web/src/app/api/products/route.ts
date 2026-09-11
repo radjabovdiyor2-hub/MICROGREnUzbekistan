@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   try {
   const { searchParams } = new URL(request.url);
   const category = searchParams.get('category');
+  const line = searchParams.get('line');
   const featured = searchParams.get('featured');
   const sale = searchParams.get('sale');
   const search = searchParams.get('search');
@@ -79,6 +80,12 @@ export async function GET(request: NextRequest) {
     } else {
       where.category = { slug: category }; // slug
     }
+  }
+  // Линейка — ОТДЕЛЬНЫЙ фильтр, а не разновидность категории. Категория
+  // отвечает на «что это» и у товара одна; линейка — на «для кого», и одна и
+  // та же зелень служит нескольким. Поэтому `has`, а не равенство.
+  if (line) {
+    where.lines = { has: line };
   }
   if (featured === 'true') {
     where.isFeatured = true;

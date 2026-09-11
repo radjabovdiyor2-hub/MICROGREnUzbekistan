@@ -8,6 +8,9 @@ export function useCatalog(initialCategory: string) {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [activeCategory, setActiveCategory] = useState(searchParams.get('category') || initialCategory);
+  // Линейка — второй, независимый фильтр: «для кого», а не «что это».
+  // Пустая строка означает «все линейки», как и у категории.
+  const [activeLine, setActiveLine] = useState(searchParams.get('line') || '');
   const [sort, setSort] = useState('featured');
   const [search, setSearch] = useState(searchParams.get('search') || '');
   const [loading, setLoading] = useState(true);
@@ -23,6 +26,7 @@ export function useCatalog(initialCategory: string) {
     try {
       const params = new URLSearchParams();
       if (activeCategory) params.set('category', activeCategory);
+      if (activeLine) params.set('line', activeLine);
       params.set('sort', sort);
       params.set('limit', String(PAGE_SIZE));
       params.set('page', String(page));
@@ -44,7 +48,7 @@ export function useCatalog(initialCategory: string) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [activeCategory, sort, search]);
+  }, [activeCategory, activeLine, sort, search]);
 
   useEffect(() => {
     Promise.resolve().then(() => {
@@ -86,6 +90,8 @@ export function useCatalog(initialCategory: string) {
     products,
     activeCategory,
     setActiveCategory,
+    activeLine,
+    setActiveLine,
     sort,
     setSort,
     search,

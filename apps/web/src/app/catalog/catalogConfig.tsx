@@ -1,9 +1,29 @@
 // Рубрики, размер страницы и варианты сортировки каталога.
 // Файл .tsx: у рубрик есть иконки, то есть JSX.
 
-import { Droplet, Leaf, Package, Plug, Salad, Sparkles } from 'lucide-react';
+import { Leaf, Package, Salad } from 'lucide-react';
 
 export const PAGE_SIZE = 24;
+
+/**
+ * Линейки — «для кого», второй ряд фильтров.
+ *
+ * НЕ КАТЕГОРИИ. Категория у товара одна и отвечает на «что это»: лоток
+ * микрозелени, упаковка бейби-листа, набор. Линеек у товара несколько —
+ * шпинат служит и детской, и ежедневной, и домашней кухне, — поэтому они
+ * живут отдельным списком `Product.lines` и своим фильтром.
+ *
+ * Коллекций (FAOL, ISHDA, MEHMON, SOVG'A) здесь нет намеренно: они живут
+ * внутри линеек, и десять чипов в ряд читать невозможно.
+ */
+export const LINES = [
+  { slug: '', nameUz: 'Barcha liniyalar', nameRu: 'Все линейки' },
+  { slug: 'BALANS', nameUz: 'BALANS', nameRu: 'BALANS' },
+  { slug: 'KUNLIK', nameUz: 'KUNLIK', nameRu: 'KUNLIK' },
+  { slug: 'OSHXONA', nameUz: 'OSHXONA', nameRu: 'OSHXONA' },
+  { slug: 'CHEF', nameUz: 'CHEF', nameRu: 'CHEF' },
+  { slug: 'BOLAJON', nameUz: 'BOLAJON', nameRu: 'BOLAJON' },
+];
 
 export const CATEGORIES = [
   { slug: '', nameUz: 'Barchasi', nameRu: 'Все', icon: <Package size={18} /> },
@@ -11,9 +31,6 @@ export const CATEGORIES = [
   { slug: 'baby-leaf', nameUz: 'Baby Leaf', nameRu: 'Бейби лист', icon: <Leaf size={18} /> },
   { slug: 'salads', nameUz: 'Salatlar', nameRu: 'Салаты', icon: <Leaf size={18} /> },
   { slug: 'balans', nameUz: 'BALANS', nameRu: 'BALANS', icon: <Salad size={18} /> },
-  { slug: 'flowers', nameUz: 'Gullar', nameRu: 'Цветы', icon: <Sparkles size={18} /> },
-  { slug: 'seeds', nameUz: "Urug'lar", nameRu: 'Семена', icon: <Droplet size={18} /> },
-  { slug: 'equipment', nameUz: 'Uskunalar', nameRu: 'Оборудование', icon: <Plug size={18} /> },
   { slug: 'sets', nameUz: "To'plamlar", nameRu: 'Наборы', icon: <Package size={18} /> },
 ];
 

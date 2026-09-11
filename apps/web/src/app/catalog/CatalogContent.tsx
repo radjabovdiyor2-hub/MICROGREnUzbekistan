@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { AlertTriangle, Clock, Plus, RefreshCw, Search, Sparkles } from 'lucide-react';
 import { ProductCard } from '@/components/shop/ProductCard';
 import { useLang } from '@/components/providers/LangProvider';
-import { CATEGORIES, SORT_OPTIONS } from './catalogConfig';
+import { CATEGORIES, LINES, SORT_OPTIONS } from './catalogConfig';
 import { ScrollReveal } from '@/components/ui/ScrollReveal';
 import { FloatingGreenery } from '@/components/ui/FloatingGreenery';
 import { useCatalog } from './useCatalog';
@@ -13,7 +13,7 @@ import { useCatalog } from './useCatalog';
 export function CatalogContent({ initialCategory = '' }: { initialCategory?: string }) {
   const { t } = useLang();
   const {
-    products, activeCategory, setActiveCategory, sort, setSort, search, setSearch,
+    products, activeCategory, setActiveCategory, activeLine, setActiveLine, sort, setSort, search, setSearch,
     loading, loadingMore, error, pagination, handleSearch, loadMore, hasMore, fetchProducts,
   } = useCatalog(initialCategory);
 
@@ -61,6 +61,26 @@ export function CatalogContent({ initialCategory = '' }: { initialCategory?: str
           >
             <span className="category-pill__icon">{cat.icon}</span>
             <span className="category-pill__name">{t(cat.nameUz, cat.nameRu)}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Линейки — второй ряд, «для кого». Отдельно от рубрик намеренно:
+          рубрика отвечает на «что это» и у товара одна, а линеек несколько —
+          один и тот же шпинат служит и детской, и ежедневной кухне. */}
+      <div
+        className="categories-scroll"
+        style={{ paddingLeft: 0, marginBottom: 'var(--space-4)' }}
+        aria-label={t('Liniyalar', 'Линейки')}
+      >
+        {LINES.map((line) => (
+          <button
+            key={line.slug || 'all-lines'}
+            className={`category-pill ${activeLine === line.slug ? 'active' : ''}`}
+            onClick={() => setActiveLine(line.slug)}
+            id={`line-${line.slug || 'all'}`}
+          >
+            <span className="category-pill__name">{t(line.nameUz, line.nameRu)}</span>
           </button>
         ))}
       </div>
