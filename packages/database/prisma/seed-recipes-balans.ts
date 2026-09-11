@@ -254,7 +254,7 @@ const RECIPES: RecipeSeed[] = [
     ingredients: [
       { nameRu: 'Оливковое масло', nameUz: "Zaytun yog'i", amount: '3 ст. л.' },
       { nameRu: 'Винный уксус или гранатовый сок', nameUz: 'Vino sirkasi yoki anor sharbati', amount: '1 ст. л.' },
-      { nameRu: 'Микрозелень горчицы', nameUz: "Xantal mikroko'kati", amount: '10 г', productSlug: 'xantal-micro' },
+      { nameRu: 'Микрозелень горчицы', nameUz: "Xantal mikroko'kati", amount: '10 г', productSlug: 'gorchitsa-micro' },
       { nameRu: 'Соль', nameUz: 'Tuz', amount: 'щепотка' },
       { nameRu: 'Кунжут', nameUz: 'Kunjut', amount: 'по вкусу' },
     ],
