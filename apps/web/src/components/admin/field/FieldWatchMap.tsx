@@ -24,7 +24,7 @@ import { webglMissing } from '@/lib/map/webgl';
 import { appliedTheme, styleUrl } from '../map/mapLayers';
 import {
   FIT_TRACK, SOURCE_TRACK, buildTrackCollection, buildTrackLayers, trackBounds,
-  type TrackPoint,
+  type TrackPoint, type TrackStayPoint,
 } from '../map/mapLayersTrack';
 import { useTokenColors } from '../map/useTokenColors';
 
@@ -46,11 +46,20 @@ import { useTokenColors } from '../map/useTokenColors';
 
 export function FieldWatchMap({
   track,
+  mark,
   center,
   following,
   onUserMoved,
 }: {
   track: TrackPoint[];
+  /**
+   * Где человек сейчас — кружком поверх пути.
+   *
+   * БЕЗ ЭТОГО КАРТА ПУСТАЯ У ТОГО, У КОГО ОДНА ТОЧКА. Линия строится между
+   * парами, и при единственной крошке пар нет вовсе: экран показывал карту
+   * города без единой отметки — то есть «трека нет» там, где точка есть.
+   */
+  mark: TrackStayPoint | null;
   /** Куда смотреть. `null` — точек нет, ехать некуда. */
   center: [number, number] | null;
   following: boolean;
@@ -65,9 +74,9 @@ export function FieldWatchMap({
     webglMissing() ? 'не поднялась — похоже, в браузере выключен WebGL' : '',
   );
 
-  const latest = useRef({ track, colors, onUserMoved });
+  const latest = useRef({ track, mark, colors, onUserMoved });
   useEffect(() => {
-    latest.current = { track, colors, onUserMoved };
+    latest.current = { track, mark, colors, onUserMoved };
   });
 
   useEffect(() => {
@@ -108,10 +117,10 @@ export function FieldWatchMap({
     requestAnimationFrame(() => instance.resize());
 
     instance.on('load', () => {
-      const { track: t, colors: c } = latest.current;
+      const { track: t, mark: m, colors: c } = latest.current;
       instance.addSource(SOURCE_TRACK, {
         type: 'geojson',
-        data: buildTrackCollection([t], []) as unknown as GeoJSON.FeatureCollection,
+        data: buildTrackCollection([t], m ? [m] : []) as unknown as GeoJSON.FeatureCollection,
       });
       // Приведение — как в карте дня: спецификация слоя в типах maplibre
       // описана кортежами выражений, вывести которые из литерала нельзя.
@@ -120,6 +129,17 @@ export function FieldWatchMap({
       }
       ready.current = true;
       instance.resize();
+
+      // ПОДГОНКА ЗДЕСЬ, А НЕ ТОЛЬКО В ЭФФЕКТЕ ДАННЫХ. Эффект данных уходит
+      // ни с чем, пока карта грузится (`ready` ещё false), и если после
+      // загрузки данные не менялись, он больше не сработает: карта так и
+      // остаётся в центре города, а человек — за краем экрана. Выглядит
+      // это как «точки нет вовсе».
+      const bounds = trackBounds([t]);
+      if (bounds) {
+        instance.fitBounds(bounds, FIT_TRACK);
+        fitted.current = true;
+      }
     });
 
     return () => {
@@ -136,7 +156,9 @@ export function FieldWatchMap({
     if (!instance || !ready.current) return;
     const source = instance.getSource(SOURCE_TRACK) as GeoJSONSource | undefined;
     if (!source) return;
-    source.setData(buildTrackCollection([track], []) as unknown as GeoJSON.FeatureCollection);
+    source.setData(
+      buildTrackCollection([track], mark ? [mark] : []) as unknown as GeoJSON.FeatureCollection,
+    );
 
     // Масштаб подбираем ОДИН раз — по тому, что уже пройдено.
     if (!fitted.current) {
@@ -148,7 +170,7 @@ export function FieldWatchMap({
     } else if (following && center) {
       instance.easeTo({ center, duration: 600 });
     }
-  }, [track, center, following]);
+  }, [track, mark, center, following]);
 
   return (
     <>

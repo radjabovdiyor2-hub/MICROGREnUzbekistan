@@ -112,6 +112,17 @@ export function FieldWatch({
         <>
           <FieldWatchMap
             track={person.track}
+            // Текущая позиция — кружком. Тот же слой, что у стоянок: вид у
+            // них один, а отдельный слой ради одного кружка не окупается.
+            // `manual` — пока человек на связи: так кружок горит фирменным
+            // цветом, а у молчащего гаснет в серый.
+            mark={{
+              id: -1,
+              latitude: last.latitude,
+              longitude: last.longitude,
+              dwellSec: null,
+              confirmedBy: stale ? 'derived' : 'manual',
+            }}
             center={[last.longitude, last.latitude]}
             // Молчит — ехать не за чем: новая точка не придёт, а камера,
             // ползущая к старой, выдавала бы её за текущую.
