@@ -63,6 +63,8 @@ const SETS = [
   ['SOUS-2L', 'sous_anor_250'],
   ['OS-M1', 'oshxona_nonushta'],
   ['OS-M2', 'oshxona_pasta'],
+  ['CH-B1', 'chef_yashik_rangli'],
+  ['CH-B2', 'chef_yashik_achchiq'],
 ];
 
 const SIZE = 1500;

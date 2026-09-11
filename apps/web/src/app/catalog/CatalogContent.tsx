@@ -60,17 +60,28 @@ export function CatalogContent({ initialCategory = '' }: { initialCategory?: str
             id={`filter-${cat.slug || 'all'}`}
           >
             <span className="category-pill__icon">{cat.icon}</span>
-            <span className="category-pill__name">{t(cat.nameUz, cat.nameRu)}</span>
+            <span className="category-pill__name" translate="no">{t(cat.nameUz, cat.nameRu)}</span>
           </button>
         ))}
       </div>
 
       {/* Линейки — второй ряд, «для кого». Отдельно от рубрик намеренно:
           рубрика отвечает на «что это» и у товара одна, а линеек несколько —
-          один и тот же шпинат служит и детской, и ежедневной кухне. */}
+          один и тот же шпинат служит и детской, и ежедневной кухне.
+
+          ПЕРЕНОС, А НЕ ПРОКРУТКА. Линеек шесть, и на телефоне в строку влезало
+          четыре: CHEF и BOLAJON уезжали за край, и владелец их просто не
+          видел. Прокрутку заметно не всем, а выбор, которого не видно, не
+          существует. У рубрик прокрутка осталась — там иконки и длинные имена.
+
+          `translate="no"` — чтобы браузер не переводил названия линеек.
+          Chrome на телефоне превращал KUNLIK в «ЕЖЕДНЕВНО», а OSHXONA в
+          «КУХНЯ»: имя бренда переставало быть именем. */}
       <div
-        className="categories-scroll"
-        style={{ paddingLeft: 0, marginBottom: 'var(--space-4)' }}
+        style={{
+          display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)',
+          marginBottom: 'var(--space-4)',
+        }}
         aria-label={t('Liniyalar', 'Линейки')}
       >
         {LINES.map((line) => (
@@ -80,7 +91,9 @@ export function CatalogContent({ initialCategory = '' }: { initialCategory?: str
             onClick={() => setActiveLine(line.slug)}
             id={`line-${line.slug || 'all'}`}
           >
-            <span className="category-pill__name">{t(line.nameUz, line.nameRu)}</span>
+            <span className="category-pill__name" translate={line.slug ? 'no' : undefined}>
+              {t(line.nameUz, line.nameRu)}
+            </span>
           </button>
         ))}
       </div>
