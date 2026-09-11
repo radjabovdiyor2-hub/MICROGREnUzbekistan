@@ -66,6 +66,20 @@ export async function GET(request: NextRequest) {
 
     const { start, end } = localDayRange(date);
 
+    // СМЕНА И ТРЕК — РАЗНЫЕ ВЕЩИ, И ПУТАТЬ ИХ НЕЛЬЗЯ.
+    //
+    // `FieldDay.startedAt/endedAt` — это первая и последняя КРОШКА, то есть
+    // окно записи. Отчёт подписывал его словом «Смена» с тех пор, когда смен
+    // в системе не было вовсе, и владелец видел «смена 00:26–11:06» там, где
+    // телефон просто прислал точку ночью. Настоящая смена лежит в своей
+    // таблице: её открывает человек кнопкой, и только она отвечает на вопрос
+    // «работал ли он сегодня».
+    const shift = await prisma.shift.findFirst({
+      where: { employeeId, date: start, type: 'work', startTime: { not: null } },
+      select: { startTime: true, endTime: true, openedVia: true, closedAuto: true },
+      orderBy: { startTime: 'asc' },
+    });
+
     const day = await prisma.fieldDay.findUnique({
       where: { employeeId_date: { employeeId, date: start } },
       select: {
@@ -84,7 +98,7 @@ export async function GET(request: NextRequest) {
       // Дня нет — это не ошибка: человек мог не включать трансляцию.
       // Пустой ответ честнее 404: экран покажет «трека нет», а не сломается.
       return NextResponse.json({
-        status: 'ok', day: null, track: [], stays: [], legs: [], idle: [], gaps: 0,
+        status: 'ok', day: null, shift, track: [], stays: [], legs: [], idle: [], gaps: 0,
       });
     }
 
@@ -173,7 +187,7 @@ export async function GET(request: NextRequest) {
     const { gaps } = summarize(pings);
 
     return NextResponse.json({
-      status: 'ok', day, track, stays, legs, idle, gaps, idleAfterMin: idleMinutes,
+      status: 'ok', day, shift, track, stays, legs, idle, gaps, idleAfterMin: idleMinutes,
     });
   } catch (error: unknown) {
     console.error('API Admin Tracking Day GET Error:', error);

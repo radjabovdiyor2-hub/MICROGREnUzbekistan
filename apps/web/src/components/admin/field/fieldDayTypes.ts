@@ -60,8 +60,24 @@ export interface FieldIdle {
   pings: number;
 }
 
+/**
+ * Смена — то, что человек открыл кнопкой. НЕ путать с окном трека.
+ *
+ * `null` означает «смену сегодня не открывал», и это ответ, а не отсутствие
+ * данных: по нему видно, что трек шёл в нерабочее время.
+ */
+export interface FieldShift {
+  startTime: string;
+  endTime: string | null;
+  /** `pwa` | `bot` | `web` — откуда нажали. */
+  openedVia: string | null;
+  /** Закрыл вечерний проход по последней точке, а не человек. */
+  closedAuto: boolean;
+}
+
 export interface FieldDayResponse {
   day: FieldDayHead | null;
+  shift: FieldShift | null;
   track: { at: string; latitude: number; longitude: number; accuracyM: number | null }[];
   stays: FieldStay[];
   legs: FieldLeg[];

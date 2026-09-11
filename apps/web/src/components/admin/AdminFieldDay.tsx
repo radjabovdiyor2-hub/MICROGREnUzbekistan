@@ -137,6 +137,7 @@ export function AdminFieldDay({
         <>
           <FieldDaySummary
             day={day}
+            shift={data?.shift ?? null}
             idle={data?.idle ?? []}
             gaps={data?.gaps ?? 0}
             lang={lang}

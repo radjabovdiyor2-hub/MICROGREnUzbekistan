@@ -1,6 +1,13 @@
 'use client';
 
-import { clock, humanDistance, humanDuration, type FieldDayHead, type FieldIdle } from './fieldDayTypes';
+import {
+  clock,
+  humanDistance,
+  humanDuration,
+  type FieldDayHead,
+  type FieldIdle,
+  type FieldShift,
+} from './fieldDayTypes';
 
 // ══════════════════════════════════════════════════════════════════════
 // Полоса чисел над картой: чем был день.
@@ -17,15 +24,23 @@ import { clock, humanDistance, humanDuration, type FieldDayHead, type FieldIdle 
 // ЦВЕТОМ НЕ СВЕТИМ НИ ОДНО. Сорок минут на месте объясняются очередью,
 // поломкой и обедом; красным в этом проекте светится только явное
 // расхождение с эталоном (см. `FieldDayTimeline`).
+//
+// СМЕНА И ТРЕК РАЗВЕДЕНЫ. Раньше здесь стояла одна строка «Смена», и в ней
+// показывалось окно записи — время первой и последней крошки. Живой экран
+// владельца из-за этого утверждал «смена 00:26–11:06» там, где телефон
+// прислал одну точку ночью: отличить работавшего человека от проснувшегося
+// телефона было нельзя. Теперь смена — это смена, а запись — это запись.
 // ══════════════════════════════════════════════════════════════════════
 
 export function FieldDaySummary({
   day,
+  shift,
   idle,
   gaps,
   lang,
 }: {
   day: FieldDayHead;
+  shift: FieldShift | null;
   idle: FieldIdle[];
   gaps: number;
   lang: 'ru' | 'uz';
@@ -46,8 +61,26 @@ export function FieldDaySummary({
         fontSize: 'var(--text-sm)',
       }}
     >
+      {/* Смену открывает человек кнопкой — это ответ на «работал ли он». */}
       <span>
-        {t('Смена', 'Smena')}: {clock(day.startedAt)}
+        {t('Смена', 'Smena')}:{' '}
+        {shift ? (
+          <>
+            {clock(shift.startTime)}
+            {shift.endTime ? `–${clock(shift.endTime)}` : ` — ${t('идёт', 'davom etmoqda')}`}
+            {shift.closedAuto && (
+              <span style={{ color: 'var(--text-muted)' }}> · {t('закрыта автоматом', 'avtomat yopgan')}</span>
+            )}
+          </>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>{t('не открывалась', 'ochilmagan')}</span>
+        )}
+      </span>
+
+      {/* Окно записи. Отличается от смены, и это видно: телефон мог прислать
+          точку до начала смены или замолчать задолго до её конца. */}
+      <span style={{ color: 'var(--text-secondary)' }}>
+        {t('Запись', 'Yozuv')}: {clock(day.startedAt)}
         {day.endedAt ? `–${clock(day.endedAt)}` : ''}
       </span>
       <span>
