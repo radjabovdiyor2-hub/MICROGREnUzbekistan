@@ -4,6 +4,7 @@ import { buildLayers } from './mapLayers';
 import {
   LAYER_PEOPLE_DOT,
   LAYER_PEOPLE_NAME,
+  LAYER_PEOPLE_GAP,
   LAYER_PEOPLE_TRACK,
   PEOPLE_STALE_MIN,
   buildPeopleCollection,
@@ -19,6 +20,9 @@ const COLORS = {
   cat1: '#1', cat2: '#2', cat3: '#3', cat4: '#4', cat5: '#5', cat7: '#7', cat9: '#9',
 } as unknown as TokenColors;
 
+/** Момент через N минут от условного начала смены. */
+const minute = (n: number) => new Date(Date.UTC(2026, 8, 11, 9, n)).toISOString();
+
 function person(over: Partial<PersonOnMap> = {}): PersonOnMap {
   return {
     id: 'e1',
@@ -26,8 +30,8 @@ function person(over: Partial<PersonOnMap> = {}): PersonOnMap {
     silentMin: 2,
     last: { latitude: 39.654, longitude: 66.9597 },
     track: [
-      { latitude: 39.65, longitude: 66.95 },
-      { latitude: 39.654, longitude: 66.9597 },
+      { at: minute(0), latitude: 39.65, longitude: 66.95 },
+      { at: minute(1), latitude: 39.654, longitude: 66.9597 },
     ],
     ...over,
   };
@@ -39,7 +43,9 @@ describe('слой людей', () => {
     // бы либо люди, либо заведения.
     const clientIds = buildLayers('state', COLORS, 0).map((l) => l.id);
     const peopleIds = buildPeopleLayers(COLORS).map((l) => l.id);
-    expect(peopleIds).toEqual([LAYER_PEOPLE_TRACK, LAYER_PEOPLE_DOT, LAYER_PEOPLE_NAME]);
+    expect(peopleIds).toEqual([
+      LAYER_PEOPLE_TRACK, LAYER_PEOPLE_GAP, LAYER_PEOPLE_DOT, LAYER_PEOPLE_NAME,
+    ]);
     for (const id of peopleIds) expect(clientIds).not.toContain(id);
   });
 
@@ -81,8 +87,30 @@ describe('buildPeopleCollection', () => {
   });
 
   it('одна точка трека линией не становится', () => {
-    const fc = buildPeopleCollection([person({ track: [{ latitude: 39.6, longitude: 66.9 }] })]);
+    const fc = buildPeopleCollection([
+      person({ track: [{ at: minute(0), latitude: 39.6, longitude: 66.9 }] }),
+    ]);
     expect(fc.features.filter((f) => f.geometry.type === 'LineString')).toHaveLength(0);
+  });
+
+  it('молчание внутри пути рвёт линию, а не рисует дорогу через город', () => {
+    // ЭТО БЫЛО СЛОМАНО. Путь рисовался ОДНОЙ сплошной линией по всем
+    // точкам: у человека с утренней точкой и текущей выходила уверенная
+    // линия через весь город — «он там ехал», хотя телефон просто молчал.
+    const fc = buildPeopleCollection([
+      person({
+        track: [
+          { at: minute(0), latitude: 39.65, longitude: 66.90 },
+          { at: minute(1), latitude: 39.65, longitude: 66.91 },
+          // Полтора часа тишины — и снова точка, уже на другом краю.
+          { at: minute(90), latitude: 39.70, longitude: 67.05 },
+        ],
+      }),
+    ]);
+    const lines = fc.features.filter((f) => f.geometry.type === 'LineString');
+    expect(lines).toHaveLength(2);
+    expect(lines.filter((f) => f.properties?.gap === true)).toHaveLength(1);
+    expect(lines.filter((f) => f.properties?.gap === false)).toHaveLength(1);
   });
 
   it('неизвестное молчание считается давним, а не свежим', () => {

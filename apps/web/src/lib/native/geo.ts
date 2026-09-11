@@ -51,6 +51,35 @@ interface BackgroundGeolocationPlugin {
 /** Имя модуля в оболочке. Совпадает с `apps/mobile`. */
 const PLUGIN = 'BackgroundGeolocation';
 
+/** Модуль уведомлений — только ради права их показывать. */
+const NOTICE_PLUGIN = 'LocalNotifications';
+
+interface NoticePermissions {
+  checkPermissions(): Promise<{ display: string }>;
+  requestPermissions(): Promise<{ display: string }>;
+}
+
+/**
+ * Спросить право показывать постоянное уведомление.
+ *
+ * ЗАЧЕМ ОТДЕЛЬНО. Модуль геопозиции просит только доступ к координатам —
+ * право на уведомления он не запрашивает вовсе. На Android 13+ без него
+ * постоянное уведомление «Смена идёт» НЕ ПОКАЗЫВАЕТСЯ: служба работает, а
+ * человек не видит, что его пишут. Для этого проекта это не мелочь —
+ * видимость записи здесь часть уговора, а не украшение.
+ *
+ * ОТКАЗ НЕ ОСТАНАВЛИВАЕТ ЗАПИСЬ. Право на уведомление и право на
+ * геопозицию — разные вещи; молча выключить трек из-за первого значило бы
+ * наказать за не тот отказ.
+ */
+async function askForNotice(): Promise<void> {
+  const plugin = nativePlugin<NoticePermissions>(NOTICE_PLUGIN);
+  if (!plugin) return;
+  const state = await plugin.checkPermissions();
+  if (state.display === 'granted') return;
+  await plugin.requestPermissions();
+}
+
 /**
  * Тот же порог, что у записи в браузере: 25 метров.
  *
@@ -76,6 +105,12 @@ export function watchNative(
 
   let watcherId: string | null = null;
   let stopped = false;
+
+  // Право на уведомление спрашиваем ДО службы и не ждём ответа: служба не
+  // должна стоять из-за него, а отказ ничего не ломает.
+  void askForNotice().catch((error) => {
+    console.error('[geo] право на уведомление не выдано:', error);
+  });
 
   plugin
     .addWatcher(

@@ -1,6 +1,7 @@
 import { SILENT_MIN } from '@/lib/tracking/ping';
 
 import { MAP_FONT } from './mapFont';
+import { trackSegments, type TrackPoint } from './mapLayersTrack';
 import type { TokenColors } from './useTokenColors';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -19,10 +20,17 @@ import type { TokenColors } from './useTokenColors';
 //
 // ЦВЕТ НЕ ОБВИНЯЕТ И ЗДЕСЬ. Потерявший связь гаснет до серого — это про
 // связь, а не про человека; красным светил бы каждый подвал.
+//
+// И ЛИНИЯ РВЁТСЯ ТАМ ЖЕ, ГДЕ НА КАРТЕ ДНЯ. Раньше путь человека рисовался
+// здесь ОДНОЙ сплошной линией по всем точкам: у молчавшего десять часов
+// выходила уверенная линия через город между утренней точкой и текущей.
+// Правило разрыва берётся из `mapLayersTrack` — одно на обе карты, иначе
+// один и тот же день выглядел бы на них по-разному.
 // ══════════════════════════════════════════════════════════════════════
 
 export const SOURCE_PEOPLE = 'field-people';
 export const LAYER_PEOPLE_TRACK = 'field-people-track';
+export const LAYER_PEOPLE_GAP = 'field-people-gap';
 export const LAYER_PEOPLE_DOT = 'field-people-dot';
 export const LAYER_PEOPLE_NAME = 'field-people-name';
 
@@ -45,9 +53,25 @@ export function buildPeopleLayers(c: TokenColors) {
       id: LAYER_PEOPLE_TRACK,
       type: 'line' as const,
       source: SOURCE_PEOPLE,
-      filter: ['==', ['geometry-type'], 'LineString'],
+      filter: ['all', ['==', ['geometry-type'], 'LineString'], ['!', ['get', 'gap']]],
       layout: { 'line-cap': 'round' as const, 'line-join': 'round' as const },
       paint: { 'line-color': c.accent, 'line-width': 2, 'line-opacity': 0.55 },
+    },
+    {
+      // Разрыв связи — серым пунктиром, как на карте дня. Это «мы не
+      // знаем», а не «он срезал»: сплошная линия здесь утверждала бы, что
+      // человек ехал там, где телефон просто молчал.
+      id: LAYER_PEOPLE_GAP,
+      type: 'line' as const,
+      source: SOURCE_PEOPLE,
+      filter: ['all', ['==', ['geometry-type'], 'LineString'], ['get', 'gap']],
+      layout: { 'line-cap': 'butt' as const, 'line-join': 'round' as const },
+      paint: {
+        'line-color': c.muted,
+        'line-width': 2,
+        'line-opacity': 0.45,
+        'line-dasharray': [1, 2],
+      },
     },
     {
       // Сам человек. Кольцо, а не заливка: место и человек не должны
@@ -93,7 +117,11 @@ export interface PersonOnMap {
   name: string;
   silentMin: number | null;
   last: { latitude: number; longitude: number } | null;
-  track: { latitude: number; longitude: number }[];
+  /**
+   * Путь с начала смены. `at` обязателен: без времени нельзя отличить
+   * «ехал» от «молчал», и линия снова стала бы сплошной через весь город.
+   */
+  track: TrackPoint[];
 }
 
 /**
@@ -111,16 +139,7 @@ export function buildPeopleCollection(people: PersonOnMap[]) {
     // деле мы просто не знаем, где он.
     if (!person.last) continue;
 
-    if (person.track.length > 1) {
-      features.push({
-        type: 'Feature',
-        properties: { kind: 'track', name: person.name },
-        geometry: {
-          type: 'LineString',
-          coordinates: person.track.map((p) => [p.longitude, p.latitude]),
-        },
-      });
-    }
+    features.push(...trackSegments(person.track, { kind: 'track', name: person.name }));
 
     features.push({
       type: 'Feature',

@@ -110,6 +110,42 @@ export interface TrackStayPoint {
 export const TRACK_GAP_MS = GAP_MS;
 
 /**
+ * Путь одного человека — отрезками, с пометкой «здесь молчала связь».
+ *
+ * ОТДЕЛЬНОЙ ФУНКЦИЕЙ, потому что таких карт две. Слой людей на карте
+ * клиентов рисовал СВОЙ путь — одной сплошной линией по всем точкам, без
+ * разрывов вовсе. У того, кто молчал десять часов, выходила уверенная
+ * линия через город между утренней точкой и текущей: та самая ложь, ради
+ * запрета которой писался этот модуль, просто на другом экране.
+ *
+ * Дополнительные свойства (`kind`, имя) вызывающий дописывает сам: у слоёв
+ * разные фильтры, а правило разрыва — одно.
+ */
+export function trackSegments(
+  track: TrackPoint[],
+  extra: Record<string, unknown> = {},
+): GeoJSON.Feature[] {
+  const out: GeoJSON.Feature[] = [];
+  for (let i = 1; i < track.length; i += 1) {
+    const from = track[i - 1];
+    const to = track[i];
+    const gap = new Date(to.at).getTime() - new Date(from.at).getTime() > TRACK_GAP_MS;
+    out.push({
+      type: 'Feature',
+      properties: { ...extra, gap },
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [from.longitude, from.latitude],
+          [to.longitude, to.latitude],
+        ],
+      },
+    });
+  }
+  return out;
+}
+
+/**
  * GeoJSON дня: пути отрезками плюс точки стоянок.
  *
  * Отрезками, а не одной линией: у каждого своя пометка «это разрыв», и
@@ -122,22 +158,7 @@ export function buildTrackCollection(tracks: TrackPoint[][], stays: TrackStayPoi
   const features: GeoJSON.Feature[] = [];
 
   for (const track of tracks) {
-    for (let i = 1; i < track.length; i += 1) {
-      const from = track[i - 1];
-      const to = track[i];
-      const gap = new Date(to.at).getTime() - new Date(from.at).getTime() > TRACK_GAP_MS;
-      features.push({
-        type: 'Feature',
-        properties: { gap },
-        geometry: {
-          type: 'LineString',
-          coordinates: [
-            [from.longitude, from.latitude],
-            [to.longitude, to.latitude],
-          ],
-        },
-      });
-    }
+    features.push(...trackSegments(track));
   }
 
   for (const stay of stays) {

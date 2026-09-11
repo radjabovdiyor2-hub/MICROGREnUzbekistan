@@ -28,7 +28,10 @@ interface LiveResponse {
     name: string;
     silentMin: number | null;
     last: { latitude: number; longitude: number } | null;
-    track: { latitude: number; longitude: number }[];
+    // `at` ОБЯЗАТЕЛЕН. Дверь отдавала его с самого начала, а этот тип
+    // выбрасывал — и слой рисовал путь одной сплошной линией, потому что
+    // без времени отличить «ехал» от «молчал» нечем.
+    track: { at: string; latitude: number; longitude: number }[];
   }[];
 }
 
