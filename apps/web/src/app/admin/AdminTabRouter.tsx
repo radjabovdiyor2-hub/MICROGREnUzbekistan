@@ -209,6 +209,15 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {/* Свой рейс открыт и курьеру (canSell), и владельцу: рейс отбирается
         по имени в самом роуте, поэтому чужого здесь не покажут. */}
     {activeTab === 'my_route' && (isOwner || canSell) && <AdminMyRoute lang={lang} isOwner={isOwner} />}
+    {/* СВОЙ ДЕНЬ ПРОДАВЦУ. Вкладка была объявлена в `adminTabs`, а ветки
+        здесь не было вовсе: человек нажимал «Мой день» и получал пустой
+        экран. При этом дверь `/api/admin/tracking/day` давно отдаёт
+        продавцу ЕГО день и правильно различает права, а `mine` в самом
+        компоненте написан и до сих пор никем не вызывался.
+
+        `mine` вместо выбора сотрудника: продавцу выбирать не из кого, и
+        сервер узнаёт его по подписи, а не по телу запроса. */}
+    {activeTab === 'my_day' && canSell && !isOwner && <AdminFieldDay lang={lang} mine />}
     {activeTab === 'franchise' && isOwner && <AdminFranchise />}
   </main>
   );

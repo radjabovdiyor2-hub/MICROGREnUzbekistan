@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ALL_TABS } from './adminTabs';
+import { TAB_IDS } from './adminTabs';
 
 // ══════════════════════════════════════════════════════════════════════
 // Вкладка админки в адресной строке.
@@ -48,7 +48,7 @@ export function useAdminTab() {
   // Неизвестное значение игнорируем молча: ссылка могла прийти из старой
   // версии бота, и падать из-за неё экран не должен.
   const activeTab = useMemo(() => {
-    if (requested && ALL_TABS.some((tab) => tab.id === requested)) return requested;
+    if (requested && TAB_IDS.has(requested)) return requested;
     return DEFAULT_TAB;
   }, [requested]);
 
