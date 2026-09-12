@@ -128,10 +128,15 @@ export function AdminRecipes() {
 
   const upd = (patch: Partial<Recipe>) => setEditing((p) => (p ? { ...p, ...patch } : p));
 
+  // Высота задана здесь, а не общим правилом для телефона: в этом ряду
+  // рядом с тремя кнопками стоит ссылка «Открыть», и правило про кнопки её
+  // не достаёт — ряд выходил разноростым. Ссылке нужен и flex: без него
+  // высоту она примет, а текст в ней съедет вверх.
   const btn: React.CSSProperties = {
     padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-color)',
     background: 'transparent', cursor: 'pointer', fontSize: 'var(--text-sm)', fontWeight: 600,
     color: 'var(--text-primary)', whiteSpace: 'nowrap',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minHeight: 36,
   };
   const btnPrimary: React.CSSProperties = { border: '1px solid var(--brand-primary)', background: 'var(--brand-primary)', color: 'var(--text-inverse)' };
 

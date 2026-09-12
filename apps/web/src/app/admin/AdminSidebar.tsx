@@ -63,7 +63,10 @@ export function AdminSidebar({ realtime, activeTab, setActiveTab, isOwner, selle
         <div className="mobile-header-actions-top">
           {isOwner && <AdminNotifications />}
           <button onClick={toggleLang}
-            style={{ padding: '4px 8px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+            aria-label={t('Сменить язык', 'Tilni almashtirish')}
+            // 36 px: это единственная кнопка в шапке телефона рядом с
+            // колокольчиком, и была она 25 px — палец задевал соседа.
+            style={{ minWidth: 36, minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 8px', borderRadius: 'var(--radius-full)', fontSize: '13px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
             {lang === 'ru' ? '🇷🇺' : '🇺🇿'}
           </button>
         </div>
@@ -79,7 +82,8 @@ export function AdminSidebar({ realtime, activeTab, setActiveTab, isOwner, selle
             <h1>
               {isOwner ? <><Settings size={24} color="var(--brand-primary)" /> Microgreen Admin</> : <><Tag size={24} color="var(--success)" /> {sellerName}</>}
             </h1>
-            <button className="mobile-close-btn" onClick={() => setIsMobileOpen(false)}>
+            <button className="mobile-close-btn" onClick={() => setIsMobileOpen(false)}
+              aria-label={t('Закрыть меню', 'Menyuni yopish')}>
               <X size={24} />
             </button>
           </div>
@@ -95,12 +99,13 @@ export function AdminSidebar({ realtime, activeTab, setActiveTab, isOwner, selle
             {isOwner && (
               <button onClick={() => { setPaletteOpen(true); setPaletteQuery(''); setIsMobileOpen(false); }}
                 title={t('Поиск по разделам (Ctrl+K)', "Bo'limlar bo'yicha qidiruv (Ctrl+K)")}
-                style={{ padding: '4px 8px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                style={{ minHeight: 36, padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '12px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--brand-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <Command size={14} /> K
               </button>
             )}
             <button onClick={toggleLang} className="desktop-lang-btn"
-              style={{ padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '11px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+              aria-label={t('Сменить язык', 'Tilni almashtirish')}
+              style={{ minHeight: 36, padding: '4px 10px', borderRadius: 'var(--radius-full)', fontSize: '13px', fontWeight: 700, border: '1.5px solid var(--border)', cursor: 'pointer', background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
               {lang === 'ru' ? '🇷🇺' : '🇺🇿'}
             </button>
             {/* Живой ли экран. Показываем не ради красоты: когда поток
@@ -160,7 +165,7 @@ export function AdminSidebar({ realtime, activeTab, setActiveTab, isOwner, selle
                         всегда — иначе активный экран прятался бы сам. */}
                     <button type="button" onClick={() => nav.toggleGroup(group.title.ru)}
                       aria-expanded={open}
-                      style={{ ...GROUP_TITLE, display: 'flex', alignItems: 'center', gap: 6, width: '100%', background: 'none', border: 'none', cursor: 'pointer', minHeight: 32, textAlign: 'left' }}>
+                      style={{ ...GROUP_TITLE, display: 'flex', alignItems: 'center', gap: 6, width: '100%', background: 'none', border: 'none', cursor: 'pointer', minHeight: 40, textAlign: 'left' }}>
                       <ChevronRight size={12} style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
                       <span style={{ flex: 1 }}>{group.title[lang]}</span>
                       {!open && <span style={{ opacity: 0.6 }}>{nav.groupSize(group.title.ru)}</span>}

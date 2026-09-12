@@ -91,8 +91,10 @@ export function AdminChannelCard({
       )}
 
       {feed && (
+        // 36 px: адрес выгрузки открывают пальцем с телефона, а строка
+        // текста высотой в 22 px — это прицел мыши, а не пальца.
         <a href={feed} target="_blank" rel="noreferrer"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 36, fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>
           <ExternalLink size={14} /> {feed}
         </a>
       )}

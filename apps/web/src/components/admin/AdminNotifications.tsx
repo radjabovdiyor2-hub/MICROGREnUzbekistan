@@ -69,8 +69,10 @@ export function AdminNotifications() {
         onClick={() => { setOpen(!open); if (!open) markAllRead(); }}
         style={{
           background: 'none', border: 'none', cursor: 'pointer', position: 'relative',
+          // 40 px: колокольчик стоит в шапке телефона у самого края, где
+          // палец попадает хуже всего, а за ним прячутся все сигналы дня.
+          minWidth: 40, minHeight: 40, display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: '6px', color: unreadCount > 0 ? 'var(--brand-primary)' : 'var(--text-secondary)',
-          display: 'flex', alignItems: 'center',
         }}
       >
         <Clock size={18} />
