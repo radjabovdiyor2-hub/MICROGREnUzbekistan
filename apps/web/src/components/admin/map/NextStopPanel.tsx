@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Compass, Plus } from 'lucide-react';
 
 import { timeoutSignal } from '@/lib/net/connection';
-import type { NextSuggestion } from '@/lib/customers/nextStop';
+import { readNextAnswer, type NextAnswer } from '@/lib/customers/nextStop';
 import type { RoutePoint } from '@/lib/customers/dayRoute';
 
 import { NavigateButton } from './NavigateButton';
@@ -26,12 +26,6 @@ import { NavigateButton } from './NavigateButton';
 // не таймер: отметился — получил следующую.
 // ══════════════════════════════════════════════════════════════════════
 
-interface Answer {
-  gate: 'shift' | 'position' | null;
-  gateText: string | null;
-  next: NextSuggestion[];
-}
-
 const text = {
   title: { ru: 'Куда дальше', uz: 'Keyin qayerga' },
   empty: { ru: 'Все ваши точки отмечены', uz: 'Barcha nuqtalaringiz belgilangan' },
@@ -49,13 +43,14 @@ export function NextStopPanel({
   /** Положить в объезд. У водителя объезда нет, и кнопки быть не должно. */
   onAdd?: (point: RoutePoint) => void;
 }) {
-  const { data } = useQuery<Answer>({
+  const { data } = useQuery<NextAnswer>({
     queryKey: ['staff-next'],
     queryFn: async () => {
       const res = await fetch('/api/admin/staff/day', { signal: timeoutSignal() });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || 'Не удалось загрузить');
-      return body as Answer;
+      // Форму проверяем, а не предполагаем — см. `readNextAnswer`.
+      return readNextAnswer(body);
     },
   });
 

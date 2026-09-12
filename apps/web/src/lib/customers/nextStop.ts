@@ -143,4 +143,35 @@ export function rankNextStops(
     .map(show);
 }
 
+/** Что отвечает дверь «мой день» про подсказки. */
+export interface NextAnswer {
+  gate: 'shift' | 'position' | null;
+  gateText: string | null;
+  next: NextSuggestion[];
+}
+
+/**
+ * Разобрать ответ двери, НЕ ДОВЕРЯЯ его форме.
+ *
+ * ЗАЧЕМ ПРОВЕРЯТЬ УСПЕШНЫЙ ОТВЕТ. Двести с пустым телом — это не «подсказок
+ * нет», а «ответил кто-то другой»: так отвечает заглушка в сценарии, так
+ * ответит прокси, потерявший маршрут, и так же выглядит старая версия
+ * двери после отката. Экран, который в этот момент идёт в `next.map`,
+ * падает целиком и уносит с собой соседние панели — а выглядит это как
+ * поломка карты, а не как несогласованный ответ.
+ *
+ * Ровно на этом и упал набор в CI: сценарии карты глушат все адреса пустым
+ * объектом, а локальный прогон шёл против живой двери и ничего не заметил.
+ */
+export function readNextAnswer(body: unknown): NextAnswer {
+  const raw = (body ?? {}) as Partial<NextAnswer>;
+  const gate = raw.gate === 'shift' || raw.gate === 'position' ? raw.gate : null;
+  return {
+    gate,
+    // Причина без запрета и запрет без причины одинаково бессмысленны.
+    gateText: gate === null ? null : (raw.gateText ?? ''),
+    next: Array.isArray(raw.next) ? raw.next : [],
+  };
+}
+
 export { COOLDOWN_DAYS, NEARBY_MAX_KM };

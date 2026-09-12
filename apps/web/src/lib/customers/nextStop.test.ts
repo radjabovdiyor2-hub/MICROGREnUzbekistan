@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { NEARBY_MAX_KM, rankNextStops, type NextCandidate } from './nextStop';
+import {
+  NEARBY_MAX_KM, rankNextStops, readNextAnswer, type NextCandidate,
+} from './nextStop';
 
 // ══════════════════════════════════════════════════════════════════════
 // «Куда дальше»: что именно предлагается человеку за рулём.
@@ -147,5 +149,39 @@ describe('rankNextStops — границы', () => {
 
   it('пустой вход — пустой ответ, а не выдумка', () => {
     expect(rankNextStops([], HERE)).toEqual([]);
+  });
+});
+
+describe('readNextAnswer — форме ответа не доверяем', () => {
+  it('двести с пустым телом не роняет экран', () => {
+    // РОВНО НА ЭТОМ УПАЛ CI. Сценарии карты глушат все адреса пустым
+    // объектом; панель шла в `next.map` по `undefined` и уносила с собой
+    // соседние панели — а выглядело это поломкой карты.
+    const answer = readNextAnswer({});
+    expect(answer.next).toEqual([]);
+    expect(answer.gate).toBeNull();
+  });
+
+  it('пустой ответ вообще — то же самое', () => {
+    expect(readNextAnswer(null).next).toEqual([]);
+    expect(readNextAnswer(undefined).next).toEqual([]);
+  });
+
+  it('чужое значение запрета не пролезает', () => {
+    // Запрет решает, что человек прочитает вместо подсказок. Незнакомое
+    // слово показало бы пустой экран без объяснения.
+    expect(readNextAnswer({ gate: 'выдумка', next: [] }).gate).toBeNull();
+  });
+
+  it('запрет без причины получает пустую причину, а не undefined', () => {
+    const answer = readNextAnswer({ gate: 'shift', next: [] });
+    expect(answer.gate).toBe('shift');
+    expect(answer.gateText).toBe('');
+  });
+
+  it('нормальный ответ проходит как есть', () => {
+    const one = { point: { id: 1, name: 'Тест', latitude: 39.6, longitude: 66.9 } };
+    const answer = readNextAnswer({ gate: null, gateText: null, next: [one] });
+    expect(answer.next).toHaveLength(1);
   });
 });
