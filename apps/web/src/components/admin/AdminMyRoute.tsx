@@ -5,6 +5,7 @@ import { Check, Phone, Truck, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { FieldTrackButton } from './map/FieldTrackButton';
+import { NextStopPanel } from './map/NextStopPanel';
 import { NavigateButton } from './map/NavigateButton';
 import { AdminNotice } from './AdminNotice';
 import { useFeedback } from './AdminFeedback';
@@ -89,8 +90,14 @@ export function AdminMyRoute({
 
   if (!route) {
     return (
-      <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-        На вас сегодня маршрут не назначен.
+      <div>
+        {/* Рейса нет — подсказка нужнее всего: человек в поле, а везти
+            некуда. Показать одну строку «маршрут не назначен» и замолчать
+            значит отправить его думать самому там, где мы умеем помочь. */}
+        {!isOwner && <NextStopPanel lang={lang} />}
+        <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
+          На вас сегодня маршрут не назначен.
+        </div>
       </div>
     );
   }
@@ -117,6 +124,12 @@ export function AdminMyRoute({
           <FieldTrackButton lang={lang} />
         </div>
       )}
+
+      {/* «Куда дальше» — НАД списком, но список не трогает: порядок рейса
+          собрал владелец, и подсказка печатает его номер («ближайшая из
+          ваших — №5»), а не переставляет адреса. Водитель видит, что ему
+          предлагают перескочить, и волен не соглашаться. */}
+      {!isOwner && <NextStopPanel lang={lang} />}
 
       <AdminNotice>{error}</AdminNotice>
 

@@ -1,17 +1,12 @@
 'use client';
 
-import { AssignedPlanBanner } from './AssignedPlanBanner';
-import { BuildDayPlanButton } from './BuildDayPlanButton';
 import { CategoryLegend } from './CategoryLegend';
-import { AssignRouteFromMap } from './AssignRouteFromMap';
 import { CustomerMapLegend } from './CustomerMapLegend';
 import { MapKinds } from './MapKinds';
 import { useFieldPeople } from './useFieldPeople';
 import { CustomerMapPanel } from './CustomerMapPanel';
-import { DayRoutePanel } from './DayRoutePanel';
 import { DistrictBreakdown } from './DistrictBreakdown';
 import { MapCoverage } from './MapCoverage';
-import { toPointView } from './mapFeature';
 import { NearbyList } from './NearbyList';
 import { UnplacedTray } from './UnplacedTray';
 import type { useCustomerMap } from './useCustomerMap';
@@ -19,6 +14,9 @@ import type { useDayRoute } from './useDayRoute';
 
 // ══════════════════════════════════════════════════════════════════════
 // Панели карты, собранные один раз на два места.
+//
+// Колонка объезда живёт отдельно (`RoutePanel.tsx`): этот файл упирался в
+// потолок в 200 строк, а панелей в ней стало четыре.
 //
 // Одни и те же панели живут в боковой колонке (обычный режим) и в доке
 // (полный экран). Связывание у них нетривиальное — легенда зависит от
@@ -70,48 +68,6 @@ export function LegendPanel({ lang, m, route }: PanelDeps) {
         onToggle={m.toggleState}
       />
       {kinds}
-    </>
-  );
-}
-
-export function RoutePanel({ lang, m, route, isOwner = false }: PanelDeps & { isOwner?: boolean }) {
-  return (
-    <>
-      {/* Назначенное владельцем — ПЕРВЫМ и до кнопки автоплана: иначе
-          продавец соберёт себе свой объезд и не узнает, что ему выдали
-          задание. Принимается кнопкой, а не подставляется молча. */}
-      <AssignedPlanBanner lang={lang} stops={route.stops} onAccept={route.setAll} />
-
-      {/* План собирается по ТЕМ ЖЕ точкам, что видны на карте: если
-          человек отфильтровал по типу или району, план обязан идти по
-          его выбору, а не по всей базе за его спиной. */}
-      <BuildDayPlanButton
-        lang={lang}
-        points={m.visible.features.map(toPointView)}
-        hasStops={route.stops.length > 0}
-        isOwner={isOwner}
-        onPlan={route.setAll}
-      />
-      {/* Назначение — СРАЗУ ПОД списком точек и только владельцу: он
-          набрал их глазами по карте, и уходить ради этого на другой экран,
-          чтобы набрать тот же список поиском заново, — это способ
-          ошибиться, а не второй способ работы. */}
-      {isOwner && (
-        <AssignRouteFromMap lang={lang} stops={route.stops} onAssigned={route.clear} />
-      )}
-
-    <DayRoutePanel
-      lang={lang}
-      stops={route.stops}
-      from={route.from}
-      onRemove={route.remove}
-      onMove={route.move}
-      onSort={route.sort}
-      onClear={route.clear}
-      onPick={(stop) =>
-        m.focusPoint({ id: stop.id, longitude: stop.longitude, latitude: stop.latitude })
-      }
-    />
     </>
   );
 }

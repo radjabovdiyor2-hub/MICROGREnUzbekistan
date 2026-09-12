@@ -4,7 +4,8 @@ import { X } from 'lucide-react';
 
 import { MapFilterRibbons } from './MapFilterRibbons';
 import { chipStyle } from './mapChrome';
-import { DistrictsPanel, LegendPanel, PointPanel, RoutePanel, TrayPanel } from './mapPanels';
+import { DistrictsPanel, LegendPanel, PointPanel, TrayPanel } from './mapPanels';
+import { RoutePanel } from './RoutePanel';
 import type { DockTab } from './MapDock';
 import type { useCustomerMap } from './useCustomerMap';
 import type { useDayRoute } from './useDayRoute';

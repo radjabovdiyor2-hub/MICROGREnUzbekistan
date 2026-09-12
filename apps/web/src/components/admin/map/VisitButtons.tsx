@@ -64,6 +64,9 @@ export function VisitButtons({ customerId, lang, lastVisitDays, queue }: Props) 
       // осталась бы неотмеченной до следующего опроса раз в минуту.
       queryClient.invalidateQueries({ queryKey: ['admin-customers-map'] });
       queryClient.invalidateQueries({ queryKey: ['admin-customer', customerId] });
+      // И подсказка «куда дальше» — ради этого владелец и выбрал «сама
+      // после каждой отметки»: ритм задаёт работа, а не таймер.
+      queryClient.invalidateQueries({ queryKey: ['staff-next'] });
     },
     onError: (err: unknown) =>
       setError(err instanceof Error ? err.message : 'Ошибка при отметке'),

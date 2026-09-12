@@ -1,6 +1,7 @@
 import { prisma, Prisma } from '@repo/database';
 
-import { VISIT_TYPES } from './visits';
+import { VISIT_WHERE } from './visits';
+import { markIndex, markKey } from './planDone';
 
 // ══════════════════════════════════════════════════════════════════════
 // План объезда на сервере: сохранить, прочитать, посчитать исполнение.
@@ -252,29 +253,30 @@ export async function readDayPlans(params: {
   });
 
   const customerIds = plans.flatMap((p) => p.stops.map((s) => s.customerId));
+  const assignees = [...new Set(plans.map((p) => p.assignee).filter(Boolean))];
   const visits =
-    customerIds.length === 0
+    customerIds.length === 0 || assignees.length === 0
       ? []
       : await prisma.interaction.findMany({
           where: {
             customerId: { in: customerIds },
-            interactionType: { in: VISIT_TYPES },
+            // ЧЬЯ отметка — часть вопроса. Без этого визит любого сотрудника
+            // закрывал точку в плане у всех сразу (см. `planDone.ts`).
+            botName: { in: assignees },
+            ...VISIT_WHERE,
             createdAt: { gte: from, lt: to },
           },
-          select: { customerId: true, distanceM: true, accuracyM: true },
+          select: { customerId: true, botName: true, distanceM: true, accuracyM: true },
           orderBy: { createdAt: 'desc' },
         });
 
-  // Первая по времени отметка на клиента — она и закрывает остановку.
-  const byCustomer = new Map<number, { distanceM: number | null; accuracyM: number | null }>();
-  for (const v of visits) {
-    if (v.customerId === null || byCustomer.has(v.customerId)) continue;
-    byCustomer.set(v.customerId, { distanceM: v.distanceM, accuracyM: v.accuracyM });
-  }
+  // Последняя по времени отметка каждой пары «исполнитель + клиент»: вечернее
+  // «договорились» отменяет утреннее «не застал», и показывать надо итог.
+  const byMark = markIndex(visits);
 
   return plans.map((p) => {
     const stops: PlanStopView[] = p.stops.map((s) => {
-      const visit = byCustomer.get(s.customerId);
+      const visit = byMark.get(markKey(p.assignee, s.customerId));
       return {
         customerId: s.customerId,
         name: s.customer.companyName || s.customer.name || `#${s.customerId}`,
@@ -360,7 +362,7 @@ export async function readDayFacts(params: {
   const [rawVisits, rawSales, plannedStops] = await Promise.all([
     prisma.interaction.findMany({
       where: {
-        interactionType: { in: VISIT_TYPES },
+        ...VISIT_WHERE,
         createdAt: { gte: from, lt: to },
         ...(params.assignee ? { botName: params.assignee } : {}),
       },

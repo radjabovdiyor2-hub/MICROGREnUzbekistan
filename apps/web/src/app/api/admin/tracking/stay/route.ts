@@ -4,6 +4,7 @@ import { prisma } from '@repo/database';
 import { actorOf, getSession } from '@/lib/adminAuth';
 import { requireBotAuth } from '@/lib/botAuth';
 import { getNumber } from '@/lib/settings/store';
+import { POSITION_FRESH_MIN } from '@/lib/tracking/ping';
 import { nearestPin } from '@/lib/tracking/stays';
 import { audit } from '@/lib/audit';
 import { formatLocalDate, localDayRange } from '@/lib/localDate';
@@ -84,9 +85,9 @@ async function whereIsHe(employeeId: string): Promise<{ customerId: number; at: 
     select: { at: true, latitude: true, longitude: true },
     orderBy: { at: 'desc' },
   });
-  // Точка старше получаса — это не «сейчас»: за полчаса уезжают через весь
-  // город, и отмечать по ней визит значило бы подтверждать несуществующее.
-  if (!last || Date.now() - last.at.getTime() > 30 * 60_000) return null;
+  // Порог — общий с подсказкой «куда дальше»: обе двери утверждают о
+  // человеке по одной и той же точке, и расходиться им нельзя.
+  if (!last || Date.now() - last.at.getTime() > POSITION_FRESH_MIN * 60_000) return null;
 
   const radiusM = await getNumber('field.stayRadiusM');
   const pins = await prisma.customer.findMany({

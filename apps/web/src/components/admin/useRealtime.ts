@@ -45,10 +45,12 @@ const KEYS_BY_TOPIC: Record<string, string[]> = {
     'admin-stats', 'admin-forecast', 'admin-analytics',
     'admin-analytics-health', 'admin-analytics-abcxyz',
   ],
-  customers: ['admin-customers', 'admin-customer', 'admin-customers-map'],
+  customers: ['admin-customers', 'admin-customer', 'admin-customers-map', 'staff-next'],
   // Живой слой поля: общий список, слежение за одним и точки людей на
   // карте клиентов. Без этой строки все трое ждали бы своего опроса.
-  field: ['field-live', 'field-watch', 'field-people-layer'],
+  // `staff-next` здесь и в `customers` намеренно: подсказку двигает и новая
+  // крошка трека (человек проехал), и отметка визита (точка закрылась).
+  field: ['field-live', 'field-watch', 'field-people-layer', 'staff-next'],
   tasks: ['admin-tasks', 'admin-approvals', 'admin-department'],
   bots: ['admin-bot-health', 'admin-ai-spend'],
 };

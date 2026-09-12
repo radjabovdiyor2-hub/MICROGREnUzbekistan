@@ -90,6 +90,27 @@ export function assignedPlanText(params: {
  * ломает разметку целиком, и сообщение не доставляется вовсе. Отказ при
  * этом тихий: Telegram отвечает 400, а человек просто не получает задание.
  */
+/**
+ * Блок «Куда дальше» для сообщения в Telegram.
+ *
+ * СОБИРАЕТ ВИТРИНА, а не бот. То же правило, что у списка точек: собери его
+ * бот вторыми руками — и через месяц человек видел бы в сообщении один
+ * порядок, а на экране другой. Здесь оно даёт ещё и подарок: подсказка
+ * приезжает в «Мой день» без единой строки Python.
+ *
+ * Причина у каждой строки обязательна: список без причин читается как
+ * распоряжение, а решает человек.
+ */
+export function nextLines(
+  next: { point: { name: string }; kmLabel: string; reason: string }[],
+): string {
+  if (next.length === 0) return '';
+  const rows = next.map(
+    (s, i) => `${i + 1}. <b>${escapeHtml(s.point.name)}</b> — ${s.kmLabel} · ${s.reason}`,
+  );
+  return `\n\n🧭 <b>Куда дальше</b>\n${rows.join('\n')}`;
+}
+
 export function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

@@ -59,6 +59,10 @@ const RULES: Rule[] = [
   // Опознание сотрудника по Telegram: бот спрашивает, кто это и что у
   // него на сегодня, чтобы показать полевое меню вместо покупательского.
   { prefix: '/api/admin/staff/me', access: 'STAFF', methods: ['GET'] },
+  // «Мой день» и подсказка «куда дальше». Правила у адреса не было вовсе:
+  // он проходил только потому, что ботовый секрет обходит таблицу. Стоило
+  // открыть экран приложению — и сессия продавца получила бы отказ.
+  { prefix: '/api/admin/staff/day', access: 'STAFF', methods: ['GET'] },
   { prefix: '/api/admin/visit-plans/accept', access: 'STAFF', methods: ['POST'] },
   // Вечерний итог дня зовёт сторож офиса общим секретом.
   { prefix: '/api/admin/visit-plans/summarize', access: 'STAFF', methods: ['POST'] },

@@ -1,6 +1,7 @@
 'use client';
 
-import { DistrictsPanel, LegendPanel, PointPanel, RoutePanel, TrayPanel } from './mapPanels';
+import { DistrictsPanel, LegendPanel, PointPanel, TrayPanel } from './mapPanels';
+import { RoutePanel } from './RoutePanel';
 import { MapFoldable } from './MapFoldable';
 import type { useCustomerMap } from './useCustomerMap';
 import type { useDayRoute } from './useDayRoute';

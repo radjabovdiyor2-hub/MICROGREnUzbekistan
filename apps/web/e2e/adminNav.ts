@@ -71,6 +71,28 @@ export async function openAdminTab(page: Page, name: string): Promise<void> {
   await page.locator(".admin-tab").filter({ hasText: name }).first().click();
 }
 
+/**
+ * Войти ПРОДАВЦОМ, а не владельцем.
+ *
+ * ЗАЧЕМ ОТДЕЛЬНО. Половина полевых экранов показывается по правилу
+ * `!isOwner`: «Мой рейс», кнопка смены, подсказка «куда дальше». Владелец их
+ * не видит намеренно — он не в поле. Значит и проверить их входом владельца
+ * нельзя: сценарий честно находил бы пустоту.
+ *
+ * PIN проверяет дверь склада; здесь она заглушена, как и пароль владельца в
+ * `loginAsOwner`: предмет проверки — экран, а не подбор четырёх цифр.
+ */
+export async function loginAsSeller(page: Page, name = "Азиз"): Promise<void> {
+  await page.route("**/api/inventory/employees/auth", (route) =>
+    route.fulfill({ json: { success: true, employee: { id: "emp-1", name } } }),
+  );
+  await page.goto("/admin");
+  await page.getByText("Продавец", { exact: true }).first().click();
+  for (const digit of "1234") {
+    await page.getByRole("button", { name: digit, exact: true }).first().click();
+  }
+}
+
 /** Вкладка «Клиенты» → вид «Карта». Ждём сцену, а не просто холст. */
 export async function openMap(page: Page): Promise<void> {
   await loginAsOwner(page);

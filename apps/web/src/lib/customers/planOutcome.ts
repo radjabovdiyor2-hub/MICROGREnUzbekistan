@@ -1,6 +1,8 @@
 import { prisma } from '@repo/database';
 
 import { localDayRange } from '@/lib/localDate';
+import { markIndex, markKey } from './planDone';
+import { VISIT_WHERE } from './visits';
 
 // ══════════════════════════════════════════════════════════════════════
 // Чем кончился объезд — сигнал владельцу.
@@ -121,17 +123,25 @@ export async function summarizeDay(day: string): Promise<number> {
   const { start: from, end: to } = localDayRange(day);
   const visits = await prisma.interaction.findMany({
     where: {
-      channel: 'visit',
+      // ТОТ ЖЕ признак «это визит», что и у экрана объездов. Раньше здесь
+      // отбирали по каналу, а на экране — по типу: два определения одного
+      // понятия, которые совпадали лишь потому, что их пишет одна дверь.
+      ...VISIT_WHERE,
       createdAt: { gte: from, lt: to },
+      botName: { in: plans.map((p) => p.assignee) },
       customerId: { in: plans.flatMap((p) => p.stops.map((s) => s.customerId)) },
     },
-    select: { customerId: true },
+    // Доказательство расстояния вечернему итогу не нужно — нужен факт.
+    select: { customerId: true, botName: true, distanceM: true, accuracyM: true },
+    orderBy: { createdAt: 'desc' },
   });
-  const visited = new Set(visits.map((v) => v.customerId));
+  const byMark = markIndex(visits);
 
   let written = 0;
   for (const plan of plans) {
-    const done = plan.stops.filter((s) => visited.has(s.customerId)).length;
+    // Считаем ТОЛЬКО свои отметки: иначе объезд закрывался чужой поездкой к
+    // тому же клиенту, и вечерний сигнал хвалил не того.
+    const done = plan.stops.filter((s) => byMark.has(markKey(plan.assignee, s.customerId))).length;
     const outcome = planOutcome(plan.stops.length, done);
     if (await raisePlanOutcome(plan.assignee, outcome, day)) written += 1;
   }
