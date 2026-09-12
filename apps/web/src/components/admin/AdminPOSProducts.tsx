@@ -3,13 +3,32 @@
 import { Camera, Clock, Search } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { formatQty } from '@/lib/qty';
+import { perUnit } from '@/lib/units';
 import type { CartItem, Product } from './AdminPOSTypes';
 
 // Левая половина кассы: поиск, фильтр рубрик и сетка товаров.
 // Вынесена из AdminPOS: панель самодостаточна, наружу от неё нужно
 // только «добавить в корзину».
 
+const text = {
+  search: { ru: 'Поиск товара...', uz: 'Mahsulot qidirish...' },
+  all: { ru: 'Все', uz: 'Barchasi' },
+  empty: { ru: 'Товар не найден', uz: 'Mahsulot topilmadi' },
+};
+
 interface Props {
+  /** Язык продавца. Панель была русской при любом языке кабинета. */
+  lang: 'ru' | 'uz';
+  /**
+   * Своя высота сетки. `none` — когда высоту задаёт РОДИТЕЛЬ.
+   *
+   * ЗАЧЕМ. Панель ограничивала себя сама числом `calc(100vh - 370px)`,
+   * подобранным под кассу во весь экран. В листе продажи с точки её
+   * оборачивает своя прокрутка на 38vh — и получались ДВЕ вложенные
+   * прокрутки, внутренняя выше внешней. Карточка резалась пополам, и
+   * выглядело это как «товар не загрузился».
+   */
+  gridMaxHeight?: string;
   products: Product[];
   cart: CartItem[];
   loading: boolean;
@@ -23,8 +42,9 @@ interface Props {
 }
 
 export function AdminPOSProducts({
-  products, cart, loading, searchQuery, setSearchQuery,
+  lang, products, cart, loading, searchQuery, setSearchQuery,
   selectedCategory, setSelectedCategory, addToCart, fmt, inputStyle,
+  gridMaxHeight = 'calc(100vh - 370px)',
 }: Props) {
   return (
     <div className="pos-products">
@@ -32,7 +52,7 @@ export function AdminPOSProducts({
         <Search size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
         <input
           type="text"
-          placeholder="Поиск товара..."
+          placeholder={text.search[lang]}
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           style={{
@@ -58,20 +78,22 @@ export function AdminPOSProducts({
           }}>
             <button className="pos-cat-btn" onClick={() => setSelectedCategory('all')}
               style={{
-                padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
+                // 40 пикселей, а не 27: по рубрикам тычут на ходу и одной
+                // рукой, и промах стоит лишнего касания в чужую рубрику.
+                minHeight: 40, padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
                 fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', transition: 'all 0.2s',
                 background: selectedCategory === 'all' ? 'var(--brand-primary)' : 'var(--bg-tertiary)',
                 color: selectedCategory === 'all' ? 'white' : 'var(--text-secondary)',
                 boxShadow: selectedCategory === 'all' ? '0 2px 8px rgba(var(--brand-primary-rgb), 0.3)' : 'none',
               }}>
-              Все ({products.length})
+              {text.all[lang]} ({products.length})
             </button>
             {categories.map(cat => {
               const count = products.filter(p => p.category?.nameUz === cat).length;
               return (
                 <button key={cat} className="pos-cat-btn" onClick={() => setSelectedCategory(cat)}
                   style={{
-                    padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
+                    minHeight: 40, padding: '8px 16px', borderRadius: '20px', border: 'none', cursor: 'pointer',
                     fontSize: '13px', fontWeight: 700, whiteSpace: 'nowrap', transition: 'all 0.2s',
                     background: selectedCategory === cat ? 'var(--brand-primary)' : 'var(--bg-tertiary)',
                     color: selectedCategory === cat ? 'white' : 'var(--text-secondary)',
@@ -87,7 +109,8 @@ export function AdminPOSProducts({
 
       <div className="pos-product-grid" style={{
         display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px',
-        maxHeight: 'calc(100vh - 370px)', overflowY: 'auto',
+        maxHeight: gridMaxHeight,
+        overflowY: gridMaxHeight === 'none' ? 'visible' : 'auto',
         borderRadius: '14px', paddingRight: '2px', paddingBottom: cart.length > 0 ? '70px' : '0',
       }}>
         {loading ? (
@@ -97,7 +120,7 @@ export function AdminPOSProducts({
         ) : products.length === 0 ? (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
             <Search size={36} style={{ marginBottom: 'var(--space-3)', opacity: 0.4 }} />
-            <p style={{ fontSize: 'var(--text-sm)' }}>Товар не найден</p>
+            <p style={{ fontSize: 'var(--text-sm)' }}>{text.empty[lang]}</p>
           </div>
         ) : (
           products
@@ -175,7 +198,7 @@ export function AdminPOSProducts({
                   {fmt(product.price)}
                   {product.unit && (
                     <span style={{ display: 'block', fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                      за {product.unit}
+                      {perUnit(product.unit, lang)}
                     </span>
                   )}
                 </div>

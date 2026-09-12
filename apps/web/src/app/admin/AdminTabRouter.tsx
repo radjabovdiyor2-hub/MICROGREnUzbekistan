@@ -114,7 +114,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
 }) {
   return (
   <main className="admin-main">
-    {activeTab === 'pos' && canSell && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} isOwner={isOwner} />}
+    {activeTab === 'pos' && canSell && <AdminPOS sellerName={isOwner ? t('Владелец', 'Egasi') : sellerName} isOwner={isOwner} lang={lang} />}
     {activeTab === 'stepan' && isOwner && <AdminStepan lang={lang} />}
     {activeTab === 'owner' && isOwner && <AdminOwner lang={lang} />}
     {/* Сводка и доход были двумя вкладками на одном разделе аналитики:

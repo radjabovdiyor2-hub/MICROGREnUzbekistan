@@ -8,6 +8,7 @@ import { MicrogreensCanvas, seedFromString } from '@/components/ui/MicrogreensCa
 import { QuantityStepper } from '@/components/ui/QuantityStepper';
 import { formatPrice } from '@repo/shared';
 import { useLang } from '@/components/providers/LangProvider';
+import { unitLabel } from '@/lib/units';
 import type { useCart } from '@/components/providers/CartProvider';
 import type { Product } from './productTypes';
 
@@ -78,7 +79,7 @@ export function ProductCardBody({
           как цена за кочан, и покупатель уходит. */}
       {product.unit && (
         <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-normal)', color: 'var(--text-muted)' }}>
-          {' / '}{product.unit}
+          {' / '}{unitLabel(product.unit, lang)}
         </span>
       )}
     </span>

@@ -5,6 +5,7 @@ import { CheckCircle, Flame, Heart, Leaf, Phone, ShoppingCart, Sprout, Truck, Za
 import { StarRow } from './productPageParts';
 import type { Product } from './productDetailTypes';
 import { useLang } from '@/components/providers/LangProvider';
+import { unitLabel } from '@/lib/units';
 import { CONTACT, DELIVERY, GROW_TO_ORDER_DAYS } from '@/lib/site';
 import { QuantityStepper } from '@/components/ui/QuantityStepper';
 
@@ -29,7 +30,7 @@ interface Props {
 }
 
 export function ProductMain({ product, catIcon, discount, fav, quantity, setQuantity, added, fmt, handleAddToCart, handleBuyNow, handleToggleFav, handleRatingClick }: Props) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   return (
     <>
@@ -86,7 +87,7 @@ export function ProductMain({ product, catIcon, discount, fav, quantity, setQuan
     {/* Price */}
     <div style={{ marginBottom: 'var(--space-6)' }}>
       <div style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-3xl)', color: 'var(--brand-primary)' }}>{fmt(product.price)} {t("so'm", "сум")}{product.unit && (
-        <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-normal)', color: 'var(--text-muted)' }}>{' / '}{product.unit}</span>
+        <span style={{ fontSize: 'var(--text-base)', fontWeight: 'var(--font-normal)', color: 'var(--text-muted)' }}>{' / '}{unitLabel(product.unit, lang)}</span>
       )}</div>
       {product.oldPrice && <div style={{ fontSize: 'var(--text-lg)', color: 'var(--text-muted)', textDecoration: 'line-through' }}>{fmt(product.oldPrice)} {t("so'm", "сум")}</div>}
     </div>

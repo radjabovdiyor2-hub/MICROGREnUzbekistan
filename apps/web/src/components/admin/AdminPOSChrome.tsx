@@ -6,7 +6,17 @@ import { AlertTriangle, RefreshCw, Search, ShoppingCart } from 'lucide-react';
 // плавающая кнопка корзины и адаптивные стили.
 // Вынесено из AdminPOS: файл перерос 200 строк.
 
+const text = {
+  sale: { ru: 'Продажа', uz: 'Sotish' },
+  refund: { ru: 'Возврат', uz: 'Qaytarish' },
+  goods: { ru: 'Товары', uz: 'Mahsulotlar' },
+  receipt: { ru: 'Чек', uz: 'Chek' },
+  positions: { ru: 'поз.', uz: 'ta' },
+};
+
 interface Props {
+  /** Язык продавца: обвязка кассы оставалась русской при любом языке. */
+  lang: 'ru' | 'uz';
   returnMode: boolean;
   setReturnMode: (v: boolean) => void;
   clearCart: () => void;
@@ -19,7 +29,7 @@ interface Props {
 }
 
 export function AdminPOSChrome({
-  returnMode, setReturnMode, clearCart, showCart, setShowCart,
+  lang, returnMode, setReturnMode, clearCart, showCart, setShowCart,
   productCount, cartCount, total, fmt,
 }: Props) {
   return (
@@ -29,7 +39,7 @@ export function AdminPOSChrome({
       <button onClick={() => { setReturnMode(false); clearCart(); }}
         className={`btn btn-sm ${!returnMode ? 'btn-primary' : 'btn-ghost'}`}
         style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center', borderRadius: '12px', padding: '12px', fontSize: '15px', fontWeight: 700 }}>
-        <ShoppingCart size={18} /> Продажа
+        <ShoppingCart size={18} /> {text.sale[lang]}
       </button>
       <button onClick={() => { setReturnMode(true); clearCart(); }}
         style={{
@@ -39,7 +49,7 @@ export function AdminPOSChrome({
           color: returnMode ? 'var(--text-inverse)' : 'var(--text-secondary)',
           transition: 'all 0.2s',
         }}>
-        <RefreshCw size={18} /> Возврат
+        <RefreshCw size={18} /> {text.refund[lang]}
       </button>
     </div>
 
@@ -57,12 +67,12 @@ export function AdminPOSChrome({
       <button onClick={() => setShowCart(false)}
         className={`btn ${!showCart ? 'btn-primary' : 'btn-ghost'}`}
         style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', borderRadius: '12px', padding: '12px', fontSize: '14px', fontWeight: 700 }}>
-        <Search size={16} /> Товары ({productCount})
+        <Search size={16} /> {text.goods[lang]} ({productCount})
       </button>
       <button onClick={() => setShowCart(true)}
         className={`btn ${showCart ? 'btn-primary' : 'btn-ghost'}`}
         style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', justifyContent: 'center', position: 'relative', borderRadius: '12px', padding: '12px', fontSize: '14px', fontWeight: 700 }}>
-        <ShoppingCart size={16} /> Чек
+        <ShoppingCart size={16} /> {text.receipt[lang]}
         {cartCount > 0 && <span style={{
           position: 'absolute', top: -6, right: -6,
           padding: '2px 8px', minWidth: 22, height: 22,
@@ -87,7 +97,7 @@ export function AdminPOSChrome({
           }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShoppingCart size={20} />
-            Чек ({cartCount} поз.)
+            {text.receipt[lang]} ({cartCount} {text.positions[lang]})
           </span>
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 800 }}>
             {fmt(total)} сум

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { unitLabel } from '@/lib/units';
 import { Edit, Minus, Plus, Trash } from 'lucide-react';
 import { formatQty, isValidQty, normalizeQty, stepFor } from '@/lib/qty';
 import type { CartItem } from './AdminPOSTypes';
@@ -10,6 +11,8 @@ import type { CartItem } from './AdminPOSTypes';
 // Enter/Escape/blur», что у цены, и вдвоём они занимают почти весь файл.
 
 interface Props {
+  /** Язык продавца: единица показывалась как в прайсе, по-русски. */
+  lang: 'ru' | 'uz';
   item: CartItem;
   editingPriceId: string | null;
   setEditingPriceId: (id: string | null) => void;
@@ -30,7 +33,7 @@ const editInputStyle: React.CSSProperties = {
 };
 
 export function AdminPOSCartRow({
-  item, editingPriceId, setEditingPriceId, editPriceValue, setEditPriceValue,
+  lang, item, editingPriceId, setEditingPriceId, editPriceValue, setEditPriceValue,
   updateQuantity, setQuantity, updatePrice, setPriceReason, removeFromCart, fmt,
 }: Props) {
   const [editingQty, setEditingQty] = useState(false);
@@ -107,7 +110,7 @@ export function AdminPOSCartRow({
             {formatQty(item.quantity)}
             {item.product.unit && (
               <span style={{ display: 'block', fontSize: '9px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                {item.product.unit}
+                {unitLabel(item.product.unit, lang)}
               </span>
             )}
           </span>

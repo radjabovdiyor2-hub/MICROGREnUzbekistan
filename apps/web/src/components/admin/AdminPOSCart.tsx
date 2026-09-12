@@ -11,6 +11,7 @@ import type { CartDiscount, CartItem, ContractPrice, DebtInfo, PosCustomer, Sale
 // Вынесена из AdminPOS вместе с левой панелью.
 
 interface Props {
+  lang: 'ru' | 'uz';
   cart: CartItem[];
   returnMode: boolean;
   processing: boolean;
@@ -49,7 +50,7 @@ interface Props {
 }
 
 export function AdminPOSCart({
-  cart, returnMode, processing, paymentMethod, setPaymentMethod,
+  lang, cart, returnMode, processing, paymentMethod, setPaymentMethod,
   returnReason, setReturnReason, returnSaleNumber, setReturnSaleNumber, debtInfo, setDebtInfo,
   editingPriceId, setEditingPriceId, editPriceValue, setEditPriceValue,
   updateQuantity, setQuantity, updatePrice, setPriceReason, removeFromCart, processSale, processReturn,
@@ -85,6 +86,7 @@ export function AdminPOSCart({
       ) : (
         <>
           <AdminPOSCartItems
+          lang={lang}
             cart={cart}
             editingPriceId={editingPriceId}
             setEditingPriceId={setEditingPriceId}

@@ -8,6 +8,7 @@ import type { CartItem } from './AdminPOSTypes';
 // количеством файл переставал помещаться в 200 строк.
 
 interface Props {
+  lang: 'ru' | 'uz';
   cart: CartItem[];
   editingPriceId: string | null;
   setEditingPriceId: (id: string | null) => void;

@@ -144,9 +144,16 @@ export function PosSaleSheet({ customer, lang, sellerName, origin, onClose, onSo
       <PosQueueBanner queue={submit.queue} lang={lang} />
 
       {/* Сетка товаров ограничена по высоте: под ней должны помещаться
-          корзина и кнопка «Продать», иначе на телефоне до неё не долистать. */}
+          корзина и кнопка «Продать», иначе на телефоне до неё не долистать.
+
+          ВЫСОТУ ЗАДАЁТ ТОЛЬКО ЭТА ОБЁРТКА. Панель ограничивала себя ещё и
+          сама — числом под кассу во весь экран, — и две вложенные прокрутки
+          резали карточку пополам: на телефоне это выглядело так, будто
+          товар не загрузился. */}
       <div style={{ maxHeight: '38vh', overflowY: 'auto' }}>
         <AdminPOSProducts
+          lang={lang}
+          gridMaxHeight="none"
           products={s.products}
           cart={s.cart}
           loading={s.loading}
@@ -163,6 +170,7 @@ export function PosSaleSheet({ customer, lang, sellerName, origin, onClose, onSo
       {s.cart.length > 0 && (
         <div style={{ maxHeight: '30vh', display: 'flex', flexDirection: 'column' }}>
           <AdminPOSCartItems
+            lang={lang}
             cart={s.cart}
             editingPriceId={editingPriceId}
             setEditingPriceId={setEditingPriceId}

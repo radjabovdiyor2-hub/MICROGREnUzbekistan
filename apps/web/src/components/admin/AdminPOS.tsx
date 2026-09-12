@@ -13,7 +13,17 @@ import { usePosSession } from './usePosSession';
 // покупатель и оформление чека общие с кассой на точке карты, а здесь
 // осталась разметка.
 
-export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string; isOwner?: boolean }) {
+export function AdminPOS({
+  sellerName,
+  isOwner = false,
+  lang = 'ru',
+}: {
+  sellerName?: string;
+  isOwner?: boolean;
+  /** Язык кассы. Раньше не приходил вовсе — и панель товаров, которую
+   *  продавец видит весь день, оставалась русской в узбекском кабинете. */
+  lang?: 'ru' | 'uz';
+}) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [returnMode, setReturnMode] = useState(false);
   const [showCart, setShowCart] = useState(false);
@@ -52,6 +62,7 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
   return (
     <>
       <AdminPOSChrome
+        lang={lang}
         returnMode={returnMode} setReturnMode={setReturnMode} clearCart={() => s.setCart([])}
         showCart={showCart} setShowCart={setShowCart}
         productCount={s.products.filter(p => selectedCategory === 'all' || p.category?.nameUz === selectedCategory).length}
@@ -67,6 +78,7 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
           оставалась бы двумя колонками по 195 пикселей. */}
       <div className="pos-grid">
         <AdminPOSProducts
+          lang={lang}
           products={s.products}
           cart={s.cart}
           loading={s.loading}
@@ -80,6 +92,7 @@ export function AdminPOS({ sellerName, isOwner = false }: { sellerName?: string;
         />
 
         <AdminPOSCart
+          lang={lang}
           cart={s.cart}
           returnMode={returnMode}
           processing={submit.processing}
