@@ -95,6 +95,9 @@ export function Header() {
               color: 'var(--text-main)',
               border: '1px solid var(--border-color)',
               borderRadius: 8,
+              // 40 px, а не 29: город выбирают пальцем на ходу, и промах
+              // здесь меняет весь прайс и сроки доставки на странице.
+              minHeight: 40,
               padding: '6px 28px 6px 12px',
               fontSize: '13px',
               fontWeight: 600,

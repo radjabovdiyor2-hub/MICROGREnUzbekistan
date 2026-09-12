@@ -44,6 +44,8 @@ export function HeaderSearch({
         background: 'none', border: 'none', cursor: 'pointer', 
         color: isListening ? 'var(--error)' : 'var(--text-muted)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        // Прицел, а не иконка: было 19 px по высоте — палец мимо.
+        minWidth: 40, minHeight: 40,
         padding: '0 8px',
       }}
     >

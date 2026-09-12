@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { loadRecipeBySlug, recipeCartProducts, listRecipes, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { RecipeTracker } from '@/components/recipe/RecipeTracker';
-import { StepTimer } from '@/components/recipe/StepTimer';
+import { RecipeBody } from '@/components/recipe/RecipeBody';
 import { RecipeIngredientsSection } from '@/components/recipe/RecipeIngredientsSection';
 import { jsonLdScript, recipeSchema, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
@@ -72,10 +72,8 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
   }
 
   const cartProducts = recipeCartProducts(recipe);
-  const meta = [
-    recipe.cookMinutes ? `${recipe.cookMinutes} мин` : null,
-    recipe.servings ? `${recipe.servings} порц.` : null,
-  ].filter(Boolean).join(' · ');
+  // Минуты и порции считает `RecipeBody`: единицы у них тоже переводятся,
+  // и держать вторую копию здесь значило бы однажды их развести.
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-primary)', padding: '90px 16px 60px' }}>
@@ -100,25 +98,16 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
           />
         )}
 
-        <h1 style={{
-          fontFamily: "'Playfair Display', serif", fontSize: 'clamp(28px, 7vw, 40px)',
-          fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1,
-        }}>{recipe.titleRu}</h1>
-        {recipe.titleUz && (
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 15, color: 'var(--text-muted, var(--text-muted))', marginTop: 4 }}>
-            {recipe.titleUz}
-          </div>
-        )}
-        {meta && (
-          <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: ACCENT, marginTop: 8, fontWeight: 600 }}>
-            {meta}
-          </div>
-        )}
-        {recipe.descriptionRu && (
-          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 15, lineHeight: 1.6, color: 'var(--text-secondary)', marginTop: 14 }}>
-            {recipe.descriptionRu}
-          </p>
-        )}
+        <RecipeBody
+          titleRu={recipe.titleRu}
+          titleUz={recipe.titleUz}
+          descriptionRu={recipe.descriptionRu}
+          descriptionUz={recipe.descriptionUz}
+          cookMinutes={recipe.cookMinutes}
+          servings={recipe.servings}
+          steps={recipe.steps}
+          accent={ACCENT}
+        />
 
         {/* Ингредиенты + сбор набора */}
         <RecipeIngredientsSection
@@ -127,36 +116,6 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
           slug={slug}
           accent={ACCENT}
         />
-
-        {/* Шаги */}
-        {recipe.steps.length > 0 && (
-          <section style={{ marginTop: 32 }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
-              Приготовление
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {recipe.steps.map((s, i) => (
-                <div key={s.id} style={{ display: 'flex', gap: 14 }}>
-                  <div style={{
-                    flexShrink: 0, width: 32, height: 32, borderRadius: '50%',
-                    background: ACCENT, color: 'var(--text-inverse)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontFamily: "'Inter', sans-serif", fontWeight: 800,
-                  }}>{i + 1}</div>
-                  <div style={{ flex: 1 }}>
-                    {s.image && (
-                      <img src={s.image} alt="" style={{ width: '100%', borderRadius: 14, marginBottom: 8, objectFit: 'cover' }} />
-                    )}
-                    <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 15, lineHeight: 1.6, color: 'var(--text-secondary)' }}>
-                      {s.textRu}
-                    </div>
-                    {s.timerSeconds ? <StepTimer seconds={s.timerSeconds} accent={ACCENT} /> : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
 
         {others.length > 0 && (
           <section style={{ marginTop: 40 }}>

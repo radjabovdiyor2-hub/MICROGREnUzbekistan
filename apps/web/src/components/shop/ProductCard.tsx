@@ -107,7 +107,9 @@ export function ProductCard({ product, list = 'unknown' }: { product: Product; l
         style={{
           position: 'absolute', top: 8, right: 8, zIndex: 2,
           background: fav ? 'var(--error)' : 'var(--scrim)', border: 'none',
-          borderRadius: 'var(--radius-full)', width: 32, height: 32,
+          // 40 px: кнопка стоит в углу карточки у самого края экрана, где
+          // палец и так попадает хуже всего.
+          borderRadius: 'var(--radius-full)', width: 40, height: 40,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', color: 'white', transition: 'background var(--transition-fast)',
         }}
