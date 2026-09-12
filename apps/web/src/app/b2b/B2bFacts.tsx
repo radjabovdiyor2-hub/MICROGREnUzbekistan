@@ -1,5 +1,7 @@
 import { factsWorthShowing, type B2bFacts } from '@/lib/b2b/facts';
 
+import { Bi } from '@/components/ui/Bi';
+
 // ══════════════════════════════════════════════════════════════════════
 // Чем подтверждаем слова — числами, а не цитатами.
 //
@@ -21,12 +23,28 @@ export function B2bFacts({ facts }: { facts: B2bFacts }) {
   if (!factsWorthShowing(facts)) return null;
 
   const cells = [
-    { value: String(facts.venues), label: 'заведений закупаются у нас' },
-    facts.since ? { value: `с ${facts.since}`, label: 'года возим ресторанам' } : null,
-    facts.weeklyDeliveries > 0
-      ? { value: String(facts.weeklyDeliveries), label: 'поставок в неделю по графику' }
+    {
+      value: { ru: String(facts.venues), uz: String(facts.venues) },
+      label: { ru: 'заведений закупаются у нас', uz: 'muassasa bizdan xarid qiladi' },
+    },
+    facts.since
+      ? {
+        // Год стоит В ЗНАЧЕНИИ, а не в подписи: по-узбекски послелог идёт
+        // после числа, и «с 2023» с подписью «года возим» там не собирается.
+        value: { ru: `с ${facts.since}`, uz: `${facts.since} yildan` },
+        label: { ru: 'года возим ресторанам', uz: 'restoranlarga yetkazamiz' },
+      }
       : null,
-  ].filter(Boolean) as { value: string; label: string }[];
+    facts.weeklyDeliveries > 0
+      ? {
+        value: { ru: String(facts.weeklyDeliveries), uz: String(facts.weeklyDeliveries) },
+        label: {
+          ru: 'поставок в неделю по графику',
+          uz: "haftasiga jadval bo'yicha yetkazish",
+        },
+      }
+      : null,
+  ].filter(Boolean) as { value: { ru: string; uz: string }; label: { ru: string; uz: string } }[];
 
   return (
     <section
@@ -40,7 +58,7 @@ export function B2bFacts({ facts }: { facts: B2bFacts }) {
       }}
     >
       {cells.map((c) => (
-        <div key={c.label} style={{ textAlign: 'center' }}>
+        <div key={c.label.ru} style={{ textAlign: 'center' }}>
           <div
             style={{
               fontFamily: 'var(--font-display)',
@@ -50,10 +68,10 @@ export function B2bFacts({ facts }: { facts: B2bFacts }) {
               lineHeight: 1.1,
             }}
           >
-            {c.value}
+            <Bi ru={c.value.ru} uz={c.value.uz} />
           </div>
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginTop: 4 }}>
-            {c.label}
+            <Bi ru={c.label.ru} uz={c.label.uz} />
           </div>
         </div>
       ))}

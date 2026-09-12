@@ -30,6 +30,9 @@ export interface ArticleCard {
   titleRu: string;
   titleUz: string | null;
   excerptRu: string | null;
+  /** Узбекская врезка есть в базе с самого начала и не выбиралась ни разу —
+      карточка материала была русской даже на узбекской витрине. */
+  excerptUz: string | null;
   coverImage: string | null;
   publishedAt: Date | null;
 }
@@ -44,7 +47,6 @@ export interface ArticleSectionView {
 }
 
 export interface ArticleView extends ArticleCard {
-  excerptUz: string | null;
   sections: ArticleSectionView[];
   product: { id: string; nameRu: string; price: number; images: string[] } | null;
   issue: { slug: string; number: number; titleRu: string; webUrl: string | null } | null;
@@ -58,7 +60,7 @@ const ISSUE_CARD = {
 
 const ARTICLE_CARD = {
   slug: true, rubric: true, titleRu: true, titleUz: true,
-  excerptRu: true, coverImage: true, publishedAt: true,
+  excerptRu: true, excerptUz: true, coverImage: true, publishedAt: true,
 } as const;
 
 type IssueRow = { restaurant: { name: string } | null } & Omit<IssueCard, 'restaurantName'>;

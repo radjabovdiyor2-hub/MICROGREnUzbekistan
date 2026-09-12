@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Bi } from '@/components/ui/Bi';
 import { RUBRICS, RECIPE_RUBRIC } from '@/lib/magazine/rubrics';
 
 // Рубрики — навигация журнала. Счётчик под названием честный: он
@@ -34,10 +35,14 @@ export function MagazineRubricGrid({ counts, recipeCount }: {
         const inner = (
           <>
             <span style={{ fontSize: 26 }}>{r.emoji}</span>
-            <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}>{r.ru}</span>
-            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{r.uz}</span>
+            {/* Первым — язык читателя, вторым — второе написание. Раньше
+                крупным всегда стоял русский, а узбекский уходил в подпись. */}
+            <span style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)' }}><Bi ru={r.ru} uz={r.uz} /></span>
+            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}><Bi ru={r.uz} uz={r.ru} /></span>
             <span style={{ fontSize: 13, lineHeight: 1.45, color: 'var(--text-secondary)', marginTop: 4 }}>
-              {r.taglineRu}
+              {/* Узбекская строка рубрики лежала в словаре рядом и не
+                  выводилась ни разу. */}
+              <Bi ru={r.taglineRu} uz={r.taglineUz} />
             </span>
             <span
               style={{
@@ -47,7 +52,9 @@ export function MagazineRubricGrid({ counts, recipeCount }: {
                 marginTop: 6,
               }}
             >
-              {empty ? 'материалов пока нет' : `материалов: ${count}`}
+              {empty
+                ? <Bi ru="материалов пока нет" uz="hozircha material yo'q" />
+                : <><Bi ru="материалов: " uz="materiallar: " />{count}</>}
             </span>
           </>
         );

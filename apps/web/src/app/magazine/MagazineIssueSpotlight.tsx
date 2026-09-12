@@ -1,6 +1,7 @@
 import Image from 'next/image';
 
 import type { IssueCard } from '@/lib/magazine/content';
+import { Bi } from '@/components/ui/Bi';
 
 // Свежий номер на витрине: обложка, о чём он и две двери — читать онлайн
 // или забрать PDF. Обе ведут на файлы, опубликованные скриптом в
@@ -57,20 +58,22 @@ export function MagazineIssueSpotlight({ issue }: { issue: IssueCard }) {
 
       <div>
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>
-          Свежий номер · №{issue.number}
+          <Bi ru="Свежий номер" uz="So'nggi son" /> · №{issue.number}
           {issue.restaurantName ? ` · ${issue.restaurantName}` : ''}
         </div>
 
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.15, margin: '12px 0 6px' }}>
-          {issue.titleRu}
+          <Bi ru={issue.titleRu} uz={issue.titleUz} />
         </h2>
         {issue.titleUz && (
-          <div style={{ fontSize: 16, color: 'var(--text-muted)' }}>{issue.titleUz}</div>
+          <div style={{ fontSize: 16, color: 'var(--text-muted)' }}>
+            <Bi ru={issue.titleUz} uz={issue.titleRu} />
+          </div>
         )}
 
         {issue.summaryRu && (
           <p style={{ fontSize: 15, lineHeight: 1.6, color: 'var(--text-secondary)', marginTop: 14 }}>
-            {issue.summaryRu}
+            <Bi ru={issue.summaryRu} uz={issue.summaryUz} />
           </p>
         )}
 
@@ -82,7 +85,7 @@ export function MagazineIssueSpotlight({ issue }: { issue: IssueCard }) {
               rel="noopener noreferrer"
               style={{ ...btn, background: 'var(--brand-primary)', color: 'var(--text-inverse)' }}
             >
-              📖 Читать онлайн
+              📖 <Bi ru="Читать онлайн" uz="Onlayn o'qish" />
             </a>
           )}
           {issue.pdfUrl && (
@@ -92,7 +95,7 @@ export function MagazineIssueSpotlight({ issue }: { issue: IssueCard }) {
               rel="noopener noreferrer"
               style={{ ...btn, background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
             >
-              ⬇ Скачать PDF
+              ⬇ <Bi ru="Скачать PDF" uz="PDF yuklab olish" />
             </a>
           )}
         </div>

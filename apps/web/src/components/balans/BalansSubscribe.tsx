@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { useLang } from '@/components/providers/LangProvider';
+import { unitLabel } from '@/lib/units';
 import { SmartSubscriptionWidget, type SubscriptionConfig } from '@/components/shop/SmartSubscriptionWidget';
 import { BalansPlanCards } from './BalansPlanCards';
 import { SUBSCRIPTION_PLANS, applyPlanDiscount } from '@/lib/subscriptions/plans';
@@ -103,7 +104,7 @@ export function BalansSubscribe({ products }: { products: BalansProduct[] }) {
             }}>
               <span style={{ flex: 1, fontWeight: 600 }}>{lang === 'ru' ? p.nameRu : p.nameUz}</span>
               <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap' }}>
-                {p.price.toLocaleString('ru-RU')} {t("so'm", 'сум')}{p.unit ? ` / ${p.unit}` : ''}
+                {p.price.toLocaleString('ru-RU')} {t("so'm", 'сум')}{p.unit ? ` / ${unitLabel(p.unit, lang)}` : ''}
               </span>
               <button type="button" className="btn btn-sm" onClick={() => bump(p.id, -1)} aria-label="минус">
                 <Minus size={14} />

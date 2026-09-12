@@ -3,6 +3,7 @@ import { Boxes, CalendarClock, Snowflake, FileText, Truck, PackageCheck } from '
 
 import { getNumber, getSetting } from '@/lib/settings/store';
 import { GROW_TO_ORDER_DAYS } from '@/lib/site';
+import { Bi } from '@/components/ui/Bi';
 
 // ══════════════════════════════════════════════════════════════════════
 // Ответы на вопросы закупщика — до формы, а не после разговора.
@@ -23,8 +24,8 @@ import { GROW_TO_ORDER_DAYS } from '@/lib/site';
 /** Условия хранения. Числа — из карточки товара, чтобы не разойтись с ней. */
 const STORAGE_C = '2–5 °C';
 
-function money(sum: number): string {
-  return `${sum.toLocaleString('ru-RU')} сум`;
+function money(sum: number, lang: 'ru' | 'uz'): string {
+  return `${sum.toLocaleString('ru-RU')} ${lang === 'ru' ? 'сум' : "so'm"}`;
 }
 
 export async function B2bTerms() {
@@ -36,49 +37,77 @@ export async function B2bTerms() {
     getSetting('delivery.timePromise'),
   ]);
 
+  // Заголовок и текст — ПАРОЙ на двух языках. Закупщик читает эту карточку
+  // как ответ, а не как подпись к иконке: половина ответа на чужом языке
+  // отправляет его в форму с тем же вопросом, ради которого блок и писали.
   const items = [
     {
       icon: <Boxes size={20} />,
-      title: 'Минимальный заказ',
+      title: { ru: 'Минимальный заказ', uz: 'Minimal buyurtma' },
       // Ноль означает «минимума нет», а не «мы забыли заполнить». Пишем
       // это словами: пустое место закупщик прочитает как «сейчас узнаю у
       // менеджера», то есть как отсутствие ответа.
       text: minOrder > 0
-        ? `От ${money(minOrder)} на поставку.`
-        : 'Минимальной суммы нет — возим и небольшие партии.',
+        ? {
+          ru: `От ${money(minOrder, 'ru')} на поставку.`,
+          uz: `Bir yetkazishga ${money(minOrder, 'uz')} dan.`,
+        }
+        : {
+          ru: 'Минимальной суммы нет — возим и небольшие партии.',
+          uz: "Minimal summa yo'q — kichik partiyalarni ham olib boramiz.",
+        },
     },
     {
       icon: <CalendarClock size={20} />,
-      title: 'Когда заказать',
-      text: `Заказ до ${cutoffHour}:00 попадает в срезку следующего дня. `
-        + `Новый сорт под заказ растёт ${GROW_TO_ORDER_DAYS} дней.`,
+      title: { ru: 'Когда заказать', uz: 'Qachon buyurtma berish' },
+      text: {
+        ru: `Заказ до ${cutoffHour}:00 попадает в срезку следующего дня. `
+          + `Новый сорт под заказ растёт ${GROW_TO_ORDER_DAYS} дней.`,
+        uz: `${cutoffHour}:00 gacha berilgan buyurtma ertangi kesimga tushadi. `
+          + `Buyurtma ostidagi yangi nav ${GROW_TO_ORDER_DAYS} kun o'sadi.`,
+      },
     },
     {
       icon: <Snowflake size={20} />,
-      title: 'Как хранить',
-      text: `${STORAGE_C} в холодильнике, не мыть до подачи. `
-        + 'Микрозелень не нагревать выше 70 °C — теряет вкус и витамин C.',
+      title: { ru: 'Как хранить', uz: 'Qanday saqlash' },
+      text: {
+        ru: `${STORAGE_C} в холодильнике, не мыть до подачи. `
+          + 'Микрозелень не нагревать выше 70 °C — теряет вкус и витамин C.',
+        uz: `Muzlatgichda ${STORAGE_C}, dasturxonga qo'yishdan oldin yuvmang. `
+          + "Mikroko'katni 70 °C dan yuqori qizdirmang — ta'mi va C vitamini yo'qoladi.",
+      },
     },
     {
       icon: <Truck size={20} />,
-      title: 'Доставка',
-      text: `По Самарканду за ${String(timePromise)} минут. `
-        + `${money(deliveryFee)}, бесплатно от ${money(freeThreshold)}.`,
+      title: { ru: 'Доставка', uz: 'Yetkazib berish' },
+      text: {
+        ru: `По Самарканду за ${String(timePromise)} минут. `
+          + `${money(deliveryFee, 'ru')}, бесплатно от ${money(freeThreshold, 'ru')}.`,
+        uz: `Samarqand bo'ylab ${String(timePromise)} daqiqada. `
+          + `${money(deliveryFee, 'uz')}, ${money(freeThreshold, 'uz')} dan boshlab bepul.`,
+      },
     },
     {
       icon: <FileText size={20} />,
-      title: 'Прайс',
+      title: { ru: 'Прайс', uz: "Narxlar ro'yxati" },
       // Файл лежит в public и отдаётся публично, но до сих пор на него не
       // вело НИ ОДНОЙ ссылки во всём приложении.
-      text: 'Полный прайс с ценами и фасовкой — открытым файлом, без заявки.',
+      text: {
+        ru: 'Полный прайс с ценами и фасовкой — открытым файлом, без заявки.',
+        uz: "Narxlar va qadoqlash bilan to'liq ro'yxat — ochiq fayl, ariza shart emas.",
+      },
       href: '/catalog/price-list.html',
-      hrefLabel: 'Открыть прайс',
+      hrefLabel: { ru: 'Открыть прайс', uz: 'Narxlarni ochish' },
     },
     {
       icon: <PackageCheck size={20} />,
-      title: 'Пробный набор',
-      text: 'Соберём набор под вашу кухню, чтобы попробовать до договора. '
-        + 'Напишите об этом в заявке ниже.',
+      title: { ru: 'Пробный набор', uz: "Sinov to'plami" },
+      text: {
+        ru: 'Соберём набор под вашу кухню, чтобы попробовать до договора. '
+          + 'Напишите об этом в заявке ниже.',
+        uz: "Shartnomagacha tatib ko'rish uchun oshxonangizga mos to'plam yig'amiz. "
+          + 'Quyidagi arizada shu haqda yozing.',
+      },
     },
   ];
 
@@ -100,10 +129,10 @@ export async function B2bTerms() {
         }}
       >
         {items.map((it) => (
-          <div key={it.title} className="card" style={{ padding: 'var(--space-4)' }}>
+          <div key={it.title.ru} className="card" style={{ padding: 'var(--space-4)' }}>
             <span style={{ color: 'var(--brand-primary)' }}>{it.icon}</span>
             <h3 style={{ fontWeight: 'var(--font-semibold)', marginTop: 'var(--space-2)' }}>
-              {it.title}
+              <Bi ru={it.title.ru} uz={it.title.uz} />
             </h3>
             <p
               style={{
@@ -113,7 +142,7 @@ export async function B2bTerms() {
                 lineHeight: 1.5,
               }}
             >
-              {it.text}
+              <Bi ru={it.text.ru} uz={it.text.uz} />
             </p>
             {it.href && (
               <Link
@@ -127,7 +156,7 @@ export async function B2bTerms() {
                   fontWeight: 600,
                 }}
               >
-                {it.hrefLabel} →
+                <Bi ru={it.hrefLabel.ru} uz={it.hrefLabel.uz} /> →
               </Link>
             )}
           </div>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Bi } from '@/components/ui/Bi';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -86,18 +87,20 @@ export default async function ArticlePage({ params }: { params: Promise<{ rubric
         )}
 
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>
-          {r.emoji} {r.ru}
+          {r.emoji} <Bi ru={r.ru} uz={r.uz} />
         </div>
 
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 'clamp(28px, 7vw, 40px)', fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1, marginTop: 10 }}>
-          {article.titleRu}
+          <Bi ru={article.titleRu} uz={article.titleUz} />
         </h1>
         {article.titleUz && (
-          <div style={{ fontSize: 16, color: 'var(--text-muted)', marginTop: 6 }}>{article.titleUz}</div>
+          <div style={{ fontSize: 16, color: 'var(--text-muted)', marginTop: 6 }}>
+            <Bi ru={article.titleUz} uz={article.titleRu} />
+          </div>
         )}
         {article.excerptRu && (
           <p style={{ fontSize: 16, lineHeight: 1.6, color: 'var(--text-secondary)', marginTop: 14 }}>
-            {article.excerptRu}
+            <Bi ru={article.excerptRu} uz={article.excerptUz} />
           </p>
         )}
 
@@ -106,18 +109,21 @@ export default async function ArticlePage({ params }: { params: Promise<{ rubric
             <section key={s.id}>
               {s.headingRu && (
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 21, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
-                  {s.headingRu}
+                  {/* Узбекский подзаголовок лежал в базе и не выводился
+                      НИ РАЗУ: у статьи переведены и врезка, и текст, а
+                      заголовки разделов читались только по-русски. */}
+                  <Bi ru={s.headingRu} uz={s.headingUz} />
                 </h2>
               )}
               {s.image && (
                 <img src={s.image} alt="" style={{ width: '100%', borderRadius: 14, marginBottom: 10, objectFit: 'cover' }} />
               )}
               <p style={{ fontSize: 16, lineHeight: 1.7, color: 'var(--text-secondary)', whiteSpace: 'pre-line' }}>
-                {s.textRu}
+                <Bi ru={s.textRu} uz={s.textUz} />
               </p>
               {s.textUz && (
                 <p style={{ fontSize: 15, lineHeight: 1.7, color: 'var(--text-muted)', whiteSpace: 'pre-line', marginTop: 10 }}>
-                  {s.textUz}
+                  <Bi ru={s.textUz} uz={s.textRu} />
                 </p>
               )}
             </section>

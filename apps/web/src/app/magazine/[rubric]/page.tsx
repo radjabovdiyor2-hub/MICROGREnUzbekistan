@@ -9,6 +9,7 @@ import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { GreensPicker } from '@/components/recipe/GreensPicker';
 import { MagazineArticleCard } from '../MagazineArticleCard';
 import { jsonLdScript, breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
+import { Bi } from '@/components/ui/Bi';
 
 // Лента одной рубрики журнала. Рубрика рецептов наполняется моделью
 // `Recipe` — у неё свои карточки и свои адреса /recipe/<slug>, которые
@@ -77,11 +78,11 @@ export default async function RubricPage({ params }: { params: Promise<{ rubric:
 
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <nav aria-label="breadcrumb" style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 14 }}>
-          <Link href="/" style={{ color: 'inherit' }}>Главная</Link>
+          <Link href="/" style={{ color: 'inherit' }}><Bi ru="Главная" uz="Bosh sahifa" /></Link>
           {' / '}
           <Link href="/magazine" style={{ color: 'inherit' }}>FRESH WEEKLY</Link>
           {' / '}
-          <span style={{ color: 'var(--text-primary)' }}>{r.ru}</span>
+          <span style={{ color: 'var(--text-primary)' }}><Bi ru={r.ru} uz={r.uz} /></span>
         </nav>
 
         <header style={{ marginBottom: 32 }}>
@@ -107,8 +108,11 @@ export default async function RubricPage({ params }: { params: Promise<{ rubric:
 
         {items.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>
-            Здесь пока пусто. Загляните в{' '}
-            <Link href="/magazine" style={{ color: 'var(--brand-primary)' }}>другие темы журнала</Link>.
+            <Bi ru="Здесь пока пусто. Загляните в " uz="Bu yerda hozircha bo'sh. " />
+            <Link href="/magazine" style={{ color: 'var(--brand-primary)' }}>
+              <Bi ru="другие темы журнала" uz="jurnalning boshqa mavzulari" />
+            </Link>
+            <Bi ru="." uz="ga qarang." />
           </p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${isRecipes ? 220 : 260}px, 1fr))`, gap: 20 }}>

@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Package, Trash } from 'lucide-react';
 import type { useCart } from '@/components/providers/CartProvider';
 import { QuantityStepper } from '@/components/ui/QuantityStepper';
+import { unitLabel } from '@/lib/units';
 
 const spring = { type: 'spring' as const, damping: 25, stiffness: 120 };
 
@@ -13,9 +14,10 @@ interface Props {
   cart: ReturnType<typeof useCart>;
   fmt: (n: number) => string;
   t: (uz: string, ru: string) => string;
+  lang: 'ru' | 'uz';
 }
 
-export function CartItemList({ cart, fmt, t }: Props) {
+export function CartItemList({ cart, fmt, t, lang }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       {cart.items.map((item, idx) => (
@@ -48,7 +50,7 @@ export function CartItemList({ cart, fmt, t }: Props) {
                   там уже цена × количество, и «/ кг» читалось бы как цена. */}
               {item.product.unit && (
                 <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-normal)', color: 'var(--text-muted)' }}>
-                  {' / '}{item.product.unit}
+                  {' / '}{unitLabel(item.product.unit, lang)}
                 </span>
               )}
             </div>

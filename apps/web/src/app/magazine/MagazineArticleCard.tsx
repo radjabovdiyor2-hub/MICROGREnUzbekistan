@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Bi } from '@/components/ui/Bi';
 import type { ArticleCard } from '@/lib/magazine/content';
 import { findRubric } from '@/lib/magazine/rubrics';
 
@@ -31,15 +32,15 @@ export function MagazineArticleCard({ article }: { article: ArticleCard }) {
       <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {rubric && (
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--brand-primary)' }}>
-            {rubric.ru}
+            <Bi ru={rubric.ru} uz={rubric.uz} />
           </div>
         )}
         <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.3 }}>
-          {article.titleRu}
+          <Bi ru={article.titleRu} uz={article.titleUz} />
         </h3>
         {article.excerptRu && (
           <p style={{ fontSize: 14, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-            {article.excerptRu}
+            <Bi ru={article.excerptRu} uz={article.excerptUz} />
           </p>
         )}
       </div>

@@ -1,5 +1,8 @@
 import { prisma } from '@repo/database';
 
+import { Bi } from '@/components/ui/Bi';
+import { unitLabel } from '@/lib/units';
+
 // ══════════════════════════════════════════════════════════════════════
 // Что мы поставляем и в какой фасовке.
 //
@@ -14,30 +17,42 @@ import { prisma } from '@repo/database';
 // ══════════════════════════════════════════════════════════════════════
 
 interface Group {
-  category: string;
+  categoryRu: string;
+  categoryUz: string;
   unit: string;
-  names: string[];
+  namesRu: string[];
+  namesUz: string[];
 }
 
-/** Группируем по категории и фасовке: закупщику важна пара, а не товар. */
+/** Группируем по категории и фасовке: закупщику важна пара, а не товар.
+ *
+ *  ОБА НАЗВАНИЯ, А НЕ ОДНО. Раньше отсюда уходил только русский список — и
+ *  узбекский закупщик читал ассортимент на чужом языке под узбекским
+ *  заголовком. Названия лежат в базе парой, брать надо обе. */
 export async function loadCrops(): Promise<Group[]> {
   const products = await prisma.product.findMany({
     where: { isActive: true },
-    select: { nameRu: true, nameUz: true, unit: true, category: { select: { nameRu: true } } },
+    select: {
+      nameRu: true, nameUz: true, unit: true,
+      category: { select: { nameRu: true, nameUz: true } },
+    },
     orderBy: { nameRu: 'asc' },
   });
 
   const groups = new Map<string, Group>();
   for (const p of products) {
-    const category = p.category?.nameRu?.trim() || 'Прочее';
-    const key = `${category}|${p.unit}`;
-    const group = groups.get(key) ?? { category, unit: p.unit, names: [] };
-    const name = (p.nameRu || p.nameUz || '').trim();
-    if (name) group.names.push(name);
+    const categoryRu = p.category?.nameRu?.trim() || 'Прочее';
+    const categoryUz = p.category?.nameUz?.trim() || categoryRu;
+    const key = `${categoryRu}|${p.unit}`;
+    const group = groups.get(key)
+      ?? { categoryRu, categoryUz, unit: p.unit, namesRu: [], namesUz: [] };
+    const ru = (p.nameRu || p.nameUz || '').trim();
+    const uz = (p.nameUz || p.nameRu || '').trim();
+    if (ru) { group.namesRu.push(ru); group.namesUz.push(uz); }
     groups.set(key, group);
   }
 
-  return [...groups.values()].filter((g) => g.names.length > 0);
+  return [...groups.values()].filter((g) => g.namesRu.length > 0);
 }
 
 export function B2bCrops({ groups }: { groups: Group[] }) {
@@ -61,9 +76,11 @@ export function B2bCrops({ groups }: { groups: Group[] }) {
         }}
       >
         {groups.map((g) => (
-          <div key={`${g.category}-${g.unit}`} className="card" style={{ padding: 'var(--space-4)' }}>
+          <div key={`${g.categoryRu}-${g.unit}`} className="card" style={{ padding: 'var(--space-4)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 'var(--font-semibold)' }}>{g.category}</span>
+              <span style={{ fontWeight: 'var(--font-semibold)' }}>
+                <Bi ru={g.categoryRu} uz={g.categoryUz} />
+              </span>
               <span
                 style={{
                   fontSize: 'var(--text-xs)',
@@ -71,10 +88,10 @@ export function B2bCrops({ groups }: { groups: Group[] }) {
                   fontWeight: 600,
                 }}
               >
-                {g.unit}
+                <Bi ru={unitLabel(g.unit, 'ru')} uz={unitLabel(g.unit, 'uz')} />
               </span>
               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                · {g.names.length} позиций
+                · {g.namesRu.length} <Bi ru="позиций" uz="pozitsiya" />
               </span>
             </div>
             <p
@@ -85,7 +102,7 @@ export function B2bCrops({ groups }: { groups: Group[] }) {
                 lineHeight: 1.5,
               }}
             >
-              {g.names.join(', ')}
+              <Bi ru={g.namesRu.join(', ')} uz={g.namesUz.join(', ')} />
             </p>
           </div>
         ))}

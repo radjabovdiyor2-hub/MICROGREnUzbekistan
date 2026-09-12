@@ -129,8 +129,11 @@ export default async function B2BPage() {
           Restoranlar va kafelar uchun
         </h1>
         <p style={{ fontSize: 'var(--text-lg)', color: 'var(--text-secondary)', maxWidth: '60ch' }}>
-          Поставки микрозелени, бейби-листа и салатов заведениям Самарканда.
-          Срезка под ваш график, доставка своим курьером.
+          {/* Заголовок узбекский, а первый же абзац под ним был русским. */}
+          <Bi
+            ru="Поставки микрозелени, бейби-листа и салатов заведениям Самарканда. Срезка под ваш график, доставка своим курьером."
+            uz="Samarqand muassasalariga mikroko'kat, beybi-list va salat yetkazib berish. Kesish sizning jadvalingizga moslab, yetkazish o'z kuryerimiz bilan."
+          />
         </p>
       </section>
 

@@ -6,6 +6,7 @@ import { Check, ShoppingCart } from 'lucide-react';
 
 import { useCart } from '@/components/providers/CartProvider';
 import { useLang } from '@/components/providers/LangProvider';
+import { unitLabel } from '@/lib/units';
 import { trackEvent } from '@/lib/magazine/track';
 import type { DishWithGreens } from '@/lib/recipes';
 
@@ -29,7 +30,7 @@ import type { DishWithGreens } from '@/lib/recipes';
 // ══════════════════════════════════════════════════════════════════════
 
 export function GreensPicker({ dishes }: { dishes: DishWithGreens[] }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const { addItem } = useCart();
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [added, setAdded] = useState(false);
@@ -101,7 +102,7 @@ export function GreensPicker({ dishes }: { dishes: DishWithGreens[] }) {
                   {t(g.nameUz, g.nameRu)}
                 </Link>
                 <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', whiteSpace: 'nowrap' }}>
-                  {g.price.toLocaleString('ru-RU')} · {g.unit}
+                  {g.price.toLocaleString('ru-RU')} · {unitLabel(g.unit, lang)}
                 </span>
               </li>
             ))}

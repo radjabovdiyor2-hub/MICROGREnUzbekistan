@@ -40,7 +40,7 @@ interface Props {
 }
 
 export function CartView({ cart, recos, recosLoading, fmt, setStep }: Props) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   return (
     <div className="container" style={{ paddingTop: 'var(--space-6)', paddingBottom: 'var(--space-8)' }}>
@@ -76,7 +76,7 @@ export function CartView({ cart, recos, recosLoading, fmt, setStep }: Props) {
         <>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 'var(--space-6)', alignItems: 'start' }}>
           {/* Cart Items */}
-          <CartItemList cart={cart} fmt={fmt} t={t} />
+          <CartItemList cart={cart} fmt={fmt} t={t} lang={lang} />
 
           {/* Order Summary Section */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>

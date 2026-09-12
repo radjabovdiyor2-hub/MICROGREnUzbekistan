@@ -145,11 +145,14 @@ export function ProductPageClient({ id, initialProduct = null }: { id: string; i
     <div style={{ position: 'relative' }}>
       <div className="container" style={{ position: 'relative', zIndex: 1, paddingTop: 'var(--space-8)', paddingBottom: 'var(--space-8)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-          <Link href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {/* 36 px на хлебных крошках — не педантизм: это единственный путь
+              «назад в каталог» на странице товара, и строка в 22 px на
+              телефоне промахивается в соседнюю ссылку. */}
+          <Link href="/" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px', minHeight: 36 }}>
             <Home size={14} /> {t("Bosh sahifa", "Главная")}
           </Link>
           <ChevronRight size={14} />
-          <Link href="/catalog" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>{t("Katalog", "Каталог")}</Link>
+          <Link href="/catalog" style={{ color: 'var(--text-muted)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 36 }}>{t("Katalog", "Каталог")}</Link>
           <ChevronRight size={14} />
           <span style={{ color: 'var(--text-primary)' }}>{t(product.nameUz, product.nameRu)}</span>
         </div>

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+
+import { Bi } from '@/components/ui/Bi';
 import { listRecipes, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { jsonLdScript, breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
@@ -79,9 +81,9 @@ export default async function RecipeHubPage() {
 
       <section className="container" style={{ paddingTop: 'var(--space-6)' }}>
         <nav aria-label="breadcrumb" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>
-          <Link href="/" style={{ color: 'inherit' }}>Главная</Link>
+          <Link href="/" style={{ color: 'inherit' }}><Bi ru="Главная" uz="Bosh sahifa" /></Link>
           {' / '}
-          <span style={{ color: 'var(--text-primary)' }}>{H1_RU}</span>
+          <span style={{ color: 'var(--text-primary)' }}><Bi ru={H1_RU} uz={H1_UZ} /></span>
         </nav>
 
         <h1 style={{ fontSize: 'var(--text-3xl)', fontWeight: 800, lineHeight: 1.15, marginBottom: 'var(--space-2)' }}>
@@ -99,7 +101,13 @@ export default async function RecipeHubPage() {
       <section className="container" style={{ paddingTop: 'var(--space-5)', paddingBottom: 'var(--space-8)' }}>
         {recipes.length === 0 ? (
           <p style={{ color: 'var(--text-muted)' }}>
-            Рецепты скоро появятся. А пока — <Link href="/catalog/microgreens" style={{ color: 'var(--brand-primary)' }}>каталог микрозелени</Link>.
+            {/* Заголовок и вступление на этой странице СОЗНАТЕЛЬНО стоят
+                на двух языках сразу — это хаб, и обе версии индексируются.
+                Меняем только то, что читается как интерфейс. */}
+            <Bi ru="Рецепты скоро появятся. А пока — " uz="Retseptlar tez orada paydo bo'ladi. Hozircha — " />
+            <Link href="/catalog/microgreens" style={{ color: 'var(--brand-primary)' }}>
+              <Bi ru="каталог микрозелени" uz="mikroko'katlar katalogi" />
+            </Link>.
           </p>
         ) : (
           <div style={{

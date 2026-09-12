@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCart } from '@/components/providers/CartProvider';
+import { useLang } from '@/components/providers/LangProvider';
 import { trackEvent } from '@/lib/magazine/track';
 import type { RecipeCartProduct } from '@/lib/recipes';
 import Link from 'next/link';
@@ -17,6 +18,7 @@ export function CollectSetButton({ products, slug, accent }: {
   accent: string;
 }) {
   const { addItem } = useCart();
+  const { t } = useLang();
   const [added, setAdded] = useState(false);
 
   if (products.length === 0) return null;
@@ -40,7 +42,9 @@ export function CollectSetButton({ products, slug, accent }: {
           cursor: 'pointer',
         }}
       >
-        {added ? '✓ Набор в корзине' : `🛒 Собрать набор микрозелени (${products.length})`}
+        {added
+          ? t("✓ To'plam savatda", '✓ Набор в корзине')
+          : `🛒 ${t("Mikroko'kat to'plamini yig'ish", 'Собрать набор микрозелени')} (${products.length})`}
       </button>
       {added && (
         <Link
@@ -50,7 +54,7 @@ export function CollectSetButton({ products, slug, accent }: {
             fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700,
             color: accent, textDecoration: 'none',
           }}
-        >Перейти в корзину →</Link>
+        >{t("Savatga o'tish →", 'Перейти в корзину →')}</Link>
       )}
     </div>
   );

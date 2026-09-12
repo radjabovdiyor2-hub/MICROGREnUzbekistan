@@ -5,6 +5,7 @@ import { loadRestaurantBySlug, loadMenu, loadApprovedPhotos } from '@/lib/magazi
 import { formatPrice, DISH_CATEGORY_LABELS, isDishCategory } from '@/lib/magazine/menu';
 import { MenuTracker } from '@/components/menu/MenuTracker';
 import { LoyaltyCard } from '@/components/menu/LoyaltyCard';
+import { Bi } from '@/components/ui/Bi';
 
 // Витрина ресторана: меню + лента кадров гостей.
 // Короткий адрес /m/<slug> — он печатается в журнале и его набирают руками.
@@ -55,7 +56,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
             fontWeight: 900, color: 'var(--text-primary)', lineHeight: 1.1,
           }}>{restaurant.name}</h1>
           <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 14, color: 'var(--text-secondary)', marginTop: 8 }}>
-            Живое меню · FRESH WEEKLY
+            <Bi ru="Живое меню · FRESH WEEKLY" uz="Jonli menyu · FRESH WEEKLY" />
           </p>
           {restaurant.instagram && (
             <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: accent, marginTop: 4 }}>
@@ -69,7 +70,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
             fontFamily: "'Inter', sans-serif", color: 'var(--text-secondary)',
             textAlign: 'center', padding: '40px 0',
           }}>
-            Меню скоро появится.
+            <Bi ru="Меню скоро появится." uz="Menyu tez orada paydo bo'ladi." />
           </p>
         ) : (
           Object.entries(grouped).map(([category, items]) => (
@@ -78,7 +79,9 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
                 fontFamily: "'Inter', sans-serif", fontSize: 12, fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: 1.2, color: gold, marginBottom: 12,
               }}>
-                {isDishCategory(category) ? DISH_CATEGORY_LABELS[category].ru : 'Прочее'}
+                {isDishCategory(category)
+                  ? <Bi ru={DISH_CATEGORY_LABELS[category].ru} uz={DISH_CATEGORY_LABELS[category].uz} />
+                  : <Bi ru="Прочее" uz="Boshqa" />}
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {items.map((d) => (
@@ -121,9 +124,10 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
             <h2 style={{
               fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800,
               color: 'var(--text-primary)', marginBottom: 4,
-            }}>Кадры гостей</h2>
+            }}><Bi ru="Кадры гостей" uz="Mehmon kadrlari" /></h2>
             <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-secondary)', marginBottom: 14 }}>
-              Лучшие печатаем в следующем номере журнала.
+              <Bi ru="Лучшие печатаем в следующем номере журнала."
+                uz="Eng yaxshilarini jurnalning keyingi sonida chop etamiz." />
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               {photos.map((p) => (

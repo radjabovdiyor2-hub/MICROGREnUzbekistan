@@ -5,6 +5,7 @@ import { loadRecipeBySlug, recipeCartProducts, listRecipes, type RecipeCardView 
 import { RecipeCard } from '@/components/recipe/RecipeCard';
 import { RecipeTracker } from '@/components/recipe/RecipeTracker';
 import { RecipeBody } from '@/components/recipe/RecipeBody';
+import { Bi } from '@/components/ui/Bi';
 import { RecipeIngredientsSection } from '@/components/recipe/RecipeIngredientsSection';
 import { jsonLdScript, recipeSchema, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
 
@@ -85,9 +86,9 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
 
         {/* Крошки: заодно вход в хаб рецептов из каждой карточки */}
         <nav aria-label="breadcrumb" style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, var(--text-muted))', marginBottom: 14 }}>
-          <Link href="/" style={{ color: 'inherit' }}>Главная</Link>
+          <Link href="/" style={{ color: 'inherit' }}><Bi ru="Главная" uz="Bosh sahifa" /></Link>
           {' / '}
-          <Link href="/recipe" style={{ color: 'inherit' }}>Рецепты</Link>
+          <Link href="/recipe" style={{ color: 'inherit' }}><Bi ru="Рецепты" uz="Retseptlar" /></Link>
         </nav>
 
         {recipe.heroImage && (
@@ -120,7 +121,7 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
         {others.length > 0 && (
           <section style={{ marginTop: 40 }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
-              Другие рецепты
+              <Bi ru="Другие рецепты" uz="Boshqa retseptlar" />
             </h2>
             <div style={{
               display: 'grid',
@@ -132,12 +133,12 @@ export default async function RecipePage({ params }: { params: Promise<{ slug: s
             <Link
               href="/recipe"
               style={{
-                display: 'inline-block', marginTop: 16,
+                display: 'inline-flex', alignItems: 'center', minHeight: 36, marginTop: 16,
                 fontFamily: "'Inter', sans-serif", fontSize: 14, fontWeight: 700,
                 color: ACCENT, textDecoration: 'none',
               }}
             >
-              Все рецепты →
+              <Bi ru="Все рецепты →" uz="Barcha retseptlar →" />
             </Link>
           </section>
         )}

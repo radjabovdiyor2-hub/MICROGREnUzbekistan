@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { listPublishedIssues, listArticles, countArticlesByRubric, type ArticleCard, type IssueCard } from '@/lib/magazine/content';
 import { listRecipes, type RecipeCardView } from '@/lib/recipes';
 import { RecipeCard } from '@/components/recipe/RecipeCard';
+import { Bi } from '@/components/ui/Bi';
 import { MagazineIssueSpotlight } from './MagazineIssueSpotlight';
 import { MagazineRubricGrid } from './MagazineRubricGrid';
 import { MagazineArticleCard } from './MagazineArticleCard';
@@ -95,7 +96,7 @@ export default async function MagazinePage() {
 
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 0' }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 20 }}>
-          Печатный номер
+          <Bi ru="Печатный номер" uz="Bosma son" />
         </h2>
         {latest ? (
           <MagazineIssueSpotlight issue={latest} />
@@ -103,10 +104,11 @@ export default async function MagazinePage() {
           <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 24, padding: '48px 32px', textAlign: 'center' }}>
             <div style={{ fontSize: 44, marginBottom: 12 }}>📖</div>
             <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8 }}>
-              Номер готовится
+              <Bi ru="Номер готовится" uz="Son tayyorlanmoqda" />
             </h3>
             <p style={{ color: 'var(--text-secondary)' }}>
-              Как только номер выйдет из печати, он появится здесь — с чтением онлайн и PDF.
+              <Bi ru="Как только номер выйдет из печати, он появится здесь — с чтением онлайн и PDF."
+                uz="Son bosmadan chiqishi bilan shu yerda paydo bo'ladi — onlayn o'qish va PDF bilan." />
             </p>
           </div>
         )}
@@ -115,7 +117,7 @@ export default async function MagazinePage() {
       {articles.length > 0 && (
         <section style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 0' }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 20 }}>
-            Свежие материалы
+            <Bi ru="Свежие материалы" uz="So'nggi materiallar" />
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
             {articles.map((a) => <MagazineArticleCard key={a.slug} article={a} />)}
@@ -127,10 +129,10 @@ export default async function MagazinePage() {
         <section style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 16, flexWrap: 'wrap', marginBottom: 20 }}>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: 'var(--text-primary)' }}>
-              Рецепты с микрозеленью
+              <Bi ru="Рецепты с микрозеленью" uz="Mikroko'katli retseptlar" />
             </h2>
-            <Link href="/magazine/recipes" style={{ fontSize: 14, fontWeight: 700, color: 'var(--brand-primary)', textDecoration: 'none' }}>
-              Все рецепты →
+            <Link href="/magazine/recipes" style={{ fontSize: 14, fontWeight: 700, color: 'var(--brand-primary)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', minHeight: 36 }}>
+              <Bi ru="Все рецепты →" uz="Barcha retseptlar →" />
             </Link>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
@@ -141,7 +143,7 @@ export default async function MagazinePage() {
 
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 60px' }}>
         <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 20 }}>
-          Темы журнала
+          <Bi ru="Темы журнала" uz="Jurnal mavzulari" />
         </h2>
         <MagazineRubricGrid counts={counts} recipeCount={recipes.length} />
       </section>

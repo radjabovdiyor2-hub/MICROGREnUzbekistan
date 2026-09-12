@@ -5,10 +5,14 @@ import { formatPrice } from '@/lib/magazine/menu';
 
 import type { RecipeCartProduct } from '@/lib/recipes';
 import { tint } from '@/lib/tint';
+import { Bi } from '@/components/ui/Bi';
 
 interface Ingredient {
   id: string;
   nameRu: string;
+  /** Узбекское имя лежало в базе и в типе `RecipeIngredientView`, а сюда
+      не доходило вовсе — строка ингредиента всегда была русской. */
+  nameUz?: string | null;
   amount?: string | null;
   product?: {
     id: string;
@@ -28,7 +32,7 @@ export function RecipeIngredientsSection({ ingredients, cartProducts, slug, acce
   return (
     <section style={{ marginTop: 28 }}>
       <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 14 }}>
-        Ингредиенты
+        <Bi ru="Ингредиенты" uz="Masalliqlar" />
       </h2>
 
       <CollectSetButton products={cartProducts} slug={slug} accent={accent} />
@@ -49,8 +53,12 @@ export function RecipeIngredientsSection({ ingredients, cartProducts, slug, acce
               )}
               <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 15, fontWeight: 600, color: 'var(--text-primary)' }}>
-                  {ing.nameRu}
-                  {ing.product && <span style={{ marginLeft: 6, fontSize: 12, color: accent }}>· в магазине</span>}
+                  <Bi ru={ing.nameRu} uz={ing.nameUz} />
+                  {ing.product && (
+                    <span style={{ marginLeft: 6, fontSize: 12, color: accent }}>
+                      · <Bi ru="в магазине" uz="do'konda" />
+                    </span>
+                  )}
                 </div>
                 {ing.amount && (
                   <div style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: 'var(--text-muted, var(--text-muted))' }}>{ing.amount}</div>
