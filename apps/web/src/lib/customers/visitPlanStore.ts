@@ -35,6 +35,17 @@ export interface PlanStopView {
   /** Расстояние отметки до клиента, метры. null — места нет. */
   distanceM: number | null;
   accuracyM: number | null;
+  /**
+   * Приезд по треку — ручное «я на точке». `null` — не отмечался.
+   *
+   * ОТДЕЛЬНО ОТ `done`, и это главное. Человек, который заехал и не нажал
+   * исход, до сих пор выглядел как не заехавший вовсе, и владелец не мог
+   * отличить «не был» от «был, но не отметил». Это разные разговоры: первый
+   * про работу, второй про кнопку.
+   */
+  arrivedAt: string | null;
+  /** Сколько простоял, секунды. `null` — ещё там либо не отметил отъезд. */
+  dwellSec: number | null;
 }
 
 /** Что взять с собой: товар и сколько. Пустой список — объезд без развоза. */
@@ -274,9 +285,56 @@ export async function readDayPlans(params: {
   // «договорились» отменяет утреннее «не застал», и показывать надо итог.
   const byMark = markIndex(visits);
 
+  // ЗАЕЗДЫ ПО ТРЕКУ — вторым фактом, рядом с отметкой, а не вместо неё.
+  //
+  // Имя исполнителя сводится к сотруднику тем же правилом, что и везде:
+  // ровно одно совпадение или ничего. Тёзки не приписываются никому — это
+  // то же решение, что в `resolveEmployee`, и четвёртой его копии не будет.
+  const byStay = new Map<string, { arrivedAt: Date; dwellSec: number | null }>();
+  if (assignees.length > 0 && customerIds.length > 0) {
+    const people = await prisma.employee.findMany({
+      where: { name: { in: assignees }, isActive: true },
+      select: { id: true, name: true },
+    });
+    const idByName = new Map<string, string | null>();
+    for (const person of people) {
+      // Второе совпадение гасит имя целиком, а не побеждает первое.
+      idByName.set(person.name, idByName.has(person.name) ? null : person.id);
+    }
+    const nameById = new Map<string, string>();
+    for (const [name, id] of idByName) if (id) nameById.set(id, name);
+
+    if (nameById.size > 0) {
+      const stays = await prisma.trackStay.findMany({
+        where: {
+          customerId: { in: customerIds },
+          confirmedBy: 'manual',
+          arrivedAt: { gte: from, lt: to },
+          fieldDay: { employeeId: { in: [...nameById.keys()] } },
+        },
+        select: {
+          customerId: true,
+          arrivedAt: true,
+          dwellSec: true,
+          fieldDay: { select: { employeeId: true } },
+        },
+        orderBy: { arrivedAt: 'desc' },
+      });
+      for (const stay of stays) {
+        const who = nameById.get(stay.fieldDay.employeeId);
+        if (!who) continue;
+        const key = markKey(who, stay.customerId);
+        if (byStay.has(key)) continue;
+        byStay.set(key, { arrivedAt: stay.arrivedAt, dwellSec: stay.dwellSec });
+      }
+    }
+  }
+
   return plans.map((p) => {
     const stops: PlanStopView[] = p.stops.map((s) => {
-      const visit = byMark.get(markKey(p.assignee, s.customerId));
+      const key = markKey(p.assignee, s.customerId);
+      const visit = byMark.get(key);
+      const stay = byStay.get(key);
       return {
         customerId: s.customerId,
         name: s.customer.companyName || s.customer.name || `#${s.customerId}`,
@@ -286,6 +344,8 @@ export async function readDayPlans(params: {
         done: visit !== undefined,
         distanceM: visit?.distanceM ?? null,
         accuracyM: visit?.accuracyM ?? null,
+        arrivedAt: stay ? stay.arrivedAt.toISOString() : null,
+        dwellSec: stay?.dwellSec ?? null,
       };
     });
 

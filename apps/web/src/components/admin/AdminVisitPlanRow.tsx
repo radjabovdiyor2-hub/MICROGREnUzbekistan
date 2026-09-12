@@ -1,12 +1,9 @@
 'use client';
 
-import { Check, Circle, MapPin } from 'lucide-react';
-
 import { AdminVisitPlanDelete } from './AdminVisitPlanDelete';
+import { AdminVisitPlanStop } from './AdminVisitPlanStop';
 export type { PlanItemRow, PlanRow, PlanStopRow } from './visitPlanRowTypes';
 import type { PlanRow } from './visitPlanRowTypes';
-
-import { proofLabel, proofToken, visitProof } from '@/lib/customers/visitProof';
 
 // ══════════════════════════════════════════════════════════════════════
 // Один план объезда: кому, сколько выполнено и каждая остановка.
@@ -126,68 +123,15 @@ export function AdminVisitPlanRow({
       )}
 
       <div style={{ display: 'grid', gap: 'var(--space-1)' }}>
-        {plan.stops.map((stop, i) => {
-          const proof = stop.done ? visitProof(stop.distanceM, stop.accuracyM) : null;
-
-          return (
-            <button
-              key={stop.customerId}
-              type="button"
-              onClick={() => onOpenCustomer(stop.customerId)}
-              className="btn btn-ghost btn-sm"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-2)',
-                justifyContent: 'flex-start',
-                textAlign: 'left',
-                minHeight: 44,
-                width: '100%',
-              }}
-            >
-              <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)', minWidth: 18 }}>
-                {i + 1}
-              </span>
-
-              {stop.done ? (
-                <Check size={15} style={{ color: 'var(--success)', flexShrink: 0 }} />
-              ) : (
-                <Circle size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-              )}
-
-              <span
-                style={{
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  color: stop.done ? 'var(--text-primary)' : 'var(--text-secondary)',
-                }}
-              >
-                {stop.name}
-              </span>
-
-              {/* Чем подтверждена отметка. Ради этой подписи экран и нужен:
-                  галочка без неё — снова слово сотрудника. */}
-              {proof && (
-                <span
-                  style={{
-                    fontSize: 'var(--text-xs)',
-                    color: proofToken(proof.kind),
-                    flexShrink: 0,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 3,
-                  }}
-                >
-                  <MapPin size={12} />
-                  {proofLabel(proof, lang)}
-                </span>
-              )}
-            </button>
-          );
-        })}
+        {plan.stops.map((stop, i) => (
+          <AdminVisitPlanStop
+            key={stop.customerId}
+            stop={stop}
+            index={i}
+            lang={lang}
+            onOpen={onOpenCustomer}
+          />
+        ))}
       </div>
     </div>
   );

@@ -1245,6 +1245,27 @@ def track_nudge(person: dict) -> Optional[tuple[str, str]]:
             f"выключает трансляцию через 8 часов сам.\n\n{TRACK_HINT}"
         )
 
+    # ОБЪЕЗД НЕ СДВИНУЛСЯ. Повод стоит ПОСЛЕ молчания и ДО простоя: если
+    # человека не слышно, разговор сначала об этом, а два сообщения об одном
+    # человеке за прогон — тот самый шум, из-за которого сторожа перестают
+    # читать.
+    #
+    # УСЛОВИЕ — НОЛЬ ОТМЕТОК ЗА ПОЛСМЕНЫ, а не «отстаёт от графика».
+    # Процентная арифметика среди дня пересматривала бы уже принятое
+    # решение: «половина точек в четыре часа дня — это обычный рабочий день,
+    # а не срыв» (`planOutcome.ts`). Ноль после полусмены — единственный
+    # честный повод, и вопрос у него честный.
+    assigned = int(person.get("planTotal") or 0) + int(person.get("routeTotal") or 0)
+    marked = int(person.get("planDone") or 0) + int(person.get("routeDone") or 0)
+    if state == "ok" and person.get("planHalfDay") and assigned > 0 and marked == 0:
+        return "plan", (
+            "🧭 <b>По объезду пока нет отметок</b>\n\n"
+            f"На вас {assigned} точек, отмечено ни одной, а полсмены прошло. "
+            "Едете и не отмечаете — или ещё не начали?\n\n"
+            "Отметить можно кнопкой «Я на точке» и результатом визита: без "
+            "отметки заезд не попадёт ни в отчёт, ни в вашу выработку."
+        )
+
     idle = person.get("idleMin")
     if state == "ok" and isinstance(idle, int) and idle > 0:
         # ВОПРОС, А НЕ ЗАМЕЧАНИЕ. Сорок минут на месте объясняются обедом,
@@ -1279,6 +1300,9 @@ def owner_alert(person: dict, reason: str, delivered: bool) -> tuple[str, str]:
         what = "смена открыта, а маршрут не пишется: за сегодня нет ни одной точки"
     elif reason == "silent":
         what = f"трансляция прервалась, точек нет {person.get('silentMin')} мин"
+    elif reason == "plan":
+        assigned = int(person.get("planTotal") or 0) + int(person.get("routeTotal") or 0)
+        what = f"объезд {assigned} точек — за полсмены ни одной отметки"
     else:
         what = f"стоит {person.get('idleMin')} мин на одном месте и не у клиента"
 

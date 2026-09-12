@@ -221,3 +221,95 @@ def test_person_without_telegram_is_skipped() -> None:
     faceless["telegramId"] = ""
 
     assert plan_watchdog([faceless], {}, {}) == ([], [])
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Объезд не сдвинулся: вопрос сотруднику среди дня.
+#
+# ЗАЧЕМ ОТДЕЛЬНО ОТ МОЛЧАНИЯ. Человек может быть полностью на связи и при
+# этом не отметить ни одной точки — телефон шлёт крошки, а работа стоит.
+# Это третий вопрос, и задавать его надо третьим: если человека не слышно,
+# разговор сначала об этом.
+#
+# ПОЧЕМУ «НОЛЬ ЗА ПОЛСМЕНЫ», А НЕ ДОЛЯ. Доля пересматривала бы решение,
+# принятое в `planOutcome.ts`: «половина точек в четыре часа дня — это
+# обычный рабочий день, а не срыв».
+# ══════════════════════════════════════════════════════════════════════
+
+
+def field_day(
+    *,
+    plan_total: int = 8,
+    plan_done: int = 0,
+    route_total: int = 0,
+    route_done: int = 0,
+    half: bool = True,
+    state: str = "ok",
+) -> dict:
+    out = person(state)
+    out.update(
+        planTotal=plan_total,
+        planDone=plan_done,
+        routeTotal=route_total,
+        routeDone=route_done,
+        planHalfDay=half,
+    )
+    return out
+
+
+def test_no_marks_after_half_a_shift_is_asked_about() -> None:
+    reason, text = track_nudge(field_day())
+    assert reason == "plan"
+    assert "8 точек" in text
+    # ВОПРОС, А НЕ ЗАМЕЧАНИЕ: он может ехать и не отмечать.
+    assert "?" in text
+
+
+def test_first_hour_of_a_shift_stays_quiet() -> None:
+    """Полсмены ещё не прошло — спрашивать не о чем."""
+    assert track_nudge(field_day(half=False)) is None
+
+
+def test_one_mark_is_enough_to_stay_quiet() -> None:
+    """Работа сдвинулась. Доля выполнения среди дня — не наш вопрос."""
+    assert track_nudge(field_day(plan_done=1)) is None
+
+
+def test_delivery_marks_count_too() -> None:
+    """У совмещённого агента рейс — та же работа, что и объезд."""
+    assert track_nudge(field_day(plan_total=0, route_total=5, route_done=2)) is None
+
+
+def test_nothing_assigned_nothing_to_ask() -> None:
+    """Ни объезда, ни рейса — вопроса нет."""
+    assert track_nudge(field_day(plan_total=0, route_total=0)) is None
+
+
+def test_silence_is_discussed_before_the_plan() -> None:
+    """Человека не слышно — говорим про связь, а не про отметки.
+
+    Держит это не порядок проверок, а условие `state == "ok"`: про объезд
+    спрашиваем только у того, чьи крошки идут. У молчащего вопрос другой —
+    и задавать оба за один прогон значит превратить сторожа в шум.
+    """
+    quiet = field_day(state="silent")
+    quiet["silentMin"] = 40
+
+    reason, _ = track_nudge(quiet)
+    assert reason == "silent"
+
+
+def test_plan_is_discussed_before_standing_still() -> None:
+    """Стоит на месте и ничего не отметил — спрашиваем про работу."""
+    standing = field_day()
+    standing["idleMin"] = 45
+
+    reason, _ = track_nudge(standing)
+    assert reason == "plan"
+
+
+def test_owner_hears_about_the_plan_in_his_own_words() -> None:
+    title, body = owner_alert(field_day(), "plan", delivered=True)
+    assert "Азиз" in title
+    assert "8 точек" in title
+    assert "ни одной отметки" in body

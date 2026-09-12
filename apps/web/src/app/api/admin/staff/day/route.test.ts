@@ -27,6 +27,7 @@ const visitPlanFindMany = vi.fn();
 const interactionFindMany = vi.fn();
 const deliveryRouteFindFirst = vi.fn();
 const customerFindMany = vi.fn();
+const trackStayFindMany = vi.fn();
 
 vi.mock('@repo/database', () => ({
   prisma: {
@@ -39,6 +40,7 @@ vi.mock('@repo/database', () => ({
     visitPlan: { findMany: (...a: unknown[]) => visitPlanFindMany(...a) },
     interaction: { findMany: (...a: unknown[]) => interactionFindMany(...a) },
     deliveryRoute: { findFirst: (...a: unknown[]) => deliveryRouteFindFirst(...a) },
+    trackStay: { findMany: (...a: unknown[]) => trackStayFindMany(...a) },
     customer: { findMany: (...a: unknown[]) => customerFindMany(...a) },
     crmOrder: { findMany: vi.fn() },
     stockMovement: { findMany: vi.fn() },
@@ -60,6 +62,7 @@ beforeEach(() => {
   interactionFindMany.mockResolvedValue([]);
   deliveryRouteFindFirst.mockResolvedValue(null);
   customerFindMany.mockResolvedValue([]);
+  trackStayFindMany.mockResolvedValue([]);
   // Смена открыта и точка свежая — если сценарий не решит иначе.
   shiftFindFirst.mockResolvedValue({ id: 's1', startTime: new Date(), openedVia: 'pwa' });
   trackPingFindFirst.mockResolvedValue({

@@ -7,6 +7,10 @@ export interface PlanStopRow {
   done: boolean;
   distanceM: number | null;
   accuracyM: number | null;
+  /** Приезд по треку — ручное «я на точке». `null` — не отмечался. */
+  arrivedAt: string | null;
+  /** Сколько простоял, секунды. `null` — ещё там либо не отметил отъезд. */
+  dwellSec: number | null;
 }
 
 /** Что взято с собой: товар и сколько. Пустой список — объезд без развоза. */
