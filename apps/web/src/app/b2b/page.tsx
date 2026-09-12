@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Clock, Leaf, Snowflake, Truck } from 'lucide-react';
 
 import { jsonLdScript, breadcrumbList, SITE_DOMAIN } from '@/lib/seo/jsonLd';
+import { Bi } from '@/components/ui/Bi';
 
 import { loadB2bFacts } from '@/lib/b2b/facts';
 import { listDishesWithGreens } from '@/lib/recipes';
@@ -143,9 +144,14 @@ export default async function B2BPage() {
           {POINTS.map((p) => (
             <div key={p.ru} className="card" style={{ padding: 'var(--space-4)' }}>
               <div style={{ color: 'var(--brand-primary)', marginBottom: 'var(--space-2)' }}>{p.icon}</div>
+              {/* Заголовок остаётся двуязычным: закупщик сверяет название
+                  с прайсом и счётом, а они на двух языках. Пояснение же
+                  читают, а не сверяют — оно идёт на языке читателя. */}
               <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 2 }}>{p.uz}</h3>
               <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 6 }}>{p.ru}</div>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>{p.descRu}</p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
+                <Bi ru={p.descRu} uz={p.descUz} />
+              </p>
             </div>
           ))}
         </div>

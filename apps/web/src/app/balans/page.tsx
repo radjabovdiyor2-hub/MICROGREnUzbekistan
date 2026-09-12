@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Bi } from '@/components/ui/Bi';
 import Link from 'next/link';
 import { prisma } from '@repo/database';
 import { jsonLdScript, breadcrumbList, collectionPage, SITE_DOMAIN } from '@/lib/seo/jsonLd';
@@ -94,7 +95,9 @@ export default async function BalansPage() {
 
       <section className="container" style={{ paddingTop: 'var(--space-6)' }}>
         <nav aria-label="breadcrumb" style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>
-          <Link href="/" style={{ color: 'inherit' }}>Главная</Link>
+          <Link href="/" style={{ color: 'inherit' }}>
+            <Bi ru="Главная" uz="Bosh sahifa" />
+          </Link>
           {' / '}
           <span style={{ color: 'var(--text-primary)' }}>BALANS</span>
         </nav>
@@ -150,9 +153,15 @@ export default async function BalansPage() {
           <BalansSubscribe products={products} />
         )}
         <p style={{ marginTop: 'var(--space-4)', fontSize: 'var(--text-sm)', color: 'var(--text-muted)', maxWidth: 760 }}>
-          Продукт не является лечебным или диетическим питанием. Состав и пищевую ценность
-          каждого микса смотрите на упаковке и в{' '}
-          <Link href="/catalog/balans" style={{ color: 'var(--brand-primary)' }}>карточке товара</Link>.
+          {/* Оговорка обязана читаться на языке покупателя: она о том, чем
+              продукт НЕ является, и непонятая оговорка не защищает никого. */}
+          <Bi
+            ru="Продукт не является лечебным или диетическим питанием. Состав и пищевую ценность каждого микса смотрите на упаковке и в"
+            uz="Mahsulot davolovchi yoki parhez ovqat emas. Har bir miksning tarkibi va oziqaviy qiymatini qadoqda va mahsulot kartasida ko'ring:"
+          />{' '}
+          <Link href="/catalog/balans" style={{ color: 'var(--brand-primary)' }}>
+            <Bi ru="карточке товара" uz="mahsulot kartasi" />
+          </Link>.
         </p>
       </section>
     </>
