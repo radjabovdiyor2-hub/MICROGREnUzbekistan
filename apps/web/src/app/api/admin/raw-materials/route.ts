@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
     materials: materials.map((m) => ({
       id: m.id,
       name: m.name,
+      nameUz: m.nameUz,
       kind: m.kind,
       unit: m.unit,
       stock: dec(m.stock),
@@ -141,6 +142,7 @@ export async function POST(request: NextRequest) {
   const material = await prisma.rawMaterial.create({
     data: {
       name,
+      nameUz: body.nameUz ? String(body.nameUz).trim().slice(0, 255) : null,
       kind: (body.kind ? String(body.kind) : 'OTHER') as never,
       unit: body.unit ? String(body.unit).slice(0, 10) : 'g',
       minStock: new Prisma.Decimal(Number(body.minStock) || 0),
@@ -167,6 +169,12 @@ export async function PATCH(request: NextRequest) {
 
   const data: Record<string, unknown> = {};
   if ('name' in body) data.name = String(body.name).slice(0, 255);
+  // Пустая строка стирает узбекское имя, а не записывает пустоту: экран
+  // тогда снова покажет русское, и это честнее подписи из ничего.
+  if ('nameUz' in body) {
+    const uz = String(body.nameUz ?? '').trim().slice(0, 255);
+    data.nameUz = uz || null;
+  }
   if ('unit' in body) data.unit = String(body.unit).slice(0, 10);
   if ('minStock' in body) data.minStock = new Prisma.Decimal(Number(body.minStock) || 0);
   if ('cropType' in body) {

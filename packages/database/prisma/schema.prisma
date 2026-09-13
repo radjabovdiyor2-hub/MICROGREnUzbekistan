@@ -795,6 +795,12 @@ enum RawMaterialMovementType {
 model RawMaterial {
   id   String          @id @default(cuid())
   name String
+
+  /// Узбекское название. Необязательное: пока не заполнено, экран честно
+  /// показывает русское — пустая строка вместо «Кокосовый субстрат» была бы
+  /// хуже чужого языка. Заполняется правкой позиции в админке.
+  nameUz String? @map("name_uz")
+
   kind RawMaterialKind @default(OTHER)
 
   /// g | kg | pcs | l — в чём меряем остаток и норму расхода.

@@ -8,7 +8,7 @@ import { AlertTriangle, PackagePlus, Sprout } from 'lucide-react';
 import { AdminRawMaterialForm } from './AdminRawMaterialForm';
 import { useFeedback } from './AdminFeedback';
 import { AdminRawMaterialTable } from './AdminRawMaterialTable';
-import type { RawMaterial } from './rawMaterialTypes';
+import { materialName, type RawMaterial } from './rawMaterialTypes';
 
 // ══════════════════════════════════════════════════════════════════════
 // Склад сырья: семена, субстрат, лотки, упаковка.
@@ -51,6 +51,7 @@ export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 
   const notify = useFeedback();
   const queryClient = useQueryClient();
   const [receiptFor, setReceiptFor] = useState<RawMaterial | null>(null);
+  const [editFor, setEditFor] = useState<RawMaterial | null>(null);
   const [showNew, setShowNew] = useState(false);
 
   const [showHidden, setShowHidden] = useState(false);
@@ -98,7 +99,7 @@ export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 
 
   const handleDelete = async (m: RawMaterial) => {
     const agreed = await notify.confirm({
-      title: hideTitle[lang](m.name),
+      title: hideTitle[lang](materialName(m, lang)),
       detail: m.stock > 0
         ? `${t('stillInStock')} ${m.stock} ${unitLabel(m.unit, lang)}. ${t('keepHistory')}`
         : t('keepHistory'),
@@ -109,8 +110,12 @@ export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 
 
   const save = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
+      // Правка и заведение идут ОДНОЙ кнопкой формы, но разными дверями:
+      // POST создаёт, PATCH меняет. Форма помечает своё намерение `action`,
+      // а не парой похожих обработчиков, которые однажды разойдутся.
+      const isUpdate = body.action === 'update';
       const res = await fetch('/api/admin/raw-materials', {
-        method: 'POST',
+        method: isUpdate ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify(body),
@@ -123,6 +128,7 @@ export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 
       queryClient.invalidateQueries({ queryKey: ['admin-raw-materials'] });
       setReceiptFor(null);
       setShowNew(false);
+      setEditFor(null);
     },
   });
 
@@ -144,7 +150,7 @@ export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 
           <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
           {t('showHidden')}
         </label>
-        <button className="btn btn-primary" onClick={() => setShowNew(true)}>
+        <button className="btn btn-primary" onClick={() => { setEditFor(null); setReceiptFor(null); setShowNew(true); }}>
           <PackagePlus size={16} /> {t('add')}
         </button>
       </div>
@@ -157,23 +163,24 @@ export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 
           <div style={{ marginTop: 6, fontSize: 'var(--text-sm)' }}>
             {low.map((m) => (
               <div key={m.id}>
-                {m.name} — {t('leftWord')} {m.stock} {unitLabel(m.unit, lang)} ({t('threshold')} {m.minStock} {unitLabel(m.unit, lang)})
+                {materialName(m, lang)} — {t('leftWord')} {m.stock} {unitLabel(m.unit, lang)} ({t('threshold')} {m.minStock} {unitLabel(m.unit, lang)})
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {(showNew || receiptFor) && (
+      {(showNew || receiptFor || editFor) && (
         // key пересоздаёт форму при смене позиции: подставленная цена
         // поставщика — начальное состояние, а не эффект.
         <AdminRawMaterialForm
-          key={receiptFor?.id ?? 'new'}
+          key={editFor?.id ?? receiptFor?.id ?? 'new'}
           material={receiptFor}
+          editing={editFor}
           saving={save.isPending}
           error={save.error instanceof Error ? save.error.message : ''}
           lang={lang}
-          onCancel={() => { setShowNew(false); setReceiptFor(null); }}
+          onCancel={() => { setShowNew(false); setReceiptFor(null); setEditFor(null); }}
           onSubmit={(body) => save.mutate(body)}
         />
       )}
@@ -186,7 +193,8 @@ export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 
           focus={focus}
           materials={materials}
           fmt={fmt}
-          onReceipt={(m) => { setShowNew(false); setReceiptFor(m); }}
+          onReceipt={(m) => { setShowNew(false); setEditFor(null); setReceiptFor(m); }}
+          onEdit={(m) => { setShowNew(false); setReceiptFor(null); setEditFor(m); }}
           onDelete={handleDelete}
           onRestore={(m) => restore.mutate(m)}
         />

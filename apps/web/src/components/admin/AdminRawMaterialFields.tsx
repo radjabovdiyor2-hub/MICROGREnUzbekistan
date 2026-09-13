@@ -25,6 +25,8 @@ const T = {
   },
   warnAt: { ru: 'Предупреждать при остатке', uz: 'Qoldiq shu darajada ogohlantirish' },
   crop: { ru: 'Культура', uz: 'Ekin' },
+  nameUz: { ru: 'Название по-узбекски', uz: "Nomi (o'zbekcha)" },
+  nameUzPlaceholder: { ru: "No'xat urug'i", uz: "No'xat urug'i" },
 };
 
 const gridStyle: React.CSSProperties = {
@@ -119,13 +121,16 @@ export interface NewMaterialFieldsProps {
   setMinStock: (v: string) => void;
   cropType: string;
   setCropType: (v: string) => void;
+  /** Узбекское имя. Необязательно: пусто — экран покажет русское. */
+  nameUz: string;
+  setNameUz: (v: string) => void;
   lang: 'ru' | 'uz';
 }
 
 /** Заведение новой позиции: имя, тип, единица, порог, культура. */
 export function NewRawMaterialFields({
   name, setName, kind, setKind, unit, setUnit,
-  minStock, setMinStock, cropType, setCropType, lang,
+  minStock, setMinStock, cropType, setCropType, nameUz, setNameUz, lang,
 }: NewMaterialFieldsProps) {
   const t = (k: keyof typeof T) => T[k][lang];
   return (
@@ -133,6 +138,14 @@ export function NewRawMaterialFields({
       <div>
         <label style={label}>{t('name')}</label>
         <input style={input} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('namePlaceholder')} />
+      </div>
+      <div>
+        {/* Второе имя рядом с первым, а не в отдельном окне: заполняют их
+            вместе, и разнесённые поля дали бы позиции с русским именем и
+            пустым узбекским — ровно то, что мы сейчас и разгребаем. */}
+        <label style={label}>{t('nameUz')}</label>
+        <input style={input} value={nameUz} onChange={(e) => setNameUz(e.target.value)}
+          placeholder={t('nameUzPlaceholder')} />
       </div>
       <div>
         <label style={label}>{t('kind')}</label>

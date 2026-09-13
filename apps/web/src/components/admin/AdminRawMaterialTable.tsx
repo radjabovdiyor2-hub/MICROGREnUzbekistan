@@ -1,7 +1,7 @@
 'use client';
 
-import { PackagePlus, RotateCcw, Trash2 } from 'lucide-react';
-import { KIND_LABELS, type RawMaterial } from './rawMaterialTypes';
+import { PackagePlus, Pencil, RotateCcw, Trash2 } from 'lucide-react';
+import { KIND_LABELS, materialName, type RawMaterial } from './rawMaterialTypes';
 import { focusOutline, isFocused, useScrollToFocused } from './useFocusedRow';
 import { sumLabel, unitLabel } from '@/lib/units';
 
@@ -12,6 +12,8 @@ interface Props {
   materials: RawMaterial[];
   fmt: (n: number) => string;
   onReceipt: (material: RawMaterial) => void;
+  /** Правка позиции: имя, второе имя, тип, единица, порог, культура. */
+  onEdit: (material: RawMaterial) => void;
   onDelete: (material: RawMaterial) => void;
   onRestore: (material: RawMaterial) => void;
   /** Сырьё, ради которого пришли по ссылке (`?focus=`, `receive_material`). */
@@ -33,6 +35,7 @@ const T = {
   restore: { ru: 'Вернуть', uz: 'Qaytarish' },
   receipt: { ru: 'Приход', uz: 'Kirim' },
   hide: { ru: 'Скрыть', uz: 'Yashirish' },
+  edit: { ru: 'Правка', uz: 'Tahrirlash' },
 };
 
 const cell: React.CSSProperties = {
@@ -42,7 +45,7 @@ const cell: React.CSSProperties = {
 };
 
 export function AdminRawMaterialTable({
-  materials, fmt, onReceipt, onDelete, onRestore, focus = '', lang,
+  materials, fmt, onReceipt, onEdit, onDelete, onRestore, focus = '', lang,
 }: Props) {
   const t = (k: keyof typeof T) => T[k][lang];
   const scrollToFocused = useScrollToFocused<HTMLTableRowElement>();
@@ -80,7 +83,7 @@ export function AdminRawMaterialTable({
                 ...focusOutline(isFocused(focus, m.id)),
               }}>
               <td style={{ ...cell, fontWeight: 'var(--font-semibold)' }}>
-                {m.name}
+                {materialName(m, lang)}
                 {m.cropType && (
                   <span style={{ color: 'var(--text-muted)', fontWeight: 'var(--font-normal)' }}>
                     {' '}· {m.cropType}
@@ -111,6 +114,10 @@ export function AdminRawMaterialTable({
                     <>
                       <button className="btn btn-sm" onClick={() => onReceipt(m)}>
                         <PackagePlus size={14} /> {t('receipt')}
+                      </button>
+                      <button className="btn btn-sm btn-ghost" onClick={() => onEdit(m)}
+                        aria-label={t('edit')}>
+                        <Pencil size={14} />
                       </button>
                       <button className="btn btn-sm btn-ghost" onClick={() => onDelete(m)}
                         style={{ color: 'var(--error)' }} aria-label={t('hide')}>

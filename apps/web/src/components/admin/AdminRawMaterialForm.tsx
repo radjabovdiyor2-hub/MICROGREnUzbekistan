@@ -17,6 +17,15 @@ interface Props {
   error: string;
   onCancel: () => void;
   onSubmit: (body: Record<string, unknown>) => void;
+  /**
+   * Позиция, которую ПРАВЯТ.
+   *
+   * До этого заведённую позицию изменить было нечем: экран знал только
+   * «завести новую» и «приход». Из-за этого узбекское имя у уже заведённых
+   * тридцати двух позиций заполнить было негде — колонка осталась бы пустой
+   * навсегда.
+   */
+  editing?: RawMaterial | null;
   lang: 'ru' | 'uz';
 }
 
@@ -36,15 +45,20 @@ const T = {
   receive: { ru: 'Оприходовать', uz: 'Kirim qilish' },
   create: { ru: 'Завести', uz: 'Kiritish' },
   cancel: { ru: 'Отмена', uz: 'Bekor qilish' },
+  editOf: { ru: 'Правка', uz: 'Tahrirlash' },
+  save: { ru: 'Сохранить', uz: 'Saqlash' },
 };
 
-export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubmit, lang }: Props) {
+export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubmit, editing, lang }: Props) {
   const t = (k: keyof typeof T) => T[k][lang];
-  const [name, setName] = useState('');
-  const [kind, setKind] = useState<RawMaterial['kind']>('SEED');
-  const [unit, setUnit] = useState('g');
-  const [minStock, setMinStock] = useState('');
-  const [cropType, setCropType] = useState('');
+  // Начальные значения, а не эффект: форма пересоздаётся по `key` при смене
+  // позиции, и подстановка здесь — это подстановка один раз.
+  const [name, setName] = useState(editing?.name ?? '');
+  const [nameUz, setNameUz] = useState(editing?.nameUz ?? '');
+  const [kind, setKind] = useState<RawMaterial['kind']>(editing?.kind ?? 'SEED');
+  const [unit, setUnit] = useState(editing?.unit ?? 'g');
+  const [minStock, setMinStock] = useState(editing ? String(editing.minStock) : '');
+  const [cropType, setCropType] = useState(editing?.cropType ?? '');
 
   const [quantity, setQuantity] = useState('');
   // Подставляем последнюю цену этого поставщика: чаще всего она и есть
@@ -79,7 +93,13 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   };
 
   const submitNew = () => {
-    onSubmit({ name, kind, unit: BULK_KINDS.includes(kind) ? 'g' : unit, minStock: Number(minStock) || 0, cropType: cropType || null });
+    const fields = {
+      name, nameUz: nameUz.trim() || null, kind,
+      unit: BULK_KINDS.includes(kind) ? 'g' : unit,
+      minStock: Number(minStock) || 0,
+      cropType: cropType || null,
+    };
+    onSubmit(editing ? { action: 'update', id: editing.id, ...fields } : fields);
   };
 
   const priceChanged =
@@ -88,10 +108,10 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   return (
     <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
       <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)' }}>
-        {material ? `${t('receiptOf')}: ${material.name}` : t('newItem')}
+        {editing ? `${t('editOf')}: ${editing.name}` : material ? `${t('receiptOf')}: ${material.name}` : t('newItem')}
       </h3>
 
-      {material ? (
+      {material && !editing ? (
         <RawMaterialReceiptFields
           material={material}
           suppliers={suppliers}
@@ -120,11 +140,13 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
           setMinStock={setMinStock}
           cropType={cropType}
           setCropType={setCropType}
+          nameUz={nameUz}
+          setNameUz={setNameUz}
           lang={lang}
         />
       )}
 
-      {material && (
+      {material && !editing && (
         <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
           {t('nowInStock')} {material.stock} {unitLabel(material.unit, lang)} {t('at')} {Math.round(material.avgCost)} {sumLabel(lang)}.
           {factor === 1000 && quantity && (
@@ -148,8 +170,8 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
       )}
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
-        <button className="btn btn-primary" disabled={saving} onClick={material ? submitReceipt : submitNew}>
-          {saving ? t('saving') : material ? t('receive') : t('create')}
+        <button className="btn btn-primary" disabled={saving} onClick={material && !editing ? submitReceipt : submitNew}>
+          {saving ? t('saving') : editing ? t('save') : material ? t('receive') : t('create')}
         </button>
         <button className="btn" onClick={onCancel}>{t('cancel')}</button>
       </div>

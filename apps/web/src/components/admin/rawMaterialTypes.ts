@@ -1,6 +1,8 @@
 export interface RawMaterial {
   id: string;
   name: string;
+  /** Узбекское название. Пусто — показываем русское, а не пустоту. */
+  nameUz?: string | null;
   kind: 'SEED' | 'SUBSTRATE' | 'TRAY' | 'PACKAGING' | 'OTHER';
   unit: string;
   stock: number;
@@ -57,3 +59,16 @@ export const UNIT_OPTIONS = [
  * Килограммов в UNIT_OPTIONS по-прежнему нет — они вводятся при приходе.
  */
 export const BULK_KINDS: RawMaterial['kind'][] = [];
+
+/**
+ * Название позиции на языке читателя.
+ *
+ * ПУСТО — ПОКАЗЫВАЕМ РУССКОЕ. Узбекское имя владелец заполняет руками, и
+ * пока он этого не сделал, «Кокосовый субстрат» полезнее пустой строки:
+ * чужой язык человек прочитает, а пустоту примет за поломку. Тот же довод,
+ * что у `<Bi>` на витрине.
+ */
+export function materialName(m: { name: string; nameUz?: string | null }, lang: 'ru' | 'uz'): string {
+  if (lang === 'ru') return m.name;
+  return m.nameUz?.trim() || m.name;
+}
