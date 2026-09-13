@@ -1,11 +1,11 @@
 'use client';
 
 import { useSyncExternalStore } from 'react';
-import { BatteryWarning, Radio, RadioTower } from 'lucide-react';
+import { Radio, RadioTower } from 'lucide-react';
 
 import { isNativeApp } from '@/lib/native/bridge';
-import { openNativeSettings } from '@/lib/native/geo';
 
+import { FieldAppHints } from './FieldAppHints';
 import { useFieldSession } from './FieldTrackerProvider';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -24,9 +24,8 @@ import { useFieldSession } from './FieldTrackerProvider';
 //
 // О ГРАНИЦЕ ГОВОРИМ ВСЛУХ, А НЕ ПРЯЧЕМ — и разную для разных путей.
 // Браузер пишет позицию, пока вкладка видима: погас экран — Safari замеры
-// замораживает, Chrome сильно прореживает. Приложение пишет и с погашенным
-// экраном, но его усыпляет экономия батареи. Человек, который об этом не
-// знает, будет уверен, что смена пишется.
+// замораживает, Chrome сильно прореживает. У приложения граница своя —
+// батарея и смахивание, о них говорит `FieldAppHints`.
 //
 // КНОПКА ВИДНА ТОЛЬКО ТОМУ, КТО ЕЗДИТ. Без поставщика записи — это
 // владелец — кнопка не рисуется вовсе: лишняя «записывать меня» на его
@@ -45,11 +44,6 @@ const text = {
     ru: 'Пишется и с погашенным экраном',
     uz: 'Ekran oʻchiq boʻlsa ham yoziladi',
   },
-  battery: {
-    ru: 'Трек рвётся? Батарея → «Без ограничений»',
-    uz: 'Trek uzilyaptimi? Batareya → «Cheklovsiz»',
-  },
-  batterySettings: { ru: 'Открыть настройки', uz: 'Sozlamalarni ochish' },
   waiting: { ru: 'ждут связи', uz: 'aloqa kutmoqda' },
   denied: {
     ru: 'Доступ к геопозиции закрыт — разрешите его в настройках браузера',
@@ -138,22 +132,7 @@ export function FieldTrackButton({ lang }: { lang: 'ru' | 'uz' }) {
         </span>
       )}
 
-      {/* БАТАРЕЯ — главная причина рваного трека в приложении. Xiaomi и
-          Samsung усыпляют фоновую службу по умолчанию, и починить это
-          можно только руками в настройках. Кнопка ведёт ровно туда. */}
-      {native && shift.open && (
-        <span
-          style={{
-            display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap',
-            fontSize: 'var(--text-xs)', color: 'var(--text-muted)',
-          }}
-        >
-          <BatteryWarning size={14} /> {t('battery')}
-          <button className="btn btn-ghost btn-sm" onClick={() => openNativeSettings()}>
-            {t('batterySettings')}
-          </button>
-        </span>
-      )}
+      {native && shift.open && <FieldAppHints lang={lang} />}
 
       {/* Смена не открылась. Молчать нельзя: человек нажал кнопку и вправе
           знать, почему ничего не произошло. */}

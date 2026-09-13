@@ -115,6 +115,9 @@ def test_app_silence_talks_about_the_app_not_telegram() -> None:
     assert "Приложение" in text
     assert "42" in text
     assert "Без ограничений" in text
+    # Смахнутое приложение не пишет — это единственная причина молчания,
+    # которую человек устраняет сам, не заходя в настройки.
+    assert "смахивайте" in text
     # Совет включить трансляцию человеку с приложением — ложный.
     assert "Транслировать" not in text
 
