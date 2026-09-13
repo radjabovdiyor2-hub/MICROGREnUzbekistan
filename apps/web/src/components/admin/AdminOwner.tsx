@@ -44,7 +44,7 @@ export function AdminOwner({ lang }: { lang: 'ru' | 'uz' }) {
       const res = await fetch('/api/admin/owner', { credentials: 'same-origin' });
       const json = await res.json();
       if (json.status === 'ok') return json.practices as View[];
-      throw new Error(json.error || 'Не удалось загрузить');
+      throw new Error(json.error || t('Не удалось загрузить', "Yuklab bo'lmadi"));
     },
   });
 

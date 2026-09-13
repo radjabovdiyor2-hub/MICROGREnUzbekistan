@@ -1,6 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+
+import { formatSum } from '@/lib/units';
 import { Cpu, DollarSign, TrendingUp } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -87,7 +89,7 @@ export function AdminAiSpend({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
               </span>
             </div>
             <div style={{ fontSize: 'var(--text-lg)', fontWeight: 700 }}>
-              {budget.monthUzs.toLocaleString('ru-RU').replace(/,/g, ' ')} сум
+              {formatSum(budget.monthUzs, lang)}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
               {t('по курсу из настроек', 'sozlamalardagi kurs bo\'yicha')}

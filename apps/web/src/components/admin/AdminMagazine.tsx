@@ -9,7 +9,26 @@ export { qrBtn };
 
 import { useMagazineAdmin } from './useMagazineAdmin';
 
-export function AdminMagazine() {
+const T = {
+  loading: { ru: 'Загрузка...', uz: 'Yuklanmoqda...' },
+  title: { ru: 'Живое меню заведения', uz: 'Muassasaning jonli menyusi' },
+  hint: {
+    ru: 'Блюда, ролики и печатные QR витрины /m/<slug>. Номер журнала и его PDF заводятся на вкладке «Номера».',
+    uz: "Taomlar, roliklar va /m/<slug> vitrinasining chop etiladigan QR kodlari. Jurnal soni va uning PDF fayli «Sonlar» bo'limida kiritiladi.",
+  },
+  uploadTitle: { ru: '🎬 Загрузить видео → получить QR', uz: '🎬 Video yuklash → QR olish' },
+  dropHere: { ru: 'Перетащите .mp4 сюда', uz: '.mp4 faylni shu yerga tashlang' },
+  dishName: { ru: 'Название блюда (необязательно)', uz: 'Taom nomi (majburiy emas)' },
+  uploading: { ru: '⏳ Загрузка...', uz: '⏳ Yuklanmoqda...' },
+  upload: { ru: '📹 Загрузить видео', uz: '📹 Video yuklash' },
+  ready: { ru: '✅ Готово', uz: '✅ Tayyor' },
+  openPage: { ru: 'Открыть страницу ↗', uz: 'Sahifani ochish ↗' },
+  copied: { ru: '✅ Скопировано!', uz: '✅ Nusxalandi!' },
+  copyLink: { ru: '📋 Копировать ссылку', uz: '📋 Havolani nusxalash' },
+};
+
+export function AdminMagazine({ lang }: { lang: 'ru' | 'uz' }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const {
     restaurant, dishes, uploading, loading, quickName, setQuickName,
     lastQr, previewVideoUrl, setPreviewVideoUrl, copiedId, dragActive, setDragActive,
@@ -19,13 +38,13 @@ export function AdminMagazine() {
     startRename, saveRename, downloadQr, setEditingId,
   } = useMagazineAdmin();
 
-  if (loading) return <div style={{ padding: 'var(--space-6)' }}>Загрузка...</div>;
+  if (loading) return <div style={{ padding: 'var(--space-6)' }}>{t('loading')}</div>;
 
   return (
     <div style={{ padding: 'var(--space-6)', maxWidth: 840 }}>
-      <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>Живое меню заведения</h2>
+      <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>{t('title')}</h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', maxWidth: 620 }}>
-        Блюда, ролики и печатные QR витрины /m/&lt;slug&gt;. Номер журнала и его PDF заводятся на вкладке «Номера».
+        {t('hint')}
       </p>
 
       {/* Быстрое добавление видео → QR с поддержкой Drag-and-Drop */}
@@ -49,14 +68,14 @@ export function AdminMagazine() {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' }}>
-          <h3 style={{ fontWeight: 'var(--font-bold)' }}>🎬 Загрузить видео → получить QR</h3>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Перетащите .mp4 сюда</span>
+          <h3 style={{ fontWeight: 'var(--font-bold)' }}>{t('uploadTitle')}</h3>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{t('dropHere')}</span>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input className="input" placeholder="Название блюда (необязательно)" value={quickName} onChange={(e) => setQuickName(e.target.value)}
+          <input className="input" placeholder={t('dishName')} value={quickName} onChange={(e) => setQuickName(e.target.value)}
             style={{ flex: 1, minWidth: 180 }} />
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: '10px', background: 'var(--brand-primary)', color: 'var(--text-inverse)', fontWeight: 700, fontSize: 'var(--text-base)', cursor: uploading === 'quick' ? 'wait' : 'pointer' }}>
-            {uploading === 'quick' ? '⏳ Загрузка...' : '📹 Загрузить видео'}
+            {uploading === 'quick' ? t('uploading') : t('upload')}
             <input type="file" accept="video/mp4,video/webm,video/quicktime" style={{ display: 'none' }} disabled={!!uploading}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) quickAddVideo(f); e.target.value = ''; }} />
           </label>
@@ -64,10 +83,10 @@ export function AdminMagazine() {
 
         {lastQr && (
           <div style={{ marginTop: 'var(--space-3)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)', border: '1px solid var(--success)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success)', fontWeight: 700 }}>✅ Готово · #{lastQr.code}</div>
-            <a href={`/m/${lastQr.slug}/d/${lastQr.code}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>Открыть страницу ↗</a>
+            <div style={{ fontSize: 'var(--text-sm)', color: 'var(--success)', fontWeight: 700 }}>{t('ready')} · #{lastQr.code}</div>
+            <a href={`/m/${lastQr.slug}/d/${lastQr.code}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 'var(--text-sm)', color: 'var(--brand-primary)' }}>{t('openPage')}</a>
             <button onClick={() => copyLink(lastQr.slug, lastQr.code, 'last')} style={qrBtn}>
-              {copiedId === 'last' ? '✅ Скопировано!' : '📋 Копировать ссылку'}
+              {copiedId === 'last' ? t('copied') : t('copyLink')}
             </button>
             <button onClick={() => downloadQr(lastQr.code, 'png')} style={qrBtn}>⬇ QR PNG</button>
             <button onClick={() => downloadQr(lastQr.code, 'svg')} style={qrBtn}>⬇ QR SVG</button>

@@ -28,7 +28,33 @@ import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { useFeedback } from './AdminFeedback';
 import { TABS, type Photo, type Status } from './adminGuestPhotosConfig';
 
-export function AdminGuestPhotos() {
+const T = {
+  statusFailed: { ru: 'Не удалось изменить статус', uz: "Holatni o'zgartirib bo'lmadi" },
+  removeTitle: { ru: 'Удалить кадр навсегда?', uz: "Kadr butunlay o'chirilsinmi?" },
+  removeDetail: { ru: 'Отменить будет нельзя.', uz: "Bekor qilib bo'lmaydi." },
+  remove: { ru: 'Удалить', uz: "O'chirish" },
+  removeFailed: { ru: 'Не удалось удалить', uz: "O'chirib bo'lmadi" },
+  zipFailed: { ru: 'Не удалось собрать архив', uz: "Arxivni yig'ib bo'lmadi" },
+  pickFirst: {
+    ru: 'Сначала отберите кадры на вкладке «На проверке»',
+    uz: "Avval «Tekshiruvda» bo'limida kadrlarni tanlang",
+  },
+  title: { ru: '📸 Кадры гостей', uz: '📸 Mehmon kadrlari' },
+  hint: {
+    ru: 'Гости снимают блюда через QR в номере. Отберите нужные, выгрузите архив и вставьте в следующий выпуск. После печати отметьте кадры как напечатанные — тогда они не попадут в номер повторно.',
+    uz: "Mehmonlar taomlarni sondagi QR orqali suratga oladi. Keraklisini tanlang, arxivni yuklab, keyingi songa qo'ying. Chop etgach kadrlarni «chop etilgan» deb belgilang — shunda ular songa qayta tushmaydi.",
+  },
+  download: { ru: '⬇ Скачать для вёрстки', uz: '⬇ Sahifalash uchun yuklab olish' },
+  loading: { ru: 'Загрузка…', uz: 'Yuklanmoqda…' },
+  noNew: {
+    ru: 'Новых кадров нет. Они появятся, когда гость нажмёт «Снять кадр» на странице блюда.',
+    uz: "Yangi kadrlar yo'q. Mehmon taom sahifasida «Kadr olish»ni bosganda paydo bo'ladi.",
+  },
+  empty: { ru: 'Пусто.', uz: "Bo'sh." },
+};
+
+export function AdminGuestPhotos({ lang }: { lang: 'ru' | 'uz' }) {
+  const tx = (k: keyof typeof T) => T[k][lang];
   const notify = useFeedback();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<Status>('pending');
@@ -54,7 +80,7 @@ export function AdminGuestPhotos() {
         method: 'PATCH',
         body: JSON.stringify({ id, status: next }),
       });
-      if (!res.ok) { setNote('Не удалось изменить статус'); return; }
+      if (!res.ok) { setNote(tx('statusFailed')); return; }
       // Правим локально: кадр сам уйдёт на другую вкладку, перезапрос не нужен
       queryClient.setQueryData(['admin-guest-photos'], (prev: Photo[] | undefined) => 
         prev ? prev.map((p) => (p.id === id ? { ...p, status: next } : p)) : []
@@ -66,9 +92,9 @@ export function AdminGuestPhotos() {
 
   const remove = async (id: string) => {
     const agreed = await notify.confirm({
-      title: 'Удалить кадр навсегда?',
-      detail: 'Отменить будет нельзя.',
-      confirmText: 'Удалить',
+      title: tx('removeTitle'),
+      detail: tx('removeDetail'),
+      confirmText: tx('remove'),
       danger: true,
     });
     if (!agreed) return;
@@ -76,7 +102,7 @@ export function AdminGuestPhotos() {
     setNote('');
     try {
       const res = await adminFetch(`/api/admin/magazine/guest-photos?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) { setNote('Не удалось удалить'); return; }
+      if (!res.ok) { setNote(tx('removeFailed')); return; }
       queryClient.setQueryData(['admin-guest-photos'], (prev: Photo[] | undefined) => 
         prev ? prev.filter((p) => p.id !== id) : []
       );
@@ -91,7 +117,7 @@ export function AdminGuestPhotos() {
     setNote('');
     const res = await adminFetch(`/api/admin/magazine/guest-photos/export?status=approved`);
     if (!res.ok) {
-      setNote(counts.approved ? 'Не удалось собрать архив' : 'Сначала отберите кадры на вкладке «На проверке»');
+      setNote(counts.approved ? tx('zipFailed') : tx('pickFirst'));
       return;
     }
     const blob = await res.blob();
@@ -105,12 +131,10 @@ export function AdminGuestPhotos() {
   return (
     <div style={{ padding: 'var(--space-6)', maxWidth: 1080 }}>
       <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>
-        📸 Кадры гостей
+        {tx('title')}
       </h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', maxWidth: 640 }}>
-        Гости снимают блюда через QR в номере. Отберите нужные, выгрузите архив и вставьте
-        в следующий выпуск. После печати отметьте кадры как напечатанные — тогда они не
-        попадут в номер повторно.
+        {tx('hint')}
       </p>
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
@@ -118,7 +142,7 @@ export function AdminGuestPhotos() {
           <button
             key={t.id}
             onClick={() => setStatus(t.id)}
-            title={t.hint}
+            title={t.hint[lang]}
             style={{
               padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', fontSize: 'var(--text-sm)',
               fontWeight: status === t.id ? 700 : 500,
@@ -127,11 +151,11 @@ export function AdminGuestPhotos() {
               color: status === t.id ? 'rgb(var(--overlay-light-rgb))' : 'var(--text-primary)',
             }}
           >
-            {t.label} <span style={{ opacity: 0.7 }}>{counts[t.id]}</span>
+            {t.label[lang]} <span style={{ opacity: 0.7 }}>{counts[t.id]}</span>
           </button>
         ))}
         <button onClick={downloadZip} style={{ ...btn, marginLeft: 'auto', fontWeight: 700 }}>
-          ⬇ Скачать для вёрстки ({counts.approved})
+          {tx('download')} ({counts.approved})
         </button>
       </div>
 
@@ -142,12 +166,12 @@ export function AdminGuestPhotos() {
       )}
 
       {loading ? (
-        <div style={{ padding: 'var(--space-6)', color: 'var(--text-secondary)' }}>Загрузка…</div>
+        <div style={{ padding: 'var(--space-6)', color: 'var(--text-secondary)' }}>{tx('loading')}</div>
       ) : photos.length === 0 ? (
         <div style={{ padding: 'var(--space-6)', color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
           {status === 'pending'
-            ? 'Новых кадров нет. Они появятся, когда гость нажмёт «Снять кадр» на странице блюда.'
-            : 'Пусто.'}
+            ? tx('noNew')
+            : tx('empty')}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 'var(--space-4)' }}>

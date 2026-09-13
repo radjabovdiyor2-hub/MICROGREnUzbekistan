@@ -203,7 +203,7 @@ export function AdminOrders({ focus = '', lang = 'ru' }: { focus?: string; lang?
             fontSize: 'var(--text-sm)',
           }}
         />
-        <button type="submit" className="btn btn-sm btn-primary">Найти</button>
+        <button type="submit" className="btn btn-sm btn-primary">{t('Найти', 'Qidirish')}</button>
         {phone && (
           <button type="button" className="btn btn-sm btn-ghost"
             onClick={() => { setPhoneInput(''); setPhone(''); setPage(1); }}>

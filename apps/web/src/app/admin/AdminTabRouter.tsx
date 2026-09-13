@@ -187,10 +187,10 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     )}
 
     {/* Контент и журнал */}
-    {activeTab === 'magazine' && isOwner && <AdminMagazine />}
+    {activeTab === 'magazine' && isOwner && <AdminMagazine lang={lang} />}
     {activeTab === 'magazine_editions' && isOwner && <AdminMagazineIssues lang={lang} />}
     {activeTab === 'magazine_money' && isOwner && <AdminMagazineMoney lang={lang} />}
-    {activeTab === 'guest_photos' && isOwner && <AdminGuestPhotos />}
+    {activeTab === 'guest_photos' && isOwner && <AdminGuestPhotos lang={lang} />}
     {/* Материалы и рецепты — один экран. Старый адрес `?tab=recipes`
         остаётся живым и открывает его сразу на рецептах: по нему приходят
         ссылки из ИИ-офиса. */}
