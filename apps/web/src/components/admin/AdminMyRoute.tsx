@@ -25,9 +25,27 @@ import type { DeliveryRoute, DeliveryStop } from './AdminDeliveryRoute';
 // решено заранее и здесь только читается.
 // ══════════════════════════════════════════════════════════════════════
 
-const STOP_LABEL: Record<string, { text: string; color: string }> = {
-  delivered: { text: 'Доставлено', color: 'var(--success)' },
-  failed: { text: 'Не застал', color: 'var(--error)' },
+// Экран водителя был русским целиком, хотя `lang` в него приходил с самого
+// начала. У продавца-узбека это ЕДИНСТВЕННЫЙ экран, на котором он работает
+// весь день, и «Не застал» ему приходится узнавать по месту кнопки.
+const STOP_LABEL: Record<string, { ru: string; uz: string; color: string }> = {
+  delivered: { ru: 'Доставлено', uz: 'Yetkazildi', color: 'var(--success)' },
+  failed: { ru: 'Не застал', uz: 'Topa olmadim', color: 'var(--error)' },
+};
+
+const T = {
+  loading: { ru: 'Загрузка маршрута…', uz: 'Reys yuklanmoqda…' },
+  none: { ru: 'На вас сегодня маршрут не назначен.', uz: 'Bugun sizga reys tayinlanmagan.' },
+  title: { ru: 'Мой рейс', uz: 'Mening reysim' },
+  left: { ru: 'осталось', uz: 'qoldi' },
+  of: { ru: 'из', uz: 'dan' },
+  delivered: { ru: 'Доставлено', uz: 'Yetkazildi' },
+  failed: { ru: 'Не застал', uz: 'Topa olmadim' },
+  loadFailed: { ru: 'Не удалось загрузить маршрут', uz: "Reysni yuklab bo'lmadi" },
+  markFailed: { ru: 'Отметка не сохранилась', uz: 'Belgi saqlanmadi' },
+  routeClosed: { ru: 'Рейс закрыт — все точки объехали', uz: 'Reys yopildi — barcha nuqtalar aylanib chiqildi' },
+  marked: { ru: 'Отметил', uz: 'Belgilandi' },
+  retry: { ru: 'Повторить', uz: 'Qayta urinish' },
 };
 
 export function AdminMyRoute({
@@ -47,14 +65,15 @@ export function AdminMyRoute({
 }) {
   const queryClient = useQueryClient();
   const notify = useFeedback();
+  const t = <K extends keyof typeof T>(key: K) => T[key][lang];
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
 
-  const { data: routes = [], isPending } = useQuery<DeliveryRoute[]>({
+  const { data: routes = [], isPending, isError } = useQuery<DeliveryRoute[]>({
     queryKey: ['admin-my-route'],
     queryFn: async () => {
       const res = await fetch('/api/admin/deliveries', { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('Не удалось загрузить маршрут');
+      if (!res.ok) throw new Error(T.loadFailed[lang]);
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
@@ -74,19 +93,37 @@ export function AdminMyRoute({
         body: JSON.stringify({ stopId: stop.id, status }),
       });
       const data = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(data?.error || 'Отметка не сохранилась');
-      notify.success(data?.routeCompleted ? 'Рейс закрыт — все точки объехали' : 'Отметил');
+      if (!res.ok) throw new Error(data?.error || t('markFailed'));
+      notify.success(data?.routeCompleted ? t('routeClosed') : t('marked'));
       queryClient.invalidateQueries({ queryKey: ['admin-my-route'] });
       queryClient.invalidateQueries({ queryKey: ['admin-deliveries'] });
     } catch (err) {
       // Молчание здесь дороже всего: курьер уедет, считая точку закрытой.
-      setError(err instanceof Error ? err.message : 'Отметка не сохранилась');
+      setError(err instanceof Error ? err.message : t('markFailed'));
     } finally {
       setBusy('');
     }
   };
 
-  if (isPending) return <div>Загрузка маршрута…</div>;
+  if (isPending) return <div>{t('loading')}</div>;
+
+  // ОТКАЗ ДВЕРИ — НЕ «РЕЙСА НЕТ». Ошибка запроса гасилась молча, и водитель
+  // с истёкшей сессией читал «на вас сегодня маршрут не назначен» — то есть
+  // получал разрешение ехать домой. Разводим два разных ответа: пусто и
+  // «мы не смогли спросить».
+  if (isError) {
+    return (
+      <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--error)' }}>
+        {t('loadFailed')}
+        <div style={{ marginTop: 'var(--space-3)' }}>
+          <button className="btn btn-sm"
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['admin-my-route'] })}>
+            {t('retry')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!route) {
     return (
@@ -96,7 +133,7 @@ export function AdminMyRoute({
             значит отправить его думать самому там, где мы умеем помочь. */}
         {!isOwner && <NextStopPanel lang={lang} />}
         <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-          На вас сегодня маршрут не назначен.
+          {t('none')}
         </div>
       </div>
     );
@@ -108,10 +145,10 @@ export function AdminMyRoute({
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h2 style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Truck size={24} /> Мой рейс
+          <Truck size={24} /> {t('title')}
         </h2>
         <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
-          {new Date(route.date).toLocaleDateString('ru-RU')} · осталось {left} из {route.stops.length}
+          {new Date(route.date).toLocaleDateString('ru-RU')} · {t('left')} {left} {t('of')} {route.stops.length}
         </span>
       </div>
 
@@ -154,7 +191,7 @@ export function AdminMyRoute({
                   </div>
                   {done && (
                     <div style={{ color: done.color, fontSize: 'var(--text-sm)', fontWeight: 'var(--font-semibold)' }}>
-                      {done.text}
+                      {done[lang]}
                     </div>
                   )}
                 </div>
@@ -175,12 +212,12 @@ export function AdminMyRoute({
                     <button className="btn btn-primary btn-sm" disabled={busy === stop.id}
                       onClick={() => mark(stop, 'delivered')}
                       style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <Check size={14} /> Доставлено
+                      <Check size={14} /> {t('delivered')}
                     </button>
                     <button className="btn btn-sm" disabled={busy === stop.id}
                       onClick={() => mark(stop, 'failed')}
                       style={{ display: 'flex', alignItems: 'center', gap: 4, border: '1px solid var(--error)', color: 'var(--error)' }}>
-                      <X size={14} /> Не застал
+                      <X size={14} /> {t('failed')}
                     </button>
                   </>
                 )}

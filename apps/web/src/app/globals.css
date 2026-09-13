@@ -328,6 +328,16 @@ input, textarea, select {
   .btn-sm {
     min-height: 44px;
   }
+
+  /* Хлебные крошки — строка в 19 px, а это единственный путь «на уровень
+     выше» на семи страницах сразу. Правилом, а не семью правками: форма
+     у всех одна, и восьмая крошка получит прицел сама. Условие по
+     указателю — то же, что у `.btn-sm` строкой выше. */
+  nav[aria-label='breadcrumb'] a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+  }
 }
 
 .btn-icon {

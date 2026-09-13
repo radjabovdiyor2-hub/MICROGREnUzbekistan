@@ -77,6 +77,35 @@ test.describe("Мой день у продавца", () => {
     await expect(page.getByText("Выберите сотрудника")).toHaveCount(0);
   });
 
+  // ══════════════════════════════════════════════════════════════════
+  // Три состояния, которых продавец не видел ВООБЩЕ.
+  //
+  // Отрисовка «собираю», «трека нет» и отказа была завязана на выбранного
+  // сотрудника, а в своём дне выбирать некого — условие никогда не
+  // выполнялось. День без трека выглядел как сломанный экран: ни строки.
+  // ══════════════════════════════════════════════════════════════════
+  test("трека за день нет — сказано словами, а не пустым экраном", async ({ page }) => {
+    await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+    await page.route("**/api/admin/tracking/day**", (route) =>
+      route.fulfill({ json: { status: "ok", day: null, track: [], stays: [], legs: [], idle: [] } }));
+    await loginAsSeller(page);
+    await openAdminTab(page, "Мой день");
+
+    await expect(page.getByText(/Трека за этот день нет/)).toBeVisible({ timeout: 20_000 });
+  });
+
+  test("дверь отказала — это другой ответ, а не «трека нет»", async ({ page }) => {
+    await page.route("**/api/**", (route) => route.fulfill({ json: {} }));
+    await page.route("**/api/admin/tracking/day**", (route) =>
+      route.fulfill({ status: 401, json: { error: "unauthorized" } }));
+    await loginAsSeller(page);
+    await openAdminTab(page, "Мой день");
+
+    await expect(page.getByText(/Не удалось загрузить день/)).toBeVisible({ timeout: 20_000 });
+    // Вывод о человеке нельзя делать там, где спросить не удалось.
+    await expect(page.getByText(/трансляция геопозиции не включалась/)).toHaveCount(0);
+  });
+
   test("«Сейчас в поле» продавцу не показывается — это чужая работа", async ({ page }) => {
     await stubDay(page);
     await loginAsSeller(page);

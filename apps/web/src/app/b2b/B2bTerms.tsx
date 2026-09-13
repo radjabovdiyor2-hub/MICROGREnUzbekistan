@@ -149,7 +149,9 @@ export async function B2bTerms() {
                 href={it.href}
                 target="_blank"
                 style={{
-                  display: 'inline-block',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  minHeight: 36,
                   marginTop: 'var(--space-2)',
                   fontSize: 'var(--text-sm)',
                   color: 'var(--brand-primary)',

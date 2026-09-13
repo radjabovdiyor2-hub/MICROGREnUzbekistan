@@ -65,9 +65,11 @@ export function StoreLocation() {
                 <span style={{ color: 'var(--brand-primary)' }}><Phone size={20} /></span>
                 <div>
                   <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{t('Telefon', 'Телефон')}</div>
-                  <a href="tel:+998949999599" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>+998 94 999 95 99</a>
+                  {/* Два номера строками по 19 px друг под другом: промах
+                      здесь не «неудобно», а звонок не туда. */}
+                  <a href="tel:+998949999599" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', minHeight: 36 }}>+998 94 999 95 99</a>
                   <br />
-                  <a href="tel:+998980072020" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)' }}>+998 98 007 20 20</a>
+                  <a href="tel:+998980072020" style={{ color: 'var(--brand-primary)', fontSize: 'var(--text-sm)', display: 'inline-flex', alignItems: 'center', minHeight: 36 }}>+998 98 007 20 20</a>
                 </div>
               </div>
 

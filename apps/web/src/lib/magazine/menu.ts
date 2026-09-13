@@ -9,7 +9,10 @@ export const DISH_CATEGORIES = ['starter', 'main', 'dessert', 'drink'] as const;
 export type DishCategory = (typeof DISH_CATEGORIES)[number];
 
 export const DISH_CATEGORY_LABELS: Record<DishCategory, { ru: string; uz: string }> = {
-  starter: { ru: 'Закуски', uz: 'Salatlar' },
+  // «Salatlar» — это «салаты», отдельная категория; закуски по-узбекски
+  // «gazaklar». Раздел меню назывался чужим словом ровно до тех пор, пока
+  // узбекский перевод вообще нигде не выводился.
+  starter: { ru: 'Закуски', uz: 'Gazaklar' },
   main: { ru: 'Горячее', uz: 'Issiq taomlar' },
   dessert: { ru: 'Десерты', uz: 'Shirinliklar' },
   drink: { ru: 'Напитки', uz: 'Ichimliklar' },

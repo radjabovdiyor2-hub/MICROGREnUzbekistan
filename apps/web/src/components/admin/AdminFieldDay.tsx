@@ -53,7 +53,7 @@ export function AdminFieldDay({
     },
   });
 
-  const { data, isLoading } = useQuery<FieldDayResponse>({
+  const { data, isLoading, isError } = useQuery<FieldDayResponse>({
     queryKey: ['field-day', mine ? 'self' : employeeId, date],
     // В своём дне выбирать некого — сервер знает, чей он, по подписи.
     enabled: mine || employeeId !== '',
@@ -71,6 +71,11 @@ export function AdminFieldDay({
   });
 
   const day = data?.day ?? null;
+  // В режиме «мой день» выбирать некого, и `employeeId` остаётся пустым —
+  // а все три состояния ниже были завязаны именно на него. Поэтому продавец
+  // не видел НИЧЕГО: ни «собираю», ни «трека нет», ни отказа. Пустой экран
+  // без единого слова читается как поломка, и это был он.
+  const asked = mine || employeeId !== '';
 
   return (
     <div>
@@ -122,11 +127,21 @@ export function AdminFieldDay({
           вкладку ему включат. */}
       {!mine && employeeId === '' && <FieldLive lang={lang} />}
 
-      {employeeId !== '' && isLoading && (
+      {asked && isLoading && (
         <p style={{ color: 'var(--text-muted)' }}>{t('Собираю день…', 'Kun yig‘ilmoqda…')}</p>
       )}
 
-      {employeeId !== '' && !isLoading && !day && (
+      {/* ОТКАЗ — НЕ «ТРЕКА НЕТ». Ошибка запроса приходила той же строкой про
+          невключённую трансляцию: владелец делал вывод о сотруднике там, где
+          спросить попросту не удалось. */}
+      {asked && !isLoading && isError && (
+        <p style={{ color: 'var(--error)' }}>
+          {t('Не удалось загрузить день. Попробуйте ещё раз.',
+            'Kunni yuklab bo‘lmadi. Qayta urinib ko‘ring.')}
+        </p>
+      )}
+
+      {asked && !isLoading && !isError && !day && (
         // Пусто — это не поломка: человек мог не включать трансляцию.
         // Так и говорим, вместо пустого экрана без объяснений.
         <p style={{ color: 'var(--text-muted)' }}>
