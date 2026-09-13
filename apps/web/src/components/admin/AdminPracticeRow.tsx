@@ -6,8 +6,8 @@ import { RHYTHMS, RHYTHM_LABELS, type Rhythm } from '@/lib/owner/practices';
 
 interface View {
   key: string;
-  title: string;
-  why: string;
+  title: { ru: string; uz: string };
+  why: { ru: string; uz: string };
   rhythm: Rhythm;
   custom: boolean;
   status: string;
@@ -82,7 +82,7 @@ export function AdminPracticeRow({ practice: p, lang, onTick, onState }: Props) 
           }}
         >
           <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, lineHeight: 1.35 }}>
-            {p.title}
+            {p.title[lang]}
           </div>
           {!open && (
             <div
@@ -97,7 +97,7 @@ export function AdminPracticeRow({ practice: p, lang, onTick, onState }: Props) 
                 overflow: 'hidden',
               }}
             >
-              {p.why}
+              {p.why[lang]}
             </div>
           )}
         </button>
@@ -123,7 +123,7 @@ export function AdminPracticeRow({ practice: p, lang, onTick, onState }: Props) 
       {open && (
         <div style={{ paddingLeft: 32, marginTop: 6 }}>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            {p.why}
+            {p.why[lang]}
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>

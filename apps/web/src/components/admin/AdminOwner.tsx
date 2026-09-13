@@ -20,8 +20,8 @@ import { AdminPracticeRow } from './AdminPracticeRow';
 
 interface View {
   key: string;
-  title: string;
-  why: string;
+  title: { ru: string; uz: string };
+  why: { ru: string; uz: string };
   rhythm: Rhythm;
   custom: boolean;
   area: string;
