@@ -20,12 +20,12 @@ export interface RawMaterial {
   } | null;
 }
 
-export const KIND_LABELS: Record<RawMaterial['kind'], string> = {
-  SEED: 'Семена',
-  SUBSTRATE: 'Субстрат',
-  TRAY: 'Лотки',
-  PACKAGING: 'Упаковка',
-  OTHER: 'Прочее',
+export const KIND_LABELS: Record<RawMaterial['kind'], { ru: string; uz: string }> = {
+  SEED: { ru: 'Семена', uz: "Urug'lar" },
+  SUBSTRATE: { ru: 'Субстрат', uz: 'Substrat' },
+  TRAY: { ru: 'Лотки', uz: 'Lotoklar' },
+  PACKAGING: { ru: 'Упаковка', uz: 'Qadoqlash' },
+  OTHER: { ru: 'Прочее', uz: 'Boshqa' },
 };
 
 // ⚠️ Килограммов здесь намеренно нет.
@@ -38,9 +38,9 @@ export const KIND_LABELS: Record<RawMaterial['kind'], string> = {
 // Сыпучее хранится в граммах. Килограммы можно ввести при ПРИХОДЕ — форма
 // сама переведёт их в граммы и покажет результат до сохранения.
 export const UNIT_OPTIONS = [
-  { value: 'g', label: 'граммы' },
-  { value: 'pcs', label: 'штуки' },
-  { value: 'l', label: 'литры' },
+  { value: 'g', label: { ru: 'граммы', uz: 'gramm' } },
+  { value: 'pcs', label: { ru: 'штуки', uz: 'dona' } },
+  { value: 'l', label: { ru: 'литры', uz: 'litr' } },
 ];
 
 /**

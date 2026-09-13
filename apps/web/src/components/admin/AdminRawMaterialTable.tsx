@@ -3,6 +3,7 @@
 import { PackagePlus, RotateCcw, Trash2 } from 'lucide-react';
 import { KIND_LABELS, type RawMaterial } from './rawMaterialTypes';
 import { focusOutline, isFocused, useScrollToFocused } from './useFocusedRow';
+import { sumLabel, unitLabel } from '@/lib/units';
 
 // Таблица остатков сырья. Вынесена из AdminRawMaterials, чтобы каждый файл
 // оставался в пределах 200 строк.
@@ -15,7 +16,24 @@ interface Props {
   onRestore: (material: RawMaterial) => void;
   /** Сырьё, ради которого пришли по ссылке (`?focus=`, `receive_material`). */
   focus?: string;
+  lang: 'ru' | 'uz';
 }
+
+const T = {
+  empty: {
+    ru: 'Сырья пока нет. Заведите семена, субстрат и упаковку — тогда приход начнёт считать их средневзвешенную себестоимость.',
+    uz: "Hozircha xomashyo yo'q. Urug', substrat va qadoqni kiriting — shunda kirim ularning o'rtacha tannarxini hisoblay boshlaydi.",
+  },
+  name: { ru: 'НАЗВАНИЕ', uz: 'NOMI' },
+  kind: { ru: 'ТИП', uz: 'TURI' },
+  stock: { ru: 'ОСТАТОК', uz: 'QOLDIQ' },
+  cost: { ru: 'СЕБЕСТОИМОСТЬ', uz: 'TANNARX' },
+  value: { ru: 'В ЗАПАСЕ', uz: 'ZAXIRADA' },
+  lastPrice: { ru: 'ПОСЛЕДНЯЯ ЦЕНА', uz: "OXIRGI NARX" },
+  restore: { ru: 'Вернуть', uz: 'Qaytarish' },
+  receipt: { ru: 'Приход', uz: 'Kirim' },
+  hide: { ru: 'Скрыть', uz: 'Yashirish' },
+};
 
 const cell: React.CSSProperties = {
   padding: 'var(--space-2) var(--space-3)',
@@ -24,14 +42,14 @@ const cell: React.CSSProperties = {
 };
 
 export function AdminRawMaterialTable({
-  materials, fmt, onReceipt, onDelete, onRestore, focus = '',
+  materials, fmt, onReceipt, onDelete, onRestore, focus = '', lang,
 }: Props) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const scrollToFocused = useScrollToFocused<HTMLTableRowElement>();
   if (materials.length === 0) {
     return (
       <div className="card" style={{ padding: 'var(--space-4)', color: 'var(--text-muted)' }}>
-        Сырья пока нет. Заведите семена, субстрат и упаковку — тогда приход
-        начнёт считать их средневзвешенную себестоимость.
+        {t('empty')}
       </div>
     );
   }
@@ -43,12 +61,12 @@ export function AdminRawMaterialTable({
           {/* --border, а не --border-primary: второй переменной нет ни в
               токенах, ни в globals.css, и рамка брала цвет текста. */}
           <tr style={{ borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-            <th style={{ ...cell, color: 'var(--text-muted)' }}>НАЗВАНИЕ</th>
-            <th style={{ ...cell, color: 'var(--text-muted)' }}>ТИП</th>
-            <th style={{ ...cell, color: 'var(--text-muted)' }}>ОСТАТОК</th>
-            <th style={{ ...cell, color: 'var(--text-muted)' }}>СЕБЕСТОИМОСТЬ</th>
-            <th style={{ ...cell, color: 'var(--text-muted)' }}>В ЗАПАСЕ</th>
-            <th style={{ ...cell, color: 'var(--text-muted)' }}>ПОСЛЕДНЯЯ ЦЕНА</th>
+            <th style={{ ...cell, color: 'var(--text-muted)' }}>{t('name')}</th>
+            <th style={{ ...cell, color: 'var(--text-muted)' }}>{t('kind')}</th>
+            <th style={{ ...cell, color: 'var(--text-muted)' }}>{t('stock')}</th>
+            <th style={{ ...cell, color: 'var(--text-muted)' }}>{t('cost')}</th>
+            <th style={{ ...cell, color: 'var(--text-muted)' }}>{t('value')}</th>
+            <th style={{ ...cell, color: 'var(--text-muted)' }}>{t('lastPrice')}</th>
             <th style={cell} />
           </tr>
         </thead>
@@ -69,15 +87,15 @@ export function AdminRawMaterialTable({
                   </span>
                 )}
               </td>
-              <td style={{ ...cell, color: 'var(--text-secondary)' }}>{KIND_LABELS[m.kind]}</td>
+              <td style={{ ...cell, color: 'var(--text-secondary)' }}>{KIND_LABELS[m.kind][lang]}</td>
               <td style={{ ...cell, color: m.isLow ? 'var(--warning)' : undefined, fontWeight: m.isLow ? 'var(--font-semibold)' : undefined }}>
-                {m.stock} {m.unit}
+                {m.stock} {unitLabel(m.unit, lang)}
                 {m.isLow && ' ⚠️'}
               </td>
               {/* Средневзвешенная: закупки усредняются с остатком, поэтому
                   цена не скачет вместе с рынком при каждой поставке. */}
-              <td style={cell}>{fmt(m.avgCost)} сум / {m.unit}</td>
-              <td style={cell}>{fmt(m.stockValue)} сум</td>
+              <td style={cell}>{fmt(m.avgCost)} {sumLabel(lang)} / {unitLabel(m.unit, lang)}</td>
+              <td style={cell}>{fmt(m.stockValue)} {sumLabel(lang)}</td>
               <td style={{ ...cell, color: 'var(--text-secondary)' }}>
                 {m.lastPrice
                   ? `${fmt(m.lastPrice.price)} — ${m.lastPrice.supplier}`
@@ -87,15 +105,15 @@ export function AdminRawMaterialTable({
                 <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                   {m.isActive === false ? (
                     <button className="btn btn-sm btn-ghost" onClick={() => onRestore(m)}>
-                      <RotateCcw size={14} /> Вернуть
+                      <RotateCcw size={14} /> {t('restore')}
                     </button>
                   ) : (
                     <>
                       <button className="btn btn-sm" onClick={() => onReceipt(m)}>
-                        <PackagePlus size={14} /> Приход
+                        <PackagePlus size={14} /> {t('receipt')}
                       </button>
                       <button className="btn btn-sm btn-ghost" onClick={() => onDelete(m)}
-                        style={{ color: 'var(--error)' }} aria-label="Скрыть">
+                        style={{ color: 'var(--error)' }} aria-label={t('hide')}>
                         <Trash2 size={14} />
                       </button>
                     </>

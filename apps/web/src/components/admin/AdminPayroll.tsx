@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+
+import { sumLabel } from '@/lib/units';
 import { useQuery } from '@tanstack/react-query';
 import { CalendarClock, Plus, Trash2, Wallet } from 'lucide-react';
 
@@ -23,18 +25,18 @@ import { AdminNotice } from './AdminNotice';
 
 type PayoutKind = 'ADVANCE' | 'SALARY' | 'BONUS' | 'DEDUCTION';
 
-const KIND_RU: Record<PayoutKind, string> = {
-  ADVANCE: 'Аванс',
-  SALARY: 'Расчёт',
-  BONUS: 'Премия',
-  DEDUCTION: 'Удержание',
+const KIND_LABEL: Record<PayoutKind, { ru: string; uz: string }> = {
+  ADVANCE: { ru: 'Аванс', uz: 'Avans' },
+  SALARY: { ru: 'Расчёт', uz: 'Hisob-kitob' },
+  BONUS: { ru: 'Премия', uz: 'Mukofot' },
+  DEDUCTION: { ru: 'Удержание', uz: 'Ushlab qolish' },
 };
 
-const KIND_HINT: Record<PayoutKind, string> = {
-  ADVANCE: 'деньги выданы до дня выплаты',
-  SALARY: 'окончательный расчёт, деньги выданы',
-  BONUS: 'начислена, денег не двигает',
-  DEDUCTION: 'уменьшает сумму к выплате',
+const KIND_HINT: Record<PayoutKind, { ru: string; uz: string }> = {
+  ADVANCE: { ru: 'деньги выданы до дня выплаты', uz: "pul to'lov kunidan oldin berilgan" },
+  SALARY: { ru: 'окончательный расчёт, деньги выданы', uz: 'yakuniy hisob-kitob, pul berilgan' },
+  BONUS: { ru: 'начислена, денег не двигает', uz: "hisoblangan, pulni qo'zg'atmaydi" },
+  DEDUCTION: { ru: 'уменьшает сумму к выплате', uz: "to'lanadigan summani kamaytiradi" },
 };
 
 interface PayrollRow {
@@ -91,7 +93,45 @@ function currentPeriod(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
-export function AdminPayroll() {
+const T = {
+  loadFailed: { ru: 'Не удалось загрузить расчёт', uz: "Hisob-kitobni yuklab bo'lmadi" },
+  employee: { ru: 'Сотрудник', uz: 'Xodim' },
+  pickEmployee: { ru: 'Выберите сотрудника', uz: 'Xodimni tanlang' },
+  amountPositive: { ru: 'Сумма должна быть больше нуля', uz: "Summa noldan katta bo'lishi kerak" },
+  saveFailed: { ru: 'Не удалось сохранить', uz: "Saqlab bo'lmadi" },
+  removeFailed: { ru: 'Не удалось удалить запись', uz: "Yozuvni o'chirib bo'lmadi" },
+  loading: { ru: 'Загрузка…', uz: 'Yuklanmoqda…' },
+  unavailable: { ru: 'Расчёт недоступен', uz: "Hisob-kitob mavjud emas" },
+  inDays: { ru: 'через', uz: 'keyin' },
+  days: { ru: 'дн.', uz: 'kun' },
+  today: { ru: 'сегодня', uz: 'bugun' },
+  overdue: { ru: 'просрочено на', uz: 'kechikdi' },
+  payout: { ru: 'Выплата', uz: "To'lov" },
+  accrued: { ru: 'Начислено', uz: 'Hisoblandi' },
+  alreadyPaid: { ru: 'Уже выдано', uz: "Berib bo'lindi" },
+  toFind: { ru: 'Найти к выплате', uz: "To'lovga topish" },
+  employeeOption: { ru: '— сотрудник —', uz: '— xodim —' },
+  dismissed: { ru: ' (уволен)', uz: " (ishdan bo'shatilgan)" },
+  dismissedShort: { ru: ' · уволен', uz: " · ishdan bo'shatilgan" },
+  amountPlaceholder: { ru: 'Сумма в сумах', uz: "Summa so'mda" },
+  notePlaceholder: { ru: 'Заметка (необязательно)', uz: 'Izoh (majburiy emas)' },
+  saving: { ru: 'Сохраняю…', uz: 'Saqlanmoqda…' },
+  record: { ru: 'Записать', uz: "Yozib qo'yish" },
+  tookBefore: { ru: 'Взял до выплаты', uz: "To'lovgacha oldi" },
+  left: { ru: 'Осталось', uz: 'Qoldi' },
+  shifts: { ru: 'смен', uz: 'smena' },
+  bothRates: {
+    ru: 'заданы и оклад, и ставка — считаем по окладу',
+    uz: "ham oylik, ham stavka berilgan — oylik bo'yicha hisoblaymiz",
+  },
+  overpaid: { ru: 'переплата', uz: "ortiqcha to'langan" },
+  nobody: { ru: 'За этот месяц никого нет', uz: "Bu oy uchun hech kim yo'q" },
+  movements: { ru: 'Движения за период', uz: 'Davr harakatlari' },
+  removeRecord: { ru: 'Удалить запись', uz: "Yozuvni o'chirish" },
+};
+
+export function AdminPayroll({ lang }: { lang: 'ru' | 'uz' }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const [period, setPeriod] = useState(currentPeriod);
   const [showAdd, setShowAdd] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +148,7 @@ export function AdminPayroll() {
     queryKey: ['admin-payroll', period],
     queryFn: async () => {
       const res = await fetch(`/api/admin/payroll?period=${period}`);
-      if (!res.ok) throw new Error('Не удалось загрузить расчёт');
+      if (!res.ok) throw new Error(t('loadFailed'));
       return res.json();
     },
   });
@@ -116,13 +156,13 @@ export function AdminPayroll() {
   const payroll = data?.payroll;
   const payouts = data?.payouts ?? [];
   const nameOf = (id: string) =>
-    payroll?.rows.find((r) => r.employeeId === id)?.name ?? 'Сотрудник';
+    payroll?.rows.find((r) => r.employeeId === id)?.name ?? t('employee');
 
   async function save() {
     setError(null);
     const amount = Number(form.amount.replace(/\s/g, ''));
-    if (!form.employeeId) return setError('Выберите сотрудника');
-    if (!Number.isFinite(amount) || amount <= 0) return setError('Сумма должна быть больше нуля');
+    if (!form.employeeId) return setError(t('pickEmployee'));
+    if (!Number.isFinite(amount) || amount <= 0) return setError(t('amountPositive'));
 
     setSaving(true);
     try {
@@ -141,13 +181,13 @@ export function AdminPayroll() {
       // владелец считает аванс выданным, а система о нём не знает.
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Не удалось сохранить');
+        throw new Error(body.error ?? t('saveFailed'));
       }
       setForm({ employeeId: '', amount: '', kind: 'ADVANCE', note: '' });
       setShowAdd(false);
       await refetch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось сохранить');
+      setError(e instanceof Error ? e.message : t('saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -157,22 +197,22 @@ export function AdminPayroll() {
     setError(null);
     try {
       const res = await fetch(`/api/admin/payroll?id=${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Не удалось удалить запись');
+      if (!res.ok) throw new Error(t('removeFailed'));
       await refetch();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Не удалось удалить запись');
+      setError(e instanceof Error ? e.message : t('removeFailed'));
     }
   }
 
-  if (isLoading) return <div style={{ padding: 'var(--space-4)' }}>Загрузка…</div>;
-  if (!payroll) return <AdminNotice tone="error">Расчёт недоступен</AdminNotice>;
+  if (isLoading) return <div style={{ padding: 'var(--space-4)' }}>{t('loading')}</div>;
+  if (!payroll) return <AdminNotice tone="error">{t('unavailable')}</AdminNotice>;
 
   const dueLabel =
     payroll.daysToPayday > 0
-      ? `через ${payroll.daysToPayday} дн.`
+      ? `${t('inDays')} ${payroll.daysToPayday} ${t('days')}`
       : payroll.daysToPayday === 0
-        ? 'сегодня'
-        : `просрочено на ${-payroll.daysToPayday} дн.`;
+        ? t('today')
+        : `${t('overdue')} ${-payroll.daysToPayday} ${t('days')}`;
 
   return (
     <div>
@@ -182,7 +222,7 @@ export function AdminPayroll() {
         <div style={{ fontWeight: 'var(--font-bold)', minWidth: 90, textAlign: 'center' }}>{period}</div>
         <button className="btn btn-ghost" onClick={() => setPeriod(shiftPeriod(period, 1))}>→</button>
         <button className="btn btn-primary" style={{ marginLeft: 'auto' }} onClick={() => setShowAdd((v) => !v)}>
-          <Plus size={16} /> Выплата
+          <Plus size={16} /> {t('payout')}
         </button>
       </div>
 
@@ -191,10 +231,10 @@ export function AdminPayroll() {
       {/* Итоги */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
         {[
-          { label: 'Начислено', value: `${fmt(payroll.totalAccrued)} сум`, color: 'var(--text-primary)', icon: <Wallet size={20} /> },
-          { label: 'Уже выдано', value: `${fmt(payroll.totalPaid)} сум`, color: 'var(--warning)', icon: <Wallet size={20} /> },
-          { label: 'Найти к выплате', value: `${fmt(payroll.totalRemaining)} сум`, color: 'var(--error)', icon: <Wallet size={20} /> },
-          { label: `Выплата ${payroll.payday}`, value: dueLabel, color: 'var(--brand-primary)', icon: <CalendarClock size={20} /> },
+          { label: t('accrued'), value: `${fmt(payroll.totalAccrued)} ${sumLabel(lang)}`, color: 'var(--text-primary)', icon: <Wallet size={20} /> },
+          { label: t('alreadyPaid'), value: `${fmt(payroll.totalPaid)} ${sumLabel(lang)}`, color: 'var(--warning)', icon: <Wallet size={20} /> },
+          { label: t('toFind'), value: `${fmt(payroll.totalRemaining)} ${sumLabel(lang)}`, color: 'var(--error)', icon: <Wallet size={20} /> },
+          { label: `${t('payout')} ${payroll.payday}`, value: dueLabel, color: 'var(--brand-primary)', icon: <CalendarClock size={20} /> },
         ].map((s, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-4)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: s.color }}>{s.icon}</div>
@@ -212,44 +252,44 @@ export function AdminPayroll() {
             onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
             style={{ padding: 'var(--space-2)' }}
           >
-            <option value="">— сотрудник —</option>
+            <option value="">{t('employeeOption')}</option>
             {payroll.rows.map((r) => (
               <option key={r.employeeId} value={r.employeeId}>
                 {r.name}
-                {r.isActive ? '' : ' (уволен)'}
+                {r.isActive ? '' : t('dismissed')}
               </option>
             ))}
           </select>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-            {(Object.keys(KIND_RU) as PayoutKind[]).map((k) => (
+            {(Object.keys(KIND_LABEL) as PayoutKind[]).map((k) => (
               <button
                 key={k}
                 className={form.kind === k ? 'btn btn-primary' : 'btn btn-ghost'}
                 onClick={() => setForm({ ...form, kind: k })}
-                title={KIND_HINT[k]}
+                title={KIND_HINT[k][lang]}
               >
-                {KIND_RU[k]}
+                {KIND_LABEL[k][lang]}
               </button>
             ))}
           </div>
-          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{KIND_HINT[form.kind]}</div>
+          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{KIND_HINT[form.kind][lang]}</div>
 
           <input
             inputMode="numeric"
-            placeholder="Сумма в сумах"
+            placeholder={t('amountPlaceholder')}
             value={form.amount}
             onChange={(e) => setForm({ ...form, amount: e.target.value })}
             style={{ padding: 'var(--space-2)' }}
           />
           <input
-            placeholder="Заметка (необязательно)"
+            placeholder={t('notePlaceholder')}
             value={form.note}
             onChange={(e) => setForm({ ...form, note: e.target.value })}
             style={{ padding: 'var(--space-2)' }}
           />
           <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Сохраняю…' : 'Записать'}
+            {saving ? t('saving') : t('record')}
           </button>
         </div>
       )}
@@ -259,10 +299,10 @@ export function AdminPayroll() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
           <thead>
             <tr style={{ textAlign: 'left', color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
-              <th style={{ padding: 'var(--space-2)' }}>Сотрудник</th>
-              <th style={{ padding: 'var(--space-2)' }}>Начислено</th>
-              <th style={{ padding: 'var(--space-2)' }}>Взял до выплаты</th>
-              <th style={{ padding: 'var(--space-2)' }}>Осталось</th>
+              <th style={{ padding: 'var(--space-2)' }}>{t('employee')}</th>
+              <th style={{ padding: 'var(--space-2)' }}>{t('accrued')}</th>
+              <th style={{ padding: 'var(--space-2)' }}>{t('tookBefore')}</th>
+              <th style={{ padding: 'var(--space-2)' }}>{t('left')}</th>
             </tr>
           </thead>
           <tbody>
@@ -271,7 +311,7 @@ export function AdminPayroll() {
                 <td style={{ padding: 'var(--space-2)' }}>
                   {r.name}
                   {!r.isActive && (
-                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}> · уволен</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{t('dismissedShort')}</span>
                   )}
                 </td>
                 <td style={{ padding: 'var(--space-2)' }}>
@@ -287,14 +327,14 @@ export function AdminPayroll() {
                       деньги человека, и вопрос «почему столько» задают. */}
                   {r.shiftRate > 0 && (
                     <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>
-                      {r.shiftDays} смен × {fmt(r.shiftRate)}
+                      {r.shiftDays} {t('shifts')} × {fmt(r.shiftRate)}
                     </div>
                   )}
                   {/* Заданы и оклад, и ставка. Расчёт взял оклад, но
                       молчать об этом нельзя: однажды он возьмёт не то. */}
                   {r.rateConflict && (
                     <div style={{ color: 'var(--error)', fontSize: 'var(--text-xs)' }}>
-                      заданы и оклад, и ставка — считаем по окладу
+                      {t('bothRates')}
                     </div>
                   )}
                 </td>
@@ -308,14 +348,14 @@ export function AdminPayroll() {
                     color: r.overpaid ? 'var(--error)' : 'var(--text-primary)',
                   }}
                 >
-                  {r.overpaid ? `переплата ${fmt(-r.remaining)}` : fmt(r.remaining)}
+                  {r.overpaid ? `${t('overpaid')} ${fmt(-r.remaining)}` : fmt(r.remaining)}
                 </td>
               </tr>
             ))}
             {payroll.rows.length === 0 && (
               <tr>
                 <td colSpan={4} style={{ padding: 'var(--space-4)', color: 'var(--text-muted)' }}>
-                  За этот месяц никого нет
+                  {t('nobody')}
                 </td>
               </tr>
             )}
@@ -327,7 +367,7 @@ export function AdminPayroll() {
       {payouts.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-4)' }}>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>
-            Движения за период
+            {t('movements')}
           </div>
           {payouts.map((p) => (
             <div
@@ -342,14 +382,14 @@ export function AdminPayroll() {
             >
               <div style={{ flex: 1 }}>
                 <div>
-                  {nameOf(p.employeeId)} · {KIND_RU[p.kind]}
+                  {nameOf(p.employeeId)} · {KIND_LABEL[p.kind][lang]}
                 </div>
                 {p.note && (
                   <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{p.note}</div>
                 )}
               </div>
               <div style={{ fontWeight: 'var(--font-bold)' }}>{fmt(p.amount)}</div>
-              <button className="btn btn-ghost" onClick={() => remove(p.id)} title="Удалить запись">
+              <button className="btn btn-ghost" onClick={() => remove(p.id)} title={t('removeRecord')}>
                 <Trash2 size={16} />
               </button>
             </div>

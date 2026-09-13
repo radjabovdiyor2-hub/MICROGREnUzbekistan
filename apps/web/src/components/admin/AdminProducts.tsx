@@ -18,9 +18,12 @@ export { EMPTY_FORM };
 // Экран «Товары». Данные и мутации живут в `useAdminProducts` — здесь только
 // раскладка и диалоги подтверждения.
 
-export function AdminProducts() {
+export function AdminProducts({ lang }: { lang: 'ru' | 'uz' }) {
   const notify = useFeedback();
-  const [lang, setLang] = useState<'ru' | 'uz'>('ru');
+  // Язык берётся у админки, а НЕ хранится здесь. Своё состояние со своей
+  // кнопкой-флажком было второй дверью к одному вопросу: владелец
+  // переключал админку на узбекский, а каталог оставался русским — и
+  // находил рядом второй флаг, про который непонятно, кто кого главнее.
   const [uploading, setUploading] = useState(false);
 
   const {
@@ -143,8 +146,6 @@ export function AdminProducts() {
         counts={counts}
         activeCount={counts.active}
         lowStock={lowStock}
-        lang={lang}
-        setLang={setLang}
         t={t}
       />
       <AdminProductFilters

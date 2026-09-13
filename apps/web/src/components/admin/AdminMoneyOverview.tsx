@@ -19,11 +19,11 @@ import { AdminRevenue } from './AdminRevenue';
 // сутки, а неделя и месяц догоняют прокруткой, когда они понадобились.
 // ══════════════════════════════════════════════════════════════════════
 
-export function AdminMoneyOverview() {
+export function AdminMoneyOverview({ lang }: { lang: 'ru' | 'uz' }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-      <AdminStats />
-      <AdminRevenue />
+      <AdminStats lang={lang} />
+      <AdminRevenue lang={lang} />
     </div>
   );
 }

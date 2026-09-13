@@ -253,6 +253,7 @@ export function AdminOrders({ focus = '', lang = 'ru' }: { focus?: string; lang?
           total={data?.total ?? 0}
           pageSize={PAGE_SIZE}
           onPage={setPage}
+          lang={lang}
         />
       )}
     </div>

@@ -28,7 +28,33 @@ import { AdminRevenueDailyChart } from './AdminRevenueDailyChart';
 import { AdminRevenueTopProducts } from './AdminRevenueTopProducts';
 import { tint } from '@/lib/tint';
 
-export function AdminRevenue() {
+const T = {
+  failed: { ru: 'Не удалось загрузить доход', uz: "Daromadni yuklab bo'lmadi" },
+  loading: { ru: 'Загрузка дохода...', uz: 'Daromad yuklanmoqda...' },
+  noData: { ru: 'Данные не найдены', uz: "Ma'lumot topilmadi" },
+  noDataHint: {
+    ru: 'Доход появится после продаж и поступлений',
+    uz: "Daromad sotuv va kirimlardan keyin paydo bo'ladi",
+  },
+  revenueToday: { ru: 'Выручка сегодня', uz: 'Bugungi tushum' },
+  sales: { ru: 'продаж', uz: 'sotuv' },
+  cost: { ru: 'Себестоимость', uz: 'Tannarx' },
+  costShort: { ru: 'Себест.', uz: 'Tannarx' },
+  supplierPrice: { ru: 'Цена поставщика', uz: 'Yetkazib beruvchi narxi' },
+  profit: { ru: 'Чистая прибыль', uz: 'Sof foyda' },
+  profitShort: { ru: 'Прибыль', uz: 'Foyda' },
+  margin: { ru: 'Маржа', uz: 'Marja' },
+  marginWord: { ru: 'маржа', uz: 'marja' },
+  good: { ru: 'Хорошо', uz: 'Yaxshi' },
+  low: { ru: 'Низкая', uz: 'Past' },
+  byPeriod: { ru: 'По периоду', uz: "Davr bo'yicha" },
+  week: { ru: 'Неделя', uz: 'Hafta' },
+  month: { ru: 'Месяц', uz: 'Oy' },
+  revenue: { ru: 'Выручка', uz: 'Tushum' },
+};
+
+export function AdminRevenue({ lang }: { lang: 'ru' | 'uz' }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const [period, setPeriod] = useState<'week' | 'month'>('week');
 
   // Период входит в ключ кэша: переключение «неделя ↔ месяц» второй раз
@@ -37,7 +63,7 @@ export function AdminRevenue() {
     queryKey: ['admin-revenue', period],
     queryFn: async () => {
       const res = await fetch(`/api/inventory/analytics?section=revenue&period=${period}`);
-      if (!res.ok) throw new Error('Не удалось загрузить доход');
+      if (!res.ok) throw new Error(t('failed'));
       return res.json();
     },
   });
@@ -48,7 +74,7 @@ export function AdminRevenue() {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
         <Clock size={32} style={{ animation: 'pulse 1.5s infinite' }} />
-        <p style={{ marginTop: 'var(--space-2)' }}>Загрузка дохода...</p>
+        <p style={{ marginTop: 'var(--space-2)' }}>{t('loading')}</p>
       </div>
     );
   }
@@ -57,8 +83,8 @@ export function AdminRevenue() {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
         <DollarSign size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
-        <p>Данные не найдены</p>
-        <p style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>Доход появится после продаж и поступлений</p>
+        <p>{t('noData')}</p>
+        <p style={{ fontSize: 'var(--text-xs)', marginTop: 4 }}>{t('noDataHint')}</p>
       </div>
     );
   }
@@ -84,10 +110,10 @@ export function AdminRevenue() {
       {/* Today KPIs */}
       <div className="rev-grid">
         {[
-          { label: 'Выручка сегодня', value: fmt(data.todayRevenue), icon: <Banknote size={18} />, color: 'var(--brand-primary)', sub: `${data.todaySales} продаж` },
-          { label: 'Себестоимость', value: fmt(data.todayCost), icon: <ArrowLeft size={18} />, color: 'var(--error)', sub: 'Цена поставщика' },
-          { label: 'Чистая прибыль', value: fmt(data.todayProfit), icon: <TrendingUp size={18} />, color: data.todayProfit >= 0 ? 'var(--success)' : 'var(--error)', sub: `${data.todayMargin.toFixed(1)}% маржа` },
-          { label: 'Маржа', value: `${data.todayMargin.toFixed(1)}%`, icon: <Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? 'var(--warning)' : 'var(--error)', sub: data.todayMargin >= 20 ? 'Хорошо' : 'Низкая' },
+          { label: t('revenueToday'), value: fmt(data.todayRevenue), icon: <Banknote size={18} />, color: 'var(--brand-primary)', sub: `${data.todaySales} ${t('sales')}` },
+          { label: t('cost'), value: fmt(data.todayCost), icon: <ArrowLeft size={18} />, color: 'var(--error)', sub: t('supplierPrice') },
+          { label: t('profit'), value: fmt(data.todayProfit), icon: <TrendingUp size={18} />, color: data.todayProfit >= 0 ? 'var(--success)' : 'var(--error)', sub: `${data.todayMargin.toFixed(1)}% ${t('marginWord')}` },
+          { label: t('margin'), value: `${data.todayMargin.toFixed(1)}%`, icon: <Percent size={18} />, color: data.todayMargin >= 20 ? 'var(--success)' : data.todayMargin >= 10 ? 'var(--warning)' : 'var(--error)', sub: data.todayMargin >= 20 ? t('good') : t('low') },
         ].map((stat, i) => (
           <div key={i} className="card" style={{ padding: 'var(--space-3)', borderTop: `3px solid ${stat.color}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
@@ -106,7 +132,7 @@ export function AdminRevenue() {
       <div className="card" style={{ padding: 'var(--space-4)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
           <h4 style={{ fontWeight: 700, flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BarChart size={16} /> По периоду
+            <BarChart size={16} /> {t('byPeriod')}
           </h4>
           <div style={{ display: 'flex', gap: 2, background: 'var(--bg-secondary)', borderRadius: '10px', padding: 2 }}>
             {(['week', 'month'] as const).map(p => (
@@ -117,7 +143,7 @@ export function AdminRevenue() {
                 color: period === p ? 'white' : 'var(--text-secondary)',
                 transition: 'all 0.2s',
               }}>
-                {p === 'week' ? 'Неделя' : 'Месяц'}
+                {p === 'week' ? t('week') : t('month')}
               </button>
             ))}
           </div>
@@ -126,9 +152,9 @@ export function AdminRevenue() {
         {/* Period summary bars */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
           {[
-            { label: 'Выручка', value: periodData.revenue, color: 'var(--brand-primary)' },
-            { label: 'Себест.', value: periodData.cost, color: 'var(--error)' },
-            { label: 'Прибыль', value: periodData.profit, color: 'var(--success)' },
+            { label: t('revenue'), value: periodData.revenue, color: 'var(--brand-primary)' },
+            { label: t('costShort'), value: periodData.cost, color: 'var(--error)' },
+            { label: t('profitShort'), value: periodData.profit, color: 'var(--success)' },
           ].map((item, i) => (
             <div key={i} style={{ textAlign: 'center' }}>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: 4 }}>{item.label}</div>
@@ -141,7 +167,7 @@ export function AdminRevenue() {
 
         {/* Margin gauge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', padding: '12px 16px', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
-          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600, width: 60 }}>Маржа</span>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontWeight: 600, width: 60 }}>{t('margin')}</span>
           <div style={{ flex: 1, height: 8, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
             <div style={{
               height: '100%', width: `${Math.min(periodMargin, 100)}%`, borderRadius: 'var(--radius-full)',
@@ -155,8 +181,8 @@ export function AdminRevenue() {
         </div>
       </div>
 
-      <AdminRevenueDailyChart dailyData={data.dailyData} maxDaily={maxDaily} />
-      <AdminRevenueTopProducts topProfitable={data.topProfitable} topLoss={data.topLoss} fmt={fmt} />
+      <AdminRevenueDailyChart dailyData={data.dailyData} maxDaily={maxDaily} lang={lang} />
+      <AdminRevenueTopProducts topProfitable={data.topProfitable} topLoss={data.topLoss} fmt={fmt} lang={lang} />
     </div>
   );
 }

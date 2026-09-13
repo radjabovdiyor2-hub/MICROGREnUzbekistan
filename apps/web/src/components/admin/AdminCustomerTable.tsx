@@ -58,6 +58,18 @@ const head: React.CSSProperties = {
   textAlign: 'left',
 };
 
+const T = {
+  client: { ru: 'Клиент', uz: 'Mijoz' },
+  phone: { ru: 'Телефон / TG', uz: 'Telefon / TG' },
+  typeStatus: { ru: 'Тип / Статус', uz: 'Turi / Holati' },
+  orders: { ru: 'Заказов', uz: 'Buyurtmalar' },
+  spent: { ru: 'Потрачено', uz: 'Sarflangan' },
+  bonus: { ru: 'Бонусы', uz: 'Bonuslar' },
+  action: { ru: 'Действие', uz: 'Amal' },
+  edit: { ru: 'Правка', uz: 'Tahrirlash' },
+  removeCard: { ru: 'Удалить карточку клиента', uz: "Mijoz kartasini o'chirish" },
+};
+
 /** Цвет статуса — из токенов. Хардкод цветов запрещён конституцией. */
 function statusColor(status: string): string {
   if (status === 'vip') return 'var(--warning)';
@@ -70,6 +82,7 @@ export function AdminCustomerTable({
   customers, loading, lang, handleEditClick, onOpen, onDelete, focus = '',
 }: Props) {
   const scrollToFocused = useScrollToFocused<HTMLTableRowElement>();
+  const t = (k: keyof typeof T) => T[k][lang];
   if (loading) {
     return (
       <div className="card" style={{ padding: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)', color: 'var(--text-muted)' }}>
@@ -98,13 +111,13 @@ export function AdminCustomerTable({
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--border)' }}>
-            <th style={head}>Клиент</th>
-            <th style={head}>Телефон / TG</th>
-            <th style={head}>Тип / Статус</th>
-            <th style={head}>Заказов</th>
-            <th style={head}>Потрачено</th>
-            <th style={head}>Бонусы</th>
-            <th style={{ ...head, textAlign: 'right' }}>Действие</th>
+            <th style={head}>{t('client')}</th>
+            <th style={head}>{t('phone')}</th>
+            <th style={head}>{t('typeStatus')}</th>
+            <th style={head}>{t('orders')}</th>
+            <th style={head}>{t('spent')}</th>
+            <th style={head}>{t('bonus')}</th>
+            <th style={{ ...head, textAlign: 'right' }}>{t('action')}</th>
           </tr>
         </thead>
         <tbody>
@@ -193,7 +206,7 @@ export function AdminCustomerTable({
                     <button onClick={(e) => { e.stopPropagation(); handleEditClick(c); }} className="btn btn-sm btn-ghost"
                       style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                       <Edit3 size={14} />
-                      Правка
+                      {t('edit')}
                     </button>
                   )}
                   {/* Удаление показываем только там, где оно возможно: клиента
@@ -201,7 +214,7 @@ export function AdminCustomerTable({
                       и кнопка, которая всегда отвечает отказом, только злит. */}
                   {onDelete && c.ordersCount === 0 && (
                     <button onClick={(e) => { e.stopPropagation(); onDelete(c); }} className="btn btn-sm btn-ghost"
-                      title="Удалить карточку клиента"
+                      title={t('removeCard')}
                       style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--error)' }}>
                       <Trash2 size={14} />
                     </button>

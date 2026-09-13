@@ -12,12 +12,21 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 // ограничен сотней, и кнопка догрузки перестала бы работать на третьем
 // нажатии — так же тихо, как обрыв, который она чинит.
 
-export function AdminPager({ page, total, pageSize, onPage }: {
+const T = {
+  back: { ru: 'Назад', uz: 'Orqaga' },
+  forward: { ru: 'Вперёд', uz: 'Oldinga' },
+  of: { ru: 'из', uz: 'dan' },
+  page: { ru: 'стр.', uz: 'sahifa' },
+};
+
+export function AdminPager({ page, total, pageSize, onPage, lang }: {
   page: number;
   total: number;
   pageSize: number;
   onPage: (p: number) => void;
+  lang: 'ru' | 'uz';
 }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
@@ -37,12 +46,12 @@ export function AdminPager({ page, total, pageSize, onPage }: {
         className="btn btn-ghost btn-sm"
         style={{ display: 'flex', alignItems: 'center', gap: 4 }}
       >
-        <ChevronLeft size={14} /> Назад
+        <ChevronLeft size={14} /> {t('back')}
       </button>
 
       <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-        {from}–{to} из {total}
-        {pages > 1 ? ` · стр. ${page} из ${pages}` : ''}
+        {from}–{to} {t('of')} {total}
+        {pages > 1 ? ` · ${t('page')} ${page} ${t('of')} ${pages}` : ''}
       </span>
 
       <button
@@ -51,7 +60,7 @@ export function AdminPager({ page, total, pageSize, onPage }: {
         className="btn btn-ghost btn-sm"
         style={{ display: 'flex', alignItems: 'center', gap: 4 }}
       >
-        Вперёд <ChevronRight size={14} />
+        {t('forward')} <ChevronRight size={14} />
       </button>
     </div>
   );

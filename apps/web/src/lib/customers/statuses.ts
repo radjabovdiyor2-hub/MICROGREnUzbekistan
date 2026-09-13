@@ -33,7 +33,6 @@ export function isCustomerStatus(value: unknown): value is CustomerStatus {
 
 export interface FunnelStage {
   status: CustomerStatus;
-  label: string;
   count: number;
   /** Доля от всех клиентов. */
   share: number;
@@ -61,9 +60,13 @@ export function summarizeFunnel(counts: Record<string, number>): FunnelStage[] {
     const count = counts[status] ?? 0;
     const previous = index === 0 ? null : counts[CUSTOMER_STATUSES[index - 1]] ?? 0;
 
+    // ПОДПИСЬ ЗДЕСЬ НЕ СОБИРАЕТСЯ. Раньше сервер клал в ответ
+    // `STATUS_LABELS[status].ru` — то есть решал за читателя, на каком
+    // языке тот читает. Узбекский владелец получал воронку с русскими
+    // подписями при полностью узбекском экране. Отдаём код этапа, а слово
+    // подставляет тот, кто знает язык читателя.
     return {
       status,
-      label: STATUS_LABELS[status].ru,
       count,
       share: total > 0 ? count / total : 0,
       conversion: previous === null ? null : previous > 0 ? count / previous : 0,

@@ -8,15 +8,22 @@ interface DailyData { date: string; revenue: number; cost: number; profit: numbe
 interface Props {
   dailyData: DailyData[];
   maxDaily: number;
+  lang: 'ru' | 'uz';
 }
 
-export function AdminRevenueDailyChart({ dailyData, maxDaily }: Props) {
+const T = {
+  title: { ru: 'Ежедневная выручка', uz: 'Kunlik tushum' },
+  profit: { ru: 'Прибыль', uz: 'Foyda' },
+  cost: { ru: 'Себестоимость', uz: 'Tannarx' },
+};
+
+export function AdminRevenueDailyChart({ dailyData, maxDaily, lang }: Props) {
   if (!dailyData || dailyData.length === 0) return null;
 
   return (
     <div className="card" style={{ padding: 'var(--space-4)' }}>
       <h4 style={{ fontWeight: 700, marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: 'var(--text-sm)' }}>
-        <TrendingUp size={16} /> Ежедневная выручка
+        <TrendingUp size={16} /> {T.title[lang]}
       </h4>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 140 }}>
         {dailyData.map((d, i) => {
@@ -43,10 +50,10 @@ export function AdminRevenueDailyChart({ dailyData, maxDaily }: Props) {
       </div>
       <div style={{ display: 'flex', gap: 'var(--space-4)', justifyContent: 'center', marginTop: 'var(--space-3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--success)' }} /> Прибыль
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--success)' }} /> {T.profit[lang]}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--text-xs)' }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--error)', opacity: 0.6 }} /> Себестоимость
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--error)', opacity: 0.6 }} /> {T.cost[lang]}
         </div>
       </div>
     </div>

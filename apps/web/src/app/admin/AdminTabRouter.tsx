@@ -120,7 +120,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {/* Сводка и доход были двумя вкладками на одном разделе аналитики:
         сутки против недели. Экран один, старый адрес `revenue` оставлен
         живым — на него ведут ссылки из Telegram и закладки владельца. */}
-    {(activeTab === 'stats' || activeTab === 'revenue') && isOwner && <AdminMoneyOverview />}
+    {(activeTab === 'stats' || activeTab === 'revenue') && isOwner && <AdminMoneyOverview lang={lang} />}
     {activeTab === 'customers' && (isOwner || canSell) && (
       // Имя автора чека — то же, что у кассы: продать теперь можно и с
       // точки на карте, и подписан такой чек должен быть одинаково.
@@ -133,12 +133,12 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
       />
     )}
     {activeTab === 'inventory' && isOwner && <AdminInventory lang={lang} />}
-    {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials focus={focus} />}
+    {activeTab === 'raw_materials' && isOwner && <AdminRawMaterials focus={focus} lang={lang} />}
     {activeTab === 'movements' && isOwner && <AdminMovements lang={lang} />}
     {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} lang={lang} />}
     {activeTab === 'suppliers' && isOwner && <AdminSuppliers lang={lang} />}
     {activeTab === 'debts' && isOwner && <AdminDebts />}
-    {activeTab === 'products' && isOwner && <AdminProducts />}
+    {activeTab === 'products' && isOwner && <AdminProducts lang={lang} />}
     {activeTab === 'categories' && isOwner && <AdminCategories lang={lang} />}
     {activeTab === 'promo' && isOwner && <AdminPromo lang={lang} />}
     {activeTab === 'finance' && isOwner && <AdminFinance lang={lang} />}
@@ -152,7 +152,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
       </>
     )}
     {activeTab === 'shifts' && isOwner && <AdminShifts lang={lang} />}
-    {activeTab === 'payroll' && isOwner && <AdminPayroll />}
+    {activeTab === 'payroll' && isOwner && <AdminPayroll lang={lang} />}
     {activeTab === 'field_day' && isOwner && <AdminFieldDay lang={lang} focus={focus} />}
 
     {/* ИИ-офис */}

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { STATUS_LABELS } from '@/lib/customers/statuses';
 import { useQuery } from '@tanstack/react-query';
 import { Filter } from 'lucide-react';
 import type { FunnelStage } from '@/lib/customers/statuses';
@@ -82,7 +83,7 @@ export function AdminCustomerFunnel({ lang }: Props) {
                 marginBottom: 3,
               }}
             >
-              <span>{stage.label}</span>
+              <span>{STATUS_LABELS[stage.status][lang]}</span>
               <span style={{ color: 'var(--text-muted)' }}>
                 {stage.count}
                 {stage.conversion !== null && ` · ${Math.round(stage.conversion * 100)}%`}

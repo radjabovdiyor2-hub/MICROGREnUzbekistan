@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+
+import { sumLabel, unitLabel } from '@/lib/units';
 import { useSuppliers } from './useAdminReferences';
 import { BULK_KINDS, type RawMaterial } from './rawMaterialTypes';
 import { NewRawMaterialFields, RawMaterialReceiptFields } from './AdminRawMaterialFields';
@@ -15,9 +17,29 @@ interface Props {
   error: string;
   onCancel: () => void;
   onSubmit: (body: Record<string, unknown>) => void;
+  lang: 'ru' | 'uz';
 }
 
-export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubmit }: Props) {
+const T = {
+  newItem: { ru: 'Новая позиция сырья', uz: 'Yangi xomashyo pozitsiyasi' },
+  receiptOf: { ru: 'Приход', uz: 'Kirim' },
+  nowInStock: { ru: 'Сейчас на складе', uz: 'Hozir omborda' },
+  at: { ru: 'по', uz: 'narxi' },
+  willCome: { ru: 'Придёт', uz: 'Keladi' },
+  afterAvg: { ru: 'После прихода средняя станет', uz: "Kirimdan keyin o'rtacha bo'ladi" },
+  averaged: { ru: 'приход усредняется с остатком', uz: "kirim qoldiq bilan o'rtachalanadi" },
+  priceChanged: {
+    ru: 'Цена поставщика изменилась — прайс обновится.',
+    uz: "Yetkazib beruvchi narxi o'zgardi — narxlar yangilanadi.",
+  },
+  saving: { ru: 'Сохраняю…', uz: 'Saqlanmoqda…' },
+  receive: { ru: 'Оприходовать', uz: 'Kirim qilish' },
+  create: { ru: 'Завести', uz: 'Kiritish' },
+  cancel: { ru: 'Отмена', uz: 'Bekor qilish' },
+};
+
+export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubmit, lang }: Props) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const [name, setName] = useState('');
   const [kind, setKind] = useState<RawMaterial['kind']>('SEED');
   const [unit, setUnit] = useState('g');
@@ -41,7 +63,7 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   // Килограммы → граммы: и количество, и цена. Цена за килограмм делится
   // на 1000, иначе средневзвешенная себестоимость вырастет в тысячу раз.
   const factor = material?.unit === 'g' && intakeUnit === 'kg' ? 1000 : 1;
-  const intakeUnitLabel = factor === 1000 ? 'кг' : (material?.unit ?? '');
+  const intakeUnitLabel = factor === 1000 ? unitLabel('кг', lang) : unitLabel(material?.unit ?? '', lang);
   const storedQuantity = Number(quantity) * factor;
   const storedUnitCost = Number(unitCost) / factor;
 
@@ -66,7 +88,7 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
   return (
     <div className="card" style={{ padding: 'var(--space-4)', marginBottom: 'var(--space-3)' }}>
       <h3 style={{ fontWeight: 'var(--font-semibold)', marginBottom: 'var(--space-3)' }}>
-        {material ? `Приход: ${material.name}` : 'Новая позиция сырья'}
+        {material ? `${t('receiptOf')}: ${material.name}` : t('newItem')}
       </h3>
 
       {material ? (
@@ -84,6 +106,7 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
           intakeUnit={intakeUnit}
           setIntakeUnit={setIntakeUnit}
           intakeUnitLabel={intakeUnitLabel}
+          lang={lang}
         />
       ) : (
         <NewRawMaterialFields
@@ -97,25 +120,26 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
           setMinStock={setMinStock}
           cropType={cropType}
           setCropType={setCropType}
+          lang={lang}
         />
       )}
 
       {material && (
         <div style={{ marginTop: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-          Сейчас на складе {material.stock} {material.unit} по {Math.round(material.avgCost)} сум.
+          {t('nowInStock')} {material.stock} {unitLabel(material.unit, lang)} {t('at')} {Math.round(material.avgCost)} {sumLabel(lang)}.
           {factor === 1000 && quantity && (
-            <> Придёт {storedQuantity.toLocaleString('ru-RU')} г по {storedUnitCost.toFixed(2)} сум/г.</>
+            <> {t('willCome')} {storedQuantity.toLocaleString('ru-RU')} {unitLabel('г', lang)} {t('at')} {storedUnitCost.toFixed(2)} {sumLabel(lang)}/{unitLabel('г', lang)}.</>
           )}
           {quantity && unitCost && (
-            <> После прихода средняя станет{' '}
+            <> {t('afterAvg')}{' '}
               {Math.round(
                 (material.stock * material.avgCost + storedQuantity * storedUnitCost) /
                   (material.stock + storedQuantity || 1),
               )}{' '}
-              сум — приход усредняется с остатком.
+              {sumLabel(lang)} — {t('averaged')}.
             </>
           )}
-          {priceChanged && <> Цена поставщика изменилась — прайс обновится.</>}
+          {priceChanged && <> {t('priceChanged')}</>}
         </div>
       )}
 
@@ -125,9 +149,9 @@ export function AdminRawMaterialForm({ material, saving, error, onCancel, onSubm
 
       <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
         <button className="btn btn-primary" disabled={saving} onClick={material ? submitReceipt : submitNew}>
-          {saving ? 'Сохраняю…' : material ? 'Оприходовать' : 'Завести'}
+          {saving ? t('saving') : material ? t('receive') : t('create')}
         </button>
-        <button className="btn" onClick={onCancel}>Отмена</button>
+        <button className="btn" onClick={onCancel}>{t('cancel')}</button>
       </div>
     </div>
   );

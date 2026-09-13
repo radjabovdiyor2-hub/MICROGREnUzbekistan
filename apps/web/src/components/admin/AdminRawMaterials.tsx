@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+
+import { sumLabel, unitLabel } from '@/lib/units';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, PackagePlus, Sprout } from 'lucide-react';
 import { AdminRawMaterialForm } from './AdminRawMaterialForm';
@@ -15,7 +17,37 @@ import type { RawMaterial } from './rawMaterialTypes';
 // субстрата нигде не числились, а деньги на них уходили.
 // ══════════════════════════════════════════════════════════════════════
 
-export function AdminRawMaterials({ focus = '' }: { focus?: string }) {
+const T = {
+  title: { ru: 'Сырьё и расходники', uz: 'Xomashyo va sarf materiallari' },
+  inStock: { ru: 'В запасе на', uz: 'Zaxirada' },
+  showHidden: { ru: 'Показать скрытые', uz: "Yashirilganlarni ko'rsatish" },
+  add: { ru: 'Завести позицию', uz: "Pozitsiya qo'shish" },
+  lowSoon: { ru: 'Скоро закончится', uz: 'Tez orada tugaydi' },
+  leftWord: { ru: 'осталось', uz: 'qoldi' },
+  threshold: { ru: 'порог', uz: 'chegara' },
+  loading: { ru: 'Загрузка…', uz: 'Yuklanmoqda…' },
+  hide: { ru: 'Скрыть', uz: 'Yashirish' },
+  stillInStock: { ru: 'На складе ещё', uz: 'Omborda yana' },
+  keepHistory: {
+    ru: 'Приходы и себестоимость сохранятся.',
+    uz: 'Kirimlar va tannarx saqlanib qoladi.',
+  },
+  removeFailed: { ru: 'Не удалось удалить', uz: "O'chirib bo'lmadi" },
+  restoreFailed: { ru: 'Не удалось вернуть позицию', uz: "Pozitsiyani qaytarib bo'lmadi" },
+  saveFailed: { ru: 'Не удалось сохранить', uz: "Saqlab bo'lmadi" },
+};
+
+// Вопрос собирается ЦЕЛИКОМ на каждом языке и живёт ОТДЕЛЬНО от словаря
+// простых строк: по-узбекски имя стоит перед сказуемым, и склейка
+// «слово + имя» дала бы «Yashirilsinmi «Семена»?». Порядок слов здесь
+// такой же смысловой, как послелог в `perUnit`.
+const hideTitle = {
+  ru: (name: string) => `Скрыть «${name}»?`,
+  uz: (name: string) => `«${name}» yashirilsinmi?`,
+};
+
+export function AdminRawMaterials({ focus = '', lang }: { focus?: string; lang: 'ru' | 'uz' }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const notify = useFeedback();
   const queryClient = useQueryClient();
   const [receiptFor, setReceiptFor] = useState<RawMaterial | null>(null);
@@ -45,7 +77,7 @@ export function AdminRawMaterials({ focus = '' }: { focus?: string }) {
         credentials: 'same-origin',
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Не удалось удалить');
+      if (!res.ok) throw new Error(json.error || t('removeFailed'));
       return json as { removed: boolean; movements?: number };
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-raw-materials'] }),
@@ -59,18 +91,18 @@ export function AdminRawMaterials({ focus = '' }: { focus?: string }) {
         credentials: 'same-origin',
         body: JSON.stringify({ id: m.id, isActive: true }),
       });
-      if (!res.ok) throw new Error('Не удалось вернуть позицию');
+      if (!res.ok) throw new Error(t('restoreFailed'));
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-raw-materials'] }),
   });
 
   const handleDelete = async (m: RawMaterial) => {
     const agreed = await notify.confirm({
-      title: `Скрыть «${m.name}»?`,
+      title: hideTitle[lang](m.name),
       detail: m.stock > 0
-        ? `На складе ещё ${m.stock} ${m.unit}. Приходы и себестоимость сохранятся.`
-        : 'Приходы и себестоимость сохранятся.',
-      confirmText: 'Скрыть',
+        ? `${t('stillInStock')} ${m.stock} ${unitLabel(m.unit, lang)}. ${t('keepHistory')}`
+        : t('keepHistory'),
+      confirmText: t('hide'),
     });
     if (agreed) remove.mutate(m);
   };
@@ -84,7 +116,7 @@ export function AdminRawMaterials({ focus = '' }: { focus?: string }) {
         body: JSON.stringify(body),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Не удалось сохранить');
+      if (!res.ok) throw new Error(json.error || t('saveFailed'));
       return json;
     },
     onSuccess: () => {
@@ -103,29 +135,29 @@ export function AdminRawMaterials({ focus = '' }: { focus?: string }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 'var(--font-extrabold)', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Sprout size={20} /> Сырьё и расходники
+          <Sprout size={20} /> {t('title')}
         </h2>
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-          В запасе на {fmt(totalValue)} сум
+          {t('inStock')} {fmt(totalValue)} {sumLabel(lang)}
         </span>
         <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-sm)', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
           <input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} />
-          Показать скрытые
+          {t('showHidden')}
         </label>
         <button className="btn btn-primary" onClick={() => setShowNew(true)}>
-          <PackagePlus size={16} /> Завести позицию
+          <PackagePlus size={16} /> {t('add')}
         </button>
       </div>
 
       {low.length > 0 && (
         <div className="card" style={{ padding: 'var(--space-3) var(--space-4)', marginBottom: 'var(--space-3)', borderLeft: '3px solid var(--warning)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--warning)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)' }}>
-            <AlertTriangle size={16} /> Скоро закончится
+            <AlertTriangle size={16} /> {t('lowSoon')}
           </div>
           <div style={{ marginTop: 6, fontSize: 'var(--text-sm)' }}>
             {low.map((m) => (
               <div key={m.id}>
-                {m.name} — осталось {m.stock} {m.unit} (порог {m.minStock} {m.unit})
+                {m.name} — {t('leftWord')} {m.stock} {unitLabel(m.unit, lang)} ({t('threshold')} {m.minStock} {unitLabel(m.unit, lang)})
               </div>
             ))}
           </div>
@@ -140,15 +172,17 @@ export function AdminRawMaterials({ focus = '' }: { focus?: string }) {
           material={receiptFor}
           saving={save.isPending}
           error={save.error instanceof Error ? save.error.message : ''}
+          lang={lang}
           onCancel={() => { setShowNew(false); setReceiptFor(null); }}
           onSubmit={(body) => save.mutate(body)}
         />
       )}
 
       {isLoading ? (
-        <div className="card" style={{ padding: 'var(--space-4)' }}>Загрузка…</div>
+        <div className="card" style={{ padding: 'var(--space-4)' }}>{t('loading')}</div>
       ) : (
         <AdminRawMaterialTable
+          lang={lang}
           focus={focus}
           materials={materials}
           fmt={fmt}

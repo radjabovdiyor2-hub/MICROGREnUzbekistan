@@ -7,10 +7,19 @@ import {
   Banknote, RefreshCw, ShoppingCart, TrendingUp,
 } from 'lucide-react';
 
+import { unitLabel } from '@/lib/units';
 import { type StatsData } from './statsTypes';
 export type { StatsData };
 
-export function AdminStats() {
+const T = {
+  revenue: { ru: 'Выручка за сегодня', uz: 'Bugungi tushum' },
+  profit: { ru: 'Чистая прибыль', uz: 'Sof foyda' },
+  pos: { ru: 'POS продаж', uz: 'POS sotuvlari' },
+  returns: { ru: 'Возвраты', uz: 'Qaytarishlar' },
+  failed: { ru: 'Не удалось загрузить сводку', uz: "Xulosani yuklab bo'lmadi" },
+};
+
+export function AdminStats({ lang }: { lang: 'ru' | 'uz' }) {
   // React Query, а не useState + useEffect: сводку открывают и закрывают
   // чаще любого другого экрана, а роутер вкладок размонтирует её целиком.
   // Кэш переживает уход на другую вкладку, поэтому возврат рисуется сразу;
@@ -25,7 +34,7 @@ export function AdminStats() {
         // (сутки по местному времени). Числа на соседних плитках считались
         // по разным данным за разные сутки и сойтись не могли.
         const res = await fetch('/api/inventory/analytics?section=revenue');
-        if (!res.ok) throw new Error('Не удалось загрузить сводку');
+        if (!res.ok) throw new Error(T.failed[lang]);
         const d = await res.json();
 
         return {
@@ -56,10 +65,10 @@ export function AdminStats() {
   const fmt = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ');
 
   const STAT_CARDS = [
-    { label: 'Выручка за сегодня', value: `${fmt(stats?.todayTotalRevenue || 0)}`, icon: <Banknote size={22} />, color: 'var(--success)' },
-    { label: 'Чистая прибыль', value: `${fmt(stats?.todayProfit || 0)}`, icon: <TrendingUp size={22} />, color: (stats?.todayProfit || 0) >= 0 ? 'var(--success)' : 'var(--error)' },
-    { label: 'POS продаж', value: `${stats?.todayPOSSales || 0} шт`, icon: <ShoppingCart size={22} />, color: 'var(--brand-primary)' },
-    { label: 'Возвраты', value: stats?.todayReturnCount ? `-${fmt(stats.todayReturns)}` : '0', icon: <RefreshCw size={22} />, color: stats?.todayReturnCount ? 'var(--error)' : 'var(--text-muted)' },
+    { label: T.revenue[lang], value: `${fmt(stats?.todayTotalRevenue || 0)}`, icon: <Banknote size={22} />, color: 'var(--success)' },
+    { label: T.profit[lang], value: `${fmt(stats?.todayProfit || 0)}`, icon: <TrendingUp size={22} />, color: (stats?.todayProfit || 0) >= 0 ? 'var(--success)' : 'var(--error)' },
+    { label: T.pos[lang], value: `${stats?.todayPOSSales || 0} ${unitLabel('шт', lang)}`, icon: <ShoppingCart size={22} />, color: 'var(--brand-primary)' },
+    { label: T.returns[lang], value: stats?.todayReturnCount ? `-${fmt(stats.todayReturns)}` : '0', icon: <RefreshCw size={22} />, color: stats?.todayReturnCount ? 'var(--error)' : 'var(--text-muted)' },
   ];
 
   if (loading) {
@@ -101,6 +110,7 @@ export function AdminStats() {
       <AdminStatsRevenue
         stats={stats}
         fmt={fmt}
+        lang={lang}
       />
     </div>
   );

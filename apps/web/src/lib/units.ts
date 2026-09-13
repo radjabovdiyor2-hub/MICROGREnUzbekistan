@@ -37,6 +37,13 @@ export function unitLabel(unit: string | null | undefined, lang: 'ru' | 'uz'): s
   return UZ[unit.trim().toLowerCase()] ?? unit;
 }
 
+/** Денежная единица. Отдельной функцией, потому что «сум» печатается на
+ *  двух десятках экранов кассы, сводки и зарплаты: разойдись он хоть раз —
+ *  и на одном экране узбека будет латиница, а на соседнем кириллица. */
+export function sumLabel(lang: 'ru' | 'uz'): string {
+  return lang === 'ru' ? 'сум' : "so'm";
+}
+
 /** «за кг» / «kg uchun» — предлог тоже разный, и порядок слов тоже. */
 export function perUnit(unit: string | null | undefined, lang: 'ru' | 'uz'): string {
   const label = unitLabel(unit, lang);

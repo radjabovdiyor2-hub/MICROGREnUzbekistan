@@ -159,15 +159,15 @@ export function AdminProductList({ products, loading, loadingMore, hasMore, tota
         }}
       >
         {loadingMore ? (
-          <><Clock size={16} style={{ animation: 'pulse 1s infinite' }} /> Загрузка...</>
+          <><Clock size={16} style={{ animation: 'pulse 1s infinite' }} /> {t('Загрузка...', 'Yuklanmoqda...')}</>
         ) : (
-          <><Plus size={16} /> Ещё ({totalProducts - products.length} осталось)</>
+          <><Plus size={16} /> {t('Ещё', 'Yana')} ({totalProducts - products.length} {t('осталось', 'qoldi')})</>
         )}
       </button>
     )}
     {/* Showing count */}
     <div style={{ textAlign: 'center', padding: 'var(--space-2)', fontSize: '11px', color: 'var(--text-muted)' }}>
-      {products.length} / {totalProducts} товаров показано
+      {products.length} / {totalProducts} {t('товаров показано', "mahsulot ko'rsatildi")}
     </div>
   </div>
   );

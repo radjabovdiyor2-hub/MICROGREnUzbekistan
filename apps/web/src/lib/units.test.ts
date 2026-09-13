@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { perUnit, unitLabel } from './units';
+import { perUnit, sumLabel, unitLabel } from './units';
 
 // ══════════════════════════════════════════════════════════════════════
 // Единица измерения на языке того, кто смотрит.
@@ -53,5 +53,14 @@ describe('perUnit', () => {
   it('без единицы предлог не выдумываем', () => {
     expect(perUnit(null, 'uz')).toBe('');
     expect(perUnit(null, 'ru')).toBe('');
+  });
+});
+
+describe('sumLabel', () => {
+  it('валюта пишется на языке читателя', () => {
+    // Кириллическое «сум» посреди латиницы — то же самое, что «кг»:
+    // мелочь, которую полевой продавец видит на каждой строке чека.
+    expect(sumLabel('ru')).toBe('сум');
+    expect(sumLabel('uz')).toBe("so'm");
   });
 });

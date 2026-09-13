@@ -162,7 +162,7 @@ export function AdminCustomers({
           владельцу — продавцу удаление закрыто и в API. */}
       {isOwner && s.view !== 'map' && (
         <div style={{ marginBottom: 'var(--space-3)' }}>
-          <AdminCustomerPurge onDone={() => s.refetch()} />
+          <AdminCustomerPurge onDone={() => s.refetch()} lang={lang} />
           <AdminCustomerFunnel lang={lang} />
         </div>
       )}
@@ -187,7 +187,7 @@ export function AdminCustomers({
           />
 
           {!s.loading && s.total > 0 && (
-            <AdminPager page={s.page} total={s.total} pageSize={PAGE_SIZE} onPage={s.setPage} />
+            <AdminPager page={s.page} total={s.total} pageSize={PAGE_SIZE} onPage={s.setPage} lang={lang} />
           )}
         </>
       )}
