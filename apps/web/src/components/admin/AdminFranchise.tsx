@@ -16,7 +16,23 @@ interface FranchiseJournal {
   createdAt: string;
 }
 
-export function AdminFranchise() {
+const T = {
+  loadFailed: { ru: 'Не удалось загрузить журнал франшизы', uz: "Franshiza jurnalini yuklab bo'lmadi" },
+  title: { ru: 'Сеть и Франшиза', uz: 'Tarmoq va franshiza' },
+  allCities: { ru: 'Все города', uz: 'Barcha shaharlar' },
+  samarkand: { ru: 'Самарканд', uz: 'Samarqand' },
+  bukhara: { ru: 'Бухара', uz: 'Buxoro' },
+  fergana: { ru: 'Фергана', uz: "Farg'ona" },
+  pickCity: { ru: 'Выберите город для анализа', uz: 'Tahlil uchun shaharni tanlang' },
+  sent: { ru: 'Задача на анализ отправлена ИИ', uz: 'Tahlil vazifasi AIga yuborildi' },
+  office: { ru: 'Офис не принял задачу', uz: 'Ofis vazifani qabul qilmadi' },
+  analyze: { ru: 'Анализ ИИ', uz: 'AI tahlili' },
+  loading: { ru: 'Загрузка...', uz: 'Yuklanmoqda...' },
+  empty: { ru: 'Нет записей в журнале франшизы', uz: "Franshiza jurnalida yozuvlar yo'q" },
+};
+
+export function AdminFranchise({ lang }: { lang: 'ru' | 'uz' }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const notify = useFeedback();
   const [cityFilter, setCityFilter] = useState('');
 
@@ -27,7 +43,7 @@ export function AdminFranchise() {
     queryFn: async () => {
       const url = cityFilter ? `/api/admin/franchise?city=${cityFilter}` : '/api/admin/franchise';
       const res = await fetch(url, { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('Не удалось загрузить журнал франшизы');
+      if (!res.ok) throw new Error(t('loadFailed'));
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
@@ -37,7 +53,7 @@ export function AdminFranchise() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h2 style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Network size={24} /> Сеть и Франшиза
+          <Network size={24} /> {t('title')}
         </h2>
         
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
@@ -46,17 +62,17 @@ export function AdminFranchise() {
             onChange={(e) => setCityFilter(e.target.value)}
             style={{ padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-secondary)', outline: 'none' }}
           >
-            <option value="">Все города</option>
-            <option value="samarkand">Самарканд</option>
-            <option value="bukhara">Бухара</option>
-            <option value="fergana">Фергана</option>
+            <option value="">{t('allCities')}</option>
+            <option value="samarkand">{t('samarkand')}</option>
+            <option value="bukhara">{t('bukhara')}</option>
+            <option value="fergana">{t('fergana')}</option>
           </select>
           
           <button 
             className="btn btn-outline btn-sm"
             onClick={async () => {
               if (!cityFilter) {
-                notify.toast('Выберите город для анализа', 'warning');
+                notify.toast(t('pickCity'), 'warning');
                 return;
               }
               // Ответ сервера ЧИТАЕМ. Прежний код его игнорировал и всегда
@@ -76,23 +92,23 @@ export function AdminFranchise() {
               });
               const data = await res.json().catch(() => null);
               if (res.ok && data?.status !== 'error') {
-                notify.success('Задача на анализ отправлена ИИ');
+                notify.success(t('sent'));
               } else {
-                notify.error(data?.error || `Офис не принял задачу (${res.status})`);
+                notify.error(data?.error || `${t('office')} (${res.status})`);
               }
             }}
           >
-            Анализ ИИ
+            {t('analyze')}
           </button>
         </div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {loading ? (
-          <div>Загрузка...</div>
+          <div>{t('loading')}</div>
         ) : entries.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-            Нет записей в журнале франшизы
+            {t('empty')}
           </div>
         ) : (
           entries.map(entry => (

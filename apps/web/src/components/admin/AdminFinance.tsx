@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+
+import { formatSum } from '@/lib/units';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash } from 'lucide-react';
 
@@ -23,7 +25,6 @@ interface Entry {
 
 interface Summary { income: number; expense: number; profit: number; margin: number }
 
-const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
 
 import { AdminNotice } from './AdminNotice';
 import { useFeedback } from './AdminFeedback';
@@ -93,7 +94,7 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
    */
   const remove = async (entry: Entry) => {
     const what = `${entry.category}${entry.description ? ` — ${entry.description}` : ''}`;
-    const sum = `${entry.type === 'income' ? '+' : '−'}${money(entry.amount)}`;
+    const sum = `${entry.type === 'income' ? '+' : '−'}${formatSum(entry.amount, lang)}`;
     const ok = await notify.confirm({
       title: t(`Удалить операцию «${what}» на ${sum}?`, `«${what}» (${sum}) o'chirilsinmi?`),
       detail: t(
@@ -150,9 +151,9 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
 
       <AdminNotice>{error}</AdminNotice>
 
-      {summary && <AdminFinanceSummary summary={summary} byCategory={byCategory} t={t} />}
+      {summary && <AdminFinanceSummary summary={summary} byCategory={byCategory} t={t} lang={lang} />}
 
-      <AdminFinanceBreakEven days={days} t={t} />
+      <AdminFinanceBreakEven days={days} t={t} lang={lang} />
 
       {showForm && (
         <AdminFinanceForm
@@ -178,7 +179,7 @@ export function AdminFinance({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
               {e.description && <span style={{ color: 'var(--text-muted)' }}> — {e.description}</span>}
             </span>
             <b style={{ color: e.type === 'income' ? 'var(--success)' : 'var(--error)' }}>
-              {e.type === 'income' ? '+' : '−'}{money(e.amount)}
+              {e.type === 'income' ? '+' : '−'}{formatSum(e.amount, lang)}
             </b>
             <button onClick={() => remove(e)} title={t('Удалить', "O'chirish")}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>

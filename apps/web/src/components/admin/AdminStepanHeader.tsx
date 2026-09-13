@@ -2,12 +2,15 @@
 
 import { Brain } from 'lucide-react';
 
-export const STEPAN_SUGGESTIONS = [
-  'Как дела с продажами сегодня?',
-  'Что заканчивается на складе?',
-  'Все ли боты живы?',
-  'Покажи прибыль за месяц',
-  'Сколько потратили на ИИ?',
+// Подсказки уходят Стёпану ТЕКСТОМ ВОПРОСА — значит и спрашивать надо на
+// языке спрашивающего, иначе узбекский владелец жмёт кнопку и отправляет
+// боту русскую фразу, которой сам не писал.
+export const STEPAN_SUGGESTIONS: { ru: string; uz: string }[] = [
+  { ru: 'Как дела с продажами сегодня?', uz: 'Bugun sotuvlar qalay?' },
+  { ru: 'Что заканчивается на складе?', uz: 'Omborda nima tugayapti?' },
+  { ru: 'Все ли боты живы?', uz: 'Barcha botlar tirikmi?' },
+  { ru: 'Покажи прибыль за месяц', uz: "Oylik foydani ko'rsat" },
+  { ru: 'Сколько потратили на ИИ?', uz: 'AIga qancha sarflandi?' },
 ];
 
 export function AdminStepanHeader({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {

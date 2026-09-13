@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+
+import { sumLabel } from '@/lib/units';
 import { AlertTriangle, Check, ExternalLink, Link2 } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -16,6 +18,7 @@ import { AlertTriangle, Check, ExternalLink, Link2 } from 'lucide-react';
 export interface ChannelView {
   code: string;
   name: string;
+  nameUz: string;
   kind: string;
   syncMode: string;
   allowsPerishable: boolean;
@@ -43,6 +46,25 @@ const FEED_URL: Record<string, string> = {
   meta_catalog: '/feed/meta.csv',
 };
 
+const T = {
+  perishable: { ru: ' · без скоропорта', uz: " · tez buziladigan mahsulotsiz" },
+  on: { ru: 'включён', uz: 'yoqilgan' },
+  off: { ru: 'выключен', uz: "o'chirilgan" },
+  cards: { ru: 'карточек', uz: 'kartalar' },
+  orders30: { ru: 'заказов за 30 дней', uz: '30 kunlik buyurtmalar' },
+  revenue: { ru: 'выручка', uz: 'tushum' },
+  queued: { ru: 'в очереди', uz: 'navbatda' },
+  synced: { ru: 'синхронизация', uz: 'sinxronlash' },
+  cities: { ru: 'Города (через запятую)', uz: 'Shaharlar (vergul bilan)' },
+  markup: { ru: 'Наценка, %', uz: "Ustama, %" },
+  buffer: { ru: 'Буфер остатка', uz: 'Qoldiq buferi' },
+  cutoff: { ru: 'Отсечка (ЧЧ:ММ)', uz: 'Kesim (SS:DD)' },
+  apiUrl: { ru: 'Адрес приёма остатков', uz: 'Qoldiqlarni qabul qilish manzili' },
+  sellHere: { ru: 'Продавать в этом канале', uz: 'Shu kanalda sotish' },
+  linkCatalog: { ru: 'Связать каталог', uz: "Katalogni bog'lash" },
+  save: { ru: 'Сохранить', uz: 'Saqlash' },
+};
+
 const label = { display: 'block', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' } as const;
 const input = { width: '100%', padding: '6px 8px' } as const;
 
@@ -51,12 +73,15 @@ export function AdminChannelCard({
   onSave,
   onLink,
   busy,
+  lang,
 }: {
   channel: ChannelView;
   onSave: (patch: Partial<ChannelView> & { code: string }) => void;
   onLink: (code: string) => void;
   busy: boolean;
+  lang: 'ru' | 'uz';
 }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const [draft, setDraft] = useState(channel);
   const feed = FEED_URL[channel.code];
 
@@ -66,22 +91,22 @@ export function AdminChannelCard({
   return (
     <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-        <span style={{ fontWeight: 'var(--font-bold)' }}>{channel.name}</span>
+        <span style={{ fontWeight: 'var(--font-bold)' }}>{lang === 'ru' ? channel.name : channel.nameUz}</span>
         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
           {channel.kind} · {channel.syncMode}
-          {!channel.allowsPerishable && ' · без скоропорта'}
+          {!channel.allowsPerishable && t('perishable')}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 'var(--text-sm)', color: draft.isActive ? 'var(--success)' : 'var(--text-muted)' }}>
-          {draft.isActive ? 'включён' : 'выключен'}
+          {draft.isActive ? t('on') : t('off')}
         </span>
       </div>
 
       <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-        <span>карточек: {channel.listings}</span>
-        <span>заказов за 30 дней: {channel.orders30d}</span>
-        <span>выручка: {money(channel.revenue30d)} сум</span>
-        {channel.queued > 0 && <span>в очереди: {channel.queued}</span>}
-        {channel.lastSyncAt && <span>синхронизация: {new Date(channel.lastSyncAt).toLocaleString('ru-RU')}</span>}
+        <span>{t('cards')}: {channel.listings}</span>
+        <span>{t('orders30')}: {channel.orders30d}</span>
+        <span>{t('revenue')}: {money(channel.revenue30d)} {sumLabel(lang)}</span>
+        {channel.queued > 0 && <span>{t('queued')}: {channel.queued}</span>}
+        {channel.lastSyncAt && <span>{t('synced')}: {new Date(channel.lastSyncAt).toLocaleString('ru-RU')}</span>}
       </div>
 
       {channel.lastError && (
@@ -101,28 +126,28 @@ export function AdminChannelCard({
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--space-2)' }}>
         <label style={label}>
-          Города (через запятую)
+          {t('cities')}
           <input style={input} value={draft.cities.join(', ')}
             onChange={(e) => set('cities', e.target.value.split(',').map((c) => c.trim()).filter(Boolean))} />
         </label>
         <label style={label}>
-          Наценка, %
+          {t('markup')}
           <input style={input} type="number" value={draft.markupPercent}
             onChange={(e) => set('markupPercent', Number(e.target.value))} />
         </label>
         <label style={label}>
-          Буфер остатка
+          {t('buffer')}
           <input style={input} type="number" min={0} value={draft.stockBuffer}
             onChange={(e) => set('stockBuffer', Number(e.target.value))} />
         </label>
         <label style={label}>
-          Отсечка (ЧЧ:ММ)
+          {t('cutoff')}
           <input style={input} value={draft.orderCutoff ?? ''} placeholder="18:00"
             onChange={(e) => set('orderCutoff', e.target.value || null)} />
         </label>
         {channel.syncMode === 'api' && (
           <label style={{ ...label, gridColumn: '1 / -1' }}>
-            Адрес приёма остатков
+            {t('apiUrl')}
             <input style={input} value={draft.apiUrl ?? ''} placeholder="https://…"
               onChange={(e) => set('apiUrl', e.target.value || null)} />
           </label>
@@ -133,7 +158,7 @@ export function AdminChannelCard({
         <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-sm)' }}>
           <input type="checkbox" checked={draft.isActive}
             onChange={(e) => set('isActive', e.target.checked)} />
-          Продавать в этом канале
+          {t('sellHere')}
         </label>
         {/* Связать каталог — только у каналов, которые вообще торгуют.
             У фидовых карточка не нужна: они берут весь активный каталог
@@ -141,12 +166,12 @@ export function AdminChannelCard({
         {channel.syncMode !== 'feed' && (
           <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => onLink(channel.code)}
             style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Link2 size={14} /> Связать каталог
+            <Link2 size={14} /> {t('linkCatalog')}
           </button>
         )}
         <button className="btn btn-sm" disabled={busy} onClick={() => onSave({ ...draft, code: channel.code })}
           style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Check size={14} /> Сохранить
+          <Check size={14} /> {t('save')}
         </button>
       </div>
     </div>

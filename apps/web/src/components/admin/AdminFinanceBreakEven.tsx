@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+
+import { formatSum } from '@/lib/units';
 import { useQuery } from '@tanstack/react-query';
 import { Target } from 'lucide-react';
 import type { BreakEven } from '@/lib/finance/breakEven';
@@ -27,14 +29,14 @@ import { BreakEvenVerdict, Cell } from './AdminBreakEvenVerdict';
 // значит дать владельцу поверить, что всё в порядке.
 // ══════════════════════════════════════════════════════════════════════
 
-const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
 
 interface Props {
   days: number;
   t: (ru: string, uz: string) => string;
+  lang: 'ru' | 'uz';
 }
 
-export function AdminFinanceBreakEven({ days, t }: Props) {
+export function AdminFinanceBreakEven({ days, t, lang }: Props) {
   const { data, isLoading } = useQuery({
     queryKey: ['admin-finance-analysis', days],
     queryFn: async () => {
@@ -85,7 +87,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
           </span>
         </div>
 
-        <BreakEvenVerdict be={be} t={t} />
+        <BreakEvenVerdict be={be} t={t} lang={lang} />
 
         <div
           style={{
@@ -95,8 +97,8 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
             marginTop: 'var(--space-3)',
           }}
         >
-          <Cell label={t('Постоянные расходы', "Doimiy xarajatlar")} value={money(be.fixedCosts)} />
-          <Cell label={t('Выручка за период', 'Davr tushumi')} value={money(be.revenue)} />
+          <Cell label={t('Постоянные расходы', "Doimiy xarajatlar")} value={formatSum(be.fixedCosts, lang)} />
+          <Cell label={t('Выручка за период', 'Davr tushumi')} value={formatSum(be.revenue, lang)} />
           <Cell
             label={t('Доля маржи', 'Marja ulushi')}
             value={be.marginRate === null ? '—' : `${Math.round(be.marginRate * 100)}%`}
@@ -104,7 +106,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
         </div>
       </div>
 
-      <AdminCashFlow flow={cashFlow} t={t} />
+      <AdminCashFlow flow={cashFlow} t={t} lang={lang} />
 
       <AdminPaymentCalendar calendar={paymentCalendar} t={t} />
 
@@ -120,7 +122,7 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
             {t('Получено, но не отработано', "Olingan, lekin bajarilmagan")}
           </div>
           <div style={{ fontSize: 'var(--text-sm)', color: 'var(--warning)', fontWeight: 600 }}>
-            {money(unearned.total)} · {unearned.count} {t('заказов', 'buyurtma')}
+            {formatSum(unearned.total, lang)} · {unearned.count} {t('заказов', 'buyurtma')}
           </div>
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.45 }}>
             {t(
@@ -131,17 +133,17 @@ export function AdminFinanceBreakEven({ days, t }: Props) {
         </div>
       )}
 
-      <AdminMarginTable
+      <AdminMarginTable lang={lang}
         title={t('Маржа по культурам', "Ekinlar bo'yicha marja")}
         rows={margin.byProduct}
         emptyHint={t('Продаж за период не было', "Davrda sotuv bo'lmagan")}
       />
-      <AdminMarginTable
+      <AdminMarginTable lang={lang}
         title={t('Маржа по заведениям', "Mijozlar bo'yicha marja")}
         rows={margin.byCustomer}
         emptyHint={t('Продаж за период не было', "Davrda sotuv bo'lmagan")}
       />
-      <AdminMarginTable
+      <AdminMarginTable lang={lang}
         title={t('Маржа по каналам', "Kanallar bo'yicha marja")}
         rows={margin.byChannel}
         emptyHint={t('Продаж за период не было', "Davrda sotuv bo'lmagan")}

@@ -65,6 +65,7 @@ export async function GET() {
     return {
       code: def.code,
       name: def.name,
+      nameUz: def.nameUz ?? def.name,
       kind: def.kind,
       syncMode: def.syncMode,
       allowsPerishable: def.allowsPerishable,

@@ -6,7 +6,39 @@ import { adminFetch, adminJsonArray } from '@/lib/adminClient';
 import { useFeedback } from './AdminFeedback';
 import { AdminRecipeEditor, type Recipe } from './AdminRecipeEditor';
 
-export function AdminRecipes() {
+const T = {
+  loadFailed: { ru: 'Не удалось загрузить рецепт', uz: "Retseptni yuklab bo'lmadi" },
+  needTitle: { ru: 'Название по-русски обязательно', uz: "Ruscha nomi majburiy" },
+  saveFailed: { ru: 'Не удалось сохранить', uz: "Saqlab bo'lmadi" },
+  removeHint: { ru: 'QR, который ведёт на этот рецепт, перестанет работать.', uz: "Bu retseptga olib boradigan QR ishlamay qoladi." },
+  remove: { ru: 'Удалить', uz: "O'chirish" },
+  removing: { ru: 'Удаляю рецепт…', uz: "Retsept o'chirilmoqda…" },
+  undone: { ru: 'Отменено — рецепт на месте', uz: 'Bekor qilindi — retsept joyida' },
+  removeFailed: { ru: 'Не удалось удалить', uz: "O'chirib bo'lmadi" },
+  uploadFailed: { ru: 'Ошибка загрузки файла', uz: 'Faylni yuklashda xato' },
+  qrFailed: { ru: 'Не удалось получить QR', uz: "QR olib bo'lmadi" },
+  title: { ru: '🥗 Рецепты', uz: '🥗 Retseptlar' },
+  hint: {
+    ru: 'Страницы, на которые ведут QR из журнала. Адрес (slug) у напечатанного рецепта менять нельзя — код на бумаге не переделать. Ингредиент, связанный с товаром, попадает в кнопку «собрать набор».',
+    uz: "Jurnaldagi QR olib boradigan sahifalar. Chop etilgan retseptning manzilini (slug) o'zgartirib bo'lmaydi — qog'ozdagi kodni qayta yasab bo'lmaydi. Mahsulotga bog'langan masalliq «to'plamni yig'ish» tugmasiga tushadi.",
+  },
+  newRecipe: { ru: '+ Новый рецепт', uz: '+ Yangi retsept' },
+  loading: { ru: 'Загрузка…', uz: 'Yuklanmoqda…' },
+  draft: { ru: '· черновик', uz: '· qoralama' },
+  steps: { ru: 'шагов', uz: 'qadam' },
+  ingredients: { ru: 'ингредиент', uz: 'masalliq' },
+  minutes: { ru: 'мин', uz: 'daqiqa' },
+  open: { ru: 'Открыть ↗', uz: 'Ochish ↗' },
+  edit: { ru: 'Правка', uz: 'Tahrirlash' },
+};
+
+const removeTitle = {
+  ru: (title: string) => `Удалить «${title}»?`,
+  uz: (title: string) => `«${title}» o'chirilsinmi?`,
+};
+
+export function AdminRecipes({ lang }: { lang: 'ru' | 'uz' }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const notify = useFeedback();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Recipe | null>(null);
@@ -51,14 +83,14 @@ export function AdminRecipes() {
       return;
     }
     const res = await adminFetch(`/api/admin/magazine/recipes?id=${id}`);
-    if (!res.ok) { setNote('Не удалось загрузить рецепт'); return; }
+    if (!res.ok) { setNote(t('loadFailed')); return; }
     const r = await res.json();
     setEditing({ ...r, steps: r.steps?.length ? r.steps : [{ textRu: '' }], ingredients: r.ingredients?.length ? r.ingredients : [{ nameRu: '' }] });
   };
 
   const save = async () => {
     if (!editing) return;
-    if (!editing.titleRu.trim()) { setNote('Название по-русски обязательно'); return; }
+    if (!editing.titleRu.trim()) { setNote(t('needTitle')); return; }
     setBusy(true);
     setNote('');
     try {
@@ -74,7 +106,7 @@ export function AdminRecipes() {
         : await adminFetch('/api/admin/magazine/recipes', { method: 'POST', body: JSON.stringify(body) });
       if (!res.ok) {
         const e = await res.json().catch(() => null);
-        setNote(e?.error || 'Не удалось сохранить');
+        setNote(e?.error || t('saveFailed'));
         return;
       }
       setEditing(null);
@@ -84,20 +116,20 @@ export function AdminRecipes() {
 
   const remove = async (id: string, title: string) => {
     const agreed = await notify.confirm({
-      title: `Удалить «${title}»?`,
+      title: removeTitle[lang](title),
       // Последствие снаружи системы: напечатанный QR на упаковке уже ушёл
       // к клиентам, и вернуть его нельзя.
-      detail: 'QR, который ведёт на этот рецепт, перестанет работать.',
-      confirmText: 'Удалить',
+      detail: t('removeHint'),
+      confirmText: t('remove'),
       danger: true,
     });
     if (!agreed) return;
     notify.undoable({
-      text: 'Удаляю рецепт…',
-      undoneText: 'Отменено — рецепт на месте',
+      text: t('removing'),
+      undoneText: t('undone'),
       run: async () => {
         const res = await adminFetch(`/api/admin/magazine/recipes?id=${id}`, { method: 'DELETE' });
-        if (!res.ok) { setNote('Не удалось удалить'); return; }
+        if (!res.ok) { setNote(t('removeFailed')); return; }
         await load();
       },
     });
@@ -110,14 +142,14 @@ export function AdminRecipes() {
       fd.append('file', file);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json().catch(() => null);
-      if (!data?.url) { setNote(data?.error || 'Ошибка загрузки файла'); return; }
+      if (!data?.url) { setNote(data?.error || t('uploadFailed')); return; }
       setEditing((p) => (p ? { ...p, heroImage: data.url } : p));
     } finally { setBusy(false); }
   };
 
   const downloadQr = async (slug: string) => {
     const res = await adminFetch(`/api/admin/magazine/recipes/qr?slug=${encodeURIComponent(slug)}&format=svg`);
-    if (!res.ok) { setNote('Не удалось получить QR'); return; }
+    if (!res.ok) { setNote(t('qrFailed')); return; }
     const blob = await res.blob();
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -157,10 +189,9 @@ export function AdminRecipes() {
 
   return (
     <div style={{ padding: 'var(--space-6)', maxWidth: 900 }}>
-      <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>🥗 Рецепты</h2>
+      <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-2)' }}>{t('title')}</h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', marginBottom: 'var(--space-6)', maxWidth: 620 }}>
-        Страницы, на которые ведут QR из журнала. Адрес (slug) у напечатанного рецепта менять нельзя —
-        код на бумаге не переделать. Ингредиент, связанный с товаром, попадает в кнопку «собрать набор».
+        {t('hint')}
       </p>
 
       {note && (
@@ -168,10 +199,10 @@ export function AdminRecipes() {
           {note}
         </div>
       )}
-      <button style={{ ...btn, ...btnPrimary, marginBottom: 'var(--space-4)' }} onClick={() => openEditor(null)}>+ Новый рецепт</button>
+      <button style={{ ...btn, ...btnPrimary, marginBottom: 'var(--space-4)' }} onClick={() => openEditor(null)}>{t('newRecipe')}</button>
 
       {loading ? (
-        <div style={{ color: 'var(--text-secondary)' }}>Загрузка…</div>
+        <div style={{ color: 'var(--text-secondary)' }}>{t('loading')}</div>
       ) : list.length === 0 ? (
         <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>
           Рецептов нет. Если в журнале уже напечатан QR на рецепт — его страница отдаёт 404.
@@ -187,17 +218,17 @@ export function AdminRecipes() {
                 : <div style={{ width: 64, height: 64, borderRadius: 8, background: 'var(--bg-secondary)' }} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600 }}>
-                  {r.titleRu} {!r.isActive && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>· черновик</span>}
+                  {r.titleRu} {!r.isActive && <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>{t('draft')}</span>}
                 </div>
                 <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-xs)' }}>
-                  /recipe/{r.slug} · шагов {r._count?.steps ?? 0} · ингредиент {r._count?.ingredients ?? 0}
-                  {r.cookMinutes ? ` · ${r.cookMinutes} мин` : ''}
+                  /recipe/{r.slug} · {t('steps')} {r._count?.steps ?? 0} · {t('ingredients')} {r._count?.ingredients ?? 0}
+                  {r.cookMinutes ? ` · ${r.cookMinutes} ${t('minutes')}` : ''}
                 </div>
               </div>
-              <a href={`/recipe/${r.slug}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, textDecoration: 'none' }}>Открыть ↗</a>
+              <a href={`/recipe/${r.slug}`} target="_blank" rel="noopener noreferrer" style={{ ...btn, textDecoration: 'none' }}>{t('open')}</a>
               <button style={btn} onClick={() => downloadQr(r.slug)}>⬇ QR</button>
-              <button style={btn} onClick={() => openEditor(r.id)}>Правка</button>
-              <button style={{ ...btn, color: 'var(--error)' }} onClick={() => remove(r.id, r.titleRu)}>Удалить</button>
+              <button style={btn} onClick={() => openEditor(r.id)}>{t('edit')}</button>
+              <button style={{ ...btn, color: 'var(--error)' }} onClick={() => remove(r.id, r.titleRu)}>{t('remove')}</button>
             </div>
           ))}
         </div>

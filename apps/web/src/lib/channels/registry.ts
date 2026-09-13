@@ -25,8 +25,16 @@ export type ChannelKind = 'feed' | 'marketplace' | 'delivery' | 'social';
 export interface ChannelDef {
   code: string;
   kind: ChannelKind;
-  /** Имя для админки — по-русски, его читает владелец. */
+  /** Имя для админки. */
   name: string;
+  /**
+   * Узбекское имя — только там, где русское имя ОПИСЫВАЕТ канал.
+   *
+   * У Uzum, OLX и Yandex имя — марка, и переводить её нечего. А
+   * «Google Покупки» и «Каталог Meta» — это перевод чужого названия плюс
+   * пояснение, и по-узбекски они читаются иначе.
+   */
+  nameUz?: string;
   syncMode: SyncMode;
   /**
    * Пускает ли площадка скоропорт.
@@ -55,6 +63,7 @@ export const CHANNELS: readonly ChannelDef[] = [
     code: 'google_shopping',
     kind: 'feed',
     name: 'Google Покупки',
+    nameUz: 'Google Xaridlar',
     syncMode: 'feed',
     allowsPerishable: true,
     acceptsOrders: false,
@@ -63,6 +72,7 @@ export const CHANNELS: readonly ChannelDef[] = [
     code: 'ai_agents',
     kind: 'feed',
     name: 'AI-витрины (ChatGPT, Perplexity)',
+    nameUz: 'AI-vitrinalar (ChatGPT, Perplexity)',
     syncMode: 'feed',
     allowsPerishable: true,
     acceptsOrders: false,
@@ -71,6 +81,7 @@ export const CHANNELS: readonly ChannelDef[] = [
     code: 'meta_catalog',
     kind: 'feed',
     name: 'Каталог Meta (реклама, директ)',
+    nameUz: 'Meta katalogi (reklama, direkt)',
     syncMode: 'feed',
     allowsPerishable: true,
     acceptsOrders: false,
@@ -121,6 +132,7 @@ export const CHANNELS: readonly ChannelDef[] = [
     code: 'telegram',
     kind: 'social',
     name: 'Telegram-канал и группа',
+    nameUz: 'Telegram kanal va guruh',
     syncMode: 'manual',
     allowsPerishable: true,
     acceptsOrders: false,

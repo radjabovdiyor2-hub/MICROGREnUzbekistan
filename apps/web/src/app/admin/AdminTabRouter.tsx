@@ -137,7 +137,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {activeTab === 'movements' && isOwner && <AdminMovements lang={lang} />}
     {activeTab === 'orders' && isOwner && <AdminOrders focus={focus} lang={lang} />}
     {activeTab === 'suppliers' && isOwner && <AdminSuppliers lang={lang} />}
-    {activeTab === 'debts' && isOwner && <AdminDebts />}
+    {activeTab === 'debts' && isOwner && <AdminDebts lang={lang} />}
     {activeTab === 'products' && isOwner && <AdminProducts lang={lang} />}
     {activeTab === 'categories' && isOwner && <AdminCategories lang={lang} />}
     {activeTab === 'promo' && isOwner && <AdminPromo lang={lang} />}
@@ -195,7 +195,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
         остаётся живым и открывает его сразу на рецептах: по нему приходят
         ссылки из ИИ-офиса. */}
     {(activeTab === 'recipes' || activeTab === 'magazine_content') && isOwner && (
-      <AdminMagazineContent initialTab={activeTab === 'recipes' ? 'recipes' : 'articles'} />
+      <AdminMagazineContent initialTab={activeTab === 'recipes' ? 'recipes' : 'articles'} lang={lang} />
     )}
 
     {/* Аналитика и система */}
@@ -205,7 +205,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
     {activeTab === 'settings' && isOwner && <AdminSettings lang={lang} />}
     
     {/* Логистика и сеть */}
-    {activeTab === 'deliveries' && isOwner && <AdminDeliveries />}
+    {activeTab === 'deliveries' && isOwner && <AdminDeliveries lang={lang} />}
     {/* Свой рейс открыт и курьеру (canSell), и владельцу: рейс отбирается
         по имени в самом роуте, поэтому чужого здесь не покажут. */}
     {activeTab === 'my_route' && (isOwner || canSell) && <AdminMyRoute lang={lang} isOwner={isOwner} />}
@@ -218,7 +218,7 @@ export function AdminTabRouter({ activeTab, focus, query, isOwner, canSell, sell
         `mine` вместо выбора сотрудника: продавцу выбирать не из кого, и
         сервер узнаёт его по подписи, а не по телу запроса. */}
     {activeTab === 'my_day' && canSell && !isOwner && <AdminFieldDay lang={lang} mine />}
-    {activeTab === 'franchise' && isOwner && <AdminFranchise />}
+    {activeTab === 'franchise' && isOwner && <AdminFranchise lang={lang} />}
   </main>
   );
 }

@@ -32,9 +32,9 @@ export function AdminStepanChatList({
       {messages.length === 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {STEPAN_SUGGESTIONS.map(s => (
-            <button key={s} onClick={() => send(s)} className="btn btn-outline btn-sm"
+            <button key={s.ru} onClick={() => send(s[lang])} className="btn btn-outline btn-sm"
               style={{ borderRadius: 999, fontSize: 'var(--text-xs)' }}>
-              {s}
+              {s[lang]}
             </button>
           ))}
         </div>

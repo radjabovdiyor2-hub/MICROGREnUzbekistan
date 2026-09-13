@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+
+import { formatSum } from '@/lib/units';
 import type { BreakEven } from '@/lib/finance/breakEven';
 
 // Словесная часть экрана безубыточности, вынесенная из AdminFinanceBreakEven:
@@ -10,7 +12,6 @@ import type { BreakEven } from '@/lib/finance/breakEven';
 // экран обязан сказать это словами. Ноль или прочерк на её месте дают
 // владельцу поверить, что всё в порядке.
 
-const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
 
 type T = (ru: string, uz: string) => string;
 
@@ -34,7 +35,7 @@ function Verdict({ color, children }: { color: string; children: React.ReactNode
 }
 
 /** Словесный ответ. Числа под ним — подтверждение, а не сам ответ. */
-export function BreakEvenVerdict({ be, t }: { be: BreakEven; t: T }) {
+export function BreakEvenVerdict({ be, t, lang }: { be: BreakEven; t: T; lang: 'ru' | 'uz' }) {
   if (be.marginRate === null) {
     return (
       <Verdict color="var(--text-muted)">
@@ -61,8 +62,8 @@ export function BreakEvenVerdict({ be, t }: { be: BreakEven; t: T }) {
     return (
       <Verdict color="var(--success)">
         {t(
-          `Точка пройдена. Запас сверх неё — ${money(-(be.gap ?? 0))}.`,
-          `Nuqta o'tildi. Zaxira — ${money(-(be.gap ?? 0))}.`,
+          `Точка пройдена. Запас сверх неё — ${formatSum(-(be.gap ?? 0), lang)}.`,
+          `Nuqta o'tildi. Zaxira — ${formatSum(-(be.gap ?? 0), lang)}.`,
         )}
       </Verdict>
     );
@@ -71,8 +72,8 @@ export function BreakEvenVerdict({ be, t }: { be: BreakEven; t: T }) {
   return (
     <Verdict color="var(--error)">
       {t(
-        `Не хватает ${money(be.gap ?? 0)}. Чтобы выйти в ноль, нужна выручка ${money(be.revenueNeeded)}.`,
-        `${money(be.gap ?? 0)} yetishmayapti. Nolga chiqish uchun ${money(be.revenueNeeded)} kerak.`,
+        `Не хватает ${formatSum(be.gap ?? 0, lang)}. Чтобы выйти в ноль, нужна выручка ${formatSum(be.revenueNeeded, lang)}.`,
+        `${formatSum(be.gap ?? 0, lang)} yetishmayapti. Nolga chiqish uchun ${formatSum(be.revenueNeeded, lang)} kerak.`,
       )}
     </Verdict>
   );

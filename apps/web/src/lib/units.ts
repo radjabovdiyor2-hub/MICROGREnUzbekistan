@@ -44,6 +44,21 @@ export function sumLabel(lang: 'ru' | 'uz'): string {
   return lang === 'ru' ? 'сум' : "so'm";
 }
 
+/**
+ * Сумма деньгами: «1 250 000 сум» / «1 250 000 so'm».
+ *
+ * ПЯТЬ КОПИЙ БЫЛО. Одна и та же строчка с зашитым «сум» жила в
+ * AdminFinance, AdminFinanceBreakEven, AdminFinanceSummary, AdminMarginTable
+ * и AdminBreakEvenVerdict — и ни одна не знала про язык читателя. Именно
+ * так и расходятся написания: правишь одну, четыре остаются.
+ *
+ * Разделитель — неразрывный узкий пробел из `toLocaleString('ru-RU')`:
+ * группировка цифр от языка интерфейса не зависит.
+ */
+export function formatSum(n: number, lang: 'ru' | 'uz'): string {
+  return `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} ${sumLabel(lang)}`;
+}
+
 /** «за кг» / «kg uchun» — предлог тоже разный, и порядок слов тоже. */
 export function perUnit(unit: string | null | undefined, lang: 'ru' | 'uz'): string {
   const label = unitLabel(unit, lang);

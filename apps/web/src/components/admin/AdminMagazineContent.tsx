@@ -21,19 +21,23 @@ import { AdminRecipes } from './AdminRecipes';
 // ══════════════════════════════════════════════════════════════════════
 type ContentTab = 'articles' | 'recipes';
 
-export function AdminMagazineContent({ initialTab = 'articles' }: { initialTab?: ContentTab }) {
+export function AdminMagazineContent({ initialTab = 'articles', lang }: {
+  initialTab?: ContentTab;
+  lang: 'ru' | 'uz';
+}) {
   const [tab, setTab] = useState<ContentTab>(initialTab);
+  const t = (ru: string, uz: string) => (lang === 'ru' ? ru : uz);
 
   const tabs: { id: ContentTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'articles', label: 'Материалы', icon: <FileText size={15} /> },
-    { id: 'recipes', label: 'Рецепты', icon: <Leaf size={15} /> },
+    { id: 'articles', label: t('Материалы', 'Materiallar'), icon: <FileText size={15} /> },
+    { id: 'recipes', label: t('Рецепты', 'Retseptlar'), icon: <Leaf size={15} /> },
   ];
 
   return (
     <div>
       <div style={{ padding: 'var(--space-6) var(--space-6) 0', maxWidth: 900 }}>
         <h2 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-3)' }}>
-          Журнал · содержимое
+          {t('Журнал · содержимое', 'Jurnal · mundarija')}
         </h2>
         <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
           {tabs.map((x) => (
@@ -51,7 +55,7 @@ export function AdminMagazineContent({ initialTab = 'articles' }: { initialTab?:
 
       {tab === 'articles'
         ? <div style={{ padding: 'var(--space-6)' }}><AdminMagazineArticles /></div>
-        : <AdminRecipes />}
+        : <AdminRecipes lang={lang} />}
     </div>
   );
 }

@@ -8,7 +8,35 @@ import { AdminDeliveryRouteCard, type DeliveryRoute } from './AdminDeliveryRoute
 import { useFeedback } from './AdminFeedback';
 import { AdminNotice } from './AdminNotice';
 
-export function AdminDeliveries() {
+const T = {
+  loadFailed: { ru: 'Не удалось загрузить маршруты', uz: "Reyslarni yuklab bo'lmadi" },
+  createFailed: { ru: 'Не удалось создать маршрут', uz: "Reys yaratib bo'lmadi" },
+  error: { ru: 'Ошибка', uz: 'Xato' },
+  finishFailed: { ru: 'Не удалось завершить маршрут', uz: "Reysni yakunlab bo'lmadi" },
+  finished: { ru: 'Маршрут завершён', uz: 'Reys yakunlandi' },
+  remove: { ru: 'Удалить', uz: "O'chirish" },
+  removing: { ru: 'Удаляю маршрут…', uz: "Reys o'chirilmoqda…" },
+  undone: { ru: 'Отменено — маршрут на месте', uz: 'Bekor qilindi — reys joyida' },
+  removeFailed: { ru: 'Не удалось удалить маршрут', uz: "Reysni o'chirib bo'lmadi" },
+  removed: { ru: 'Маршрут удалён', uz: "Reys o'chirildi" },
+  loading: { ru: 'Загрузка маршрутов...', uz: 'Reyslar yuklanmoqda...' },
+  title: { ru: 'Логистика и Маршруты', uz: 'Logistika va reyslar' },
+  newRoute: { ru: 'Новый маршрут', uz: 'Yangi reys' },
+  none: { ru: 'Нет активных маршрутов', uz: "Faol reyslar yo'q" },
+};
+
+const removeTitle = {
+  ru: (day: string) => `Удалить маршрут на ${day}?`,
+  uz: (day: string) => `${day} uchun reys o'chirilsinmi?`,
+};
+
+const removeDetail = {
+  ru: (n: number) => `Вместе с ним исчезнут ${n} точек и порядок объезда. Заказы останутся — удаляется рейс, а не работа.`,
+  uz: (n: number) => `U bilan birga ${n} ta nuqta va aylanma tartibi yo'qoladi. Buyurtmalar qoladi — reys o'chadi, ish emas.`,
+};
+
+export function AdminDeliveries({ lang }: { lang: 'ru' | 'uz' }) {
+  const t = (k: keyof typeof T) => T[k][lang];
   const queryClient = useQueryClient();
   const notify = useFeedback();
   const [showAdd, setShowAdd] = useState(false);
@@ -19,7 +47,7 @@ export function AdminDeliveries() {
     queryKey: ['admin-deliveries'],
     queryFn: async () => {
       const res = await fetch('/api/admin/deliveries', { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('Не удалось загрузить маршруты');
+      if (!res.ok) throw new Error(t('loadFailed'));
       const data = await res.json();
       return Array.isArray(data) ? data : [];
     },
@@ -37,11 +65,11 @@ export function AdminDeliveries() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Не удалось создать маршрут');
+      if (!res.ok) throw new Error(data.error || t('createFailed'));
       setShowAdd(false);
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      setError(err instanceof Error ? err.message : t('error'));
     } finally {
       setSaving(false);
     }
@@ -58,11 +86,11 @@ export function AdminDeliveries() {
         credentials: 'same-origin',
         body: JSON.stringify({ id, status: 'completed' }),
       });
-      if (!res.ok) throw new Error('Не удалось завершить маршрут');
-      notify.success('Маршрут завершён');
+      if (!res.ok) throw new Error(t('finishFailed'));
+      notify.success(t('finished'));
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка');
+      setError(err instanceof Error ? err.message : t('error'));
     } finally {
       setSaving(false);
     }
@@ -76,16 +104,16 @@ export function AdminDeliveries() {
   const remove = async (route: DeliveryRoute) => {
     const day = new Date(route.date).toLocaleDateString('ru-RU');
     const ok = await notify.confirm({
-      title: `Удалить маршрут на ${day}?`,
-      detail: `Вместе с ним исчезнут ${route.stops.length} точек и порядок объезда. Заказы останутся — удаляется рейс, а не работа.`,
-      confirmText: 'Удалить',
+      title: removeTitle[lang](day),
+      detail: removeDetail[lang](route.stops.length),
+      confirmText: t('remove'),
       danger: true,
     });
     if (!ok) return;
 
     notify.undoable({
-      text: 'Удаляю маршрут…',
-      undoneText: 'Отменено — маршрут на месте',
+      text: t('removing'),
+      undoneText: t('undone'),
       run: async () => {
         setSaving(true);
         setError('');
@@ -94,11 +122,11 @@ export function AdminDeliveries() {
             method: 'DELETE',
             credentials: 'same-origin',
           });
-          if (!res.ok) throw new Error('Не удалось удалить маршрут');
-          notify.success('Маршрут удалён');
+          if (!res.ok) throw new Error(t('removeFailed'));
+          notify.success(t('removed'));
           reload();
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Ошибка');
+          setError(err instanceof Error ? err.message : t('error'));
         } finally {
           setSaving(false);
         }
@@ -106,17 +134,17 @@ export function AdminDeliveries() {
     });
   };
 
-  if (loading) return <div>Загрузка маршрутов...</div>;
+  if (loading) return <div>{t('loading')}</div>;
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-4)' }}>
         <h2 style={{ fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Truck size={24} /> Логистика и Маршруты
+          <Truck size={24} /> {t('title')}
         </h2>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(!showAdd)}
           style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-          <Plus size={16} /> Новый маршрут
+          <Plus size={16} /> {t('newRoute')}
         </button>
       </div>
 
@@ -132,7 +160,7 @@ export function AdminDeliveries() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {routes.length === 0 ? (
           <div className="card" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-            Нет активных маршрутов
+            {t('none')}
           </div>
         ) : (
           routes.map(route => (

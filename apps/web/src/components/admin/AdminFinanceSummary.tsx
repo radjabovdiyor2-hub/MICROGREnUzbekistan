@@ -2,20 +2,22 @@
 
 import { categoryLabel } from '@/lib/finance/categories';
 
+import { formatSum } from '@/lib/units';
+
 import React from 'react';
 import { TrendingDown, TrendingUp, Wallet } from 'lucide-react';
 
 interface Summary { income: number; expense: number; profit: number; margin: number }
 
-const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
 
 interface Props {
   summary: Summary;
   byCategory: Array<{ type: string; category: string; total: number }>;
   t: (ru: string, uz: string) => string;
+  lang: 'ru' | 'uz';
 }
 
-export function AdminFinanceSummary({ summary, byCategory, t }: Props) {
+export function AdminFinanceSummary({ summary, byCategory, t, lang }: Props) {
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)' }}>
@@ -36,7 +38,7 @@ export function AdminFinanceSummary({ summary, byCategory, t }: Props) {
               </span>
             </div>
             <div style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: card.color }}>
-              {money(card.value)}
+              {formatSum(card.value, lang)}
             </div>
             {card.extra && (
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
@@ -63,7 +65,7 @@ export function AdminFinanceSummary({ summary, byCategory, t }: Props) {
                   </span>
                 </span>
                 <b style={{ color: c.type === 'income' ? 'var(--success)' : 'var(--error)' }}>
-                  {money(c.total)}
+                  {formatSum(c.total, lang)}
                 </b>
               </div>
             ))}

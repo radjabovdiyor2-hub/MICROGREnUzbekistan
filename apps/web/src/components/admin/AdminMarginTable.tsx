@@ -1,14 +1,16 @@
 'use client';
 
 import React from 'react';
+
+import { formatSum } from '@/lib/units';
 import type { MarginRow } from '@/lib/finance/margin';
 
-const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
 
 interface Props {
   title: string;
   rows: MarginRow[];
   emptyHint: string;
+  lang: 'ru' | 'uz';
 }
 
 /**
@@ -17,7 +19,7 @@ interface Props {
  * Строки приходят уже отсортированными от худшего — сортировать здесь заново
  * нельзя: смысл разреза в том, чтобы убыточное было видно сразу.
  */
-export function AdminMarginTable({ title, rows, emptyHint }: Props) {
+export function AdminMarginTable({ title, rows, emptyHint, lang }: Props) {
   return (
     <div className="card" style={{ padding: 'var(--space-4)', borderRadius: 14 }}>
       <div style={{ fontSize: 'var(--text-sm)', fontWeight: 700, marginBottom: 'var(--space-3)' }}>
@@ -45,7 +47,7 @@ export function AdminMarginTable({ title, rows, emptyHint }: Props) {
                   {row.label}
                 </span>
                 <span style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                  {money(row.revenue)}
+                  {formatSum(row.revenue, lang)}
                 </span>
                 <span
                   style={{
@@ -56,7 +58,7 @@ export function AdminMarginTable({ title, rows, emptyHint }: Props) {
                     textAlign: 'right',
                   }}
                 >
-                  {money(row.margin)}
+                  {formatSum(row.margin, lang)}
                   {row.marginRate !== null && ` · ${Math.round(row.marginRate * 100)}%`}
                 </span>
               </div>

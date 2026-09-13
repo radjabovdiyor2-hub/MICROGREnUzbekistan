@@ -1,14 +1,20 @@
 'use client';
 
 import React from 'react';
+
+import { sumLabel } from '@/lib/units';
 import { ArrowDownUp } from 'lucide-react';
 import type { CashFlow } from '@/lib/finance/cashFlow';
 
-const money = (n: number) => `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} сум`;
+// Валюта — на языке читателя: «сум» кириллицей посреди узбекского экрана
+// была единственной русской строкой во всём блоке движения денег.
+const money = (n: number, lang: 'ru' | 'uz') =>
+  `${Math.round(n).toLocaleString('ru-RU').replace(/,/g, ' ')} ${sumLabel(lang)}`;
 
 interface Props {
   flow: CashFlow;
   t: (ru: string, uz: string) => string;
+  lang: 'ru' | 'uz';
 }
 
 /**
@@ -18,7 +24,7 @@ interface Props {
  * придирка к слову: входящего сальдо система не знает, и число, названное
  * остатком, не сойдётся с банком.
  */
-export function AdminCashFlow({ flow, t }: Props) {
+export function AdminCashFlow({ flow, t, lang }: Props) {
   if (flow.days.length === 0) return null;
 
   return (
@@ -39,14 +45,14 @@ export function AdminCashFlow({ flow, t }: Props) {
       </div>
 
       <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', marginBottom: 8 }}>
-        {t('Пришло', 'Kirim')} {money(flow.inflow)} · {t('ушло', 'chiqim')} {money(flow.outflow)}
+        {t('Пришло', 'Kirim')} {money(flow.inflow, lang)} · {t('ушло', 'chiqim')} {money(flow.outflow, lang)}
       </div>
 
       {flow.worstChange < 0 && (
         <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--warning)', marginBottom: 8 }}>
           {t(
-            `Самая глубокая просадка за период — ${money(-flow.worstChange)}.`,
-            `Davrdagi eng chuqur pasayish — ${money(-flow.worstChange)}.`,
+            `Самая глубокая просадка за период — ${money(-flow.worstChange, lang)}.`,
+            `Davrdagi eng chuqur pasayish — ${money(-flow.worstChange, lang)}.`,
           )}
         </div>
       )}
@@ -66,7 +72,7 @@ export function AdminCashFlow({ flow, t }: Props) {
             <span style={{ color: 'var(--text-muted)' }}>{day.date}</span>
             <span style={{ color: day.net < 0 ? 'var(--error)' : 'var(--success)' }}>
               {day.net >= 0 ? '+' : ''}
-              {money(day.net)}
+              {money(day.net, lang)}
             </span>
             <span
               style={{
@@ -75,7 +81,7 @@ export function AdminCashFlow({ flow, t }: Props) {
                 color: day.change < 0 ? 'var(--error)' : 'var(--text-primary)',
               }}
             >
-              {money(day.change)}
+              {money(day.change, lang)}
             </span>
           </div>
         ))}

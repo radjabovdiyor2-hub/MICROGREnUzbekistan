@@ -133,7 +133,7 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
                     color: 'var(--text-secondary)', fontSize: 'var(--text-xs)',
                     lineHeight: 1.6, margin: '0 0 var(--space-4)',
                   }}>
-                    {item.description}
+                    {item.description[lang]}
                   </p>
                 </div>
 
@@ -155,7 +155,7 @@ export function AdminBotControl({ lang }: { lang: 'ru' | 'uz' }) {
                   ) : (
                     <>
                       <Zap size={16} />
-                      <span>Запустить Задачу</span>
+                      <span>{lang === 'ru' ? 'Запустить задачу' : 'Vazifani ishga tushirish'}</span>
                     </>
                   )}
                 </button>

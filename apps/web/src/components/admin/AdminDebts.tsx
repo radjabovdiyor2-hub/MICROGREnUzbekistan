@@ -29,7 +29,9 @@ import { AdminDebtList } from './AdminDebtList';
 import { AdminSearch, matchesQuery } from './AdminSearch';
 import { tint } from '@/lib/tint';
 
-export function AdminDebts() {
+// Экран долгов написан по-узбекски целиком — кроме одной подписи поиска,
+// которая осталась русской и потому бросалась в глаза сильнее всего.
+export function AdminDebts({ lang }: { lang: 'ru' | 'uz' }) {
   const [activeTab, setActiveTab] = useState<'WHO_OWES_US' | 'WE_OWE'>('WHO_OWES_US');
   const [statusFilter, setStatusFilter] = useState('unpaid');
   const [query, setQuery] = useState('');
@@ -188,7 +190,7 @@ export function AdminDebts() {
         error={error}
       />
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--space-3)' }}>
-        <AdminSearch value={query} onChange={setQuery} placeholder="Кто должен / за что" width={240} />
+        <AdminSearch value={query} onChange={setQuery} placeholder={lang === 'ru' ? 'Кто должен / за что' : "Kim qarzdor / nima uchun"} width={240} />
       </div>
       <AdminDebtList
         debts={visibleDebts}

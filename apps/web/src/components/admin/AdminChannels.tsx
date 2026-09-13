@@ -36,7 +36,7 @@ export function AdminChannels({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     queryKey: ['admin-channels'],
     queryFn: async () => {
       const res = await fetch('/api/admin/channels', { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('Не удалось загрузить каналы');
+      if (!res.ok) throw new Error(t('Не удалось загрузить каналы', "Kanallarni yuklab bo'lmadi"));
       return res.json();
     },
   });
@@ -53,11 +53,11 @@ export function AdminChannels({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         credentials: 'same-origin',
         body: JSON.stringify(patch),
       });
-      if (!res.ok) throw new Error((await res.json())?.error || 'Не получилось сохранить');
+      if (!res.ok) throw new Error((await res.json())?.error || t('Не получилось сохранить', "Saqlab bo'lmadi"));
       notify.success(t('Канал сохранён', 'Kanal saqlandi'));
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не получилось');
+      setError(err instanceof Error ? err.message : t('Не получилось', "Bo'lmadi"));
     } finally {
       setBusy(false);
     }
@@ -74,16 +74,16 @@ export function AdminChannels({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
         body: JSON.stringify({ code }),
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result?.error || 'Не получилось связать каталог');
+      if (!res.ok) throw new Error(result?.error || t('Не получилось связать каталог', "Katalogni bog'lab bo'lmadi"));
       // Пропущенный скоропорт называем прямо: иначе «создано 0» на
       // площадке без доставки свежего выглядит поломкой.
       const skipped = result.skippedPerishable
-        ? `, скоропорт пропущен: ${result.skippedPerishable}`
+        ? `, ${t('скоропорт пропущен', "tez buziladigan o'tkazildi")}: ${result.skippedPerishable}`
         : '';
-      notify.success(`Добавлено карточек: ${result.created}${skipped}. Всего: ${result.total}`);
+      notify.success(`${t('Добавлено карточек', "Kartalar qo'shildi")}: ${result.created}${skipped}. ${t('Всего', 'Jami')}: ${result.total}`);
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не получилось');
+      setError(err instanceof Error ? err.message : t('Не получилось', "Bo'lmadi"));
     } finally {
       setBusy(false);
     }
@@ -95,16 +95,16 @@ export function AdminChannels({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
     try {
       const res = await fetch('/api/admin/channels', { method: 'POST', credentials: 'same-origin' });
       const result = await res.json();
-      if (!res.ok) throw new Error(result?.error || 'Синхронизация не прошла');
+      if (!res.ok) throw new Error(result?.error || t('Синхронизация не прошла', "Sinxronlash o'tmadi"));
       // Говорим и о том, что ждёт человека: строки для площадок без API
       // никуда не уйдут сами, и «отправлено 0» без объяснения выглядит
       // поломкой, хотя это очередь на выгрузку в кабинет.
       notify.success(
-        `Отправлено: ${result.sent}. Ждут выгрузки руками: ${result.waitingForHuman ?? result.waiting ?? 0}`,
+        `${t('Отправлено', 'Yuborildi')}: ${result.sent}. ${t('Ждут выгрузки руками', "Qo'lda yuklashni kutmoqda")}: ${result.waitingForHuman ?? result.waiting ?? 0}`,
       );
       reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не получилось');
+      setError(err instanceof Error ? err.message : t('Не получилось', "Bo'lmadi"));
     } finally {
       setBusy(false);
     }
@@ -135,7 +135,7 @@ export function AdminChannels({ lang = 'ru' }: { lang?: 'ru' | 'uz' }) {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
         {channels.map((channel) => (
-          <AdminChannelCard key={channel.code} channel={channel} onSave={save} onLink={link} busy={busy} />
+          <AdminChannelCard key={channel.code} channel={channel} onSave={save} onLink={link} busy={busy} lang={lang} />
         ))}
       </div>
     </div>
