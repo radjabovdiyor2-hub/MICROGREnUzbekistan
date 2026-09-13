@@ -10,6 +10,7 @@ import '@/styles/admin-shell.css';
 import { AppUpdateBanner } from '@/components/admin/AppUpdateBanner';
 
 import { AdminTabRouter } from './AdminTabRouter';
+import { FieldTrackerProvider } from '@/components/admin/map/FieldTrackerProvider';
 import { ALL_TABS, staffTabsFor } from './adminTabs';
 import { AdminAuthScreens } from './AdminAuthScreens';
 import { useAdminAuth, type StaffRole } from './useAdminAuth';
@@ -158,8 +159,15 @@ function AdminShellInner({ initialRole, initialName }: AdminShellProps) {
           браузере компонент возвращает null и ничего не грузит. */}
       <AppUpdateBanner lang={lang} />
 
-      {/* Main Content */}
-      <AdminTabRouter activeTab={activeTab} focus={focus} query={query} isOwner={isOwner} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
+      {/* Main Content.
+
+          СМЕНА И ЗАПИСЬ — НАД РОУТЕРОМ. Роутер размонтирует неактивную
+          вкладку, и трекер, живший в кнопке «Начал смену», умирал вместе с
+          ней: продавец уходил в кассу — маршрут переставал писаться. Здесь
+          запись переживает любые переходы. */}
+      <FieldTrackerProvider enabled={canSell && !isOwner}>
+        <AdminTabRouter activeTab={activeTab} focus={focus} query={query} isOwner={isOwner} canSell={canSell} sellerName={sellerName} lang={lang} t={t} />
+      </FieldTrackerProvider>
 
       <AdminCommandPalette
         paletteOpen={paletteOpen}

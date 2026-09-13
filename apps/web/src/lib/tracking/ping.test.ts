@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   GAP_MS,
+  MAX_ACCURACY_M,
   MAX_BATCH,
   dropJumps,
   groupByLocalDay,
@@ -90,6 +91,25 @@ describe('readPing', () => {
     expect(result).not.toBeNull();
     expect(result?.accuracyM).toBeNull();
     expect(result?.speedMps).toBeNull();
+  });
+
+  it('неточную крошку трека отбрасывает сервер — и от Telegram тоже', () => {
+    // РЕГРЕССИЯ. Порог стоял только в очереди телефона, а крошки Telegram
+    // шли мимо неё. Точка с радиусом в километр не «быстрая» — прыжком её
+    // не поймать, — и она рисовала линию через полгорода.
+    expect(readPing(raw({ accuracyM: MAX_ACCURACY_M + 50 }), NOW)).toBeNull();
+    expect(readPing(raw({ source: 'app', accuracyM: 900 }), NOW)).toBeNull();
+    expect(readPing(raw({ source: 'pwa', accuracyM: 900 }), NOW)).toBeNull();
+  });
+
+  it('порог включительный: ровно двести метров — ещё позиция', () => {
+    expect(readPing(raw({ accuracyM: MAX_ACCURACY_M }), NOW)).not.toBeNull();
+  });
+
+  it('координату отметки визита фильтр пути не трогает', () => {
+    // Годится ли она, решает сверка визита. Выбросить её здесь значило бы
+    // стереть доказательство заезда из-за плохого неба над заведением.
+    expect(readPing(raw({ source: 'visit', accuracyM: 900 }), NOW)).not.toBeNull();
   });
 
   it('курс вне 0..359 отбрасывается, сама крошка — нет', () => {

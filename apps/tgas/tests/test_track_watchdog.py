@@ -93,6 +93,71 @@ def test_hint_mentions_both_ways_to_record(state: str) -> None:
     assert "админку" in text
 
 
+# ─── Молчание по источнику ───────────────────────────────────────────────
+#
+# Один текст на всех велел человеку с приложением «включить трансляцию в
+# Telegram», которой он не пользуется, — и смена продолжала молчать. Совет
+# обязан подходить тому, чем человек пишет.
+
+
+def quiet_from(source: str | None) -> dict:
+    """Молчание 42 минуты, последняя крошка — от `source`."""
+    data = person("silent", 42)
+    data["lastSource"] = source
+    return data
+
+
+def test_app_silence_talks_about_the_app_not_telegram() -> None:
+    """Человеку с приложением — про приложение и батарею, а не трансляцию."""
+    text = text_of(quiet_from("app"))
+
+    assert text is not None
+    assert "Приложение" in text
+    assert "42" in text
+    assert "Без ограничений" in text
+    # Совет включить трансляцию человеку с приложением — ложный.
+    assert "Транслировать" not in text
+
+
+def test_browser_silence_explains_the_screen() -> None:
+    """Вкладка засыпает с экраном — ровно это и надо сказать."""
+    text = text_of(quiet_from("pwa"))
+
+    assert text is not None
+    assert "экран" in text
+    assert "42" in text
+
+
+def test_unknown_source_keeps_the_broadcast_advice() -> None:
+    """Витрина старой версии поле не отдаёт — совет остаётся прежним."""
+    assert text_of(quiet_from(None)) == text_of(person("silent", 42))
+    assert TRACK_HINT in (text_of(quiet_from("telegram_live")) or "")
+
+
+def test_three_sources_three_texts() -> None:
+    """Разные источники не должны делить слова — иначе их не различить."""
+    texts = {text_of(quiet_from(s)) for s in ("app", "pwa", "telegram_live")}
+    assert len(texts) == 3
+
+
+def test_silence_reason_does_not_depend_on_source() -> None:
+    """Повод один: по нему считается повтор, и смена источника не должна
+    превращать одно молчание в два напоминания за день."""
+    for source in ("app", "pwa", "telegram_live", None):
+        nudge = track_nudge(quiet_from(source))
+        assert nudge is not None
+        assert nudge[0] == "silent"
+
+
+def test_owner_hears_which_way_went_quiet() -> None:
+    """Владелец тоже узнаёт, что именно замолчало."""
+    title_app, _ = owner_alert(quiet_from("app"), "silent", delivered=True)
+    title_tg, _ = owner_alert(quiet_from(None), "silent", delivered=True)
+
+    assert "приложение" in title_app
+    assert "трансляция" in title_tg
+
+
 # ─── Простой: человек на связи, но стоит ────────────────────────────────
 #
 # Этого случая в коде не существовало вовсе. Всё, что называлось

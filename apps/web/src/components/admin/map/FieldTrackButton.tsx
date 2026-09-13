@@ -1,28 +1,36 @@
 'use client';
 
-import { Radio, RadioTower } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
+import { BatteryWarning, Radio, RadioTower } from 'lucide-react';
 
-import { useFieldTracker } from './useFieldTracker';
-import { useShift } from './useShift';
+import { isNativeApp } from '@/lib/native/bridge';
+import { openNativeSettings } from '@/lib/native/geo';
+
+import { useFieldSession } from './FieldTrackerProvider';
 
 // ══════════════════════════════════════════════════════════════════════
-// «Записывать день» — трек без Telegram.
+// «Начал смену» — одна кнопка на смену и запись маршрута.
 //
-// ЗАЧЕМ, ЕСЛИ ЕСТЬ ТРАНСЛЯЦИЯ. Она остаётся основным способом и одна
-// работает с погашенным экраном. Но она требует бота: новый человек не
+// ЗАЧЕМ, ЕСЛИ ЕСТЬ ТРАНСЛЯЦИЯ. Она требует бота: новый человек не
 // начинал с ним диалог, на телефоне может не быть Telegram вовсе, аккаунт
 // бывает заблокирован. До сих пор в таком случае дня не было ни одного —
 // ни трека, ни километров, ни сверки времени. Теперь есть.
 //
-// О ГРАНИЦЕ ГОВОРИМ ВСЛУХ, А НЕ ПРЯЧЕМ. Браузер пишет позицию, пока
-// вкладка видима: погас экран — Safari замеры замораживает, Chrome сильно
-// прореживает. Человек, который об этом не знает, закроет телефон в
-// кармане и будет уверен, что смена пишется. Поэтому под кнопкой стоит
-// строка про экран, а не мелкий значок.
+// ЗАПИСЬ ЖИВЁТ НЕ ЗДЕСЬ. Трекер раньше создавался этой кнопкой — и умирал
+// вместе с ней: кнопка стоит на вкладках «Клиенты» и «Мой рейс», роутер
+// размонтирует неактивную вкладку, и продавец, ушедший в кассу, переставал
+// записываться. Теперь трекер держит `FieldTrackerProvider` в оболочке
+// админки, а кнопка только показывает его состояние.
 //
-// КНОПКА ВИДНА ТОЛЬКО ТОМУ, КТО ЕЗДИТ. Владельцу она не нужна: он смотрит
-// чужие дни, а не пишет свой, и лишняя кнопка «записывать меня» на его
-// экране однажды включится случайно.
+// О ГРАНИЦЕ ГОВОРИМ ВСЛУХ, А НЕ ПРЯЧЕМ — и разную для разных путей.
+// Браузер пишет позицию, пока вкладка видима: погас экран — Safari замеры
+// замораживает, Chrome сильно прореживает. Приложение пишет и с погашенным
+// экраном, но его усыпляет экономия батареи. Человек, который об этом не
+// знает, будет уверен, что смена пишется.
+//
+// КНОПКА ВИДНА ТОЛЬКО ТОМУ, КТО ЕЗДИТ. Без поставщика записи — это
+// владелец — кнопка не рисуется вовсе: лишняя «записывать меня» на его
+// экране однажды включилась бы случайно.
 // ══════════════════════════════════════════════════════════════════════
 
 const text = {
@@ -33,10 +41,23 @@ const text = {
     ru: 'Пока экран включён и вкладка открыта',
     uz: 'Ekran yoniq va sahifa ochiq boʻlsa',
   },
+  hintApp: {
+    ru: 'Пишется и с погашенным экраном',
+    uz: 'Ekran oʻchiq boʻlsa ham yoziladi',
+  },
+  battery: {
+    ru: 'Трек рвётся? Батарея → «Без ограничений»',
+    uz: 'Trek uzilyaptimi? Batareya → «Cheklovsiz»',
+  },
+  batterySettings: { ru: 'Открыть настройки', uz: 'Sozlamalarni ochish' },
   waiting: { ru: 'ждут связи', uz: 'aloqa kutmoqda' },
   denied: {
     ru: 'Доступ к геопозиции закрыт — разрешите его в настройках браузера',
     uz: 'Geopozitsiyaga ruxsat yoʻq — brauzer sozlamalarida ruxsat bering',
+  },
+  deniedApp: {
+    ru: 'Доступ к геопозиции закрыт — разрешите его в настройках приложения',
+    uz: 'Geopozitsiyaga ruxsat yoʻq — ilova sozlamalarida ruxsat bering',
   },
   unavailable: {
     ru: 'Спутники не ловятся — выйдите к окну или на улицу',
@@ -54,13 +75,21 @@ function clock(ms: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+/** Приложение или браузер — за время жизни экрана не меняется. */
+const neverChanges = () => () => undefined;
+
 export function FieldTrackButton({ lang }: { lang: 'ru' | 'uz' }) {
   const t = (key: keyof typeof text) => text[key][lang];
+  // На сервере — всегда браузер, в оболочке мост появляется до первой
+  // отрисовки. Внешнее хранилище, а не вызов во время отрисовки: иначе
+  // разметка сервера и клиента разошлась бы именно в приложении.
+  const native = useSyncExternalStore(neverChanges, isNativeApp, () => false);
   // ОДНА КНОПКА ЗАПУСКАЕТ ВСЁ. Смена и запись были двумя разными
   // действиями, и человек мог открыть смену, забыв включить трек, —
   // тогда день считался отработанным, а маршрута не было.
-  const shift = useShift();
-  const tracker = useFieldTracker(shift.loading ? undefined : shift.open);
+  const session = useFieldSession();
+  if (!session) return null;
+  const { shift, tracker } = session;
 
   return (
     <div style={{ display: 'grid', gap: 'var(--space-1)', justifyItems: 'start' }}>
@@ -100,8 +129,30 @@ export function FieldTrackButton({ lang }: { lang: 'ru' | 'uz' }) {
         )}
       </div>
 
+      {/* Граница записи — своя у каждого пути. В приложении строка про
+          «включённый экран» была бы неправдой и учила бы держать телефон
+          в руке весь день. */}
       {shift.open && tracker.failure === null && (
-        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{t('hint')}</span>
+        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+          {native ? t('hintApp') : t('hint')}
+        </span>
+      )}
+
+      {/* БАТАРЕЯ — главная причина рваного трека в приложении. Xiaomi и
+          Samsung усыпляют фоновую службу по умолчанию, и починить это
+          можно только руками в настройках. Кнопка ведёт ровно туда. */}
+      {native && shift.open && (
+        <span
+          style={{
+            display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap',
+            fontSize: 'var(--text-xs)', color: 'var(--text-muted)',
+          }}
+        >
+          <BatteryWarning size={14} /> {t('battery')}
+          <button className="btn btn-ghost btn-sm" onClick={() => openNativeSettings()}>
+            {t('batterySettings')}
+          </button>
+        </span>
       )}
 
       {/* Смена не открылась. Молчать нельзя: человек нажал кнопку и вправе
@@ -131,7 +182,7 @@ export function FieldTrackButton({ lang }: { lang: 'ru' | 'uz' }) {
             color: tracker.failure === 'denied' ? 'var(--error)' : 'var(--text-muted)',
           }}
         >
-          {t(tracker.failure)}
+          {t(tracker.failure === 'denied' && native ? 'deniedApp' : tracker.failure)}
         </span>
       )}
     </div>

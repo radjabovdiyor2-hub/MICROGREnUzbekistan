@@ -117,6 +117,30 @@ export const MAX_SPEED_MPS = 55;
 /** Ниже этого считаем, что человек стоит, а не едет. */
 export const MOVING_SPEED_MPS = 0.7;
 
+/**
+ * Хуже этого радиуса замер — не позиция, а догадка по вышке.
+ *
+ * ОДИН ПОРОГ НА ТЕЛЕФОН И СЕРВЕР. Раньше он жил только в очереди телефона
+ * (`shouldKeep`), а крошки Telegram шли на сервер мимо неё. Точка с
+ * радиусом в километр не «быстрая» — прыжком её не поймать, — и она
+ * рисовала линию через полгорода.
+ *
+ * Порог намеренно мягкий. Строгий отбросил бы весь трек в подвале, где
+ * человек и работает; а «точка с радиусом в километр» выглядела бы
+ * уликой.
+ */
+export const MAX_ACCURACY_M = 200;
+
+/**
+ * Источники ТРЕКА — те, из которых рисуется путь.
+ *
+ * `visit` сюда не входит намеренно: это координата отметки визита, и
+ * годится ли она, решает сверка визита, а не фильтр пути. Выбросить её
+ * здесь значило бы молча стереть доказательство заезда из-за плохого неба
+ * над заведением.
+ */
+const TRACK_SOURCES: readonly PingSource[] = ['telegram_live', 'pwa', 'app'];
+
 function isSource(value: unknown): value is PingSource {
   return typeof value === 'string' && (PING_SOURCES as readonly string[]).includes(value);
 }
@@ -156,11 +180,18 @@ export function readPing(raw: unknown, now: Date): TrackPingInput | null {
   const speed = Number(body.speedMps);
   const heading = Number(body.headingDeg);
 
+  const accuracyM = Number.isFinite(acc) && acc >= 0 ? Math.round(acc) : null;
+  // Неизвестная точность — не «плохая»: Telegram часто её не сообщает, и
+  // выбросить такие крошки значило бы потерять весь его трек.
+  if (accuracyM !== null && accuracyM > MAX_ACCURACY_M && TRACK_SOURCES.includes(body.source)) {
+    return null;
+  }
+
   return {
     at: new Date(atMs),
     latitude: lat,
     longitude: lon,
-    accuracyM: Number.isFinite(acc) && acc >= 0 ? Math.round(acc) : null,
+    accuracyM,
     source: body.source,
     speedMps: Number.isFinite(speed) && speed >= 0 ? speed : null,
     headingDeg: Number.isFinite(heading) && heading >= 0 && heading < 360 ? Math.round(heading) : null,

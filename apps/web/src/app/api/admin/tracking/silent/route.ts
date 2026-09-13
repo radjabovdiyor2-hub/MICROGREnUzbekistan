@@ -79,6 +79,25 @@ export async function GET(request: NextRequest) {
     });
     const idleOf = await ongoingIdle(live.map((p) => p.id), start, end, new Date(now));
 
+    // ЧЕМ ШЁЛ ТРЕК. Сторож говорит человеку, что делать, когда точек нет, —
+    // и совет у приложения, браузера и Telegram разный. Один текст на всех
+    // велел человеку с приложением «включить трансляцию в Telegram», которой
+    // он не пользуется. `visit` не считаем: это отметка визита, а не трек.
+    //
+    // По запросу на человека, а не одним `distinct`: Prisma собирает
+    // `distinct` в памяти, то есть тянула бы все крошки дня ради одной
+    // строки. Здесь каждый запрос идёт по индексу `[employeeId, at]`.
+    const lastPings = await Promise.all(
+      live.map((person) =>
+        prisma.trackPing.findFirst({
+          where: { employeeId: person.id, at: { gte: start, lt: end }, source: { not: 'visit' } },
+          orderBy: { at: 'desc' },
+          select: { source: true },
+        }),
+      ),
+    );
+    const sourceOf = new Map(live.map((person, i) => [person.id, lastPings[i]?.source ?? null]));
+
     // ЧТО У ЧЕЛОВЕКА ПО ОБЪЕЗДУ И РЕЙСУ. Сторож спрашивает про людей раз в
     // полчаса — и здесь же узнаёт, сдвинулась ли работа. Отдельная дверь
     // повторила бы и состав людей, и правило «кто сегодня работает».
@@ -144,6 +163,14 @@ export async function GET(request: NextRequest) {
          * выглядели бы одинаково.
          */
         idleMin: state === 'ok' ? (idleOf.get(person.id) ?? null) : null,
+        /**
+         * Чем шёл трек до молчания: `telegram_live` | `pwa` | `app`.
+         *
+         * `null` — смены нет или точек сегодня не было. Нужен одному
+         * вопросу: какой совет дать, когда точек нет. У приложения, браузера
+         * и трансляции причины молчания разные — и лечение тоже.
+         */
+        lastSource: sourceOf.get(person.id) ?? null,
         /**
          * Сколько точек назначено и сколько отмечено — объезд и рейс.
          *
