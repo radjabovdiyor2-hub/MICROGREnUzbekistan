@@ -1,24 +1,24 @@
 /**
- * Наборы из действующего ассортимента — двадцать штук.
+ * Рецепты из действующего ассортимента — двадцать штук.
  *
  * ЗАЧЕМ ЭТОТ СИД СУЩЕСТВУЕТ
- * Спецификация `doc/product-sets-spec.md` описывает тридцать два набора, но
- * купить их было нельзя: набор существовал в документе, а на сайте — только
- * отдельные товары.
+ * Спецификация `doc/product-sets-spec.md` описывала тридцать два набора-корзины.
+ * В сентябре 2026 наборы сняты с прайса: вместо нескольких упаковок продаётся
+ * готовый микс 100 г. Сами сочетания при этом остались верными — они и живут
+ * здесь рецептами: состав словами, порядок подачи и что добавить дома.
  *
- * НАБОР — ТОВАР, А ЭТА СТРАНИЦА — ЕГО ОПИСАНИЕ. Двадцать наборов заведены
- * строками прайса (сторона 4) и живут обычными товарами со своей ценой; здесь
- * к ним добавляется то, чего карточка товара не вмещает: состав словами,
- * порядок подачи и что добавить дома.
+ * РЕЦЕПТ — НЕ ТОВАР. Строки прайса у этих двадцати больше нет, а значит товар
+ * с таким слагом погашен: `import-catalog.ts` гасит всё, чего в прайсе не
+ * стало. Ссылаться на него нельзя — `recipes.ts` отдаёт неактивный товар как
+ * `null`, и кнопка «собрать» пропала бы со всех двадцати карточек разом.
  *
- * ССЫЛКА НА ТОВАР РОВНО ОДНА — САМ НАБОР. Кнопка «собрать набор» кладёт в
- * корзину его целиком: одна цена, одна строка в чеке. Оставь мы ссылки на
- * компоненты — на сайте появились бы два пути купить одно и то же по разной
- * цене, и продавец не смог бы объяснить разницу.
+ * ССЫЛКИ ВЕДУТ НА КОМПОНЕНТЫ. Пока набор был товаром, компоненты рядом с ним
+ * означали бы два пути купить одно и то же по разной цене. Второго пути
+ * больше нет, и кнопка кладёт в корзину ровно ту зелень, из которой рецепт
+ * собирается.
  *
- * ЧТО НАШЕ, А ЧТО ДОМАШНЕЕ. Компоненты перечислены текстом: они говорят, что
- * внутри. Мясо, сыр, яйцо, крупа, овощи и фрукты — тоже текстом, отдельной
- * подсказкой: мы их не продаём, и называть их своим товаром нельзя.
+ * ЧТО НАШЕ, А ЧТО ДОМАШНЕЕ. Мясо, сыр, яйцо, крупа, овощи и фрукты остаются
+ * текстом без ссылки: мы их не продаём, и называть их своим товаром нельзя.
  *
  * ⚠️ РЕГИСТР ТЕКСТА ЗАДАН §6.2 doc/balans_concept.md. Разрешено: состав,
  * граммы, вкус, способ подачи. Утверждение о СВОЙСТВЕ заменяется
@@ -45,13 +45,6 @@ const prisma = new PrismaClient();
 
 /** Где лежат снимки наборов. Тот же каталог, что и у карточек товаров. */
 const PHOTO_DIR = join(__dirname, '..', '..', '..', 'apps', 'web', 'public', 'catalog');
-
-/**
- * Слаг товара-набора выводится из имени его картинки — ровно так же, как это
- * делает `import-catalog.ts::slugOf`. Держим одно правило, а не две копии:
- * разойдутся они молча, и кнопка «в корзину» перестанет находить набор.
- */
-const productSlugOf = (photo: string) => photo.replace(/\.webp$/i, '').replace(/_/g, '-');
 
 interface Ingredient {
   nameRu: string;
@@ -98,11 +91,11 @@ const SETS: SetSeed[] = [
   // ── BALANS ────────────────────────────────────────────────────────────
   {
     slug: 'set-tanishuv',
-    titleRu: 'Набор «Знакомство»',
-    titleUz: '«Tanishuv» to‘plami',
+    titleRu: 'Рецепт «Знакомство»',
+    titleUz: '«Tanishuv» retsepti',
     descriptionRu:
       'Два полюса ассортимента рядом: мягкий микс без горечи и острый — с кинзой и редисом. '
-      + 'Набор для того, кто ещё не знает, какой вкус ему подойдёт.',
+      + 'Для того, кто ещё не знает, какой вкус ему подойдёт.',
     descriptionUz:
       "Assortimentning ikki qutbi yonma-yon: achchiqsiz yumshoq miks va kashnich bilan o'tkir miks. "
       + "Qaysi ta'm mos kelishini hali bilmaganlar uchun.",
@@ -127,8 +120,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-balans-haftasi',
-    titleRu: 'Набор «Неделя BALANS»',
-    titleUz: '«BALANS haftasi» to‘plami',
+    titleRu: 'Рецепт «Неделя BALANS»',
+    titleUz: '«BALANS haftasi» retsepti',
     descriptionRu:
       'Все четыре микса: лестница вкуса от сладковатого гороха к свекольной ноте амаранта. '
       + 'По пачке в день — четыре разных вкуса подряд.',
@@ -156,8 +149,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-birinchi-qadam',
-    titleRu: 'Набор «Первый шаг»',
-    titleUz: '«Birinchi qadam» to‘plami',
+    titleRu: 'Рецепт «Первый шаг»',
+    titleUz: '«Birinchi qadam» retsepti',
     descriptionRu:
       'Кит с готовой заправкой в саше и вторая упаковка мягкого микса. '
       + 'Первый раз — с нашей заправкой, второй — со своей.',
@@ -182,8 +175,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-toyimli-kun',
-    titleRu: 'Набор «Сытный день»',
-    titleUz: '«To‘yimli kun» to‘plami',
+    titleRu: 'Рецепт «Сытный день»',
+    titleUz: '«To‘yimli kun» retsepti',
     descriptionRu:
       'Плотный капустно-перечный вкус и 20 г семян — лён, тыква, подсолнечник. '
       + 'Перекус, который жуётся, а не проглатывается.',
@@ -211,8 +204,8 @@ const SETS: SetSeed[] = [
   // ── KUNLIK ────────────────────────────────────────────────────────────
   {
     slug: 'set-boul-asosi',
-    titleRu: 'Набор «Основа боула»',
-    titleUz: '«Boul asosi» to‘plami',
+    titleRu: 'Рецепт «Основа боула»',
+    titleUz: '«Boul asosi» retsepti',
     descriptionRu:
       'Нейтральная база на три-четыре боула: шпинат и татсой мягкие, горох сверху даёт сладость и хруст. '
       + 'Белок, крупу и овощ добавляете свои.',
@@ -242,8 +235,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-nonushtaga-kok',
-    titleRu: 'Набор «Зелень к завтраку»',
-    titleUz: '«Nonushtaga ko‘k» to‘plami',
+    titleRu: 'Рецепт «Зелень к завтраку»',
+    titleUz: '«Nonushtaga ko‘k» retsepti',
     descriptionRu:
       'Для завтрака, где раньше были только яйца и хлеб: мягкий шпинат, сладковатый горох, '
       + 'пряный базилик. Аромат вместо остроты.',
@@ -272,8 +265,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-tamlar-haftasi',
-    titleRu: 'Набор «Неделя вкусов»',
-    titleUz: '«Ta’mlar haftasi» to‘plami',
+    titleRu: 'Рецепт «Неделя вкусов»',
+    titleUz: '«Ta’mlar haftasi» retsepti',
     descriptionRu:
       'Четыре разных листа на неделю покупок: плотный кейл, мизуна с горчичной нотой, '
       + 'мягкий татсой и острая руккола.',
@@ -304,8 +297,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-keyl-va-noxat',
-    titleRu: 'Набор «Кейл и горох»',
-    titleUz: '«Keyl va no‘xat» to‘plami',
+    titleRu: 'Рецепт «Кейл и горох»',
+    titleUz: '«Keyl va no‘xat» retsepti',
     descriptionRu:
       'Плотный лист и сладкий побег — быстрый гарнир из двух упаковок.',
     descriptionUz: "Zich barg va shirin niholcha — ikki qadoqdan tez garnir.",
@@ -332,8 +325,8 @@ const SETS: SetSeed[] = [
   // ── FAOL ──────────────────────────────────────────────────────────────
   {
     slug: 'set-faol-boul',
-    titleRu: 'Набор «Активный боул»',
-    titleUz: '«Faol boul» to‘plami',
+    titleRu: 'Рецепт «Активный боул»',
+    titleUz: '«Faol boul» retsepti',
     descriptionRu:
       'Плотная база из шпината и кейла, сверху горох — в нём 4,2 г белка на 100 г, '
       + 'больше всего в ассортименте.',
@@ -357,8 +350,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-zaldan-keyin',
-    titleRu: 'Набор «После зала»',
-    titleUz: '«Zaldan keyin» to‘plami',
+    titleRu: 'Рецепт «После зала»',
+    titleUz: '«Zaldan keyin» retsepti',
     descriptionRu:
       'Ореховый подсолнечник с плотным стеблем и мягкий шпинат — два вкуса, которые не надоедают.',
     descriptionUz: "Yong'oqsimon kungaboqar va yumshoq ismaloq.",
@@ -385,8 +378,8 @@ const SETS: SetSeed[] = [
   // ── OSHXONA ───────────────────────────────────────────────────────────
   {
     slug: 'set-pasta-va-salat',
-    titleRu: 'Набор «Паста и салат»',
-    titleUz: '«Pasta va salat» to‘plami',
+    titleRu: 'Рецепт «Паста и салат»',
+    titleUz: '«Pasta va salat» retsepti',
     descriptionRu:
       'Пряный базилик и острая руккола — классическая пара к пасте. Сыр и масло гасят горечь.',
     descriptionUz: "Rayhon va rukkola — pastaga klassik juftlik.",
@@ -413,12 +406,12 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-yashil-tova',
-    titleRu: 'Набор «Зелёная сковорода»',
-    titleUz: '«Yashil tova» to‘plami',
+    titleRu: 'Рецепт «Зелёная сковорода»',
+    titleUz: '«Yashil tova» retsepti',
     descriptionRu:
-      'Единственный набор, где зелень греют: быстрый гарнир из шпината и мангольда с яркими стеблями.',
+      'Единственный рецепт, где зелень греют: быстрый гарнир из шпината и мангольда с яркими стеблями.',
     descriptionUz:
-      "Ko'kat qizdiriladigan yagona to'plam: ismaloq va rangli poyali mangold.",
+      "Ko'kat qizdiriladigan yagona retsept: ismaloq va rangli poyali mangold.",
     cookMinutes: 10, servings: 4, sortOrder: 132, photo: 'set_os2_tova.webp',
     ingredients: [
       { nameRu: 'Шпинат бейби', nameUz: 'Ismaloq beybi', amount: '100 г', productSlug: 'ismaloq-baby' },
@@ -440,8 +433,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-palov-va-issiq',
-    titleRu: 'Набор «К плову и горячему»',
-    titleUz: '«Palov va issiq taomga» to‘plami',
+    titleRu: 'Рецепт «К плову и горячему»',
+    titleUz: '«Palov va issiq taomga» retsepti',
     descriptionRu:
       'Три лотка на стол: яркая кинза, резкий редис и перечный кресс. '
       + 'Для тех, кто кормит не одного, а компанию.',
@@ -468,8 +461,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-samarqand-salati',
-    titleRu: 'Набор «Самаркандский салат»',
-    titleUz: '«Samarqand salati» to‘plami',
+    titleRu: 'Рецепт «Самаркандский салат»',
+    titleUz: '«Samarqand salati» retsepti',
     descriptionRu:
       'Самый простой вход: лоток гороха и розовые томаты. Сладкий сочный побег к мясистому томату.',
     descriptionUz: "Eng oddiy boshlanish: no'xat lotogi va pushti pomidor.",
@@ -496,8 +489,8 @@ const SETS: SetSeed[] = [
   // ── CHEF ──────────────────────────────────────────────────────────────
   {
     slug: 'set-palitra',
-    titleRu: 'Набор «Палитра»',
-    titleUz: '«Palitra» to‘plami',
+    titleRu: 'Рецепт «Палитра»',
+    titleUz: '«Palitra» retsepti',
     descriptionRu:
       'Три оттенка пурпура для финишной подачи: свекольная нота амаранта, резкий Санго, '
       + 'мизуна с горчичной нотой. Для мяса, тартара и крем-супов.',
@@ -523,8 +516,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-achchiq-taqdimot',
-    titleRu: 'Набор «Пряная подача»',
-    titleUz: '«Achchiq taqdimot» to‘plami',
+    titleRu: 'Рецепт «Пряная подача»',
+    titleUz: '«Achchiq taqdimot» retsepti',
     descriptionRu:
       'Пять уровней остроты в одном заказе: резкий редис, перечный кресс, жгучая горчица, '
       + 'кинза и орехово-горчичная руккола.',
@@ -548,8 +541,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-barg-va-tuzilma',
-    titleRu: 'Набор «Лист и фактура»',
-    titleUz: '«Barg va tuzilma» to‘plami',
+    titleRu: 'Рецепт «Лист и фактура»',
+    titleUz: '«Barg va tuzilma» retsepti',
     descriptionRu:
       'Три кочана под ресторанный салат, где лист виден целиком: горьковатый радичио, '
       + 'хрустящий фризе и мягкая лоло росса.',
@@ -575,8 +568,8 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-hid',
-    titleRu: 'Набор «Аромат»',
-    titleUz: '«Hid» to‘plami',
+    titleRu: 'Рецепт «Аромат»',
+    titleUz: '«Hid» retsepti',
     descriptionRu:
       'Для бара и кондитера: мята, пряный базилик и кислый щавель с красной жилкой — '
       + 'кислота без лимона.',
@@ -604,8 +597,8 @@ const SETS: SetSeed[] = [
   // ── Коллекции ─────────────────────────────────────────────────────────
   {
     slug: 'set-rangli-laganda',
-    titleRu: 'Набор «Цветная тарелка»',
-    titleUz: '«Rangli laganda» to‘plami',
+    titleRu: 'Рецепт «Цветная тарелка»',
+    titleUz: '«Rangli laganda» retsepti',
     descriptionRu:
       'Тот же пурпур, что у «Палитры», но для домашнего праздничного стола: '
       + 'амарант, Санго и красная мизуна к плову и мясу.',
@@ -628,11 +621,11 @@ const SETS: SetSeed[] = [
   },
   {
     slug: 'set-ofis-kuni',
-    titleRu: 'Набор «Офисный день»',
-    titleUz: '«Ofis kuni» to‘plami',
+    titleRu: 'Рецепт «Офисный день»',
+    titleUz: '«Ofis kuni» retsepti',
     descriptionRu:
       'Четыре кита с заправкой в саше — по одному на человека. '
-      + 'На работе заправку никто не смешивает, поэтому набор держится именно на ките.',
+      + 'На работе заправку никто не смешивает, поэтому подборка держится именно на ките.',
     descriptionUz:
       "Sashe bilan to'rtta kit — har kishiga bittadan.",
     cookMinutes: 2, servings: 4, sortOrder: 152, photo: 'set_is1_ofis.webp',
@@ -654,7 +647,7 @@ const SETS: SetSeed[] = [
 ];
 
 async function main() {
-  console.log(`🥗 Наборы: ${SETS.length} подборок`);
+  console.log(`🥗 Рецепты: ${SETS.length} подборок`);
   let withPhoto = 0;
   const missing: string[] = [];
 
@@ -697,21 +690,13 @@ async function main() {
       })),
     });
 
-    // ПЕРВЫМ ИНГРЕДИЕНТОМ — САМ НАБОР, и это единственная ссылка на товар.
+    // ССЫЛКИ ВЕДУТ НА КОМПОНЕНТЫ — на ту зелень, что есть в прайсе сегодня.
     //
-    // Набор продаётся строкой прайса: одна цена, одна позиция в чеке. Если
-    // оставить ссылки на компоненты, кнопка «собрать набор» положит их по
-    // отдельности — и на сайте появятся два пути купить одно и то же по
-    // разной цене. Компоненты ниже остаются текстом: они говорят, что внутри.
-    const ingredients: Ingredient[] = [
-      {
-        nameRu: set.titleRu,
-        nameUz: set.titleUz,
-        amount: '1 набор',
-        productSlug: productSlugOf(set.photo),
-      },
-      ...set.ingredients.map((ing) => ({ ...ing, productSlug: undefined })),
-    ];
+    // Раньше первой строкой стоял сам набор, и это была единственная ссылка на
+    // товар. Наборы с прайса сняты, их товары погашены — такая ссылка вела бы
+    // в никуда молча: `recipes.ts` подставляет только активный товар, строка
+    // осталась бы текстом, а кнопка «собрать» исчезла бы совсем.
+    const ingredients: Ingredient[] = set.ingredients;
 
     for (const [i, ing] of ingredients.entries()) {
       let productId: string | null = null;
@@ -741,7 +726,7 @@ async function main() {
 
   console.log(`\n📷 с фото: ${withPhoto} из ${SETS.length}`);
   if (missing.length > 0) {
-    // Не падаем: ингредиент останется текстом, но кнопка «собрать набор» его
+    // Не падаем: ингредиент останется текстом, но кнопка «собрать» его
     // не подхватит — а это ровно та тихая поломка, ради которой список тут.
     console.warn('⚠ товары не найдены, ингредиент останется текстом:');
     for (const m of missing) console.warn(`   ${m}`);

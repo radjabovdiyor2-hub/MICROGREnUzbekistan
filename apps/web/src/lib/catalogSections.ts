@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
-  Baby, ChefHat, CookingPot, Droplet, LayoutGrid, Leaf, Package, Salad, Scale, Sprout, Sun,
+  Baby, Briefcase, ChefHat, CookingPot, Droplet, Dumbbell, LayoutGrid, Leaf, Package, Salad, Scale,
+  Sprout, Sun, Users,
 } from 'lucide-react';
 
 // ══════════════════════════════════════════════════════════════════════
@@ -59,6 +60,15 @@ export const CATALOG_SECTIONS: CatalogSection[] = [
   // Линейки — про людей и повод: день, домашняя кухня, ресторан, ребёнок.
   { kind: 'line', slug: 'KUNLIK', nameUz: 'KUNLIK', nameRu: 'KUNLIK', Icon: Sun, color: 'var(--cat-6)' },
   { kind: 'line', slug: 'OSHXONA', nameUz: 'OSHXONA', nameRu: 'OSHXONA', Icon: CookingPot, color: 'var(--cat-12)' },
+  // Три линейки, до сентября 2026 жившие только в спецификации наборов. Повод покупки у них
+  // разный настолько, что фильтр «для кого» без них врал: зал, рабочий стол и стол для гостей
+  // выбирают по своим причинам, а не по «каждый день».
+  { kind: 'line', slug: 'FAOL', nameUz: 'FAOL', nameRu: 'FAOL', Icon: Dumbbell, color: 'var(--cat-5)' },
+  { kind: 'line', slug: 'ISHDA', nameUz: 'ISHDA', nameRu: 'ISHDA', Icon: Briefcase, color: 'var(--cat-9)' },
+  // Токенов категорийной палитры ровно двенадцать (design-system/build/tokens.css), и все заняты:
+  // тринадцатого нет, а цвет вне токена запрещён. Вишнёвый --cat-8 повторяется с «Наборами», но
+  // они стоят в другом конце ряда, и спутать плитки нельзя.
+  { kind: 'line', slug: 'MEHMON', nameUz: 'MEHMON', nameRu: 'MEHMON', Icon: Users, color: 'var(--cat-8)' },
   { kind: 'line', slug: 'CHEF', nameUz: 'CHEF', nameRu: 'CHEF', Icon: ChefHat, color: 'var(--cat-1)' },
   { kind: 'line', slug: 'BOLAJON', nameUz: 'BOLAJON', nameRu: 'BOLAJON', Icon: Baby, color: 'var(--cat-3)' },
   { kind: 'category', slug: 'sauces', nameUz: 'Souslar', nameRu: 'Соусы', Icon: Droplet, color: 'var(--cat-4)' },

@@ -394,6 +394,66 @@ async function main() {
         "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
       }
     },
+    'miks-qarsildoq': {
+      descUz: "Pak-choy, tatsoy va no'xat — 100 g. Sershira poya, achchiqsiz: «ko'katni yoqtirmayman» deydiganlar uchun eng oson boshlanish.",
+      descRu: "Пак-чой, татсой и горох, 100 г. Сочный стебель без горечи — самый простой вход для тех, кто говорит «не люблю траву».",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Pak-choy 40%, tatsoy 30%, no'xat 30% / Пак-чой 40%, татсой 30%, горох 30%",
+        "Ta'm / Вкус": "Qarsildoq, shirinroq / Хрустящий, сладковатый",
+        "Achchiqlik / Острота": "1 / 5",
+        "Qo'shing / Добавьте своё": "Tuxum yoki pishloq / Яйцо или сыр",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-shorvaga': {
+      descUz: "Kress, mizuna va kashnich — 100 g. Sho'rva va lag'monga plitadan keyin soling: 70 °C dan yuqorida barg ta'mini yo'qotadi.",
+      descRu: "Кресс, мизуна и кориандр, 100 г. Кладут в шурпу и лагман после плиты: выше 70 °C лист теряет вкус.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Kress 40%, mizuna 30%, kashnich 30% / Кресс 40%, мизуна 30%, кориандр 30%",
+        "Ta'm / Вкус": "Qalampirli, yorqin kashnich / Перечный, яркая кинза",
+        "Achchiqlik / Острота": "3 / 5",
+        "Berish / Подача": "Issiq taomga plitadan keyin / В горячее блюдо после плиты",
+        "Saqlash / Хранение": "2-5°C, 5 kun (kress) / 2-5°C, 5 дней (кресс)"
+      }
+    },
+    'miks-ish-stoli': {
+      descUz: "Tatsoy, mizuna va no'xat — 100 g. Kashnich va xantalsiz: kabinetda hid qolmaydi, tushlik bir daqiqada yig'iladi.",
+      descRu: "Татсой, мизуна и горох, 100 г. Без кинзы и горчицы — в кабинете не пахнет, обед собирается за минуту.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Tatsoy 40%, mizuna 30%, no'xat 30% / Татсой 40%, мизуна 30%, горох 30%",
+        "Ta'm / Вкус": "Neytral, yumshoq / Нейтральный, мягкий",
+        "Achchiqlik / Острота": "1 / 5",
+        "Qo'shing / Добавьте своё": "Tovuq yoki tuxum — tushlik bo'ladi / Курица или яйцо — получается обед",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-bolajon': {
+      descUz: "No'xat, tatsoy va pak-choy — 100 g. Assortimentdagi eng yumshoq va shirinroq profil: achchiq ham, o'tkirlik ham yo'q. Uyda bir qoshiq qatiq yoki ozgina asal qo'shing — shunday tanishroq.",
+      descRu: "Горох, татсой и пак-чой, 100 г. Самый мягкий и сладковатый профиль в ассортименте: ни горечи, ни остроты. Дома добавьте ложку йогурта или немного мёда — так привычнее.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "No'xat 50%, tatsoy 30%, pak-choy 20% / Горох 50%, татсой 30%, пак-чой 20%",
+        "Ta'm / Вкус": "Shirinroq, sershira / Сладковатый, сочный",
+        "Achchiqlik / Острота": "1 / 5",
+        "Qo'shing / Добавьте своё": "Qatiq, asal, tuxum — uyniki / Йогурт, мёд, яйцо — домашние",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-finish': {
+      descUz: "Rukkola, kress va amarant — 100 g. Yakuniy berish: go'sht, tartar, krem-sho'rva ustiga o'tkirlik va qizil barg.",
+      descRu: "Руккола, кресс и амарант, 100 г. Финишная подача: острота и малиновый лист на мясо, тартар и крем-суп.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Rukkola 40%, kress 30%, amarant 30% / Руккола 40%, кресс 30%, амарант 30%",
+        "Ta'm / Вкус": "Yong'oqsimon-achchiq, qalampirli / Орехово-горчичный, перечный",
+        "Achchiqlik / Острота": "4 / 5",
+        "Berish / Подача": "Tarelkaga yakuniy shtrix / Финишный штрих на тарелку",
+        "Saqlash / Хранение": "2-5°C, 5 kun (kress, amarant) / 2-5°C, 5 дней (кресс, амарант)"
+      }
+    },
     'miks-ofis-qutisi': {
       descUz: "To'rtta 100 g miks va to'rtta sous sashesi bitta qutida — har bir xodimga bittadan. Ishda sousni hech kim aralashtirmaydi, shuning uchun sashe ichkarida.",
       descRu: "Четыре микса по 100 г и четыре саше соуса в одной коробке — по одному на человека. На работе заправку никто не смешивает, поэтому саше внутри.",

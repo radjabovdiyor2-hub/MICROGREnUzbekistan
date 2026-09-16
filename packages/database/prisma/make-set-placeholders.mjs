@@ -31,7 +31,13 @@ const MINT = '#D1FAE5';
 const EMERALD = '#0E6B47';
 const MUTED = '#6E8C7C';
 
-/** Код набора → имя файла. Порядок тот же, что в прайсе. */
+/**
+ * Код позиции → имя файла. Порядок тот же, что в прайсе.
+ *
+ * Двадцать имён `set_*` остались в списке, хотя наборов в прайсе больше нет:
+ * этими же снимками живут карточки рецептов (`seed-recipe-sets.ts`), и
+ * удаление файлов оставило бы двадцать карточек без обложки.
+ */
 const SETS = [
   ['BL-1', 'set_bl1_tanishuv'],
   ['BL-2', 'set_bl2_hafta'],
@@ -74,6 +80,12 @@ const SETS = [
   ['MIKS-8', 'miks_zal'],
   ['MIKS-9', 'miks_mehmon'],
   ['MIKS-10', 'miks_ofis_qutisi'],
+  // Второй заход: миксы под линейки FAOL, ISHDA, MEHMON и CHEF.
+  ['MIKS-11', 'miks_qarsildoq'],
+  ['MIKS-12', 'miks_shorvaga'],
+  ['MIKS-13', 'miks_ish_stoli'],
+  ['MIKS-14', 'miks_finish'],
+  ['MIKS-15', 'miks_bolajon'],
   ['CH-B1', 'chef_yashik_rangli'],
   ['CH-B2', 'chef_yashik_achchiq'],
 ];
