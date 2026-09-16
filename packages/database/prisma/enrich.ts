@@ -280,6 +280,130 @@ async function main() {
         "Moslik / Подходит для": "Yangi boshlovchilar va bolalar / Новичков и детей",
         "Qo'llanma / Инструкция": "QR-video + kitobcha / QR-видео + буклет"
       }
+    },
+
+    // ===== ГОТОВЫЕ МИКСЫ 100 г =====
+    // Сменили наборы-корзины: та же зелень, но одна упаковка, которую открывают,
+    // заправляют саше и едят. Калорийность здесь НЕ указывается: расчёт по составу
+    // сделан только для шести позиций BALANS, и выдавать оценку за измерение нельзя.
+    'miks-yashil': {
+      descUz: "Ismaloq, tatsoy va no'xat — 100 g qadoqda. Achchiqsiz yumshoq ta'm: ko'katga endi o'rganayotganlar uchun. Oching, sous qo'shing, aralashtiring.",
+      descRu: "Шпинат, татсой и горох в упаковке 100 г. Мягкий вкус без горечи — для тех, кто к зелени только привыкает. Открыть, добавить соус, перемешать.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Ismaloq 40%, tatsoy 30%, no'xat 30% / Шпинат 40%, татсой 30%, горох 30%",
+        "Ta'm / Вкус": "Yumshoq, shirinroq / Мягкий, сладковатый",
+        "Achchiqlik / Острота": "1 / 5",
+        "Berish / Подача": "Sousni berishdan oldin qo'shing / Соус добавить перед подачей",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-achchiq': {
+      descUz: "Redis Red Coral, kress va xantal — 100 g. Keskin, qalampirli va achchiq barg yonma-yon: go'sht va issiq taomga.",
+      descRu: "Редис Ред Корал, кресс-салат и горчица, 100 г. Резкий, перечный и жгучий лист рядом — к мясу и горячему.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Redis 35%, kress 35%, xantal 30% / Редис 35%, кресс 35%, горчица 30%",
+        "Ta'm / Вкус": "O'tkir, qalampirli / Острый, перечный",
+        "Achchiqlik / Острота": "4 / 5",
+        "Qo'shing / Добавьте своё": "Yog' yoki tuxum achchiqlikni yumshatadi / Масло или яйцо смягчают остроту",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-tamlar': {
+      descUz: "Mizuna, rukkola, keyl va tatsoy — 100 g. Bitta qadoqda to'rt xil barg: bir xil ta'mdan zerikkanlar uchun.",
+      descRu: "Мизуна, руккола, кейл и татсой, 100 г. Четыре разных листа в одной упаковке — для тех, кому надоедает один вкус.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Mizuna 30%, rukkola 25%, keyl 25%, tatsoy 20% / Мизуна 30%, руккола 25%, кейл 25%, татсой 20%",
+        "Ta'm / Вкус": "Xantal notasi, zich barg / Горчичная нота, плотный лист",
+        "Achchiqlik / Острота": "3 / 5",
+        "Qo'shing / Добавьте своё": "Keylga kislota, rukkolaga pishloq / К кейлу кислота, к рукколе сыр",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-palovga': {
+      descUz: "Kashnich, redis va kress — 100 g. Issiq taom yonidagi tanish o'tkir profil: palovdan 10-15 daqiqa oldin bering.",
+      descRu: "Кориандр, редис и кресс-салат, 100 г. Привычный острый профиль рядом с горячим: подают за 10–15 минут до плова.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Kashnich 35%, redis 35%, kress 30% / Кориандр 35%, редис 35%, кресс 30%",
+        "Ta'm / Вкус": "Yorqin kashnich, keskin redis / Яркая кинза, резкий редис",
+        "Achchiqlik / Острота": "4 / 5",
+        "Berish / Подача": "Palov, shashlik, manti yoniga / К плову, шашлыку, мантам",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-goshtga': {
+      descUz: "Xantal, redis Sango va rukkola — 100 g. Go'shtga o'tkir hamroh; anor va piyoz achchiqlikni yumshatadi.",
+      descRu: "Горчица, редис Санго и руккола, 100 г. Острый спутник мяса; гранат и лук смягчают жгучесть.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Xantal 35%, redis Sango 35%, rukkola 30% / Горчица 35%, редис Санго 35%, руккола 30%",
+        "Ta'm / Вкус": "Jizzirli, yong'oqsimon-achchiq / Жгучий, орехово-горчичный",
+        "Achchiqlik / Острота": "5 / 5",
+        "Berish / Подача": "Shashlik, qovurilgan go'sht, burger / Шашлык, жареное мясо, бургер",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-kechki': {
+      descUz: "Ismaloq, tatsoy va yashil mizuna — 100 g. Yengil kechki salat: tuxum yoki pishloq qo'shsangiz — kechki ovqat.",
+      descRu: "Шпинат, татсой и мизуна зелёная, 100 г. Лёгкий вечерний салат: добавьте яйцо или сыр — и это ужин.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Ismaloq 40%, tatsoy 30%, mizuna 30% / Шпинат 40%, татсой 30%, мизуна 30%",
+        "Ta'm / Вкус": "Yengil, yumshoq / Лёгкий, мягкий",
+        "Achchiqlik / Острота": "1 / 5",
+        "Qo'shing / Добавьте своё": "Tuxum, pishloq yoki baliq / Яйцо, сыр или рыба",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-faol': {
+      descUz: "Kungaboqar, no'xat va ismoloq — 100 g. Zich asos va yong'oqsimon poya. No'xatda assortimentdagi eng ko'p oqsil: 4,2 g / 100 g.",
+      descRu: "Подсолнечник, горох и шпинат, 100 г. Плотная база и ореховый стебель. У гороха больше всего белка в ассортименте — 4,2 г на 100 г.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Kungaboqar 40%, no'xat 35%, ismaloq 25% / Подсолнечник 40%, горох 35%, шпинат 25%",
+        "Ta'm / Вкус": "Yong'oqsimon, zich / Ореховый, плотный",
+        "Achchiqlik / Острота": "1 / 5",
+        "Qo'shing / Добавьте своё": "Oqsil 150 g, yorma 100 g / Белок 150 г, крупа 100 г",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-zal': {
+      descUz: "Kungaboqar va ismaloq teng ulushda — 100 g. Yong'oqsimon ta'm tvorog, tuxum yoki banan bilan.",
+      descRu: "Подсолнечник и шпинат пополам, 100 г. Ореховый вкус к творогу, яйцу или банану.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Kungaboqar 50%, ismaloq 50% / Подсолнечник 50%, шпинат 50%",
+        "Ta'm / Вкус": "Yong'oqsimon / Ореховый",
+        "Achchiqlik / Острота": "1 / 5",
+        "Qo'shing / Добавьте своё": "Tvorog 150 g yoki 2 tuxum / Творог 150 г или 2 яйца",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-mehmon': {
+      descUz: "Amarant, redis Sango va qizil mizuna — 100 g. Dasturxon va banket uchun uch xil pushti-binafsha.",
+      descRu: "Амарант, редис Санго и мизуна красная, 100 г. Три оттенка пурпура к столу и банкету.",
+      specs: {
+        "Netto / Нетто": "100 g",
+        "Tarkibi / Состав": "Amarant 35%, redis Sango 35%, qizil mizuna 30% / Амарант 35%, редис Санго 35%, мизуна красная 30%",
+        "Ta'm / Вкус": "Lavlagi notasi, keskin redis / Свекольная нота, резкий редис",
+        "Achchiqlik / Острота": "3 / 5",
+        "Berish / Подача": "Go'sht, tartar, krem-sho'rva ustiga / На мясо, тартар, крем-суп",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
+    },
+    'miks-ofis-qutisi': {
+      descUz: "To'rtta 100 g miks va to'rtta sous sashesi bitta qutida — har bir xodimga bittadan. Ishda sousni hech kim aralashtirmaydi, shuning uchun sashe ichkarida.",
+      descRu: "Четыре микса по 100 г и четыре саше соуса в одной коробке — по одному на человека. На работе заправку никто не смешивает, поэтому саше внутри.",
+      specs: {
+        "To'plam / Комплектация": "4 × miks 100 g + 4 × sashe 15 ml / 4 × микс 100 г + 4 × саше 15 мл",
+        "Mikslar / Миксы": "Yashil, Achchiq, Kechki, Faol / Зелёный, Острый, К ужину, Активный",
+        "Sashe tarkibi / Состав саше": "Zaytun moyi, vino sirkasi, tuz / Оливковое масло, винный уксус, соль",
+        "Berish / Подача": "Ochib, sousni qo'shib, aralashtiring / Открыть, добавить соус, перемешать",
+        "Saqlash / Хранение": "2-5°C, 3-5 kun / 2-5°C, 3-5 дней"
+      }
     }
   };
 

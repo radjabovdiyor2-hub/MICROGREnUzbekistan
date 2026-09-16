@@ -63,6 +63,17 @@ const SETS = [
   ['SOUS-2L', 'sous_anor_250'],
   ['OS-M1', 'oshxona_nonushta'],
   ['OS-M2', 'oshxona_pasta'],
+  // Готовые миксы 100 г — те, что сменили наборы-корзины на стороне 4 прайса.
+  ['MIKS-1', 'miks_yashil'],
+  ['MIKS-2', 'miks_achchiq'],
+  ['MIKS-3', 'miks_tamlar'],
+  ['MIKS-4', 'miks_palovga'],
+  ['MIKS-5', 'miks_goshtga'],
+  ['MIKS-6', 'miks_kechki'],
+  ['MIKS-7', 'miks_faol'],
+  ['MIKS-8', 'miks_zal'],
+  ['MIKS-9', 'miks_mehmon'],
+  ['MIKS-10', 'miks_ofis_qutisi'],
   ['CH-B1', 'chef_yashik_rangli'],
   ['CH-B2', 'chef_yashik_achchiq'],
 ];
