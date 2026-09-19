@@ -5,7 +5,13 @@ import {
   isPasswordConfigured,
   MIN_PASSWORD_LENGTH,
 } from '@/lib/password';
-import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
+import {
+  createSession,
+  deviceFingerprint,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+  sessionFingerprint,
+} from '@/lib/session';
 import { consume, reset, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { audit } from '@/lib/audit';
 import { Metrics } from '@/lib/metrics';
@@ -110,7 +116,7 @@ export async function POST(req: NextRequest) {
 
   const ua = req.headers.get('user-agent') ?? '';
   const fp = await sessionFingerprint(ip, ua);
-  const token = await createSession({ role: 'ADMIN', fp });
+  const token = await createSession({ role: 'ADMIN', fp, ua: await deviceFingerprint(ua) });
   if (!token) {
     return NextResponse.json(
       { error: 'SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq' },

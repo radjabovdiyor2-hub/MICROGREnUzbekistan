@@ -58,6 +58,29 @@ export interface SessionPayload {
   name?: string;
   /** SHA-256 truncated hash of IP + User-Agent — привязка к устройству. */
   fp?: string;
+  /**
+   * Отпечаток УСТРОЙСТВА: хеш одного User-Agent, без IP.
+   *
+   * ЗАЧЕМ ВТОРОЕ ПОЛЕ, КОГДА ЕСТЬ `fp`. Соседнее `fp` писалось при каждом
+   * входе и не сверялось НИ РАЗУ — защита, которая ничего не защищала.
+   * Включить сверку как есть было нельзя: в `fp` подмешан IP, а в поле он
+   * меняется постоянно — переключился с мобильной сети на Wi-Fi, сменилась
+   * вышка, провайдер прокрутил NAT. Такая сверка выкидывала бы продавца из
+   * админки посреди объезда, и чаще всего там, где связь и так плохая.
+   *
+   * User-Agent у устройства стабилен и меняется разве что с обновлением
+   * браузера — раз в месяц, с разлогином на один раз.
+   *
+   * ЧТО ЭТО ДАЁТ И ЧЕГО НЕТ. Ловит cookie, переигранную с ДРУГОГО
+   * устройства. Не ловит того, кто сидит за тем же телефоном, и не
+   * заменяет httpOnly с SameSite: это третий слой, а не первый.
+   *
+   * Сверяется в `adminAuth.getSession`. Пусто — значит сессия выпущена до
+   * появления поля, и она проходит: иначе выкатка разом выкинула бы всех
+   * ради предосторожности, которая и так вступит в силу за двенадцать
+   * часов сама.
+   */
+  ua?: string;
 }
 
 /**
@@ -102,6 +125,7 @@ export async function createSession(
     userId: payload.userId,
     name: payload.name,
     fp: payload.fp,
+    ua: payload.ua,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -142,6 +166,7 @@ export async function verifySession(
       userId,
       name: typeof payload.name === 'string' ? payload.name : undefined,
       fp,
+      ua: typeof payload.ua === 'string' ? payload.ua : undefined,
     };
   } catch {
     return null;
@@ -156,6 +181,27 @@ export async function verifySession(
 export async function sessionFingerprint(ip: string, ua: string): Promise<string> {
   const data = new TextEncoder().encode(`${ip}|${ua}`);
   const buffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16);
+}
+
+/**
+ * Отпечаток устройства: только User-Agent, без IP. См. `SessionPayload.ua`.
+ *
+ * ДВЕ РЕАЛИЗАЦИИ ОДНОГО ХЕША, И ЭТО ВЫНУЖДЕННО. Здесь WebCrypto: файл
+ * должен работать и в edge-рантайме, где `node:crypto` нет. Сверяет же
+ * отпечаток `adminAuth.ts`, а он НАМЕРЕННО синхронный — там своя копия на
+ * `node:crypto`, и причина отказа от async расписана в его шапке: забытый
+ * `await` превратился бы в Promise, то есть в тихий обход авторизации.
+ *
+ * Разойтись им нельзя: разойдясь, они выкинут из админки всех сразу. На
+ * это есть тест `deviceFingerprint.test.ts` — он сверяет обе на одних и
+ * тех же строках.
+ */
+export async function deviceFingerprint(ua: string): Promise<string> {
+  const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ua));
   return Array.from(new Uint8Array(buffer))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')

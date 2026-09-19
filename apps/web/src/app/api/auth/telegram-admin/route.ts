@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateInitData } from '@/lib/telegramAuth';
 import { trustedBotTokens } from '@/lib/telegram/botTokens';
-import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
+import {
+  createSession,
+  deviceFingerprint,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+  sessionFingerprint,
+} from '@/lib/session';
 import { consume, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { audit } from '@/lib/audit';
 import { Metrics } from '@/lib/metrics';
@@ -92,9 +98,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const fp = await sessionFingerprint(ip, request.headers.get('user-agent') ?? '');
+  const ua = request.headers.get('user-agent') ?? '';
+  const fp = await sessionFingerprint(ip, ua);
   const name = [tg.first_name, tg.last_name].filter(Boolean).join(' ').trim();
-  const token = await createSession({ role: 'ADMIN', name: name || undefined, fp });
+  const token = await createSession({
+    role: 'ADMIN',
+    name: name || undefined,
+    fp,
+    ua: await deviceFingerprint(ua),
+  });
   if (!token) {
     return NextResponse.json(
       { error: 'SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq' },

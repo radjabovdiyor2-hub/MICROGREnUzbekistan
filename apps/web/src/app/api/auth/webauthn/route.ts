@@ -10,7 +10,13 @@ import { actorOf, isAuthorized, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { Metrics } from '@/lib/metrics';
 import { clientIp, consume, reset, tooManyRequests } from '@/lib/rateLimit';
-import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
+import {
+  createSession,
+  deviceFingerprint,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+  sessionFingerprint,
+} from '@/lib/session';
 import {
   addCredential,
   counterLooksCloned,
@@ -178,6 +184,7 @@ export async function POST(req: NextRequest) {
     const token = await createSession({
       role: 'ADMIN',
       fp: await sessionFingerprint(ip, req.headers.get('user-agent') ?? ''),
+      ua: await deviceFingerprint(req.headers.get('user-agent') ?? ''),
     });
     if (!token) {
       return NextResponse.json(

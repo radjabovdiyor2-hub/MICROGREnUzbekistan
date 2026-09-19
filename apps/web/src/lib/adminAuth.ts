@@ -36,6 +36,19 @@ interface VerifiedSession {
   /** id покупателя — только у роли CUSTOMER. */
   userId?: string;
   name?: string;
+  /** Отпечаток устройства, выпустившего сессию. См. `SessionPayload.ua`. */
+  ua?: string;
+}
+
+/**
+ * Отпечаток устройства по User-Agent — синхронный близнец
+ * `session.deviceFingerprint`. Почему их двое, написано там же.
+ *
+ * Разойтись им нельзя: разойдясь, они выкинут из админки всех сразу.
+ * Сверяет обе `deviceFingerprint.test.ts`.
+ */
+export function deviceFingerprintSync(ua: string): string {
+  return crypto.createHash('sha256').update(ua).digest('hex').slice(0, 16);
 }
 
 /** Синхронная проверка HS256-токена, выпущенного lib/session.ts. */
@@ -68,7 +81,7 @@ function verifySessionSync(token: string | undefined): VerifiedSession | null {
   if (expected.length !== actual.length) return null;
   if (!crypto.timingSafeEqual(expected, actual)) return null;
 
-  let payload: { role?: string; userId?: string; name?: string; exp?: number };
+  let payload: { role?: string; userId?: string; name?: string; ua?: string; exp?: number };
   try {
     payload = JSON.parse(b64urlToBuffer(payloadB64).toString('utf-8'));
   } catch {
@@ -86,7 +99,12 @@ function verifySessionSync(token: string | undefined): VerifiedSession | null {
   // Роль покупателя без userId назвать владельца не может — см. lib/session.ts.
   if (payload.role === 'CUSTOMER' && typeof payload.userId !== 'string') return null;
 
-  return { role: payload.role, userId: payload.userId, name: payload.name };
+  return {
+    role: payload.role,
+    userId: payload.userId,
+    name: payload.name,
+    ua: typeof payload.ua === 'string' ? payload.ua : undefined,
+  };
 }
 
 /** Достаёт названную cookie из заголовка Cookie. */
@@ -106,9 +124,44 @@ function readSessionCookie(request: Request): string | undefined {
   return readCookie(request, SESSION_COOKIE);
 }
 
-/** Сессия запроса — null, если её нет или подпись невалидна. */
+/**
+ * Сессия запроса — null, если её нет, подпись невалидна ИЛИ пришла она с
+ * другого устройства.
+ *
+ * ── ПРИВЯЗКА К УСТРОЙСТВУ ───────────────────────────────────────────
+ *
+ * Отпечаток записывался при каждом входе (`fp`) и не сверялся ни разу:
+ * защита, которая ничего не защищала. Сверять сам `fp` было нельзя — в
+ * нём IP, а в поле он меняется на каждом переключении сети, и такая
+ * проверка выкидывала бы продавца посреди объезда.
+ *
+ * Поэтому сверяется `ua` — хеш одного User-Agent. У устройства он
+ * стабилен, у чужого браузера почти наверняка другой.
+ *
+ * ТРИ СЛУЧАЯ, И КАЖДЫЙ РЕШЁН ОСОЗНАННО:
+ *
+ *   • в токене отпечатка НЕТ — пропускаем. Такие сессии выпущены до этой
+ *     правки, их не больше двенадцати часов жизни, и отклонять их значит
+ *     разом разлогинить всех в момент выкатки;
+ *   • отпечаток есть, а заголовка User-Agent в запросе нет — ОТКЛОНЯЕМ.
+ *     Сессию выпускал браузер, и он его присылал; иначе достаточно было
+ *     бы убрать заголовок, чтобы проверка перестала существовать;
+ *   • оба есть и не совпали — отклоняем.
+ *
+ * Обновление браузера меняет User-Agent и разлогинит один раз. Это
+ * известная цена и она мала: вход занимает секунды, а происходит такое
+ * раз в месяц.
+ */
 export function getSession(request: Request): VerifiedSession | null {
-  return verifySessionSync(readSessionCookie(request));
+  const session = verifySessionSync(readSessionCookie(request));
+  if (!session) return null;
+  if (!session.ua) return session;
+
+  const ua = request.headers.get('user-agent');
+  if (!ua) return null;
+  if (deviceFingerprintSync(ua) !== session.ua) return null;
+
+  return session;
 }
 
 export function isAuthorized(request: Request): boolean {
