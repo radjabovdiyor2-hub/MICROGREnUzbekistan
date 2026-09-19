@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { Lasso } from 'lucide-react';
 
 import { CustomerMapToolbar } from './CustomerMapToolbar';
 
@@ -54,6 +55,9 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
   // некого. Продавцу роут отвечает отказом, и слоя у него нет.
   const people = useFieldPeople();
   const [filtersOpen, setFiltersOpen] = useRememberedFlag(FILTERS_OPEN_KEY, true);
+  // Обводка района — только владельцу: объезд назначает он. Продавец
+  // собирает свой день автопланом, и чужие маршруты ему рисовать нечем.
+  const [lasso, setLasso] = useState(false);
   // Открытая вкладка дока. Живёт здесь, а не в самом доке: от неё зависит,
   // выходит ли Escape из полноэкранного режима.
   const [dockTab, setDockTab] = useState<DockTab | null>(null);
@@ -141,6 +145,27 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
                   вечером по памяти, поэтому кнопка живёт на карте, а
                   не в списке клиентов. */}
               <AddCustomerHere lang={lang} />
+
+              {/* Обвести район — рядом с объездом, потому что это он и
+                  есть: не выделение «вообще», а способ его набрать.
+                  Только владельцу: объезд назначает он. */}
+              {isOwner && (
+                <button
+                  type="button"
+                  className={lasso ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary'}
+                  onClick={() => setLasso((v) => !v)}
+                  style={{ minHeight: 40 }}
+                >
+                  <Lasso size={15} />
+                  {lasso
+                    ? lang === 'uz'
+                      ? 'Hududni chizing'
+                      : 'Обведите район'
+                    : lang === 'uz'
+                      ? 'Hudud boʻyicha'
+                      : 'Обвести район'}
+                </button>
+              )}
             </div>
           }
         >
@@ -173,6 +198,26 @@ export function AdminCustomerMap({ lang, onOpenCard, isOwner, sellerName }: Prop
               onViewportChange={() => undefined}
               onTilesError={() => m.setTilesFailed(true)}
               focus={m.focus}
+              lassoActive={isOwner && lasso}
+              onLassoSelect={(ids) => {
+                // ДОБАВЛЯЕМ к набранному, а не заменяем: район обводят в
+                // несколько приёмов — сначала один квартал, потом соседний.
+                // Замена стирала бы первый молча.
+                for (const id of ids) {
+                  const f = m.collection.features.find((x) => x.id === id);
+                  if (!f || route.has(id)) continue;
+                  route.add({
+                    id,
+                    name: f.properties.n,
+                    latitude: f.geometry.coordinates[1],
+                    longitude: f.geometry.coordinates[0],
+                  });
+                }
+                // Режим выключается сам: обвёл — смотри, что получилось.
+                // Оставить его включённым значит поймать следующий тап по
+                // карте как начало новой обводки.
+                setLasso(false);
+              }}
               // Вид подгоняется при смене фильтров и при появлении первых
               // точек — но не на каждом фоновом обновлении.
               fitToken={[

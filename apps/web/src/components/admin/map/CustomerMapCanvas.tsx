@@ -10,6 +10,10 @@ import {
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
+import { selectInside, type ScreenPoint } from '@/lib/customers/lasso';
+
+import { LassoLayer } from './LassoLayer';
+
 import type { RoutePoint } from '@/lib/customers/dayRoute';
 import type { DeliveryCollection } from '@/lib/customers/deliveryRoutes';
 // Импорт обязателен ДО создания карты: модуль сообщает MapLibre, где лежит
@@ -95,6 +99,13 @@ interface Props {
   fitToken: string;
   /** Куда подлететь по выбору из поиска. null — не трогать вид. */
   focus: { lng: number; lat: number; at: number } | null;
+  /**
+   * Режим обводки района: слой поверх карты забирает перетаскивание себе.
+   * Включает владелец — собрать объезд по нарисованной границе.
+   */
+  lassoActive?: boolean;
+  /** Что оказалось внутри обводки. Пустой список — обводка не годная. */
+  onLassoSelect?: (ids: number[]) => void;
 }
 
 export default function CustomerMapCanvas(props: Props) {
@@ -398,21 +409,47 @@ export default function CustomerMapCanvas(props: Props) {
     instance.getCanvas().style.cursor = placingId === null ? '' : 'crosshair';
   }, [placingId]);
 
+  // ── Обводка района ────────────────────────────────────────────────
+  //
+  // Слой лежит ПОВЕРХ карты и забирает события себе: пока человек ведёт
+  // палец, карта не должна ехать под ним. Отдать события карте значило бы
+  // рисовать контур на уезжающей подложке.
+  const onLassoDone = (path: ScreenPoint[]) => {
+    const instance = map.current;
+    if (!instance || !props.onLassoSelect) return;
+
+    // Проецируем точки карты в экранные координаты — тот самый масштаб,
+    // в котором человек и рисовал. См. заголовок `lasso.ts`: считать в
+    // градусах значит отвечать не на тот вопрос, который задали.
+    const projected = data.features.map((f) => {
+      const at = instance.project({
+        lng: f.geometry.coordinates[0],
+        lat: f.geometry.coordinates[1],
+      });
+      return { item: f.id, at: { x: at.x, y: at.y } };
+    });
+
+    props.onLassoSelect(selectInside(projected, path));
+  };
+
   return (
-    <div
-      ref={container}
-      // Высота задаётся здесь и обязательно явно: без неё MapLibre
-      // схлопывается в ноль пикселей и выглядит как сломанная карта.
-      // Tailwind в админке не действует (см. AdminCustomerTable), поэтому
-      // инлайн на токенах.
-      style={{
-        width: '100%',
-        height: '100%',
-        minHeight: 320,
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-        background: 'var(--bg-tertiary)',
-      }}
-    />
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 320 }}>
+      <div
+        ref={container}
+        // Высота задаётся здесь и обязательно явно: без неё MapLibre
+        // схлопывается в ноль пикселей и выглядит как сломанная карта.
+        // Tailwind в админке не действует (см. AdminCustomerTable), поэтому
+        // инлайн на токенах.
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: 320,
+          borderRadius: 'var(--radius-lg)',
+          overflow: 'hidden',
+          background: 'var(--bg-tertiary)',
+        }}
+      />
+      {props.lassoActive && <LassoLayer onDone={onLassoDone} />}
+    </div>
   );
 }
