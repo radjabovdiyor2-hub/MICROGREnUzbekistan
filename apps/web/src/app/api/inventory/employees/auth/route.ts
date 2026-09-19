@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
+import {
+  createSession,
+  deviceFingerprint,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+  sessionFingerprint,
+} from '@/lib/session';
 import { consume, reset, clientIp, tooManyRequests } from '@/lib/rateLimit';
 import { audit } from '@/lib/audit';
 import { Metrics } from '@/lib/metrics';
@@ -55,7 +61,12 @@ export async function POST(request: NextRequest) {
     const sessionRole = 'SELLER' as const;
     const ua = request.headers.get('user-agent') ?? '';
     const fp = await sessionFingerprint(ip, ua);
-    const token = await createSession({ role: sessionRole, name: employee.name, fp });
+    const token = await createSession({
+      role: sessionRole,
+      name: employee.name,
+      fp,
+      ua: await deviceFingerprint(ua),
+    });
     if (!token) {
       return NextResponse.json(
         { error: "SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq" },

@@ -4,7 +4,13 @@ import { prisma } from '@repo/database';
 import { audit } from '@/lib/audit';
 import { Metrics } from '@/lib/metrics';
 import { clientIp, consume, tooManyRequests } from '@/lib/rateLimit';
-import { createSession, SESSION_COOKIE, sessionCookieOptions, sessionFingerprint } from '@/lib/session';
+import {
+  createSession,
+  deviceFingerprint,
+  SESSION_COOKIE,
+  sessionCookieOptions,
+  sessionFingerprint,
+} from '@/lib/session';
 import { trustedBotTokens } from '@/lib/telegram/botTokens';
 import { validateInitData } from '@/lib/telegramAuth';
 
@@ -92,8 +98,14 @@ export async function POST(request: NextRequest) {
   }
 
   const role = 'SELLER' as const;
-  const fp = await sessionFingerprint(ip, request.headers.get('user-agent') ?? '');
-  const token = await createSession({ role, name: employee.name, fp });
+  const ua = request.headers.get('user-agent') ?? '';
+  const fp = await sessionFingerprint(ip, ua);
+  const token = await createSession({
+    role,
+    name: employee.name,
+    fp,
+    ua: await deviceFingerprint(ua),
+  });
   if (!token) {
     return NextResponse.json(
       { error: 'SESSION_SECRET sozlanmagan — kirish vaqtincha yopiq' },
