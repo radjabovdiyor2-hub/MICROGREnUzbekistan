@@ -68,10 +68,24 @@ test.describe("Разделы каталога", () => {
     // Последний чип обязан помещаться в окно по горизонтали. Когда ряд
     // прокручивался, BOLAJON и CHEF стояли за краем — выбор, которого не
     // видно, не существует.
-    const box = await last.boundingBox();
+    //
+    // `expect.poll`, А НЕ ОДИН ЗАМЕР. Появление узла в разметке ещё не
+    // значит, что ряд встал на место: сетка доукладывается, и под полной
+    // нагрузкой набора (восемь потоков) замер попадал в промежуточное
+    // состояние. Сценарий падал через раз, причём на исправной вёрстке —
+    // а такое падение хуже отсутствующего: ему перестают верить.
+    //
+    // Тот же приём и по той же причине, что в проверке фильтра ниже.
     const width = page.viewportSize()?.width ?? 0;
-    expect(box).not.toBeNull();
-    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    await expect
+      .poll(
+        async () => {
+          const box = await last.boundingBox();
+          return box === null ? Number.POSITIVE_INFINITY : box.x + box.width;
+        },
+        { timeout: 10_000 },
+      )
+      .toBeLessThanOrEqual(width);
   });
 
   test("все плитки разделов одного размера", async ({ page }) => {

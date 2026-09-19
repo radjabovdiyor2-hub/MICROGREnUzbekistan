@@ -175,3 +175,81 @@ describe('planMix', () => {
   });
 });
 
+
+// ══════════════════════════════════════════════════════════════════════
+// РАСПИСАНИЕ ЗАЕЗДОВ.
+//
+// «Заезжать по вторникам» жило на экране назначения и в финансовом
+// прогнозе, а автоплан о нём не знал. Во вторник собирался день без тех,
+// кого во вторник ждут, — и расхождение было молчаливым: оба экрана
+// работали, просто отвечали на один вопрос по-разному.
+// ══════════════════════════════════════════════════════════════════════
+describe('день по расписанию', () => {
+  it('назначенный на сегодня обходит любого неназначенного', () => {
+    // Худший случай для расписания: назначенный далеко и здоров, а его
+    // соперник рядом и под угрозой. Надбавка должна пережить и это —
+    // иначе «по вторникам» превращается в пожелание.
+    const scheduled = at(20, { id: 1, state: 'healthy', scheduledToday: true });
+    const urgent = at(0.2, { id: 2, state: 'at_risk', overdueRatio: 3 });
+
+    expect(planScore(scheduled, HERE)).toBeGreaterThan(planScore(urgent, HERE));
+  });
+
+  it('внутри назначенных порядок обычный: срочность и близость', () => {
+    const near = at(1, { id: 1, state: 'at_risk', scheduledToday: true });
+    const far = at(20, { id: 2, state: 'healthy', scheduledToday: true });
+
+    expect(planScore(near, HERE)).toBeGreaterThan(planScore(far, HERE));
+  });
+
+  it('день доукомплектовывается обычными точками, а не обрывается на расписании', () => {
+    // Ровно то, чем плох жёсткий список: назначен один, а ехать можно к
+    // пятерым. День из одной точки — это не исполненное расписание, это
+    // потерянный день.
+    const plan = buildDayPlan(
+      [
+        at(1, { id: 1, scheduledToday: true }),
+        at(2, { id: 2, state: 'at_risk' }),
+        at(3, { id: 3, state: 'slipping' }),
+        at(4, { id: 4, state: 'prospect' }),
+      ],
+      HERE,
+    );
+
+    expect(plan).toHaveLength(4);
+    expect(plan.map((p) => p.id)).toContain(1);
+  });
+
+  it('в день без расписания план собирается как раньше', () => {
+    const without = buildDayPlan([at(1, { id: 1, state: 'at_risk' }), at(2, { id: 2 })], HERE);
+
+    expect(without.map((p) => p.id).sort()).toEqual([1, 2]);
+  });
+
+  it('пауза после заезда расписание не отменяет', () => {
+    // Понедельник и среда — это два дня, а пауза три. Без исключения
+    // клиент выпадал бы из среды по причине, которой никто не выбирал,
+    // и выпадал бы молча у тех, к кому ездят чаще всего.
+    const scheduled = at(1, { id: 1, lastVisitDays: 2, scheduledToday: true });
+    const ordinary = at(1, { id: 2, lastVisitDays: 2 });
+
+    expect(isPlannable(scheduled, HERE)).toBe(true);
+    expect(isPlannable(ordinary, HERE)).toBe(false);
+  });
+
+  it('но сегодняшний заезд отменяет и расписание', () => {
+    // Ноль дней — значит уже съездили сегодня. Поставить такого в
+    // сегодняшний же план — отправить человека туда, откуда он вернулся.
+    const justVisited = at(1, { id: 1, lastVisitDays: 0, scheduledToday: true });
+
+    expect(isPlannable(justVisited, HERE)).toBe(false);
+  });
+
+  it('расписание не отменяет предела досягаемости', () => {
+    // Физика дня, а не вежливость: за 25 км поездка съедает день целиком,
+    // и галочка в расписании этого не меняет.
+    const tooFar = at(MAX_REACH_KM + 5, { id: 1, scheduledToday: true });
+
+    expect(isPlannable(tooFar, HERE)).toBe(false);
+  });
+});

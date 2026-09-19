@@ -3,7 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { actorOf, getSession, isStaff, unauthorized } from '@/lib/adminAuth';
 import { audit } from '@/lib/audit';
 import { planSource, resolveReadAssignee, resolveSaveAssignee } from '@/lib/customers/planAssignee';
-import { deleteDayPlan, readDayFacts, readDayPlans, saveDayPlan } from '@/lib/customers/visitPlanStore';
+import {
+  deleteDayPlan,
+  readCarryOver,
+  readDayFacts,
+  readDayPlans,
+  saveDayPlan,
+} from '@/lib/customers/visitPlanStore';
+import { splitCarry } from '@/lib/customers/planCarry';
 import { prisma } from '@repo/database';
 
 import { notifyCustomer } from '@/lib/notify';
@@ -104,7 +111,37 @@ export async function GET(request: NextRequest) {
     // Отдаём той же дверью: второй адрес пришлось бы держать в согласии.
     const facts = await readDayFacts({ planDate, assignee });
 
-    return NextResponse.json({ status: 'ok', plans, ...facts });
+    // ── ЧТО ВЧЕРА НЕ ОБЪЕХАЛИ ──────────────────────────────────────────
+    //
+    // Перенос существовал в коде (`readCarryOver`, `mergeStops`) и не был
+    // подключён ни к чему: точки, до которых вчера не доехали, никуда не
+    // переносились и ни в одном отчёте не значились. Через неделю «объехать
+    // всех» означало «объехать тех, кто вспомнился утром».
+    //
+    // ОТДАЁМ, А НЕ ПОДСТАВЛЯЕМ. Список едет на экран, и добавляет его в
+    // объезд человек — тем же нажатием, что и всё остальное. Дописывать
+    // вчерашнее в план молча значило бы выдать за совет то, чего никто не
+    // советовал, а заодно возвращать удалённую точку при каждом сохранении.
+    //
+    // ТОЛЬКО ПРИ ИЗВЕСТНОМ ИСПОЛНИТЕЛЕ. Перенос адресный: «не доехал Азиз»
+    // и «не доехал Бекзод» — разные хвосты. Владелец, смотрящий сразу всех,
+    // спрашивает не об этом, и лишний запрос в его списке ни к чему.
+    // `undefined` здесь означает «все исполнители» (см. resolveReadAssignee),
+    // а пустая строка — это законное имя «ничей план», у которого хвост
+    // тоже бывает.
+    const carry =
+      assignee === undefined ? null : splitCarry(await readCarryOver({ planDate, assignee }));
+
+    return NextResponse.json({
+      status: 'ok',
+      plans,
+      ...facts,
+      // Исчерпавшие лимит переносов идут ОТДЕЛЬНЫМ списком, а не молча
+      // пропадают: точка, не объеханная пять раз, — это вопрос владельцу,
+      // а не строка, которую можно тихо убрать.
+      carry: carry?.carry ?? [],
+      carryExhausted: carry?.exhausted ?? [],
+    });
   } catch (error: unknown) {
     console.error('API Admin Visit Plans GET Error:', error);
     return NextResponse.json({ error: safeError(error) }, { status: 500 });

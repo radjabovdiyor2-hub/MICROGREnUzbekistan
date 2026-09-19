@@ -88,7 +88,17 @@ export function AdminPOSChrome({
       <div className="pos-mobile-fab" style={{ display: 'none' }}>
         <button onClick={() => setShowCart(true)}
           style={{
-            position: 'fixed', bottom: 16, left: 12, right: 12, zIndex: 50,
+            // 40, а не 50 — см. шкалу слоёв в начале admin-shell.css.
+            //
+            // На 50 кнопка вставала вровень с выдвижным меню, а объявлена
+            // она ПОЗЖЕ него в разметке: ящик рисуется раньше содержимого
+            // вкладки. При равных номерах побеждает последний — и зелёная
+            // полоса чека ложилась поверх открытого меню, накрывая собой
+            // вкладку «Аналитика».
+            //
+            // Видно это только с непустой корзиной, то есть в середине
+            // продажи, а не на чистом экране, который обычно и смотрят.
+            position: 'fixed', bottom: 16, left: 12, right: 12, zIndex: 40,
             padding: '14px 20px', borderRadius: '16px', border: 'none', cursor: 'pointer',
             background: 'var(--brand-primary)', color: 'white',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',

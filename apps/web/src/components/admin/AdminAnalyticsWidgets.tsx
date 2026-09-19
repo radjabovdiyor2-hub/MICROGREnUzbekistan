@@ -1,8 +1,8 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Clock } from 'lucide-react';
+import { AlertCircle, Clock } from 'lucide-react';
 import { tint } from '@/lib/tint';
 
 // Два самостоятельных виджета аналитики: здоровье склада и матрица ABC-XYZ.
@@ -16,8 +16,73 @@ const HEALTH_COLORS: Record<HealthLevel, string> = {
   warning: 'var(--warning)',
   critical: 'var(--error)',
 };
+
+// ══════════════════════════════════════════════════════════════════════
+// ТРИ РАЗНЫХ МОЛЧАНИЯ ВИДЖЕТА, А БЫЛО ОДНО.
+//
+// Проверка `if (!data)` отвечает ровно на один вопрос: «уже приехало?».
+// Два других случая проходили её насквозь.
+//
+// ЗАПРОС ОТКАЗАЛ. `useQuery` кладёт причину в `error`, а `data` остаётся
+// пустым — то есть ветка загрузки и отказ выглядят ОДИНАКОВО. Человек до
+// конца дня смотрит на крутящиеся часы: экран не выглядит сломанным,
+// поэтому и не жалуются — просто цифр нет. Тот же вывод уже сделан на
+// «Моём рейсе»: отказ двери это не «рейса нет».
+//
+// ОТВЕТ ПРИШЁЛ НЕ ТОТ. Пустой объект тоже объект и проверку проходит, а
+// на `breakdown.stockoutScore` падает уже вся вкладка: один виджет
+// уносит с собой «Аналитику» и «Сводку» целиком. Нашёл это обход
+// раскладки — на заглушенной двери обе вкладки перестали открываться.
+// ══════════════════════════════════════════════════════════════════════
+
+function WidgetBox({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="card"
+      style={{
+        padding: 'var(--space-4)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: 200,
+        textAlign: 'center',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Ещё едет. */
+function Waiting() {
+  return (
+    <WidgetBox>
+      <Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} />
+    </WidgetBox>
+  );
+}
+
+/** Не приехало или приехало не то — но сказано словами, а не пустотой. */
+function Silent({ text }: { text: string }) {
+  return (
+    <WidgetBox>
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          color: 'var(--text-muted)',
+          fontSize: 'var(--text-sm)',
+        }}
+      >
+        <AlertCircle size={16} /> {text}
+      </span>
+    </WidgetBox>
+  );
+}
+
 export function HealthScoreWidget() {
-  const { data } = useQuery<{
+  const { data, error } = useQuery<{
     healthScore: number; healthLabel: string; healthLevel: HealthLevel;
     breakdown: { stockoutScore: number; balanceScore: number; turnoverScore: number; diversityScore: number };
   }>({
@@ -29,7 +94,11 @@ export function HealthScoreWidget() {
     },
   });
 
-  if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
+  if (error) return <Silent text="Ombor salomatligi yuklanmadi" />;
+  if (!data) return <Waiting />;
+  // Разбор по частям рисуется четырьмя полосами; без него виджет не просто
+  // неполон — он падает, унося вкладку.
+  if (!data.breakdown) return <Silent text="Ombor salomatligi: javob toʻliq emas" />;
 
   const { healthScore, healthLabel, healthLevel, breakdown } = data;
   const healthColor = HEALTH_COLORS[healthLevel] ?? HEALTH_COLORS.ok;
@@ -82,7 +151,7 @@ export function HealthScoreWidget() {
 // ABC-XYZ Matrix Widget
 // ==========================================
 export function ABCXYZWidget() {
-  const { data } = useQuery<{ classSummary: Record<string, number>; totalRevenue: number }>({
+  const { data, error } = useQuery<{ classSummary: Record<string, number>; totalRevenue: number }>({
     queryKey: ['admin-analytics-abcxyz'],
     queryFn: async () => {
       const res = await fetch('/api/inventory/analytics?section=abcxyz');
@@ -91,7 +160,11 @@ export function ABCXYZWidget() {
     },
   });
 
-  if (!data) return <div className="card" style={{ padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200 }}><Clock size={24} style={{ animation: 'pulse 1.5s infinite', color: 'var(--text-muted)' }} /></div>;
+  if (error) return <Silent text="ABC-XYZ matritsa yuklanmadi" />;
+  if (!data) return <Waiting />;
+  // Вся матрица — это девять чисел из `classSummary`. Без него рисовать
+  // нечего, а читать из него — не с чего.
+  if (!data.classSummary) return <Silent text="ABC-XYZ: javob toʻliq emas" />;
 
   const { classSummary } = data;
   // Девять классов ABC-XYZ должны читаться как девять РАЗНЫХ ячеек, поэтому

@@ -22,7 +22,13 @@ import type { PanelDeps } from './mapPanels';
 //   4. Сам список точек с порядком и навигацией.
 // ══════════════════════════════════════════════════════════════════════
 
-export function RoutePanel({ lang, m, route, isOwner = false }: PanelDeps & { isOwner?: boolean }) {
+export function RoutePanel({
+  lang,
+  m,
+  route,
+  isOwner = false,
+  sellerName = '',
+}: PanelDeps & { isOwner?: boolean; sellerName?: string }) {
   return (
     <>
       <AssignedPlanBanner lang={lang} stops={route.stops} onAccept={route.setAll} />
@@ -52,6 +58,7 @@ export function RoutePanel({ lang, m, route, isOwner = false }: PanelDeps & { is
         points={m.visible.features.map(toPointView)}
         hasStops={route.stops.length > 0}
         isOwner={isOwner}
+        sellerName={sellerName}
         onPlan={route.setAll}
       />
 

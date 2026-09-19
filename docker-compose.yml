@@ -56,6 +56,10 @@ services:
       - log_timezone=Asia/Samarkand
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Включение pgvector на свежем томе. Образ расширение ПРИВОЗИТ, но не
+      # включает, и `prisma db push` падал на первой же таблице:
+      # «type "vector" does not exist». Подробности — в самом файле.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     ports:
       - "127.0.0.1:5432:5432"
     healthcheck:
