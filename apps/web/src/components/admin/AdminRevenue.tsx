@@ -79,7 +79,16 @@ export function AdminRevenue({ lang }: { lang: 'ru' | 'uz' }) {
     );
   }
 
-  if (!data) {
+  // `!data` ловит только «ещё не приехало» и «запрос отказал». Ответ,
+  // пришедший НЕ ТОГО ВИДА, эту проверку проходит: пустой объект тоже
+  // объект. Дальше `fmt(data.todayRevenue)` зовёт `toLocaleString` у
+  // `undefined`, и падает не виджет, а вся вкладка «Сводка» — белый экран
+  // вместо выручки. Поймал это обход раскладки (e2e/layout-audit-tabs).
+  //
+  // Проверяем ОДНО поле, а не все: они приходят одним агрегатом, и если
+  // нет первого числа, нет и остальных. Пустое состояние здесь уже
+  // написано и написано верно — им и отвечаем, новых слов не нужно.
+  if (!data || typeof data.todayRevenue !== 'number') {
     return (
       <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--text-muted)' }}>
         <DollarSign size={48} style={{ opacity: 0.3, marginBottom: 'var(--space-2)' }} />
