@@ -111,9 +111,28 @@ export function useVisitQueue() {
     };
   }, [flush]);
 
-  /** Положить отметку в очередь — когда отправить прямо сейчас не вышло. */
+  /**
+   * Положить отметку в очередь — когда отправить прямо сейчас не вышло.
+   *
+   * МЕСТО КЛАДЁТСЯ ВМЕСТЕ С ОТМЕТКОЙ. `markVisit` присылает сюда координаты
+   * и в комментарии обещает, что они лягут в очередь, — а этот обработчик
+   * их молча отбрасывал: принимал `{ customerId, type, note }` и ровно их
+   * и сохранял. Дальше `flush` честно отправлял `item.latitude` равным
+   * undefined.
+   *
+   * Терялись ровно те подтверждения, ради которых всё и делалось: без связи
+   * отмечают в подвале заведения, и там место у отметки — единственное
+   * доказательство, что человек доехал.
+   */
   const remember = useCallback(
-    (visit: { customerId: number; type: string; note: string }) => {
+    (visit: {
+      customerId: number;
+      type: string;
+      note: string;
+      latitude?: number;
+      longitude?: number;
+      accuracyM?: number | null;
+    }) => {
       const visitedAt = Date.now();
       const next = enqueue(readQueue(), {
         key: visitKey(visit.customerId, visitedAt),
@@ -121,6 +140,9 @@ export function useVisitQueue() {
         type: visit.type,
         note: visit.note,
         visitedAt,
+        latitude: visit.latitude,
+        longitude: visit.longitude,
+        accuracyM: visit.accuracyM,
       });
       writeQueue(next);
       setPending(next.length);
